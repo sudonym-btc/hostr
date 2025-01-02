@@ -1,0 +1,1 @@
+https://github.com/benthecarman/nips/blob/nostr-wallet-connect-connect/67.md

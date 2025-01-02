@@ -1,0 +1,28 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../escrow-nip"
+		},
+		{
+			"path": "../rental-nip"
+		},
+		{
+			"path": "../nostr-commander-rs"
+		}
+	],
+	"settings": {
+		"editor.codeActionsOnSave": {
+			"source.organizeImports": "always", // <-- To organize imports on save
+			"source.fixAll": "always", // <-- To run quick fixes on save
+		},
+		"[terraform]": {
+			"editor.formatOnSave": true,
+			"editor.defaultFormatter": "hashicorp.terraform",
+		},
+		"[terraform-vars]": {
+		},
+	}
+}

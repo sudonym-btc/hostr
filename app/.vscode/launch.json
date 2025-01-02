@@ -1,0 +1,39 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "hostr - mock",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main_mock.dart",
+
+        },
+        {
+            "name": "hostr - development",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main_development.dart",
+
+        },
+        {
+            "name": "hostr",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "hostr (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "hostr (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}

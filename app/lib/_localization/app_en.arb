@@ -1,0 +1,16 @@
+{
+  "appTitle": "Hostr",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  "host": "Host",
+  "guest": "Guest",
+  "go": "Go",
+  "when": "When?",
+  "where": "Where?",
+  "requestBooking": "Request",
+  "hostedBy": "hosted by",
+  "pay": "Pay",
+  "inbox": "Inbox",
+  "yourListings": "Your Listings"
+}
