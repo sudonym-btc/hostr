@@ -1,0 +1,3 @@
+- Given a booking event id
+- Load nip4 messages with tag "booking status"
+- Validate each status update

@@ -1,0 +1,10 @@
+services:
+  relay: 
+    image: scsibug/nostr-rs-relay:latest
+    platform: linux/amd64
+    ports:
+      - "5363:8080"
+  escrow:
+    build:
+      context: ./escrow
+      dockerfile: Dockerfile
