@@ -1,0 +1,14 @@
+[info]
+relay_url = "wss://{relay_url}/"
+name = "{relay_name}"
+description = "Our relay hosts information about p2p accomodation"
+
+[network]
+address = "0.0.0.0"
+port = 8080
+
+[options]
+reject_future_seconds = 1800
+
+[limits]
+messages_per_sec = 10

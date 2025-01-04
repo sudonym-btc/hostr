@@ -1,2 +1,2 @@
-env              = "production"
-domain_name      = "hostr.network."
+env         = "production"
+domain_name = "hostr.network"

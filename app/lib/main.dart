@@ -17,6 +17,7 @@ export './export.dart';
 void mainCommon(String env) async {
   setup(env);
   WidgetsFlutterBinding.ensureInitialized();
+
   HydratedBloc.storage = await HydratedStorage.build(
     storageDirectory: kIsWeb
         ? HydratedStorage.webStorageDirectory
