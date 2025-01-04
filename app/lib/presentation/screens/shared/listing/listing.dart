@@ -15,8 +15,7 @@ class ListingScreen extends StatelessWidget {
   final DateTimeRange? dateRange;
 
   ListingScreen(
-      {super.key,
-      @pathParam required this.id,
+      {@pathParam required this.id,
       @queryParam String? dateRangeStart,
       @queryParam String? dateRangeEnd})
       : dateRange = dateRangeStart != null && dateRangeEnd != null

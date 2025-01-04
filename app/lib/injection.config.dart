@@ -9,24 +9,24 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:get_it/get_it.dart' as _i174;
-import 'package:hostr/config/env/base.config.dart' as _i198;
-import 'package:hostr/config/env/development.config.dart' as _i273;
-import 'package:hostr/config/env/mock.config.dart' as _i659;
-import 'package:hostr/config/env/production.config.dart' as _i319;
-import 'package:hostr/data/repositories/nostr/escrow.repository.dart' as _i641;
-import 'package:hostr/data/repositories/nostr/listing.repository.dart' as _i279;
-import 'package:hostr/data/repositories/nostr/message.repository.dart' as _i694;
-import 'package:hostr/data/repositories/nostr/profile.repository.dart' as _i752;
-import 'package:hostr/data/sources/api/google_maps.dart' as _i148;
-import 'package:hostr/data/sources/local/secure_storage.dart' as _i731;
+import 'package:hostr/config/env/base.config.dart' as _i467;
+import 'package:hostr/config/env/development.config.dart' as _i598;
+import 'package:hostr/config/env/mock.config.dart' as _i331;
+import 'package:hostr/config/env/production.config.dart' as _i1071;
+import 'package:hostr/data/repositories/nostr/escrow.repository.dart' as _i911;
+import 'package:hostr/data/repositories/nostr/listing.repository.dart' as _i631;
+import 'package:hostr/data/repositories/nostr/message.repository.dart' as _i723;
+import 'package:hostr/data/repositories/nostr/profile.repository.dart' as _i788;
+import 'package:hostr/data/sources/api/google_maps.dart' as _i575;
+import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
 import 'package:hostr/data/sources/nostr/nostr_provider/mock.nostr_provider.dart'
-    as _i900;
+    as _i200;
 import 'package:hostr/data/sources/nostr/nostr_provider/nostr_provider.dart'
-    as _i452;
-import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i188;
-import 'package:hostr/data/sources/rpc/rootstock.dart' as _i935;
-import 'package:hostr/logic/cubit/auth.cubit.dart' as _i978;
-import 'package:hostr/logic/services/request_delegation.dart' as _i420;
+    as _i788;
+import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i291;
+import 'package:hostr/data/sources/rpc/rootstock.dart' as _i631;
+import 'package:hostr/logic/cubit/auth.cubit.dart' as _i323;
+import 'package:hostr/logic/services/request_delegation.dart' as _i942;
 import 'package:injectable/injectable.dart' as _i526;
 
 const String _mock = 'mock';
@@ -46,51 +46,51 @@ extension GetItInjectableX on _i174.GetIt {
       environment,
       environmentFilter,
     );
-    gh.factory<_i978.AuthCubit>(() => _i978.AuthCubit());
-    gh.factory<_i420.RequestDelegation>(() => _i420.RequestDelegation());
-    gh.factory<_i752.ProfileRepository>(() => _i752.ProdProfileRepository());
-    gh.singleton<_i452.NostrProvider>(
-      () => _i900.MockNostProvider(),
+    gh.factory<_i323.AuthCubit>(() => _i323.AuthCubit());
+    gh.factory<_i942.RequestDelegation>(() => _i942.RequestDelegation());
+    gh.factory<_i291.RelayConnector>(
+      () => _i291.MockRelayConnector(),
+      registerFor: {_mock},
+    );
+    gh.factory<_i575.GoogleMaps>(() => _i575.GoogleMapsImpl());
+    gh.factory<_i788.ProfileRepository>(() => _i788.ProdProfileRepository());
+    gh.singleton<_i788.NostrProvider>(
+      () => _i200.MockNostProvider(),
       registerFor: {
         _mock,
         _test,
       },
     );
-    gh.factory<_i148.GoogleMaps>(() => _i148.GoogleMapsImpl());
-    gh.factory<_i188.RelayConnector>(
-      () => _i188.MockRelayConnector(),
+    gh.factory<_i631.ListingRepository>(() => _i631.ProdListingRepository());
+    gh.factory<_i467.Config>(
+      () => _i331.MockConfig(),
       registerFor: {_mock},
     );
-    gh.factory<_i935.Rootstock>(() => _i935.RootstockImpl());
-    gh.singleton<_i452.NostrProvider>(
-      () => _i452.ProdNostrProvider(),
-      registerFor: {
-        _dev,
-        _staging,
-        _prod,
-      },
-    );
-    gh.factory<_i198.Config>(
-      () => _i273.DevelopmentConfig(),
+    gh.factory<_i723.MessageRepository>(() => _i723.ProdMessageRepository());
+    gh.factory<_i467.Config>(
+      () => _i598.DevelopmentConfig(),
       registerFor: {_dev},
     );
-    gh.singleton<_i420.UrlLauncher>(
-      () => _i420.MockUrlLauncher(),
+    gh.factory<_i631.Rootstock>(() => _i631.RootstockImpl());
+    gh.singleton<_i788.NostrProvider>(
+      () => _i788.ProdNostrProvider(),
+      registerFor: {
+        _dev,
+        _staging,
+        _prod,
+      },
+    );
+    gh.singleton<_i311.SecureStorage>(
+      () => _i311.MockSecureStorage(),
       registerFor: {_test},
     );
-    gh.factory<_i279.ListingRepository>(() => _i279.ProdListingRepository());
-    gh.factory<_i694.MessageRepository>(() => _i694.ProdMessageRepository());
-    gh.factory<_i198.Config>(
-      () => _i659.MockConfig(),
-      registerFor: {_mock},
-    );
-    gh.singleton<_i731.SecureStorage>(
-      () => _i731.MockSecureStorage(),
+    gh.factory<_i911.EscrowRepository>(() => _i911.ProdEscrowRepository());
+    gh.singleton<_i942.UrlLauncher>(
+      () => _i942.MockUrlLauncher(),
       registerFor: {_test},
     );
-    gh.factory<_i641.EscrowRepository>(() => _i641.ProdEscrowRepository());
-    gh.factory<_i188.RelayConnector>(
-      () => _i188.ProdRelayConnector(),
+    gh.factory<_i291.RelayConnector>(
+      () => _i291.ProdRelayConnector(),
       registerFor: {
         _dev,
         _test,
@@ -98,27 +98,27 @@ extension GetItInjectableX on _i174.GetIt {
         _prod,
       },
     );
-    gh.singleton<_i731.SecureStorage>(
-      () => _i731.ImplSecureStorage(),
-      registerFor: {
-        _dev,
-        _mock,
-        _staging,
-        _prod,
-      },
-    );
-    gh.singleton<_i420.UrlLauncher>(
-      () => _i420.ImplUrlLauncher(),
-      registerFor: {
-        _dev,
-        _mock,
-        _staging,
-        _prod,
-      },
-    );
-    gh.factory<_i198.Config>(
-      () => _i319.ProductionConfig(),
+    gh.factory<_i467.Config>(
+      () => _i1071.ProductionConfig(),
       registerFor: {_prod},
+    );
+    gh.singleton<_i942.UrlLauncher>(
+      () => _i942.ImplUrlLauncher(),
+      registerFor: {
+        _dev,
+        _mock,
+        _staging,
+        _prod,
+      },
+    );
+    gh.singleton<_i311.SecureStorage>(
+      () => _i311.ImplSecureStorage(),
+      registerFor: {
+        _dev,
+        _mock,
+        _staging,
+        _prod,
+      },
     );
     return this;
   }

@@ -61,7 +61,7 @@ class InboxRoute extends PageRouteInfo<void> {
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      return InboxScreen();
+      return const InboxScreen();
     },
   );
 }
@@ -144,7 +144,7 @@ class MyListingsRoute extends PageRouteInfo<void> {
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      return MyListingsScreen();
+      return const MyListingsScreen();
     },
   );
 }
@@ -163,7 +163,7 @@ class ProfileRoute extends PageRouteInfo<void> {
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      return ProfileScreen();
+      return const ProfileScreen();
     },
   );
 }
@@ -201,7 +201,7 @@ class SignInRoute extends PageRouteInfo<void> {
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      return SignInScreen();
+      return const SignInScreen();
     },
   );
 }

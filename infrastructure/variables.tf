@@ -33,3 +33,8 @@ variable "gke_num_nodes" {
   default     = 1
   description = "number of gke nodes"
 }
+
+variable "relay_machine_type" {
+  default     = "n1-standard-2" //n1-standard-1
+  description = "machine type for gke nodes"
+}

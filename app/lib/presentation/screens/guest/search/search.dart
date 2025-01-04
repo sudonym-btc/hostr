@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/screens/guest/search/filters.dart';
 import 'package:hostr/presentation/widgets/main.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 @RoutePage()
 class SearchScreen extends StatefulWidget {
@@ -48,9 +49,33 @@ class _SearchScreenState extends State<SearchScreen> {
                   searchController: searchController,
                 )),
                 Expanded(
-                    child: Listings(
-                  searchController: searchController,
-                ))
+                    child: SlidingUpPanel(
+                        panel: Column(
+                          children: [
+                            Container(
+                              height: 30,
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              child: Center(
+                                child: Container(
+                                  width: 40,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey,
+                                    borderRadius: BorderRadius.circular(2.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Listings(
+                                searchController: searchController,
+                              ),
+                            ),
+                          ],
+                        ),
+                        minHeight: MediaQuery.of(context).size.height / 2.5,
+                        maxHeight: MediaQuery.of(context).size.height,
+                        body: Container())),
               ],
             ))));
   }
