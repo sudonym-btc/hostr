@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/config/main.dart';
@@ -13,7 +14,58 @@ abstract class GoogleMaps {
   dynamic getLocationResults(String input, String? sessionToken);
 }
 
-@Injectable(as: GoogleMaps)
+@Injectable(as: GoogleMaps, env: [Env.test, Env.mock])
+class GoogleMapsMock extends GoogleMaps {
+  @override
+  Future<LatLng?> getCoordinatesFromAddress(String address) async {
+    logger.i("Fetching coordinates of $address");
+
+// Return random location in europe
+    return LatLng(48.8566 + Random().nextDouble() * 10,
+        2.3522 + Random().nextDouble() * 10);
+  }
+
+  @override
+  dynamic getLocationResults(String input, String? sessionToken) async {
+    return [
+      {
+        'text': {
+          'text': 'Paris, France',
+        },
+        'description': 'Paris, France',
+        'place_id': 'ChIJD7fiBh9u5kcRYJSMaMOCCwQ',
+        'structured_formatting': {
+          'main_text': 'Paris',
+          'secondary_text': 'France',
+        },
+      },
+      {
+        'text': {
+          'text': 'London, UK',
+        },
+        'description': 'London, UK',
+        'place_id': 'ChIJdd4hrwug2EcRmSrV3Vo6llI',
+        'structured_formatting': {
+          'main_text': 'London',
+          'secondary_text': 'UK',
+        },
+      },
+      {
+        'text': {
+          'text': 'Berlin, Germany',
+        },
+        'description': 'Berlin, Germany',
+        'place_id': 'ChIJAVkDPzdOqEcRcDteW0YgIQQ',
+        'structured_formatting': {
+          'main_text': 'Berlin',
+          'secondary_text': 'Germany',
+        },
+      },
+    ];
+  }
+}
+
+@Injectable(as: GoogleMaps, env: Env.allButTestAndMock)
 class GoogleMapsImpl extends GoogleMaps {
   @override
   Future<LatLng?> getCoordinatesFromAddress(String address) async {
@@ -37,6 +89,7 @@ class GoogleMapsImpl extends GoogleMaps {
 
   @override
   dynamic getLocationResults(String input, String? sessionToken) async {
+    if (input.isEmpty) return [];
     String type = '(regions)';
     String baseURL = 'https://places.googleapis.com/v1/places:autocomplete';
     var response = await http.post(Uri.parse(baseURL), body: {

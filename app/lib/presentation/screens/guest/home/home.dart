@@ -15,32 +15,6 @@ class HomeScreen extends StatelessWidget {
         create: (context) => AuthCubit()..checkKeyLoggedIn(),
         child: BlocBuilder<AuthCubit, AuthState>(
           builder: (context, state) {
-            // Hosting mode
-            if (state is LoggedIn) {
-              return AutoTabsScaffold(
-                routes: [MyListingsRoute(), InboxRoute(), ProfileRoute()],
-                bottomNavigationBuilder: (context, tabsRouter) =>
-                    SalomonBottomBar(
-                        currentIndex: tabsRouter.activeIndex,
-                        onTap: tabsRouter.setActiveIndex,
-                        margin:
-                            EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-                        items: [
-                      SalomonBottomBarItem(
-                          // selectedColor: Colors.amberAccent,
-                          icon: Icon(Icons.list, size: 30),
-                          title: const Text('Listings')),
-                      SalomonBottomBarItem(
-                          // selectedColor: Colors.blue.shade200,
-                          icon: Icon(Icons.inbox, size: 30),
-                          title: const Text('Inbox')),
-                      SalomonBottomBarItem(
-                          // selectedColor: Colors.blue.shade200,
-                          icon: Icon(Icons.person, size: 30),
-                          title: const Text('Settings'))
-                    ]),
-              );
-            }
             return AutoTabsScaffold(
               routes: [SearchRoute(), InboxRoute(), ProfileRoute()],
               bottomNavigationBuilder: (context, tabsRouter) =>

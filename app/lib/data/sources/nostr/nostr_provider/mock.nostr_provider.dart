@@ -1,4 +1,8 @@
+import 'dart:math';
+
 import 'package:dart_nostr/dart_nostr.dart';
+import 'package:dart_nostr/nostr/model/ease.dart';
+import 'package:dart_nostr/nostr/model/ok.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
@@ -12,17 +16,41 @@ class MockNostProvider extends NostrProvider {
   ReplaySubject<NostrEvent> events = ReplaySubject<NostrEvent>();
 
   @override
-  NostrEventsStream startRequest({required NostrRequest request}) {
+  NostrEventsStream startRequest(
+      {required NostrRequest request,
+      required void Function(String relay, NostrRequestEoseCommand ease)
+          onEose}) {
+    // Create filtered events stream with artificial delay
+    final filteredEvents = events.stream
+        .where((event) =>
+            request.filters.every((filter) => matchEvent(event, filter)))
+        .asyncMap((event) async {
+      await Future.delayed(
+          Duration(milliseconds: 100)); // Simulate network latency
+      return event;
+    }).take(request.filters.any((f) => f.limit != null)
+            ? request.filters
+                .map((f) => f.limit ?? double.infinity)
+                .reduce(min)
+                .toInt()
+            : 0x7FFFFFFFFFFFFFFF); // Max int if no limit defined
+
+    onEose(
+        'mock',
+        NostrRequestEoseCommand(
+            subscriptionId: request.subscriptionId ?? "mock-subscription-id"));
+
     return NostrEventsStream(
-        stream: events.stream.where((event) =>
-            request.filters.every((filter) => matchEvent(event, filter))),
+        stream: filteredEvents,
         subscriptionId: request.subscriptionId ?? "mock-subscription-id",
         request: request);
   }
 
   @override
-  void sendEventToRelays(NostrEvent event) {
+  Future<NostrEventOkCommand> sendEventToRelaysAsync(NostrEvent event) async {
     events.add(event);
+    return Future.value(NostrEventOkCommand(
+        eventId: event.id!, isEventAccepted: true, message: ""));
   }
 
   matchEvent(NostrEvent event, NostrFilter filter) {
@@ -41,5 +69,13 @@ class MockNostProvider extends NostrProvider {
     }
 
     return true;
+  }
+
+  @override
+  Future<List<NostrEvent>> startRequestAsync({required NostrRequest request}) {
+    return startRequest(
+      request: request,
+      onEose: (relay, ease) => false,
+    ).stream.toList();
   }
 }

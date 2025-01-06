@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:core';
 
-import 'package:dart_nostr/dart_nostr.dart';
+import 'package:dart_nostr/nostr/model/event/event.dart';
 
 import 'message.dart';
 

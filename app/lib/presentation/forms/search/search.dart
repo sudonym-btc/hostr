@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/presentation/widgets/main.dart';
 
 import 'date_range_buttons.dart';
 import 'location_field.dart';
@@ -48,16 +49,20 @@ class _SearchFormState extends State<SearchForm> {
       key: _formKey,
       child: Column(
         children: [
-          LocationField(
-            value: _formState.location,
-            onChanged: (value) => setState(() {
-              _formState = _formState.copyWith(location: value);
-            }),
+          CustomPadding(
+            child: LocationField(
+              value: _formState.location,
+              onChanged: (value) => setState(() {
+                _formState = _formState.copyWith(location: value);
+              }),
+            ),
           ),
-          DateRangeButtons(
-              onTap: showDatePicker,
-              selectedDateRange: _formState.availabilityRange),
-          ElevatedButton(
+          CustomPadding(
+            child: DateRangeButtons(
+                onTap: showDatePicker,
+                selectedDateRange: _formState.availabilityRange),
+          ),
+          FilledButton(
             onPressed: () {
               if (_formKey.currentState!.validate()) {
                 widget.onSubmit(_formState);

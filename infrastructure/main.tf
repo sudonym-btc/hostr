@@ -114,6 +114,18 @@ resource "google_apikeys_key" "maps_ios_key" {
   name         = "maps-api-ios-key"
 
   restrictions {
+    api_targets {
+      service = "geocoding-backend.googleapis.com"
+    }
+    api_targets {
+      service = "places.googleapis.com"
+    }
+    api_targets {
+      service = "maps-ios-backend.googleapis.com"
+    }
+    api_targets {
+      service = "maps-android-backend.googleapis.com"
+    }
   }
 
   depends_on = [

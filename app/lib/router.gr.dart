@@ -189,10 +189,13 @@ class SearchRoute extends PageRouteInfo<void> {
 
 /// generated route for
 /// [SignInScreen]
-class SignInRoute extends PageRouteInfo<void> {
-  const SignInRoute({List<PageRouteInfo>? children})
-      : super(
+class SignInRoute extends PageRouteInfo<SignInRouteArgs> {
+  SignInRoute({
+    required Function onSuccess,
+    List<PageRouteInfo>? children,
+  }) : super(
           SignInRoute.name,
+          args: SignInRouteArgs(onSuccess: onSuccess),
           initialChildren: children,
         );
 
@@ -201,7 +204,19 @@ class SignInRoute extends PageRouteInfo<void> {
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      return const SignInScreen();
+      final args = data.argsAs<SignInRouteArgs>();
+      return SignInScreen(onSuccess: args.onSuccess);
     },
   );
+}
+
+class SignInRouteArgs {
+  const SignInRouteArgs({required this.onSuccess});
+
+  final Function onSuccess;
+
+  @override
+  String toString() {
+    return 'SignInRouteArgs{onSuccess: $onSuccess}';
+  }
 }

@@ -2,22 +2,21 @@ import 'package:dart_nostr/dart_nostr.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
-import 'package:rxdart/rxdart.dart';
+import 'package:hostr/injection.dart';
 
 class EntityCubit<T, R extends BaseRepository> extends Cubit<EntityCubitState> {
-  R repo;
+  R repo = getIt<R>();
   NostrFilter? filter;
-  EntityCubit(this.repo) : super(const EntityCubitState(data: null));
+  EntityCubit() : super(const EntityCubitState(data: null));
 
   setFilter(NostrFilter filter) {
     this.filter = filter;
   }
 
-  get() {
+  get() async {
     emit(state.copyWith(active: true, data: null));
-    repo.list(filter: filter).whereType<Data>().listen((data) {
-      emit(state.copyWith(data: data.value, active: false));
-    });
+    var item = await repo.get(filter: filter);
+    emit(state.copyWith(data: item, active: false));
   }
 }
 

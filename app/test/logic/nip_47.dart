@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -16,29 +14,7 @@ class MockedNostProvider extends MockNostProvider {
   MockedNostProvider() : super() {
     events
         .where((event) => event.pubkey == localKeyPair.public)
-        .listen((event) {
-      switch (jsonDecode(event.content!)["command"]) {
-        case "describe":
-          getIt<NostrProvider>().sendEventToRelays(NostrEvent.fromPartialData(
-              kind: NOSTR_KIND_CONNECT,
-              keyPairs: signerKeypair,
-              content: JsonEncoder().convert({
-                'result': ['describe', 'connect', 'disconnect', 'delegate']
-              })));
-          break;
-        case "delegate":
-          getIt<NostrProvider>().sendEventToRelays(NostrEvent.fromPartialData(
-              kind: NOSTR_KIND_CONNECT,
-              keyPairs: signerKeypair,
-              content: JsonEncoder().convert({
-                'from': DateTime.now(),
-                'to': DateTime.now().add(Duration(days: 1)),
-                'cond': '',
-                'sig': ''
-              })));
-          break;
-      }
-    });
+        .listen((event) {});
   }
 }
 
@@ -49,7 +25,8 @@ class MockRequestDelegation extends RequestDelegation {
     // Mock signer sending ACK message with its own pubkey
     stream.listen((event) {
       if (event is LaunchedUrl) {
-        getIt<NostrProvider>().sendEventToRelays(NostrEvent.fromPartialData(
+        getIt<NostrProvider>()
+            .sendEventToRelaysAsync(NostrEvent.fromPartialData(
           kind: NOSTR_KIND_CONNECT,
           keyPairs: signerKeypair,
           content: 'ACK',
@@ -71,7 +48,7 @@ void main() {
 
   group('requestDelegation', () {
     setUp(() {
-      getIt<SecureStorage>().set('keys', [localKeyPair]);
+      getIt<SecureStorage>().set('keys', [localKeyPair.private]);
 
       mockDependency(MockNostProvider());
       mockDependency(MockRequestDelegation());

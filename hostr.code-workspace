@@ -6,7 +6,7 @@
   ],
   "settings": {
     "editor.codeActionsOnSave": {
-      "source.organizeImports": "always", // <-- To organize imports on save
+      "source.organizeImports": "always" // <-- To organize imports on save
     },
     "[terraform]": {
       "editor.formatOnSave": true,
@@ -21,6 +21,23 @@
       "hashicorp.terraform",
       "tamasfe.even-better-toml",
       "ms-kubernetes-tools.vscode-kubernetes-tools"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "mock",
+        "request": "launch",
+        "type": "dart",
+        "program": "app/lib/main_mock.dart"
+      },
+      {
+        "name": "development",
+        "request": "launch",
+        "type": "dart",
+        "program": "app/lib/main_development.dart"
+      }
     ]
   }
 }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -7,11 +6,10 @@ import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/widgets/search/map_style.dart';
 import 'package:rxdart/rxdart.dart';
 
-import 'map_style.dart';
-
-double mapsGoogleLogoSize = 28;
+double mapsGoogleLogoSize = 2;
 
 class SearchMap extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
@@ -37,7 +35,6 @@ class _SearchMapState extends State<SearchMap> {
     if (!_controller.isCompleted) {
       _controller.complete(controller);
       _mapReadySubject.add(true);
-      widget.logger.d("Map created");
     }
   }
 
@@ -92,9 +89,17 @@ class _SearchMapState extends State<SearchMap> {
         .reduce((a, b) => a > b ? a : b);
     widget.logger.i(
         "Calculated bounds: minLat=$minLat, minLng=$minLng, maxLat=$maxLat, maxLng=$maxLng");
+
+    // Add padding by expanding bounds by 10%
+    double latPadding = (maxLat - minLat) * 0.1 + 0.1;
+    double lngPadding = (maxLng - minLng) * 0.1 + 0.1;
+
+    widget.logger.d("latPadding $latPadding");
+    widget.logger.d("lngPadding $lngPadding");
+
     return LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
+      northeast: LatLng(maxLat + latPadding, maxLng + lngPadding),
+      southwest: LatLng(minLat - latPadding, minLng - lngPadding),
     );
   }
 
@@ -104,32 +109,8 @@ class _SearchMapState extends State<SearchMap> {
     LatLngBounds bounds = _calculateBounds();
 
     final GoogleMapController controller = await _controller.future;
-    CameraUpdate u2 = CameraUpdate.newLatLngBounds(bounds, 0);
-
-    // Find the bounding box center
-    LatLng center = LatLng(
-      (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
-      (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
-    );
-
-    // Approximate zoom calculation
-    double latDelta =
-        (bounds.northeast.latitude - bounds.southwest.latitude).abs();
-    double lngDelta =
-        (bounds.northeast.longitude - bounds.southwest.longitude).abs();
-    double largestDelta = max(latDelta, lngDelta);
-
-    // Basic formula: adjust 16 to taste
-    double calculatedZoom = 16 - (log(largestDelta) / log(2));
-    double finalZoom = calculatedZoom.clamp(15, 50); // Keep zoom in valid range
 
     await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
-    await controller.animateCamera(CameraUpdate.zoomTo(finalZoom));
-
-    // Adjust zoom level
-    // double zoomLevel = await controller.getZoomLevel();
-    // widget.logger.i("Current zoom level: $zoomLevel");
-    // controller.animateCamera(CameraUpdate.zoomTo(zoomLevel));
   }
 
   @override
@@ -150,6 +131,7 @@ class _SearchMapState extends State<SearchMap> {
           child: GoogleMap(
             style: getMapStyle(context),
             onMapCreated: _onMapCreated,
+            zoomControlsEnabled: false,
             initialCameraPosition: CameraPosition(
               target: LatLng(37.42796133580664, -122.085749655962),
               zoom: 14.4746,
@@ -171,8 +153,8 @@ class _SearchMapState extends State<SearchMap> {
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                Colors.white,
-                Colors.white.withAlpha(0),
+                Theme.of(context).scaffoldBackgroundColor,
+                Theme.of(context).scaffoldBackgroundColor.withAlpha(0),
               ],
             ),
           ),

@@ -31,7 +31,7 @@ void main() {
       'emits [LoggedIn] when checkKeyLoggedIn().',
       build: () => AuthCubit(),
       setUp: () {
-        getIt<SecureStorage>().set('keys', [keyPair]);
+        getIt<SecureStorage>().set('keys', [keyPair.private]);
       },
       act: (bloc) {
         return bloc.checkKeyLoggedIn();
@@ -43,7 +43,7 @@ void main() {
       'emits [InProgress] when login called().',
       build: () => AuthCubit(),
       act: (bloc) {
-        return bloc.login();
+        return bloc.signup();
       },
       expect: () => [LoggedOut(), isA<Progress>()],
     );

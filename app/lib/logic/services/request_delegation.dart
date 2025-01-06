@@ -53,19 +53,20 @@ class ImplUrlLauncher implements UrlLauncher {
 @Singleton(as: UrlLauncher, env: [Env.test])
 class MockUrlLauncher extends Mock implements UrlLauncher {
   @override
-  Future<bool> launch(Uri uri) {
-    getIt<NostrProvider>().sendEventToRelays(NostrEvent.fromPartialData(
-        kind: NOSTR_KIND_CONNECT,
-        content: jsonEncode({'test': true}),
-        keyPairs: NostrKeyPairs.generate()));
-    return Future.value(true);
+  Future<bool> launch(Uri uri) async {
+    await getIt<NostrProvider>().sendEventToRelaysAsync(
+        NostrEvent.fromPartialData(
+            kind: NOSTR_KIND_CONNECT,
+            content: jsonEncode({'test': true}),
+            keyPairs: NostrKeyPairs.generate()));
+    return true;
   }
 }
 
 @injectable
 class RequestDelegation {
   MessageRepository messageRepo = getIt<MessageRepository>();
-  SecureStorage secureStorage = getIt<SecureStorage>();
+  KeyStorage keyStorage = getIt<KeyStorage>();
   UrlLauncher urlLauncher = getIt<UrlLauncher>();
 
   Stream<DelegationProgress> requestDelegation(NostrKeyPairs keyPair) {
@@ -110,14 +111,15 @@ class RequestDelegation {
   }
 
   Stream waitForConnectMessage() {
-    return secureStorage.readAll().asStream().switchMap((value) {
+    return keyStorage.getActiveKeyPair().asStream().switchMap((value) {
       return messageRepo
           .list(
+              onEose: (relay, ease) => false,
               filter: NostrFilter(
-            p: [value.keys.first.public],
-            kinds: const [NOSTR_KIND_CONNECT],
-            since: DateTime.now().subtract(Duration(seconds: 10)),
-          ))
+                p: [value!.public],
+                kinds: const [NOSTR_KIND_CONNECT],
+                since: DateTime.now().subtract(Duration(seconds: 10)),
+              ))
           .take(1);
     });
   }
@@ -127,9 +129,9 @@ class RequestDelegation {
   }
 
   Stream<MessageType> delegate() {
-    return secureStorage.readAll().asStream().switchMap((value) {
+    return keyStorage.getActiveKeyPair().asStream().switchMap((value) {
       return commandAndWait(24133, "delegate", [
-        value.keys.first.public,
+        value!.public,
         {
           "kind": [4, 20000],
           "since": DateTime.now().millisecondsSinceEpoch,
@@ -142,12 +144,13 @@ class RequestDelegation {
   }
 
   Stream saveDelegationToken(MessageType event) {
-    return secureStorage.set("delegationToken", event.event.content).asStream();
+    return Future.value(true).asStream();
+    // return secureStorage.set("delegationToken", event.event.content).asStream();
   }
 
   Stream<MessageType> commandAndWait(
       int kind, String method, List<dynamic> params) {
-    return secureStorage.readAll().asStream().switchMap((value) {
+    return keyStorage.getActiveKeyPair().asStream().switchMap((value) {
       String id = Nostr.instance.utilsService.random64HexChars();
       messageRepo.create(NostrEvent.fromPartialData(
         kind: kind,
@@ -160,10 +163,11 @@ class RequestDelegation {
       ));
       return messageRepo
           .list(
+              onEose: (relay, ease) => false,
               filter: NostrFilter(
-            p: [value.keys.first.public],
-            kinds: [kind],
-          ))
+                p: [value!.public],
+                kinds: [kind],
+              ))
           .whereType<Data<MessageType>>()
           .map((event) => event.value)
           .where((event) {

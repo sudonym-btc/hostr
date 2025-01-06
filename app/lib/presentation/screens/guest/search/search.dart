@@ -26,6 +26,12 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const mapHeight = 400.0; // Fixed map height
+
+    // var totalHeight = MediaQuery.of(context).size.height;
+    final listingStartHeight = MediaQuery.of(context).size.height - mapHeight;
+    // var topHeight = totalHeight - listingStartHeight;
+
     return Scaffold(
         body: BlocProvider<CustomSearchController>(
             create: (context) => searchController,
@@ -44,38 +50,47 @@ class _SearchScreenState extends State<SearchScreen> {
                         fullscreenDialog: true));
                   },
                 ),
-                Expanded(
-                    child: SearchMap(
-                  searchController: searchController,
-                )),
-                Expanded(
-                    child: SlidingUpPanel(
-                        panel: Column(
-                          children: [
-                            Container(
-                              height: 30,
-                              color: Theme.of(context).scaffoldBackgroundColor,
-                              child: Center(
-                                child: Container(
-                                  width: 40,
-                                  height: 5,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey,
-                                    borderRadius: BorderRadius.circular(2.5),
-                                  ),
+                Expanded(child: LayoutBuilder(builder:
+                    (BuildContext context, BoxConstraints constraints) {
+                  final totalHeight = constraints.maxHeight;
+                  final listingStartHeight = totalHeight / 2;
+
+                  return SlidingUpPanel(
+                      parallaxEnabled: true,
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      panel: Column(
+                        children: [
+                          Container(
+                            height: 30,
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                            child: Center(
+                              child: Container(
+                                width: 40,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey,
+                                  borderRadius: BorderRadius.circular(2.5),
                                 ),
                               ),
                             ),
-                            Expanded(
-                              child: Listings(
-                                searchController: searchController,
-                              ),
+                          ),
+                          Expanded(
+                            child: Listings(
+                              searchController: searchController,
                             ),
-                          ],
-                        ),
-                        minHeight: MediaQuery.of(context).size.height / 2.5,
-                        maxHeight: MediaQuery.of(context).size.height,
-                        body: Container())),
+                          ),
+                        ],
+                      ),
+                      minHeight: totalHeight - listingStartHeight,
+                      maxHeight: MediaQuery.of(context).size.height,
+                      body: Column(children: [
+                        Container(
+                            height: mapHeight,
+                            child: SearchMap(
+                              searchController: searchController,
+                            )),
+                      ]));
+                })),
               ],
             ))));
   }
