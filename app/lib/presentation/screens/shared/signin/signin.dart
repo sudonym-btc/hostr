@@ -1,35 +1,31 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/logic/main.dart';
 
 @RoutePage()
 class SignInScreen extends StatelessWidget {
-  const SignInScreen({super.key});
+  final Function onSuccess;
+  const SignInScreen({required this.onSuccess});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Profile'),
-      ),
-      body: ListView(
-        children: [
-          // ListTile(
-          //   title: Text(
-          //       'Switch to ${BlocProvider.of<SecureStorage>(context).state.mode ? 'guest' : 'host'} mode'),
-          //   onTap: () {
-          //     BlocProvider.of<SecureStorage>(context).set(
-          //         'mode', !BlocProvider.of<SecureStorage>(context).state.mode);
-          //   },
-          // ),
-          // ListTile(
-          //   title: Text('Nostr wallet connect'),
-          //   onTap: () {
-          //     BlocProvider.of<SecureStorage>(context).set(
-          //         'mode', !BlocProvider.of<SecureStorage>(context).state.mode);
-          //   },
-          // )
-        ],
-      ),
-    );
+        appBar: AppBar(
+          title: Text('Sign In'),
+        ),
+        body: BlocProvider(
+          create: (context) => AuthCubit()..checkKeyLoggedIn(),
+          child: BlocBuilder<AuthCubit, AuthState>(builder: (context, state) {
+            return FilledButton(
+                onPressed: () async {
+                  await context.read<AuthCubit>().signup();
+                  onSuccess();
+                },
+                child: Text(
+                  'Sign in',
+                ));
+          }),
+        ));
   }
 }

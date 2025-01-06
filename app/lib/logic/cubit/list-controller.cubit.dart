@@ -31,14 +31,20 @@ class ListController<T extends Event> {
         .switchMap((filter) {
           _isLoading = true;
           List<T> currentResults = _fetchedResults.value;
-          return _repo.list(filter: filter).map((result) {
+          return _repo
+              .list(onEose: (relay, ease) => false, filter: filter)
+              .map((result) {
             if (result is Data<T>) {
               return _applyPostFilter(result);
             } else if (result is OK) {
               _isLoading = false;
 
               // Begin listening for real-time data
-              _realTimeSubscription ??= _repo.list().listen((realTimeResult) {
+              _realTimeSubscription ??= _repo
+                  .list(
+                onEose: (relay, ease) => false,
+              )
+                  .listen((realTimeResult) {
                 // Handle real-time data updates
                 // Here, it's assumed that this stream returns the same Data, OK, Err types as fetchData
                 if (realTimeResult is Data<T>) {

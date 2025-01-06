@@ -1,6 +1,8 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 
@@ -53,7 +55,28 @@ class MyApp extends StatelessWidget {
       theme: getTheme(false),
       darkTheme: getTheme(true),
 
-      routerConfig: _appRouter.config(),
+      routerConfig: _appRouter.config(
+        navigatorObservers: () => [MyObserver()],
+      ),
     );
+  }
+}
+
+class MyObserver extends AutoRouterObserver {
+  CustomLogger logger = CustomLogger();
+  @override
+  void didPush(Route route, Route? previousRoute) {
+    logger.d('New route pushed: ${route.settings.name}');
+  }
+
+  // only override to observer tab routes
+  @override
+  void didInitTabRoute(TabPageRoute route, TabPageRoute? previousRoute) {
+    logger.d('Tab route visited: ${route.name}');
+  }
+
+  @override
+  void didChangeTabRoute(TabPageRoute route, TabPageRoute previousRoute) {
+    logger.d('Tab route re-visited: ${route.name}');
   }
 }

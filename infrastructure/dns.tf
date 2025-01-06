@@ -1,7 +1,8 @@
 
 resource "google_project_service" "dns" {
-  project = google_project.project.project_id
-  service = "dns.googleapis.com"
+  project    = google_project.project.project_id
+  service    = "dns.googleapis.com"
+  depends_on = [google_project.project]
 }
 
 resource "google_dns_managed_zone" "main" {
@@ -36,11 +37,13 @@ resource "google_dns_record_set" "mx" {
     "5 alt2.aspmx.l.google.com.",
     "10 alt3.aspmx.l.google.com."
   ]
+  depends_on = [google_dns_managed_zone.main, google_project.project]
 }
 
 resource "google_compute_address" "static_ip" {
-  name   = "static-ip"
-  region = var.region
+  name       = "static-ip"
+  region     = var.region
+  depends_on = [google_project.project]
 }
 resource "google_dns_record_set" "relay" {
   name         = "relay.${var.domain_name}."
@@ -48,6 +51,8 @@ resource "google_dns_record_set" "relay" {
   ttl          = 300
   managed_zone = google_dns_managed_zone.main.name
   rrdatas      = [google_compute_address.static_ip.address]
+  depends_on   = [google_compute_address.static_ip]
+
 }
 
 # resource "google_dns_record_set" "mx" {

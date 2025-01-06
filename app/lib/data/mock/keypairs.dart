@@ -16,6 +16,6 @@ class MockKeys {
 }
 
 void main() {
-  NostrKeyPairs keys = NostrKeyPairs.generate();
-  print(keys.private);
+  // NostrKeyPairs keys = NostrKeyPairs.generate();
+  // print(keys.private);
 }

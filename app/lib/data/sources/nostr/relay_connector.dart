@@ -1,6 +1,7 @@
 import 'package:dart_nostr/nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
+import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 
@@ -11,11 +12,14 @@ abstract class RelayConnector {
 
 @Injectable(as: RelayConnector, env: Env.allButMock)
 class ProdRelayConnector extends RelayConnector {
+  RelayStorage relayStorage = getIt<RelayStorage>();
+
   @override
   Future connect() async {
+    var relays = await relayStorage.get();
     logger.i('Connecting to relays');
     await Nostr.instance.relaysService.init(
-      relaysUrl: getIt<Config>().relays,
+      relaysUrl: new Set.of([...getIt<Config>().relays, ...relays]).toList(),
       onRelayListening: (String relayUrl, receivedData, ws) {
         logger.i('Relay listening: $relayUrl');
       }, // will be called once a relay is connected and listening to events.

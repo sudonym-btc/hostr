@@ -3,3 +3,4 @@ export 'nostr/escrow.repository.dart';
 export 'nostr/listing.repository.dart';
 export 'nostr/message.repository.dart';
 export 'nostr/profile.repository.dart';
+export 'nostr/zap.repository.dart';

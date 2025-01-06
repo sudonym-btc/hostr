@@ -8,6 +8,9 @@ class ListCubit<T extends Event, R extends BaseRepository<T>>
     extends Cubit<ListCubitState<T>> {
   R repo;
   NostrFilter? filter;
+  int? oldestUnix;
+  int? newestUnix;
+
   ListCubit(this.repo) : super(ListCubitState<T>(data: []));
 
   setFilter(NostrFilter filter) {
@@ -16,7 +19,12 @@ class ListCubit<T extends Event, R extends BaseRepository<T>>
 
   list() {
     emit(state.copyWith(active: true, data: <T>[]));
-    repo.list().whereType<Data<T>>().listen((data) {
+    repo
+        .list(
+          onEose: (relay, ease) => false,
+        )
+        .whereType<Data<T>>()
+        .listen((data) {
       emit(state.copyWith(data: [...state.data, data.value]));
     });
   }

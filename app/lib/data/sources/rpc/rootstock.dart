@@ -1,10 +1,12 @@
 import 'package:hostr/config/main.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:http/http.dart';
 import 'package:injectable/injectable.dart';
 import 'package:web3dart/web3dart.dart';
 
 abstract class Rootstock {
+  CustomLogger logger = CustomLogger();
   Future<void> connectToRootstock();
 }
 
@@ -16,9 +18,9 @@ class RootstockImpl extends Rootstock {
   Future<void> connectToRootstock() async {
     try {
       final blockNumber = await client.getBlockNumber();
-      print("Current block number: $blockNumber");
+      logger.d("Current block number: $blockNumber");
     } catch (e) {
-      print("Error: $e");
+      logger.d("Error: $e");
     } finally {
       client.dispose();
     }

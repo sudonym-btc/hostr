@@ -44,11 +44,12 @@ class _ListWidgetState extends State<ListWidget> with TickerProviderStateMixin {
                     ? [
                         AnimatedContainer(
                             duration: const Duration(milliseconds: 50),
-                            child: Text('No results'))
+                            child: Text(widget.emptyText!))
                       ]
                     : [],
                 state.data.isNotEmpty
                     ? AnimatedContainer(
+                        color: Theme.of(context).scaffoldBackgroundColor,
                         duration: Duration(milliseconds: 5000),
                         child: Expanded(
                             child: LiveList(

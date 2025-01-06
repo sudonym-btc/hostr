@@ -42,5 +42,30 @@ The house contains old furniture and rugs and the contents need to be treated wi
       }),
       createdAt: DateTime.now(),
       kind: NOSTR_KIND_LISTING,
+      tags: []),
+  NostrEvent.fromPartialData(
+      keyPairs: MockKeys.hoster,
+      content: JsonEncoder().convert({
+        'description': """
+Rustic old cabin in the heart of the High Weald. Wonderful outdoor living. Beautiful gardens in Area of Outstanding Natural Beauty in the High Weald . Lovely walks from the door and on Ashdown Forest. Tunbridge Wells and Glyndebourne nearby, 1 hour to London by train, station 1 mile away. Gym, 100MBps Wi-Fi, work space, outdoor living, very private, valley view to Harrisons Rocks.""",
+        'currency': 'USD',
+        'amountPerDay': 20,
+        'minStay': 1,
+        'checkIn': 11,
+        'checkOut': 14,
+        'location': 'The Spa Hotel, Tunbridge Wells',
+        'quantity': 1,
+        'images': [
+          'https://a0.muscache.com/im/pictures/hosting/Hosting-969005556773045175/original/c5f9c3ca-3288-43fa-bca4-4eb68982f64b.jpeg?im_w=1200&im_format=avif',
+          'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTY5MDA1NTU2NzczMDQ1MTc1/original/8ddca066-7ed4-4676-94d9-b15b503ce105.jpeg?im_w=720&im_format=avif',
+          'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTY5MDA1NTU2NzczMDQ1MTc1/original/8c48449e-da3e-4e54-a04e-aad055f4223c.jpeg?im_w=720&im_format=avif',
+          'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTY5MDA1NTU2NzczMDQ1MTc1/original/3a4bd781-df98-48ee-b644-a22096e2a77e.jpeg?im_w=720&im_format=avif'
+        ],
+        'type': 'Hotel',
+        'amenities': {'wireless_internet': true},
+        'private': 'false',
+      }),
+      createdAt: DateTime.now(),
+      kind: NOSTR_KIND_LISTING,
       tags: [])
 ].map(Listing.fromNostrEvent).toList();

@@ -91,6 +91,8 @@ resource "kubernetes_ingress_v1" "relay" {
 resource "google_service_account" "relay_service_account" {
   account_id   = "relay-service-account"
   display_name = "Service Account for Nostr Relay Pod"
+  depends_on   = [google_project.project]
+
 }
 
 resource "google_project_iam_member" "relay_secret_access" {
@@ -314,10 +316,12 @@ resource "kubernetes_deployment_v1" "relay" {
 }
 
 resource "google_compute_disk" "relay_data_disk" {
-  name = "relay-data-disk"
-  type = "pd-standard" # Choose pd-standard or pd-ssd
-  zone = google_container_cluster.default.location
-  size = 10 # Size in GB
+  name       = "relay-data-disk"
+  type       = "pd-standard" # Choose pd-standard or pd-ssd
+  zone       = google_container_cluster.default.location
+  size       = 10 # Size in GB
+  depends_on = [google_container_cluster.default]
+
 }
 
 resource "kubernetes_persistent_volume_v1" "relay_data_pv" {

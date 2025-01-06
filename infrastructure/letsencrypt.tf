@@ -17,13 +17,15 @@ provider "helm" {
 resource "google_service_account" "letsencrypt" {
   account_id   = "letsencrypt-dns"
   display_name = "Service Account for Let's Encrypt DNS Validation"
+  depends_on   = [google_project.project]
 }
 
 // Assign the DNS Admin role to the Google Service Account
 resource "google_project_iam_member" "letsencrypt_dns" {
-  project = google_project.project.project_id
-  role    = "roles/dns.admin"
-  member  = "serviceAccount:${google_service_account.letsencrypt.email}"
+  project    = google_project.project.project_id
+  role       = "roles/dns.admin"
+  member     = "serviceAccount:${google_service_account.letsencrypt.email}"
+  depends_on = [google_project.project]
 }
 
 // Grant the Kubernetes Service Account permission to impersonate the Google Service Account
@@ -34,6 +36,8 @@ resource "google_service_account_iam_binding" "workload_identity_binding" {
   members = [
     "serviceAccount:${google_project.project.project_id}.svc.id.goog[cert-manager/letsencrypt-dns]"
   ]
+  depends_on = [google_project.project]
+
 }
 
 // Assign the DNS Admin role to the Google Service Account

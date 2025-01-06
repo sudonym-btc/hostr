@@ -1,11 +1,9 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/main.dart';
 import 'package:injectable/injectable.dart';
-import 'package:rxdart/rxdart.dart';
 
 /// Abstract class representing the state of authentication.
 abstract class AuthState extends Equatable {
@@ -35,24 +33,25 @@ class LoggedIn extends AuthState {
 /// Cubit class to manage authentication state.
 @injectable
 class AuthCubit extends Cubit<AuthState> {
+  KeyStorage keyStorage = getIt<KeyStorage>();
   SecureStorage secureStorage = getIt<SecureStorage>();
 
   AuthCubit() : super(AuthInitial());
 
   /// Logs in the user by generating a key pair and requesting delegation.
-  Future<void> login() async {
+  Future<void> signup() async {
     await logout();
-    NostrKeyPairs keyPair = Nostr.instance.keysService.generateKeyPair();
-    await secureStorage.set('keys', [keyPair]);
-    emit(Progress(
-        getIt<RequestDelegation>().requestDelegation(keyPair).doOnDone(() {
-      emit(LoggedIn());
-    })));
+    await keyStorage.create();
+    // emit(Progress(
+    //     getIt<RequestDelegation>().requestDelegation(keyPair).doOnDone(() {
+    // })));
+
+    emit(LoggedIn());
   }
 
   /// Checks if the user is logged in by verifying stored keys.
   Future<bool> checkKeyLoggedIn() async {
-    if ((await secureStorage.readAll()).keys.isNotEmpty) {
+    if ((await keyStorage.getActiveKeyPair()) != null) {
       emit(LoggedIn());
       return true;
     }

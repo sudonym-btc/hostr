@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/widgets/main.dart';
 
@@ -23,18 +22,16 @@ class ListingScreen extends StatelessWidget {
                 start: DateTime.parse(dateRangeStart),
                 end: DateTime.parse(dateRangeEnd),
               )
-            : null {
-    print("ListingScreen: $dateRangeStart $dateRangeEnd");
-  }
+            : null;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<EntityCubit<Listing, ListingRepository>>(
-        create: (context) => EntityCubit(getIt<ListingRepository>())
+        create: (context) => ListingCubit()
           ..setFilter(NostrFilter())
           ..get(),
-        child: BlocBuilder<EntityCubit<Listing, ListingRepository>,
-            EntityCubitState>(builder: (context, state) {
+        child: BlocBuilder<ListingCubit, EntityCubitState>(
+            builder: (context, state) {
           return Scaffold(
               bottomNavigationBar: state.data != null
                   ? BottomAppBar(
@@ -97,7 +94,6 @@ class Reserve extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print(dateRange);
     if (dateRange == null) {
       return Container();
     }

@@ -25,6 +25,6 @@ class NostrWalletAuth {
           'optional_commands': 'list_transactions',
           'budget': '$budget/$budgetPeriod',
           // 'identifier': appPubKey
-        }).toString();
+        });
   }
 }

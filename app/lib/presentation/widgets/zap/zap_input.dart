@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/padding.dart';
+
 class ZapInput extends StatefulWidget {
   const ZapInput({super.key});
 
@@ -10,17 +12,16 @@ class ZapInput extends StatefulWidget {
 class ZapInputState extends State<ZapInput> {
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return CustomPadding(
+        child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text('Zap us'),
-        MaterialButton(
+        FilledButton(
           child: Text('Zap'),
-          onPressed: () {
-            // BlocProvider.of<SecureStorage>(context).set(
-            //     'mode', !BlocProvider.of<SecureStorage>(context).state.mode);
-          },
+          onPressed: () {},
         )
       ],
-    );
+    ));
   }
 }

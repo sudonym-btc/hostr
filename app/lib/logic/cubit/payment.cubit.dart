@@ -1,38 +1,34 @@
-import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-enum PaymentStatus { PENDING, PAID, CANCELLED }
+class PaymentCubit extends Cubit<PaymentState> {
+  // final NwcService nwcService = getIt<NwcService>();
 
-enum PaymentType { ZAP, ROOTSTOCK }
+  PaymentCubit() : super(PaymentInitial());
 
-// abstract class PaymentState extends Equatable {
-//   String id;
-//   String name;
-//   String description;
-//   String currency;
-//   double price;
-//   PaymentStatus status = PaymentStatus.PENDING;
-//   PaymentType type = PaymentType.ZAP;
+  Future<void> payInvoice(String invoice) async {
+    emit(PaymentInProgress());
+    try {
+      // final response = await nwcService.payInvoice(invoice);
+      emit(PaymentSuccess('Done'));
+    } catch (e) {
+      emit(PaymentFailure(e.toString()));
+    }
+  }
+}
 
-//   Payment(
-//       {required this.id,
-//       required this.name,
-//       required this.description,
-//       required this.currency,
-//       required this.price});
+// States
+abstract class PaymentState {}
 
-//   String initiate();
-//   PaymentStatus fetchStatus();
-// }
+class PaymentInitial extends PaymentState {}
 
-// class RootstockPayment extends Payment {
-//   @override
-//   PaymentStatus fetchStatus() {
-//     return PaymentStatus.PAID;
-//   }
+class PaymentInProgress extends PaymentState {}
 
-//   @override
-//   String initiate() {
-//     // TODO: implement initiate
-//     throw UnimplementedError();
-//   }
-// }
+class PaymentSuccess extends PaymentState {
+  final String response;
+  PaymentSuccess(this.response);
+}
+
+class PaymentFailure extends PaymentState {
+  final String error;
+  PaymentFailure(this.error);
+}
