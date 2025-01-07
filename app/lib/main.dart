@@ -25,15 +25,6 @@ void mainCommon(String env) async {
   );
 
   await getIt<RelayConnector>().connect();
-  // await getIt<Rootstock>().connectToRootstock();
-  // try {
-  //   await Boltz.LibBoltz.init();
-  //   const boltzUrl = 'https://api.testnet.boltz.exchange/v2';
-  //   // const amount = 100000;
-  //   final fees = await const Boltz.Fees(boltzUrl: boltzUrl).chain();
-  //   print('FEES:${fees}');
-  // } catch (e) {
-  //   print('\n\nERRRR: ' + e.toString() + '\n\n');
-  // }
+
   runApp(MyApp());
 }

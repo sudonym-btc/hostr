@@ -19,8 +19,8 @@ class MockedNostProvider extends MockNostProvider {
         .listen((event) {
       switch (jsonDecode(event.content!)["command"]) {
         case "describe":
-          getIt<NostrProvider>()
-              .sendEventToRelaysAsync(NostrEvent.fromPartialData(
+          getIt<NostrProvider>().sendEventToRelaysAsync(
+              event: NostrEvent.fromPartialData(
                   kind: NOSTR_KIND_CONNECT,
                   keyPairs: signerKeypair,
                   content: JsonEncoder().convert({
@@ -28,8 +28,8 @@ class MockedNostProvider extends MockNostProvider {
                   })));
           break;
         case "delegate":
-          getIt<NostrProvider>()
-              .sendEventToRelaysAsync(NostrEvent.fromPartialData(
+          getIt<NostrProvider>().sendEventToRelaysAsync(
+              event: NostrEvent.fromPartialData(
                   kind: NOSTR_KIND_CONNECT,
                   keyPairs: signerKeypair,
                   content: JsonEncoder().convert({
@@ -51,8 +51,8 @@ class MockRequestDelegation extends RequestDelegation {
     // Mock signer sending ACK message with its own pubkey
     stream.listen((event) {
       if (event is LaunchedUrl) {
-        getIt<NostrProvider>()
-            .sendEventToRelaysAsync(NostrEvent.fromPartialData(
+        getIt<NostrProvider>().sendEventToRelaysAsync(
+            event: NostrEvent.fromPartialData(
           kind: NOSTR_KIND_CONNECT,
           keyPairs: signerKeypair,
           content: 'ACK',

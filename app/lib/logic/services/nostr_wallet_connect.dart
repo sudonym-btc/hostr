@@ -20,6 +20,7 @@ class NostrWalletConnectService {
   CustomLogger logger = CustomLogger();
   KeyStorage keyStorage = getIt<KeyStorage>();
   NwcStorage nwcStorage = getIt<NwcStorage>();
+  NostrProvider nostr = getIt<NostrProvider>();
 
   parseNWC(String nwcString) {
     Uri nwcUri = Uri.parse(nwcString);
@@ -64,22 +65,19 @@ class NostrWalletConnectService {
   "sig": "31f57b369459b5306a5353aa9e03be7fbde169bc881c3233625605dd12f53548179def16b9fe1137e6465d7e4d5bb27ce81fd6e75908c46b06269f4233c845d8"
 }
      */
-    var infoEvents =
-        await Nostr.instance.relaysService.startEventsSubscriptionAsync(
-            relays: [nwc.queryParameters['relay']!],
-            request: NostrRequest(filters: [
-              NostrFilter(kinds: [13194], p: [nwc.host], limit: 1)
-            ]),
-            timeout: Duration(seconds: 5));
+    var infoEvents = await nostr.startRequestAsync(
+      relays: [nwc.queryParameters['relay']!],
+      request: NostrRequest(filters: [
+        NostrFilter(kinds: [13194], p: [nwc.host], limit: 1)
+      ]),
+    );
     var firstInfoEvent = infoEvents.first;
     assert(firstInfoEvent.content != null);
     assert(firstInfoEvent.content!.contains('pay_invoice'));
     return firstInfoEvent;
   }
 
-  payInvoice(String invoice) async {
-    logger.i('Attempting to pay invoice with NWC: $invoice');
-
+  Future<NostrEvent> generateRequestEvent(String invoice) async {
     var nwc = await nwcStorage.get();
 
     // Check that still connected to relay
@@ -114,6 +112,81 @@ class NostrWalletConnectService {
                 uri.queryParameters['secret']!));
 
     logger.i('PaymentRequest event contstructed $paymentRequest');
+    return paymentRequest;
+  }
+
+  payInvoice(String invoice) async {
+    logger.i('Attempting to pay invoice with NWC: $invoice');
+
+    NostrEvent paymentRequest = await generateRequestEvent(invoice);
+    var nwc = await nwcStorage.get();
+    Uri uri = parseNWC(nwc.first);
+
+    // Listen for the "paid" response
+    /**
+       * {
+    "result_type": "pay_invoice", //indicates the structure of the result field
+    "error": { //object, non-null in case of error
+        "code": "UNAUTHORIZED", //string error code, see below
+        "message": "human readable error message"
+    },
+    "result": { // result, object. null in case of error.
+        "preimage": "0123456789abcdef..." // command-related data
+    }
+}
+       */
+    var responseProm = nostr
+        .startRequest(
+          relays: [uri.queryParameters['relay']!],
+          onEose: (relay, ease) => false,
+          request: NostrRequest(filters: [
+            NostrFilter(kinds: [23195], e: [paymentRequest.id!], limit: 1)
+          ]),
+        )
+        .stream
+        .map((e) {
+          print('Received from relay: $e');
+          var response = Nip04().decrypt(
+            uri.queryParameters['secret']!,
+            uri.host,
+            e.content!,
+          );
+        })
+        .first;
+
+    // Trigger the pa_invoice request
+    NostrEventOkCommand resp = await nostr.sendEventToRelaysAsync(
+        event: paymentRequest, relays: [uri.queryParameters['relay']!]);
+
+    if (resp.isEventAccepted!) {
+      logger.i('Sent payment request to relay: $resp');
+    } else {
+      throw Exception(
+          'Failed to send payment request to relay: ${resp.message}');
+    }
+
+    await responseProm;
+  }
+}
+
+@Injectable(as: NostrWalletConnectService, env: [Env.test, Env.mock])
+class MockNostrWalletConnectService extends NostrWalletConnectService {
+  getWalletInfo(Uri nwc) async {
+    return NostrEvent.fromPartialData(
+        kind: 13194,
+        content:
+            "pay_invoice pay_keysend get_balance get_info make_invoice lookup_invoice list_transactions multi_pay_invoice multi_pay_keysend sign_message notifications",
+        keyPairs: NostrKeyPairs.generate());
+  }
+
+  payInvoice(String invoice) async {
+    logger.i('Attempting to pay invoice with NWC: $invoice');
+
+    var nwc = await nwcStorage.get();
+
+    Uri uri = parseNWC(nwc.first);
+
+    NostrEvent paymentRequest = await generateRequestEvent(invoice);
 
     // Listen for the "paid" response
     /**

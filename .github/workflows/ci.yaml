@@ -7,28 +7,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: 'latest'
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "latest"
 
-    - name: Cache Flutter dependencies
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.pub-cache
-          app/.dart_tool
-        key: ${{ runner.os }}-flutter-${{ hashFiles('app/pubspec.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-flutter-
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.pub-cache
+            app/.dart_tool
+          key: ${{ runner.os }}-flutter-${{ hashFiles('app/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
 
-    - name: Install dependencies
-      run: flutter pub get
-      working-directory: app
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: app
 
-    - name: Run tests
-      run: flutter test
-      working-directory: app
+      - name: Run tests
+        run: flutter test
+        working-directory: app
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to be able to publish a GitHub release
+      issues: write # to be able to comment on released issues
+      pull-requests: write # to be able to comment on released pull requests
+      id-token: write # to enable use of OIDC for npm provenance
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+      - name: Install dependencies
+        run: npm clean-install
+      - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
+        run: npm audit signatures
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release

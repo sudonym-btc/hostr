@@ -55,7 +55,7 @@ class MockUrlLauncher extends Mock implements UrlLauncher {
   @override
   Future<bool> launch(Uri uri) async {
     await getIt<NostrProvider>().sendEventToRelaysAsync(
-        NostrEvent.fromPartialData(
+        event: NostrEvent.fromPartialData(
             kind: NOSTR_KIND_CONNECT,
             content: jsonEncode({'test': true}),
             keyPairs: NostrKeyPairs.generate()));

@@ -26,13 +26,9 @@ class BaseRepository<T extends Event> {
   late T Function(NostrEvent event) creator = (event) => event as T;
   CustomLogger logger = CustomLogger();
 
-  Stream<DataResult<T>> list(
-      {NostrFilter? filter,
-      required void Function(String relay, NostrRequestEoseCommand ease)
-          onEose}) {
-    logger.i("list $filter");
+  NostrFilter getCombinedFilter(NostrFilter? filter) {
     filter ??= NostrFilter();
-    NostrFilter? finalFilter = NostrFilter(
+    NostrFilter finalFilter = NostrFilter(
       ids: filter.ids,
       authors: filter.authors,
       kinds: [...(filter.kinds ?? []), ...(eventTypeFilter?.kinds ?? [])],
@@ -47,10 +43,31 @@ class BaseRepository<T extends Event> {
       additionalFilters: filter.additionalFilters,
     );
     logger.i("finalFilter $finalFilter");
+    return finalFilter;
+  }
+
+  Future<int> count(NostrFilter filter) {
+    final countEvent = NostrCountEvent.fromPartialData(
+        eventsFilter: getCombinedFilter(filter));
+
+    return Nostr.instance.relaysService
+        .sendCountEventToRelaysAsync(countEvent,
+            timeout: const Duration(seconds: 3))
+        .then((v) {
+      return v.count;
+    });
+  }
+
+  Stream<DataResult<T>> list(
+      {NostrFilter? filter,
+      required void Function(String relay, NostrRequestEoseCommand ease)
+          onEose}) {
+    logger.i("list $filter");
+
     return nostr
         .startRequest(
             request: NostrRequest(
-              filters: [finalFilter],
+              filters: [getCombinedFilter(filter)],
             ),
             onEose: onEose)
         .stream
@@ -76,7 +93,7 @@ class BaseRepository<T extends Event> {
 
   create(NostrEvent event) {
     logger.i("create $event");
-    return nostr.sendEventToRelaysAsync(event);
+    return nostr.sendEventToRelaysAsync(event: event);
   }
 
   DataResult<T> _parser(NostrEvent event) {
