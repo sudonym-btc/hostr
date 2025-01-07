@@ -33,11 +33,12 @@ import 'package:hostr/logic/cubit/auth.cubit.dart' as _i323;
 import 'package:hostr/logic/services/nostr_wallet_connect.dart' as _i771;
 import 'package:hostr/logic/services/payment.dart' as _i151;
 import 'package:hostr/logic/services/request_delegation.dart' as _i942;
+import 'package:hostr/logic/services/swap.dart' as _i432;
 import 'package:hostr/logic/services/zap.dart' as _i915;
 import 'package:injectable/injectable.dart' as _i526;
 
-const String _mock = 'mock';
 const String _test = 'test';
+const String _mock = 'mock';
 const String _dev = 'dev';
 const String _staging = 'staging';
 const String _prod = 'prod';
@@ -58,6 +59,13 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i315.RelayStorage>(() => _i315.RelayStorage());
     gh.factory<_i303.NwcStorage>(() => _i303.NwcStorage());
     gh.factory<_i946.KeyStorage>(() => _i946.KeyStorage());
+    gh.factory<_i771.NostrWalletConnectService>(
+      () => _i771.MockNostrWalletConnectService(),
+      registerFor: {
+        _test,
+        _mock,
+      },
+    );
     gh.factory<_i291.RelayConnector>(
       () => _i291.MockRelayConnector(),
       registerFor: {_mock},
@@ -111,6 +119,14 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i151.PaymentService>(
       () => _i151.PaymentService(),
+      registerFor: {
+        _dev,
+        _staging,
+        _prod,
+      },
+    );
+    gh.factory<_i432.SwapService>(
+      () => _i432.SwapService(),
       registerFor: {
         _dev,
         _staging,

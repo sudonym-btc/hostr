@@ -37,6 +37,18 @@
         "request": "launch",
         "type": "dart",
         "program": "app/lib/main_development.dart"
+      },
+      {
+        "name": "staging",
+        "request": "launch",
+        "type": "dart",
+        "program": "app/lib/main_staging.dart"
+      },
+      {
+        "name": "production",
+        "request": "launch",
+        "type": "dart",
+        "program": "app/lib/main_production.dart"
       }
     ]
   }

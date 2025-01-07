@@ -18,8 +18,8 @@ class MockNostProvider extends NostrProvider {
   @override
   NostrEventsStream startRequest(
       {required NostrRequest request,
-      required void Function(String relay, NostrRequestEoseCommand ease)
-          onEose}) {
+      required void Function(String relay, NostrRequestEoseCommand ease) onEose,
+      List<String>? relays}) {
     // Create filtered events stream with artificial delay
     final filteredEvents = events.stream
         .where((event) =>
@@ -33,7 +33,7 @@ class MockNostProvider extends NostrProvider {
                 .map((f) => f.limit ?? double.infinity)
                 .reduce(min)
                 .toInt()
-            : 0x7FFFFFFFFFFFFFFF); // Max int if no limit defined
+            : 999999999999); // Max int if no limit defined
 
     onEose(
         'mock',
@@ -47,7 +47,8 @@ class MockNostProvider extends NostrProvider {
   }
 
   @override
-  Future<NostrEventOkCommand> sendEventToRelaysAsync(NostrEvent event) async {
+  Future<NostrEventOkCommand> sendEventToRelaysAsync(
+      {required NostrEvent event, List<String>? relays}) async {
     events.add(event);
     return Future.value(NostrEventOkCommand(
         eventId: event.id!, isEventAccepted: true, message: ""));
@@ -72,7 +73,8 @@ class MockNostProvider extends NostrProvider {
   }
 
   @override
-  Future<List<NostrEvent>> startRequestAsync({required NostrRequest request}) {
+  Future<List<NostrEvent>> startRequestAsync(
+      {required NostrRequest request, List<String>? relays}) {
     return startRequest(
       request: request,
       onEose: (relay, ease) => false,

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/data/main.dart';
 
 class ZapReceipt extends StatefulWidget {
-  final Event zap;
+  final Zap zap;
   const ZapReceipt({super.key, required this.zap});
 
   @override
@@ -17,11 +17,11 @@ class ZapReceiptState extends State<ZapReceipt> {
   Widget build(BuildContext context) {
     var event = json.decode(
         widget.zap.event.tags!.firstWhere((t) => t[0] == 'description')[1]);
-    print('Event: $event');
+
     var bolt11 = widget.zap.event.tags!.firstWhere((t) => t[0] == 'bolt11')[1];
     // @todo: move to zap parser
     Bolt11PaymentRequest paymentRequest = Bolt11PaymentRequest(bolt11);
-    print('Event: $event ${paymentRequest.amount}');
+
     return Chip(
         label: Text('Zap Receipt ${paymentRequest.amount}'),
         avatar: Icon(Icons.flash_on));

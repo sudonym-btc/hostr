@@ -29,7 +29,6 @@ class _SearchScreenState extends State<SearchScreen> {
     const mapHeight = 400.0; // Fixed map height
 
     // var totalHeight = MediaQuery.of(context).size.height;
-    final listingStartHeight = MediaQuery.of(context).size.height - mapHeight;
     // var topHeight = totalHeight - listingStartHeight;
 
     return Scaffold(

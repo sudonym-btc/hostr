@@ -126,6 +126,11 @@ resource "google_apikeys_key" "maps_ios_key" {
     api_targets {
       service = "maps-android-backend.googleapis.com"
     }
+
+    // just added might be incorrect
+    api_targets {
+      service = "maps-backend.googleapis.com"
+    }
   }
 
   depends_on = [
@@ -133,6 +138,8 @@ resource "google_apikeys_key" "maps_ios_key" {
     google_project_service.api_keys
   ]
 }
+
+# @todo Maps JavaScript API
 
 resource "google_project_iam_member" "maps_ios_key" {
   project = google_project.project.project_id

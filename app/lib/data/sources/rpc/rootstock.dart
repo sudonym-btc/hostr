@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
@@ -8,6 +10,8 @@ import 'package:web3dart/web3dart.dart';
 abstract class Rootstock {
   CustomLogger logger = CustomLogger();
   Future<void> connectToRootstock();
+  Future<double> getBalance(EthereumAddress address);
+  Future<TransactionInformation?> getTransaction(String txHash);
 }
 
 @Injectable(as: Rootstock)
@@ -26,9 +30,33 @@ class RootstockImpl extends Rootstock {
     }
   }
 
+  @override
   Future<double> getBalance(EthereumAddress address) async {
-    return await client
-        .getBalance(address)
-        .then((val) => val.getInEther.toDouble());
+    logger.d('Getting balance for $address');
+    return await client.getBalance(address).then((val) {
+      logger.d('Balance for $address: ${val.getInWei}');
+      return convertWeiToSatoshi(val.getInWei.toDouble());
+    });
   }
+
+  Future<TransactionInformation?> getTransaction(String txHash) async {
+    logger.d('Getting transaction for $txHash');
+    return await client.getTransactionByHash(txHash).then((val) {
+      logger.d(
+          'Transaction for $txHash: from ${val?.from} to ${val?.to} amount ${val?.value.getInWei}');
+      return val;
+    });
+  }
+
+  call(ContractAbi abi, EthereumAddress address, ContractFunction func,
+      params) async {
+    return client.call(
+        contract: DeployedContract(abi, address),
+        function: func,
+        params: params);
+  }
+}
+
+convertWeiToSatoshi(double wei) {
+  return wei / pow(10, 18 - 8);
 }

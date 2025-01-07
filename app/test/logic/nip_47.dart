@@ -25,8 +25,8 @@ class MockRequestDelegation extends RequestDelegation {
     // Mock signer sending ACK message with its own pubkey
     stream.listen((event) {
       if (event is LaunchedUrl) {
-        getIt<NostrProvider>()
-            .sendEventToRelaysAsync(NostrEvent.fromPartialData(
+        getIt<NostrProvider>().sendEventToRelaysAsync(
+            event: NostrEvent.fromPartialData(
           kind: NOSTR_KIND_CONNECT,
           keyPairs: signerKeypair,
           content: 'ACK',

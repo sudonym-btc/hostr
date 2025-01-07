@@ -7,12 +7,17 @@ import 'package:rxdart/rxdart.dart';
 
 abstract class NostrProvider {
   ReplaySubject<NostrEvent> events = ReplaySubject<NostrEvent>();
+
   NostrEventsStream startRequest(
       {required NostrRequest request,
-      required void Function(String relay, NostrRequestEoseCommand ease)
-          onEose});
-  Future<List<NostrEvent>> startRequestAsync({required NostrRequest request});
-  Future<NostrEventOkCommand> sendEventToRelaysAsync(NostrEvent event);
+      required void Function(String relay, NostrRequestEoseCommand ease) onEose,
+      List<String>? relays});
+
+  Future<List<NostrEvent>> startRequestAsync(
+      {required NostrRequest request, List<String>? relays});
+
+  Future<NostrEventOkCommand> sendEventToRelaysAsync(
+      {required NostrEvent event, List<String>? relays});
 }
 
 @Singleton(as: NostrProvider, env: Env.allButTestAndMock)
@@ -20,21 +25,21 @@ class ProdNostrProvider extends NostrProvider {
   @override
   startRequest(
       {required NostrRequest request,
-      required void Function(String relay, NostrRequestEoseCommand ease)
-          onEose}) {
-    return Nostr.instance.relaysService
-        .startEventsSubscription(request: request, onEose: onEose);
+      required void Function(String relay, NostrRequestEoseCommand ease) onEose,
+      List<String>? relays}) {
+    return Nostr.instance.relaysService.startEventsSubscription(
+        request: request, onEose: onEose, relays: relays);
   }
 
   @override
-  startRequestAsync({required NostrRequest request}) {
+  startRequestAsync({required NostrRequest request, List<String>? relays}) {
     return Nostr.instance.relaysService.startEventsSubscriptionAsync(
-        request: request, timeout: Duration(seconds: 5));
+        relays: relays, request: request, timeout: Duration(seconds: 5));
   }
 
   @override
-  sendEventToRelaysAsync(NostrEvent event) {
-    return Nostr.instance.relaysService
-        .sendEventToRelaysAsync(event, timeout: Duration(seconds: 5));
+  sendEventToRelaysAsync({required NostrEvent event, List<String>? relays}) {
+    return Nostr.instance.relaysService.sendEventToRelaysAsync(event,
+        relays: relays, timeout: Duration(seconds: 5));
   }
 }

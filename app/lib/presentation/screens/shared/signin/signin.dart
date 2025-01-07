@@ -17,14 +17,15 @@ class SignInScreen extends StatelessWidget {
         body: BlocProvider(
           create: (context) => AuthCubit()..checkKeyLoggedIn(),
           child: BlocBuilder<AuthCubit, AuthState>(builder: (context, state) {
-            return FilledButton(
-                onPressed: () async {
-                  await context.read<AuthCubit>().signup();
-                  onSuccess();
-                },
-                child: Text(
-                  'Sign in',
-                ));
+            return Center(
+                child: FilledButton(
+                    onPressed: () async {
+                      await context.read<AuthCubit>().signup();
+                      onSuccess();
+                    },
+                    child: Text(
+                      'Sign in',
+                    )));
           }),
         ));
   }

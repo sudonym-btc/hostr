@@ -1,5 +1,6 @@
 .codegpt
 boltz-dart
+boltz-core
 
 # Compiled source #
 ###################
@@ -38,3 +39,5 @@ boltz-dart
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+node_modules
