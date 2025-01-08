@@ -2,7 +2,6 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/services/main.dart';
 import 'package:injectable/injectable.dart';
 
 /// Abstract class representing the state of authentication.
@@ -20,10 +19,10 @@ class AuthInitial extends AuthState {}
 class LoggedOut extends AuthState {}
 
 /// State representing a progress in authentication.
-class Progress extends AuthState {
-  Stream<DelegationProgress> progress;
-  Progress(this.progress);
-}
+// class Progress extends AuthState {
+//   Stream<DelegationProgress> progress;
+//   Progress(this.progress);
+// }
 
 /// State representing a logged-in user.
 class LoggedIn extends AuthState {

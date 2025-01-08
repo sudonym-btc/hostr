@@ -7,7 +7,7 @@ class MockKeys {
   static final NostrKeyPairs guest = NostrKeyPairs(
       private:
           '1714ff69753ae70a91d6e1989cb1ee859b10e98239c61d28bcb0577d8d626b74');
-  static final NostrKeyPairs sccrow = NostrKeyPairs(
+  static final NostrKeyPairs escrow = NostrKeyPairs(
       private:
           'a9cbe715ebaeb852bf7cc3d35f4a81b9a58f16705e4bb8434aa453093e612206');
   static final NostrKeyPairs reviewer = NostrKeyPairs(

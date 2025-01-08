@@ -2,6 +2,15 @@
   "folders": [
     {
       "path": "."
+    },
+    {
+      "path": "../accommodation-nip"
+    },
+    {
+      "path": "../escrow-nip"
+    },
+    {
+      "path": "../reservation-nip"
     }
   ],
   "settings": {
@@ -13,14 +22,16 @@
       "editor.defaultFormatter": "hashicorp.terraform"
     },
     "[terraform-vars]": {},
-    "extensions.ignoreRecommendations": false
+    "extensions.ignoreRecommendations": false,
+    "CodeGPT.apiKey": "CodeGPT Plus Beta"
   },
   "extensions": {
     "recommendations": [
       "esbenp.prettier-vscode",
       "hashicorp.terraform",
       "tamasfe.even-better-toml",
-      "ms-kubernetes-tools.vscode-kubernetes-tools"
+      "ms-kubernetes-tools.vscode-kubernetes-tools",
+      "juanblanco.solidity"
     ]
   },
   "launch": {

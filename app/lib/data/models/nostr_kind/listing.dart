@@ -1,61 +1,111 @@
 import 'dart:convert';
 import 'dart:core';
 
-import 'package:dart_nostr/nostr/model/event/event.dart';
+import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 
-import 'event.dart';
+import '../amount.dart';
+import '../event.dart';
+import '../price.dart';
+import 'reservation.dart';
 
-class Listing extends Event {
-  late String? description;
-  late String currency;
-  late double amountPerDay;
-  late Duration minStay;
-  late TimeOfDay checkIn;
-  late TimeOfDay checkOut;
-  late String location;
+class Listing extends Event<ListingContent> {
+  static List<int> kinds = [NOSTR_KIND_LISTING];
 
-  late int quantity = 1;
-  late String type;
-  late List<String> images = [];
-  late Amenities amenities;
-  late String private;
+  Listing.fromNostrEvent(NostrEvent e)
+      : super(
+            parsedContent: ListingContent.fromJson(json.decode(e.content!)),
+            content: e.content,
+            createdAt: e.createdAt,
+            id: e.id,
+            kind: e.kind,
+            pubkey: e.pubkey,
+            sig: e.sig,
+            tags: e.tags);
 
-  Listing(
-      event,
-      this.description,
-      this.currency,
-      this.amountPerDay,
-      this.minStay,
-      this.checkIn,
-      this.checkOut,
-      this.location,
-      this.quantity,
-      this.images,
-      this.type,
-      this.amenities,
-      this.private)
-      : super(event);
+  static isAvailable(DateTimeRange requested, List<Reservation> reservations) {
+    for (Reservation r in reservations) {
+      if (requested.start.isBefore(r.parsedContent.end) &&
+          requested.end.isAfter(r.parsedContent.start)) {
+        return false;
+      }
+    }
+    return true;
+  }
 
-  Listing.fromNostrEvent(NostrEvent event)
-      : description = '',
-        super(event) {
-    Map json = jsonDecode(event.content!);
-    description = json["description"];
-    currency = json["currency"];
-    amountPerDay = double.parse(json["amountPerDay"].toString());
-    minStay = Duration(days: int.parse(json["minStay"].toString()));
-    checkIn = TimeOfDay(hour: int.parse(json["checkIn"].toString()), minute: 0);
-    checkOut =
-        TimeOfDay(hour: int.parse(json["checkOut"].toString()), minute: 0);
-    location = json["location"];
-    quantity = int.parse(json["quantity"].toString());
-    images = List<String>.from(json["images"] as List);
-    type = json["type"];
-    amenities = Amenities.fromJSON(json["amenities"]);
-    private = json["private"] as String;
+// Currently can only compare prices of the same currency
+  Amount cost(DateTimeRange requested) {
+    // Loop through prices and choose the cheepest result
+    List<Amount> costs = parsedContent.price
+        .map((p) => Amount(
+            value:
+                (requested.duration.inDays / FrequencyInDays.of(p.frequency)) *
+                    p.amount.value,
+            currency: p.amount.currency))
+        .toList();
+    costs.sort((a, b) => a.value.compareTo(b.value));
+    return costs.first;
   }
 }
+
+class ListingContent {
+  final String description;
+  final List<Price> price;
+  final Duration minStay;
+  final TimeOfDay checkIn;
+  final TimeOfDay checkOut;
+  final String location;
+  final int quantity;
+  final ListingType type;
+  final List<String> images;
+  final Amenities amenities;
+
+  ListingContent(
+      {required this.description,
+      required this.price,
+      required this.minStay,
+      required this.checkIn,
+      required this.checkOut,
+      required this.location,
+      required this.quantity,
+      required this.type,
+      required this.images,
+      required this.amenities});
+
+  Map<String, dynamic> toJson() {
+    return {
+      "description": description,
+      "price": price.map((e) => e.toJson()).toList(),
+      "minStay": minStay.inDays,
+      "checkIn": checkIn.toString(),
+      "checkOut": checkOut.toString(),
+      "location": location,
+      "quantity": quantity,
+      "type": type.toString().split('.').last,
+      "images": images,
+      "amenities": amenities.toMap(),
+    };
+  }
+
+  static ListingContent fromJson(Map<String, dynamic> json) {
+    return ListingContent(
+      description: json["description"],
+      price: (json["price"] as List).map((e) => Price.fromJson(e)).toList(),
+      minStay: Duration(days: json["minStay"]),
+      checkIn: TimeOfDay.fromDateTime(DateTime.parse(json["checkIn"])),
+      checkOut: TimeOfDay.fromDateTime(DateTime.parse(json["checkOut"])),
+      location: json["location"],
+      quantity: json["quantity"],
+      type: ListingType.values
+          .firstWhere((e) => e.toString() == 'ListingType.${json["type"]}'),
+      images: List<String>.from(json["images"]),
+      amenities: Amenities.fromJSON(json["amenities"]),
+    );
+  }
+}
+
+enum ListingType { room, house, apartment, villa, hotel, hostel, resort }
 
 class Amenities {
   bool airconditioning = false;

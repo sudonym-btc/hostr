@@ -33,6 +33,154 @@ flutter run
 - **NIP-09**: Event deletion for removing listings or messages.
 - **NIP-33**: Parameterized replaceable events for creating and updating listings and bookings.
 
+## Nostr Synchronization
+
+### Lister state
+
+A lister takes a filter and starts a subscription stream instance with a specific filter.
+
+```dart
+class StreamCubit<T extends NostrEvent>() {
+  NostrFilter filter;
+  Func(T)=>bool includeEventPredicate;
+  Func(T a, T b) => 0, -1, 1 order;
+
+  StreamCubit({
+    required this.filter,
+
+    // By default include all received events
+    this.includeEventPredicate = (T event) => true
+  })
+}
+```
+
+It has the following methods:
+
+`Close`
+
+```dart
+Close all subscriptions to relays
+```
+
+`setIncludeEventPredicate`
+
+```dart
+Allows adjusting of post result predicate to update client-side search results
+```
+
+`Load new`
+
+```dart
+startRequestAndCloseOnEOSE
+{
+  until: null,
+  since: max(items.createdAt)
+}
+```
+
+`Load next`
+
+```dart
+startRequestAndCloseOnEOSE
+{
+  until: min(items.createdAt),
+  since: null
+}
+```
+
+`Load all`
+
+```dart
+// Limit not required, will load all.
+loadNew()
+
+//If limit was imposed by the relay, try fetching next batch until nothing returnes
+while(await loadNext()) do
+
+emit(State.copyWith({status: Synching}))
+```
+
+`setOrdering`
+
+```dart
+// Reorder results by new order function
+```
+
+The class emits:
+
+```dart
+Idle          // Used when not doing anything or listening
+Listening     // Used when synched and awaiting new events
+LoadingNext   // Used when fetching older events
+Synching      // Used when loading next in a loop
+Failed        // Used when all relays fail to respond correctly
+```
+
+### Hydrated cubits
+
+[Hydrated](https://pub.dev/packages/hydrated_bloc) blocs are used to persist state between app relaunched, preventing re-sync upon every usage.
+Hydrated blocs must be cleared on logout.
+
+### Search
+
+### Filter Controller
+
+The search filter controller should emit:
+
+```dart
+(NostrFilter filter, PredicateFunction shouldIncludeEvent, DateTimeRange dateRange)
+```
+
+### Order controller
+
+The order controller should emit:
+
+```dart
+Function order(Listing a, Listing b) => -1 || 0 || 1;
+```
+
+This way we could order by cost:
+
+```dart
+
+```
+
+### Reservation Checker Cubit
+
+The reservation checker cubit can listen to the search list results, and query corresponding reservations as needed.
+
+For each search result which matches the shouldIncludeEvent filter we need to fetch reservations to check availability.
+This is difficult, because one listing could have hundreds of reservations, or many listings could have no reservations.
+In the first iteration, we can.
+
+We could potentially load multiple listing's reservations using one `NostrFilter` by inputting multiple `d` tags.
+
+For each result in our results list, we need to query all reservations as there is no way to filter based on date range.
+
+Once each synch event fires, indicating that reservations have completely loaded for a set of listings, we need to update the search result predicate to exclude those items, or reorder the list.
+
+### Messages (Hydrated / Global)
+
+Before a user can interact in the inbox, the message stream must have received `EOSE` for all connected relays using filter
+
+```json
+{
+  kinds [1059], 
+  tags: [
+    ["p", userPubkey]
+  ]
+}
+```
+
+This stream, when completed, will hold a state of all messages ever received.
+
+While streaming:
+
+1. Unwrap DM kind 17
+2. ds
+
+###
+
 ## Payments
 
 A payment can be either a Bolt11 invoice, Bolt12 offer, LNURL string, Lightning Address, Zap, or npub. Unless a fixed user-requested amount has already been set, the flow should be as follows:
@@ -119,10 +267,9 @@ How can we get cought out?
 
 ```mermaid
 flowchart TD
-  PayEscrow[Pay Escrow 
-  amount, escrowPubkey, counterpartyPubkey]
-  ContactBoltz[Contact Boltz for Submarine Swap:amount, claimAddr, preimageHash]
-  PayEscrow-->ContactBoltz
+  SwapIn[Swap In
+  amount, sweepToAddr]
+  -->ContactBoltz[Contact Boltz for Submarine Swap:amount, claimAddr, preimageHash]
   ContactBoltz-->SwapDetails[Returns: 
   amount, refundAddr, timelock, invoice]
   SwapDetails-->PaymentFlow[Payment Flow
@@ -133,6 +280,28 @@ flowchart TD
 ```
 
 ## Escrow
+
+We deposit using our EVM balance.
+
+```mermaid
+flowchart TD
+    PayEscrow[Pay Escrow 
+  amount, escrowPubkey, counterpartyPubkey]
+  --> CalculateFees
+  --> GenerateEscrow[GenerateEscrowContract,
+    amount, escrowPubkey, counterpartyPubkey]
+  --> SwapIn[Swap In with params:
+    amountPlusFees, claimAddr, onComplete: next]
+  --> FundEscrow(GenerateEscrowContract.id, amount, )
+
+```
+
+flutter_background_service 5.1.0
+
+## Improvements
+
+- Swap in transaction should go straight into the contract
+- Escrow contract COULD encode bolt12, and then escrcow can do the swap by proving they paid a corresponding bolt11 invoice and releasing the funds to themselves. Out of scope.
 
 ## Assets
 

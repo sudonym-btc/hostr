@@ -1,21 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/widgets/search/map_style.dart';
 import 'package:rxdart/rxdart.dart';
 
-double mapsGoogleLogoSize = 2;
+double mapsGoogleLogoSize = 25;
 
 class SearchMap extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
-  final CustomSearchController searchController;
 
-  SearchMap({super.key, required this.searchController});
+  SearchMap({super.key});
 
   @override
   State<StatefulWidget> createState() {
@@ -52,15 +50,15 @@ class _SearchMapState extends State<SearchMap> {
     });
 
     widget.logger.i("Init state");
-    widget.searchController.stream.listen((state) {
+    BlocProvider.of<ListCubit>(context).stream.listen((state) {
       widget.logger.i("New state $state");
-      for (var loc in state.listState.data) {
-        widget.logger.i("New state data ");
+      // for (var loc in state.listState.data) {
+      //   widget.logger.i("New state data ");
 
-        getIt<GoogleMaps>().getCoordinatesFromAddress(loc.location).then((res) {
-          _markerStream.add(LatLng(res!.latitude, res.longitude));
-        });
-      }
+      //   getIt<GoogleMaps>().getCoordinatesFromAddress(loc.location).then((res) {
+      //     _markerStream.add(LatLng(res!.latitude, res.longitude));
+      //   });
+      // }
     });
   }
 

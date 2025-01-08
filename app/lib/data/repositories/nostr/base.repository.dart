@@ -21,7 +21,7 @@ class Err<T> extends DataResult<T> {
 }
 
 class BaseRepository<T extends Event> {
-  NostrFilter? eventTypeFilter;
+  List<int> kinds = [];
   NostrProvider nostr = getIt<NostrProvider>();
   late T Function(NostrEvent event) creator = (event) => event as T;
   CustomLogger logger = CustomLogger();
@@ -31,7 +31,7 @@ class BaseRepository<T extends Event> {
     NostrFilter finalFilter = NostrFilter(
       ids: filter.ids,
       authors: filter.authors,
-      kinds: [...(filter.kinds ?? []), ...(eventTypeFilter?.kinds ?? [])],
+      kinds: [...(filter.kinds ?? []), ...kinds],
       e: filter.e,
       p: filter.p,
       t: filter.t,
@@ -83,15 +83,14 @@ class BaseRepository<T extends Event> {
       request: NostrRequest(
         filters: [
           NostrFilter(limit: 1),
-          eventTypeFilter ?? NostrFilter(),
-          filter ?? NostrFilter(),
+          getCombinedFilter(filter),
         ],
       ),
     );
     return results.map(_parser).first;
   }
 
-  create(NostrEvent event) {
+  create(T event) {
     logger.i("create $event");
     return nostr.sendEventToRelaysAsync(event: event);
   }

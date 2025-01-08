@@ -40,12 +40,12 @@ void main() {
     );
 
     blocTest<AuthCubit, AuthState>(
-      'emits [InProgress] when login called().',
+      'emits [LoggedIn] when login called().',
       build: () => AuthCubit(),
       act: (bloc) {
         return bloc.signup();
       },
-      expect: () => [LoggedOut(), isA<Progress>()],
+      expect: () => [LoggedOut(), isA<LoggedIn>()],
     );
   });
 }
