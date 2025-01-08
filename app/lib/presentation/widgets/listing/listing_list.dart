@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/widgets/ui/list.dart';
 
 import 'listing_list_item.dart';
@@ -9,13 +8,11 @@ class Listings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container();
-    // return ListWidget(
-    //     builder: (el) {
-    //       return ListingListItem(
-    //         listing: el,
-    //         // dateRange: searchController.state.dateRange,
-    //       );
-    //     });
+    return ListWidget(builder: (el) {
+      return ListingListItem(
+        listing: el,
+        // dateRange: searchController.state.dateRange,
+      );
+    });
   }
 }

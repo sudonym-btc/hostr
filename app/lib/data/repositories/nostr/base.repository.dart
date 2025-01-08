@@ -20,35 +20,46 @@ class Err<T> extends DataResult<T> {
   Err(this.message);
 }
 
+NostrFilter getCombinedFilter(NostrFilter? filter1, NostrFilter? filter2) {
+  return NostrFilter(
+    ids: (filter1?.ids != null || filter2?.ids != null)
+        ? [...?filter1?.ids, ...?filter2?.ids]
+        : null,
+    authors: (filter1?.authors != null || filter2?.authors != null)
+        ? [...?filter1?.authors, ...?filter2?.authors]
+        : null,
+    kinds: (filter1?.kinds != null || filter2?.kinds != null)
+        ? [...?filter1?.kinds, ...?filter2?.kinds]
+        : null,
+    e: (filter1?.e != null || filter2?.e != null)
+        ? [...?filter1?.e, ...?filter2?.e]
+        : null,
+    p: (filter1?.p != null || filter2?.p != null)
+        ? [...?filter1?.p, ...?filter2?.p]
+        : null,
+    t: (filter1?.t != null || filter2?.t != null)
+        ? [...?filter1?.t, ...?filter2?.t]
+        : null,
+    a: (filter1?.a != null || filter2?.a != null)
+        ? [...?filter1?.a, ...?filter2?.a]
+        : null,
+    since: filter1?.since ?? filter2?.since,
+    until: filter1?.until ?? filter2?.until,
+    limit: filter1?.limit ?? filter2?.limit,
+    search: filter1?.search ?? filter2?.search,
+    additionalFilters: filter1?.additionalFilters ?? filter2?.additionalFilters,
+  );
+}
+
 class BaseRepository<T extends Event> {
   List<int> kinds = [];
   NostrProvider nostr = getIt<NostrProvider>();
   late T Function(NostrEvent event) creator = (event) => event as T;
   CustomLogger logger = CustomLogger();
 
-  NostrFilter getCombinedFilter(NostrFilter? filter) {
-    filter ??= NostrFilter();
-    NostrFilter finalFilter = NostrFilter(
-      ids: filter.ids,
-      authors: filter.authors,
-      kinds: [...(filter.kinds ?? []), ...kinds],
-      e: filter.e,
-      p: filter.p,
-      t: filter.t,
-      since: filter.since,
-      until: filter.until,
-      limit: filter.limit,
-      search: filter.search,
-      a: filter.a,
-      additionalFilters: filter.additionalFilters,
-    );
-    logger.i("finalFilter $finalFilter");
-    return finalFilter;
-  }
-
   Future<int> count(NostrFilter filter) {
     final countEvent = NostrCountEvent.fromPartialData(
-        eventsFilter: getCombinedFilter(filter));
+        eventsFilter: getCombinedFilter(filter, NostrFilter(kinds: kinds)));
 
     return Nostr.instance.relaysService
         .sendCountEventToRelaysAsync(countEvent,
@@ -67,7 +78,7 @@ class BaseRepository<T extends Event> {
     return nostr
         .startRequest(
             request: NostrRequest(
-              filters: [getCombinedFilter(filter)],
+              filters: [getCombinedFilter(filter, NostrFilter(kinds: kinds))],
             ),
             onEose: onEose)
         .stream
@@ -83,7 +94,7 @@ class BaseRepository<T extends Event> {
       request: NostrRequest(
         filters: [
           NostrFilter(limit: 1),
-          getCombinedFilter(filter),
+          getCombinedFilter(filter, NostrFilter(kinds: kinds)),
         ],
       ),
     );

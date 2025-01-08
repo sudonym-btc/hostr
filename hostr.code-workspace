@@ -1,6 +1,7 @@
 {
   "folders": [
     {
+      "name": "root",
       "path": "."
     },
     {
@@ -23,7 +24,6 @@
     },
     "[terraform-vars]": {},
     "extensions.ignoreRecommendations": false,
-    "CodeGPT.apiKey": "CodeGPT Plus Beta"
   },
   "extensions": {
     "recommendations": [
@@ -41,25 +41,25 @@
         "name": "mock",
         "request": "launch",
         "type": "dart",
-        "program": "app/lib/main_mock.dart"
+        "program": "${workspaceFolder:root}/app/lib/main_mock.dart"
       },
       {
         "name": "development",
         "request": "launch",
         "type": "dart",
-        "program": "app/lib/main_development.dart"
+        "program": "${workspaceFolder:root}/app/lib/main_development.dart"
       },
       {
         "name": "staging",
         "request": "launch",
         "type": "dart",
-        "program": "app/lib/main_staging.dart"
+        "program": "${workspaceFolder:root}/app/lib/main_staging.dart"
       },
       {
         "name": "production",
         "request": "launch",
         "type": "dart",
-        "program": "app/lib/main_production.dart"
+        "program": "${workspaceFolder:root}/app/lib/main_production.dart"
       }
     ]
   }

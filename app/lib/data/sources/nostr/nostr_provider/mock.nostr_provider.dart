@@ -12,29 +12,36 @@ import 'nostr_provider.dart';
 // todo: must filter by since, before, and limit, must implement count, must implement replaceable events
 @Singleton(as: NostrProvider, env: [Env.mock, Env.test])
 class MockNostProvider extends NostrProvider {
-  @override
-  ReplaySubject<NostrEvent> events = ReplaySubject<NostrEvent>();
+  // @override
+  // ReplaySubject<NostrEvent> events = ReplaySubject<NostrEvent>();
 
   @override
   NostrEventsStream startRequest(
       {required NostrRequest request,
       required void Function(String relay, NostrRequestEoseCommand ease) onEose,
       List<String>? relays}) {
+    logger.i("startRequest $request");
     // Create filtered events stream with artificial delay
     final filteredEvents = events.stream
+
+        /// Nostr filters act as OR, so we need to check if any filter matches
         .where((event) =>
-            request.filters.every((filter) => matchEvent(event, filter)))
-        .asyncMap((event) async {
-      await Future.delayed(
-          Duration(milliseconds: 100)); // Simulate network latency
-      return event;
-    }).take(request.filters.any((f) => f.limit != null)
+            request.filters.any((filter) => matchEvent(event, filter)))
+        .doOnData((event) => logger.t("matched event $event"))
+
+        /// Simulate network delay for each event
+        .asyncExpand((event) async* {
+      await Future.delayed(Duration(milliseconds: 500));
+      yield event;
+    })
+
+        /// Limit the number of events, Max int if no limit defined
+        .take(request.filters.any((f) => f.limit != null)
             ? request.filters
-                .map((f) => f.limit ?? double.infinity)
+                .map((f) => f.limit ?? 999999999999)
                 .reduce(min)
                 .toInt()
-            : 999999999999); // Max int if no limit defined
-
+            : 999999999999);
     onEose(
         'mock',
         NostrRequestEoseCommand(
@@ -49,6 +56,7 @@ class MockNostProvider extends NostrProvider {
   @override
   Future<NostrEventOkCommand> sendEventToRelaysAsync(
       {required NostrEvent event, List<String>? relays}) async {
+    logger.i("sendEventToRelaysAsync $event");
     events.add(event);
     return Future.value(NostrEventOkCommand(
         eventId: event.id!, isEventAccepted: true, message: ""));

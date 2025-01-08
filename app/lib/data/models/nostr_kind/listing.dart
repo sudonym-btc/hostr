@@ -78,8 +78,8 @@ class ListingContent {
       "description": description,
       "price": price.map((e) => e.toJson()).toList(),
       "minStay": minStay.inDays,
-      "checkIn": checkIn.toString(),
-      "checkOut": checkOut.toString(),
+      "checkIn": '${checkIn.hour}:${checkIn.minute}',
+      "checkOut": '${checkOut.hour}:${checkOut.minute}',
       "location": location,
       "quantity": quantity,
       "type": type.toString().split('.').last,
@@ -93,8 +93,12 @@ class ListingContent {
       description: json["description"],
       price: (json["price"] as List).map((e) => Price.fromJson(e)).toList(),
       minStay: Duration(days: json["minStay"]),
-      checkIn: TimeOfDay.fromDateTime(DateTime.parse(json["checkIn"])),
-      checkOut: TimeOfDay.fromDateTime(DateTime.parse(json["checkOut"])),
+      checkIn: TimeOfDay(
+          hour: int.parse(json["checkIn"].split(':')[0]),
+          minute: int.parse(json["checkIn"].split(':')[1])),
+      checkOut: TimeOfDay(
+          hour: int.parse(json["checkOut"].split(':')[0]),
+          minute: int.parse(json["checkOut"].split(':')[1])),
       location: json["location"],
       quantity: json["quantity"],
       type: ListingType.values

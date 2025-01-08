@@ -7,19 +7,21 @@ class Price {
 
   Price({required this.amount, required this.frequency});
 
-  factory Price.fromJson(List<dynamic> json) {
+  factory Price.fromJson(Map<String, dynamic> json) {
     return Price(
-        amount: Amount.fromJson({"amount": json[1], "currency": json[2]}),
-        frequency: Frequency.values
-            .firstWhere((e) => e.toString() == 'Frequency.${json[3]}'));
+        amount: Amount.fromJson(json['amount']),
+        frequency: Frequency.values.firstWhere(
+            (e) => e.toString() == 'Frequency.${json['frequency']}'));
   }
 
-  List<dynamic> toJson() {
-    return [
-      amount.value,
-      amount.currency.toString().split('.').last,
-      frequency.toString().split('.').last
-    ];
+  Map<String, dynamic> toJson() {
+    return {
+      'amount': {
+        'value': amount.value,
+        'currency': amount.currency.toString().split('.').last,
+      },
+      'frequency': frequency.toString().split('.').last
+    };
   }
 }
 
