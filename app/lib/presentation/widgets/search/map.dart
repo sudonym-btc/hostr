@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/core/main.dart';
+import 'package:hostr/data/main.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/widgets/search/map_style.dart';
 import 'package:rxdart/rxdart.dart';
 
-double mapsGoogleLogoSize = 25;
+double mapsGoogleLogoSize = 150;
 
 class SearchMap extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
@@ -30,7 +31,9 @@ class _SearchMapState extends State<SearchMap> {
   final ReplaySubject<LatLng> _markerStream = ReplaySubject<LatLng>();
 
   _onMapCreated(GoogleMapController controller) {
+    widget.logger.i("Map created");
     if (!_controller.isCompleted) {
+      widget.logger.i("Map completed");
       _controller.complete(controller);
       _mapReadySubject.add(true);
     }
@@ -50,7 +53,7 @@ class _SearchMapState extends State<SearchMap> {
     });
 
     widget.logger.i("Init state");
-    BlocProvider.of<ListCubit>(context).stream.listen((state) {
+    BlocProvider.of<ListCubit<Listing>>(context).stream.listen((state) {
       widget.logger.i("New state $state");
       // for (var loc in state.listState.data) {
       //   widget.logger.i("New state data ");
@@ -142,11 +145,14 @@ class _SearchMapState extends State<SearchMap> {
         left: 0,
         right: 0,
         bottom: 0,
-        height: mapsGoogleLogoSize,
+        height: 0 * 2,
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              stops: [1, 1.0], // More solid for 80%, quickly fades at the top
+              stops: [
+                0.75,
+                1.0
+              ], // More solid for 80%, quickly fades at the top
 
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,

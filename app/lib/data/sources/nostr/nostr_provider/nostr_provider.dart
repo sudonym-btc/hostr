@@ -1,11 +1,13 @@
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:dart_nostr/nostr/model/ease.dart';
 import 'package:dart_nostr/nostr/model/ok.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 
 abstract class NostrProvider {
+  CustomLogger logger = CustomLogger();
   ReplaySubject<NostrEvent> events = ReplaySubject<NostrEvent>();
 
   NostrEventsStream startRequest(

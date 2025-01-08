@@ -23,10 +23,10 @@ class SearchResultsWidget extends StatelessWidget {
                 child: Center(
                   child: Container(
                     width: 40,
-                    height: 5,
+                    height: 4,
                     decoration: BoxDecoration(
                       color: Colors.grey,
-                      borderRadius: BorderRadius.circular(2.5),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
@@ -40,7 +40,8 @@ class SearchResultsWidget extends StatelessWidget {
           maxHeight: MediaQuery.of(context).size.height,
           body: Column(children: [
             Container(
-                height: totalHeight - listingStartHeight, child: SearchMap()),
+                height: totalHeight - listingStartHeight + mapsGoogleLogoSize,
+                child: SearchMap()),
           ]));
     }));
   }

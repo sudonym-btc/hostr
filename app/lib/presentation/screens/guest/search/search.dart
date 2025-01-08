@@ -20,25 +20,24 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
-    // const mapHeight = 400.0; // Fixed map height
-
-    // var totalHeight = MediaQuery.of(context).size.height;
-    // var topHeight = totalHeight - listingStartHeight;
-
     return Scaffold(
         body: MultiBlocProvider(
             providers: [
+          /// Use widget page query parameters to discover initial search parameters
           BlocProvider(create: (context) => DateRangeCubit()),
 
           /// Initialize a list with cubits for updating search settings
           BlocProvider(create: (context) => SortCubit<Listing>()),
+
           BlocProvider(create: (context) => FilterCubit()),
           BlocProvider(create: (context) => PostResultFilterCubit()),
           BlocProvider(
               create: (context) => ListCubit<Listing>(
-                  sortCubit: context.read<SortCubit>(),
+                  kinds: Listing.kinds,
+                  sortCubit: context.read<SortCubit<Listing>>(),
                   postResultFilterCubit: context.read<PostResultFilterCubit>(),
-                  filterCubit: context.read<FilterCubit>())),
+                  filterCubit: context.read<FilterCubit>())
+                ..next()),
         ],
             child: SafeArea(
                 child: Column(

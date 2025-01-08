@@ -25,12 +25,17 @@ class ListingListItem extends StatelessWidget {
             )),
         leading: SizedBox(
             width: 120,
+            height: 120,
             child: CarouselSlider(
               options: CarouselOptions(viewportFraction: 1, padEnds: false),
               items: listing.parsedContent.images.map((i) {
                 return Builder(
                   builder: (BuildContext context) {
-                    return Image.network(i);
+                    return Image.network(
+                      i,
+                      width: MediaQuery.of(context).size.width,
+                      fit: BoxFit.cover,
+                    );
                   },
                 );
               }).toList(),
