@@ -4,8 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 
-class EntityCubit<T, R extends BaseRepository> extends Cubit<EntityCubitState> {
-  R repo = getIt<R>();
+class EntityCubit<T> extends Cubit<EntityCubitState<T>> {
+  BaseRepository repo = getIt<BaseRepository>();
   NostrFilter? filter;
   EntityCubit() : super(const EntityCubitState(data: null));
 
@@ -13,20 +13,20 @@ class EntityCubit<T, R extends BaseRepository> extends Cubit<EntityCubitState> {
     this.filter = filter;
   }
 
-  get() async {
+  get(String id) async {
     emit(state.copyWith(active: true, data: null));
     var item = await repo.get(filter: filter);
-    emit(state.copyWith(data: item, active: false));
+    // emit(state.copyWith(data: item, active: false));
   }
 }
 
 class EntityCubitState<T> extends Equatable {
-  final T data;
+  final T? data;
   final bool active;
 
   const EntityCubitState({required this.data, this.active = false});
 
-  EntityCubitState copyWith({
+  EntityCubitState<T> copyWith({
     T? data,
     bool? active,
   }) =>

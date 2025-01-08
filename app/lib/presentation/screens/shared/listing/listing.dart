@@ -1,6 +1,5 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
@@ -26,17 +25,18 @@ class ListingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<EntityCubit<Listing, ListingRepository>>(
-        create: (context) => ListingCubit()
-          ..setFilter(NostrFilter())
-          ..get(),
-        child: BlocBuilder<ListingCubit, EntityCubitState>(
+    return BlocProvider<EntityCubit<Listing>>(
+        create: (context) => EntityCubit<Listing>()..get(id),
+        child: BlocBuilder<EntityCubit<Listing>, EntityCubitState<Listing>>(
             builder: (context, state) {
+          if (state.data == null) {
+            return Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
           return Scaffold(
               bottomNavigationBar: state.data != null
                   ? BottomAppBar(
                       child: Reserve(
-                        listing: state.data,
+                        listing: state.data!,
                         dateRange: dateRange,
                       ),
                     )
@@ -52,7 +52,8 @@ class ListingScreen extends StatelessWidget {
                             CarouselSlider(
                               options: CarouselOptions(
                                   viewportFraction: 1, padEnds: false),
-                              items: state.data.images.map<Widget>((i) {
+                              items: state.data!.parsedContent.images
+                                  .map<Widget>((i) {
                                 return Builder(
                                   builder: (BuildContext context) {
                                     return Image.network(i);
@@ -66,16 +67,17 @@ class ListingScreen extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      state.data.type + ' hosted by ',
+                                      '${state.data!.parsedContent.type} hosted by ',
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleLarge,
                                     ),
                                     const SizedBox(height: 8.0),
                                     AmenityTags(
-                                        amenities: state.data.amenities),
+                                        amenities: state
+                                            .data!.parsedContent.amenities),
                                     const SizedBox(height: 8.0),
-                                    Text(state.data.description,
+                                    Text(state.data!.parsedContent.description,
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodyMedium),
@@ -104,8 +106,7 @@ class Reserve extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                    "\$${listing.amountPerDay * (dateRange!.start.difference(dateRange!.end).inDays + 1)} total"),
+                Text("\$${listing.cost(dateRange!)} total"),
                 Text(
                     '${formatDate(dateRange!.start)} - ${formatDate(dateRange!.end)}')
               ],

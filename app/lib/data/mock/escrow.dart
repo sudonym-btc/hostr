@@ -3,24 +3,19 @@ import 'dart:convert';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 
-import '../models/escrow.dart';
+import '../models/nostr_kind/escrow.dart';
 import 'keypairs.dart';
 
 var MOCK_ESCROWS = [
-  NostrEvent.fromPartialData(
-      keyPairs: MockKeys.sccrow,
-      content: JsonEncoder().convert({
-        'type': 'ROOTSTOCK',
-        'kinds': [NOSTR_KIND_BOOKING],
-        'maxTime': 365,
-        'cost': {
-          'flat': 100,
-          'percentage': 10,
-          'flatTime': 100,
-          'percentageTime': 0
-        },
-      }),
+  Escrow.fromNostrEvent(NostrEvent.fromPartialData(
+      keyPairs: MockKeys.escrow,
+      content: json.encode(EscrowContent(
+              chainId: 30,
+              pubkey: MockKeys.escrow.public,
+              maxDuration: Duration(days: 365),
+              type: EscrowType.ROOTSTOCK)
+          .toJson()),
       createdAt: DateTime.now(),
       kind: NOSTR_KIND_ESCROW,
-      tags: [])
-].map(Escrow.fromNostrEvent).toList();
+      tags: []))
+].toList();

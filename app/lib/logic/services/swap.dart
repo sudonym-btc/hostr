@@ -105,7 +105,7 @@ class SwapService {
 
     EtherSwap swapContract = await getRootstockEtherSwap();
 
-    // Create the args record for the lock function
+    // Create the args record for the claim function
     final claimArgs = (
       amount: BigInt.from(swap.onchainAmount * satoshiWeiFactor),
       preimage: Uint8List.fromList(preimage.codeUnits),

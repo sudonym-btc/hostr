@@ -15,7 +15,7 @@ class ListingListItem extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       child: ListTile(
         onTap: () => AutoRouter.of(context).root.push(ListingRoute(
-              id: listing.event.id!,
+              id: listing.id!,
               dateRangeStart: dateRange?.start != null
                   ? dateRange!.start.toIso8601String()
                   : null,
@@ -27,7 +27,7 @@ class ListingListItem extends StatelessWidget {
             width: 120,
             child: CarouselSlider(
               options: CarouselOptions(viewportFraction: 1, padEnds: false),
-              items: listing.images.map((i) {
+              items: listing.parsedContent.images.map((i) {
                 return Builder(
                   builder: (BuildContext context) {
                     return Image.network(i);
@@ -35,9 +35,9 @@ class ListingListItem extends StatelessWidget {
                 );
               }).toList(),
             )),
-        title: Text(listing.type),
+        title: Text(listing.parsedContent.type.toString()),
         subtitle: Text(
-          listing.description.toString(),
+          listing.parsedContent.description,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),

@@ -31,7 +31,7 @@ var MOCK_PROFILES = [
       kind: NOSTR_KIND_PROFILE,
       tags: []),
   NostrEvent.fromPartialData(
-      keyPairs: MockKeys.sccrow,
+      keyPairs: MockKeys.escrow,
       content: JsonEncoder().convert({
         'name': 'Hostr Escrow',
         'about': 'Provides cheap escrow services for nostr',

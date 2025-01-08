@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/logic/main.dart';
 
 class SearchBox extends StatelessWidget {
-  CustomSearchController searchController;
-  SearchBox({super.key, required this.searchController});
+  const SearchBox({super.key});
 
   @override
   Widget build(BuildContext context) {
