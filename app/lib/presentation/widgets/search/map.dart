@@ -127,7 +127,7 @@ class _SearchMapState extends State<SearchMap> {
       AnimatedOpacity(
           // If the widget is visible, animate to 0.0 (invisible).
           // If the widget is hidden, animate to 1.0 (fully visible).
-          opacity: _controller.isCompleted ? 1.0 : 0.0,
+          opacity: _controller.isCompleted ? 1.0 : 1,
           duration: const Duration(milliseconds: 1000),
           child: GoogleMap(
             style: getMapStyle(context),
