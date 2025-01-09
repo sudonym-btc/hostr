@@ -43,11 +43,7 @@ class ProfileScreen extends StatelessWidget {
                   FilledButton(
                     child: Text('Zap us'),
                     onPressed: () {
-                      showModalBottomSheet(
-                          context: context,
-                          builder: (context) {
-                            return ZapInput();
-                          });
+                      context.read<PaymentsManager>().create();
                     },
                   ),
                   // ZapList(

@@ -131,17 +131,19 @@ The search filter controller should emit:
 (NostrFilter filter, PredicateFunction shouldIncludeEvent, DateTimeRange dateRange)
 ```
 
-### Order controller
+### Sort controller
 
-The order controller should emit:
+The sort controller should emit:
 
 ```dart
-Function order(Listing a, Listing b) => -1 || 0 || 1;
+Function sort(Listing a, Listing b) => -1 || 0 || 1;
 ```
 
-This way we could order by cost:
+This way we could sort by cost:
 
 ```dart
+
+sortController.update((Listing a, Listing b) => a.cost(dates).compareTo(b.cost(dates)))
 
 ```
 
@@ -217,6 +219,83 @@ flowchart TD
   NWCResponse-->CloseUI
 ```
 
+Payments requests, triggered by components in the app, should queue until they are next to be processed. Edge case.
+
+### Payments for swaps
+
+When we swap funds from lightning into EVM balance, the preimage from the swap invoice we paid is used to claw back the funds if something goes wrong. We also generate this preimage, so we must store this safely.
+
+When we swap from EVM to lightning, we don't need receipt from lightning that payment was made. As we can just reclaim our EVM balance after a timeout if it has not been claimed. Movement of the EVM funds indicate success or failure.
+
+### Payments Manager / Ephemeral
+
+```dart
+class PaymentManager {
+  List<PaymentCubit> payments = [];
+
+  void initiatePayment(double amount) {
+    var paymentCubit = PaymentCubit(amount);
+    payments.add(paymentCubit);
+    emit(paymentCubit)
+
+    paymentCubit.stream.listen((paymentStatus) {
+      if (paymentStatus is TerminalPaymentState) {
+        payments.remove(paymentCubit);
+      }
+    });
+  }
+}
+```
+
+```dart
+class PaymentCubit extends Cubit<String> {
+  final double amount;
+  final String to;
+
+  PaymentCubit(this.amount) : super('Initialized');
+
+  void resolve() {
+    // Logic to resolve payment details
+    emit('Resolved');
+  }
+
+  void confirm() {
+    // Logic to confirm payment
+    emit('Confirmed');
+    listenForResponse();
+  }
+
+  void listenForResponse() {
+    // Logic to listen for nostr events and check for result
+    Future.delayed(Duration(seconds: 2), () {
+      emit('Completed');
+    });
+  }
+}
+```
+
+Consume payment requests visually
+
+```dart
+// Listen to PaymentManager for new payments
+  builder: (context, child) {
+    return BlocListener<PaymentManager, PaymentCubit?>(
+      listener: (context, paymentCubit) {
+        if (paymentCubit != null) {
+          paymentCubit.resolve();
+          showModalBottomSheet(
+            context: context,
+            builder: (context) {
+              return PaymentStatusSheet(paymentCubit: paymentCubit);
+            },
+          );
+        }
+      },
+      child: child,
+    );
+  },
+```
+
 ## Swap out (Submarine Swap)
 
 A swap-out occurs after an escrow has paid the seller out on the EVM chain.
@@ -269,7 +348,7 @@ How can we get cought out?
 flowchart TD
   SwapIn[Swap In
   amount, sweepToAddr]
-  -->ContactBoltz[Contact Boltz for Submarine Swap:amount, claimAddr, preimageHash]
+  -->ContactBoltz[Contact Boltz for Reverse Submarine Swap:amount, claimAddr, preimageHash]
   ContactBoltz-->SwapDetails[Returns: 
   amount, refundAddr, timelock, invoice]
   SwapDetails-->PaymentFlow[Payment Flow
@@ -296,7 +375,206 @@ flowchart TD
 
 ```
 
-flutter_background_service 5.1.0
+```
+class EscrowDepositManager extends Cubit<Map<String, dynamic>> {
+  final SwapManager swapManager;
+  final RpcClient rpcClient;
+  Map<String, dynamic> pendingDeposits = {};
+
+  EscrowDepositManager(this.swapManager, this.rpcClient) : super({});
+
+  void initiateEscrowDeposit(double amount, String escrowPubkey, String counterpartyPubkey) {
+    final depositId = DateTime.now().millisecondsSinceEpoch.toString();
+    pendingDeposits[depositId] = {
+      'amount': amount,
+      'escrowPubkey': escrowPubkey,
+      'counterpartyPubkey': counterpartyPubkey,
+      'status': 'initiated'
+    };
+    emit(pendingDeposits);
+
+    swapManager.swapIn(amount);
+    swapManager.stream.listen((swapStatus) {
+      if (swapStatus == 'Completed') {
+        _completeEscrowDeposit(depositId);
+      }
+    });
+  }
+
+  void _completeEscrowDeposit(String depositId) {
+    final deposit = pendingDeposits[depositId];
+    if (deposit != null) {
+      final amount = deposit['amount'];
+      final escrowPubkey = deposit['escrowPubkey'];
+      final counterpartyPubkey = deposit['counterpartyPubkey'];
+
+      // Create and broadcast the escrow transaction
+      rpcClient.createEscrowTransaction(amount, escrowPubkey, counterpartyPubkey).then((txHash) {
+        deposit['status'] = 'completed';
+        deposit['txHash'] = txHash;
+        emit(pendingDeposits);
+      }).catchError((error) {
+        deposit['status'] = 'failed';
+        emit(pendingDeposits);
+      });
+    }
+  }
+
+  void resumePendingDeposits() {
+    pendingDeposits.forEach((depositId, deposit) {
+      if (deposit['status'] == 'initiated') {
+        swapManager.swapIn(deposit['amount']);
+        swapManager.stream.listen((swapStatus) {
+          if (swapStatus == 'Completed') {
+            _completeEscrowDeposit(depositId);
+          }
+        });
+      }
+    });
+  }
+```
+
+```mermaid
+flowchart TD
+  A[Escrow Deposit Initiated] --> B[Show Escrow Profile]
+  B --> C[Show Listing Info Widget]
+  C --> D[Show Profile of Seller]
+  D --> E[Show Pricing + Fees]
+  E --> F{Buyer OK's This?}
+  F -- Yes --> G[Initiate Swap In]
+  G --> H[Initiate Lightning Payment]
+  H --> I{Swap Completed or Failed?}
+  I -- Completed --> J[Open Escrow-Deposit Modal]
+  I -- Failed --> K[Handle Swap Failure]
+  J --> L[Wait for Escrow Transaction Confirmation]
+  L --> M[Escrow Deposit Completed]
+```
+
+## Swap Manager (Hydrated)
+
+The swap manager is a global service that can run independently from UI (may need to be run in [background](https://pub.dev/packages/flutter_background_service)) when possible.
+
+Swap manager should be a hydrated cubit, such that it remembers the latest scanned part of the chain.
+
+- We need to make sure that if two instances of swap manager are running, they do not broadcast competing transactions. If they deterministically create the same transactions, should these be rejected by network and don't risk double-paying fees?
+
+```mermaid
+classDiagram
+    class SwapManager {
+        -String privateKey
+        -List<String> lockInPreimagesFromMemory
+        -RpcClient rpcClient
+        -PaymentsCubit paymentsCubit
+        +initialize()
+        +scanChain()
+        +initializeSwaps()
+        +swapIn(double amount)
+        +swapOut(double amount)
+    }
+
+    class SwapCubit {
+        +id // identifies the swap uniquely pre-image hash or EVM txId
+        +emitInFlight()
+        +emitCompleted()
+        +emitFailed()
+    }
+
+    class SwapInCubit {
+        +emitClaiming()
+    }
+
+    class SwapOutCubit {
+        +emitRefunding()
+        +emitRefunded()
+    }
+
+    class PaymentsCubit {
+        +initiatePayment(double amount)
+    }
+
+    SwapManager --> SwapCubit
+    SwapManager --> PaymentsCubit
+    SwapCubit <|-- SwapInCubit
+    SwapCubit <|-- SwapOutCubit
+```
+
+```dart
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'payment_cubit.dart';
+
+class SwapManager extends Cubit<String> {
+  String privateKey;
+  List<String> lockInPreimagesFromMemory;
+  RpcClient rpcClient;
+  List<SwapCubit> swaps = [];
+  PaymentsCubit paymentsCubit;
+
+  SwapManager(this.privateKey, this.lockInPreimagesFromMemory, this.rpcClient, this.paymentsCubit) : super('Initialized') {
+    paymentsCubit.stream.listen((paymentStatus) {
+      // Handle payment status updates
+    });
+  }
+
+  void initialize() {
+    scanChain();
+    initializeSwaps();
+  }
+
+  void scanChain() {
+    // Logic to scan the EVM chain for pending swaps
+    // Populate the swaps list with SwapInCubit or SwapOutCubit instances
+  }
+
+  void initializeSwaps() {
+    for (var swap in swaps) {
+      swap.checkStatus();
+    }
+  }
+
+  void swapIn(double amount) {
+    var swapInCubit = SwapInCubit();
+    swaps.add(swapInCubit);
+    emit('InFlight');
+    paymentsCubit.initiatePayment(amount);
+    paymentsCubit.stream.listen((paymentStatus) {
+      if (paymentStatus == 'Completed') {
+        swapInCubit.emitCompleted();
+        emit('Completed');
+      } else if (paymentStatus == 'Failed') {
+        swapInCubit.emitFailed();
+        emit('Failed');
+      }
+    });
+  }
+
+  void swapOut(double amount) {
+    var swapOutCubit = SwapOutCubit();
+    swaps.add(swapOutCubit);
+    emit('InFlight');
+    // Additional logic for swap out
+  }
+}
+```
+
+The swap manager might then be consumed like this
+
+```dart
+@override
+Widget build(BuildContext context) {
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<SwapManager>(
+        create: (context) => swapManager,
+      ),
+      ...swapManager.swaps.map((swap) => BlocProvider.value(value: swap)),
+    ],
+    child: MaterialApp(
+      home: SwapListScreen(),
+    ),
+  );
+}
+```
+
 
 ## Improvements
 
