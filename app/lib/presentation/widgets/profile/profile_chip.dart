@@ -1,8 +1,5 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/models/nostr_kind/profile.dart';
-import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/widgets/providers/nostr/profile.provider.dart';
 
 class ProfileChip extends StatelessWidget {
   final String id;
@@ -11,13 +8,9 @@ class ProfileChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<EntityCubit<Profile>>(
-        create: (context) => EntityCubit<Profile>(
-            filter: NostrFilter(kinds: Profile.kinds, p: [id]))
-          ..get(),
-        child: BlocBuilder<EntityCubit<Profile>, EntityCubitState<Profile>>(
-            builder: (context, state) {
-          print('profile state ${state}');
+    return ProfileProvider(
+        id: id,
+        builder: (context, state) {
           var name = state.data?.parsedContent.name ?? id;
           return ConstrainedBox(
               constraints: BoxConstraints(
@@ -36,6 +29,6 @@ class ProfileChip extends StatelessWidget {
                     name,
                     overflow: TextOverflow.ellipsis,
                   )));
-        }));
+        });
   }
 }

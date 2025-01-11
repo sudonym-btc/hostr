@@ -9,7 +9,6 @@ const NOSTR_KIND_ESCROW = 40021;
 const NOSTR_KIND_PROFILE = 0;
 const NOSTR_KIND_REACTION = 7;
 
-/// RUMOUR AS IT IS UNSIGNED AND NO pubkey FIELD
 /// A seal is a kind:13 event that wraps a rumor with the sender's regular key. The seal is always encrypted to a receiver's pubkey but there is no p tag pointing to the receiver. There is no way to know who the rumor is for without the receiver's or the sender's private key. The only public information in this event is who is signing it.
 const NOSTR_KIND_SEAL = 13;
 

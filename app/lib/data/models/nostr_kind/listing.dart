@@ -6,11 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 
 import '../amount.dart';
-import '../event.dart';
 import '../price.dart';
 import 'reservation.dart';
+import 'type_json_content.dart';
 
-class Listing extends Event<ListingContent> {
+class Listing extends JsonContentNostrEvent<ListingContent> {
   static List<int> kinds = [NOSTR_KIND_LISTING];
 
   Listing.fromNostrEvent(NostrEvent e)

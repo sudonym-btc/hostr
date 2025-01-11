@@ -34,7 +34,7 @@ jobs:
         working-directory: app/widgetbook_workspace
 
       - name: Run tests
-        run: flutter test
+        run: flutter test --coverage
         working-directory: app
   release:
     name: Release

@@ -4,10 +4,10 @@ import 'dart:core';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 
-import '../event.dart';
+import 'type_json_content.dart';
 import 'zap_request.dart';
 
-class ZapReceipt extends Event<ZapReceiptContent> {
+class ZapReceipt extends JsonContentNostrEvent<ZapReceiptContent> {
   static List<int> kinds = [NOSTR_KIND_ZAP_RECEIPT];
   ZapReceipt.fromNostrEvent(NostrEvent e)
       : super(

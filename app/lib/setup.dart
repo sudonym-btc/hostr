@@ -10,7 +10,6 @@ import 'package:path_provider/path_provider.dart';
 import 'injection.dart';
 
 setup(String env) async {
-  print('ensuring storage');
   WidgetsFlutterBinding.ensureInitialized();
 
   HydratedBloc.storage = await HydratedStorage.build(

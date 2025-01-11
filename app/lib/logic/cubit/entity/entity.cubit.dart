@@ -20,13 +20,10 @@ class EntityCubit<T extends NostrEvent> extends Cubit<EntityCubitState<T>> {
                   filters: [getCombinedFilter(filter, NostrFilter(limit: 1))]))
           .then((items) => items.first as T);
 
-      print('result $result');
-
       emit(EntityCubitState(data: result, active: false));
     } catch (e) {
       emit(state.copyWith(active: false));
     }
-    print('done');
   }
 }
 
