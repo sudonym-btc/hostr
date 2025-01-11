@@ -10,7 +10,7 @@ class SearchBox extends StatelessWidget {
         title: Text(
             style: Theme.of(context)
                 .textTheme
-                .bodyMedium!
+                .bodyLarge!
                 .copyWith(fontWeight: FontWeight.bold),
             'Where?'),
         subtitle: Text('When?'),

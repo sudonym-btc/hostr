@@ -21,7 +21,7 @@ class Escrow extends Event<EscrowContent> {
             tags: e.tags);
 }
 
-class EscrowContent {
+class EscrowContent extends EventContent {
   final String pubkey;
   final int chainId;
   final Duration maxDuration;
@@ -35,6 +35,7 @@ class EscrowContent {
       required this.maxDuration,
       required this.type});
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       "pubkey": pubkey,

@@ -4,23 +4,33 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 
-class EntityCubit<T> extends Cubit<EntityCubitState<T>> {
-  BaseRepository repo = getIt<BaseRepository>();
-  NostrFilter? filter;
-  EntityCubit() : super(const EntityCubitState(data: null));
+class EntityCubit<T extends NostrEvent> extends Cubit<EntityCubitState<T>> {
+  NostrProvider nostr = getIt<NostrProvider>();
+  final NostrFilter? filter;
 
-  setFilter(NostrFilter filter) {
-    this.filter = filter;
-  }
+  EntityCubit({required this.filter})
+      : super(const EntityCubitState(data: null));
 
-  get(String id) async {
-    emit(state.copyWith(active: true, data: null));
-    var item = await repo.get(filter: filter);
-    // emit(state.copyWith(data: item, active: false));
+  get() async {
+    emit(state.copyWith(active: true));
+    try {
+      T result = await nostr
+          .startRequestAsync(
+              request: NostrRequest(
+                  filters: [getCombinedFilter(filter, NostrFilter(limit: 1))]))
+          .then((items) => items.first as T);
+
+      print('result $result');
+
+      emit(EntityCubitState(data: result, active: false));
+    } catch (e) {
+      emit(state.copyWith(active: false));
+    }
+    print('done');
   }
 }
 
-class EntityCubitState<T> extends Equatable {
+class EntityCubitState<T extends NostrEvent> extends Equatable {
   final T? data;
   final bool active;
 

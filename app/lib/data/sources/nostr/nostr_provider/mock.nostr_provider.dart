@@ -54,6 +54,11 @@ class MockNostProvider extends NostrProvider {
   }
 
   @override
+  Future<int> count(NostrFilter filter) async {
+    return events.values.where((event) => matchEvent(event, filter)).length;
+  }
+
+  @override
   Future<NostrEventOkCommand> sendEventToRelaysAsync(
       {required NostrEvent event, List<String>? relays}) async {
     logger.i("sendEventToRelaysAsync $event");
@@ -63,19 +68,47 @@ class MockNostProvider extends NostrProvider {
   }
 
   matchEvent(NostrEvent event, NostrFilter filter) {
+    /// Only match the correct event kinds
     if (filter.kinds != null && !filter.kinds!.contains(event.kind)) {
       return false;
     }
+
+    /// Only match events from a specific pubkey
     if (filter.p != null && !filter.p!.contains(event.pubkey)) {
       return false;
     }
-    if (filter.authors != null &&
-        (!filter.authors!.contains(event.pubkey) ||
-            (event.tags!.contains((tag) => tag[0] == "delegation") &&
-                !filter.authors!.contains(event.tags!
-                    .lastWhere((tag) => tag[0] == "delegation")[1])))) {
+
+    /// Only match events from that are addressable by kind:pubkey:string => "a" tag
+    if (filter.a != null &&
+        !filter.a!.any(
+            (a) => event.tags!.any((tag) => tag[0] == "a" && tag[1] == a))) {
       return false;
     }
+
+    print("keys ${filter.additionalFilters?.values}");
+
+    /// Only match events that contain a tag
+    if (filter.additionalFilters != null &&
+        filter.additionalFilters!.keys.isNotEmpty &&
+
+        /// Loop through all the additional filters
+        !filter.additionalFilters!.keys
+            .any((tagType) => event.tags!.any((eventTag) {
+                  /// Returns true if the event contains
+                  return (filter.additionalFilters![tagType] as List<String>)
+                      .any(eventTag.contains);
+                }))) {
+      return false;
+    }
+
+    // if (filter.authors != null &&
+    //     (!filter.authors!.contains(event.pubkey) ||
+    //         (event.tags!.contains((tag) => tag[0] == "delegation") &&
+    //             !filter.authors!.contains(event.tags!
+    //                 .lastWhere((tag) => tag[0] == "delegation")[1])))) {
+
+    //   return false;
+    // }
 
     return true;
   }

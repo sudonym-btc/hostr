@@ -1,5 +1,4 @@
 PODS:
-  - boltz_dart (0.1.6)
   - Flutter (1.0.0)
   - flutter_secure_storage (6.0.0):
     - Flutter
@@ -23,7 +22,6 @@ PODS:
     - Flutter
 
 DEPENDENCIES:
-  - boltz_dart (from `.symlinks/plugins/boltz_dart/ios`)
   - Flutter (from `Flutter`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - google_maps_flutter_ios (from `.symlinks/plugins/google_maps_flutter_ios/ios`)
@@ -37,8 +35,6 @@ SPEC REPOS:
     - GoogleMaps
 
 EXTERNAL SOURCES:
-  boltz_dart:
-    :path: ".symlinks/plugins/boltz_dart/ios"
   Flutter:
     :path: Flutter
   flutter_secure_storage:
@@ -53,7 +49,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
-  boltz_dart: 7ebb80d3776711efacb5823a3d9a9bb1221bac95
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_secure_storage: d33dac7ae2ea08509be337e775f6b59f1ff45f12
   Google-Maps-iOS-Utils: 66d6de12be1ce6d3742a54661e7a79cb317a9321
@@ -65,4 +60,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 775997f741c536251164e3eacf6e34abf2eb7a17
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

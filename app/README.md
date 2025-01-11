@@ -6,10 +6,10 @@ This is a client that displays and posts events related to short term accommodat
 
 Install [Flutter](https://docs.flutter.dev/get-started/install)
 By default flutter launches in `mock` mode. It will not attempt to connect to relays or swap services. To connect to other environments, check the VSCode debug launcher.
+
 ```bash
 flutter run
 ```
-
 
 ## Structure
 
@@ -17,12 +17,12 @@ flutter run
 ./lib
 ├── config            # Configs like default relays and EVM-RPC URLs
 ├── core              # Utils and mic
-├── data   
+├── data
     ├── models        # Data models and mock data
     └── repositories  # Classes for fetching certain types of data
 ├── logic             # How data flows through app
 ├── presentation      # How data looks
-└── README.md               
+└── README.md
 ```
 
 ## NIPs Utilized
@@ -35,38 +35,26 @@ flutter run
 
 ## Nostr Synchronization
 
-### Lister state
+### Hydrated cubits
 
-A lister takes a filter and starts a subscription stream instance with a specific filter.
+[Hydrated](https://pub.dev/packages/hydrated_bloc) blocs are used to persist state between app relaunched, preventing re-sync upon every usage.
+Hydrated blocs must be cleared on logout.
+
+### List cubit
+
+A list cubit listens to a filter and starts a subscription stream instance with a specific filter. Emitting from the filter cubit will trigger the list state to reset.
+Use a postFilter cubit to emit a predicate that filters fetched results based on parameters that can't be filtered for via Nostr requests directly.
+A sort cubit determines how the results are ordered.
 
 ```dart
-class StreamCubit<T extends NostrEvent>() {
-  NostrFilter filter;
-  Func(T)=>bool includeEventPredicate;
-  Func(T a, T b) => 0, -1, 1 order;
-
-  StreamCubit({
-    required this.filter,
-
-    // By default include all received events
-    this.includeEventPredicate = (T event) => true
-  })
+class ListCubit<NostrEvent> {
+  FilterCubit filter;
+  PostResultFilterCubit postFilter;
+  SortCubit sort;
 }
 ```
 
 It has the following methods:
-
-`Close`
-
-```dart
-Close all subscriptions to relays
-```
-
-`setIncludeEventPredicate`
-
-```dart
-Allows adjusting of post result predicate to update client-side search results
-```
 
 `Load new`
 
@@ -100,12 +88,6 @@ while(await loadNext()) do
 emit(State.copyWith({status: Synching}))
 ```
 
-`setOrdering`
-
-```dart
-// Reorder results by new order function
-```
-
 The class emits:
 
 ```dart
@@ -116,58 +98,15 @@ Synching      // Used when loading next in a loop
 Failed        // Used when all relays fail to respond correctly
 ```
 
-### Hydrated cubits
+### Messaging cubit (Hydrated)
 
-[Hydrated](https://pub.dev/packages/hydrated_bloc) blocs are used to persist state between app relaunched, preventing re-sync upon every usage.
-Hydrated blocs must be cleared on logout.
-
-### Search
-
-### Filter Controller
-
-The search filter controller should emit:
-
-```dart
-(NostrFilter filter, PredicateFunction shouldIncludeEvent, DateTimeRange dateRange)
-```
-
-### Sort controller
-
-The sort controller should emit:
-
-```dart
-Function sort(Listing a, Listing b) => -1 || 0 || 1;
-```
-
-This way we could sort by cost:
-
-```dart
-
-sortController.update((Listing a, Listing b) => a.cost(dates).compareTo(b.cost(dates)))
-
-```
-
-### Reservation Checker Cubit
-
-The reservation checker cubit can listen to the search list results, and query corresponding reservations as needed.
-
-For each search result which matches the shouldIncludeEvent filter we need to fetch reservations to check availability.
-This is difficult, because one listing could have hundreds of reservations, or many listings could have no reservations.
-In the first iteration, we can.
-
-We could potentially load multiple listing's reservations using one `NostrFilter` by inputting multiple `d` tags.
-
-For each result in our results list, we need to query all reservations as there is no way to filter based on date range.
-
-Once each synch event fires, indicating that reservations have completely loaded for a set of listings, we need to update the search result predicate to exclude those items, or reorder the list.
-
-### Messages (Hydrated / Global)
+The messaging cubit is responsible for loading and storing all `kind 14` private and encrypted DMs. Since messages include reservation offers made & received, it's vital that this stays up-to-date and is synched upon app login. Since private DMs are sent using a random pubkey for added privacy, it is not possible to search for messages from/to our OWN pubkey to load relevant messages. Nostr NIP [17](https://github.com/nostr-protocol/nips/blob/master/17.md) recomemends giftwrapping the message and sending it from randomized keys to us and to the real receiver.
 
 Before a user can interact in the inbox, the message stream must have received `EOSE` for all connected relays using filter
 
 ```json
 {
-  kinds [1059], 
+  kinds [1059],
   tags: [
     ["p", userPubkey]
   ]
@@ -176,12 +115,62 @@ Before a user can interact in the inbox, the message stream must have received `
 
 This stream, when completed, will hold a state of all messages ever received.
 
-While streaming:
+```dart
+/// This list should stay in memory for the duration of a user sign in
+class MessagingCubit extends ListCubit<Message> with HydratedMixin {
+  kinds: [14],
+  List<ThreadCubit> threads
 
-1. Unwrap DM kind 17
-2. ds
+  init() {
+    items.listen((message) {
+      addToThread(message)
+    })
+  }
 
-###
+  addToThread(NostrEvent message) {
+
+  }
+}
+class MessagingCubitState {
+  List<ThreadCubit>
+}
+```
+
+```dart
+class ThreadCubit extends Cubit<> {
+
+}
+```
+
+### Search
+
+### Reservation Checker Cubit
+
+The reservation checker cubit can listen to the search list results, and query corresponding reservations as needed.
+
+For each search result which matches the postResultFilter filter we need to fetch reservations to check availability.
+This is difficult, because one listing could have hundreds of reservations, or many listings could have no reservations.
+In the first iteration, we can just query each listing individually.
+
+We could potentially load multiple listing's reservations using one `NostrFilter` by inputting multiple `d` tags.
+
+For each result in our results list, we need to query all reservations as there is no way to filter based on date range.
+
+Once each synch event fires, indicating that reservations have completely loaded for a set of listings, we need to update the search postResultFilter predicate to exclude those items, or reorder the list.
+
+### Reviews
+
+Reviews use Nostr kind 14. They can include tags such as tags: [['cleanliness', 1], ['checkIn', 0.6]]. The content can be the comment that the guest wishes to leave.
+
+The review event should include a tag with commitment pre-image, that only the owner of the reservation knows, 
+
+```dart
+tags.append(["e", liked.id])
+tags.append(["p", liked.pubkey])
+tags.append(["a", liked.tags[a]]),
+tags.append(["commit_preimage", reservation.reservation_request.preimage])
+
+```
 
 ## Payments
 
@@ -254,23 +243,11 @@ class PaymentCubit extends Cubit<String> {
 
   PaymentCubit(this.amount) : super('Initialized');
 
-  void resolve() {
-    // Logic to resolve payment details
-    emit('Resolved');
-  }
+  void resolve()
 
-  void confirm() {
-    // Logic to confirm payment
-    emit('Confirmed');
-    listenForResponse();
-  }
+  void confirm()
 
-  void listenForResponse() {
-    // Logic to listen for nostr events and check for result
-    Future.delayed(Duration(seconds: 2), () {
-      emit('Completed');
-    });
-  }
+  void listenForResponse()
 }
 ```
 
@@ -278,22 +255,17 @@ Consume payment requests visually
 
 ```dart
 // Listen to PaymentManager for new payments
-  builder: (context, child) {
-    return BlocListener<PaymentManager, PaymentCubit?>(
-      listener: (context, paymentCubit) {
-        if (paymentCubit != null) {
-          paymentCubit.resolve();
-          showModalBottomSheet(
-            context: context,
-            builder: (context) {
-              return PaymentStatusSheet(paymentCubit: paymentCubit);
-            },
-          );
-        }
-      },
-      child: child,
-    );
-  },
+
+BlocListener<PaymentManager, PaymentCubit?>(
+  listener: (context, paymentCubit) {
+    if (paymentCubit != null) {
+      /// Trigger resolution of this payments details
+      paymentCubit.resolve();
+      /// Open payment modal
+      openModal(paymentCubit);
+    }
+  }
+)
 ```
 
 ## Swap out (Submarine Swap)
@@ -335,7 +307,7 @@ How can we get cought out?
 - We receive preimage from the paid invoice, but never claim our funds due to closed app
 
 - Preimage that we require to claim the funds is lost
-+ Allow input such that user can manually paste preimage if the payment notification event gets lost in nostr 
++ Allow input such that user can manually paste preimage if the payment notification event gets lost in nostr
 
 - We pay an invoice without checking it's hash corresponds to preimage we generated
 
@@ -349,7 +321,7 @@ flowchart TD
   SwapIn[Swap In
   amount, sweepToAddr]
   -->ContactBoltz[Contact Boltz for Reverse Submarine Swap:amount, claimAddr, preimageHash]
-  ContactBoltz-->SwapDetails[Returns: 
+  ContactBoltz-->SwapDetails[Returns:
   amount, refundAddr, timelock, invoice]
   SwapDetails-->PaymentFlow[Payment Flow
   to: invoice, receiptRequired:False, onCompleteOrClose: next]
@@ -364,7 +336,7 @@ We deposit using our EVM balance.
 
 ```mermaid
 flowchart TD
-    PayEscrow[Pay Escrow 
+    PayEscrow[Pay Escrow
   amount, escrowPubkey, counterpartyPubkey]
   --> CalculateFees
   --> GenerateEscrow[GenerateEscrowContract,
@@ -575,6 +547,58 @@ Widget build(BuildContext context) {
 }
 ```
 
+## UI
+
+### Shared
+
+- **Profile page**
+  - Image, name, description, NIP05, Zap button
+  - **Edit page**
+- **Listing page**
+  - Reviews and ratings, reservations, description, pricing
+  - If guest mode:
+    - Calendar preloaded with unavailable dates
+    - Reserve button only active once all reservations are fetched and validated
+  - If host mode:
+    - Show calendar by default
+    - `Reservation` can be made instantly and for zero cost to block dates
+  - **Edit page**
+- **Wallet Page**
+  - Shows current wallet connection, allows user to reconnect if required
+  - List of current in-flight payments
+  - List of trusted escrow providers
+- **Messaging page**
+  - Shows list of messages grouped by `pubkey:a`, identifies the conversation by user and reservation request anchor
+  - List item
+    - Counterparty name and avatar
+    - Text of incoming or outgoing message, replaced with italic text if:
+      - Last message was a reservation request: 'Alex requested a 2 night stay'
+      - Look for `reservation` with commit_hash of `reservation request`, if exists, add "booking confirmed" icon to chat.
+  - Conversation page
+    - Header
+      - If host
+        - Attempt to fetch zaps to prove payment
+        - Attempt to use lookup_invoice to check if invoices attached to reservation_requests have been paid
+        - Attempt to use EVM to check if money in lockup
+      - Show profile of counterparty
+        - Fetch `reservation` which references the anchor of this conversation.
+          - If stay is in future: "Alex is booked to be hosted by you Jan 3 - Jan 6"
+        - If null, fetch most recent `reservation_request` of this conversation anchor. "Alex has requested to stay 3 night, Jan 3 - 6, for 60k sats" or "You offered to host Alex for 3 nights, Jan 3- 6, for 60k sats" Accept (Change) - can change price if allowBarter is true, can change dates if counterparty is host.
+          - Host
+            - Accept
+              - Require upfront payment?
+               - Can generate expiring invoice? Attach to listing
+              - Don't require upfront payment? Sends back signed reservation with commit_hash of buyers request
+            - *Can use NWC to generate expiring invoice*.
+            - Change
+    - Fetches each message in the conversation and unwraps/parses if necessary
+    - Combines with `reservation` list cubit where tag `commit_hash` is equal to first messages `commit_hash` tag
+    - For each item in the conversation
+      - If of reservation type:
+        - Show "booking confirmed" widget.
+      - If of message type:
+        - If wraps a reservation request display the offer widget
+        - Else display the message plaintext
 
 ## Improvements
 
@@ -599,6 +623,8 @@ To support additional languages, please visit the tutorial on
 apps](https://flutter.dev/docs/development/accessibility-and-localization/internationalization)
 
 ## Seed relay
+
+<!-- TODO export the JSON as a file such that it can be loaded straight into the relay from the docker-up command -->
 
 ```bash
 flutter run lib/data/mock/seed_relay.dart

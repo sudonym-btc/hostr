@@ -1,19 +1,23 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:carousel_slider/carousel_slider.dart';
+import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/screens/shared/listing/image_carousel.dart';
 import 'package:hostr/presentation/widgets/main.dart';
+
+import 'reviews_reservations.dart';
 
 @RoutePage()
 class ListingScreen extends StatelessWidget {
-  final String id;
+  final String a;
   final DateTimeRange? dateRange;
 
+  // ignore: use_key_in_widget_constructors
   ListingScreen(
-      {@pathParam required this.id,
+      {@pathParam required this.a,
       @queryParam String? dateRangeStart,
       @queryParam String? dateRangeEnd})
       : dateRange = dateRangeStart != null && dateRangeEnd != null
@@ -26,65 +30,68 @@ class ListingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<EntityCubit<Listing>>(
-        create: (context) => EntityCubit<Listing>()..get(id),
+        create: (context) =>
+            EntityCubit<Listing>(filter: NostrFilter(a: [a]))..get(),
         child: BlocBuilder<EntityCubit<Listing>, EntityCubitState<Listing>>(
             builder: (context, state) {
           if (state.data == null) {
             return Scaffold(body: Center(child: CircularProgressIndicator()));
           }
           return Scaffold(
-              bottomNavigationBar: state.data != null
-                  ? BottomAppBar(
-                      child: Reserve(
-                        listing: state.data!,
-                        dateRange: dateRange,
-                      ),
-                    )
-                  : null,
-              appBar: AppBar(),
-              body: SafeArea(
-                  child: (state.data == null)
-                      ? Center(child: CircularProgressIndicator())
-                      : SingleChildScrollView(
-                          child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CarouselSlider(
-                              options: CarouselOptions(
-                                  viewportFraction: 1, padEnds: false),
-                              items: state.data!.parsedContent.images
-                                  .map<Widget>((i) {
-                                return Builder(
-                                  builder: (BuildContext context) {
-                                    return Image.network(i);
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                            Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${state.data!.parsedContent.type} hosted by ',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge,
-                                    ),
-                                    const SizedBox(height: 8.0),
-                                    AmenityTags(
-                                        amenities: state
-                                            .data!.parsedContent.amenities),
-                                    const SizedBox(height: 8.0),
-                                    Text(state.data!.parsedContent.description,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium),
-                                  ],
-                                ))
-                          ],
-                        ))));
+              bottomNavigationBar: BottomAppBar(
+                shape: CircularNotchedRectangle(),
+                child: CustomPadding(
+                    top: 0,
+                    bottom: 0,
+                    child: Reserve(listing: state.data!, dateRange: dateRange)),
+              ),
+              body: (state.data == null)
+                  ? Center(child: CircularProgressIndicator())
+                  : CustomScrollView(slivers: [
+                      SliverAppBar(
+                          stretch: true,
+                          expandedHeight:
+                              MediaQuery.of(context).size.height / 4,
+                          flexibleSpace: FlexibleSpaceBar(
+                              background: ImageCarousel(
+                            item: state.data!,
+                          ))),
+                      SliverList(
+                          delegate: SliverChildListDelegate(
+                        [
+                          CustomPadding(
+                              child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                state.data!.parsedContent.title,
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 2.0),
+                              Row(children: [
+                                Text('hosted by'),
+                                SizedBox(width: 8),
+                                ProfileChip(id: state.data!.pubkey)
+                              ]),
+                              const SizedBox(height: 8.0),
+                              ReviewsReservations(
+                                a: a,
+                              ),
+                              const SizedBox(
+                                height: 8,
+                              ),
+                              AmenityTags(
+                                  amenities:
+                                      state.data!.parsedContent.amenities),
+                              const SizedBox(height: 16),
+                              Text(state.data!.parsedContent.description,
+                                  style:
+                                      Theme.of(context).textTheme.bodyMedium),
+                            ],
+                          ))
+                        ],
+                      ))
+                    ]));
         }));
   }
 }
@@ -96,9 +103,9 @@ class Reserve extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (dateRange == null) {
-      return Container();
-    }
+    // if (dateRange == null) {
+    //   return Container();
+    // }
 
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       dateRange != null
@@ -112,7 +119,7 @@ class Reserve extends StatelessWidget {
               ],
             )
           : Text('Select dates'),
-      ElevatedButton(
+      FilledButton(
           onPressed: () {
             // var m = MessageType0.fromPartialData(
             //     start: searchController.state.filters

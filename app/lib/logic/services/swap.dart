@@ -3,7 +3,6 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
-import 'package:boltz_dart/boltz_dart.dart' as boltz;
 import 'package:crypto/crypto.dart';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
@@ -61,7 +60,7 @@ class SwapService {
         (Bolt11PaymentRequest(invoice).amount.toDouble() * pow(10, 8)) as int;
 
     try {
-      await boltz.LibBoltz.init();
+      // await boltz.LibBoltz.init();
 
       // Initialize Boltz library
       // final fees = await boltz.Fees(boltzUrl: config.boltzUrl).chain();

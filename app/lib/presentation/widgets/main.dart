@@ -5,6 +5,7 @@ export 'listing/amenity_tags.dart';
 export 'listing/listing_list.dart';
 export 'listing/listing_list_item.dart';
 export 'money_in_flight/money_in_flight.dart';
+export 'profile/profile_chip.dart';
 export 'relay/relay_list.dart';
 export 'search/map.dart';
 export 'search/search_box.dart';

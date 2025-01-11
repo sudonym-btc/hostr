@@ -23,7 +23,7 @@ class ReservationRequest extends Event<ReservationRequestContent> {
             tags: e.tags);
 }
 
-class ReservationRequestContent {
+class ReservationRequestContent extends EventContent {
   final DateTime start;
   final DateTime end;
   final int quantity;
@@ -35,6 +35,7 @@ class ReservationRequestContent {
       required this.quantity,
       required this.amount});
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       "start": start.toIso8601String(),

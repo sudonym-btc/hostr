@@ -134,13 +134,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.2"
-  boltz_dart:
-    dependency: transitive
-    description:
-      path: "../../boltz-dart"
-      relative: true
-    source: path
-    version: "0.1.7"
   boolean_selector:
     dependency: transitive
     description:
@@ -157,14 +150,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.2"
-  build_cli_annotations:
-    dependency: transitive
-    description:
-      name: build_cli_annotations
-      sha256: b59d2769769efd6c9ff6d4c4cede0be115a566afc591705c2040b707534b1172
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.0"
   build_config:
     dependency: transitive
     description:
@@ -301,14 +286,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.2"
-  cupertino_icons:
-    dependency: transitive
-    description:
-      name: cupertino_icons
-      sha256: ba631d1c7f7bef6b729a622b7b752645a2d076dba9976925b8f25725a30e1ee6
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.8"
   dart_bip32_bip44:
     dependency: transitive
     description:
@@ -349,22 +326,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.0"
-  dio:
-    dependency: transitive
-    description:
-      name: dio
-      sha256: "5598aa796bbf4699afd5c67c0f5f6e2ed542afc956884b9cd58c306966efc260"
-      url: "https://pub.dev"
-    source: hosted
-    version: "5.7.0"
-  dio_web_adapter:
-    dependency: transitive
-    description:
-      name: dio_web_adapter
-      sha256: "33259a9276d6cea88774a0000cfae0d861003497755969c92faa223108620dc8"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.0"
   eip1559:
     dependency: transitive
     description:
@@ -463,14 +424,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.24"
-  flutter_rust_bridge:
-    dependency: transitive
-    description:
-      name: flutter_rust_bridge
-      sha256: f703c4b50e253e53efc604d50281bbaefe82d615856f8ae1e7625518ae252e98
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.0"
   flutter_secure_storage:
     dependency: transitive
     description:

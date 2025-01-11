@@ -15,6 +15,7 @@ var MOCK_LISTINGS = [
   Listing.fromNostrEvent(NostrEvent.fromPartialData(
       keyPairs: MockKeys.hoster,
       content: json.encode(ListingContent(
+              title: 'Cozy Cabin in the Woods',
               description: """
 A cozy, rustic cabin nestled in the woods. Perfect for a quiet retreat or a family vacation. Enjoy the serene surroundings and the beautiful nature trails. Close to local attractions and amenities.
 The space
@@ -46,10 +47,14 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
           .toJson()),
       createdAt: DateTime.now(),
       kind: NOSTR_KIND_LISTING,
-      tags: [])),
+      tags: [
+        ['d', '1'],
+        ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:1']
+      ])),
   Listing.fromNostrEvent(NostrEvent.fromPartialData(
       keyPairs: MockKeys.hoster,
       content: json.encode(ListingContent(
+              title: 'Modern City Apartment',
               description: """
 A cozy, rustic cabin nestled in the woods. Perfect for a quiet retreat or a family vacation. Enjoy the serene surroundings and the beautiful nature trails. Close to local attractions and amenities.
 The space
@@ -81,10 +86,14 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
           .toJson()),
       createdAt: DateTime.now(),
       kind: NOSTR_KIND_LISTING,
-      tags: [])),
+      tags: [
+        ['d', '2'],
+        ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:2']
+      ])),
   Listing.fromNostrEvent(NostrEvent.fromPartialData(
       keyPairs: MockKeys.hoster,
       content: json.encode(ListingContent(
+              title: 'Modern City Apartment',
               description: """
 A modern apartment in the heart of the city. Perfect for business travelers and tourists. Close to public transport and local attractions.
 The space
@@ -116,10 +125,14 @@ The apartment is not suitable for pets.
           .toJson()),
       createdAt: DateTime.now(),
       kind: NOSTR_KIND_LISTING,
-      tags: [])),
+      tags: [
+        ['d', '3'],
+        ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:3']
+      ])),
   Listing.fromNostrEvent(NostrEvent.fromPartialData(
       keyPairs: MockKeys.hoster,
       content: json.encode(ListingContent(
+              title: 'Charming Bed and Breakfast',
               description: """
 A charming bed and breakfast in a quiet neighborhood. Perfect for a relaxing getaway. Close to local shops and restaurants.
 The space
@@ -151,10 +164,14 @@ The bed and breakfast is family-friendly.
           .toJson()),
       createdAt: DateTime.now(),
       kind: NOSTR_KIND_LISTING,
-      tags: [])),
+      tags: [
+        ['d', '4'],
+        ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:4']
+      ])),
   Listing.fromNostrEvent(NostrEvent.fromPartialData(
       keyPairs: MockKeys.hoster,
       content: json.encode(ListingContent(
+              title: 'Luxurious Villa with Ocean Views',
               description: """
 A luxurious villa with stunning ocean views. Perfect for a lavish vacation. Close to the beach and local attractions.
 The space
@@ -169,6 +186,7 @@ The villa is not suitable for children under 12.
                     amount: Amount(value: 0.005, currency: Currency.BTC),
                     frequency: Frequency.daily)
               ], // 0.005 per day
+              allowBarter: false,
               minStay: Duration(days: 3), // 3 days min stay
               checkIn: TimeOfDay(hour: 16, minute: 0),
               checkOut: TimeOfDay(hour: 11, minute: 0),
@@ -186,10 +204,14 @@ The villa is not suitable for children under 12.
           .toJson()),
       createdAt: DateTime.now(),
       kind: NOSTR_KIND_LISTING,
-      tags: [])),
+      tags: [
+        ['d', '5'],
+        ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:5']
+      ])),
   Listing.fromNostrEvent(NostrEvent.fromPartialData(
       keyPairs: MockKeys.hoster,
       content: json.encode(ListingContent(
+              title: 'Rustic Cabin in the Woods',
               description: """
 A rustic old cabin in the heart of the High Weald. Wonderful outdoor living. Beautiful gardens in Area of Outstanding Natural Beauty in the High Weald. Lovely walks from the door and on Ashdown Forest. Tunbridge Wells and Glyndebourne nearby, 1 hour to London by train, station 1 mile away. Gym, 100MBps Wi-Fi, work space, outdoor living, very private, valley view to Harrisons Rocks.
 The space
@@ -223,5 +245,8 @@ The house contains old furniture and rugs and the contents need to be treated wi
           .toJson()),
       createdAt: DateTime.now(),
       kind: NOSTR_KIND_LISTING,
-      tags: []))
+      tags: [
+        ['d', '6'],
+        ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:6']
+      ]))
 ].toList();

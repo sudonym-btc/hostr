@@ -28,6 +28,10 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
         working-directory: app
+      
+      - name: Build Widgetbook
+        run: flutter build web
+        working-directory: app/widgetbook_workspace
 
       - name: Run tests
         run: flutter test

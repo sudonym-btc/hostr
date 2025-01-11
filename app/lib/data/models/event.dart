@@ -1,6 +1,8 @@
+import 'dart:convert';
+
 import 'package:dart_nostr/dart_nostr.dart';
 
-abstract class Event<ContentType> extends NostrEvent {
+abstract class Event<ContentType extends EventContent> extends NostrEvent {
   static List<int> kinds = [];
   final ContentType parsedContent;
 
@@ -16,5 +18,16 @@ abstract class Event<ContentType> extends NostrEvent {
 
   Iterable<List<dynamic>> getTags(String key) {
     return (tags ?? []).where((tag) => tag[0] == key);
+  }
+}
+
+class EventContent {
+  toJson() {
+    throw UnimplementedError();
+  }
+
+  @override
+  String toString() {
+    return json.encode(toJson());
   }
 }

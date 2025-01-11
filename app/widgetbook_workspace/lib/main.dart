@@ -8,8 +8,8 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 // it will be generated in the next step
 import 'main.directories.g.dart';
 
-void main() {
-  setup(Env.mock); // Call the setup function to register dependencies
+void main() async {
+  await setup(Env.mock); // Call the setup function to register dependencies
   runApp(const WidgetbookApp());
 }
 

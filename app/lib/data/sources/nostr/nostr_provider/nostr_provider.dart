@@ -18,6 +18,8 @@ abstract class NostrProvider {
   Future<List<NostrEvent>> startRequestAsync(
       {required NostrRequest request, List<String>? relays});
 
+  Future<int> count(NostrFilter filter);
+
   Future<NostrEventOkCommand> sendEventToRelaysAsync(
       {required NostrEvent event, List<String>? relays});
 }
@@ -43,5 +45,14 @@ class ProdNostrProvider extends NostrProvider {
   sendEventToRelaysAsync({required NostrEvent event, List<String>? relays}) {
     return Nostr.instance.relaysService.sendEventToRelaysAsync(event,
         relays: relays, timeout: Duration(seconds: 5));
+  }
+
+  @override
+  count(NostrFilter filter) {
+    return Nostr.instance.relaysService
+        .sendCountEventToRelaysAsync(
+            NostrCountEvent.fromPartialData(eventsFilter: filter),
+            timeout: Duration(seconds: 5))
+        .then((value) => value.count);
   }
 }

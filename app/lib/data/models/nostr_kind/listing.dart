@@ -49,9 +49,11 @@ class Listing extends Event<ListingContent> {
   }
 }
 
-class ListingContent {
+class ListingContent extends EventContent {
+  final String title;
   final String description;
   final List<Price> price;
+  final bool allowBarter;
   final Duration minStay;
   final TimeOfDay checkIn;
   final TimeOfDay checkOut;
@@ -62,8 +64,10 @@ class ListingContent {
   final Amenities amenities;
 
   ListingContent(
-      {required this.description,
+      {required this.title,
+      required this.description,
       required this.price,
+      this.allowBarter = false,
       required this.minStay,
       required this.checkIn,
       required this.checkOut,
@@ -73,10 +77,13 @@ class ListingContent {
       required this.images,
       required this.amenities});
 
+  @override
   Map<String, dynamic> toJson() {
     return {
+      "title": title,
       "description": description,
       "price": price.map((e) => e.toJson()).toList(),
+      "allowBarter": allowBarter,
       "minStay": minStay.inDays,
       "checkIn": '${checkIn.hour}:${checkIn.minute}',
       "checkOut": '${checkOut.hour}:${checkOut.minute}',
@@ -90,8 +97,10 @@ class ListingContent {
 
   static ListingContent fromJson(Map<String, dynamic> json) {
     return ListingContent(
+      title: json["title"],
       description: json["description"],
       price: (json["price"] as List).map((e) => Price.fromJson(e)).toList(),
+      allowBarter: json["allowBarter"],
       minStay: Duration(days: json["minStay"]),
       checkIn: TimeOfDay(
           hour: int.parse(json["checkIn"].split(':')[0]),
