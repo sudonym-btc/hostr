@@ -38,6 +38,16 @@
     "version": "0.2.0",
     "configurations": [
       {
+        "name": "Debug All Unit Tests",
+        "type": "dart",
+        "request": "launch",
+        "program": "${workspaceFolder:root}/app/test/logic",
+        "args": [
+          "--name",
+          ".*"  // This regex pattern matches all test names
+        ]
+      },
+      {
         "name": "mock",
         "request": "launch",
         "type": "dart",

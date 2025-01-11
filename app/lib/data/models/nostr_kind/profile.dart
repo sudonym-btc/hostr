@@ -4,9 +4,9 @@ import 'dart:core';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/constants.dart';
 
-import '../event.dart';
+import 'type_json_content.dart';
 
-class Profile extends Event<ProfileContent> {
+class Profile extends JsonContentNostrEvent<ProfileContent> {
   static List<int> kinds = [NOSTR_KIND_PROFILE];
 
   Profile.fromNostrEvent(NostrEvent e)

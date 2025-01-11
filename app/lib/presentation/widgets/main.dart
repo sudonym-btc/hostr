@@ -1,11 +1,13 @@
 export 'escrow/escrow_list_item.dart';
-export 'inbox/message_inbox_item.dart';
+export 'inbox/inbox_item.dart';
 export 'keys/keys.dart';
 export 'listing/amenity_tags.dart';
 export 'listing/listing_list.dart';
 export 'listing/listing_list_item.dart';
 export 'money_in_flight/money_in_flight.dart';
 export 'profile/profile_chip.dart';
+export 'providers/global.provider.dart';
+export 'providers/nostr/profile.provider.dart';
 export 'relay/relay_list.dart';
 export 'search/map.dart';
 export 'search/search_box.dart';

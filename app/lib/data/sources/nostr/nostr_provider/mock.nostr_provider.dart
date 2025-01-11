@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:dart_nostr/dart_nostr.dart';
@@ -10,10 +11,9 @@ import 'package:rxdart/rxdart.dart';
 import 'nostr_provider.dart';
 
 // todo: must filter by since, before, and limit, must implement count, must implement replaceable events
-@Singleton(as: NostrProvider, env: [Env.mock, Env.test])
+@Singleton(as: NostrProvider, env: [Env.mock])
 class MockNostProvider extends NostrProvider {
-  // @override
-  // ReplaySubject<NostrEvent> events = ReplaySubject<NostrEvent>();
+  final shouldDelay = true;
 
   @override
   NostrEventsStream startRequest(
@@ -30,10 +30,7 @@ class MockNostProvider extends NostrProvider {
         .doOnData((event) => logger.t("matched event $event"))
 
         /// Simulate network delay for each event
-        .asyncExpand((event) async* {
-      await Future.delayed(Duration(milliseconds: 500));
-      yield event;
-    })
+        .transform(simulateNetworkDelay(shouldDelay))
 
         /// Limit the number of events, Max int if no limit defined
         .take(request.filters.any((f) => f.limit != null)
@@ -85,7 +82,7 @@ class MockNostProvider extends NostrProvider {
       return false;
     }
 
-    print("keys ${filter.additionalFilters?.values}");
+    logger.t("keys ${filter.additionalFilters?.values}");
 
     /// Only match events that contain a tag
     if (filter.additionalFilters != null &&
@@ -121,4 +118,23 @@ class MockNostProvider extends NostrProvider {
       onEose: (relay, ease) => false,
     ).stream.toList();
   }
+}
+
+@Singleton(as: NostrProvider, env: [Env.test])
+class TestNostProvider extends MockNostProvider {
+  @override
+  final shouldDelay = false;
+}
+
+StreamTransformer<T, T> simulateNetworkDelay<T>(bool applyDelay) {
+  return StreamTransformer<T, T>.fromBind((stream) {
+    if (applyDelay) {
+      return stream.asyncExpand((event) async* {
+        await Future.delayed(Duration(milliseconds: 500));
+        yield event;
+      });
+    } else {
+      return stream;
+    }
+  });
 }

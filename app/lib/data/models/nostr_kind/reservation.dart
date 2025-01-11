@@ -4,9 +4,9 @@ import 'dart:core';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 
-import '../event.dart';
+import 'type_json_content.dart';
 
-class Reservation extends Event<ReservationContent> {
+class Reservation extends JsonContentNostrEvent<ReservationContent> {
   static List<int> kinds = [NOSTR_KIND_RESERVATION];
 
   Reservation.fromNostrEvent(NostrEvent e)

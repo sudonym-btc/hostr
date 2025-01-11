@@ -11,8 +11,7 @@ import 'filter.cubit.dart';
 import 'post_result_filter.cubit.dart';
 import 'sort.cubit.dart';
 
-// todo: remove hydration here and apply it to child class maybe
-class ListCubit<T extends NostrEvent> extends HydratedCubit<ListCubitState<T>> {
+class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
   final CustomLogger logger = CustomLogger();
   final Nostr? nostrInstance;
   final int? limit;
@@ -35,6 +34,7 @@ class ListCubit<T extends NostrEvent> extends HydratedCubit<ListCubitState<T>> {
     this.sortCubit,
     this.postResultFilterCubit,
   }) : super(ListCubitState<T>()) {
+    logger.i("ListCubit: $runtimeType");
     filterSubscription = filterCubit?.stream.listen((filterState) {
       applyFilter(filterState);
     });
@@ -65,7 +65,9 @@ class ListCubit<T extends NostrEvent> extends HydratedCubit<ListCubitState<T>> {
     });
   }
 
-  void sync() {}
+  void sync() {
+    next();
+  }
 
   void reset() {
     emit(ListCubitState());
@@ -127,6 +129,28 @@ class ListCubit<T extends NostrEvent> extends HydratedCubit<ListCubitState<T>> {
     sortSubscription?.cancel();
     postResultFilterSubscription?.cancel();
     return super.close();
+  }
+}
+
+class HydratedListCubit<T extends NostrEvent> extends ListCubit<T> {
+  HydratedListCubit({required super.kinds});
+
+  @override
+  Map<String, dynamic>? toJson(ListCubitState<T> state) {
+    return {
+      'results': state.results.map((e) => e.toMap()).toList(),
+      'resultsRaw': state.resultsRaw.map((e) => e.toMap()).toList(),
+      'hasMore': state.hasMore,
+    };
+  }
+
+  @override
+  ListCubitState<T>? fromJson(Map<String, dynamic> json) {
+    return ListCubitState(
+      resultsRaw: json['resultsRaw'].map<T>(NostrEvent.deserialized).toList(),
+      results: json['results'].map<T>(NostrEvent.deserialized).toList(),
+      hasMore: json['hasMore'] ?? true,
+    );
   }
 }
 

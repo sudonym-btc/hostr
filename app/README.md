@@ -1,5 +1,7 @@
 # Hostr Client
 
+[![codecov](https://codecov.io/gh/sudonym-btc/hostr/branch/main/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/sudonym-btc/hostr)
+
 This is a client that displays and posts events related to short term accommodation lets over the nostr network.
 
 ## Getting Started

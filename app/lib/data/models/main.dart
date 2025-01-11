@@ -1,10 +1,12 @@
-export 'event.dart';
 export 'message.dart';
 export 'nostr_kind/escrow.dart';
+export 'nostr_kind/gift_wrap.dart';
 export 'nostr_kind/listing.dart';
 export 'nostr_kind/profile.dart';
 export 'nostr_kind/reservation.dart';
 export 'nostr_kind/reservation_request.dart';
 export 'nostr_kind/review.dart';
+export 'nostr_kind/seal.dart';
+export 'nostr_kind/type_json_content.dart';
 export 'nostr_kind/zap_receipt.dart';
 export 'nostr_kind/zap_request.dart';

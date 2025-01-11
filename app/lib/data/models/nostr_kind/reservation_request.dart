@@ -5,9 +5,10 @@ import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 
 import '../amount.dart';
-import '../event.dart';
+import 'type_json_content.dart';
 
-class ReservationRequest extends Event<ReservationRequestContent> {
+class ReservationRequest
+    extends JsonContentNostrEvent<ReservationRequestContent> {
   static List<int> kinds = [NOSTR_KIND_RESERVATION_REQUEST];
 
   ReservationRequest.fromNostrEvent(NostrEvent e)

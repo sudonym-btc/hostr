@@ -1,12 +1,13 @@
 import 'dart:convert';
 
-import 'package:dart_nostr/dart_nostr.dart';
+import 'package:hostr/data/models/nostr_kind/event.dart';
+import 'package:hostr/data/models/nostr_kind/serializable.dart';
 
-abstract class Event<ContentType extends EventContent> extends NostrEvent {
-  static List<int> kinds = [];
+abstract class JsonContentNostrEvent<ContentType extends Serializable>
+    extends Event {
   final ContentType parsedContent;
 
-  const Event(
+  const JsonContentNostrEvent(
       {required this.parsedContent,
       required super.content,
       required super.createdAt,
@@ -15,14 +16,14 @@ abstract class Event<ContentType extends EventContent> extends NostrEvent {
       required super.pubkey,
       required super.sig,
       required super.tags});
-
-  Iterable<List<dynamic>> getTags(String key) {
-    return (tags ?? []).where((tag) => tag[0] == key);
-  }
 }
 
-class EventContent {
+class EventContent extends Serializable {
   toJson() {
+    throw UnimplementedError();
+  }
+
+  static fromJson(Map<String, dynamic> json) {
     throw UnimplementedError();
   }
 

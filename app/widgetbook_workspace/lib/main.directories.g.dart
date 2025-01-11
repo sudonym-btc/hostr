@@ -12,7 +12,8 @@
 import 'package:widgetbook/widgetbook.dart' as _i1;
 import 'package:widgetbook_workspace/conversation.dart' as _i3;
 import 'package:widgetbook_workspace/inbox.dart' as _i2;
-import 'package:widgetbook_workspace/listing.dart' as _i5;
+import 'package:widgetbook_workspace/inbox_item.dart' as _i5;
+import 'package:widgetbook_workspace/listing.dart' as _i6;
 import 'package:widgetbook_workspace/reserve.dart' as _i4;
 
 final directories = <_i1.WidgetbookNode>[
@@ -31,8 +32,8 @@ final directories = <_i1.WidgetbookNode>[
                   _i1.WidgetbookLeafComponent(
                     name: 'InboxScreen',
                     useCase: _i1.WidgetbookUseCase(
-                      name: 'Default',
-                      builder: _i2.inbox,
+                      name: 'Empty',
+                      builder: _i2.inboxEmpty,
                     ),
                   ),
                   _i1.WidgetbookFolder(
@@ -69,17 +70,29 @@ final directories = <_i1.WidgetbookNode>[
         name: 'widgets',
         children: [
           _i1.WidgetbookFolder(
+            name: 'inbox',
+            children: [
+              _i1.WidgetbookLeafComponent(
+                name: 'InboxItem',
+                useCase: _i1.WidgetbookUseCase(
+                  name: 'Default',
+                  builder: _i5.inboxItem,
+                ),
+              )
+            ],
+          ),
+          _i1.WidgetbookFolder(
             name: 'listing',
             children: [
               _i1.WidgetbookLeafComponent(
                 name: 'ListingListItem',
                 useCase: _i1.WidgetbookUseCase(
                   name: 'Default',
-                  builder: _i5.listing,
+                  builder: _i6.listing,
                 ),
               )
             ],
-          )
+          ),
         ],
       ),
     ],
