@@ -8,26 +8,31 @@ part 'router.gr.dart';
 class AppRouter extends RootStackRouter {
   @override
   List<AutoRoute> get routes => [
+        /// Public routes
+        AutoRoute(page: SignInRoute.page, path: '/signin'),
+        AutoRoute(
+            page: SearchRoute.page,
+            initial: true,
+            path: 'search',
+            children: [
+              AutoRoute(page: FiltersRoute.page, path: 'filters'),
+            ]),
+        AutoRoute(page: ListingRoute.page, path: '/listing/:id'),
+
+        /// Signed in routes
         AutoRoute(path: '/', page: HomeRoute.page, initial: true, guards: [
           AuthGuard()
         ], children: [
-          AutoRoute(
-              page: SearchRoute.page,
-              initial: true,
-              path: 'search',
-              children: [
-                AutoRoute(page: FiltersRoute.page, path: 'filters'),
-              ]),
-          AutoRoute(
-              page: InboxRoute.page, path: 'inbox', guards: [AuthGuard()]),
-          AutoRoute(
-              page: ProfileRoute.page, path: 'profile', guards: [AuthGuard()]),
+          AutoRoute(page: ProfileRoute.page, path: 'profile', guards: []),
+          AutoRoute(page: InboxRoute.page, path: 'inbox', guards: [
+            AuthGuard()
+          ], children: [
+            AutoRoute(page: ConversationRoute.page, path: ':id'),
+          ]),
           AutoRoute(
               page: MyListingsRoute.page,
               path: 'my-listings',
               guards: [AuthGuard()]),
         ]),
-        AutoRoute(page: SignInRoute.page, path: '/signin'),
-        AutoRoute(page: ListingRoute.page, path: '/listing/:id')
       ];
 }

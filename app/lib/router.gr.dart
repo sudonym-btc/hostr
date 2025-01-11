@@ -10,6 +10,43 @@
 part of 'router.dart';
 
 /// generated route for
+/// [ConversationScreen]
+class ConversationRoute extends PageRouteInfo<ConversationRouteArgs> {
+  ConversationRoute({
+    required String id,
+    List<PageRouteInfo>? children,
+  }) : super(
+          ConversationRoute.name,
+          args: ConversationRouteArgs(id: id),
+          rawPathParams: {'id': id},
+          initialChildren: children,
+        );
+
+  static const String name = 'ConversationRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final pathParams = data.inheritedPathParams;
+      final args = data.argsAs<ConversationRouteArgs>(
+          orElse: () => ConversationRouteArgs(id: pathParams.getString('id')));
+      return ConversationScreen(id: args.id);
+    },
+  );
+}
+
+class ConversationRouteArgs {
+  const ConversationRouteArgs({required this.id});
+
+  final String id;
+
+  @override
+  String toString() {
+    return 'ConversationRouteArgs{id: $id}';
+  }
+}
+
+/// generated route for
 /// [FiltersScreen]
 class FiltersRoute extends PageRouteInfo<void> {
   const FiltersRoute({List<PageRouteInfo>? children})
@@ -70,18 +107,18 @@ class InboxRoute extends PageRouteInfo<void> {
 /// [ListingScreen]
 class ListingRoute extends PageRouteInfo<ListingRouteArgs> {
   ListingRoute({
-    required String id,
+    required String a,
     String? dateRangeStart,
     String? dateRangeEnd,
     List<PageRouteInfo>? children,
   }) : super(
           ListingRoute.name,
           args: ListingRouteArgs(
-            id: id,
+            a: a,
             dateRangeStart: dateRangeStart,
             dateRangeEnd: dateRangeEnd,
           ),
-          rawPathParams: {'id': id},
+          rawPathParams: {'a': a},
           rawQueryParams: {
             'dateRangeStart': dateRangeStart,
             'dateRangeEnd': dateRangeEnd,
@@ -98,12 +135,12 @@ class ListingRoute extends PageRouteInfo<ListingRouteArgs> {
       final queryParams = data.queryParams;
       final args = data.argsAs<ListingRouteArgs>(
           orElse: () => ListingRouteArgs(
-                id: pathParams.getString('id'),
+                a: pathParams.getString('a'),
                 dateRangeStart: queryParams.optString('dateRangeStart'),
                 dateRangeEnd: queryParams.optString('dateRangeEnd'),
               ));
       return ListingScreen(
-        id: args.id,
+        a: args.a,
         dateRangeStart: args.dateRangeStart,
         dateRangeEnd: args.dateRangeEnd,
       );
@@ -113,12 +150,12 @@ class ListingRoute extends PageRouteInfo<ListingRouteArgs> {
 
 class ListingRouteArgs {
   const ListingRouteArgs({
-    required this.id,
+    required this.a,
     this.dateRangeStart,
     this.dateRangeEnd,
   });
 
-  final String id;
+  final String a;
 
   final String? dateRangeStart;
 
@@ -126,7 +163,7 @@ class ListingRouteArgs {
 
   @override
   String toString() {
-    return 'ListingRouteArgs{id: $id, dateRangeStart: $dateRangeStart, dateRangeEnd: $dateRangeEnd}';
+    return 'ListingRouteArgs{a: $a, dateRangeStart: $dateRangeStart, dateRangeEnd: $dateRangeEnd}';
   }
 }
 

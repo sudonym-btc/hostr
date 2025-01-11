@@ -25,6 +25,8 @@ import 'package:hostr/data/sources/nostr/nostr_provider/nostr_provider.dart'
 import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i291;
 import 'package:hostr/data/sources/rpc/rootstock.dart' as _i631;
 import 'package:hostr/logic/cubit/auth.cubit.dart' as _i323;
+import 'package:hostr/logic/services/messages/global_message.cubit.dart'
+    as _i43;
 import 'package:hostr/logic/services/nostr_wallet_connect.dart' as _i771;
 import 'package:hostr/logic/services/payment.dart' as _i151;
 import 'package:hostr/logic/services/swap.dart' as _i432;
@@ -52,6 +54,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i315.RelayStorage>(() => _i315.RelayStorage());
     gh.factory<_i303.NwcStorage>(() => _i303.NwcStorage());
     gh.factory<_i946.KeyStorage>(() => _i946.KeyStorage());
+    gh.singleton<_i43.GlobalMessageCubit>(() => _i43.GlobalMessageCubit());
     gh.factory<_i771.NostrWalletConnectService>(
       () => _i771.MockNostrWalletConnectService(),
       registerFor: {

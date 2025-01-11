@@ -6,7 +6,8 @@ class ZapList extends ListWidget {
   final String pubkey;
   final String? eventId;
 
-  const ZapList({super.key, required this.pubkey, this.eventId});
+  const ZapList(
+      {super.key, required this.pubkey, this.eventId, required super.builder});
   // final String? originalEventId; @todo replaceable events
 
   @override

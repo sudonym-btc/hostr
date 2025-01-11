@@ -44,6 +44,12 @@
         "program": "${workspaceFolder:root}/app/lib/main_mock.dart"
       },
       {
+        "name": "widgetbook",
+        "request": "launch",
+        "type": "dart",
+        "program": "${workspaceFolder:root}/app/widgetbook_workspace/lib/main.dart"
+      },
+      {
         "name": "development",
         "request": "launch",
         "type": "dart",

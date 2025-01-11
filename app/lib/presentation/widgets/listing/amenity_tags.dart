@@ -11,10 +11,11 @@ class AmenityTags extends StatelessWidget {
     required this.amenities,
   });
 
-  Color _getColorForAmenity(String amenity) {
+  Color _getColorForAmenity(BuildContext context, String amenity) {
+    return Theme.of(context).primaryColor.withAlpha(20);
     final random = Random(amenity.hashCode);
     return Color.fromARGB(
-      200,
+      25,
       random.nextInt(256),
       random.nextInt(256),
       random.nextInt(256),
@@ -37,12 +38,13 @@ class AmenityTags extends StatelessWidget {
             borderRadius:
                 BorderRadius.circular(50.0), // Makes the chip perfectly round
             side: BorderSide(
-              color: _getColorForAmenity(amenity), // Sets the border color
+              color: _getColorForAmenity(
+                  context, amenity), // Sets the border color
               width: 1.0,
             ),
           ),
-          backgroundColor:
-              Colors.transparent, // Makes the background transparent
+          backgroundColor: _getColorForAmenity(
+              context, amenity), // Makes the background transparent
         );
       }).toList(),
     );

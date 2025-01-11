@@ -1,3 +1,4 @@
+synthetic-package: false
 arb-dir: lib/_localization
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart

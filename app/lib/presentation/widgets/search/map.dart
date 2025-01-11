@@ -5,11 +5,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/widgets/search/map_style.dart';
 import 'package:rxdart/rxdart.dart';
 
-double mapsGoogleLogoSize = 150;
+double mapsGoogleLogoSize = 0;
 
 class SearchMap extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
@@ -25,10 +26,10 @@ class SearchMap extends StatefulWidget {
 class _SearchMapState extends State<SearchMap> {
   final Completer<GoogleMapController> _controller =
       Completer<GoogleMapController>();
-  final Set<Marker> _markers = {};
+  final Map<String, Marker> _markers = {};
   final BehaviorSubject<bool> _mapReadySubject =
       BehaviorSubject<bool>.seeded(false);
-  final ReplaySubject<LatLng> _markerStream = ReplaySubject<LatLng>();
+  final Set<String> _fetchedIds = {}; // Set to keep track of fetched IDs
 
   _onMapCreated(GoogleMapController controller) {
     widget.logger.i("Map created");
@@ -43,57 +44,72 @@ class _SearchMapState extends State<SearchMap> {
   void initState() {
     super.initState();
 
-    // Combine map readiness with marker stream
-    _mapReadySubject
-        .where((isReady) => isReady) // Only emit when the map is ready
-        .flatMap((_) => _markerStream) // Forward all incoming markers
-        .listen((position) {
-      widget.logger.d("New marker", error: position);
-      _addMarker(position);
-    });
-
     widget.logger.i("Init state");
-    BlocProvider.of<ListCubit<Listing>>(context).stream.listen((state) {
+    _mapReadySubject
+
+        /// Only emit when the map is ready
+        .where((isReady) => isReady)
+
+        /// Start listening to the list results
+        .flatMap((_) => BlocProvider.of<ListCubit<Listing>>(context).stream)
+
+        /// Debounce to avoid too many updates
+        .debounceTime(Duration(milliseconds: 500))
+        .listen((state) async {
       widget.logger.i("New state $state");
-      // for (var loc in state.listState.data) {
-      //   widget.logger.i("New state data ");
 
-      //   getIt<GoogleMaps>().getCoordinatesFromAddress(loc.location).then((res) {
-      //     _markerStream.add(LatLng(res!.latitude, res.longitude));
-      //   });
-      // }
-    });
-  }
+      // Add markers for new locations
+      for (var item in state.results) {
+        if (!_fetchedIds.contains(item.id)) {
+          _fetchedIds.add(item.id!);
+          var res = await getIt<GoogleMaps>()
+              .getCoordinatesFromAddress(item.parsedContent.location);
 
-  void _addMarker(LatLng position) {
-    setState(() {
-      _markers.add(Marker(
-        markerId: MarkerId(position.toString()),
-        position: position,
-      ));
+          if (res != null) {
+            setState(() {
+              _markers[item.id!] =
+                  Marker(markerId: MarkerId(item.id!), position: res);
+            });
+          }
+        }
+      }
+
+      // Collect markers to be removed
+      final markersToRemove = _markers.values.where((marker) {
+        final shouldRemove =
+            !state.results.any((loc) => loc.id == marker.markerId.value);
+        if (shouldRemove) {
+          setState(() {
+            _fetchedIds.remove(marker.markerId.value);
+            _markers.remove(marker.markerId.value);
+          });
+        }
+        return shouldRemove;
+      }).toList();
+
+      _moveCameraToFitAllMarkers();
     });
-    _moveCameraToFitAllMarkers();
   }
 
   _calculateBounds() {
-    double minLat = _markers
+    double minLat = _markers.values
         .map((p) => p.position.latitude)
         .reduce((a, b) => a < b ? a : b);
-    double maxLat = _markers
+    double maxLat = _markers.values
         .map((p) => p.position.latitude)
         .reduce((a, b) => a > b ? a : b);
-    double minLng = _markers
+    double minLng = _markers.values
         .map((p) => p.position.longitude)
         .reduce((a, b) => a < b ? a : b);
-    double maxLng = _markers
+    double maxLng = _markers.values
         .map((p) => p.position.longitude)
         .reduce((a, b) => a > b ? a : b);
     widget.logger.i(
         "Calculated bounds: minLat=$minLat, minLng=$minLng, maxLat=$maxLat, maxLng=$maxLng");
 
     // Add padding by expanding bounds by 10%
-    double latPadding = (maxLat - minLat) * 0.1 + 0.1;
-    double lngPadding = (maxLng - minLng) * 0.1 + 0.1;
+    double latPadding = 0; //(maxLat - minLat) * 0.1 + 0.1;
+    double lngPadding = 0; //(maxLng - minLng) * 0.1 + 0.1;
 
     widget.logger.d("latPadding $latPadding");
     widget.logger.d("lngPadding $lngPadding");
@@ -105,19 +121,23 @@ class _SearchMapState extends State<SearchMap> {
   }
 
   _moveCameraToFitAllMarkers() async {
+    widget.logger.i('Move camera to fit all markers ${_markers.length}');
     if (_markers.isEmpty) return;
 
     LatLngBounds bounds = _calculateBounds();
 
     final GoogleMapController controller = await _controller.future;
+    // Calculate padding for each side
+    double leftPadding = 50.0; // Adjust this value as needed
+    double rightPadding = 50.0; // Adjust this value as needed
+    double bottomPadding = 50.0; // Adjust this value as needed
 
-    await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+    await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 120));
   }
 
   @override
   void dispose() {
     _mapReadySubject.close();
-    _markerStream.close();
     super.dispose();
   }
 
@@ -137,7 +157,7 @@ class _SearchMapState extends State<SearchMap> {
               target: LatLng(37.42796133580664, -122.085749655962),
               zoom: 14.4746,
             ),
-            markers: _markers,
+            markers: _markers.values.toSet(),
             myLocationEnabled: false,
             myLocationButtonEnabled: false,
           )),
@@ -145,7 +165,7 @@ class _SearchMapState extends State<SearchMap> {
         left: 0,
         right: 0,
         bottom: 0,
-        height: 0 * 2,
+        height: mapsGoogleLogoSize,
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(

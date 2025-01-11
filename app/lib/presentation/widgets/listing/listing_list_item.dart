@@ -1,7 +1,10 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/data/main.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/main.dart';
+import 'package:hostr/presentation/widgets/listing/price_tag.dart';
 import 'package:hostr/router.dart';
 
 class ListingListItem extends StatelessWidget {
@@ -11,11 +14,9 @@ class ListingListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: ListTile(
+    return InkWell(
         onTap: () => AutoRouter.of(context).root.push(ListingRoute(
-              id: listing.id!,
+              a: listing.tags!.firstWhere((tag) => tag[0] == "a")![1],
               dateRangeStart: dateRange?.start != null
                   ? dateRange!.start.toIso8601String()
                   : null,
@@ -23,31 +24,85 @@ class ListingListItem extends StatelessWidget {
                   ? dateRange!.end.toIso8601String()
                   : null,
             )),
-        leading: SizedBox(
-            width: 120,
-            height: 120,
-            child: CarouselSlider(
+        child: CustomPadding(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            CarouselSlider(
               options: CarouselOptions(viewportFraction: 1, padEnds: false),
               items: listing.parsedContent.images.map((i) {
                 return Builder(
                   builder: (BuildContext context) {
-                    return Image.network(
-                      i,
-                      width: MediaQuery.of(context).size.width,
-                      fit: BoxFit.cover,
-                    );
+                    return ClipRRect(
+                        borderRadius: BorderRadius.circular(8.0),
+                        child: Image.network(
+                          i,
+                          width: MediaQuery.of(context).size.width,
+                          height: MediaQuery.of(context)
+                              .size
+                              .height, // Match the height of the SizedBox
+                          fit: BoxFit.cover,
+                          alignment: Alignment.topLeft,
+                        ));
                   },
                 );
               }).toList(),
-            )),
-        title: Text(listing.parsedContent.type.toString()),
-        subtitle: Text(
-          listing.parsedContent.description,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Icon(Icons.more_vert),
-      ),
-    );
+            ),
+            const SizedBox(height: 8.0),
+
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(listing.parsedContent.title.toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8.0),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      listing.parsedContent.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Row(
+                      children: [
+                        PriceTag(price: listing.parsedContent.price[0]),
+                        BlocProvider(
+                            create: (context) => FilterCubit()
+                              ..updateFilter(NostrFilter(a: [listing.id!])),
+                            child: Row(
+                              children: [
+                                BlocProvider(
+                                  create: (context) =>
+                                      CountCubit(kinds: Review.kinds),
+                                  child:
+                                      BlocBuilder<CountCubit, CountCubitState>(
+                                    builder: (context, state) {
+                                      return Text(" · ${state.count} reviews");
+                                    },
+                                  ),
+                                ),
+                                BlocProvider(
+                                  create: (context) =>
+                                      CountCubit(kinds: Reservation.kinds),
+                                  child:
+                                      BlocBuilder<CountCubit, CountCubitState>(
+                                    builder: (context, state) {
+                                      return Text(" · ${state.count} stays");
+                                    },
+                                  ),
+                                ),
+                              ],
+                            )),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            // trailing: Icon(Icons.more_vert),
+          ]),
+        ));
   }
 }

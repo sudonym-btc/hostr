@@ -21,12 +21,13 @@ class Reservation extends Event<ReservationContent> {
             tags: e.tags);
 }
 
-class ReservationContent {
+class ReservationContent extends EventContent {
   final DateTime start;
   final DateTime end;
 
   ReservationContent({required this.start, required this.end});
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       "start": start.toIso8601String(),

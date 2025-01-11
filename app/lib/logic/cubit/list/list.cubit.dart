@@ -5,16 +5,19 @@ import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:rxdart/rxdart.dart';
 
 import 'filter.cubit.dart';
 import 'post_result_filter.cubit.dart';
 import 'sort.cubit.dart';
 
+// todo: remove hydration here and apply it to child class maybe
 class ListCubit<T extends NostrEvent> extends HydratedCubit<ListCubitState<T>> {
   final CustomLogger logger = CustomLogger();
   final Nostr? nostrInstance;
   final int? limit;
   final List<int> kinds;
+  final PublishSubject<T> itemStream = PublishSubject<T>();
 
   final FilterCubit? filterCubit;
   final SortCubit<T>? sortCubit;
@@ -70,12 +73,14 @@ class ListCubit<T extends NostrEvent> extends HydratedCubit<ListCubitState<T>> {
 
   /// Should be overridden if a child type of list wants to perform subquery on each Item added
   void addItem(T item) {
+    if (postResultFilterCubit?.state == null ||
+        postResultFilterCubit!.state(item)) {
+      itemStream.add(item);
+    }
     emit(applySort(
-        applyPostResultFilter(
-            state.copyWith(
-                results: [...state.results, item],
-                resultsRaw: [...state.results, item]),
-            postResultFilterCubit?.state),
+        state.copyWith(
+            results: [...state.results, item],
+            resultsRaw: [...state.results, item]),
         sortCubit?.state.comparator));
   }
 

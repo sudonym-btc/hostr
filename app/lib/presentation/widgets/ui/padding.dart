@@ -27,7 +27,7 @@ class CustomPadding extends StatelessWidget {
   }
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
         padding: EdgeInsets.only(
           top: top * DEFAULT_PADDING.toDouble(),
           bottom: bottom * DEFAULT_PADDING.toDouble(),

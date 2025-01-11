@@ -10,8 +10,8 @@ environment:
   sdk: ^3.6.0
 
 dependencies:
-  boltz_dart: 
-    path: ../boltz-dart
+  # boltz_dart: 
+  #   path: ../boltz-dart
   auto_route: ^9.2.0
   dart_nostr: ^8.0.3
   bip39_mnemonic: ^3.0.6
@@ -67,10 +67,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
-  # Enable generation of localized Strings from arb files.
   generate: true
-
   assets:
-    # Add assets from the images directory to the application.
     - assets/images/
