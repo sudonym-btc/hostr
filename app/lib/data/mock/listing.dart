@@ -3,13 +3,11 @@ import 'dart:convert';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/main.dart';
-import 'package:hostr/data/models/price.dart';
 
 import '../models/amount.dart';
 import '../models/nostr_kind/listing.dart';
+import '../models/price.dart';
 import 'keypairs.dart';
-
-NostrKeyPairs keyPairs = NostrKeyPairs.generate();
 
 var MOCK_LISTINGS = [
   Listing.fromNostrEvent(NostrEvent.fromPartialData(

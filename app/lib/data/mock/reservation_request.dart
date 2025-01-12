@@ -2,11 +2,11 @@ import 'dart:convert';
 
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
-import 'package:hostr/data/main.dart';
-import 'package:hostr/data/mock/reservation.dart';
-import 'package:hostr/data/models/amount.dart';
 
-NostrKeyPairs keyPairs = NostrKeyPairs.generate();
+import '../models/amount.dart';
+import '../models/nostr_kind/reservation_request.dart';
+import 'keypairs.dart';
+import 'reservation.dart';
 
 var MOCK_RESERVATION_REQUESTS = [
   ReservationRequest.fromNostrEvent(NostrEvent.fromPartialData(

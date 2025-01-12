@@ -10,43 +10,6 @@
 part of 'router.dart';
 
 /// generated route for
-/// [ConversationScreen]
-class ConversationRoute extends PageRouteInfo<ConversationRouteArgs> {
-  ConversationRoute({
-    required String id,
-    List<PageRouteInfo>? children,
-  }) : super(
-          ConversationRoute.name,
-          args: ConversationRouteArgs(id: id),
-          rawPathParams: {'id': id},
-          initialChildren: children,
-        );
-
-  static const String name = 'ConversationRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      final pathParams = data.inheritedPathParams;
-      final args = data.argsAs<ConversationRouteArgs>(
-          orElse: () => ConversationRouteArgs(id: pathParams.getString('id')));
-      return ConversationScreen(id: args.id);
-    },
-  );
-}
-
-class ConversationRouteArgs {
-  const ConversationRouteArgs({required this.id});
-
-  final String id;
-
-  @override
-  String toString() {
-    return 'ConversationRouteArgs{id: $id}';
-  }
-}
-
-/// generated route for
 /// [FiltersScreen]
 class FiltersRoute extends PageRouteInfo<void> {
   const FiltersRoute({List<PageRouteInfo>? children})
@@ -274,5 +237,42 @@ class SignInRouteArgs {
   @override
   String toString() {
     return 'SignInRouteArgs{onSuccess: $onSuccess}';
+  }
+}
+
+/// generated route for
+/// [ThreadScreen]
+class ThreadRoute extends PageRouteInfo<ThreadRouteArgs> {
+  ThreadRoute({
+    required String id,
+    List<PageRouteInfo>? children,
+  }) : super(
+          ThreadRoute.name,
+          args: ThreadRouteArgs(id: id),
+          rawPathParams: {'id': id},
+          initialChildren: children,
+        );
+
+  static const String name = 'ThreadRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final pathParams = data.inheritedPathParams;
+      final args = data.argsAs<ThreadRouteArgs>(
+          orElse: () => ThreadRouteArgs(id: pathParams.getString('id')));
+      return ThreadScreen(id: args.id);
+    },
+  );
+}
+
+class ThreadRouteArgs {
+  const ThreadRouteArgs({required this.id});
+
+  final String id;
+
+  @override
+  String toString() {
+    return 'ThreadRouteArgs{id: $id}';
   }
 }

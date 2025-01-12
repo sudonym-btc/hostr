@@ -5,8 +5,8 @@ import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 
 abstract class SecureStorage {
-  Future set(String key, dynamic val);
-  Future get(String key);
+  Future<dynamic> set(String key, dynamic val);
+  Future<dynamic> get(String key);
   Future wipe();
 }
 
@@ -23,7 +23,7 @@ class ImplSecureStorage implements SecureStorage {
   }
 
   @override
-  Future get(String key) async {
+  Future<dynamic> get(String key) async {
     var res = await storage.read(key: key);
     if (res == null) {
       return null;
@@ -46,7 +46,7 @@ class MockSecureStorage implements SecureStorage {
   dynamic state = {};
 
   @override
-  Future get(String key) {
+  Future<dynamic> get(String key) async {
     return state[key];
   }
 

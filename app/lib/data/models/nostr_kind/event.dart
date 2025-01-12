@@ -15,7 +15,7 @@ abstract class Event extends NostrEvent {
       required super.tags});
 
   Iterable<List<dynamic>> getTags(String key) {
-    return (tags ?? []).where((tag) => tag[0] == key);
+    return (tags ?? []).where((tag) => tag[0] == key).map((tag) => [tag[1]]);
   }
 
   /// Overrides Equatable's to string

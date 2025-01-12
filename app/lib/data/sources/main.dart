@@ -1,4 +1,5 @@
 export 'api/google_maps.dart';
+export 'boltz/boltz.dart';
 export 'local/main.dart';
 export 'nostr/nostr_provider/nostr_provider.dart';
 export 'nostr/relay_connector.dart';

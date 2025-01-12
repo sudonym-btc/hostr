@@ -1,7 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/route/main.dart';
-import 'package:hostr/route/root.dart';
 
 part 'router.gr.dart';
 
@@ -29,7 +28,7 @@ class AppRouter extends RootStackRouter {
             AutoRoute(page: InboxRoute.page, path: 'inbox', guards: [
               AuthGuard()
             ], children: [
-              AutoRoute(page: ConversationRoute.page, path: ':id'),
+              AutoRoute(page: ThreadRoute.page, path: ':id'),
             ]),
             AutoRoute(
                 page: MyListingsRoute.page,

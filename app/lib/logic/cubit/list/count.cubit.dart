@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dart_nostr/dart_nostr.dart';
-import 'package:hostr/core/util/main.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';

@@ -15,6 +15,7 @@ import 'package:hostr/config/env/mock.config.dart' as _i331;
 import 'package:hostr/config/env/production.config.dart' as _i1071;
 import 'package:hostr/data/sources/api/google_maps.dart' as _i575;
 import 'package:hostr/data/sources/local/key_storage.dart' as _i946;
+import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
 import 'package:hostr/data/sources/local/nwc_storage.dart' as _i303;
 import 'package:hostr/data/sources/local/relay_storage.dart' as _i315;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
@@ -25,6 +26,7 @@ import 'package:hostr/data/sources/nostr/nostr_provider/nostr_provider.dart'
 import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i291;
 import 'package:hostr/data/sources/rpc/rootstock.dart' as _i631;
 import 'package:hostr/logic/cubit/auth.cubit.dart' as _i323;
+import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
 import 'package:hostr/logic/services/messages/global_gift_wrap.cubit.dart'
     as _i550;
 import 'package:hostr/logic/services/nostr_wallet_connect.dart' as _i771;
@@ -51,6 +53,8 @@ extension GetItInjectableX on _i174.GetIt {
       environmentFilter,
     );
     gh.factory<_i323.AuthCubit>(() => _i323.AuthCubit());
+    gh.factory<_i237.ModeCubit>(() => _i237.ModeCubit());
+    gh.factory<_i640.ModeStorage>(() => _i640.ModeStorage());
     gh.factory<_i315.RelayStorage>(() => _i315.RelayStorage());
     gh.factory<_i303.NwcStorage>(() => _i303.NwcStorage());
     gh.factory<_i946.KeyStorage>(() => _i946.KeyStorage());
@@ -64,14 +68,6 @@ extension GetItInjectableX on _i174.GetIt {
         _test,
         _mock,
       },
-    );
-    gh.factory<_i291.RelayConnector>(
-      () => _i291.MockRelayConnector(),
-      registerFor: {_mock},
-    );
-    gh.factory<_i467.Config>(
-      () => _i331.MockConfig(),
-      registerFor: {_mock},
     );
     gh.factory<_i467.Config>(
       () => _i598.DevelopmentConfig(),
@@ -93,6 +89,14 @@ extension GetItInjectableX on _i174.GetIt {
         _prod,
       },
     );
+    gh.factory<_i291.RelayConnector>(
+      () => _i291.ProdRelayConnector(),
+      registerFor: {
+        _dev,
+        _staging,
+        _prod,
+      },
+    );
     gh.singleton<_i311.SecureStorage>(
       () => _i311.MockSecureStorage(),
       registerFor: {_test},
@@ -100,6 +104,13 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i550.GlobalGiftWrapCubit>(
       () => _i550.GlobalGiftWrapCubitTest(),
       registerFor: {_test},
+    );
+    gh.factory<_i467.Config>(
+      () => _i331.MockConfig(),
+      registerFor: {
+        _mock,
+        _test,
+      },
     );
     gh.factory<_i771.NostrWalletConnectService>(
       () => _i771.NostrWalletConnectService(),
@@ -133,6 +144,13 @@ extension GetItInjectableX on _i174.GetIt {
         _prod,
       },
     );
+    gh.factory<_i291.RelayConnector>(
+      () => _i291.MockRelayConnector(),
+      registerFor: {
+        _mock,
+        _test,
+      },
+    );
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsImpl(),
       registerFor: {
@@ -144,15 +162,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i788.NostrProvider>(
       () => _i200.MockNostProvider(),
       registerFor: {_mock},
-    );
-    gh.factory<_i291.RelayConnector>(
-      () => _i291.ProdRelayConnector(),
-      registerFor: {
-        _dev,
-        _test,
-        _staging,
-        _prod,
-      },
     );
     gh.factory<_i467.Config>(
       () => _i1071.ProductionConfig(),

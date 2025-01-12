@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:hostr/data/models/nostr_kind/event.dart';
-import 'package:hostr/data/models/nostr_kind/serializable.dart';
+import 'event.dart';
+import 'serializable.dart';
 
 abstract class JsonContentNostrEvent<ContentType extends Serializable>
     extends Event {

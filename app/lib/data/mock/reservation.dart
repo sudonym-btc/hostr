@@ -4,8 +4,6 @@ import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/data/main.dart';
 
-NostrKeyPairs keyPairs = NostrKeyPairs.generate();
-
 var MOCK_RESERVATIONS = [
   Reservation.fromNostrEvent(NostrEvent.fromPartialData(
       keyPairs: MockKeys.hoster,

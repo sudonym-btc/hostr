@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/data/sources/main.dart';
+import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';

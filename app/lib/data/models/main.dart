@@ -2,6 +2,7 @@ export 'message.dart';
 export 'nostr_kind/escrow.dart';
 export 'nostr_kind/gift_wrap.dart';
 export 'nostr_kind/listing.dart';
+export 'nostr_kind/message.dart';
 export 'nostr_kind/profile.dart';
 export 'nostr_kind/reservation.dart';
 export 'nostr_kind/reservation_request.dart';

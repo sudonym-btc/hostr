@@ -3,7 +3,7 @@ import 'package:injectable/injectable.dart';
 import '../../../injection.dart';
 import 'base.config.dart';
 
-@Injectable(as: Config, env: [Env.mock])
+@Injectable(as: Config, env: [Env.mock, Env.test])
 class MockConfig extends Config {
   @override
   List<String> relays = [];
