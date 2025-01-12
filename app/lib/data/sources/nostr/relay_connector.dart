@@ -10,7 +10,7 @@ abstract class RelayConnector {
   Future connect();
 }
 
-@Injectable(as: RelayConnector, env: Env.allButMock)
+@Injectable(as: RelayConnector, env: Env.allButTestAndMock)
 class ProdRelayConnector extends RelayConnector {
   RelayStorage relayStorage = getIt<RelayStorage>();
 
@@ -35,7 +35,7 @@ class ProdRelayConnector extends RelayConnector {
   }
 }
 
-@Injectable(as: RelayConnector, env: [Env.mock])
+@Injectable(as: RelayConnector, env: [Env.mock, Env.test])
 class MockRelayConnector extends RelayConnector {
   @override
   Future connect() async {}

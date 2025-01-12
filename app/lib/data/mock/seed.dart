@@ -1,8 +1,6 @@
 import 'package:hostr/core/main.dart';
-import 'package:hostr/data/mock/reservation.dart';
 import 'package:hostr/data/sources/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/setup.dart';
 
 import 'main.dart';
 
@@ -23,9 +21,4 @@ seed() async {
   for (var x in MOCK_PROFILES) {
     await getIt<NostrProvider>().sendEventToRelaysAsync(event: x);
   }
-}
-
-void main() async {
-  setup(Env.dev);
-  await seed();
 }

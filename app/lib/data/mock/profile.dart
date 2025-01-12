@@ -1,7 +1,7 @@
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
-import 'package:hostr/data/models/nostr_kind/profile.dart';
 
+import '../models/nostr_kind/profile.dart';
 import 'keypairs.dart';
 
 var MOCK_PROFILES = [

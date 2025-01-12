@@ -1,12 +1,10 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
-import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/providers/nostr/listing.provider.dart';
+import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/presentation/screens/shared/listing/image_carousel.dart';
-import 'package:hostr/presentation/widgets/main.dart';
 
 import 'reviews_reservations.dart';
 
@@ -29,70 +27,63 @@ class ListingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<EntityCubit<Listing>>(
-        create: (context) =>
-            EntityCubit<Listing>(filter: NostrFilter(a: [a]))..get(),
-        child: BlocBuilder<EntityCubit<Listing>, EntityCubitState<Listing>>(
-            builder: (context, state) {
-          if (state.data == null) {
-            return Scaffold(body: Center(child: CircularProgressIndicator()));
-          }
-          return Scaffold(
-              bottomNavigationBar: BottomAppBar(
-                shape: CircularNotchedRectangle(),
-                child: CustomPadding(
-                    top: 0,
-                    bottom: 0,
-                    child: Reserve(listing: state.data!, dateRange: dateRange)),
-              ),
-              body: (state.data == null)
-                  ? Center(child: CircularProgressIndicator())
-                  : CustomScrollView(slivers: [
-                      SliverAppBar(
-                          stretch: true,
-                          expandedHeight:
-                              MediaQuery.of(context).size.height / 4,
-                          flexibleSpace: FlexibleSpaceBar(
-                              background: ImageCarousel(
-                            item: state.data!,
-                          ))),
-                      SliverList(
-                          delegate: SliverChildListDelegate(
-                        [
-                          CustomPadding(
-                              child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                state.data!.parsedContent.title,
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              const SizedBox(height: 2.0),
-                              Row(children: [
-                                Text('hosted by'),
-                                SizedBox(width: 8),
-                                ProfileChip(id: state.data!.pubkey)
-                              ]),
-                              const SizedBox(height: 8.0),
-                              ReviewsReservations(
-                                a: a,
-                              ),
-                              const SizedBox(
-                                height: 8,
-                              ),
-                              AmenityTags(
-                                  amenities:
-                                      state.data!.parsedContent.amenities),
-                              const SizedBox(height: 16),
-                              Text(state.data!.parsedContent.description,
-                                  style:
-                                      Theme.of(context).textTheme.bodyMedium),
-                            ],
-                          ))
+    return ListingProvider(builder: (context, state) {
+      if (state.data == null) {
+        return Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      return Scaffold(
+          bottomNavigationBar: BottomAppBar(
+            shape: CircularNotchedRectangle(),
+            child: CustomPadding(
+                top: 0,
+                bottom: 0,
+                child: Reserve(listing: state.data!, dateRange: dateRange)),
+          ),
+          body: (state.data == null)
+              ? Center(child: CircularProgressIndicator())
+              : CustomScrollView(slivers: [
+                  SliverAppBar(
+                      stretch: true,
+                      expandedHeight: MediaQuery.of(context).size.height / 4,
+                      flexibleSpace: FlexibleSpaceBar(
+                          background: ImageCarousel(
+                        item: state.data!,
+                      ))),
+                  SliverList(
+                      delegate: SliverChildListDelegate(
+                    [
+                      CustomPadding(
+                          child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            state.data!.parsedContent.title,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 2.0),
+                          Row(children: [
+                            Text('hosted by'),
+                            SizedBox(width: 8),
+                            ProfileChip(id: state.data!.pubkey)
+                          ]),
+                          const SizedBox(height: 8.0),
+                          ReviewsReservations(
+                            a: a,
+                          ),
+                          const SizedBox(
+                            height: 8,
+                          ),
+                          AmenityTags(
+                              amenities: state.data!.parsedContent.amenities),
+                          const SizedBox(height: 16),
+                          Text(state.data!.parsedContent.description,
+                              style: Theme.of(context).textTheme.bodyMedium),
                         ],
                       ))
-                    ]));
-        }));
+                    ],
+                  ))
+                ]));
+    });
   }
 }
 

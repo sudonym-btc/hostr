@@ -3,23 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/models/main.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/screens/guest/search/search_results.dart';
+import 'package:hostr/presentation/screens/guest/search/search_view.dart';
 
 @RoutePage()
-class SearchScreen extends StatefulWidget {
+class SearchScreen extends StatelessWidget {
   const SearchScreen({super.key});
 
   @override
-  State<StatefulWidget> createState() {
-    return _SearchScreenState();
-  }
-}
-
-class _SearchScreenState extends State<SearchScreen> {
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        body: MultiBlocProvider(providers: [
+    return MultiBlocProvider(providers: [
       /// Use widget page query parameters to discover initial search parameters
       BlocProvider(create: (context) => DateRangeCubit()),
 
@@ -35,6 +27,6 @@ class _SearchScreenState extends State<SearchScreen> {
               postResultFilterCubit: context.read<PostResultFilterCubit>(),
               filterCubit: context.read<FilterCubit>())
             ..next()),
-    ], child: SearchResultsWidget()));
+    ], child: SearchView());
   }
 }

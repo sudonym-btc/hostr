@@ -4,8 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/logic/services/swap.dart';
-import 'package:hostr/presentation/widgets/main.dart';
-import 'package:hostr/presentation/widgets/nostr_wallet_connect/nostr_wallet_connect.dart';
+import 'package:hostr/presentation/component/widgets/main.dart';
+import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/nostr_wallet_connect.dart';
 import 'package:hostr/router.dart';
 
 @RoutePage()

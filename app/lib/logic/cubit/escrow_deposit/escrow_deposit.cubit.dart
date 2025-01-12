@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/logic/cubit/payment/payment.cubit.dart';
-import 'package:hostr/logic/cubit/swap/swap_in.cubit.dart';
+
+import '../payment/payment.cubit.dart';
+import '../swap/swap_in.cubit.dart';
 
 /// TODO - When calculating the swap-in amount, should take into account the amount held in our EVM keys minus the amount committed to other escrow deposits
 class EscrowDepositCubit extends Cubit<EscrowDepositState?> {

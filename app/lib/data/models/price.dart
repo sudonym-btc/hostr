@@ -1,6 +1,5 @@
-import 'package:hostr/data/models/amount.dart';
+import 'amount.dart';
 
-/** "price", "<number>", "<currency>", "<frequency>" */
 class Price {
   Amount amount;
   Frequency frequency;

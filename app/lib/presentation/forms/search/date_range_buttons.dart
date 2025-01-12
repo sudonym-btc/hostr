@@ -3,9 +3,8 @@ import 'package:hostr/core/main.dart';
 
 class DateRangeButtons extends StatelessWidget {
   final DateTimeRange? selectedDateRange;
-  final Function onTap;
-  const DateRangeButtons(
-      {super.key, required this.onTap, this.selectedDateRange});
+  final Function? onTap;
+  const DateRangeButtons({super.key, this.onTap, this.selectedDateRange});
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +15,7 @@ class DateRangeButtons extends StatelessWidget {
         ButtonSegment(
             value: 'in',
             label: GestureDetector(
-                onTap: () => onTap(),
+                onTap: () => {if (onTap != null) onTap!()},
                 child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -36,7 +35,7 @@ class DateRangeButtons extends StatelessWidget {
         ButtonSegment(
             value: 'out',
             label: GestureDetector(
-                onTap: () => onTap(),
+                onTap: () => {if (onTap != null) onTap!()},
                 child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(

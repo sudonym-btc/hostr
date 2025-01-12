@@ -1,9 +1,9 @@
 import 'package:dart_nostr/nostr/model/event/event.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/services/messages/thread.cubit.dart';
 
 import 'global_gift_wrap.cubit.dart';
+import 'thread.cubit.dart';
 
 class ThreadOrganizer extends Cubit<ThreadOrganizerState> {
   final GlobalGiftWrapCubit globalMessageCubit = getIt<GlobalGiftWrapCubit>();

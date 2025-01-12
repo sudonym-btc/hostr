@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/presentation/widgets/main.dart';
+import 'package:hostr/presentation/component/widgets/main.dart';
 
 import 'date_range_buttons.dart';
 import 'location_field.dart';

@@ -4,8 +4,9 @@ import 'dart:core';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:dart_nostr/nostr/core/constants.dart';
 import 'package:hostr/config/main.dart';
-import 'package:hostr/data/models/nostr_kind/type_parent.dart';
-import 'package:hostr/data/sources/nostr/nostr_provider/nostr_provider.dart';
+import 'package:hostr/data/sources/main.dart';
+
+import 'type_parent.dart';
 
 class GiftWrap<T extends NostrEvent> extends ParentTypeNostrEvent<T> {
   static List<int> kinds = [NOSTR_KIND_GIFT_WRAP];

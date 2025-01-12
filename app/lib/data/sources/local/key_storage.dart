@@ -24,8 +24,7 @@ class KeyStorage {
   }
 
   set(String item) async {
-    var key = NostrKeyPairs.generate();
-    await storage.set('keys', [key.private]);
+    await storage.set('keys', [item]);
     return item;
   }
 

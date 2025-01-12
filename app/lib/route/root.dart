@@ -1,6 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/presentation/widgets/main.dart';
+import 'package:hostr/presentation/main.dart';
 
 @RoutePage()
 class RootScreen extends StatelessWidget {
