@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/logic/services/messages/thread.cubit.dart';
-import 'package:hostr/presentation/screens/shared/inbox/thread/thread_header.dart';
+import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/main.dart';
 
 class ThreadView extends StatelessWidget {
   // ignore: use_key_in_widget_constructors
@@ -11,7 +11,7 @@ class ThreadView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ThreadHeader(title: 'hi', subtitle: 'there'),
+        ThreadHeaderWidget(title: 'hi', subtitle: 'there'),
         BlocBuilder<ThreadCubit, ThreadCubitState>(builder: (context, state) {
           return ListView.builder(itemBuilder: (listContext, index) {
             return ListTile(

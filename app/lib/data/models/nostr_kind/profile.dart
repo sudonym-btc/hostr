@@ -7,7 +7,7 @@ import 'package:hostr/config/main.dart';
 import 'type_json_content.dart';
 
 class Profile extends JsonContentNostrEvent<ProfileContent> {
-  static List<int> kinds = [NOSTR_KIND_PROFILE];
+  static const List<int> kinds = [NOSTR_KIND_PROFILE];
 
   Profile.fromNostrEvent(NostrEvent e)
       : super(

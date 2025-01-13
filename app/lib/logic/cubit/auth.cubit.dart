@@ -35,7 +35,7 @@ class AuthCubit extends Cubit<AuthState> {
   KeyStorage keyStorage = getIt<KeyStorage>();
   SecureStorage secureStorage = getIt<SecureStorage>();
 
-  AuthCubit() : super(AuthInitial());
+  AuthCubit({AuthState? initialState}) : super(initialState ?? AuthInitial());
 
   /// Logs in the user by generating a key pair and requesting delegation.
   Future<void> signup() async {
@@ -49,7 +49,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Checks if the user is logged in by verifying stored keys.
-  Future<bool> checkKeyLoggedIn() async {
+  Future<bool> get() async {
     if ((await keyStorage.getActiveKeyPair()) != null) {
       emit(LoggedIn());
       return true;

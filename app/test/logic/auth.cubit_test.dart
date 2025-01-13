@@ -22,7 +22,7 @@ void main() {
       'emits [LoggedOut] when checkKeyLoggedIn().',
       build: () => AuthCubit(),
       act: (bloc) {
-        return bloc.checkKeyLoggedIn();
+        return bloc.get();
       },
       expect: () => <AuthState>[LoggedOut()],
     );
@@ -34,7 +34,7 @@ void main() {
         getIt<SecureStorage>().set('keys', [keyPair.private]);
       },
       act: (bloc) {
-        return bloc.checkKeyLoggedIn();
+        return bloc.get();
       },
       expect: () => <AuthState>[LoggedIn()],
     );

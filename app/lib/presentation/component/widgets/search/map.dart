@@ -12,18 +12,18 @@ import 'package:rxdart/rxdart.dart';
 
 double mapsGoogleLogoSize = 0;
 
-class SearchMap extends StatefulWidget {
+class SearchMapWidget extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
 
-  SearchMap({super.key});
+  SearchMapWidget({super.key});
 
   @override
   State<StatefulWidget> createState() {
-    return _SearchMapState();
+    return _SearchMapWidgetState();
   }
 }
 
-class _SearchMapState extends State<SearchMap> {
+class _SearchMapWidgetState extends State<SearchMapWidget> {
   final Completer<GoogleMapController> _controller =
       Completer<GoogleMapController>();
   final Map<String, Marker> _markers = {};

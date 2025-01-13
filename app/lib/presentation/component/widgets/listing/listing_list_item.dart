@@ -8,16 +8,17 @@ import 'package:hostr/router.dart';
 
 import 'price_tag.dart';
 
-class ListingListItem extends StatelessWidget {
+class ListingListItemWidget extends StatelessWidget {
   final Listing listing;
   final DateTimeRange? dateRange;
-  const ListingListItem({super.key, required this.listing, this.dateRange});
+  const ListingListItemWidget(
+      {super.key, required this.listing, this.dateRange});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
         onTap: () => AutoRouter.of(context).root.push(ListingRoute(
-              a: listing.getTags('a').first.first,
+              a: listing.getTag('a').first.first,
               dateRangeStart: dateRange?.start != null
                   ? dateRange!.start.toIso8601String()
                   : null,
@@ -68,7 +69,7 @@ class ListingListItem extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        PriceTag(price: listing.parsedContent.price[0]),
+                        PriceTagWidget(price: listing.parsedContent.price[0]),
                         BlocProvider(
                             create: (context) => FilterCubit()
                               ..updateFilter(NostrFilter(a: [listing.id!])),

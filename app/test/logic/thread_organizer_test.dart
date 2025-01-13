@@ -16,10 +16,9 @@ void main() {
   });
 
   group('new message new group', () {
-    blocTest<ThreadOrganizer, ThreadOrganizerState>(
+    blocTest<ThreadOrganizerCubit, ThreadOrganizerState>(
       'emits new thread when new message introduced',
-      build: () => ThreadOrganizer(
-          ThreadOrganizerState(threads: [], selectedThread: null)),
+      build: () => ThreadOrganizerCubit(),
       act: (bloc) {
         return bloc.sortMessage(NostrEvent.fromPartialData(
             content: 'hi',

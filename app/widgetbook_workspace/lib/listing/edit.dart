@@ -5,6 +5,6 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 @widgetbook.UseCase(name: 'Edit', type: ListingScreen)
 Widget edit(BuildContext context) {
   return ListingScreen(
-    a: MOCK_LISTINGS[0].getTags('a').first.first,
+    a: MOCK_LISTINGS[0].getTag('a').first.first,
   );
 }

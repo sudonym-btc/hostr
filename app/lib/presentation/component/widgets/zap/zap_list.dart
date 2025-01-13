@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../ui/list.dart';
 
-class ZapList extends ListWidget {
+class ZapListWidget extends ListWidget {
   final String pubkey;
   final String? eventId;
 
-  const ZapList(
+  const ZapListWidget(
       {super.key, required this.pubkey, this.eventId, required super.builder});
   // final String? originalEventId; @todo replaceable events
 

@@ -4,9 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/logic/main.dart';
 
-class ReviewsReservations extends StatelessWidget {
+class ReviewsReservationsWidget extends StatelessWidget {
   final String a;
-  const ReviewsReservations({super.key, required this.a});
+  const ReviewsReservationsWidget({super.key, required this.a});
 
   @override
   Widget build(BuildContext context) {

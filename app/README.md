@@ -30,10 +30,14 @@ flutter run
 ## NIPs Utilized
 
 - **NIP-01**: Basic protocol for event creation and subscription.
-- **NIP-04**: Encrypted direct messages for secure communication between hosts and guests.
 - **NIP-05**: Mapping Nostr keys to DNS-based internet identifiers.
 - **NIP-09**: Event deletion for removing listings or messages.
+- **NIP-17**: Encrypted direct messages for secure communication between hosts and guests.
 - **NIP-33**: Parameterized replaceable events for creating and updating listings and bookings.
+
+## Dependency injection and mocking
+
+- Each `Screen` widget just handles the mapping of query and path parameters onto it's corresponding `View` widget. This allows for catalogging widgets while only using their TypeSafe parameters, rather than having to pass in query strings etc.
 
 ## Nostr Synchronization
 

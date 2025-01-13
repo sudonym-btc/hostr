@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/data/models/amount.dart';
 
-class AmountInput extends FormField<Amount> {
-  AmountInput()
+class AmountInputWidget extends FormField<Amount> {
+  AmountInputWidget()
       : super(
           builder: (field) {
             return TextFormField(

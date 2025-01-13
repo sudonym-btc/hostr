@@ -7,7 +7,7 @@ import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 
-abstract class NostrProvider {
+abstract class NostrSource {
   CustomLogger logger = CustomLogger();
   ReplaySubject<NostrEvent> events = ReplaySubject<NostrEvent>();
 
@@ -25,8 +25,8 @@ abstract class NostrProvider {
       {required NostrEvent event, List<String>? relays});
 }
 
-@Singleton(as: NostrProvider, env: Env.allButTestAndMock)
-class ProdNostrProvider extends NostrProvider {
+@Singleton(as: NostrSource, env: Env.allButTestAndMock)
+class ProdNostrProvider extends NostrSource {
   @override
   startRequest(
       {required NostrRequest request,

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/data/main.dart';
 
-class EscrowListItem extends StatefulWidget {
+class EscrowListItemWidget extends StatefulWidget {
   final Escrow entity;
-  const EscrowListItem({super.key, required this.entity});
+  const EscrowListItemWidget({super.key, required this.entity});
 
   @override
-  _EscrowListItemState createState() => _EscrowListItemState();
+  _EscrowListItemWidgetState createState() => _EscrowListItemWidgetState();
 }
 
-class _EscrowListItemState extends State<EscrowListItem> {
+class _EscrowListItemWidgetState extends State<EscrowListItemWidget> {
   bool _isChecked = false;
 
   @override

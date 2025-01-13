@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/data/models/price.dart';
+import 'package:hostr/data/main.dart';
 
-class PriceTag extends StatelessWidget {
+class PriceTagWidget extends StatelessWidget {
   final Price price;
 
-  const PriceTag({
+  const PriceTagWidget({
     super.key,
     required this.price,
   });

@@ -6,7 +6,7 @@ import 'package:hostr/config/constants.dart';
 import 'event.dart';
 
 class Message extends Event {
-  static List<int> kinds = [NOSTR_KIND_DM];
+  static const List<int> kinds = [NOSTR_KIND_DM];
 
   Message.fromNostrEvent(NostrEvent e)
       : super(

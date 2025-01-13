@@ -15,10 +15,8 @@ jobs:
         with:
           channel: stable
           flutter-version: 3.27.1
-          
-      - run: flutter --version
 
-          
+      - run: flutter --version
 
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
@@ -33,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
         working-directory: app
-      
+
       - name: Build Widgetbook
         run: flutter build web
         working-directory: app/widgetbook_workspace
@@ -41,6 +39,21 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
         working-directory: app
+      - name: Check coverage
+        run: |
+          COVERAGE=$(flutter pub run test_coverage)
+          THRESHOLD=80
+          if [ "$COVERAGE" -lt "$THRESHOLD" ]; then
+            echo "Code coverage ($COVERAGE%) is below the threshold ($THRESHOLD%)."
+            exit 1
+          fi
+        working-directory: app
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./app/coverage/lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
   release:
     name: Release
     runs-on: ubuntu-latest

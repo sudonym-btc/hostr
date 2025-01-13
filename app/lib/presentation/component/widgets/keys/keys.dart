@@ -6,14 +6,14 @@ import 'package:hostr/config/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 
-class Keys extends StatefulWidget {
-  const Keys({super.key});
+class KeysWidget extends StatefulWidget {
+  const KeysWidget({super.key});
 
   @override
-  KeysState createState() => KeysState();
+  KeysWidgetState createState() => KeysWidgetState();
 }
 
-class KeysState extends State<Keys> {
+class KeysWidgetState extends State<KeysWidget> {
   NostrKeyPairs? key;
   KeyStorage keyStorage = getIt<KeyStorage>();
   @override

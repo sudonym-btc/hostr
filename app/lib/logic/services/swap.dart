@@ -27,14 +27,16 @@ class SwapService {
   Future<EtherSwap> getRootstockEtherSwap() async {
     // Fetch RBTC contracts
     final rbtcContracts = await boltzClient.rbtcContracts();
-    final rbtcSwapContract = rbtcContracts['swapContracts']['EtherSwap'];
+    final rbtcSwapContract = rbtcContracts.swapContracts.etherSwap;
 
     // Initialize Web3 client
     final Web3Client client =
         Web3Client(getIt<Config>().rootstockRpcUrl, Client());
 
     // Initialize EtherSwap contract
-    return EtherSwap(address: rbtcSwapContract, client: client);
+    return EtherSwap(
+        address: EthereumAddress(base64Decode(rbtcSwapContract!)),
+        client: client);
   }
 
   swapOutAll() async {
@@ -71,7 +73,7 @@ class SwapService {
 
       // Create the args record for the lock function
       final lockArgs = (
-        claimAddress: EthereumAddress.fromHex(swap.claimAddress),
+        claimAddress: EthereumAddress(base64Decode(swap.claimPublicKey!)),
         preimageHash: Uint8List.fromList(invoicePreimageHash.codeUnits),
         timelock: BigInt.from(swap.timeoutBlockHeight),
       );
@@ -97,7 +99,7 @@ class SwapService {
 
     // Create a submarine swap
     final swap = await boltzClient.reverseSubmarine(
-        invoiceAmount: amountSats,
+        invoiceAmount: amountSats.toDouble(),
         claimAddress: ethKey.address.hex,
         preimageHash: preimageHash);
 
@@ -105,15 +107,15 @@ class SwapService {
 
     // Create the args record for the claim function
     final claimArgs = (
-      amount: BigInt.from(swap.onchainAmount * satoshiWeiFactor),
+      amount: BigInt.from(swap.onchainAmount!) * satoshiWeiFactor,
       preimage: Uint8List.fromList(preimage.codeUnits),
-      refundAddress: EthereumAddress.fromHex(swap.refundAddress),
+      refundAddress: EthereumAddress(base64Decode(swap.refundPublicKey!)),
       timelock: BigInt.from(swap.timeoutBlockHeight),
     );
 
     // Lock the funds in the EtherSwap contract
     Future<String> tx = swapContract.claim(claimArgs, credentials: ethKey);
 
-    logger.i('Sent RBTC in: ${tx}');
+    logger.i('Sent RBTC in: $tx');
   }
 }

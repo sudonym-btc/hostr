@@ -8,6 +8,9 @@ import '../keypairs.dart';
 List<GiftWrap> MOCK_GUEST_RESERVATION_REQUEST = [
   GiftWrap.fromNostrEvent(NostrEvent.fromPartialData(
       kind: NOSTR_KIND_GIFT_WRAP,
+      tags: [
+        ['p', MockKeys.hoster.public]
+      ],
       keyPairs: NostrKeyPairs.generate(),
       content: Seal.fromNostrEvent(
         NostrEvent.fromPartialData(

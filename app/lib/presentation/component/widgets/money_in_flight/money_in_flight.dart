@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 
-class MoneyInFlight extends StatefulWidget {
+class MoneyInFlightWidget extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
-    return _MoneyInFlightState();
+    return _MoneyInFlightWidgetState();
   }
 }
 
-class _MoneyInFlightState extends State<MoneyInFlight> {
+class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
   Rootstock r = getIt<Rootstock>();
   KeyStorage keyStorage = getIt<KeyStorage>();
   num? balance;

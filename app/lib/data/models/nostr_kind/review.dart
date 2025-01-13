@@ -7,7 +7,7 @@ import 'package:hostr/config/main.dart';
 import 'type_json_content.dart';
 
 class Review extends JsonContentNostrEvent<ReviewContent> {
-  static List<int> kinds = [NOSTR_KIND_REVIEW];
+  static const List<int> kinds = [NOSTR_KIND_REVIEW];
 
   Review.fromNostrEvent(NostrEvent e)
       : super(

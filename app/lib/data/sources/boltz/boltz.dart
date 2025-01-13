@@ -1,50 +1,52 @@
-import 'dart:convert';
-
+import 'package:chopper/chopper.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:http/http.dart' as http;
+
+import 'swagger_generated/boltz.swagger.dart';
 
 class BoltzClient {
   CustomLogger logger = CustomLogger();
   Config config = getIt<Config>();
-  Future<dynamic> submarine({required String invoice}) async {
+  Boltz gBoltzCli = Boltz.create();
+
+  Future<SubmarineResponse> submarine({required String invoice}) async {
     logger.i('Swapping for invoice $invoice');
-    var res = await http
-        .post(Uri.parse('${config.boltzUrl}/v2/swap/submarine'), body: {
-      'invoice': invoice,
-      'to': 'BTC',
-      'from': 'RBTC',
-    });
+    SubmarineRequest r = SubmarineRequest(
+      from: 'RBTC',
+      to: 'BTC',
+      invoice: invoice,
+    );
+    Response<SubmarineResponse> res =
+        await gBoltzCli.swapSubmarinePost(body: r);
     logger.i("Response: ${res.body}");
-    return json.decode(res.body);
+    if (res.isSuccessful) return res.body!;
+    throw res.error!;
   }
 
-  Future<dynamic> reverseSubmarine(
-      {required int invoiceAmount,
-      required String claimAddress,
-      required String preimageHash}) async {
-    logger.i('Swapping $invoiceAmount');
-    var res =
-        await http.post(Uri.parse('${config.boltzUrl}/v2/swap/reverse'), body: {
-      'invoiceAmount': invoiceAmount,
-      'to': 'RBTC',
-      'from': 'BTC',
-      'claimAddress': claimAddress,
-      'preimageHash': preimageHash,
-    });
+  Future<ReverseResponse> reverseSubmarine(
+      {required double invoiceAmount,
+      required String preimageHash,
+      required String claimAddress}) async {
+    logger.i('Swapping $invoiceAmount for $claimAddress');
+    ReverseRequest r = ReverseRequest(
+        from: 'BTC',
+        to: 'RBTC',
+        invoiceAmount: invoiceAmount,
+        claimAddress: claimAddress,
+        preimageHash: preimageHash);
+    var res = await gBoltzCli.swapReversePost(body: r);
     logger.i("Response: ${res.body}");
-    return json.decode(res.body);
+    if (res.isSuccessful) return res.body!;
+    throw res.error!;
   }
 
-  Future<dynamic> rbtcContracts() async {
+  Future<Contracts> rbtcContracts() async {
     logger.i('Listing contracts');
-    var res =
-        await http.get(Uri.parse('${config.boltzUrl}/v2/chain/RBTC/contracts'));
+    Response<Contracts> res =
+        await gBoltzCli.chainCurrencyContractsGet(currency: 'RBTC');
     logger.i("Response: ${res.body}");
-    var data = json.decode(res.body);
-    data = data.data;
-
-    return json.decode(res.body);
+    if (res.isSuccessful) return res.body!;
+    throw res.error!;
   }
 }

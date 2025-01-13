@@ -9,7 +9,7 @@ import 'package:hostr/data/sources/main.dart';
 import 'type_parent.dart';
 
 class Seal extends ParentTypeNostrEvent {
-  static List<int> kinds = [NOSTR_KIND_SEAL];
+  static const List<int> kinds = [NOSTR_KIND_SEAL];
   Seal.fromNostrEvent(NostrEvent e)
       : super(
             content: e.content,

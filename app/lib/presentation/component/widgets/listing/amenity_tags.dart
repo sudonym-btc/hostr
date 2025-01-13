@@ -3,10 +3,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
 
-class AmenityTags extends StatelessWidget {
+class AmenityTagsWidget extends StatelessWidget {
   final Amenities amenities;
 
-  const AmenityTags({
+  const AmenityTagsWidget({
     Key? super.key,
     required this.amenities,
   });
