@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 
-class ProfileChip extends StatelessWidget {
+class ProfileChipWidget extends StatelessWidget {
   final String id;
 
-  const ProfileChip({super.key, required this.id});
+  const ProfileChipWidget({super.key, required this.id});
 
   @override
   Widget build(BuildContext context) {

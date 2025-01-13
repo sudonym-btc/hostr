@@ -7,7 +7,7 @@ import 'package:hostr/config/main.dart';
 import 'type_json_content.dart';
 
 class Escrow extends JsonContentNostrEvent<EscrowContent> {
-  static List<int> kinds = [NOSTR_KIND_ESCROW];
+  static const List<int> kinds = [NOSTR_KIND_ESCROW];
 
   Escrow.fromNostrEvent(NostrEvent e)
       : super(

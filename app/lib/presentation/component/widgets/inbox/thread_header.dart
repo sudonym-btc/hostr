@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-class ThreadHeader extends StatelessWidget {
+class ThreadHeaderWidget extends StatelessWidget {
   final String title;
   final String subtitle;
   final String? image;
   final Widget? trailing;
-  const ThreadHeader(
+  const ThreadHeaderWidget(
       {required this.title, required this.subtitle, this.image, this.trailing});
 
   @override

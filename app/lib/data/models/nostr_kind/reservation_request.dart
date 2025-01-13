@@ -9,7 +9,7 @@ import 'type_json_content.dart';
 
 class ReservationRequest
     extends JsonContentNostrEvent<ReservationRequestContent> {
-  static List<int> kinds = [NOSTR_KIND_RESERVATION_REQUEST];
+  static const List<int> kinds = [NOSTR_KIND_RESERVATION_REQUEST];
 
   ReservationRequest.fromNostrEvent(NostrEvent e)
       : super(

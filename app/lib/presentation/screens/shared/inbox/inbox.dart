@@ -1,5 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/logic/services/main.dart';
 
 @RoutePage()
 class InboxScreen extends StatelessWidget {
@@ -8,17 +10,26 @@ class InboxScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        // appBar: AppBar(
-        //   title: Text('Inbox'),
-        // ),
-        // body: Center(
-        //     child: ListWidget(
-        //   builder: (el) =>
-        //       MessageInboxItem(thread: MessageType0.fromNostrEvent(el)),
-        //   emptyText: 'No messages',
-        //   list: () => ListCubit(getIt<MessageRepository>())
-        //     ..setFilter(NostrFilter()), // todo: must be enquiry tag
-        // )),
-        );
+        appBar: AppBar(
+          title: Text('Inbox'),
+        ),
+        body: BlocProvider<ThreadOrganizerCubit>(
+            create: (context) => ThreadOrganizerCubit(),
+            child: BlocBuilder<ThreadOrganizerCubit, ThreadOrganizerState>(
+                builder: (context, state) {
+              return ListView.builder(
+                  itemCount: state.threads.length,
+                  itemBuilder: (context, index) {
+                    return ListTile(
+                      title: Text('Example thread'),
+                      onTap: () {
+                        // context
+                        //     .read<ThreadOrganizer>()
+                        //     .selectThread(state.threads[index]);
+                        context.router.pushNamed('/inbox/thread');
+                      },
+                    );
+                  });
+            })));
   }
 }

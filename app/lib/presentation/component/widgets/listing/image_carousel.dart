@@ -2,10 +2,10 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/data/main.dart';
 
-class ImageCarousel extends StatelessWidget {
+class ImageCarouselWidget extends StatelessWidget {
   final Listing item;
 
-  const ImageCarousel({super.key, required this.item});
+  const ImageCarouselWidget({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {

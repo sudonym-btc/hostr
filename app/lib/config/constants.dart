@@ -16,4 +16,8 @@ const NOSTR_KIND_SEAL = 13;
 /// A gift wrap event is a kind:1059 event that wraps any other event. tags SHOULD include any information needed to route the event to its intended recipient, including the recipient's p tag
 const NOSTR_KIND_GIFT_WRAP = 1059;
 
+const NOSTR_KIND_NWC_INFO = 13194;
+const NOSTR_KIND_NWC_REQUEST = 23194;
+const NOSTR_KIND_NWC_RESPONSE = 23194;
+const NOSTR_KIND_NWC_NOTIFICATION = 23196;
 const DEFAULT_PADDING = 32;

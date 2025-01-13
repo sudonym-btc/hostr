@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/presentation/screens/guest/search/search_results.dart';
+import 'package:hostr/presentation/component/main.dart';
 
 class SearchView extends StatefulWidget {
   const SearchView({super.key});
@@ -13,6 +13,6 @@ class SearchView extends StatefulWidget {
 class _SearchViewState extends State<SearchView> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: SearchResultsWidget());
+    return SearchResultsWidget();
   }
 }

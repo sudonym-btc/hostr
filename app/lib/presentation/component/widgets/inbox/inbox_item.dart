@@ -3,9 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/providers/main.dart';
 
-class InboxItem extends StatelessWidget {
+class InboxItemWidget extends StatelessWidget {
   ThreadCubit threadCubit;
-  InboxItem({super.key, required this.threadCubit});
+  InboxItemWidget({super.key, required this.threadCubit});
 
   @override
   Widget build(BuildContext context) {

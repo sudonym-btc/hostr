@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/data/sources/local/mode_storage.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/mode.cubit.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/setup.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -58,7 +57,7 @@ class WidgetbookApp extends StatelessWidget {
             ? MockKeys.guest.private
             : MockKeys.hoster.private);
 
-        getIt<AuthCubit>().checkKeyLoggedIn();
+        getIt<AuthCubit>().get();
 
         getIt<ModeStorage>().set(authValue.toLowerCase());
         getIt<ModeCubit>().get();

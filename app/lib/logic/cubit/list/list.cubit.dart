@@ -15,6 +15,7 @@ class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
   final CustomLogger logger = CustomLogger();
   final Nostr? nostrInstance;
   final int? limit;
+  final NostrFilter? filter;
   final List<int> kinds;
   final PublishSubject<T> itemStream = PublishSubject<T>();
 
@@ -31,6 +32,7 @@ class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
     this.limit,
     required this.kinds,
     this.filterCubit,
+    this.filter,
     this.sortCubit,
     this.postResultFilterCubit,
   }) : super(ListCubitState<T>()) {
@@ -51,12 +53,13 @@ class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
 
   void next() {
     logger.i("next");
-    getIt<NostrProvider>()
+    getIt<NostrSource>()
         .startRequest(
             request: NostrRequest(filters: [
               // Nostr treats separate NostrFilters as OR, so we need to combine them
               getCombinedFilter(
-                  NostrFilter(kinds: kinds), filterCubit?.state.filter)
+                  getCombinedFilter(NostrFilter(kinds: kinds), filter),
+                  filterCubit?.state.filter)
             ]),
             onEose: (_, __) {})
         .stream

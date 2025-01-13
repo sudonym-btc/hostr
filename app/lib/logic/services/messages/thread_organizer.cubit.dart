@@ -1,18 +1,20 @@
 import 'package:dart_nostr/nostr/model/event/event.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/injection.dart';
 
 import 'global_gift_wrap.cubit.dart';
 import 'thread.cubit.dart';
 
-class ThreadOrganizer extends Cubit<ThreadOrganizerState> {
-  final GlobalGiftWrapCubit globalMessageCubit = getIt<GlobalGiftWrapCubit>();
-  ThreadOrganizer(super.initialState) {
-    /// As soon as the cubit is created, we sort the initial messages and subscribe to incoming
-    for (final nostrEvent in globalMessageCubit.state.results) {
-      sortMessage(nostrEvent);
+class ThreadOrganizerCubit extends Cubit<ThreadOrganizerState> {
+  final GlobalGiftWrapCubit? globalMessageCubit;
+  ThreadOrganizerCubit({this.globalMessageCubit})
+      : super(ThreadOrganizerState(threads: [])) {
+    if (globalMessageCubit != null) {
+      /// As soon as the cubit is created, we sort the initial messages and subscribe to incoming
+      for (final nostrEvent in globalMessageCubit!.state.results) {
+        sortMessage(nostrEvent);
+      }
+      globalMessageCubit!.itemStream.listen(sortMessage);
     }
-    globalMessageCubit.itemStream.listen(sortMessage);
   }
 
   /// Attempt to add message to existing thread, if not found, create new thread

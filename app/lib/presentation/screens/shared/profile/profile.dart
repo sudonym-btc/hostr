@@ -5,7 +5,6 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/logic/services/swap.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
-import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/nostr_wallet_connect.dart';
 import 'package:hostr/router.dart';
 
 @RoutePage()
@@ -31,11 +30,12 @@ class ProfileScreen extends StatelessWidget {
               //   },
               // ),
               Section(
-                  title: 'Nostr wallet connect', body: NostrWalletConnect()),
-              Section(title: 'Money in flight', body: MoneyInFlight()),
+                  title: 'Nostr wallet connect',
+                  body: NostrWalletConnectWidget()),
+              Section(title: 'Money in flight', body: MoneyInFlightWidget()),
               Section(
                 title: "Relays",
-                body: RelayList(),
+                body: RelayListWidget(),
               ),
               Section(
                   body: Column(
@@ -86,7 +86,7 @@ class ProfileScreen extends StatelessWidget {
               Section(
                   title: 'Info',
                   body: Column(
-                    children: [Keys()],
+                    children: [KeysWidget()],
                   ))
             ],
           ),

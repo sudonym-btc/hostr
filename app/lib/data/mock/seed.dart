@@ -9,16 +9,18 @@ seed() async {
   logger.i("seed");
   await getIt<RelayConnector>().connect();
   for (var x in MOCK_ESCROWS) {
-    await getIt<NostrProvider>().sendEventToRelaysAsync(event: x);
+    await getIt<NostrSource>().sendEventToRelaysAsync(event: x);
   }
   for (var x in MOCK_LISTINGS) {
-    await getIt<NostrProvider>().sendEventToRelaysAsync(event: x);
+    await getIt<NostrSource>().sendEventToRelaysAsync(event: x);
   }
   for (var x in MOCK_RESERVATIONS) {
-    await getIt<NostrProvider>().sendEventToRelaysAsync(event: x);
+    await getIt<NostrSource>().sendEventToRelaysAsync(event: x);
   }
-
+  for (var x in MOCK_GIFT_WRAPS) {
+    await getIt<NostrSource>().sendEventToRelaysAsync(event: x);
+  }
   for (var x in MOCK_PROFILES) {
-    await getIt<NostrProvider>().sendEventToRelaysAsync(event: x);
+    await getIt<NostrSource>().sendEventToRelaysAsync(event: x);
   }
 }

@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
+import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 
 import '../services/nostr_wallet_connect.dart';
@@ -8,28 +9,25 @@ import '../services/nostr_wallet_connect.dart';
 class NostrWalletConnectCubit extends Cubit<NostrWalletConnectState> {
   CustomLogger logger = CustomLogger();
   NostrWalletConnectService nwcService = getIt<NostrWalletConnectService>();
-  NostrWalletConnectCubit() : super(NostrWalletConnectState());
+  NostrWalletConnectCubit() : super(Idle());
 
   void connect(String str) async {
-    emit(NostrWalletConnectProgress());
+    emit(NostrWalletConnectInProgress());
     try {
       await nwcService.save(str);
-      emit(Success());
+      // emit(Success(content: info));
     } catch (e) {
       emit(Error());
     }
   }
 
-  // Should be moved to separate "Payment Cubit"
-  void pay_invoice(String str) async {
-    emit(NostrWalletConnectProgress());
-    try {
-      await nwcService.payInvoice(str);
-      emit(Success());
-    } catch (e) {
-      logger.e('Error paying invoice', error: e);
+  void checkInfo() {
+    emit(NostrWalletConnectInProgress());
+    nwcService.getInfo().then((value) {
+      emit(Success(content: value));
+    }).catchError((e) {
       emit(Error());
-    }
+    });
   }
 }
 
@@ -37,18 +35,19 @@ class NostrWalletConnectState extends Equatable {
   const NostrWalletConnectState();
 
   @override
-  // TODO: implement props
   List<Object?> get props => [];
 }
 
 class Idle extends NostrWalletConnectState {}
 
-class NostrWalletConnectProgress extends NostrWalletConnectState {
-  NostrWalletConnectProgress();
+class NostrWalletConnectInProgress extends NostrWalletConnectState {
+  const NostrWalletConnectInProgress();
 }
 
 class Success extends NostrWalletConnectState {
-  const Success();
+  final NwcInfoContent content;
+
+  const Success({required this.content});
 }
 
 class Error extends NostrWalletConnectState {

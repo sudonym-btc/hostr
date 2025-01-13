@@ -11,8 +11,8 @@ import 'package:rxdart/rxdart.dart';
 import 'nostr_provider.dart';
 
 // todo: must filter by since, before, and limit, must implement count, must implement replaceable events
-@Singleton(as: NostrProvider, env: [Env.mock])
-class MockNostProvider extends NostrProvider {
+@Singleton(as: NostrSource, env: [Env.mock])
+class MockNostrSource extends NostrSource {
   final shouldDelay = true;
 
   @override
@@ -23,6 +23,7 @@ class MockNostProvider extends NostrProvider {
     logger.i("startRequest $request");
     // Create filtered events stream with artificial delay
     final filteredEvents = events.stream
+        .doOnData(logger.t)
 
         /// Nostr filters act as OR, so we need to check if any filter matches
         .where((event) =>
@@ -120,8 +121,8 @@ class MockNostProvider extends NostrProvider {
   }
 }
 
-@Singleton(as: NostrProvider, env: [Env.test])
-class TestNostProvider extends MockNostProvider {
+@Singleton(as: NostrSource, env: [Env.test])
+class TestNostrSource extends MockNostrSource {
   @override
   final shouldDelay = false;
 }

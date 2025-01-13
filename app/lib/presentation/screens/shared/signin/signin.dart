@@ -15,7 +15,7 @@ class SignInScreen extends StatelessWidget {
           title: Text('Sign In'),
         ),
         body: BlocProvider(
-          create: (context) => AuthCubit()..checkKeyLoggedIn(),
+          create: (context) => AuthCubit()..get(),
           child: BlocBuilder<AuthCubit, AuthState>(builder: (context, state) {
             return Center(
                 child: FilledButton(

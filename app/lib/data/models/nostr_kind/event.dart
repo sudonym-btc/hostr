@@ -14,7 +14,15 @@ abstract class Event extends NostrEvent {
       required super.sig,
       required super.tags});
 
-  Iterable<List<dynamic>> getTags(String key) {
+  String get anchor => getTag('a').first.first;
+
+  Iterable<List<dynamic>> getTag(String key) {
+    print('Getting tags for key: $key');
+    print(tags);
+    print((tags ?? [])
+        .where((tag) => tag[0] == key)
+        .map((tag) => [tag[1]])
+        .first);
     return (tags ?? []).where((tag) => tag[0] == key).map((tag) => [tag[1]]);
   }
 

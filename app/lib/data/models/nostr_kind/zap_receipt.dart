@@ -8,7 +8,7 @@ import 'type_json_content.dart';
 import 'zap_request.dart';
 
 class ZapReceipt extends JsonContentNostrEvent<ZapReceiptContent> {
-  static List<int> kinds = [NOSTR_KIND_ZAP_RECEIPT];
+  static const List<int> kinds = [NOSTR_KIND_ZAP_RECEIPT];
   ZapReceipt.fromNostrEvent(NostrEvent e)
       : super(
             parsedContent: ZapReceiptContent.fromJson(json.decode(e.content!)),

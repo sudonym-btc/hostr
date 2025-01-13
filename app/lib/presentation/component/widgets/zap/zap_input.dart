@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../ui/padding.dart';
 
-class ZapInput extends StatefulWidget {
-  const ZapInput({super.key});
+class ZapInputWidget extends StatefulWidget {
+  const ZapInputWidget({super.key});
 
   @override
-  State<StatefulWidget> createState() => ZapInputState();
+  State<StatefulWidget> createState() => ZapInputWidgetState();
 }
 
-class ZapInputState extends State<ZapInput> {
+class ZapInputWidgetState extends State<ZapInputWidget> {
   @override
   Widget build(BuildContext context) {
     return CustomPadding(

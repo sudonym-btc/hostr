@@ -4,14 +4,14 @@ import 'package:hostr/injection.dart';
 
 import 'relay_list_item.dart';
 
-class RelayList extends StatefulWidget {
-  const RelayList({Key? key}) : super(key: key);
+class RelayListWidget extends StatefulWidget {
+  const RelayListWidget({Key? key}) : super(key: key);
 
   @override
-  _RelayListState createState() => _RelayListState();
+  _RelayListWidgetState createState() => _RelayListWidgetState();
 }
 
-class _RelayListState extends State<RelayList> {
+class _RelayListWidgetState extends State<RelayListWidget> {
   RelayStorage relayStorage = getIt<RelayStorage>();
   List<String>? relays;
 
@@ -33,7 +33,7 @@ class _RelayListState extends State<RelayList> {
         if (relays == null)
           CircularProgressIndicator()
         else
-          for (var relay in relays!) RelayListItem(relay: relay),
+          for (var relay in relays!) RelayListItemWidget(relay: relay),
       ],
     );
   }
