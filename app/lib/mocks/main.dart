@@ -4,6 +4,7 @@ import 'package:mockito/annotations.dart';
 @GenerateMocks([
   KeyStorage,
   NwcStorage,
-  NostrWalletConnectCubit,
+  NwcCubit,
+  NwcService,
 ])
 void main() {}

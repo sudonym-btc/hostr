@@ -2,7 +2,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:hostr/data/mock/main.dart';
+import 'package:hostr/data/stubs/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/messages/thread_organizer.cubit.dart';
 

@@ -10,8 +10,8 @@ import 'package:flutter_bloc/flutter_bloc.dart' as _i9;
 import 'package:hostr/core/main.dart' as _i3;
 import 'package:hostr/data/main.dart' as _i6;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i2;
-import 'package:hostr/logic/cubit/nostr_wallet_connect.cubit.dart' as _i5;
-import 'package:hostr/logic/services/nostr_wallet_connect.dart' as _i4;
+import 'package:hostr/logic/cubit/nwc.cubit.dart' as _i5;
+import 'package:hostr/logic/services/nwc.dart' as _i4;
 import 'package:mockito/mockito.dart' as _i1;
 
 // ignore_for_file: type=lint
@@ -48,9 +48,8 @@ class _FakeCustomLogger_1 extends _i1.SmartFake implements _i3.CustomLogger {
         );
 }
 
-class _FakeNostrWalletConnectService_2 extends _i1.SmartFake
-    implements _i4.NostrWalletConnectService {
-  _FakeNostrWalletConnectService_2(
+class _FakeNwcService_2 extends _i1.SmartFake implements _i4.NwcService {
+  _FakeNwcService_2(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -59,9 +58,48 @@ class _FakeNostrWalletConnectService_2 extends _i1.SmartFake
         );
 }
 
-class _FakeNostrWalletConnectState_3 extends _i1.SmartFake
-    implements _i5.NostrWalletConnectState {
-  _FakeNostrWalletConnectState_3(
+class _FakeNwcCubitState_3 extends _i1.SmartFake implements _i5.NwcCubitState {
+  _FakeNwcCubitState_3(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeKeyStorage_4 extends _i1.SmartFake implements _i6.KeyStorage {
+  _FakeKeyStorage_4(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeNwcStorage_5 extends _i1.SmartFake implements _i6.NwcStorage {
+  _FakeNwcStorage_5(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeNostrService_6 extends _i1.SmartFake implements _i6.NostrService {
+  _FakeNostrService_6(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeNwcResponse_7 extends _i1.SmartFake implements _i6.NwcResponse {
+  _FakeNwcResponse_7(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -190,12 +228,11 @@ class MockNwcStorage extends _i1.Mock implements _i6.NwcStorage {
       ));
 }
 
-/// A class which mocks [NostrWalletConnectCubit].
+/// A class which mocks [NwcCubit].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockNostrWalletConnectCubit extends _i1.Mock
-    implements _i5.NostrWalletConnectCubit {
-  MockNostrWalletConnectCubit() {
+class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
+  MockNwcCubit() {
     _i1.throwOnMissingStub(this);
   }
 
@@ -218,17 +255,16 @@ class MockNostrWalletConnectCubit extends _i1.Mock
       );
 
   @override
-  _i4.NostrWalletConnectService get nwcService => (super.noSuchMethod(
+  _i4.NwcService get nwcService => (super.noSuchMethod(
         Invocation.getter(#nwcService),
-        returnValue: _FakeNostrWalletConnectService_2(
+        returnValue: _FakeNwcService_2(
           this,
           Invocation.getter(#nwcService),
         ),
-      ) as _i4.NostrWalletConnectService);
+      ) as _i4.NwcService);
 
   @override
-  set nwcService(_i4.NostrWalletConnectService? _nwcService) =>
-      super.noSuchMethod(
+  set nwcService(_i4.NwcService? _nwcService) => super.noSuchMethod(
         Invocation.setter(
           #nwcService,
           _nwcService,
@@ -237,19 +273,19 @@ class MockNostrWalletConnectCubit extends _i1.Mock
       );
 
   @override
-  _i5.NostrWalletConnectState get state => (super.noSuchMethod(
+  _i5.NwcCubitState get state => (super.noSuchMethod(
         Invocation.getter(#state),
-        returnValue: _FakeNostrWalletConnectState_3(
+        returnValue: _FakeNwcCubitState_3(
           this,
           Invocation.getter(#state),
         ),
-      ) as _i5.NostrWalletConnectState);
+      ) as _i5.NwcCubitState);
 
   @override
-  _i7.Stream<_i5.NostrWalletConnectState> get stream => (super.noSuchMethod(
+  _i7.Stream<_i5.NwcCubitState> get stream => (super.noSuchMethod(
         Invocation.getter(#stream),
-        returnValue: _i7.Stream<_i5.NostrWalletConnectState>.empty(),
-      ) as _i7.Stream<_i5.NostrWalletConnectState>);
+        returnValue: _i7.Stream<_i5.NwcCubitState>.empty(),
+      ) as _i7.Stream<_i5.NwcCubitState>);
 
   @override
   bool get isClosed => (super.noSuchMethod(
@@ -258,25 +294,25 @@ class MockNostrWalletConnectCubit extends _i1.Mock
       ) as bool);
 
   @override
-  void connect(String? str) => super.noSuchMethod(
+  _i7.Future<dynamic> connect(String? str) => (super.noSuchMethod(
         Invocation.method(
           #connect,
           [str],
         ),
-        returnValueForMissingStub: null,
-      );
+        returnValue: _i7.Future<dynamic>.value(),
+      ) as _i7.Future<dynamic>);
 
   @override
-  void checkInfo() => super.noSuchMethod(
+  _i7.Future<dynamic> checkInfo() => (super.noSuchMethod(
         Invocation.method(
           #checkInfo,
           [],
         ),
-        returnValueForMissingStub: null,
-      );
+        returnValue: _i7.Future<dynamic>.value(),
+      ) as _i7.Future<dynamic>);
 
   @override
-  void emit(_i5.NostrWalletConnectState? state) => super.noSuchMethod(
+  void emit(_i5.NwcCubitState? state) => super.noSuchMethod(
         Invocation.method(
           #emit,
           [state],
@@ -285,8 +321,7 @@ class MockNostrWalletConnectCubit extends _i1.Mock
       );
 
   @override
-  void onChange(_i9.Change<_i5.NostrWalletConnectState>? change) =>
-      super.noSuchMethod(
+  void onChange(_i9.Change<_i5.NwcCubitState>? change) => super.noSuchMethod(
         Invocation.method(
           #onChange,
           [change],
@@ -335,4 +370,149 @@ class MockNostrWalletConnectCubit extends _i1.Mock
         returnValue: _i7.Future<void>.value(),
         returnValueForMissingStub: _i7.Future<void>.value(),
       ) as _i7.Future<void>);
+}
+
+/// A class which mocks [NwcService].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockNwcService extends _i1.Mock implements _i4.NwcService {
+  MockNwcService() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i3.CustomLogger get logger => (super.noSuchMethod(
+        Invocation.getter(#logger),
+        returnValue: _FakeCustomLogger_1(
+          this,
+          Invocation.getter(#logger),
+        ),
+      ) as _i3.CustomLogger);
+
+  @override
+  set logger(_i3.CustomLogger? _logger) => super.noSuchMethod(
+        Invocation.setter(
+          #logger,
+          _logger,
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  _i6.KeyStorage get keyStorage => (super.noSuchMethod(
+        Invocation.getter(#keyStorage),
+        returnValue: _FakeKeyStorage_4(
+          this,
+          Invocation.getter(#keyStorage),
+        ),
+      ) as _i6.KeyStorage);
+
+  @override
+  set keyStorage(_i6.KeyStorage? _keyStorage) => super.noSuchMethod(
+        Invocation.setter(
+          #keyStorage,
+          _keyStorage,
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  _i6.NwcStorage get nwcStorage => (super.noSuchMethod(
+        Invocation.getter(#nwcStorage),
+        returnValue: _FakeNwcStorage_5(
+          this,
+          Invocation.getter(#nwcStorage),
+        ),
+      ) as _i6.NwcStorage);
+
+  @override
+  set nwcStorage(_i6.NwcStorage? _nwcStorage) => super.noSuchMethod(
+        Invocation.setter(
+          #nwcStorage,
+          _nwcStorage,
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  _i6.NostrService get nostr => (super.noSuchMethod(
+        Invocation.getter(#nostr),
+        returnValue: _FakeNostrService_6(
+          this,
+          Invocation.getter(#nostr),
+        ),
+      ) as _i6.NostrService);
+
+  @override
+  set nostr(_i6.NostrService? _nostr) => super.noSuchMethod(
+        Invocation.setter(
+          #nostr,
+          _nostr,
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  dynamic save(String? uri) => super.noSuchMethod(Invocation.method(
+        #save,
+        [uri],
+      ));
+
+  @override
+  _i7.Future<_i6.NwcResponse> methodAndResponse(_i6.NwcMethod? request) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #methodAndResponse,
+          [request],
+        ),
+        returnValue: _i7.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
+          this,
+          Invocation.method(
+            #methodAndResponse,
+            [request],
+          ),
+        )),
+      ) as _i7.Future<_i6.NwcResponse>);
+
+  @override
+  dynamic payInvoice(_i6.NwcMethodPayInvoiceParams? p) =>
+      super.noSuchMethod(Invocation.method(
+        #payInvoice,
+        [p],
+      ));
+
+  @override
+  dynamic lookupInvoice(_i6.NwcMethodLookupInvoiceParams? p) =>
+      super.noSuchMethod(Invocation.method(
+        #lookupInvoice,
+        [p],
+      ));
+
+  @override
+  dynamic makeInvoice(_i6.NwcMethodMakeInvoiceParams? p) =>
+      super.noSuchMethod(Invocation.method(
+        #makeInvoice,
+        [p],
+      ));
+
+  @override
+  _i7.Future<_i6.NwcResponse> getInfo() => (super.noSuchMethod(
+        Invocation.method(
+          #getInfo,
+          [],
+        ),
+        returnValue: _i7.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
+          this,
+          Invocation.method(
+            #getInfo,
+            [],
+          ),
+        )),
+      ) as _i7.Future<_i6.NwcResponse>);
+
+  @override
+  dynamic getWalletInfo(Uri? nwc) => super.noSuchMethod(Invocation.method(
+        #getWalletInfo,
+        [nwc],
+      ));
 }

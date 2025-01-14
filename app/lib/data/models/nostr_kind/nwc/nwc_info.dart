@@ -37,7 +37,7 @@ class NwcInfoContent extends EventContent {
             .map((e) => e[1])
             .split(' ')
             .map((cmd) => NwcNotifications.values
-                .firstWhere((e) => e.toString() == cmd)));
+                .firstWhere((e) => e.toString().split('.').last == cmd)));
   }
 }
 

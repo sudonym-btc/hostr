@@ -4,7 +4,9 @@ class NwcMethodParams {
   toJson() {}
 }
 
-class NwcMethodResponse {}
+class NwcMethodResponse {
+  toJson() {}
+}
 
 /// PAY INVOICE
 class NwcMethodPayInvoiceParams extends NwcMethodParams {
@@ -273,8 +275,9 @@ class NwcMethodGetInfoResponse extends NwcMethodResponse {
       'network': network,
       'block_height': block_height,
       'block_hash': block_hash,
-      'methods': methods,
-      'notifications': notifications
+      'methods': methods.map((e) => e.toString().split('.').last).toList(),
+      'notifications':
+          notifications.map((e) => e.toString().split('.').last).toList()
     };
   }
 
@@ -286,8 +289,14 @@ class NwcMethodGetInfoResponse extends NwcMethodResponse {
         network: json['network'],
         block_height: json['block_height'],
         block_hash: json['block_hash'],
-        methods: json['methods'],
-        notifications: json['notifications']);
+        methods: NwcMethods.values
+            .where(
+                (e) => json['methods'].contains(e.toString().split('.').last))
+            .toList(),
+        notifications: NwcNotifications.values
+            .where((e) =>
+                json['notifications'].contains(e.toString().split('.').last))
+            .toList());
   }
 }
 

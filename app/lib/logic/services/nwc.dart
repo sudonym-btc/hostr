@@ -8,49 +8,49 @@ import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 
-/**
- * There are four event kinds:
+Uri parseNwc(String nwcString) {
+  Uri nwcUri = Uri.parse(nwcString);
+  assert(nwcUri.scheme == 'nostr+walletconnect');
+  assert(nwcUri.queryParameters.containsKey('relay'));
 
-NIP-47 info event: 13194
-NIP-47 request: 23194
-NIP-47 response: 23195
-NIP-47 notification event: 23196
- */
+  /// Check that relay url correct as well
+  Uri.parse(nwcUri.queryParameters['relay']!);
+  return nwcUri;
+}
+
+String parseSecret(Uri nwc) {
+  return nwc.queryParameters['secret']!;
+}
+
+String parsePubkey(Uri nwc) {
+  return nwc.host;
+}
+
 @Injectable(env: Env.allButTestAndMock)
-class NostrWalletConnectService {
+class NwcService {
   CustomLogger logger = CustomLogger();
   KeyStorage keyStorage = getIt<KeyStorage>();
   NwcStorage nwcStorage = getIt<NwcStorage>();
-  NostrSource nostr = getIt<NostrSource>();
-
-  parseNWC(String nwcString) {
-    Uri nwcUri = Uri.parse(nwcString);
-    assert(nwcUri.scheme == 'nostr+walletconnect');
-    assert(nwcUri.queryParameters.containsKey('relay'));
-
-    /// Check that relay url correct as well
-    Uri.parse(nwcUri.queryParameters['relay']!);
-    return nwcUri;
-  }
+  NostrService nostr = getIt<NostrService>();
 
   /// User pasted/scanned a NWC from their wallet
   /// e.g. nostr+walletconnect://b889ff5b1513b641e2a139f661a661364979c5beee91842f8f0ef42ab558e9d4?relay=wss%3A%2F%2Frelay.damus.io&secret=71a8c14c1407c113601079c4302dab36460f0ccd0ad506f1f2dc73b5100e4f3c
   save(String uri) async {
     // Parse the NWC string, check protocol, secret, relay
-    parseNWC(uri);
-    logger.i('Saving NWC: $uri');
+    parseNwc(uri);
+    logger.i('Saving Nwc');
     await nwcStorage.set([uri.toString()]);
   }
 
-  methodAndResponse(NwcMethod request) async {
+  Future<NwcResponse> methodAndResponse(NwcMethod request) async {
     var nwc = await nwcStorage.get();
-    Uri uri = parseNWC(nwc.first);
+    Uri uri = parseNwc(nwc.first);
 
     NostrKeyPairs keyPair = Nostr.instance.keysService
-        .generateKeyPairFromExistingPrivateKey(uri.queryParameters['secret']!);
+        .generateKeyPairFromExistingPrivateKey(parseSecret(uri));
 
     String content = JsonEncoder().convert({
-      "method": request.method, // method, string
+      "method": request.method.toString().split('.').last, // method, string
       "params": request.params.toJson()
     });
     String encryptedContent =
@@ -79,14 +79,12 @@ class NostrWalletConnectService {
         .stream
         .map((e) {
           logger.t('Received from relay: $e');
-          var response = Nip04().decrypt(
-            uri.queryParameters['secret']!,
-            uri.host,
-            e.content!,
-          );
-
-          /// TODO encrypted content, how to pass secret to the unwrap event?
-          return NwcRequest.fromNostrEvent(e);
+          // var response = Nip04().decrypt(
+          //   uri.queryParameters['secret']!,
+          //   uri.host,
+          //   e.content!,
+          // );
+          return e;
         })
         .first;
 
@@ -95,13 +93,13 @@ class NostrWalletConnectService {
         event: requestEvent, relays: [uri.queryParameters['relay']!]);
 
     if (resp.isEventAccepted!) {
-      logger.i('Sent payment request to relay: $resp');
+      logger.i('Sent command request to relay: $resp');
     } else {
       throw Exception(
-          'Failed to send payment request to relay: ${resp.message}');
+          'Failed to send command request to relay: ${resp.message}');
     }
 
-    await responseProm;
+    return await responseProm as NwcResponse;
   }
 
   payInvoice(NwcMethodPayInvoiceParams p) async {
@@ -116,8 +114,10 @@ class NostrWalletConnectService {
     return methodAndResponse(NwcMethodMakeInvoice(params: p));
   }
 
-  getInfo() async {
-    return methodAndResponse(NwcMethodGetInfo());
+  Future<NwcResponse> getInfo() async {
+    return methodAndResponse(NwcMethodGetInfo()).then((event) {
+      return event;
+    });
   }
 
   getBalance() async {
@@ -139,8 +139,8 @@ class NostrWalletConnectService {
   }
 }
 
-@Injectable(as: NostrWalletConnectService, env: [Env.test, Env.mock])
-class MockNostrWalletConnectService extends NostrWalletConnectService {
+@Injectable(as: NwcService, env: [Env.test, Env.mock])
+class MockNostrWalletConnectService extends NwcService {
   getWalletInfo(Uri nwc) async {
     return NostrEvent.fromPartialData(
         kind: 13194,

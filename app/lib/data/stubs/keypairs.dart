@@ -1,6 +1,12 @@
 import 'package:dart_nostr/dart_nostr.dart';
 
 class MockKeys {
+  static final NostrKeyPairs nwc = NostrKeyPairs(
+      private:
+          'a4006daa118c9898abaac3f9a49c9012fe8bb82d360c38abd99fe708561b56a4');
+  static final NostrKeyPairs nwcSecret = NostrKeyPairs(
+      private:
+          '76d39017936462023a8ac45e45ff769e1007b0726f9163c857a4669f23b88766');
   static final NostrKeyPairs hoster = NostrKeyPairs(
       private:
           'e7a262c5d380844d24526b0e1c7bfd895a779a4315ded94257d344b648563b02');
@@ -16,6 +22,6 @@ class MockKeys {
 }
 
 void main() {
-  // NostrKeyPairs keys = NostrKeyPairs.generate();
-  // print(keys.private);
+  NostrKeyPairs keys = NostrKeyPairs.generate();
+  print(keys.private);
 }

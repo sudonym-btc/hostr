@@ -7,7 +7,7 @@ import 'package:hostr/injection.dart';
 
 class EntityCubit<T extends NostrEvent> extends Cubit<EntityCubitState<T>> {
   CustomLogger logger = CustomLogger();
-  NostrSource nostr = getIt<NostrSource>();
+  NostrService nostr = getIt<NostrService>();
   final NostrFilter? filter;
 
   EntityCubit({required this.filter})

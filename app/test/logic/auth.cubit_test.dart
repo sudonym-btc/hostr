@@ -19,7 +19,7 @@ void main() {
 
   group('login', () {
     blocTest<AuthCubit, AuthState>(
-      'emits [LoggedOut] when checkKeyLoggedIn().',
+      'emits [LoggedOut] when get called().',
       build: () => AuthCubit(),
       act: (bloc) {
         return bloc.get();
@@ -28,7 +28,7 @@ void main() {
     );
 
     blocTest<AuthCubit, AuthState>(
-      'emits [LoggedIn] when checkKeyLoggedIn().',
+      'emits [LoggedIn] when get called().',
       build: () => AuthCubit(),
       setUp: () {
         getIt<SecureStorage>().set('keys', [keyPair.private]);

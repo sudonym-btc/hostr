@@ -13,34 +13,33 @@ import 'package:hostr/config/env/base.config.dart' as _i467;
 import 'package:hostr/config/env/development.config.dart' as _i598;
 import 'package:hostr/config/env/mock.config.dart' as _i331;
 import 'package:hostr/config/env/production.config.dart' as _i1071;
+import 'package:hostr/data/main.dart' as _i165;
 import 'package:hostr/data/sources/api/google_maps.dart' as _i575;
 import 'package:hostr/data/sources/local/key_storage.dart' as _i946;
 import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
 import 'package:hostr/data/sources/local/nwc_storage.dart' as _i303;
 import 'package:hostr/data/sources/local/relay_storage.dart' as _i315;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
-import 'package:hostr/data/sources/nostr/nostr_provider/mock.nostr_provider.dart'
-    as _i200;
-import 'package:hostr/data/sources/nostr/nostr_provider/nostr_provider.dart'
-    as _i788;
+import 'package:hostr/data/sources/nostr/nostr/mock.nostr.service.dart'
+    as _i979;
+import 'package:hostr/data/sources/nostr/nostr/nostr.service.dart' as _i194;
 import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i291;
 import 'package:hostr/data/sources/rpc/rootstock.dart' as _i631;
-import 'package:hostr/logic/cubit/auth.cubit.dart' as _i323;
 import 'package:hostr/logic/cubit/main.dart' as _i548;
 import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
 import 'package:hostr/logic/services/messages/global_gift_wrap.cubit.dart'
     as _i550;
-import 'package:hostr/logic/services/nostr_wallet_connect.dart' as _i771;
+import 'package:hostr/logic/services/nwc.dart' as _i258;
 import 'package:hostr/logic/services/payment.dart' as _i151;
 import 'package:hostr/logic/services/swap.dart' as _i432;
 import 'package:hostr/logic/services/zap.dart' as _i915;
 import 'package:injectable/injectable.dart' as _i526;
 
 const String _test = 'test';
-const String _mock = 'mock';
 const String _dev = 'dev';
 const String _staging = 'staging';
 const String _prod = 'prod';
+const String _mock = 'mock';
 
 extension GetItInjectableX on _i174.GetIt {
 // initializes the registration of main-scope dependencies inside of GetIt
@@ -58,19 +57,16 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i315.RelayStorage>(() => _i315.RelayStorage());
     gh.factory<_i303.NwcStorage>(() => _i303.NwcStorage());
     gh.factory<_i946.KeyStorage>(() => _i946.KeyStorage());
-    gh.factory<_i771.NostrWalletConnectService>(
-      () => _i771.MockNostrWalletConnectService(),
-      registerFor: {
-        _test,
-        _mock,
-      },
+    gh.singleton<_i165.NostrService>(
+      () => _i979.TestNostrSource(),
+      registerFor: {_test},
     );
     gh.factory<_i467.Config>(
       () => _i598.DevelopmentConfig(),
       registerFor: {_dev},
     );
-    gh.singleton<_i788.NostrSource>(
-      () => _i788.ProdNostrProvider(),
+    gh.singleton<_i194.NostrService>(
+      () => _i194.ProdNostrService(),
       registerFor: {
         _dev,
         _staging,
@@ -78,12 +74,15 @@ extension GetItInjectableX on _i174.GetIt {
       },
     );
     gh.factory<_i631.Rootstock>(() => _i631.RootstockImpl());
-    gh.singleton<_i788.NostrSource>(
-      () => _i200.TestNostrSource(),
-      registerFor: {_test},
-    );
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsMock(),
+      registerFor: {
+        _test,
+        _mock,
+      },
+    );
+    gh.factory<_i258.NwcService>(
+      () => _i258.MockNostrWalletConnectService(),
       registerFor: {
         _test,
         _mock,
@@ -97,29 +96,15 @@ extension GetItInjectableX on _i174.GetIt {
         _prod,
       },
     );
-    gh.factory<_i323.AuthCubit>(
-        () => _i323.AuthCubit(initialState: gh<_i323.AuthState>()));
     gh.singleton<_i311.SecureStorage>(
       () => _i311.MockSecureStorage(),
       registerFor: {_test},
-    );
-    gh.singleton<_i788.NostrSource>(
-      () => _i200.MockNostrSource(),
-      registerFor: {_mock},
     );
     gh.factory<_i467.Config>(
       () => _i331.MockConfig(),
       registerFor: {
         _mock,
         _test,
-      },
-    );
-    gh.factory<_i771.NostrWalletConnectService>(
-      () => _i771.NostrWalletConnectService(),
-      registerFor: {
-        _dev,
-        _staging,
-        _prod,
       },
     );
     gh.factory<_i151.PaymentService>(
@@ -146,12 +131,24 @@ extension GetItInjectableX on _i174.GetIt {
         _prod,
       },
     );
+    gh.factory<_i258.NwcService>(
+      () => _i258.NwcService(),
+      registerFor: {
+        _dev,
+        _staging,
+        _prod,
+      },
+    );
     gh.factory<_i291.RelayConnector>(
       () => _i291.MockRelayConnector(),
       registerFor: {
         _mock,
         _test,
       },
+    );
+    gh.singleton<_i165.NostrService>(
+      () => _i979.MockNostrService(),
+      registerFor: {_mock},
     );
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsImpl(),

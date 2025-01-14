@@ -4,10 +4,11 @@ import 'package:dart_nostr/nostr/model/ok.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/services/nwc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 
-abstract class NostrSource {
+abstract class NostrService {
   CustomLogger logger = CustomLogger();
   ReplaySubject<NostrEvent> events = ReplaySubject<NostrEvent>();
 
@@ -25,8 +26,8 @@ abstract class NostrSource {
       {required NostrEvent event, List<String>? relays});
 }
 
-@Singleton(as: NostrSource, env: Env.allButTestAndMock)
-class ProdNostrProvider extends NostrSource {
+@Singleton(as: NostrService, env: Env.allButTestAndMock)
+class ProdNostrService extends NostrService {
   @override
   startRequest(
       {required NostrRequest request,
@@ -36,17 +37,27 @@ class ProdNostrProvider extends NostrSource {
         request: request, onEose: onEose, relays: relays);
 
     return NostrEventsStream(
-        stream: n.stream.map(parser),
+        stream: n.stream.asyncMap((event) async {
+          Uri nwcUri = parseNwc((await getIt<NwcStorage>().get()).first);
+          NostrKeyPairs? keyPair = await getIt<KeyStorage>().getActiveKeyPair();
+          return parser(event, keyPair, nwcUri);
+        }),
         subscriptionId: n.subscriptionId,
         request: n.request);
   }
 
   @override
-  startRequestAsync({required NostrRequest request, List<String>? relays}) {
-    return Nostr.instance.relaysService
+  startRequestAsync(
+      {required NostrRequest request, List<String>? relays}) async {
+    List<NostrEvent> res = await Nostr.instance.relaysService
         .startEventsSubscriptionAsync(
-            relays: relays, request: request, timeout: Duration(seconds: 5))
-        .then((events) => events.map(parser).toList());
+            relays: relays, request: request, timeout: Duration(seconds: 5));
+    List<NostrEvent> parsedEvents = await Future.wait(res.map((event) async {
+      Uri nwcUri = parseNwc((await getIt<NwcStorage>().get()).first);
+      NostrKeyPairs? keyPair = await getIt<KeyStorage>().getActiveKeyPair();
+      return parser(event, keyPair, nwcUri);
+    }).toList());
+    return parsedEvents;
   }
 
   @override
@@ -66,12 +77,13 @@ class ProdNostrProvider extends NostrSource {
 }
 
 /// Receives a raw Nostr event and converts it into a model
-T parser<T extends NostrEvent>(NostrEvent event) {
+T parser<T extends NostrEvent>(NostrEvent event, NostrKeyPairs? key, Uri? nwc) {
   int eventKind = event.kind!;
+
   if (Reservation.kinds.contains(eventKind)) {
     return Reservation.fromNostrEvent(event) as T;
   } else if (GiftWrap.kinds.contains(eventKind)) {
-    return GiftWrap.fromNostrEvent(event) as T;
+    return GiftWrap.fromNostrEvent(event, key!, nwc) as T;
   } else if (Escrow.kinds.contains(eventKind)) {
     return Escrow.fromNostrEvent(event) as T;
   } else if (Listing.kinds.contains(eventKind)) {
@@ -86,6 +98,12 @@ T parser<T extends NostrEvent>(NostrEvent event) {
     return ZapReceipt.fromNostrEvent(event) as T;
   } else if (ZapRequest.kinds.contains(eventKind)) {
     return ZapRequest.fromNostrEvent(event) as T;
+  } else if (NwcInfo.kinds.contains(eventKind)) {
+    return NwcInfo.fromNostrEvent(event) as T;
+  } else if (NwcRequest.kinds.contains(eventKind)) {
+    return NwcRequest.fromNostrEvent(event, nwc!) as T;
+  } else if (NwcResponse.kinds.contains(eventKind)) {
+    return NwcResponse.fromNostrEvent(event, nwc!) as T;
   }
   return event as T;
 }

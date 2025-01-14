@@ -19,20 +19,16 @@ void main() {
     configureInjection(Env.test);
   });
 
-  group('Gift wrap should unpack child', () {
-    blocTest<GlobalGiftWrapCubit, ListCubitState<GiftWrap>>(
-      'emits new thread when new message introduced',
-      build: () =>
-          GlobalGiftWrapCubit(authCubit: AuthCubit(initialState: LoggedIn()))
-            ..sync(),
+  group('Should sync swaps on start', () {
+    blocTest<SwapManager, SwapManager>(
+      'emits new swap cubit when new discovers new swap',
+      build: () => SwapManager(paymentsManager: paymentsManager),
       act: (bloc) async {
-        getIt<NostrService>().events.add(GiftWrap.fromNostrEvent(
+        getIt<NostrService>().events.add(GiftWrap.create(
             NostrEvent.fromPartialData(
                 kind: NOSTR_KIND_GIFT_WRAP,
                 content: MOCK_LISTINGS[0].toString(),
-                keyPairs: MockKeys.escrow),
-            MockKeys.escrow,
-            parser));
+                keyPairs: MockKeys.escrow)));
         // await Future.delayed(Duration(milliseconds: 50)); // Add a delay
       },
       expect: () => [

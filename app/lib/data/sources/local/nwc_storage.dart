@@ -1,4 +1,3 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
@@ -19,8 +18,7 @@ class NwcStorage {
   }
 
   set(List<String> items) async {
-    var key = NostrKeyPairs.generate();
-    await storage.set('nwc', [key.private]);
+    await storage.set('nwc', items);
   }
 
   wipe() {
