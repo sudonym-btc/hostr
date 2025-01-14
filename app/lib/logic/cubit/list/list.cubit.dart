@@ -53,7 +53,7 @@ class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
 
   void next() {
     logger.i("next");
-    getIt<NostrSource>()
+    getIt<NostrService>()
         .startRequest(
             request: NostrRequest(filters: [
               // Nostr treats separate NostrFilters as OR, so we need to combine them

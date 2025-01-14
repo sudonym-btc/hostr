@@ -4,15 +4,15 @@ import 'dart:math';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:dart_nostr/nostr/model/ease.dart';
 import 'package:dart_nostr/nostr/model/ok.dart';
+import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/services/nwc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 
-import 'nostr_provider.dart';
-
 // todo: must filter by since, before, and limit, must implement count, must implement replaceable events
-@Singleton(as: NostrSource, env: [Env.mock])
-class MockNostrSource extends NostrSource {
+@Singleton(as: NostrService, env: [Env.mock])
+class MockNostrService extends NostrService {
   final shouldDelay = true;
 
   @override
@@ -29,6 +29,11 @@ class MockNostrSource extends NostrSource {
         .where((event) =>
             request.filters.any((filter) => matchEvent(event, filter)))
         .doOnData((event) => logger.t("matched event $event"))
+        .asyncMap((event) async {
+          Uri nwcUri = parseNwc((await getIt<NwcStorage>().get()).first);
+          NostrKeyPairs? keyPair = await getIt<KeyStorage>().getActiveKeyPair();
+          return parser(event, keyPair, nwcUri);
+        })
 
         /// Simulate network delay for each event
         .transform(simulateNetworkDelay(shouldDelay))
@@ -117,12 +122,16 @@ class MockNostrSource extends NostrSource {
     return startRequest(
       request: request,
       onEose: (relay, ease) => false,
-    ).stream.toList();
+    ).stream.asyncMap((event) async {
+      Uri nwcUri = parseNwc((await getIt<NwcStorage>().get()).first);
+      NostrKeyPairs? keyPair = await getIt<KeyStorage>().getActiveKeyPair();
+      return parser(event, keyPair, nwcUri);
+    }).toList();
   }
 }
 
-@Singleton(as: NostrSource, env: [Env.test])
-class TestNostrSource extends MockNostrSource {
+@Singleton(as: NostrService, env: [Env.test])
+class TestNostrSource extends MockNostrService {
   @override
   final shouldDelay = false;
 }

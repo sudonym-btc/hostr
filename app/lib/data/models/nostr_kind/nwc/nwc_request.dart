@@ -3,6 +3,8 @@ import 'dart:core';
 
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
+import 'package:hostr/core/util/nip04.dart';
+import 'package:hostr/logic/services/nwc.dart';
 
 import '../type_json_content.dart';
 import 'nwc_info.dart';
@@ -10,9 +12,10 @@ import 'nwc_method_types.dart';
 
 class NwcRequest extends JsonContentNostrEvent<NwcRequestContent> {
   static const List<int> kinds = [NOSTR_KIND_NWC_REQUEST];
-  NwcRequest.fromNostrEvent(NostrEvent e)
+  NwcRequest.fromNostrEvent(NostrEvent e, Uri nwc)
       : super(
-            parsedContent: NwcRequestContent.fromJson(json.decode(e.content!)),
+            parsedContent: NwcRequestContent.fromJson(json.decode(Nip04()
+                .decrypt(parseSecret(nwc), parsePubkey(nwc), e.content!))),
             content: e.content,
             createdAt: e.createdAt,
             id: e.id,
@@ -29,8 +32,8 @@ class NwcRequestContent extends EventContent {
   NwcRequestContent({required this.method, required this.params});
 
   static NwcRequestContent fromJson(Map<String, dynamic> json) {
-    NwcMethods m =
-        NwcMethods.values.firstWhere((e) => e.toString() == json['method']);
+    NwcMethods m = NwcMethods.values
+        .firstWhere((e) => e.toString().split('.').last == json['method']);
 
     switch (m) {
       case NwcMethods.pay_invoice:
@@ -61,5 +64,12 @@ class NwcRequestContent extends EventContent {
       default:
         throw Exception('Unknown method');
     }
+  }
+
+  toJson() {
+    return {
+      'method': method.toString(),
+      'params': params.toJson(),
+    };
   }
 }

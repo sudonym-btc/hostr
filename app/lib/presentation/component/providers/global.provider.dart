@@ -37,8 +37,7 @@ class _GlobalProviderWidgetState extends State<GlobalProviderWidget> {
         BlocProvider<ThreadOrganizerCubit>(
             create: (context) => appController.threadOrganizerCubit),
         BlocProvider<ModeCubit>(create: (context) => ModeCubit()..get()),
-        BlocProvider<NostrWalletConnectCubit>(
-            create: (_) => NostrWalletConnectCubit()),
+        BlocProvider<NwcCubit>(create: (_) => NwcCubit()),
         BlocProvider<PaymentsManager>(
             create: (context) => appController.paymentsManager),
         BlocProvider<SwapManager>(

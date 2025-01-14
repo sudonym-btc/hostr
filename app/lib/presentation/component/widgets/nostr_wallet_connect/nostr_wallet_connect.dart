@@ -49,8 +49,7 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
             // Text('Connect wallet to app'),
             if (shouldShowQrScanner) NwcQrScannerWidget(),
 
-            BlocBuilder<NostrWalletConnectCubit, NostrWalletConnectState>(
-                builder: (context, state) {
+            BlocBuilder<NwcCubit, NwcCubitState>(builder: (context, state) {
               return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -64,7 +63,7 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
                         child: Text(!shouldShowQrScanner ? 'Scan' : 'Stop')),
                     FilledButton(
                         onPressed: () {
-                          context.read<NostrWalletConnectCubit>().connect(
+                          context.read<NwcCubit>().connect(
                               'nostr+walletconnect://5e269731784388c8894c8e41f781c32baf071009c247b659ca140f9456cb52e1?relay=wss://relay.getalby.com/v1&secret=1a864fb0aabdde78fbceaf2803167e13e36faaa3a218c6d800791447701d3fe2&lud16=frostysun783@getalby.com');
                         },
                         child: Text('Connect'))

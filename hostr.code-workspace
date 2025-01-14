@@ -31,7 +31,8 @@
       "hashicorp.terraform",
       "tamasfe.even-better-toml",
       "ms-kubernetes-tools.vscode-kubernetes-tools",
-      "juanblanco.solidity"
+      "juanblanco.solidity",
+      "ryanluker.vscode-coverage-gutters"
     ]
   },
   "launch": {

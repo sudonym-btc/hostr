@@ -2,7 +2,6 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:injectable/injectable.dart';
 
 /// Abstract class representing the state of authentication.
 abstract class AuthState extends Equatable {
@@ -30,7 +29,6 @@ class LoggedIn extends AuthState {
 }
 
 /// Cubit class to manage authentication state.
-@injectable
 class AuthCubit extends Cubit<AuthState> {
   KeyStorage keyStorage = getIt<KeyStorage>();
   SecureStorage secureStorage = getIt<SecureStorage>();
