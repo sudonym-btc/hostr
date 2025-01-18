@@ -50,6 +50,11 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
             if (shouldShowQrScanner) NwcQrScannerWidget(),
 
             BlocBuilder<NwcCubit, NwcCubitState>(builder: (context, state) {
+              if (state is Success) {
+                return Text('Connected to ${state.content.alias}');
+              } else if (state is Error) {
+                return Text('Could not connect to NWC provider: ${state.e}');
+              }
               return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -64,7 +69,7 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
                     FilledButton(
                         onPressed: () {
                           context.read<NwcCubit>().connect(
-                              'nostr+walletconnect://5e269731784388c8894c8e41f781c32baf071009c247b659ca140f9456cb52e1?relay=wss://relay.getalby.com/v1&secret=1a864fb0aabdde78fbceaf2803167e13e36faaa3a218c6d800791447701d3fe2&lud16=frostysun783@getalby.com');
+                              'nostr+walletconnect://a34d56d13de962a95ef71830f9838d31b563b506bb0e84debb557eff256c9ef3?relay=wss://relay.getalby.com/v1&secret=59b04fe4afc09c6487f6dbb021abcda8e38cc0ef1257af5c1586ff58c25ab49a&lud16=frostysun783@getalby.com');
                         },
                         child: Text('Connect'))
                   ]);

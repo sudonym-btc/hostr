@@ -13,13 +13,19 @@ abstract class RelayConnector {
 @Injectable(as: RelayConnector, env: Env.allButTestAndMock)
 class ProdRelayConnector extends RelayConnector {
   RelayStorage relayStorage = getIt<RelayStorage>();
+  NwcStorage nwcStorage = getIt<NwcStorage>();
 
   @override
   Future connect() async {
     var relays = await relayStorage.get();
+    Uri? nwc = await nwcStorage.getUri();
     logger.i('Connecting to relays');
     await Nostr.instance.relaysService.init(
-      relaysUrl: new Set.of([...getIt<Config>().relays, ...relays]).toList(),
+      relaysUrl: new Set.of([
+        ...getIt<Config>().relays,
+        ...relays,
+        // if (nwc != null) nwc.queryParameters['relay']!
+      ]).toList(),
       onRelayListening: (String relayUrl, receivedData, ws) {
         logger.i('Relay listening: $relayUrl');
       }, // will be called once a relay is connected and listening to events.

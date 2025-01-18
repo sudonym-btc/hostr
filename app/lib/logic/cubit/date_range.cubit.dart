@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 class DateRangeCubit extends Cubit<DateRangeState> {
   DateRangeCubit() : super(DateRangeState());
 
-  void updateDateRange(DateTimeRange dateRange) {
+  void updateDateRange(DateTimeRange? dateRange) {
     emit(DateRangeState(dateRange));
   }
 }

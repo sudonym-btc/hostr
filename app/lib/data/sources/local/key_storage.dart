@@ -1,6 +1,7 @@
 import 'package:bip39/bip39.dart';
 import 'package:dart_bip32_bip44/dart_bip32_bip44.dart';
 import 'package:dart_nostr/dart_nostr.dart';
+import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
@@ -8,28 +9,35 @@ import 'package:web3dart/web3dart.dart';
 
 import 'secure_storage.dart';
 
-const ETH_PRIV_PATH = "m/44'/60'/0'/0/0";
-
-@injectable
+@singleton
 class KeyStorage {
-  SecureStorage storage = getIt<SecureStorage>();
   CustomLogger logger = CustomLogger();
+  NostrKeyPairs? keyPair;
 
   Future<NostrKeyPairs?> getActiveKeyPair() async {
-    var items = await storage.get('keys');
+    if (keyPair != null) {
+      return keyPair;
+    }
+    var items = await getIt<SecureStorage>().get('keys');
     if (items == null || items.length == 0) {
       return null;
     }
-    return NostrKeyPairs(private: items[0]);
+    NostrKeyPairs fetched = NostrKeyPairs(private: items[0]);
+    keyPair = fetched;
+    return fetched;
+  }
+
+  NostrKeyPairs? getActiveKeyPairSync() {
+    return keyPair;
   }
 
   set(String item) async {
-    await storage.set('keys', [item]);
+    await getIt<SecureStorage>().set('keys', [item]);
     return item;
   }
 
   get() async {
-    var items = await storage.get('keys');
+    var items = await getIt<SecureStorage>().get('keys');
     if (items == null || items.length == 0) {
       return [];
     }
@@ -42,7 +50,8 @@ class KeyStorage {
   }
 
   wipe() {
-    return storage.set('keys', null);
+    keyPair = null;
+    return getIt<SecureStorage>().set('keys', null);
   }
 }
 

@@ -9,7 +9,7 @@ class MockKeys {
           '76d39017936462023a8ac45e45ff769e1007b0726f9163c857a4669f23b88766');
   static final NostrKeyPairs hoster = NostrKeyPairs(
       private:
-          'e7a262c5d380844d24526b0e1c7bfd895a779a4315ded94257d344b648563b02');
+          '556f19cc663fa7ff6840e6b6dc4ab244e8e952161f116b06d04c76cba659b980');
   static final NostrKeyPairs guest = NostrKeyPairs(
       private:
           '1714ff69753ae70a91d6e1989cb1ee859b10e98239c61d28bcb0577d8d626b74');

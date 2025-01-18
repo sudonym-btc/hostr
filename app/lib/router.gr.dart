@@ -210,7 +210,7 @@ class SearchRoute extends PageRouteInfo<void> {
 /// [SignInScreen]
 class SignInRoute extends PageRouteInfo<SignInRouteArgs> {
   SignInRoute({
-    required Function onSuccess,
+    Function? onSuccess,
     List<PageRouteInfo>? children,
   }) : super(
           SignInRoute.name,
@@ -223,16 +223,17 @@ class SignInRoute extends PageRouteInfo<SignInRouteArgs> {
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      final args = data.argsAs<SignInRouteArgs>();
+      final args =
+          data.argsAs<SignInRouteArgs>(orElse: () => const SignInRouteArgs());
       return SignInScreen(onSuccess: args.onSuccess);
     },
   );
 }
 
 class SignInRouteArgs {
-  const SignInRouteArgs({required this.onSuccess});
+  const SignInRouteArgs({this.onSuccess});
 
-  final Function onSuccess;
+  final Function? onSuccess;
 
   @override
   String toString() {

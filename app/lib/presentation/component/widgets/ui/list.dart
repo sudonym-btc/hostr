@@ -1,22 +1,56 @@
+import 'package:dart_nostr/nostr/model/event/event.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/main.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
 
-class ListWidget extends StatelessWidget {
+class ListWidget<T extends NostrEvent> extends StatefulWidget {
   final Widget Function(dynamic) builder;
   const ListWidget({super.key, required this.builder});
 
   @override
+  _ListWidgetState createState() => _ListWidgetState<T>();
+}
+
+class _ListWidgetState<T extends NostrEvent> extends State<ListWidget<T>> {
+  final ScrollController _scrollController = ScrollController();
+  double _previousScrollOffset = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.userScrollDirection ==
+        ScrollDirection.forward) {
+      print('Scrolling up');
+    } else if (_scrollController.position.userScrollDirection ==
+        ScrollDirection.reverse) {
+      print('Scrolling down');
+    }
+    _previousScrollOffset = _scrollController.offset;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ListCubit<Listing>, ListCubitState>(
+    return BlocBuilder<ListCubit<T>, ListCubitState>(
       builder: (context, state) {
-        // if (state.) {
         return ListView.builder(
-            itemCount: state.results.length,
-            itemBuilder: (context, index) => builder(state.results[index]));
-        // }
-        // return Center(child: CircularProgressIndicator());
+          padding: EdgeInsets.only(bottom: DEFAULT_PADDING.toDouble()),
+          controller: _scrollController,
+          itemCount: state.results.length,
+          itemBuilder: (context, index) => widget.builder(state.results[index]),
+        );
       },
     );
   }

@@ -13,6 +13,8 @@ class NwcCubit extends Cubit<NwcCubitState> {
 
   Future connect(String str) async {
     try {
+      /// todo emit intermediate state
+      await nwcService.getWalletInfo(parseNwc(str));
       await nwcService.save(str);
       await checkInfo();
     } catch (e) {
@@ -21,7 +23,7 @@ class NwcCubit extends Cubit<NwcCubitState> {
     }
   }
 
-  Future checkInfo() {
+  Future checkInfo() async {
     emit(NostrWalletConnectInProgress());
     return nwcService.getInfo().then((value) {
       emit(Success(

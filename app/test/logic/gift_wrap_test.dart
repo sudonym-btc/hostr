@@ -1,8 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
-import 'package:dart_nostr/nostr/model/event/event.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
@@ -26,13 +24,8 @@ void main() {
           GlobalGiftWrapCubit(authCubit: AuthCubit(initialState: LoggedIn()))
             ..sync(),
       act: (bloc) async {
-        getIt<NostrService>().events.add(GiftWrap.fromNostrEvent(
-            NostrEvent.fromPartialData(
-                kind: NOSTR_KIND_GIFT_WRAP,
-                content: MOCK_LISTINGS[0].toString(),
-                keyPairs: MockKeys.escrow),
-            MockKeys.escrow,
-            parser));
+        getIt<NostrService>().events.add(giftWrapAndSeal(
+            MockKeys.guest.public, MockKeys.hoster, MOCK_LISTINGS[0], null));
         // await Future.delayed(Duration(milliseconds: 50)); // Add a delay
       },
       expect: () => [

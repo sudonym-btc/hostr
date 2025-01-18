@@ -108,8 +108,8 @@ WebhookData _$WebhookDataFromJson(Map<String, dynamic> json) => WebhookData(
 Map<String, dynamic> _$WebhookDataToJson(WebhookData instance) =>
     <String, dynamic>{
       'url': instance.url,
-      'hashSwapId': instance.hashSwapId,
-      'status': instance.status,
+      if (instance.hashSwapId case final value?) 'hashSwapId': value,
+      if (instance.status case final value?) 'status': value,
     };
 
 SubmarineRequest _$SubmarineRequestFromJson(Map<String, dynamic> json) =>
@@ -130,12 +130,12 @@ Map<String, dynamic> _$SubmarineRequestToJson(SubmarineRequest instance) =>
     <String, dynamic>{
       'from': instance.from,
       'to': instance.to,
-      'invoice': instance.invoice,
-      'preimageHash': instance.preimageHash,
-      'refundPublicKey': instance.refundPublicKey,
-      'pairHash': instance.pairHash,
-      'referralId': instance.referralId,
-      'webhook': instance.webhook?.toJson(),
+      if (instance.invoice case final value?) 'invoice': value,
+      if (instance.preimageHash case final value?) 'preimageHash': value,
+      if (instance.refundPublicKey case final value?) 'refundPublicKey': value,
+      if (instance.pairHash case final value?) 'pairHash': value,
+      if (instance.referralId case final value?) 'referralId': value,
+      if (instance.webhook?.toJson() case final value?) 'webhook': value,
     };
 
 SubmarineResponse _$SubmarineResponseFromJson(Map<String, dynamic> json) =>
@@ -157,15 +157,15 @@ SubmarineResponse _$SubmarineResponseFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$SubmarineResponseToJson(SubmarineResponse instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'bip21': instance.bip21,
-      'address': instance.address,
-      'swapTree': instance.swapTree?.toJson(),
-      'claimPublicKey': instance.claimPublicKey,
+      if (instance.bip21 case final value?) 'bip21': value,
+      if (instance.address case final value?) 'address': value,
+      if (instance.swapTree?.toJson() case final value?) 'swapTree': value,
+      if (instance.claimPublicKey case final value?) 'claimPublicKey': value,
       'timeoutBlockHeight': instance.timeoutBlockHeight,
-      'acceptZeroConf': instance.acceptZeroConf,
+      if (instance.acceptZeroConf case final value?) 'acceptZeroConf': value,
       'expectedAmount': instance.expectedAmount,
-      'blindingKey': instance.blindingKey,
-      'referralId': instance.referralId,
+      if (instance.blindingKey case final value?) 'blindingKey': value,
+      if (instance.referralId case final value?) 'referralId': value,
     };
 
 SubmarineTransaction _$SubmarineTransactionFromJson(
@@ -181,9 +181,9 @@ Map<String, dynamic> _$SubmarineTransactionToJson(
         SubmarineTransaction instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'hex': instance.hex,
+      if (instance.hex case final value?) 'hex': value,
       'timeoutBlockHeight': instance.timeoutBlockHeight,
-      'timeoutEta': instance.timeoutEta,
+      if (instance.timeoutEta case final value?) 'timeoutEta': value,
     };
 
 SubmarinePreimage _$SubmarinePreimageFromJson(Map<String, dynamic> json) =>
@@ -283,19 +283,20 @@ Map<String, dynamic> _$ReverseRequestToJson(ReverseRequest instance) =>
       'from': instance.from,
       'to': instance.to,
       'preimageHash': instance.preimageHash,
-      'claimPublicKey': instance.claimPublicKey,
-      'claimAddress': instance.claimAddress,
-      'invoiceAmount': instance.invoiceAmount,
-      'onchainAmount': instance.onchainAmount,
-      'pairHash': instance.pairHash,
-      'referralId': instance.referralId,
-      'address': instance.address,
-      'addressSignature': instance.addressSignature,
-      'claimCovenant': instance.claimCovenant,
-      'description': instance.description,
-      'descriptionHash': instance.descriptionHash,
-      'invoiceExpiry': instance.invoiceExpiry,
-      'webhook': instance.webhook?.toJson(),
+      if (instance.claimPublicKey case final value?) 'claimPublicKey': value,
+      if (instance.claimAddress case final value?) 'claimAddress': value,
+      if (instance.invoiceAmount case final value?) 'invoiceAmount': value,
+      if (instance.onchainAmount case final value?) 'onchainAmount': value,
+      if (instance.pairHash case final value?) 'pairHash': value,
+      if (instance.referralId case final value?) 'referralId': value,
+      if (instance.address case final value?) 'address': value,
+      if (instance.addressSignature case final value?)
+        'addressSignature': value,
+      if (instance.claimCovenant case final value?) 'claimCovenant': value,
+      if (instance.description case final value?) 'description': value,
+      if (instance.descriptionHash case final value?) 'descriptionHash': value,
+      if (instance.invoiceExpiry case final value?) 'invoiceExpiry': value,
+      if (instance.webhook?.toJson() case final value?) 'webhook': value,
     };
 
 ReverseResponse _$ReverseResponseFromJson(Map<String, dynamic> json) =>
@@ -317,13 +318,13 @@ Map<String, dynamic> _$ReverseResponseToJson(ReverseResponse instance) =>
     <String, dynamic>{
       'id': instance.id,
       'invoice': instance.invoice,
-      'swapTree': instance.swapTree?.toJson(),
-      'lockupAddress': instance.lockupAddress,
-      'refundPublicKey': instance.refundPublicKey,
+      if (instance.swapTree?.toJson() case final value?) 'swapTree': value,
+      if (instance.lockupAddress case final value?) 'lockupAddress': value,
+      if (instance.refundPublicKey case final value?) 'refundPublicKey': value,
       'timeoutBlockHeight': instance.timeoutBlockHeight,
-      'onchainAmount': instance.onchainAmount,
-      'blindingKey': instance.blindingKey,
-      'referralId': instance.referralId,
+      if (instance.onchainAmount case final value?) 'onchainAmount': value,
+      if (instance.blindingKey case final value?) 'blindingKey': value,
+      if (instance.referralId case final value?) 'referralId': value,
     };
 
 ReverseTransaction _$ReverseTransactionFromJson(Map<String, dynamic> json) =>
@@ -336,7 +337,7 @@ ReverseTransaction _$ReverseTransactionFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$ReverseTransactionToJson(ReverseTransaction instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'hex': instance.hex,
+      if (instance.hex case final value?) 'hex': value,
       'timeoutBlockHeight': instance.timeoutBlockHeight,
     };
 
@@ -352,9 +353,9 @@ Map<String, dynamic> _$ReverseClaimRequestToJson(
         ReverseClaimRequest instance) =>
     <String, dynamic>{
       'preimage': instance.preimage,
-      'pubNonce': instance.pubNonce,
-      'transaction': instance.transaction,
-      'index': instance.index,
+      if (instance.pubNonce case final value?) 'pubNonce': value,
+      if (instance.transaction case final value?) 'transaction': value,
+      if (instance.index case final value?) 'index': value,
     };
 
 ReverseBip21 _$ReverseBip21FromJson(Map<String, dynamic> json) => ReverseBip21(
@@ -364,7 +365,7 @@ ReverseBip21 _$ReverseBip21FromJson(Map<String, dynamic> json) => ReverseBip21(
 
 Map<String, dynamic> _$ReverseBip21ToJson(ReverseBip21 instance) =>
     <String, dynamic>{
-      'bip21': instance.bip21,
+      if (instance.bip21 case final value?) 'bip21': value,
       'signature': instance.signature,
     };
 
@@ -403,14 +404,15 @@ Map<String, dynamic> _$ChainRequestToJson(ChainRequest instance) =>
       'from': instance.from,
       'to': instance.to,
       'preimageHash': instance.preimageHash,
-      'claimPublicKey': instance.claimPublicKey,
-      'refundPublicKey': instance.refundPublicKey,
-      'claimAddress': instance.claimAddress,
-      'userLockAmount': instance.userLockAmount,
-      'serverLockAmount': instance.serverLockAmount,
-      'pairHash': instance.pairHash,
-      'referralId': instance.referralId,
-      'webhook': instance.webhook?.toJson(),
+      if (instance.claimPublicKey case final value?) 'claimPublicKey': value,
+      if (instance.refundPublicKey case final value?) 'refundPublicKey': value,
+      if (instance.claimAddress case final value?) 'claimAddress': value,
+      if (instance.userLockAmount case final value?) 'userLockAmount': value,
+      if (instance.serverLockAmount case final value?)
+        'serverLockAmount': value,
+      if (instance.pairHash case final value?) 'pairHash': value,
+      if (instance.referralId case final value?) 'referralId': value,
+      if (instance.webhook?.toJson() case final value?) 'webhook': value,
     };
 
 ChainSwapData _$ChainSwapDataFromJson(Map<String, dynamic> json) =>
@@ -428,13 +430,13 @@ ChainSwapData _$ChainSwapDataFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$ChainSwapDataToJson(ChainSwapData instance) =>
     <String, dynamic>{
       'swapTree': instance.swapTree.toJson(),
-      'lockupAddress': instance.lockupAddress,
-      'serverPublicKey': instance.serverPublicKey,
+      if (instance.lockupAddress case final value?) 'lockupAddress': value,
+      if (instance.serverPublicKey case final value?) 'serverPublicKey': value,
       'timeoutBlockHeight': instance.timeoutBlockHeight,
       'amount': instance.amount,
-      'blindingKey': instance.blindingKey,
-      'refundAddress': instance.refundAddress,
-      'bip21': instance.bip21,
+      if (instance.blindingKey case final value?) 'blindingKey': value,
+      if (instance.refundAddress case final value?) 'refundAddress': value,
+      if (instance.bip21 case final value?) 'bip21': value,
     };
 
 ChainResponse _$ChainResponseFromJson(Map<String, dynamic> json) =>
@@ -450,7 +452,7 @@ ChainResponse _$ChainResponseFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$ChainResponseToJson(ChainResponse instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'referralId': instance.referralId,
+      if (instance.referralId case final value?) 'referralId': value,
       'claimDetails': instance.claimDetails.toJson(),
       'lockupDetails': instance.lockupDetails.toJson(),
     };
@@ -470,7 +472,7 @@ Map<String, dynamic> _$ChainSwapTransactionToJson(
         ChainSwapTransaction instance) =>
     <String, dynamic>{
       'transaction': instance.transaction.toJson(),
-      'timeout': instance.timeout?.toJson(),
+      if (instance.timeout?.toJson() case final value?) 'timeout': value,
     };
 
 ChainSwapTransactions _$ChainSwapTransactionsFromJson(
@@ -489,8 +491,8 @@ ChainSwapTransactions _$ChainSwapTransactionsFromJson(
 Map<String, dynamic> _$ChainSwapTransactionsToJson(
         ChainSwapTransactions instance) =>
     <String, dynamic>{
-      'userLock': instance.userLock?.toJson(),
-      'serverLock': instance.serverLock?.toJson(),
+      if (instance.userLock?.toJson() case final value?) 'userLock': value,
+      if (instance.serverLock?.toJson() case final value?) 'serverLock': value,
     };
 
 ChainSwapSigningDetails _$ChainSwapSigningDetailsFromJson(
@@ -526,9 +528,9 @@ ChainSwapSigningRequest _$ChainSwapSigningRequestFromJson(
 Map<String, dynamic> _$ChainSwapSigningRequestToJson(
         ChainSwapSigningRequest instance) =>
     <String, dynamic>{
-      'preimage': instance.preimage,
-      'signature': instance.signature?.toJson(),
-      'toSign': instance.toSign?.toJson(),
+      if (instance.preimage case final value?) 'preimage': value,
+      if (instance.signature?.toJson() case final value?) 'signature': value,
+      if (instance.toSign?.toJson() case final value?) 'toSign': value,
     };
 
 Quote _$QuoteFromJson(Map<String, dynamic> json) => Quote(
@@ -557,8 +559,10 @@ SwapStatus _$SwapStatusFromJson(Map<String, dynamic> json) => SwapStatus(
 Map<String, dynamic> _$SwapStatusToJson(SwapStatus instance) =>
     <String, dynamic>{
       'status': instance.status,
-      'zeroConfRejected': instance.zeroConfRejected,
-      'transaction': instance.transaction?.toJson(),
+      if (instance.zeroConfRejected case final value?)
+        'zeroConfRejected': value,
+      if (instance.transaction?.toJson() case final value?)
+        'transaction': value,
     };
 
 ChainCurrencyTransactionPost$RequestBody
@@ -601,7 +605,7 @@ Map<String, dynamic> _$SwapSubmarineIdInvoicePost$RequestBodyToJson(
         SwapSubmarineIdInvoicePost$RequestBody instance) =>
     <String, dynamic>{
       'invoice': instance.invoice,
-      'pairHash': instance.pairHash,
+      if (instance.pairHash case final value?) 'pairHash': value,
     };
 
 ChainCurrencyFeeGet$Response _$ChainCurrencyFeeGet$ResponseFromJson(
@@ -765,8 +769,8 @@ Contracts$SwapContracts _$Contracts$SwapContractsFromJson(
 Map<String, dynamic> _$Contracts$SwapContractsToJson(
         Contracts$SwapContracts instance) =>
     <String, dynamic>{
-      'EtherSwap': instance.etherSwap,
-      'ERC20Swap': instance.eRC20Swap,
+      if (instance.etherSwap case final value?) 'EtherSwap': value,
+      if (instance.eRC20Swap case final value?) 'ERC20Swap': value,
     };
 
 SubmarinePair$Limits _$SubmarinePair$LimitsFromJson(
@@ -858,7 +862,7 @@ Map<String, dynamic> _$ChainSwapTransaction$TransactionToJson(
         ChainSwapTransaction$Transaction instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'hex': instance.hex,
+      if (instance.hex case final value?) 'hex': value,
     };
 
 ChainSwapTransaction$Timeout _$ChainSwapTransaction$TimeoutFromJson(
@@ -872,7 +876,7 @@ Map<String, dynamic> _$ChainSwapTransaction$TimeoutToJson(
         ChainSwapTransaction$Timeout instance) =>
     <String, dynamic>{
       'blockHeight': instance.blockHeight,
-      'eta': instance.eta,
+      if (instance.eta case final value?) 'eta': value,
     };
 
 ChainSwapSigningRequest$ToSign _$ChainSwapSigningRequest$ToSignFromJson(
@@ -901,8 +905,8 @@ SwapStatus$Transaction _$SwapStatus$TransactionFromJson(
 Map<String, dynamic> _$SwapStatus$TransactionToJson(
         SwapStatus$Transaction instance) =>
     <String, dynamic>{
-      'id': instance.id,
-      'hex': instance.hex,
+      if (instance.id case final value?) 'id': value,
+      if (instance.hex case final value?) 'hex': value,
     };
 
 ReversePair$Fees$MinerFees _$ReversePair$Fees$MinerFeesFromJson(

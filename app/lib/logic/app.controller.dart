@@ -19,6 +19,7 @@ class AppController {
   }
 
   void dispose() {
+    print('disposing app controller');
     authCubit.close();
     giftWrapListCubit.close();
     threadOrganizerCubit.close();

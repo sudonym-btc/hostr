@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:hostr/config/main.dart';
 
 class CustomPadding extends StatelessWidget {
-  final int top;
-  final int bottom;
-  final int left;
-  final int right;
+  final double top;
+  final double bottom;
+  final double left;
+  final double right;
   final Widget child;
 
   const CustomPadding(
@@ -16,7 +16,8 @@ class CustomPadding extends StatelessWidget {
       this.left = 1,
       this.right = 1});
 
-  factory CustomPadding.vertical({int multiplier = 1, required Widget child}) {
+  factory CustomPadding.vertical(
+      {double multiplier = 1, required Widget child}) {
     return CustomPadding(
       top: multiplier,
       bottom: multiplier,

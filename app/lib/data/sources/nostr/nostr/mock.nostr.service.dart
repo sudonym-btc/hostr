@@ -6,7 +6,6 @@ import 'package:dart_nostr/nostr/model/ease.dart';
 import 'package:dart_nostr/nostr/model/ok.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/services/nwc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -16,23 +15,22 @@ class MockNostrService extends NostrService {
   final shouldDelay = true;
 
   @override
-  NostrEventsStream startRequest(
+  NostrEventsStream startRequest<T extends NostrEvent>(
       {required NostrRequest request,
       required void Function(String relay, NostrRequestEoseCommand ease) onEose,
       List<String>? relays}) {
-    logger.i("startRequest $request");
+    logger.i("startRequest ${request.filters}");
     // Create filtered events stream with artificial delay
     final filteredEvents = events.stream
-        .doOnData(logger.t)
+        // .doOnData(logger.t)
 
         /// Nostr filters act as OR, so we need to check if any filter matches
         .where((event) =>
             request.filters.any((filter) => matchEvent(event, filter)))
         .doOnData((event) => logger.t("matched event $event"))
         .asyncMap((event) async {
-          Uri nwcUri = parseNwc((await getIt<NwcStorage>().get()).first);
-          NostrKeyPairs? keyPair = await getIt<KeyStorage>().getActiveKeyPair();
-          return parser(event, keyPair, nwcUri);
+          return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair(),
+              await getIt<NwcStorage>().getUri());
         })
 
         /// Simulate network delay for each event
@@ -54,6 +52,20 @@ class MockNostrService extends NostrService {
         stream: filteredEvents,
         subscriptionId: request.subscriptionId ?? "mock-subscription-id",
         request: request);
+  }
+
+  @override
+  Future<List<T>> startRequestAsync<T extends NostrEvent>(
+      {required NostrRequest request,
+      List<String>? relays,
+      Duration? timeout}) {
+    return startRequest(
+      request: request,
+      onEose: (relay, ease) => false,
+    ).stream.asyncMap((event) async {
+      return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair(),
+          await getIt<NwcStorage>().getUri());
+    }).toList();
   }
 
   @override
@@ -114,19 +126,6 @@ class MockNostrService extends NostrService {
     // }
 
     return true;
-  }
-
-  @override
-  Future<List<NostrEvent>> startRequestAsync(
-      {required NostrRequest request, List<String>? relays}) {
-    return startRequest(
-      request: request,
-      onEose: (relay, ease) => false,
-    ).stream.asyncMap((event) async {
-      Uri nwcUri = parseNwc((await getIt<NwcStorage>().get()).first);
-      NostrKeyPairs? keyPair = await getIt<KeyStorage>().getActiveKeyPair();
-      return parser(event, keyPair, nwcUri);
-    }).toList();
   }
 }
 

@@ -1,57 +1,176 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/core/main.dart';
+import 'package:hostr/data/main.dart';
+import 'package:hostr/data/models/nostr_kind/event.dart';
+import 'package:web3dart/web3dart.dart';
 
-class PaymentCubit extends Cubit<PaymentState> {
-  // final NwcService nwcService = getIt<NwcService>();
+class PaymentParameters {
+  final Amount? amount;
+  final String to;
+  final String? comment;
 
-  PaymentCubit() : super(PaymentStateInitial());
-
-  /// Called upon initialization
-  /// Estimates fees etc
-  resolve() async {}
-
-  /// Called if a step is required to fetch the final payment address
-  /// E.g. for LNURL
-  confirm() async {}
-
-  /// Broadcast the payment to the network
-  complete() {}
-}
-
-// States
-abstract class PaymentState {}
-
-class PaymentStateInitial extends PaymentState {}
-
-class PaymentStateDetailsResolved extends PaymentState {
-  final int commentMin;
-  final int commentMax;
-  final int minAmount;
-  final int maxAmount;
-  final String? callbackUrl;
-
-  PaymentStateDetailsResolved({
-    required this.commentMin,
-    required this.commentMax,
-    required this.minAmount,
-    required this.maxAmount,
-    this.callbackUrl,
+  PaymentParameters({
+    required this.to,
+    this.amount,
+    this.comment,
   });
 }
 
-class PaymentStateInFlight extends PaymentState {}
-
-class PaymentStateTerminal extends PaymentState {}
-
-class PaymentStateCancelled extends PaymentStateTerminal {}
-
-class PaymentStateExpired extends PaymentStateTerminal {}
-
-class PaymentStateCompleted extends PaymentStateTerminal {
-  final String response;
-  PaymentStateCompleted(this.response);
+class EvmPaymentParameters extends PaymentParameters {
+  late EthereumAddress parsedTo;
+  EvmPaymentParameters({required super.to, super.amount}) {
+    parsedTo = EthereumAddress.fromHex(to);
+  }
 }
 
-class PaymentStateFailed extends PaymentStateTerminal {
-  final String error;
-  PaymentStateFailed(this.error);
+class ZapPaymentParameters extends PaymentParameters {
+  final Event? event;
+  ZapPaymentParameters(
+      {super.amount, super.comment, required super.to, this.event});
+}
+
+class PaymentCubit<T extends PaymentParameters, RD extends ResolvedDetails,
+        CD extends CallbackDetails, CmpD extends CompletedDetails>
+    extends Cubit<PaymentState<T, RD, CD, CmpD>> {
+  CustomLogger logger = CustomLogger();
+  final T params;
+
+  PaymentCubit({required this.params})
+      : super(PaymentState(status: PaymentStatus.initial, params: params));
+
+  Future<RD> resolver() {
+    throw Exception('Not implemented');
+  }
+
+  Future<CD> callback() {
+    throw Exception('Not implemented');
+  }
+
+  Future<CmpD> complete() {
+    throw Exception('Not implemented');
+  }
+
+  /// Called upon initialization
+  /// Estimates fees etc
+  resolve() async {
+    emit(state.copyWith(status: PaymentStatus.resolveInitiated));
+    try {
+      RD resolvedDetails = await resolver();
+      emit(state.copyWith(
+          status: PaymentStatus.resolved, resolvedDetails: resolvedDetails));
+    } catch (e) {
+      emit(state.copyWith(status: PaymentStatus.failed, error: e.toString()));
+    }
+  }
+
+  /// Called if a step is required to fetch the final payment address
+  /// E.g. for LNURL
+  ok() async {
+    emit(state.copyWith(status: PaymentStatus.callbackInitiated));
+    try {
+      CD callbackDetails = await callback();
+      emit(state.copyWith(
+          status: PaymentStatus.callbackComplete,
+          callbackDetails: callbackDetails));
+    } catch (e) {
+      emit(state.copyWith(status: PaymentStatus.failed, error: e.toString()));
+    }
+  }
+
+  confirm() async {
+    emit(state.copyWith(status: PaymentStatus.inFlight));
+    try {
+      CmpD completedDetails = await complete();
+      emit(state.copyWith(
+          status: PaymentStatus.completed, completedDetails: completedDetails));
+    } catch (e) {
+      emit(state.copyWith(status: PaymentStatus.failed, error: e.toString()));
+    }
+  }
+
+  /// Called when we want to execute this payment right away
+  execute() async {
+    await resolve();
+    if (state.status == PaymentStatus.resolved) {
+      await ok();
+      if (state.status == PaymentStatus.callbackComplete) {
+        await confirm();
+      }
+    }
+  }
+}
+
+class ResolvedDetails {
+  final int minAmount;
+  final int maxAmount;
+  final int? commentAllowed;
+
+  ResolvedDetails(
+      {required this.minAmount,
+      required this.maxAmount,
+      required this.commentAllowed});
+}
+
+class CallbackDetails {}
+
+class CompletedDetails {}
+
+// States
+class PaymentState<
+    T extends PaymentParameters,
+    RD extends ResolvedDetails,
+    CD extends CallbackDetails,
+    CmpD extends CompletedDetails> extends Equatable {
+  final PaymentStatus status;
+  final T params;
+  final RD? resolvedDetails;
+  final CD? callbackDetails;
+  final CmpD? completedDetails;
+  final String? error;
+  PaymentState(
+      {this.resolvedDetails,
+      this.completedDetails,
+      this.error,
+      this.callbackDetails,
+      required this.params,
+      required this.status});
+
+  copyWith({
+    PaymentStatus? status,
+    RD? resolvedDetails,
+    CD? callbackDetails,
+    CmpD? completedDetails,
+    String? error,
+  }) {
+    return PaymentState(
+        status: status ?? this.status,
+        resolvedDetails: resolvedDetails ?? this.resolvedDetails,
+        callbackDetails: callbackDetails ?? this.callbackDetails,
+        completedDetails: completedDetails ?? this.completedDetails,
+        error: error ?? this.error,
+        params: this.params);
+  }
+
+  @override
+  List<Object?> get props => [
+        this.status,
+        this.callbackDetails,
+        this.resolvedDetails,
+        this.completedDetails,
+        this.error
+      ];
+}
+
+enum PaymentStatus {
+  initial,
+  resolveInitiated,
+  resolved,
+  callbackInitiated,
+  callbackComplete,
+  inFlight,
+  cancelled,
+  expired,
+  completed,
+  failed,
 }

@@ -52,8 +52,9 @@ class MyApp extends StatelessWidget {
       // Define a light and dark color theme. Then, read the user's
       // preferred ThemeMode (light, dark, or system default) from the
       // SettingsController to display the correct theme.
-      theme: getTheme(false),
+      theme: getTheme(true),
       darkTheme: getTheme(true),
+      themeMode: ThemeMode.system, // Use system theme mode
 
       routerConfig: _appRouter.config(
         navigatorObservers: () => [MyObserver()],
