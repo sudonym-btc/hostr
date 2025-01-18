@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -9,34 +8,36 @@ import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/data/sources/boltz/contracts/EtherSwap.g.dart';
+import 'package:hostr/data/sources/boltz/swagger_generated/boltz.swagger.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/main.dart';
 import 'package:http/http.dart';
 import 'package:injectable/injectable.dart';
 import 'package:web3dart/web3dart.dart';
 
 BigInt satoshiWeiFactor = BigInt.from(10).pow(10);
+num btcSatoshiFactor = pow(10, 8);
+num btcMilliSatoshiFactor = pow(10, 11);
 
-@Injectable(env: Env.allButTestAndMock)
+@singleton
 class SwapService {
   CustomLogger logger = CustomLogger();
-  Rootstock rootstock = getIt<Rootstock>();
-  BoltzClient boltzClient = getIt<BoltzClient>();
-  Config config = getIt<Config>();
-  KeyStorage keyStorage = getIt<KeyStorage>();
+  Config config;
+  Web3Client client;
+  SwapService({required this.config})
+      :
+        // Initialize Web3 client
+        client = Web3Client(config.rootstockRpcUrl, Client());
 
   Future<EtherSwap> getRootstockEtherSwap() async {
     // Fetch RBTC contracts
-    final rbtcContracts = await boltzClient.rbtcContracts();
+    final rbtcContracts = await getIt<BoltzClient>().rbtcContracts();
     final rbtcSwapContract = rbtcContracts.swapContracts.etherSwap;
 
-    // Initialize Web3 client
-    final Web3Client client =
-        Web3Client(getIt<Config>().rootstockRpcUrl, Client());
-
+    logger.i('RBTC Swap contract: $rbtcSwapContract');
     // Initialize EtherSwap contract
     return EtherSwap(
-        address: EthereumAddress(base64Decode(rbtcSwapContract!)),
-        client: client);
+        address: EthereumAddress.fromHex(rbtcSwapContract!), client: client);
   }
 
   swapOutAll() async {
@@ -48,12 +49,22 @@ class SwapService {
     // Generate or fetch an invoice for the user.
     // The invoice should be for the total amount minus any applicable fees.
 
-    NostrKeyPairs? key = await keyStorage.getActiveKeyPair();
+    NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
     EthPrivateKey ethKey = getEthCredentials(key!.private);
+    Rootstock r = getIt<Rootstock>();
+
+    double balance = await r.getBalance(getEthCredentials(key.private).address);
+    if (balance == 0) {
+      logger.i('No balance to swap out');
+      return;
+    }
+
+    NwcMethodResponse? response = await getIt<NwcService>().makeInvoice(
+        NwcMethodMakeInvoiceParams(
+            amount: (balance.toInt() / satoshiWeiFactor.toDouble()).toInt()));
 
     // Example invoice for demonstration purposes
-    final invoice =
-        "lnbcrt1m1pnkl4sppp5vc2zmdw9x2xr63nngr73da6u863kfhmxc68nm7eycarwq760xgdqdqqcqzzsxqyz5vqsp5vz26y0ckx205lrm2d3mz23ynkp26kshumn0zjvc7xgkjtfh7l8mq9qxpqysgqn45lz8rn990f77ftrk3rvg03dlmnj9ze2ue9p3eypzau84w3wluz2g25ydj94kefur0v8ln6e4f76n29jsqjraatpq0mdazrl5klpdcp5v4dg8";
+    final invoice = "";
     String invoicePreimageHash = Bolt11PaymentRequest(invoice).paymentRequest;
 
     // Convert invoice amount to satoshis
@@ -61,19 +72,17 @@ class SwapService {
         (Bolt11PaymentRequest(invoice).amount.toDouble() * pow(10, 8)) as int;
 
     try {
-      // await boltz.LibBoltz.init();
-
       // Initialize Boltz library
       // final fees = await boltz.Fees(boltzUrl: config.boltzUrl).chain();
       // Uncomment and use the above line to fetch the fees from the Boltz API.
 
       // Create a submarine swap
-      final swap = await boltzClient.submarine(invoice: invoice);
+      final swap = await getIt<BoltzClient>().submarine(invoice: invoice);
       // swap."expectedAmount" is set
 
       // Create the args record for the lock function
       final lockArgs = (
-        claimAddress: EthereumAddress(base64Decode(swap.claimPublicKey!)),
+        claimAddress: EthereumAddress.fromHex(swap.claimPublicKey!),
         preimageHash: Uint8List.fromList(invoicePreimageHash.codeUnits),
         timelock: BigInt.from(swap.timeoutBlockHeight),
       );
@@ -81,41 +90,114 @@ class SwapService {
       EtherSwap swapContract = await getRootstockEtherSwap();
 
       // Lock the funds in the EtherSwap contract
-      Future<String> tx = swapContract.lock(lockArgs, credentials: ethKey);
-
-      logger.i('Sent RBTC in: ${tx}');
+      String tx = await swapContract.lock(lockArgs, credentials: ethKey);
+      // String refundTx = await swapContract.refund(args, credentials: credentials)
+      logger.i('Sent RBTC in: $tx');
     } catch (e) {
       // Handle errors and print the error message
       print('\n\nERRRR: ' + e.toString() + '\n\n');
     }
   }
 
+  // rif() {
+  //   Forwarder
+  // }
+
+  // escrow() {
+  //   Escrow
+  // }
+
   swapIn(int amountSats) async {
-    NostrKeyPairs? key = await keyStorage.getActiveKeyPair();
+    /// Check that NWC is connected first
+    Uri? nwc = await getIt<NwcStorage>().getUri();
+    if (nwc == null) {
+      throw Exception('No NWC URI found');
+    }
+
+    NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
     EthPrivateKey ethKey = getEthCredentials(key!.private);
 
-    String preimage = NostrKeyPairs.generate().private;
-    String preimageHash = sha256.convert(utf8.encode(preimage)).toString();
+    /// We generate the preimage for the invoice we will pay
+    /// This prevents swapper from being able to claim the HTLC
+    /// until we reveil the preimage to make the claim transaction
+    /// Has to be 32 bytes for the claim txn to pass
+    var random = Random.secure();
+    List<int> preimage = List<int>.generate(32, (i) => random.nextInt(256));
+    String preimageHash = sha256.convert(preimage).toString();
+    logger.i("Preimage: $preimage, ${preimage.length}");
 
-    // Create a submarine swap
-    final swap = await boltzClient.reverseSubmarine(
+    /// Create a reverse submarine swap
+    final swap = await getIt<BoltzClient>().reverseSubmarine(
         invoiceAmount: amountSats.toDouble(),
-        claimAddress: ethKey.address.hex,
+        claimAddress: ethKey.address.hexEip55,
         preimageHash: preimageHash);
+    String invoiceToPay = swap.invoice;
 
     EtherSwap swapContract = await getRootstockEtherSwap();
 
-    // Create the args record for the claim function
-    final claimArgs = (
-      amount: BigInt.from(swap.onchainAmount!) * satoshiWeiFactor,
-      preimage: Uint8List.fromList(preimage.codeUnits),
-      refundAddress: EthereumAddress(base64Decode(swap.refundPublicKey!)),
-      timelock: BigInt.from(swap.timeoutBlockHeight),
-    );
+    Bolt11PaymentRequest pr = Bolt11PaymentRequest(invoiceToPay);
 
-    // Lock the funds in the EtherSwap contract
-    Future<String> tx = swapContract.claim(claimArgs, credentials: ethKey);
+    logger.i(
+        'Invoice to pay: ${pr.amount.toDouble() * btcSatoshiFactor} against $amountSats planned, hash: ${pr.tags.firstWhere((t) => t.type == 'payment_hash').data} against planned $preimageHash');
 
-    logger.i('Sent RBTC in: $tx');
+    /// Before paying, check that the invoice swapper generated is for the correct amount
+    assert(pr.amount.toDouble() * btcSatoshiFactor == amountSats.toDouble());
+
+    /// Before paying, check that the invoice hash is equivalent to the preimage hash we generated
+    /// Ensures we know the invoice can't be settled until we reveal it in the claim txn
+    assert(pr.tags.firstWhere((t) => t.type == 'payment_hash').data ==
+        preimageHash);
+
+    /// Pay the invoice, though it won't complete until we reveal the preimage in the claim txn
+    PaymentCubit paymentCubit = PaymentsManager().create(
+        Bolt11PaymentParameters(
+            amount: Amount(
+                currency: Currency.BTC,
+                value: amountSats.toDouble() / btcSatoshiFactor),
+            to: invoiceToPay));
+
+    paymentCubit.execute();
+
+    while (true) {
+      SwapStatus swapStatus = await getIt<BoltzClient>().getSwap(id: swap.id);
+      // ReverseResponse swap = await getIt<BoltzClient>().getSwap
+      logger.i('Swap status: ${swapStatus.status}, $swapStatus');
+
+      if (swapStatus.status == 'transaction.mempool' ||
+          swapStatus.status == 'transaction.confirmed') {
+        /// Fetch the from address of the lockup transaction to use as refund address
+        TransactionInformation? lockupTx =
+            await client.getTransactionByHash(swapStatus.transaction!.id!);
+
+        if (lockupTx == null) {
+          logger.i('Lockup transaction not found');
+          await Future.delayed(Duration(milliseconds: 500));
+          continue;
+        }
+
+        logger.i('Lockup transaction: $lockupTx');
+
+        /// Create the args record for the claim function
+        final claimArgs = (
+          amount: BigInt.from(swap.onchainAmount!) * satoshiWeiFactor,
+          preimage: Uint8List.fromList(preimage),
+
+          /// Why is swap.refundPublicKey null in the response
+
+          refundAddress:
+              lockupTx!.from, //EthereumAddress.fromHex(swap.refundPublicKey!),
+
+          timelock: BigInt.from(swap.timeoutBlockHeight),
+        );
+
+        logger.i('Claim can be unlocked with arguments: $claimArgs');
+
+        /// Withdraw the funds to our own address, providing swapper with preimage to settle lightning
+        String tx = await swapContract.claim(claimArgs, credentials: ethKey);
+        logger.i('Sent RBTC in: $tx');
+        break;
+      }
+      await Future.delayed(Duration(milliseconds: 1000));
+    }
   }
 }

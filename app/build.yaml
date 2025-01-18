@@ -3,6 +3,7 @@ targets:
     builders:
       swagger_dart_code_generator:
         options:
+          include_if_null: false
           input_folder: lib/data/sources/boltz/swagger
           output_folder: lib/data/sources/boltz/swagger_generated
 

@@ -1,8 +1,8 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
-import 'package:hostr/presentation/component/main.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/export.dart';
 
 class ListingView extends StatelessWidget {
   final String a;
@@ -25,10 +25,6 @@ class ListingView extends StatelessWidget {
     return ListingProvider(
         a: a,
         builder: (context, state) {
-          print(
-            'updating listview',
-          );
-          print(state);
           if (state.data == null) {
             return Scaffold(body: Center(child: CircularProgressIndicator()));
           }
@@ -82,6 +78,23 @@ class ListingView extends StatelessWidget {
                               Text(state.data!.parsedContent.description,
                                   style:
                                       Theme.of(context).textTheme.bodyMedium),
+                              Container(
+                                  constraints: BoxConstraints(
+                                    maxHeight:
+                                        300.0, // Set your desired max height here
+                                  ),
+                                  child: BlocProvider<ListCubit<Review>>(
+                                      create: (context) => ListCubit<Review>(
+                                          kinds: Review.kinds,
+                                          filter:
+                                              NostrFilter(e: [state.data!.id!]))
+                                        ..next(),
+                                      child: ListWidget<Review>(builder: (el) {
+                                        return ReviewListItem(
+                                          review: el,
+                                          // dateRange: searchController.state.dateRange,
+                                        );
+                                      })))
                             ],
                           ))
                         ],

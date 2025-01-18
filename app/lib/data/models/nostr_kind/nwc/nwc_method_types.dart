@@ -1,11 +1,25 @@
 import 'package:hostr/data/models/nostr_kind/nwc/nwc_info.dart';
 
+import '../serializable.dart';
+
 class NwcMethodParams {
   toJson() {}
 }
 
-class NwcMethodResponse {
-  toJson() {}
+class NwcMethodResponse extends Serializable {
+  @override
+  Map<String, dynamic> toJson() {
+    // TODO: implement toJson
+    throw UnimplementedError();
+  }
+}
+
+class NwcMethodError extends Serializable {
+  @override
+  Map<String, dynamic> toJson() {
+    // TODO: implement toJson
+    throw UnimplementedError();
+  }
 }
 
 /// PAY INVOICE
@@ -248,25 +262,26 @@ class NwcMethodGetInfoParams extends NwcMethodParams {
 }
 
 class NwcMethodGetInfoResponse extends NwcMethodResponse {
-  final String alias;
-  final String color;
-  final String pubkey;
-  final String network;
-  final int block_height;
-  final int block_hash;
+  final String? alias;
+  final String? color;
+  final String? pubkey;
+  final String? network;
+  final int? block_height;
+  final String? block_hash;
   final List<NwcMethods> methods;
   final List<NwcNotifications> notifications;
 
   NwcMethodGetInfoResponse(
-      {required this.alias,
-      required this.color,
-      required this.pubkey,
-      required this.network,
-      required this.block_height,
-      required this.block_hash,
+      {this.alias,
+      this.color,
+      this.pubkey,
+      this.network,
+      this.block_height,
+      this.block_hash,
       required this.methods,
       required this.notifications});
 
+  @override
   toJson() {
     return {
       'alias': alias,

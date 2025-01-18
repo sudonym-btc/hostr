@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/data/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/list.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 import 'listing_list_item.dart';
 
 class ListingsWidget extends StatelessWidget {
-  const ListingsWidget({super.key});
+  final PanelController panelController;
+  const ListingsWidget({super.key, required this.panelController});
 
   @override
   Widget build(BuildContext context) {
-    return ListWidget(builder: (el) {
+    return ListWidget<Listing>(builder: (el) {
       return ListingListItemWidget(
         listing: el,
         // dateRange: searchController.state.dateRange,

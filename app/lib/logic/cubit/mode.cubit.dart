@@ -37,12 +37,8 @@ class ModeCubit extends Cubit<ModeCubitState> {
   }
 
   get() async {
-    print('Mode Cubit getting mode');
-    print(await modeStorage.get());
     String mode = await modeStorage.get();
     if (mode == 'host') {
-      print('emiiting host');
-      print(HostMode() == GuestMode());
       emit(HostMode());
     } else {
       emit(GuestMode());

@@ -31,12 +31,15 @@ class _GlobalProviderWidgetState extends State<GlobalProviderWidget> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AuthCubit>(create: (context) => appController.authCubit),
+        BlocProvider<AuthCubit>(
+            lazy: false, create: (context) => appController.authCubit..get()),
         BlocProvider<GlobalGiftWrapCubit>(
-            create: (context) => appController.giftWrapListCubit),
+            lazy: false, create: (context) => appController.giftWrapListCubit),
         BlocProvider<ThreadOrganizerCubit>(
+            lazy: false,
             create: (context) => appController.threadOrganizerCubit),
-        BlocProvider<ModeCubit>(create: (context) => ModeCubit()..get()),
+        BlocProvider<ModeCubit>(
+            lazy: false, create: (context) => ModeCubit()..get()),
         BlocProvider<NwcCubit>(create: (_) => NwcCubit()),
         BlocProvider<PaymentsManager>(
             create: (context) => appController.paymentsManager),

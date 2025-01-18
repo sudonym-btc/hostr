@@ -11,10 +11,13 @@ class AuthGuard extends AutoRouteGuard {
   void onNavigation(NavigationResolver resolver, StackRouter router) async {
     logger.d('AuthGuard');
     if (await keyStorage.getActiveKeyPair() != null) {
+      logger.d('AuthGuard logged in');
       resolver.next(true);
       return;
     }
+    logger.d('AuthGuard logged out');
     router.push(SignInRoute(onSuccess: () {
+      logger.d('AuthGuard forwarding to ${resolver.route.name}');
       resolver.next(true);
       router.removeLast();
     }));

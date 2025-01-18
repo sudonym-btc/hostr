@@ -764,11 +764,11 @@ class Contracts {
   static const toJsonFactory = _$ContractsToJson;
   Map<String, dynamic> toJson() => _$ContractsToJson(this);
 
-  @JsonKey(name: 'network')
+  @JsonKey(name: 'network', includeIfNull: false)
   final Contracts$Network network;
-  @JsonKey(name: 'swapContracts')
+  @JsonKey(name: 'swapContracts', includeIfNull: false)
   final Contracts$SwapContracts swapContracts;
-  @JsonKey(name: 'tokens')
+  @JsonKey(name: 'tokens', includeIfNull: false)
   final Map<String, dynamic> tokens;
   static const fromJsonFactory = _$ContractsFromJson;
 
@@ -833,9 +833,9 @@ class NodeInfo {
   static const toJsonFactory = _$NodeInfoToJson;
   Map<String, dynamic> toJson() => _$NodeInfoToJson(this);
 
-  @JsonKey(name: 'publicKey')
+  @JsonKey(name: 'publicKey', includeIfNull: false)
   final String publicKey;
-  @JsonKey(name: 'uris', defaultValue: <String>[])
+  @JsonKey(name: 'uris', includeIfNull: false, defaultValue: <String>[])
   final List<String> uris;
   static const fromJsonFactory = _$NodeInfoFromJson;
 
@@ -889,13 +889,13 @@ class NodeStats {
   static const toJsonFactory = _$NodeStatsToJson;
   Map<String, dynamic> toJson() => _$NodeStatsToJson(this);
 
-  @JsonKey(name: 'capacity')
+  @JsonKey(name: 'capacity', includeIfNull: false)
   final int capacity;
-  @JsonKey(name: 'channels')
+  @JsonKey(name: 'channels', includeIfNull: false)
   final int channels;
-  @JsonKey(name: 'peers')
+  @JsonKey(name: 'peers', includeIfNull: false)
   final int peers;
-  @JsonKey(name: 'oldestChannel')
+  @JsonKey(name: 'oldestChannel', includeIfNull: false)
   final int oldestChannel;
   static const fromJsonFactory = _$NodeStatsFromJson;
 
@@ -964,7 +964,7 @@ class ErrorResponse {
   static const toJsonFactory = _$ErrorResponseToJson;
   Map<String, dynamic> toJson() => _$ErrorResponseToJson(this);
 
-  @JsonKey(name: 'error')
+  @JsonKey(name: 'error', includeIfNull: false)
   final String error;
   static const fromJsonFactory = _$ErrorResponseFromJson;
 
@@ -1007,9 +1007,9 @@ class SwapTreeLeaf {
   static const toJsonFactory = _$SwapTreeLeafToJson;
   Map<String, dynamic> toJson() => _$SwapTreeLeafToJson(this);
 
-  @JsonKey(name: 'version')
+  @JsonKey(name: 'version', includeIfNull: false)
   final double version;
-  @JsonKey(name: 'output')
+  @JsonKey(name: 'output', includeIfNull: false)
   final String output;
   static const fromJsonFactory = _$SwapTreeLeafFromJson;
 
@@ -1061,9 +1061,9 @@ class SwapTree {
   static const toJsonFactory = _$SwapTreeToJson;
   Map<String, dynamic> toJson() => _$SwapTreeToJson(this);
 
-  @JsonKey(name: 'claimLeaf')
+  @JsonKey(name: 'claimLeaf', includeIfNull: false)
   final SwapTreeLeaf claimLeaf;
-  @JsonKey(name: 'refundLeaf')
+  @JsonKey(name: 'refundLeaf', includeIfNull: false)
   final SwapTreeLeaf refundLeaf;
   static const fromJsonFactory = _$SwapTreeFromJson;
 
@@ -1119,13 +1119,13 @@ class SubmarinePair {
   static const toJsonFactory = _$SubmarinePairToJson;
   Map<String, dynamic> toJson() => _$SubmarinePairToJson(this);
 
-  @JsonKey(name: 'hash')
+  @JsonKey(name: 'hash', includeIfNull: false)
   final String hash;
-  @JsonKey(name: 'rate')
+  @JsonKey(name: 'rate', includeIfNull: false)
   final double rate;
-  @JsonKey(name: 'limits')
+  @JsonKey(name: 'limits', includeIfNull: false)
   final SubmarinePair$Limits limits;
-  @JsonKey(name: 'fees')
+  @JsonKey(name: 'fees', includeIfNull: false)
   final SubmarinePair$Fees fees;
   static const fromJsonFactory = _$SubmarinePairFromJson;
 
@@ -1195,11 +1195,11 @@ class WebhookData {
   static const toJsonFactory = _$WebhookDataToJson;
   Map<String, dynamic> toJson() => _$WebhookDataToJson(this);
 
-  @JsonKey(name: 'url')
+  @JsonKey(name: 'url', includeIfNull: false)
   final String url;
-  @JsonKey(name: 'hashSwapId', defaultValue: false)
+  @JsonKey(name: 'hashSwapId', includeIfNull: false, defaultValue: false)
   final bool? hashSwapId;
-  @JsonKey(name: 'status', defaultValue: <String>[])
+  @JsonKey(name: 'status', includeIfNull: false, defaultValue: <String>[])
   final List<String>? status;
   static const fromJsonFactory = _$WebhookDataFromJson;
 
@@ -1265,21 +1265,21 @@ class SubmarineRequest {
   static const toJsonFactory = _$SubmarineRequestToJson;
   Map<String, dynamic> toJson() => _$SubmarineRequestToJson(this);
 
-  @JsonKey(name: 'from')
+  @JsonKey(name: 'from', includeIfNull: false)
   final String from;
-  @JsonKey(name: 'to')
+  @JsonKey(name: 'to', includeIfNull: false)
   final String to;
-  @JsonKey(name: 'invoice')
+  @JsonKey(name: 'invoice', includeIfNull: false)
   final String? invoice;
-  @JsonKey(name: 'preimageHash')
+  @JsonKey(name: 'preimageHash', includeIfNull: false)
   final String? preimageHash;
-  @JsonKey(name: 'refundPublicKey')
+  @JsonKey(name: 'refundPublicKey', includeIfNull: false)
   final String? refundPublicKey;
-  @JsonKey(name: 'pairHash')
+  @JsonKey(name: 'pairHash', includeIfNull: false)
   final String? pairHash;
-  @JsonKey(name: 'referralId')
+  @JsonKey(name: 'referralId', includeIfNull: false)
   final String? referralId;
-  @JsonKey(name: 'webhook')
+  @JsonKey(name: 'webhook', includeIfNull: false)
   final WebhookData? webhook;
   static const fromJsonFactory = _$SubmarineRequestFromJson;
 
@@ -1392,25 +1392,25 @@ class SubmarineResponse {
   static const toJsonFactory = _$SubmarineResponseToJson;
   Map<String, dynamic> toJson() => _$SubmarineResponseToJson(this);
 
-  @JsonKey(name: 'id')
+  @JsonKey(name: 'id', includeIfNull: false)
   final String id;
-  @JsonKey(name: 'bip21')
+  @JsonKey(name: 'bip21', includeIfNull: false)
   final String? bip21;
-  @JsonKey(name: 'address')
+  @JsonKey(name: 'address', includeIfNull: false)
   final String? address;
-  @JsonKey(name: 'swapTree')
+  @JsonKey(name: 'swapTree', includeIfNull: false)
   final SwapTree? swapTree;
-  @JsonKey(name: 'claimPublicKey')
+  @JsonKey(name: 'claimPublicKey', includeIfNull: false)
   final String? claimPublicKey;
-  @JsonKey(name: 'timeoutBlockHeight')
+  @JsonKey(name: 'timeoutBlockHeight', includeIfNull: false)
   final double timeoutBlockHeight;
-  @JsonKey(name: 'acceptZeroConf')
+  @JsonKey(name: 'acceptZeroConf', includeIfNull: false)
   final bool? acceptZeroConf;
-  @JsonKey(name: 'expectedAmount')
+  @JsonKey(name: 'expectedAmount', includeIfNull: false)
   final double expectedAmount;
-  @JsonKey(name: 'blindingKey')
+  @JsonKey(name: 'blindingKey', includeIfNull: false)
   final String? blindingKey;
-  @JsonKey(name: 'referralId')
+  @JsonKey(name: 'referralId', includeIfNull: false)
   final String? referralId;
   static const fromJsonFactory = _$SubmarineResponseFromJson;
 
@@ -1540,13 +1540,13 @@ class SubmarineTransaction {
   static const toJsonFactory = _$SubmarineTransactionToJson;
   Map<String, dynamic> toJson() => _$SubmarineTransactionToJson(this);
 
-  @JsonKey(name: 'id')
+  @JsonKey(name: 'id', includeIfNull: false)
   final String id;
-  @JsonKey(name: 'hex')
+  @JsonKey(name: 'hex', includeIfNull: false)
   final String? hex;
-  @JsonKey(name: 'timeoutBlockHeight')
+  @JsonKey(name: 'timeoutBlockHeight', includeIfNull: false)
   final double timeoutBlockHeight;
-  @JsonKey(name: 'timeoutEta')
+  @JsonKey(name: 'timeoutEta', includeIfNull: false)
   final double? timeoutEta;
   static const fromJsonFactory = _$SubmarineTransactionFromJson;
 
@@ -1618,7 +1618,7 @@ class SubmarinePreimage {
   static const toJsonFactory = _$SubmarinePreimageToJson;
   Map<String, dynamic> toJson() => _$SubmarinePreimageToJson(this);
 
-  @JsonKey(name: 'preimage')
+  @JsonKey(name: 'preimage', includeIfNull: false)
   final String preimage;
   static const fromJsonFactory = _$SubmarinePreimageFromJson;
 
@@ -1664,11 +1664,11 @@ class RefundRequest {
   static const toJsonFactory = _$RefundRequestToJson;
   Map<String, dynamic> toJson() => _$RefundRequestToJson(this);
 
-  @JsonKey(name: 'pubNonce')
+  @JsonKey(name: 'pubNonce', includeIfNull: false)
   final String pubNonce;
-  @JsonKey(name: 'transaction')
+  @JsonKey(name: 'transaction', includeIfNull: false)
   final String transaction;
-  @JsonKey(name: 'index')
+  @JsonKey(name: 'index', includeIfNull: false)
   final double index;
   static const fromJsonFactory = _$RefundRequestFromJson;
 
@@ -1731,9 +1731,9 @@ class PartialSignature {
   static const toJsonFactory = _$PartialSignatureToJson;
   Map<String, dynamic> toJson() => _$PartialSignatureToJson(this);
 
-  @JsonKey(name: 'pubNonce')
+  @JsonKey(name: 'pubNonce', includeIfNull: false)
   final String pubNonce;
-  @JsonKey(name: 'partialSignature')
+  @JsonKey(name: 'partialSignature', includeIfNull: false)
   final String partialSignature;
   static const fromJsonFactory = _$PartialSignatureFromJson;
 
@@ -1791,13 +1791,13 @@ class SubmarineClaimDetails {
   static const toJsonFactory = _$SubmarineClaimDetailsToJson;
   Map<String, dynamic> toJson() => _$SubmarineClaimDetailsToJson(this);
 
-  @JsonKey(name: 'preimage')
+  @JsonKey(name: 'preimage', includeIfNull: false)
   final String preimage;
-  @JsonKey(name: 'pubNonce')
+  @JsonKey(name: 'pubNonce', includeIfNull: false)
   final String pubNonce;
-  @JsonKey(name: 'publicKey')
+  @JsonKey(name: 'publicKey', includeIfNull: false)
   final String publicKey;
-  @JsonKey(name: 'transactionHash')
+  @JsonKey(name: 'transactionHash', includeIfNull: false)
   final String transactionHash;
   static const fromJsonFactory = _$SubmarineClaimDetailsFromJson;
 
@@ -1874,13 +1874,13 @@ class ReversePair {
   static const toJsonFactory = _$ReversePairToJson;
   Map<String, dynamic> toJson() => _$ReversePairToJson(this);
 
-  @JsonKey(name: 'hash')
+  @JsonKey(name: 'hash', includeIfNull: false)
   final String hash;
-  @JsonKey(name: 'rate')
+  @JsonKey(name: 'rate', includeIfNull: false)
   final double rate;
-  @JsonKey(name: 'limits')
+  @JsonKey(name: 'limits', includeIfNull: false)
   final ReversePair$Limits limits;
-  @JsonKey(name: 'fees')
+  @JsonKey(name: 'fees', includeIfNull: false)
   final ReversePair$Fees fees;
   static const fromJsonFactory = _$ReversePairFromJson;
 
@@ -1963,37 +1963,37 @@ class ReverseRequest {
   static const toJsonFactory = _$ReverseRequestToJson;
   Map<String, dynamic> toJson() => _$ReverseRequestToJson(this);
 
-  @JsonKey(name: 'from')
+  @JsonKey(name: 'from', includeIfNull: false)
   final String from;
-  @JsonKey(name: 'to')
+  @JsonKey(name: 'to', includeIfNull: false)
   final String to;
-  @JsonKey(name: 'preimageHash')
+  @JsonKey(name: 'preimageHash', includeIfNull: false)
   final String preimageHash;
-  @JsonKey(name: 'claimPublicKey')
+  @JsonKey(name: 'claimPublicKey', includeIfNull: false)
   final String? claimPublicKey;
-  @JsonKey(name: 'claimAddress')
+  @JsonKey(name: 'claimAddress', includeIfNull: false)
   final String? claimAddress;
-  @JsonKey(name: 'invoiceAmount')
+  @JsonKey(name: 'invoiceAmount', includeIfNull: false)
   final double? invoiceAmount;
-  @JsonKey(name: 'onchainAmount')
+  @JsonKey(name: 'onchainAmount', includeIfNull: false)
   final double? onchainAmount;
-  @JsonKey(name: 'pairHash')
+  @JsonKey(name: 'pairHash', includeIfNull: false)
   final String? pairHash;
-  @JsonKey(name: 'referralId')
+  @JsonKey(name: 'referralId', includeIfNull: false)
   final String? referralId;
-  @JsonKey(name: 'address')
+  @JsonKey(name: 'address', includeIfNull: false)
   final String? address;
-  @JsonKey(name: 'addressSignature')
+  @JsonKey(name: 'addressSignature', includeIfNull: false)
   final String? addressSignature;
-  @JsonKey(name: 'claimCovenant', defaultValue: false)
+  @JsonKey(name: 'claimCovenant', includeIfNull: false, defaultValue: false)
   final bool? claimCovenant;
-  @JsonKey(name: 'description')
+  @JsonKey(name: 'description', includeIfNull: false)
   final String? description;
-  @JsonKey(name: 'descriptionHash')
+  @JsonKey(name: 'descriptionHash', includeIfNull: false)
   final String? descriptionHash;
-  @JsonKey(name: 'invoiceExpiry')
+  @JsonKey(name: 'invoiceExpiry', includeIfNull: false)
   final double? invoiceExpiry;
-  @JsonKey(name: 'webhook')
+  @JsonKey(name: 'webhook', includeIfNull: false)
   final WebhookData? webhook;
   static const fromJsonFactory = _$ReverseRequestFromJson;
 
@@ -2179,23 +2179,23 @@ class ReverseResponse {
   static const toJsonFactory = _$ReverseResponseToJson;
   Map<String, dynamic> toJson() => _$ReverseResponseToJson(this);
 
-  @JsonKey(name: 'id')
+  @JsonKey(name: 'id', includeIfNull: false)
   final String id;
-  @JsonKey(name: 'invoice')
+  @JsonKey(name: 'invoice', includeIfNull: false)
   final String invoice;
-  @JsonKey(name: 'swapTree')
+  @JsonKey(name: 'swapTree', includeIfNull: false)
   final SwapTree? swapTree;
-  @JsonKey(name: 'lockupAddress')
+  @JsonKey(name: 'lockupAddress', includeIfNull: false)
   final String? lockupAddress;
-  @JsonKey(name: 'refundPublicKey')
+  @JsonKey(name: 'refundPublicKey', includeIfNull: false)
   final String? refundPublicKey;
-  @JsonKey(name: 'timeoutBlockHeight')
+  @JsonKey(name: 'timeoutBlockHeight', includeIfNull: false)
   final double timeoutBlockHeight;
-  @JsonKey(name: 'onchainAmount')
+  @JsonKey(name: 'onchainAmount', includeIfNull: false)
   final double? onchainAmount;
-  @JsonKey(name: 'blindingKey')
+  @JsonKey(name: 'blindingKey', includeIfNull: false)
   final String? blindingKey;
-  @JsonKey(name: 'referralId')
+  @JsonKey(name: 'referralId', includeIfNull: false)
   final String? referralId;
   static const fromJsonFactory = _$ReverseResponseFromJson;
 
@@ -2315,11 +2315,11 @@ class ReverseTransaction {
   static const toJsonFactory = _$ReverseTransactionToJson;
   Map<String, dynamic> toJson() => _$ReverseTransactionToJson(this);
 
-  @JsonKey(name: 'id')
+  @JsonKey(name: 'id', includeIfNull: false)
   final String id;
-  @JsonKey(name: 'hex')
+  @JsonKey(name: 'hex', includeIfNull: false)
   final String? hex;
-  @JsonKey(name: 'timeoutBlockHeight')
+  @JsonKey(name: 'timeoutBlockHeight', includeIfNull: false)
   final double timeoutBlockHeight;
   static const fromJsonFactory = _$ReverseTransactionFromJson;
 
@@ -2384,13 +2384,13 @@ class ReverseClaimRequest {
   static const toJsonFactory = _$ReverseClaimRequestToJson;
   Map<String, dynamic> toJson() => _$ReverseClaimRequestToJson(this);
 
-  @JsonKey(name: 'preimage')
+  @JsonKey(name: 'preimage', includeIfNull: false)
   final String preimage;
-  @JsonKey(name: 'pubNonce')
+  @JsonKey(name: 'pubNonce', includeIfNull: false)
   final String? pubNonce;
-  @JsonKey(name: 'transaction')
+  @JsonKey(name: 'transaction', includeIfNull: false)
   final String? transaction;
-  @JsonKey(name: 'index')
+  @JsonKey(name: 'index', includeIfNull: false)
   final double? index;
   static const fromJsonFactory = _$ReverseClaimRequestFromJson;
 
@@ -2463,9 +2463,9 @@ class ReverseBip21 {
   static const toJsonFactory = _$ReverseBip21ToJson;
   Map<String, dynamic> toJson() => _$ReverseBip21ToJson(this);
 
-  @JsonKey(name: 'bip21')
+  @JsonKey(name: 'bip21', includeIfNull: false)
   final String? bip21;
-  @JsonKey(name: 'signature')
+  @JsonKey(name: 'signature', includeIfNull: false)
   final String signature;
   static const fromJsonFactory = _$ReverseBip21FromJson;
 
@@ -2519,13 +2519,13 @@ class ChainPair {
   static const toJsonFactory = _$ChainPairToJson;
   Map<String, dynamic> toJson() => _$ChainPairToJson(this);
 
-  @JsonKey(name: 'hash')
+  @JsonKey(name: 'hash', includeIfNull: false)
   final String hash;
-  @JsonKey(name: 'rate')
+  @JsonKey(name: 'rate', includeIfNull: false)
   final double rate;
-  @JsonKey(name: 'limits')
+  @JsonKey(name: 'limits', includeIfNull: false)
   final ChainPair$Limits limits;
-  @JsonKey(name: 'fees')
+  @JsonKey(name: 'fees', includeIfNull: false)
   final ChainPair$Fees fees;
   static const fromJsonFactory = _$ChainPairFromJson;
 
@@ -2603,27 +2603,27 @@ class ChainRequest {
   static const toJsonFactory = _$ChainRequestToJson;
   Map<String, dynamic> toJson() => _$ChainRequestToJson(this);
 
-  @JsonKey(name: 'from')
+  @JsonKey(name: 'from', includeIfNull: false)
   final String from;
-  @JsonKey(name: 'to')
+  @JsonKey(name: 'to', includeIfNull: false)
   final String to;
-  @JsonKey(name: 'preimageHash')
+  @JsonKey(name: 'preimageHash', includeIfNull: false)
   final String preimageHash;
-  @JsonKey(name: 'claimPublicKey')
+  @JsonKey(name: 'claimPublicKey', includeIfNull: false)
   final String? claimPublicKey;
-  @JsonKey(name: 'refundPublicKey')
+  @JsonKey(name: 'refundPublicKey', includeIfNull: false)
   final String? refundPublicKey;
-  @JsonKey(name: 'claimAddress')
+  @JsonKey(name: 'claimAddress', includeIfNull: false)
   final String? claimAddress;
-  @JsonKey(name: 'userLockAmount')
+  @JsonKey(name: 'userLockAmount', includeIfNull: false)
   final double? userLockAmount;
-  @JsonKey(name: 'serverLockAmount')
+  @JsonKey(name: 'serverLockAmount', includeIfNull: false)
   final double? serverLockAmount;
-  @JsonKey(name: 'pairHash')
+  @JsonKey(name: 'pairHash', includeIfNull: false)
   final String? pairHash;
-  @JsonKey(name: 'referralId')
+  @JsonKey(name: 'referralId', includeIfNull: false)
   final String? referralId;
-  @JsonKey(name: 'webhook')
+  @JsonKey(name: 'webhook', includeIfNull: false)
   final WebhookData? webhook;
   static const fromJsonFactory = _$ChainRequestFromJson;
 
@@ -2765,21 +2765,21 @@ class ChainSwapData {
   static const toJsonFactory = _$ChainSwapDataToJson;
   Map<String, dynamic> toJson() => _$ChainSwapDataToJson(this);
 
-  @JsonKey(name: 'swapTree')
+  @JsonKey(name: 'swapTree', includeIfNull: false)
   final SwapTree swapTree;
-  @JsonKey(name: 'lockupAddress')
+  @JsonKey(name: 'lockupAddress', includeIfNull: false)
   final String? lockupAddress;
-  @JsonKey(name: 'serverPublicKey')
+  @JsonKey(name: 'serverPublicKey', includeIfNull: false)
   final String? serverPublicKey;
-  @JsonKey(name: 'timeoutBlockHeight')
+  @JsonKey(name: 'timeoutBlockHeight', includeIfNull: false)
   final double timeoutBlockHeight;
-  @JsonKey(name: 'amount')
+  @JsonKey(name: 'amount', includeIfNull: false)
   final double amount;
-  @JsonKey(name: 'blindingKey')
+  @JsonKey(name: 'blindingKey', includeIfNull: false)
   final String? blindingKey;
-  @JsonKey(name: 'refundAddress')
+  @JsonKey(name: 'refundAddress', includeIfNull: false)
   final String? refundAddress;
-  @JsonKey(name: 'bip21')
+  @JsonKey(name: 'bip21', includeIfNull: false)
   final String? bip21;
   static const fromJsonFactory = _$ChainSwapDataFromJson;
 
@@ -2891,13 +2891,13 @@ class ChainResponse {
   static const toJsonFactory = _$ChainResponseToJson;
   Map<String, dynamic> toJson() => _$ChainResponseToJson(this);
 
-  @JsonKey(name: 'id')
+  @JsonKey(name: 'id', includeIfNull: false)
   final String id;
-  @JsonKey(name: 'referralId')
+  @JsonKey(name: 'referralId', includeIfNull: false)
   final String? referralId;
-  @JsonKey(name: 'claimDetails')
+  @JsonKey(name: 'claimDetails', includeIfNull: false)
   final ChainSwapData claimDetails;
-  @JsonKey(name: 'lockupDetails')
+  @JsonKey(name: 'lockupDetails', includeIfNull: false)
   final ChainSwapData lockupDetails;
   static const fromJsonFactory = _$ChainResponseFromJson;
 
@@ -2971,9 +2971,9 @@ class ChainSwapTransaction {
   static const toJsonFactory = _$ChainSwapTransactionToJson;
   Map<String, dynamic> toJson() => _$ChainSwapTransactionToJson(this);
 
-  @JsonKey(name: 'transaction')
+  @JsonKey(name: 'transaction', includeIfNull: false)
   final ChainSwapTransaction$Transaction transaction;
-  @JsonKey(name: 'timeout')
+  @JsonKey(name: 'timeout', includeIfNull: false)
   final ChainSwapTransaction$Timeout? timeout;
   static const fromJsonFactory = _$ChainSwapTransactionFromJson;
 
@@ -3030,9 +3030,9 @@ class ChainSwapTransactions {
   static const toJsonFactory = _$ChainSwapTransactionsToJson;
   Map<String, dynamic> toJson() => _$ChainSwapTransactionsToJson(this);
 
-  @JsonKey(name: 'userLock')
+  @JsonKey(name: 'userLock', includeIfNull: false)
   final ChainSwapTransaction? userLock;
-  @JsonKey(name: 'serverLock')
+  @JsonKey(name: 'serverLock', includeIfNull: false)
   final ChainSwapTransaction? serverLock;
   static const fromJsonFactory = _$ChainSwapTransactionsFromJson;
 
@@ -3089,11 +3089,11 @@ class ChainSwapSigningDetails {
   static const toJsonFactory = _$ChainSwapSigningDetailsToJson;
   Map<String, dynamic> toJson() => _$ChainSwapSigningDetailsToJson(this);
 
-  @JsonKey(name: 'pubNonce')
+  @JsonKey(name: 'pubNonce', includeIfNull: false)
   final String pubNonce;
-  @JsonKey(name: 'publicKey')
+  @JsonKey(name: 'publicKey', includeIfNull: false)
   final String publicKey;
-  @JsonKey(name: 'transactionHash')
+  @JsonKey(name: 'transactionHash', includeIfNull: false)
   final String transactionHash;
   static const fromJsonFactory = _$ChainSwapSigningDetailsFromJson;
 
@@ -3159,11 +3159,11 @@ class ChainSwapSigningRequest {
   static const toJsonFactory = _$ChainSwapSigningRequestToJson;
   Map<String, dynamic> toJson() => _$ChainSwapSigningRequestToJson(this);
 
-  @JsonKey(name: 'preimage')
+  @JsonKey(name: 'preimage', includeIfNull: false)
   final String? preimage;
-  @JsonKey(name: 'signature')
+  @JsonKey(name: 'signature', includeIfNull: false)
   final PartialSignature? signature;
-  @JsonKey(name: 'toSign')
+  @JsonKey(name: 'toSign', includeIfNull: false)
   final ChainSwapSigningRequest$ToSign? toSign;
   static const fromJsonFactory = _$ChainSwapSigningRequestFromJson;
 
@@ -3225,7 +3225,7 @@ class Quote {
   static const toJsonFactory = _$QuoteToJson;
   Map<String, dynamic> toJson() => _$QuoteToJson(this);
 
-  @JsonKey(name: 'amount')
+  @JsonKey(name: 'amount', includeIfNull: false)
   final double amount;
   static const fromJsonFactory = _$QuoteFromJson;
 
@@ -3288,11 +3288,11 @@ class SwapStatus {
   static const toJsonFactory = _$SwapStatusToJson;
   Map<String, dynamic> toJson() => _$SwapStatusToJson(this);
 
-  @JsonKey(name: 'status')
+  @JsonKey(name: 'status', includeIfNull: false)
   final String status;
-  @JsonKey(name: 'zeroConfRejected')
+  @JsonKey(name: 'zeroConfRejected', includeIfNull: false)
   final bool? zeroConfRejected;
-  @JsonKey(name: 'transaction')
+  @JsonKey(name: 'transaction', includeIfNull: false)
   final SwapStatus$Transaction? transaction;
   static const fromJsonFactory = _$SwapStatusFromJson;
 
@@ -3360,7 +3360,7 @@ class ChainCurrencyTransactionPost$RequestBody {
   Map<String, dynamic> toJson() =>
       _$ChainCurrencyTransactionPost$RequestBodyToJson(this);
 
-  @JsonKey(name: 'hex')
+  @JsonKey(name: 'hex', includeIfNull: false)
   final String hex;
   static const fromJsonFactory =
       _$ChainCurrencyTransactionPost$RequestBodyFromJson;
@@ -3410,9 +3410,9 @@ class LightningCurrencyBolt12FetchPost$RequestBody {
   Map<String, dynamic> toJson() =>
       _$LightningCurrencyBolt12FetchPost$RequestBodyToJson(this);
 
-  @JsonKey(name: 'offer')
+  @JsonKey(name: 'offer', includeIfNull: false)
   final String offer;
-  @JsonKey(name: 'amount')
+  @JsonKey(name: 'amount', includeIfNull: false)
   final double amount;
   static const fromJsonFactory =
       _$LightningCurrencyBolt12FetchPost$RequestBodyFromJson;
@@ -3468,9 +3468,9 @@ class SwapSubmarineIdInvoicePost$RequestBody {
   Map<String, dynamic> toJson() =>
       _$SwapSubmarineIdInvoicePost$RequestBodyToJson(this);
 
-  @JsonKey(name: 'invoice')
+  @JsonKey(name: 'invoice', includeIfNull: false)
   final String invoice;
-  @JsonKey(name: 'pairHash')
+  @JsonKey(name: 'pairHash', includeIfNull: false)
   final String? pairHash;
   static const fromJsonFactory =
       _$SwapSubmarineIdInvoicePost$RequestBodyFromJson;
@@ -3525,7 +3525,7 @@ class ChainCurrencyFeeGet$Response {
   static const toJsonFactory = _$ChainCurrencyFeeGet$ResponseToJson;
   Map<String, dynamic> toJson() => _$ChainCurrencyFeeGet$ResponseToJson(this);
 
-  @JsonKey(name: 'fee')
+  @JsonKey(name: 'fee', includeIfNull: false)
   final double fee;
   static const fromJsonFactory = _$ChainCurrencyFeeGet$ResponseFromJson;
 
@@ -3570,7 +3570,7 @@ class ChainCurrencyHeightGet$Response {
   Map<String, dynamic> toJson() =>
       _$ChainCurrencyHeightGet$ResponseToJson(this);
 
-  @JsonKey(name: 'height')
+  @JsonKey(name: 'height', includeIfNull: false)
   final double height;
   static const fromJsonFactory = _$ChainCurrencyHeightGet$ResponseFromJson;
 
@@ -3616,7 +3616,7 @@ class ChainCurrencyTransactionIdGet$Response {
   Map<String, dynamic> toJson() =>
       _$ChainCurrencyTransactionIdGet$ResponseToJson(this);
 
-  @JsonKey(name: 'hex')
+  @JsonKey(name: 'hex', includeIfNull: false)
   final String hex;
   static const fromJsonFactory =
       _$ChainCurrencyTransactionIdGet$ResponseFromJson;
@@ -3664,7 +3664,7 @@ class ChainCurrencyTransactionPost$Response {
   Map<String, dynamic> toJson() =>
       _$ChainCurrencyTransactionPost$ResponseToJson(this);
 
-  @JsonKey(name: 'id')
+  @JsonKey(name: 'id', includeIfNull: false)
   final String id;
   static const fromJsonFactory =
       _$ChainCurrencyTransactionPost$ResponseFromJson;
@@ -3709,7 +3709,7 @@ class VersionGet$Response {
   static const toJsonFactory = _$VersionGet$ResponseToJson;
   Map<String, dynamic> toJson() => _$VersionGet$ResponseToJson(this);
 
-  @JsonKey(name: 'version')
+  @JsonKey(name: 'version', includeIfNull: false)
   final String version;
   static const fromJsonFactory = _$VersionGet$ResponseFromJson;
 
@@ -3755,7 +3755,7 @@ class LightningCurrencyBolt12FetchPost$Response {
   Map<String, dynamic> toJson() =>
       _$LightningCurrencyBolt12FetchPost$ResponseToJson(this);
 
-  @JsonKey(name: 'invoice')
+  @JsonKey(name: 'invoice', includeIfNull: false)
   final String invoice;
   static const fromJsonFactory =
       _$LightningCurrencyBolt12FetchPost$ResponseFromJson;
@@ -3802,7 +3802,7 @@ class ReferralGet$Response {
   static const toJsonFactory = _$ReferralGet$ResponseToJson;
   Map<String, dynamic> toJson() => _$ReferralGet$ResponseToJson(this);
 
-  @JsonKey(name: 'id')
+  @JsonKey(name: 'id', includeIfNull: false)
   final String id;
   static const fromJsonFactory = _$ReferralGet$ResponseFromJson;
 
@@ -3848,11 +3848,11 @@ class SwapSubmarineIdInvoicePost$Response {
   Map<String, dynamic> toJson() =>
       _$SwapSubmarineIdInvoicePost$ResponseToJson(this);
 
-  @JsonKey(name: 'bip21')
+  @JsonKey(name: 'bip21', includeIfNull: false)
   final String bip21;
-  @JsonKey(name: 'expectedAmount')
+  @JsonKey(name: 'expectedAmount', includeIfNull: false)
   final double expectedAmount;
-  @JsonKey(name: 'acceptZeroConf')
+  @JsonKey(name: 'acceptZeroConf', includeIfNull: false)
   final bool acceptZeroConf;
   static const fromJsonFactory = _$SwapSubmarineIdInvoicePost$ResponseFromJson;
 
@@ -3920,7 +3920,7 @@ class SwapSubmarineIdInvoiceAmountGet$Response {
   Map<String, dynamic> toJson() =>
       _$SwapSubmarineIdInvoiceAmountGet$ResponseToJson(this);
 
-  @JsonKey(name: 'invoiceAmount')
+  @JsonKey(name: 'invoiceAmount', includeIfNull: false)
   final double invoiceAmount;
   static const fromJsonFactory =
       _$SwapSubmarineIdInvoiceAmountGet$ResponseFromJson;
@@ -3971,7 +3971,7 @@ class SwapSubmarineIdRefundGet$Response {
   Map<String, dynamic> toJson() =>
       _$SwapSubmarineIdRefundGet$ResponseToJson(this);
 
-  @JsonKey(name: 'signature')
+  @JsonKey(name: 'signature', includeIfNull: false)
   final String signature;
   static const fromJsonFactory = _$SwapSubmarineIdRefundGet$ResponseFromJson;
 
@@ -4018,7 +4018,7 @@ class SwapChainIdRefundGet$Response {
   static const toJsonFactory = _$SwapChainIdRefundGet$ResponseToJson;
   Map<String, dynamic> toJson() => _$SwapChainIdRefundGet$ResponseToJson(this);
 
-  @JsonKey(name: 'signature')
+  @JsonKey(name: 'signature', includeIfNull: false)
   final String signature;
   static const fromJsonFactory = _$SwapChainIdRefundGet$ResponseFromJson;
 
@@ -4065,9 +4065,9 @@ class Contracts$Network {
   static const toJsonFactory = _$Contracts$NetworkToJson;
   Map<String, dynamic> toJson() => _$Contracts$NetworkToJson(this);
 
-  @JsonKey(name: 'chainId')
+  @JsonKey(name: 'chainId', includeIfNull: false)
   final double chainId;
-  @JsonKey(name: 'name')
+  @JsonKey(name: 'name', includeIfNull: false)
   final String name;
   static const fromJsonFactory = _$Contracts$NetworkFromJson;
 
@@ -4119,9 +4119,9 @@ class Contracts$SwapContracts {
   static const toJsonFactory = _$Contracts$SwapContractsToJson;
   Map<String, dynamic> toJson() => _$Contracts$SwapContractsToJson(this);
 
-  @JsonKey(name: 'EtherSwap')
+  @JsonKey(name: 'EtherSwap', includeIfNull: false)
   final String? etherSwap;
-  @JsonKey(name: 'ERC20Swap')
+  @JsonKey(name: 'ERC20Swap', includeIfNull: false)
   final String? eRC20Swap;
   static const fromJsonFactory = _$Contracts$SwapContractsFromJson;
 
@@ -4176,11 +4176,11 @@ class SubmarinePair$Limits {
   static const toJsonFactory = _$SubmarinePair$LimitsToJson;
   Map<String, dynamic> toJson() => _$SubmarinePair$LimitsToJson(this);
 
-  @JsonKey(name: 'minimal')
+  @JsonKey(name: 'minimal', includeIfNull: false)
   final double minimal;
-  @JsonKey(name: 'maximal')
+  @JsonKey(name: 'maximal', includeIfNull: false)
   final double maximal;
-  @JsonKey(name: 'maximalZeroConf')
+  @JsonKey(name: 'maximalZeroConf', includeIfNull: false)
   final double maximalZeroConf;
   static const fromJsonFactory = _$SubmarinePair$LimitsFromJson;
 
@@ -4245,9 +4245,9 @@ class SubmarinePair$Fees {
   static const toJsonFactory = _$SubmarinePair$FeesToJson;
   Map<String, dynamic> toJson() => _$SubmarinePair$FeesToJson(this);
 
-  @JsonKey(name: 'percentage')
+  @JsonKey(name: 'percentage', includeIfNull: false)
   final double percentage;
-  @JsonKey(name: 'minerFees')
+  @JsonKey(name: 'minerFees', includeIfNull: false)
   final double minerFees;
   static const fromJsonFactory = _$SubmarinePair$FeesFromJson;
 
@@ -4301,9 +4301,9 @@ class ReversePair$Limits {
   static const toJsonFactory = _$ReversePair$LimitsToJson;
   Map<String, dynamic> toJson() => _$ReversePair$LimitsToJson(this);
 
-  @JsonKey(name: 'minimal')
+  @JsonKey(name: 'minimal', includeIfNull: false)
   final double minimal;
-  @JsonKey(name: 'maximal')
+  @JsonKey(name: 'maximal', includeIfNull: false)
   final double maximal;
   static const fromJsonFactory = _$ReversePair$LimitsFromJson;
 
@@ -4355,9 +4355,9 @@ class ReversePair$Fees {
   static const toJsonFactory = _$ReversePair$FeesToJson;
   Map<String, dynamic> toJson() => _$ReversePair$FeesToJson(this);
 
-  @JsonKey(name: 'percentage')
+  @JsonKey(name: 'percentage', includeIfNull: false)
   final double percentage;
-  @JsonKey(name: 'minerFees')
+  @JsonKey(name: 'minerFees', includeIfNull: false)
   final ReversePair$Fees$MinerFees minerFees;
   static const fromJsonFactory = _$ReversePair$FeesFromJson;
 
@@ -4413,9 +4413,9 @@ class ChainPair$Limits {
   static const toJsonFactory = _$ChainPair$LimitsToJson;
   Map<String, dynamic> toJson() => _$ChainPair$LimitsToJson(this);
 
-  @JsonKey(name: 'minimal')
+  @JsonKey(name: 'minimal', includeIfNull: false)
   final double minimal;
-  @JsonKey(name: 'maximal')
+  @JsonKey(name: 'maximal', includeIfNull: false)
   final double maximal;
   static const fromJsonFactory = _$ChainPair$LimitsFromJson;
 
@@ -4467,9 +4467,9 @@ class ChainPair$Fees {
   static const toJsonFactory = _$ChainPair$FeesToJson;
   Map<String, dynamic> toJson() => _$ChainPair$FeesToJson(this);
 
-  @JsonKey(name: 'percentage')
+  @JsonKey(name: 'percentage', includeIfNull: false)
   final double percentage;
-  @JsonKey(name: 'minerFees')
+  @JsonKey(name: 'minerFees', includeIfNull: false)
   final ChainPair$Fees$MinerFees minerFees;
   static const fromJsonFactory = _$ChainPair$FeesFromJson;
 
@@ -4527,9 +4527,9 @@ class ChainSwapTransaction$Transaction {
   Map<String, dynamic> toJson() =>
       _$ChainSwapTransaction$TransactionToJson(this);
 
-  @JsonKey(name: 'id')
+  @JsonKey(name: 'id', includeIfNull: false)
   final String id;
-  @JsonKey(name: 'hex')
+  @JsonKey(name: 'hex', includeIfNull: false)
   final String? hex;
   static const fromJsonFactory = _$ChainSwapTransaction$TransactionFromJson;
 
@@ -4581,9 +4581,9 @@ class ChainSwapTransaction$Timeout {
   static const toJsonFactory = _$ChainSwapTransaction$TimeoutToJson;
   Map<String, dynamic> toJson() => _$ChainSwapTransaction$TimeoutToJson(this);
 
-  @JsonKey(name: 'blockHeight')
+  @JsonKey(name: 'blockHeight', includeIfNull: false)
   final double blockHeight;
-  @JsonKey(name: 'eta')
+  @JsonKey(name: 'eta', includeIfNull: false)
   final double? eta;
   static const fromJsonFactory = _$ChainSwapTransaction$TimeoutFromJson;
 
@@ -4638,11 +4638,11 @@ class ChainSwapSigningRequest$ToSign {
   static const toJsonFactory = _$ChainSwapSigningRequest$ToSignToJson;
   Map<String, dynamic> toJson() => _$ChainSwapSigningRequest$ToSignToJson(this);
 
-  @JsonKey(name: 'pubNonce')
+  @JsonKey(name: 'pubNonce', includeIfNull: false)
   final String pubNonce;
-  @JsonKey(name: 'transaction')
+  @JsonKey(name: 'transaction', includeIfNull: false)
   final String transaction;
-  @JsonKey(name: 'index')
+  @JsonKey(name: 'index', includeIfNull: false)
   final double index;
   static const fromJsonFactory = _$ChainSwapSigningRequest$ToSignFromJson;
 
@@ -4706,9 +4706,9 @@ class SwapStatus$Transaction {
   static const toJsonFactory = _$SwapStatus$TransactionToJson;
   Map<String, dynamic> toJson() => _$SwapStatus$TransactionToJson(this);
 
-  @JsonKey(name: 'id')
+  @JsonKey(name: 'id', includeIfNull: false)
   final String? id;
-  @JsonKey(name: 'hex')
+  @JsonKey(name: 'hex', includeIfNull: false)
   final String? hex;
   static const fromJsonFactory = _$SwapStatus$TransactionFromJson;
 
@@ -4758,9 +4758,9 @@ class ReversePair$Fees$MinerFees {
   static const toJsonFactory = _$ReversePair$Fees$MinerFeesToJson;
   Map<String, dynamic> toJson() => _$ReversePair$Fees$MinerFeesToJson(this);
 
-  @JsonKey(name: 'lockup')
+  @JsonKey(name: 'lockup', includeIfNull: false)
   final double lockup;
-  @JsonKey(name: 'claim')
+  @JsonKey(name: 'claim', includeIfNull: false)
   final double claim;
   static const fromJsonFactory = _$ReversePair$Fees$MinerFeesFromJson;
 
@@ -4811,9 +4811,9 @@ class ChainPair$Fees$MinerFees {
   static const toJsonFactory = _$ChainPair$Fees$MinerFeesToJson;
   Map<String, dynamic> toJson() => _$ChainPair$Fees$MinerFeesToJson(this);
 
-  @JsonKey(name: 'lockup')
+  @JsonKey(name: 'lockup', includeIfNull: false)
   final double lockup;
-  @JsonKey(name: 'claim')
+  @JsonKey(name: 'claim', includeIfNull: false)
   final double claim;
   static const fromJsonFactory = _$ChainPair$Fees$MinerFeesFromJson;
 

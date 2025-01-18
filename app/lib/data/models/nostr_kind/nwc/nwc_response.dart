@@ -44,40 +44,53 @@ class NwcResponse extends JsonContentNostrEvent<NwcResponseContent> {
 
 class NwcResponseContent extends EventContent {
   final NwcMethods result_type;
-  final NwcMethodResponse result;
+  final NwcMethodResponse? result;
+  final String? error;
 
-  NwcResponseContent({required this.result_type, required this.result});
+  NwcResponseContent({required this.result_type, this.result, this.error});
 
   static NwcResponseContent fromJson(Map<String, dynamic> json) {
+    print(json);
+    print('received NWcREpost');
     NwcMethods m = NwcMethods.values
         .firstWhere((e) => e.toString().split('.').last == json['result_type']);
 
     switch (m) {
       case NwcMethods.pay_invoice:
         return NwcResponseContent(
-          result_type: m,
-          result: NwcMethodPayInvoiceResponse.fromJson(json['result']),
-        );
+            result_type: m,
+            result: json['result'] != null
+                ? NwcMethodPayInvoiceResponse.fromJson(json['result'])
+                : null,
+            error: json['error']);
       case NwcMethods.make_invoice:
         return NwcResponseContent(
-          result_type: m,
-          result: NwcMethodMakeInvoiceResponse.fromJson(json['result']),
-        );
+            result_type: m,
+            result: json['result'] != null
+                ? NwcMethodMakeInvoiceResponse.fromJson(json['result'])
+                : null,
+            error: json['error']);
       case NwcMethods.lookup_invoice:
         return NwcResponseContent(
-          result_type: m,
-          result: NwcMethodLookupInvoiceResponse.fromJson(json['result']),
-        );
+            result_type: m,
+            result: json['result'] != null
+                ? NwcMethodLookupInvoiceResponse.fromJson(json['result'])
+                : null,
+            error: json['error']);
       case NwcMethods.get_balance:
         return NwcResponseContent(
-          result_type: m,
-          result: NwcMethodGetBalanceResponse.fromJson(json['result']),
-        );
+            result_type: m,
+            result: json['result'] != null
+                ? NwcMethodGetBalanceResponse.fromJson(json['result'])
+                : null,
+            error: json['error']);
       case NwcMethods.get_info:
         return NwcResponseContent(
-          result_type: m,
-          result: NwcMethodGetInfoResponse.fromJson(json['result']),
-        );
+            result_type: m,
+            result: json['result'] != null
+                ? NwcMethodGetInfoResponse.fromJson(json['result'])
+                : null,
+            error: json['error']);
       default:
         throw Exception('Unknown method');
     }
@@ -85,9 +98,11 @@ class NwcResponseContent extends EventContent {
 
   @override
   toJson() {
+    print(result?.toJson());
     return {
       'result_type': result_type.toString().split('.').last,
-      'result': result.toJson()
+      'result': result?.toJson(),
+      'error': error,
     };
   }
 }

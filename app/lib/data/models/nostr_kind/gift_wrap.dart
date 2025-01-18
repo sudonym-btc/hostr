@@ -26,6 +26,11 @@ class GiftWrap<T extends NostrEvent> extends ParentTypeNostrEvent<T> {
             sig: e.sig,
             tags: e.tags);
 
+  static GiftWrap<T> typed<T extends NostrEvent>(
+      NostrEvent e, NostrKeyPairs key, Uri? nwc) {
+    return GiftWrap<T>.fromNostrEvent(e, NostrKeyPairs.generate(), null);
+  }
+
   static GiftWrap create(String to, NostrKeyPairs from, Event event) {
     return GiftWrap.fromNostrEvent(
         NostrEvent.fromPartialData(
@@ -43,22 +48,23 @@ class GiftWrap<T extends NostrEvent> extends ParentTypeNostrEvent<T> {
   }
 }
 
-GiftWrap giftWrapAndSeal(String to, NostrKeyPairs from, NostrEvent event) {
+GiftWrap giftWrapAndSeal(
+    String to, NostrKeyPairs from, NostrEvent event, Uri? nwc) {
   return GiftWrap.fromNostrEvent(
       NostrEvent.fromPartialData(
+          keyPairs: NostrKeyPairs.generate(),
           kind: NOSTR_KIND_GIFT_WRAP,
           tags: [
             ['p', to]
           ],
-          keyPairs: NostrKeyPairs.generate(),
           content: Seal.fromNostrEvent(
-            NostrEvent.fromPartialData(
-                kind: NOSTR_KIND_SEAL,
-                keyPairs: from,
-                content: event.toString()),
-            from,
-            parser,
-          ).toString()),
+                  NostrEvent.fromPartialData(
+                      kind: NOSTR_KIND_SEAL,
+                      keyPairs: from,
+                      content: event.toString()),
+                  from,
+                  nwc)
+              .toString()),
       from,
       null);
 }

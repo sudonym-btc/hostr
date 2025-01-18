@@ -1,5 +1,6 @@
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/sources/main.dart';
+import 'package:hostr/data/stubs/review.dart';
 import 'package:hostr/injection.dart';
 
 import 'main.dart';
@@ -21,6 +22,9 @@ seed() async {
     await getIt<NostrService>().sendEventToRelaysAsync(event: x);
   }
   for (var x in MOCK_PROFILES) {
+    await getIt<NostrService>().sendEventToRelaysAsync(event: x);
+  }
+  for (var x in MOCK_REVIEWS) {
     await getIt<NostrService>().sendEventToRelaysAsync(event: x);
   }
 }

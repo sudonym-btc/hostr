@@ -3,13 +3,13 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i7;
+import 'dart:async' as _i8;
 
-import 'package:dart_nostr/dart_nostr.dart' as _i8;
+import 'package:dart_nostr/dart_nostr.dart' as _i7;
 import 'package:flutter_bloc/flutter_bloc.dart' as _i9;
-import 'package:hostr/core/main.dart' as _i3;
+import 'package:hostr/core/main.dart' as _i2;
 import 'package:hostr/data/main.dart' as _i6;
-import 'package:hostr/data/sources/local/secure_storage.dart' as _i2;
+import 'package:hostr/data/sources/local/secure_storage.dart' as _i3;
 import 'package:hostr/logic/cubit/nwc.cubit.dart' as _i5;
 import 'package:hostr/logic/services/nwc.dart' as _i4;
 import 'package:mockito/mockito.dart' as _i1;
@@ -28,8 +28,8 @@ import 'package:mockito/mockito.dart' as _i1;
 // ignore_for_file: camel_case_types
 // ignore_for_file: subtype_of_sealed_class
 
-class _FakeSecureStorage_0 extends _i1.SmartFake implements _i2.SecureStorage {
-  _FakeSecureStorage_0(
+class _FakeCustomLogger_0 extends _i1.SmartFake implements _i2.CustomLogger {
+  _FakeCustomLogger_0(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -38,8 +38,8 @@ class _FakeSecureStorage_0 extends _i1.SmartFake implements _i2.SecureStorage {
         );
 }
 
-class _FakeCustomLogger_1 extends _i1.SmartFake implements _i3.CustomLogger {
-  _FakeCustomLogger_1(
+class _FakeSecureStorage_1 extends _i1.SmartFake implements _i3.SecureStorage {
+  _FakeSecureStorage_1(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -108,6 +108,16 @@ class _FakeNwcResponse_7 extends _i1.SmartFake implements _i6.NwcResponse {
         );
 }
 
+class _FakeNwcInfo_8 extends _i1.SmartFake implements _i6.NwcInfo {
+  _FakeNwcInfo_8(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
 /// A class which mocks [KeyStorage].
 ///
 /// See the documentation for Mockito's code generation for more information.
@@ -117,34 +127,16 @@ class MockKeyStorage extends _i1.Mock implements _i6.KeyStorage {
   }
 
   @override
-  _i2.SecureStorage get storage => (super.noSuchMethod(
-        Invocation.getter(#storage),
-        returnValue: _FakeSecureStorage_0(
-          this,
-          Invocation.getter(#storage),
-        ),
-      ) as _i2.SecureStorage);
-
-  @override
-  set storage(_i2.SecureStorage? _storage) => super.noSuchMethod(
-        Invocation.setter(
-          #storage,
-          _storage,
-        ),
-        returnValueForMissingStub: null,
-      );
-
-  @override
-  _i3.CustomLogger get logger => (super.noSuchMethod(
+  _i2.CustomLogger get logger => (super.noSuchMethod(
         Invocation.getter(#logger),
-        returnValue: _FakeCustomLogger_1(
+        returnValue: _FakeCustomLogger_0(
           this,
           Invocation.getter(#logger),
         ),
-      ) as _i3.CustomLogger);
+      ) as _i2.CustomLogger);
 
   @override
-  set logger(_i3.CustomLogger? _logger) => super.noSuchMethod(
+  set logger(_i2.CustomLogger? _logger) => super.noSuchMethod(
         Invocation.setter(
           #logger,
           _logger,
@@ -153,13 +145,22 @@ class MockKeyStorage extends _i1.Mock implements _i6.KeyStorage {
       );
 
   @override
-  _i7.Future<_i8.NostrKeyPairs?> getActiveKeyPair() => (super.noSuchMethod(
+  set keyPair(_i7.NostrKeyPairs? _keyPair) => super.noSuchMethod(
+        Invocation.setter(
+          #keyPair,
+          _keyPair,
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  _i8.Future<_i7.NostrKeyPairs?> getActiveKeyPair() => (super.noSuchMethod(
         Invocation.method(
           #getActiveKeyPair,
           [],
         ),
-        returnValue: _i7.Future<_i8.NostrKeyPairs?>.value(),
-      ) as _i7.Future<_i8.NostrKeyPairs?>);
+        returnValue: _i8.Future<_i7.NostrKeyPairs?>.value(),
+      ) as _i8.Future<_i7.NostrKeyPairs?>);
 
   @override
   dynamic set(String? item) => super.noSuchMethod(Invocation.method(
@@ -177,16 +178,16 @@ class MockNwcStorage extends _i1.Mock implements _i6.NwcStorage {
   }
 
   @override
-  _i2.SecureStorage get storage => (super.noSuchMethod(
+  _i3.SecureStorage get storage => (super.noSuchMethod(
         Invocation.getter(#storage),
-        returnValue: _FakeSecureStorage_0(
+        returnValue: _FakeSecureStorage_1(
           this,
           Invocation.getter(#storage),
         ),
-      ) as _i2.SecureStorage);
+      ) as _i3.SecureStorage);
 
   @override
-  set storage(_i2.SecureStorage? _storage) => super.noSuchMethod(
+  set storage(_i3.SecureStorage? _storage) => super.noSuchMethod(
         Invocation.setter(
           #storage,
           _storage,
@@ -195,16 +196,16 @@ class MockNwcStorage extends _i1.Mock implements _i6.NwcStorage {
       );
 
   @override
-  _i3.CustomLogger get logger => (super.noSuchMethod(
+  _i2.CustomLogger get logger => (super.noSuchMethod(
         Invocation.getter(#logger),
-        returnValue: _FakeCustomLogger_1(
+        returnValue: _FakeCustomLogger_0(
           this,
           Invocation.getter(#logger),
         ),
-      ) as _i3.CustomLogger);
+      ) as _i2.CustomLogger);
 
   @override
-  set logger(_i3.CustomLogger? _logger) => super.noSuchMethod(
+  set logger(_i2.CustomLogger? _logger) => super.noSuchMethod(
         Invocation.setter(
           #logger,
           _logger,
@@ -213,13 +214,22 @@ class MockNwcStorage extends _i1.Mock implements _i6.NwcStorage {
       );
 
   @override
-  _i7.Future<List<String>> get() => (super.noSuchMethod(
+  _i8.Future<List<dynamic>> get() => (super.noSuchMethod(
         Invocation.method(
           #get,
           [],
         ),
-        returnValue: _i7.Future<List<String>>.value(<String>[]),
-      ) as _i7.Future<List<String>>);
+        returnValue: _i8.Future<List<dynamic>>.value(<dynamic>[]),
+      ) as _i8.Future<List<dynamic>>);
+
+  @override
+  _i8.Future<Uri?> getUri() => (super.noSuchMethod(
+        Invocation.method(
+          #getUri,
+          [],
+        ),
+        returnValue: _i8.Future<Uri?>.value(),
+      ) as _i8.Future<Uri?>);
 
   @override
   dynamic set(List<String>? items) => super.noSuchMethod(Invocation.method(
@@ -237,16 +247,16 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
   }
 
   @override
-  _i3.CustomLogger get logger => (super.noSuchMethod(
+  _i2.CustomLogger get logger => (super.noSuchMethod(
         Invocation.getter(#logger),
-        returnValue: _FakeCustomLogger_1(
+        returnValue: _FakeCustomLogger_0(
           this,
           Invocation.getter(#logger),
         ),
-      ) as _i3.CustomLogger);
+      ) as _i2.CustomLogger);
 
   @override
-  set logger(_i3.CustomLogger? _logger) => super.noSuchMethod(
+  set logger(_i2.CustomLogger? _logger) => super.noSuchMethod(
         Invocation.setter(
           #logger,
           _logger,
@@ -282,10 +292,10 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
       ) as _i5.NwcCubitState);
 
   @override
-  _i7.Stream<_i5.NwcCubitState> get stream => (super.noSuchMethod(
+  _i8.Stream<_i5.NwcCubitState> get stream => (super.noSuchMethod(
         Invocation.getter(#stream),
-        returnValue: _i7.Stream<_i5.NwcCubitState>.empty(),
-      ) as _i7.Stream<_i5.NwcCubitState>);
+        returnValue: _i8.Stream<_i5.NwcCubitState>.empty(),
+      ) as _i8.Stream<_i5.NwcCubitState>);
 
   @override
   bool get isClosed => (super.noSuchMethod(
@@ -294,22 +304,22 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
       ) as bool);
 
   @override
-  _i7.Future<dynamic> connect(String? str) => (super.noSuchMethod(
+  _i8.Future<dynamic> connect(String? str) => (super.noSuchMethod(
         Invocation.method(
           #connect,
           [str],
         ),
-        returnValue: _i7.Future<dynamic>.value(),
-      ) as _i7.Future<dynamic>);
+        returnValue: _i8.Future<dynamic>.value(),
+      ) as _i8.Future<dynamic>);
 
   @override
-  _i7.Future<dynamic> checkInfo() => (super.noSuchMethod(
+  _i8.Future<dynamic> checkInfo() => (super.noSuchMethod(
         Invocation.method(
           #checkInfo,
           [],
         ),
-        returnValue: _i7.Future<dynamic>.value(),
-      ) as _i7.Future<dynamic>);
+        returnValue: _i8.Future<dynamic>.value(),
+      ) as _i8.Future<dynamic>);
 
   @override
   void emit(_i5.NwcCubitState? state) => super.noSuchMethod(
@@ -362,14 +372,14 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
       );
 
   @override
-  _i7.Future<void> close() => (super.noSuchMethod(
+  _i8.Future<void> close() => (super.noSuchMethod(
         Invocation.method(
           #close,
           [],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i8.Future<void>.value(),
+        returnValueForMissingStub: _i8.Future<void>.value(),
+      ) as _i8.Future<void>);
 }
 
 /// A class which mocks [NwcService].
@@ -381,16 +391,16 @@ class MockNwcService extends _i1.Mock implements _i4.NwcService {
   }
 
   @override
-  _i3.CustomLogger get logger => (super.noSuchMethod(
+  _i2.CustomLogger get logger => (super.noSuchMethod(
         Invocation.getter(#logger),
-        returnValue: _FakeCustomLogger_1(
+        returnValue: _FakeCustomLogger_0(
           this,
           Invocation.getter(#logger),
         ),
-      ) as _i3.CustomLogger);
+      ) as _i2.CustomLogger);
 
   @override
-  set logger(_i3.CustomLogger? _logger) => super.noSuchMethod(
+  set logger(_i2.CustomLogger? _logger) => super.noSuchMethod(
         Invocation.setter(
           #logger,
           _logger,
@@ -459,27 +469,36 @@ class MockNwcService extends _i1.Mock implements _i4.NwcService {
       ));
 
   @override
-  _i7.Future<_i6.NwcResponse> methodAndResponse(_i6.NwcMethod? request) =>
+  _i8.Future<_i6.NwcResponse> methodAndResponse(_i6.NwcMethod? request) =>
       (super.noSuchMethod(
         Invocation.method(
           #methodAndResponse,
           [request],
         ),
-        returnValue: _i7.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
+        returnValue: _i8.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
           this,
           Invocation.method(
             #methodAndResponse,
             [request],
           ),
         )),
-      ) as _i7.Future<_i6.NwcResponse>);
+      ) as _i8.Future<_i6.NwcResponse>);
 
   @override
-  dynamic payInvoice(_i6.NwcMethodPayInvoiceParams? p) =>
-      super.noSuchMethod(Invocation.method(
-        #payInvoice,
-        [p],
-      ));
+  _i8.Future<_i6.NwcResponse> payInvoice(_i6.NwcMethodPayInvoiceParams? p) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #payInvoice,
+          [p],
+        ),
+        returnValue: _i8.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
+          this,
+          Invocation.method(
+            #payInvoice,
+            [p],
+          ),
+        )),
+      ) as _i8.Future<_i6.NwcResponse>);
 
   @override
   dynamic lookupInvoice(_i6.NwcMethodLookupInvoiceParams? p) =>
@@ -496,23 +515,32 @@ class MockNwcService extends _i1.Mock implements _i4.NwcService {
       ));
 
   @override
-  _i7.Future<_i6.NwcResponse> getInfo() => (super.noSuchMethod(
+  _i8.Future<_i6.NwcResponse> getInfo() => (super.noSuchMethod(
         Invocation.method(
           #getInfo,
           [],
         ),
-        returnValue: _i7.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
+        returnValue: _i8.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
           this,
           Invocation.method(
             #getInfo,
             [],
           ),
         )),
-      ) as _i7.Future<_i6.NwcResponse>);
+      ) as _i8.Future<_i6.NwcResponse>);
 
   @override
-  dynamic getWalletInfo(Uri? nwc) => super.noSuchMethod(Invocation.method(
-        #getWalletInfo,
-        [nwc],
-      ));
+  _i8.Future<_i6.NwcInfo> getWalletInfo(Uri? nwc) => (super.noSuchMethod(
+        Invocation.method(
+          #getWalletInfo,
+          [nwc],
+        ),
+        returnValue: _i8.Future<_i6.NwcInfo>.value(_FakeNwcInfo_8(
+          this,
+          Invocation.method(
+            #getWalletInfo,
+            [nwc],
+          ),
+        )),
+      ) as _i8.Future<_i6.NwcInfo>);
 }

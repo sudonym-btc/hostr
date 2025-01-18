@@ -1,10 +1,10 @@
+import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:injectable/injectable.dart';
 
-@injectable
 class GlobalGiftWrapCubit extends ListCubit<GiftWrap> with HydratedMixin {
   final AuthCubit authCubit;
   GlobalGiftWrapCubit({required this.authCubit})
@@ -15,10 +15,16 @@ class GlobalGiftWrapCubit extends ListCubit<GiftWrap> with HydratedMixin {
     _setupListeners();
   }
   void _setupListeners() {
-    authCubit.stream.listen((state) {
+    authCubit.stream.listen((state) async {
       if (state is LoggedIn) {
+        logger.i(
+            'Synching gift wraps ${(await getIt<KeyStorage>().getActiveKeyPair())!.public}');
+        filter = NostrFilter(additionalFilters: {
+          'p': [(await getIt<KeyStorage>().getActiveKeyPair())!.public]
+        });
         sync();
       } else if (state is LoggedOut) {
+        logger.i('Clearing gift wraps');
         clear();
       }
     });

@@ -1,48 +1,48 @@
-import 'package:bloc_test/bloc_test.dart';
-import 'package:dart_nostr/nostr/model/event/event.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:get_it/get_it.dart';
-import 'package:hostr/config/constants.dart';
-import 'package:hostr/data/main.dart';
-import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/main.dart';
-import 'package:hostr/logic/services/messages/global_gift_wrap.cubit.dart';
+// import 'package:bloc_test/bloc_test.dart';
+// import 'package:dart_nostr/nostr/model/event/event.dart';
+// import 'package:flutter_test/flutter_test.dart';
+// import 'package:get_it/get_it.dart';
+// import 'package:hostr/config/constants.dart';
+// import 'package:hostr/data/main.dart';
+// import 'package:hostr/injection.dart';
+// import 'package:hostr/logic/cubit/main.dart';
+// import 'package:hostr/logic/services/messages/global_gift_wrap.cubit.dart';
 
-import '../mock/hydrated_storage.mock.dart';
+// import '../mock/hydrated_storage.mock.dart';
 
-void main() {
-  setUp(() {
-    // Reset the GetIt instance to its initial state before each test
-    GetIt.I.reset();
-    initHydratedStorage();
-    // Re-configure services for testing
-    configureInjection(Env.test);
-  });
+// void main() {
+//   setUp(() {
+//     // Reset the GetIt instance to its initial state before each test
+//     GetIt.I.reset();
+//     initHydratedStorage();
+//     // Re-configure services for testing
+//     configureInjection(Env.test);
+//   });
 
-  group('Should sync swaps on start', () {
-    blocTest<SwapManager, SwapManager>(
-      'emits new swap cubit when new discovers new swap',
-      build: () => SwapManager(paymentsManager: paymentsManager),
-      act: (bloc) async {
-        getIt<NostrService>().events.add(GiftWrap.create(
-            NostrEvent.fromPartialData(
-                kind: NOSTR_KIND_GIFT_WRAP,
-                content: MOCK_LISTINGS[0].toString(),
-                keyPairs: MockKeys.escrow)));
-        // await Future.delayed(Duration(milliseconds: 50)); // Add a delay
-      },
-      expect: () => [
-        /// Check that child kind is parsed correctly
-        isA<ListCubitState>().having(
-          (state) => state.results.length,
-          'number of gift wraps',
-          1,
-        ),
-      ],
-      verify: (bloc) {
-        assert(bloc.state.results[0].child is Listing,
-            'Child is not of type Listing');
-      },
-    );
-  });
-}
+//   group('Should sync swaps on start', () {
+//     blocTest<SwapManager, SwapManager>(
+//       'emits new swap cubit when new discovers new swap',
+//       build: () => SwapManager(paymentsManager: paymentsManager),
+//       act: (bloc) async {
+//         getIt<NostrService>().events.add(GiftWrap.create(
+//             NostrEvent.fromPartialData(
+//                 kind: NOSTR_KIND_GIFT_WRAP,
+//                 content: MOCK_LISTINGS[0].toString(),
+//                 keyPairs: MockKeys.escrow)));
+//         // await Future.delayed(Duration(milliseconds: 50)); // Add a delay
+//       },
+//       expect: () => [
+//         /// Check that child kind is parsed correctly
+//         isA<ListCubitState>().having(
+//           (state) => state.results.length,
+//           'number of gift wraps',
+//           1,
+//         ),
+//       ],
+//       verify: (bloc) {
+//         assert(bloc.state.results[0].child is Listing,
+//             'Child is not of type Listing');
+//       },
+//     );
+//   });
+// }

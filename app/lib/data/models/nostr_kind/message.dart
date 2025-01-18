@@ -8,7 +8,7 @@ import 'event.dart';
 class Message extends Event {
   static const List<int> kinds = [NOSTR_KIND_DM];
 
-  Message.fromNostrEvent(NostrEvent e)
+  Message.fromNostrEvent(NostrEvent e, NostrKeyPairs? key, Uri? nwc)
       : super(
             content: e.content,
             createdAt: e.createdAt,

@@ -1,14 +1,16 @@
 import 'package:chopper/chopper.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/injection.dart';
+import 'package:injectable/injectable.dart';
 
 import 'swagger_generated/boltz.swagger.dart';
 
+@singleton
 class BoltzClient {
   CustomLogger logger = CustomLogger();
-  Config config = getIt<Config>();
-  Boltz gBoltzCli = Boltz.create();
+  Boltz gBoltzCli;
+  BoltzClient({required Config config})
+      : gBoltzCli = Boltz.create(baseUrl: Uri.parse(config.boltzUrl));
 
   Future<SubmarineResponse> submarine({required String invoice}) async {
     logger.i('Swapping for invoice $invoice');
@@ -24,6 +26,13 @@ class BoltzClient {
     throw res.error!;
   }
 
+  Future<SwapStatus> getSwap({required String id}) async {
+    logger.i('Getting swap $id');
+    Response<SwapStatus> res = await gBoltzCli.swapIdGet(id: id);
+    if (res.isSuccessful) return res.body!;
+    throw res.error!;
+  }
+
   Future<ReverseResponse> reverseSubmarine(
       {required double invoiceAmount,
       required String preimageHash,
@@ -35,7 +44,9 @@ class BoltzClient {
         invoiceAmount: invoiceAmount,
         claimAddress: claimAddress,
         preimageHash: preimageHash);
-    var res = await gBoltzCli.swapReversePost(body: r);
+    logger.i("Request: $r");
+
+    Response<ReverseResponse> res = await gBoltzCli.swapReversePost(body: r);
     logger.i("Response: ${res.body}");
     if (res.isSuccessful) return res.body!;
     throw res.error!;

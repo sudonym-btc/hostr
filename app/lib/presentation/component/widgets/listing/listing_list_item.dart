@@ -17,15 +17,19 @@ class ListingListItemWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-        onTap: () => AutoRouter.of(context).root.push(ListingRoute(
-              a: listing.getTag('a').first.first,
-              dateRangeStart: dateRange?.start != null
-                  ? dateRange!.start.toIso8601String()
-                  : null,
-              dateRangeEnd: dateRange?.end != null
-                  ? dateRange!.end.toIso8601String()
-                  : null,
-            )),
+        onTap: () {
+          print(context.router.current.name);
+          print(context.router.current.path);
+          AutoRouter.of(context).push(ListingRoute(
+            a: listing.anchor,
+            dateRangeStart: dateRange?.start != null
+                ? dateRange!.start.toIso8601String()
+                : null,
+            dateRangeEnd: dateRange?.end != null
+                ? dateRange!.end.toIso8601String()
+                : null,
+          ));
+        },
         child: CustomPadding(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -1,30 +1,52 @@
 import 'package:dart_nostr/nostr/model/event/event.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/core/main.dart';
+import 'package:hostr/data/main.dart';
+import 'package:hostr/data/models/nostr_kind/event.dart';
 
 import 'global_gift_wrap.cubit.dart';
 import 'thread.cubit.dart';
 
-class ThreadOrganizerCubit extends Cubit<ThreadOrganizerState> {
+class ThreadOrganizerCubit<T extends NostrEvent>
+    extends Cubit<ThreadOrganizerState> {
+  CustomLogger logger = CustomLogger();
   final GlobalGiftWrapCubit? globalMessageCubit;
   ThreadOrganizerCubit({this.globalMessageCubit})
       : super(ThreadOrganizerState(threads: [])) {
     if (globalMessageCubit != null) {
       /// As soon as the cubit is created, we sort the initial messages and subscribe to incoming
       for (final nostrEvent in globalMessageCubit!.state.results) {
-        sortMessage(nostrEvent);
+        if (nostrEvent.child is Seal<T>) {
+          sortMessage(nostrEvent);
+        }
       }
-      globalMessageCubit!.itemStream.listen(sortMessage);
+      globalMessageCubit!.itemStream.listen((element) {
+        if (element.child is Seal<T>) {
+          print('${element.runtimeType} , ${element.child.runtimeType}');
+          // Safely cast `element` to the desired type
+          sortMessage(element);
+        } else {
+          logger.i("Discarding event: $element");
+        }
+      });
     }
   }
 
   /// Attempt to add message to existing thread, if not found, create new thread
-  void sortMessage(NostrEvent event) {
+  void sortMessage(GiftWrap event) {
     final threads = state.threads;
+    if (getThreadId(event) == null) {
+      logger.i("No thread id found for event $event");
+      return;
+    }
+    logger.i("Sorting message with anchor $event");
     final ThreadCubit threadCubit = threads.firstWhere(
         (thread) => thread.state.id == getThreadId(event), orElse: () {
       ThreadCubit newThreadCubit =
-          ThreadCubit(ThreadCubitState(id: getThreadId(event), messages: []));
+          ThreadCubit(ThreadCubitState(id: getThreadId(event)!, messages: []));
       threads.add(newThreadCubit);
+      logger.i("Emitting $threads");
+
       emit(ThreadOrganizerState(
           threads: threads, selectedThread: state.selectedThread));
       return newThreadCubit;
@@ -33,13 +55,12 @@ class ThreadOrganizerCubit extends Cubit<ThreadOrganizerState> {
     threadCubit.addMessage(event);
   }
 
-  String getThreadId(NostrEvent event) {
-    return event.tags!.firstWhere(
-      (tag) => tag[0] == 'a',
-      orElse: () {
-        throw Exception('No thread id found');
-      },
-    )[1];
+  String? getThreadId(GiftWrap event) {
+    if (event.child is Seal && (event.child as Seal).child is Event) {
+      return ((event.child as Seal).child as Event).anchor;
+    }
+    logger.i(
+        "No thread id found for event ${event.child.runtimeType}, ${event.child.runtimeType},${(event.child as Seal).child.runtimeType}, $event");
   }
 }
 

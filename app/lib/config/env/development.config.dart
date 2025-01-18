@@ -8,7 +8,9 @@ class DevelopmentConfig extends Config {
   @override
   List<String> relays = ['ws://127.0.0.1:5363', 'wss://relay.damus.io'];
   @override
-  String rootstockRpcUrl = 'https://public-node.testnet.rsk.co';
+  String rootstockRpcUrl =
+      'https://public-node.rsk.co'; //'https://public-node.testnet.rsk.co';
   @override
-  String boltzUrl = 'https://api.testnet.boltz.exchange/v2';
+  String boltzUrl =
+      'https://api.boltz.exchange/v2'; //'https://api.testnet.boltz.exchange/v2';
 }

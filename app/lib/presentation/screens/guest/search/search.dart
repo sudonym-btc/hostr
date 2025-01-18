@@ -13,7 +13,7 @@ class SearchScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(providers: [
       /// Use widget page query parameters to discover initial search parameters
-      BlocProvider(create: (context) => DateRangeCubit()),
+      BlocProvider<DateRangeCubit>(create: (context) => DateRangeCubit()),
 
       /// Initialize a list with cubits for updating search settings
       BlocProvider(create: (context) => SortCubit<Listing>()),

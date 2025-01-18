@@ -38,27 +38,33 @@ class NwcService {
   save(String uri) async {
     // Parse the NWC string, check protocol, secret, relay
     parseNwc(uri);
-    logger.i('Saving Nwc');
     await nwcStorage.set([uri.toString()]);
   }
 
   Future<NwcResponse> methodAndResponse(NwcMethod request) async {
-    var nwc = await nwcStorage.get();
-    Uri uri = parseNwc(nwc.first);
+    var nwc = await nwcStorage.getUri();
+    if (nwc == null) {
+      throw Exception('No NWC found');
+    }
 
     NostrKeyPairs keyPair = Nostr.instance.keysService
-        .generateKeyPairFromExistingPrivateKey(parseSecret(uri));
+        .generateKeyPairFromExistingPrivateKey(parseSecret(nwc));
 
     String content = JsonEncoder().convert({
       "method": request.method.toString().split('.').last, // method, string
       "params": request.params.toJson()
     });
+
+    print(
+        'Content: $content, secret: ${parseSecret(nwc)}, pubkey: ${parsePubkey(nwc)}');
+
     String encryptedContent =
-        Nip04().encrypt(uri.queryParameters['secret']!, uri.host, content);
+        Nip04().encrypt(parseSecret(nwc), parsePubkey(nwc), content);
 
     NostrEvent requestEvent = NostrEvent.fromPartialData(
         tags: [
-          ['p', uri.host]
+          /// Address the relay pubkey
+          ['p', parsePubkey(nwc)]
         ],
         kind: NOSTR_KIND_NWC_REQUEST,
         content: encryptedContent,
@@ -67,42 +73,37 @@ class NwcService {
 
     var responseProm = nostr
         .startRequest(
-          relays: [uri.queryParameters['relay']!],
+          relays: [nwc.queryParameters['relay']!],
           onEose: (relay, ease) => false,
           request: NostrRequest(filters: [
             NostrFilter(
                 kinds: [NOSTR_KIND_NWC_RESPONSE],
+                authors: [parsePubkey(nwc)],
                 e: [requestEvent.id!],
                 limit: 1)
           ]),
         )
         .stream
-        .map((e) {
-          logger.t('Received from relay: $e');
-          // var response = Nip04().decrypt(
-          //   uri.queryParameters['secret']!,
-          //   uri.host,
-          //   e.content!,
-          // );
-          return e;
-        })
+        .take(1)
         .first;
 
     /// Trigger the NWC request
     NostrEventOkCommand resp = await nostr.sendEventToRelaysAsync(
-        event: requestEvent, relays: [uri.queryParameters['relay']!]);
+        event: requestEvent, relays: [nwc.queryParameters['relay']!]);
 
+    print('resp $resp');
     if (resp.isEventAccepted!) {
       logger.i('Sent command request to relay: $resp');
     } else {
       throw Exception(
           'Failed to send command request to relay: ${resp.message}');
     }
-
-    return await responseProm as NwcResponse;
+    NwcResponse response = await responseProm as NwcResponse;
+    logger.i('Response received: ${response.parsedContent}');
+    return response;
   }
 
-  payInvoice(NwcMethodPayInvoiceParams p) async {
+  Future<NwcResponse> payInvoice(NwcMethodPayInvoiceParams p) async {
     return methodAndResponse(NwcMethodPayInvoice(params: p));
   }
 
@@ -115,9 +116,7 @@ class NwcService {
   }
 
   Future<NwcResponse> getInfo() async {
-    return methodAndResponse(NwcMethodGetInfo()).then((event) {
-      return event;
-    });
+    return methodAndResponse(NwcMethodGetInfo());
   }
 
   getBalance() async {
@@ -125,27 +124,76 @@ class NwcService {
   }
 
   /// Looks up wallet info without relying on request/response
-  getWalletInfo(Uri nwc) async {
-    var infoEvents = await nostr.startRequestAsync(
-      relays: [nwc.queryParameters['relay']!],
-      request: NostrRequest(filters: [
-        NostrFilter(kinds: [NOSTR_KIND_NWC_INFO], p: [nwc.host], limit: 1)
-      ]),
-    );
-    var firstInfoEvent = infoEvents.first;
-    assert(firstInfoEvent.content != null);
-    assert(firstInfoEvent.content!.contains('pay_invoice'));
-    return firstInfoEvent;
+  Future<NwcInfo> getWalletInfo(Uri nwc) async {
+    logger.i('Getting wallet info ${nwc.queryParameters['relay']}');
+    var infoEvents = await nostr
+        .startRequest<NwcInfo>(
+          relays: [nwc.queryParameters['relay']!],
+          onEose: (relay, ease) => false,
+          request: NostrRequest(filters: [
+            NostrFilter(
+                kinds: [NOSTR_KIND_NWC_INFO],
+                authors: [parsePubkey(nwc)],
+                limit: 1)
+          ]),
+        )
+        .stream
+        .first;
+    var firstInfoEvent = infoEvents;
+    return firstInfoEvent as NwcInfo;
   }
 }
 
 @Injectable(as: NwcService, env: [Env.test, Env.mock])
 class MockNostrWalletConnectService extends NwcService {
-  getWalletInfo(Uri nwc) async {
-    return NostrEvent.fromPartialData(
-        kind: 13194,
-        content:
-            "pay_invoice pay_keysend get_balance get_info make_invoice lookup_invoice list_transactions multi_pay_invoice multi_pay_keysend sign_message notifications",
-        keyPairs: NostrKeyPairs.generate());
+  // getWalletInfo(Uri nwc) async {
+  //   return NostrEvent.fromPartialData(
+  //       kind: 13194,
+  //       content:
+  //           "pay_invoice pay_keysend get_balance get_info make_invoice lookup_invoice list_transactions multi_pay_invoice multi_pay_keysend sign_message notifications",
+  //       keyPairs: NostrKeyPairs.generate());
+  // }
+
+  @override
+  Future<NwcResponse> methodAndResponse(NwcMethod request) async {
+    Uri nwc = (await nwcStorage.getUri())!;
+    NostrKeyPairs keyPair = Nostr.instance.keysService
+        .generateKeyPairFromExistingPrivateKey(parseSecret(nwc));
+
+    switch (request.method) {
+      case NwcMethods.get_info:
+        return NwcResponse.create(
+            'e-random-id',
+            parsePubkey(nwc),
+            NwcResponseContent(
+                result_type: NwcMethods.get_info,
+                result: NwcMethodGetInfoResponse(
+                    alias: 'Alby',
+
+                    /// Yellow color
+                    color: '#FFFF00',
+                    pubkey: parsePubkey(nwc),
+                    network: 'mainnet',
+                    block_height: 1,
+                    block_hash: "0101010",
+                    methods: [
+                      NwcMethods.pay_invoice,
+                      NwcMethods.lookup_invoice,
+                      NwcMethods.make_invoice
+                    ],
+                    notifications: [])),
+            nwc);
+      case NwcMethods.pay_invoice:
+        return NwcResponse.create(
+            'e-random-id',
+            parsePubkey(nwc),
+            NwcResponseContent(
+                result_type: NwcMethods.pay_invoice,
+                result: NwcMethodPayInvoiceResponse(
+                    fees_paid: 10, preimage: 'lalalala')),
+            nwc);
+      default:
+        throw Exception('Method not implemented');
+    }
   }
 }

@@ -15,7 +15,7 @@ double mapsGoogleLogoSize = 0;
 class SearchMapWidget extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
 
-  SearchMapWidget({super.key});
+  SearchMapWidget() : super(key: UniqueKey());
 
   @override
   State<StatefulWidget> createState() {
@@ -23,13 +23,14 @@ class SearchMapWidget extends StatefulWidget {
   }
 }
 
-class _SearchMapWidgetState extends State<SearchMapWidget> {
-  final Completer<GoogleMapController> _controller =
-      Completer<GoogleMapController>();
+class _SearchMapWidgetState extends State<SearchMapWidget>
+    with WidgetsBindingObserver {
+  Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
   final Map<String, Marker> _markers = {};
   final BehaviorSubject<bool> _mapReadySubject =
       BehaviorSubject<bool>.seeded(false);
   final Set<String> _fetchedIds = {}; // Set to keep track of fetched IDs
+  final Key _mapKey = UniqueKey();
 
   _onMapCreated(GoogleMapController controller) {
     widget.logger.i("Map created");
@@ -37,12 +38,14 @@ class _SearchMapWidgetState extends State<SearchMapWidget> {
       widget.logger.i("Map completed");
       _controller.complete(controller);
       _mapReadySubject.add(true);
+      setState(() {});
     }
   }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     widget.logger.i("Init state");
     _mapReadySubject
@@ -54,7 +57,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget> {
         .flatMap((_) => BlocProvider.of<ListCubit<Listing>>(context).stream)
 
         /// Debounce to avoid too many updates
-        .debounceTime(Duration(milliseconds: 500))
+        .debounceTime(Duration(milliseconds: 1000))
         .listen((state) async {
       widget.logger.i("New state $state");
 
@@ -131,26 +134,36 @@ class _SearchMapWidgetState extends State<SearchMapWidget> {
     double leftPadding = 50.0; // Adjust this value as needed
     double rightPadding = 50.0; // Adjust this value as needed
     double bottomPadding = 50.0; // Adjust this value as needed
-
     await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 120));
   }
 
   @override
   void dispose() {
+    print('disposing map');
+    WidgetsBinding.instance.removeObserver(this);
     _mapReadySubject.close();
+    // _controller = Completer<GoogleMapController>();
     super.dispose();
   }
 
   @override
+  void didChangePlatformBrightness() {
+    setState(() {
+      // Update the state when the platform brightness changes
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    var brightness = MediaQuery.of(context).platformBrightness;
+    bool isDarkMode = brightness == Brightness.dark;
     return Stack(children: [
       AnimatedOpacity(
-          // If the widget is visible, animate to 0.0 (invisible).
-          // If the widget is hidden, animate to 1.0 (fully visible).
-          opacity: _controller.isCompleted ? 1.0 : 1,
+          opacity: _controller.isCompleted ? 1 : 0,
           duration: const Duration(milliseconds: 1000),
           child: GoogleMap(
-            style: getMapStyle(context),
+            /// To set tile background, nede to use cloud style id with backgroundHint
+            style: getMapStyle(context, isDarkMode),
             onMapCreated: _onMapCreated,
             zoomControlsEnabled: false,
             initialCameraPosition: CameraPosition(

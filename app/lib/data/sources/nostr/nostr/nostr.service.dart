@@ -4,7 +4,6 @@ import 'package:dart_nostr/nostr/model/ok.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/services/nwc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -12,13 +11,13 @@ abstract class NostrService {
   CustomLogger logger = CustomLogger();
   ReplaySubject<NostrEvent> events = ReplaySubject<NostrEvent>();
 
-  NostrEventsStream startRequest(
+  NostrEventsStream startRequest<T extends NostrEvent>(
       {required NostrRequest request,
       required void Function(String relay, NostrRequestEoseCommand ease) onEose,
       List<String>? relays});
 
-  Future<List<NostrEvent>> startRequestAsync(
-      {required NostrRequest request, List<String>? relays});
+  Future<List<NostrEvent>> startRequestAsync<T extends NostrEvent>(
+      {required NostrRequest request, List<String>? relays, Duration? timeout});
 
   Future<int> count(NostrFilter filter);
 
@@ -29,7 +28,7 @@ abstract class NostrService {
 @Singleton(as: NostrService, env: Env.allButTestAndMock)
 class ProdNostrService extends NostrService {
   @override
-  startRequest(
+  startRequest<T extends NostrEvent>(
       {required NostrRequest request,
       required void Function(String relay, NostrRequestEoseCommand ease) onEose,
       List<String>? relays}) {
@@ -38,24 +37,30 @@ class ProdNostrService extends NostrService {
 
     return NostrEventsStream(
         stream: n.stream.asyncMap((event) async {
-          Uri nwcUri = parseNwc((await getIt<NwcStorage>().get()).first);
-          NostrKeyPairs? keyPair = await getIt<KeyStorage>().getActiveKeyPair();
-          return parser(event, keyPair, nwcUri);
+          return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair(),
+              await getIt<NwcStorage>().getUri());
         }),
         subscriptionId: n.subscriptionId,
         request: n.request);
   }
 
   @override
-  startRequestAsync(
-      {required NostrRequest request, List<String>? relays}) async {
-    List<NostrEvent> res = await Nostr.instance.relaysService
-        .startEventsSubscriptionAsync(
-            relays: relays, request: request, timeout: Duration(seconds: 5));
-    List<NostrEvent> parsedEvents = await Future.wait(res.map((event) async {
-      Uri nwcUri = parseNwc((await getIt<NwcStorage>().get()).first);
-      NostrKeyPairs? keyPair = await getIt<KeyStorage>().getActiveKeyPair();
-      return parser(event, keyPair, nwcUri);
+  startRequestAsync<T extends NostrEvent>(
+      {required NostrRequest request,
+      List<String>? relays,
+      Duration? timeout}) async {
+    List<NostrEvent> res =
+        await Nostr.instance.relaysService.startEventsSubscriptionAsync(
+            relays: relays,
+            request: request,
+            onEose: (String relay, NostrRequestEoseCommand ease) {
+              logger.i('onEose $relay, $ease');
+            },
+            shouldThrowErrorOnTimeoutWithoutEose: false,
+            timeout: timeout ?? Duration(seconds: 5));
+    List<T> parsedEvents = await Future.wait(res.map((event) async {
+      return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair(),
+          await getIt<NwcStorage>().getUri());
     }).toList());
     return parsedEvents;
   }
@@ -79,11 +84,15 @@ class ProdNostrService extends NostrService {
 /// Receives a raw Nostr event and converts it into a model
 T parser<T extends NostrEvent>(NostrEvent event, NostrKeyPairs? key, Uri? nwc) {
   int eventKind = event.kind!;
-
+  // print('eventKind: $eventKind, ${T.toString()} should be returned, $event ');
   if (Reservation.kinds.contains(eventKind)) {
     return Reservation.fromNostrEvent(event) as T;
   } else if (GiftWrap.kinds.contains(eventKind)) {
     return GiftWrap.fromNostrEvent(event, key!, nwc) as T;
+  } else if (Seal.kinds.contains(eventKind)) {
+    return Seal.fromNostrEvent(event, key!, nwc) as T;
+  } else if (Message.kinds.contains(eventKind)) {
+    return Message.fromNostrEvent(event, key!, nwc) as T;
   } else if (Escrow.kinds.contains(eventKind)) {
     return Escrow.fromNostrEvent(event) as T;
   } else if (Listing.kinds.contains(eventKind)) {
