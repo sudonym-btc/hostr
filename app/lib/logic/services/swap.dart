@@ -9,6 +9,7 @@ import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/data/sources/boltz/contracts/EtherSwap.g.dart';
 import 'package:hostr/data/sources/boltz/swagger_generated/boltz.swagger.dart';
+import 'package:hostr/data/sources/escrow/MultiEscrow.g.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:http/http.dart';
@@ -103,9 +104,73 @@ class SwapService {
   //   Forwarder
   // }
 
-  // escrow() {
-  //   Escrow
-  // }
+  listEvents() async {
+    NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
+    EthPrivateKey ethKey = getEthCredentials(key!.private);
+
+    MultiEscrow e = MultiEscrow(
+        address: EthereumAddress.fromHex(
+            '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'),
+        client: client);
+    print('listing for events');
+    print(e.self.events.map((x) => x.name));
+    // List past events
+    final filter = FilterOptions.events(
+      contract: e.self,
+      event: e.self.events.firstWhere((x) => x.name == 'DebugLog'),
+      fromBlock: BlockNum.exact(449),
+      toBlock: BlockNum.current(),
+    );
+
+    final logs = await client.getLogs(filter);
+    print(logs);
+    for (var log in logs) {
+      logger.i('Past Trade created: $log');
+    }
+
+    // e.tradeCreatedEvents(fromBlock: BlockNum.genesis()).listen((event) {
+    //   logger.i('Trade created: $event');
+    // });
+  }
+
+  escrow() async {
+    NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
+
+    // print(getEthAddress(key!.public));
+    return;
+    // NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
+    // EthPrivateKey ethKey = getEthCredentials(key!.private);
+
+    // MultiEscrow e = MultiEscrow(
+    //     address: EthereumAddress.fromHex(
+    //         '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'),
+    //     client: client);
+
+    // /// Gas might not be enough
+    // String escrowTx = await e.createTrade((
+    //   tradeId: Random().nextInt(99999).toString(),
+    //   timelock: BigInt.from(2), // end-of-stay + 2 weeks
+
+    //   /// Arbiter public key from their nostr advertisement
+    //   arbiter:
+    //       EthereumAddress.fromHex('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'),
+
+    //   /// Seller address derived from their nostr pubkey
+    //   seller:
+    //       EthereumAddress.fromHex('0x164919857a1eaB16c789683f19Df4B218b829416'),
+
+    //   /// Our address derived from our nostr private key
+    //   buyer: EthereumAddress.fromHex(ethKey.address.hexEip55),
+    //   escrowFee: BigInt.from(100),
+    // ),
+    //     credentials: ethKey,
+    //     transaction: Transaction(
+    //         value: EtherAmount.fromBigInt(
+    //             EtherUnit.wei, satoshiWeiFactor * BigInt.from(1000))));
+
+    // final receipt = await client.getTransactionReceipt(escrowTx);
+    // print(receipt);
+  }
 
   swapIn(int amountSats) async {
     /// Check that NWC is connected first

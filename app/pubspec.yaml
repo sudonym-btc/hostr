@@ -48,6 +48,7 @@ dependencies:
   kepler: ^1.0.3
   pointycastle: ^3.9.1
   crypto: ^3.0.6
+  bip32: ^2.0.0
   bip39: ^1.0.6
   dart_bip32_bip44: ^0.2.0
   chopper: ^8.0.0

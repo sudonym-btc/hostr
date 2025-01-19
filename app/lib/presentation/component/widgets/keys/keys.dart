@@ -54,6 +54,14 @@ class KeysWidgetState extends State<KeysWidget> {
                 },
               ),
               ListTile(
+                title: Text('Public eth address from pubkey'),
+                subtitle: Text(getEthAddressFromPublicKey(key!.public).hex),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(
+                      text: getEthCredentials(key!.private).address.hex));
+                },
+              ),
+              ListTile(
                 title: Text('Private eth key'),
                 subtitle: Text(
                     (getEthCredentials(key!.private).privateKeyInt.toString())),

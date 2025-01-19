@@ -1,9 +1,18 @@
 services:
-  relay: 
+  relay:
     image: scsibug/nostr-rs-relay:latest
     platform: linux/amd64
     ports:
       - "5363:8080"
+  evm:
+    build:
+      context: ./escrow/contracts
+      dockerfile: Dockerfile
+    ports:
+      - "8545:8545"
+    volumes:
+      - ./escrow/contracts:/usr/src/app
+    command: npx hardhat node
   escrow:
     build:
       context: ./escrow
