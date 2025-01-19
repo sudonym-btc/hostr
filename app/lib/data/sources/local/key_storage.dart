@@ -1,10 +1,11 @@
-import 'package:bip39/bip39.dart';
-import 'package:dart_bip32_bip44/dart_bip32_bip44.dart';
+import 'dart:typed_data';
+
+import 'package:convert/convert.dart';
 import 'package:dart_nostr/dart_nostr.dart';
-import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
+import 'package:pointycastle/ecc/curves/secp256k1.dart';
 import 'package:web3dart/web3dart.dart';
 
 import 'secure_storage.dart';
@@ -55,15 +56,28 @@ class KeyStorage {
   }
 }
 
-/// Returns BIP32 Root Key account 0 for ETH chain
-EthPrivateKey getEthCredentials(String seedHex) {
-  String mnemonic = entropyToMnemonic(
-      seedHex); // SeedHex is the entropy, need to convert to mnemonic and back to seed to get full-length entropy to seed chain
-  String seed = mnemonicToSeedHex(mnemonic);
+EthPrivateKey getEthCredentials(String nostrPrivateKey) {
+  return EthPrivateKey.fromHex(hex.encode(hex.decode(nostrPrivateKey)));
+}
 
-  // print("SeedHex: ${seedHex.length}, Seed: ${seed.length}"); // SeedHex: 64, Seed: 128
+EthereumAddress getEthAddressFromPublicKey(String bip340PublicKey) {
+  final ecCurve = ECCurve_secp256k1();
+  Uint8List publicKeyBytes = Uint8List.fromList(hex.decode(bip340PublicKey));
 
-  Chain c = Chain.seed(seed);
-  ExtendedKey key = c.forPath(ETH_PRIV_PATH);
-  return EthPrivateKey.fromHex(key.privateKeyHex());
+  // Ensure the public key is in the correct format
+  if (publicKeyBytes.length == 32) {
+    // Add the 0x02 prefix for compressed public key
+    publicKeyBytes = Uint8List.fromList([0x02] + publicKeyBytes);
+  } else if (publicKeyBytes.length == 64) {
+    // Add the 0x04 prefix for uncompressed public key
+    publicKeyBytes = Uint8List.fromList([0x04] + publicKeyBytes);
+  }
+
+  // Decode the public key
+  final ecPoint = ecCurve.curve.decodePoint(publicKeyBytes);
+  final uncompressedPublicKey =
+      ecPoint!.getEncoded(false).sublist(1); // Remove the prefix byte
+
+  // Generate Ethereum address from the uncompressed public key
+  return EthereumAddress.fromPublicKey(uncompressedPublicKey);
 }

@@ -23,6 +23,10 @@
       "editor.defaultFormatter": "hashicorp.terraform"
     },
     "[terraform-vars]": {},
+    "[solidity]": {
+      "editor.formatOnSave": true,
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
     "extensions.ignoreRecommendations": false,
   },
   "extensions": {
@@ -32,7 +36,8 @@
       "tamasfe.even-better-toml",
       "ms-kubernetes-tools.vscode-kubernetes-tools",
       "juanblanco.solidity",
-      "ryanluker.vscode-coverage-gutters"
+      "ryanluker.vscode-coverage-gutters",
+      "nomicfoundation.hardhat-solidity"
     ]
   },
   "launch": {
