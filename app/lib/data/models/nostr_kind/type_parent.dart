@@ -1,18 +1,10 @@
-import 'package:dart_nostr/dart_nostr.dart';
-
 import 'event.dart';
 
-abstract class ParentTypeNostrEvent<ChildType extends NostrEvent>
-    extends Event {
+abstract class ParentTypeNostrEvent<ChildType extends Event> extends Event {
   final ChildType child;
 
-  const ParentTypeNostrEvent(
-      {required this.child,
-      required super.content,
-      required super.createdAt,
-      required super.id,
-      required super.kind,
-      required super.pubkey,
-      required super.sig,
-      required super.tags});
+  ParentTypeNostrEvent(
+    super.nip01Event, {
+    required this.child,
+  });
 }

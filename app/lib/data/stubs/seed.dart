@@ -10,21 +10,23 @@ seed() async {
   logger.i("seed");
   await getIt<RelayConnector>().connect();
   for (var x in MOCK_ESCROWS) {
-    await getIt<NostrService>().sendEventToRelaysAsync(event: x);
+    await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
   for (var x in MOCK_LISTINGS) {
-    await getIt<NostrService>().sendEventToRelaysAsync(event: x);
+    print(x.nip01Event.pubKey);
+    await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
   for (var x in MOCK_RESERVATIONS) {
-    await getIt<NostrService>().sendEventToRelaysAsync(event: x);
+    await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
   for (var x in MOCK_GIFT_WRAPS) {
-    await getIt<NostrService>().sendEventToRelaysAsync(event: x);
+    await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
   for (var x in MOCK_PROFILES) {
-    await getIt<NostrService>().sendEventToRelaysAsync(event: x);
+    print(x.pubKey);
+    // await getIt<NostrService>().broadcast(event: x.);
   }
   for (var x in MOCK_REVIEWS) {
-    await getIt<NostrService>().sendEventToRelaysAsync(event: x);
+    await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
 }

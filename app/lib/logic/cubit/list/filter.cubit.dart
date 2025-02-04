@@ -1,16 +1,16 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ndk/ndk.dart';
 
 class FilterCubit extends Cubit<FilterState> {
   FilterCubit() : super(FilterState());
 
-  void updateFilter(NostrFilter newFilter) {
+  void updateFilter(Filter newFilter) {
     emit(FilterState(newFilter));
   }
 }
 
 class FilterState {
-  final NostrFilter filter;
+  final Filter? filter;
 
-  FilterState([this.filter = const NostrFilter()]);
+  FilterState([this.filter]);
 }

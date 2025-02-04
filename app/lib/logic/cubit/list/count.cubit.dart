@@ -1,16 +1,14 @@
 import 'dart:async';
 
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
-import 'package:hostr/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:ndk/ndk.dart';
 
 import 'filter.cubit.dart';
 
-class CountCubit<T extends NostrEvent> extends HydratedCubit<CountCubitState> {
+class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
   final CustomLogger logger = CustomLogger();
-  final Nostr? nostrInstance;
+  final Ndk? nostrInstance;
   final List<int> kinds;
 
   final FilterCubit? filterCubit;
@@ -30,10 +28,11 @@ class CountCubit<T extends NostrEvent> extends HydratedCubit<CountCubitState> {
   void count() async {
     logger.i("count");
     emit(CountCubitStateLoading());
-    int count = await getIt<NostrService>().count(getCombinedFilter(
-        NostrFilter(kinds: kinds), filterCubit?.state.filter));
+    // nostrInstance.requests.requestNostrEvent(NdkRequest)
+    // int count = await getIt<NostrService>().count(getCombinedFilter(
+    //     NostrFilter(kinds: kinds), filterCubit?.state.filter));
 
-    emit(CountCubitState(count: count));
+    emit(CountCubitState(count: 0));
   }
 
   @override

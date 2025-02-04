@@ -9,18 +9,17 @@ class ProfileChipWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ProfileProvider(
-        e: id,
+        pubkey: id,
         builder: (context, state) {
-          var name = state.data?.parsedContent.name ?? id;
+          var name = state.name ?? id;
           return ConstrainedBox(
               constraints: BoxConstraints(
                   maxWidth: 200), // Set your desired max width here
               child: Chip(
                   shape: StadiumBorder(),
-                  avatar: state.data?.parsedContent.picture != null
+                  avatar: state.picture != null
                       ? CircleAvatar(
-                          backgroundImage:
-                              NetworkImage(state.data!.parsedContent.picture!),
+                          backgroundImage: NetworkImage(state.picture!),
                         )
                       : CircleAvatar(
                           backgroundColor: Colors.grey,

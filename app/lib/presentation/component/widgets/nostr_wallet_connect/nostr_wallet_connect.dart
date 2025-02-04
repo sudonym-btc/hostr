@@ -1,4 +1,3 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/main.dart';
@@ -30,7 +29,7 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
   initState() {
     super.initState();
     nostrWalletAuth = NostrWalletAuth().generateUri(
-        keyPair: NostrKeyPairs.generate(), // @todo import keyService
+        keyPair: Bip340.generatePrivateKey(), // @todo import keyService
         budget: config.defaultBudgetMonthly,
         budgetPeriod: BudgetPeriod.monthly,
         relay: config.hostrRelay,

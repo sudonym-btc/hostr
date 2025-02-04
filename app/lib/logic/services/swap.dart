@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:crypto/crypto.dart';
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
@@ -14,21 +13,20 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:http/http.dart';
 import 'package:injectable/injectable.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:web3dart/web3dart.dart';
 
 BigInt satoshiWeiFactor = BigInt.from(10).pow(10);
 num btcSatoshiFactor = pow(10, 8);
 num btcMilliSatoshiFactor = pow(10, 11);
 
-@singleton
+@Singleton()
 class SwapService {
   CustomLogger logger = CustomLogger();
-  Config config;
   Web3Client client;
-  SwapService({required this.config})
-      :
-        // Initialize Web3 client
-        client = Web3Client(config.rootstockRpcUrl, Client());
+  Config config;
+  SwapService(this.config)
+      : client = Web3Client(config.rootstockRpcUrl, Client());
 
   Future<EtherSwap> getRootstockEtherSwap() async {
     // Fetch RBTC contracts
@@ -50,19 +48,20 @@ class SwapService {
     // Generate or fetch an invoice for the user.
     // The invoice should be for the total amount minus any applicable fees.
 
-    NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
-    EthPrivateKey ethKey = getEthCredentials(key!.private);
+    KeyPair? key = await getIt<KeyStorage>().getActiveKeyPair();
+    EthPrivateKey ethKey = getEthCredentials(key!.privateKey!);
     Rootstock r = getIt<Rootstock>();
 
-    double balance = await r.getBalance(getEthCredentials(key.private).address);
+    double balance =
+        await r.getBalance(getEthCredentials(key.privateKey!).address);
     if (balance == 0) {
       logger.i('No balance to swap out');
       return;
     }
 
-    NwcMethodResponse? response = await getIt<NwcService>().makeInvoice(
-        NwcMethodMakeInvoiceParams(
-            amount: (balance.toInt() / satoshiWeiFactor.toDouble()).toInt()));
+    // NwcMethodResponse? response = await getIt<NwcService>().makeInvoice(
+    //     NwcMethodMakeInvoiceParams(
+    //         amount: (balance.toInt() / satoshiWeiFactor.toDouble()).toInt()));
 
     // Example invoice for demonstration purposes
     final invoice = "";
@@ -105,8 +104,8 @@ class SwapService {
   // }
 
   listEvents() async {
-    NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
-    EthPrivateKey ethKey = getEthCredentials(key!.private);
+    KeyPair? key = await getIt<KeyStorage>().getActiveKeyPair();
+    EthPrivateKey ethKey = getEthCredentials(key!.privateKey!);
 
     MultiEscrow e = MultiEscrow(
         address: EthereumAddress.fromHex(
@@ -133,43 +132,43 @@ class SwapService {
     // });
   }
 
-  escrow() async {
-    NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
+  escrow(
+      {required String eventId,
+      required Amount amount,
+      required String sellerPubkey,
+      required String escrowPubkey,
+      required String escrowContractAddress,
+      required int timelock}) async {
+    KeyPair? key = await getIt<KeyStorage>().getActiveKeyPair();
+    EthPrivateKey ethKey = getEthCredentials(key!.privateKey!);
 
-    // print(getEthAddress(key!.public));
-    return;
-    // NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
-    // EthPrivateKey ethKey = getEthCredentials(key!.private);
+    MultiEscrow e = MultiEscrow(
+        address: EthereumAddress.fromHex(escrowContractAddress),
+        client: client);
 
-    // MultiEscrow e = MultiEscrow(
-    //     address: EthereumAddress.fromHex(
-    //         '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'),
-    //     client: client);
+    String escrowTx = await e.createTrade((
+      tradeId: eventId,
+      timelock: BigInt.from(timelock),
 
-    // /// Gas might not be enough
-    // String escrowTx = await e.createTrade((
-    //   tradeId: Random().nextInt(99999).toString(),
-    //   timelock: BigInt.from(2), // end-of-stay + 2 weeks
+      /// Arbiter public key from their nostr advertisement
+      arbiter: getEthAddressFromPublicKey(escrowPubkey),
 
-    //   /// Arbiter public key from their nostr advertisement
-    //   arbiter:
-    //       EthereumAddress.fromHex('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'),
+      /// Seller address derived from their nostr pubkey
+      seller: getEthAddressFromPublicKey(sellerPubkey),
 
-    //   /// Seller address derived from their nostr pubkey
-    //   seller:
-    //       EthereumAddress.fromHex('0x164919857a1eaB16c789683f19Df4B218b829416'),
+      /// Our address derived from our nostr private key
+      buyer: ethKey.address,
+      escrowFee: BigInt.from(100),
+    ),
+        credentials: ethKey,
+        transaction: Transaction(
+            value: EtherAmount.fromBigInt(
+                EtherUnit.wei,
+                BigInt.from(amount.value * btcSatoshiFactor) *
+                    satoshiWeiFactor)));
 
-    //   /// Our address derived from our nostr private key
-    //   buyer: EthereumAddress.fromHex(ethKey.address.hexEip55),
-    //   escrowFee: BigInt.from(100),
-    // ),
-    //     credentials: ethKey,
-    //     transaction: Transaction(
-    //         value: EtherAmount.fromBigInt(
-    //             EtherUnit.wei, satoshiWeiFactor * BigInt.from(1000))));
-
-    // final receipt = await client.getTransactionReceipt(escrowTx);
-    // print(receipt);
+    final receipt = await client.getTransactionReceipt(escrowTx);
+    print(receipt);
   }
 
   swapIn(int amountSats) async {
@@ -179,8 +178,8 @@ class SwapService {
       throw Exception('No NWC URI found');
     }
 
-    NostrKeyPairs? key = await getIt<KeyStorage>().getActiveKeyPair();
-    EthPrivateKey ethKey = getEthCredentials(key!.private);
+    KeyPair? key = await getIt<KeyStorage>().getActiveKeyPair();
+    EthPrivateKey ethKey = getEthCredentials(key!.privateKey!);
 
     /// We generate the preimage for the invoice we will pay
     /// This prevents swapper from being able to claim the HTLC

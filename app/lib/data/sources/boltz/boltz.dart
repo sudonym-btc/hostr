@@ -5,11 +5,12 @@ import 'package:injectable/injectable.dart';
 
 import 'swagger_generated/boltz.swagger.dart';
 
-@singleton
+@injectable
 class BoltzClient {
   CustomLogger logger = CustomLogger();
-  Boltz gBoltzCli;
-  BoltzClient({required Config config})
+  late Boltz gBoltzCli;
+  final Config config;
+  BoltzClient(this.config)
       : gBoltzCli = Boltz.create(baseUrl: Uri.parse(config.boltzUrl));
 
   Future<SubmarineResponse> submarine({required String invoice}) async {

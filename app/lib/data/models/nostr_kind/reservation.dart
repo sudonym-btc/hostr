@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:core';
 
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 
 import 'type_json_content.dart';
@@ -9,16 +8,10 @@ import 'type_json_content.dart';
 class Reservation extends JsonContentNostrEvent<ReservationContent> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION];
 
-  Reservation.fromNostrEvent(NostrEvent e)
-      : super(
-            parsedContent: ReservationContent.fromJson(json.decode(e.content!)),
-            content: e.content,
-            createdAt: e.createdAt,
-            id: e.id,
-            kind: e.kind,
-            pubkey: e.pubkey,
-            sig: e.sig,
-            tags: e.tags);
+  Reservation.fromNostrEvent(super.e) {
+    parsedContent =
+        ReservationContent.fromJson(json.decode(nip01Event.content));
+  }
 }
 
 class ReservationContent extends EventContent {

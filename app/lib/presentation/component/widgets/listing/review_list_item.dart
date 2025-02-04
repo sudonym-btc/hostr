@@ -9,8 +9,8 @@ class ReviewListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text(review.content!),
-      subtitle: Text(review.pubkey),
+      title: Text(review.content),
+      subtitle: Text(review.nip01Event.pubKey),
     );
   }
 }

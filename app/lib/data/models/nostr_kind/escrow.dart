@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:core';
 
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 
 import 'type_json_content.dart';
@@ -9,20 +8,14 @@ import 'type_json_content.dart';
 class Escrow extends JsonContentNostrEvent<EscrowContent> {
   static const List<int> kinds = [NOSTR_KIND_ESCROW];
 
-  Escrow.fromNostrEvent(NostrEvent e)
-      : super(
-            parsedContent: EscrowContent.fromJson(json.decode(e.content!)),
-            content: e.content,
-            createdAt: e.createdAt,
-            id: e.id,
-            kind: e.kind,
-            pubkey: e.pubkey,
-            sig: e.sig,
-            tags: e.tags);
+  Escrow.fromNostrEvent(super.e) {
+    parsedContent = EscrowContent.fromJson(json.decode(nip01Event.content));
+  }
 }
 
 class EscrowContent extends EventContent {
   final String pubkey;
+  final String contractAddress;
   final int chainId;
   final Duration maxDuration;
   // final Price pricePercent;
@@ -31,6 +24,7 @@ class EscrowContent extends EventContent {
 
   EscrowContent(
       {required this.pubkey,
+      required this.contractAddress,
       required this.chainId,
       required this.maxDuration,
       required this.type});
@@ -39,6 +33,7 @@ class EscrowContent extends EventContent {
   Map<String, dynamic> toJson() {
     return {
       "pubkey": pubkey,
+      "contractAddress": contractAddress,
       "chainId": chainId,
       "maxDuration": maxDuration.inSeconds,
       // "pricePercent": pricePercent.toJson(),
@@ -50,6 +45,7 @@ class EscrowContent extends EventContent {
   static EscrowContent fromJson(Map<String, dynamic> json) {
     return EscrowContent(
       pubkey: json["pubkey"],
+      contractAddress: json["contractAddress"],
       chainId: json["chainId"],
       maxDuration: Duration(seconds: json["maxDuration"]),
       // pricePercent: Price.fromJson(json["pricePercent"]),

@@ -1,13 +1,14 @@
 import 'package:bloc_test/bloc_test.dart';
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/data/sources/local/secure_storage.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/auth.cubit.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 void main() {
-  NostrKeyPairs keyPair = Nostr.instance.keysService.generateKeyPair();
+  KeyPair keyPair = Bip340.generatePrivateKey();
 
   setUp(() {
     // Reset the GetIt instance to its initial state before each test
@@ -31,7 +32,7 @@ void main() {
       'emits [LoggedIn] when get called().',
       build: () => AuthCubit(),
       setUp: () {
-        getIt<SecureStorage>().set('keys', [keyPair.private]);
+        getIt<SecureStorage>().set('keys', [keyPair.privateKey]);
       },
       act: (bloc) {
         return bloc.get();

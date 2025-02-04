@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:pointycastle/ecc/curves/secp256k1.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -13,9 +13,9 @@ import 'secure_storage.dart';
 @singleton
 class KeyStorage {
   CustomLogger logger = CustomLogger();
-  NostrKeyPairs? keyPair;
+  KeyPair? keyPair;
 
-  Future<NostrKeyPairs?> getActiveKeyPair() async {
+  Future<KeyPair?> getActiveKeyPair() async {
     if (keyPair != null) {
       return keyPair;
     }
@@ -23,12 +23,12 @@ class KeyStorage {
     if (items == null || items.length == 0) {
       return null;
     }
-    NostrKeyPairs fetched = NostrKeyPairs(private: items[0]);
+    KeyPair fetched = Bip340.fromPrivateKey(items[0]);
     keyPair = fetched;
     return fetched;
   }
 
-  NostrKeyPairs? getActiveKeyPairSync() {
+  KeyPair? getActiveKeyPairSync() {
     return keyPair;
   }
 
@@ -46,8 +46,8 @@ class KeyStorage {
   }
 
   create() {
-    var key = NostrKeyPairs.generate();
-    return set(key.private);
+    var key = Bip340.generatePrivateKey();
+    return set(key.privateKey!);
   }
 
   wipe() {

@@ -1,19 +1,20 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/data/models/nostr_kind/event.dart';
 
-typedef Comparator<T extends NostrEvent> = int Function(T a, T b);
+typedef Comparator<T extends Event> = int Function(T a, T b);
 
-class SortCubit<T extends NostrEvent> extends Cubit<ComparatorWrapper<T>> {
+class SortCubit<T extends Event> extends Cubit<ComparatorWrapper<T>> {
   SortCubit([Comparator<T>? initialComparator])
       : super(ComparatorWrapper(initialComparator ??
-            (T a, T b) => b.createdAt!.compareTo(a.createdAt!)));
+            (T a, T b) =>
+                b.nip01Event.createdAt.compareTo(a.nip01Event.createdAt)));
 
   void sort(Comparator<T> newOrder) {
     emit(ComparatorWrapper(newOrder));
   }
 }
 
-class ComparatorWrapper<T extends NostrEvent> {
+class ComparatorWrapper<T extends Event> {
   final Comparator<T> comparator;
 
   ComparatorWrapper(this.comparator);

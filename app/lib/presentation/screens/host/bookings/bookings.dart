@@ -7,8 +7,8 @@ import 'package:hostr/presentation/component/main.dart';
 import 'package:ndk/ndk.dart';
 
 @RoutePage()
-class MyListingsScreen extends StatelessWidget {
-  const MyListingsScreen({super.key});
+class BookingsScreen extends StatelessWidget {
+  const BookingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +20,7 @@ class MyListingsScreen extends StatelessWidget {
                 ..next()),
         ],
         child: Scaffold(
-            appBar: AppBar(title: Text('My Listings')),
+            appBar: AppBar(title: Text('Upcoming bookings')),
             body: SafeArea(
                 child: Column(children: [
               Expanded(

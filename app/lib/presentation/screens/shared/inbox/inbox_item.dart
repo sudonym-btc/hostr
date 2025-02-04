@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/logic/main.dart' show LatestThreadState, ThreadCubit;
+import 'package:hostr/logic/main.dart'
+    show EntityCubitStateError, LatestThreadState, ThreadCubit;
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/router.dart';
 
@@ -27,22 +28,22 @@ class InboxItem extends StatelessWidget {
     return ListTile(
       leading: Icon(Icons.account_circle),
       title: ProfileProvider(
-          e: threadCubit.getCounterpartyPubkey(),
+          pubkey: threadCubit.getCounterpartyPubkey(),
           builder: (context, state) {
-            if (state.data == null) {
+            print('state: $state');
+
+            if (state is EntityCubitStateError) {
+              return Text('Error: ${(state as EntityCubitStateError).error}');
+            }
+            if (state == null) {
               return CircularProgressIndicator();
             }
-            return state.data?.parsedContent.name != null
-                ? Text(state.data!.parsedContent.name!)
+            return state.name != null
+                ? Text(state.name!)
                 : Text(threadCubit.getCounterpartyPubkey());
           }),
       subtitle: subtitle,
-      onTap: () async {
-        // context
-        //     .read<ThreadOrganizer>()
-        //     .selectThread(state.threads[index]);
-        print('Thread id: ${threadCubit.getAnchor()}' +
-            'inbox/${threadCubit.getAnchor()}');
+      onTap: () {
         AutoRouter.of(context).push(ThreadRoute(id: threadCubit.getAnchor()));
       },
     );

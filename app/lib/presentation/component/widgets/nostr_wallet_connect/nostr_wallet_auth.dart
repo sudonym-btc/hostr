@@ -1,8 +1,8 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -25,14 +25,14 @@ class _NostrWalletAuthWidgetState extends State<NostrWalletAuthWidget> {
   @override
   initState() {
     super.initState();
-    NostrKeyPairs keyPair = NostrKeyPairs.generate();
+    KeyPair keyPair = Bip340.generatePrivateKey();
 
     nostrWalletAuth = NostrWalletAuth().generateUri(
-        keyPair: NostrKeyPairs.generate(),
+        keyPair: keyPair,
         budget: config.defaultBudgetMonthly,
         budgetPeriod: BudgetPeriod.monthly,
         relay: config.hostrRelay,
-        secret: keyPair.private);
+        secret: keyPair.privateKey!);
     canLaunchUrl(nostrWalletAuth!).then((value) {
       setState(() {
         canLaunch = value;

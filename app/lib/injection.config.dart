@@ -95,8 +95,6 @@ extension GetItInjectableX on _i174.GetIt {
         _prod,
       },
     );
-    gh.singleton<_i428.BoltzClient>(
-        () => _i428.BoltzClient(config: gh<_i800.Config>()));
     gh.singleton<_i311.SecureStorage>(
       () => _i311.MockSecureStorage(),
       registerFor: {_test},
@@ -151,12 +149,13 @@ extension GetItInjectableX on _i174.GetIt {
         _prod,
       },
     );
+    gh.singleton<_i432.SwapService>(
+        () => _i432.SwapService(gh<_i800.Config>()));
     gh.factory<_i467.Config>(
       () => _i1071.ProductionConfig(),
       registerFor: {_prod},
     );
-    gh.singleton<_i432.SwapService>(
-        () => _i432.SwapService(config: gh<_i800.Config>()));
+    gh.factory<_i428.BoltzClient>(() => _i428.BoltzClient(gh<_i800.Config>()));
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
       registerFor: {

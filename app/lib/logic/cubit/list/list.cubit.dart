@@ -1,21 +1,22 @@
 import 'dart:async';
 
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'filter.cubit.dart';
 import 'post_result_filter.cubit.dart';
 import 'sort.cubit.dart';
 
-class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
+class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
   final CustomLogger logger = CustomLogger();
-  final Nostr? nostrInstance;
+  final Ndk? nostrInstance;
   final int? limit;
-  NostrFilter? filter;
+  Filter? filter;
   final List<int> kinds;
   final PublishSubject<T> itemStream = PublishSubject<T>();
 
@@ -53,20 +54,15 @@ class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
 
   void next() {
     logger.i("next");
-    NostrFilter finalFilter = getCombinedFilter(
-        getCombinedFilter(NostrFilter(kinds: kinds), filter),
+    Filter finalFilter = getCombinedFilter(
+        getCombinedFilter(Filter(kinds: kinds), filter),
         filterCubit?.state.filter);
     print('listFilter: $finalFilter');
-    getIt<NostrService>()
-        .startRequest<T>(
-            request: NostrRequest(filters: [
-              // Nostr treats separate NostrFilters as OR, so we need to combine them
-              finalFilter
-            ]),
-            onEose: (_, __) {})
-        .stream
-        .listen((event) {
-      addItem(event as T);
+    getIt<NostrService>().startRequest<T>(filters: [
+      // Nostr treats separate NostrFilters as OR, so we need to combine them
+      finalFilter
+    ]).listen((event) {
+      addItem(event);
     });
   }
 
@@ -113,8 +109,8 @@ class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
   @override
   Map<String, dynamic>? toJson(ListCubitState<T> state) {
     return {
-      'results': state.results.map((e) => e.toMap()).toList(),
-      'resultsRaw': state.resultsRaw.map((e) => e.toMap()).toList(),
+      'results': state.results.map((e) => e.nip01Event.toJson()).toList(),
+      'resultsRaw': state.resultsRaw.map((e) => e.nip01Event.toJson()).toList(),
       'hasMore': state.hasMore,
     };
   }
@@ -122,8 +118,8 @@ class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
   @override
   ListCubitState<T>? fromJson(Map<String, dynamic> json) {
     return ListCubitState(
-      resultsRaw: json['resultsRaw'].map<T>(NostrEvent.deserialized).toList(),
-      results: json['results'].map<T>(NostrEvent.deserialized).toList(),
+      resultsRaw: json['resultsRaw'].map<T>(Nip01Event.fromJson).toList(),
+      results: json['results'].map<T>(Nip01Event.fromJson).toList(),
       hasMore: json['hasMore'] ?? true,
     );
   }
@@ -137,14 +133,14 @@ class ListCubit<T extends NostrEvent> extends Cubit<ListCubitState<T>> {
   }
 }
 
-class HydratedListCubit<T extends NostrEvent> extends ListCubit<T> {
+class HydratedListCubit<T extends Event> extends ListCubit<T> {
   HydratedListCubit({required super.kinds});
 
   @override
   Map<String, dynamic>? toJson(ListCubitState<T> state) {
     return {
-      'results': state.results.map((e) => e.toMap()).toList(),
-      'resultsRaw': state.resultsRaw.map((e) => e.toMap()).toList(),
+      'results': state.results.map((e) => e.nip01Event.toJson()).toList(),
+      'resultsRaw': state.resultsRaw.map((e) => e.nip01Event.toJson()).toList(),
       'hasMore': state.hasMore,
     };
   }
@@ -152,14 +148,14 @@ class HydratedListCubit<T extends NostrEvent> extends ListCubit<T> {
   @override
   ListCubitState<T>? fromJson(Map<String, dynamic> json) {
     return ListCubitState(
-      resultsRaw: json['resultsRaw'].map<T>(NostrEvent.deserialized).toList(),
-      results: json['results'].map<T>(NostrEvent.deserialized).toList(),
+      resultsRaw: json['resultsRaw'].map<T>(Nip01Event.fromJson).toList(),
+      results: json['results'].map<T>(Nip01Event.fromJson).toList(),
       hasMore: json['hasMore'] ?? true,
     );
   }
 }
 
-class ListCubitState<T extends NostrEvent> {
+class ListCubitState<T extends Event> {
   final bool listening;
   final bool synching;
   final bool fetching;

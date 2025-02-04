@@ -1,5 +1,4 @@
 import 'package:bip39/bip39.dart';
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
@@ -68,7 +67,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   signin(String private) async {
     String? entropy;
-    if (NostrKeyPairs.isValidPrivateKey(private)) {
+    if (private.length == 64) {
       entropy = private;
     } else {
       try {

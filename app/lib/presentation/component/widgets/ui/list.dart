@@ -1,11 +1,11 @@
-import 'package:dart_nostr/nostr/model/event/event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/logic/main.dart';
 
-class ListWidget<T extends NostrEvent> extends StatefulWidget {
+class ListWidget<T extends Event> extends StatefulWidget {
   final Widget Function(dynamic) builder;
   const ListWidget({super.key, required this.builder});
 
@@ -13,7 +13,7 @@ class ListWidget<T extends NostrEvent> extends StatefulWidget {
   _ListWidgetState createState() => _ListWidgetState<T>();
 }
 
-class _ListWidgetState<T extends NostrEvent> extends State<ListWidget<T>> {
+class _ListWidgetState<T extends Event> extends State<ListWidget<T>> {
   final ScrollController _scrollController = ScrollController();
   double _previousScrollOffset = 0.0;
 

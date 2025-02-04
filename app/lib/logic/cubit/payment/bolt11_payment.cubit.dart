@@ -1,6 +1,7 @@
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
+import 'package:ndk/ndk.dart';
 
 class Bolt11PaymentParameters extends PaymentParameters {
   Bolt11PaymentParameters({super.amount, super.comment, required super.to});
@@ -27,11 +28,8 @@ class Bolt11PaymentCubit extends PaymentCubit<Bolt11PaymentParameters,
 
   @override
   Future<LightningCompletedDetails> complete() async {
-    NwcResponse response = await getIt<NwcService>().payInvoice(
-        NwcMethodPayInvoiceParams(
-            invoice: state.callbackDetails!.invoice.paymentRequest));
-    return LightningCompletedDetails(
-        preimage: (response.parsedContent.result as NwcMethodPayInvoiceResponse)
-            .preimage);
+    PayInvoiceResponse response = await getIt<NwcService>()
+        .payInvoice(state.callbackDetails!.invoice.paymentRequest, null);
+    return LightningCompletedDetails(preimage: response.preimage);
   }
 }

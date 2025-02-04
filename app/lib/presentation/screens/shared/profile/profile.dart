@@ -75,12 +75,12 @@ class ProfileScreen extends StatelessWidget {
                         getIt<SwapService>().swapIn(10000);
                       },
                     ),
-                    FilledButton(
-                      child: Text('Escrow'),
-                      onPressed: () {
-                        getIt<SwapService>().escrow();
-                      },
-                    ),
+                    // FilledButton(
+                    //   child: Text('Escrow'),
+                    //   onPressed: () {
+                    //     getIt<SwapService>().escrow();
+                    //   },
+                    // ),
                     FilledButton(
                       child: Text('ListEvents'),
                       onPressed: () {

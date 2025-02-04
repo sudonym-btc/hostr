@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/data/main.dart';
+import 'package:ndk/ndk.dart';
 
 class ZapReceiptWidget extends StatefulWidget {
   final ZapReceipt zap;

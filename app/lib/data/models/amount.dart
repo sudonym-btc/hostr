@@ -17,3 +17,27 @@ class Amount {
 }
 
 enum Currency { BTC, USD }
+
+extension CurrencyExtension on Currency {
+  String get prefix {
+    switch (this) {
+      case Currency.BTC:
+        return '';
+      case Currency.USD:
+        return '\$';
+      default:
+        return '';
+    }
+  }
+
+  String get suffix {
+    switch (this) {
+      case Currency.BTC:
+        return ' sats';
+      case Currency.USD:
+        return '';
+      default:
+        return '';
+    }
+  }
+}

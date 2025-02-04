@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:core';
 
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/config/main.dart';
 
 import '../amount.dart';
@@ -11,17 +10,10 @@ class ReservationRequest
     extends JsonContentNostrEvent<ReservationRequestContent> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION_REQUEST];
 
-  ReservationRequest.fromNostrEvent(NostrEvent e)
-      : super(
-            parsedContent:
-                ReservationRequestContent.fromJson(json.decode(e.content!)),
-            content: e.content,
-            createdAt: e.createdAt,
-            id: e.id,
-            kind: e.kind,
-            pubkey: e.pubkey,
-            sig: e.sig,
-            tags: e.tags);
+  ReservationRequest.fromNostrEvent(super.e) {
+    parsedContent =
+        ReservationRequestContent.fromJson(json.decode(nip01Event.content));
+  }
 }
 
 class ReservationRequestContent extends EventContent {
@@ -29,12 +21,16 @@ class ReservationRequestContent extends EventContent {
   final DateTime end;
   final int quantity;
   final Amount amount;
+  final String commitmentHash;
+  final String commitmentHashPreimageEnc;
 
   ReservationRequestContent(
       {required this.start,
       required this.end,
       required this.quantity,
-      required this.amount});
+      required this.amount,
+      required this.commitmentHash,
+      required this.commitmentHashPreimageEnc});
 
   @override
   Map<String, dynamic> toJson() {
@@ -43,6 +39,8 @@ class ReservationRequestContent extends EventContent {
       "end": end.toIso8601String(),
       "quantity": quantity,
       "amount": amount.toJson(),
+      "commitmentHash": commitmentHash,
+      "commitmentHashPreimageEnc": commitmentHashPreimageEnc,
     };
   }
 
@@ -52,6 +50,8 @@ class ReservationRequestContent extends EventContent {
       end: DateTime.parse(json["end"]),
       quantity: json["quantity"],
       amount: Amount.fromJson(json["amount"]),
+      commitmentHash: json["commitmentHash"],
+      commitmentHashPreimageEnc: json["commitmentHashPreimageEnc"],
     );
   }
 }
