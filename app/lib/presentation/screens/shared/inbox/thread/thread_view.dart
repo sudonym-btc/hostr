@@ -23,52 +23,61 @@ class ThreadView extends StatelessWidget {
         create: (context) => threadCubit,
         child: BlocBuilder<ThreadCubit, ThreadCubitState>(
             builder: (context, state) {
-          return Scaffold(
-              appBar: AppBar(
-                  title: ProfileProvider(
-                      e: threadCubit.getCounterpartyPubkey(),
-                      builder: (context, state) {
-                        return ThreadHeaderWidget(
-                            title: state.data?.parsedContent.name ?? 'Loading',
-                            subtitle: 'jeremy@nostrplebs.com');
-                      })),
-              body: SafeArea(
-                  child: Column(
-                children: [
-                  Expanded(
-                      child: ListView.builder(
-                          itemCount: state.messages.length,
-                          itemBuilder: (listContext, index) {
-                            if ((state.messages[index].child as Seal).child
-                                is Message) {
-                              return ThreadMessageWidget(
-                                  counterpartyPubkey:
-                                      threadCubit.getCounterpartyPubkey(),
-                                  item: state.messages[index]
-                                      as GiftWrap<Seal<Message>>);
-                            } else if ((state.messages[index].child as Seal)
-                                .child is ReservationRequest) {
-                              return ThreadReservationRequestWidget(
-                                  counterpartyPubkey:
-                                      threadCubit.getCounterpartyPubkey(),
-                                  item: state.messages[index]);
-                            }
-                            return Text('Unknown message type');
-                          })),
-                  CustomPadding(
-                      child: Row(children: [
-                    Expanded(
-                        child: TextField(
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Reply',
-                      ),
-                    )),
-                    FilledButton(onPressed: () {}, child: Text('Send'))
-                  ]))
-                ],
-              )));
+          return ProfileProvider(
+              pubkey: threadCubit.getCounterpartyPubkey(),
+              builder: (context, profileState) {
+                if (profileState is EntityCubitStateError) {
+                  return Scaffold(
+                      appBar: AppBar(
+                          title: Text(
+                              'Error: ${(profileState as EntityCubitStateError).error}')));
+                }
+                if (profileState == null) {
+                  return Scaffold(appBar: AppBar(title: Text('Loading')));
+                }
+                return Scaffold(
+                    appBar: AppBar(
+                        title: ThreadHeaderWidget(
+                            title: profileState.name ?? 'Loading',
+                            subtitle: 'jeremy@nostrplebs.com')),
+                    body: SafeArea(
+                        child: Column(
+                      children: [
+                        Expanded(
+                            child: ListView.builder(
+                                itemCount: state.messages.length,
+                                itemBuilder: (listContext, index) {
+                                  if ((state.messages[index].child as Seal)
+                                      .child is Message) {
+                                    return ThreadMessageWidget(
+                                        counterpartyPubkey:
+                                            threadCubit.getCounterpartyPubkey(),
+                                        item: state.messages[index]
+                                            as GiftWrap<Seal<Message>>);
+                                  } else if ((state.messages[index].child
+                                          as Seal)
+                                      .child is ReservationRequest) {
+                                    return ThreadReservationRequestWidget(
+                                        counterparty: profileState,
+                                        item: state.messages[index]);
+                                  }
+                                  return Text('Unknown message type');
+                                })),
+                        CustomPadding(
+                            child: Row(children: [
+                          Expanded(
+                              child: TextField(
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(),
+                              labelText: 'Reply',
+                            ),
+                          )),
+                          FilledButton(onPressed: () {}, child: Text('Send'))
+                        ]))
+                      ],
+                    )));
+              });
         }));
   }
 }

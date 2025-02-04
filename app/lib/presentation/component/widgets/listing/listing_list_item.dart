@@ -1,10 +1,10 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/router.dart';
+import 'package:ndk/ndk.dart';
 
 import 'price_tag.dart';
 
@@ -76,7 +76,8 @@ class ListingListItemWidget extends StatelessWidget {
                         PriceTagWidget(price: listing.parsedContent.price[0]),
                         BlocProvider(
                             create: (context) => FilterCubit()
-                              ..updateFilter(NostrFilter(a: [listing.id!])),
+                              ..updateFilter(
+                                  Filter(aTags: [listing.nip01Event.id])),
                             child: Row(
                               children: [
                                 BlocProvider(

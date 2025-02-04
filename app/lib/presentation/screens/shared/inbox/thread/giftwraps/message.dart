@@ -10,7 +10,7 @@ class ThreadMessageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isSentByMe = item.child.pubkey == counterpartyPubkey;
+    bool isSentByMe = item.child.nip01Event.pubKey == counterpartyPubkey;
 
     return Align(
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,

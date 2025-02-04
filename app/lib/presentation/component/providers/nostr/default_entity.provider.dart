@@ -1,9 +1,10 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:ndk/ndk.dart';
 
-abstract class DefaultEntityProvider<Type extends NostrEvent>
+abstract class DefaultEntityProvider<Type extends Event>
     extends StatelessWidget {
   /// Provide the kinds that this type is propagated as
   final List<int> kinds;
@@ -13,6 +14,9 @@ abstract class DefaultEntityProvider<Type extends NostrEvent>
 
   /// Provide a if you want to search for a specific anchor tag
   final String? a;
+
+  /// Provide if you want to search for a specific pubkey
+  final String? pubkey;
 
   /// Provide a builder if you want to consume the cubit right away
   final BlocWidgetBuilder<EntityCubitState<Type>>? builder;
@@ -24,6 +28,7 @@ abstract class DefaultEntityProvider<Type extends NostrEvent>
       {super.key,
       required this.kinds,
       this.e,
+      this.pubkey,
       this.a,
       this.builder,
       this.child}) {
@@ -33,7 +38,7 @@ abstract class DefaultEntityProvider<Type extends NostrEvent>
 
     /// e and a cannot be provided at the same time
     assert(e == null || a == null);
-    assert(e != null || a != null);
+    assert(a != null || e != null || pubkey != null);
   }
 
   @override
@@ -45,10 +50,11 @@ abstract class DefaultEntityProvider<Type extends NostrEvent>
 
     return BlocProvider<EntityCubit<Type>>(
         create: (context) => EntityCubit<Type>(
-            filter: NostrFilter(
+            filter: Filter(
                 kinds: kinds,
-                a: a != null ? [a!] : null,
-                e: e != null ? [e!] : null))
+                authors: pubkey != null ? [pubkey!] : null,
+                aTags: a != null ? [a!] : null,
+                eTags: e != null ? [e!] : null))
           ..get(),
         child: consumer);
   }

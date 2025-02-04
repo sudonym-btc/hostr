@@ -3,16 +3,17 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i8;
+import 'dart:async' as _i9;
 
-import 'package:dart_nostr/dart_nostr.dart' as _i7;
-import 'package:flutter_bloc/flutter_bloc.dart' as _i9;
+import 'package:flutter_bloc/flutter_bloc.dart' as _i10;
 import 'package:hostr/core/main.dart' as _i2;
 import 'package:hostr/data/main.dart' as _i6;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i3;
 import 'package:hostr/logic/cubit/nwc.cubit.dart' as _i5;
 import 'package:hostr/logic/services/nwc.dart' as _i4;
 import 'package:mockito/mockito.dart' as _i1;
+import 'package:ndk/ndk.dart' as _i7;
+import 'package:ndk/shared/nips/nip01/key_pair.dart' as _i8;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -88,8 +89,8 @@ class _FakeNwcStorage_5 extends _i1.SmartFake implements _i6.NwcStorage {
         );
 }
 
-class _FakeNostrService_6 extends _i1.SmartFake implements _i6.NostrService {
-  _FakeNostrService_6(
+class _FakeNdk_6 extends _i1.SmartFake implements _i7.Ndk {
+  _FakeNdk_6(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -98,8 +99,9 @@ class _FakeNostrService_6 extends _i1.SmartFake implements _i6.NostrService {
         );
 }
 
-class _FakeNwcResponse_7 extends _i1.SmartFake implements _i6.NwcResponse {
-  _FakeNwcResponse_7(
+class _FakeGetInfoResponse_7 extends _i1.SmartFake
+    implements _i7.GetInfoResponse {
+  _FakeGetInfoResponse_7(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -108,8 +110,20 @@ class _FakeNwcResponse_7 extends _i1.SmartFake implements _i6.NwcResponse {
         );
 }
 
-class _FakeNwcInfo_8 extends _i1.SmartFake implements _i6.NwcInfo {
-  _FakeNwcInfo_8(
+class _FakePayInvoiceResponse_8 extends _i1.SmartFake
+    implements _i7.PayInvoiceResponse {
+  _FakePayInvoiceResponse_8(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeMakeInvoiceResponse_9 extends _i1.SmartFake
+    implements _i7.MakeInvoiceResponse {
+  _FakeMakeInvoiceResponse_9(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -145,7 +159,7 @@ class MockKeyStorage extends _i1.Mock implements _i6.KeyStorage {
       );
 
   @override
-  set keyPair(_i7.NostrKeyPairs? _keyPair) => super.noSuchMethod(
+  set keyPair(_i8.KeyPair? _keyPair) => super.noSuchMethod(
         Invocation.setter(
           #keyPair,
           _keyPair,
@@ -154,13 +168,13 @@ class MockKeyStorage extends _i1.Mock implements _i6.KeyStorage {
       );
 
   @override
-  _i8.Future<_i7.NostrKeyPairs?> getActiveKeyPair() => (super.noSuchMethod(
+  _i9.Future<_i8.KeyPair?> getActiveKeyPair() => (super.noSuchMethod(
         Invocation.method(
           #getActiveKeyPair,
           [],
         ),
-        returnValue: _i8.Future<_i7.NostrKeyPairs?>.value(),
-      ) as _i8.Future<_i7.NostrKeyPairs?>);
+        returnValue: _i9.Future<_i8.KeyPair?>.value(),
+      ) as _i9.Future<_i8.KeyPair?>);
 
   @override
   dynamic set(String? item) => super.noSuchMethod(Invocation.method(
@@ -214,22 +228,22 @@ class MockNwcStorage extends _i1.Mock implements _i6.NwcStorage {
       );
 
   @override
-  _i8.Future<List<dynamic>> get() => (super.noSuchMethod(
+  _i9.Future<List<dynamic>> get() => (super.noSuchMethod(
         Invocation.method(
           #get,
           [],
         ),
-        returnValue: _i8.Future<List<dynamic>>.value(<dynamic>[]),
-      ) as _i8.Future<List<dynamic>>);
+        returnValue: _i9.Future<List<dynamic>>.value(<dynamic>[]),
+      ) as _i9.Future<List<dynamic>>);
 
   @override
-  _i8.Future<Uri?> getUri() => (super.noSuchMethod(
+  _i9.Future<Uri?> getUri() => (super.noSuchMethod(
         Invocation.method(
           #getUri,
           [],
         ),
-        returnValue: _i8.Future<Uri?>.value(),
-      ) as _i8.Future<Uri?>);
+        returnValue: _i9.Future<Uri?>.value(),
+      ) as _i9.Future<Uri?>);
 
   @override
   dynamic set(List<String>? items) => super.noSuchMethod(Invocation.method(
@@ -292,10 +306,10 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
       ) as _i5.NwcCubitState);
 
   @override
-  _i8.Stream<_i5.NwcCubitState> get stream => (super.noSuchMethod(
+  _i9.Stream<_i5.NwcCubitState> get stream => (super.noSuchMethod(
         Invocation.getter(#stream),
-        returnValue: _i8.Stream<_i5.NwcCubitState>.empty(),
-      ) as _i8.Stream<_i5.NwcCubitState>);
+        returnValue: _i9.Stream<_i5.NwcCubitState>.empty(),
+      ) as _i9.Stream<_i5.NwcCubitState>);
 
   @override
   bool get isClosed => (super.noSuchMethod(
@@ -304,22 +318,22 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
       ) as bool);
 
   @override
-  _i8.Future<dynamic> connect(String? str) => (super.noSuchMethod(
+  _i9.Future<dynamic> connect(String? str) => (super.noSuchMethod(
         Invocation.method(
           #connect,
           [str],
         ),
-        returnValue: _i8.Future<dynamic>.value(),
-      ) as _i8.Future<dynamic>);
+        returnValue: _i9.Future<dynamic>.value(),
+      ) as _i9.Future<dynamic>);
 
   @override
-  _i8.Future<dynamic> checkInfo() => (super.noSuchMethod(
+  _i9.Future<dynamic> checkInfo() => (super.noSuchMethod(
         Invocation.method(
           #checkInfo,
           [],
         ),
-        returnValue: _i8.Future<dynamic>.value(),
-      ) as _i8.Future<dynamic>);
+        returnValue: _i9.Future<dynamic>.value(),
+      ) as _i9.Future<dynamic>);
 
   @override
   void emit(_i5.NwcCubitState? state) => super.noSuchMethod(
@@ -331,7 +345,7 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
       );
 
   @override
-  void onChange(_i9.Change<_i5.NwcCubitState>? change) => super.noSuchMethod(
+  void onChange(_i10.Change<_i5.NwcCubitState>? change) => super.noSuchMethod(
         Invocation.method(
           #onChange,
           [change],
@@ -372,14 +386,14 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
       );
 
   @override
-  _i8.Future<void> close() => (super.noSuchMethod(
+  _i9.Future<void> close() => (super.noSuchMethod(
         Invocation.method(
           #close,
           [],
         ),
-        returnValue: _i8.Future<void>.value(),
-        returnValueForMissingStub: _i8.Future<void>.value(),
-      ) as _i8.Future<void>);
+        returnValue: _i9.Future<void>.value(),
+        returnValueForMissingStub: _i9.Future<void>.value(),
+      ) as _i9.Future<void>);
 }
 
 /// A class which mocks [NwcService].
@@ -445,16 +459,16 @@ class MockNwcService extends _i1.Mock implements _i4.NwcService {
       );
 
   @override
-  _i6.NostrService get nostr => (super.noSuchMethod(
+  _i7.Ndk get nostr => (super.noSuchMethod(
         Invocation.getter(#nostr),
-        returnValue: _FakeNostrService_6(
+        returnValue: _FakeNdk_6(
           this,
           Invocation.getter(#nostr),
         ),
-      ) as _i6.NostrService);
+      ) as _i7.Ndk);
 
   @override
-  set nostr(_i6.NostrService? _nostr) => super.noSuchMethod(
+  set nostr(_i7.Ndk? _nostr) => super.noSuchMethod(
         Invocation.setter(
           #nostr,
           _nostr,
@@ -469,78 +483,61 @@ class MockNwcService extends _i1.Mock implements _i4.NwcService {
       ));
 
   @override
-  _i8.Future<_i6.NwcResponse> methodAndResponse(_i6.NwcMethod? request) =>
-      (super.noSuchMethod(
-        Invocation.method(
-          #methodAndResponse,
-          [request],
-        ),
-        returnValue: _i8.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
-          this,
-          Invocation.method(
-            #methodAndResponse,
-            [request],
-          ),
-        )),
-      ) as _i8.Future<_i6.NwcResponse>);
-
-  @override
-  _i8.Future<_i6.NwcResponse> payInvoice(_i6.NwcMethodPayInvoiceParams? p) =>
-      (super.noSuchMethod(
-        Invocation.method(
-          #payInvoice,
-          [p],
-        ),
-        returnValue: _i8.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
-          this,
-          Invocation.method(
-            #payInvoice,
-            [p],
-          ),
-        )),
-      ) as _i8.Future<_i6.NwcResponse>);
-
-  @override
-  dynamic lookupInvoice(_i6.NwcMethodLookupInvoiceParams? p) =>
-      super.noSuchMethod(Invocation.method(
-        #lookupInvoice,
-        [p],
-      ));
-
-  @override
-  dynamic makeInvoice(_i6.NwcMethodMakeInvoiceParams? p) =>
-      super.noSuchMethod(Invocation.method(
-        #makeInvoice,
-        [p],
-      ));
-
-  @override
-  _i8.Future<_i6.NwcResponse> getInfo() => (super.noSuchMethod(
+  _i9.Future<_i7.GetInfoResponse> getInfo(String? nwc) => (super.noSuchMethod(
         Invocation.method(
           #getInfo,
-          [],
+          [nwc],
         ),
-        returnValue: _i8.Future<_i6.NwcResponse>.value(_FakeNwcResponse_7(
+        returnValue:
+            _i9.Future<_i7.GetInfoResponse>.value(_FakeGetInfoResponse_7(
           this,
           Invocation.method(
             #getInfo,
-            [],
-          ),
-        )),
-      ) as _i8.Future<_i6.NwcResponse>);
-
-  @override
-  _i8.Future<_i6.NwcInfo> getWalletInfo(Uri? nwc) => (super.noSuchMethod(
-        Invocation.method(
-          #getWalletInfo,
-          [nwc],
-        ),
-        returnValue: _i8.Future<_i6.NwcInfo>.value(_FakeNwcInfo_8(
-          this,
-          Invocation.method(
-            #getWalletInfo,
             [nwc],
           ),
         )),
-      ) as _i8.Future<_i6.NwcInfo>);
+      ) as _i9.Future<_i7.GetInfoResponse>);
+
+  @override
+  _i9.Future<_i7.PayInvoiceResponse> payInvoice(
+    String? invoice,
+    int? amount,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #payInvoice,
+          [
+            invoice,
+            amount,
+          ],
+        ),
+        returnValue:
+            _i9.Future<_i7.PayInvoiceResponse>.value(_FakePayInvoiceResponse_8(
+          this,
+          Invocation.method(
+            #payInvoice,
+            [
+              invoice,
+              amount,
+            ],
+          ),
+        )),
+      ) as _i9.Future<_i7.PayInvoiceResponse>);
+
+  @override
+  _i9.Future<_i7.MakeInvoiceResponse> makeInvoice(int? amountSats) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #makeInvoice,
+          [amountSats],
+        ),
+        returnValue: _i9.Future<_i7.MakeInvoiceResponse>.value(
+            _FakeMakeInvoiceResponse_9(
+          this,
+          Invocation.method(
+            #makeInvoice,
+            [amountSats],
+          ),
+        )),
+      ) as _i9.Future<_i7.MakeInvoiceResponse>);
 }

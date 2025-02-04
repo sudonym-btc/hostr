@@ -1,8 +1,8 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
+import 'package:ndk/ndk.dart';
 
 class ListingView extends StatelessWidget {
   final String a;
@@ -62,7 +62,8 @@ class ListingView extends StatelessWidget {
                               Row(children: [
                                 Text('hosted by'),
                                 SizedBox(width: 8),
-                                ProfileChipWidget(id: state.data!.pubkey)
+                                ProfileChipWidget(
+                                    id: state.data!.nip01Event.pubKey)
                               ]),
                               const SizedBox(height: 8.0),
                               ReviewsReservationsWidget(
@@ -86,8 +87,9 @@ class ListingView extends StatelessWidget {
                                   child: BlocProvider<ListCubit<Review>>(
                                       create: (context) => ListCubit<Review>(
                                           kinds: Review.kinds,
-                                          filter:
-                                              NostrFilter(e: [state.data!.id!]))
+                                          filter: Filter(eTags: [
+                                            state.data!.nip01Event.id
+                                          ]))
                                         ..next(),
                                       child: ListWidget<Review>(builder: (el) {
                                         return ReviewListItem(
@@ -101,46 +103,5 @@ class ListingView extends StatelessWidget {
                       ))
                     ]));
         });
-  }
-}
-
-class Reserve extends StatelessWidget {
-  final Listing listing;
-  final DateTimeRange? dateRange;
-  const Reserve({super.key, required this.listing, this.dateRange});
-
-  @override
-  Widget build(BuildContext context) {
-    // if (dateRange == null) {
-    //   return Container();
-    // }
-
-    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      dateRange != null
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("\$${listing.cost(dateRange!)} total"),
-                Text(
-                    '${formatDate(dateRange!.start)} - ${formatDate(dateRange!.end)}')
-              ],
-            )
-          : Text('Select dates'),
-      FilledButton(
-          onPressed: () {
-            // var m = MessageType0.fromPartialData(
-            //     start: searchController.state.filters
-            //         .firstWhere((element) => element.key == 'start')
-            //         .value,
-            //     end: searchController.state.filters
-            //         .firstWhere((element) => element.key == 'end')
-            //         .value,
-            //     hostPubKey: listing.nostrEvent.pubkey,
-            //     listingId: listing.nostrEvent.id);
-            // getIt<MessageRepository>().create(m);
-          },
-          child: Text('Reserve'))
-    ]);
   }
 }

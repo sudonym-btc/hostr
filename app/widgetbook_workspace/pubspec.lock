@@ -86,6 +86,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.2"
+  bip32:
+    dependency: transitive
+    description:
+      name: bip32
+      sha256: "54787cd7a111e9d37394aabbf53d1fc5e2e0e0af2cd01c459147a97c0e3f8a97"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.0"
   bip32_bip44:
     dependency: transitive
     description:
@@ -142,6 +150,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  bs58check:
+    dependency: transitive
+    description:
+      name: bs58check
+      sha256: c4a164d42b25c2f6bc88a8beccb9fc7d01440f3c60ba23663a20a70faf484ea9
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   build:
     dependency: transitive
     description:
@@ -230,6 +246,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.3"
+  chopper:
+    dependency: transitive
+    description:
+      name: chopper
+      sha256: "40899b729fb6d8969d967264b189efaf2452bc3ccf6ed0782d00f1d8a6161c31"
+      url: "https://pub.dev"
+    source: hosted
+    version: "8.0.3"
   cli_util:
     dependency: transitive
     description:
@@ -793,6 +817,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
+  mobile_scanner:
+    dependency: transitive
+    description:
+      name: mobile_scanner
+      sha256: "57d6269d10912d5d583606b46d963d7c5d0299d2c37add8b7192dd769d40a319"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.0.3"
   mockito:
     dependency: "direct dev"
     description:
@@ -961,6 +993,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.0"
+  qs_dart:
+    dependency: transitive
+    description:
+      name: qs_dart
+      sha256: "56734fa99a8cc43d72b7396f26c0dad7d1a4ae4bfedc614e94e07ae7a833a179"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.0"
   rational:
     dependency: transitive
     description:
@@ -969,6 +1009,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.3"
+  recursive_regex:
+    dependency: transitive
+    description:
+      name: recursive_regex
+      sha256: f7252e3d3dfd1665e594d9fe035eca6bc54139b1f2fee38256fa427ea41adc60
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   resizable_widget:
     dependency: transitive
     description:
@@ -1214,6 +1262,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.5.1"
+  validators:
+    dependency: transitive
+    description:
+      name: validators
+      sha256: "884515951f831a9c669a41ed6c4d3c61c2a0e8ec6bca761a4480b28e99cecf5d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.0"
   vector_math:
     dependency: transitive
     description:
@@ -1254,6 +1310,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  weak_map:
+    dependency: transitive
+    description:
+      name: weak_map
+      sha256: "5f8e5d5ce57dc624db5fae814dd689ccae1f17f92b426e52f0a7cbe7f6f4ab97"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.1"
   web:
     dependency: transitive
     description:

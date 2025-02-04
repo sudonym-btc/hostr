@@ -1,11 +1,12 @@
 import 'dart:convert';
 
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+import 'package:ndk/domain_layer/entities/nip_01_event.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 @Injectable(env: Env.allButTestAndMock)
 class ZapService {
@@ -20,18 +21,19 @@ class ZapService {
     String? content,
     String? eventId,
   }) async {
-    NostrKeyPairs? keyPairs = await keyStorage.getActiveKeyPair();
-    return NostrEvent.fromPartialData(
-        kind: 9734,
-        tags: [
-          ["relays", ...relays],
-          ["amount", (amountSats * 1000).toString()],
-          ["lnurl", lnurl],
-          ["p", recipientPubkey],
-          if (eventId != null) ["e", eventId]
-        ],
-        content: content ?? "",
-        keyPairs: keyPairs!);
+    KeyPair? keyPairs = await keyStorage.getActiveKeyPair();
+    return Nip01Event.fromJson({
+      "kind": 9734,
+      "tags": [
+        ["relays", ...relays],
+        ["amount", (amountSats * 1000).toString()],
+        ["lnurl", lnurl],
+        ["p", recipientPubkey],
+        if (eventId != null) ["e", eventId]
+      ],
+      "content": content ?? "",
+      "keyPairs": keyPairs!
+    });
   }
 
   getZapInvoice({
@@ -43,7 +45,7 @@ class ZapService {
     String? content,
     String? eventId,
   }) async {
-    NostrEvent event = generateZapRequestEvent(
+    Nip01Event event = generateZapRequestEvent(
         recipientPubkey: recipientPubkey,
         lnurl: lnurl,
         amountSats: amountSats,

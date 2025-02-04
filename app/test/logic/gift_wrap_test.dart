@@ -25,7 +25,7 @@ void main() {
             ..sync(),
       act: (bloc) async {
         getIt<NostrService>().events.add(giftWrapAndSeal(
-            MockKeys.guest.public, MockKeys.hoster, MOCK_LISTINGS[0], null));
+            MockKeys.guest.publicKey, MockKeys.hoster, MOCK_LISTINGS[0], null));
         // await Future.delayed(Duration(milliseconds: 50)); // Add a delay
       },
       expect: () => [

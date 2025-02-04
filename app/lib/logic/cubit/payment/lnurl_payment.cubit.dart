@@ -7,6 +7,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/swap.dart';
 import 'package:hostr/main.dart';
 import 'package:http/http.dart' as http;
+import 'package:ndk/ndk.dart';
 import 'package:validators/validators.dart';
 
 class LnUrlPaymentParameters extends PaymentParameters {
@@ -76,12 +77,9 @@ class LnUrlPaymentCubit extends PaymentCubit<LnUrlPaymentParameters,
 
   @override
   Future<LightningCompletedDetails> complete() async {
-    NwcResponse response = await getIt<NwcService>().payInvoice(
-        NwcMethodPayInvoiceParams(
-            invoice: state.callbackDetails!.invoice.paymentRequest));
-    return LightningCompletedDetails(
-        preimage: (response.parsedContent.result as NwcMethodPayInvoiceResponse)
-            .preimage);
+    PayInvoiceResponse response = await getIt<NwcService>()
+        .payInvoice(state.callbackDetails!.invoice.paymentRequest, null);
+    return LightningCompletedDetails(preimage: response.preimage);
   }
 }
 

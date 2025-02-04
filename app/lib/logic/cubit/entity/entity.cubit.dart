@@ -1,14 +1,15 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/injection.dart';
+import 'package:ndk/ndk.dart';
 
-class EntityCubit<T extends NostrEvent> extends Cubit<EntityCubitState<T>> {
+class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
   CustomLogger logger = CustomLogger();
   NostrService nostr = getIt<NostrService>();
-  final NostrFilter? filter;
+  final Filter? filter;
 
   EntityCubit({required this.filter})
       : super(const EntityCubitState(data: null));
@@ -17,11 +18,9 @@ class EntityCubit<T extends NostrEvent> extends Cubit<EntityCubitState<T>> {
     logger.i("getting $filter");
     emit(state.copyWith(active: true));
     try {
-      T? result = await nostr
-          .startRequestAsync(
-              request: NostrRequest(
-                  filters: [getCombinedFilter(filter, NostrFilter(limit: 1))]))
-          .then((items) => items.isNotEmpty ? items.first as T : null);
+      T? result = await nostr.startRequestAsync(filters: [
+        getCombinedFilter(filter, Filter(limit: 1))
+      ]).then((items) => items.isNotEmpty ? items.first as T : null);
       if (result == null) {
         logger.e("Not found error");
         emit(EntityCubitStateError(data: state.data, error: 'not found'));
@@ -36,7 +35,7 @@ class EntityCubit<T extends NostrEvent> extends Cubit<EntityCubitState<T>> {
   }
 }
 
-class EntityCubitState<T extends NostrEvent> extends Equatable {
+class EntityCubitState<T extends Event> extends Equatable {
   final T? data;
   final bool active;
 
@@ -52,7 +51,7 @@ class EntityCubitState<T extends NostrEvent> extends Equatable {
   List<Object?> get props => [data, active];
 }
 
-class EntityCubitStateError<T extends NostrEvent> extends EntityCubitState<T> {
+class EntityCubitStateError<T extends Event> extends EntityCubitState<T> {
   dynamic error;
   EntityCubitStateError({required super.data, required this.error});
 }

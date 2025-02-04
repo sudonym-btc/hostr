@@ -10,6 +10,25 @@
 part of 'router.dart';
 
 /// generated route for
+/// [BookingsScreen]
+class BookingsRoute extends PageRouteInfo<void> {
+  const BookingsRoute({List<PageRouteInfo>? children})
+      : super(
+          BookingsRoute.name,
+          initialChildren: children,
+        );
+
+  static const String name = 'BookingsRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const BookingsScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [FiltersScreen]
 class FiltersRoute extends PageRouteInfo<void> {
   const FiltersRoute({List<PageRouteInfo>? children})
@@ -276,4 +295,23 @@ class ThreadRouteArgs {
   String toString() {
     return 'ThreadRouteArgs{id: $id}';
   }
+}
+
+/// generated route for
+/// [TripsScreen]
+class TripsRoute extends PageRouteInfo<void> {
+  const TripsRoute({List<PageRouteInfo>? children})
+      : super(
+          TripsRoute.name,
+          initialChildren: children,
+        );
+
+  static const String name = 'TripsRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const TripsScreen();
+    },
+  );
 }

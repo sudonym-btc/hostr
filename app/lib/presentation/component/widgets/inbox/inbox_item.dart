@@ -13,19 +13,17 @@ class InboxItemWidget extends StatelessWidget {
         builder: (context, state) {
       return BlocBuilder<ModeCubit, ModeCubitState>(
           builder: (context, modeCubitState) {
-        print('modeCubitState: $modeCubitState');
         return ProfileProvider(
-            e: threadCubit.state!.id,
+            pubkey: threadCubit.getCounterpartyPubkey(),
             builder: (context, profile) {
               // var name =
               //     state.data?.parsedContent.name ?? threadCubit.state.data!.id;
               return ListTile(
                 title: Text('Rando: ${modeCubitState.runtimeType}'),
                 // subtitle: Text(threadCubit.state.data!.lastMessage),
-                leading: profile.data?.parsedContent.picture != null
+                leading: profile.picture != null
                     ? CircleAvatar(
-                        backgroundImage:
-                            NetworkImage(profile.data!.parsedContent.picture!),
+                        backgroundImage: NetworkImage(profile.picture!),
                       )
                     : CircleAvatar(
                         backgroundColor: Colors.grey,

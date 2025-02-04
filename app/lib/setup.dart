@@ -25,6 +25,7 @@ setup(String env) async {
   await getIt<RelayConnector>().connect();
 
   if (env == Env.mock) {
+    // || env == Env.dev
     await seed();
   }
 }

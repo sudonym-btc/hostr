@@ -63,15 +63,15 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
 
       // Add markers for new locations
       for (var item in state.results) {
-        if (!_fetchedIds.contains(item.id)) {
-          _fetchedIds.add(item.id!);
+        if (!_fetchedIds.contains(item.nip01Event.id)) {
+          _fetchedIds.add(item.nip01Event.id);
           var res = await getIt<GoogleMaps>()
               .getCoordinatesFromAddress(item.parsedContent.location);
 
           if (res != null) {
             setState(() {
-              _markers[item.id!] =
-                  Marker(markerId: MarkerId(item.id!), position: res);
+              _markers[item.nip01Event.id] =
+                  Marker(markerId: MarkerId(item.nip01Event.id), position: res);
             });
           }
         }
@@ -79,8 +79,8 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
 
       // Collect markers to be removed
       final markersToRemove = _markers.values.where((marker) {
-        final shouldRemove =
-            !state.results.any((loc) => loc.id == marker.markerId.value);
+        final shouldRemove = !state.results
+            .any((loc) => loc.nip01Event.id == marker.markerId.value);
         if (shouldRemove) {
           setState(() {
             _fetchedIds.remove(marker.markerId.value);

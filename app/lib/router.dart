@@ -26,6 +26,12 @@ class AppRouter extends RootStackRouter {
 
             AutoRoute(page: ProfileRoute.page, path: 'profile', guards: []),
             AutoRoute(
+                page: BookingsRoute.page,
+                path: 'bookings',
+                guards: [AuthGuard()]),
+            AutoRoute(
+                page: TripsRoute.page, path: 'trips', guards: [AuthGuard()]),
+            AutoRoute(
                 page: InboxRoute.page,
                 path: 'inbox',
                 guards: [AuthGuard()],

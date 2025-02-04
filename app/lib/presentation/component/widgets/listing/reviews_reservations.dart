@@ -1,8 +1,8 @@
-import 'package:dart_nostr/nostr/model/request/filter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:ndk/ndk.dart';
 
 class ReviewsReservationsWidget extends StatelessWidget {
   final String a;
@@ -11,7 +11,7 @@ class ReviewsReservationsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-        create: (context) => FilterCubit()..updateFilter(NostrFilter(a: [a])),
+        create: (context) => FilterCubit()..updateFilter(Filter(aTags: [a])),
         child: Row(
           children: [
             BlocProvider(

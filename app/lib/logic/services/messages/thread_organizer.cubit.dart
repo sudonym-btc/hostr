@@ -1,4 +1,3 @@
-import 'package:dart_nostr/nostr/model/event/event.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
@@ -7,7 +6,7 @@ import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'global_gift_wrap.cubit.dart';
 import 'thread.cubit.dart';
 
-class ThreadOrganizerCubit<T extends NostrEvent>
+class ThreadOrganizerCubit<T extends Event>
     extends Cubit<ThreadOrganizerState> {
   CustomLogger logger = CustomLogger();
   final GlobalGiftWrapCubit? globalMessageCubit;

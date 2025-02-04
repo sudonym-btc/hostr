@@ -11,33 +11,35 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
-        listeners: [
-          BlocListener<PaymentsManager, PaymentCubit?>(
-            listener: (c, state) {
-              if (state == null) return;
-              // Handle PaymentsManager state changes
-              showModalBottomSheet(
-                  context: context,
-                  builder: (c) {
-                    return PaymentWidget(
-                      paymentCubit: state,
-                    );
-                  });
-            },
-          ),
-          // BlocListener<SwapManager, SwapState>(
-          //   listener: (context, state) {
-          //     // Handle SwapManager state changes
-          //   },
-          // ),
-          // BlocListener<EscrowDepositManager, EscrowDepositState>(
-          //   listener: (context, state) {
-          //     // Handle EscrowDepositManager state changes
-          //   },
-          // ),
-        ],
-        child: AutoTabsScaffold(
-            routes: [SearchRoute(), InboxRoute(), ProfileRoute()],
+      listeners: [
+        BlocListener<PaymentsManager, PaymentCubit?>(
+          listener: (c, state) {
+            if (state == null) return;
+            // Handle PaymentsManager state changes
+            showModalBottomSheet(
+                context: context,
+                builder: (c) {
+                  return PaymentWidget(
+                    paymentCubit: state,
+                  );
+                });
+          },
+        ),
+        // BlocListener<SwapManager, SwapState>(
+        //   listener: (context, state) {
+        //     // Handle SwapManager state changes
+        //   },
+        // ),
+        // BlocListener<EscrowDepositManager, EscrowDepositState>(
+        //   listener: (context, state) {
+        //     // Handle EscrowDepositManager state changes
+        //   },
+        // ),
+      ],
+      child: BlocBuilder<ModeCubit, ModeCubitState>(builder: (context, state) {
+        print(state);
+        return AutoTabsScaffold(
+            routes: [SearchRoute(), TripsRoute(), InboxRoute(), ProfileRoute()],
             bottomNavigationBuilder: (context, tabsRouter) =>
                 BottomNavigationBar(
                   currentIndex: tabsRouter.activeIndex,
@@ -46,10 +48,14 @@ class HomeScreen extends StatelessWidget {
                     BottomNavigationBarItem(
                         icon: Icon(Icons.search, size: 30), label: 'Search'),
                     BottomNavigationBarItem(
+                        icon: Icon(Icons.travel_explore), label: 'Trips'),
+                    BottomNavigationBarItem(
                         icon: Icon(Icons.inbox), label: 'Inbox'),
                     BottomNavigationBarItem(
                         icon: Icon(Icons.person), label: 'Profile'),
                   ],
-                )));
+                ));
+      }),
+    );
   }
 }

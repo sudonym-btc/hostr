@@ -3,22 +3,18 @@ import 'dart:convert';
 import 'event.dart';
 import 'serializable.dart';
 
-abstract class JsonContentNostrEvent<ContentType extends Serializable>
+abstract class JsonContentNostrEvent<ContentType extends EventContent>
     extends Event {
-  final ContentType parsedContent;
+  late ContentType parsedContent;
 
-  const JsonContentNostrEvent(
-      {required this.parsedContent,
-      required super.content,
-      required super.createdAt,
-      required super.id,
-      required super.kind,
-      required super.pubkey,
-      required super.sig,
-      required super.tags});
+  JsonContentNostrEvent(super.nip01Event);
+
+  @override
+  String get content => parsedContent.toString();
 }
 
 class EventContent extends Serializable {
+  @override
   toJson() {
     throw UnimplementedError();
   }

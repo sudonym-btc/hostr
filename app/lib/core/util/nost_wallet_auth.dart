@@ -1,4 +1,4 @@
-import 'package:dart_nostr/dart_nostr.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class BudgetPeriod {
   static String daily = 'daily';
@@ -9,7 +9,7 @@ class BudgetPeriod {
 
 class NostrWalletAuth {
   generateUri(
-      {required NostrKeyPairs keyPair,
+      {required KeyPair keyPair,
       required int budget,
       required String budgetPeriod,
       required String relay,
@@ -17,7 +17,7 @@ class NostrWalletAuth {
       String? appPubKey}) {
     return Uri(
         scheme: 'nostr+walletauth',
-        host: keyPair.public,
+        host: keyPair.publicKey,
         queryParameters: {
           'relay': relay,
           'secret': secret,

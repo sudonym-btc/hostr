@@ -1,29 +1,26 @@
-import 'dart:convert';
+import 'package:ndk/ndk.dart';
 
-import 'package:dart_nostr/dart_nostr.dart';
-
-abstract class Event extends NostrEvent {
+abstract class Event {
   static List<int> kinds = [];
+  Nip01Event nip01Event;
 
-  const Event(
-      {required super.content,
-      required super.createdAt,
-      required super.id,
-      required super.kind,
-      required super.pubkey,
-      required super.sig,
-      required super.tags});
-
-  String get anchor => getTag('a').first.first;
-
-  Iterable<List<dynamic>> getTag(String key) {
-    return (tags ?? []).where((tag) => tag[0] == key).map((tag) => [tag[1]]);
+  Event(this.nip01Event);
+  Event.fromNostrEvent({required this.nip01Event});
+  Nip01Event toNostrEvent() {
+    if (nip01Event.sig == '') {
+      return Nip01Event(
+          pubKey: nip01Event.pubKey,
+          kind: nip01Event.kind,
+          tags: nip01Event.tags,
+          content: nip01Event.content);
+    }
+    return Nip01Event(
+        pubKey: nip01Event.pubKey,
+        kind: nip01Event.kind,
+        tags: nip01Event.tags,
+        content: content);
   }
 
-  /// Overrides Equatable's to string
-  /// TODO check if this causes issues
-  @override
-  toString() {
-    return jsonEncode(toMap());
-  }
+  String get content => nip01Event.content;
+  String get anchor => nip01Event.getFirstTag('a')!;
 }

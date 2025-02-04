@@ -1,44 +1,35 @@
 import 'dart:convert';
 import 'dart:core';
 
-import 'package:dart_nostr/dart_nostr.dart';
-import 'package:dart_nostr/nostr/core/constants.dart';
 import 'package:hostr/config/main.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/data/models/nostr_kind/event.dart';
+import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import 'type_parent.dart';
 
-class GiftWrap<T extends NostrEvent> extends ParentTypeNostrEvent<T> {
+class GiftWrap<T extends Event> extends ParentTypeNostrEvent<T> {
   static const List<int> kinds = [NOSTR_KIND_GIFT_WRAP];
-  GiftWrap.fromNostrEvent(NostrEvent e, NostrKeyPairs key, Uri? nwc)
+  GiftWrap.fromNostrEvent(super.e, KeyPair key, Uri? nwc)
       : super(
-            content: e.content,
             child: parser<T>(
-                NostrEvent.deserialized(jsonEncode(
-                    [NostrConstants.event, '', jsonDecode(e.content!)])),
-                key,
-                nwc), // Should decrypt here
-            createdAt: e.createdAt,
-            id: e.id,
-            kind: e.kind,
-            pubkey: e.pubkey,
-            sig: e.sig,
-            tags: e.tags);
+                Nip01Event.fromJson(jsonDecode(e.content)), key, nwc));
 
-  static GiftWrap<T> typed<T extends NostrEvent>(
-      NostrEvent e, NostrKeyPairs key, Uri? nwc) {
-    return GiftWrap<T>.fromNostrEvent(e, NostrKeyPairs.generate(), null);
+  static GiftWrap<T> typed<T extends Event>(
+      Nip01Event e, KeyPair key, Uri? nwc) {
+    return GiftWrap<T>.fromNostrEvent(e, key, nwc);
   }
 
-  static GiftWrap create(String to, NostrKeyPairs from, Event event) {
+  static GiftWrap create(String to, KeyPair from, Event event) {
     return GiftWrap.fromNostrEvent(
-        NostrEvent.fromPartialData(
+        Nip01Event(
             kind: NOSTR_KIND_GIFT_WRAP,
             tags: [
               ['p', to]
             ],
-            keyPairs: NostrKeyPairs.generate(),
+            pubKey: from.publicKey,
             content: event.toString()),
         from,
         null
@@ -48,20 +39,20 @@ class GiftWrap<T extends NostrEvent> extends ParentTypeNostrEvent<T> {
   }
 }
 
-GiftWrap giftWrapAndSeal(
-    String to, NostrKeyPairs from, NostrEvent event, Uri? nwc) {
+GiftWrap giftWrapAndSeal(String to, KeyPair from, Event event, Uri? nwc) {
   return GiftWrap.fromNostrEvent(
-      NostrEvent.fromPartialData(
-          keyPairs: NostrKeyPairs.generate(),
+      Nip01Event(
+          pubKey: Bip340.generatePrivateKey().publicKey,
           kind: NOSTR_KIND_GIFT_WRAP,
           tags: [
             ['p', to]
           ],
           content: Seal.fromNostrEvent(
-                  NostrEvent.fromPartialData(
+                  Nip01Event(
                       kind: NOSTR_KIND_SEAL,
-                      keyPairs: from,
-                      content: event.toString()),
+                      pubKey: from.publicKey,
+                      content: event.toString(),
+                      tags: []),
                   from,
                   nwc)
               .toString()),

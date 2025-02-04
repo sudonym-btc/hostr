@@ -1,9 +1,9 @@
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/util/custom_logger.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/injection.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class ThreadCubit extends Cubit<ThreadCubitState> {
   CustomLogger logger = CustomLogger();
@@ -17,10 +17,14 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 
   String getCounterpartyPubkey() {
     logger.i('Getting counterparty pubkey');
-    NostrKeyPairs ours = getIt<KeyStorage>().getActiveKeyPairSync()!;
-    return state.messages.first.getTag('p').first.first != ours.public
-        ? state.messages.first.getTag('p').first.first
-        : state.messages.first.child.pubkey;
+    KeyPair ours = getIt<KeyStorage>().getActiveKeyPairSync()!;
+    return state.messages
+        .firstWhere(
+          (element) => element.child.nip01Event.pubKey != ours.publicKey,
+        )
+        .child
+        .nip01Event
+        .pubKey;
   }
 
   String getAnchor() {
@@ -37,18 +41,18 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   LatestThreadState? getLatestState() {
     logger.i('Getting latest state');
 
-    NostrKeyPairs ours = (getIt<KeyStorage>().getActiveKeyPairSync())!;
+    KeyPair ours = (getIt<KeyStorage>().getActiveKeyPairSync())!;
 
     for (GiftWrap g in state.messages.reversed) {
       Seal seal = (g.child as Seal);
       Event content = (seal.child as Event);
       if (content is ReservationRequest) {
-        if (seal.pubkey == ours.public) {
+        if (seal.nip01Event.pubKey == ours.publicKey) {
           return LatestThreadState.RESERVATION_REQUEST_SENT;
         }
         return LatestThreadState.RESERVATION_REQUEST_RECEIVED;
       } else if (content is Message) {
-        if (seal.pubkey == ours.public) {
+        if (seal.nip01Event.pubKey == ours.publicKey) {
           return LatestThreadState.MESSAGE_SENT;
         }
         return LatestThreadState.MESSAGE_RECEIVED;

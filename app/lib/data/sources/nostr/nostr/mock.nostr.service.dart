@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:dart_nostr/dart_nostr.dart';
-import 'package:dart_nostr/nostr/model/ease.dart';
-import 'package:dart_nostr/nostr/model/ok.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
+import 'package:ndk/domain_layer/entities/broadcast_state.dart';
+import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
 
 // todo: must filter by since, before, and limit, must implement count, must implement replaceable events
@@ -15,21 +15,21 @@ class MockNostrService extends NostrService {
   final shouldDelay = true;
 
   @override
-  NostrEventsStream startRequest<T extends NostrEvent>(
-      {required NostrRequest request,
-      required void Function(String relay, NostrRequestEoseCommand ease) onEose,
-      List<String>? relays}) {
-    logger.i("startRequest ${request.filters}");
+  Stream<T> startRequest<T extends Event>(
+      {required List<Filter> filters, List<String>? relays}) {
+    logger.i("startRequest $filters");
     // Create filtered events stream with artificial delay
-    final filteredEvents = events.stream
+    return events.stream
         // .doOnData(logger.t)
 
         /// Nostr filters act as OR, so we need to check if any filter matches
         .where((event) =>
-            request.filters.any((filter) => matchEvent(event, filter)))
+            filters.any((filter) => matchEvent(event.nip01Event, filter)))
         .doOnData((event) => logger.t("matched event $event"))
         .asyncMap((event) async {
-          return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair(),
+          return parser<T>(
+              event.nip01Event,
+              await getIt<KeyStorage>().getActiveKeyPair(),
               await getIt<NwcStorage>().getUri());
         })
 
@@ -37,84 +37,76 @@ class MockNostrService extends NostrService {
         .transform(simulateNetworkDelay(shouldDelay))
 
         /// Limit the number of events, Max int if no limit defined
-        .take(request.filters.any((f) => f.limit != null)
-            ? request.filters
-                .map((f) => f.limit ?? 999999999999)
-                .reduce(min)
-                .toInt()
+        .take(filters.any((f) => f.limit != null)
+            ? filters.map((f) => f.limit ?? 999999999999).reduce(min).toInt()
             : 999999999999);
-    onEose(
-        'mock',
-        NostrRequestEoseCommand(
-            subscriptionId: request.subscriptionId ?? "mock-subscription-id"));
-
-    return NostrEventsStream(
-        stream: filteredEvents,
-        subscriptionId: request.subscriptionId ?? "mock-subscription-id",
-        request: request);
   }
 
   @override
-  Future<List<T>> startRequestAsync<T extends NostrEvent>(
-      {required NostrRequest request,
+  Future<List<T>> startRequestAsync<T extends Event>(
+      {required List<Filter> filters,
       List<String>? relays,
       Duration? timeout}) {
-    return startRequest(
-      request: request,
-      onEose: (relay, ease) => false,
-    ).stream.asyncMap((event) async {
-      return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair(),
-          await getIt<NwcStorage>().getUri());
-    }).toList();
+    return startRequest<T>(
+      filters: filters,
+    ).toList();
   }
 
   @override
-  Future<int> count(NostrFilter filter) async {
-    return events.values.where((event) => matchEvent(event, filter)).length;
+  Future<int> count(Filter filter) async {
+    return events.values
+        .where((event) => matchEvent(event.nip01Event, filter))
+        .length;
   }
 
   @override
-  Future<NostrEventOkCommand> sendEventToRelaysAsync(
-      {required NostrEvent event, List<String>? relays}) async {
+  Future<List<RelayBroadcastResponse>> broadcast(
+      {required Nip01Event event, List<String>? relays}) async {
     logger.i("sendEventToRelaysAsync $event");
-    events.add(event);
-    return Future.value(NostrEventOkCommand(
-        eventId: event.id!, isEventAccepted: true, message: ""));
+    events.add(parser(event, await getIt<KeyStorage>().getActiveKeyPair(),
+        await getIt<NwcStorage>().getUri()));
+    return [
+      RelayBroadcastResponse(
+          relayUrl: 'test',
+          okReceived: true,
+          broadcastSuccessful: true,
+          msg: "")
+    ];
   }
 
-  matchEvent(NostrEvent event, NostrFilter filter) {
+  matchEvent(Nip01Event event, Filter filter) {
     /// Only match the correct event kinds
     if (filter.kinds != null && !filter.kinds!.contains(event.kind)) {
       return false;
     }
 
     /// Only match events from a specific pubkey
-    if (filter.p != null && !filter.p!.contains(event.pubkey)) {
+    if (filter.pTags != null && !filter.pTags!.contains(event.pubKey)) {
       return false;
     }
 
     /// Only match events from that are addressable by kind:pubkey:string => "a" tag
-    if (filter.a != null &&
-        !filter.a!.any(
-            (a) => event.tags!.any((tag) => tag[0] == "a" && tag[1] == a))) {
+    if (filter.aTags != null &&
+        !filter.aTags!.any(
+            (a) => event.tags.any((tag) => tag[0] == "a" && tag[1] == a))) {
       return false;
     }
 
-    logger.t("keys ${filter.additionalFilters?.values}");
+    // logger.t("keys ${filter.additionalFilters.values}");
 
-    /// Only match events that contain a tag
-    if (filter.additionalFilters != null &&
-        filter.additionalFilters!.keys.isNotEmpty &&
+    // /// Only match events that contain a tag
+    // if (filter.additionalFilters != null &&
+    //     filter.additionalFilters!.keys.isNotEmpty &&
 
-        /// Loop through all the additional filters
-        !filter.additionalFilters!.keys
-            .any((tagType) => event.tags!.any((eventTag) {
-                  /// Returns true if the event contains
-                  return (filter.additionalFilters![tagType] as List<String>)
-                      .any(eventTag.contains);
-                }))) {
-      return false;
-    }
+    //     /// Loop through all the additional filters
+    //     !filter.additionalFilters!.keys
+    //         .any((tagType) => event.tags!.any((eventTag) {
+    //               /// Returns true if the event contains
+    //               return (filter.additionalFilters![tagType] as List<String>)
+    //                   .any(eventTag.contains);
+    //             }))) {
+    //   return false;
+    // }
 
     // if (filter.authors != null &&
     //     (!filter.authors!.contains(event.pubkey) ||

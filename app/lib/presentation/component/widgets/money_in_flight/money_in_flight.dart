@@ -17,7 +17,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
   initState() {
     super.initState();
     keyStorage.getActiveKeyPair().then((value) {
-      r.getBalance(getEthCredentials(value!.private).address).then(
+      r.getBalance(getEthCredentials(value!.privateKey!).address).then(
         (val) {
           setState(() {
             balance = val;

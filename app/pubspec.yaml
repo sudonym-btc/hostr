@@ -13,13 +13,12 @@ dependencies:
   # boltz_dart: 
   #   path: ../boltz-dart
   auto_route: ^9.2.0
-  dart_nostr: ^8.0.3
   bip39_mnemonic: ^3.0.6
-  nostr: 
   get_it: ^8.0.3
   bech32: ^0.2.2
+  ndk: ^0.2.6
   bolt11_decoder: ^1.0.2
-  injectable: ^2.1.1
+  injectable: ^2.5.0
   validators: ^3.0.0
   flutter_secure_storage: ^9.2.2
   flutter:
@@ -55,6 +54,8 @@ dependencies:
   json_annotation: ^4.8.0
   qr_flutter: ^4.1.0
   mobile_scanner: ^6.0.2
+  ndk_rust_verifier: ^0.2.1
+  ndk_amber: ^0.2.0
 
 dev_dependencies:
   mockito: ^5.4.5

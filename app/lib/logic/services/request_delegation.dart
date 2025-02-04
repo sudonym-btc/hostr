@@ -1,7 +1,6 @@
 // import 'dart:async';
 // import 'dart:convert';
 
-// import 'package:dart_nostr/dart_nostr.dart';
 // import 'package:hostr/export.dart';
 // import 'package:hostr/injection.dart';
 // import 'package:injectable/injectable.dart';

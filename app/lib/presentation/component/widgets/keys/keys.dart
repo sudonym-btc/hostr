@@ -1,10 +1,10 @@
 import 'package:bip39/bip39.dart';
-import 'package:dart_nostr/dart_nostr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class KeysWidget extends StatefulWidget {
   const KeysWidget({super.key});
@@ -14,7 +14,7 @@ class KeysWidget extends StatefulWidget {
 }
 
 class KeysWidgetState extends State<KeysWidget> {
-  NostrKeyPairs? key;
+  KeyPair? key;
   KeyStorage keyStorage = getIt<KeyStorage>();
   @override
   void initState() {
@@ -33,50 +33,51 @@ class KeysWidgetState extends State<KeysWidget> {
             children: [
               ListTile(
                 title: Text('Public key'),
-                subtitle: Text(key!.public),
+                subtitle: Text(key!.publicKey),
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: key!.public));
+                  Clipboard.setData(ClipboardData(text: key!.publicKey));
                 },
               ),
               ListTile(
                 title: Text('Private key'),
-                subtitle: Text(key!.private),
+                subtitle: Text(key!.privateKey!),
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: key!.private));
+                  Clipboard.setData(ClipboardData(text: key!.privateKey!));
                 },
               ),
               ListTile(
                 title: Text('Public eth address'),
-                subtitle: Text(getEthCredentials(key!.private).address.hex),
+                subtitle: Text(getEthCredentials(key!.privateKey!).address.hex),
                 onTap: () {
                   Clipboard.setData(ClipboardData(
-                      text: getEthCredentials(key!.private).address.hex));
+                      text: getEthCredentials(key!.privateKey!).address.hex));
                 },
               ),
               ListTile(
                 title: Text('Public eth address from pubkey'),
-                subtitle: Text(getEthAddressFromPublicKey(key!.public).hex),
+                subtitle: Text(getEthAddressFromPublicKey(key!.publicKey).hex),
                 onTap: () {
                   Clipboard.setData(ClipboardData(
-                      text: getEthCredentials(key!.private).address.hex));
+                      text: getEthCredentials(key!.privateKey!).address.hex));
                 },
               ),
               ListTile(
                 title: Text('Private eth key'),
-                subtitle: Text(
-                    (getEthCredentials(key!.private).privateKeyInt.toString())),
+                subtitle: Text((getEthCredentials(key!.privateKey!)
+                    .privateKeyInt
+                    .toString())),
                 onTap: () {
                   Clipboard.setData(ClipboardData(
                       text: String.fromCharCodes(
-                          getEthCredentials(key!.private).privateKey)));
+                          getEthCredentials(key!.privateKey!).privateKey)));
                 },
               ),
               ListTile(
                 title: Text('Mnemonic'),
-                subtitle: Text(entropyToMnemonic(key!.private)),
+                subtitle: Text(entropyToMnemonic(key!.privateKey!)),
                 onTap: () {
                   Clipboard.setData(
-                      ClipboardData(text: entropyToMnemonic(key!.private)));
+                      ClipboardData(text: entropyToMnemonic(key!.privateKey!)));
                 },
               ),
               ListTile(

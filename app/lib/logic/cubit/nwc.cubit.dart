@@ -1,8 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:ndk/ndk.dart';
 
 import '../services/nwc.dart';
 
@@ -14,7 +14,7 @@ class NwcCubit extends Cubit<NwcCubitState> {
   Future connect(String str) async {
     try {
       /// todo emit intermediate state
-      await nwcService.getWalletInfo(parseNwc(str));
+      await nwcService.getInfo(parseNwc(str).toString());
       await nwcService.save(str);
       await checkInfo();
     } catch (e) {
@@ -25,9 +25,10 @@ class NwcCubit extends Cubit<NwcCubitState> {
 
   Future checkInfo() async {
     emit(NostrWalletConnectInProgress());
-    return nwcService.getInfo().then((value) {
-      emit(Success(
-          content: value.parsedContent.result as NwcMethodGetInfoResponse));
+    return nwcService
+        .getInfo((await nwcService.nwcStorage.get())[0])
+        .then((value) {
+      emit(Success(content: value));
     }).catchError((e) {
       print(e);
       emit(Error(e: e));
@@ -49,7 +50,7 @@ class NostrWalletConnectInProgress extends NwcCubitState {
 }
 
 class Success extends NwcCubitState {
-  final NwcMethodGetInfoResponse content;
+  final GetInfoResponse content;
 
   const Success({required this.content});
 }
