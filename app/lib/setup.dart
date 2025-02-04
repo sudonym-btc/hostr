@@ -13,8 +13,8 @@ setup(String env) async {
 
   HydratedBloc.storage = await HydratedStorage.build(
     storageDirectory: kIsWeb
-        ? HydratedStorage.webStorageDirectory
-        : await getApplicationDocumentsDirectory(),
+        ? HydratedStorageDirectory.web
+        : HydratedStorageDirectory((await getTemporaryDirectory()).path),
   );
   // Allow self signed certificates for development
   if ([Env.mock, Env.dev, Env.test].contains(env)) {
