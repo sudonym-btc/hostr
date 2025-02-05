@@ -14,7 +14,6 @@ dependencies:
   bip39_mnemonic: ^3.0.6
   get_it: ^8.0.3
   bech32: ^0.2.2
-  ndk: ^0.2.6
   bolt11_decoder: ^1.0.2
   injectable: ^2.5.0
   validators: ^3.0.0
@@ -52,6 +51,7 @@ dependencies:
   json_annotation: ^4.8.0
   qr_flutter: ^4.1.0
   mobile_scanner: ^6.0.2
+  ndk: ^0.2.6
   # ndk_rust_verifier: ^0.2.1
   ndk_amber: ^0.2.0
 

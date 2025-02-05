@@ -6,7 +6,7 @@ import 'base.config.dart';
 @Injectable(as: Config, env: [Env.mock, Env.test])
 class MockConfig extends Config {
   @override
-  List<String> relays = [];
+  List<String> relays = ['ws://localhost:5044'];
   @override
   String rootstockRpcUrl = 'https://public-node.testnet.rsk.co';
   @override

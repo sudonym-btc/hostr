@@ -8,12 +8,17 @@ import 'main.dart';
 seed() async {
   CustomLogger logger = CustomLogger();
   logger.i("seed");
-  await getIt<RelayConnector>().connect();
+  // for (KeyPair key in [MockKeys.guest, MockKeys.escrow, MockKeys.escrow]) {
+  //   await getIt<Ndk>().userRelayLists.setInitialUserRelayList(UserRelayList(
+  //       pubKey: key.publicKey,
+  //       relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+  //       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+  //       refreshedTimestamp: DateTime(2025).millisecondsSinceEpoch ~/ 1000).);
+  // }
   for (var x in MOCK_ESCROWS) {
     await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
   for (var x in MOCK_LISTINGS) {
-    print(x.nip01Event.pubKey);
     await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
   for (var x in MOCK_RESERVATIONS) {
@@ -23,7 +28,6 @@ seed() async {
     await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
   for (var x in MOCK_PROFILES) {
-    print(x.pubKey);
     // await getIt<NostrService>().broadcast(event: x.);
   }
   for (var x in MOCK_REVIEWS) {
