@@ -54,8 +54,8 @@ class WidgetbookApp extends StatelessWidget {
             .list(label: 'Auth', options: ['Guest', 'Host', 'Anon']);
 
         getIt<KeyStorage>().set(authValue == 'Guest'
-            ? MockKeys.guest.private
-            : MockKeys.hoster.private);
+            ? MockKeys.guest.privateKey!
+            : MockKeys.hoster.privateKey!);
 
         getIt<ModeStorage>().set(authValue.toLowerCase());
         getIt<ModeCubit>().get();

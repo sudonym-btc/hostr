@@ -1,13 +1,24 @@
 import 'package:get_it/get_it.dart';
+import 'package:hostr/config/main.dart';
 import 'package:hostr/injection.config.dart';
 import 'package:injectable/injectable.dart';
+import 'package:ndk/ndk.dart';
+// import 'package:ndk_rust_verifier/ndk_rust_verifier.dart';
 
 final getIt = GetIt.instance;
 
 @injectableInit
 void configureInjection(String environment) {
   print('Setting up injection for $environment');
+
   getIt.init(environment: environment);
+  getIt.registerSingleton<Ndk>(Ndk(
+    NdkConfig(
+        eventVerifier: Bip340EventVerifier(),
+        cache: MemCacheManager(),
+        engine: NdkEngine.JIT,
+        bootstrapRelays: getIt<Config>().relays),
+  ));
 }
 
 abstract class Env {

@@ -18,15 +18,18 @@ abstract class NostrService {
       {required List<Filter> filters, Duration? timeout, List<String>? relays});
 
   broadcast({required Nip01Event event, List<String>? relays});
-  late Ndk ndk;
 }
 
-@Singleton(as: NostrService, env: Env.allButTestAndMock)
+@Singleton(as: NostrService)
 class ProdNostrService extends NostrService {
   @override
   Stream<T> startRequest<T extends Event>(
       {required List<Filter> filters, List<String>? relays}) {
-    return ndk.requests.query(filters: filters).stream.asyncMap((event) async {
+    return getIt<Ndk>()
+        .requests
+        .query(filters: filters)
+        .stream
+        .asyncMap((event) async {
       return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair());
     });
   }
@@ -41,7 +44,10 @@ class ProdNostrService extends NostrService {
 
   @override
   broadcast({required Nip01Event event, List<String>? relays}) {
-    return ndk.broadcast.broadcast(nostrEvent: event).broadcastDoneFuture;
+    return getIt<Ndk>()
+        .broadcast
+        .broadcast(nostrEvent: event)
+        .broadcastDoneFuture;
   }
 
   // @override

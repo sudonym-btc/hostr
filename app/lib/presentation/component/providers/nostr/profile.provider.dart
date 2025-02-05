@@ -10,7 +10,6 @@ class ProfileProvider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('building');
     return FutureBuilder(
         future: getIt<Ndk>().metadata.loadMetadata(pubkey),
         builder: (context, snapshot) {

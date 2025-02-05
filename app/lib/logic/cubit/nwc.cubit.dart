@@ -18,7 +18,7 @@ class NwcCubit extends Cubit<NwcCubitState> {
       await nwcService.save(str);
       await checkInfo();
     } catch (e) {
-      print(e);
+      logger.e(e);
       emit(Error());
     }
   }
@@ -30,7 +30,7 @@ class NwcCubit extends Cubit<NwcCubitState> {
         .then((value) {
       emit(Success(content: value));
     }).catchError((e) {
-      print(e);
+      logger.e(e);
       emit(Error(e: e));
     });
   }

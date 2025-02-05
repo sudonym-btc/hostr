@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:ndk/entities.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'data/sources/nostr/mock.relay.dart';
 import 'injection.dart';
 
 setup(String env) async {
@@ -22,6 +24,23 @@ setup(String env) async {
   }
 
   configureInjection(env);
+  if (env == Env.mock) {
+    MockRelay mockRelay = MockRelay(name: "Mock Relay", explicitPort: 5044);
+    await mockRelay.startServer(nip65s: {
+      MockKeys.guest: Nip65(
+          pubKey: MockKeys.guest.publicKey,
+          relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000),
+      MockKeys.hoster: Nip65(
+          pubKey: MockKeys.hoster.publicKey,
+          relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000),
+      MockKeys.escrow: Nip65(
+          pubKey: MockKeys.escrow.publicKey,
+          relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000)
+    });
+  }
   await getIt<RelayConnector>().connect();
 
   if (env == Env.mock) {

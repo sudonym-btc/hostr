@@ -6,5 +6,5 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 Widget defaultUseCase(BuildContext context) {
   return Align(
       alignment: Alignment.center,
-      child: ProfileChipWidget(id: MOCK_PROFILES[0].pubkey));
+      child: ProfileChipWidget(id: MOCK_PROFILES[0].pubKey));
 }

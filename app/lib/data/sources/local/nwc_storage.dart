@@ -15,7 +15,6 @@ class NwcStorage {
     if (items == null || items.length == 0) {
       return [];
     }
-    print('Fetched NWC ${items.runtimeType}');
     return items;
   }
 
