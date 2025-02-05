@@ -62,6 +62,7 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
       // Nostr treats separate NostrFilters as OR, so we need to combine them
       finalFilter
     ]).listen((event) {
+      print('adding');
       addItem(event);
     });
   }
@@ -76,10 +77,12 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
 
   /// Should be overridden if a child type of list wants to perform subquery on each Item added
   void addItem(T item) {
+    print('adding');
     if (postResultFilterCubit?.state == null ||
         postResultFilterCubit!.state(item)) {
       itemStream.add(item);
     }
+    print('sorting');
     emit(applySort(
         state.copyWith(
             results: [...state.results, item],
@@ -103,6 +106,7 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
       ListCubitState<T> state, Comparator<T>? sortState) {
     if (sortState == null) return state;
     state.results.sort(sortState);
+    print('sorted');
     return state.copyWith(results: state.results);
   }
 

@@ -28,18 +28,19 @@ class MockNostrService extends NostrService {
         .doOnData((event) => logger.t("matched event $event"))
         .asyncMap((event) async {
           return parser<T>(
-              event.nip01Event,
-              await getIt<KeyStorage>().getActiveKeyPair(),
-              await getIt<NwcStorage>().getUri());
+              event.nip01Event, await getIt<KeyStorage>().getActiveKeyPair());
         })
+        .doOnData((event) => logger.t("filtered event $event"))
 
         /// Simulate network delay for each event
-        .transform(simulateNetworkDelay(shouldDelay))
+        // .transform(simulateNetworkDelay(shouldDelay))
+        .doOnData((event) => logger.t("filtered event delay $event"))
 
         /// Limit the number of events, Max int if no limit defined
         .take(filters.any((f) => f.limit != null)
             ? filters.map((f) => f.limit ?? 999999999999).reduce(min).toInt()
-            : 999999999999);
+            : 999999999999)
+        .doOnData((event) => logger.t("filtered event final $event"));
   }
 
   @override
@@ -63,8 +64,7 @@ class MockNostrService extends NostrService {
   Future<List<RelayBroadcastResponse>> broadcast(
       {required Nip01Event event, List<String>? relays}) async {
     logger.i("sendEventToRelaysAsync $event");
-    events.add(parser(event, await getIt<KeyStorage>().getActiveKeyPair(),
-        await getIt<NwcStorage>().getUri()));
+    events.add(parser(event, await getIt<KeyStorage>().getActiveKeyPair()));
     return [
       RelayBroadcastResponse(
           relayUrl: 'test',

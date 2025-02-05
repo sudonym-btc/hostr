@@ -11,15 +11,9 @@ import 'type_parent.dart';
 
 class Seal<T extends Event> extends ParentTypeNostrEvent {
   static const List<int> kinds = [NOSTR_KIND_SEAL];
-  Seal.fromNostrEvent(Nip01Event e, KeyPair key, Uri? nwc)
+  Seal.fromNostrEvent(Nip01Event e, KeyPair key)
       : super(
           e,
-          child: parser(Nip01Event.fromJson(jsonDecode(e.content)), key, nwc),
+          child: parser(Nip01Event.fromJson(jsonDecode(e.content)), key),
         );
-
-  @override
-  Nip01Event toNostrEvent() {
-    // TODO: implement toNostrEvent
-    throw UnimplementedError();
-  }
 }
