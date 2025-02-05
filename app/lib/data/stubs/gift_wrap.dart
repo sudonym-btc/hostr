@@ -38,40 +38,40 @@ var MOCK_GIFT_WRAPS = [
     giftWrapAndSeal(
         MockKeys.guest.publicKey,
         MockKeys.hoster,
-        ReservationRequest.fromNostrEvent(Nip01Event.fromJson({
-          "kind": NOSTR_KIND_RESERVATION_REQUEST,
-          "tags": [
-            ['a', 'also-random']
-          ],
-          "content": ReservationRequestContent(
-                  start: DateTime.now(),
-                  end: DateTime.now().add(Duration(days: 1)),
-                  quantity: 1,
-                  amount: Amount(currency: Currency.BTC, value: 0.0001),
-                  commitmentHash: 'hash',
-                  commitmentHashPreimageEnc: 'does')
-              .toString(),
-          "pubkey": MockKeys.hoster.publicKey
-        })),
+        ReservationRequest.fromNostrEvent(Nip01Event(
+            kind: NOSTR_KIND_RESERVATION_REQUEST,
+            tags: [
+              ['a', 'also-random']
+            ],
+            content: ReservationRequestContent(
+                    start: DateTime.now(),
+                    end: DateTime.now().add(Duration(days: 1)),
+                    quantity: 1,
+                    amount: Amount(currency: Currency.BTC, value: 0.0001),
+                    commitmentHash: 'hash',
+                    commitmentHashPreimageEnc: 'does')
+                .toString(),
+            pubKey: MockKeys.hoster.publicKey)
+          ..sign(MockKeys.hoster.privateKey!)),
         null),
     giftWrapAndSeal(
         MockKeys.hoster.publicKey,
         MockKeys.hoster,
-        ReservationRequest.fromNostrEvent(Nip01Event.fromJson({
-          "kind": NOSTR_KIND_RESERVATION_REQUEST,
-          "tags": [
-            ['a', 'also-random']
-          ],
-          "content": ReservationRequestContent(
-                  start: DateTime.now(),
-                  end: DateTime.now().add(Duration(days: 1)),
-                  quantity: 1,
-                  amount: Amount(currency: Currency.BTC, value: 0.0001),
-                  commitmentHash: 'hash',
-                  commitmentHashPreimageEnc: 'does')
-              .toString(),
-          "pubkey": MockKeys.hoster.publicKey
-        })),
+        ReservationRequest.fromNostrEvent(Nip01Event(
+            kind: NOSTR_KIND_RESERVATION_REQUEST,
+            tags: [
+              ['a', 'also-random']
+            ],
+            content: ReservationRequestContent(
+                    start: DateTime.now(),
+                    end: DateTime.now().add(Duration(days: 1)),
+                    quantity: 1,
+                    amount: Amount(currency: Currency.BTC, value: 0.0001),
+                    commitmentHash: 'hash',
+                    commitmentHashPreimageEnc: 'does')
+                .toString(),
+            pubKey: MockKeys.hoster.publicKey)
+          ..sign(MockKeys.hoster.privateKey!)),
         null)
   ]
 ].toList();

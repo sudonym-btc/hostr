@@ -2,7 +2,6 @@ import 'package:hostr/core/main.dart';
 import 'package:hostr/data/models/main.dart';
 import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/data/sources/local/key_storage.dart';
-import 'package:hostr/data/sources/local/nwc_storage.dart';
 // import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
@@ -28,8 +27,7 @@ class ProdNostrService extends NostrService {
   Stream<T> startRequest<T extends Event>(
       {required List<Filter> filters, List<String>? relays}) {
     return ndk.requests.query(filters: filters).stream.asyncMap((event) async {
-      return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair(),
-          await getIt<NwcStorage>().getUri());
+      return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair());
     });
   }
 
@@ -53,17 +51,17 @@ class ProdNostrService extends NostrService {
 }
 
 /// Receives a raw Nostr event and converts it into a model
-T parser<T extends Event>(Nip01Event event, KeyPair? key, Uri? nwc) {
+T parser<T extends Event>(Nip01Event event, KeyPair? key) {
   int eventKind = event.kind;
   // print('eventKind: $eventKind, ${T.toString()} should be returned, $event ');
   if (Reservation.kinds.contains(eventKind)) {
     return Reservation.fromNostrEvent(event) as T;
   } else if (GiftWrap.kinds.contains(eventKind)) {
-    return GiftWrap.fromNostrEvent(event, key!, nwc) as T;
+    return GiftWrap.fromNostrEvent(event, key!) as T;
   } else if (Seal.kinds.contains(eventKind)) {
-    return Seal.fromNostrEvent(event, key!, nwc) as T;
+    return Seal.fromNostrEvent(event, key!) as T;
   } else if (Message.kinds.contains(eventKind)) {
-    return Message.fromNostrEvent(event, key!, nwc) as T;
+    return Message.fromNostrEvent(event, key!) as T;
   } else if (Escrow.kinds.contains(eventKind)) {
     return Escrow.fromNostrEvent(event) as T;
   } else if (Listing.kinds.contains(eventKind)) {

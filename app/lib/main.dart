@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hostr/setup.dart';
 
@@ -10,6 +12,11 @@ import 'app.dart';
 export './export.dart';
 
 void mainCommon(String env) async {
-  await setup(env);
-  runApp(MyApp());
+  runZonedGuarded(() async {
+    await setup(env);
+    runApp(MyApp());
+  }, (error, stackTrace) {
+    print('Caught error: $error');
+    print('Stack trace: $stackTrace');
+  });
 }
