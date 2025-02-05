@@ -1,4 +1,4 @@
-# Hostr Client
+# App
 
 [![codecov](https://codecov.io/gh/sudonym-btc/hostr/branch/main/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/sudonym-btc/hostr)
 
