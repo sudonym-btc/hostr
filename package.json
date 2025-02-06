@@ -166,7 +166,6 @@
     "reusify": "^1.0.4",
     "run-parallel": "^1.2.0",
     "safe-buffer": "^5.1.2",
-    "semantic-release": "^24.2.1",
     "semver": "^7.6.3",
     "semver-diff": "^4.0.0",
     "semver-regex": "^4.0.5",
