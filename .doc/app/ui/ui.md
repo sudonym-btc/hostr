@@ -1,0 +1,53 @@
+
+## UI
+
+### Shared
+
+- **Profile page**
+  - Image, name, description, NIP05, Zap button
+  - **Edit page**
+- **Listing page**
+  - Reviews and ratings, reservations, description, pricing
+  - If guest mode:
+    - Calendar preloaded with unavailable dates
+    - Reserve button only active once all reservations are fetched and validated
+  - If host mode:
+    - Show calendar by default
+    - `Reservation` can be made instantly and for zero cost to block dates
+  - **Edit page**
+- **Wallet Page**
+  - Shows current wallet connection, allows user to reconnect if required
+  - List of current in-flight payments
+  - List of trusted escrow providers
+- **Messaging page**
+  - Shows list of messages grouped by `pubkey:a`, identifies the conversation by user and reservation request anchor
+  - List item
+    - Counterparty name and avatar
+    - Text of incoming or outgoing message, replaced with italic text if:
+      - Last message was a reservation request: 'Alex requested a 2 night stay'
+      - Look for `reservation` with commit_hash of `reservation request`, if exists, add "booking confirmed" icon to chat.
+  - Conversation page
+    - Header
+      - If host
+        - Attempt to fetch zaps to prove payment
+        - Attempt to use lookup_invoice to check if invoices attached to reservation_requests have been paid
+        - Attempt to use EVM to check if money in lockup
+      - Show profile of counterparty
+        - Fetch `reservation` which references the anchor of this conversation.
+          - If stay is in future: "Alex is booked to be hosted by you Jan 3 - Jan 6"
+        - If null, fetch most recent `reservation_request` of this conversation anchor. "Alex has requested to stay 3 night, Jan 3 - 6, for 60k sats" or "You offered to host Alex for 3 nights, Jan 3- 6, for 60k sats" Accept (Change) - can change price if allowBarter is true, can change dates if counterparty is host.
+          - Host
+            - Accept
+              - Require upfront payment?
+                - Can generate expiring invoice? Attach to listing
+              - Don't require upfront payment? Sends back signed reservation with commit_hash of buyers request
+            - *Can use NWC to generate expiring invoice*.
+            - Change
+    - Fetches each message in the conversation and unwraps/parses if necessary
+    - Combines with `reservation` list cubit where tag `commit_hash` is equal to first messages `commit_hash` tag
+    - For each item in the conversation
+      - If of reservation type:
+        - Show "booking confirmed" widget.
+      - If of message type:
+        - If wraps a reservation request display the offer widget
+        - Else display the message plaintext
