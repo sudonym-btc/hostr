@@ -10,6 +10,8 @@
 
 // import '../mock/hydrated_storage.mock.dart';
 
+void main() {}
+
 // void main() {
 //   setUp(() {
 //     // Reset the GetIt instance to its initial state before each test
