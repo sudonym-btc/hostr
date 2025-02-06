@@ -73,6 +73,8 @@ jobs:
           node-version: "lts/*"
       - name: Install dependencies
         run: npm clean-install
+      - name: Install semantic-release/exec
+        run: npm install --save-dev @semantic-release/exec
       - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
         run: npm audit signatures
       - name: Release
