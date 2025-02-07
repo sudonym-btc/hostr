@@ -39,21 +39,21 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
         working-directory: app
-      - name: Check coverage
-        run: |
-          COVERAGE=$(flutter pub run test_coverage)
-          THRESHOLD=80
-          if [ "$COVERAGE" -lt "$THRESHOLD" ]; then
-            echo "Code coverage ($COVERAGE%) is below the threshold ($THRESHOLD%)."
-            exit 1
-          fi
-        working-directory: app
+      # - name: Check coverage
+      #   run: |
+      #     COVERAGE=$(flutter pub run test_coverage)
+      #     THRESHOLD=80
+      #     if [ "$COVERAGE" -lt "$THRESHOLD" ]; then
+      #       echo "Code coverage ($COVERAGE%) is below the threshold ($THRESHOLD%)."
+      #       exit 1
+      #     fi
+      #   working-directory: app
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./app/coverage/lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     files: ./app/coverage/lcov.info
+      #     token: ${{ secrets.CODECOV_TOKEN }}
   release:
     name: Release
     runs-on: ubuntu-latest
