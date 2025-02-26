@@ -6,6 +6,9 @@
 
 Rental accomodation using purely peer-to-peer technologies such as [Nostr](https://nostr.com/).
 
+<img src="app/screenshots/home.jpeg" alt="Home page" style="max-width:300px;">
+<img src="app/screenshots/listing.jpeg" alt="Listing page" style="max-width:300px;">
+
 Read docs in full [here](https://sudonym-btc.github.io/hostr/)
 
 This repo contains
