@@ -1,8 +1,16 @@
-input: .doc
+input: ./
 output: .retype
 url: # Add your website address here
+include:
+  - ".doc/**/*"
+  - "README.md"
+exclude: 
+- "app"
+- "escrow"
+- "infrastructure"
+
 branding:
   title: Hostr
-  logo: logo.svg
+  logo: app/assets/images/logo/logo.svg
   label: Docs
 links:
