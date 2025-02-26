@@ -42,6 +42,41 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     }
   }
 
+  fetchLocationsAndMoveCamera(ListCubitState<Listing> state) async {
+    widget.logger.i("New state $state");
+
+    // Add markers for new locations
+    for (var item in state.results) {
+      if (!_fetchedIds.contains(item.nip01Event.id)) {
+        _fetchedIds.add(item.nip01Event.id);
+        var res = await getIt<GoogleMaps>()
+            .getCoordinatesFromAddress(item.parsedContent.location);
+
+        if (res != null) {
+          setState(() {
+            _markers[item.nip01Event.id] =
+                Marker(markerId: MarkerId(item.nip01Event.id), position: res);
+          });
+        }
+      }
+    }
+
+    // Collect markers to be removed
+    final markersToRemove = _markers.values.where((marker) {
+      final shouldRemove = !state.results
+          .any((loc) => loc.nip01Event.id == marker.markerId.value);
+      if (shouldRemove) {
+        setState(() {
+          _fetchedIds.remove(marker.markerId.value);
+          _markers.remove(marker.markerId.value);
+        });
+      }
+      return shouldRemove;
+    }).toList();
+
+    _moveCameraToFitAllMarkers();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -52,46 +87,17 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
 
         /// Only emit when the map is ready
         .where((isReady) => isReady)
+        .doOnData((boo) {
+          fetchLocationsAndMoveCamera(
+              BlocProvider.of<ListCubit<Listing>>(context).state);
+        })
 
         /// Start listening to the list results
         .flatMap((_) => BlocProvider.of<ListCubit<Listing>>(context).stream)
 
         /// Debounce to avoid too many updates
         .debounceTime(Duration(milliseconds: 1000))
-        .listen((state) async {
-      widget.logger.i("New state $state");
-
-      // Add markers for new locations
-      for (var item in state.results) {
-        if (!_fetchedIds.contains(item.nip01Event.id)) {
-          _fetchedIds.add(item.nip01Event.id);
-          var res = await getIt<GoogleMaps>()
-              .getCoordinatesFromAddress(item.parsedContent.location);
-
-          if (res != null) {
-            setState(() {
-              _markers[item.nip01Event.id] =
-                  Marker(markerId: MarkerId(item.nip01Event.id), position: res);
-            });
-          }
-        }
-      }
-
-      // Collect markers to be removed
-      final markersToRemove = _markers.values.where((marker) {
-        final shouldRemove = !state.results
-            .any((loc) => loc.nip01Event.id == marker.markerId.value);
-        if (shouldRemove) {
-          setState(() {
-            _fetchedIds.remove(marker.markerId.value);
-            _markers.remove(marker.markerId.value);
-          });
-        }
-        return shouldRemove;
-      }).toList();
-
-      _moveCameraToFitAllMarkers();
-    });
+        .listen(fetchLocationsAndMoveCamera);
   }
 
   _calculateBounds() {

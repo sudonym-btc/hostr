@@ -37,7 +37,23 @@ class HomeScreen extends StatelessWidget {
         // ),
       ],
       child: BlocBuilder<ModeCubit, ModeCubitState>(builder: (context, state) {
-        print(state);
+        if (state is HostMode) {
+          return AutoTabsScaffold(
+              routes: [MyListingsRoute(), InboxRoute(), ProfileRoute()],
+              bottomNavigationBuilder: (context, tabsRouter) =>
+                  BottomNavigationBar(
+                    currentIndex: tabsRouter.activeIndex,
+                    onTap: tabsRouter.setActiveIndex,
+                    items: const [
+                      BottomNavigationBarItem(
+                          icon: Icon(Icons.list), label: 'My Listings'),
+                      BottomNavigationBarItem(
+                          icon: Icon(Icons.inbox), label: 'Inbox'),
+                      BottomNavigationBarItem(
+                          icon: Icon(Icons.person), label: 'Profile'),
+                    ],
+                  ));
+        }
         return AutoTabsScaffold(
             routes: [SearchRoute(), TripsRoute(), InboxRoute(), ProfileRoute()],
             bottomNavigationBuilder: (context, tabsRouter) =>

@@ -39,6 +39,7 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
         working-directory: app
+        # test_coverage package outdated
       # - name: Check coverage
       #   run: |
       #     COVERAGE=$(flutter pub run test_coverage)
@@ -49,6 +50,7 @@ jobs:
       #     fi
       #   working-directory: app
 
+      # not able to find free codecov for shield icon generation
       # - name: Upload coverage to Codecov
       #   uses: codecov/codecov-action@v3
       #   with:

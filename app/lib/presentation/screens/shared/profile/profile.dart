@@ -22,14 +22,15 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ListTile(
-              //   title: Text(
-              //       'Switch to ${BlocProvider.of<SecureStorage>(context).state.mode ? 'guest' : 'host'} mode'),
-              //   onTap: () {
-              //     BlocProvider.of<SecureStorage>(context).set(
-              //         'mode', !BlocProvider.of<SecureStorage>(context).state.mode);
-              //   },
-              // ),
+              BlocBuilder<ModeCubit, ModeCubitState>(builder: (context, state) {
+                return ListTile(
+                  title: Text(
+                      'Switch to ${state is HostMode ? 'guest' : 'host'} mode'),
+                  onTap: () {
+                    BlocProvider.of<ModeCubit>(context).toggle();
+                  },
+                );
+              }),
               Section(
                   title: 'Nostr wallet connect',
                   body: NostrWalletConnectWidget()),

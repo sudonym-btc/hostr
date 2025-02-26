@@ -38,7 +38,7 @@ dependencies:
   web3dart: ^2.7.3
   logger: ^2.5.0
   http: ^1.2.2
-  intl: ^0.19.0
+  intl: ^0.20.2
   uuid: ^4.5.1
   # NIP04 deps
   kepler: ^1.0.3
@@ -51,7 +51,9 @@ dependencies:
   json_annotation: ^4.8.0
   qr_flutter: ^4.1.0
   mobile_scanner: ^6.0.2
-  ndk: ^0.2.6
+  ndk:
+    git:
+      url: https://github.com/relaystr/ndk
   # ndk_rust_verifier: ^0.2.1
   ndk_amber: ^0.2.0
 
@@ -71,6 +73,12 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   web3dart_builders: ^0.1.2
+
+dependency_overrides:
+  ndk:
+    git:
+      url: https://github.com/relaystr/ndk.git
+      path: packages/ndk
 
 flutter:
   uses-material-design: true

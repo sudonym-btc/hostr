@@ -13,7 +13,7 @@ seed() async {
   //       pubKey: key.publicKey,
   //       relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
   //       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-  //       refreshedTimestamp: DateTime(2025).millisecondsSinceEpoch ~/ 1000).);
+  //       refreshedTimestamp: DateTime(2025).millisecondsSinceEpoch ~/ 1000));
   // }
   for (var x in MOCK_ESCROWS) {
     await getIt<NostrService>().broadcast(event: x.nip01Event);
@@ -24,13 +24,14 @@ seed() async {
   for (var x in MOCK_RESERVATIONS) {
     await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
-  for (var x in MOCK_GIFT_WRAPS) {
-    await getIt<NostrService>().broadcast(event: x.nip01Event);
-  }
+  // for (var x in MOCK_GIFT_WRAPS) {
+  //   await getIt<NostrService>().broadcast(event: x.nip01Event);
+  // }
   for (var x in MOCK_PROFILES) {
-    // await getIt<NostrService>().broadcast(event: x.);
+    await getIt<NostrService>().broadcast(event: x);
   }
   for (var x in MOCK_REVIEWS) {
     await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
+  logger.i('seeded');
 }
