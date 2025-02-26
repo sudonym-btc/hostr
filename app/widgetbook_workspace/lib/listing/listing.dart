@@ -6,8 +6,8 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 @widgetbook.UseCase(name: 'Default', type: ListingScreen)
 Widget listing(BuildContext context) {
   getIt<NostrService>().broadcast(event: MOCK_LISTINGS[0].nip01Event);
-  getIt<NostrService>().broadcast(
-      event: MOCK_PROFILES[0].toEvent()..sign(MockKeys.hoster.privateKey!));
+  getIt<NostrService>()
+      .broadcast(event: MOCK_PROFILES[0]..sign(MockKeys.hoster.privateKey!));
   return ListingScreen(
     a: MOCK_LISTINGS[0].anchor,
   );

@@ -6,6 +6,8 @@
 
 Rental accomodation using purely peer-to-peer technologies such as [Nostr](https://nostr.com/).
 
+Read docs in full [here](https://sudonym-btc.github.io/hostr/)
+
 This repo contains
 
 ```bash

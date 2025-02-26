@@ -10,8 +10,9 @@ final getIt = GetIt.instance;
 @injectableInit
 void configureInjection(String environment) {
   print('Setting up injection for $environment');
-
   getIt.init(environment: environment);
+  print(getIt<Config>().relays);
+
   getIt.registerSingleton<Ndk>(Ndk(
     NdkConfig(
         eventVerifier: Bip340EventVerifier(),
@@ -19,6 +20,7 @@ void configureInjection(String environment) {
         engine: NdkEngine.JIT,
         bootstrapRelays: getIt<Config>().relays),
   ));
+  ;
 }
 
 abstract class Env {

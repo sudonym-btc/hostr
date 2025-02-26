@@ -1,7 +1,7 @@
 
-## UI
+# UI
 
-### Shared
+## Shared
 
 - **Profile page**
   - Image, name, description, NIP05, Zap button

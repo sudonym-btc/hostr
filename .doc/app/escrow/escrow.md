@@ -1,7 +1,7 @@
 
-## Escrow
+# Escrow
 
-We deposit using our EVM balance.
+We deposit using our EVM balance, usually after a swap in.
 
 ```mermaid
 flowchart TD
@@ -16,7 +16,7 @@ flowchart TD
 
 ```
 
-```
+```dart
 class EscrowDepositManager extends Cubit<Map<String, dynamic>> {
   final SwapManager swapManager;
   final RpcClient rpcClient;

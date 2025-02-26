@@ -44,4 +44,13 @@ class ModeCubit extends Cubit<ModeCubitState> {
       emit(GuestMode());
     }
   }
+
+  void toggle() async {
+    String mode = await modeStorage.get();
+    if (mode == 'host') {
+      setGuest();
+    } else {
+      setHost();
+    }
+  }
 }

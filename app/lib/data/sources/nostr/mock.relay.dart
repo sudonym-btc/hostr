@@ -6,15 +6,13 @@ import 'dart:io';
 import 'package:bip340/bip340.dart';
 import 'package:ndk/entities.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
-import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class MockRelay {
   String name;
   int? port;
   HttpServer? server;
   WebSocket? webSocket;
-  Map<KeyPair, Nip65>? nip65s;
-  Map<KeyPair, Nip01Event>? textNotes;
+  List<Nip01Event> events = [];
   bool signEvents;
   bool requireAuthForRequests;
 
@@ -24,7 +22,7 @@ class MockRelay {
 
   MockRelay({
     required this.name,
-    this.nip65s,
+    this.events = const [],
     this.signEvents = true,
     this.requireAuthForRequests = false,
     int? explicitPort,
@@ -37,16 +35,11 @@ class MockRelay {
     }
   }
 
-  Future<void> startServer(
-      {Map<KeyPair, Nip65>? nip65s,
-      Map<KeyPair, Nip01Event>? textNotes}) async {
+  Future<void> startServer({List<Nip01Event>? events}) async {
     var myPromise = Completer<void>();
 
-    if (nip65s != null) {
-      this.nip65s = nip65s;
-    }
-    if (textNotes != null) {
-      this.textNotes = textNotes;
+    if (events != null) {
+      this.events = events;
     }
 
     var server = await HttpServer.bind(InternetAddress.loopbackIPv4, port!,
@@ -102,30 +95,20 @@ class MockRelay {
           String requestId = eventJson[1];
           log('Received: $eventJson');
           Filter filter = Filter.fromMap(eventJson[2]);
-          if (filter.kinds != null && filter.authors != null) {
-            if (filter.kinds!.contains(Nip65.kKind) && nip65s != null) {
-              _respondeNip65(filter.authors!, requestId);
-            }
-            if (filter.kinds!.contains(Nip01Event.kTextNodeKind) &&
-                textNotes != null) {
-              _respondeTextNote(filter.authors!, requestId);
-            }
-            if (filter.kinds!.contains(ContactList.kKind) &&
-                textNotes != null) {
-              _respondeTextNote(filter.authors!, requestId);
-            }
-            if (filter.kinds!.contains(Metadata.kKind) && textNotes != null) {
-              _respondeTextNote(filter.authors!, requestId);
-            }
-            if (filter.kinds!
-                .any((el) => Nip51List.kPossibleKinds.contains(el))) {
-              _respondeTextNote(filter.authors!, requestId);
+          for (Nip01Event e in this.events) {
+            if (matchEvent(e, filter)) {
+              _respondEvent(requestId, e);
             }
           }
           List<dynamic> eose = [];
           eose.add("EOSE");
           eose.add(requestId);
           webSocket.add(jsonEncode(eose));
+        } else if (eventJson[0] == "EVENT") {
+          log('Received: $eventJson');
+          Nip01Event event = Nip01Event.fromJson(eventJson[1]);
+          this.events.add(event);
+          webSocket.add(jsonEncode(["OK", event.id, true, '']));
         }
       });
     }, onError: (error) {
@@ -138,46 +121,12 @@ class MockRelay {
     return myPromise.future;
   }
 
-  void _respondeNip65(List<String> authors, String requestId) {
-    for (final author in authors) {
-      try {
-        KeyPair key =
-            nip65s!.keys.where((key) => key.publicKey == author).first;
-        Nip65? nip65 = nip65s![key];
-        if (nip65 != null && nip65.relays.isNotEmpty) {
-          List<dynamic> json = [];
-          json.add("EVENT");
-          json.add(requestId);
-
-          Nip01Event event = nip65.toEvent();
-          if (signEvents) {
-            event.sign(key.privateKey!);
-          }
-          json.add(event.toJson());
-          webSocket!.add(jsonEncode(json));
-        }
-      } catch (_) {}
-    }
-  }
-
-  void _respondeTextNote(List<String> authors, String requestId) {
-    for (var author in authors) {
-      List<KeyPair> keys =
-          textNotes!.keys.where((key) => key.publicKey == author).toList();
-      if (keys.isNotEmpty) {
-        KeyPair key = keys.first;
-        Nip01Event? textNote = Nip01Event.fromJson(textNotes![key]!.toJson());
-        List<dynamic> json = [];
-        json.add("EVENT");
-        json.add(requestId);
-
-        if (signEvents) {
-          textNote.sign(key.privateKey!);
-        }
-        json.add(textNote.toJson());
-        webSocket!.add(jsonEncode(json));
-      }
-    }
+  _respondEvent(String requestId, Nip01Event event) {
+    List<dynamic> json = [];
+    json.add("EVENT");
+    json.add(requestId);
+    json.add(event.toJson());
+    webSocket!.add(jsonEncode(json));
   }
 
   Future<void> stopServer() async {
@@ -186,4 +135,49 @@ class MockRelay {
       return await server!.close();
     }
   }
+}
+
+matchEvent(Nip01Event event, Filter filter) {
+  /// Only match the correct event kinds
+  if (filter.kinds != null && !filter.kinds!.contains(event.kind)) {
+    return false;
+  }
+
+  /// Only match events from a specific pubkey
+  if (filter.pTags != null && !filter.pTags!.contains(event.pubKey)) {
+    return false;
+  }
+
+  /// Only match events from that are addressable by kind:pubkey:string => "a" tag
+  if (filter.aTags != null &&
+      !filter.aTags!
+          .any((a) => event.tags.any((tag) => tag[0] == "a" && tag[1] == a))) {
+    return false;
+  }
+
+  // logger.t("keys ${filter.additionalFilters.values}");
+
+  // /// Only match events that contain a tag
+  // if (filter.additionalFilters != null &&
+  //     filter.additionalFilters!.keys.isNotEmpty &&
+
+  //     /// Loop through all the additional filters
+  //     !filter.additionalFilters!.keys
+  //         .any((tagType) => event.tags!.any((eventTag) {
+  //               /// Returns true if the event contains
+  //               return (filter.additionalFilters![tagType] as List<String>)
+  //                   .any(eventTag.contains);
+  //             }))) {
+  //   return false;
+  // }
+
+  if (filter.authors != null &&
+      (!filter.authors!.contains(event.pubKey) ||
+          (event.tags.contains((tag) => tag[0] == "delegation") &&
+              !filter.authors!.contains(event.tags!
+                  .lastWhere((tag) => tag[0] == "delegation")[1])))) {
+    return false;
+  }
+
+  return true;
 }

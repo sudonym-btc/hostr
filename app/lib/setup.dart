@@ -26,20 +26,26 @@ setup(String env) async {
   configureInjection(env);
   if (env == Env.mock) {
     MockRelay mockRelay = MockRelay(name: "Mock Relay", explicitPort: 5044);
-    await mockRelay.startServer(nip65s: {
-      MockKeys.guest: Nip65(
-          pubKey: MockKeys.guest.publicKey,
-          relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
-          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000),
-      MockKeys.hoster: Nip65(
-          pubKey: MockKeys.hoster.publicKey,
-          relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
-          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000),
-      MockKeys.escrow: Nip65(
-          pubKey: MockKeys.escrow.publicKey,
-          relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
-          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000)
-    });
+    await mockRelay.startServer(events: [
+      Nip65(
+              pubKey: MockKeys.guest.publicKey,
+              relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+              createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000)
+          .toEvent()
+        ..sign(MockKeys.guest.privateKey!),
+      Nip65(
+              pubKey: MockKeys.hoster.publicKey,
+              relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+              createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000)
+          .toEvent()
+        ..sign(MockKeys.hoster.privateKey!),
+      Nip65(
+              pubKey: MockKeys.escrow.publicKey,
+              relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+              createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000)
+          .toEvent()
+        ..sign(MockKeys.escrow.privateKey!)
+    ]);
   }
   await getIt<RelayConnector>().connect();
 
