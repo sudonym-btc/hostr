@@ -4,6 +4,10 @@
 
 This is a client that displays and posts events related to short term accommodation lets over the nostr network.
 
+<img src="screenshots/home.jpeg" alt="Home page" style="max-width:300px;">
+<img src="screenshots/listing.jpeg" alt="Listing page" style="max-width:300px;">
+
+
 ## Getting Started
 
 Install [Flutter](https://docs.flutter.dev/get-started/install)
