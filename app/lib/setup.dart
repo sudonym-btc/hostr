@@ -27,6 +27,7 @@ setup(String env) async {
   if (env == Env.mock || env == Env.test) {
     MockRelay mockRelay = MockRelay(name: "Mock Relay", explicitPort: 5044);
     await mockRelay.startServer(events: [
+      ...MOCK_EVENTS,
       Nip65(
               pubKey: MockKeys.guest.publicKey,
               relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
@@ -51,6 +52,6 @@ setup(String env) async {
 
   if (env == Env.mock) {
     // || env == Env.dev
-    await seed();
+    // await seed();
   }
 }

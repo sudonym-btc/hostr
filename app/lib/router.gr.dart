@@ -29,6 +29,43 @@ class BookingsRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [EditListingScreen]
+class EditListingRoute extends PageRouteInfo<EditListingRouteArgs> {
+  EditListingRoute({
+    String? a,
+    List<PageRouteInfo>? children,
+  }) : super(
+          EditListingRoute.name,
+          args: EditListingRouteArgs(a: a),
+          rawPathParams: {'a': a},
+          initialChildren: children,
+        );
+
+  static const String name = 'EditListingRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final pathParams = data.inheritedPathParams;
+      final args = data.argsAs<EditListingRouteArgs>(
+          orElse: () => EditListingRouteArgs(a: pathParams.optString('a')));
+      return EditListingScreen(a: args.a);
+    },
+  );
+}
+
+class EditListingRouteArgs {
+  const EditListingRouteArgs({this.a});
+
+  final String? a;
+
+  @override
+  String toString() {
+    return 'EditListingRouteArgs{a: $a}';
+  }
+}
+
+/// generated route for
 /// [FiltersScreen]
 class FiltersRoute extends PageRouteInfo<void> {
   const FiltersRoute({List<PageRouteInfo>? children})

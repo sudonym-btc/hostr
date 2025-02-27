@@ -18,8 +18,6 @@ class ListingListItemWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
         onTap: () {
-          print(context.router.current.name);
-          print(context.router.current.path);
           AutoRouter.of(context).push(ListingRoute(
             a: listing.anchor,
             dateRangeStart: dateRange?.start != null

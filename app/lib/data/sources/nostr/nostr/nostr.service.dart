@@ -27,9 +27,11 @@ class ProdNostrService extends NostrService {
       {required List<Filter> filters, List<String>? relays}) {
     return getIt<Ndk>()
         .requests
-        .query(filters: filters)
+        .query(filters: filters, cacheRead: false, cacheWrite: false)
         .stream
-        .asyncMap((event) async {
+        .doOnData((event) {
+      print("fetchedxx $event");
+    }).asyncMap((event) async {
       return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair());
     });
   }
