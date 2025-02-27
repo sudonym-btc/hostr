@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
+import 'package:hostr/router.dart';
 import 'package:ndk/ndk.dart';
 
 class ListingView extends StatelessWidget {
@@ -41,6 +42,14 @@ class ListingView extends StatelessWidget {
                   : CustomScrollView(slivers: [
                       SliverAppBar(
                           stretch: true,
+                          actions: [
+                            IconButton(
+                              icon: Icon(Icons.edit),
+                              onPressed: () {
+                                context.router.navigate(EditListingRoute(a: a));
+                              },
+                            ),
+                          ],
                           expandedHeight:
                               MediaQuery.of(context).size.height / 4,
                           flexibleSpace: FlexibleSpaceBar(

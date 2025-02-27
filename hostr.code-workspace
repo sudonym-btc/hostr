@@ -36,7 +36,8 @@
       "tamasfe.even-better-toml",
       "ms-kubernetes-tools.vscode-kubernetes-tools",
       "ryanluker.vscode-coverage-gutters",
-      "nomicfoundation.hardhat-solidity"
+      "nomicfoundation.hardhat-solidity",
+      "dart-code.flutter"
     ]
   },
   "launch": {

@@ -126,7 +126,9 @@ class MockRelay {
     json.add("EVENT");
     json.add(requestId);
     json.add(event.toJson());
+
     webSocket!.add(jsonEncode(json));
+    log('Responding: ${json}');
   }
 
   Future<void> stopServer() async {
@@ -143,8 +145,9 @@ matchEvent(Nip01Event event, Filter filter) {
     return false;
   }
 
-  /// Only match events from a specific pubkey
-  if (filter.pTags != null && !filter.pTags!.contains(event.pubKey)) {
+  /// Only match events from that are addressable by kind:pubkey:string => "a" tag
+  if (filter.pTags != null &&
+      !event.pTags.any((tag) => filter.pTags!.contains(tag))) {
     return false;
   }
 
