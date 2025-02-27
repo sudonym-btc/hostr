@@ -24,7 +24,7 @@ setup(String env) async {
   }
 
   configureInjection(env);
-  if (env == Env.mock) {
+  if (env == Env.mock || env == Env.test) {
     MockRelay mockRelay = MockRelay(name: "Mock Relay", explicitPort: 5044);
     await mockRelay.startServer(events: [
       Nip65(

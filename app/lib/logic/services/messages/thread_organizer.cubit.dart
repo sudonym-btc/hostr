@@ -13,15 +13,19 @@ class ThreadOrganizerCubit<T extends Event>
   ThreadOrganizerCubit({this.globalMessageCubit})
       : super(ThreadOrganizerState(threads: [])) {
     if (globalMessageCubit != null) {
+      logger.d("Setting up listeners for ThreadOrganizerCubit");
+
       /// As soon as the cubit is created, we sort the initial messages and subscribe to incoming
       for (final nostrEvent in globalMessageCubit!.state.results) {
+        logger.i("Received event: $nostrEvent");
+
         if (nostrEvent.child is Seal<T>) {
           sortMessage(nostrEvent);
         }
       }
       globalMessageCubit!.itemStream.listen((element) {
+        logger.i("Received event: $element");
         if (element.child is Seal<T>) {
-          print('${element.runtimeType} , ${element.child.runtimeType}');
           // Safely cast `element` to the desired type
           sortMessage(element);
         } else {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/main.dart';
 
 import '../ui/list.dart';
 
@@ -12,6 +13,16 @@ class ZapListWidget extends ListWidget {
 
   @override
   Widget build(BuildContext context) {
+    // return BlocProvider<ListCubit<Review>>(
+    //     create: (context) => ListCubit<ZapRequest>(
+    //         kinds: Review.kinds, filter: Filter(aTags: [state.data!.anchor]))
+    //       ..next(),
+    //     child: ListWidget<Review>(builder: (el) {
+    //       return ReviewListItem(
+    //         review: el,
+    //         // dateRange: searchController.state.dateRange,
+    //       );
+    //     }));
     return Container();
     // return ListWidget(
     //     // list: () => ListCubit(getIt<ZapRepository>())

@@ -12,7 +12,7 @@ class AmenityTagsWidget extends StatelessWidget {
   });
 
   Color _getColorForAmenity(BuildContext context, String amenity) {
-    return Theme.of(context).primaryColor.withAlpha(20);
+    return Theme.of(context).colorScheme.primary.withAlpha(40);
     final random = Random(amenity.hashCode);
     return Color.fromARGB(
       25,

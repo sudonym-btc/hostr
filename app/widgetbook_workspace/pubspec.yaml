@@ -23,5 +23,11 @@ dev_dependencies:
   build_runner: ^2.4.9
   mockito: ^5.4.5
 
+dependency_overrides:
+  ndk:
+    git:
+      url: https://github.com/relaystr/ndk.git
+      path: packages/ndk
+
 flutter:
   uses-material-design: true

@@ -73,6 +73,8 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   web3dart_builders: ^0.1.2
+  flutter_driver:
+    sdk: flutter
 
 dependency_overrides:
   ndk:

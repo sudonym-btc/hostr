@@ -1,4 +1,3 @@
-//test_driver/foo_test.dart
 import 'dart:io';
 
 import 'package:flutter_driver/flutter_driver.dart';
@@ -10,7 +9,6 @@ Future<void> main() async {
     driver: driver,
     onScreenshot: (String name, List<int> bytes,
         [Map<String, Object?>? args]) async {
-      print('Screenshot: $name');
       final File image = await File(name).create(recursive: true);
       image.writeAsBytesSync(bytes);
       return true;
