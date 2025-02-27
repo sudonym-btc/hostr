@@ -62,8 +62,9 @@ class ListingView extends StatelessWidget {
                               Row(children: [
                                 Text('hosted by'),
                                 SizedBox(width: 8),
-                                ProfileChipWidget(
-                                    id: state.data!.nip01Event.pubKey)
+                                Flexible(
+                                    child: ProfileChipWidget(
+                                        id: state.data!.nip01Event.pubKey))
                               ]),
                               const SizedBox(height: 8.0),
                               ReviewsReservationsWidget(
@@ -87,9 +88,8 @@ class ListingView extends StatelessWidget {
                                   child: BlocProvider<ListCubit<Review>>(
                                       create: (context) => ListCubit<Review>(
                                           kinds: Review.kinds,
-                                          filter: Filter(eTags: [
-                                            state.data!.nip01Event.id
-                                          ]))
+                                          filter: Filter(
+                                              aTags: [state.data!.anchor]))
                                         ..next(),
                                       child: ListWidget<Review>(builder: (el) {
                                         return ReviewListItem(

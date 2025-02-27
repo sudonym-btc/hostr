@@ -11,7 +11,9 @@ var MOCK_REVIEWS = [
         kind: NOSTR_KIND_REVIEW,
         tags: [
           ['commit_hash_preimage', 'commit_hash_preimage'],
-          ['e', MOCK_LISTINGS[0].nip01Event.id]
+          ['e', MOCK_LISTINGS[0].nip01Event.id],
+          ['d', MOCK_LISTINGS[0].nip01Event.getDtag()!],
+          ['a', MOCK_LISTINGS[0].anchor]
         ])
       ..sign(MockKeys.hoster.privateKey!),
   ),

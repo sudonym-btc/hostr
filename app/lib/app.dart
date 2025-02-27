@@ -8,11 +8,11 @@ import 'package:hostr/router.dart';
 
 /// The Widget that configures your application.
 class MyApp extends StatelessWidget {
+  final AppRouter _appRouter;
   MyApp({
     super.key,
-  });
-
-  final _appRouter = AppRouter();
+    AppRouter? appRouter,
+  }) : _appRouter = appRouter ?? AppRouter();
 
   @override
   Widget build(BuildContext context) {

@@ -11,15 +11,15 @@ class ProfileChipWidget extends StatelessWidget {
     return ProfileProvider(
         pubkey: id,
         builder: (context, state) {
-          var name = state.name ?? id;
+          var name = state?.name ?? id;
           return ConstrainedBox(
               constraints: BoxConstraints(
                   maxWidth: 200), // Set your desired max width here
               child: Chip(
                   shape: StadiumBorder(),
-                  avatar: state.picture != null
+                  avatar: state?.picture != null
                       ? CircleAvatar(
-                          backgroundImage: NetworkImage(state.picture!),
+                          backgroundImage: NetworkImage(state!.picture!),
                         )
                       : CircleAvatar(
                           backgroundColor: Colors.grey,
@@ -27,6 +27,7 @@ class ProfileChipWidget extends StatelessWidget {
                   label: Text(
                     name,
                     overflow: TextOverflow.ellipsis,
+                    softWrap: false,
                   )));
         });
   }

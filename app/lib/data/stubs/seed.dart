@@ -24,9 +24,10 @@ seed() async {
   for (var x in MOCK_RESERVATIONS) {
     await getIt<NostrService>().broadcast(event: x.nip01Event);
   }
-  // for (var x in MOCK_GIFT_WRAPS) {
-  //   await getIt<NostrService>().broadcast(event: x.nip01Event);
-  // }
+  for (var x in MOCK_GIFT_WRAPS) {
+    await getIt<NostrService>().broadcast(event: x.nip01Event);
+    print(x.nip01Event);
+  }
   for (var x in MOCK_PROFILES) {
     await getIt<NostrService>().broadcast(event: x);
   }

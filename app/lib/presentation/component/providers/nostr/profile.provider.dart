@@ -4,7 +4,7 @@ import 'package:ndk/ndk.dart';
 
 class ProfileProvider extends StatelessWidget {
   final String pubkey;
-  final Function(BuildContext context, Metadata profile) builder;
+  final Function(BuildContext context, Metadata? profile) builder;
   const ProfileProvider(
       {super.key, required this.pubkey, required this.builder});
 
@@ -13,7 +13,7 @@ class ProfileProvider extends StatelessWidget {
     return FutureBuilder(
         future: getIt<Ndk>().metadata.loadMetadata(pubkey),
         builder: (context, snapshot) {
-          return builder(context, snapshot.data as Metadata);
+          return builder(context, snapshot.data);
         });
   }
 }

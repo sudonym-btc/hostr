@@ -6,6 +6,14 @@ class TripsScreen extends StatelessWidget {
   const TripsScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    return Text('Your trips');
+    // return BlocBuilder<GlobalGiftWrapCubit>(
+
+    //     child: ListWidget<Review>(builder: (el) {
+    //       return ReviewListItem(
+    //         review: el,
+    //         // dateRange: searchController.state.dateRange,
+    //       );
+    //     }));
+    return Container();
   }
 }

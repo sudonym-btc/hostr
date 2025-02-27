@@ -53,7 +53,8 @@ GiftWrap giftWrapAndSeal(String to, KeyPair from, Event event, Uri? nwc) {
               content: event.toString(),
               tags: []),
           from,
-        ).toString()),
+        ).toString())
+      ..sign(Bip340.generatePrivateKey().privateKey!),
     from,
   );
 }
