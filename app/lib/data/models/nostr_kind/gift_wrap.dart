@@ -38,10 +38,12 @@ class GiftWrap<T extends Event> extends ParentTypeNostrEvent<T> {
   }
 }
 
-GiftWrap giftWrapAndSeal(String to, KeyPair from, Event event, Uri? nwc) {
+GiftWrap giftWrapAndSeal(String to, KeyPair from, Nip01Event event, Uri? nwc) {
+  KeyPair temp = Bip340.generatePrivateKey();
+  print('GiftWrap: $to, ${from.publicKey}');
   return GiftWrap.fromNostrEvent(
     Nip01Event(
-        pubKey: Bip340.generatePrivateKey().publicKey,
+        pubKey: temp.publicKey,
         kind: NOSTR_KIND_GIFT_WRAP,
         tags: [
           ['p', to]
@@ -50,11 +52,11 @@ GiftWrap giftWrapAndSeal(String to, KeyPair from, Event event, Uri? nwc) {
           Nip01Event(
               kind: NOSTR_KIND_SEAL,
               pubKey: from.publicKey,
-              content: event.toString(),
+              content: jsonEncode(event.toJson()),
               tags: []),
           from,
         ).toString())
-      ..sign(Bip340.generatePrivateKey().privateKey!),
+      ..sign(temp.privateKey!),
     from,
   );
 }

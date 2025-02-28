@@ -10,7 +10,7 @@ class ThreadMessageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isSentByMe = item.child.nip01Event.pubKey == counterpartyPubkey;
+    bool isSentByMe = item.child!.nip01Event.pubKey == counterpartyPubkey;
 
     return Align(
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -22,7 +22,7 @@ class ThreadMessageWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
-          item.child.child.content!,
+          item.child!.child!.content,
           style: TextStyle(
             color: isSentByMe ? Colors.white : Colors.black,
           ),

@@ -18,13 +18,15 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   String getCounterpartyPubkey() {
     logger.i('Getting counterparty pubkey');
     KeyPair ours = getIt<KeyStorage>().getActiveKeyPairSync()!;
-    return state.messages
-        .firstWhere(
-          (element) => element.child.nip01Event.pubKey != ours.publicKey,
-        )
-        .child
-        .nip01Event
-        .pubKey;
+    var keys = state.messages
+        .expand((e) => [...e.nip01Event.pTags, e.child!.nip01Event.pubKey])
+        .toList();
+
+    print(keys);
+
+    return keys.firstWhere(
+      (element) => element != ours.publicKey,
+    );
   }
 
   String getAnchor() {

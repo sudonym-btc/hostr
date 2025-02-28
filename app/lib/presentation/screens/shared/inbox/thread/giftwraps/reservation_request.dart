@@ -16,7 +16,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     ReservationRequest r = (item.child as Seal).child as ReservationRequest;
 
-    bool isSentByMe = item.child.nip01Event.pubKey == counterparty.pubKey;
+    bool isSentByMe = item.child!.nip01Event.pubKey == counterparty.pubKey;
 
     return Align(
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,

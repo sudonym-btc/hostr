@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hostr/data/sources/nostr/mock.blossom.dart';
 import 'package:hostr/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:ndk/entities.dart';
@@ -25,6 +26,8 @@ setup(String env) async {
 
   configureInjection(env);
   if (env == Env.mock || env == Env.test) {
+    MockBlossomServer blossomServer = MockBlossomServer();
+    await blossomServer.start();
     MockRelay mockRelay = MockRelay(name: "Mock Relay", explicitPort: 5044);
     await mockRelay.startServer(events: [
       ...MOCK_EVENTS,
