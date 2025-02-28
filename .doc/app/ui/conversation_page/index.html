@@ -9,24 +9,24 @@
     <meta name="generator" content="Retype 3.6.0">
 
     <!-- Primary Meta Tags -->
-    <title>State persistence</title>
-    <meta name="title" content="State persistence">
-    <meta name="description" content="Hydrated blocs are used to persist state between app relaunched, preventing re-sync upon every usage.">
+    <title>Conversation Page</title>
+    <meta name="title" content="Conversation Page">
+    <meta name="description" content="Conversations consist of wrapped messages between a seller and hoster, and contain direct messages and reservation requests.">
 
     <!-- Canonical -->
-    <link rel="canonical" href="/.doc/app/nostr_sync/state_persistence/">
+    <link rel="canonical" href="/.doc/app/ui/conversation_page/">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="/.doc/app/nostr_sync/state_persistence/">
-    <meta property="og:title" content="State persistence">
-    <meta property="og:description" content="Hydrated blocs are used to persist state between app relaunched, preventing re-sync upon every usage.">
+    <meta property="og:url" content="/.doc/app/ui/conversation_page/">
+    <meta property="og:title" content="Conversation Page">
+    <meta property="og:description" content="Conversations consist of wrapped messages between a seller and hoster, and contain direct messages and reservation requests.">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="/.doc/app/nostr_sync/state_persistence/">
-    <meta property="twitter:title" content="State persistence">
-    <meta property="twitter:description" content="Hydrated blocs are used to persist state between app relaunched, preventing re-sync upon every usage.">
+    <meta property="twitter:url" content="/.doc/app/ui/conversation_page/">
+    <meta property="twitter:title" content="Conversation Page">
+    <meta property="twitter:description" content="Conversations consist of wrapped messages between a seller and hoster, and contain direct messages and reservation requests.">
 
     <script data-cfasync="false">(function () { var el = document.documentElement, m = localStorage.getItem("doc_theme"), wm = window.matchMedia; if (m === "dark" || (!m && wm && wm("(prefers-color-scheme: dark)").matches)) { el.classList.add("dark") } else { el.classList.remove("dark") } })();</script>
 
@@ -35,6 +35,7 @@
     <script data-cfasync="false" src="../../../../resources/js/config.js?v=3.6.0.794061178899" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../../resources/js/retype.js?v=3.6.0" data-turbo-eval="false" defer></script>
     <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=3.6.0.794061178899" data-turbo-eval="false" defer></script>
+    <script id="mermaid-js" data-cfasync="false" src="../../../../resources/js/mermaid.js?v=3.6.0" defer></script>
 </head>
 <body>
     <div id="docs-app" class="relative text-base antialiased text-gray-700 bg-white font-body dark:bg-dark-850 dark:text-dark-300">
@@ -153,20 +154,39 @@
                                 <!-- Rendered if sidebar right is enabled -->
                                 <div id="docs-sidebar-right-toggle"></div>
                                 <!-- Page content  -->
-<doc-anchor-target id="state-persistence" class="break-words">
+<doc-anchor-target id="conversation-page" class="break-words">
     <h1>
-        <doc-anchor-trigger class="header-anchor-trigger" to="#state-persistence">#</doc-anchor-trigger>
-        <span>State persistence</span>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#conversation-page">#</doc-anchor-trigger>
+        <span>Conversation Page</span>
     </h1>
 </doc-anchor-target>
-<doc-anchor-target id="hydrated-cubits">
-    <h3>
-        <doc-anchor-trigger class="header-anchor-trigger" to="#hydrated-cubits">#</doc-anchor-trigger>
-        <span>Hydrated cubits</span>
-    </h3>
-</doc-anchor-target>
-<p><a href="https://pub.dev/packages/hydrated_bloc">Hydrated</a> blocs are used to persist state between app relaunched, preventing re-sync upon every usage.
-Hydrated blocs must be cleared on logout.</p>
+<p>Conversations consist of wrapped messages between a seller and hoster, and contain direct messages and reservation requests.</p>
+<p>A thread must reference a particular unique ID, primarily set by an initial <code v-pre>ReservationRequest</code> sent either by the host to the guest, or guest to the host.</p>
+<div class="overflow-hidden mb-6 py-4 dark:px-5 dark:bg-white rounded-md"><pre class="mermaid w-full">flowchart TD
+    Input[Payment Request to, amount?, needReceipt=true]
+
+    subgraph Resolve Info
+        A{Must resolve?}
+        B[LNURL, Lightning Address, Bolt12, Zap, npub]
+        C[Bolt11]
+        A ---|Yes| B
+        A ---|No| C
+        E[fetch]
+        D[commentMax, commentMin, minAmount, maxAmount, callbackUrl]
+        B --&gt; E
+        E --&gt; D
+        C --&gt; D
+    end
+
+    Input --&gt; A
+
+    D --&gt; FetchFinal[Fetch bolt11 and verify hash/amount]
+    FetchFinal --&gt; PayMethod{NWC enabled?}
+    PayMethod ---|No| PayBolt11WithDeeplinkQR
+    PayBolt11WithDeeplinkQR --&gt; ManuallyCloseAwaitZapEscrowEvent
+    PayMethod ---|Yes| NWCPayInvoice
+    NWCPayInvoice --&gt; NWCResponse{notification received?}
+    NWCResponse --&gt; CloseUI</pre></div>
 
                                 
                                 <!-- Required only on API pages -->
@@ -176,20 +196,20 @@ Hydrated blocs must be cleared on logout.</p>
                             
                                 <nav class="flex mt-14">
                                     <div class="w-1/2">
-                                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-blue-500 dark:text-blue-400 border border-gray-300 hover:border-gray-400 dark:border-dark-650 dark:hover:border-dark-450 rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../../.doc/app/nostr_sync/search/">
+                                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-blue-500 dark:text-blue-400 border border-gray-300 hover:border-gray-400 dark:border-dark-650 dark:hover:border-dark-450 rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../../.doc/app/ui/">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
                                             <span>
                                                 <span class="block text-xs font-normal text-gray-400 dark:text-dark-400">Previous</span>
-                                                <span class="block mt-1">Search</span>
+                                                <span class="block mt-1">UI</span>
                                             </span>
                                         </a>
                                     </div>
                             
                                     <div class="w-1/2">
-                                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-blue-500 dark:text-blue-400 border border-gray-300 hover:border-gray-400 dark:border-dark-650 dark:hover:border-dark-450 rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../../.doc/app/swap/swap_in/">
+                                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-blue-500 dark:text-blue-400 border border-gray-300 hover:border-gray-400 dark:border-dark-650 dark:hover:border-dark-450 rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../../.doc/app/escrow/">
                                             <span>
                                                 <span class="block text-xs font-normal text-right text-gray-400 dark:text-dark-400">Next</span>
-                                                <span class="block mt-1">Swap in (Reverse Submarine Swap)</span>
+                                                <span class="block mt-1">Escrow</span>
                                             </span>
                                             <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
                                         </a>
@@ -233,6 +253,6 @@ Hydrated blocs must be cleared on logout.</p>
 
     <div id="docs-overlay-target"></div>
 
-    <script data-cfasync="false">window.__DOCS__ = { "title": "State persistence", level: 4, icon: "file", hasPrism: false, hasMermaid: false, hasMath: false, tocDepth: 23 }</script>
+    <script data-cfasync="false">window.__DOCS__ = { "title": "Conversation Page", level: 4, icon: "file", hasPrism: false, hasMermaid: true, hasMath: false, tocDepth: 23 }</script>
 </body>
 </html>

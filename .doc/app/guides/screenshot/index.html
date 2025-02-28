@@ -9,24 +9,24 @@
     <meta name="generator" content="Retype 3.6.0">
 
     <!-- Primary Meta Tags -->
-    <title>State persistence</title>
-    <meta name="title" content="State persistence">
-    <meta name="description" content="Hydrated blocs are used to persist state between app relaunched, preventing re-sync upon every usage.">
+    <title>Screenshot</title>
+    <meta name="title" content="Screenshot">
+    <meta name="description" content="To generate screenshots of the app run">
 
     <!-- Canonical -->
-    <link rel="canonical" href="/.doc/app/nostr_sync/state_persistence/">
+    <link rel="canonical" href="/.doc/app/guides/screenshot/">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="/.doc/app/nostr_sync/state_persistence/">
-    <meta property="og:title" content="State persistence">
-    <meta property="og:description" content="Hydrated blocs are used to persist state between app relaunched, preventing re-sync upon every usage.">
+    <meta property="og:url" content="/.doc/app/guides/screenshot/">
+    <meta property="og:title" content="Screenshot">
+    <meta property="og:description" content="To generate screenshots of the app run">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="/.doc/app/nostr_sync/state_persistence/">
-    <meta property="twitter:title" content="State persistence">
-    <meta property="twitter:description" content="Hydrated blocs are used to persist state between app relaunched, preventing re-sync upon every usage.">
+    <meta property="twitter:url" content="/.doc/app/guides/screenshot/">
+    <meta property="twitter:title" content="Screenshot">
+    <meta property="twitter:description" content="To generate screenshots of the app run">
 
     <script data-cfasync="false">(function () { var el = document.documentElement, m = localStorage.getItem("doc_theme"), wm = window.matchMedia; if (m === "dark" || (!m && wm && wm("(prefers-color-scheme: dark)").matches)) { el.classList.add("dark") } else { el.classList.remove("dark") } })();</script>
 
@@ -35,6 +35,7 @@
     <script data-cfasync="false" src="../../../../resources/js/config.js?v=3.6.0.794061178899" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../../resources/js/retype.js?v=3.6.0" data-turbo-eval="false" defer></script>
     <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=3.6.0.794061178899" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=3.6.0.794061178899" defer></script>
 </head>
 <body>
     <div id="docs-app" class="relative text-base antialiased text-gray-700 bg-white font-body dark:bg-dark-850 dark:text-dark-300">
@@ -153,20 +154,17 @@
                                 <!-- Rendered if sidebar right is enabled -->
                                 <div id="docs-sidebar-right-toggle"></div>
                                 <!-- Page content  -->
-<doc-anchor-target id="state-persistence" class="break-words">
+<doc-anchor-target id="screenshot" class="break-words">
     <h1>
-        <doc-anchor-trigger class="header-anchor-trigger" to="#state-persistence">#</doc-anchor-trigger>
-        <span>State persistence</span>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#screenshot">#</doc-anchor-trigger>
+        <span>Screenshot</span>
     </h1>
 </doc-anchor-target>
-<doc-anchor-target id="hydrated-cubits">
-    <h3>
-        <doc-anchor-trigger class="header-anchor-trigger" to="#hydrated-cubits">#</doc-anchor-trigger>
-        <span>Hydrated cubits</span>
-    </h3>
-</doc-anchor-target>
-<p><a href="https://pub.dev/packages/hydrated_bloc">Hydrated</a> blocs are used to persist state between app relaunched, preventing re-sync upon every usage.
-Hydrated blocs must be cleared on logout.</p>
+<p>To generate screenshots of the app run</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre class="language-bash"><code v-pre class="language-bash">flutter drive --target integration_test/screenshot.dart</code></pre>
+</doc-codeblock></div>
+<p>Screenshots will be saved in <code v-pre>app/screenshot</code>.</p>
 
                                 
                                 <!-- Required only on API pages -->
@@ -176,20 +174,20 @@ Hydrated blocs must be cleared on logout.</p>
                             
                                 <nav class="flex mt-14">
                                     <div class="w-1/2">
-                                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-blue-500 dark:text-blue-400 border border-gray-300 hover:border-gray-400 dark:border-dark-650 dark:hover:border-dark-450 rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../../.doc/app/nostr_sync/search/">
+                                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-blue-500 dark:text-blue-400 border border-gray-300 hover:border-gray-400 dark:border-dark-650 dark:hover:border-dark-450 rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../../.doc/app/guides/compile_boltz_abis/">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
                                             <span>
                                                 <span class="block text-xs font-normal text-gray-400 dark:text-dark-400">Previous</span>
-                                                <span class="block mt-1">Search</span>
+                                                <span class="block mt-1">Compile Swap AB​Is</span>
                                             </span>
                                         </a>
                                     </div>
                             
                                     <div class="w-1/2">
-                                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-blue-500 dark:text-blue-400 border border-gray-300 hover:border-gray-400 dark:border-dark-650 dark:hover:border-dark-450 rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../../.doc/app/swap/swap_in/">
+                                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-blue-500 dark:text-blue-400 border border-gray-300 hover:border-gray-400 dark:border-dark-650 dark:hover:border-dark-450 rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../../.doc/app/nostr_sync/list/">
                                             <span>
                                                 <span class="block text-xs font-normal text-right text-gray-400 dark:text-dark-400">Next</span>
-                                                <span class="block mt-1">Swap in (Reverse Submarine Swap)</span>
+                                                <span class="block mt-1">List cubit</span>
                                             </span>
                                             <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
                                         </a>
@@ -233,6 +231,6 @@ Hydrated blocs must be cleared on logout.</p>
 
     <div id="docs-overlay-target"></div>
 
-    <script data-cfasync="false">window.__DOCS__ = { "title": "State persistence", level: 4, icon: "file", hasPrism: false, hasMermaid: false, hasMath: false, tocDepth: 23 }</script>
+    <script data-cfasync="false">window.__DOCS__ = { "title": "Screenshot", level: 4, icon: "file", hasPrism: true, hasMermaid: false, hasMath: false, tocDepth: 23 }</script>
 </body>
 </html>
