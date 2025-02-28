@@ -60,6 +60,9 @@ class ThreadOrganizerCubit<T extends Event>
 
   String? getThreadId(GiftWrap event) {
     if (event.child is Seal && (event.child as Seal).child is Event) {
+      print(((event.child as Seal).child as Event));
+      print('child');
+      print(((event.child as Seal).child as Event).runtimeType);
       return ((event.child as Seal).child as Event).anchor;
     }
     logger.i(

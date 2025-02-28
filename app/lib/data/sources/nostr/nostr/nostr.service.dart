@@ -69,7 +69,7 @@ T parser<T extends Event>(Nip01Event event, KeyPair? key) {
   } else if (Seal.kinds.contains(eventKind)) {
     return Seal.fromNostrEvent(event, key!) as T;
   } else if (Message.kinds.contains(eventKind)) {
-    return Message.fromNostrEvent(event, key!) as T;
+    return Message.safeFromNostrEvent(event, key!) as T;
   } else if (Escrow.kinds.contains(eventKind)) {
     return Escrow.fromNostrEvent(event) as T;
   } else if (Listing.kinds.contains(eventKind)) {

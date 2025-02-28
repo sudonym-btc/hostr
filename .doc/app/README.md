@@ -6,8 +6,9 @@ This is a client that displays and posts events related to short term accommodat
 
 <p align="start">
 
-<img src="screenshots/home.jpeg" alt="Home page" width=200 style="max-width:300px;">
-<img src="screenshots/listing.jpeg" alt="Listing page" width=200 style="max-width:300px;">
+<img src="/app/screenshots/home.png" alt="Home page" width=200 style="max-width:300px;">
+&nbsp;
+<img src="/app/screenshots/listing.png" alt="Listing page" width=200 style="max-width:300px;">
 
 </p>
 

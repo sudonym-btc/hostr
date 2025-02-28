@@ -1,15 +1,13 @@
+# [<img src="/app/assets/images/logo/logo.svg" width="32">](https://hostr.network) Hostr
 
 [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
-
-
-# [<img src="app/assets/images/logo/logo.svg" width="32">](https://hostr.network) Hostr
 
 Rental accomodation using purely peer-to-peer technologies such as [Nostr](https://nostr.com/).
 
 <p align="start">
 
-<img src=".doc/app/screenshots/home.jpeg" alt="Home page" width=200 style="max-width:300px;">
-<img src=".doc/app/screenshots/listing.jpeg" alt="Listing page" width=200 style="max-width:300px;">
+<img src="/app/screenshots/home.png" alt="Home page" width=200 style="max-width:300px;">&nbsp;
+<img src="/app/screenshots/listing.png" alt="Listing page" width=200 style="max-width:300px;">
 
 </p>
 

@@ -74,6 +74,8 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   web3dart_builders: ^0.1.2
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
   flutter_driver:
     sdk: flutter
 

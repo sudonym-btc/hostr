@@ -34,7 +34,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
 
   _onMapCreated(GoogleMapController controller) {
     widget.logger.i("Map created");
-    if (!_controller.isCompleted) {
+    if (!_controller.isCompleted && mounted) {
       widget.logger.i("Map completed");
       _controller.complete(controller);
       _mapReadySubject.add(true);

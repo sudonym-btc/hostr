@@ -12,6 +12,7 @@ class EditListingView extends StatelessWidget {
 
   buildListing(BuildContext context, Listing l) {
     return Scaffold(
+        appBar: AppBar(),
         bottomNavigationBar: BottomAppBar(
             shape: CircularNotchedRectangle(),
             child: CustomPadding(
