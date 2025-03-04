@@ -6,10 +6,11 @@ This is a client that displays and posts events related to short term accommodat
 
 <p align="start">
 
-<img src="/app/screenshots/home.png" alt="Home page" width=200 style="max-width:300px;">
-&nbsp;
-<img src="/app/screenshots/listing.png" alt="Listing page" width=200 style="max-width:300px;">
-
+<img src="/app/screenshots/home.png" alt="Home page" width=200 style="max-width:300px;">&nbsp;
+<img src="/app/screenshots/listing.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
+<img src="/app/screenshots/threads.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
+<img src="/app/screenshots/thread.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
+<img src="/app/screenshots/thread_pay.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
 </p>
 
 ## Getting Started
