@@ -80,6 +80,10 @@ class LocationFieldState extends State<LocationField> {
         itemBuilder: (context, index) {
           return ListTile(
             title: Text(_placeList[index]["text"]['text']),
+            onTap: () => setState(() {
+              _controller.text = _placeList[index]["text"]['text'];
+              _placeList = [];
+            }),
           );
         },
       )

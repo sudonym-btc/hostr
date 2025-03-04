@@ -46,11 +46,16 @@ class _ListWidgetState<T extends Event> extends State<ListWidget<T>> {
     return BlocBuilder<ListCubit<T>, ListCubitState>(
       builder: (context, state) {
         return ListView.builder(
-          padding: EdgeInsets.only(bottom: DEFAULT_PADDING.toDouble()),
-          controller: _scrollController,
-          itemCount: state.results.length,
-          itemBuilder: (context, index) => widget.builder(state.results[index]),
-        );
+            padding: EdgeInsets.only(bottom: DEFAULT_PADDING.toDouble()),
+            controller: _scrollController,
+            itemCount: state.results.length,
+            itemBuilder: (context, index) {
+              return KeyedSubtree(
+                key: ValueKey(state.results[index].nip01Event
+                    .id), // Ensure each item has a unique key
+                child: widget.builder(state.results[index]),
+              );
+            });
       },
     );
   }

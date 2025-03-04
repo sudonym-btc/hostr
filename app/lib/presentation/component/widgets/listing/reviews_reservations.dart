@@ -15,7 +15,7 @@ class ReviewsReservationsWidget extends StatelessWidget {
         child: Row(
           children: [
             BlocProvider(
-              create: (context) => CountCubit(kinds: Review.kinds),
+              create: (context) => CountCubit(kinds: Review.kinds)..count(),
               child: BlocBuilder<CountCubit, CountCubitState>(
                 builder: (context, state) {
                   return Text("${state.count} reviews");
@@ -23,7 +23,8 @@ class ReviewsReservationsWidget extends StatelessWidget {
               ),
             ),
             BlocProvider(
-              create: (context) => CountCubit(kinds: Reservation.kinds),
+              create: (context) =>
+                  CountCubit(kinds: Reservation.kinds)..count(),
               child: BlocBuilder<CountCubit, CountCubitState>(
                 builder: (context, state) {
                   return Text(" · ${state.count} stays");

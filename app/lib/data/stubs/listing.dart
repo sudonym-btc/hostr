@@ -13,7 +13,7 @@ var MOCK_LISTINGS = [
   Listing.fromNostrEvent(Nip01Event(
       pubKey: MockKeys.hoster.publicKey,
       content: json.encode(ListingContent(
-              title: 'Cozy Cabin in the Woods 1',
+              title: 'Cozy Cabin in the Woods',
               description: """
 A cozy, rustic cabin nestled in the woods. Perfect for a quiet retreat or a family vacation. Enjoy the serene surroundings and the beautiful nature trails. Close to local attractions and amenities.
 The space

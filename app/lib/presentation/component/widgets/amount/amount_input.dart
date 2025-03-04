@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/data/models/amount.dart';
+import 'package:hostr/logic/services/swap.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:intl/intl.dart';
 
@@ -21,6 +22,20 @@ const buttons = [
 var format = (bool fiat) => NumberFormat.currency(
     locale: "en_US", name: null, symbol: '', decimalDigits: fiat ? 2 : 0);
 
+var compactFormat = (bool fiat) => NumberFormat.compact(locale: "en_US");
+
+formatAmount(Amount amount, {exact = false}) {
+  String prefix =
+      amount.currency.prefix == '' ? '' : '${amount.currency.prefix} ';
+  var f = exact
+      ? format(amount.currency != Currency.BTC)
+      : compactFormat(amount.currency != Currency.BTC);
+  var val = amount.currency != Currency.BTC
+      ? amount.value
+      : amount.value * btcSatoshiFactor;
+  return '$prefix${f.format(val)}${amount.currency.suffix}';
+}
+
 String trimTrailingZeros(String value) {
   if (value.contains('.')) {
     value = value.replaceAll(RegExp(r'0*$'), '');
@@ -30,12 +45,12 @@ String trimTrailingZeros(String value) {
 }
 
 class AmountInputWidget extends FormField<Amount> {
-  List<Currency> currencies = Currency.values;
-  Currency? outputCurrency;
-  Amount? min;
-  Amount? max;
+  final List<Currency> currencies = Currency.values;
+  final Currency? outputCurrency = null;
+  final Amount? min = null;
+  final Amount? max = null;
 
-  AmountInputWidget({initialValue})
+  AmountInputWidget({super.key, initialValue})
       : super(
           initialValue:
               initialValue ?? Amount(currency: Currency.BTC, value: 0),
@@ -48,7 +63,7 @@ class AmountInputWidget extends FormField<Amount> {
                     child: Center(
                         child: Text(
                             style: TextStyle(fontSize: 34),
-                            '${field.value!.currency.prefix} ${format(field.value!.currency != Currency.BTC).format(field.value!.value)}${field.value!.currency.suffix}'))),
+                            formatAmount(field.value!)))),
                 Expanded(
                     flex: 1,
                     child: CustomPadding.vertical(

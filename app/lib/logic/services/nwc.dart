@@ -53,15 +53,24 @@ class NwcService {
         await nostr.nwc.connect((await nwcStorage.get())[0]),
         amountSats: amountSats);
   }
+
+  Future<LookupInvoiceResponse> lookupInvoice(
+      {String? paymentHash, String? invoice}) async {
+    return nostr.nwc.lookupInvoice(
+        await nostr.nwc.connect((await nwcStorage.get())[0]),
+        paymentHash: paymentHash,
+        invoice: invoice);
+  }
 }
 
 @Injectable(as: NwcService, env: [Env.test, Env.mock])
 class MockNostrWalletConnectService extends NwcService {
-  Future<GetInfoResponse> getWalletInfo(Uri nwc) async {
+  @override
+  Future<GetInfoResponse> getInfo(String nwc) async {
     return GetInfoResponse(
-      alias: 'test',
+      alias: 'Wallet of Satoshi',
       color: '#FFFF00',
-      pubkey: 'test',
+      pubkey: 'npub34324237789797987',
       resultType: 'get_info',
       network: BitcoinNetwork.mainnet,
       blockHeight: 800000,
@@ -69,5 +78,29 @@ class MockNostrWalletConnectService extends NwcService {
       methods: ["pay_invoice", "lookup_invoice", "make_invoice"],
       notifications: [],
     );
+  }
+
+  @override
+  Future<PayInvoiceResponse> payInvoice(String invoice, int? amount) async {
+    return PayInvoiceResponse(
+        preimage: 'preimage', resultType: 'pay_invoice', feesPaid: 1);
+  }
+
+  @override
+  Future<LookupInvoiceResponse> lookupInvoice(
+      {String? paymentHash, String? invoice}) async {
+    return LookupInvoiceResponse(
+        type: 'incoming',
+        invoice: 'lnbc1fonerjfneroj',
+        description: '',
+        descriptionHash: '',
+        preimage: '',
+        paymentHash: paymentHash ?? '',
+        amount: 1000,
+        feesPaid: 1,
+        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        expiresAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        settledAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        resultType: 'lookup_invoice');
   }
 }

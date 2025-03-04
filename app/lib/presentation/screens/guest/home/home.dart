@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,9 +21,10 @@ class HomeScreen extends StatelessWidget {
             showModalBottomSheet(
                 context: context,
                 builder: (c) {
-                  return PaymentWidget(
+                  return SafeArea(
+                      child: PaymentWidget(
                     paymentCubit: state,
-                  );
+                  ));
                 });
           },
         ),
@@ -38,39 +41,37 @@ class HomeScreen extends StatelessWidget {
       ],
       child: BlocBuilder<ModeCubit, ModeCubitState>(builder: (context, state) {
         if (state is HostMode) {
+          const hostTabs = [
+            BottomNavigationBarItem(
+                icon: Icon(Icons.list), label: 'My Listings'),
+            BottomNavigationBarItem(icon: Icon(Icons.inbox), label: 'Inbox'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          ];
           return AutoTabsScaffold(
               routes: [MyListingsRoute(), InboxRoute(), ProfileRoute()],
               bottomNavigationBuilder: (context, tabsRouter) =>
                   BottomNavigationBar(
-                    currentIndex: tabsRouter.activeIndex,
-                    onTap: tabsRouter.setActiveIndex,
-                    items: const [
-                      BottomNavigationBarItem(
-                          icon: Icon(Icons.list), label: 'My Listings'),
-                      BottomNavigationBarItem(
-                          icon: Icon(Icons.inbox), label: 'Inbox'),
-                      BottomNavigationBarItem(
-                          icon: Icon(Icons.person), label: 'Profile'),
-                    ],
-                  ));
+                      currentIndex:
+                          min(hostTabs.length - 1, tabsRouter.activeIndex),
+                      onTap: tabsRouter.setActiveIndex,
+                      items: hostTabs));
         }
+        const otherTabs = const [
+          BottomNavigationBarItem(
+              icon: Icon(Icons.search, size: 30), label: 'Search'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.travel_explore), label: 'Trips'),
+          BottomNavigationBarItem(icon: Icon(Icons.inbox), label: 'Inbox'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ];
         return AutoTabsScaffold(
             routes: [SearchRoute(), TripsRoute(), InboxRoute(), ProfileRoute()],
             bottomNavigationBuilder: (context, tabsRouter) =>
                 BottomNavigationBar(
-                  currentIndex: tabsRouter.activeIndex,
-                  onTap: tabsRouter.setActiveIndex,
-                  items: const [
-                    BottomNavigationBarItem(
-                        icon: Icon(Icons.search, size: 30), label: 'Search'),
-                    BottomNavigationBarItem(
-                        icon: Icon(Icons.travel_explore), label: 'Trips'),
-                    BottomNavigationBarItem(
-                        icon: Icon(Icons.inbox), label: 'Inbox'),
-                    BottomNavigationBarItem(
-                        icon: Icon(Icons.person), label: 'Profile'),
-                  ],
-                ));
+                    currentIndex:
+                        min(otherTabs.length - 1, tabsRouter.activeIndex),
+                    onTap: tabsRouter.setActiveIndex,
+                    items: otherTabs));
       }),
     );
   }

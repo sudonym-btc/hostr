@@ -6,11 +6,11 @@ class CustomPadding extends StatelessWidget {
   final double bottom;
   final double left;
   final double right;
-  final Widget child;
+  final Widget? child;
 
   const CustomPadding(
       {super.key,
-      required this.child,
+      this.child,
       this.top = 1,
       this.bottom = 1,
       this.left = 1,
@@ -35,6 +35,6 @@ class CustomPadding extends StatelessWidget {
           left: left * DEFAULT_PADDING.toDouble(),
           right: right * DEFAULT_PADDING.toDouble(),
         ),
-        child: child);
+        child: child ?? Container());
   }
 }

@@ -6,7 +6,11 @@ class ThreadHeaderWidget extends StatelessWidget {
   final String? image;
   final Widget? trailing;
   const ThreadHeaderWidget(
-      {required this.title, required this.subtitle, this.image, this.trailing});
+      {super.key,
+      required this.title,
+      required this.subtitle,
+      this.image,
+      this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +20,11 @@ class ThreadHeaderWidget extends StatelessWidget {
         child: image == null ? Text(title[0]) : null,
       ),
       title: Text(title),
-      subtitle: Text(subtitle),
+      subtitle: Text(
+        subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       trailing: trailing,
     );
   }

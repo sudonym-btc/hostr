@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:bip340/bip340.dart';
 import 'package:ndk/entities.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
+import 'package:rxdart/rxdart.dart';
 
 class MockRelay {
   String name;
@@ -13,6 +14,7 @@ class MockRelay {
   HttpServer? server;
   WebSocket? webSocket;
   List<Nip01Event> events = [];
+  Subject<Nip01Event> onAddEvent = BehaviorSubject();
   bool signEvents;
   bool requireAuthForRequests;
 
@@ -104,10 +106,17 @@ class MockRelay {
           eose.add("EOSE");
           eose.add(requestId);
           webSocket.add(jsonEncode(eose));
+          // @todo not closing closed connections could lead to memory leaks
+          onAddEvent
+              // .takeUntil(webSocket.asBroadcastStream())
+              .where((event) {
+            return matchEvent(event, filter);
+          }).listen((event) => _respondEvent(requestId, event));
         } else if (eventJson[0] == "EVENT") {
           log('Received: $eventJson');
           Nip01Event event = Nip01Event.fromJson(eventJson[1]);
           this.events.add(event);
+          onAddEvent.add(event);
           webSocket.add(jsonEncode(["OK", event.id, true, '']));
         }
       });
@@ -153,8 +162,8 @@ matchEvent(Nip01Event event, Filter filter) {
 
   /// Only match events from that are addressable by kind:pubkey:string => "a" tag
   if (filter.aTags != null &&
-      !filter.aTags!
-          .any((a) => event.tags.any((tag) => tag[0] == "a" && tag[1] == a))) {
+      !filter.aTags!.any(
+          (a) => event.tags.any((tag) => tag[0] == "a" && tag.contains(a)))) {
     return false;
   }
 

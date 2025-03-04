@@ -8,11 +8,26 @@ class PaymentWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<PaymentCubit>(
-        create: (context) => paymentCubit,
+    return BlocProvider<PaymentCubit>.value(
+        value: paymentCubit,
         child:
             BlocBuilder<PaymentCubit, PaymentState>(builder: (context, state) {
+          if (state.status == PaymentStatus.failed) {
+            return Material(
+                color: Colors.red,
+                child: CustomPadding(child: Text(state.error!)));
+          } else if (state.status == PaymentStatus.completed) {
+            return Material(
+                color: Colors.green,
+                child: CustomPadding(
+                    child: Container(
+                        width: double.infinity,
+                        child: Text('Payment completed'))));
+          } else if (state.status == PaymentStatus.inFlight) {
+            return CustomPadding(child: CircularProgressIndicator());
+          }
           Widget? nwcInfo;
+
           if (paymentCubit is LnUrlPaymentCubit ||
               paymentCubit is Bolt11PaymentCubit) {
             nwcInfo = BlocProvider<NwcCubit>(create: (context) {
@@ -45,53 +60,46 @@ class PaymentWidget extends StatelessWidget {
             // nwcInfo = FutureBuilder(future: getIt<NwcCubit>()., builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {  return NwcProvider(pubkey: );});
           }
           print(
-              'Payment of type ${state.runtimeType}, ${paymentCubit.runtimeType}');
-          if (state.status == PaymentStatus.failed) {
-            return Material(
-                color: Colors.red,
-                child: CustomPadding(child: Text(state.error!)));
-          } else if (state.status == PaymentStatus.completed) {
-            return Material(
-                color: Colors.green,
-                child: CustomPadding(child: Text('Payment completed')));
-          } else if (state.status == PaymentStatus.inFlight) {
-            return CustomPadding(child: CircularProgressIndicator());
-          }
-          return Column(children: [
-            nwcInfo ?? Container(),
-            CustomPadding(
-                child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              'Payment of type ${state.runtimeType}, ${paymentCubit.runtimeType}, ${state.params.amount?.value}');
+
+          return Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Flexible(
-                    child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                nwcInfo ?? Container(),
+                CustomPadding(
+                    child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      state.params.to,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(state.params.amount.toString()),
+                    Flexible(
+                        child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          state.params.to,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(formatAmount(state.params.amount!)),
+                      ],
+                    )),
+                    state.status == PaymentStatus.resolved
+                        ? FilledButton(
+                            child: Text('Ok'),
+                            onPressed: () {
+                              paymentCubit.ok();
+                            },
+                          )
+                        : FilledButton(
+                            child: Text('Pay'),
+                            onPressed: () {
+                              paymentCubit.confirm();
+                            },
+                          )
                   ],
-                )),
-                state.status == PaymentStatus.resolved
-                    ? FilledButton(
-                        child: Text('Ok'),
-                        onPressed: () {
-                          paymentCubit.ok();
-                        },
-                      )
-                    : FilledButton(
-                        child: Text('Pay'),
-                        onPressed: () {
-                          paymentCubit.confirm();
-                        },
-                      )
-              ],
-            ))
-          ]);
+                ))
+              ]);
         }));
   }
 }

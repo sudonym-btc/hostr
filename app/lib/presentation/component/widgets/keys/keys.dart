@@ -1,9 +1,11 @@
 import 'package:bip39/bip39.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/cubit/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class KeysWidget extends StatefulWidget {
@@ -88,6 +90,26 @@ class KeysWidgetState extends State<KeysWidget> {
                 title: Text('Rootstock'),
                 subtitle: Text(getIt<Config>().rootstockRpcUrl),
               ),
+              Row(children: [
+                FilledButton(
+                    onPressed: () async {
+                      await context.read<AuthCubit>().logout();
+                      await context.read<ModeCubit>().setHost();
+                      await context
+                          .read<AuthCubit>()
+                          .signin(MockKeys.hoster.privateKey!);
+                    },
+                    child: Text('Log in host')),
+                FilledButton(
+                    onPressed: () async {
+                      await context.read<AuthCubit>().logout();
+                      await context.read<ModeCubit>().setGuest();
+                      await context
+                          .read<AuthCubit>()
+                          .signin(MockKeys.guest.privateKey!);
+                    },
+                    child: Text('Log in guest'))
+              ])
             ],
           )
         : Container();

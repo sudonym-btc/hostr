@@ -29,6 +29,33 @@ Nip01Event hostInvitesGuest = Nip01Event(
           ..sign(MockKeys.hoster.privateKey!))
         .toString());
 
+Nip01Event guestRequest = Nip01Event(
+    pubKey: MockKeys.guest.publicKey,
+    kind: NOSTR_KIND_DM,
+    tags: [
+      ['a', 'random-topic-id-2'],
+      [
+        'p',
+        MockKeys.hoster.publicKey,
+      ]
+    ],
+    content: ReservationRequest.fromNostrEvent(Nip01Event(
+            kind: NOSTR_KIND_RESERVATION_REQUEST,
+            tags: [
+              ['a', MOCK_LISTINGS[0].anchor],
+            ],
+            content: ReservationRequestContent(
+                    start: DateTime.now(),
+                    end: DateTime.now().add(Duration(days: 1)),
+                    quantity: 1,
+                    amount: Amount(currency: Currency.BTC, value: 0.0001),
+                    commitmentHash: 'hash',
+                    commitmentHashPreimageEnc: 'does')
+                .toString(),
+            pubKey: MockKeys.guest.publicKey)
+          ..sign(MockKeys.guest.privateKey!))
+        .toString());
+
 var MOCK_GIFT_WRAPS = [
   /// Must send GiftWraps to yourself and recipient
   ...[
@@ -65,7 +92,11 @@ var MOCK_GIFT_WRAPS = [
     giftWrapAndSeal(
         MockKeys.guest.publicKey, MockKeys.hoster, hostInvitesGuest, null),
     giftWrapAndSeal(
-        MockKeys.hoster.publicKey, MockKeys.hoster, hostInvitesGuest, null)
+        MockKeys.hoster.publicKey, MockKeys.hoster, hostInvitesGuest, null),
+    giftWrapAndSeal(
+        MockKeys.guest.publicKey, MockKeys.guest, guestRequest, null),
+    giftWrapAndSeal(
+        MockKeys.hoster.publicKey, MockKeys.guest, guestRequest, null)
   ]
 ].toList();
 // var MOCK_GIFT_WRAPS = [

@@ -58,7 +58,7 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
         getCombinedFilter(Filter(kinds: kinds), filter),
         filterCubit?.state.filter);
     logger.t('listFilter: $finalFilter');
-    getIt<NostrService>().startRequest<T>(filters: [
+    getIt<NostrService>().subscribe<T>(filters: [
       // Nostr treats separate NostrFilters as OR, so we need to combine them
       finalFilter
     ]).listen((event) {
