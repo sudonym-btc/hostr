@@ -59,6 +59,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
                     CustomPadding(),
                     Expanded(
                         child: FilledButton(
+                            key: ValueKey('pay_upfront'),
                             onPressed: () {
                               Navigator.of(context).pop();
 
@@ -112,13 +113,12 @@ class ThreadReservationRequestWidget extends StatelessWidget {
       return StreamBuilder(
           stream: context.read<ThreadCubit>().loadBookingState(),
           builder: (context, state) {
-            print(state.data);
-            print("MBooking status");
             if (state.data == null) {
               return BlocProvider<EventPublisherCubit>(
                   create: (context) => EventPublisherCubit(),
                   child: BlocBuilder<EventPublisherCubit, EventPublisherState>(
                     builder: (context, state) => FilledButton(
+                        key: ValueKey('accept'),
                         onPressed: () => accept(context, l),
                         child: Text(isSentByMe ? 'Reserve' : 'Accept')),
                   ));
@@ -129,7 +129,10 @@ class ThreadReservationRequestWidget extends StatelessWidget {
             );
           });
     }
-    return FilledButton(onPressed: () => pay(context), child: Text('Pay'));
+    return FilledButton(
+        key: ValueKey('pay'),
+        onPressed: () => pay(context),
+        child: Text('Pay'));
   }
 
   @override

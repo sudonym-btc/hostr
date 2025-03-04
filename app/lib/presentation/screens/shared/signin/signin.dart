@@ -28,6 +28,7 @@ class SignInScreenState extends State<SignInScreen> {
             return Center(
                 child: Column(children: [
               TextFormField(
+                key: ValueKey('key'),
                 onChanged: (value) {
                   setState(() {
                     _private = value;
@@ -37,6 +38,7 @@ class SignInScreenState extends State<SignInScreen> {
               Row(
                 children: [
                   FilledButton(
+                      key: ValueKey('login'),
                       onPressed: () async {
                         var router = AutoRouter.of(context);
                         await context.read<AuthCubit>().signin(_private);
