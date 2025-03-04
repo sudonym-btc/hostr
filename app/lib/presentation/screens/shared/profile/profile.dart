@@ -1,7 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/models/amount.dart';
+import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/logic/services/swap.dart';
@@ -22,6 +22,8 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              ProfileChipWidget(
+                  id: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey),
               BlocBuilder<ModeCubit, ModeCubitState>(builder: (context, state) {
                 return ListTile(
                   title: Text(

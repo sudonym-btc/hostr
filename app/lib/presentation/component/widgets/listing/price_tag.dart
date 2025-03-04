@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/presentation/main.dart';
 
 class PriceTagWidget extends StatelessWidget {
   final Price price;
@@ -12,7 +13,7 @@ class PriceTagWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      '19k sats',
+      formatAmount(price.amount, exact: false),
       style: Theme.of(context)
           .textTheme
           .bodyMedium!

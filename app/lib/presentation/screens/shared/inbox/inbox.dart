@@ -16,7 +16,6 @@ class InboxScreen extends StatelessWidget {
         ),
         body: BlocBuilder<ThreadOrganizerCubit, ThreadOrganizerState>(
             builder: (context, state) {
-          print(' Thread organizer: ${state.threads}');
           return ListView.builder(
               itemCount: state.threads.length,
               itemBuilder: (context, index) {

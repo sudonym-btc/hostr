@@ -79,7 +79,7 @@ class _SearchFormState extends State<SearchForm> {
         /// Testing blocked days
         selectableDayPredicate:
             (day, DateTime? selectedStartDay, DateTime? selectedEndDay) =>
-                day.isAfter(DateTime.now()) && day.day % 2 == 0,
+                day.isAfter(DateTime.now()),
         initialDateRange: _formState.availabilityRange);
     setState(() {
       _formState = _formState.copyWith(availabilityRange: picked);

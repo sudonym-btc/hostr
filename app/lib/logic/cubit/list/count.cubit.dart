@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:hostr/core/main.dart';
+import 'package:hostr/data/repositories/nostr/base.repository.dart';
+import 'package:hostr/data/sources/nostr/nostr/nostr.service.dart';
+import 'package:hostr/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:ndk/ndk.dart';
 
@@ -28,12 +31,11 @@ class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
   void count() async {
     logger.i("count");
     emit(CountCubitStateLoading());
-    // nostrInstance.requests!.query(filters: filters)
-    // nostrInstance.requests.requestNostrEvent(NdkRequest)
-    // int count = await getIt<NostrService>().count(getCombinedFilter(
-    //     NostrFilter(kinds: kinds), filterCubit?.state.filter));
+    int count = await getIt<NostrService>().count(filters: [
+      getCombinedFilter(Filter(kinds: kinds), filterCubit?.state.filter)
+    ]);
 
-    emit(CountCubitState(count: 0));
+    emit(CountCubitState(count: count));
   }
 
   @override
