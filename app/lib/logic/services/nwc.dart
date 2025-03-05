@@ -39,6 +39,7 @@ class NwcService {
   }
 
   Future<GetInfoResponse> getInfo(String nwc) async {
+    logger.i('Connecting to NWC: $nwc');
     return nostr.nwc.getInfo(await nostr.nwc.connect(nwc));
   }
 

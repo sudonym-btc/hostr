@@ -26,6 +26,7 @@ class NwcCubit extends Cubit<NwcCubitState> {
   Future checkInfo() async {
     emit(NostrWalletConnectInProgress());
     List urls = await nwcService.nwcStorage.get();
+    print(urls);
     if (urls.isEmpty) {
       emit(Error(e: "No NWC urls found"));
       return;

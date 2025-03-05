@@ -129,6 +129,8 @@ class ThreadReservationRequestWidget extends StatelessWidget {
             );
           });
     }
+
+    // todo check payment status here too
     return FilledButton(
         key: ValueKey('pay'),
         onPressed: () => pay(context),

@@ -13,7 +13,6 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   ThreadCubit(super.initialState);
 
   Stream<ListCubitState<Reservation>> loadBookingState() {
-    print('Loading reservations with ${getAnchor()}');
     var x = ListCubit<Reservation>(
         kinds: [NOSTR_KIND_RESERVATION], filter: Filter(aTags: [getAnchor()]));
     x.sync();

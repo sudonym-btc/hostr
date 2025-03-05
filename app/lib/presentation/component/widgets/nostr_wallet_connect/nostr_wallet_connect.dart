@@ -24,6 +24,7 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
   Config config = getIt<Config>();
   Uri? nostrWalletAuth;
   bool shouldShowQrScanner = false;
+  final TextEditingController controller = TextEditingController();
 
   @override
   initState() {
@@ -57,7 +58,10 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
               return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Expanded(child: TextField()),
+                    Expanded(
+                        child: TextField(
+                      controller: controller,
+                    )),
                     FilledButton(
                         onPressed: () {
                           setState(() {
@@ -67,8 +71,7 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
                         child: Text(!shouldShowQrScanner ? 'Scan' : 'Stop')),
                     FilledButton(
                         onPressed: () {
-                          context.read<NwcCubit>().connect(
-                              'nostr+walletconnect://a34d56d13de962a95ef71830f9838d31b563b506bb0e84debb557eff256c9ef3?relay=wss://relay.getalby.com/v1&secret=59b04fe4afc09c6487f6dbb021abcda8e38cc0ef1257af5c1586ff58c25ab49a&lud16=frostysun783@getalby.com');
+                          context.read<NwcCubit>().connect(controller.text);
                         },
                         child: Text('Connect'))
                   ]);

@@ -4,7 +4,6 @@ url: # Add your website address here
 include:
   - ".doc/**/*"
   - "app/screenshots/*"
-  - "README.md"
 exclude: 
 - "app"
 - "escrow"
