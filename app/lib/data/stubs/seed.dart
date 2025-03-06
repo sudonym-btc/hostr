@@ -1,9 +1,7 @@
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/sources/main.dart';
-import 'package:hostr/data/stubs/review.dart';
+import 'package:hostr/data/stubs/main.dart';
 import 'package:hostr/injection.dart';
-
-import 'main.dart';
 
 var MOCK_EVENTS = [
   ...MOCK_ESCROWS.map((i) => i.nip01Event),

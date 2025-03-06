@@ -6,7 +6,7 @@ import 'base.config.dart';
 @Injectable(as: Config, env: [Env.dev])
 class DevelopmentConfig extends Config {
   @override
-  List<String> relays = ['ws://relay:8080'];
+  List<String> relays = ['ws://relay.hostr.development'];
   @override
   List<String> blossom = ['http://127.0.0.1:3000'];
   @override

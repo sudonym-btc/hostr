@@ -53,8 +53,8 @@ setup(String env) async {
   }
   await getIt<RelayConnector>().connect();
 
-  if (env == Env.mock) {
-    // || env == Env.dev
+  // todo: export events to json and allow them to be imported into relay database, rather than publishing events when launching
+  if (env == Env.mock || env == Env.dev) {
     // await seed();
   }
 }

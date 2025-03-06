@@ -5,5 +5,6 @@ export 'listing.dart';
 export 'profile.dart';
 export 'reservation.dart';
 export 'reservation_request.dart';
+export 'review.dart';
 export 'seed.dart';
 export 'thread/main.dart';

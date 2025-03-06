@@ -1,0 +1,175 @@
+{% extends "public.html" %} {% block toolbar_title %} Verify NIP-5 For
+{{domain.domain }} {% endblock %} {% from "macros.jinja" import window_vars with
+context %} {% block page %}
+<link rel="stylesheet" href="/nostrnip5/static/css/signup.css" />
+<div>
+  <q-card class="q-pa-lg q-pt-lg" v-if="success == true">
+    {% raw %}
+    <p>
+      Success! Your username is now active at {{ successData.local_part }}@{{
+      domain }}. Please add this to your nostr profile accordingly. If you ever
+      need to rotate your keys, you can still keep your identity!
+    </p>
+
+    <h3>Important!</h3>
+    <p>
+      Bookmark this link:
+      <a
+        class="text-secondary"
+        v-bind:href="`/nostrnip5/rotate/${domain_id}/${successData.address_id}?secret=${successData.rotation_secret}`"
+        target="_blank"
+      >
+        <span
+          v-text="`${base_url}/nostrnip5/rotate/${domain_id}/${successData.address_id}?secret=${successData.rotation_secret}`"
+        ></span>
+      </a>
+    </p>
+    <p>
+      In case you ever need to change your pubkey, you can still keep this NIP-5
+      identity. Just come back to the above linked page to change the pubkey
+      associated to your identity.
+    </p>
+    {% endraw %}
+  </q-card>
+  <q-card class="q-pa-lg q-pt-lg" v-if="success == false">
+    <q-form @submit="checkIdentifier" class="q-gutter-md">
+      <p>
+        You can use this page to get NIP-5 verified on the nostr protocol under
+        the <strong> {{ domain.domain }}</strong> domain.
+      </p>
+      <p>
+        The price starts from
+        <b>{{ domain.cost }} {{ domain.currency }}</b>
+        for an account (if you do not own the domain, the service provider can
+        disable at any time).
+      </p>
+
+      <p>After submitting payment, your address will be</p>
+
+      <div class="row">
+        <div class="col-md-10 col-sm-6 q-mt-sm">
+          <q-input
+            filled
+            dense
+            v-model.trim="formDialog.data.local_part"
+            label="Identifier"
+            placeholder="benarc"
+            class="q-mr-md"
+          >
+            <template v-slot:append>
+              <span style="font-size: 18px">@{{ domain.domain }} </span>
+            </template>
+          </q-input>
+        </div>
+        <div class="col-md-2 col-sm-6 q-mt-sm">
+          <q-btn
+            @click="checkIdentifier"
+            unelevated
+            color="primary"
+            type="submit"
+            :disable="!formDialog.data.local_part"
+            class="float-right"
+            >Check Identifier</q-btn
+          >
+        </div>
+      </div>
+
+      <div v-if="identifier?.length && identifierAvailable">
+        <div class="row">
+          <div class="col">
+            <p>
+              The price for this identifier is
+              <strong> {{identifier_cost}} {{domain.currency}} per year</strong>
+              and will be tied to this nostr pubkey:
+            </p>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-10 col-sm-11 q-mt-sm">
+            <q-input
+              filled
+              dense
+              v-model.trim="formDialog.data.pubkey"
+              :rules="[ val => (val && (val.length === 64)) || (val && (val.indexOf('npub') === 0)) ||'Please enter an npub or hex pubkey' ]"
+              label="Pub Key"
+              placeholder="abc234"
+              hint="npub or hex format"
+              class="q-mr-md"
+            >
+            </q-input>
+          </div>
+          <div class="col-md-2 col-sm-1 q-mt-sm"><span></span></div>
+        </div>
+        <div class="row">
+          <div class="col-md-2 col-sm-11 q-mt-sm">
+            <q-select
+              filled
+              dense
+              :options="Array.from({length: maxYears}, (_, i) => i + 1)"
+              v-model="formDialog.data.years"
+              label="Years"
+              hint="Buy for this number of years."
+              class="q-mr-md"
+            >
+            </q-select>
+          </div>
+          <div class="col-md-10 col-sm-1 q-mt-sm"><span></span></div>
+        </div>
+
+        <div class="row q-mt-lg">
+          <q-btn
+            unelevated
+            color="primary"
+            @click="createAddress"
+            :disable="formDialog.data.local_part == null || !formDialog.data.pubkey"
+            >Create Address</q-btn
+          >
+        </div>
+      </div>
+      <div v-else-if="identifier">
+        <p>This identifier is not available.</p>
+      </div>
+    </q-form>
+  </q-card>
+
+  <q-dialog
+    v-model="qrCodeDialog.show"
+    position="top"
+    @hide="closeQrCodeDialog"
+  >
+    <q-card class="q-pa-lg q-pt-xl lnbits__dialog-card text-center">
+      <a
+        class="text-secondary"
+        :href="'lightning:' + qrCodeDialog.data.payment_request"
+      >
+        <q-responsive :ratio="1" class="q-mx-xs">
+          <lnbits-qrcode
+            :value="qrCodeDialog.data.payment_request"
+          ></lnbits-qrcode>
+        </q-responsive>
+      </a>
+      <br />
+      <q-btn
+        outline
+        color="grey"
+        @click="copyText('lightning:' + qrCodeDialog.data.payment_request, 'Invoice copied to clipboard!')"
+        >Copy Invoice</q-btn
+      >
+    </q-card>
+  </q-dialog>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  const base_url = '{{ request.base_url }}'
+  const domain = '{{ domain.domain }}'
+  const domain_id = '{{ domain_id }}'
+  const wallet = '{{ domain.wallet }}'
+  const currency = '{{ domain.currency }}'
+  const maxYears = '{{ domain.max_years }}'
+  const identifier = '{{ identifier }}'
+  const identifierCost = '{{ identifier_cost }}'
+  const identifierAvailable = '{{ identifier_available }}' === 'True'
+</script>
+<script src="{{ static_url_for('nostrnip5/static', 'js/signup.js') }}"></script>
+{% endblock %}
