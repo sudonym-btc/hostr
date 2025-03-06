@@ -1,12 +1,26 @@
 services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./docker/certs:/etc/nginx/certs:ro
+    networks:
+      - hostr_network
 
   # NOSTR Relat
   relay:
     container_name: relay
     image: scsibug/nostr-rs-relay:latest
     platform: linux/amd64
+    environment:
+      - VIRTUAL_HOST=relay.local
+      - VIRTUAL_PORT=${RELAY_PORT}
     ports:
-      - "5363:8080"
+      - "${RELAY_PORT}:8080"
     networks:
       - hostr_network
 
@@ -35,23 +49,24 @@ services:
   bitcoind:
     container_name: bitcoind
     image: bitcoin/bitcoin
-    command: [
-      "bitcoind",
-      "-port=${BITCOIN_PORT}",
-      "-upnp=0",
-      "-dnsseed=0",
-      "-txindex=1",
-      "-onlynet=ipv4",
-      "-regtest=1",
-      "-rpcport=${BITCOIN_RPC_PORT}",
-      "-rpcuser=${BITCOIN_RPC_USER}",
-      "-rpcpassword=${BITCOIN_RPC_PASSWORD}",
-      "-rpcallowip=0.0.0.0/0",
-      "-rpcbind=0.0.0.0",
-      "-zmqpubrawtx=tcp://0.0.0.0:${BITCOIN_ZMQ_TX_PORT}",
-      "-zmqpubrawblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}",
-      "-zmqpubhashblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}"
-    ]
+    command:
+      [
+        "bitcoind",
+        "-port=${BITCOIN_PORT}",
+        "-upnp=0",
+        "-dnsseed=0",
+        "-txindex=1",
+        "-onlynet=ipv4",
+        "-regtest=1",
+        "-rpcport=${BITCOIN_RPC_PORT}",
+        "-rpcuser=${BITCOIN_RPC_USER}",
+        "-rpcpassword=${BITCOIN_RPC_PASSWORD}",
+        "-rpcallowip=0.0.0.0/0",
+        "-rpcbind=0.0.0.0",
+        "-zmqpubrawtx=tcp://0.0.0.0:${BITCOIN_ZMQ_TX_PORT}",
+        "-zmqpubrawblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}",
+        "-zmqpubhashblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}",
+      ]
     ports:
       - "${BITCOIN_PORT}:${BITCOIN_PORT}"
       - "${BITCOIN_RPC_PORT}:${BITCOIN_RPC_PORT}"
@@ -66,26 +81,28 @@ services:
     depends_on:
       - bitcoind
     restart: unless-stopped
-    environment: 
+    environment:
       - SEQUENCE
-    command: [
-      "lnd",
-      "--tlsextradomain=lnd$$SEQUENCE",
-      "--adminmacaroonpath=/shared/$$SEQUENCE/admin.macaroon",
-      "--tlscertpath=/shared/$$SEQUENCE/tls.cert",
-      "--datadir=/lnd/$$SEQUENCE",
-      "--noseedbackup",
-      "--rpclisten=0.0.0.0:8080",
-      "--restlisten=0.0.0.0:8081",
-      "--tlsextraip=0.0.0.0",
-      "--bitcoin.regtest",
-      "--bitcoin.node=bitcoind",
-      "--bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT}",
-      "--bitcoind.rpcuser=${BITCOIN_RPC_USER}",
-      "--bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD}",
-      "--bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT}",
-      "--bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT}"
-    ]
+    command:
+      [
+        "lnd",
+        "--tlsextradomain=lnd1",
+        "--tlsextradomain=lnd2",
+        "--adminmacaroonpath=/shared/$$SEQUENCE/admin.macaroon",
+        "--tlscertpath=/shared/$$SEQUENCE/tls.cert",
+        "--datadir=/lnd/$$SEQUENCE",
+        "--noseedbackup",
+        "--rpclisten=0.0.0.0:8080",
+        "--restlisten=0.0.0.0:8081",
+        "--tlsextraip=0.0.0.0",
+        "--bitcoin.regtest",
+        "--bitcoin.node=bitcoind",
+        "--bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT}",
+        "--bitcoind.rpcuser=${BITCOIN_RPC_USER}",
+        "--bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD}",
+        "--bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT}",
+        "--bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT}",
+      ]
     volumes:
       - ./docker/data/lightning_data:/lnd
       - ./docker/data/lightning_shared:/shared
@@ -99,6 +116,7 @@ services:
       - SEQUENCE=1
     ports:
       - "10009:8080"
+      - "10019:8081"
   lnd2:
     extends:
       service: lnd-base
@@ -106,25 +124,67 @@ services:
       - SEQUENCE=2
     ports:
       - "10010:8080"
-  
+      - "10020:8081"
+
+  lnbits1:
+    image: lnbits/lnbits:v1.0.0-rc8
+    depends_on:
+      - lnd1
+    ports:
+      - "5055:5000"
+    environment:
+      - VIRTUAL_HOST=lnbits1.local
+      - VIRTUAL_PORT=5000
+      - LNBITS_ADMIN_UI=true
+      - LNBITS_BACKEND_WALLET_CLASS=LndRestWallet
+      - LND_REST_ENDPOINT=https://lnd1:8081
+      - LND_REST_CERT=/app/lnd/tls.cert
+      - LND_REST_MACAROON=/app/lnd/admin.macaroon
+    volumes:
+      - ./docker/data/lightning_shared/1:/app/lnd
+      - ./docker/data/lnbits/1:/app/data
+    networks:
+      - hostr_network
+
+  lnbits2:
+    image: lnbits/lnbits:v1.0.0-rc8
+    depends_on:
+      - lnd2
+    ports:
+      - "5056:5000"
+    environment:
+      - VIRTUAL_HOST=lnbits2.local
+      - VIRTUAL_PORT=5000
+      - LNBITS_ADMIN_UI=true
+      - LNBITS_BACKEND_WALLET_CLASS=LndRestWallet
+      - LND_REST_ENDPOINT=https://lnd2:8081
+      - LND_REST_CERT=/app/lnd/tls.cert
+      - LND_REST_MACAROON=/app/lnd/admin.macaroon
+    volumes:
+      - ./docker/data/lightning_shared/2:/app/lnd
+      - ./docker/data/lnbits/2:/app/data
+    networks:
+      - hostr_network
+
   # xxd -p docker/data/lightning_shared/lnd1/admin.macaroon | tr -d '\n'
   albyhub-base:
     platform: linux/amd64
-    depends_on: 
-    - lnd1
-    - relay
+    depends_on:
+      - lnd1
+      - relay
     image: ghcr.io/getalby/hub:latest
     volumes:
       - ./docker/data/albyhub:/data
     environment:
-      - RELAY=ws://relay:8080
+      # MIGHT HAVE TO CHANGE BACK to just relay, since .local goes through nginx proxy
+      - RELAY=ws://relay.local
       - LOG_EVENTS=true
       - LN_BACKEND_TYPE=LND
       - LND_ADDRESS=lnd1:PORT
       - LND_MACAROON_FILE=/lnd/admin.macaroon
     networks:
       - hostr_network
-  
+
   albyhub1:
     extends:
       service: albyhub-base
@@ -133,6 +193,8 @@ services:
     volumes:
       - ./docker/data/lightning_shared/1:/lnd
     environment:
+      - VIRTUAL_HOST=alby1.local
+      - VIRTUAL_PORT=8080
       - LND_ADDRESS=lnd1:8080
       - WORK_DIR=data/1
     ports:
@@ -146,6 +208,8 @@ services:
     volumes:
       - ./docker/data/lightning_shared/2:/lnd
     environment:
+      - VIRTUAL_HOST=alby2.local
+      - VIRTUAL_PORT=8080
       - LND_ADDRESS=lnd2:8080
       - WORK_DIR=data/2
     ports:
@@ -153,29 +217,30 @@ services:
 
   # Boltz node used to facilitate swaps between Lightning and escow constracts on L2
   boltz:
-    container_name: ${COMPOSE_PROJECT_NAME}_boltz
+    container_name: boltz
     image: boltz/boltz
     platform: linux/amd64
     restart: unless-stopped
-    command: [
-      "boltz",
-      "--noseedbackup",
-      "--rpclisten=0.0.0.0:${BOLTZ_RPC_PORT}",
-      "--restlisten=0.0.0.0:${BOLTZ_REST_PORT}",
-      "--adminmacaroonpath=/shared/admin.macaroon",
-      "--tlsextradomain=${BOLTZ_HOST}",
-      "--tlsextraip=0.0.0.0",
-      "--tlscertpath=/shared/tls.cert",
-      "--datadir=/boltz",
-      "--postgres.host=test${POSTGRES_HOST}",
-      "--bitcoin.regtest",
-      "--bitcoin.node=bitcoind",
-      "--bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT}",
-      "--bitcoind.rpcuser=${BITCOIN_RPC_USER}",
-      "--bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD}",
-      "--bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT}",
-      "--bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT}"
-    ]
+    command:
+      [
+        "boltz",
+        "--noseedbackup",
+        "--rpclisten=0.0.0.0:${BOLTZ_RPC_PORT}",
+        "--restlisten=0.0.0.0:${BOLTZ_REST_PORT}",
+        "--adminmacaroonpath=/shared/admin.macaroon",
+        "--tlsextradomain=${BOLTZ_HOST}",
+        "--tlsextraip=0.0.0.0",
+        "--tlscertpath=/shared/tls.cert",
+        "--datadir=/boltz",
+        "--postgres.host=test${POSTGRES_HOST}",
+        "--bitcoin.regtest",
+        "--bitcoin.node=bitcoind",
+        "--bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT}",
+        "--bitcoind.rpcuser=${BITCOIN_RPC_USER}",
+        "--bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD}",
+        "--bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT}",
+        "--bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT}",
+      ]
     depends_on:
       - bitcoind
     ports:
@@ -184,10 +249,9 @@ services:
       - boltz_data:/boltz
       - boltz_shared:/shared
 
-
 volumes:
   bitcoind:
-  lightning_data: 
+  lightning_data:
   lightning_shared:
   boltz_data:
   boltz_shared:

@@ -6,7 +6,7 @@ import 'base.config.dart';
 @Injectable(as: Config, env: [Env.mock, Env.test])
 class MockConfig extends Config {
   @override
-  List<String> relays = ['ws://localhost:5044'];
+  List<String> relays = ['ws://relay:5432'];
   @override
   List<String> blossom = ['http://127.0.0.1:3000'];
   @override

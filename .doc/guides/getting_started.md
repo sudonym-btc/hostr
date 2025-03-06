@@ -1,46 +1,28 @@
 # Getting started
 
+Add to etc/hosts
+
+```bash
+sudo nano /etc/hosts
+```
+
+add
+
+`127.0.0.1  relay`
+
 Launch all services to fully test app.
 
 ```bash
-docker-compose up bitcoind relay lnd1 lnd2 albyhub1 albyhub2 evm
+docker-compose up -d nginx-proxy bitcoind relay lnd1 lnd2 lnbits1 lnbits2 albyhub1 albyhub2 evm
 ```
+
+Open lnsats, install the lnurp extension and create lightning addresses + import nostr keys for zaps
 
 Open channel between nodes
 
 ```bash
-BTC="docker exec bitcoind bitcoin-cli -regtest -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=18888"
-LND1="docker exec hostr-lnd1-1 lncli --rpcserver=localhost:8080 --macaroonpath=/shared/1/admin.macaroon --tlscertpath=/shared/1/tls.cert"
-LND2="docker exec hostr-lnd2-1 lncli --rpcserver=localhost:8080 --macaroonpath=/shared/2/admin.macaroon --tlscertpath=/shared/2/tls.cert"
-
-LND1_PUB=$(eval "$LND1 getinfo" | jq -r .identity_pubkey)
-LND2_PUB=$(eval "$LND2 getinfo" | jq -r .identity_pubkey)
-
-LND1_ADDR=$(eval "$LND1 newaddress p2tr" | jq -r .address)
-LND2_ADDR=$(eval "$LND2 newaddress p2tr" | jq -r .address)
-
-eval "$BTC generatetoaddress 105 $LND1_ADDR"
-eval "$BTC generatetoaddress 105 $LND2_ADDR"
-
-sleep 5
-
-# Connect nodes (from lnd1 perspective)
-eval "$LND1 connect ${LND2_PUB}@lnd2"
-
-# Allow time for the connection to be established
-sleep 5
-
-eval "$LND1 openchannel ${LND2_PUB} 10000000"
-# Mine the open txns
-eval "$BTC generatetoaddress 6 $LND1_ADDR"
-
-sleep 5
-
-eval "$LND2 openchannel ${LND1_PUB} 10000000"
-
-# Mine the open txns
-eval "$BTC generatetoaddress 6 $LND1_ADDR"
-
+sh docker/setup.sh
+sh docker/certs.sh
 ```
 
 Launch a local relay.
@@ -60,3 +42,11 @@ Seed the relay.
 ```bash
 dart run app/lib/data/stubs/seed_mock.dart
 ```
+
+Boltz exchange
+
+cd ../
+git clone git@github.com:BoltzExchange/regtest.git boltz
+cd boltz
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+./start.sh
