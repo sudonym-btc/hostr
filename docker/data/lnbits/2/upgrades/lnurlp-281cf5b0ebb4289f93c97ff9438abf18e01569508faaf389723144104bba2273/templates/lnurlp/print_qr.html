@@ -1,0 +1,25 @@
+{% extends "print.html" %} {% block page %}
+<div class="row justify-center">
+  <div class="qr">
+    <lnbits-qrcode value="lightning:{{ lnurl }}"></lnbits-qrcode>
+  </div>
+</div>
+{% endblock %} {% block styles %}
+<style>
+  .qr {
+    margin: auto;
+  }
+</style>
+{% endblock %} {% block scripts %}
+<script>
+  window.app = Vue.createApp({
+    el: '#vue',
+    created() {
+      window.print()
+    },
+    data() {
+      return {width: window.innerWidth * 0.5}
+    }
+  })
+</script>
+{% endblock %}

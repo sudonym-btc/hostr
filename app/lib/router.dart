@@ -11,36 +11,46 @@ class AppRouter extends RootStackRouter {
         AutoRoute(page: RootRoute.page, initial: true, children: [
           AutoRoute(page: SignInRoute.page, path: 'signin'),
           AutoRoute(page: ListingRoute.page, path: 'listing/:a'),
-          AutoRoute(page: ThreadRoute.page, path: 'inbox/:id'),
-          AutoRoute(page: HomeRoute.page, initial: true, children: [
-            /// Public routes
-            AutoRoute(
-                page: SearchRoute.page,
-                initial: true,
-                path: 'search',
-                children: [
-                  AutoRoute(page: FiltersRoute.page, path: 'filters'),
-                ]),
+          AutoRoute(
+              page: ThreadRoute.page, guards: [AuthGuard()], path: 'inbox/:id'),
+          AutoRoute(
+              page: HomeRoute.page,
+              guards: [AuthGuard()],
+              initial: true,
+              children: [
+                /// Public routes
+                AutoRoute(
+                    page: SearchRoute.page,
+                    initial: true,
+                    path: 'search',
+                    children: [
+                      AutoRoute(page: FiltersRoute.page, path: 'filters'),
+                    ]),
 
-            /// Signed in routes
+                /// Signed in routes
 
-            AutoRoute(page: ProfileRoute.page, path: 'profile', guards: []),
-            AutoRoute(
-                page: BookingsRoute.page,
-                path: 'bookings',
-                guards: [AuthGuard()]),
-            AutoRoute(
-                page: TripsRoute.page, path: 'trips', guards: [AuthGuard()]),
-            AutoRoute(
-                page: InboxRoute.page,
-                path: 'inbox',
-                guards: [AuthGuard()],
-                children: []),
-            AutoRoute(
-                page: MyListingsRoute.page,
-                path: 'my-listings',
-                guards: [AuthGuard()]),
-          ]),
+                AutoRoute(
+                    page: ProfileRoute.page,
+                    path: 'profile',
+                    guards: [AuthGuard()]),
+                AutoRoute(
+                    page: BookingsRoute.page,
+                    path: 'bookings',
+                    guards: [AuthGuard()]),
+                AutoRoute(
+                    page: TripsRoute.page,
+                    path: 'trips',
+                    guards: [AuthGuard()]),
+                AutoRoute(
+                    page: InboxRoute.page,
+                    path: 'inbox',
+                    guards: [AuthGuard()],
+                    children: []),
+                AutoRoute(
+                    page: MyListingsRoute.page,
+                    path: 'my-listings',
+                    guards: [AuthGuard()]),
+              ]),
           AutoRoute(
               page: EditListingRoute.page,
               path: 'edit-listing/:a?',

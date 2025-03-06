@@ -1,0 +1,281 @@
+{% extends "public.html" %} {% block toolbar_title %} Edit domain "{{
+domain.domain }}" {% endblock %} {% from "macros.jinja" import window_vars with
+context %} {% block page %}
+<link rel="stylesheet" href="/nostrnip5/static/css/signup.css" />
+<div class="row">
+  <div class="col-md-2 col-sm-none">
+    <!-- empty space -->
+  </div>
+
+  <q-card class="col-md-6 col-sm-12 q-pa-md">
+    <div class="row">
+      <q-btn
+        unelevated
+        color="primary"
+        @click="saveDomain"
+        class="float-right"
+        :disable="domainForm.data.wallet == null || domainForm.data.currency == null"
+        >Update Domain</q-btn
+      >
+    </div>
+  </q-card>
+  <div class="col-md-2 col-sm-none">
+    <!-- empty space -->
+  </div>
+</div>
+
+<div class="row q-mt-md">
+  <div class="col-md-2 col-sm-none">
+    <!-- empty space -->
+  </div>
+
+  {% raw %}
+  <div class="col-md-6 col-sm-12">
+    <q-card class="q-pa-lg">
+      <div class="q-gutter-md">
+        <q-select
+          v-if="!domainForm.data.id"
+          filled
+          dense
+          emit-value
+          v-model="domainForm.data.wallet"
+          :options="g.user.walletOptions"
+          label="Wallet *"
+        ></q-select>
+        <q-select
+          filled
+          dense
+          emit-value
+          v-model="domainForm.data.currency"
+          :options="currencyOptions"
+          label="Currency *"
+        ></q-select>
+        <q-input
+          v-if="!domainForm.data.id"
+          filled
+          dense
+          v-model.trim="domainForm.data.domain"
+          label="Domain"
+          placeholder="nostr.com"
+        ></q-input>
+        <q-input
+          filled
+          dense
+          v-model="domainForm.data.cost"
+          type="number"
+          min="0"
+          step="any"
+          label="Price per Year"
+          placeholder="How much do you want to charge per address?"
+        ></q-input>
+        <q-input
+          filled
+          dense
+          v-model="domainForm.data.cost_extra.max_years"
+          type="number"
+          min="1"
+          step="1"
+          label="Max Years"
+          hint="Maximum number of years a user can have an address before renewing."
+        ></q-input>
+      </div>
+    </q-card>
+    <q-card class="q-pa-lg q-mt-md">
+      <q-tabs v-model="domainTab" active-color="primary" align="justify">
+        <q-tab name="charCount" label="Char Count"></q-tab>
+        <q-tab name="ranking" label="Ranking"></q-tab>
+        <q-tab name="promotions" label="Promotions"></q-tab>
+      </q-tabs>
+
+      <q-tab-panels class="bg-transparent" v-model="domainTab">
+        <q-tab-panel name="charCount">
+          <div
+            v-for="(item, index) in domainForm.data.cost_extra.char_count_cost"
+            class="row q-mb-sm q-ml-md"
+          >
+            <div class="col-5">
+              <q-input
+                filled
+                dense
+                v-model.trim="item.bracket"
+                type="number"
+                min="0"
+                step="1"
+                label="Character Count"
+              ></q-input>
+            </div>
+            <div class="col-5">
+              <q-input
+                filled
+                dense
+                v-model.trim="item.amount"
+                label="Amount"
+                type="number"
+                class="q-pl-sm"
+              ></q-input>
+            </div>
+            <div class="col-2">
+              <q-btn
+                @click="removeCharCountCost(index)"
+                icon="clear"
+                size="sm"
+                unelevated
+                color="primary"
+                class="float-right q-mt-sm"
+              ></q-btn>
+            </div>
+          </div>
+          <div class="row q-ml-md q-mb-sm q-mt-sm">
+            <div class="col float-right q-mt-lg">
+              <div>
+                <q-btn
+                  icon="add"
+                  label="Add"
+                  @click="addCharCountCost"
+                  size="sm"
+                  unelevated
+                  color="secondary"
+                  class="float-right"
+                ></q-btn>
+              </div>
+            </div>
+          </div>
+        </q-tab-panel>
+        <q-tab-panel name="ranking">
+          <div
+            v-for="(item, index) in domainForm.data.cost_extra.rank_cost"
+            class="row q-mb-sm q-ml-md"
+          >
+            <div class="col-5">
+              <q-select
+                filled
+                dense
+                emit-value
+                v-model="item.bracket"
+                :options="domainRankingBraketOptions"
+                label="Up to Rank"
+              ></q-select>
+            </div>
+            <div class="col-5">
+              <q-input
+                filled
+                dense
+                v-model.trim="item.amount"
+                label="Amount"
+                type="number"
+                class="q-pl-sm"
+              ></q-input>
+            </div>
+            <div class="col-2">
+              <q-btn
+                @click="removeRankCost(index)"
+                icon="clear"
+                size="sm"
+                unelevated
+                color="primary"
+                class="float-right q-mt-sm"
+              ></q-btn>
+            </div>
+          </div>
+          <div class="row q-ml-md q-mb-sm q-mt-sm">
+            <div class="col float-right q-mt-lg">
+              <div>
+                <q-btn
+                  icon="add"
+                  label="Add"
+                  @click="addRankCost"
+                  size="sm"
+                  unelevated
+                  color="secondary"
+                  class="float-right"
+                ></q-btn>
+              </div>
+            </div>
+          </div>
+        </q-tab-panel>
+        <q-tab-panel name="promotions">
+          <div
+            v-for="(item, index) in domainForm.data.cost_extra.promotions"
+            class="row q-mb-sm q-ml-md"
+          >
+            <div class="col-2">
+              <q-input
+                filled
+                dense
+                v-model.trim="item.code"
+                label="Promo Code"
+                class="q-pl-sm"
+              ></q-input>
+            </div>
+            <div class="col-2">
+              <q-input
+                filled
+                dense
+                v-model.trim="item.buyer_discount_percent"
+                label="Discount for buyer (%)"
+                type="number"
+                class="q-pl-sm"
+              ></q-input>
+            </div>
+            <div class="col-2">
+              <q-input
+                filled
+                dense
+                v-model.trim="item.referer_bonus_percent"
+                label="Bonus for referer (%)"
+                type="number"
+                class="q-pl-sm"
+              ></q-input>
+            </div>
+            <div class="col-4">
+              <q-input
+                filled
+                dense
+                v-model.trim="item.selected_referer"
+                label="Only for this identifier."
+                class="q-pl-sm"
+              >
+              </q-input>
+            </div>
+            <div class="col-2">
+              <q-btn
+                @click="removePromotion(index)"
+                icon="clear"
+                size="sm"
+                unelevated
+                color="primary"
+                class="float-right q-mt-sm"
+              ></q-btn>
+            </div>
+          </div>
+          <div class="row q-ml-md q-mb-sm q-mt-sm">
+            <div class="col float-right q-mt-lg">
+              <div>
+                <q-btn
+                  icon="add"
+                  label="Add"
+                  @click="addPromotion"
+                  size="sm"
+                  unelevated
+                  color="secondary"
+                  class="float-right"
+                ></q-btn>
+              </div>
+            </div>
+          </div>
+        </q-tab-panel>
+      </q-tab-panels>
+    </q-card>
+  </div>
+
+  {% endraw %}
+  <div class="col-md-4 col-sm-none">
+    <!-- empty space -->
+  </div>
+</div>
+{% endblock %} {% block scripts %} {{ window_vars(user) }}
+<script>
+  const domain = JSON.parse({{domain | tojson | safe}})
+</script>
+<script src="{{ static_url_for('nostrnip5/static', 'js/domain.js') }}"></script>
+{% endblock %}

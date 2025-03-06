@@ -49,7 +49,7 @@ class ProfileScreen extends StatelessWidget {
                     onPressed: () {
                       context.read<PaymentsManager>().create(
                           LnUrlPaymentParameters(
-                              to: 'paco@walletofsatoshi.com',
+                              to: 'jasmine@lnbits2.hostr.development',
                               amount: Amount(
                                   currency: Currency.BTC, value: 0.00001)));
                     },

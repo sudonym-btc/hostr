@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 String formatDate(DateTime date) {
@@ -10,6 +9,6 @@ String formatDate(DateTime date) {
   }
 }
 
-String getDateRangeText(DateTimeRange range) {
-  return '${range.start.day}/${range.start.month}/${range.start.year} - ${range.end.day}/${range.end.month}/${range.end.year}';
+String getDateRangeText(DateTime start, DateTime end) {
+  return '${start.day}/${start.month}/${start.year} - ${end.day}/${end.month}/${end.year}';
 }
