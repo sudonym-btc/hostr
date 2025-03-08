@@ -81,7 +81,9 @@ class PaymentWidget extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Text(formatAmount(state.params.amount!)),
+                        // todo: calc amount from invoice
+                        Text(formatAmount(state.params.amount ??
+                            Amount(currency: Currency.BTC, value: 0.0))),
                       ],
                     )),
                     state.status == PaymentStatus.resolved

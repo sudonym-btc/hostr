@@ -13,7 +13,13 @@ add
 Launch all services to fully test app.
 
 ```bash
-docker-compose up -d nginx-proxy bitcoind relay lnd1 lnd2 lnbits1 lnbits2 albyhub1 albyhub2 evm
+docker network create shared_network
+```
+
+Boltz exchange
+
+```bash
+./start.sh
 ```
 
 Open lnsats, install the lnurp extension and create lightning addresses + import nostr keys for zaps
@@ -21,7 +27,6 @@ Open lnsats, install the lnurp extension and create lightning addresses + import
 Open channel between nodes
 
 ```bash
-sh docker/setup.sh
 sh docker/certs.sh
 ```
 
@@ -30,6 +35,10 @@ Launch a local relay.
 ```bash
 docker-compose up relay
 ```
+
+Power down.
+(cd ./docker/boltz && ./stop.sh) && docker-compose down --volumes
+
 
 Wipe the local relay.
 
@@ -42,11 +51,3 @@ Seed the relay.
 ```bash
 dart run app/lib/data/stubs/seed_mock.dart
 ```
-
-Boltz exchange
-
-cd ../
-git clone git@github.com:BoltzExchange/regtest.git boltz
-cd boltz
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
-./start.sh

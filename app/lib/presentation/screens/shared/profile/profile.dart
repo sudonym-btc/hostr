@@ -60,7 +60,7 @@ class ProfileScreen extends StatelessWidget {
                       context
                           .read<PaymentsManager>()
                           .create(Bolt11PaymentParameters(
-                            to: 'lnbc1220n1pnc5srtsp5mpgyd5w2rf2qw6aqzyj579dw09waxc9ks0z3dtyurgsccwmx5ccspp5ppdgqnagc6nyxrhdu0sq6n59jdyh9tehmwe20625czltfyu2anxshp5uwcvgs5clswpfxhm7nyfjmaeysn6us0yvjdexn9yjkv3k7zjhp2sxq9z0rgqcqpnrzjq0euzzxv65mts5ngg8c2t3vzz2aeuevy5845jvyqulqucd8c9kkhzrtp55qq63qqqqqqqqqqqqqzwyqqyg9qxpqysgqter3unp07hkfxz6qqydv7nlmhvcfrke4s72adhq48h082qvzxvgre9aj3mxnkx4uph9yfj67egzmfqtvgzupe6ag5kjmlvh8g6fxjzcp3sp90a',
+                            to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
                           ));
                     },
                   ),
@@ -75,7 +75,7 @@ class ProfileScreen extends StatelessWidget {
                     FilledButton(
                       child: Text('Swap in'),
                       onPressed: () {
-                        getIt<SwapService>().swapIn(10000);
+                        getIt<SwapService>().swapIn(100000);
                       },
                     ),
                     // FilledButton(

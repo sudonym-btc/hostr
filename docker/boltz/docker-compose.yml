@@ -43,7 +43,7 @@ x-services:
         ]
       interval: 1s
       timeout: 1s
-      retries: 100
+      retries: 200
       start_period: 0s
     networks:
       - default
@@ -86,7 +86,9 @@ x-services:
       retries: 100
       interval: 1s
       start_period: 0s
-
+    networks:
+      - default
+      - shared_network
 services:
   cleanup:
     <<: *base-scripts
