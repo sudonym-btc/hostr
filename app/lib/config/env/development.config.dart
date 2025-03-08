@@ -14,5 +14,5 @@ class DevelopmentConfig extends Config {
       'http://localhost:8545'; //'https://public-node.testnet.rsk.co';
   @override
   String boltzUrl =
-      'https://api.boltz.exchange/v2'; //'https://api.testnet.boltz.exchange/v2';
+      'http://localhost:9001/v2'; //'https://api.testnet.boltz.exchange/v2';
 }

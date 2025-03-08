@@ -132,6 +132,17 @@ class _FakeMakeInvoiceResponse_9 extends _i1.SmartFake
         );
 }
 
+class _FakeLookupInvoiceResponse_10 extends _i1.SmartFake
+    implements _i7.LookupInvoiceResponse {
+  _FakeLookupInvoiceResponse_10(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
 /// A class which mocks [KeyStorage].
 ///
 /// See the documentation for Mockito's code generation for more information.
@@ -540,4 +551,32 @@ class MockNwcService extends _i1.Mock implements _i4.NwcService {
           ),
         )),
       ) as _i9.Future<_i7.MakeInvoiceResponse>);
+
+  @override
+  _i9.Future<_i7.LookupInvoiceResponse> lookupInvoice({
+    String? paymentHash,
+    String? invoice,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #lookupInvoice,
+          [],
+          {
+            #paymentHash: paymentHash,
+            #invoice: invoice,
+          },
+        ),
+        returnValue: _i9.Future<_i7.LookupInvoiceResponse>.value(
+            _FakeLookupInvoiceResponse_10(
+          this,
+          Invocation.method(
+            #lookupInvoice,
+            [],
+            {
+              #paymentHash: paymentHash,
+              #invoice: invoice,
+            },
+          ),
+        )),
+      ) as _i9.Future<_i7.LookupInvoiceResponse>);
 }

@@ -1,0 +1,150 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "MinimalBoltzRelayVerifier",
+  "sourceName": "contracts/verifier/MinimalBoltzRelayVerifier.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "walletFactory",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "relayHub",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "from",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "to",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "tokenContract",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "gas",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "nonce",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "tokenAmount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "tokenGas",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "validUntilTime",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct IForwarder.ForwardRequest",
+              "name": "request",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "gasPrice",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address",
+                  "name": "feesReceiver",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "callForwarder",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "callVerifier",
+                  "type": "address"
+                }
+              ],
+              "internalType": "struct EnvelopingTypes.RelayData",
+              "name": "relayData",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct EnvelopingTypes.RelayRequest",
+          "name": "relayRequest",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes",
+          "name": "signature",
+          "type": "bytes"
+        }
+      ],
+      "name": "verifyRelayedCall",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "context",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "versionVerifier",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60a060405234801561001057600080fd5b506040516102e13803806102e183398101604081905261002f91610044565b60601b6001600160601b031916608052610072565b600060208284031215610055578081fd5b81516001600160a01b038116811461006b578182fd5b9392505050565b60805160601c61025761008a600039506102576000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80631dac07461461003b5780637644dcd114610059575b600080fd5b61004361006c565b60405161005091906101ac565b60405180910390f35b6100436100673660046100c9565b61008c565b60606040518060600160405280602481526020016101fe60249139905090565b60606040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016100c0906101c6565b60405180910390fd5b6000806000604084860312156100dd578283fd5b833567ffffffffffffffff808211156100f4578485fd5b9085019060a08288031215610107578485fd5b9093506020850135908082111561011c578384fd5b818601915086601f83011261012f578384fd5b81358181111561013d578485fd5b87602082850101111561014e578485fd5b6020830194508093505050509250925092565b60008151808452815b818110156101865760208185018101518683018201520161016a565b818111156101975782602083870101525b50601f01601f19169290920160200192915050565b6000602082526101bf6020830184610161565b9392505050565b6020808252601c908201527f4465706c6f792072657175657374206163636570746564206f6e6c790000000060408201526060019056fe7269662e656e76656c6f70696e672e746f6b656e2e69766572696669657240322e302e31a2646970667358221220fba942f9bc80fc9fb935a038f2e0389f0140ab93ce373e4e9823b7c25ac4786764736f6c634300060c0033",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b50600436106100365760003560e01c80631dac07461461003b5780637644dcd114610059575b600080fd5b61004361006c565b60405161005091906101ac565b60405180910390f35b6100436100673660046100c9565b61008c565b60606040518060600160405280602481526020016101fe60249139905090565b60606040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016100c0906101c6565b60405180910390fd5b6000806000604084860312156100dd578283fd5b833567ffffffffffffffff808211156100f4578485fd5b9085019060a08288031215610107578485fd5b9093506020850135908082111561011c578384fd5b818601915086601f83011261012f578384fd5b81358181111561013d578485fd5b87602082850101111561014e578485fd5b6020830194508093505050509250925092565b60008151808452815b818110156101865760208185018101518683018201520161016a565b818111156101975782602083870101525b50601f01601f19169290920160200192915050565b6000602082526101bf6020830184610161565b9392505050565b6020808252601c908201527f4465706c6f792072657175657374206163636570746564206f6e6c790000000060408201526060019056fe7269662e656e76656c6f70696e672e746f6b656e2e69766572696669657240322e302e31a2646970667358221220fba942f9bc80fc9fb935a038f2e0389f0140ab93ce373e4e9823b7c25ac4786764736f6c634300060c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

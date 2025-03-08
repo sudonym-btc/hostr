@@ -257,6 +257,7 @@ class SwapService {
         logger.i('Claim can be unlocked with arguments: $claimArgs');
 
         /// Withdraw the funds to our own address, providing swapper with preimage to settle lightning
+        /// Must send via RIF if no previous balance exists
         String tx = await swapContract.claim(claimArgs, credentials: ethKey);
         logger.i('Sent RBTC in: $tx');
         break;

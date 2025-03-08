@@ -2,8 +2,19 @@ x-templates:
   lnd-base: &lnd-base
     image: lightninglabs/lnd:v0.18.5-beta
     depends_on:
-      - bitcoind
+      hostrbitcoind:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "lncli --network=regtest --rpcserver=localhost:8080  --macaroonpath=/shared/$$SEQUENCE/admin.macaroon --tlscertpath=/shared/$$SEQUENCE/tls.cert getinfo",
+        ]
+      interval: 1s
+      timeout: 1s
+      retries: 100
+      start_period: 0s
     command:
       [
         "lnd",
@@ -28,16 +39,19 @@ x-templates:
       - ./docker/data/lightning_data:/lnd
       - ./docker/data/lightning_shared:/shared
     networks:
-      - hostr_network
+      - default
+      - shared_network
 
   albyhub-base: &albyhub-base
     platform: linux/amd64
     depends_on:
-      - lnd1
-      - relay
+      lnd1:
+        condition: service_healthy
+      relay:
+        condition: service_started
     image: ghcr.io/getalby/hub:latest
     networks:
-      - hostr_network
+      - default
 
 services:
   nginx-proxy:
@@ -53,7 +67,7 @@ services:
     environment:
       - ENABLE_WEBSOCKETS=true
     networks:
-      - hostr_network
+      - default
 
   # NOSTR Relat
   relay:
@@ -70,7 +84,7 @@ services:
       - ./docker/relay.toml:/usr/src/app/config.toml
       - ./docker/data/relay:/usr/src/app/db
     networks:
-      hostr_network:
+      default:
         aliases:
           - relay.hostr.development
 
@@ -80,25 +94,40 @@ services:
       context: ./escrow
       dockerfile: Dockerfile
     networks:
-      - hostr_network
+      - default
 
   # Rootstock chain for escrow
-  evm:
-    build:
-      context: ./escrow/contracts
-      dockerfile: Dockerfile
-    ports:
-      - "8545:8545"
-    volumes:
-      - ./escrow/contracts:/usr/src/app
-    command: npx hardhat node
-    networks:
-      - hostr_network
+  # evm:
+  #   build:
+  #     context: ./escrow/contracts
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8545:8545"
+  #   volumes:
+  #     - ./escrow/contracts:/usr/src/app
+  #   command: npx hardhat node
+  #   networks:
+  #     - default
 
   # Shared bitcoin node
-  bitcoind:
-    container_name: bitcoind
+  hostrbitcoind:
+    container_name: hostrbitcoind
     image: bitcoin/bitcoin
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bitcoin-cli",
+          "-regtest",
+          "-rpcuser=bitcoin",
+          "-rpcpassword=bitcoin",
+          "-rpcport=18888",
+          "getblockchaininfo",
+        ]
+      timeout: 1s
+      retries: 10
+      interval: 1s
+      start_period: 0s
     command:
       [
         "bitcoind",
@@ -123,28 +152,30 @@ services:
     volumes:
       - ./docker/data/bitcoin:/home/bitcoin/.bitcoin
     networks:
-      - hostr_network
+      - default
+      - shared_network
 
   lnd1:
     <<: *lnd-base
     environment:
       - SEQUENCE=1
     ports:
-      - "10009:8080"
-      - "10019:8081"
+      - "12209:8080"
+      - "12219:8081"
 
   lnd2:
     <<: *lnd-base
     environment:
       - SEQUENCE=2
     ports:
-      - "10010:8080"
-      - "10020:8081"
+      - "12210:8080"
+      - "12220:8081"
 
   lnbits1:
     image: lnbits/lnbits:v1.0.0-rc8
     depends_on:
-      - lnd1
+      lnd1:
+        condition: service_healthy
     ports:
       - "5055:5000"
     environment:
@@ -159,12 +190,13 @@ services:
       - ./docker/data/lightning_shared/1:/app/lnd
       - ./docker/data/lnbits/1:/app/data
     networks:
-      - hostr_network
+      - default
 
   lnbits2:
     image: lnbits/lnbits:v1.0.0-rc8
     depends_on:
-      - lnd2
+      lnd2:
+        condition: service_healthy
     ports:
       - "5056:5000"
     environment:
@@ -179,12 +211,13 @@ services:
       - ./docker/data/lightning_shared/2:/app/lnd
       - ./docker/data/lnbits/2:/app/data
     networks:
-      - hostr_network
+      - default
 
   albyhub1:
     <<: *albyhub-base
     depends_on:
-      - lnd1
+      lnd1:
+        condition: service_healthy
     volumes:
       - ./docker/data/lightning_shared/1:/lnd
       - ./docker/data/albyhub:/data
@@ -192,6 +225,7 @@ services:
       - VIRTUAL_HOST=alby1.hostr.development
       - VIRTUAL_PORT=8080
       - RELAY=ws://relay.hostr.development
+      - AUTO_UNLOCK_PASSWORD=Testing123!
       - LOG_EVENTS=true
       - LN_BACKEND_TYPE=LND
       - LND_MACAROON_FILE=/lnd/admin.macaroon
@@ -203,7 +237,8 @@ services:
   albyhub2:
     <<: *albyhub-base
     depends_on:
-      - lnd2
+      lnd2:
+        condition: service_healthy
     volumes:
       - ./docker/data/lightning_shared/2:/lnd
       - ./docker/data/albyhub:/data
@@ -219,47 +254,13 @@ services:
     ports:
       - "12346:8080"
 
-  # Boltz node used to facilitate swaps between Lightning and escow constracts on L2
-  boltz:
-    container_name: boltz
-    image: boltz/boltz
-    platform: linux/amd64
-    restart: unless-stopped
-    command:
-      [
-        "boltz",
-        "--noseedbackup",
-        "--rpclisten=0.0.0.0:${BOLTZ_RPC_PORT}",
-        "--restlisten=0.0.0.0:${BOLTZ_REST_PORT}",
-        "--adminmacaroonpath=/shared/admin.macaroon",
-        "--tlsextradomain=${BOLTZ_HOST}",
-        "--tlsextraip=0.0.0.0",
-        "--tlscertpath=/shared/tls.cert",
-        "--datadir=/boltz",
-        "--postgres.host=test${POSTGRES_HOST}",
-        "--bitcoin.regtest",
-        "--bitcoin.node=bitcoind",
-        "--bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT}",
-        "--bitcoind.rpcuser=${BITCOIN_RPC_USER}",
-        "--bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD}",
-        "--bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT}",
-        "--bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT}",
-      ]
-    depends_on:
-      - bitcoind
-    ports:
-      - "${BOLTZ_REST_PORT}:${BOLTZ_REST_PORT}"
-    volumes:
-      - boltz_data:/boltz
-      - boltz_shared:/shared
-
 volumes:
   bitcoind:
   lightning_data:
   lightning_shared:
-  boltz_data:
-  boltz_shared:
 
 networks:
-  hostr_network:
+  default:
     driver: bridge
+  shared_network:
+    external: true

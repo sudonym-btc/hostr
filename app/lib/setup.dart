@@ -25,6 +25,8 @@ setup(String env) async {
   }
 
   configureInjection(env);
+
+  // If we are testing, launch a mock relay server
   if (env == Env.mock || env == Env.test) {
     MockBlossomServer blossomServer = MockBlossomServer();
     await blossomServer.start();
