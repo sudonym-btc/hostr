@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="3.6.0.794556678197">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="3.6.0.794724247907">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 3.6.0">
@@ -30,12 +30,12 @@
 
     <script data-cfasync="false">(function () { var el = document.documentElement, m = localStorage.getItem("doc_theme"), wm = window.matchMedia; if (m === "dark" || (!m && wm && wm("(prefers-color-scheme: dark)").matches)) { el.classList.add("dark") } else { el.classList.remove("dark") } })();</script>
 
-    <link href="../../../resources/css/retype.css?v=3.6.0.794556678197" rel="stylesheet">
+    <link href="../../../resources/css/retype.css?v=3.6.0.794724247907" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../resources/js/config.js?v=3.6.0.794556678197" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../resources/js/config.js?v=3.6.0.794724247907" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../resources/js/retype.js?v=3.6.0" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=3.6.0.794556678197" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=3.6.0.794556678197" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=3.6.0.794724247907" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=3.6.0.794724247907" defer></script>
 </head>
 <body>
     <div id="docs-app" class="relative text-base antialiased text-gray-700 bg-white font-body dark:bg-dark-850 dark:text-dark-300">
@@ -168,18 +168,23 @@
 <p><code v-pre>127.0.0.1  relay</code></p>
 <p>Launch all services to fully test app.</p>
 <div class="codeblock-wrapper"><doc-codeblock>
-<pre class="language-bash"><code v-pre class="language-bash">docker-compose up -d nginx-proxy bitcoind relay lnd1 lnd2 lnbits1 lnbits2 albyhub1 albyhub2 evm</code></pre>
+<pre class="language-bash"><code v-pre class="language-bash">docker network create shared_network</code></pre>
+</doc-codeblock></div>
+<p>Boltz exchange</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre class="language-bash"><code v-pre class="language-bash">./start.sh</code></pre>
 </doc-codeblock></div>
 <p>Open lnsats, install the lnurp extension and create lightning addresses + import nostr keys for zaps</p>
 <p>Open channel between nodes</p>
 <div class="codeblock-wrapper"><doc-codeblock>
-<pre class="language-bash"><code v-pre class="language-bash">sh docker/setup.sh
-sh docker/certs.sh</code></pre>
+<pre class="language-bash"><code v-pre class="language-bash">sh docker/certs.sh</code></pre>
 </doc-codeblock></div>
 <p>Launch a local relay.</p>
 <div class="codeblock-wrapper"><doc-codeblock>
 <pre class="language-bash"><code v-pre class="language-bash">docker-compose up relay</code></pre>
 </doc-codeblock></div>
+<p>Power down.
+(cd ./docker/boltz &amp;&amp; ./stop.sh) &amp;&amp; docker-compose down --volumes</p>
 <p>Wipe the local relay.</p>
 <div class="codeblock-wrapper"><doc-codeblock>
 <pre class="language-bash"><code v-pre class="language-bash">docker-compose rm -v relay</code></pre>
@@ -188,12 +193,6 @@ sh docker/certs.sh</code></pre>
 <div class="codeblock-wrapper"><doc-codeblock>
 <pre class="language-bash"><code v-pre class="language-bash">dart run app/lib/data/stubs/seed_mock.dart</code></pre>
 </doc-codeblock></div>
-<p>Boltz exchange</p>
-<p>cd ../
-git clone <a href="mailto:git@github.com">git@github.com</a>:BoltzExchange/regtest.git boltz
-cd boltz
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
-./start.sh</p>
 
                                 
                                 <!-- Required only on API pages -->
