@@ -3,11 +3,11 @@ library dart_lnurl;
 import 'dart:convert';
 
 import 'package:bech32/bech32.dart';
-
-import 'types.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:hostr/injection.dart';
 
 import 'bech32.dart';
+import 'types.dart';
 
 /// Parse and return a given lnurl string if it's valid. Will remove
 /// `lightning:` from the beginning of it if present.
@@ -66,20 +66,18 @@ Future<LNURLParseResult> getParams(String encodedUrl) async {
   final decodedUri = decodeUri(encodedUrl);
   try {
     /// Call the lnurl to get a response
-    final res = await http.get(decodedUri);
+    final res = await getIt<Dio>().get(decodedUri.toString());
+    print('HTTP GET request complet with dio. Status code: ${res.statusCode}');
 
     /// If there's an error then throw it
-    if (res.statusCode >= 300) {
-      throw res.body;
+    if (res.statusCode! >= 300) {
+      throw res.data;
     }
 
-    /// Parse the response body to json
-    Map<String, dynamic> parsedJson = json.decode(res.body);
-
-    if (parsedJson['status'] == 'ERROR') {
+    if (res.data['status'] == 'ERROR') {
       return LNURLParseResult(
         error: LNURLErrorResponse.fromJson({
-          ...parsedJson,
+          ...res.data,
           ...{
             'domain': decodedUri.host,
             'url': decodedUri.toString(),
@@ -89,40 +87,40 @@ Future<LNURLParseResult> getParams(String encodedUrl) async {
     }
 
     /// If it contains a callback then add the domain as a key
-    if (parsedJson['callback'] != null) {
-      parsedJson['domain'] = Uri.parse(parsedJson['callback']).host;
+    if (res.data['callback'] != null) {
+      res.data['domain'] = Uri.parse(res.data['callback']).host;
     }
 
-    if (parsedJson['tag'] == null) {
+    if (res.data['tag'] == null) {
       throw Exception('Response was missing a tag');
     }
 
-    switch (parsedJson['tag']) {
+    switch (res.data['tag']) {
       case 'withdrawRequest':
         return LNURLParseResult(
-          withdrawalParams: LNURLWithdrawParams.fromJson(parsedJson),
+          withdrawalParams: LNURLWithdrawParams.fromJson(res.data),
         );
 
       case 'payRequest':
         return LNURLParseResult(
-          payParams: LNURLPayParams.fromJson(parsedJson),
+          payParams: LNURLPayParams.fromJson(res.data),
         );
 
       case 'channelRequest':
         return LNURLParseResult(
-          channelParams: LNURLChannelParams.fromJson(parsedJson),
+          channelParams: LNURLChannelParams.fromJson(res.data),
         );
 
       case 'login':
         return LNURLParseResult(
-          authParams: LNURLAuthParams.fromJson(parsedJson),
+          authParams: LNURLAuthParams.fromJson(res.data),
         );
 
       default:
-        if (parsedJson['status'] == 'ERROR') {
+        if (res.data['status'] == 'ERROR') {
           return LNURLParseResult(
             error: LNURLErrorResponse.fromJson({
-              ...parsedJson,
+              ...res.data,
               ...{
                 'domain': decodedUri.host,
                 'url': decodedUri.toString(),
@@ -131,7 +129,7 @@ Future<LNURLParseResult> getParams(String encodedUrl) async {
           );
         }
 
-        throw Exception('Unknown tag: ${parsedJson['tag']}');
+        throw Exception('Unknown tag: ${res.data['tag']}');
     }
   } catch (e) {
     return LNURLParseResult(

@@ -5,6 +5,7 @@ import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hostr/logic/services/messages/global_gift_wrap.cubit.dart';
+import 'package:models/main.dart';
 
 import '../mock/hydrated_storage.mock.dart';
 

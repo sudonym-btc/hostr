@@ -13,6 +13,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:http/http.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -145,6 +146,21 @@ class SwapService {
     MultiEscrow e = MultiEscrow(
         address: EthereumAddress.fromHex(escrowContractAddress),
         client: client);
+
+    print((
+      tradeId: eventId,
+      timelock: BigInt.from(timelock),
+
+      /// Arbiter public key from their nostr advertisement
+      arbiter: getEthAddressFromPublicKey(escrowPubkey),
+
+      /// Seller address derived from their nostr pubkey
+      seller: getEthAddressFromPublicKey(sellerPubkey),
+
+      /// Our address derived from our nostr private key
+      buyer: ethKey.address,
+      escrowFee: BigInt.from(100),
+    ));
 
     String escrowTx = await e.createTrade((
       tradeId: eventId,

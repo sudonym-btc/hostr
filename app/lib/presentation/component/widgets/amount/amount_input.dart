@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/data/models/amount.dart';
 import 'package:hostr/logic/services/swap.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:intl/intl.dart';
+import 'package:models/main.dart';
 
 const buttons = [
   1,

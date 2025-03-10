@@ -16,7 +16,13 @@ Launch all services to fully test app.
 docker network create shared_network
 ```
 
-Boltz exchange
+Light mode
+
+```bash
+./start_local.sh
+```
+
+Full escrow mode exchange
 
 ```bash
 ./start.sh
@@ -50,4 +56,12 @@ Seed the relay.
 
 ```bash
 dart run app/lib/data/stubs/seed_mock.dart
+```
+
+Fund EVM balance:
+
+docker exec into anvil 
+
+```bash
+cast rpc anvil_setBalance 0x92c68728fcb57cbe40d9ec9ced82233146af3565 48543953908
 ```

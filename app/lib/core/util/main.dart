@@ -1,4 +1,3 @@
-export 'bip340.dart';
 export 'convert_to_title_case.dart';
 export 'custom_logger.dart';
 export 'format_date.dart';

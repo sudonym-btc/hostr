@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/data/sources/nostr/mock.blossom.dart';
 import 'package:hostr/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:models/main.dart';
 import 'package:ndk/entities.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -54,9 +55,4 @@ setup(String env) async {
     ]);
   }
   await getIt<RelayConnector>().connect();
-
-  // todo: export events to json and allow them to be imported into relay database, rather than publishing events when launching
-  if (env == Env.mock || env == Env.dev) {
-    // await seed();
-  }
 }

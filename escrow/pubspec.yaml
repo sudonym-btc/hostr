@@ -4,17 +4,27 @@ version: 1.0.0
 publish_to: none
 
 environment:
-  sdk: '>=2.12.0 <3.0.0'
+  sdk: ^3.6.0
 
 dependencies:
-  dart_nostr: ^8.0.3
-  nostr: 
   args: ^2.0.0
   get_it: ^8.0.3
   injectable: ^2.1.1
-  shelf: ^1.2.0
-  shelf_router: ^1.0.0
   http: ^1.2.0 
+  web3dart: ^2.7.3
+  models:
+    path: ../models
+  ndk:
+    git:
+      url: https://github.com/relaystr/ndk
+  # ndk_rust_verifier: ^0.2.1
+  ndk_amber: ^0.2.0
+
+dependency_overrides:
+  ndk:
+    git:
+      url: https://github.com/relaystr/ndk.git
+      path: packages/ndk
 
 dev_dependencies:
   test: ^1.16.0

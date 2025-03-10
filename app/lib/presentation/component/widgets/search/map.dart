@@ -8,6 +8,7 @@ import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/search/map_style.dart';
+import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
 double mapsGoogleLogoSize = 0;

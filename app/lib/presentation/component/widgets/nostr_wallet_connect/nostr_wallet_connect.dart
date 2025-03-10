@@ -6,7 +6,9 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/qr_scanner.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
+import 'package:ndk/shared/nips/nip01/bip340.dart';
 
+import 'connection.dart';
 import 'nostr_wallet_auth.dart';
 
 class NostrWalletConnectWidget extends StatefulWidget {
@@ -46,6 +48,7 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
         NostrWalletAuthWidget(),
         Column(
           children: [
+            NostrWalletConnectConnectionWidget(),
             // Text('Connect wallet to app'),
             if (shouldShowQrScanner) NwcQrScannerWidget(),
 

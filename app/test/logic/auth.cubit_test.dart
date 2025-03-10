@@ -1,10 +1,10 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:hostr/core/main.dart';
 import 'package:hostr/data/sources/local/secure_storage.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/auth.cubit.dart';
+import 'package:models/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 void main() {

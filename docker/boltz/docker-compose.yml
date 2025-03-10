@@ -226,7 +226,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "curl -s localhost:8090/chain-info"]
       timeout: 1s
-      retries: 100
+      retries: 200
       interval: 2s
       start_period: 15s
     ports:

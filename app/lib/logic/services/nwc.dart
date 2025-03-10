@@ -29,6 +29,7 @@ class NwcService {
   KeyStorage keyStorage = getIt<KeyStorage>();
   NwcStorage nwcStorage = getIt<NwcStorage>();
   Ndk nostr = getIt<Ndk>();
+  NwcConnection? connection;
 
   /// User pasted/scanned a NWC from their wallet
   /// e.g. nostr+walletconnect://b889ff5b1513b641e2a139f661a661364979c5beee91842f8f0ef42ab558e9d4?relay=wss%3A%2F%2Frelay.damus.io&secret=71a8c14c1407c113601079c4302dab36460f0ccd0ad506f1f2dc73b5100e4f3c
@@ -40,27 +41,29 @@ class NwcService {
 
   Future<GetInfoResponse> getInfo(String nwc) async {
     logger.i('Connecting to NWC: $nwc');
-    return nostr.nwc.getInfo(await nostr.nwc.connect(nwc));
+    connection = await nostr.nwc.connect(nwc);
+    return nostr.nwc.getInfo(connection!);
+  }
+
+  ensureConnection() async {
+    connection ??= await nostr.nwc.connect((await nwcStorage.get())[0]);
   }
 
   Future<PayInvoiceResponse> payInvoice(String invoice, int? amount) async {
-    return nostr.nwc.payInvoice(
-        await nostr.nwc.connect((await nwcStorage.get())[0]),
-        invoice: invoice);
+    await ensureConnection();
+    return nostr.nwc.payInvoice(connection!, invoice: invoice);
   }
 
   Future<MakeInvoiceResponse> makeInvoice(int amountSats) async {
-    return nostr.nwc.makeInvoice(
-        await nostr.nwc.connect((await nwcStorage.get())[0]),
-        amountSats: amountSats);
+    await ensureConnection();
+    return nostr.nwc.makeInvoice(connection!, amountSats: amountSats);
   }
 
   Future<LookupInvoiceResponse> lookupInvoice(
       {String? paymentHash, String? invoice}) async {
-    return nostr.nwc.lookupInvoice(
-        await nostr.nwc.connect((await nwcStorage.get())[0]),
-        paymentHash: paymentHash,
-        invoice: invoice);
+    await ensureConnection();
+    return nostr.nwc
+        .lookupInvoice(connection!, paymentHash: paymentHash, invoice: invoice);
   }
 }
 

@@ -8,6 +8,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/swap.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:models/main.dart';
 
 class ThreadReservationRequestWidget extends StatelessWidget {
   final Message item;
@@ -45,8 +46,8 @@ class ThreadReservationRequestWidget extends StatelessWidget {
                               await getIt<SwapService>().escrow(
                                   amount: r.parsedContent.amount,
                                   eventId: r.nip01Event.id,
-                                  timelock: DateTime.now()
-                                      .difference(r.parsedContent.end)
+                                  timelock: r.parsedContent.end
+                                      .difference(DateTime.now())
                                       .inMinutes,
                                   escrowContractAddress: MOCK_ESCROWS[0]
                                       .parsedContent
@@ -65,7 +66,8 @@ class ThreadReservationRequestWidget extends StatelessWidget {
 
                               BlocProvider.of<PaymentsManager>(context).create(
                                   LnUrlPaymentParameters(
-                                      to: 'paco@walletofsatoshi.com',
+                                      to: counterparty.lud16 ??
+                                          counterparty.lud06!,
                                       amount: r.parsedContent.amount));
                             },
                             child: Text('Pay Upfront')))

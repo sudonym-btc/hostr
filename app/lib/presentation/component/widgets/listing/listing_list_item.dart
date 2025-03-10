@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/router.dart';
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import 'price_tag.dart';
