@@ -5,6 +5,7 @@ import 'package:hostr/data/main.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:models/main.dart';
 
 @RoutePage()
 class BookingsScreen extends StatelessWidget {

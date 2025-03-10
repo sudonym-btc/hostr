@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/presentation/main.dart';
+import 'package:models/main.dart';
 
 class PriceTagWidget extends StatelessWidget {
   final Price price;

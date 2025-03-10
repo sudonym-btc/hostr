@@ -1,12 +1,10 @@
-import 'dart:convert';
-
 import 'package:bolt11_decoder/bolt11_decoder.dart';
+import 'package:dio/dio.dart';
 import 'package:hostr/data/sources/lnurl/lnurl.dart';
 import 'package:hostr/data/sources/lnurl/types.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/swap.dart';
 import 'package:hostr/main.dart';
-import 'package:http/http.dart' as http;
 import 'package:ndk/ndk.dart';
 import 'package:validators/validators.dart';
 
@@ -68,10 +66,10 @@ class LnUrlPaymentCubit extends PaymentCubit<LnUrlPaymentParameters,
           .toString()
     });
     logger.d('Callback uri: $callbackUri');
-    http.Response r = await http.get(callbackUri);
-    logger.d('Callback response: ${r.body}');
-    String invoice = json.decode(r.body)['pr'];
-    logger.d('Callback response: ${r.body}, $invoice');
+    Response r = await getIt<Dio>().get(callbackUri.toString());
+    logger.d('Callback response: ${r.data}');
+    String invoice = r.data['pr'];
+    logger.d('Callback response: ${r.data}, $invoice');
     return LightningCallbackDetails(invoice: Bolt11PaymentRequest(invoice));
   }
 

@@ -31,3 +31,6 @@ linter:
 analyzer:
   exclude: 
     - '**/*.g.dart'
+language:
+  enable-experiments: 
+    - super-parameters

@@ -7,6 +7,7 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/screens/shared/inbox/thread/giftwraps/message.dart';
 import 'package:ndk/ndk.dart';
+import 'package:models/main.dart';
 
 import 'giftwraps/reservation_request.dart';
 

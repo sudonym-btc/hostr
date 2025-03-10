@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:models/main.dart';
 
 class ListWidget<T extends Event> extends StatefulWidget {
   final Widget Function(dynamic) builder;

@@ -1,11 +1,11 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/screens/shared/inbox/inbox.dart';
 import 'package:hostr/router.dart';
+import 'package:models/main.dart';
 
 class DrawerWidget extends StatelessWidget {
   @override

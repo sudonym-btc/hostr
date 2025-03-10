@@ -9,7 +9,7 @@ x-templates:
       test:
         [
           "CMD-SHELL",
-          "lncli --network=regtest --rpcserver=localhost:8080  --macaroonpath=/shared/$$SEQUENCE/admin.macaroon --tlscertpath=/shared/$$SEQUENCE/tls.cert getinfo",
+          'lncli --network=regtest --rpcserver=localhost:8080 --macaroonpath=/shared/$$SEQUENCE/admin.macaroon --tlscertpath=/shared/$$SEQUENCE/tls.cert getinfo | grep ''"block_height":'' || exit 1',
         ]
       interval: 1s
       timeout: 1s
@@ -93,8 +93,16 @@ services:
     build:
       context: ./escrow
       dockerfile: Dockerfile
+    environment:
+      - NOSTR_RELAY=ws://relay.hostr.development
+      - PRIVATE_KEY=a9cbe715ebaeb852bf7cc3d35f4a81b9a58f16705e4bb8434aa453093e612206
+      - RPC_URL=http://localhost:8545
+      - CONTRACT_ADDR=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
     networks:
       - default
+      - shared_network
+    profiles:
+      - escrow
 
   # Rootstock chain for escrow
   # evm:
@@ -145,6 +153,7 @@ services:
         "-zmqpubrawtx=tcp://0.0.0.0:${BITCOIN_ZMQ_TX_PORT}",
         "-zmqpubrawblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}",
         "-zmqpubhashblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}",
+        "-addnode=bitcoind",
       ]
     ports:
       - "${BITCOIN_PORT}:${BITCOIN_PORT}"
@@ -186,6 +195,10 @@ services:
       - LND_REST_ENDPOINT=https://lnd1:8081
       - LND_REST_CERT=/app/lnd/tls.cert
       - LND_REST_MACAROON=/app/lnd/admin.macaroon
+      - LNBITS_ADMIN_EXTENSIONS="lnurlp"
+      - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp"
+      - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp"
+
     volumes:
       - ./docker/data/lightning_shared/1:/app/lnd
       - ./docker/data/lnbits/1:/app/data
@@ -207,6 +220,10 @@ services:
       - LND_REST_ENDPOINT=https://lnd2:8081
       - LND_REST_CERT=/app/lnd/tls.cert
       - LND_REST_MACAROON=/app/lnd/admin.macaroon
+      - LNBITS_ADMIN_EXTENSIONS="lnurlp"
+      - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp"
+      - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp"
+
     volumes:
       - ./docker/data/lightning_shared/2:/app/lnd
       - ./docker/data/lnbits/2:/app/data

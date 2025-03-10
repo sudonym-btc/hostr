@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/list.dart';
+import 'package:models/main.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 import 'listing_list_item.dart';

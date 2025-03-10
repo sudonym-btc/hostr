@@ -1,6 +1,7 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/data/main.dart';
+import 'package:models/main.dart';
 
 class ImageCarouselWidget extends StatefulWidget {
   final Listing item;

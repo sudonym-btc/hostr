@@ -1,8 +1,8 @@
-import 'package:hostr/config/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 class GlobalGiftWrapCubit extends ListCubit<GiftWrap> with HydratedMixin {

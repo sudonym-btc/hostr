@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 abstract class DefaultEntityProvider<Type extends Event>

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:models/main.dart';
 
 class ReviewsReservationsWidget extends StatelessWidget {
   final String a;

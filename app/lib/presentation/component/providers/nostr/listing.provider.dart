@@ -1,5 +1,5 @@
-import 'package:hostr/data/main.dart';
 import 'package:hostr/presentation/component/providers/nostr/default_entity.provider.dart';
+import 'package:models/main.dart';
 
 class ListingProvider extends DefaultEntityProvider<Listing> {
   ListingProvider(

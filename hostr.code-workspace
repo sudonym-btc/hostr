@@ -28,6 +28,7 @@
       "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "extensions.ignoreRecommendations": false,
+    "editor.formatOnSave": true,
   },
   "extensions": {
     "recommendations": [

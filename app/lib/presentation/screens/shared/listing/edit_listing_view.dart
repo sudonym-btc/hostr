@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide TimeOfDay;
 import 'package:hostr/export.dart';
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import 'image_picker.dart';

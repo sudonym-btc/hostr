@@ -10,6 +10,7 @@ export 'listing/listing_list_item.dart';
 export 'listing/review_list_item.dart';
 export 'listing/reviews_reservations.dart';
 export 'money_in_flight/money_in_flight.dart';
+export 'nostr_wallet_connect/connection.dart';
 export 'nostr_wallet_connect/nostr_wallet_auth.dart';
 export 'nostr_wallet_connect/nostr_wallet_connect.dart';
 export 'payment/payment.dart';

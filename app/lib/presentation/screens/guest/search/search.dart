@@ -1,9 +1,9 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/models/main.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/screens/guest/search/search_view.dart';
+import 'package:models/main.dart';
 
 @RoutePage()
 class SearchScreen extends StatelessWidget {

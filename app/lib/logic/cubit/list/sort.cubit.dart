@@ -1,5 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/models/nostr_kind/event.dart';
+import 'package:models/main.dart';
 
 typedef Comparator<T extends Event> = int Function(T a, T b);
 

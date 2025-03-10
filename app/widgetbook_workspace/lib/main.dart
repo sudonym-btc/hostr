@@ -4,6 +4,7 @@ import 'package:hostr/data/sources/local/mode_storage.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/setup.dart';
+import 'package:models/main.dart';
 import 'package:widgetbook/widgetbook.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 

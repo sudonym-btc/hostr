@@ -7,6 +7,7 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr/logic/services/swap.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/router.dart';
+import 'package:models/main.dart';
 
 @RoutePage()
 class ProfileScreen extends StatelessWidget {

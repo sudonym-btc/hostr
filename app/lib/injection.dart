@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/injection.config.dart';
@@ -17,8 +21,23 @@ void configureInjection(String environment) {
         eventVerifier: Bip340EventVerifier(),
         cache: MemCacheManager(),
         engine: NdkEngine.JIT,
+        defaultQueryTimeout: Duration(seconds: 10),
         bootstrapRelays: getIt<Config>().relays),
   ));
+
+  Dio dio = Dio();
+  (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
+    print('Dio creating http cleint');
+    HttpClient client = HttpClient();
+    client.badCertificateCallback =
+        (X509Certificate cert, String host, int port) {
+      print('badCertificateCallback called for: $host:$port');
+      return true;
+    };
+    return client;
+  };
+
+  getIt.registerSingleton<Dio>(dio);
 }
 
 abstract class Env {

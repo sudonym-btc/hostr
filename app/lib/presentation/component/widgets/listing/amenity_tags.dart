@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
+import 'package:models/main.dart';
 
 class AmenityTagsWidget extends StatelessWidget {
   final Amenities amenities;

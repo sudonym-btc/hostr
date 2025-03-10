@@ -6,6 +6,7 @@ import 'package:hostr/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:models/main.dart';
 
 appWrapper(Widget child) {
   return MaterialApp(
@@ -39,7 +40,6 @@ void main() {
     );
     setUpAll(() async {
       await setup(Env.test);
-      await seed();
     });
     testWidgets('login', (tester) async {
       /// Navigate to the login screen

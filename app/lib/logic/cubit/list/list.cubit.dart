@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/main.dart';
-import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
 

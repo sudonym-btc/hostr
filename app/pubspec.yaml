@@ -39,6 +39,7 @@ dependencies:
   web3dart: ^2.7.3
   logger: ^2.5.0
   http: ^1.2.2
+  dio: ^5.8.0+1
   intl: ^0.20.2
   uuid: ^4.5.1
   # NIP04 deps
@@ -79,6 +80,8 @@ dev_dependencies:
   shelf_router: ^1.1.4
   flutter_driver:
     sdk: flutter
+  models:
+    path: ../models
 
 dependency_overrides:
   ndk:

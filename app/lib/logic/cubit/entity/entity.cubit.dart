@@ -2,8 +2,8 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
-import 'package:hostr/data/models/nostr_kind/event.dart';
 import 'package:hostr/injection.dart';
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {

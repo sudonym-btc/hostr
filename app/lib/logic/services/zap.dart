@@ -1,9 +1,9 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:ndk/domain_layer/entities/nip_01_event.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -55,13 +55,13 @@ class ZapService {
 
     String eventString = Uri.encodeQueryComponent(json.encode(event));
 
-    var result = await http.get(Uri.parse(
-        "$callback?amount=${amountSats * 1000}&nostr=$event&lnurl=$lnurl"));
+    var result = await getIt<Dio>()
+        .get("$callback?amount=${amountSats * 1000}&nostr=$event&lnurl=$lnurl");
 
-    if (result.statusCode >= 300) {
+    if (result.statusCode! >= 300) {
       throw Exception("Failed to get invoice");
     }
-    String? pr = json.decode(result.body)['pr'];
+    String? pr = result.data['pr'];
     if (pr == null) {
       throw Exception("Failed to get invoice");
     }
