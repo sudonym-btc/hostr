@@ -220,6 +220,7 @@
     "yoctocolors": "^2.1.1"
   },
   "devDependencies": {
+    "@semantic-release/exec": "^7.0.3",
     "retypeapp": "^3.6.0"
   },
   "scripts": {
