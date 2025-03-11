@@ -1,0 +1,91 @@
+name: Build with Fastlane
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  production-android:
+    name: Production Android Workflow with Fastlane
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up local.properties
+        run: |
+          echo "storePassword=${{ secrets.CM_KEYSTORE_PASSWORD }}" >> app/android/local.properties
+          echo "keyPassword=${{ secrets.CM_KEY_PASSWORD }}" >> app/android/local.properties
+          echo "keyAlias=${{ secrets.CM_KEY_ALIAS }}" >> app/android/local.properties
+          echo "storeFile=${{ secrets.CM_KEYSTORE_PATH }}" >> app/android/local.properties
+          echo "flutter.sdk=$HOME/flutter" >> app/android/local.properties
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+
+      - name: Get packages
+        working-directory: app
+        run: flutter pub get
+
+      - name: Set Build Number
+        id: build_number
+        run: |
+          # Replace the following placeholder with your actual command to get the build number.
+          BUILD_NUMBER=$(( $(curl -s "https://your-play-store-api/get-latest-build-number?package=com.sudonym.sudonym") + 1 ))
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+          echo "Build number: $BUILD_NUMBER"
+
+      - name: Build Android App
+        working-directory: app
+        run: |
+          flutter build appbundle --build-number=$BUILD_NUMBER -t lib/main_production.dart --release
+          flutter build apk --build-number=$BUILD_NUMBER -t lib/main_production.dart --release
+
+      - name: Deploy to Play Store via Fastlane
+        working-directory: app
+        run: fastlane run upload_to_play_store
+        env:
+          GOOGLE_PLAY_CREDENTIALS: ${{ secrets.GOOGLE_PLAY_CREDENTIALS }}
+
+  production-apple:
+    name: Production iOS Workflow with Fastlane
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+
+      - name: Get packages
+        working-directory: app
+        run: flutter pub get
+
+      - name: Set up Xcode Code Signing
+        run: xcode-project use-profiles
+
+      - name: Set Build Number
+        id: build_number_ios
+        run: |
+          # Replace the following placeholder with your actual command to get the latest TestFlight build number.
+          BUILD_NUMBER=$(( $(curl -s "https://api.appstoreconnect.apple.com/your-endpoint?app_id=${{ secrets.APP_ID }}") + 1 ))
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+          echo "Build number: $BUILD_NUMBER"
+
+      - name: Build iOS IPA
+        working-directory: app
+        run: |
+          flutter build ipa -t lib/main_production.dart --release --export-options-plist=/Users/builder/export_options.plist --build-number=$BUILD_NUMBER
+
+      - name: Deploy to App Store via Fastlane
+        working-directory: app
+        run: fastlane run upload_to_app_store
+        env:
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
