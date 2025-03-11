@@ -28,8 +28,10 @@ class Bolt11PaymentCubit extends PaymentCubit<Bolt11PaymentParameters,
 
   @override
   Future<LightningCompletedDetails> complete() async {
-    PayInvoiceResponse response = await getIt<NwcService>()
-        .payInvoice(state.callbackDetails!.invoice.paymentRequest, null);
+    PayInvoiceResponse response = await getIt<NwcService>().payInvoice(
+        getIt<NwcService>().connections[0].connection!,
+        state.callbackDetails!.invoice.paymentRequest,
+        null);
     return LightningCompletedDetails(preimage: response.preimage);
   }
 }

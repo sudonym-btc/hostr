@@ -27,8 +27,9 @@ var MOCK_PROFILES = [
     ..sign(MockKeys.guest.privateKey!),
   Metadata(
     pubKey: MockKeys.escrow.publicKey,
-    name: 'Escrow',
+    name: 'Hostr Escrow',
     about: 'Provides cheap escrow services for nostr',
+    nip05: 'escrow@hostr.development',
     picture:
         'https://files.oaiusercontent.com/file-NbbHPRbFACbfS8BcAWDnju?se=2024-12-31T13%3A41%3A58Z&sp=r&sv=2024-08-04&sr=b&rscc=max-age%3D604800%2C%20immutable%2C%20private&rscd=attachment%3B%20filename%3D2cdcbb2c-f951-46af-91b6-547b74f2dc9d.webp&sig=advBN3XrKDJnND8EUsjJ0YKNI9OtCFTvBA4DIpOeQvA%3D',
   ).toEvent()

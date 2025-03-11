@@ -15,13 +15,15 @@ class ListingListItemWidget extends StatefulWidget {
   final bool showPrice;
   final bool showFeedback;
   final bool smallImage;
+  final WidgetBuilder? bottom;
   const ListingListItemWidget(
       {super.key,
       required this.listing,
       this.dateRange,
       this.showPrice = true,
       this.showFeedback = true,
-      this.smallImage = false});
+      this.smallImage = false,
+      this.bottom});
 
   @override
   State createState() => ListingListItemWidgetState();
@@ -121,6 +123,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
                     )),
             ],
           ),
+          if (widget.bottom != null) widget.bottom!(context),
         ],
       ),
     ]);

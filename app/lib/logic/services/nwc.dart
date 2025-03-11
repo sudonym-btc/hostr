@@ -1,8 +1,10 @@
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/cubit/nwc.cubit.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/domain_layer/usecases/nwc/consts/bitcoin_network.dart';
+import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 import 'package:ndk/ndk.dart';
 
 Uri parseNwc(String nwcString) {
@@ -29,48 +31,66 @@ class NwcService {
   KeyStorage keyStorage = getIt<KeyStorage>();
   NwcStorage nwcStorage = getIt<NwcStorage>();
   Ndk nostr = getIt<Ndk>();
-  NwcConnection? connection;
+  List<NwcCubit> connections = [];
+
+  NwcService() {
+    nwcStorage.get().then((urls) {
+      urls.forEach((url) {
+        connections.add(NwcCubit(url: url));
+      });
+    });
+  }
 
   /// User pasted/scanned a NWC from their wallet
   /// e.g. nostr+walletconnect://b889ff5b1513b641e2a139f661a661364979c5beee91842f8f0ef42ab558e9d4?relay=wss%3A%2F%2Frelay.damus.io&secret=71a8c14c1407c113601079c4302dab36460f0ccd0ad506f1f2dc73b5100e4f3c
-  save(String uri) async {
+  save(NwcCubit cubit) async {
     // Parse the NWC string, check protocol, secret, relay
-    parseNwc(uri);
-    await nwcStorage.set([uri.toString()]);
+    parseNwc(cubit.url!);
+    await nwcStorage.set([cubit.url!]);
   }
 
-  Future<GetInfoResponse> getInfo(String nwc) async {
-    logger.i('Connecting to NWC: $nwc');
-    connection = await nostr.nwc.connect(nwc);
-    return nostr.nwc.getInfo(connection!);
+  Future<NwcConnection> connect(String url) {
+    parseNwc(url);
+    return nostr.nwc.connect(url);
   }
 
-  ensureConnection() async {
-    connection ??= await nostr.nwc.connect((await nwcStorage.get())[0]);
+  Future<GetInfoResponse> getInfo(NwcConnection nwc) async {
+    return nostr.nwc.getInfo(nwc);
   }
 
-  Future<PayInvoiceResponse> payInvoice(String invoice, int? amount) async {
-    await ensureConnection();
-    return nostr.nwc.payInvoice(connection!, invoice: invoice);
+  Future<PayInvoiceResponse> payInvoice(
+      NwcConnection nwc, String invoice, int? amount) async {
+    return nostr.nwc.payInvoice(nwc, invoice: invoice);
   }
 
-  Future<MakeInvoiceResponse> makeInvoice(int amountSats) async {
-    await ensureConnection();
-    return nostr.nwc.makeInvoice(connection!, amountSats: amountSats);
+  Future<MakeInvoiceResponse> makeInvoice(
+      NwcConnection nwc, int amountSats) async {
+    return nostr.nwc.makeInvoice(nwc, amountSats: amountSats);
   }
 
-  Future<LookupInvoiceResponse> lookupInvoice(
+  Future<LookupInvoiceResponse> lookupInvoice(NwcConnection nwc,
       {String? paymentHash, String? invoice}) async {
-    await ensureConnection();
     return nostr.nwc
-        .lookupInvoice(connection!, paymentHash: paymentHash, invoice: invoice);
+        .lookupInvoice(nwc, paymentHash: paymentHash, invoice: invoice);
+  }
+
+  add(NwcCubit nwcCubit) {
+    connections.add(nwcCubit);
   }
 }
 
 @Injectable(as: NwcService, env: [Env.test, Env.mock])
 class MockNostrWalletConnectService extends NwcService {
+  Future<NwcConnection> connect(String url) async {
+    Uri uri = parseNwc(url);
+    return NwcConnection(NostrWalletConnectUri(
+        walletPubkey: uri.host,
+        relay: uri.queryParameters['relay']!,
+        secret: uri.queryParameters['secret']!));
+  }
+
   @override
-  Future<GetInfoResponse> getInfo(String nwc) async {
+  Future<GetInfoResponse> getInfo(NwcConnection nwc) async {
     return GetInfoResponse(
       alias: 'Wallet of Satoshi',
       color: '#FFFF00',
@@ -85,13 +105,14 @@ class MockNostrWalletConnectService extends NwcService {
   }
 
   @override
-  Future<PayInvoiceResponse> payInvoice(String invoice, int? amount) async {
+  Future<PayInvoiceResponse> payInvoice(
+      NwcConnection nwc, String invoice, int? amount) async {
     return PayInvoiceResponse(
         preimage: 'preimage', resultType: 'pay_invoice', feesPaid: 1);
   }
 
   @override
-  Future<LookupInvoiceResponse> lookupInvoice(
+  Future<LookupInvoiceResponse> lookupInvoice(NwcConnection nwc,
       {String? paymentHash, String? invoice}) async {
     return LookupInvoiceResponse(
         type: 'incoming',

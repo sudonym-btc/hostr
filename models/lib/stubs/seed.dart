@@ -2,11 +2,11 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 seed(String relayUrl) async {
-  print("Seeding...");
+  print("Seeding $relayUrl...");
   Ndk ndk = Ndk(NdkConfig(
       eventVerifier: Bip340EventVerifier(),
       cache: MemCacheManager(),
-      bootstrapRelays: []));
+      bootstrapRelays: [relayUrl]));
 
   for (var x in MOCK_EVENTS) {
     await ndk.broadcast.broadcast(nostrEvent: x);
@@ -15,12 +15,12 @@ seed(String relayUrl) async {
   print('Seeded.');
 }
 
-void main(List<String> arguments) {
+void main(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('Please provide a relay URL.');
     return;
   }
 
   String relayUrl = arguments[0];
-  seed(relayUrl);
+  await seed(relayUrl);
 }

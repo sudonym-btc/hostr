@@ -35,6 +35,7 @@ class MockRelay {
       port = startPort;
       startPort++;
     }
+    log('MockRelay $name created on localhost:$port, events: ${json.encode(events)}');
   }
 
   Future<void> startServer({List<Nip01Event>? events}) async {

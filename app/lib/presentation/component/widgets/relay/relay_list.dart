@@ -29,12 +29,9 @@ class _RelayListWidgetState extends State<RelayListWidget> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: [
-        if (relays == null)
-          CircularProgressIndicator()
-        else
-          for (var relay in relays!) RelayListItemWidget(relay: relay),
-      ],
-    );
+        children: getIt<NostrService>().connectivity().map((connectivity) {
+      return RelayListItemWidget(
+          relay: connectivity.relayInfo, connectivity: connectivity);
+    }).toList());
   }
 }

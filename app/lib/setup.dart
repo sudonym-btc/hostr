@@ -31,9 +31,11 @@ setup(String env) async {
   if (env == Env.mock || env == Env.test) {
     MockBlossomServer blossomServer = MockBlossomServer();
     await blossomServer.start();
-    MockRelay mockRelay = MockRelay(name: "Mock Relay", explicitPort: 5044);
-    await mockRelay.startServer(events: [
+    MockRelay mockRelay =
+        MockRelay(name: "Mock Relay", explicitPort: 5432, events: [
       ...MOCK_EVENTS,
+
+      /// Preferred relay lists
       Nip65(
               pubKey: MockKeys.guest.publicKey,
               relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
@@ -53,6 +55,7 @@ setup(String env) async {
           .toEvent()
         ..sign(MockKeys.escrow.privateKey!)
     ]);
+    await mockRelay.startServer();
   }
   await getIt<RelayConnector>().connect();
 }
