@@ -5,10 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/services/swap.dart';
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
-import 'package:models/main.dart';
+
+import '../payment/payment_method.dart';
 
 class ThreadReservationRequestWidget extends StatelessWidget {
   final Message item;
@@ -25,57 +26,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
     showModalBottomSheet(
         context: context,
         builder: (context) {
-          return SafeArea(
-              child: CustomPadding(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                    style: Theme.of(context).textTheme.titleLarge!,
-                    'Would you like to use an escrow to settle this transfer?'),
-                CustomPadding(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                        child: FilledButton(
-                            onPressed: () async {
-                              Navigator.of(context).pop();
-
-                              await getIt<SwapService>().escrow(
-                                  amount: r.parsedContent.amount,
-                                  eventId: r.nip01Event.id,
-                                  timelock: r.parsedContent.end
-                                      .difference(DateTime.now())
-                                      .inMinutes,
-                                  escrowContractAddress: MOCK_ESCROWS[0]
-                                      .parsedContent
-                                      .contractAddress,
-                                  sellerPubkey: counterparty.pubKey,
-                                  escrowPubkey:
-                                      MOCK_ESCROWS[0].nip01Event.pubKey);
-                            },
-                            child: Text('Use Escrow'))),
-                    CustomPadding(),
-                    Expanded(
-                        child: FilledButton(
-                            key: ValueKey('pay_upfront'),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-
-                              BlocProvider.of<PaymentsManager>(context).create(
-                                  LnUrlPaymentParameters(
-                                      to: counterparty.lud16 ??
-                                          counterparty.lud06!,
-                                      amount: r.parsedContent.amount));
-                            },
-                            child: Text('Pay Upfront')))
-                  ],
-                )
-              ],
-            ),
-          ));
+          return PaymentMethodWidget(r: r, counterparty: counterparty);
         });
   }
 
@@ -101,6 +52,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
     /// Combine with escrow query as well
     return FutureBuilder(
         future: getIt<NwcService>().lookupInvoice(
+            getIt<NwcService>().connections[0].connection!,
             paymentHash:
                 crypto.sha256.convert(r.nip01Event.id.codeUnits).toString()),
         builder: (context, snapshot) {

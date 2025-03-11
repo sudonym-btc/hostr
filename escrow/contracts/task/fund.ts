@@ -1,16 +1,34 @@
 import hre from "hardhat";
+import { MultiEscrow } from "../typechain-types"; // adjust the path if needed
+
 async function main() {
   const ethers = hre.ethers;
 
   // Get the signer (default account)
-  const [sender] = await ethers.getSigners();
-
-  const contractAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+  let [escrow, buyer, seller] = await ethers.getSigners();
+  seller = seller || {address: '0x164919857a1eaB16c789683f19Df4B218b829416'};
+  const contractAddress = "0xE72544c0fa4dE04faecac9EAcC06c0790f168A5a";
   const tradeId = "0x1234"; // Example trade ID
 
-  const MultiEscrow = await ethers.getContractFactory("MultiEscrow");
-  const multiEscrow = await MultiEscrow.attach(contractAddress);
-  console.log(multiEscrow);
+  const MultiEscrowFactory = await ethers.getContractFactory("MultiEscrow");
+  const multiEscrow = await MultiEscrowFactory.attach(contractAddress) as MultiEscrow;
+  console.log(
+    tradeId,
+    buyer.address,
+    seller.address,
+    escrow.address,
+    1000,
+    100
+  );
+  multiEscrow.createTrade(
+    tradeId,
+    buyer.address,
+    seller.address,
+    escrow.address,
+    1000,
+    100,
+    {value: ethers.parseEther("1.0") } 
+  );
 
   // Fetch logs for the contract
   const filter = {
@@ -34,7 +52,7 @@ async function main() {
   const amount = ethers.parseEther("10.0"); // Sending 1 ETH
 
   // Send the transaction
-  const tx = await sender.sendTransaction({
+  const tx = await escrow.sendTransaction({
     to: recipient,
     value: amount,
   });

@@ -29,7 +29,6 @@ contract MultiEscrow {
     function createTrade(string memory tradeId, address _buyer, address _seller, address _arbiter,  uint256 _timelock, uint256 _escrowFee) external payable {
         emit DebugLog("TradeCreated event emitted");
 
-        require(1 < 0, "sanity check");
         require(trades[tradeId].buyer == address(0), "Trade ID already exists");
         require(msg.value > 0, "Must send funds to create an escrow contract");
         require(_timelock > 0, "Timelock must be greater than 0");

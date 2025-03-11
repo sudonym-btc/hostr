@@ -40,6 +40,13 @@ void main(List<String> arguments) async {
 
   switch (argResults.command?.name) {
     case 'start':
+      print('Starting escrow service');
+      print({
+        'privateKey': privateKey,
+        'relayUrl': relayUrl,
+        'rpcUrl': rpcUrl,
+        'contractAddress': contractAddress
+      });
       await ndk.broadcast.broadcast(
           nostrEvent: Nip01Event(
               pubKey: keyPair.publicKey,

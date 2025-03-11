@@ -22,6 +22,8 @@ abstract class NostrService {
 
   Future<List<RelayBroadcastResponse>> broadcast(
       {required Nip01Event event, List<String>? relays});
+
+  List<RelayConnectivity> connectivity();
 }
 
 @Singleton(as: NostrService)
@@ -75,6 +77,10 @@ class ProdNostrService extends NostrService {
         .broadcast
         .broadcast(nostrEvent: event)
         .broadcastDoneFuture;
+  }
+
+  List<RelayConnectivity> connectivity() {
+    return getIt<Ndk>().relays.connectedRelays;
   }
 
   // @override

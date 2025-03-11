@@ -43,7 +43,7 @@ void main() {
 
     blocTest<NwcCubit, NwcCubitState>(
       'emits [Success] when connected.',
-      build: () => NwcCubit(),
+      build: () => NwcCubit(url: ''),
       setUp: () async {
         // getIt<KeyStorage>().set(keyPair.privateKey!);
         // // Ndk().nwc.getInfo

@@ -8,6 +8,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:web3dart/crypto.dart';
 
 class KeysWidget extends StatefulWidget {
   const KeysWidget({super.key});
@@ -66,13 +67,13 @@ class KeysWidgetState extends State<KeysWidget> {
               ),
               ListTile(
                 title: Text('Private eth key'),
-                subtitle: Text((getEthCredentials(key!.privateKey!)
-                    .privateKeyInt
-                    .toString())),
+                subtitle: Text(bytesToHex(
+                    (getEthCredentials(key!.privateKey!).privateKey))),
                 onTap: () {
                   Clipboard.setData(ClipboardData(
-                      text: String.fromCharCodes(
-                          getEthCredentials(key!.privateKey!).privateKey)));
+                      text: bytesToHex(
+                          getEthCredentials(key!.privateKey!).privateKey,
+                          include0x: true)));
                 },
               ),
               ListTile(

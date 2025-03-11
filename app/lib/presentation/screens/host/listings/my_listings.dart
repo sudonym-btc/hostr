@@ -5,8 +5,8 @@ import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/main.dart';
-import 'package:ndk/ndk.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
 
 @RoutePage()
 class MyListingsScreen extends StatelessWidget {
@@ -44,6 +44,16 @@ class MyListingsScreen extends StatelessWidget {
                         child: ListWidget<Listing>(
                             builder: (el) => ListingListItemWidget(
                                   listing: el,
+                                  bottom: (BuildContext context) =>
+                                      BlocProvider<ListCubit<Reservation>>(
+                                    create: (context) => ListCubit<Reservation>(
+                                        kinds: Reservation.kinds,
+                                        filter: Filter(
+                                            authors: [snapshot.data!.publicKey],
+                                            aTags: [el.id]))
+                                      ..next(),
+                                    child: Container(child: Text('hi')),
+                                  ),
                                 )))
                   ]))));
         });
