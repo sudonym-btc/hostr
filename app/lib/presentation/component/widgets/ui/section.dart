@@ -5,21 +5,27 @@ import 'padding.dart';
 class Section extends StatelessWidget {
   final String? title;
   final Widget body;
-  const Section({super.key, this.title, required this.body});
+  final Widget? action;
+
+  const Section({super.key, this.title, required this.body, this.action});
 
   @override
   Widget build(BuildContext context) {
     return CustomPadding(
+        bottom: 0,
         child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (title != null)
-          Text(
-            title!,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        body
-      ],
-    ));
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              if (title != null)
+                Text(
+                  title!,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              if (action != null) action!
+            ]),
+            body
+          ],
+        ));
   }
 }

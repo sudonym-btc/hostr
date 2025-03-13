@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/main.dart';
+import 'package:hostr/injection.dart';
+import 'package:hostr/main.dart';
 
 import 'qr_scanner.dart';
 
@@ -59,8 +59,9 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                           final clipboardData =
                               await Clipboard.getData('text/plain');
                           if (clipboardData != null) {
-                            BlocProvider.of<NwcCubit>(context)
-                                .connect(clipboardData.text!);
+                            NwcCubit x = BlocProvider.of<NwcCubit>(context);
+                            await x.connect(clipboardData.text!);
+                            await getIt<NwcService>().add(x);
                           }
                         },
                         child: Text('Paste'),

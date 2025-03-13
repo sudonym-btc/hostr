@@ -82,9 +82,17 @@ class _SearchFormState extends State<SearchForm> {
                 day.isAfter(DateTime.now()),
         initialDateRange: _formState.availabilityRange);
     setState(() {
-      _formState = _formState.copyWith(availabilityRange: picked);
+      _formState = _formState.copyWith(
+          availabilityRange: ensureStartDateIsBeforeEndDate(picked));
     });
   }
+}
+
+DateTimeRange? ensureStartDateIsBeforeEndDate(DateTimeRange? picked) {
+  if (picked != null && picked.start.isAfter(picked.end)) {
+    return DateTimeRange(start: picked.end, end: picked.start);
+  }
+  return picked;
 }
 
 class SearchFormState {

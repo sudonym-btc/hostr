@@ -6,6 +6,7 @@ import 'package:injectable/injectable.dart';
 import 'package:ndk/domain_layer/usecases/nwc/consts/bitcoin_network.dart';
 import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 import 'package:ndk/ndk.dart';
+import 'package:rxdart/rxdart.dart';
 
 Uri parseNwc(String nwcString) {
   Uri nwcUri = Uri.parse(nwcString);
@@ -25,19 +26,23 @@ String parsePubkey(Uri nwc) {
   return nwc.host;
 }
 
-@Injectable(env: Env.allButTestAndMock)
+@Singleton(env: Env.allButTestAndMock)
 class NwcService {
   CustomLogger logger = CustomLogger();
   KeyStorage keyStorage = getIt<KeyStorage>();
-  NwcStorage nwcStorage = getIt<NwcStorage>();
-  Ndk nostr = getIt<Ndk>();
+  NwcStorage nwcStorage;
+  Ndk nostr;
   List<NwcCubit> connections = [];
+  final _connectionsSubject = BehaviorSubject<List<NwcCubit>>.seeded([]);
+  Stream<List<NwcCubit>> get connectionsStream => _connectionsSubject.stream;
 
-  NwcService() {
+  NwcService(this.nwcStorage, this.nostr) {
     nwcStorage.get().then((urls) {
-      urls.forEach((url) {
-        connections.add(NwcCubit(url: url));
-      });
+      for (var url in urls) {
+        connections.add(NwcCubit(url: url)..connect(url));
+      }
+      logger.i('Initializing nwc connections $urls');
+      _connectionsSubject.add(connections);
     });
   }
 
@@ -49,17 +54,23 @@ class NwcService {
     await nwcStorage.set([cubit.url!]);
   }
 
-  Future<NwcConnection> connect(String url) {
+  Future<NwcConnection> connect(String url, {Function(String?)? onError}) {
     parseNwc(url);
-    return nostr.nwc.connect(url);
+    logger.i('Connecting to NWC $url');
+    return nostr.nwc
+        .connect(url, doGetInfoMethod: true, onError: onError)
+        .timeout(Duration(seconds: 5));
   }
 
   Future<GetInfoResponse> getInfo(NwcConnection nwc) async {
+    logger.i('Getting info for NWC $nwc');
     return nostr.nwc.getInfo(nwc);
   }
 
   Future<PayInvoiceResponse> payInvoice(
       NwcConnection nwc, String invoice, int? amount) async {
+    logger.i('Paying invoice $invoice $nwc');
+
     return nostr.nwc.payInvoice(nwc, invoice: invoice);
   }
 
@@ -74,14 +85,27 @@ class NwcService {
         .lookupInvoice(nwc, paymentHash: paymentHash, invoice: invoice);
   }
 
-  add(NwcCubit nwcCubit) {
+  add(NwcCubit nwcCubit) async {
+    logger.i('Adding nwc connection ${nwcCubit.url}');
+    await save(nwcCubit);
     connections.add(nwcCubit);
+    _connectionsSubject.add(connections);
+  }
+
+  void remove(NwcCubit connection) async {
+    logger.i('Removing nwc connection ${connection.url}');
+    connections.remove(connection);
+    _connectionsSubject.add(connections);
+    await nwcStorage.set([connection.url!]);
   }
 }
 
-@Injectable(as: NwcService, env: [Env.test, Env.mock])
+@Singleton(as: NwcService, env: [Env.test, Env.mock])
 class MockNostrWalletConnectService extends NwcService {
-  Future<NwcConnection> connect(String url) async {
+  MockNostrWalletConnectService(super.nwcStorage, super.nostr);
+
+  Future<NwcConnection> connect(String url,
+      {Function(String?)? onError}) async {
     Uri uri = parseNwc(url);
     return NwcConnection(NostrWalletConnectUri(
         walletPubkey: uri.host,

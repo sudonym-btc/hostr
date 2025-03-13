@@ -65,7 +65,7 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
               minStay: Duration(days: 2), // 2 days min stay
               checkIn: TimeOfDay(hour: 14, minute: 0),
               checkOut: TimeOfDay(hour: 11, minute: 0),
-              location: '123 Forest Lane, Woodland',
+              location: '123 City Street, England',
               quantity: 1,
               images: [
                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/2eecc731-6e8e-49c4-963a-2c9284c11900.jpeg?im_w=1200&im_format=avif',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 
@@ -19,7 +20,6 @@ class _RelayListWidgetState extends State<RelayListWidget> {
   void initState() {
     super.initState();
     relayStorage.get().then((r) {
-      print("Relays: $r");
       setState(() {
         relays = r;
       });
@@ -28,10 +28,12 @@ class _RelayListWidgetState extends State<RelayListWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-        children: getIt<NostrService>().connectivity().map((connectivity) {
-      return RelayListItemWidget(
-          relay: connectivity.relayInfo, connectivity: connectivity);
-    }).toList());
+    return Column(children: [
+      SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
+      ...getIt<NostrService>().connectivity().map((connectivity) {
+        return RelayListItemWidget(
+            relay: connectivity.relayInfo, connectivity: connectivity);
+      }).toList()
+    ]);
   }
 }

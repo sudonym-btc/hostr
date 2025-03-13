@@ -1,41 +1,39 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/main.dart';
+import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/zap/zap_receipt.dart';
+import 'package:ndk/ndk.dart';
 
-import '../ui/list.dart';
-
-class ZapListWidget extends ListWidget {
+class ZapListWidget extends StatelessWidget {
   final String pubkey;
   final String? eventId;
+  final Widget Function(ZapReceipt) builder;
 
   const ZapListWidget(
-      {super.key, required this.pubkey, this.eventId, required super.builder});
+      {required this.pubkey, this.eventId, required this.builder});
   // final String? originalEventId; @todo replaceable events
 
   @override
   Widget build(BuildContext context) {
-    // return BlocProvider<ListCubit<Review>>(
-    //     create: (context) => ListCubit<ZapRequest>(
-    //         kinds: Review.kinds, filter: Filter(aTags: [state.data!.anchor]))
-    //       ..next(),
-    //     child: ListWidget<Review>(builder: (el) {
-    //       return ReviewListItem(
-    //         review: el,
-    //         // dateRange: searchController.state.dateRange,
-    //       );
-    //     }));
-    return Container();
-    // return ListWidget(
-    //     // list: () => ListCubit(getIt<ZapRepository>())
-    //     //   ..setFilter(NostrFilter(t: [
-    //     //     'p',
-    //     //     pubkey,
-    //     //   ]))
-    //     //   ..list(),
-    //     // emptyText: "No zaps yet",
-    //     builder: (el) {
-    //   return ZapReceipt(
-    //     zap: el,
-    //   );
-    // });
+    return Column(children: [
+      Text('Receipts'),
+      StreamBuilder(
+          stream: getIt<Ndk>()
+              .zaps
+              .fetchZappedReceipts(pubKey: pubkey, eventId: eventId),
+          builder: (context, snapshot) {
+            print("Zaps snapshot: $snapshot");
+            if (snapshot.hasData) {
+              return ZapReceiptWidget(zap: snapshot.data!);
+            } else {
+              if (snapshot.hasError) {
+                print("Zaps error: ${snapshot.error}");
+              } else if (snapshot.connectionState == ConnectionState.done) {
+                print("Zaps done");
+                return Container();
+              }
+              return CircularProgressIndicator();
+            }
+          })
+    ]);
   }
 }

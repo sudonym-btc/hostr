@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -13,6 +15,7 @@ seed(String relayUrl) async {
   }
 
   print('Seeded.');
+  exit(0);
 }
 
 void main(List<String> arguments) async {

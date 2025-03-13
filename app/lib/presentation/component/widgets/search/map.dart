@@ -16,7 +16,7 @@ double mapsGoogleLogoSize = 0;
 class SearchMapWidget extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
 
-  SearchMapWidget() : super(key: UniqueKey());
+  SearchMapWidget({super.key});
 
   @override
   State<StatefulWidget> createState() {
@@ -31,7 +31,6 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
   final BehaviorSubject<bool> _mapReadySubject =
       BehaviorSubject<bool>.seeded(false);
   final Set<String> _fetchedIds = {}; // Set to keep track of fetched IDs
-  final Key _mapKey = UniqueKey();
 
   _onMapCreated(GoogleMapController controller) {
     widget.logger.i("Map created");
@@ -63,7 +62,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     }
 
     // Collect markers to be removed
-    final markersToRemove = _markers.values.where((marker) {
+    _markers.values.where((marker) {
       final shouldRemove = !state.results
           .any((loc) => loc.nip01Event.id == marker.markerId.value);
       if (shouldRemove) {
@@ -137,10 +136,6 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     LatLngBounds bounds = _calculateBounds();
 
     final GoogleMapController controller = await _controller.future;
-    // Calculate padding for each side
-    double leftPadding = 50.0; // Adjust this value as needed
-    double rightPadding = 50.0; // Adjust this value as needed
-    double bottomPadding = 50.0; // Adjust this value as needed
     await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 120));
   }
 
@@ -162,7 +157,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
 
   @override
   Widget build(BuildContext context) {
-    var brightness = MediaQuery.of(context).platformBrightness;
+    var brightness = Theme.of(context).brightness;
     bool isDarkMode = brightness == Brightness.dark;
     return Stack(children: [
       AnimatedOpacity(

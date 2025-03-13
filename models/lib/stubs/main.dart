@@ -5,6 +5,7 @@ import 'package:models/stubs/listing.dart';
 import 'package:models/stubs/profile.dart';
 import 'package:models/stubs/reservation.dart';
 import 'package:models/stubs/review.dart';
+import 'package:models/stubs/zap_receipt.dart';
 
 export 'escrow.dart';
 export 'escrow_trust.dart';
@@ -16,6 +17,7 @@ export 'reservation.dart';
 export 'reservation_request.dart';
 export 'review.dart';
 export 'thread/main.dart';
+export 'zap_receipt.dart';
 
 var MOCK_EVENTS = [
   ...MOCK_ESCROW_TRUSTS.map((i) => i.nip01Event),
@@ -24,5 +26,6 @@ var MOCK_EVENTS = [
   ...MOCK_RESERVATIONS.map((i) => i.nip01Event),
   ...MOCK_GIFT_WRAPS.map((i) => i.nip01Event),
   ...MOCK_PROFILES,
-  ...MOCK_REVIEWS.map((i) => i.nip01Event)
+  ...MOCK_REVIEWS.map((i) => i.nip01Event),
+  ...MOCK_ZAP_RECEIPTS
 ];

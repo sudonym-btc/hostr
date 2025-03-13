@@ -125,7 +125,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
                                 '${formatDateShort(r.parsedContent.start, context)} - ${formatDateShort(r.parsedContent.end, context)}',
                                 style: Theme.of(context).textTheme.bodyMedium!),
                             Text(formatAmount(r.parsedContent.amount)),
-                            paymentStatus()
+                            // paymentStatus()
                           ])),
                   CustomPadding(
                       top: 0, child: actionButton(context, listingState.data!))

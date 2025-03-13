@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
@@ -19,10 +19,11 @@ class GoogleMapsMock extends GoogleMaps {
   @override
   Future<LatLng?> getCoordinatesFromAddress(String address) async {
     logger.i("Fetching coordinates of $address");
+    num hashcode = sha256.convert(address.codeUnits).hashCode / 100000000;
+    logger.i("hashcode address: ${hashcode}");
 
-// Return random location in europe
-    return LatLng(48.8566 + Random().nextDouble() * 10,
-        2.3522 + Random().nextDouble() * 10);
+    // Return random location in europe
+    return LatLng(48.8566 + hashcode, 2.3522 + hashcode);
   }
 
   @override

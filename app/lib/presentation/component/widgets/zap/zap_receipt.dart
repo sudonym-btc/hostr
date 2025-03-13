@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/logic/services/swap.dart';
+import 'package:hostr/presentation/component/providers/main.dart';
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+
+import '../amount/amount_input.dart';
 
 class ZapReceiptWidget extends StatefulWidget {
   final ZapReceipt zap;
@@ -12,13 +17,33 @@ class ZapReceiptWidget extends StatefulWidget {
 class ZapReceiptState extends State<ZapReceiptWidget> {
   @override
   Widget build(BuildContext context) {
-    // var event = json.decode(
-    //     widget.zap.event.tags!.firstWhere((t) => t[0] == 'description')[1]);
-
-    // var bolt11 = widget.zap.event.tags!.firstWhere((t) => t[0] == 'bolt11')[1];
-    // // @todo: move to zap parser
-    // Bolt11PaymentRequest paymentRequest = Bolt11PaymentRequest(bolt11);
-
-    return Chip(label: Text('Zap Receipt x'), avatar: Icon(Icons.flash_on));
+    print('Zap:' + widget.zap.toString());
+    if (widget.zap.sender == null) {
+      return Chip(
+          shape: StadiumBorder(),
+          label: Text(formatAmount(Amount(
+              currency: Currency.BTC,
+              value: (widget.zap.amountSats! * btcSatoshiFactor).toDouble()))),
+          avatar: Icon(Icons.flash_on));
+    }
+    return ProfileProvider(
+      pubkey: widget.zap.sender!,
+      builder: (context, metadata) {
+        if (metadata == null) return Container();
+        return Chip(
+          shape: StadiumBorder(),
+          label: Text(formatAmount(Amount(
+              currency: Currency.BTC,
+              value: (widget.zap.amountSats! / btcSatoshiFactor).toDouble()))),
+          avatar: metadata?.picture != null
+              ? CircleAvatar(
+                  backgroundImage: NetworkImage(metadata!.picture!),
+                )
+              : CircleAvatar(
+                  backgroundColor: Colors.grey,
+                ),
+        );
+      },
+    );
   }
 }

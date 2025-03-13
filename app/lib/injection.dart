@@ -3,10 +3,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:get_it/get_it.dart';
-import 'package:hostr/config/main.dart';
 import 'package:hostr/injection.config.dart';
 import 'package:injectable/injectable.dart';
-import 'package:ndk/ndk.dart';
 // import 'package:ndk_rust_verifier/ndk_rust_verifier.dart';
 
 final getIt = GetIt.instance;
@@ -14,16 +12,8 @@ final getIt = GetIt.instance;
 @injectableInit
 void configureInjection(String environment) {
   print('Setting up injection for $environment');
-  getIt.init(environment: environment);
 
-  getIt.registerSingleton<Ndk>(Ndk(
-    NdkConfig(
-        eventVerifier: Bip340EventVerifier(),
-        cache: MemCacheManager(),
-        engine: NdkEngine.JIT,
-        defaultQueryTimeout: Duration(seconds: 10),
-        bootstrapRelays: getIt<Config>().relays),
-  ));
+  getIt.init(environment: environment);
 
   Dio dio = Dio();
   (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {

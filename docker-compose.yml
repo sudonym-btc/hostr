@@ -18,6 +18,7 @@ x-templates:
     command:
       [
         "lnd",
+        "--alias=Alby",
         "--tlsextradomain=lnd1",
         "--tlsextradomain=lnd2",
         "--adminmacaroonpath=/shared/$$SEQUENCE/admin.macaroon",
