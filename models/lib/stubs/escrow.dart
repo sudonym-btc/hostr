@@ -9,7 +9,7 @@ var MOCK_ESCROWS = [
       content: json.encode(EscrowContent(
               chainId: 30,
               pubkey: MockKeys.escrow.publicKey,
-              contractAddress: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+              contractAddress: "0x1460fd6f56f2e62104a794C69Cc06BE7DC975Bed",
               maxDuration: Duration(days: 365),
               type: EscrowType.ROOTSTOCK)
           .toJson()),

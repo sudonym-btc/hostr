@@ -134,15 +134,7 @@ class ProfileScreen extends StatelessWidget {
                     },
                     child: Text('Add')),
                 body: FutureBuilder(
-                  future: getIt<Ndk>().lists.getSingleNip51List(
-                      NOSTR_KIND_ESCROW_TRUST,
-                      Bip340EventSigner(
-                          privateKey: getIt<KeyStorage>()
-                              .getActiveKeyPairSync()!
-                              .privateKey,
-                          publicKey: getIt<KeyStorage>()
-                              .getActiveKeyPairSync()!
-                              .publicKey)),
+                  future: getIt<NostrService>().trustedEscrows(),
                   builder: (BuildContext context,
                       AsyncSnapshot<Nip51List?> snapshot) {
                     if (snapshot.connectionState == ConnectionState.done) {

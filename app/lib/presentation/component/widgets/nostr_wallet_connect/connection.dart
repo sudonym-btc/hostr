@@ -6,8 +6,9 @@ import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 
 class NostrWalletConnectConnectionWidget extends StatelessWidget {
   final CustomLogger logger = CustomLogger();
+  final bool canClose;
 
-  NostrWalletConnectConnectionWidget({super.key});
+  NostrWalletConnectConnectionWidget({super.key, this.canClose = false});
 
   @override
   build(BuildContext context) {
@@ -39,7 +40,7 @@ class NostrWalletConnectConnectionWidget extends StatelessWidget {
                           0xFF000000)
                       : Colors.orange,
                 ),
-                trailing: closeButton,
+                trailing: canClose ? closeButton : null,
                 title: Text(s.content.alias ?? 'NWC Wallet'),
                 subtitle: Text(
                   'Connected',
