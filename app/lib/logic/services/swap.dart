@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
+import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
@@ -14,7 +15,9 @@ import 'package:hostr/logic/main.dart';
 import 'package:http/http.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:web3dart/crypto.dart';
 import 'package:web3dart/web3dart.dart';
 
 BigInt satoshiWeiFactor = BigInt.from(10).pow(10);
@@ -146,9 +149,9 @@ class SwapService {
     MultiEscrow e = MultiEscrow(
         address: EthereumAddress.fromHex(escrowContractAddress),
         client: client);
-
+    logger.i('Creating escrow for $eventId');
     print((
-      tradeId: eventId,
+      tradeId: getTopicHex(getBytes32(eventId)),
       timelock: BigInt.from(timelock),
 
       /// Arbiter public key from their nostr advertisement
@@ -161,9 +164,8 @@ class SwapService {
       buyer: ethKey.address,
       escrowFee: BigInt.from(100),
     ));
-
     String escrowTx = await e.createTrade((
-      tradeId: eventId,
+      tradeId: getBytes32(eventId),
       timelock: BigInt.from(timelock),
 
       /// Arbiter public key from their nostr advertisement
@@ -281,4 +283,81 @@ class SwapService {
       await Future.delayed(Duration(milliseconds: 1000));
     }
   }
+
+  Stream<TradeCreated> checkEscrowStatus(String reservationRequestId) async* {
+    logger.i('Checking escrow status for reservation: $reservationRequestId');
+    Uint8List idBytes32 = getBytes32(reservationRequestId);
+    String hexTopic = getTopicHex(idBytes32);
+
+    Nip51List? trustedEscrows = await getIt<NostrService>().trustedEscrows();
+    if (trustedEscrows == null) {
+      return;
+    }
+    for (Nip51ListElement item in trustedEscrows.elements) {
+      List<Escrow> escrowServices =
+          await getIt<NostrService>().startRequestAsync(filters: [
+        Filter(kinds: [NOSTR_KIND_ESCROW], authors: [item.value])
+      ]);
+      for (var escrow in escrowServices) {
+        logger.i(
+            'Searching for events from escrow: ${escrow.parsedContent.contractAddress}');
+        MultiEscrow e = MultiEscrow(
+            address:
+                EthereumAddress.fromHex(escrow.parsedContent.contractAddress),
+            client: client);
+
+        Trades x = await e.trades(($param9: idBytes32));
+        print('Current trade: ${x}');
+        final tradeCreatedEvent =
+            e.self.events.firstWhere((x) => x.name == 'TradeCreated');
+        final sig = bytesToHex(tradeCreatedEvent.signature,
+            padToEvenLength: true, include0x: true);
+        print('Log sig $sig');
+        final filter = FilterOptions(
+          topics: [
+            [
+              // TODO include other event type signatures
+              sig
+            ], // Topic 0: event signature.
+            // Topic 1: tradeId indexed parameter.
+            [hexTopic],
+          ],
+          fromBlock: BlockNum.exact(0),
+          toBlock: BlockNum.exact(await client.getBlockNumber()),
+        );
+
+        final logs = await client.getLogs(filter);
+        print('Filtered logs: ${logs.length} for hexTopic $hexTopic');
+
+        List<TradeCreated> tradeCreated = logs.map((FilterEvent result) {
+          print('trade log topics: ${result.topics}');
+          final decoded = tradeCreatedEvent.decodeResults(
+            result.topics!,
+            result.data!,
+          );
+          return TradeCreated(
+            decoded,
+            result,
+          );
+        }).toList();
+        print(
+            'Trade logged with tradeId converted to hex: ${bytesToHex(tradeCreated[0].tradeId)}');
+
+        // // final logs = await client.getLogs(filter);
+        // print('fromBlock ${BlockNum.genesis()}');
+        // print('toBlock ${await client.getBlockNumber()}');
+        // yield* e.tradeCreatedEvents(
+        //     fromBlock: BlockNum.exact(0),
+        //     toBlock: BlockNum.exact(await client.getBlockNumber()));
+      }
+    }
+  }
+}
+
+getBytes32(String eventId) {
+  return Uint8List.fromList(hex.decode(eventId));
+}
+
+getTopicHex(Uint8List idBytes32) {
+  return bytesToHex(idBytes32, padToEvenLength: true, include0x: true);
 }

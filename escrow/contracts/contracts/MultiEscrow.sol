@@ -10,23 +10,23 @@ contract MultiEscrow {
         uint256 escrowFee;
     }
 
-    mapping(string => Trade) public trades;
+    mapping(bytes32 => Trade) public trades;
 
-    event TradeCreated(string tradeId, address buyer, address seller, address arbiter, uint256 timelock, uint256 escrowFee );
-    event Arbitrated(string tradeId, address seller, address buyer, uint256 amount, uint256 fractionForwarded);
-    event Claimed(string tradeId, address seller, address buyer, uint256 amount);
+    event TradeCreated(bytes32 indexed tradeId, address buyer, address seller, address arbiter, uint256 timelock, uint256 escrowFee );
+    event Arbitrated(bytes32 indexed tradeId, address seller, address buyer, uint256 amount, uint256 fractionForwarded);
+    event Claimed(bytes32 indexed tradeId, address seller, address buyer, uint256 amount);
 
-    modifier onlyBuyer(string memory tradeId) {
+    modifier onlyBuyer(bytes32 tradeId) {
         require(msg.sender == trades[tradeId].buyer, "Only buyer can call this function");
         _;
     }
 
-    modifier onlyArbiter(string memory tradeId) {
+    modifier onlyArbiter(bytes32 tradeId) {
         require(msg.sender == trades[tradeId].arbiter, "Only arbiter can call this function");
         _;
     }
     event DebugLog(string message);
-    function createTrade(string memory tradeId, address _buyer, address _seller, address _arbiter,  uint256 _timelock, uint256 _escrowFee) external payable {
+    function createTrade(bytes32 tradeId, address _buyer, address _seller, address _arbiter,  uint256 _timelock, uint256 _escrowFee) external payable {
         emit DebugLog("TradeCreated event emitted");
 
         require(trades[tradeId].buyer == address(0), "Trade ID already exists");
@@ -44,7 +44,7 @@ contract MultiEscrow {
         emit TradeCreated(tradeId, _buyer, _seller, _arbiter, _timelock, _escrowFee);
     }
 
-    function arbitrate(string memory tradeId, uint256 factor) external onlyArbiter(tradeId) {
+    function arbitrate(bytes32 tradeId, uint256 factor) external onlyArbiter(tradeId) {
         Trade storage trade = trades[tradeId];
         require(factor > 0 && factor < 1, "Factor must be between 0 and 1");
 
@@ -67,7 +67,7 @@ contract MultiEscrow {
         delete trades[tradeId];
     }
 
-    function claim(string memory tradeId) external {
+    function claim(bytes32 tradeId) external {
         Trade storage trade = trades[tradeId];
         require(msg.sender == trade.seller, "Only the seller can claim the funds");
         require(block.timestamp > trade.timelock + 2 weeks, "Claim period has not started yet");

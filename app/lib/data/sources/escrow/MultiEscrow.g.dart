@@ -5,9 +5,10 @@
 // ignore_for_file: unused_local_variable, unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:web3dart/web3dart.dart' as _i1;
+import 'dart:typed_data' as _i2;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
-  '[{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"tradeId","type":"string"},{"indexed":false,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"fractionForwarded","type":"uint256"}],"name":"Arbitrated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"tradeId","type":"string"},{"indexed":false,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Claimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"message","type":"string"}],"name":"DebugLog","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"tradeId","type":"string"},{"indexed":false,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"address","name":"arbiter","type":"address"},{"indexed":false,"internalType":"uint256","name":"timelock","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"escrowFee","type":"uint256"}],"name":"TradeCreated","type":"event"},{"inputs":[{"internalType":"string","name":"tradeId","type":"string"},{"internalType":"uint256","name":"factor","type":"uint256"}],"name":"arbitrate","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"tradeId","type":"string"}],"name":"claim","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"tradeId","type":"string"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"uint256","name":"_timelock","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"","type":"string"}],"name":"trades","outputs":[{"internalType":"address","name":"buyer","type":"address"},{"internalType":"address","name":"seller","type":"address"},{"internalType":"address","name":"arbiter","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"timelock","type":"uint256"},{"internalType":"uint256","name":"escrowFee","type":"uint256"}],"stateMutability":"view","type":"function"}]',
+  '[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"indexed":false,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"fractionForwarded","type":"uint256"}],"name":"Arbitrated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"indexed":false,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Claimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"message","type":"string"}],"name":"DebugLog","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"indexed":false,"internalType":"address","name":"buyer","type":"address"},{"indexed":false,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"address","name":"arbiter","type":"address"},{"indexed":false,"internalType":"uint256","name":"timelock","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"escrowFee","type":"uint256"}],"name":"TradeCreated","type":"event"},{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"uint256","name":"factor","type":"uint256"}],"name":"arbitrate","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"}],"name":"claim","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"uint256","name":"_timelock","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"name":"trades","outputs":[{"internalType":"address","name":"buyer","type":"address"},{"internalType":"address","name":"seller","type":"address"},{"internalType":"address","name":"arbiter","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"timelock","type":"uint256"},{"internalType":"uint256","name":"escrowFee","type":"uint256"}],"stateMutability":"view","type":"function"}]',
   'MultiEscrow',
 );
 
@@ -29,12 +30,12 @@ class MultiEscrow extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> arbitrate(
-    ({String tradeId, BigInt factor}) args, {
+    ({_i2.Uint8List tradeId, BigInt factor}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[0];
-    assert(checkSignature(function, '9499f403'));
+    assert(checkSignature(function, 'cb2e7212'));
     final params = [
       args.tradeId,
       args.factor,
@@ -51,12 +52,12 @@ class MultiEscrow extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> claim(
-    ({String tradeId}) args, {
+    ({_i2.Uint8List tradeId}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[1];
-    assert(checkSignature(function, 'f3fe12c9'));
+    assert(checkSignature(function, 'bd66528a'));
     final params = [args.tradeId];
     return write(
       credentials,
@@ -71,7 +72,7 @@ class MultiEscrow extends _i1.GeneratedContract {
   /// set by the contract.
   Future<String> createTrade(
     ({
-      String tradeId,
+      _i2.Uint8List tradeId,
       _i1.EthereumAddress buyer,
       _i1.EthereumAddress seller,
       _i1.EthereumAddress arbiter,
@@ -82,7 +83,7 @@ class MultiEscrow extends _i1.GeneratedContract {
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[2];
-    assert(checkSignature(function, 'd9dc7620'));
+    assert(checkSignature(function, '369ea7fc'));
     final params = [
       args.tradeId,
       args.buyer,
@@ -103,11 +104,11 @@ class MultiEscrow extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<Trades> trades(
-    ({String $param9}) args, {
+    ({_i2.Uint8List $param9}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[3];
-    assert(checkSignature(function, '47a04100'));
+    assert(checkSignature(function, '00162420'));
     final params = [args.$param9];
     final response = await read(
       function,
@@ -240,13 +241,13 @@ class Arbitrated {
   Arbitrated(
     List<dynamic> response,
     this.event,
-  )   : tradeId = (response[0] as String),
+  )   : tradeId = (response[0] as _i2.Uint8List),
         seller = (response[1] as _i1.EthereumAddress),
         buyer = (response[2] as _i1.EthereumAddress),
         amount = (response[3] as BigInt),
         fractionForwarded = (response[4] as BigInt);
 
-  final String tradeId;
+  final _i2.Uint8List tradeId;
 
   final _i1.EthereumAddress seller;
 
@@ -263,12 +264,12 @@ class Claimed {
   Claimed(
     List<dynamic> response,
     this.event,
-  )   : tradeId = (response[0] as String),
+  )   : tradeId = (response[0] as _i2.Uint8List),
         seller = (response[1] as _i1.EthereumAddress),
         buyer = (response[2] as _i1.EthereumAddress),
         amount = (response[3] as BigInt);
 
-  final String tradeId;
+  final _i2.Uint8List tradeId;
 
   final _i1.EthereumAddress seller;
 
@@ -294,14 +295,14 @@ class TradeCreated {
   TradeCreated(
     List<dynamic> response,
     this.event,
-  )   : tradeId = (response[0] as String),
+  )   : tradeId = (response[0] as _i2.Uint8List),
         buyer = (response[1] as _i1.EthereumAddress),
         seller = (response[2] as _i1.EthereumAddress),
         arbiter = (response[3] as _i1.EthereumAddress),
         timelock = (response[4] as BigInt),
         escrowFee = (response[5] as BigInt);
 
-  final String tradeId;
+  final _i2.Uint8List tradeId;
 
   final _i1.EthereumAddress buyer;
 

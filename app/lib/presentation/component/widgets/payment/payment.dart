@@ -31,7 +31,8 @@ class PaymentWidget extends StatelessWidget {
 
           if (paymentCubit is LnUrlPaymentCubit ||
               paymentCubit is Bolt11PaymentCubit) {
-            nwcInfo = NostrWalletConnectConnectionWidget();
+            nwcInfo =
+                CustomPadding(child: NostrWalletConnectConnectionWidget());
           }
           print(
               'Payment of type ${state.runtimeType}, ${paymentCubit.runtimeType}, ${state.params.amount?.value}');
@@ -56,8 +57,11 @@ class PaymentWidget extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         // todo: calc amount from invoice
-                        Text(formatAmount(state.params.amount ??
-                            Amount(currency: Currency.BTC, value: 0.0))),
+                        Text(
+                          formatAmount(state.params.amount ??
+                              Amount(currency: Currency.BTC, value: 0.0)),
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                       ],
                     )),
                     state.status == PaymentStatus.resolved

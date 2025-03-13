@@ -16,9 +16,10 @@ Nip01Event hostInvitesGuest = Nip01Event(
             tags: [
               ['a', MOCK_LISTINGS[0].anchor],
             ],
+            createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
             content: ReservationRequestContent(
-                    start: DateTime.now(),
-                    end: DateTime.now().add(Duration(days: 1)),
+                    start: DateTime(2026),
+                    end: DateTime(2026).add(Duration(days: 1)),
                     quantity: 1,
                     amount: Amount(currency: Currency.BTC, value: 0.0001),
                     commitmentHash: 'hash',
@@ -43,9 +44,10 @@ Nip01Event guestRequest = Nip01Event(
             tags: [
               ['a', MOCK_LISTINGS[0].anchor],
             ],
+            createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
             content: ReservationRequestContent(
-                    start: DateTime.now(),
-                    end: DateTime.now().add(Duration(days: 1)),
+                    start: DateTime(2026),
+                    end: DateTime(2026).add(Duration(days: 1)),
                     quantity: 1,
                     amount: Amount(currency: Currency.BTC, value: 0.0001),
                     commitmentHash: 'hash',

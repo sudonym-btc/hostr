@@ -5,10 +5,10 @@ ThemeData getTheme(bool isDark) {
       ? ThemeData.dark().copyWith(
           brightness: Brightness.dark,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.deepPurple,
+            seedColor: Colors.white,
             brightness: Brightness.dark,
-            primary: Colors.deepPurple,
-            onPrimary: Colors.white,
+            primary: Colors.white,
+            onPrimary: Colors.black,
             surface: Colors.black,
             onSurface: Colors.white,
           ),

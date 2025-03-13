@@ -11,6 +11,7 @@ This is a client that displays and posts events related to short term accommodat
 <img src="/app/screenshots/threads.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
 <img src="/app/screenshots/thread.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
 <img src="/app/screenshots/thread_pay.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
+
 </p>
 
 ## Getting Started
@@ -69,11 +70,3 @@ the `lib/_localization` directory.
 To support additional languages, please visit the tutorial on
 [Internationalizing Flutter
 apps](https://flutter.dev/docs/development/accessibility-and-localization/internationalization)
-
-## Seed relay
-
-<!-- TODO export the JSON as a file such that it can be loaded straight into the relay from the docker-up command -->
-
-```bash
-flutter run lib/data/mock/seed_relay.dart
-```

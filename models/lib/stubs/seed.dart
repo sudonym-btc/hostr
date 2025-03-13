@@ -13,7 +13,6 @@ seed(String relayUrl) async {
   for (var x in MOCK_EVENTS) {
     await ndk.broadcast.broadcast(nostrEvent: x);
   }
-
   print('Seeded.');
   exit(0);
 }

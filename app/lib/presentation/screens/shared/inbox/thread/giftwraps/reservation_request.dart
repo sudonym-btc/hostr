@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/services/swap.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -47,18 +47,27 @@ class ThreadReservationRequestWidget extends StatelessWidget {
     ]);
   }
 
-  Widget paymentStatus() {
+  Widget paymentStatus(BuildContext context) {
+    print('id is ${r.nip01Event.id}');
+    return StreamBuilder(
+        stream: getIt<SwapService>().checkEscrowStatus(r.nip01Event.id),
+        builder: (context, snapshot) {
+          print(snapshot);
+          print('snapshot above');
+          return Text('Payment status: ${snapshot.data}');
+        });
+
     /// Look up the payment state by hashing the reservation request id
     /// Combine with escrow query as well
-    return FutureBuilder(
-        future: getIt<NwcService>().lookupInvoice(
-            getIt<NwcService>().connections[0].connection!,
-            paymentHash:
-                crypto.sha256.convert(r.nip01Event.id.codeUnits).toString()),
-        builder: (context, snapshot) {
-          return Text(
-              'Payment status: ${snapshot.data?.settledAt == null ? 'unconfirmed' : 'paid'}');
-        });
+    // return FutureBuilder(
+    //     future: getIt<NwcService>().lookupInvoice(
+    //         getIt<NwcService>().connections[0].connection!,
+    //         paymentHash:
+    //             crypto.sha256.convert(r.nip01Event.id.codeUnits).toString()),
+    //     builder: (context, snapshot) {
+    //       return Text(
+    //           'Payment status: ${snapshot.data?.settledAt == null ? 'unconfirmed' : 'paid'}');
+    //     });
   }
 
   Widget actionButton(BuildContext context, Listing l) {
@@ -125,7 +134,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
                                 '${formatDateShort(r.parsedContent.start, context)} - ${formatDateShort(r.parsedContent.end, context)}',
                                 style: Theme.of(context).textTheme.bodyMedium!),
                             Text(formatAmount(r.parsedContent.amount)),
-                            // paymentStatus()
+                            paymentStatus(context)
                           ])),
                   CustomPadding(
                       top: 0, child: actionButton(context, listingState.data!))

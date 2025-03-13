@@ -20,6 +20,8 @@ abstract class NostrService {
   Future<int> count(
       {required List<Filter> filters, Duration? timeout, List<String>? relays});
 
+  Future<Nip51List?> trustedEscrows();
+
   Future<List<RelayBroadcastResponse>> broadcast(
       {required Nip01Event event, List<String>? relays});
 
@@ -81,6 +83,15 @@ class ProdNostrService extends NostrService {
 
   List<RelayConnectivity> connectivity() {
     return getIt<Ndk>().relays.connectedRelays;
+  }
+
+  @override
+  Future<Nip51List?> trustedEscrows() {
+    return getIt<Ndk>().lists.getSingleNip51List(
+        NOSTR_KIND_ESCROW_TRUST,
+        Bip340EventSigner(
+            privateKey: getIt<KeyStorage>().getActiveKeyPairSync()!.privateKey,
+            publicKey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey));
   }
 
   // @override

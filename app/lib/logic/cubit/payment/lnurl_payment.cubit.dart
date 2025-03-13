@@ -60,6 +60,7 @@ class LnUrlPaymentCubit extends PaymentCubit<LnUrlPaymentParameters,
 
   @override
   Future<LightningCallbackDetails> callback() async {
+    // ZapRequest z = await getIt<Ndk>().zaps.createZapRequest(amountSats: (state.params.amount!.value * btcMilliSatoshiFactor).toInt(), signer: Bip340EventSigner(privateKey: Bip340.generatePrivateKey().privateKey), pubKey: pubKey, relays: relays)
     Uri callbackUri =
         Uri.parse(state.resolvedDetails!.callback).replace(queryParameters: {
       'amount': (state.params.amount!.value * btcMilliSatoshiFactor)

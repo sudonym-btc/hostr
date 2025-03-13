@@ -100,14 +100,22 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                                 kinds: [NOSTR_KIND_ESCROW])
                           ]);
                           Navigator.of(context).pop();
+                          List<Escrow> escrowServices =
+                              await getIt<NostrService>()
+                                  .startRequestAsync(filters: [
+                            Filter(
+                                kinds: [NOSTR_KIND_ESCROW],
+                                authors: [_current!])
+                          ]);
                           await getIt<SwapService>().escrow(
                               amount: widget.r.parsedContent.amount,
                               eventId: widget.r.nip01Event.id,
                               timelock: widget.r.parsedContent.end
                                   .difference(DateTime.now())
                                   .inMinutes,
-                              escrowContractAddress:
-                                  '0xE72544c0fa4dE04faecac9EAcC06c0790f168A5a',
+                              escrowContractAddress: escrowServices[0]
+                                  .parsedContent
+                                  .contractAddress,
                               sellerPubkey: widget.counterparty.pubKey,
                               escrowPubkey: MOCK_ESCROWS[0].nip01Event.pubKey);
                         },
