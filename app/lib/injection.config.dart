@@ -14,6 +14,7 @@ import 'package:hostr/config/env/development.config.dart' as _i598;
 import 'package:hostr/config/env/mock.config.dart' as _i331;
 import 'package:hostr/config/env/production.config.dart' as _i1071;
 import 'package:hostr/config/main.dart' as _i800;
+import 'package:hostr/data/main.dart' as _i165;
 import 'package:hostr/data/sources/api/google_maps.dart' as _i575;
 import 'package:hostr/data/sources/boltz/boltz.dart' as _i428;
 import 'package:hostr/data/sources/local/key_storage.dart' as _i946;
@@ -21,6 +22,7 @@ import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
 import 'package:hostr/data/sources/local/nwc_storage.dart' as _i303;
 import 'package:hostr/data/sources/local/relay_storage.dart' as _i315;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
+import 'package:hostr/data/sources/nostr/ndk.dart' as _i396;
 import 'package:hostr/data/sources/nostr/nostr/nostr.service.dart' as _i194;
 import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i291;
 import 'package:hostr/data/sources/rpc/rootstock.dart' as _i631;
@@ -30,6 +32,7 @@ import 'package:hostr/logic/services/payment.dart' as _i151;
 import 'package:hostr/logic/services/swap.dart' as _i432;
 import 'package:hostr/logic/services/zap.dart' as _i915;
 import 'package:injectable/injectable.dart' as _i526;
+import 'package:ndk/ndk.dart' as _i857;
 
 const String _dev = 'dev';
 const String _test = 'test';
@@ -51,7 +54,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i237.ModeCubit>(() => _i237.ModeCubit());
     gh.factory<_i640.ModeStorage>(() => _i640.ModeStorage());
     gh.factory<_i315.RelayStorage>(() => _i315.RelayStorage());
-    gh.factory<_i303.NwcStorage>(() => _i303.NwcStorage());
     gh.singleton<_i946.KeyStorage>(() => _i946.KeyStorage());
     gh.factory<_i291.RelayConnector>(() => _i291.ProdRelayConnector());
     gh.factory<_i467.Config>(
@@ -67,13 +69,6 @@ extension GetItInjectableX on _i174.GetIt {
       },
     );
     gh.singleton<_i194.NostrService>(() => _i194.ProdNostrService());
-    gh.factory<_i258.NwcService>(
-      () => _i258.MockNostrWalletConnectService(),
-      registerFor: {
-        _test,
-        _mock,
-      },
-    );
     gh.singleton<_i311.SecureStorage>(
       () => _i311.MockSecureStorage(),
       registerFor: {_test},
@@ -83,14 +78,6 @@ extension GetItInjectableX on _i174.GetIt {
       registerFor: {
         _mock,
         _test,
-      },
-    );
-    gh.factory<_i258.NwcService>(
-      () => _i258.NwcService(),
-      registerFor: {
-        _dev,
-        _staging,
-        _prod,
       },
     );
     gh.factory<_i151.PaymentService>(
@@ -124,11 +111,35 @@ extension GetItInjectableX on _i174.GetIt {
       registerFor: {_prod},
     );
     gh.factory<_i428.BoltzClient>(() => _i428.BoltzClient(gh<_i800.Config>()));
+    gh.singleton<_i857.Ndk>(() => _i396.NostrNdk(gh<_i800.Config>()));
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
       registerFor: {
         _dev,
         _mock,
+        _staging,
+        _prod,
+      },
+    );
+    gh.singleton<_i303.NwcStorage>(
+        () => _i303.NwcStorage(gh<_i311.SecureStorage>()));
+    gh.singleton<_i258.NwcService>(
+      () => _i258.MockNostrWalletConnectService(
+        gh<_i165.NwcStorage>(),
+        gh<_i857.Ndk>(),
+      ),
+      registerFor: {
+        _test,
+        _mock,
+      },
+    );
+    gh.singleton<_i258.NwcService>(
+      () => _i258.NwcService(
+        gh<_i165.NwcStorage>(),
+        gh<_i857.Ndk>(),
+      ),
+      registerFor: {
+        _dev,
         _staging,
         _prod,
       },

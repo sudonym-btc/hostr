@@ -1,14 +1,20 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/logic/services/swap.dart';
+import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
+    show AddWalletWidget;
+import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+
+import 'mode_toggle.dart';
 
 @RoutePage()
 class ProfileScreen extends StatelessWidget {
@@ -90,50 +96,43 @@ class ProfileScreen extends StatelessWidget {
           ),
           SliverList(
             delegate: SliverChildListDelegate([
-              BlocBuilder<ModeCubit, ModeCubitState>(builder: (context, state) {
-                return CustomPadding(
-                  child: Expanded(
-                      child: Center(
-                    child: ToggleButtons(
-                      isSelected: [state is HostMode, state is GuestMode],
-                      onPressed: (int index) {
-                        if (index == 0) {
-                          BlocProvider.of<ModeCubit>(context).setHost();
-                        } else {
-                          BlocProvider.of<ModeCubit>(context).setGuest();
-                        }
-                      },
-                      children: [
-                        Expanded(
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child:
-                                Text('Host Mode', textAlign: TextAlign.center),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child:
-                                Text('Guest Mode', textAlign: TextAlign.center),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )),
-                );
-              }),
+              ModeToggleWidget(),
               Section(
-                  title: 'Nostr wallet connect',
+                  title: 'Wallet',
+                  action: FilledButton.tonal(
+                      onPressed: () {
+                        showModalBottomSheet(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AddWalletWidget();
+                            });
+                      },
+                      child: Text('Connect')),
                   body: NostrWalletConnectWidget()),
               Section(
                 title: "Relays",
+                action: FilledButton.tonal(
+                    onPressed: () {
+                      showModalBottomSheet(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return Text('');
+                          });
+                    },
+                    child: Text('Connect')),
                 body: RelayListWidget(),
               ),
               Section(
                 title: "Trusted Escrows",
+                action: FilledButton.tonal(
+                    onPressed: () {
+                      showModalBottomSheet(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AddWalletWidget();
+                          });
+                    },
+                    child: Text('Add')),
                 body: FutureBuilder(
                   future: getIt<Ndk>().lists.getSingleNip51List(
                       NOSTR_KIND_ESCROW_TRUST,
@@ -148,23 +147,27 @@ class ProfileScreen extends StatelessWidget {
                       AsyncSnapshot<Nip51List?> snapshot) {
                     if (snapshot.connectionState == ConnectionState.done) {
                       if (snapshot.hasData) {
-                        return Column(
-                            children: snapshot.data!.elements.map((el) {
-                          return ProfileProvider(
-                              pubkey: el.value,
-                              builder: (context, metadata) {
-                                return ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundImage: metadata?.picture != null
-                                          ? NetworkImage(metadata!.picture!)
-                                          : null,
-                                    ),
-                                    title: Text(metadata?.name ??
-                                        metadata?.displayName ??
-                                        'Username'),
-                                    subtitle: Text(metadata?.nip05 ?? ''));
-                              });
-                        }).toList());
+                        return Column(children: [
+                          SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
+                          ...snapshot.data!.elements.map((el) {
+                            return ProfileProvider(
+                                pubkey: el.value,
+                                builder: (context, metadata) {
+                                  return ListTile(
+                                      contentPadding: EdgeInsets.all(0),
+                                      leading: CircleAvatar(
+                                        backgroundImage: metadata?.picture !=
+                                                null
+                                            ? NetworkImage(metadata!.picture!)
+                                            : null,
+                                      ),
+                                      title: Text(metadata?.name ??
+                                          metadata?.displayName ??
+                                          'Username'),
+                                      subtitle: Text(metadata?.nip05 ?? ''));
+                                });
+                          }).toList()
+                        ]);
                       } else {
                         return Text("No escrows trusted yet");
                       }
@@ -189,10 +192,10 @@ class ProfileScreen extends StatelessWidget {
                                   currency: Currency.BTC, value: 0.00001)));
                     },
                   ),
-
-                  // ZapList(
-                  //     pubkey:
-                  //         'npub1qny3tkh0acurzla8x3zy4nhrjz5zd8l9sy9jys09umwng00manysew95gx')
+                  ZapListWidget(
+                    pubkey: MockKeys.hoster.publicKey,
+                    builder: (p0) => Text(p0.pubKey!),
+                  )
                 ],
               )),
 

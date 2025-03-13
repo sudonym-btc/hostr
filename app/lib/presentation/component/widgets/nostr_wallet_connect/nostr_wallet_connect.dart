@@ -3,7 +3,6 @@ import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 
-import 'add_wallet.dart';
 import 'connection.dart';
 
 class NostrWalletConnectWidget extends StatefulWidget {
@@ -27,25 +26,16 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-        child: Column(
+    return Column(
       children: [
         Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
             NostrWalletConnectConnectionWidget(),
-            SizedBox(height: DEFAULT_PADDING.toDouble()),
-            FilledButton(
-                onPressed: () {
-                  showModalBottomSheet(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AddWalletWidget();
-                      });
-                },
-                child: Text('Connect Wallet'))
           ],
         )
       ],
-    ));
+    );
   }
 }

@@ -15,6 +15,7 @@ class _EscrowListItemWidgetState extends State<EscrowListItemWidget> {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      contentPadding: EdgeInsets.all(0),
       leading: Icon(Icons.handshake),
       title: Text('Escrow x'),
       subtitle: Text('Escrow description'),

@@ -18,7 +18,6 @@ class NwcCubit extends Cubit<NwcCubitState> {
     try {
       connection = await nwcService.connect((url ?? this.url)!);
       this.url = url;
-      await nwcService.add(this);
       await checkInfo();
     } catch (e) {
       logger.e(e);

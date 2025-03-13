@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hostr/data/sources/local/relay_storage.dart';
+import 'package:hostr/injection.dart';
 import 'package:ndk/entities.dart';
 
 class RelayListItemWidget extends StatefulWidget {
@@ -32,35 +34,38 @@ class _RelayListItemWidgetState extends State<RelayListItemWidget> {
 
   @override
   Widget build(BuildContext context) {
+    Uri uri = Uri.parse(widget.connectivity.url);
+    String displayHost = uri.host;
     return ListTile(
-      leading: Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(
-          color: widget.connectivity.relayTransport?.isOpen() == true
-              ? Colors.green
-              : Colors.orange,
-          shape: BoxShape.circle,
-        ),
+      contentPadding: EdgeInsets.all(0),
+      leading: CircleAvatar(
+        backgroundColor: widget.connectivity.relayTransport?.isOpen() == true
+            ? Colors.green
+            : Colors.orange,
+        foregroundImage: widget.relay?.icon != null
+            ? Image.network(widget.relay!.icon).image
+            : null,
       ),
-      title: Row(
-        children: [
-          // widget.relay?.icon != null
-          //     ? Image.network(widget.relay!.icon)
-          //     : Icon(Icons.wifi),
-          // SizedBox(width: 8), // Add some spacing between the icon and the text
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.relay?.name ?? "Unnamed"),
-              Text(widget.connectivity.url,
-                  style: Theme.of(context).textTheme.bodySmall),
-              Text(widget.relay?.description ?? 'No description',
-                  style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
-        ],
+      trailing: IconButton(
+        icon: Icon(Icons.close),
+        onPressed: () async {
+          widget.connectivity.close();
+          getIt<RelayStorage>().set([
+            ...await getIt<RelayStorage>().get().then((value) {
+              value.remove(widget.connectivity.url);
+              return value;
+            }),
+          ]);
+        },
       ),
+      //         Container(
+      //   width: 10,
+      //   height: 10,
+      //   decoration: BoxDecoration(
+      title: Text(widget.relay?.name ?? displayHost),
+      subtitle: Text(widget.connectivity.relayTransport?.isOpen() == true
+          ? "Connected"
+          : "Disconnected"),
     );
   }
 }

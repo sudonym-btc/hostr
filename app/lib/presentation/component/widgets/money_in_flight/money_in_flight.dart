@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
@@ -19,12 +20,19 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
   num? balance;
   bool isLoading = false;
   String? error;
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
+    _timer = Timer.periodic(Duration(seconds: 60), (timer) => _fetchBalance());
     _fetchBalance();
-    Timer.periodic(Duration(seconds: 30), (timer) => _fetchBalance());
   }
 
   void _fetchBalance() {
@@ -60,9 +68,10 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
     if (error != null) {
       return Text('Error: $error', style: TextStyle(color: Colors.red));
     }
-    return Container(
-      child: Text(
-          '${formatAmount(Amount(value: balance!.toDouble(), currency: Currency.BTC), exact: false) ?? 'loading'}'),
-    );
+    return Column(children: [
+      SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
+      Text(
+          '${formatAmount(Amount(value: convertWeiToSatoshi(balance!.toDouble()), currency: Currency.BTC), exact: false) ?? 'loading'}'),
+    ]);
   }
 }

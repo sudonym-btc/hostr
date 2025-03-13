@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 ThemeData getTheme(bool isDark) {
   return isDark
       ? ThemeData.dark().copyWith(
+          brightness: Brightness.dark,
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.deepPurple,
             brightness: Brightness.dark,
@@ -17,6 +18,7 @@ ThemeData getTheme(bool isDark) {
           ),
         )
       : ThemeData.dark().copyWith(
+          brightness: Brightness.dark,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         );
 }

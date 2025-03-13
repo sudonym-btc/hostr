@@ -31,7 +31,7 @@ class DrawerWidget extends StatelessWidget {
                   ),
                 )),
         ListTile(
-            title: Text('Nostr wallet connect'),
+            title: Text('Wallet connect'),
             onTap: () => showModalBottomSheet(
                 context: context,
                 builder: (context) => NostrWalletConnectWidget())),

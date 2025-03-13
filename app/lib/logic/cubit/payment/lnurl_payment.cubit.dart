@@ -48,6 +48,7 @@ class LnUrlPaymentCubit extends PaymentCubit<LnUrlPaymentParameters,
     if (lnurlParams.error != null) {
       throw lnurlParams.error!.reason;
     }
+
     LNURLPayParams lnurlPayParams = lnurlParams.payParams!;
     logger.i('LNURLPayParams: $lnurlParams');
     return LnUrlResolvedDetails(

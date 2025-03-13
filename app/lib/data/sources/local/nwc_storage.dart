@@ -1,14 +1,15 @@
 import 'package:hostr/core/main.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/nwc.dart';
 import 'package:injectable/injectable.dart';
 
 import 'secure_storage.dart';
 
-@injectable
+@singleton
 class NwcStorage {
-  SecureStorage storage = getIt<SecureStorage>();
-  CustomLogger logger = CustomLogger();
+  final SecureStorage storage;
+  final CustomLogger logger = CustomLogger();
+
+  NwcStorage(this.storage);
 
   Future<List> get() async {
     var items = await storage.get('nwc');
