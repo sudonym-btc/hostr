@@ -66,6 +66,25 @@ class EditListingRouteArgs {
 }
 
 /// generated route for
+/// [EditProfileScreen]
+class EditProfileRoute extends PageRouteInfo<void> {
+  const EditProfileRoute({List<PageRouteInfo>? children})
+      : super(
+          EditProfileRoute.name,
+          initialChildren: children,
+        );
+
+  static const String name = 'EditProfileRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return EditProfileScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [FiltersScreen]
 class FiltersRoute extends PageRouteInfo<void> {
   const FiltersRoute({List<PageRouteInfo>? children})

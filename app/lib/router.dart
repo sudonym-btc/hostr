@@ -55,6 +55,10 @@ class AppRouter extends RootStackRouter {
               page: EditListingRoute.page,
               path: 'edit-listing/:a?',
               guards: []),
+          AutoRoute(
+              page: EditProfileRoute.page,
+              path: 'edit-profile',
+              guards: [AuthGuard()]),
         ]),
       ];
 }

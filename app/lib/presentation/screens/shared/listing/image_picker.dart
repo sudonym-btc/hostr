@@ -1,16 +1,49 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/logic/main.dart';
+import 'package:hostr/config/main.dart';
+import 'package:hostr/logic/cubit/image_picker.cubit.dart';
+import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 
 class ImageUpload extends StatelessWidget {
-  const ImageUpload({super.key});
+  final ImagePickerCubit controller;
+  final String pubkey;
+
+  const ImageUpload(
+      {super.key, required this.controller, required this.pubkey});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => ImagePickerCubit(),
+    Widget buildButtons(BuildContext context) {
+      return Row(
+        children: [
+          Expanded(
+              child: FilledButton.tonal(
+            onPressed: () {
+              context.read<ImagePickerCubit>().pickMultipleImages();
+            },
+            child: Text(
+              "Gallery",
+            ),
+          )),
+          SizedBox(width: DEFAULT_PADDING.toDouble()),
+          Expanded(
+              child: FilledButton.tonal(
+            onPressed: () {
+              context.read<ImagePickerCubit>().captureImageWithCamera();
+            },
+            child: Text(
+              "Camera",
+            ),
+          )),
+        ],
+      );
+    }
+
+    return BlocProvider.value(
+      value: controller,
       child: BlocConsumer<ImagePickerCubit, ImagePickerState>(
         listener: (context, state) {
           if (state is ImageError) {
@@ -23,59 +56,34 @@ class ImageUpload extends StatelessWidget {
           }
         },
         builder: (context, state) {
-          final images = context.watch<ImagePickerCubit>().images;
-
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        context.read<ImagePickerCubit>().pickMultipleImages();
-                      },
-                      icon: Icon(Icons.photo_library, color: Colors.white),
-                      label: Text(
-                        "Browse Gallery",
-                        style: TextStyle(fontSize: 14, color: Colors.black54),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        context
-                            .read<ImagePickerCubit>()
-                            .captureImageWithCamera();
-                      },
-                      icon: Icon(Icons.camera_alt, color: Colors.white),
-                      label: Text(
-                        "Capture Image with Camera",
-                        style: TextStyle(fontSize: 14, color: Colors.black54),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20),
                 Expanded(
-                  child: images.isNotEmpty
+                  child: controller.images.isNotEmpty
                       ? GridView.builder(
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
+                            crossAxisCount: min(3, controller.maxImages ?? 3),
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 8,
                           ),
-                          itemCount: images.length,
+                          itemCount: controller.images.length,
                           itemBuilder: (context, index) {
-                            final image = images[index];
+                            final image = controller.images[index];
                             return Stack(
                               fit: StackFit.expand,
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(File(image.path),
-                                      fit: BoxFit.cover),
+                                  child: image.path != null
+                                      ? BlossomImage(
+                                          image: image.path!,
+                                          pubkey: pubkey,
+                                        )
+                                      : Image.file(File(image.file!.path),
+                                          fit: BoxFit.cover),
                                 ),
                                 Positioned(
                                   top: 7,
@@ -101,6 +109,8 @@ class ImageUpload extends StatelessWidget {
                           style: TextStyle(fontSize: 14, color: Colors.grey),
                         ),
                 ),
+                SizedBox(height: DEFAULT_PADDING.toDouble()),
+                buildButtons(context),
               ],
             ),
           );

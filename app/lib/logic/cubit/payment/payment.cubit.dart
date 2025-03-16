@@ -127,7 +127,7 @@ class PaymentState<
   final CD? callbackDetails;
   final CmpD? completedDetails;
   final String? error;
-  PaymentState(
+  const PaymentState(
       {this.resolvedDetails,
       this.completedDetails,
       this.error,

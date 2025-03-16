@@ -1,3 +1,4 @@
+import 'package:models/stubs/blossom.dart';
 import 'package:models/stubs/escrow.dart';
 import 'package:models/stubs/escrow_trust.dart';
 import 'package:models/stubs/gift_wrap.dart';
@@ -7,6 +8,7 @@ import 'package:models/stubs/reservation.dart';
 import 'package:models/stubs/review.dart';
 import 'package:models/stubs/zap_receipt.dart';
 
+export 'blossom.dart';
 export 'escrow.dart';
 export 'escrow_trust.dart';
 export 'gift_wrap.dart';
@@ -27,5 +29,6 @@ var MOCK_EVENTS = [
   ...MOCK_GIFT_WRAPS.map((i) => i.nip01Event),
   ...MOCK_PROFILES,
   ...MOCK_REVIEWS.map((i) => i.nip01Event),
-  ...MOCK_ZAP_RECEIPTS
+  ...MOCK_ZAP_RECEIPTS,
+  ...MOCK_BLOSSOM_SERVER_LISTS
 ];

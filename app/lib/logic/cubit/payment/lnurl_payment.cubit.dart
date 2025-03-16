@@ -14,12 +14,16 @@ class LnUrlPaymentParameters extends PaymentParameters {
 
 class LnUrlResolvedDetails extends ResolvedDetails {
   final String callback;
+  final bool allowNostr;
+  final String? nostrPubkey;
 
   LnUrlResolvedDetails(
       {required super.minAmount,
       required super.maxAmount,
       required super.commentAllowed,
-      required this.callback});
+      required this.callback,
+      this.allowNostr = false,
+      this.nostrPubkey});
 }
 
 class LightningCallbackDetails extends CallbackDetails {
@@ -89,5 +93,5 @@ String emailToLnUrl(String email) {
   String user = email.split('@')[0];
   String domain = email.split('@')[1];
 
-  return 'lnurlp://${domain}/.well-known/lnurlp/${user}';
+  return 'lnurlp://$domain/.well-known/lnurlp/$user';
 }

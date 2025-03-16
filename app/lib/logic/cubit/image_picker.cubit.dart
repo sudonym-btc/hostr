@@ -1,6 +1,15 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+class CustomImage {
+  final String? path;
+  final XFile? file;
+
+  CustomImage({this.path, this.file});
+  CustomImage.file(this.file) : path = null;
+  CustomImage.path(this.path) : file = null;
+}
+
 abstract class ImagePickerState {}
 
 class ImageInitial extends ImagePickerState {}
@@ -16,18 +25,17 @@ class ImageError extends ImagePickerState {
 
 class ImagePickerCubit extends Cubit<ImagePickerState> {
   final ImagePicker _picker = ImagePicker();
-  final List<XFile> _images = [];
+  final List<CustomImage> images = [];
+  final int? maxImages;
+  final List<String> blossom = [];
 
-  ImagePickerCubit() : super(ImageInitial());
-
-  List<XFile> get images => _images;
+  ImagePickerCubit({this.maxImages}) : super(ImageInitial());
 
   Future<void> pickMultipleImages() async {
     emit(ImageLoading());
     try {
       final List<XFile> pickedImages = await _picker.pickMultiImage();
-      _images.addAll(pickedImages);
-      emit(ImageLoaded());
+      addImages(pickedImages.map((e) => CustomImage.file(e)).toList());
     } catch (e) {
       emit(ImageError(message: "Failed to pick images: $e"));
     }
@@ -39,8 +47,7 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
       final XFile? capturedImage =
           await _picker.pickImage(source: ImageSource.camera);
       if (capturedImage != null) {
-        _images.add(capturedImage);
-        emit(ImageLoaded());
+        addImages([CustomImage.file(capturedImage)]);
       } else {
         emit(ImageError(message: "No image captured"));
       }
@@ -50,7 +57,34 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
   }
 
   void removeImage(int index) {
-    _images.removeAt(index);
+    if (state is ImageLoaded) {
+      images.removeAt(index);
+      return emit(ImageLoaded());
+    }
     emit(ImageLoaded());
+  }
+
+  void setImages(List<CustomImage> images) {
+    this.images.clear();
+    this.images.addAll(images);
+    emit(ImageLoaded());
+  }
+
+  void addImages(List<CustomImage> images) {
+    this.images.addAll(images);
+
+    print('maxxx $maxImages');
+    print('images ${this.images.length}');
+
+    /// Strip first images away if maxImages is reached
+    if (maxImages != null && this.images.length > maxImages!) {
+      this.images.removeRange(0, this.images.length - maxImages!);
+    }
+    emit(ImageLoaded());
+  }
+
+  void setBlossom(List<String> blossom) {
+    this.blossom.clear();
+    this.blossom.addAll(blossom);
   }
 }

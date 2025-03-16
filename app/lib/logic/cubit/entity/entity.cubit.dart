@@ -14,7 +14,7 @@ class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
   EntityCubit({required this.filter})
       : super(const EntityCubitState(data: null));
 
-  get() async {
+  Future<T?> get() async {
     logger.i("getting $filter");
     emit(state.copyWith(active: true));
     try {
@@ -24,10 +24,11 @@ class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
       if (result == null) {
         logger.e("Not found error");
         emit(EntityCubitStateError(data: state.data, error: 'not found'));
-        return;
+        return null;
       }
       logger.i("Entity Cubit found $result");
       emit(EntityCubitState(data: result, active: false));
+      return result;
     } catch (e) {
       logger.e("Error $e");
       emit(EntityCubitStateError(data: state.data, error: e));

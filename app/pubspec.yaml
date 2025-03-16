@@ -80,6 +80,7 @@ dev_dependencies:
   shelf_router: ^1.1.4
   flutter_driver:
     sdk: flutter
+  mocktail_image_network: ^1.2.0
   models:
     path: ../models
 

@@ -8,7 +8,10 @@ class MockConfig extends Config {
   @override
   List<String> relays = ['ws://localhost:5432'];
   @override
-  List<String> blossom = ['http://127.0.0.1:3000'];
+  String hostrRelay = 'ws://localhost:5432';
+
+  @override
+  List<String> blossom = ['http://localhost:3000'];
   @override
   String rootstockRpcUrl = 'http://localhost:8545';
   @override

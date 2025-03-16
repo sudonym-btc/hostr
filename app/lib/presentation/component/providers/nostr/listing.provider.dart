@@ -6,6 +6,7 @@ class ListingProvider extends DefaultEntityProvider<Listing> {
       {super.kinds = Listing.kinds,
       super.key,
       super.e,
+      super.onDone,
       super.a,
       super.builder,
       super.child});

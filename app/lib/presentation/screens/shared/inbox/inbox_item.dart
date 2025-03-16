@@ -28,11 +28,12 @@ class InboxItem extends StatelessWidget {
     }
     return ProfileProvider(
         pubkey: threadCubit.getCounterpartyPubkey(),
-        builder: (context, state) {
-          if (state is EntityCubitStateError) {
-            return Text('Error: ${(state as EntityCubitStateError).error}');
+        builder: (context, snapshot) {
+          if (snapshot.data is EntityCubitStateError) {
+            return Text(
+                'Error: ${(snapshot.data as EntityCubitStateError).error}');
           }
-          if (state == null) {
+          if (snapshot.data == null) {
             return ListTile(
                 leading: CircularProgressIndicator(),
                 title: Text(threadCubit.getCounterpartyPubkey(),
@@ -44,11 +45,12 @@ class InboxItem extends StatelessWidget {
                 });
           }
           return ListTile(
-              leading: state.picture != null
-                  ? CircleAvatar(backgroundImage: NetworkImage(state.picture!))
+              leading: snapshot.data!.picture != null
+                  ? CircleAvatar(
+                      backgroundImage: NetworkImage(snapshot.data!.picture!))
                   : Icon(Icons.account_circle),
-              title: state.name != null
-                  ? Text(state.name!)
+              title: snapshot.data!.name != null
+                  ? Text(snapshot.data!.name!)
                   : Text(threadCubit.getCounterpartyPubkey()),
               subtitle: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

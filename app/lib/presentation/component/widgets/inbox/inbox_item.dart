@@ -15,13 +15,13 @@ class InboxItemWidget extends StatelessWidget {
           builder: (context, modeCubitState) {
         return ProfileProvider(
             pubkey: threadCubit.getCounterpartyPubkey(),
-            builder: (context, profile) {
+            builder: (context, snapshot) {
               return ListTile(
                 title: Text('Rando: ${modeCubitState.runtimeType}'),
                 // subtitle: Text(threadCubit.state.data!.lastMessage),
-                leading: profile?.picture != null
+                leading: snapshot.data?.picture != null
                     ? CircleAvatar(
-                        backgroundImage: NetworkImage(profile!.picture!),
+                        backgroundImage: NetworkImage(snapshot.data!.picture!),
                       )
                     : CircleAvatar(
                         backgroundColor: Colors.grey,
