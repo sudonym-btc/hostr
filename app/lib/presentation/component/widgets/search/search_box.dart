@@ -51,7 +51,7 @@ formatDateShort(DateTime date, BuildContext context) {
   final dayDateFormat =
       DateFormat('MMM d', Localizations.localeOf(context).toString());
   final yearFormat =
-      DateFormat('MMM d yyyy', Localizations.localeOf(context).toString());
+      DateFormat('MMM d, yyyy', Localizations.localeOf(context).toString());
   return date.year == now.year
       ? dayDateFormat.format(date)
       : yearFormat.format(date);

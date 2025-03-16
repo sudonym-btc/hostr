@@ -81,6 +81,7 @@ class ProdNostrService extends NostrService {
         .broadcastDoneFuture;
   }
 
+  @override
   List<RelayConnectivity> connectivity() {
     return getIt<Ndk>().relays.connectedRelays;
   }

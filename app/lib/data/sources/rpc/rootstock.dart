@@ -39,6 +39,7 @@ class RootstockImpl extends Rootstock {
     });
   }
 
+  @override
   Future<TransactionInformation?> getTransaction(String txHash) async {
     logger.d('Getting transaction for $txHash');
     return await client.getTransactionByHash(txHash).then((val) {

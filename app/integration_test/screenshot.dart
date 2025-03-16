@@ -6,6 +6,7 @@ import 'package:hostr/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:mocktail_image_network/mocktail_image_network.dart';
 import 'package:models/main.dart';
 
 appWrapper(Widget child) {
@@ -19,7 +20,8 @@ loadWidgetAndTakeScreenshot(
     IntegrationTestWidgetsFlutterBinding binding,
     Widget child,
     String name) async {
-  await tester.pumpWidget(appWrapper(child));
+  await mockNetworkImages(
+      () async => await tester.pumpWidget(appWrapper(child)));
   await binding.convertFlutterSurfaceToImage();
   await tester.pumpAndSettle(Duration(seconds: 5));
   await takeScreenshot(binding, name);

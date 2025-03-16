@@ -18,6 +18,8 @@ abstract class DefaultEntityProvider<Type extends Event>
   /// Provide if you want to search for a specific pubkey
   final String? pubkey;
 
+  final Function(Type)? onDone;
+
   /// Provide a builder if you want to consume the cubit right away
   final BlocWidgetBuilder<EntityCubitState<Type>>? builder;
 
@@ -29,6 +31,7 @@ abstract class DefaultEntityProvider<Type extends Event>
       required this.kinds,
       this.e,
       this.pubkey,
+      this.onDone,
       this.a,
       this.builder,
       this.child}) {
@@ -55,7 +58,11 @@ abstract class DefaultEntityProvider<Type extends Event>
                 authors: pubkey != null ? [pubkey!] : null,
                 aTags: a != null ? [a!] : null,
                 eTags: e != null ? [e!] : null))
-          ..get(),
+          ..get().then((value) {
+            if (onDone != null && value != null) {
+              onDone!(value);
+            }
+          }),
         child: consumer);
   }
 }

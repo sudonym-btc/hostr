@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart' hide TimeOfDay;
 import 'package:hostr/export.dart';
+import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import 'image_picker.dart';
 
-class EditListingView extends StatelessWidget {
+class EditListingView extends StatefulWidget {
   final String? a;
 
-  // ignore: use_key_in_widget_constructors
-  const EditListingView({this.a});
+  const EditListingView({super.key, this.a});
+
+  @override
+  State<StatefulWidget> createState() => EditListingViewState();
+}
+
+class EditListingViewState extends State<EditListingView> {
+  bool loading = false;
+  final EditListingController controller = EditListingController();
 
   buildListing(BuildContext context, Listing l) {
     return Scaffold(
@@ -20,10 +28,17 @@ class EditListingView extends StatelessWidget {
                 top: 0,
                 bottom: 0,
                 child: FilledButton(
-                  onPressed: () {
-                    // ignore: avoid_print
-                    print('Save');
-                  },
+                  onPressed: loading == false
+                      ? () async {
+                          setState(() {
+                            loading = true;
+                          });
+                          await controller.save();
+                          setState(() {
+                            loading = false;
+                          });
+                        }
+                      : null,
                   child: Text('Save'),
                 ))),
         body: Form(
@@ -31,14 +46,17 @@ class EditListingView extends StatelessWidget {
           children: [
             Expanded(
                 child: CustomPadding(
-              child: ImageUpload(),
+              child: ImageUpload(
+                controller: controller.imageController,
+                pubkey: l.nip01Event.pubKey,
+              ),
             )),
             CustomPadding(
                 child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextFormField(
-                  initialValue: l.parsedContent.title,
+                  controller: controller.titleController,
                   decoration: const InputDecoration(
                       labelText: 'Title', hintText: 'Title'),
                 ),
@@ -46,7 +64,7 @@ class EditListingView extends StatelessWidget {
                 AmenityTagsWidget(amenities: l.parsedContent.amenities),
                 const SizedBox(height: 16),
                 TextFormField(
-                  initialValue: l.parsedContent.description,
+                  controller: controller.descriptionController,
                   decoration: const InputDecoration(
                       labelText: 'Description', hintText: 'Description'),
                 ),
@@ -58,7 +76,7 @@ class EditListingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return a == null
+    return widget.a == null
         ? buildListing(
             context,
             Listing.fromNostrEvent(Nip01Event(
@@ -84,7 +102,8 @@ class EditListingView extends StatelessWidget {
                         amenities: Amenities())
                     .toString())))
         : ListingProvider(
-            a: a,
+            a: widget.a,
+            onDone: (l) => controller.setState(l),
             builder: (context, state) {
               if (state.data == null) {
                 return Scaffold(

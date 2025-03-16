@@ -20,7 +20,7 @@ class GoogleMapsMock extends GoogleMaps {
   Future<LatLng?> getCoordinatesFromAddress(String address) async {
     logger.i("Fetching coordinates of $address");
     num hashcode = sha256.convert(address.codeUnits).hashCode / 100000000;
-    logger.i("hashcode address: ${hashcode}");
+    logger.i("hashcode address: $hashcode");
 
     // Return random location in europe
     return LatLng(48.8566 + hashcode, 2.3522 + hashcode);

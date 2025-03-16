@@ -28,16 +28,17 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
     }
     return ProfileProvider(
       pubkey: widget.zap.sender!,
-      builder: (context, metadata) {
-        if (metadata == null) return Container();
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.active)
+          return Container();
         return Chip(
           shape: StadiumBorder(),
           label: Text(formatAmount(Amount(
               currency: Currency.BTC,
               value: (widget.zap.amountSats! / btcSatoshiFactor).toDouble()))),
-          avatar: metadata?.picture != null
+          avatar: snapshot.data?.picture != null
               ? CircleAvatar(
-                  backgroundImage: NetworkImage(metadata!.picture!),
+                  backgroundImage: NetworkImage(snapshot.data!.picture!),
                 )
               : CircleAvatar(
                   backgroundColor: Colors.grey,

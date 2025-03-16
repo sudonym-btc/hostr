@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/bip340.dart';
 
 /// Abstract class representing the state of authentication.
 abstract class AuthState extends Equatable {
@@ -86,6 +88,8 @@ class AuthCubit extends Cubit<AuthState> {
     // }
     if (entropy != null) {
       await keyStorage.set(entropy);
+      getIt<Ndk>().accounts.loginPrivateKey(
+          privkey: entropy, pubkey: Bip340.getPublicKey(entropy));
       emit(LoggedIn());
     } else {
       logger.i('Key invalid');

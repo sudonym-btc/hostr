@@ -6,8 +6,8 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/screens/shared/inbox/thread/giftwraps/message.dart';
-import 'package:ndk/ndk.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
 
 import 'giftwraps/reservation_request.dart';
 
@@ -45,14 +45,8 @@ class ThreadViewState extends State<ThreadView> {
             builder: (context, state) {
           return ProfileProvider(
               pubkey: threadCubit.getCounterpartyPubkey(),
-              builder: (context, profileState) {
-                if (profileState is EntityCubitStateError) {
-                  return Scaffold(
-                      appBar: AppBar(
-                          title: Text(
-                              'Error: ${(profileState as EntityCubitStateError).error}')));
-                }
-                if (profileState == null) {
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.active) {
                   return Scaffold(appBar: AppBar(title: Text('Loading')));
                 }
                 return ListingProvider(
@@ -60,12 +54,12 @@ class ThreadViewState extends State<ThreadView> {
                     child: Scaffold(
                         appBar: AppBar(
                             title: ThreadHeaderWidget(
-                                title: profileState.name ?? 'Loading',
-                                image: profileState.picture,
-                                subtitle: profileState.cleanNip05 ??
-                                    profileState.lud06 ??
-                                    profileState.lud16 ??
-                                    profileState.pubKey)),
+                                title: snapshot.data!.name ?? 'Loading',
+                                image: snapshot.data!.picture,
+                                subtitle: snapshot.data!.cleanNip05 ??
+                                    snapshot.data!.lud06 ??
+                                    snapshot.data!.lud16 ??
+                                    snapshot.data!.pubKey)),
                         body: SafeArea(
                             child: Column(
                           children: [
@@ -81,7 +75,7 @@ class ThreadViewState extends State<ThreadView> {
                                       } else if (state.messages[index].child
                                           is ReservationRequest) {
                                         return ThreadReservationRequestWidget(
-                                            counterparty: profileState,
+                                            counterparty: snapshot.data!,
                                             item: state.messages[index]);
                                       }
                                       return Text('Unknown message type');

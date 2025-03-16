@@ -35,47 +35,47 @@ class ProfileScreen extends StatelessWidget {
                   child: ProfileProvider(
                       pubkey:
                           getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
-                      builder: (BuildContext context, Metadata? metadata) =>
-                          metadata == null
-                              ? Center(child: CircularProgressIndicator())
-                              : Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 40,
-                                      backgroundImage: metadata.picture != null
-                                          ? NetworkImage(metadata.picture!)
-                                          : null, // Replace with actual profile photo URL
-                                    ),
-                                    SizedBox(height: 16), // Increased padding
-                                    Text(
-                                      metadata.name ??
-                                          metadata.displayName ??
-                                          'Username', // Replace with actual username
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    SizedBox(height: 8), // Added padding
-                                    Text(
-                                      metadata.nip05 ??
-                                          'nip05_address@example.com', // Replace with actual nip05 address
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    SizedBox(height: 4), // Added padding
-                                    Text(
-                                      metadata.about ??
-                                          '', // Replace with actual about section text
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                )),
+                      builder: (context, snapshot) => snapshot.data == null
+                          ? Center(child: CircularProgressIndicator())
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircleAvatar(
+                                  radius: 40,
+                                  backgroundImage: snapshot.data!.picture !=
+                                          null
+                                      ? NetworkImage(snapshot.data!.picture!)
+                                      : null, // Replace with actual profile photo URL
+                                ),
+                                SizedBox(height: 16), // Increased padding
+                                Text(
+                                  snapshot.data!.name ??
+                                      snapshot.data!.displayName ??
+                                      'Username', // Replace with actual username
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 8), // Added padding
+                                Text(
+                                  snapshot.data!.nip05 ??
+                                      'nip05_address@example.com', // Replace with actual nip05 address
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                SizedBox(height: 4), // Added padding
+                                Text(
+                                  snapshot.data!.about ??
+                                      '', // Replace with actual about section text
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            )),
                 ),
               ),
             ),
@@ -84,12 +84,8 @@ class ProfileScreen extends StatelessWidget {
               IconButton(
                 icon: Icon(Icons.edit),
                 onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return EditProfile();
-                    },
-                  );
+                  print('hello');
+                  AutoRouter.of(context).navigate(EditProfileRoute());
                 },
               ),
             ],
@@ -144,19 +140,22 @@ class ProfileScreen extends StatelessWidget {
                           ...snapshot.data!.elements.map((el) {
                             return ProfileProvider(
                                 pubkey: el.value,
-                                builder: (context, metadata) {
+                                builder: (context, profileSnapshot) {
                                   return ListTile(
                                       contentPadding: EdgeInsets.all(0),
                                       leading: CircleAvatar(
-                                        backgroundImage: metadata?.picture !=
+                                        backgroundImage: profileSnapshot
+                                                    .data?.picture !=
                                                 null
-                                            ? NetworkImage(metadata!.picture!)
+                                            ? NetworkImage(
+                                                profileSnapshot.data!.picture!)
                                             : null,
                                       ),
-                                      title: Text(metadata?.name ??
-                                          metadata?.displayName ??
+                                      title: Text(profileSnapshot.data?.name ??
+                                          profileSnapshot.data?.displayName ??
                                           'Username'),
-                                      subtitle: Text(metadata?.nip05 ?? ''));
+                                      subtitle: Text(
+                                          profileSnapshot.data?.nip05 ?? ''));
                                 });
                           }).toList()
                         ]);
@@ -175,40 +174,43 @@ class ProfileScreen extends StatelessWidget {
                   body: Column(
                 children: [
                   FilledButton(
-                    child: Text('Zap us'),
-                    onPressed: () {
-                      context.read<PaymentsManager>().create(
-                          LnUrlPaymentParameters(
-                              to: 'tips@hostr.development',
-                              amount: Amount(
-                                  currency: Currency.BTC, value: 0.00001)));
+                    child: Text('Logout'),
+                    onPressed: () async {
+                      final router =
+                          AutoRouter.of(context); // Store the router instance
+                      await BlocProvider.of<AuthCubit>(context).logout();
+                      await router.replaceAll(
+                        [SignInRoute()],
+                        onFailure: (failure) => print(failure),
+                      );
                     },
-                  ),
-                  ZapListWidget(
-                    pubkey: MockKeys.hoster.publicKey,
-                    builder: (p0) => Text(p0.pubKey!),
                   )
                 ],
               )),
-
               Section(
-                  title: 'Logout',
-                  body: Column(
-                    children: [
-                      FilledButton(
-                        child: Text('Logout'),
-                        onPressed: () async {
-                          final router = AutoRouter.of(
-                              context); // Store the router instance
-                          await BlocProvider.of<AuthCubit>(context).logout();
-                          await router.replaceAll(
-                            [SignInRoute()],
-                            onFailure: (failure) => print(failure),
-                          );
-                        },
-                      )
-                    ],
-                  )),
+                  body: Column(children: [
+                CustomPadding(
+                    child: Text(
+                        'Hostr is open source software maintained by the community with ❤️.')),
+                Row(
+                  children: [
+                    FilledButton(
+                      child: Text('Zap us'),
+                      onPressed: () {
+                        context.read<PaymentsManager>().create(
+                            LnUrlPaymentParameters(
+                                to: 'tips@hostr.development',
+                                amount: Amount(
+                                    currency: Currency.BTC, value: 0.00001)));
+                      },
+                    ),
+                    ZapListWidget(
+                      pubkey: MockKeys.hoster.publicKey,
+                      builder: (p0) => Text(p0.pubKey!),
+                    )
+                  ],
+                )
+              ])),
               // Info section as an expandable list item
               if (const bool.fromEnvironment('dart.vm.product') == false)
                 ExpansionTile(
@@ -262,45 +264,6 @@ class ProfileScreen extends StatelessWidget {
           )
         ],
       ),
-    );
-  }
-}
-
-class EditProfile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Edit Profile'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Add form fields for editing profile here
-          TextField(
-            decoration: InputDecoration(labelText: 'Profile Photo URL'),
-          ),
-          TextField(
-            decoration: InputDecoration(labelText: 'nip05 Address'),
-          ),
-          TextField(
-            decoration: InputDecoration(labelText: 'About'),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          child: Text('Cancel'),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-        TextButton(
-          child: Text('Save'),
-          onPressed: () {
-            // Handle save action
-            Navigator.of(context).pop();
-          },
-        ),
-      ],
     );
   }
 }

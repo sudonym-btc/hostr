@@ -14,26 +14,23 @@ class ZapListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      Text('Receipts'),
-      StreamBuilder(
-          stream: getIt<Ndk>()
-              .zaps
-              .fetchZappedReceipts(pubKey: pubkey, eventId: eventId),
-          builder: (context, snapshot) {
-            print("Zaps snapshot: $snapshot");
-            if (snapshot.hasData) {
-              return ZapReceiptWidget(zap: snapshot.data!);
-            } else {
-              if (snapshot.hasError) {
-                print("Zaps error: ${snapshot.error}");
-              } else if (snapshot.connectionState == ConnectionState.done) {
-                print("Zaps done");
-                return Container();
-              }
-              return CircularProgressIndicator();
+    return StreamBuilder(
+        stream: getIt<Ndk>()
+            .zaps
+            .fetchZappedReceipts(pubKey: pubkey, eventId: eventId),
+        builder: (context, snapshot) {
+          print("Zaps snapshot: $snapshot");
+          if (snapshot.hasData) {
+            return ZapReceiptWidget(zap: snapshot.data!);
+          } else {
+            if (snapshot.hasError) {
+              print("Zaps error: ${snapshot.error}");
+            } else if (snapshot.connectionState == ConnectionState.done) {
+              print("Zaps done");
+              return Container();
             }
-          })
-    ]);
+            return CircularProgressIndicator();
+          }
+        });
   }
 }

@@ -116,6 +116,22 @@ class MockRelay {
         } else if (eventJson[0] == "EVENT") {
           log('Received: $eventJson');
           Nip01Event event = Nip01Event.fromJson(eventJson[1]);
+          List<Nip01Event> existingEvents = this
+              .events
+              .where(
+                (e) =>
+                    e.pubKey == event.pubKey &&
+                    e.getFirstTag('a') != null &&
+                    event.getFirstTag('a') != null &&
+                    e.getFirstTag('a') == event.getFirstTag('a'),
+              )
+              .toList();
+          if (existingEvents.isNotEmpty) {
+            for (var e in existingEvents) {
+              this.events.remove(e);
+              log('Updated existing event: ${e.id}');
+            }
+          }
           this.events.add(event);
           onAddEvent.add(event);
           webSocket.add(jsonEncode(["OK", event.id, true, '']));
@@ -138,7 +154,7 @@ class MockRelay {
     json.add(event.toJson());
 
     webSocket!.add(jsonEncode(json));
-    log('Responding: ${json}');
+    log('Responding: $json');
   }
 
   Future<void> stopServer() async {
@@ -187,8 +203,8 @@ matchEvent(Nip01Event event, Filter filter) {
   if (filter.authors != null &&
       (!filter.authors!.contains(event.pubKey) ||
           (event.tags.contains((tag) => tag[0] == "delegation") &&
-              !filter.authors!.contains(event.tags!
-                  .lastWhere((tag) => tag[0] == "delegation")[1])))) {
+              !filter.authors!.contains(
+                  event.tags.lastWhere((tag) => tag[0] == "delegation")[1])))) {
     return false;
   }
 

@@ -98,6 +98,15 @@ class NwcService {
     _connectionsSubject.add(connections);
     await nwcStorage.set([connection.url!]);
   }
+
+  zap({required lnurl, required amountSats, String? a, String? e}) {
+    return getIt<Ndk>().zaps.zap(
+        nwcConnection: connections[0].connection!,
+        lnurl: lnurl,
+        eventId: e,
+        // addressableId: a,
+        amountSats: amountSats);
+  }
 }
 
 @Singleton(as: NwcService, env: [Env.test, Env.mock])

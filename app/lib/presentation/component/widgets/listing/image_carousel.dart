@@ -1,6 +1,6 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/data/main.dart';
+import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:models/main.dart';
 
 class ImageCarouselWidget extends StatefulWidget {
@@ -34,11 +34,13 @@ class ImageCarouselWIdgetState extends State<ImageCarouselWidget> {
       items: widget.item.parsedContent.images.map<Widget>((i) {
         return Builder(
           builder: (BuildContext context) {
-            return Image.network(
-              i,
-              fit: BoxFit.cover,
-              width: MediaQuery.of(context).size.width,
-            );
+            return BlossomImage(
+                image: i, pubkey: widget.item.nip01Event.pubKey);
+            // return Image.network(
+            //   i,
+            //   fit: BoxFit.cover,
+            //   width: MediaQuery.of(context).size.width,
+            // );
           },
         );
       }).toList(),

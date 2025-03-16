@@ -37,6 +37,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     super.initState();
     // Preload images
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return; // Check if the widget is still mounted
       for (var imageUrl in widget.listing.parsedContent.images) {
         precacheImage(NetworkImage(imageUrl), context);
       }
