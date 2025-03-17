@@ -52,22 +52,38 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
     });
   }
 
-  void next() {
-    logger.i("next");
-    Filter finalFilter = getCombinedFilter(
-        getCombinedFilter(Filter(kinds: kinds), filter),
+  /// Nostr treats separate NostrFilters as OR, so we need to combine them
+  Filter getFilter() {
+    final newestTimestamp = state.results.isNotEmpty
+        ? state.results
+            .map((e) => e.nip01Event.createdAt)
+            .reduce((a, b) => a > b ? a : b)
+        : null;
+    return getCombinedFilter(
+        getCombinedFilter(Filter(kinds: kinds, since: newestTimestamp), filter),
         filterCubit?.state.filter);
-    logger.t('listFilter: $finalFilter');
-    getIt<NostrService>().subscribe<T>(filters: [
-      // Nostr treats separate NostrFilters as OR, so we need to combine them
-      finalFilter
-    ]).listen((event) {
-      addItem(event);
-    });
   }
 
-  void sync() {
-    next();
+  next() async {
+    logger.i("next");
+    Filter finalFilter = getFilter();
+    logger.t('listFilter: $finalFilter');
+    await getIt<NostrService>()
+        .startRequest<T>(filters: [finalFilter]).listen((event) {
+      addItem(event);
+    }).asFuture();
+  }
+
+  sync() async {
+    emit(state.copyWith(synching: true));
+    logger.i("sync");
+    Filter finalFilter = getFilter();
+    logger.t('listFilter: $finalFilter');
+    await next();
+    emit(state.copyWith(synching: false));
+    getIt<NostrService>().subscribe<T>(filters: [finalFilter]).listen((event) {
+      addItem(event);
+    });
   }
 
   void reset() {

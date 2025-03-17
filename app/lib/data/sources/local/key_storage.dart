@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
@@ -5,7 +6,6 @@ import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:pointycastle/ecc/curves/secp256k1.dart';
 import 'package:web3dart/web3dart.dart';
@@ -36,10 +36,6 @@ class KeyStorage {
 
   set(String item) async {
     await getIt<SecureStorage>().set('keys', [item]);
-    getIt<Ndk>().accounts.loginPrivateKey(
-        privkey: getActiveKeyPairSync()!.privateKey!,
-        pubkey: getActiveKeyPairSync()!.publicKey);
-
     return item;
   }
 

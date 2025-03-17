@@ -70,7 +70,7 @@ services:
     networks:
       - default
 
-  # NOSTR Relat
+  # NOSTR Relay
   relay:
     container_name: relay
     image: scsibug/nostr-rs-relay:latest
@@ -89,6 +89,24 @@ services:
         aliases:
           - relay.hostr.development
 
+  # NOSTR Relat
+  blossom:
+    container_name: blossom
+    image: scsibug/nostr-rs-relay:latest
+    platform: linux/amd64
+    environment:
+      - VIRTUAL_HOST=relay.hostr.development
+      - VIRTUAL_PORT=80
+      - ENABLE_WEBSOCKETS=true
+    ports:
+      - "${RELAY_PORT}:80"
+    volumes:
+      - ./docker/relay.toml:/usr/src/app/config.toml
+      - ./docker/data/relay:/usr/src/app/db
+    networks:
+      default:
+        aliases:
+          - relay.hostr.development
   # Run EVM when don't want to run boltz but still want RPC client
   evm:
     build:

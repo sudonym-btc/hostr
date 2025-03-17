@@ -44,10 +44,6 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> signup() async {
     await logout();
     await keyStorage.create();
-    // emit(Progress(
-    //     getIt<RequestDelegation>().requestDelegation(keyPair).doOnDone(() {
-    // })));
-
     emit(LoggedIn());
   }
 

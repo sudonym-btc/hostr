@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:ndk/entities.dart';
 import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class AppController {
+  CustomLogger logger = CustomLogger();
   late AuthCubit authCubit;
   late GlobalGiftWrapCubit giftWrapListCubit;
   late ThreadOrganizerCubit threadOrganizerCubit;
@@ -11,6 +15,8 @@ class AppController {
   late PaymentsManager paymentsManager;
   late SwapManager swapManager;
   late Ndk ndk;
+
+  late StreamSubscription sub;
 
   AppController() {
     authCubit = AuthCubit();
@@ -21,26 +27,34 @@ class AppController {
     swapManager = SwapManager(paymentsManager: paymentsManager);
     ndk = getIt<Ndk>();
 
-    authCubit.stream.listen((state) {
+    sub = authCubit.stream.listen((state) async {
       if (state is LoggedIn) {
-        ndk.accounts.loginPrivateKey(
-            pubkey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
-            privkey: getIt<KeyStorage>().getActiveKeyPairSync()!.privateKey!);
+        KeyPair key = getIt<KeyStorage>().getActiveKeyPairSync()!;
+        ndk.accounts
+            .loginPrivateKey(pubkey: key.publicKey, privkey: key.privateKey!);
 
-        ndk.userRelayLists.setInitialUserRelayList(UserRelayList(
-            pubKey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
+        await ndk.userRelayLists.setInitialUserRelayList(UserRelayList(
+            pubKey: key.publicKey,
             relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
             createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
             refreshedTimestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000));
+
+        logger.i('Synching gift wraps ${key.publicKey}');
+
+        giftWrapListCubit.filter = Filter(pTags: [key.publicKey]);
+        giftWrapListCubit.sync();
       } else {
         ndk.accounts.accounts.forEach((pubkey, account) {
           ndk.accounts.removeAccount(pubkey: pubkey);
         });
+        logger.i('Clearing gift wraps');
+        giftWrapListCubit.clear();
       }
     });
   }
 
   void dispose() {
+    sub.cancel();
     authCubit.close();
     giftWrapListCubit.close();
     threadOrganizerCubit.close();
