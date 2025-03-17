@@ -79,7 +79,7 @@ class EditProfileRoute extends PageRouteInfo<void> {
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      return EditProfileScreen();
+      return const EditProfileScreen();
     },
   );
 }

@@ -5,6 +5,7 @@ import 'package:hostr/data/sources/lnurl/types.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/swap.dart';
 import 'package:hostr/main.dart';
+import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
 import 'package:validators/validators.dart';
 
@@ -36,9 +37,10 @@ class LightningCompletedDetails extends CompletedDetails {
   LightningCompletedDetails({required this.preimage});
 }
 
+@Injectable(env: Env.allButTestAndMock)
 class LnUrlPaymentCubit extends PaymentCubit<LnUrlPaymentParameters,
     LnUrlResolvedDetails, LightningCallbackDetails, LightningCompletedDetails> {
-  LnUrlPaymentCubit({required super.params});
+  LnUrlPaymentCubit({@factoryParam required super.params});
 
   @override
   Future<LnUrlResolvedDetails> resolver() async {
@@ -94,4 +96,23 @@ String emailToLnUrl(String email) {
   String domain = email.split('@')[1];
 
   return 'lnurlp://$domain/.well-known/lnurlp/$user';
+}
+
+@Injectable(as: LnUrlPaymentCubit, env: [Env.test, Env.mock])
+class MockLnUrlPaymentCubit extends LnUrlPaymentCubit {
+  MockLnUrlPaymentCubit({@factoryParam required super.params});
+
+  @override
+  resolver() async {
+    return LnUrlResolvedDetails(
+        callback: 'http://callbackurl.com/',
+        minAmount: 0,
+        maxAmount: 10000000000,
+        commentAllowed: 100);
+  }
+
+  @override
+  callback() async {
+    return LightningCallbackDetails(invoice: Bolt11PaymentRequest('invoice'));
+  }
 }

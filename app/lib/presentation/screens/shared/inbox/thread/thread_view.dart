@@ -49,139 +49,139 @@ class ThreadViewState extends State<ThreadView> {
                 if (snapshot.connectionState == ConnectionState.active) {
                   return Scaffold(appBar: AppBar(title: Text('Loading')));
                 }
-                return ListingProvider(
-                    a: threadCubit.getListingAnchor(),
-                    child: Scaffold(
-                        appBar: AppBar(
-                            title: ThreadHeaderWidget(
-                                title: snapshot.data!.name ?? 'Loading',
-                                image: snapshot.data!.picture,
-                                subtitle: snapshot.data!.cleanNip05 ??
-                                    snapshot.data!.lud06 ??
-                                    snapshot.data!.lud16 ??
-                                    snapshot.data!.pubKey)),
-                        body: SafeArea(
-                            child: Column(
-                          children: [
-                            Expanded(
-                                child: ListView.builder(
-                                    itemCount: state.messages.length,
-                                    itemBuilder: (listContext, index) {
-                                      if (state.messages[index].child == null) {
-                                        return ThreadMessageWidget(
-                                            counterpartyPubkey: threadCubit
-                                                .getCounterpartyPubkey(),
-                                            item: state.messages[index]);
-                                      } else if (state.messages[index].child
-                                          is ReservationRequest) {
-                                        return ThreadReservationRequestWidget(
-                                            counterparty: snapshot.data!,
-                                            item: state.messages[index]);
-                                      }
-                                      return Text('Unknown message type');
-                                    })),
-                            CustomPadding(
-                                child: BlocProvider(
-                                    create: (context) => EventPublisherCubit(),
-                                    child:
-                                        BlocConsumer<EventPublisherCubit,
-                                                EventPublisherState>(
-                                            listener: (context, state) => {
-                                                  if (state.status ==
-                                                      EventPublisherStatus
-                                                          .success)
-                                                    {_replyController.clear()}
-                                                },
-                                            builder: (context, state) {
-                                              return Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.end,
-                                                  children: [
-                                                    Expanded(
-                                                        child: TextField(
-                                                      onChanged: (text) {
-                                                        setState(
-                                                            () {}); // Trigger rebuild
-                                                      },
-                                                      controller:
-                                                          _replyController,
-                                                      maxLines: 3,
-                                                      minLines: 1,
-                                                      autofocus: true,
-                                                      decoration:
-                                                          InputDecoration(
-                                                        labelText: 'Reply',
-                                                        errorText: state
-                                                                    .status ==
-                                                                EventPublisherStatus
-                                                                    .error
-                                                            ? state.error
-                                                            : null,
-                                                      ),
-                                                    )),
-                                                    SizedBox(
-                                                        width: DEFAULT_PADDING
-                                                            .toDouble()), // Add space here
+                if (snapshot.connectionState == ConnectionState.done) {
+                  return ListingProvider(
+                      a: threadCubit.getListingAnchor(),
+                      child: Scaffold(
+                          appBar: AppBar(
+                              title: ThreadHeaderWidget(
+                                  title: snapshot.data!.name ?? 'Loading',
+                                  image: snapshot.data!.picture,
+                                  subtitle: snapshot.data!.cleanNip05 ??
+                                      snapshot.data!.lud06 ??
+                                      snapshot.data!.lud16 ??
+                                      snapshot.data!.pubKey)),
+                          body: SafeArea(
+                              child: Column(
+                            children: [
+                              Expanded(
+                                  child: ListView.builder(
+                                      itemCount: state.messages.length,
+                                      itemBuilder: (listContext, index) {
+                                        if (state.messages[index].child ==
+                                            null) {
+                                          return ThreadMessageWidget(
+                                              counterpartyPubkey: threadCubit
+                                                  .getCounterpartyPubkey(),
+                                              item: state.messages[index]);
+                                        } else if (state.messages[index].child
+                                            is ReservationRequest) {
+                                          return ThreadReservationRequestWidget(
+                                              counterparty: snapshot.data!,
+                                              item: state.messages[index]);
+                                        }
+                                        return Text('Unknown message type');
+                                      })),
+                              CustomPadding(
+                                  child: BlocProvider(
+                                      create: (context) =>
+                                          EventPublisherCubit(),
+                                      child:
+                                          BlocConsumer<EventPublisherCubit,
+                                                  EventPublisherState>(
+                                              listener: (context, state) => {
+                                                    if (state.status ==
+                                                        EventPublisherStatus
+                                                            .success)
+                                                      {_replyController.clear()}
+                                                  },
+                                              builder: (context, state) {
+                                                return Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.end,
+                                                    children: [
+                                                      Expanded(
+                                                          child: TextField(
+                                                        onChanged: (text) {
+                                                          setState(
+                                                              () {}); // Trigger rebuild
+                                                        },
+                                                        controller:
+                                                            _replyController,
+                                                        maxLines: 3,
+                                                        minLines: 1,
+                                                        autofocus: true,
+                                                        decoration:
+                                                            InputDecoration(
+                                                          labelText: 'Reply',
+                                                          errorText: state
+                                                                      .status ==
+                                                                  EventPublisherStatus
+                                                                      .error
+                                                              ? state.error
+                                                              : null,
+                                                        ),
+                                                      )),
+                                                      SizedBox(
+                                                          width: DEFAULT_PADDING
+                                                              .toDouble()), // Add space here
 
-                                                    FilledButton(
-                                                        onPressed: state.status ==
-                                                                    EventPublisherStatus
-                                                                        .loading ||
-                                                                _replyController
-                                                                    .text
-                                                                    .trim()
-                                                                    .isEmpty
-                                                            ? null
-                                                            : () {
-                                                                context
-                                                                    .read<
-                                                                        EventPublisherCubit>()
-                                                                    .publishEvents([
-                                                                  giftWrapAndSeal(
-                                                                          threadCubit
-                                                                              .getCounterpartyPubkey(),
-                                                                          getIt<KeyStorage>()
-                                                                              .getActiveKeyPairSync()!,
-                                                                          Nip01Event(
-                                                                              pubKey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
-                                                                              kind: NOSTR_KIND_DM,
-                                                                              tags: [
-                                                                                [
-                                                                                  'a',
-                                                                                  threadCubit.getAnchor()
-                                                                                ]
-                                                                              ],
-                                                                              content: _replyController.text.trim()),
-                                                                          null)
-                                                                      .nip01Event,
-                                                                  giftWrapAndSeal(
-                                                                          getIt<KeyStorage>()
-                                                                              .getActiveKeyPairSync()!
-                                                                              .publicKey,
-                                                                          getIt<KeyStorage>()
-                                                                              .getActiveKeyPairSync()!,
-                                                                          Nip01Event(
-                                                                              pubKey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
-                                                                              kind: NOSTR_KIND_DM,
-                                                                              tags: [
-                                                                                [
-                                                                                  'a',
-                                                                                  threadCubit.getAnchor()
-                                                                                ]
-                                                                              ],
-                                                                              content: _replyController.text.trim()),
-                                                                          null)
-                                                                      .nip01Event
-                                                                ]);
-                                                              },
-                                                        child: Text('Send'))
-                                                  ]);
-                                            })))
-                          ],
-                        ))));
+                                                      FilledButton(
+                                                          onPressed: state.status ==
+                                                                      EventPublisherStatus
+                                                                          .loading ||
+                                                                  _replyController
+                                                                      .text
+                                                                      .trim()
+                                                                      .isEmpty
+                                                              ? null
+                                                              : () {
+                                                                  context
+                                                                      .read<
+                                                                          EventPublisherCubit>()
+                                                                      .publishEvents([
+                                                                    giftWrapAndSeal(
+                                                                            threadCubit.getCounterpartyPubkey(),
+                                                                            getIt<KeyStorage>().getActiveKeyPairSync()!,
+                                                                            Nip01Event(
+                                                                                pubKey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
+                                                                                kind: NOSTR_KIND_DM,
+                                                                                tags: [
+                                                                                  [
+                                                                                    'a',
+                                                                                    threadCubit.getAnchor()
+                                                                                  ]
+                                                                                ],
+                                                                                content: _replyController.text.trim()),
+                                                                            null)
+                                                                        .nip01Event,
+                                                                    giftWrapAndSeal(
+                                                                            getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
+                                                                            getIt<KeyStorage>().getActiveKeyPairSync()!,
+                                                                            Nip01Event(
+                                                                                pubKey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
+                                                                                kind: NOSTR_KIND_DM,
+                                                                                tags: [
+                                                                                  [
+                                                                                    'a',
+                                                                                    threadCubit.getAnchor()
+                                                                                  ]
+                                                                                ],
+                                                                                content: _replyController.text.trim()),
+                                                                            null)
+                                                                        .nip01Event
+                                                                  ]);
+                                                                },
+                                                          child: Text('Send'))
+                                                    ]);
+                                              })))
+                            ],
+                          ))));
+                }
+                return Placeholder();
               });
         }));
   }

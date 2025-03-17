@@ -17,7 +17,6 @@ class ZapReceiptWidget extends StatefulWidget {
 class ZapReceiptState extends State<ZapReceiptWidget> {
   @override
   Widget build(BuildContext context) {
-    print('Zap:' + widget.zap.toString());
     if (widget.zap.sender == null) {
       return Chip(
           shape: StadiumBorder(),

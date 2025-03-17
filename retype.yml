@@ -5,12 +5,19 @@ include:
   - ".doc/**/*"
   - "app/screenshots/*"
 exclude: 
-- "app"
-- "escrow"
-- "infrastructure"
+  - "app"
+  - "escrow"
+  - "infrastructure"
+  - "docker"
 
 branding:
   title: Hostr
   logo: app/assets/images/logo/logo.svg
   label: Docs
+
 links:
+  - text: Getting Started
+    link: /.doc/guides/getting_started.md
+
+generator:
+  paths: absolute
