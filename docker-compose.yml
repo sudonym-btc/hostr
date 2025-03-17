@@ -89,24 +89,25 @@ services:
         aliases:
           - relay.hostr.development
 
-  # NOSTR Relat
+  # Nostr Blossom file server
   blossom:
     container_name: blossom
-    image: scsibug/nostr-rs-relay:latest
+    build:
+      context: ./docker/blossom
+      dockerfile: Dockerfile
     platform: linux/amd64
     environment:
-      - VIRTUAL_HOST=relay.hostr.development
-      - VIRTUAL_PORT=80
-      - ENABLE_WEBSOCKETS=true
+      - VIRTUAL_HOST=blossom.hostr.development
+      - VIRTUAL_PORT=3000
     ports:
-      - "${RELAY_PORT}:80"
+      - "3000:3000"
     volumes:
-      - ./docker/relay.toml:/usr/src/app/config.toml
-      - ./docker/data/relay:/usr/src/app/db
+      - ./docker/blossom.yaml:/app/config.yml
+      - ./docker/data/blossom:/app/data
     networks:
       default:
         aliases:
-          - relay.hostr.development
+          - blossom.hostr.development
   # Run EVM when don't want to run boltz but still want RPC client
   evm:
     build:

@@ -8,7 +8,7 @@ class DevelopmentConfig extends Config {
   @override
   List<String> relays = ['ws://relay.hostr.development'];
   @override
-  List<String> blossom = ['http://127.0.0.1:3000'];
+  List<String> blossom = ['http://blossom.hostr.development'];
   @override
   String rootstockRpcUrl =
       'http://localhost:8545'; //'https://public-node.testnet.rsk.co';
