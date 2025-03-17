@@ -1,0 +1,3 @@
+[submodule "docker/blossom"]
+	path = docker/blossom
+	url = git@github.com:hzrd149/blossom-server.git
