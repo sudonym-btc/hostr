@@ -27,6 +27,7 @@ import 'package:hostr/data/sources/nostr/nostr/nostr.service.dart' as _i194;
 import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i291;
 import 'package:hostr/data/sources/rpc/rootstock.dart' as _i631;
 import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
+import 'package:hostr/logic/cubit/payment/lnurl_payment.cubit.dart' as _i99;
 import 'package:hostr/logic/services/nwc.dart' as _i258;
 import 'package:hostr/logic/services/payment.dart' as _i151;
 import 'package:hostr/logic/services/swap.dart' as _i432;
@@ -110,8 +111,33 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i1071.ProductionConfig(),
       registerFor: {_prod},
     );
+    gh.factoryParam<_i99.LnUrlPaymentCubit, _i99.LnUrlPaymentParameters,
+        dynamic>(
+      (
+        params,
+        _,
+      ) =>
+          _i99.MockLnUrlPaymentCubit(params: params),
+      registerFor: {
+        _test,
+        _mock,
+      },
+    );
     gh.factory<_i428.BoltzClient>(() => _i428.BoltzClient(gh<_i800.Config>()));
     gh.singleton<_i857.Ndk>(() => _i396.NostrNdk(gh<_i800.Config>()));
+    gh.factoryParam<_i99.LnUrlPaymentCubit, _i99.LnUrlPaymentParameters,
+        dynamic>(
+      (
+        params,
+        _,
+      ) =>
+          _i99.LnUrlPaymentCubit(params: params),
+      registerFor: {
+        _dev,
+        _staging,
+        _prod,
+      },
+    );
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
       registerFor: {

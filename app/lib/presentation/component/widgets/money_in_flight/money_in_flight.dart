@@ -21,6 +21,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
   bool isLoading = false;
   String? error;
   Timer? _timer;
+  Duration refreshAfter = Duration(seconds: 100);
 
   @override
   void dispose() {
@@ -31,7 +32,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(Duration(seconds: 60), (timer) => _fetchBalance());
+    _timer = Timer.periodic(refreshAfter, (timer) => _fetchBalance());
     _fetchBalance();
   }
 
@@ -68,10 +69,16 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
     if (error != null) {
       return Text('Error: $error', style: TextStyle(color: Colors.red));
     }
-    return Column(children: [
-      SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
-      Text(
-          '${formatAmount(Amount(value: convertWeiToSatoshi(balance!.toDouble()), currency: Currency.BTC), exact: false) ?? 'loading'}'),
-    ]);
+    return Visibility(
+      key: Key('money-in-flight-widget-key'),
+      maintainState: false,
+      child: Column(
+        children: [
+          SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
+          Text(
+              '${formatAmount(Amount(value: convertWeiToSatoshi(balance!.toDouble()), currency: Currency.BTC), exact: false) ?? 'loading'}'),
+        ],
+      ),
+    );
   }
 }

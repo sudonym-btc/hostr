@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/payment/bolt11_payment.cubit.dart';
 import 'package:hostr/logic/cubit/payment/lnurl_payment.cubit.dart';
 
@@ -13,7 +14,7 @@ class PaymentsManager extends Cubit<PaymentCubit?> {
     if (params is Bolt11PaymentParameters) {
       payment = Bolt11PaymentCubit(params: params);
     } else if (params is LnUrlPaymentParameters) {
-      payment = LnUrlPaymentCubit(params: params);
+      payment = getIt<LnUrlPaymentCubit>(param1: params);
     } else {
       throw Exception('Unsupported payment type');
     }

@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/router.dart';
-import 'package:models/main.dart' hide DateRange;
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 class ListingView extends StatelessWidget {
@@ -36,7 +36,6 @@ class ListingView extends StatelessWidget {
               }
               return Scaffold(
                   bottomNavigationBar: BottomAppBar(
-                    shape: CircularNotchedRectangle(),
                     child: CustomPadding(
                         top: 0,
                         bottom: 0,

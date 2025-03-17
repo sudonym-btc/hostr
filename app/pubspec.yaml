@@ -24,11 +24,9 @@ dependencies:
     sdk: flutter
   google_maps_flutter: ^2.10.0
   sliding_up_panel: ^2.0.0+1
-  salomon_bottom_bar: ^3.3.2
   hydrated_bloc: ^10.0.0
   flutter_bloc: ^9.0.0
   equatable: ^2.0.5
-  auto_animated: ^3.1.0
   carousel_slider: ^5.0.0
   timeago: ^3.2.2
   path_provider: ^2.1.1
@@ -46,20 +44,17 @@ dependencies:
   kepler: ^1.0.3
   pointycastle: ^3.9.1
   crypto: ^3.0.6
-  bip32: ^2.0.0
   bip39: ^1.0.6
-  dart_bip32_bip44: ^0.2.0
   chopper: ^8.0.0
   json_annotation: ^4.8.0
   qr_flutter: ^4.1.0
   mobile_scanner: ^6.0.2
   image_picker: ^1.1.2
-  ndk:
-    git:
-      url: https://github.com/relaystr/ndk
-  # ndk_rust_verifier: ^0.2.1
-  ndk_amber: ^0.2.0
-
+  ndk: ^0.3.2
+  ndk_amber: ^0.3.0
+  models:
+    path: ../models
+    
 dev_dependencies:
   mockito: ^5.4.5
   auto_route_generator: ^9.0.0
@@ -69,7 +64,6 @@ dev_dependencies:
     sdk: flutter
   bloc_test: ^10.0.0
   flutter_lints: ^5.0.0
-  screenshot: ^3.0.0
   chopper_generator: ^8.0.0
   json_serializable: ^6.6.1
   swagger_dart_code_generator: ^3.0.1
@@ -81,8 +75,6 @@ dev_dependencies:
   flutter_driver:
     sdk: flutter
   mocktail_image_network: ^1.2.0
-  models:
-    path: ../models
 
 dependency_overrides:
   ndk:
