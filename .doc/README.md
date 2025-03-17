@@ -58,6 +58,7 @@ P1
   - [ ] Sync giftwraps
   - [ ] Broadcast preferred user blossom servers if not found
   - [ ] Broadcast preferred user relays if not found
+  - [ ] Broadcast preferred user escrows if not found
 - [ ] Blossom files
   - [ ] Image component which loads pubkeys blossom servers and generates file path
   - [ ] Caching of blossom servers between Image components

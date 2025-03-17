@@ -340,15 +340,6 @@ class SwapService {
             result,
           );
         }).toList();
-        print(
-            'Trade logged with tradeId converted to hex: ${bytesToHex(tradeCreated[0].tradeId)}');
-
-        // // final logs = await client.getLogs(filter);
-        // print('fromBlock ${BlockNum.genesis()}');
-        // print('toBlock ${await client.getBlockNumber()}');
-        // yield* e.tradeCreatedEvents(
-        //     fromBlock: BlockNum.exact(0),
-        //     toBlock: BlockNum.exact(await client.getBlockNumber()));
       }
     }
   }

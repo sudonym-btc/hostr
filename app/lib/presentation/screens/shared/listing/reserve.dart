@@ -8,10 +8,16 @@ import 'package:hostr/router.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-class Reserve extends StatelessWidget {
+class Reserve extends StatefulWidget {
   final Listing listing;
   const Reserve({super.key, required this.listing});
 
+  @override
+  State<StatefulWidget> createState() => ReserveState();
+}
+
+class ReserveState extends State<Reserve> {
+  bool loading = false;
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<DateRangeCubit, DateRangeState>(
@@ -25,7 +31,7 @@ class Reserve extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(formatAmount(listing.cost(
+                            Text(formatAmount(widget.listing.cost(
                                 dateState.dateRange!.start,
                                 dateState.dateRange!.end))),
                             Text(
@@ -40,9 +46,12 @@ class Reserve extends StatelessWidget {
                   BlocBuilder<EventPublisherCubit, EventPublisherState>(
                       builder: (context, state) {
                     return FilledButton(
-                        onPressed: dateState.dateRange == null
+                        onPressed: loading || dateState.dateRange == null
                             ? null
                             : () async {
+                                setState(() {
+                                  loading = true;
+                                });
                                 ReservationRequest req = ReservationRequest
                                     .fromNostrEvent(Nip01Event(
                                         kind: NOSTR_KIND_RESERVATION_REQUEST,
@@ -54,7 +63,7 @@ class Reserve extends StatelessWidget {
                                                     dateState.dateRange!.start,
                                                 end: dateState.dateRange!.end,
                                                 quantity: 1,
-                                                amount: listing.cost(
+                                                amount: widget.listing.cost(
                                                     dateState.dateRange!.start,
                                                     dateState.dateRange!.end),
                                                 commitmentHash: 'hash',
@@ -64,7 +73,7 @@ class Reserve extends StatelessWidget {
                                         pubKey: MockKeys.hoster.publicKey)
                                       ..sign(MockKeys.hoster.privateKey!));
                                 final id =
-                                    '${listing.anchor}/${crypto.sha256.convert(req.toString().codeUnits).bytes}';
+                                    '${widget.listing.anchor}/${crypto.sha256.convert(req.toString().codeUnits).bytes}';
                                 Nip01Event msg = Nip01Event(
                                     pubKey: MockKeys.hoster.publicKey,
                                     kind: NOSTR_KIND_DM,
@@ -80,7 +89,7 @@ class Reserve extends StatelessWidget {
                                     .read<EventPublisherCubit>()
                                     .publishEvents([
                                   giftWrapAndSeal(
-                                          listing.nip01Event.pubKey,
+                                          widget.listing.nip01Event.pubKey,
                                           getIt<KeyStorage>()
                                               .getActiveKeyPairSync()!,
                                           msg,
@@ -97,10 +106,18 @@ class Reserve extends StatelessWidget {
                                       .nip01Event,
                                 ]);
 
+                                setState(() {
+                                  loading = false;
+                                });
+
                                 AutoRouter.of(context)
                                     .push(ThreadRoute(id: id));
                               },
-                        child: Text('Reserve'));
+                        child: loading
+                            ? CircularProgressIndicator(
+                                constraints:
+                                    BoxConstraints(minWidth: 5, minHeight: 5))
+                            : Text('Reserve'));
                   }),
                 ])));
   }

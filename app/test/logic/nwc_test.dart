@@ -38,7 +38,7 @@ void main() {
       act: (bloc) {
         return bloc.connect('invalid');
       },
-      expect: () => <NwcCubitState>[Error()],
+      expect: () => <NwcCubitState>[Loading(), Error()],
     );
 
     blocTest<NwcCubit, NwcCubitState>(

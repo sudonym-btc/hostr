@@ -16,9 +16,11 @@ ThemeData getTheme(bool isDark) {
             selectedItemColor: Colors.white, // Use white for selected item
             unselectedItemColor: Colors.grey, // Use grey for unselected item
           ),
+          splashColor: Colors.white, // Set splash color to match theme
         )
-      : ThemeData.dark().copyWith(
-          brightness: Brightness.dark,
+      : ThemeData.light().copyWith(
+          brightness: Brightness.light,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          splashColor: Colors.deepPurple, // Set splash color to match theme
         );
 }
