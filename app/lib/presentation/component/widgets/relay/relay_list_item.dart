@@ -12,10 +12,10 @@ class RelayListItemWidget extends StatefulWidget {
       {super.key, required this.relay, required this.connectivity});
 
   @override
-  _RelayListItemWidgetState createState() => _RelayListItemWidgetState();
+  RelayListItemWidgetState createState() => RelayListItemWidgetState();
 }
 
-class _RelayListItemWidgetState extends State<RelayListItemWidget> {
+class RelayListItemWidgetState extends State<RelayListItemWidget> {
   late Timer _timer;
 
   @override

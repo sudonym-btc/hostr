@@ -9,14 +9,14 @@ class ZapListWidget extends StatefulWidget {
   final Widget Function(ZapReceipt) builder;
 
   const ZapListWidget(
-      {required this.pubkey, this.eventId, required this.builder});
+      {super.key, required this.pubkey, this.eventId, required this.builder});
   // final String? originalEventId; @todo replaceable events
 
   @override
-  _ZapListWidgetState createState() => _ZapListWidgetState();
+  ZapListWidgetState createState() => ZapListWidgetState();
 }
 
-class _ZapListWidgetState extends State<ZapListWidget> {
+class ZapListWidgetState extends State<ZapListWidget> {
   late final Stream<ZapReceipt> zapStream;
 
   @override
@@ -36,7 +36,7 @@ class _ZapListWidgetState extends State<ZapListWidget> {
             return ZapReceiptWidget(zap: snapshot.data!);
           } else {
             if (snapshot.hasError) {
-              print("Zaps error: ${snapshot.error}");
+              return Text('Error: ${snapshot.error}');
             } else if (snapshot.connectionState == ConnectionState.done) {
               return Container();
             }

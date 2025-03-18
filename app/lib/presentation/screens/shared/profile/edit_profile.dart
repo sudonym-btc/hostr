@@ -17,6 +17,8 @@ class EditProfileScreen extends StatelessWidget {
 }
 
 class EditProfileView extends StatefulWidget {
+  const EditProfileView({super.key});
+
   @override
   State<StatefulWidget> createState() => EditProfileViewState();
 }

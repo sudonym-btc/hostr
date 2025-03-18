@@ -73,9 +73,6 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
   void addImages(List<CustomImage> images) {
     this.images.addAll(images);
 
-    print('maxxx $maxImages');
-    print('images ${this.images.length}');
-
     /// Strip first images away if maxImages is reached
     if (maxImages != null && this.images.length > maxImages!) {
       this.images.removeRange(0, this.images.length - maxImages!);

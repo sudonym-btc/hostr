@@ -56,7 +56,7 @@ class HomeScreen extends StatelessWidget {
                       onTap: tabsRouter.setActiveIndex,
                       items: hostTabs));
         }
-        const otherTabs = const [
+        const otherTabs = [
           BottomNavigationBarItem(
               icon: Icon(Icons.search, size: 30), label: 'Search'),
           BottomNavigationBarItem(

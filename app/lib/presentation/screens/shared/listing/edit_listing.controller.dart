@@ -14,7 +14,6 @@ class EditListingController {
 
   setState(Listing? data) {
     l = data;
-    print('setting state');
     imageController.setImages((data?.parsedContent.images ?? [])
         .map((i) => CustomImage.path(i))
         .toList());
@@ -27,8 +26,7 @@ class EditListingController {
       var image = imageController.images[i];
       if (image.file != null) {
         var data = await image.file!.readAsBytes();
-        List<BlobUploadResult> blob =
-            await getIt<Ndk>().blossom.uploadBlob(data: data);
+        await getIt<Ndk>().blossom.uploadBlob(data: data);
         var imagePath = sha256.convert(data).toString();
         imageController.images[i] = CustomImage.path(imagePath);
       }

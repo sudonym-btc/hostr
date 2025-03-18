@@ -4,8 +4,8 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/providers/main.dart';
 
 class InboxItemWidget extends StatelessWidget {
-  ThreadCubit threadCubit;
-  InboxItemWidget({super.key, required this.threadCubit});
+  final ThreadCubit threadCubit;
+  const InboxItemWidget({super.key, required this.threadCubit});
 
   @override
   Widget build(BuildContext context) {

@@ -13,6 +13,7 @@ class EscrowSelectorWidget extends StatefulWidget {
   const EscrowSelectorWidget(
       {super.key, required this.counterparty, required this.r});
 
+  @override
   createState() => _EscrowSelectorWidgetState();
 }
 
@@ -31,54 +32,50 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
               style: Theme.of(context).textTheme.titleLarge!,
               'Which escrow would you like to use to settle this transfer?'),
           CustomPadding(),
-          Container(
-            child: FutureBuilder(
-              future: getIt<NostrService>().trustedEscrows(),
-              builder:
-                  (BuildContext context, AsyncSnapshot<Nip51List?> snapshot) {
-                if (snapshot.connectionState == ConnectionState.done) {
-                  if (snapshot.hasData) {
-                    return DropdownButton<dynamic>(
-                      value: _current,
-                      isExpanded: true,
-                      underline: Container(),
-                      selectedItemBuilder: (BuildContext context) {
-                        if (_current == null) {
-                          return [
-                            Text(AppLocalizations.of(context)!.selectEscrow)
-                          ];
-                        }
-                        return [ProfileChipWidget(id: _current!)];
-                      },
-                      items: snapshot.data!
-                          .byTag('p')
-                          .map<DropdownMenuItem<dynamic>>(
-                              (Nip51ListElement pubkey) {
-                        return DropdownMenuItem(
-                          value: pubkey.value,
-                          child: Text(pubkey.value,
-                              style: TextStyle(
-                                  fontSize: 20,
-                                  overflow: TextOverflow.ellipsis)),
-                        );
-                      }).toList(),
-                      onChanged: (dynamic size) {
-                        if (_current != size) {
-                          setState(() {
-                            _current = size!;
-                          });
-                        }
-                      },
-                    );
-                    ;
-                  } else {
-                    return Text("No escrows trusted yet");
-                  }
+          FutureBuilder(
+            future: getIt<NostrService>().trustedEscrows(),
+            builder:
+                (BuildContext context, AsyncSnapshot<Nip51List?> snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                if (snapshot.hasData) {
+                  return DropdownButton<dynamic>(
+                    value: _current,
+                    isExpanded: true,
+                    underline: Container(),
+                    selectedItemBuilder: (BuildContext context) {
+                      if (_current == null) {
+                        return [
+                          Text(AppLocalizations.of(context)!.selectEscrow)
+                        ];
+                      }
+                      return [ProfileChipWidget(id: _current!)];
+                    },
+                    items: snapshot.data!
+                        .byTag('p')
+                        .map<DropdownMenuItem<dynamic>>(
+                            (Nip51ListElement pubkey) {
+                      return DropdownMenuItem(
+                        value: pubkey.value,
+                        child: Text(pubkey.value,
+                            style: TextStyle(
+                                fontSize: 20, overflow: TextOverflow.ellipsis)),
+                      );
+                    }).toList(),
+                    onChanged: (dynamic size) {
+                      if (_current != size) {
+                        setState(() {
+                          _current = size!;
+                        });
+                      }
+                    },
+                  );
                 } else {
-                  return CircularProgressIndicator();
+                  return Text("No escrows trusted yet");
                 }
-              },
-            ),
+              } else {
+                return CircularProgressIndicator();
+              }
+            },
           ),
           CustomPadding(),
           Align(
@@ -88,13 +85,6 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                   onPressed: _current == null
                       ? null
                       : () async {
-                          List<Escrow> l = await getIt<NostrService>()
-                              .startRequestAsync<Escrow>(filters: [
-                            Filter(
-                                authors: [_current!],
-                                kinds: [NOSTR_KIND_ESCROW])
-                          ]);
-                          Navigator.of(context).pop();
                           List<Escrow> escrowServices =
                               await getIt<NostrService>()
                                   .startRequestAsync(filters: [

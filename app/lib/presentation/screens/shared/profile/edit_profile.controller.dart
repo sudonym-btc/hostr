@@ -33,8 +33,7 @@ class EditProfileController {
     if (imageController.images.isNotEmpty &&
         imageController.images.first.file != null) {
       var data = await imageController.images.first.file!.readAsBytes();
-      List<BlobUploadResult> blob =
-          await getIt<Ndk>().blossom.uploadBlob(data: data);
+      await getIt<Ndk>().blossom.uploadBlob(data: data);
       image = sha256.convert(data).toString();
     }
 
@@ -44,11 +43,5 @@ class EditProfileController {
         nip05: nip05,
         lud16: lightningAddress,
         picture: image));
-    // ignore: avoid_print
-    print('Display Name: $name');
-    print('About Me: $aboutMe');
-    print('NIP 05: $nip05');
-    print('Lightning Address: $lightningAddress');
-    print('Image: $image');
   }
 }

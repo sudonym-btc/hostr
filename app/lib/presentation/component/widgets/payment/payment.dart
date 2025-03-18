@@ -6,7 +6,7 @@ import 'package:models/main.dart';
 
 class PaymentWidget extends StatelessWidget {
   final PaymentCubit paymentCubit;
-  const PaymentWidget({Key? key, required this.paymentCubit});
+  const PaymentWidget({super.key, required this.paymentCubit});
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +22,7 @@ class PaymentWidget extends StatelessWidget {
             return Material(
                 color: Colors.green,
                 child: CustomPadding(
-                    child: Container(
+                    child: SizedBox(
                         width: double.infinity,
                         child: Text(
                             AppLocalizations.of(context)!.paymentCompleted))));
@@ -36,8 +36,6 @@ class PaymentWidget extends StatelessWidget {
             nwcInfo =
                 CustomPadding(child: NostrWalletConnectConnectionWidget());
           }
-          print(
-              'Payment of type ${state.runtimeType}, ${paymentCubit.runtimeType}, ${state.params.amount?.value}');
 
           return Column(
               mainAxisAlignment: MainAxisAlignment.end,

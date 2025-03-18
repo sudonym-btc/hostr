@@ -67,7 +67,6 @@ Future<LNURLParseResult> getParams(String encodedUrl) async {
   try {
     /// Call the lnurl to get a response
     final res = await getIt<Dio>().get(decodedUri.toString());
-    print('HTTP GET request complet with dio. Status code: ${res.statusCode}');
 
     /// If there's an error then throw it
     if (res.statusCode! >= 300) {

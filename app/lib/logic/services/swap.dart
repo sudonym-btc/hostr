@@ -99,7 +99,7 @@ class SwapService {
       logger.i('Sent RBTC in: $tx');
     } catch (e) {
       // Handle errors and print the error message
-      print('\n\nERRRR: ' + e.toString() + '\n\n');
+      logger.e('\n\nERRRR: $e\n\n');
     }
   }
 
@@ -115,8 +115,8 @@ class SwapService {
         address: EthereumAddress.fromHex(
             '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'),
         client: client);
-    print('listing for events');
-    print(e.self.events.map((x) => x.name));
+    logger.i('listing for events');
+    logger.i(e.self.events.map((x) => x.name));
     // List past events
     final filter = FilterOptions.events(
       contract: e.self,
@@ -126,7 +126,7 @@ class SwapService {
     );
 
     final logs = await client.getLogs(filter);
-    print(logs);
+    logger.i(logs);
     for (var log in logs) {
       logger.i('Past Trade created: $log');
     }
@@ -149,22 +149,7 @@ class SwapService {
     MultiEscrow e = MultiEscrow(
         address: EthereumAddress.fromHex(escrowContractAddress),
         client: client);
-    logger.i('Creating escrow for $eventId');
-    print((
-      tradeId: getTopicHex(getBytes32(eventId)),
-      timelock: BigInt.from(timelock),
-
-      /// Arbiter public key from their nostr advertisement
-      arbiter: getEthAddressFromPublicKey(escrowPubkey),
-
-      /// Seller address derived from their nostr pubkey
-      seller: getEthAddressFromPublicKey(sellerPubkey),
-
-      /// Our address derived from our nostr private key
-      buyer: ethKey.address,
-      escrowFee: BigInt.from(100),
-    ));
-    String escrowTx = await e.createTrade((
+    var tuple = (
       tradeId: getBytes32(eventId),
       timelock: BigInt.from(timelock),
 
@@ -177,7 +162,10 @@ class SwapService {
       /// Our address derived from our nostr private key
       buyer: ethKey.address,
       escrowFee: BigInt.from(100),
-    ),
+    );
+    logger.i('Creating escrow for $eventId');
+    logger.i(tuple);
+    String escrowTx = await e.createTrade(tuple,
         credentials: ethKey,
         transaction: Transaction(
             value: EtherAmount.fromBigInt(
@@ -186,7 +174,7 @@ class SwapService {
                     satoshiWeiFactor)));
 
     final receipt = await client.getTransactionReceipt(escrowTx);
-    print(receipt);
+    logger.i(receipt);
   }
 
   swapIn(int amountSats) async {
@@ -267,7 +255,7 @@ class SwapService {
           /// Why is swap.refundPublicKey null in the response
 
           refundAddress:
-              lockupTx!.from, //EthereumAddress.fromHex(swap.refundPublicKey!),
+              lockupTx.from, //EthereumAddress.fromHex(swap.refundPublicKey!),
 
           timelock: BigInt.from(swap.timeoutBlockHeight),
         );
@@ -307,12 +295,12 @@ class SwapService {
             client: client);
 
         Trades x = await e.trades(($param9: idBytes32));
-        print('Current trade: ${x}');
+        logger.i('Current trade: $x');
         final tradeCreatedEvent =
             e.self.events.firstWhere((x) => x.name == 'TradeCreated');
         final sig = bytesToHex(tradeCreatedEvent.signature,
             padToEvenLength: true, include0x: true);
-        print('Log sig $sig');
+        logger.i('Log sig $sig');
         final filter = FilterOptions(
           topics: [
             [
@@ -327,10 +315,10 @@ class SwapService {
         );
 
         final logs = await client.getLogs(filter);
-        print('Filtered logs: ${logs.length} for hexTopic $hexTopic');
+        logger.i('Filtered logs: ${logs.length} for hexTopic $hexTopic');
 
         List<TradeCreated> tradeCreated = logs.map((FilterEvent result) {
-          print('trade log topics: ${result.topics}');
+          logger.i('trade log topics: ${result.topics}');
           final decoded = tradeCreatedEvent.decodeResults(
             result.topics!,
             result.data!,
@@ -345,7 +333,7 @@ class SwapService {
   }
 }
 
-getBytes32(String eventId) {
+Uint8List getBytes32(String eventId) {
   return Uint8List.fromList(hex.decode(eventId));
 }
 

@@ -45,7 +45,7 @@ class SearchViewState extends State<SearchView> {
               child: Scaffold(
                   body: Column(children: [
                 Stack(children: [
-                  Container(
+                  SizedBox(
                       height: listingStartHeight, child: SearchMapWidget()),
                   SafeArea(
                       child: InkWell(
@@ -79,8 +79,7 @@ class SearchViewState extends State<SearchView> {
                         color: Theme.of(context).scaffoldBackgroundColor,
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                Colors.black.withOpacity(0.2), // Shadow color
+                            color: Colors.black.withAlpha(100), // Shadow color
                             spreadRadius: 2,
                             blurRadius: 10,
                             offset: Offset(

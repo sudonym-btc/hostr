@@ -6,6 +6,8 @@ import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class SignUpWidget extends StatelessWidget {
+  const SignUpWidget({super.key});
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(

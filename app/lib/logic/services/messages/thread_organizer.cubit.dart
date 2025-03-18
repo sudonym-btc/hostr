@@ -63,6 +63,7 @@ class ThreadOrganizerCubit<T extends Event>
     }
     logger.i(
         "No thread id found for event ${event.child.runtimeType}, ${event.child.runtimeType},${(event.child as Seal).child.runtimeType}, $event");
+    return null;
   }
 }
 

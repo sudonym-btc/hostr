@@ -6,10 +6,10 @@ class EscrowListItemWidget extends StatefulWidget {
   const EscrowListItemWidget({super.key, required this.entity});
 
   @override
-  _EscrowListItemWidgetState createState() => _EscrowListItemWidgetState();
+  EscrowListItemWidgetState createState() => EscrowListItemWidgetState();
 }
 
-class _EscrowListItemWidgetState extends State<EscrowListItemWidget> {
+class EscrowListItemWidgetState extends State<EscrowListItemWidget> {
   bool _isChecked = false;
 
   @override

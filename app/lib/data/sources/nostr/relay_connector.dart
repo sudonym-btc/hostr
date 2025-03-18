@@ -19,7 +19,7 @@ class ProdRelayConnector extends RelayConnector {
   Future connect() async {
     var relays = await relayStorage.get();
     Uri? nwc = await nwcStorage.getUri();
-    logger.i('Connecting to relays');
+    logger.i('Connecting to relays $relays $nwc');
 
     await getIt<Ndk>().relays.seedRelaysConnected;
   }

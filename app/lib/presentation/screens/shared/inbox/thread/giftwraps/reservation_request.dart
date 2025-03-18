@@ -49,12 +49,9 @@ class ThreadReservationRequestWidget extends StatelessWidget {
   }
 
   Widget paymentStatus(BuildContext context) {
-    print('id is ${r.nip01Event.id}');
     return StreamBuilder(
         stream: getIt<SwapService>().checkEscrowStatus(r.nip01Event.id),
         builder: (context, snapshot) {
-          print(snapshot);
-          print('snapshot above');
           return Text('Payment status: ${snapshot.data}');
         });
 

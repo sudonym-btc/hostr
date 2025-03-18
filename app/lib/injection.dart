@@ -11,17 +11,16 @@ final getIt = GetIt.instance;
 
 @injectableInit
 void configureInjection(String environment) {
+  // ignore: avoid_print
   print('Setting up injection for $environment');
 
   getIt.init(environment: environment);
 
   Dio dio = Dio();
   (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
-    print('Dio creating http cleint');
     HttpClient client = HttpClient();
     client.badCertificateCallback =
         (X509Certificate cert, String host, int port) {
-      print('badCertificateCallback called for: $host:$port');
       return true;
     };
     return client;

@@ -22,8 +22,6 @@ class MyHttpOverrides extends HttpOverrides {
 
     client.badCertificateCallback =
         (X509Certificate cert, String host, int port) {
-      print('badCertificateCallback called for: $host:$port');
-      print('Certificate: ${cert.subject}');
       return true;
     };
     return client;
