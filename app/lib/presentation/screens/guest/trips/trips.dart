@@ -1,5 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 
 @RoutePage()
 class TripsScreen extends StatelessWidget {
@@ -8,9 +9,9 @@ class TripsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: Text('Trips'),
+          title: Text(AppLocalizations.of(context)!.trips),
         ),
-        body: Center(child: Text("No trips yet")));
+        body: Center(child: Text(AppLocalizations.of(context)!.noTripsYet)));
     // BlocBuilder<ThreadOrganizerCubit, ThreadOrganizerState>(
     //     builder: (context, state) {
     //   return ListView.builder(

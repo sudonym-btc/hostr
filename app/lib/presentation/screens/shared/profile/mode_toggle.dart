@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
@@ -23,11 +24,13 @@ class ModeToggleWidget extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text('Host Mode', textAlign: TextAlign.center),
+                child: Text(AppLocalizations.of(context)!.hostMode,
+                    textAlign: TextAlign.center),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text('Guest Mode', textAlign: TextAlign.center),
+                child: Text(AppLocalizations.of(context)!.guestMode,
+                    textAlign: TextAlign.center),
               ),
             ],
           ),

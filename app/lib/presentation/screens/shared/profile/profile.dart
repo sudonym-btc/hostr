@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
@@ -79,12 +80,11 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
             ),
-            title: Text('Profile'),
+            title: Text(AppLocalizations.of(context)!.profile),
             actions: [
               IconButton(
                 icon: Icon(Icons.edit),
                 onPressed: () {
-                  print('hello');
                   AutoRouter.of(context).navigate(EditProfileRoute());
                 },
               ),
@@ -94,7 +94,7 @@ class ProfileScreen extends StatelessWidget {
             delegate: SliverChildListDelegate([
               ModeToggleWidget(),
               Section(
-                  title: 'Wallet',
+                  title: AppLocalizations.of(context)!.wallet,
                   action: FilledButton.tonal(
                       onPressed: () {
                         showModalBottomSheet(
@@ -103,7 +103,7 @@ class ProfileScreen extends StatelessWidget {
                               return AddWalletWidget();
                             });
                       },
-                      child: Text('Connect')),
+                      child: Text(AppLocalizations.of(context)!.connect)),
                   body: NostrWalletConnectWidget()),
               Section(
                 title: "Relays",
@@ -115,7 +115,7 @@ class ProfileScreen extends StatelessWidget {
                             return Text('');
                           });
                     },
-                    child: Text('Connect')),
+                    child: Text(AppLocalizations.of(context)!.connect)),
                 body: RelayListWidget(),
               ),
               Section(
@@ -128,7 +128,7 @@ class ProfileScreen extends StatelessWidget {
                             return AddWalletWidget();
                           });
                     },
-                    child: Text('Add')),
+                    child: Text(AppLocalizations.of(context)!.add)),
                 body: FutureBuilder(
                   future: getIt<NostrService>().trustedEscrows(),
                   builder: (BuildContext context,
@@ -174,7 +174,7 @@ class ProfileScreen extends StatelessWidget {
                   body: Column(
                 children: [
                   FilledButton(
-                    child: Text('Logout'),
+                    child: Text(AppLocalizations.of(context)!.logout),
                     onPressed: () async {
                       final router =
                           AutoRouter.of(context); // Store the router instance
@@ -195,7 +195,7 @@ class ProfileScreen extends StatelessWidget {
                 Row(
                   children: [
                     FilledButton(
-                      child: Text('Zap us'),
+                      child: Text(AppLocalizations.of(context)!.zapUs),
                       onPressed: () {
                         context.read<PaymentsManager>().create(
                             LnUrlPaymentParameters(

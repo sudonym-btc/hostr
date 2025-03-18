@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/swap.dart';
@@ -83,12 +84,14 @@ class ThreadReservationRequestWidget extends StatelessWidget {
                     builder: (context, state) => FilledButton(
                         key: ValueKey('accept'),
                         onPressed: () => accept(context, l),
-                        child: Text(isSentByMe ? 'Reserve' : 'Accept')),
+                        child: Text(isSentByMe
+                            ? AppLocalizations.of(context)!.reserve
+                            : AppLocalizations.of(context)!.accept)),
                   ));
             }
             return FilledButton(
               onPressed: null,
-              child: Text('Accepted'),
+              child: Text(AppLocalizations.of(context)!.accepted),
             );
           });
     }
@@ -97,7 +100,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
     return FilledButton(
         key: ValueKey('pay'),
         onPressed: () => pay(context),
-        child: Text('Pay'));
+        child: Text(AppLocalizations.of(context)!.pay));
   }
 
   @override

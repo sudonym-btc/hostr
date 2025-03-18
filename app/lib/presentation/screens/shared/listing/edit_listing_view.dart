@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide TimeOfDay;
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 import 'package:models/main.dart';
@@ -39,7 +40,7 @@ class EditListingViewState extends State<EditListingView> {
                           });
                         }
                       : null,
-                  child: Text('Save'),
+                  child: Text(AppLocalizations.of(context)!.save),
                 ))),
         body: Form(
             child: Column(

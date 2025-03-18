@@ -1,5 +1,6 @@
 import 'package:bip39/bip39.dart';
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -45,7 +46,7 @@ class SignUpWidget extends StatelessWidget {
               Center(
                 child: FilledButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('Proceed'),
+                  child: Text(AppLocalizations.of(context)!.proceed),
                 ),
               ),
             ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:ndk/shared/nips/nip01/bip340.dart';
@@ -57,7 +58,7 @@ class _NostrWalletAuthWidgetState extends State<NostrWalletAuthWidget> {
                     onPressed: () async {
                       await launchUrl(nostrWalletAuth!);
                     },
-                    child: Text('Connect')),
+                    child: Text(AppLocalizations.of(context)!.connect)),
                 MaterialButton(
                     onPressed: () async {
                       await Clipboard.setData(
@@ -69,7 +70,7 @@ class _NostrWalletAuthWidgetState extends State<NostrWalletAuthWidget> {
                         ),
                       );
                     },
-                    child: Text('Copy'))
+                    child: Text(AppLocalizations.of(context)!.copy))
               ],
             )
           ])

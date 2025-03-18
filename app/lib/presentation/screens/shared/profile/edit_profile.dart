@@ -1,5 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/screens/shared/listing/image_picker.dart';
@@ -64,7 +65,7 @@ class EditProfileViewState extends State<EditProfileView> {
         key: formKey,
         child: Scaffold(
           appBar: AppBar(
-            title: Text('Edit Profile'),
+            title: Text(AppLocalizations.of(context)!.editProfile),
           ),
           body: ProfileProvider(
             pubkey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
@@ -97,7 +98,7 @@ class EditProfileViewState extends State<EditProfileView> {
                           () => loading = false,
                         );
                       },
-                child: Text('Save'),
+                child: Text(AppLocalizations.of(context)!.save),
               ),
             ),
           ),

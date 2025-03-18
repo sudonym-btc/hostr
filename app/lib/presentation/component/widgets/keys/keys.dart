@@ -2,6 +2,7 @@ import 'package:bip39/bip39.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
@@ -36,21 +37,21 @@ class KeysWidgetState extends State<KeysWidget> {
         ? Column(
             children: [
               ListTile(
-                title: Text('Public key'),
+                title: Text(AppLocalizations.of(context)!.publicKey),
                 subtitle: Text(key!.publicKey),
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: key!.publicKey));
                 },
               ),
               ListTile(
-                title: Text('Private key'),
+                title: Text(AppLocalizations.of(context)!.privateKey),
                 subtitle: Text(key!.privateKey!),
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: key!.privateKey!));
                 },
               ),
               ListTile(
-                title: Text('Public eth address'),
+                title: Text(AppLocalizations.of(context)!.evmAddress),
                 subtitle: Text(getEthCredentials(key!.privateKey!).address.hex),
                 onTap: () {
                   Clipboard.setData(ClipboardData(
@@ -58,7 +59,8 @@ class KeysWidgetState extends State<KeysWidget> {
                 },
               ),
               ListTile(
-                title: Text('Public eth address from pubkey'),
+                title: Text(
+                    AppLocalizations.of(context)!.evmAddress + ' from pubkey'),
                 subtitle: Text(getEthAddressFromPublicKey(key!.publicKey).hex),
                 onTap: () {
                   Clipboard.setData(ClipboardData(
@@ -66,7 +68,7 @@ class KeysWidgetState extends State<KeysWidget> {
                 },
               ),
               ListTile(
-                title: Text('Private eth key'),
+                title: Text(AppLocalizations.of(context)!.evmPrivateKey),
                 subtitle: Text(bytesToHex(
                     (getEthCredentials(key!.privateKey!).privateKey))),
                 onTap: () {
