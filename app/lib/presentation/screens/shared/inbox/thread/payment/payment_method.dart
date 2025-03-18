@@ -16,7 +16,6 @@ class PaymentMethodWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: implement build
     return SafeArea(
         child: CustomPadding(
       child: Column(

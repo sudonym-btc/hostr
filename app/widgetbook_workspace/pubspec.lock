@@ -58,18 +58,10 @@ packages:
     dependency: transitive
     description:
       name: async
-      sha256: d2872f9c19731c2e5f10444b14686eb7cc85c76274bd6c16e1816bff9a3bab63
+      sha256: "758e6d74e971c3e5aceb4110bfd6698efc7f501675bcfe0c775459a8140750eb"
       url: "https://pub.dev"
     source: hosted
-    version: "2.12.0"
-  auto_animated:
-    dependency: transitive
-    description:
-      name: auto_animated
-      sha256: f62311033d043d2709c25444551debdfd08649138c2923b0298d776792291149
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.2.0"
+    version: "2.13.0"
   auto_route:
     dependency: transitive
     description:
@@ -94,14 +86,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.2"
-  bip32:
-    dependency: transitive
-    description:
-      name: bip32
-      sha256: "54787cd7a111e9d37394aabbf53d1fc5e2e0e0af2cd01c459147a97c0e3f8a97"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.0"
   bip340:
     dependency: transitive
     description:
@@ -150,14 +134,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
-  bs58check:
-    dependency: transitive
-    description:
-      name: bs58check
-      sha256: c4a164d42b25c2f6bc88a8beccb9fc7d01440f3c60ba23663a20a70faf484ea9
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.2"
   build:
     dependency: transitive
     description:
@@ -326,14 +302,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.2"
-  dart_bip32_bip44:
-    dependency: transitive
-    description:
-      name: dart_bip32_bip44
-      sha256: ca8417bac434f2ece417b03818d91fe2d1d036e5aa568743872dede401660560
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.2.0"
   dart_style:
     dependency: transitive
     description:
@@ -697,6 +665,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.2"
+  http_methods:
+    dependency: transitive
+    description:
+      name: http_methods
+      sha256: "6bccce8f1ec7b5d701e7921dca35e202d425b57e317ba1a37f2638590e29e566"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
   http_multi_server:
     dependency: transitive
     description:
@@ -981,10 +957,10 @@ packages:
     dependency: transitive
     description:
       name: ndk_amber
-      sha256: "8624bf6e92aac7ea8aa77287d38d9da3a2db3ad9707ef1f0336138dfee49196c"
+      sha256: "6f525e2bcdea08ecdd1815e2fdfc6e53c4bb86335927d8c333c1f4513dc1c099"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.3.0"
   nested:
     dependency: transitive
     description:
@@ -1177,14 +1153,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.28.0"
-  salomon_bottom_bar:
-    dependency: transitive
-    description:
-      name: salomon_bottom_bar
-      sha256: e20abf2e449749432223a8b4e6647c212eef6c2b638e0ed8cc92eff9529c2b48
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.3.2"
   sanitize_html:
     dependency: transitive
     description:
@@ -1202,13 +1170,21 @@ packages:
     source: hosted
     version: "1.1.0"
   shelf:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: shelf
       sha256: e7dd780a7ffb623c57850b33f43309312fc863fb6aa3d276a754bb299839ef12
       url: "https://pub.dev"
     source: hosted
     version: "1.4.2"
+  shelf_router:
+    dependency: "direct dev"
+    description:
+      name: shelf_router
+      sha256: f5e5d492440a7fb165fe1e2e1a623f31f734d3370900070b2b1e0d0428d59864
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.4"
   shelf_web_socket:
     dependency: transitive
     description:
@@ -1430,14 +1406,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.4"
-  visibility_detector:
-    dependency: transitive
-    description:
-      name: visibility_detector
-      sha256: dd5cc11e13494f432d15939c3aa8ae76844c42b723398643ce9addb88a5ed420
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.4.0+2"
   vm_service:
     dependency: transitive
     description:

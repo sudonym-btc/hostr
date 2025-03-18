@@ -131,9 +131,9 @@ class AmountInputWidget extends FormField<Amount> {
                                   onPressed: null,
                                   color: Colors.blue,
                                   textColor: Colors.white,
-                                  child: buttonContent,
                                   padding: EdgeInsets.all(16),
                                   shape: CircleBorder(),
+                                  child: buttonContent,
                                 ),
                               );
                             },

@@ -1,5 +1,4 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/core/util/custom_logger.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';

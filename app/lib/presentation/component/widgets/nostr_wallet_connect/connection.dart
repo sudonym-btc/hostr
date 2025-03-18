@@ -35,7 +35,7 @@ class NostrWalletConnectConnectionWidget extends StatelessWidget {
                 contentPadding: EdgeInsets.all(0),
                 leading: CircleAvatar(
                   backgroundColor: s.content.color != null
-                      ? Color(int.parse(s.content.color!.substring(1, 7),
+                      ? Color(int.parse(s.content.color.substring(1, 7),
                               radix: 16) +
                           0xFF000000)
                       : Colors.orange,

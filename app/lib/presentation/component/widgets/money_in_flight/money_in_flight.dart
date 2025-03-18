@@ -8,6 +8,8 @@ import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:models/main.dart';
 
 class MoneyInFlightWidget extends StatefulWidget {
+  const MoneyInFlightWidget({super.key});
+
   @override
   State<StatefulWidget> createState() {
     return _MoneyInFlightWidgetState();

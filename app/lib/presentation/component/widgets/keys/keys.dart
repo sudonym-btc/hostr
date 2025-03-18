@@ -60,7 +60,7 @@ class KeysWidgetState extends State<KeysWidget> {
               ),
               ListTile(
                 title: Text(
-                    AppLocalizations.of(context)!.evmAddress + ' from pubkey'),
+                    '${AppLocalizations.of(context)!.evmAddress} from pubkey'),
                 subtitle: Text(getEthAddressFromPublicKey(key!.publicKey).hex),
                 onTap: () {
                   Clipboard.setData(ClipboardData(
@@ -97,11 +97,12 @@ class KeysWidgetState extends State<KeysWidget> {
               Row(children: [
                 FilledButton(
                     onPressed: () async {
-                      await context.read<AuthCubit>().logout();
-                      await context.read<ModeCubit>().setHost();
-                      await context
-                          .read<AuthCubit>()
-                          .signin(MockKeys.hoster.privateKey!);
+                      await Future.wait([
+                        context.read<ModeCubit>().setHost(),
+                        context
+                            .read<AuthCubit>()
+                            .signin(MockKeys.hoster.privateKey!)
+                      ] as Iterable<Future>);
                     },
                     child: Text('Log in host')),
                 FilledButton(

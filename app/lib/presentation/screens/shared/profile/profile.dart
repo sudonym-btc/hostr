@@ -157,7 +157,7 @@ class ProfileScreen extends StatelessWidget {
                                       subtitle: Text(
                                           profileSnapshot.data?.nip05 ?? ''));
                                 });
-                          }).toList()
+                          })
                         ]);
                       } else {
                         return Text("No escrows trusted yet");
@@ -181,7 +181,7 @@ class ProfileScreen extends StatelessWidget {
                       await BlocProvider.of<AuthCubit>(context).logout();
                       await router.replaceAll(
                         [SignInRoute()],
-                        onFailure: (failure) => print(failure),
+                        onFailure: (failure) => throw failure,
                       );
                     },
                   )

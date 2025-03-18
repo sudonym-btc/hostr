@@ -26,7 +26,8 @@ class SearchMapWidget extends StatefulWidget {
 
 class _SearchMapWidgetState extends State<SearchMapWidget>
     with WidgetsBindingObserver {
-  Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
+  final Completer<GoogleMapController> _controller =
+      Completer<GoogleMapController>();
   final Map<String, Marker> _markers = {};
   final BehaviorSubject<bool> _mapReadySubject =
       BehaviorSubject<bool>.seeded(false);
@@ -141,7 +142,6 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
 
   @override
   void dispose() {
-    print('disposing map');
     WidgetsBinding.instance.removeObserver(this);
     _mapReadySubject.close();
     // _controller = Completer<GoogleMapController>();

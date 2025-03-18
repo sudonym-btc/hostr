@@ -25,8 +25,6 @@ extension CurrencyExtension on Currency {
         return '';
       case Currency.USD:
         return '\$';
-      default:
-        return '';
     }
   }
 
@@ -35,8 +33,6 @@ extension CurrencyExtension on Currency {
       case Currency.BTC:
         return ' sats';
       case Currency.USD:
-        return '';
-      default:
         return '';
     }
   }

@@ -1,7 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hostr/logic/services/messages/global_gift_wrap.cubit.dart';

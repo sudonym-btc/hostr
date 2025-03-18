@@ -53,7 +53,7 @@ class MyListingsScreen extends StatelessWidget {
                                             authors: [snapshot.data!.publicKey],
                                             aTags: [el.id]))
                                       ..next(),
-                                    child: Container(child: Text('hi')),
+                                    child: Text('hi'),
                                   ),
                                 )))
                   ]))));

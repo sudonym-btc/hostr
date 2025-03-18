@@ -14,7 +14,7 @@ import 'giftwraps/reservation_request.dart';
 
 class ThreadView extends StatefulWidget {
   final String a;
-  const ThreadView({required this.a});
+  const ThreadView({super.key, required this.a});
   @override
   State<StatefulWidget> createState() {
     return ThreadViewState();

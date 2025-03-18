@@ -28,8 +28,9 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
     return ProfileProvider(
       pubkey: widget.zap.sender!,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.active)
+        if (snapshot.connectionState == ConnectionState.active) {
           return Container();
+        }
         return Chip(
           shape: StadiumBorder(),
           label: Text(formatAmount(Amount(

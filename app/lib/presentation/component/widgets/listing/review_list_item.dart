@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
 import 'package:models/main.dart';
 

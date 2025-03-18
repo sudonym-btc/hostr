@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
 import 'package:models/main.dart';
@@ -8,19 +6,19 @@ class AmenityTagsWidget extends StatelessWidget {
   final Amenities amenities;
 
   const AmenityTagsWidget({
-    Key? super.key,
+    super.key,
     required this.amenities,
   });
 
   Color _getColorForAmenity(BuildContext context, String amenity) {
     return Theme.of(context).colorScheme.primary.withAlpha(40);
-    final random = Random(amenity.hashCode);
-    return Color.fromARGB(
-      25,
-      random.nextInt(256),
-      random.nextInt(256),
-      random.nextInt(256),
-    );
+    // final random = Random(amenity.hashCode);
+    // return Color.fromARGB(
+    //   25,
+    //   random.nextInt(256),
+    //   random.nextInt(256),
+    //   random.nextInt(256),
+    // );
   }
 
   @override

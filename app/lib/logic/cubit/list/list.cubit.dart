@@ -122,7 +122,6 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
     return state.copyWith(results: state.results);
   }
 
-  @override
   Map<String, dynamic>? toJson(ListCubitState<T> state) {
     return {
       'results': state.results.map((e) => e.nip01Event.toJson()).toList(),
@@ -131,7 +130,6 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
     };
   }
 
-  @override
   ListCubitState<T>? fromJson(Map<String, dynamic> json) {
     return ListCubitState(
       resultsRaw: json['resultsRaw'].map<T>(Nip01Event.fromJson).toList(),

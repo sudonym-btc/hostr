@@ -5,6 +5,8 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
 class ModeToggleWidget extends StatelessWidget {
+  const ModeToggleWidget({super.key});
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ModeCubit, ModeCubitState>(builder: (context, state) {

@@ -91,7 +91,7 @@ class GoogleMapsImpl extends GoogleMaps {
   @override
   dynamic getLocationResults(String input, String? sessionToken) async {
     if (input.isEmpty) return [];
-    String type = '(regions)';
+    // String type = '(regions)';
     String baseURL = 'https://places.googleapis.com/v1/places:autocomplete';
     var response = await http.post(Uri.parse(baseURL), body: {
       'input': input,

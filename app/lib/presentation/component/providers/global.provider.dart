@@ -6,13 +6,13 @@ import 'package:hostr/logic/main.dart';
 class GlobalProviderWidget extends StatefulWidget {
   final Widget child;
 
-  const GlobalProviderWidget({required this.child});
+  const GlobalProviderWidget({super.key, required this.child});
 
   @override
-  _GlobalProviderWidgetState createState() => _GlobalProviderWidgetState();
+  GlobalProviderWidgetState createState() => GlobalProviderWidgetState();
 }
 
-class _GlobalProviderWidgetState extends State<GlobalProviderWidget> {
+class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
   late AppController appController;
 
   @override

@@ -8,6 +8,9 @@ import 'package:hostr/main.dart';
 import 'qr_scanner.dart';
 
 class AddWalletWidget extends StatefulWidget {
+  const AddWalletWidget({super.key});
+
+  @override
   createState() => AddWalletWidgetState();
 }
 

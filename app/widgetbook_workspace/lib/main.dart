@@ -61,8 +61,6 @@ class WidgetbookApp extends StatelessWidget {
         getIt<ModeStorage>().set(authValue.toLowerCase());
         getIt<ModeCubit>().get();
 
-        print('Auth value: $authValue');
-
         return MaterialApp(
             debugShowCheckedModeBanner: false,
             home: SafeArea(

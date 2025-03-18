@@ -113,6 +113,7 @@ class NwcService {
 class MockNostrWalletConnectService extends NwcService {
   MockNostrWalletConnectService(super.nwcStorage, super.nostr);
 
+  @override
   Future<NwcConnection> connect(String url,
       {Function(String?)? onError}) async {
     Uri uri = parseNwc(url);

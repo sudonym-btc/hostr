@@ -33,6 +33,7 @@ class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
       logger.e("Error $e");
       emit(EntityCubitStateError(data: state.data, error: e));
     }
+    return null;
   }
 }
 
@@ -53,6 +54,6 @@ class EntityCubitState<T extends Event> extends Equatable {
 }
 
 class EntityCubitStateError<T extends Event> extends EntityCubitState<T> {
-  dynamic error;
-  EntityCubitStateError({required super.data, required this.error});
+  final dynamic error;
+  const EntityCubitStateError({required super.data, required this.error});
 }

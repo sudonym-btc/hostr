@@ -5,6 +5,8 @@ import 'package:hostr/core/main.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class NwcQrScannerWidget extends StatefulWidget {
+  const NwcQrScannerWidget({super.key});
+
   @override
   State<StatefulWidget> createState() => NwcQrScannerWidgetState();
 }
@@ -39,7 +41,7 @@ class NwcQrScannerWidgetState extends State<NwcQrScannerWidget>
   @override
   Widget build(BuildContext context) {
     return Center(
-        child: Container(
+        child: SizedBox(
             width: 300, // Set a fixed width for the container
             child: AspectRatio(
                 aspectRatio: 1.0, // Set the aspect ratio to 1:1 (square)
