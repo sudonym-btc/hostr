@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
 
@@ -61,7 +62,7 @@ class _SearchFormState extends State<SearchForm> {
                         .updateDateRange(_formState.availabilityRange);
                   }
                 },
-                child: Text('Search'),
+                child: Text(AppLocalizations.of(context)!.search),
               ),
             ],
           ))

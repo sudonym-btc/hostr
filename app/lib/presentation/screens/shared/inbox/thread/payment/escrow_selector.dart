@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/swap.dart';
@@ -43,7 +44,9 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                       underline: Container(),
                       selectedItemBuilder: (BuildContext context) {
                         if (_current == null) {
-                          return [Text('Select escrow')];
+                          return [
+                            Text(AppLocalizations.of(context)!.selectEscrow)
+                          ];
                         }
                         return [ProfileChipWidget(id: _current!)];
                       },
@@ -111,7 +114,7 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                               sellerPubkey: widget.counterparty.pubKey,
                               escrowPubkey: MOCK_ESCROWS[0].nip01Event.pubKey);
                         },
-                  child: Text('Select Escrow')))
+                  child: Text(AppLocalizations.of(context)!.selectEscrow)))
         ])));
   }
 }

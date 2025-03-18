@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 
@@ -49,7 +50,9 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                             shouldShowQrScanner = !shouldShowQrScanner;
                           });
                         },
-                        child: Text(!shouldShowQrScanner ? 'Scan' : 'Stop'),
+                        child: Text(!shouldShowQrScanner
+                            ? AppLocalizations.of(context)!.scan
+                            : 'Stop'),
                       ),
                     ),
                     SizedBox(width: 10), // Add some spacing between buttons
@@ -64,7 +67,7 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                             await getIt<NwcService>().add(x);
                           }
                         },
-                        child: Text('Paste'),
+                        child: Text(AppLocalizations.of(context)!.paste),
                       ),
                     ),
                     SizedBox(width: 10), // Add some spacing between buttons
@@ -73,7 +76,7 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                         onPressed: () async {
                           // todo: open in wallet app
                         },
-                        child: Text('Wallet'),
+                        child: Text(AppLocalizations.of(context)!.wallet),
                       ),
                     ),
                   ],

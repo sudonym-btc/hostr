@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 
 import '../ui/padding.dart';
 
@@ -16,9 +17,9 @@ class ZapInputWidgetState extends State<ZapInputWidget> {
         child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text('Zap us'),
+        Text(AppLocalizations.of(context)!.zapUs),
         FilledButton(
-          child: Text('Zap'),
+          child: Text(AppLocalizations.of(context)!.zap),
           onPressed: () {},
         )
       ],

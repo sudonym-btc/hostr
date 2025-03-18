@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:intl/intl.dart';
 
@@ -36,10 +37,10 @@ class SearchBoxWidget extends StatelessWidget {
                                 .textTheme
                                 .bodyLarge!
                                 .copyWith(fontWeight: FontWeight.bold),
-                            'Where?'),
+                            AppLocalizations.of(context)!.where),
                         subtitle: BlocBuilder<DateRangeCubit, DateRangeState>(
                             builder: (context, state) => state.dateRange == null
-                                ? Text('When?')
+                                ? Text(AppLocalizations.of(context)!.when)
                                 : Text(
                                     '${formatDateShort(state.dateRange!.start, context)} - ${formatDateShort(state.dateRange!.end, context)}')),
                         trailing: Icon(Icons.filter_list))))));

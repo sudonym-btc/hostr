@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
@@ -47,7 +48,9 @@ class ThreadViewState extends State<ThreadView> {
               pubkey: threadCubit.getCounterpartyPubkey(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.active) {
-                  return Scaffold(appBar: AppBar(title: Text('Loading')));
+                  return Scaffold(
+                      appBar: AppBar(
+                          title: Text(AppLocalizations.of(context)!.loading)));
                 }
                 if (snapshot.connectionState == ConnectionState.done) {
                   return ListingProvider(
@@ -55,7 +58,8 @@ class ThreadViewState extends State<ThreadView> {
                       child: Scaffold(
                           appBar: AppBar(
                               title: ThreadHeaderWidget(
-                                  title: snapshot.data!.name ?? 'Loading',
+                                  title: snapshot.data!.name ??
+                                      AppLocalizations.of(context)!.loading,
                                   image: snapshot.data!.picture,
                                   subtitle: snapshot.data!.cleanNip05 ??
                                       snapshot.data!.lud06 ??
@@ -175,7 +179,10 @@ class ThreadViewState extends State<ThreadView> {
                                                                         .nip01Event
                                                                   ]);
                                                                 },
-                                                          child: Text('Send'))
+                                                          child: Text(
+                                                              AppLocalizations.of(
+                                                                      context)!
+                                                                  .send))
                                                     ]);
                                               })))
                             ],

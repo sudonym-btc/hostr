@@ -79,7 +79,7 @@ P1
   - [ ] Mock NWC should record "paid" invoices and respond to list invoice request appropriately
   - [ ] Mock lightning payments should 'resolve' accurate invoices and amounts
 - [ ] NIP 05 verification
-- [ ] Language file
+- [x] Language file
 - [ ] Tests
 
 P2

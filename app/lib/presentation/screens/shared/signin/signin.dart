@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/router.dart';
@@ -23,7 +24,7 @@ class SignInScreenState extends State<SignInScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Sign In'),
+        title: Text(AppLocalizations.of(context)!.signIn),
       ),
       body: BlocBuilder<AuthCubit, AuthState>(builder: (context, state) {
         return Center(
@@ -58,7 +59,7 @@ class SignInScreenState extends State<SignInScreen> {
                           }
                         },
                         child: Text(
-                          'Sign in',
+                          AppLocalizations.of(context)!.signIn,
                         )),
                   ),
                   SizedBox(width: 10), // Spacing between the buttons
@@ -77,7 +78,7 @@ class SignInScreenState extends State<SignInScreen> {
                               }
                             }
                           : null,
-                      child: Text('Sign up'),
+                      child: Text(AppLocalizations.of(context)!.signUp),
                     ),
                   )
                 ],

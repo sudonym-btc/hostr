@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/router.dart';
@@ -39,7 +40,8 @@ class ReserveState extends State<Reserve> {
                           ],
                         )
                       : GestureDetector(
-                          child: Text('Select dates'),
+                          child:
+                              Text(AppLocalizations.of(context)!.selectDates),
                           onTap: () => selectDates(
                               context, context.read<DateRangeCubit>()),
                         ),
@@ -117,7 +119,7 @@ class ReserveState extends State<Reserve> {
                             ? CircularProgressIndicator(
                                 constraints:
                                     BoxConstraints(minWidth: 5, minHeight: 5))
-                            : Text('Reserve'));
+                            : Text(AppLocalizations.of(context)!.reserve));
                   }),
                 ])));
   }

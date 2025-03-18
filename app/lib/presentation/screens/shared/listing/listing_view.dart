@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/router.dart';
@@ -79,7 +80,8 @@ class ListingView extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2.0),
                                   Row(children: [
-                                    Text('hosted by'),
+                                    Text(
+                                        AppLocalizations.of(context)!.hostedBy),
                                     SizedBox(width: 8),
                                     Flexible(
                                         child: ProfileChipWidget(

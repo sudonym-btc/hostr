@@ -93,7 +93,7 @@ abstract class AppLocalizations {
     Locale('en')
   ];
 
-  /// The title of the application
+  /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
   /// **'Hostr'**
@@ -129,6 +129,60 @@ abstract class AppLocalizations {
   /// **'Where?'**
   String get where;
 
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @add.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get add;
+
+  /// No description provided for @proceed.
+  ///
+  /// In en, this message translates to:
+  /// **'Proceed'**
+  String get proceed;
+
+  /// No description provided for @loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading'**
+  String get loading;
+
+  /// No description provided for @hostMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Host Mode'**
+  String get hostMode;
+
+  /// No description provided for @guestMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Guest Mode'**
+  String get guestMode;
+
+  /// No description provided for @profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profile;
+
+  /// No description provided for @editProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Profile'**
+  String get editProfile;
+
+  /// No description provided for @selectDates.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Dates'**
+  String get selectDates;
+
   /// No description provided for @requestBooking.
   ///
   /// In en, this message translates to:
@@ -140,6 +194,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'hosted by'**
   String get hostedBy;
+
+  /// No description provided for @escrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Escrow'**
+  String get escrow;
+
+  /// No description provided for @useEscrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Escrow'**
+  String get useEscrow;
+
+  /// No description provided for @selectEscrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Escrow'**
+  String get selectEscrow;
+
+  /// No description provided for @payUpfront.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay Upfront'**
+  String get payUpfront;
+
+  /// No description provided for @publicKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Public Key'**
+  String get publicKey;
+
+  /// No description provided for @privateKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Private Key'**
+  String get privateKey;
+
+  /// No description provided for @evmAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'EVM address'**
+  String get evmAddress;
+
+  /// No description provided for @evmPrivateKey.
+  ///
+  /// In en, this message translates to:
+  /// **'EVM private key'**
+  String get evmPrivateKey;
+
+  /// No description provided for @connect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get connect;
+
+  /// No description provided for @connectedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to'**
+  String get connectedTo;
+
+  /// No description provided for @paymentCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment completed'**
+  String get paymentCompleted;
+
+  /// No description provided for @ok.
+  ///
+  /// In en, this message translates to:
+  /// **'Ok'**
+  String get ok;
+
+  /// No description provided for @paste.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste'**
+  String get paste;
+
+  /// No description provided for @copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copy;
+
+  /// No description provided for @scan.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan'**
+  String get scan;
+
+  /// No description provided for @send.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get send;
+
+  /// No description provided for @wallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet'**
+  String get wallet;
+
+  /// No description provided for @leaveATip.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave a tip?'**
+  String get leaveATip;
+
+  /// No description provided for @reserve.
+  ///
+  /// In en, this message translates to:
+  /// **'Reserve'**
+  String get reserve;
+
+  /// No description provided for @upcomingReservations.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming Reservations'**
+  String get upcomingReservations;
+
+  /// No description provided for @myListings.
+  ///
+  /// In en, this message translates to:
+  /// **'My Listings'**
+  String get myListings;
+
+  /// No description provided for @conversations.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversations'**
+  String get conversations;
+
+  /// No description provided for @logout.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout'**
+  String get logout;
+
+  /// No description provided for @signIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signIn;
+
+  /// No description provided for @signUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up'**
+  String get signUp;
+
+  /// No description provided for @accept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get accept;
+
+  /// No description provided for @accepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get accepted;
+
+  /// No description provided for @tip.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip'**
+  String get tip;
+
+  /// No description provided for @zap.
+  ///
+  /// In en, this message translates to:
+  /// **'Zap'**
+  String get zap;
+
+  /// No description provided for @zapUs.
+  ///
+  /// In en, this message translates to:
+  /// **'Zap us'**
+  String get zapUs;
+
+  /// No description provided for @search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get search;
+
+  /// No description provided for @trips.
+  ///
+  /// In en, this message translates to:
+  /// **'Trips'**
+  String get trips;
+
+  /// No description provided for @noTripsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No trips yet'**
+  String get noTripsYet;
 
   /// No description provided for @pay.
   ///

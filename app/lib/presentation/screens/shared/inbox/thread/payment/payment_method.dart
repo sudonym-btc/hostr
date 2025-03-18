@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:models/main.dart';
@@ -41,7 +42,7 @@ class PaymentMethodWidget extends StatelessWidget {
                                   r: r, counterparty: counterparty);
                             });
                       },
-                      child: Text('Use Escrow'))),
+                      child: Text(AppLocalizations.of(context)!.useEscrow))),
               CustomPadding(),
               Expanded(
                   child: FilledButton(
@@ -71,7 +72,7 @@ class PaymentMethodWidget extends StatelessWidget {
                                 to: counterparty.lud16 ?? counterparty.lud06!,
                                 amount: r.parsedContent.amount));
                       },
-                      child: Text('Pay Upfront')))
+                      child: Text(AppLocalizations.of(context)!.payUpfront)))
             ],
           )
         ],
