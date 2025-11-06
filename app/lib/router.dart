@@ -4,6 +4,7 @@ import 'package:hostr/route/main.dart';
 
 part 'router.gr.dart';
 
+/// Central application router configuration.
 @AutoRouterConfig(replaceInRouteName: 'Screen,Route')
 class AppRouter extends RootStackRouter {
   @override

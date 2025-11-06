@@ -4,9 +4,10 @@ import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
 
+/// Strategy for establishing connections to relays and wallets.
 abstract class RelayConnector {
-  CustomLogger logger = CustomLogger();
-  Future connect();
+  final CustomLogger logger = CustomLogger();
+  Future<void> connect();
 }
 
 @Injectable(as: RelayConnector)
@@ -16,7 +17,7 @@ class ProdRelayConnector extends RelayConnector {
   Ndk ndk = getIt<Ndk>();
 
   @override
-  Future connect() async {
+  Future<void> connect() async {
     var relays = await relayStorage.get();
     Uri? nwc = await nwcStorage.getUri();
     logger.i('Connecting to relays $relays $nwc');

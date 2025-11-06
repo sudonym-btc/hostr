@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/logic/main.dart';
 
+/// Wrapper that shows a global syncing indicator until initial data is ready.
 class LoadingPage extends StatelessWidget {
   final Widget child;
   const LoadingPage({super.key, required this.child});
@@ -15,11 +16,9 @@ class LoadingPage extends StatelessWidget {
           return Scaffold(
             body: Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                CircularProgressIndicator(),
-                SizedBox(height: DEFAULT_PADDING / 2.0),
-                Text(
-                  "Synching...",
-                )
+                const CircularProgressIndicator(),
+                const SizedBox(height: DEFAULT_PADDING / 2.0),
+                const Text('Synching...'),
               ]),
             ),
           );

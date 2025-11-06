@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:hostr/data/sources/nostr/mock.blossom.dart';
 import 'package:hostr/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
@@ -12,7 +12,14 @@ import 'package:path_provider/path_provider.dart';
 import 'data/sources/nostr/mock.relay.dart';
 import 'injection.dart';
 
-setup(String env) async {
+/// Bootstraps environment-specific services, storage, and mock servers.
+///
+/// - Ensures Flutter bindings are initialized
+/// - Configures HydratedBloc storage (web vs device)
+/// - Applies permissive HTTP overrides for non-prod environments
+/// - Starts local mock services for `mock`/`test` environments
+/// - Connects to relays through the injected `RelayConnector`
+Future<void> setup(String env) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   HydratedBloc.storage = await HydratedStorage.build(
@@ -20,7 +27,7 @@ setup(String env) async {
         ? HydratedStorageDirectory.web
         : HydratedStorageDirectory((await getTemporaryDirectory()).path),
   );
-  // Allow self signed certificates for development
+  // Allow self-signed certificates for development/test.
   if ([Env.mock, Env.dev, Env.test].contains(env)) {
     HttpOverrides.global = MyHttpOverrides();
   }
