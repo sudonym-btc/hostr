@@ -2,7 +2,7 @@
 
 [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 
-Rental accomodation using purely peer-to-peer technologies such as [Nostr](https://nostr.com/).
+Rental accommodation using purely peer‑to‑peer technologies such as [Nostr](https://nostr.com/).
 
 <p align="start">
 
@@ -14,7 +14,7 @@ Rental accomodation using purely peer-to-peer technologies such as [Nostr](https
 
 </p>
 
-Read docs in full [here](https://sudonym-btc.github.io/hostr/)
+Read docs in full [here](https://sudonym-btc.github.io/hostr/).
 
 This repo contains
 
@@ -32,11 +32,11 @@ This repo contains
 - Accommodation [NIP](../NIP)
 - Escrow [NIP](../NIP)
 
-## NIPs Utilized
+## NIPs utilized
 
 - [**NIP-01**](https://github.com/nostr-protocol/nips/blob/master/01.md): Basic protocol for event creation and subscription.
 - [**NIP-04**](https://github.com/nostr-protocol/nips/blob/master/04.md): Encrypted direct messages for secure communication between hosts and guests. (Deprecated)
-- [**NIP-47**](https://github.com/nostr-protocol/nips/blob/master/17.md): Private Direct Messages
+- [**NIP-17**](https://github.com/nostr-protocol/nips/blob/master/17.md): Private Direct Messages
 
 - [**NIP-05**](https://github.com/nostr-protocol/nips/blob/master/05.md): Mapping Nostr keys to DNS-based internet identifiers.
 - [**NIP-09**](https://github.com/nostr-protocol/nips/blob/master/09.md): Event deletion for removing listings or messages.
@@ -47,6 +47,8 @@ This repo contains
 ```bash
 git clone git@github.com:sudonym-btc/hostr.git
 ```
+
+Quickstart: see the client app guide at `app/README.md` for run targets by environment.
 
 ## TODO
 

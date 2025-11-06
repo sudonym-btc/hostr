@@ -16,10 +16,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Glue the SettingsController to the MaterialApp.
-    //
-    // The AnimatedBuilder Widget listens to the SettingsController for changes.
-    // Whenever the user updates their settings, the MaterialApp is rebuilt.
+    // Application shell and router configuration
     return MaterialApp.router(
       // Providing a restorationScopeId allows the Navigator built by the
       // MaterialApp to restore the navigation stack when a user leaves and
@@ -36,9 +33,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en', ''), // English, no country code
-      ],
+      supportedLocales: const [Locale('en')],
       debugShowCheckedModeBanner: false,
 
       // Use AppLocalizations to configure the correct application title
@@ -49,10 +44,8 @@ class MyApp extends StatelessWidget {
       onGenerateTitle: (BuildContext context) =>
           AppLocalizations.of(context)!.appTitle,
 
-      // Define a light and dark color theme. Then, read the user's
-      // preferred ThemeMode (light, dark, or system default) from the
-      // SettingsController to display the correct theme.
-      theme: getTheme(true),
+      // Define light and dark color themes and respect system preference.
+      theme: getTheme(false),
       darkTheme: getTheme(true),
       themeMode: ThemeMode.system, // Use system theme mode
 
