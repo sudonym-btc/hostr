@@ -8,18 +8,24 @@ class ZapPaymentParameters extends PaymentParameters {
   String? a;
   String? e;
 
-  ZapPaymentParameters(
-      {super.amount, super.comment, required super.to, this.a, this.e});
+  ZapPaymentParameters({
+    super.amount,
+    super.comment,
+    required super.to,
+    this.a,
+    this.e,
+  });
 }
 
 class ZapResolvedDetails extends ResolvedDetails {
   final String callback;
 
-  ZapResolvedDetails(
-      {required super.minAmount,
-      required super.maxAmount,
-      required super.commentAllowed,
-      required this.callback});
+  ZapResolvedDetails({
+    required super.minAmount,
+    required super.maxAmount,
+    required super.commentAllowed,
+    required this.callback,
+  });
 }
 
 class LightningCallbackDetails extends CallbackDetails {
@@ -32,16 +38,24 @@ class LightningCompletedDetails extends CompletedDetails {
   LightningCompletedDetails({required this.preimage});
 }
 
-class ZapPaymentCubit extends PaymentCubit<ZapPaymentParameters,
-    LnUrlResolvedDetails, LightningCallbackDetails, LightningCompletedDetails> {
+class ZapPaymentCubit
+    extends
+        PaymentCubit<
+          ZapPaymentParameters,
+          LnUrlResolvedDetails,
+          LightningCallbackDetails,
+          LightningCompletedDetails
+        > {
   ZapPaymentCubit({required super.params});
 
   @override
   Future<LightningCompletedDetails> complete() async {
     ZapResponse response = await getIt<NwcService>().zap(
-        lnurl: state.params.to,
-        amountSats: state.params.amount!.value * btcSatoshiFactor);
+      lnurl: state.params.to,
+      amountSats: state.params.amount!.value * btcSatoshiFactor,
+    );
     return LightningCompletedDetails(
-        preimage: response.payInvoiceResponse!.preimage);
+      preimage: response.payInvoiceResponse!.preimage!,
+    );
   }
 }

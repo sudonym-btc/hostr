@@ -5,6 +5,7 @@ import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:http/http.dart';
 import 'package:injectable/injectable.dart';
+import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 abstract class Rootstock {
@@ -16,8 +17,10 @@ abstract class Rootstock {
 
 @Injectable(as: Rootstock)
 class RootstockImpl extends Rootstock {
-  final Web3Client client =
-      Web3Client(getIt<Config>().rootstockRpcUrl, Client());
+  final Web3Client client = Web3Client(
+    getIt<Config>().rootstockRpcUrl,
+    Client(),
+  );
   @override
   Future<void> connectToRootstock() async {
     try {
@@ -44,17 +47,23 @@ class RootstockImpl extends Rootstock {
     logger.d('Getting transaction for $txHash');
     return await client.getTransactionByHash(txHash).then((val) {
       logger.d(
-          'Transaction for $txHash: from ${val?.from} to ${val?.to} amount ${val?.value.getInWei}');
+        'Transaction for $txHash: from ${val?.from} to ${val?.to} amount ${val?.value.getInWei}',
+      );
       return val;
     });
   }
 
-  call(ContractAbi abi, EthereumAddress address, ContractFunction func,
-      params) async {
+  call(
+    ContractAbi abi,
+    EthereumAddress address,
+    ContractFunction func,
+    params,
+  ) async {
     return client.call(
-        contract: DeployedContract(abi, address),
-        function: func,
-        params: params);
+      contract: DeployedContract(abi, address),
+      function: func,
+      params: params,
+    );
   }
 }
 

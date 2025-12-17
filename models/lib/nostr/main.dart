@@ -1,7 +1,7 @@
 export 'escrow.dart';
 export 'escrow_trust.dart';
 export 'event.dart';
-export 'gift_wrap.dart';
+// export 'gift_wrap.dart';
 export 'listing.dart';
 export 'message.dart';
 export 'reservation.dart';

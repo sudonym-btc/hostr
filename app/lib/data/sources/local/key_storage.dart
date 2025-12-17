@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:pointycastle/ecc/curves/secp256k1.dart';
+import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import 'secure_storage.dart';
@@ -77,9 +78,10 @@ EthereumAddress getEthAddressFromPublicKey(String bip340PublicKey) {
 
   // Decode the public key
   final ecPoint = ecCurve.curve.decodePoint(publicKeyBytes);
-  final uncompressedPublicKey =
-      ecPoint!.getEncoded(false).sublist(1); // Remove the prefix byte
+  final uncompressedPublicKey = ecPoint!
+      .getEncoded(false)
+      .sublist(1); // Remove the prefix byte
 
   // Generate Ethereum address from the uncompressed public key
-  return EthereumAddress.fromPublicKey(uncompressedPublicKey);
+  return EthereumAddress.fromPublicKey(PublicKey(uncompressedPublicKey));
 }

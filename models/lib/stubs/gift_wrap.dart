@@ -1,4 +1,5 @@
 import 'package:models/main.dart';
+// import 'package:models/nostr/gift_wrap.dart';
 import 'package:ndk/ndk.dart';
 
 Nip01Event hostInvitesGuest = Nip01Event(
@@ -89,16 +90,16 @@ var MOCK_GIFT_WRAPS = [
     //         null),
     //     null)
   ],
-  ...[
-    giftWrapAndSeal(
-        MockKeys.guest.publicKey, MockKeys.hoster, hostInvitesGuest, null),
-    giftWrapAndSeal(
-        MockKeys.hoster.publicKey, MockKeys.hoster, hostInvitesGuest, null),
-    giftWrapAndSeal(
-        MockKeys.guest.publicKey, MockKeys.guest, guestRequest, null),
-    giftWrapAndSeal(
-        MockKeys.hoster.publicKey, MockKeys.guest, guestRequest, null)
-  ]
+  // ...[
+  //   giftWrapAndSeal(
+  //       MockKeys.guest.publicKey, MockKeys.hoster, hostInvitesGuest, null),
+  //   giftWrapAndSeal(
+  //       MockKeys.hoster.publicKey, MockKeys.hoster, hostInvitesGuest, null),
+  //   giftWrapAndSeal(
+  //       MockKeys.guest.publicKey, MockKeys.guest, guestRequest, null),
+  //   giftWrapAndSeal(
+  //       MockKeys.hoster.publicKey, MockKeys.guest, guestRequest, null)
+  // ]
 ].toList();
 // var MOCK_GIFT_WRAPS = [
 //   giftWrapAndSeal(

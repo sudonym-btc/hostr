@@ -16,47 +16,57 @@ class MyListingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
-        future: getIt<KeyStorage>().getActiveKeyPair(),
-        builder: (context, snapshot) {
-          if (snapshot.data == null) return Container();
-          return MultiBlocProvider(
-              providers: [
-                BlocProvider(
-                    create: (context) => ListCubit<Listing>(
-                        kinds: Listing.kinds,
-                        filter: Filter(authors: [snapshot.data!.publicKey]))
-                      ..next()),
+      future: getIt<KeyStorage>().getActiveKeyPair(),
+      builder: (context, snapshot) {
+        if (snapshot.data == null) return Container();
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (context) => ListCubit<Listing>(
+                kinds: Listing.kinds,
+                filter: Filter(authors: [snapshot.data!.publicKey]),
+              )..next(),
+            ),
+          ],
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(AppLocalizations.of(context)!.myListings),
+              actions: [
+                IconButton(
+                  icon: Icon(Icons.add),
+                  onPressed: () {
+                    AutoRouter.of(context).pushPath('edit-listing/234');
+                  },
+                ),
               ],
-              child: Scaffold(
-                  appBar: AppBar(
-                    title: Text(AppLocalizations.of(context)!.myListings),
-                    actions: [
-                      IconButton(
-                          icon: Icon(Icons.add),
-                          onPressed: () {
-                            AutoRouter.of(context)
-                                .pushNamed('edit-listing/234');
-                          })
-                    ],
+            ),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ListWidget<Listing>(
+                      builder: (el) => ListingListItemWidget(
+                        listing: el,
+                        bottom: (BuildContext context) =>
+                            BlocProvider<ListCubit<Reservation>>(
+                              create: (context) => ListCubit<Reservation>(
+                                kinds: Reservation.kinds,
+                                filter: Filter(
+                                  authors: [snapshot.data!.publicKey],
+                                  aTags: [el.id],
+                                ),
+                              )..next(),
+                              child: Text('hi'),
+                            ),
+                      ),
+                    ),
                   ),
-                  body: SafeArea(
-                      child: Column(children: [
-                    Expanded(
-                        child: ListWidget<Listing>(
-                            builder: (el) => ListingListItemWidget(
-                                  listing: el,
-                                  bottom: (BuildContext context) =>
-                                      BlocProvider<ListCubit<Reservation>>(
-                                    create: (context) => ListCubit<Reservation>(
-                                        kinds: Reservation.kinds,
-                                        filter: Filter(
-                                            authors: [snapshot.data!.publicKey],
-                                            aTags: [el.id]))
-                                      ..next(),
-                                    child: Text('hi'),
-                                  ),
-                                )))
-                  ]))));
-        });
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

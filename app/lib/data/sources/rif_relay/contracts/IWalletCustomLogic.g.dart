@@ -5,7 +5,8 @@
 // ignore_for_file: unused_local_variable, unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:web3dart/web3dart.dart' as _i1;
-import 'dart:typed_data' as _i2;
+import 'package:wallet/wallet.dart' as _i2;
+import 'dart:typed_data' as _i3;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
   '[{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"directExecute","outputs":[{"internalType":"bytes","name":"ret","type":"bytes"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"suffixData","type":"bytes32"},{"components":[{"internalType":"address","name":"relayHub","type":"address"},{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"uint256","name":"gas","type":"uint256"},{"internalType":"uint256","name":"nonce","type":"uint256"},{"internalType":"uint256","name":"tokenAmount","type":"uint256"},{"internalType":"uint256","name":"tokenGas","type":"uint256"},{"internalType":"uint256","name":"validUntilTime","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct IForwarder.ForwardRequest","name":"forwardRequest","type":"tuple"},{"internalType":"address","name":"feesReceiver","type":"address"},{"internalType":"bytes","name":"signature","type":"bytes"}],"name":"execute","outputs":[{"internalType":"bytes","name":"ret","type":"bytes"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"bytes","name":"initParams","type":"bytes"}],"name":"initialize","outputs":[],"stateMutability":"nonpayable","type":"function"}]',
@@ -14,7 +15,7 @@ final _contractAbi = _i1.ContractAbi.fromJson(
 
 class IWalletCustomLogic extends _i1.GeneratedContract {
   IWalletCustomLogic({
-    required _i1.EthereumAddress address,
+    required _i2.EthereumAddress address,
     required _i1.Web3Client client,
     int? chainId,
   }) : super(
@@ -30,7 +31,7 @@ class IWalletCustomLogic extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> directExecute(
-    ({_i1.EthereumAddress to, _i2.Uint8List data}) args, {
+    ({_i2.EthereumAddress to, _i3.Uint8List data}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -53,10 +54,10 @@ class IWalletCustomLogic extends _i1.GeneratedContract {
   /// set by the contract.
   Future<String> execute(
     ({
-      _i2.Uint8List suffixData,
+      _i3.Uint8List suffixData,
       dynamic forwardRequest,
-      _i1.EthereumAddress feesReceiver,
-      _i2.Uint8List signature
+      _i2.EthereumAddress feesReceiver,
+      _i3.Uint8List signature
     }) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
@@ -81,7 +82,7 @@ class IWalletCustomLogic extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> initialize(
-    ({_i2.Uint8List initParams}) args, {
+    ({_i3.Uint8List initParams}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {

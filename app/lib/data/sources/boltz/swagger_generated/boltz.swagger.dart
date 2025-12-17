@@ -1,4 +1,6 @@
+// coverage:ignore-file
 // ignore_for_file: type=lint
+// ignore_for_file: unused_element_parameter
 
 import 'package:json_annotation/json_annotation.dart';
 import 'package:json_annotation/json_annotation.dart' as json;
@@ -12,6 +14,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:http/http.dart' show MultipartFile;
 import 'package:chopper/chopper.dart' as chopper;
+import 'boltz.metadata.swagger.dart';
 
 part 'boltz.swagger.chopper.dart';
 part 'boltz.swagger.g.dart';
@@ -36,13 +39,14 @@ abstract class Boltz extends ChopperService {
     }
 
     final newClient = ChopperClient(
-        services: [_$Boltz()],
-        converter: converter ?? $JsonSerializableConverter(),
-        interceptors: interceptors ?? [],
-        client: httpClient,
-        authenticator: authenticator,
-        errorConverter: errorConverter,
-        baseUrl: baseUrl ?? Uri.parse('http://'));
+      services: [_$Boltz()],
+      converter: converter ?? $JsonSerializableConverter(),
+      interceptors: interceptors ?? [],
+      client: httpClient,
+      authenticator: authenticator,
+      errorConverter: errorConverter,
+      baseUrl: baseUrl ?? Uri.parse('http://'),
+    );
     return _$Boltz(newClient);
   }
 
@@ -52,8 +56,20 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/chain/fees')
-  Future<chopper.Response<Object>> _chainFeesGet();
+  @GET(path: '/chain/fees')
+  Future<chopper.Response<Object>> _chainFeesGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Fee estimations for all supported chains',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain"],
+      deprecated: false,
+    ),
+  });
 
   ///
   Future<chopper.Response<Object>> chainHeightsGet() {
@@ -61,8 +77,20 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/chain/heights')
-  Future<chopper.Response<Object>> _chainHeightsGet();
+  @GET(path: '/chain/heights')
+  Future<chopper.Response<Object>> _chainHeightsGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Block heights for all supported chains',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain"],
+      deprecated: false,
+    ),
+  });
 
   ///
   Future<chopper.Response<Object>> chainContractsGet() {
@@ -70,51 +98,96 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/chain/contracts')
-  Future<chopper.Response<Object>> _chainContractsGet();
+  @GET(path: '/chain/contracts')
+  Future<chopper.Response<Object>> _chainContractsGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Get the network information and contract addresses for all supported EVM chains',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param currency Currency of the chain to get a fee estimation for
-  Future<chopper.Response<ChainCurrencyFeeGet$Response>> chainCurrencyFeeGet(
-      {required String? currency}) {
-    generatedMapping.putIfAbsent(ChainCurrencyFeeGet$Response,
-        () => ChainCurrencyFeeGet$Response.fromJsonFactory);
+  Future<chopper.Response<ChainCurrencyFeeGet$Response>> chainCurrencyFeeGet({
+    required String? currency,
+  }) {
+    generatedMapping.putIfAbsent(
+      ChainCurrencyFeeGet$Response,
+      () => ChainCurrencyFeeGet$Response.fromJsonFactory,
+    );
 
     return _chainCurrencyFeeGet(currency: currency);
   }
 
   ///
   ///@param currency Currency of the chain to get a fee estimation for
-  @Get(path: '/chain/{currency}/fee')
-  Future<chopper.Response<ChainCurrencyFeeGet$Response>> _chainCurrencyFeeGet(
-      {@Path('currency') required String? currency});
+  @GET(path: '/chain/{currency}/fee')
+  Future<chopper.Response<ChainCurrencyFeeGet$Response>> _chainCurrencyFeeGet({
+    @Path('currency') required String? currency,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Fee estimations for a chain',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param currency Currency of the chain to get the block height for
   Future<chopper.Response<ChainCurrencyHeightGet$Response>>
-      chainCurrencyHeightGet({required String? currency}) {
-    generatedMapping.putIfAbsent(ChainCurrencyHeightGet$Response,
-        () => ChainCurrencyHeightGet$Response.fromJsonFactory);
+  chainCurrencyHeightGet({required String? currency}) {
+    generatedMapping.putIfAbsent(
+      ChainCurrencyHeightGet$Response,
+      () => ChainCurrencyHeightGet$Response.fromJsonFactory,
+    );
 
     return _chainCurrencyHeightGet(currency: currency);
   }
 
   ///
   ///@param currency Currency of the chain to get the block height for
-  @Get(path: '/chain/{currency}/height')
+  @GET(path: '/chain/{currency}/height')
   Future<chopper.Response<ChainCurrencyHeightGet$Response>>
-      _chainCurrencyHeightGet({@Path('currency') required String? currency});
+  _chainCurrencyHeightGet({
+    @Path('currency') required String? currency,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Block height for a chain',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param currency Currency of the chain to query for
   ///@param id Id of the transaction to query
   Future<chopper.Response<ChainCurrencyTransactionIdGet$Response>>
-      chainCurrencyTransactionIdGet({
+  chainCurrencyTransactionIdGet({
     required String? currency,
     required String? id,
   }) {
-    generatedMapping.putIfAbsent(ChainCurrencyTransactionIdGet$Response,
-        () => ChainCurrencyTransactionIdGet$Response.fromJsonFactory);
+    generatedMapping.putIfAbsent(
+      ChainCurrencyTransactionIdGet$Response,
+      () => ChainCurrencyTransactionIdGet$Response.fromJsonFactory,
+    );
 
     return _chainCurrencyTransactionIdGet(currency: currency, id: id);
   }
@@ -122,42 +195,64 @@ abstract class Boltz extends ChopperService {
   ///
   ///@param currency Currency of the chain to query for
   ///@param id Id of the transaction to query
-  @Get(path: '/chain/{currency}/transaction/{id}')
+  @GET(path: '/chain/{currency}/transaction/{id}')
   Future<chopper.Response<ChainCurrencyTransactionIdGet$Response>>
-      _chainCurrencyTransactionIdGet({
+  _chainCurrencyTransactionIdGet({
     @Path('currency') required String? currency,
     @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Fetch a raw transaction by its id',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain"],
+      deprecated: false,
+    ),
   });
 
   ///
   ///@param currency Currency of the chain to broadcast on
   Future<chopper.Response<ChainCurrencyTransactionPost$Response>>
-      chainCurrencyTransactionPost({
+  chainCurrencyTransactionPost({
     required String? currency,
     required ChainCurrencyTransactionPost$RequestBody? body,
   }) {
-    generatedMapping.putIfAbsent(ChainCurrencyTransactionPost$Response,
-        () => ChainCurrencyTransactionPost$Response.fromJsonFactory);
+    generatedMapping.putIfAbsent(
+      ChainCurrencyTransactionPost$Response,
+      () => ChainCurrencyTransactionPost$Response.fromJsonFactory,
+    );
 
     return _chainCurrencyTransactionPost(currency: currency, body: body);
   }
 
   ///
   ///@param currency Currency of the chain to broadcast on
-  @Post(
-    path: '/chain/{currency}/transaction',
-    optionalBody: true,
-  )
+  @POST(path: '/chain/{currency}/transaction', optionalBody: true)
   Future<chopper.Response<ChainCurrencyTransactionPost$Response>>
-      _chainCurrencyTransactionPost({
+  _chainCurrencyTransactionPost({
     @Path('currency') required String? currency,
     @Body() required ChainCurrencyTransactionPost$RequestBody? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Broadcast a transaction',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain"],
+      deprecated: false,
+    ),
   });
 
   ///
   ///@param currency Currency of the chain to query for
-  Future<chopper.Response<Contracts>> chainCurrencyContractsGet(
-      {required String? currency}) {
+  Future<chopper.Response<Contracts>> chainCurrencyContractsGet({
+    required String? currency,
+  }) {
     generatedMapping.putIfAbsent(Contracts, () => Contracts.fromJsonFactory);
 
     return _chainCurrencyContractsGet(currency: currency);
@@ -165,21 +260,48 @@ abstract class Boltz extends ChopperService {
 
   ///
   ///@param currency Currency of the chain to query for
-  @Get(path: '/chain/{currency}/contracts')
-  Future<chopper.Response<Contracts>> _chainCurrencyContractsGet(
-      {@Path('currency') required String? currency});
+  @GET(path: '/chain/{currency}/contracts')
+  Future<chopper.Response<Contracts>> _chainCurrencyContractsGet({
+    @Path('currency') required String? currency,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Get the network information and contract addresses for a supported EVM chains',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain"],
+      deprecated: false,
+    ),
+  });
 
   ///
   Future<chopper.Response<VersionGet$Response>> versionGet() {
     generatedMapping.putIfAbsent(
-        VersionGet$Response, () => VersionGet$Response.fromJsonFactory);
+      VersionGet$Response,
+      () => VersionGet$Response.fromJsonFactory,
+    );
 
     return _versionGet();
   }
 
   ///
-  @Get(path: '/version')
-  Future<chopper.Response<VersionGet$Response>> _versionGet();
+  @GET(path: '/version')
+  Future<chopper.Response<VersionGet$Response>> _versionGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Version of the backend',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Info"],
+      deprecated: false,
+    ),
+  });
 
   ///
   Future<chopper.Response<List<String>>> infosGet() {
@@ -187,8 +309,20 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/infos')
-  Future<chopper.Response<List<String>>> _infosGet();
+  @GET(path: '/infos')
+  Future<chopper.Response<List<String>>> _infosGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Information about the configuration of the backend',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Info"],
+      deprecated: false,
+    ),
+  });
 
   ///
   Future<chopper.Response<List<String>>> warningsGet() {
@@ -196,32 +330,54 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/warnings')
-  Future<chopper.Response<List<String>>> _warningsGet();
+  @GET(path: '/warnings')
+  Future<chopper.Response<List<String>>> _warningsGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Warnings about the configuration of the backend',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Info"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param currency Currency of the lightning network to use
   Future<chopper.Response<LightningCurrencyBolt12FetchPost$Response>>
-      lightningCurrencyBolt12FetchPost({
+  lightningCurrencyBolt12FetchPost({
     required String? currency,
     required LightningCurrencyBolt12FetchPost$RequestBody? body,
   }) {
-    generatedMapping.putIfAbsent(LightningCurrencyBolt12FetchPost$Response,
-        () => LightningCurrencyBolt12FetchPost$Response.fromJsonFactory);
+    generatedMapping.putIfAbsent(
+      LightningCurrencyBolt12FetchPost$Response,
+      () => LightningCurrencyBolt12FetchPost$Response.fromJsonFactory,
+    );
 
     return _lightningCurrencyBolt12FetchPost(currency: currency, body: body);
   }
 
   ///
   ///@param currency Currency of the lightning network to use
-  @Post(
-    path: '/lightning/{currency}/bolt12/fetch',
-    optionalBody: true,
-  )
+  @POST(path: '/lightning/{currency}/bolt12/fetch', optionalBody: true)
   Future<chopper.Response<LightningCurrencyBolt12FetchPost$Response>>
-      _lightningCurrencyBolt12FetchPost({
+  _lightningCurrencyBolt12FetchPost({
     @Path('currency') required String? currency,
     @Body() required LightningCurrencyBolt12FetchPost$RequestBody? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Fetches an invoice for a BOLT12 offer',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Lightning"],
+      deprecated: false,
+    ),
   });
 
   ///
@@ -230,8 +386,21 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/nodes')
-  Future<chopper.Response<Object>> _nodesGet();
+  @GET(path: '/nodes')
+  Future<chopper.Response<Object>> _nodesGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Information about the Lightning nodes the backend is connected to',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Nodes"],
+      deprecated: false,
+    ),
+  });
 
   ///
   Future<chopper.Response<Object>> nodesStatsGet() {
@@ -239,8 +408,21 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/nodes/stats')
-  Future<chopper.Response<Object>> _nodesStatsGet();
+  @GET(path: '/nodes/stats')
+  Future<chopper.Response<Object>> _nodesStatsGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Statistics about the Lightning nodes the backend is connected to',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Nodes"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param TS Current UNIX timestamp when the request is sent
@@ -252,23 +434,37 @@ abstract class Boltz extends ChopperService {
     String? apihmac,
   }) {
     generatedMapping.putIfAbsent(
-        ReferralGet$Response, () => ReferralGet$Response.fromJsonFactory);
+      ReferralGet$Response,
+      () => ReferralGet$Response.fromJsonFactory,
+    );
 
     return _referralGet(
-        ts: ts?.toString(),
-        apikey: apikey?.toString(),
-        apihmac: apihmac?.toString());
+      ts: ts?.toString(),
+      apikey: apikey?.toString(),
+      apihmac: apihmac?.toString(),
+    );
   }
 
   ///
   ///@param TS Current UNIX timestamp when the request is sent
   ///@param API-KEY Your API key
   ///@param API-HMAC HMAC-SHA256 with your API-Secret as key of the TS + HTTP method (all uppercase) + the HTTP path
-  @Get(path: '/referral')
+  @GET(path: '/referral')
   Future<chopper.Response<ReferralGet$Response>> _referralGet({
     @Header('TS') String? ts,
     @Header('API-KEY') String? apikey,
     @Header('API-HMAC') String? apihmac,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Referral ID for the used API keys',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Referral"],
+      deprecated: false,
+    ),
   });
 
   ///
@@ -281,20 +477,32 @@ abstract class Boltz extends ChopperService {
     String? apihmac,
   }) {
     return _referralFeesGet(
-        ts: ts?.toString(),
-        apikey: apikey?.toString(),
-        apihmac: apihmac?.toString());
+      ts: ts?.toString(),
+      apikey: apikey?.toString(),
+      apihmac: apihmac?.toString(),
+    );
   }
 
   ///
   ///@param TS Current UNIX timestamp when the request is sent
   ///@param API-KEY Your API key
   ///@param API-HMAC HMAC-SHA256 with your API-Secret as key of the TS + HTTP method (all uppercase) + the HTTP path
-  @Get(path: '/referral/fees')
+  @GET(path: '/referral/fees')
   Future<chopper.Response<Object>> _referralFeesGet({
     @Header('TS') String? ts,
     @Header('API-KEY') String? apikey,
     @Header('API-HMAC') String? apihmac,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Referral fees collected for an ID',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Referral"],
+      deprecated: false,
+    ),
   });
 
   ///
@@ -307,20 +515,32 @@ abstract class Boltz extends ChopperService {
     String? apihmac,
   }) {
     return _referralStatsGet(
-        ts: ts?.toString(),
-        apikey: apikey?.toString(),
-        apihmac: apihmac?.toString());
+      ts: ts?.toString(),
+      apikey: apikey?.toString(),
+      apihmac: apihmac?.toString(),
+    );
   }
 
   ///
   ///@param TS Current UNIX timestamp when the request is sent
   ///@param API-KEY Your API key
   ///@param API-HMAC HMAC-SHA256 with your API-Secret as key of the TS + HTTP method (all uppercase) + the HTTP path
-  @Get(path: '/referral/stats')
+  @GET(path: '/referral/stats')
   Future<chopper.Response<Object>> _referralStatsGet({
     @Header('TS') String? ts,
     @Header('API-KEY') String? apikey,
     @Header('API-HMAC') String? apihmac,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Statistics for Swaps created with an referral ID',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Referral"],
+      deprecated: false,
+    ),
   });
 
   ///
@@ -329,114 +549,210 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/swap/submarine')
-  Future<chopper.Response<Object>> _swapSubmarineGet();
+  @GET(path: '/swap/submarine')
+  Future<chopper.Response<Object>> _swapSubmarineGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Possible pairs for Submarine Swaps',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
+  });
 
   ///
-  Future<chopper.Response<SubmarineResponse>> swapSubmarinePost(
-      {required SubmarineRequest? body}) {
+  Future<chopper.Response<SubmarineResponse>> swapSubmarinePost({
+    required SubmarineRequest? body,
+  }) {
     generatedMapping.putIfAbsent(
-        SubmarineResponse, () => SubmarineResponse.fromJsonFactory);
+      SubmarineResponse,
+      () => SubmarineResponse.fromJsonFactory,
+    );
 
     return _swapSubmarinePost(body: body);
   }
 
   ///
-  @Post(
-    path: '/swap/submarine',
-    optionalBody: true,
-  )
-  Future<chopper.Response<SubmarineResponse>> _swapSubmarinePost(
-      {@Body() required SubmarineRequest? body});
+  @POST(path: '/swap/submarine', optionalBody: true)
+  Future<chopper.Response<SubmarineResponse>> _swapSubmarinePost({
+    @Body() required SubmarineRequest? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Create a new Submarine Swap from onchain to lightning',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Submarine Swap
   Future<chopper.Response<SwapSubmarineIdInvoicePost$Response>>
-      swapSubmarineIdInvoicePost({
+  swapSubmarineIdInvoicePost({
     required String? id,
     required SwapSubmarineIdInvoicePost$RequestBody? body,
   }) {
-    generatedMapping.putIfAbsent(SwapSubmarineIdInvoicePost$Response,
-        () => SwapSubmarineIdInvoicePost$Response.fromJsonFactory);
+    generatedMapping.putIfAbsent(
+      SwapSubmarineIdInvoicePost$Response,
+      () => SwapSubmarineIdInvoicePost$Response.fromJsonFactory,
+    );
 
     return _swapSubmarineIdInvoicePost(id: id, body: body);
   }
 
   ///
   ///@param id ID of the Submarine Swap
-  @Post(
-    path: '/swap/submarine/{id}/invoice',
-    optionalBody: true,
-  )
+  @POST(path: '/swap/submarine/{id}/invoice', optionalBody: true)
   Future<chopper.Response<SwapSubmarineIdInvoicePost$Response>>
-      _swapSubmarineIdInvoicePost({
+  _swapSubmarineIdInvoicePost({
     @Path('id') required String? id,
     @Body() required SwapSubmarineIdInvoicePost$RequestBody? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Set the invoice for a Submarine Swap',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
   });
 
   ///
   ///@param id ID of the Submarine Swap
   Future<chopper.Response<SwapSubmarineIdInvoiceAmountGet$Response>>
-      swapSubmarineIdInvoiceAmountGet({required String? id}) {
-    generatedMapping.putIfAbsent(SwapSubmarineIdInvoiceAmountGet$Response,
-        () => SwapSubmarineIdInvoiceAmountGet$Response.fromJsonFactory);
+  swapSubmarineIdInvoiceAmountGet({required String? id}) {
+    generatedMapping.putIfAbsent(
+      SwapSubmarineIdInvoiceAmountGet$Response,
+      () => SwapSubmarineIdInvoiceAmountGet$Response.fromJsonFactory,
+    );
 
     return _swapSubmarineIdInvoiceAmountGet(id: id);
   }
 
   ///
   ///@param id ID of the Submarine Swap
-  @Get(path: '/swap/submarine/{id}/invoice/amount')
+  @GET(path: '/swap/submarine/{id}/invoice/amount')
   Future<chopper.Response<SwapSubmarineIdInvoiceAmountGet$Response>>
-      _swapSubmarineIdInvoiceAmountGet({@Path('id') required String? id});
+  _swapSubmarineIdInvoiceAmountGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Get the expected amount of the invoice that should be set after the Swap was created with a preimage hash and an onchain transaction was sent',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Submarine Swap
-  Future<chopper.Response<SubmarineTransaction>> swapSubmarineIdTransactionGet(
-      {required String? id}) {
+  Future<chopper.Response<SubmarineTransaction>> swapSubmarineIdTransactionGet({
+    required String? id,
+  }) {
     generatedMapping.putIfAbsent(
-        SubmarineTransaction, () => SubmarineTransaction.fromJsonFactory);
+      SubmarineTransaction,
+      () => SubmarineTransaction.fromJsonFactory,
+    );
 
     return _swapSubmarineIdTransactionGet(id: id);
   }
 
   ///
   ///@param id ID of the Submarine Swap
-  @Get(path: '/swap/submarine/{id}/transaction')
-  Future<chopper.Response<SubmarineTransaction>> _swapSubmarineIdTransactionGet(
-      {@Path('id') required String? id});
+  @GET(path: '/swap/submarine/{id}/transaction')
+  Future<chopper.Response<SubmarineTransaction>>
+  _swapSubmarineIdTransactionGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Get the lockup transaction of a Submarine Swap',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Submarine Swap
-  Future<chopper.Response<SubmarinePreimage>> swapSubmarineIdPreimageGet(
-      {required String? id}) {
+  Future<chopper.Response<SubmarinePreimage>> swapSubmarineIdPreimageGet({
+    required String? id,
+  }) {
     generatedMapping.putIfAbsent(
-        SubmarinePreimage, () => SubmarinePreimage.fromJsonFactory);
+      SubmarinePreimage,
+      () => SubmarinePreimage.fromJsonFactory,
+    );
 
     return _swapSubmarineIdPreimageGet(id: id);
   }
 
   ///
   ///@param id ID of the Submarine Swap
-  @Get(path: '/swap/submarine/{id}/preimage')
-  Future<chopper.Response<SubmarinePreimage>> _swapSubmarineIdPreimageGet(
-      {@Path('id') required String? id});
+  @GET(path: '/swap/submarine/{id}/preimage')
+  Future<chopper.Response<SubmarinePreimage>> _swapSubmarineIdPreimageGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Get the preimage of a successful Submarine Swap',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID or preimage hash of the Swap
   Future<chopper.Response<SwapSubmarineIdRefundGet$Response>>
-      swapSubmarineIdRefundGet({required String? id}) {
-    generatedMapping.putIfAbsent(SwapSubmarineIdRefundGet$Response,
-        () => SwapSubmarineIdRefundGet$Response.fromJsonFactory);
+  swapSubmarineIdRefundGet({required String? id}) {
+    generatedMapping.putIfAbsent(
+      SwapSubmarineIdRefundGet$Response,
+      () => SwapSubmarineIdRefundGet$Response.fromJsonFactory,
+    );
 
     return _swapSubmarineIdRefundGet(id: id);
   }
 
   ///
   ///@param id ID or preimage hash of the Swap
-  @Get(path: '/swap/submarine/{id}/refund')
+  @GET(path: '/swap/submarine/{id}/refund')
   Future<chopper.Response<SwapSubmarineIdRefundGet$Response>>
-      _swapSubmarineIdRefundGet({@Path('id') required String? id});
+  _swapSubmarineIdRefundGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Get an EIP-712 signature for a cooperative EVM refund',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Swap
@@ -445,37 +761,64 @@ abstract class Boltz extends ChopperService {
     required RefundRequest? body,
   }) {
     generatedMapping.putIfAbsent(
-        PartialSignature, () => PartialSignature.fromJsonFactory);
+      PartialSignature,
+      () => PartialSignature.fromJsonFactory,
+    );
 
     return _swapSubmarineIdRefundPost(id: id, body: body);
   }
 
   ///
   ///@param id ID of the Swap
-  @Post(
-    path: '/swap/submarine/{id}/refund',
-    optionalBody: true,
-  )
+  @POST(path: '/swap/submarine/{id}/refund', optionalBody: true)
   Future<chopper.Response<PartialSignature>> _swapSubmarineIdRefundPost({
     @Path('id') required String? id,
     @Body() required RefundRequest? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Requests a partial signature for a cooperative Submarine Swap refund transaction',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
   });
 
   ///
   ///@param id ID of the Swap
-  Future<chopper.Response<SubmarineClaimDetails>> swapSubmarineIdClaimGet(
-      {required String? id}) {
+  Future<chopper.Response<SubmarineClaimDetails>> swapSubmarineIdClaimGet({
+    required String? id,
+  }) {
     generatedMapping.putIfAbsent(
-        SubmarineClaimDetails, () => SubmarineClaimDetails.fromJsonFactory);
+      SubmarineClaimDetails,
+      () => SubmarineClaimDetails.fromJsonFactory,
+    );
 
     return _swapSubmarineIdClaimGet(id: id);
   }
 
   ///
   ///@param id ID of the Swap
-  @Get(path: '/swap/submarine/{id}/claim')
-  Future<chopper.Response<SubmarineClaimDetails>> _swapSubmarineIdClaimGet(
-      {@Path('id') required String? id});
+  @GET(path: '/swap/submarine/{id}/claim')
+  Future<chopper.Response<SubmarineClaimDetails>> _swapSubmarineIdClaimGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Get the needed information to post a partial signature for a cooperative Submarine Swap claim transaction',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Swap
@@ -488,13 +831,22 @@ abstract class Boltz extends ChopperService {
 
   ///
   ///@param id ID of the Swap
-  @Post(
-    path: '/swap/submarine/{id}/claim',
-    optionalBody: true,
-  )
+  @POST(path: '/swap/submarine/{id}/claim', optionalBody: true)
   Future<chopper.Response<Object>> _swapSubmarineIdClaimPost({
     @Path('id') required String? id,
     @Body() required PartialSignature? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Send Boltz the clients partial signature for a cooperative Submarine Swap claim transaction',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Submarine"],
+      deprecated: false,
+    ),
   });
 
   ///
@@ -503,41 +855,80 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/swap/reverse')
-  Future<chopper.Response<Object>> _swapReverseGet();
+  @GET(path: '/swap/reverse')
+  Future<chopper.Response<Object>> _swapReverseGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Possible pairs for Reverse Swaps',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Reverse"],
+      deprecated: false,
+    ),
+  });
 
   ///
-  Future<chopper.Response<ReverseResponse>> swapReversePost(
-      {required ReverseRequest? body}) {
+  Future<chopper.Response<ReverseResponse>> swapReversePost({
+    required ReverseRequest? body,
+  }) {
     generatedMapping.putIfAbsent(
-        ReverseResponse, () => ReverseResponse.fromJsonFactory);
+      ReverseResponse,
+      () => ReverseResponse.fromJsonFactory,
+    );
 
     return _swapReversePost(body: body);
   }
 
   ///
-  @Post(
-    path: '/swap/reverse',
-    optionalBody: true,
-  )
-  Future<chopper.Response<ReverseResponse>> _swapReversePost(
-      {@Body() required ReverseRequest? body});
+  @POST(path: '/swap/reverse', optionalBody: true)
+  Future<chopper.Response<ReverseResponse>> _swapReversePost({
+    @Body() required ReverseRequest? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Create a new Reverse Swap from lightning to onchain',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Reverse"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Reverse Swap
-  Future<chopper.Response<ReverseTransaction>> swapReverseIdTransactionGet(
-      {required String? id}) {
+  Future<chopper.Response<ReverseTransaction>> swapReverseIdTransactionGet({
+    required String? id,
+  }) {
     generatedMapping.putIfAbsent(
-        ReverseTransaction, () => ReverseTransaction.fromJsonFactory);
+      ReverseTransaction,
+      () => ReverseTransaction.fromJsonFactory,
+    );
 
     return _swapReverseIdTransactionGet(id: id);
   }
 
   ///
   ///@param id ID of the Reverse Swap
-  @Get(path: '/swap/reverse/{id}/transaction')
-  Future<chopper.Response<ReverseTransaction>> _swapReverseIdTransactionGet(
-      {@Path('id') required String? id});
+  @GET(path: '/swap/reverse/{id}/transaction')
+  Future<chopper.Response<ReverseTransaction>> _swapReverseIdTransactionGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Get the lockup transaction of a Reverse Swap',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Reverse"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Swap
@@ -546,37 +937,63 @@ abstract class Boltz extends ChopperService {
     required ReverseClaimRequest? body,
   }) {
     generatedMapping.putIfAbsent(
-        PartialSignature, () => PartialSignature.fromJsonFactory);
+      PartialSignature,
+      () => PartialSignature.fromJsonFactory,
+    );
 
     return _swapReverseIdClaimPost(id: id, body: body);
   }
 
   ///
   ///@param id ID of the Swap
-  @Post(
-    path: '/swap/reverse/{id}/claim',
-    optionalBody: true,
-  )
+  @POST(path: '/swap/reverse/{id}/claim', optionalBody: true)
   Future<chopper.Response<PartialSignature>> _swapReverseIdClaimPost({
     @Path('id') required String? id,
     @Body() required ReverseClaimRequest? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Requests a partial signature for a cooperative Reverse Swap claim transaction. To settle the invoice, but not claim the onchain HTLC (eg to create a batched claim in the future), only the preimage is required. If no transaction is provided, an empty object is returned as response.',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Reverse"],
+      deprecated: false,
+    ),
   });
 
   ///
   ///@param invoice Invoice of the Reverse Swap
-  Future<chopper.Response<ReverseBip21>> swapReverseInvoiceBip21Get(
-      {required String? invoice}) {
+  Future<chopper.Response<ReverseBip21>> swapReverseInvoiceBip21Get({
+    required String? invoice,
+  }) {
     generatedMapping.putIfAbsent(
-        ReverseBip21, () => ReverseBip21.fromJsonFactory);
+      ReverseBip21,
+      () => ReverseBip21.fromJsonFactory,
+    );
 
     return _swapReverseInvoiceBip21Get(invoice: invoice);
   }
 
   ///
   ///@param invoice Invoice of the Reverse Swap
-  @Get(path: '/swap/reverse/{invoice}/bip21')
-  Future<chopper.Response<ReverseBip21>> _swapReverseInvoiceBip21Get(
-      {@Path('invoice') required String? invoice});
+  @GET(path: '/swap/reverse/{invoice}/bip21')
+  Future<chopper.Response<ReverseBip21>> _swapReverseInvoiceBip21Get({
+    @Path('invoice') required String? invoice,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Get the BIP-21 of a Reverse Swap for a direct payment',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Reverse"],
+      deprecated: false,
+    ),
+  });
 
   ///
   Future<chopper.Response<Object>> swapChainGet() {
@@ -584,57 +1001,112 @@ abstract class Boltz extends ChopperService {
   }
 
   ///
-  @Get(path: '/swap/chain')
-  Future<chopper.Response<Object>> _swapChainGet();
+  @GET(path: '/swap/chain')
+  Future<chopper.Response<Object>> _swapChainGet({
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Possible pairs for Chain Swaps',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain Swap"],
+      deprecated: false,
+    ),
+  });
 
   ///
-  Future<chopper.Response<ChainResponse>> swapChainPost(
-      {required ChainRequest? body}) {
+  Future<chopper.Response<ChainResponse>> swapChainPost({
+    required ChainRequest? body,
+  }) {
     generatedMapping.putIfAbsent(
-        ChainResponse, () => ChainResponse.fromJsonFactory);
+      ChainResponse,
+      () => ChainResponse.fromJsonFactory,
+    );
 
     return _swapChainPost(body: body);
   }
 
   ///
-  @Post(
-    path: '/swap/chain',
-    optionalBody: true,
-  )
-  Future<chopper.Response<ChainResponse>> _swapChainPost(
-      {@Body() required ChainRequest? body});
+  @POST(path: '/swap/chain', optionalBody: true)
+  Future<chopper.Response<ChainResponse>> _swapChainPost({
+    @Body() required ChainRequest? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Create a new Chain Swap from chain to chain. Omit "userLockAmount" and "serverLockAmount" to create a Chain Swap with an arbitrary amount',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain Swap"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Swap
-  Future<chopper.Response<ChainSwapTransactions>> swapChainIdTransactionsGet(
-      {required String? id}) {
+  Future<chopper.Response<ChainSwapTransactions>> swapChainIdTransactionsGet({
+    required String? id,
+  }) {
     generatedMapping.putIfAbsent(
-        ChainSwapTransactions, () => ChainSwapTransactions.fromJsonFactory);
+      ChainSwapTransactions,
+      () => ChainSwapTransactions.fromJsonFactory,
+    );
 
     return _swapChainIdTransactionsGet(id: id);
   }
 
   ///
   ///@param id ID of the Swap
-  @Get(path: '/swap/chain/{id}/transactions')
-  Future<chopper.Response<ChainSwapTransactions>> _swapChainIdTransactionsGet(
-      {@Path('id') required String? id});
+  @GET(path: '/swap/chain/{id}/transactions')
+  Future<chopper.Response<ChainSwapTransactions>> _swapChainIdTransactionsGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Gets the transactions of a Chain Swap',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain Swap"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Swap
-  Future<chopper.Response<ChainSwapSigningDetails>> swapChainIdClaimGet(
-      {required String? id}) {
+  Future<chopper.Response<ChainSwapSigningDetails>> swapChainIdClaimGet({
+    required String? id,
+  }) {
     generatedMapping.putIfAbsent(
-        ChainSwapSigningDetails, () => ChainSwapSigningDetails.fromJsonFactory);
+      ChainSwapSigningDetails,
+      () => ChainSwapSigningDetails.fromJsonFactory,
+    );
 
     return _swapChainIdClaimGet(id: id);
   }
 
   ///
   ///@param id ID of the Swap
-  @Get(path: '/swap/chain/{id}/claim')
-  Future<chopper.Response<ChainSwapSigningDetails>> _swapChainIdClaimGet(
-      {@Path('id') required String? id});
+  @GET(path: '/swap/chain/{id}/claim')
+  Future<chopper.Response<ChainSwapSigningDetails>> _swapChainIdClaimGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Gets the server claim transaction signing details',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain Swap"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Swap
@@ -643,37 +1115,64 @@ abstract class Boltz extends ChopperService {
     required ChainSwapSigningRequest? body,
   }) {
     generatedMapping.putIfAbsent(
-        PartialSignature, () => PartialSignature.fromJsonFactory);
+      PartialSignature,
+      () => PartialSignature.fromJsonFactory,
+    );
 
     return _swapChainIdClaimPost(id: id, body: body);
   }
 
   ///
   ///@param id ID of the Swap
-  @Post(
-    path: '/swap/chain/{id}/claim',
-    optionalBody: true,
-  )
+  @POST(path: '/swap/chain/{id}/claim', optionalBody: true)
   Future<chopper.Response<PartialSignature>> _swapChainIdClaimPost({
     @Path('id') required String? id,
     @Body() required ChainSwapSigningRequest? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Send Boltz a partial signature for its claim transaction and get a partial signature for the clients claim in return',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain Swap"],
+      deprecated: false,
+    ),
   });
 
   ///
   ///@param id ID of the Swap
-  Future<chopper.Response<SwapChainIdRefundGet$Response>> swapChainIdRefundGet(
-      {required String? id}) {
-    generatedMapping.putIfAbsent(SwapChainIdRefundGet$Response,
-        () => SwapChainIdRefundGet$Response.fromJsonFactory);
+  Future<chopper.Response<SwapChainIdRefundGet$Response>> swapChainIdRefundGet({
+    required String? id,
+  }) {
+    generatedMapping.putIfAbsent(
+      SwapChainIdRefundGet$Response,
+      () => SwapChainIdRefundGet$Response.fromJsonFactory,
+    );
 
     return _swapChainIdRefundGet(id: id);
   }
 
   ///
   ///@param id ID of the Swap
-  @Get(path: '/swap/chain/{id}/refund')
-  Future<chopper.Response<SwapChainIdRefundGet$Response>> _swapChainIdRefundGet(
-      {@Path('id') required String? id});
+  @GET(path: '/swap/chain/{id}/refund')
+  Future<chopper.Response<SwapChainIdRefundGet$Response>>
+  _swapChainIdRefundGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Get an EIP-712 signature for a cooperative EVM refund',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain Swap"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Swap
@@ -682,20 +1181,31 @@ abstract class Boltz extends ChopperService {
     required RefundRequest? body,
   }) {
     generatedMapping.putIfAbsent(
-        PartialSignature, () => PartialSignature.fromJsonFactory);
+      PartialSignature,
+      () => PartialSignature.fromJsonFactory,
+    );
 
     return _swapChainIdRefundPost(id: id, body: body);
   }
 
   ///
   ///@param id ID of the Swap
-  @Post(
-    path: '/swap/chain/{id}/refund',
-    optionalBody: true,
-  )
+  @POST(path: '/swap/chain/{id}/refund', optionalBody: true)
   Future<chopper.Response<PartialSignature>> _swapChainIdRefundPost({
     @Path('id') required String? id,
     @Body() required RefundRequest? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description:
+          'Requests a partial signature for a cooperative Chain Swap refund transaction',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain Swap"],
+      deprecated: false,
+    ),
   });
 
   ///
@@ -708,9 +1218,21 @@ abstract class Boltz extends ChopperService {
 
   ///
   ///@param id ID of the Swap
-  @Get(path: '/swap/chain/{id}/quote')
-  Future<chopper.Response<Quote>> _swapChainIdQuoteGet(
-      {@Path('id') required String? id});
+  @GET(path: '/swap/chain/{id}/quote')
+  Future<chopper.Response<Quote>> _swapChainIdQuoteGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Gets a new quote for an overpaid or underpaid Chain Swap',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain Swap"],
+      deprecated: false,
+    ),
+  });
 
   ///
   ///@param id ID of the Swap
@@ -719,20 +1241,30 @@ abstract class Boltz extends ChopperService {
     required Quote? body,
   }) {
     generatedMapping.putIfAbsent(
-        QuoteResponse, () => QuoteResponse.fromJsonFactory);
+      QuoteResponse,
+      () => QuoteResponse.fromJsonFactory,
+    );
 
     return _swapChainIdQuotePost(id: id, body: body);
   }
 
   ///
   ///@param id ID of the Swap
-  @Post(
-    path: '/swap/chain/{id}/quote',
-    optionalBody: true,
-  )
+  @POST(path: '/swap/chain/{id}/quote', optionalBody: true)
   Future<chopper.Response<QuoteResponse>> _swapChainIdQuotePost({
     @Path('id') required String? id,
     @Body() required Quote? body,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Accepts a new quote for a Chain Swap',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Chain Swap"],
+      deprecated: false,
+    ),
   });
 
   ///
@@ -745,9 +1277,21 @@ abstract class Boltz extends ChopperService {
 
   ///
   ///@param id ID of the Swap
-  @Get(path: '/swap/{id}')
-  Future<chopper.Response<SwapStatus>> _swapIdGet(
-      {@Path('id') required String? id});
+  @GET(path: '/swap/{id}')
+  Future<chopper.Response<SwapStatus>> _swapIdGet({
+    @Path('id') required String? id,
+    @chopper.Tag()
+    SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
+      description: 'Get the status of a Swap',
+      summary: '',
+      operationId: '',
+      consumes: [],
+      produces: [],
+      security: [],
+      tags: ["Swap"],
+      deprecated: false,
+    ),
+  });
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -777,11 +1321,15 @@ class Contracts {
     return identical(this, other) ||
         (other is Contracts &&
             (identical(other.network, network) ||
-                const DeepCollectionEquality()
-                    .equals(other.network, network)) &&
+                const DeepCollectionEquality().equals(
+                  other.network,
+                  network,
+                )) &&
             (identical(other.swapContracts, swapContracts) ||
-                const DeepCollectionEquality()
-                    .equals(other.swapContracts, swapContracts)) &&
+                const DeepCollectionEquality().equals(
+                  other.swapContracts,
+                  swapContracts,
+                )) &&
             (identical(other.tokens, tokens) ||
                 const DeepCollectionEquality().equals(other.tokens, tokens)));
   }
@@ -798,34 +1346,36 @@ class Contracts {
 }
 
 extension $ContractsExtension on Contracts {
-  Contracts copyWith(
-      {Contracts$Network? network,
-      Contracts$SwapContracts? swapContracts,
-      Map<String, dynamic>? tokens}) {
+  Contracts copyWith({
+    Contracts$Network? network,
+    Contracts$SwapContracts? swapContracts,
+    Map<String, dynamic>? tokens,
+  }) {
     return Contracts(
-        network: network ?? this.network,
-        swapContracts: swapContracts ?? this.swapContracts,
-        tokens: tokens ?? this.tokens);
+      network: network ?? this.network,
+      swapContracts: swapContracts ?? this.swapContracts,
+      tokens: tokens ?? this.tokens,
+    );
   }
 
-  Contracts copyWithWrapped(
-      {Wrapped<Contracts$Network>? network,
-      Wrapped<Contracts$SwapContracts>? swapContracts,
-      Wrapped<Map<String, dynamic>>? tokens}) {
+  Contracts copyWithWrapped({
+    Wrapped<Contracts$Network>? network,
+    Wrapped<Contracts$SwapContracts>? swapContracts,
+    Wrapped<Map<String, dynamic>>? tokens,
+  }) {
     return Contracts(
-        network: (network != null ? network.value : this.network),
-        swapContracts:
-            (swapContracts != null ? swapContracts.value : this.swapContracts),
-        tokens: (tokens != null ? tokens.value : this.tokens));
+      network: (network != null ? network.value : this.network),
+      swapContracts: (swapContracts != null
+          ? swapContracts.value
+          : this.swapContracts),
+      tokens: (tokens != null ? tokens.value : this.tokens),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class NodeInfo {
-  const NodeInfo({
-    required this.publicKey,
-    required this.uris,
-  });
+  const NodeInfo({required this.publicKey, required this.uris});
 
   factory NodeInfo.fromJson(Map<String, dynamic> json) =>
       _$NodeInfoFromJson(json);
@@ -844,8 +1394,10 @@ class NodeInfo {
     return identical(this, other) ||
         (other is NodeInfo &&
             (identical(other.publicKey, publicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.publicKey, publicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.publicKey,
+                  publicKey,
+                )) &&
             (identical(other.uris, uris) ||
                 const DeepCollectionEquality().equals(other.uris, uris)));
   }
@@ -863,14 +1415,19 @@ class NodeInfo {
 extension $NodeInfoExtension on NodeInfo {
   NodeInfo copyWith({String? publicKey, List<String>? uris}) {
     return NodeInfo(
-        publicKey: publicKey ?? this.publicKey, uris: uris ?? this.uris);
+      publicKey: publicKey ?? this.publicKey,
+      uris: uris ?? this.uris,
+    );
   }
 
-  NodeInfo copyWithWrapped(
-      {Wrapped<String>? publicKey, Wrapped<List<String>>? uris}) {
+  NodeInfo copyWithWrapped({
+    Wrapped<String>? publicKey,
+    Wrapped<List<String>>? uris,
+  }) {
     return NodeInfo(
-        publicKey: (publicKey != null ? publicKey.value : this.publicKey),
-        uris: (uris != null ? uris.value : this.uris));
+      publicKey: (publicKey != null ? publicKey.value : this.publicKey),
+      uris: (uris != null ? uris.value : this.uris),
+    );
   }
 }
 
@@ -904,16 +1461,22 @@ class NodeStats {
     return identical(this, other) ||
         (other is NodeStats &&
             (identical(other.capacity, capacity) ||
-                const DeepCollectionEquality()
-                    .equals(other.capacity, capacity)) &&
+                const DeepCollectionEquality().equals(
+                  other.capacity,
+                  capacity,
+                )) &&
             (identical(other.channels, channels) ||
-                const DeepCollectionEquality()
-                    .equals(other.channels, channels)) &&
+                const DeepCollectionEquality().equals(
+                  other.channels,
+                  channels,
+                )) &&
             (identical(other.peers, peers) ||
                 const DeepCollectionEquality().equals(other.peers, peers)) &&
             (identical(other.oldestChannel, oldestChannel) ||
-                const DeepCollectionEquality()
-                    .equals(other.oldestChannel, oldestChannel)));
+                const DeepCollectionEquality().equals(
+                  other.oldestChannel,
+                  oldestChannel,
+                )));
   }
 
   @override
@@ -929,34 +1492,40 @@ class NodeStats {
 }
 
 extension $NodeStatsExtension on NodeStats {
-  NodeStats copyWith(
-      {int? capacity, int? channels, int? peers, int? oldestChannel}) {
+  NodeStats copyWith({
+    int? capacity,
+    int? channels,
+    int? peers,
+    int? oldestChannel,
+  }) {
     return NodeStats(
-        capacity: capacity ?? this.capacity,
-        channels: channels ?? this.channels,
-        peers: peers ?? this.peers,
-        oldestChannel: oldestChannel ?? this.oldestChannel);
+      capacity: capacity ?? this.capacity,
+      channels: channels ?? this.channels,
+      peers: peers ?? this.peers,
+      oldestChannel: oldestChannel ?? this.oldestChannel,
+    );
   }
 
-  NodeStats copyWithWrapped(
-      {Wrapped<int>? capacity,
-      Wrapped<int>? channels,
-      Wrapped<int>? peers,
-      Wrapped<int>? oldestChannel}) {
+  NodeStats copyWithWrapped({
+    Wrapped<int>? capacity,
+    Wrapped<int>? channels,
+    Wrapped<int>? peers,
+    Wrapped<int>? oldestChannel,
+  }) {
     return NodeStats(
-        capacity: (capacity != null ? capacity.value : this.capacity),
-        channels: (channels != null ? channels.value : this.channels),
-        peers: (peers != null ? peers.value : this.peers),
-        oldestChannel:
-            (oldestChannel != null ? oldestChannel.value : this.oldestChannel));
+      capacity: (capacity != null ? capacity.value : this.capacity),
+      channels: (channels != null ? channels.value : this.channels),
+      peers: (peers != null ? peers.value : this.peers),
+      oldestChannel: (oldestChannel != null
+          ? oldestChannel.value
+          : this.oldestChannel),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ErrorResponse {
-  const ErrorResponse({
-    required this.error,
-  });
+  const ErrorResponse({required this.error});
 
   factory ErrorResponse.fromJson(Map<String, dynamic> json) =>
       _$ErrorResponseFromJson(json);
@@ -996,10 +1565,7 @@ extension $ErrorResponseExtension on ErrorResponse {
 
 @JsonSerializable(explicitToJson: true)
 class SwapTreeLeaf {
-  const SwapTreeLeaf({
-    required this.version,
-    required this.output,
-  });
+  const SwapTreeLeaf({required this.version, required this.output});
 
   factory SwapTreeLeaf.fromJson(Map<String, dynamic> json) =>
       _$SwapTreeLeafFromJson(json);
@@ -1018,8 +1584,10 @@ class SwapTreeLeaf {
     return identical(this, other) ||
         (other is SwapTreeLeaf &&
             (identical(other.version, version) ||
-                const DeepCollectionEquality()
-                    .equals(other.version, version)) &&
+                const DeepCollectionEquality().equals(
+                  other.version,
+                  version,
+                )) &&
             (identical(other.output, output) ||
                 const DeepCollectionEquality().equals(other.output, output)));
   }
@@ -1037,23 +1605,25 @@ class SwapTreeLeaf {
 extension $SwapTreeLeafExtension on SwapTreeLeaf {
   SwapTreeLeaf copyWith({double? version, String? output}) {
     return SwapTreeLeaf(
-        version: version ?? this.version, output: output ?? this.output);
+      version: version ?? this.version,
+      output: output ?? this.output,
+    );
   }
 
-  SwapTreeLeaf copyWithWrapped(
-      {Wrapped<double>? version, Wrapped<String>? output}) {
+  SwapTreeLeaf copyWithWrapped({
+    Wrapped<double>? version,
+    Wrapped<String>? output,
+  }) {
     return SwapTreeLeaf(
-        version: (version != null ? version.value : this.version),
-        output: (output != null ? output.value : this.output));
+      version: (version != null ? version.value : this.version),
+      output: (output != null ? output.value : this.output),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class SwapTree {
-  const SwapTree({
-    required this.claimLeaf,
-    required this.refundLeaf,
-  });
+  const SwapTree({required this.claimLeaf, required this.refundLeaf});
 
   factory SwapTree.fromJson(Map<String, dynamic> json) =>
       _$SwapTreeFromJson(json);
@@ -1072,11 +1642,15 @@ class SwapTree {
     return identical(this, other) ||
         (other is SwapTree &&
             (identical(other.claimLeaf, claimLeaf) ||
-                const DeepCollectionEquality()
-                    .equals(other.claimLeaf, claimLeaf)) &&
+                const DeepCollectionEquality().equals(
+                  other.claimLeaf,
+                  claimLeaf,
+                )) &&
             (identical(other.refundLeaf, refundLeaf) ||
-                const DeepCollectionEquality()
-                    .equals(other.refundLeaf, refundLeaf)));
+                const DeepCollectionEquality().equals(
+                  other.refundLeaf,
+                  refundLeaf,
+                )));
   }
 
   @override
@@ -1092,15 +1666,19 @@ class SwapTree {
 extension $SwapTreeExtension on SwapTree {
   SwapTree copyWith({SwapTreeLeaf? claimLeaf, SwapTreeLeaf? refundLeaf}) {
     return SwapTree(
-        claimLeaf: claimLeaf ?? this.claimLeaf,
-        refundLeaf: refundLeaf ?? this.refundLeaf);
+      claimLeaf: claimLeaf ?? this.claimLeaf,
+      refundLeaf: refundLeaf ?? this.refundLeaf,
+    );
   }
 
-  SwapTree copyWithWrapped(
-      {Wrapped<SwapTreeLeaf>? claimLeaf, Wrapped<SwapTreeLeaf>? refundLeaf}) {
+  SwapTree copyWithWrapped({
+    Wrapped<SwapTreeLeaf>? claimLeaf,
+    Wrapped<SwapTreeLeaf>? refundLeaf,
+  }) {
     return SwapTree(
-        claimLeaf: (claimLeaf != null ? claimLeaf.value : this.claimLeaf),
-        refundLeaf: (refundLeaf != null ? refundLeaf.value : this.refundLeaf));
+      claimLeaf: (claimLeaf != null ? claimLeaf.value : this.claimLeaf),
+      refundLeaf: (refundLeaf != null ? refundLeaf.value : this.refundLeaf),
+    );
   }
 }
 
@@ -1156,38 +1734,38 @@ class SubmarinePair {
 }
 
 extension $SubmarinePairExtension on SubmarinePair {
-  SubmarinePair copyWith(
-      {String? hash,
-      double? rate,
-      SubmarinePair$Limits? limits,
-      SubmarinePair$Fees? fees}) {
+  SubmarinePair copyWith({
+    String? hash,
+    double? rate,
+    SubmarinePair$Limits? limits,
+    SubmarinePair$Fees? fees,
+  }) {
     return SubmarinePair(
-        hash: hash ?? this.hash,
-        rate: rate ?? this.rate,
-        limits: limits ?? this.limits,
-        fees: fees ?? this.fees);
+      hash: hash ?? this.hash,
+      rate: rate ?? this.rate,
+      limits: limits ?? this.limits,
+      fees: fees ?? this.fees,
+    );
   }
 
-  SubmarinePair copyWithWrapped(
-      {Wrapped<String>? hash,
-      Wrapped<double>? rate,
-      Wrapped<SubmarinePair$Limits>? limits,
-      Wrapped<SubmarinePair$Fees>? fees}) {
+  SubmarinePair copyWithWrapped({
+    Wrapped<String>? hash,
+    Wrapped<double>? rate,
+    Wrapped<SubmarinePair$Limits>? limits,
+    Wrapped<SubmarinePair$Fees>? fees,
+  }) {
     return SubmarinePair(
-        hash: (hash != null ? hash.value : this.hash),
-        rate: (rate != null ? rate.value : this.rate),
-        limits: (limits != null ? limits.value : this.limits),
-        fees: (fees != null ? fees.value : this.fees));
+      hash: (hash != null ? hash.value : this.hash),
+      rate: (rate != null ? rate.value : this.rate),
+      limits: (limits != null ? limits.value : this.limits),
+      fees: (fees != null ? fees.value : this.fees),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class WebhookData {
-  const WebhookData({
-    required this.url,
-    this.hashSwapId,
-    this.status,
-  });
+  const WebhookData({required this.url, this.hashSwapId, this.status});
 
   factory WebhookData.fromJson(Map<String, dynamic> json) =>
       _$WebhookDataFromJson(json);
@@ -1210,8 +1788,10 @@ class WebhookData {
             (identical(other.url, url) ||
                 const DeepCollectionEquality().equals(other.url, url)) &&
             (identical(other.hashSwapId, hashSwapId) ||
-                const DeepCollectionEquality()
-                    .equals(other.hashSwapId, hashSwapId)) &&
+                const DeepCollectionEquality().equals(
+                  other.hashSwapId,
+                  hashSwapId,
+                )) &&
             (identical(other.status, status) ||
                 const DeepCollectionEquality().equals(other.status, status)));
   }
@@ -1230,19 +1810,22 @@ class WebhookData {
 extension $WebhookDataExtension on WebhookData {
   WebhookData copyWith({String? url, bool? hashSwapId, List<String>? status}) {
     return WebhookData(
-        url: url ?? this.url,
-        hashSwapId: hashSwapId ?? this.hashSwapId,
-        status: status ?? this.status);
+      url: url ?? this.url,
+      hashSwapId: hashSwapId ?? this.hashSwapId,
+      status: status ?? this.status,
+    );
   }
 
-  WebhookData copyWithWrapped(
-      {Wrapped<String>? url,
-      Wrapped<bool?>? hashSwapId,
-      Wrapped<List<String>?>? status}) {
+  WebhookData copyWithWrapped({
+    Wrapped<String>? url,
+    Wrapped<bool?>? hashSwapId,
+    Wrapped<List<String>?>? status,
+  }) {
     return WebhookData(
-        url: (url != null ? url.value : this.url),
-        hashSwapId: (hashSwapId != null ? hashSwapId.value : this.hashSwapId),
-        status: (status != null ? status.value : this.status));
+      url: (url != null ? url.value : this.url),
+      hashSwapId: (hashSwapId != null ? hashSwapId.value : this.hashSwapId),
+      status: (status != null ? status.value : this.status),
+    );
   }
 }
 
@@ -1292,20 +1875,30 @@ class SubmarineRequest {
             (identical(other.to, to) ||
                 const DeepCollectionEquality().equals(other.to, to)) &&
             (identical(other.invoice, invoice) ||
-                const DeepCollectionEquality()
-                    .equals(other.invoice, invoice)) &&
+                const DeepCollectionEquality().equals(
+                  other.invoice,
+                  invoice,
+                )) &&
             (identical(other.preimageHash, preimageHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.preimageHash, preimageHash)) &&
+                const DeepCollectionEquality().equals(
+                  other.preimageHash,
+                  preimageHash,
+                )) &&
             (identical(other.refundPublicKey, refundPublicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.refundPublicKey, refundPublicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.refundPublicKey,
+                  refundPublicKey,
+                )) &&
             (identical(other.pairHash, pairHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.pairHash, pairHash)) &&
+                const DeepCollectionEquality().equals(
+                  other.pairHash,
+                  pairHash,
+                )) &&
             (identical(other.referralId, referralId) ||
-                const DeepCollectionEquality()
-                    .equals(other.referralId, referralId)) &&
+                const DeepCollectionEquality().equals(
+                  other.referralId,
+                  referralId,
+                )) &&
             (identical(other.webhook, webhook) ||
                 const DeepCollectionEquality().equals(other.webhook, webhook)));
   }
@@ -1327,47 +1920,52 @@ class SubmarineRequest {
 }
 
 extension $SubmarineRequestExtension on SubmarineRequest {
-  SubmarineRequest copyWith(
-      {String? from,
-      String? to,
-      String? invoice,
-      String? preimageHash,
-      String? refundPublicKey,
-      String? pairHash,
-      String? referralId,
-      WebhookData? webhook}) {
+  SubmarineRequest copyWith({
+    String? from,
+    String? to,
+    String? invoice,
+    String? preimageHash,
+    String? refundPublicKey,
+    String? pairHash,
+    String? referralId,
+    WebhookData? webhook,
+  }) {
     return SubmarineRequest(
-        from: from ?? this.from,
-        to: to ?? this.to,
-        invoice: invoice ?? this.invoice,
-        preimageHash: preimageHash ?? this.preimageHash,
-        refundPublicKey: refundPublicKey ?? this.refundPublicKey,
-        pairHash: pairHash ?? this.pairHash,
-        referralId: referralId ?? this.referralId,
-        webhook: webhook ?? this.webhook);
+      from: from ?? this.from,
+      to: to ?? this.to,
+      invoice: invoice ?? this.invoice,
+      preimageHash: preimageHash ?? this.preimageHash,
+      refundPublicKey: refundPublicKey ?? this.refundPublicKey,
+      pairHash: pairHash ?? this.pairHash,
+      referralId: referralId ?? this.referralId,
+      webhook: webhook ?? this.webhook,
+    );
   }
 
-  SubmarineRequest copyWithWrapped(
-      {Wrapped<String>? from,
-      Wrapped<String>? to,
-      Wrapped<String?>? invoice,
-      Wrapped<String?>? preimageHash,
-      Wrapped<String?>? refundPublicKey,
-      Wrapped<String?>? pairHash,
-      Wrapped<String?>? referralId,
-      Wrapped<WebhookData?>? webhook}) {
+  SubmarineRequest copyWithWrapped({
+    Wrapped<String>? from,
+    Wrapped<String>? to,
+    Wrapped<String?>? invoice,
+    Wrapped<String?>? preimageHash,
+    Wrapped<String?>? refundPublicKey,
+    Wrapped<String?>? pairHash,
+    Wrapped<String?>? referralId,
+    Wrapped<WebhookData?>? webhook,
+  }) {
     return SubmarineRequest(
-        from: (from != null ? from.value : this.from),
-        to: (to != null ? to.value : this.to),
-        invoice: (invoice != null ? invoice.value : this.invoice),
-        preimageHash:
-            (preimageHash != null ? preimageHash.value : this.preimageHash),
-        refundPublicKey: (refundPublicKey != null
-            ? refundPublicKey.value
-            : this.refundPublicKey),
-        pairHash: (pairHash != null ? pairHash.value : this.pairHash),
-        referralId: (referralId != null ? referralId.value : this.referralId),
-        webhook: (webhook != null ? webhook.value : this.webhook));
+      from: (from != null ? from.value : this.from),
+      to: (to != null ? to.value : this.to),
+      invoice: (invoice != null ? invoice.value : this.invoice),
+      preimageHash: (preimageHash != null
+          ? preimageHash.value
+          : this.preimageHash),
+      refundPublicKey: (refundPublicKey != null
+          ? refundPublicKey.value
+          : this.refundPublicKey),
+      pairHash: (pairHash != null ? pairHash.value : this.pairHash),
+      referralId: (referralId != null ? referralId.value : this.referralId),
+      webhook: (webhook != null ? webhook.value : this.webhook),
+    );
   }
 }
 
@@ -1423,29 +2021,45 @@ class SubmarineResponse {
             (identical(other.bip21, bip21) ||
                 const DeepCollectionEquality().equals(other.bip21, bip21)) &&
             (identical(other.address, address) ||
-                const DeepCollectionEquality()
-                    .equals(other.address, address)) &&
+                const DeepCollectionEquality().equals(
+                  other.address,
+                  address,
+                )) &&
             (identical(other.swapTree, swapTree) ||
-                const DeepCollectionEquality()
-                    .equals(other.swapTree, swapTree)) &&
+                const DeepCollectionEquality().equals(
+                  other.swapTree,
+                  swapTree,
+                )) &&
             (identical(other.claimPublicKey, claimPublicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.claimPublicKey, claimPublicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.claimPublicKey,
+                  claimPublicKey,
+                )) &&
             (identical(other.timeoutBlockHeight, timeoutBlockHeight) ||
-                const DeepCollectionEquality()
-                    .equals(other.timeoutBlockHeight, timeoutBlockHeight)) &&
+                const DeepCollectionEquality().equals(
+                  other.timeoutBlockHeight,
+                  timeoutBlockHeight,
+                )) &&
             (identical(other.acceptZeroConf, acceptZeroConf) ||
-                const DeepCollectionEquality()
-                    .equals(other.acceptZeroConf, acceptZeroConf)) &&
+                const DeepCollectionEquality().equals(
+                  other.acceptZeroConf,
+                  acceptZeroConf,
+                )) &&
             (identical(other.expectedAmount, expectedAmount) ||
-                const DeepCollectionEquality()
-                    .equals(other.expectedAmount, expectedAmount)) &&
+                const DeepCollectionEquality().equals(
+                  other.expectedAmount,
+                  expectedAmount,
+                )) &&
             (identical(other.blindingKey, blindingKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.blindingKey, blindingKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.blindingKey,
+                  blindingKey,
+                )) &&
             (identical(other.referralId, referralId) ||
-                const DeepCollectionEquality()
-                    .equals(other.referralId, referralId)));
+                const DeepCollectionEquality().equals(
+                  other.referralId,
+                  referralId,
+                )));
   }
 
   @override
@@ -1467,61 +2081,64 @@ class SubmarineResponse {
 }
 
 extension $SubmarineResponseExtension on SubmarineResponse {
-  SubmarineResponse copyWith(
-      {String? id,
-      String? bip21,
-      String? address,
-      SwapTree? swapTree,
-      String? claimPublicKey,
-      double? timeoutBlockHeight,
-      bool? acceptZeroConf,
-      double? expectedAmount,
-      String? blindingKey,
-      String? referralId}) {
+  SubmarineResponse copyWith({
+    String? id,
+    String? bip21,
+    String? address,
+    SwapTree? swapTree,
+    String? claimPublicKey,
+    double? timeoutBlockHeight,
+    bool? acceptZeroConf,
+    double? expectedAmount,
+    String? blindingKey,
+    String? referralId,
+  }) {
     return SubmarineResponse(
-        id: id ?? this.id,
-        bip21: bip21 ?? this.bip21,
-        address: address ?? this.address,
-        swapTree: swapTree ?? this.swapTree,
-        claimPublicKey: claimPublicKey ?? this.claimPublicKey,
-        timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight,
-        acceptZeroConf: acceptZeroConf ?? this.acceptZeroConf,
-        expectedAmount: expectedAmount ?? this.expectedAmount,
-        blindingKey: blindingKey ?? this.blindingKey,
-        referralId: referralId ?? this.referralId);
+      id: id ?? this.id,
+      bip21: bip21 ?? this.bip21,
+      address: address ?? this.address,
+      swapTree: swapTree ?? this.swapTree,
+      claimPublicKey: claimPublicKey ?? this.claimPublicKey,
+      timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight,
+      acceptZeroConf: acceptZeroConf ?? this.acceptZeroConf,
+      expectedAmount: expectedAmount ?? this.expectedAmount,
+      blindingKey: blindingKey ?? this.blindingKey,
+      referralId: referralId ?? this.referralId,
+    );
   }
 
-  SubmarineResponse copyWithWrapped(
-      {Wrapped<String>? id,
-      Wrapped<String?>? bip21,
-      Wrapped<String?>? address,
-      Wrapped<SwapTree?>? swapTree,
-      Wrapped<String?>? claimPublicKey,
-      Wrapped<double>? timeoutBlockHeight,
-      Wrapped<bool?>? acceptZeroConf,
-      Wrapped<double>? expectedAmount,
-      Wrapped<String?>? blindingKey,
-      Wrapped<String?>? referralId}) {
+  SubmarineResponse copyWithWrapped({
+    Wrapped<String>? id,
+    Wrapped<String?>? bip21,
+    Wrapped<String?>? address,
+    Wrapped<SwapTree?>? swapTree,
+    Wrapped<String?>? claimPublicKey,
+    Wrapped<double>? timeoutBlockHeight,
+    Wrapped<bool?>? acceptZeroConf,
+    Wrapped<double>? expectedAmount,
+    Wrapped<String?>? blindingKey,
+    Wrapped<String?>? referralId,
+  }) {
     return SubmarineResponse(
-        id: (id != null ? id.value : this.id),
-        bip21: (bip21 != null ? bip21.value : this.bip21),
-        address: (address != null ? address.value : this.address),
-        swapTree: (swapTree != null ? swapTree.value : this.swapTree),
-        claimPublicKey: (claimPublicKey != null
-            ? claimPublicKey.value
-            : this.claimPublicKey),
-        timeoutBlockHeight: (timeoutBlockHeight != null
-            ? timeoutBlockHeight.value
-            : this.timeoutBlockHeight),
-        acceptZeroConf: (acceptZeroConf != null
-            ? acceptZeroConf.value
-            : this.acceptZeroConf),
-        expectedAmount: (expectedAmount != null
-            ? expectedAmount.value
-            : this.expectedAmount),
-        blindingKey:
-            (blindingKey != null ? blindingKey.value : this.blindingKey),
-        referralId: (referralId != null ? referralId.value : this.referralId));
+      id: (id != null ? id.value : this.id),
+      bip21: (bip21 != null ? bip21.value : this.bip21),
+      address: (address != null ? address.value : this.address),
+      swapTree: (swapTree != null ? swapTree.value : this.swapTree),
+      claimPublicKey: (claimPublicKey != null
+          ? claimPublicKey.value
+          : this.claimPublicKey),
+      timeoutBlockHeight: (timeoutBlockHeight != null
+          ? timeoutBlockHeight.value
+          : this.timeoutBlockHeight),
+      acceptZeroConf: (acceptZeroConf != null
+          ? acceptZeroConf.value
+          : this.acceptZeroConf),
+      expectedAmount: (expectedAmount != null
+          ? expectedAmount.value
+          : this.expectedAmount),
+      blindingKey: (blindingKey != null ? blindingKey.value : this.blindingKey),
+      referralId: (referralId != null ? referralId.value : this.referralId),
+    );
   }
 }
 
@@ -1559,11 +2176,15 @@ class SubmarineTransaction {
             (identical(other.hex, hex) ||
                 const DeepCollectionEquality().equals(other.hex, hex)) &&
             (identical(other.timeoutBlockHeight, timeoutBlockHeight) ||
-                const DeepCollectionEquality()
-                    .equals(other.timeoutBlockHeight, timeoutBlockHeight)) &&
+                const DeepCollectionEquality().equals(
+                  other.timeoutBlockHeight,
+                  timeoutBlockHeight,
+                )) &&
             (identical(other.timeoutEta, timeoutEta) ||
-                const DeepCollectionEquality()
-                    .equals(other.timeoutEta, timeoutEta)));
+                const DeepCollectionEquality().equals(
+                  other.timeoutEta,
+                  timeoutEta,
+                )));
   }
 
   @override
@@ -1579,38 +2200,40 @@ class SubmarineTransaction {
 }
 
 extension $SubmarineTransactionExtension on SubmarineTransaction {
-  SubmarineTransaction copyWith(
-      {String? id,
-      String? hex,
-      double? timeoutBlockHeight,
-      double? timeoutEta}) {
+  SubmarineTransaction copyWith({
+    String? id,
+    String? hex,
+    double? timeoutBlockHeight,
+    double? timeoutEta,
+  }) {
     return SubmarineTransaction(
-        id: id ?? this.id,
-        hex: hex ?? this.hex,
-        timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight,
-        timeoutEta: timeoutEta ?? this.timeoutEta);
+      id: id ?? this.id,
+      hex: hex ?? this.hex,
+      timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight,
+      timeoutEta: timeoutEta ?? this.timeoutEta,
+    );
   }
 
-  SubmarineTransaction copyWithWrapped(
-      {Wrapped<String>? id,
-      Wrapped<String?>? hex,
-      Wrapped<double>? timeoutBlockHeight,
-      Wrapped<double?>? timeoutEta}) {
+  SubmarineTransaction copyWithWrapped({
+    Wrapped<String>? id,
+    Wrapped<String?>? hex,
+    Wrapped<double>? timeoutBlockHeight,
+    Wrapped<double?>? timeoutEta,
+  }) {
     return SubmarineTransaction(
-        id: (id != null ? id.value : this.id),
-        hex: (hex != null ? hex.value : this.hex),
-        timeoutBlockHeight: (timeoutBlockHeight != null
-            ? timeoutBlockHeight.value
-            : this.timeoutBlockHeight),
-        timeoutEta: (timeoutEta != null ? timeoutEta.value : this.timeoutEta));
+      id: (id != null ? id.value : this.id),
+      hex: (hex != null ? hex.value : this.hex),
+      timeoutBlockHeight: (timeoutBlockHeight != null
+          ? timeoutBlockHeight.value
+          : this.timeoutBlockHeight),
+      timeoutEta: (timeoutEta != null ? timeoutEta.value : this.timeoutEta),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class SubmarinePreimage {
-  const SubmarinePreimage({
-    required this.preimage,
-  });
+  const SubmarinePreimage({required this.preimage});
 
   factory SubmarinePreimage.fromJson(Map<String, dynamic> json) =>
       _$SubmarinePreimageFromJson(json);
@@ -1627,8 +2250,10 @@ class SubmarinePreimage {
     return identical(this, other) ||
         (other is SubmarinePreimage &&
             (identical(other.preimage, preimage) ||
-                const DeepCollectionEquality()
-                    .equals(other.preimage, preimage)));
+                const DeepCollectionEquality().equals(
+                  other.preimage,
+                  preimage,
+                )));
   }
 
   @override
@@ -1646,7 +2271,8 @@ extension $SubmarinePreimageExtension on SubmarinePreimage {
 
   SubmarinePreimage copyWithWrapped({Wrapped<String>? preimage}) {
     return SubmarinePreimage(
-        preimage: (preimage != null ? preimage.value : this.preimage));
+      preimage: (preimage != null ? preimage.value : this.preimage),
+    );
   }
 }
 
@@ -1677,11 +2303,15 @@ class RefundRequest {
     return identical(this, other) ||
         (other is RefundRequest &&
             (identical(other.pubNonce, pubNonce) ||
-                const DeepCollectionEquality()
-                    .equals(other.pubNonce, pubNonce)) &&
+                const DeepCollectionEquality().equals(
+                  other.pubNonce,
+                  pubNonce,
+                )) &&
             (identical(other.transaction, transaction) ||
-                const DeepCollectionEquality()
-                    .equals(other.transaction, transaction)) &&
+                const DeepCollectionEquality().equals(
+                  other.transaction,
+                  transaction,
+                )) &&
             (identical(other.index, index) ||
                 const DeepCollectionEquality().equals(other.index, index)));
   }
@@ -1698,23 +2328,28 @@ class RefundRequest {
 }
 
 extension $RefundRequestExtension on RefundRequest {
-  RefundRequest copyWith(
-      {String? pubNonce, String? transaction, double? index}) {
+  RefundRequest copyWith({
+    String? pubNonce,
+    String? transaction,
+    double? index,
+  }) {
     return RefundRequest(
-        pubNonce: pubNonce ?? this.pubNonce,
-        transaction: transaction ?? this.transaction,
-        index: index ?? this.index);
+      pubNonce: pubNonce ?? this.pubNonce,
+      transaction: transaction ?? this.transaction,
+      index: index ?? this.index,
+    );
   }
 
-  RefundRequest copyWithWrapped(
-      {Wrapped<String>? pubNonce,
-      Wrapped<String>? transaction,
-      Wrapped<double>? index}) {
+  RefundRequest copyWithWrapped({
+    Wrapped<String>? pubNonce,
+    Wrapped<String>? transaction,
+    Wrapped<double>? index,
+  }) {
     return RefundRequest(
-        pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
-        transaction:
-            (transaction != null ? transaction.value : this.transaction),
-        index: (index != null ? index.value : this.index));
+      pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
+      transaction: (transaction != null ? transaction.value : this.transaction),
+      index: (index != null ? index.value : this.index),
+    );
   }
 }
 
@@ -1742,11 +2377,15 @@ class PartialSignature {
     return identical(this, other) ||
         (other is PartialSignature &&
             (identical(other.pubNonce, pubNonce) ||
-                const DeepCollectionEquality()
-                    .equals(other.pubNonce, pubNonce)) &&
+                const DeepCollectionEquality().equals(
+                  other.pubNonce,
+                  pubNonce,
+                )) &&
             (identical(other.partialSignature, partialSignature) ||
-                const DeepCollectionEquality()
-                    .equals(other.partialSignature, partialSignature)));
+                const DeepCollectionEquality().equals(
+                  other.partialSignature,
+                  partialSignature,
+                )));
   }
 
   @override
@@ -1762,17 +2401,21 @@ class PartialSignature {
 extension $PartialSignatureExtension on PartialSignature {
   PartialSignature copyWith({String? pubNonce, String? partialSignature}) {
     return PartialSignature(
-        pubNonce: pubNonce ?? this.pubNonce,
-        partialSignature: partialSignature ?? this.partialSignature);
+      pubNonce: pubNonce ?? this.pubNonce,
+      partialSignature: partialSignature ?? this.partialSignature,
+    );
   }
 
-  PartialSignature copyWithWrapped(
-      {Wrapped<String>? pubNonce, Wrapped<String>? partialSignature}) {
+  PartialSignature copyWithWrapped({
+    Wrapped<String>? pubNonce,
+    Wrapped<String>? partialSignature,
+  }) {
     return PartialSignature(
-        pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
-        partialSignature: (partialSignature != null
-            ? partialSignature.value
-            : this.partialSignature));
+      pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
+      partialSignature: (partialSignature != null
+          ? partialSignature.value
+          : this.partialSignature),
+    );
   }
 }
 
@@ -1806,17 +2449,25 @@ class SubmarineClaimDetails {
     return identical(this, other) ||
         (other is SubmarineClaimDetails &&
             (identical(other.preimage, preimage) ||
-                const DeepCollectionEquality()
-                    .equals(other.preimage, preimage)) &&
+                const DeepCollectionEquality().equals(
+                  other.preimage,
+                  preimage,
+                )) &&
             (identical(other.pubNonce, pubNonce) ||
-                const DeepCollectionEquality()
-                    .equals(other.pubNonce, pubNonce)) &&
+                const DeepCollectionEquality().equals(
+                  other.pubNonce,
+                  pubNonce,
+                )) &&
             (identical(other.publicKey, publicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.publicKey, publicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.publicKey,
+                  publicKey,
+                )) &&
             (identical(other.transactionHash, transactionHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.transactionHash, transactionHash)));
+                const DeepCollectionEquality().equals(
+                  other.transactionHash,
+                  transactionHash,
+                )));
   }
 
   @override
@@ -1832,30 +2483,34 @@ class SubmarineClaimDetails {
 }
 
 extension $SubmarineClaimDetailsExtension on SubmarineClaimDetails {
-  SubmarineClaimDetails copyWith(
-      {String? preimage,
-      String? pubNonce,
-      String? publicKey,
-      String? transactionHash}) {
+  SubmarineClaimDetails copyWith({
+    String? preimage,
+    String? pubNonce,
+    String? publicKey,
+    String? transactionHash,
+  }) {
     return SubmarineClaimDetails(
-        preimage: preimage ?? this.preimage,
-        pubNonce: pubNonce ?? this.pubNonce,
-        publicKey: publicKey ?? this.publicKey,
-        transactionHash: transactionHash ?? this.transactionHash);
+      preimage: preimage ?? this.preimage,
+      pubNonce: pubNonce ?? this.pubNonce,
+      publicKey: publicKey ?? this.publicKey,
+      transactionHash: transactionHash ?? this.transactionHash,
+    );
   }
 
-  SubmarineClaimDetails copyWithWrapped(
-      {Wrapped<String>? preimage,
-      Wrapped<String>? pubNonce,
-      Wrapped<String>? publicKey,
-      Wrapped<String>? transactionHash}) {
+  SubmarineClaimDetails copyWithWrapped({
+    Wrapped<String>? preimage,
+    Wrapped<String>? pubNonce,
+    Wrapped<String>? publicKey,
+    Wrapped<String>? transactionHash,
+  }) {
     return SubmarineClaimDetails(
-        preimage: (preimage != null ? preimage.value : this.preimage),
-        pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
-        publicKey: (publicKey != null ? publicKey.value : this.publicKey),
-        transactionHash: (transactionHash != null
-            ? transactionHash.value
-            : this.transactionHash));
+      preimage: (preimage != null ? preimage.value : this.preimage),
+      pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
+      publicKey: (publicKey != null ? publicKey.value : this.publicKey),
+      transactionHash: (transactionHash != null
+          ? transactionHash.value
+          : this.transactionHash),
+    );
   }
 }
 
@@ -1911,28 +2566,32 @@ class ReversePair {
 }
 
 extension $ReversePairExtension on ReversePair {
-  ReversePair copyWith(
-      {String? hash,
-      double? rate,
-      ReversePair$Limits? limits,
-      ReversePair$Fees? fees}) {
+  ReversePair copyWith({
+    String? hash,
+    double? rate,
+    ReversePair$Limits? limits,
+    ReversePair$Fees? fees,
+  }) {
     return ReversePair(
-        hash: hash ?? this.hash,
-        rate: rate ?? this.rate,
-        limits: limits ?? this.limits,
-        fees: fees ?? this.fees);
+      hash: hash ?? this.hash,
+      rate: rate ?? this.rate,
+      limits: limits ?? this.limits,
+      fees: fees ?? this.fees,
+    );
   }
 
-  ReversePair copyWithWrapped(
-      {Wrapped<String>? hash,
-      Wrapped<double>? rate,
-      Wrapped<ReversePair$Limits>? limits,
-      Wrapped<ReversePair$Fees>? fees}) {
+  ReversePair copyWithWrapped({
+    Wrapped<String>? hash,
+    Wrapped<double>? rate,
+    Wrapped<ReversePair$Limits>? limits,
+    Wrapped<ReversePair$Fees>? fees,
+  }) {
     return ReversePair(
-        hash: (hash != null ? hash.value : this.hash),
-        rate: (rate != null ? rate.value : this.rate),
-        limits: (limits != null ? limits.value : this.limits),
-        fees: (fees != null ? fees.value : this.fees));
+      hash: (hash != null ? hash.value : this.hash),
+      rate: (rate != null ? rate.value : this.rate),
+      limits: (limits != null ? limits.value : this.limits),
+      fees: (fees != null ? fees.value : this.fees),
+    );
   }
 }
 
@@ -2006,44 +2665,70 @@ class ReverseRequest {
             (identical(other.to, to) ||
                 const DeepCollectionEquality().equals(other.to, to)) &&
             (identical(other.preimageHash, preimageHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.preimageHash, preimageHash)) &&
+                const DeepCollectionEquality().equals(
+                  other.preimageHash,
+                  preimageHash,
+                )) &&
             (identical(other.claimPublicKey, claimPublicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.claimPublicKey, claimPublicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.claimPublicKey,
+                  claimPublicKey,
+                )) &&
             (identical(other.claimAddress, claimAddress) ||
-                const DeepCollectionEquality()
-                    .equals(other.claimAddress, claimAddress)) &&
+                const DeepCollectionEquality().equals(
+                  other.claimAddress,
+                  claimAddress,
+                )) &&
             (identical(other.invoiceAmount, invoiceAmount) ||
-                const DeepCollectionEquality()
-                    .equals(other.invoiceAmount, invoiceAmount)) &&
+                const DeepCollectionEquality().equals(
+                  other.invoiceAmount,
+                  invoiceAmount,
+                )) &&
             (identical(other.onchainAmount, onchainAmount) ||
-                const DeepCollectionEquality()
-                    .equals(other.onchainAmount, onchainAmount)) &&
+                const DeepCollectionEquality().equals(
+                  other.onchainAmount,
+                  onchainAmount,
+                )) &&
             (identical(other.pairHash, pairHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.pairHash, pairHash)) &&
+                const DeepCollectionEquality().equals(
+                  other.pairHash,
+                  pairHash,
+                )) &&
             (identical(other.referralId, referralId) ||
-                const DeepCollectionEquality()
-                    .equals(other.referralId, referralId)) &&
+                const DeepCollectionEquality().equals(
+                  other.referralId,
+                  referralId,
+                )) &&
             (identical(other.address, address) ||
-                const DeepCollectionEquality()
-                    .equals(other.address, address)) &&
+                const DeepCollectionEquality().equals(
+                  other.address,
+                  address,
+                )) &&
             (identical(other.addressSignature, addressSignature) ||
-                const DeepCollectionEquality()
-                    .equals(other.addressSignature, addressSignature)) &&
+                const DeepCollectionEquality().equals(
+                  other.addressSignature,
+                  addressSignature,
+                )) &&
             (identical(other.claimCovenant, claimCovenant) ||
-                const DeepCollectionEquality()
-                    .equals(other.claimCovenant, claimCovenant)) &&
+                const DeepCollectionEquality().equals(
+                  other.claimCovenant,
+                  claimCovenant,
+                )) &&
             (identical(other.description, description) ||
-                const DeepCollectionEquality()
-                    .equals(other.description, description)) &&
+                const DeepCollectionEquality().equals(
+                  other.description,
+                  description,
+                )) &&
             (identical(other.descriptionHash, descriptionHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.descriptionHash, descriptionHash)) &&
+                const DeepCollectionEquality().equals(
+                  other.descriptionHash,
+                  descriptionHash,
+                )) &&
             (identical(other.invoiceExpiry, invoiceExpiry) ||
-                const DeepCollectionEquality()
-                    .equals(other.invoiceExpiry, invoiceExpiry)) &&
+                const DeepCollectionEquality().equals(
+                  other.invoiceExpiry,
+                  invoiceExpiry,
+                )) &&
             (identical(other.webhook, webhook) ||
                 const DeepCollectionEquality().equals(other.webhook, webhook)));
   }
@@ -2073,89 +2758,98 @@ class ReverseRequest {
 }
 
 extension $ReverseRequestExtension on ReverseRequest {
-  ReverseRequest copyWith(
-      {String? from,
-      String? to,
-      String? preimageHash,
-      String? claimPublicKey,
-      String? claimAddress,
-      double? invoiceAmount,
-      double? onchainAmount,
-      String? pairHash,
-      String? referralId,
-      String? address,
-      String? addressSignature,
-      bool? claimCovenant,
-      String? description,
-      String? descriptionHash,
-      double? invoiceExpiry,
-      WebhookData? webhook}) {
+  ReverseRequest copyWith({
+    String? from,
+    String? to,
+    String? preimageHash,
+    String? claimPublicKey,
+    String? claimAddress,
+    double? invoiceAmount,
+    double? onchainAmount,
+    String? pairHash,
+    String? referralId,
+    String? address,
+    String? addressSignature,
+    bool? claimCovenant,
+    String? description,
+    String? descriptionHash,
+    double? invoiceExpiry,
+    WebhookData? webhook,
+  }) {
     return ReverseRequest(
-        from: from ?? this.from,
-        to: to ?? this.to,
-        preimageHash: preimageHash ?? this.preimageHash,
-        claimPublicKey: claimPublicKey ?? this.claimPublicKey,
-        claimAddress: claimAddress ?? this.claimAddress,
-        invoiceAmount: invoiceAmount ?? this.invoiceAmount,
-        onchainAmount: onchainAmount ?? this.onchainAmount,
-        pairHash: pairHash ?? this.pairHash,
-        referralId: referralId ?? this.referralId,
-        address: address ?? this.address,
-        addressSignature: addressSignature ?? this.addressSignature,
-        claimCovenant: claimCovenant ?? this.claimCovenant,
-        description: description ?? this.description,
-        descriptionHash: descriptionHash ?? this.descriptionHash,
-        invoiceExpiry: invoiceExpiry ?? this.invoiceExpiry,
-        webhook: webhook ?? this.webhook);
+      from: from ?? this.from,
+      to: to ?? this.to,
+      preimageHash: preimageHash ?? this.preimageHash,
+      claimPublicKey: claimPublicKey ?? this.claimPublicKey,
+      claimAddress: claimAddress ?? this.claimAddress,
+      invoiceAmount: invoiceAmount ?? this.invoiceAmount,
+      onchainAmount: onchainAmount ?? this.onchainAmount,
+      pairHash: pairHash ?? this.pairHash,
+      referralId: referralId ?? this.referralId,
+      address: address ?? this.address,
+      addressSignature: addressSignature ?? this.addressSignature,
+      claimCovenant: claimCovenant ?? this.claimCovenant,
+      description: description ?? this.description,
+      descriptionHash: descriptionHash ?? this.descriptionHash,
+      invoiceExpiry: invoiceExpiry ?? this.invoiceExpiry,
+      webhook: webhook ?? this.webhook,
+    );
   }
 
-  ReverseRequest copyWithWrapped(
-      {Wrapped<String>? from,
-      Wrapped<String>? to,
-      Wrapped<String>? preimageHash,
-      Wrapped<String?>? claimPublicKey,
-      Wrapped<String?>? claimAddress,
-      Wrapped<double?>? invoiceAmount,
-      Wrapped<double?>? onchainAmount,
-      Wrapped<String?>? pairHash,
-      Wrapped<String?>? referralId,
-      Wrapped<String?>? address,
-      Wrapped<String?>? addressSignature,
-      Wrapped<bool?>? claimCovenant,
-      Wrapped<String?>? description,
-      Wrapped<String?>? descriptionHash,
-      Wrapped<double?>? invoiceExpiry,
-      Wrapped<WebhookData?>? webhook}) {
+  ReverseRequest copyWithWrapped({
+    Wrapped<String>? from,
+    Wrapped<String>? to,
+    Wrapped<String>? preimageHash,
+    Wrapped<String?>? claimPublicKey,
+    Wrapped<String?>? claimAddress,
+    Wrapped<double?>? invoiceAmount,
+    Wrapped<double?>? onchainAmount,
+    Wrapped<String?>? pairHash,
+    Wrapped<String?>? referralId,
+    Wrapped<String?>? address,
+    Wrapped<String?>? addressSignature,
+    Wrapped<bool?>? claimCovenant,
+    Wrapped<String?>? description,
+    Wrapped<String?>? descriptionHash,
+    Wrapped<double?>? invoiceExpiry,
+    Wrapped<WebhookData?>? webhook,
+  }) {
     return ReverseRequest(
-        from: (from != null ? from.value : this.from),
-        to: (to != null ? to.value : this.to),
-        preimageHash:
-            (preimageHash != null ? preimageHash.value : this.preimageHash),
-        claimPublicKey: (claimPublicKey != null
-            ? claimPublicKey.value
-            : this.claimPublicKey),
-        claimAddress:
-            (claimAddress != null ? claimAddress.value : this.claimAddress),
-        invoiceAmount:
-            (invoiceAmount != null ? invoiceAmount.value : this.invoiceAmount),
-        onchainAmount:
-            (onchainAmount != null ? onchainAmount.value : this.onchainAmount),
-        pairHash: (pairHash != null ? pairHash.value : this.pairHash),
-        referralId: (referralId != null ? referralId.value : this.referralId),
-        address: (address != null ? address.value : this.address),
-        addressSignature: (addressSignature != null
-            ? addressSignature.value
-            : this.addressSignature),
-        claimCovenant:
-            (claimCovenant != null ? claimCovenant.value : this.claimCovenant),
-        description:
-            (description != null ? description.value : this.description),
-        descriptionHash: (descriptionHash != null
-            ? descriptionHash.value
-            : this.descriptionHash),
-        invoiceExpiry:
-            (invoiceExpiry != null ? invoiceExpiry.value : this.invoiceExpiry),
-        webhook: (webhook != null ? webhook.value : this.webhook));
+      from: (from != null ? from.value : this.from),
+      to: (to != null ? to.value : this.to),
+      preimageHash: (preimageHash != null
+          ? preimageHash.value
+          : this.preimageHash),
+      claimPublicKey: (claimPublicKey != null
+          ? claimPublicKey.value
+          : this.claimPublicKey),
+      claimAddress: (claimAddress != null
+          ? claimAddress.value
+          : this.claimAddress),
+      invoiceAmount: (invoiceAmount != null
+          ? invoiceAmount.value
+          : this.invoiceAmount),
+      onchainAmount: (onchainAmount != null
+          ? onchainAmount.value
+          : this.onchainAmount),
+      pairHash: (pairHash != null ? pairHash.value : this.pairHash),
+      referralId: (referralId != null ? referralId.value : this.referralId),
+      address: (address != null ? address.value : this.address),
+      addressSignature: (addressSignature != null
+          ? addressSignature.value
+          : this.addressSignature),
+      claimCovenant: (claimCovenant != null
+          ? claimCovenant.value
+          : this.claimCovenant),
+      description: (description != null ? description.value : this.description),
+      descriptionHash: (descriptionHash != null
+          ? descriptionHash.value
+          : this.descriptionHash),
+      invoiceExpiry: (invoiceExpiry != null
+          ? invoiceExpiry.value
+          : this.invoiceExpiry),
+      webhook: (webhook != null ? webhook.value : this.webhook),
+    );
   }
 }
 
@@ -2206,29 +2900,45 @@ class ReverseResponse {
             (identical(other.id, id) ||
                 const DeepCollectionEquality().equals(other.id, id)) &&
             (identical(other.invoice, invoice) ||
-                const DeepCollectionEquality()
-                    .equals(other.invoice, invoice)) &&
+                const DeepCollectionEquality().equals(
+                  other.invoice,
+                  invoice,
+                )) &&
             (identical(other.swapTree, swapTree) ||
-                const DeepCollectionEquality()
-                    .equals(other.swapTree, swapTree)) &&
+                const DeepCollectionEquality().equals(
+                  other.swapTree,
+                  swapTree,
+                )) &&
             (identical(other.lockupAddress, lockupAddress) ||
-                const DeepCollectionEquality()
-                    .equals(other.lockupAddress, lockupAddress)) &&
+                const DeepCollectionEquality().equals(
+                  other.lockupAddress,
+                  lockupAddress,
+                )) &&
             (identical(other.refundPublicKey, refundPublicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.refundPublicKey, refundPublicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.refundPublicKey,
+                  refundPublicKey,
+                )) &&
             (identical(other.timeoutBlockHeight, timeoutBlockHeight) ||
-                const DeepCollectionEquality()
-                    .equals(other.timeoutBlockHeight, timeoutBlockHeight)) &&
+                const DeepCollectionEquality().equals(
+                  other.timeoutBlockHeight,
+                  timeoutBlockHeight,
+                )) &&
             (identical(other.onchainAmount, onchainAmount) ||
-                const DeepCollectionEquality()
-                    .equals(other.onchainAmount, onchainAmount)) &&
+                const DeepCollectionEquality().equals(
+                  other.onchainAmount,
+                  onchainAmount,
+                )) &&
             (identical(other.blindingKey, blindingKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.blindingKey, blindingKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.blindingKey,
+                  blindingKey,
+                )) &&
             (identical(other.referralId, referralId) ||
-                const DeepCollectionEquality()
-                    .equals(other.referralId, referralId)));
+                const DeepCollectionEquality().equals(
+                  other.referralId,
+                  referralId,
+                )));
   }
 
   @override
@@ -2249,55 +2959,60 @@ class ReverseResponse {
 }
 
 extension $ReverseResponseExtension on ReverseResponse {
-  ReverseResponse copyWith(
-      {String? id,
-      String? invoice,
-      SwapTree? swapTree,
-      String? lockupAddress,
-      String? refundPublicKey,
-      double? timeoutBlockHeight,
-      double? onchainAmount,
-      String? blindingKey,
-      String? referralId}) {
+  ReverseResponse copyWith({
+    String? id,
+    String? invoice,
+    SwapTree? swapTree,
+    String? lockupAddress,
+    String? refundPublicKey,
+    double? timeoutBlockHeight,
+    double? onchainAmount,
+    String? blindingKey,
+    String? referralId,
+  }) {
     return ReverseResponse(
-        id: id ?? this.id,
-        invoice: invoice ?? this.invoice,
-        swapTree: swapTree ?? this.swapTree,
-        lockupAddress: lockupAddress ?? this.lockupAddress,
-        refundPublicKey: refundPublicKey ?? this.refundPublicKey,
-        timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight,
-        onchainAmount: onchainAmount ?? this.onchainAmount,
-        blindingKey: blindingKey ?? this.blindingKey,
-        referralId: referralId ?? this.referralId);
+      id: id ?? this.id,
+      invoice: invoice ?? this.invoice,
+      swapTree: swapTree ?? this.swapTree,
+      lockupAddress: lockupAddress ?? this.lockupAddress,
+      refundPublicKey: refundPublicKey ?? this.refundPublicKey,
+      timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight,
+      onchainAmount: onchainAmount ?? this.onchainAmount,
+      blindingKey: blindingKey ?? this.blindingKey,
+      referralId: referralId ?? this.referralId,
+    );
   }
 
-  ReverseResponse copyWithWrapped(
-      {Wrapped<String>? id,
-      Wrapped<String>? invoice,
-      Wrapped<SwapTree?>? swapTree,
-      Wrapped<String?>? lockupAddress,
-      Wrapped<String?>? refundPublicKey,
-      Wrapped<double>? timeoutBlockHeight,
-      Wrapped<double?>? onchainAmount,
-      Wrapped<String?>? blindingKey,
-      Wrapped<String?>? referralId}) {
+  ReverseResponse copyWithWrapped({
+    Wrapped<String>? id,
+    Wrapped<String>? invoice,
+    Wrapped<SwapTree?>? swapTree,
+    Wrapped<String?>? lockupAddress,
+    Wrapped<String?>? refundPublicKey,
+    Wrapped<double>? timeoutBlockHeight,
+    Wrapped<double?>? onchainAmount,
+    Wrapped<String?>? blindingKey,
+    Wrapped<String?>? referralId,
+  }) {
     return ReverseResponse(
-        id: (id != null ? id.value : this.id),
-        invoice: (invoice != null ? invoice.value : this.invoice),
-        swapTree: (swapTree != null ? swapTree.value : this.swapTree),
-        lockupAddress:
-            (lockupAddress != null ? lockupAddress.value : this.lockupAddress),
-        refundPublicKey: (refundPublicKey != null
-            ? refundPublicKey.value
-            : this.refundPublicKey),
-        timeoutBlockHeight: (timeoutBlockHeight != null
-            ? timeoutBlockHeight.value
-            : this.timeoutBlockHeight),
-        onchainAmount:
-            (onchainAmount != null ? onchainAmount.value : this.onchainAmount),
-        blindingKey:
-            (blindingKey != null ? blindingKey.value : this.blindingKey),
-        referralId: (referralId != null ? referralId.value : this.referralId));
+      id: (id != null ? id.value : this.id),
+      invoice: (invoice != null ? invoice.value : this.invoice),
+      swapTree: (swapTree != null ? swapTree.value : this.swapTree),
+      lockupAddress: (lockupAddress != null
+          ? lockupAddress.value
+          : this.lockupAddress),
+      refundPublicKey: (refundPublicKey != null
+          ? refundPublicKey.value
+          : this.refundPublicKey),
+      timeoutBlockHeight: (timeoutBlockHeight != null
+          ? timeoutBlockHeight.value
+          : this.timeoutBlockHeight),
+      onchainAmount: (onchainAmount != null
+          ? onchainAmount.value
+          : this.onchainAmount),
+      blindingKey: (blindingKey != null ? blindingKey.value : this.blindingKey),
+      referralId: (referralId != null ? referralId.value : this.referralId),
+    );
   }
 }
 
@@ -2332,8 +3047,10 @@ class ReverseTransaction {
             (identical(other.hex, hex) ||
                 const DeepCollectionEquality().equals(other.hex, hex)) &&
             (identical(other.timeoutBlockHeight, timeoutBlockHeight) ||
-                const DeepCollectionEquality()
-                    .equals(other.timeoutBlockHeight, timeoutBlockHeight)));
+                const DeepCollectionEquality().equals(
+                  other.timeoutBlockHeight,
+                  timeoutBlockHeight,
+                )));
   }
 
   @override
@@ -2348,24 +3065,30 @@ class ReverseTransaction {
 }
 
 extension $ReverseTransactionExtension on ReverseTransaction {
-  ReverseTransaction copyWith(
-      {String? id, String? hex, double? timeoutBlockHeight}) {
+  ReverseTransaction copyWith({
+    String? id,
+    String? hex,
+    double? timeoutBlockHeight,
+  }) {
     return ReverseTransaction(
-        id: id ?? this.id,
-        hex: hex ?? this.hex,
-        timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight);
+      id: id ?? this.id,
+      hex: hex ?? this.hex,
+      timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight,
+    );
   }
 
-  ReverseTransaction copyWithWrapped(
-      {Wrapped<String>? id,
-      Wrapped<String?>? hex,
-      Wrapped<double>? timeoutBlockHeight}) {
+  ReverseTransaction copyWithWrapped({
+    Wrapped<String>? id,
+    Wrapped<String?>? hex,
+    Wrapped<double>? timeoutBlockHeight,
+  }) {
     return ReverseTransaction(
-        id: (id != null ? id.value : this.id),
-        hex: (hex != null ? hex.value : this.hex),
-        timeoutBlockHeight: (timeoutBlockHeight != null
-            ? timeoutBlockHeight.value
-            : this.timeoutBlockHeight));
+      id: (id != null ? id.value : this.id),
+      hex: (hex != null ? hex.value : this.hex),
+      timeoutBlockHeight: (timeoutBlockHeight != null
+          ? timeoutBlockHeight.value
+          : this.timeoutBlockHeight),
+    );
   }
 }
 
@@ -2399,14 +3122,20 @@ class ReverseClaimRequest {
     return identical(this, other) ||
         (other is ReverseClaimRequest &&
             (identical(other.preimage, preimage) ||
-                const DeepCollectionEquality()
-                    .equals(other.preimage, preimage)) &&
+                const DeepCollectionEquality().equals(
+                  other.preimage,
+                  preimage,
+                )) &&
             (identical(other.pubNonce, pubNonce) ||
-                const DeepCollectionEquality()
-                    .equals(other.pubNonce, pubNonce)) &&
+                const DeepCollectionEquality().equals(
+                  other.pubNonce,
+                  pubNonce,
+                )) &&
             (identical(other.transaction, transaction) ||
-                const DeepCollectionEquality()
-                    .equals(other.transaction, transaction)) &&
+                const DeepCollectionEquality().equals(
+                  other.transaction,
+                  transaction,
+                )) &&
             (identical(other.index, index) ||
                 const DeepCollectionEquality().equals(other.index, index)));
   }
@@ -2424,38 +3153,38 @@ class ReverseClaimRequest {
 }
 
 extension $ReverseClaimRequestExtension on ReverseClaimRequest {
-  ReverseClaimRequest copyWith(
-      {String? preimage,
-      String? pubNonce,
-      String? transaction,
-      double? index}) {
+  ReverseClaimRequest copyWith({
+    String? preimage,
+    String? pubNonce,
+    String? transaction,
+    double? index,
+  }) {
     return ReverseClaimRequest(
-        preimage: preimage ?? this.preimage,
-        pubNonce: pubNonce ?? this.pubNonce,
-        transaction: transaction ?? this.transaction,
-        index: index ?? this.index);
+      preimage: preimage ?? this.preimage,
+      pubNonce: pubNonce ?? this.pubNonce,
+      transaction: transaction ?? this.transaction,
+      index: index ?? this.index,
+    );
   }
 
-  ReverseClaimRequest copyWithWrapped(
-      {Wrapped<String>? preimage,
-      Wrapped<String?>? pubNonce,
-      Wrapped<String?>? transaction,
-      Wrapped<double?>? index}) {
+  ReverseClaimRequest copyWithWrapped({
+    Wrapped<String>? preimage,
+    Wrapped<String?>? pubNonce,
+    Wrapped<String?>? transaction,
+    Wrapped<double?>? index,
+  }) {
     return ReverseClaimRequest(
-        preimage: (preimage != null ? preimage.value : this.preimage),
-        pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
-        transaction:
-            (transaction != null ? transaction.value : this.transaction),
-        index: (index != null ? index.value : this.index));
+      preimage: (preimage != null ? preimage.value : this.preimage),
+      pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
+      transaction: (transaction != null ? transaction.value : this.transaction),
+      index: (index != null ? index.value : this.index),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ReverseBip21 {
-  const ReverseBip21({
-    this.bip21,
-    required this.signature,
-  });
+  const ReverseBip21({this.bip21, required this.signature});
 
   factory ReverseBip21.fromJson(Map<String, dynamic> json) =>
       _$ReverseBip21FromJson(json);
@@ -2476,8 +3205,10 @@ class ReverseBip21 {
             (identical(other.bip21, bip21) ||
                 const DeepCollectionEquality().equals(other.bip21, bip21)) &&
             (identical(other.signature, signature) ||
-                const DeepCollectionEquality()
-                    .equals(other.signature, signature)));
+                const DeepCollectionEquality().equals(
+                  other.signature,
+                  signature,
+                )));
   }
 
   @override
@@ -2493,14 +3224,19 @@ class ReverseBip21 {
 extension $ReverseBip21Extension on ReverseBip21 {
   ReverseBip21 copyWith({String? bip21, String? signature}) {
     return ReverseBip21(
-        bip21: bip21 ?? this.bip21, signature: signature ?? this.signature);
+      bip21: bip21 ?? this.bip21,
+      signature: signature ?? this.signature,
+    );
   }
 
-  ReverseBip21 copyWithWrapped(
-      {Wrapped<String?>? bip21, Wrapped<String>? signature}) {
+  ReverseBip21 copyWithWrapped({
+    Wrapped<String?>? bip21,
+    Wrapped<String>? signature,
+  }) {
     return ReverseBip21(
-        bip21: (bip21 != null ? bip21.value : this.bip21),
-        signature: (signature != null ? signature.value : this.signature));
+      bip21: (bip21 != null ? bip21.value : this.bip21),
+      signature: (signature != null ? signature.value : this.signature),
+    );
   }
 }
 
@@ -2556,28 +3292,32 @@ class ChainPair {
 }
 
 extension $ChainPairExtension on ChainPair {
-  ChainPair copyWith(
-      {String? hash,
-      double? rate,
-      ChainPair$Limits? limits,
-      ChainPair$Fees? fees}) {
+  ChainPair copyWith({
+    String? hash,
+    double? rate,
+    ChainPair$Limits? limits,
+    ChainPair$Fees? fees,
+  }) {
     return ChainPair(
-        hash: hash ?? this.hash,
-        rate: rate ?? this.rate,
-        limits: limits ?? this.limits,
-        fees: fees ?? this.fees);
+      hash: hash ?? this.hash,
+      rate: rate ?? this.rate,
+      limits: limits ?? this.limits,
+      fees: fees ?? this.fees,
+    );
   }
 
-  ChainPair copyWithWrapped(
-      {Wrapped<String>? hash,
-      Wrapped<double>? rate,
-      Wrapped<ChainPair$Limits>? limits,
-      Wrapped<ChainPair$Fees>? fees}) {
+  ChainPair copyWithWrapped({
+    Wrapped<String>? hash,
+    Wrapped<double>? rate,
+    Wrapped<ChainPair$Limits>? limits,
+    Wrapped<ChainPair$Fees>? fees,
+  }) {
     return ChainPair(
-        hash: (hash != null ? hash.value : this.hash),
-        rate: (rate != null ? rate.value : this.rate),
-        limits: (limits != null ? limits.value : this.limits),
-        fees: (fees != null ? fees.value : this.fees));
+      hash: (hash != null ? hash.value : this.hash),
+      rate: (rate != null ? rate.value : this.rate),
+      limits: (limits != null ? limits.value : this.limits),
+      fees: (fees != null ? fees.value : this.fees),
+    );
   }
 }
 
@@ -2636,29 +3376,45 @@ class ChainRequest {
             (identical(other.to, to) ||
                 const DeepCollectionEquality().equals(other.to, to)) &&
             (identical(other.preimageHash, preimageHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.preimageHash, preimageHash)) &&
+                const DeepCollectionEquality().equals(
+                  other.preimageHash,
+                  preimageHash,
+                )) &&
             (identical(other.claimPublicKey, claimPublicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.claimPublicKey, claimPublicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.claimPublicKey,
+                  claimPublicKey,
+                )) &&
             (identical(other.refundPublicKey, refundPublicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.refundPublicKey, refundPublicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.refundPublicKey,
+                  refundPublicKey,
+                )) &&
             (identical(other.claimAddress, claimAddress) ||
-                const DeepCollectionEquality()
-                    .equals(other.claimAddress, claimAddress)) &&
+                const DeepCollectionEquality().equals(
+                  other.claimAddress,
+                  claimAddress,
+                )) &&
             (identical(other.userLockAmount, userLockAmount) ||
-                const DeepCollectionEquality()
-                    .equals(other.userLockAmount, userLockAmount)) &&
+                const DeepCollectionEquality().equals(
+                  other.userLockAmount,
+                  userLockAmount,
+                )) &&
             (identical(other.serverLockAmount, serverLockAmount) ||
-                const DeepCollectionEquality()
-                    .equals(other.serverLockAmount, serverLockAmount)) &&
+                const DeepCollectionEquality().equals(
+                  other.serverLockAmount,
+                  serverLockAmount,
+                )) &&
             (identical(other.pairHash, pairHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.pairHash, pairHash)) &&
+                const DeepCollectionEquality().equals(
+                  other.pairHash,
+                  pairHash,
+                )) &&
             (identical(other.referralId, referralId) ||
-                const DeepCollectionEquality()
-                    .equals(other.referralId, referralId)) &&
+                const DeepCollectionEquality().equals(
+                  other.referralId,
+                  referralId,
+                )) &&
             (identical(other.webhook, webhook) ||
                 const DeepCollectionEquality().equals(other.webhook, webhook)));
   }
@@ -2683,66 +3439,72 @@ class ChainRequest {
 }
 
 extension $ChainRequestExtension on ChainRequest {
-  ChainRequest copyWith(
-      {String? from,
-      String? to,
-      String? preimageHash,
-      String? claimPublicKey,
-      String? refundPublicKey,
-      String? claimAddress,
-      double? userLockAmount,
-      double? serverLockAmount,
-      String? pairHash,
-      String? referralId,
-      WebhookData? webhook}) {
+  ChainRequest copyWith({
+    String? from,
+    String? to,
+    String? preimageHash,
+    String? claimPublicKey,
+    String? refundPublicKey,
+    String? claimAddress,
+    double? userLockAmount,
+    double? serverLockAmount,
+    String? pairHash,
+    String? referralId,
+    WebhookData? webhook,
+  }) {
     return ChainRequest(
-        from: from ?? this.from,
-        to: to ?? this.to,
-        preimageHash: preimageHash ?? this.preimageHash,
-        claimPublicKey: claimPublicKey ?? this.claimPublicKey,
-        refundPublicKey: refundPublicKey ?? this.refundPublicKey,
-        claimAddress: claimAddress ?? this.claimAddress,
-        userLockAmount: userLockAmount ?? this.userLockAmount,
-        serverLockAmount: serverLockAmount ?? this.serverLockAmount,
-        pairHash: pairHash ?? this.pairHash,
-        referralId: referralId ?? this.referralId,
-        webhook: webhook ?? this.webhook);
+      from: from ?? this.from,
+      to: to ?? this.to,
+      preimageHash: preimageHash ?? this.preimageHash,
+      claimPublicKey: claimPublicKey ?? this.claimPublicKey,
+      refundPublicKey: refundPublicKey ?? this.refundPublicKey,
+      claimAddress: claimAddress ?? this.claimAddress,
+      userLockAmount: userLockAmount ?? this.userLockAmount,
+      serverLockAmount: serverLockAmount ?? this.serverLockAmount,
+      pairHash: pairHash ?? this.pairHash,
+      referralId: referralId ?? this.referralId,
+      webhook: webhook ?? this.webhook,
+    );
   }
 
-  ChainRequest copyWithWrapped(
-      {Wrapped<String>? from,
-      Wrapped<String>? to,
-      Wrapped<String>? preimageHash,
-      Wrapped<String?>? claimPublicKey,
-      Wrapped<String?>? refundPublicKey,
-      Wrapped<String?>? claimAddress,
-      Wrapped<double?>? userLockAmount,
-      Wrapped<double?>? serverLockAmount,
-      Wrapped<String?>? pairHash,
-      Wrapped<String?>? referralId,
-      Wrapped<WebhookData?>? webhook}) {
+  ChainRequest copyWithWrapped({
+    Wrapped<String>? from,
+    Wrapped<String>? to,
+    Wrapped<String>? preimageHash,
+    Wrapped<String?>? claimPublicKey,
+    Wrapped<String?>? refundPublicKey,
+    Wrapped<String?>? claimAddress,
+    Wrapped<double?>? userLockAmount,
+    Wrapped<double?>? serverLockAmount,
+    Wrapped<String?>? pairHash,
+    Wrapped<String?>? referralId,
+    Wrapped<WebhookData?>? webhook,
+  }) {
     return ChainRequest(
-        from: (from != null ? from.value : this.from),
-        to: (to != null ? to.value : this.to),
-        preimageHash:
-            (preimageHash != null ? preimageHash.value : this.preimageHash),
-        claimPublicKey: (claimPublicKey != null
-            ? claimPublicKey.value
-            : this.claimPublicKey),
-        refundPublicKey: (refundPublicKey != null
-            ? refundPublicKey.value
-            : this.refundPublicKey),
-        claimAddress:
-            (claimAddress != null ? claimAddress.value : this.claimAddress),
-        userLockAmount: (userLockAmount != null
-            ? userLockAmount.value
-            : this.userLockAmount),
-        serverLockAmount: (serverLockAmount != null
-            ? serverLockAmount.value
-            : this.serverLockAmount),
-        pairHash: (pairHash != null ? pairHash.value : this.pairHash),
-        referralId: (referralId != null ? referralId.value : this.referralId),
-        webhook: (webhook != null ? webhook.value : this.webhook));
+      from: (from != null ? from.value : this.from),
+      to: (to != null ? to.value : this.to),
+      preimageHash: (preimageHash != null
+          ? preimageHash.value
+          : this.preimageHash),
+      claimPublicKey: (claimPublicKey != null
+          ? claimPublicKey.value
+          : this.claimPublicKey),
+      refundPublicKey: (refundPublicKey != null
+          ? refundPublicKey.value
+          : this.refundPublicKey),
+      claimAddress: (claimAddress != null
+          ? claimAddress.value
+          : this.claimAddress),
+      userLockAmount: (userLockAmount != null
+          ? userLockAmount.value
+          : this.userLockAmount),
+      serverLockAmount: (serverLockAmount != null
+          ? serverLockAmount.value
+          : this.serverLockAmount),
+      pairHash: (pairHash != null ? pairHash.value : this.pairHash),
+      referralId: (referralId != null ? referralId.value : this.referralId),
+      webhook: (webhook != null ? webhook.value : this.webhook),
+    );
   }
 }
 
@@ -2788,25 +3550,37 @@ class ChainSwapData {
     return identical(this, other) ||
         (other is ChainSwapData &&
             (identical(other.swapTree, swapTree) ||
-                const DeepCollectionEquality()
-                    .equals(other.swapTree, swapTree)) &&
+                const DeepCollectionEquality().equals(
+                  other.swapTree,
+                  swapTree,
+                )) &&
             (identical(other.lockupAddress, lockupAddress) ||
-                const DeepCollectionEquality()
-                    .equals(other.lockupAddress, lockupAddress)) &&
+                const DeepCollectionEquality().equals(
+                  other.lockupAddress,
+                  lockupAddress,
+                )) &&
             (identical(other.serverPublicKey, serverPublicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.serverPublicKey, serverPublicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.serverPublicKey,
+                  serverPublicKey,
+                )) &&
             (identical(other.timeoutBlockHeight, timeoutBlockHeight) ||
-                const DeepCollectionEquality()
-                    .equals(other.timeoutBlockHeight, timeoutBlockHeight)) &&
+                const DeepCollectionEquality().equals(
+                  other.timeoutBlockHeight,
+                  timeoutBlockHeight,
+                )) &&
             (identical(other.amount, amount) ||
                 const DeepCollectionEquality().equals(other.amount, amount)) &&
             (identical(other.blindingKey, blindingKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.blindingKey, blindingKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.blindingKey,
+                  blindingKey,
+                )) &&
             (identical(other.refundAddress, refundAddress) ||
-                const DeepCollectionEquality()
-                    .equals(other.refundAddress, refundAddress)) &&
+                const DeepCollectionEquality().equals(
+                  other.refundAddress,
+                  refundAddress,
+                )) &&
             (identical(other.bip21, bip21) ||
                 const DeepCollectionEquality().equals(other.bip21, bip21)));
   }
@@ -2828,51 +3602,56 @@ class ChainSwapData {
 }
 
 extension $ChainSwapDataExtension on ChainSwapData {
-  ChainSwapData copyWith(
-      {SwapTree? swapTree,
-      String? lockupAddress,
-      String? serverPublicKey,
-      double? timeoutBlockHeight,
-      double? amount,
-      String? blindingKey,
-      String? refundAddress,
-      String? bip21}) {
+  ChainSwapData copyWith({
+    SwapTree? swapTree,
+    String? lockupAddress,
+    String? serverPublicKey,
+    double? timeoutBlockHeight,
+    double? amount,
+    String? blindingKey,
+    String? refundAddress,
+    String? bip21,
+  }) {
     return ChainSwapData(
-        swapTree: swapTree ?? this.swapTree,
-        lockupAddress: lockupAddress ?? this.lockupAddress,
-        serverPublicKey: serverPublicKey ?? this.serverPublicKey,
-        timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight,
-        amount: amount ?? this.amount,
-        blindingKey: blindingKey ?? this.blindingKey,
-        refundAddress: refundAddress ?? this.refundAddress,
-        bip21: bip21 ?? this.bip21);
+      swapTree: swapTree ?? this.swapTree,
+      lockupAddress: lockupAddress ?? this.lockupAddress,
+      serverPublicKey: serverPublicKey ?? this.serverPublicKey,
+      timeoutBlockHeight: timeoutBlockHeight ?? this.timeoutBlockHeight,
+      amount: amount ?? this.amount,
+      blindingKey: blindingKey ?? this.blindingKey,
+      refundAddress: refundAddress ?? this.refundAddress,
+      bip21: bip21 ?? this.bip21,
+    );
   }
 
-  ChainSwapData copyWithWrapped(
-      {Wrapped<SwapTree>? swapTree,
-      Wrapped<String?>? lockupAddress,
-      Wrapped<String?>? serverPublicKey,
-      Wrapped<double>? timeoutBlockHeight,
-      Wrapped<double>? amount,
-      Wrapped<String?>? blindingKey,
-      Wrapped<String?>? refundAddress,
-      Wrapped<String?>? bip21}) {
+  ChainSwapData copyWithWrapped({
+    Wrapped<SwapTree>? swapTree,
+    Wrapped<String?>? lockupAddress,
+    Wrapped<String?>? serverPublicKey,
+    Wrapped<double>? timeoutBlockHeight,
+    Wrapped<double>? amount,
+    Wrapped<String?>? blindingKey,
+    Wrapped<String?>? refundAddress,
+    Wrapped<String?>? bip21,
+  }) {
     return ChainSwapData(
-        swapTree: (swapTree != null ? swapTree.value : this.swapTree),
-        lockupAddress:
-            (lockupAddress != null ? lockupAddress.value : this.lockupAddress),
-        serverPublicKey: (serverPublicKey != null
-            ? serverPublicKey.value
-            : this.serverPublicKey),
-        timeoutBlockHeight: (timeoutBlockHeight != null
-            ? timeoutBlockHeight.value
-            : this.timeoutBlockHeight),
-        amount: (amount != null ? amount.value : this.amount),
-        blindingKey:
-            (blindingKey != null ? blindingKey.value : this.blindingKey),
-        refundAddress:
-            (refundAddress != null ? refundAddress.value : this.refundAddress),
-        bip21: (bip21 != null ? bip21.value : this.bip21));
+      swapTree: (swapTree != null ? swapTree.value : this.swapTree),
+      lockupAddress: (lockupAddress != null
+          ? lockupAddress.value
+          : this.lockupAddress),
+      serverPublicKey: (serverPublicKey != null
+          ? serverPublicKey.value
+          : this.serverPublicKey),
+      timeoutBlockHeight: (timeoutBlockHeight != null
+          ? timeoutBlockHeight.value
+          : this.timeoutBlockHeight),
+      amount: (amount != null ? amount.value : this.amount),
+      blindingKey: (blindingKey != null ? blindingKey.value : this.blindingKey),
+      refundAddress: (refundAddress != null
+          ? refundAddress.value
+          : this.refundAddress),
+      bip21: (bip21 != null ? bip21.value : this.bip21),
+    );
   }
 }
 
@@ -2908,14 +3687,20 @@ class ChainResponse {
             (identical(other.id, id) ||
                 const DeepCollectionEquality().equals(other.id, id)) &&
             (identical(other.referralId, referralId) ||
-                const DeepCollectionEquality()
-                    .equals(other.referralId, referralId)) &&
+                const DeepCollectionEquality().equals(
+                  other.referralId,
+                  referralId,
+                )) &&
             (identical(other.claimDetails, claimDetails) ||
-                const DeepCollectionEquality()
-                    .equals(other.claimDetails, claimDetails)) &&
+                const DeepCollectionEquality().equals(
+                  other.claimDetails,
+                  claimDetails,
+                )) &&
             (identical(other.lockupDetails, lockupDetails) ||
-                const DeepCollectionEquality()
-                    .equals(other.lockupDetails, lockupDetails)));
+                const DeepCollectionEquality().equals(
+                  other.lockupDetails,
+                  lockupDetails,
+                )));
   }
 
   @override
@@ -2931,39 +3716,42 @@ class ChainResponse {
 }
 
 extension $ChainResponseExtension on ChainResponse {
-  ChainResponse copyWith(
-      {String? id,
-      String? referralId,
-      ChainSwapData? claimDetails,
-      ChainSwapData? lockupDetails}) {
+  ChainResponse copyWith({
+    String? id,
+    String? referralId,
+    ChainSwapData? claimDetails,
+    ChainSwapData? lockupDetails,
+  }) {
     return ChainResponse(
-        id: id ?? this.id,
-        referralId: referralId ?? this.referralId,
-        claimDetails: claimDetails ?? this.claimDetails,
-        lockupDetails: lockupDetails ?? this.lockupDetails);
+      id: id ?? this.id,
+      referralId: referralId ?? this.referralId,
+      claimDetails: claimDetails ?? this.claimDetails,
+      lockupDetails: lockupDetails ?? this.lockupDetails,
+    );
   }
 
-  ChainResponse copyWithWrapped(
-      {Wrapped<String>? id,
-      Wrapped<String?>? referralId,
-      Wrapped<ChainSwapData>? claimDetails,
-      Wrapped<ChainSwapData>? lockupDetails}) {
+  ChainResponse copyWithWrapped({
+    Wrapped<String>? id,
+    Wrapped<String?>? referralId,
+    Wrapped<ChainSwapData>? claimDetails,
+    Wrapped<ChainSwapData>? lockupDetails,
+  }) {
     return ChainResponse(
-        id: (id != null ? id.value : this.id),
-        referralId: (referralId != null ? referralId.value : this.referralId),
-        claimDetails:
-            (claimDetails != null ? claimDetails.value : this.claimDetails),
-        lockupDetails:
-            (lockupDetails != null ? lockupDetails.value : this.lockupDetails));
+      id: (id != null ? id.value : this.id),
+      referralId: (referralId != null ? referralId.value : this.referralId),
+      claimDetails: (claimDetails != null
+          ? claimDetails.value
+          : this.claimDetails),
+      lockupDetails: (lockupDetails != null
+          ? lockupDetails.value
+          : this.lockupDetails),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainSwapTransaction {
-  const ChainSwapTransaction({
-    required this.transaction,
-    this.timeout,
-  });
+  const ChainSwapTransaction({required this.transaction, this.timeout});
 
   factory ChainSwapTransaction.fromJson(Map<String, dynamic> json) =>
       _$ChainSwapTransactionFromJson(json);
@@ -2982,8 +3770,10 @@ class ChainSwapTransaction {
     return identical(this, other) ||
         (other is ChainSwapTransaction &&
             (identical(other.transaction, transaction) ||
-                const DeepCollectionEquality()
-                    .equals(other.transaction, transaction)) &&
+                const DeepCollectionEquality().equals(
+                  other.transaction,
+                  transaction,
+                )) &&
             (identical(other.timeout, timeout) ||
                 const DeepCollectionEquality().equals(other.timeout, timeout)));
   }
@@ -2999,30 +3789,30 @@ class ChainSwapTransaction {
 }
 
 extension $ChainSwapTransactionExtension on ChainSwapTransaction {
-  ChainSwapTransaction copyWith(
-      {ChainSwapTransaction$Transaction? transaction,
-      ChainSwapTransaction$Timeout? timeout}) {
+  ChainSwapTransaction copyWith({
+    ChainSwapTransaction$Transaction? transaction,
+    ChainSwapTransaction$Timeout? timeout,
+  }) {
     return ChainSwapTransaction(
-        transaction: transaction ?? this.transaction,
-        timeout: timeout ?? this.timeout);
+      transaction: transaction ?? this.transaction,
+      timeout: timeout ?? this.timeout,
+    );
   }
 
-  ChainSwapTransaction copyWithWrapped(
-      {Wrapped<ChainSwapTransaction$Transaction>? transaction,
-      Wrapped<ChainSwapTransaction$Timeout?>? timeout}) {
+  ChainSwapTransaction copyWithWrapped({
+    Wrapped<ChainSwapTransaction$Transaction>? transaction,
+    Wrapped<ChainSwapTransaction$Timeout?>? timeout,
+  }) {
     return ChainSwapTransaction(
-        transaction:
-            (transaction != null ? transaction.value : this.transaction),
-        timeout: (timeout != null ? timeout.value : this.timeout));
+      transaction: (transaction != null ? transaction.value : this.transaction),
+      timeout: (timeout != null ? timeout.value : this.timeout),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainSwapTransactions {
-  const ChainSwapTransactions({
-    this.userLock,
-    this.serverLock,
-  });
+  const ChainSwapTransactions({this.userLock, this.serverLock});
 
   factory ChainSwapTransactions.fromJson(Map<String, dynamic> json) =>
       _$ChainSwapTransactionsFromJson(json);
@@ -3041,11 +3831,15 @@ class ChainSwapTransactions {
     return identical(this, other) ||
         (other is ChainSwapTransactions &&
             (identical(other.userLock, userLock) ||
-                const DeepCollectionEquality()
-                    .equals(other.userLock, userLock)) &&
+                const DeepCollectionEquality().equals(
+                  other.userLock,
+                  userLock,
+                )) &&
             (identical(other.serverLock, serverLock) ||
-                const DeepCollectionEquality()
-                    .equals(other.serverLock, serverLock)));
+                const DeepCollectionEquality().equals(
+                  other.serverLock,
+                  serverLock,
+                )));
   }
 
   @override
@@ -3059,19 +3853,24 @@ class ChainSwapTransactions {
 }
 
 extension $ChainSwapTransactionsExtension on ChainSwapTransactions {
-  ChainSwapTransactions copyWith(
-      {ChainSwapTransaction? userLock, ChainSwapTransaction? serverLock}) {
+  ChainSwapTransactions copyWith({
+    ChainSwapTransaction? userLock,
+    ChainSwapTransaction? serverLock,
+  }) {
     return ChainSwapTransactions(
-        userLock: userLock ?? this.userLock,
-        serverLock: serverLock ?? this.serverLock);
+      userLock: userLock ?? this.userLock,
+      serverLock: serverLock ?? this.serverLock,
+    );
   }
 
-  ChainSwapTransactions copyWithWrapped(
-      {Wrapped<ChainSwapTransaction?>? userLock,
-      Wrapped<ChainSwapTransaction?>? serverLock}) {
+  ChainSwapTransactions copyWithWrapped({
+    Wrapped<ChainSwapTransaction?>? userLock,
+    Wrapped<ChainSwapTransaction?>? serverLock,
+  }) {
     return ChainSwapTransactions(
-        userLock: (userLock != null ? userLock.value : this.userLock),
-        serverLock: (serverLock != null ? serverLock.value : this.serverLock));
+      userLock: (userLock != null ? userLock.value : this.userLock),
+      serverLock: (serverLock != null ? serverLock.value : this.serverLock),
+    );
   }
 }
 
@@ -3102,14 +3901,20 @@ class ChainSwapSigningDetails {
     return identical(this, other) ||
         (other is ChainSwapSigningDetails &&
             (identical(other.pubNonce, pubNonce) ||
-                const DeepCollectionEquality()
-                    .equals(other.pubNonce, pubNonce)) &&
+                const DeepCollectionEquality().equals(
+                  other.pubNonce,
+                  pubNonce,
+                )) &&
             (identical(other.publicKey, publicKey) ||
-                const DeepCollectionEquality()
-                    .equals(other.publicKey, publicKey)) &&
+                const DeepCollectionEquality().equals(
+                  other.publicKey,
+                  publicKey,
+                )) &&
             (identical(other.transactionHash, transactionHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.transactionHash, transactionHash)));
+                const DeepCollectionEquality().equals(
+                  other.transactionHash,
+                  transactionHash,
+                )));
   }
 
   @override
@@ -3124,34 +3929,36 @@ class ChainSwapSigningDetails {
 }
 
 extension $ChainSwapSigningDetailsExtension on ChainSwapSigningDetails {
-  ChainSwapSigningDetails copyWith(
-      {String? pubNonce, String? publicKey, String? transactionHash}) {
+  ChainSwapSigningDetails copyWith({
+    String? pubNonce,
+    String? publicKey,
+    String? transactionHash,
+  }) {
     return ChainSwapSigningDetails(
-        pubNonce: pubNonce ?? this.pubNonce,
-        publicKey: publicKey ?? this.publicKey,
-        transactionHash: transactionHash ?? this.transactionHash);
+      pubNonce: pubNonce ?? this.pubNonce,
+      publicKey: publicKey ?? this.publicKey,
+      transactionHash: transactionHash ?? this.transactionHash,
+    );
   }
 
-  ChainSwapSigningDetails copyWithWrapped(
-      {Wrapped<String>? pubNonce,
-      Wrapped<String>? publicKey,
-      Wrapped<String>? transactionHash}) {
+  ChainSwapSigningDetails copyWithWrapped({
+    Wrapped<String>? pubNonce,
+    Wrapped<String>? publicKey,
+    Wrapped<String>? transactionHash,
+  }) {
     return ChainSwapSigningDetails(
-        pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
-        publicKey: (publicKey != null ? publicKey.value : this.publicKey),
-        transactionHash: (transactionHash != null
-            ? transactionHash.value
-            : this.transactionHash));
+      pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
+      publicKey: (publicKey != null ? publicKey.value : this.publicKey),
+      transactionHash: (transactionHash != null
+          ? transactionHash.value
+          : this.transactionHash),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainSwapSigningRequest {
-  const ChainSwapSigningRequest({
-    this.preimage,
-    this.signature,
-    this.toSign,
-  });
+  const ChainSwapSigningRequest({this.preimage, this.signature, this.toSign});
 
   factory ChainSwapSigningRequest.fromJson(Map<String, dynamic> json) =>
       _$ChainSwapSigningRequestFromJson(json);
@@ -3172,11 +3979,15 @@ class ChainSwapSigningRequest {
     return identical(this, other) ||
         (other is ChainSwapSigningRequest &&
             (identical(other.preimage, preimage) ||
-                const DeepCollectionEquality()
-                    .equals(other.preimage, preimage)) &&
+                const DeepCollectionEquality().equals(
+                  other.preimage,
+                  preimage,
+                )) &&
             (identical(other.signature, signature) ||
-                const DeepCollectionEquality()
-                    .equals(other.signature, signature)) &&
+                const DeepCollectionEquality().equals(
+                  other.signature,
+                  signature,
+                )) &&
             (identical(other.toSign, toSign) ||
                 const DeepCollectionEquality().equals(other.toSign, toSign)));
   }
@@ -3193,32 +4004,34 @@ class ChainSwapSigningRequest {
 }
 
 extension $ChainSwapSigningRequestExtension on ChainSwapSigningRequest {
-  ChainSwapSigningRequest copyWith(
-      {String? preimage,
-      PartialSignature? signature,
-      ChainSwapSigningRequest$ToSign? toSign}) {
+  ChainSwapSigningRequest copyWith({
+    String? preimage,
+    PartialSignature? signature,
+    ChainSwapSigningRequest$ToSign? toSign,
+  }) {
     return ChainSwapSigningRequest(
-        preimage: preimage ?? this.preimage,
-        signature: signature ?? this.signature,
-        toSign: toSign ?? this.toSign);
+      preimage: preimage ?? this.preimage,
+      signature: signature ?? this.signature,
+      toSign: toSign ?? this.toSign,
+    );
   }
 
-  ChainSwapSigningRequest copyWithWrapped(
-      {Wrapped<String?>? preimage,
-      Wrapped<PartialSignature?>? signature,
-      Wrapped<ChainSwapSigningRequest$ToSign?>? toSign}) {
+  ChainSwapSigningRequest copyWithWrapped({
+    Wrapped<String?>? preimage,
+    Wrapped<PartialSignature?>? signature,
+    Wrapped<ChainSwapSigningRequest$ToSign?>? toSign,
+  }) {
     return ChainSwapSigningRequest(
-        preimage: (preimage != null ? preimage.value : this.preimage),
-        signature: (signature != null ? signature.value : this.signature),
-        toSign: (toSign != null ? toSign.value : this.toSign));
+      preimage: (preimage != null ? preimage.value : this.preimage),
+      signature: (signature != null ? signature.value : this.signature),
+      toSign: (toSign != null ? toSign.value : this.toSign),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class Quote {
-  const Quote({
-    required this.amount,
-  });
+  const Quote({required this.amount});
 
   factory Quote.fromJson(Map<String, dynamic> json) => _$QuoteFromJson(json);
 
@@ -3303,11 +4116,15 @@ class SwapStatus {
             (identical(other.status, status) ||
                 const DeepCollectionEquality().equals(other.status, status)) &&
             (identical(other.zeroConfRejected, zeroConfRejected) ||
-                const DeepCollectionEquality()
-                    .equals(other.zeroConfRejected, zeroConfRejected)) &&
+                const DeepCollectionEquality().equals(
+                  other.zeroConfRejected,
+                  zeroConfRejected,
+                )) &&
             (identical(other.transaction, transaction) ||
-                const DeepCollectionEquality()
-                    .equals(other.transaction, transaction)));
+                const DeepCollectionEquality().equals(
+                  other.transaction,
+                  transaction,
+                )));
   }
 
   @override
@@ -3322,39 +4139,40 @@ class SwapStatus {
 }
 
 extension $SwapStatusExtension on SwapStatus {
-  SwapStatus copyWith(
-      {String? status,
-      bool? zeroConfRejected,
-      SwapStatus$Transaction? transaction}) {
+  SwapStatus copyWith({
+    String? status,
+    bool? zeroConfRejected,
+    SwapStatus$Transaction? transaction,
+  }) {
     return SwapStatus(
-        status: status ?? this.status,
-        zeroConfRejected: zeroConfRejected ?? this.zeroConfRejected,
-        transaction: transaction ?? this.transaction);
+      status: status ?? this.status,
+      zeroConfRejected: zeroConfRejected ?? this.zeroConfRejected,
+      transaction: transaction ?? this.transaction,
+    );
   }
 
-  SwapStatus copyWithWrapped(
-      {Wrapped<String>? status,
-      Wrapped<bool?>? zeroConfRejected,
-      Wrapped<SwapStatus$Transaction?>? transaction}) {
+  SwapStatus copyWithWrapped({
+    Wrapped<String>? status,
+    Wrapped<bool?>? zeroConfRejected,
+    Wrapped<SwapStatus$Transaction?>? transaction,
+  }) {
     return SwapStatus(
-        status: (status != null ? status.value : this.status),
-        zeroConfRejected: (zeroConfRejected != null
-            ? zeroConfRejected.value
-            : this.zeroConfRejected),
-        transaction:
-            (transaction != null ? transaction.value : this.transaction));
+      status: (status != null ? status.value : this.status),
+      zeroConfRejected: (zeroConfRejected != null
+          ? zeroConfRejected.value
+          : this.zeroConfRejected),
+      transaction: (transaction != null ? transaction.value : this.transaction),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainCurrencyTransactionPost$RequestBody {
-  const ChainCurrencyTransactionPost$RequestBody({
-    required this.hex,
-  });
+  const ChainCurrencyTransactionPost$RequestBody({required this.hex});
 
   factory ChainCurrencyTransactionPost$RequestBody.fromJson(
-          Map<String, dynamic> json) =>
-      _$ChainCurrencyTransactionPost$RequestBodyFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$ChainCurrencyTransactionPost$RequestBodyFromJson(json);
 
   static const toJsonFactory = _$ChainCurrencyTransactionPost$RequestBodyToJson;
   Map<String, dynamic> toJson() =>
@@ -3387,10 +4205,12 @@ extension $ChainCurrencyTransactionPost$RequestBodyExtension
     return ChainCurrencyTransactionPost$RequestBody(hex: hex ?? this.hex);
   }
 
-  ChainCurrencyTransactionPost$RequestBody copyWithWrapped(
-      {Wrapped<String>? hex}) {
+  ChainCurrencyTransactionPost$RequestBody copyWithWrapped({
+    Wrapped<String>? hex,
+  }) {
     return ChainCurrencyTransactionPost$RequestBody(
-        hex: (hex != null ? hex.value : this.hex));
+      hex: (hex != null ? hex.value : this.hex),
+    );
   }
 }
 
@@ -3402,8 +4222,8 @@ class LightningCurrencyBolt12FetchPost$RequestBody {
   });
 
   factory LightningCurrencyBolt12FetchPost$RequestBody.fromJson(
-          Map<String, dynamic> json) =>
-      _$LightningCurrencyBolt12FetchPost$RequestBodyFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$LightningCurrencyBolt12FetchPost$RequestBodyFromJson(json);
 
   static const toJsonFactory =
       _$LightningCurrencyBolt12FetchPost$RequestBodyToJson;
@@ -3439,17 +4259,24 @@ class LightningCurrencyBolt12FetchPost$RequestBody {
 
 extension $LightningCurrencyBolt12FetchPost$RequestBodyExtension
     on LightningCurrencyBolt12FetchPost$RequestBody {
-  LightningCurrencyBolt12FetchPost$RequestBody copyWith(
-      {String? offer, double? amount}) {
+  LightningCurrencyBolt12FetchPost$RequestBody copyWith({
+    String? offer,
+    double? amount,
+  }) {
     return LightningCurrencyBolt12FetchPost$RequestBody(
-        offer: offer ?? this.offer, amount: amount ?? this.amount);
+      offer: offer ?? this.offer,
+      amount: amount ?? this.amount,
+    );
   }
 
-  LightningCurrencyBolt12FetchPost$RequestBody copyWithWrapped(
-      {Wrapped<String>? offer, Wrapped<double>? amount}) {
+  LightningCurrencyBolt12FetchPost$RequestBody copyWithWrapped({
+    Wrapped<String>? offer,
+    Wrapped<double>? amount,
+  }) {
     return LightningCurrencyBolt12FetchPost$RequestBody(
-        offer: (offer != null ? offer.value : this.offer),
-        amount: (amount != null ? amount.value : this.amount));
+      offer: (offer != null ? offer.value : this.offer),
+      amount: (amount != null ? amount.value : this.amount),
+    );
   }
 }
 
@@ -3461,8 +4288,8 @@ class SwapSubmarineIdInvoicePost$RequestBody {
   });
 
   factory SwapSubmarineIdInvoicePost$RequestBody.fromJson(
-          Map<String, dynamic> json) =>
-      _$SwapSubmarineIdInvoicePost$RequestBodyFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$SwapSubmarineIdInvoicePost$RequestBodyFromJson(json);
 
   static const toJsonFactory = _$SwapSubmarineIdInvoicePost$RequestBodyToJson;
   Map<String, dynamic> toJson() =>
@@ -3480,11 +4307,15 @@ class SwapSubmarineIdInvoicePost$RequestBody {
     return identical(this, other) ||
         (other is SwapSubmarineIdInvoicePost$RequestBody &&
             (identical(other.invoice, invoice) ||
-                const DeepCollectionEquality()
-                    .equals(other.invoice, invoice)) &&
+                const DeepCollectionEquality().equals(
+                  other.invoice,
+                  invoice,
+                )) &&
             (identical(other.pairHash, pairHash) ||
-                const DeepCollectionEquality()
-                    .equals(other.pairHash, pairHash)));
+                const DeepCollectionEquality().equals(
+                  other.pairHash,
+                  pairHash,
+                )));
   }
 
   @override
@@ -3499,25 +4330,30 @@ class SwapSubmarineIdInvoicePost$RequestBody {
 
 extension $SwapSubmarineIdInvoicePost$RequestBodyExtension
     on SwapSubmarineIdInvoicePost$RequestBody {
-  SwapSubmarineIdInvoicePost$RequestBody copyWith(
-      {String? invoice, String? pairHash}) {
+  SwapSubmarineIdInvoicePost$RequestBody copyWith({
+    String? invoice,
+    String? pairHash,
+  }) {
     return SwapSubmarineIdInvoicePost$RequestBody(
-        invoice: invoice ?? this.invoice, pairHash: pairHash ?? this.pairHash);
+      invoice: invoice ?? this.invoice,
+      pairHash: pairHash ?? this.pairHash,
+    );
   }
 
-  SwapSubmarineIdInvoicePost$RequestBody copyWithWrapped(
-      {Wrapped<String>? invoice, Wrapped<String?>? pairHash}) {
+  SwapSubmarineIdInvoicePost$RequestBody copyWithWrapped({
+    Wrapped<String>? invoice,
+    Wrapped<String?>? pairHash,
+  }) {
     return SwapSubmarineIdInvoicePost$RequestBody(
-        invoice: (invoice != null ? invoice.value : this.invoice),
-        pairHash: (pairHash != null ? pairHash.value : this.pairHash));
+      invoice: (invoice != null ? invoice.value : this.invoice),
+      pairHash: (pairHash != null ? pairHash.value : this.pairHash),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainCurrencyFeeGet$Response {
-  const ChainCurrencyFeeGet$Response({
-    required this.fee,
-  });
+  const ChainCurrencyFeeGet$Response({required this.fee});
 
   factory ChainCurrencyFeeGet$Response.fromJson(Map<String, dynamic> json) =>
       _$ChainCurrencyFeeGet$ResponseFromJson(json);
@@ -3553,15 +4389,14 @@ extension $ChainCurrencyFeeGet$ResponseExtension
 
   ChainCurrencyFeeGet$Response copyWithWrapped({Wrapped<double>? fee}) {
     return ChainCurrencyFeeGet$Response(
-        fee: (fee != null ? fee.value : this.fee));
+      fee: (fee != null ? fee.value : this.fee),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainCurrencyHeightGet$Response {
-  const ChainCurrencyHeightGet$Response({
-    required this.height,
-  });
+  const ChainCurrencyHeightGet$Response({required this.height});
 
   factory ChainCurrencyHeightGet$Response.fromJson(Map<String, dynamic> json) =>
       _$ChainCurrencyHeightGet$ResponseFromJson(json);
@@ -3598,19 +4433,18 @@ extension $ChainCurrencyHeightGet$ResponseExtension
 
   ChainCurrencyHeightGet$Response copyWithWrapped({Wrapped<double>? height}) {
     return ChainCurrencyHeightGet$Response(
-        height: (height != null ? height.value : this.height));
+      height: (height != null ? height.value : this.height),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainCurrencyTransactionIdGet$Response {
-  const ChainCurrencyTransactionIdGet$Response({
-    required this.hex,
-  });
+  const ChainCurrencyTransactionIdGet$Response({required this.hex});
 
   factory ChainCurrencyTransactionIdGet$Response.fromJson(
-          Map<String, dynamic> json) =>
-      _$ChainCurrencyTransactionIdGet$ResponseFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$ChainCurrencyTransactionIdGet$ResponseFromJson(json);
 
   static const toJsonFactory = _$ChainCurrencyTransactionIdGet$ResponseToJson;
   Map<String, dynamic> toJson() =>
@@ -3643,22 +4477,22 @@ extension $ChainCurrencyTransactionIdGet$ResponseExtension
     return ChainCurrencyTransactionIdGet$Response(hex: hex ?? this.hex);
   }
 
-  ChainCurrencyTransactionIdGet$Response copyWithWrapped(
-      {Wrapped<String>? hex}) {
+  ChainCurrencyTransactionIdGet$Response copyWithWrapped({
+    Wrapped<String>? hex,
+  }) {
     return ChainCurrencyTransactionIdGet$Response(
-        hex: (hex != null ? hex.value : this.hex));
+      hex: (hex != null ? hex.value : this.hex),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainCurrencyTransactionPost$Response {
-  const ChainCurrencyTransactionPost$Response({
-    required this.id,
-  });
+  const ChainCurrencyTransactionPost$Response({required this.id});
 
   factory ChainCurrencyTransactionPost$Response.fromJson(
-          Map<String, dynamic> json) =>
-      _$ChainCurrencyTransactionPost$ResponseFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$ChainCurrencyTransactionPost$ResponseFromJson(json);
 
   static const toJsonFactory = _$ChainCurrencyTransactionPost$ResponseToJson;
   Map<String, dynamic> toJson() =>
@@ -3693,15 +4527,14 @@ extension $ChainCurrencyTransactionPost$ResponseExtension
 
   ChainCurrencyTransactionPost$Response copyWithWrapped({Wrapped<String>? id}) {
     return ChainCurrencyTransactionPost$Response(
-        id: (id != null ? id.value : this.id));
+      id: (id != null ? id.value : this.id),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class VersionGet$Response {
-  const VersionGet$Response({
-    required this.version,
-  });
+  const VersionGet$Response({required this.version});
 
   factory VersionGet$Response.fromJson(Map<String, dynamic> json) =>
       _$VersionGet$ResponseFromJson(json);
@@ -3736,19 +4569,18 @@ extension $VersionGet$ResponseExtension on VersionGet$Response {
 
   VersionGet$Response copyWithWrapped({Wrapped<String>? version}) {
     return VersionGet$Response(
-        version: (version != null ? version.value : this.version));
+      version: (version != null ? version.value : this.version),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class LightningCurrencyBolt12FetchPost$Response {
-  const LightningCurrencyBolt12FetchPost$Response({
-    required this.invoice,
-  });
+  const LightningCurrencyBolt12FetchPost$Response({required this.invoice});
 
   factory LightningCurrencyBolt12FetchPost$Response.fromJson(
-          Map<String, dynamic> json) =>
-      _$LightningCurrencyBolt12FetchPost$ResponseFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$LightningCurrencyBolt12FetchPost$ResponseFromJson(json);
 
   static const toJsonFactory =
       _$LightningCurrencyBolt12FetchPost$ResponseToJson;
@@ -3780,21 +4612,22 @@ extension $LightningCurrencyBolt12FetchPost$ResponseExtension
     on LightningCurrencyBolt12FetchPost$Response {
   LightningCurrencyBolt12FetchPost$Response copyWith({String? invoice}) {
     return LightningCurrencyBolt12FetchPost$Response(
-        invoice: invoice ?? this.invoice);
+      invoice: invoice ?? this.invoice,
+    );
   }
 
-  LightningCurrencyBolt12FetchPost$Response copyWithWrapped(
-      {Wrapped<String>? invoice}) {
+  LightningCurrencyBolt12FetchPost$Response copyWithWrapped({
+    Wrapped<String>? invoice,
+  }) {
     return LightningCurrencyBolt12FetchPost$Response(
-        invoice: (invoice != null ? invoice.value : this.invoice));
+      invoice: (invoice != null ? invoice.value : this.invoice),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ReferralGet$Response {
-  const ReferralGet$Response({
-    required this.id,
-  });
+  const ReferralGet$Response({required this.id});
 
   factory ReferralGet$Response.fromJson(Map<String, dynamic> json) =>
       _$ReferralGet$ResponseFromJson(json);
@@ -3841,8 +4674,8 @@ class SwapSubmarineIdInvoicePost$Response {
   });
 
   factory SwapSubmarineIdInvoicePost$Response.fromJson(
-          Map<String, dynamic> json) =>
-      _$SwapSubmarineIdInvoicePost$ResponseFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$SwapSubmarineIdInvoicePost$ResponseFromJson(json);
 
   static const toJsonFactory = _$SwapSubmarineIdInvoicePost$ResponseToJson;
   Map<String, dynamic> toJson() =>
@@ -3863,11 +4696,15 @@ class SwapSubmarineIdInvoicePost$Response {
             (identical(other.bip21, bip21) ||
                 const DeepCollectionEquality().equals(other.bip21, bip21)) &&
             (identical(other.expectedAmount, expectedAmount) ||
-                const DeepCollectionEquality()
-                    .equals(other.expectedAmount, expectedAmount)) &&
+                const DeepCollectionEquality().equals(
+                  other.expectedAmount,
+                  expectedAmount,
+                )) &&
             (identical(other.acceptZeroConf, acceptZeroConf) ||
-                const DeepCollectionEquality()
-                    .equals(other.acceptZeroConf, acceptZeroConf)));
+                const DeepCollectionEquality().equals(
+                  other.acceptZeroConf,
+                  acceptZeroConf,
+                )));
   }
 
   @override
@@ -3883,38 +4720,42 @@ class SwapSubmarineIdInvoicePost$Response {
 
 extension $SwapSubmarineIdInvoicePost$ResponseExtension
     on SwapSubmarineIdInvoicePost$Response {
-  SwapSubmarineIdInvoicePost$Response copyWith(
-      {String? bip21, double? expectedAmount, bool? acceptZeroConf}) {
+  SwapSubmarineIdInvoicePost$Response copyWith({
+    String? bip21,
+    double? expectedAmount,
+    bool? acceptZeroConf,
+  }) {
     return SwapSubmarineIdInvoicePost$Response(
-        bip21: bip21 ?? this.bip21,
-        expectedAmount: expectedAmount ?? this.expectedAmount,
-        acceptZeroConf: acceptZeroConf ?? this.acceptZeroConf);
+      bip21: bip21 ?? this.bip21,
+      expectedAmount: expectedAmount ?? this.expectedAmount,
+      acceptZeroConf: acceptZeroConf ?? this.acceptZeroConf,
+    );
   }
 
-  SwapSubmarineIdInvoicePost$Response copyWithWrapped(
-      {Wrapped<String>? bip21,
-      Wrapped<double>? expectedAmount,
-      Wrapped<bool>? acceptZeroConf}) {
+  SwapSubmarineIdInvoicePost$Response copyWithWrapped({
+    Wrapped<String>? bip21,
+    Wrapped<double>? expectedAmount,
+    Wrapped<bool>? acceptZeroConf,
+  }) {
     return SwapSubmarineIdInvoicePost$Response(
-        bip21: (bip21 != null ? bip21.value : this.bip21),
-        expectedAmount: (expectedAmount != null
-            ? expectedAmount.value
-            : this.expectedAmount),
-        acceptZeroConf: (acceptZeroConf != null
-            ? acceptZeroConf.value
-            : this.acceptZeroConf));
+      bip21: (bip21 != null ? bip21.value : this.bip21),
+      expectedAmount: (expectedAmount != null
+          ? expectedAmount.value
+          : this.expectedAmount),
+      acceptZeroConf: (acceptZeroConf != null
+          ? acceptZeroConf.value
+          : this.acceptZeroConf),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class SwapSubmarineIdInvoiceAmountGet$Response {
-  const SwapSubmarineIdInvoiceAmountGet$Response({
-    required this.invoiceAmount,
-  });
+  const SwapSubmarineIdInvoiceAmountGet$Response({required this.invoiceAmount});
 
   factory SwapSubmarineIdInvoiceAmountGet$Response.fromJson(
-          Map<String, dynamic> json) =>
-      _$SwapSubmarineIdInvoiceAmountGet$ResponseFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$SwapSubmarineIdInvoiceAmountGet$ResponseFromJson(json);
 
   static const toJsonFactory = _$SwapSubmarineIdInvoiceAmountGet$ResponseToJson;
   Map<String, dynamic> toJson() =>
@@ -3930,8 +4771,10 @@ class SwapSubmarineIdInvoiceAmountGet$Response {
     return identical(this, other) ||
         (other is SwapSubmarineIdInvoiceAmountGet$Response &&
             (identical(other.invoiceAmount, invoiceAmount) ||
-                const DeepCollectionEquality()
-                    .equals(other.invoiceAmount, invoiceAmount)));
+                const DeepCollectionEquality().equals(
+                  other.invoiceAmount,
+                  invoiceAmount,
+                )));
   }
 
   @override
@@ -3946,26 +4789,28 @@ extension $SwapSubmarineIdInvoiceAmountGet$ResponseExtension
     on SwapSubmarineIdInvoiceAmountGet$Response {
   SwapSubmarineIdInvoiceAmountGet$Response copyWith({double? invoiceAmount}) {
     return SwapSubmarineIdInvoiceAmountGet$Response(
-        invoiceAmount: invoiceAmount ?? this.invoiceAmount);
+      invoiceAmount: invoiceAmount ?? this.invoiceAmount,
+    );
   }
 
-  SwapSubmarineIdInvoiceAmountGet$Response copyWithWrapped(
-      {Wrapped<double>? invoiceAmount}) {
+  SwapSubmarineIdInvoiceAmountGet$Response copyWithWrapped({
+    Wrapped<double>? invoiceAmount,
+  }) {
     return SwapSubmarineIdInvoiceAmountGet$Response(
-        invoiceAmount:
-            (invoiceAmount != null ? invoiceAmount.value : this.invoiceAmount));
+      invoiceAmount: (invoiceAmount != null
+          ? invoiceAmount.value
+          : this.invoiceAmount),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class SwapSubmarineIdRefundGet$Response {
-  const SwapSubmarineIdRefundGet$Response({
-    required this.signature,
-  });
+  const SwapSubmarineIdRefundGet$Response({required this.signature});
 
   factory SwapSubmarineIdRefundGet$Response.fromJson(
-          Map<String, dynamic> json) =>
-      _$SwapSubmarineIdRefundGet$ResponseFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$SwapSubmarineIdRefundGet$ResponseFromJson(json);
 
   static const toJsonFactory = _$SwapSubmarineIdRefundGet$ResponseToJson;
   Map<String, dynamic> toJson() =>
@@ -3980,8 +4825,10 @@ class SwapSubmarineIdRefundGet$Response {
     return identical(this, other) ||
         (other is SwapSubmarineIdRefundGet$Response &&
             (identical(other.signature, signature) ||
-                const DeepCollectionEquality()
-                    .equals(other.signature, signature)));
+                const DeepCollectionEquality().equals(
+                  other.signature,
+                  signature,
+                )));
   }
 
   @override
@@ -3996,21 +4843,22 @@ extension $SwapSubmarineIdRefundGet$ResponseExtension
     on SwapSubmarineIdRefundGet$Response {
   SwapSubmarineIdRefundGet$Response copyWith({String? signature}) {
     return SwapSubmarineIdRefundGet$Response(
-        signature: signature ?? this.signature);
+      signature: signature ?? this.signature,
+    );
   }
 
-  SwapSubmarineIdRefundGet$Response copyWithWrapped(
-      {Wrapped<String>? signature}) {
+  SwapSubmarineIdRefundGet$Response copyWithWrapped({
+    Wrapped<String>? signature,
+  }) {
     return SwapSubmarineIdRefundGet$Response(
-        signature: (signature != null ? signature.value : this.signature));
+      signature: (signature != null ? signature.value : this.signature),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class SwapChainIdRefundGet$Response {
-  const SwapChainIdRefundGet$Response({
-    required this.signature,
-  });
+  const SwapChainIdRefundGet$Response({required this.signature});
 
   factory SwapChainIdRefundGet$Response.fromJson(Map<String, dynamic> json) =>
       _$SwapChainIdRefundGet$ResponseFromJson(json);
@@ -4027,8 +4875,10 @@ class SwapChainIdRefundGet$Response {
     return identical(this, other) ||
         (other is SwapChainIdRefundGet$Response &&
             (identical(other.signature, signature) ||
-                const DeepCollectionEquality()
-                    .equals(other.signature, signature)));
+                const DeepCollectionEquality().equals(
+                  other.signature,
+                  signature,
+                )));
   }
 
   @override
@@ -4043,21 +4893,20 @@ extension $SwapChainIdRefundGet$ResponseExtension
     on SwapChainIdRefundGet$Response {
   SwapChainIdRefundGet$Response copyWith({String? signature}) {
     return SwapChainIdRefundGet$Response(
-        signature: signature ?? this.signature);
+      signature: signature ?? this.signature,
+    );
   }
 
   SwapChainIdRefundGet$Response copyWithWrapped({Wrapped<String>? signature}) {
     return SwapChainIdRefundGet$Response(
-        signature: (signature != null ? signature.value : this.signature));
+      signature: (signature != null ? signature.value : this.signature),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class Contracts$Network {
-  const Contracts$Network({
-    required this.chainId,
-    required this.name,
-  });
+  const Contracts$Network({required this.chainId, required this.name});
 
   factory Contracts$Network.fromJson(Map<String, dynamic> json) =>
       _$Contracts$NetworkFromJson(json);
@@ -4076,8 +4925,10 @@ class Contracts$Network {
     return identical(this, other) ||
         (other is Contracts$Network &&
             (identical(other.chainId, chainId) ||
-                const DeepCollectionEquality()
-                    .equals(other.chainId, chainId)) &&
+                const DeepCollectionEquality().equals(
+                  other.chainId,
+                  chainId,
+                )) &&
             (identical(other.name, name) ||
                 const DeepCollectionEquality().equals(other.name, name)));
   }
@@ -4095,23 +4946,25 @@ class Contracts$Network {
 extension $Contracts$NetworkExtension on Contracts$Network {
   Contracts$Network copyWith({double? chainId, String? name}) {
     return Contracts$Network(
-        chainId: chainId ?? this.chainId, name: name ?? this.name);
+      chainId: chainId ?? this.chainId,
+      name: name ?? this.name,
+    );
   }
 
-  Contracts$Network copyWithWrapped(
-      {Wrapped<double>? chainId, Wrapped<String>? name}) {
+  Contracts$Network copyWithWrapped({
+    Wrapped<double>? chainId,
+    Wrapped<String>? name,
+  }) {
     return Contracts$Network(
-        chainId: (chainId != null ? chainId.value : this.chainId),
-        name: (name != null ? name.value : this.name));
+      chainId: (chainId != null ? chainId.value : this.chainId),
+      name: (name != null ? name.value : this.name),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class Contracts$SwapContracts {
-  const Contracts$SwapContracts({
-    this.etherSwap,
-    this.eRC20Swap,
-  });
+  const Contracts$SwapContracts({this.etherSwap, this.eRC20Swap});
 
   factory Contracts$SwapContracts.fromJson(Map<String, dynamic> json) =>
       _$Contracts$SwapContractsFromJson(json);
@@ -4130,11 +4983,15 @@ class Contracts$SwapContracts {
     return identical(this, other) ||
         (other is Contracts$SwapContracts &&
             (identical(other.etherSwap, etherSwap) ||
-                const DeepCollectionEquality()
-                    .equals(other.etherSwap, etherSwap)) &&
+                const DeepCollectionEquality().equals(
+                  other.etherSwap,
+                  etherSwap,
+                )) &&
             (identical(other.eRC20Swap, eRC20Swap) ||
-                const DeepCollectionEquality()
-                    .equals(other.eRC20Swap, eRC20Swap)));
+                const DeepCollectionEquality().equals(
+                  other.eRC20Swap,
+                  eRC20Swap,
+                )));
   }
 
   @override
@@ -4150,15 +5007,19 @@ class Contracts$SwapContracts {
 extension $Contracts$SwapContractsExtension on Contracts$SwapContracts {
   Contracts$SwapContracts copyWith({String? etherSwap, String? eRC20Swap}) {
     return Contracts$SwapContracts(
-        etherSwap: etherSwap ?? this.etherSwap,
-        eRC20Swap: eRC20Swap ?? this.eRC20Swap);
+      etherSwap: etherSwap ?? this.etherSwap,
+      eRC20Swap: eRC20Swap ?? this.eRC20Swap,
+    );
   }
 
-  Contracts$SwapContracts copyWithWrapped(
-      {Wrapped<String?>? etherSwap, Wrapped<String?>? eRC20Swap}) {
+  Contracts$SwapContracts copyWithWrapped({
+    Wrapped<String?>? etherSwap,
+    Wrapped<String?>? eRC20Swap,
+  }) {
     return Contracts$SwapContracts(
-        etherSwap: (etherSwap != null ? etherSwap.value : this.etherSwap),
-        eRC20Swap: (eRC20Swap != null ? eRC20Swap.value : this.eRC20Swap));
+      etherSwap: (etherSwap != null ? etherSwap.value : this.etherSwap),
+      eRC20Swap: (eRC20Swap != null ? eRC20Swap.value : this.eRC20Swap),
+    );
   }
 }
 
@@ -4189,14 +5050,20 @@ class SubmarinePair$Limits {
     return identical(this, other) ||
         (other is SubmarinePair$Limits &&
             (identical(other.minimal, minimal) ||
-                const DeepCollectionEquality()
-                    .equals(other.minimal, minimal)) &&
+                const DeepCollectionEquality().equals(
+                  other.minimal,
+                  minimal,
+                )) &&
             (identical(other.maximal, maximal) ||
-                const DeepCollectionEquality()
-                    .equals(other.maximal, maximal)) &&
+                const DeepCollectionEquality().equals(
+                  other.maximal,
+                  maximal,
+                )) &&
             (identical(other.maximalZeroConf, maximalZeroConf) ||
-                const DeepCollectionEquality()
-                    .equals(other.maximalZeroConf, maximalZeroConf)));
+                const DeepCollectionEquality().equals(
+                  other.maximalZeroConf,
+                  maximalZeroConf,
+                )));
   }
 
   @override
@@ -4211,33 +5078,36 @@ class SubmarinePair$Limits {
 }
 
 extension $SubmarinePair$LimitsExtension on SubmarinePair$Limits {
-  SubmarinePair$Limits copyWith(
-      {double? minimal, double? maximal, double? maximalZeroConf}) {
+  SubmarinePair$Limits copyWith({
+    double? minimal,
+    double? maximal,
+    double? maximalZeroConf,
+  }) {
     return SubmarinePair$Limits(
-        minimal: minimal ?? this.minimal,
-        maximal: maximal ?? this.maximal,
-        maximalZeroConf: maximalZeroConf ?? this.maximalZeroConf);
+      minimal: minimal ?? this.minimal,
+      maximal: maximal ?? this.maximal,
+      maximalZeroConf: maximalZeroConf ?? this.maximalZeroConf,
+    );
   }
 
-  SubmarinePair$Limits copyWithWrapped(
-      {Wrapped<double>? minimal,
-      Wrapped<double>? maximal,
-      Wrapped<double>? maximalZeroConf}) {
+  SubmarinePair$Limits copyWithWrapped({
+    Wrapped<double>? minimal,
+    Wrapped<double>? maximal,
+    Wrapped<double>? maximalZeroConf,
+  }) {
     return SubmarinePair$Limits(
-        minimal: (minimal != null ? minimal.value : this.minimal),
-        maximal: (maximal != null ? maximal.value : this.maximal),
-        maximalZeroConf: (maximalZeroConf != null
-            ? maximalZeroConf.value
-            : this.maximalZeroConf));
+      minimal: (minimal != null ? minimal.value : this.minimal),
+      maximal: (maximal != null ? maximal.value : this.maximal),
+      maximalZeroConf: (maximalZeroConf != null
+          ? maximalZeroConf.value
+          : this.maximalZeroConf),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class SubmarinePair$Fees {
-  const SubmarinePair$Fees({
-    required this.percentage,
-    required this.minerFees,
-  });
+  const SubmarinePair$Fees({required this.percentage, required this.minerFees});
 
   factory SubmarinePair$Fees.fromJson(Map<String, dynamic> json) =>
       _$SubmarinePair$FeesFromJson(json);
@@ -4256,11 +5126,15 @@ class SubmarinePair$Fees {
     return identical(this, other) ||
         (other is SubmarinePair$Fees &&
             (identical(other.percentage, percentage) ||
-                const DeepCollectionEquality()
-                    .equals(other.percentage, percentage)) &&
+                const DeepCollectionEquality().equals(
+                  other.percentage,
+                  percentage,
+                )) &&
             (identical(other.minerFees, minerFees) ||
-                const DeepCollectionEquality()
-                    .equals(other.minerFees, minerFees)));
+                const DeepCollectionEquality().equals(
+                  other.minerFees,
+                  minerFees,
+                )));
   }
 
   @override
@@ -4276,24 +5150,25 @@ class SubmarinePair$Fees {
 extension $SubmarinePair$FeesExtension on SubmarinePair$Fees {
   SubmarinePair$Fees copyWith({double? percentage, double? minerFees}) {
     return SubmarinePair$Fees(
-        percentage: percentage ?? this.percentage,
-        minerFees: minerFees ?? this.minerFees);
+      percentage: percentage ?? this.percentage,
+      minerFees: minerFees ?? this.minerFees,
+    );
   }
 
-  SubmarinePair$Fees copyWithWrapped(
-      {Wrapped<double>? percentage, Wrapped<double>? minerFees}) {
+  SubmarinePair$Fees copyWithWrapped({
+    Wrapped<double>? percentage,
+    Wrapped<double>? minerFees,
+  }) {
     return SubmarinePair$Fees(
-        percentage: (percentage != null ? percentage.value : this.percentage),
-        minerFees: (minerFees != null ? minerFees.value : this.minerFees));
+      percentage: (percentage != null ? percentage.value : this.percentage),
+      minerFees: (minerFees != null ? minerFees.value : this.minerFees),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ReversePair$Limits {
-  const ReversePair$Limits({
-    required this.minimal,
-    required this.maximal,
-  });
+  const ReversePair$Limits({required this.minimal, required this.maximal});
 
   factory ReversePair$Limits.fromJson(Map<String, dynamic> json) =>
       _$ReversePair$LimitsFromJson(json);
@@ -4312,8 +5187,10 @@ class ReversePair$Limits {
     return identical(this, other) ||
         (other is ReversePair$Limits &&
             (identical(other.minimal, minimal) ||
-                const DeepCollectionEquality()
-                    .equals(other.minimal, minimal)) &&
+                const DeepCollectionEquality().equals(
+                  other.minimal,
+                  minimal,
+                )) &&
             (identical(other.maximal, maximal) ||
                 const DeepCollectionEquality().equals(other.maximal, maximal)));
   }
@@ -4331,23 +5208,25 @@ class ReversePair$Limits {
 extension $ReversePair$LimitsExtension on ReversePair$Limits {
   ReversePair$Limits copyWith({double? minimal, double? maximal}) {
     return ReversePair$Limits(
-        minimal: minimal ?? this.minimal, maximal: maximal ?? this.maximal);
+      minimal: minimal ?? this.minimal,
+      maximal: maximal ?? this.maximal,
+    );
   }
 
-  ReversePair$Limits copyWithWrapped(
-      {Wrapped<double>? minimal, Wrapped<double>? maximal}) {
+  ReversePair$Limits copyWithWrapped({
+    Wrapped<double>? minimal,
+    Wrapped<double>? maximal,
+  }) {
     return ReversePair$Limits(
-        minimal: (minimal != null ? minimal.value : this.minimal),
-        maximal: (maximal != null ? maximal.value : this.maximal));
+      minimal: (minimal != null ? minimal.value : this.minimal),
+      maximal: (maximal != null ? maximal.value : this.maximal),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ReversePair$Fees {
-  const ReversePair$Fees({
-    required this.percentage,
-    required this.minerFees,
-  });
+  const ReversePair$Fees({required this.percentage, required this.minerFees});
 
   factory ReversePair$Fees.fromJson(Map<String, dynamic> json) =>
       _$ReversePair$FeesFromJson(json);
@@ -4366,11 +5245,15 @@ class ReversePair$Fees {
     return identical(this, other) ||
         (other is ReversePair$Fees &&
             (identical(other.percentage, percentage) ||
-                const DeepCollectionEquality()
-                    .equals(other.percentage, percentage)) &&
+                const DeepCollectionEquality().equals(
+                  other.percentage,
+                  percentage,
+                )) &&
             (identical(other.minerFees, minerFees) ||
-                const DeepCollectionEquality()
-                    .equals(other.minerFees, minerFees)));
+                const DeepCollectionEquality().equals(
+                  other.minerFees,
+                  minerFees,
+                )));
   }
 
   @override
@@ -4384,28 +5267,30 @@ class ReversePair$Fees {
 }
 
 extension $ReversePair$FeesExtension on ReversePair$Fees {
-  ReversePair$Fees copyWith(
-      {double? percentage, ReversePair$Fees$MinerFees? minerFees}) {
+  ReversePair$Fees copyWith({
+    double? percentage,
+    ReversePair$Fees$MinerFees? minerFees,
+  }) {
     return ReversePair$Fees(
-        percentage: percentage ?? this.percentage,
-        minerFees: minerFees ?? this.minerFees);
+      percentage: percentage ?? this.percentage,
+      minerFees: minerFees ?? this.minerFees,
+    );
   }
 
-  ReversePair$Fees copyWithWrapped(
-      {Wrapped<double>? percentage,
-      Wrapped<ReversePair$Fees$MinerFees>? minerFees}) {
+  ReversePair$Fees copyWithWrapped({
+    Wrapped<double>? percentage,
+    Wrapped<ReversePair$Fees$MinerFees>? minerFees,
+  }) {
     return ReversePair$Fees(
-        percentage: (percentage != null ? percentage.value : this.percentage),
-        minerFees: (minerFees != null ? minerFees.value : this.minerFees));
+      percentage: (percentage != null ? percentage.value : this.percentage),
+      minerFees: (minerFees != null ? minerFees.value : this.minerFees),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainPair$Limits {
-  const ChainPair$Limits({
-    required this.minimal,
-    required this.maximal,
-  });
+  const ChainPair$Limits({required this.minimal, required this.maximal});
 
   factory ChainPair$Limits.fromJson(Map<String, dynamic> json) =>
       _$ChainPair$LimitsFromJson(json);
@@ -4424,8 +5309,10 @@ class ChainPair$Limits {
     return identical(this, other) ||
         (other is ChainPair$Limits &&
             (identical(other.minimal, minimal) ||
-                const DeepCollectionEquality()
-                    .equals(other.minimal, minimal)) &&
+                const DeepCollectionEquality().equals(
+                  other.minimal,
+                  minimal,
+                )) &&
             (identical(other.maximal, maximal) ||
                 const DeepCollectionEquality().equals(other.maximal, maximal)));
   }
@@ -4443,23 +5330,25 @@ class ChainPair$Limits {
 extension $ChainPair$LimitsExtension on ChainPair$Limits {
   ChainPair$Limits copyWith({double? minimal, double? maximal}) {
     return ChainPair$Limits(
-        minimal: minimal ?? this.minimal, maximal: maximal ?? this.maximal);
+      minimal: minimal ?? this.minimal,
+      maximal: maximal ?? this.maximal,
+    );
   }
 
-  ChainPair$Limits copyWithWrapped(
-      {Wrapped<double>? minimal, Wrapped<double>? maximal}) {
+  ChainPair$Limits copyWithWrapped({
+    Wrapped<double>? minimal,
+    Wrapped<double>? maximal,
+  }) {
     return ChainPair$Limits(
-        minimal: (minimal != null ? minimal.value : this.minimal),
-        maximal: (maximal != null ? maximal.value : this.maximal));
+      minimal: (minimal != null ? minimal.value : this.minimal),
+      maximal: (maximal != null ? maximal.value : this.maximal),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainPair$Fees {
-  const ChainPair$Fees({
-    required this.percentage,
-    required this.minerFees,
-  });
+  const ChainPair$Fees({required this.percentage, required this.minerFees});
 
   factory ChainPair$Fees.fromJson(Map<String, dynamic> json) =>
       _$ChainPair$FeesFromJson(json);
@@ -4478,11 +5367,15 @@ class ChainPair$Fees {
     return identical(this, other) ||
         (other is ChainPair$Fees &&
             (identical(other.percentage, percentage) ||
-                const DeepCollectionEquality()
-                    .equals(other.percentage, percentage)) &&
+                const DeepCollectionEquality().equals(
+                  other.percentage,
+                  percentage,
+                )) &&
             (identical(other.minerFees, minerFees) ||
-                const DeepCollectionEquality()
-                    .equals(other.minerFees, minerFees)));
+                const DeepCollectionEquality().equals(
+                  other.minerFees,
+                  minerFees,
+                )));
   }
 
   @override
@@ -4496,32 +5389,34 @@ class ChainPair$Fees {
 }
 
 extension $ChainPair$FeesExtension on ChainPair$Fees {
-  ChainPair$Fees copyWith(
-      {double? percentage, ChainPair$Fees$MinerFees? minerFees}) {
+  ChainPair$Fees copyWith({
+    double? percentage,
+    ChainPair$Fees$MinerFees? minerFees,
+  }) {
     return ChainPair$Fees(
-        percentage: percentage ?? this.percentage,
-        minerFees: minerFees ?? this.minerFees);
+      percentage: percentage ?? this.percentage,
+      minerFees: minerFees ?? this.minerFees,
+    );
   }
 
-  ChainPair$Fees copyWithWrapped(
-      {Wrapped<double>? percentage,
-      Wrapped<ChainPair$Fees$MinerFees>? minerFees}) {
+  ChainPair$Fees copyWithWrapped({
+    Wrapped<double>? percentage,
+    Wrapped<ChainPair$Fees$MinerFees>? minerFees,
+  }) {
     return ChainPair$Fees(
-        percentage: (percentage != null ? percentage.value : this.percentage),
-        minerFees: (minerFees != null ? minerFees.value : this.minerFees));
+      percentage: (percentage != null ? percentage.value : this.percentage),
+      minerFees: (minerFees != null ? minerFees.value : this.minerFees),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainSwapTransaction$Transaction {
-  const ChainSwapTransaction$Transaction({
-    required this.id,
-    this.hex,
-  });
+  const ChainSwapTransaction$Transaction({required this.id, this.hex});
 
   factory ChainSwapTransaction$Transaction.fromJson(
-          Map<String, dynamic> json) =>
-      _$ChainSwapTransaction$TransactionFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$ChainSwapTransaction$TransactionFromJson(json);
 
   static const toJsonFactory = _$ChainSwapTransaction$TransactionToJson;
   Map<String, dynamic> toJson() =>
@@ -4557,23 +5452,25 @@ extension $ChainSwapTransaction$TransactionExtension
     on ChainSwapTransaction$Transaction {
   ChainSwapTransaction$Transaction copyWith({String? id, String? hex}) {
     return ChainSwapTransaction$Transaction(
-        id: id ?? this.id, hex: hex ?? this.hex);
+      id: id ?? this.id,
+      hex: hex ?? this.hex,
+    );
   }
 
-  ChainSwapTransaction$Transaction copyWithWrapped(
-      {Wrapped<String>? id, Wrapped<String?>? hex}) {
+  ChainSwapTransaction$Transaction copyWithWrapped({
+    Wrapped<String>? id,
+    Wrapped<String?>? hex,
+  }) {
     return ChainSwapTransaction$Transaction(
-        id: (id != null ? id.value : this.id),
-        hex: (hex != null ? hex.value : this.hex));
+      id: (id != null ? id.value : this.id),
+      hex: (hex != null ? hex.value : this.hex),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainSwapTransaction$Timeout {
-  const ChainSwapTransaction$Timeout({
-    required this.blockHeight,
-    this.eta,
-  });
+  const ChainSwapTransaction$Timeout({required this.blockHeight, this.eta});
 
   factory ChainSwapTransaction$Timeout.fromJson(Map<String, dynamic> json) =>
       _$ChainSwapTransaction$TimeoutFromJson(json);
@@ -4592,8 +5489,10 @@ class ChainSwapTransaction$Timeout {
     return identical(this, other) ||
         (other is ChainSwapTransaction$Timeout &&
             (identical(other.blockHeight, blockHeight) ||
-                const DeepCollectionEquality()
-                    .equals(other.blockHeight, blockHeight)) &&
+                const DeepCollectionEquality().equals(
+                  other.blockHeight,
+                  blockHeight,
+                )) &&
             (identical(other.eta, eta) ||
                 const DeepCollectionEquality().equals(other.eta, eta)));
   }
@@ -4612,15 +5511,19 @@ extension $ChainSwapTransaction$TimeoutExtension
     on ChainSwapTransaction$Timeout {
   ChainSwapTransaction$Timeout copyWith({double? blockHeight, double? eta}) {
     return ChainSwapTransaction$Timeout(
-        blockHeight: blockHeight ?? this.blockHeight, eta: eta ?? this.eta);
+      blockHeight: blockHeight ?? this.blockHeight,
+      eta: eta ?? this.eta,
+    );
   }
 
-  ChainSwapTransaction$Timeout copyWithWrapped(
-      {Wrapped<double>? blockHeight, Wrapped<double?>? eta}) {
+  ChainSwapTransaction$Timeout copyWithWrapped({
+    Wrapped<double>? blockHeight,
+    Wrapped<double?>? eta,
+  }) {
     return ChainSwapTransaction$Timeout(
-        blockHeight:
-            (blockHeight != null ? blockHeight.value : this.blockHeight),
-        eta: (eta != null ? eta.value : this.eta));
+      blockHeight: (blockHeight != null ? blockHeight.value : this.blockHeight),
+      eta: (eta != null ? eta.value : this.eta),
+    );
   }
 }
 
@@ -4651,11 +5554,15 @@ class ChainSwapSigningRequest$ToSign {
     return identical(this, other) ||
         (other is ChainSwapSigningRequest$ToSign &&
             (identical(other.pubNonce, pubNonce) ||
-                const DeepCollectionEquality()
-                    .equals(other.pubNonce, pubNonce)) &&
+                const DeepCollectionEquality().equals(
+                  other.pubNonce,
+                  pubNonce,
+                )) &&
             (identical(other.transaction, transaction) ||
-                const DeepCollectionEquality()
-                    .equals(other.transaction, transaction)) &&
+                const DeepCollectionEquality().equals(
+                  other.transaction,
+                  transaction,
+                )) &&
             (identical(other.index, index) ||
                 const DeepCollectionEquality().equals(other.index, index)));
   }
@@ -4673,32 +5580,34 @@ class ChainSwapSigningRequest$ToSign {
 
 extension $ChainSwapSigningRequest$ToSignExtension
     on ChainSwapSigningRequest$ToSign {
-  ChainSwapSigningRequest$ToSign copyWith(
-      {String? pubNonce, String? transaction, double? index}) {
+  ChainSwapSigningRequest$ToSign copyWith({
+    String? pubNonce,
+    String? transaction,
+    double? index,
+  }) {
     return ChainSwapSigningRequest$ToSign(
-        pubNonce: pubNonce ?? this.pubNonce,
-        transaction: transaction ?? this.transaction,
-        index: index ?? this.index);
+      pubNonce: pubNonce ?? this.pubNonce,
+      transaction: transaction ?? this.transaction,
+      index: index ?? this.index,
+    );
   }
 
-  ChainSwapSigningRequest$ToSign copyWithWrapped(
-      {Wrapped<String>? pubNonce,
-      Wrapped<String>? transaction,
-      Wrapped<double>? index}) {
+  ChainSwapSigningRequest$ToSign copyWithWrapped({
+    Wrapped<String>? pubNonce,
+    Wrapped<String>? transaction,
+    Wrapped<double>? index,
+  }) {
     return ChainSwapSigningRequest$ToSign(
-        pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
-        transaction:
-            (transaction != null ? transaction.value : this.transaction),
-        index: (index != null ? index.value : this.index));
+      pubNonce: (pubNonce != null ? pubNonce.value : this.pubNonce),
+      transaction: (transaction != null ? transaction.value : this.transaction),
+      index: (index != null ? index.value : this.index),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class SwapStatus$Transaction {
-  const SwapStatus$Transaction({
-    this.id,
-    this.hex,
-  });
+  const SwapStatus$Transaction({this.id, this.hex});
 
   factory SwapStatus$Transaction.fromJson(Map<String, dynamic> json) =>
       _$SwapStatus$TransactionFromJson(json);
@@ -4737,20 +5646,20 @@ extension $SwapStatus$TransactionExtension on SwapStatus$Transaction {
     return SwapStatus$Transaction(id: id ?? this.id, hex: hex ?? this.hex);
   }
 
-  SwapStatus$Transaction copyWithWrapped(
-      {Wrapped<String?>? id, Wrapped<String?>? hex}) {
+  SwapStatus$Transaction copyWithWrapped({
+    Wrapped<String?>? id,
+    Wrapped<String?>? hex,
+  }) {
     return SwapStatus$Transaction(
-        id: (id != null ? id.value : this.id),
-        hex: (hex != null ? hex.value : this.hex));
+      id: (id != null ? id.value : this.id),
+      hex: (hex != null ? hex.value : this.hex),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ReversePair$Fees$MinerFees {
-  const ReversePair$Fees$MinerFees({
-    required this.lockup,
-    required this.claim,
-  });
+  const ReversePair$Fees$MinerFees({required this.lockup, required this.claim});
 
   factory ReversePair$Fees$MinerFees.fromJson(Map<String, dynamic> json) =>
       _$ReversePair$Fees$MinerFeesFromJson(json);
@@ -4787,23 +5696,25 @@ class ReversePair$Fees$MinerFees {
 extension $ReversePair$Fees$MinerFeesExtension on ReversePair$Fees$MinerFees {
   ReversePair$Fees$MinerFees copyWith({double? lockup, double? claim}) {
     return ReversePair$Fees$MinerFees(
-        lockup: lockup ?? this.lockup, claim: claim ?? this.claim);
+      lockup: lockup ?? this.lockup,
+      claim: claim ?? this.claim,
+    );
   }
 
-  ReversePair$Fees$MinerFees copyWithWrapped(
-      {Wrapped<double>? lockup, Wrapped<double>? claim}) {
+  ReversePair$Fees$MinerFees copyWithWrapped({
+    Wrapped<double>? lockup,
+    Wrapped<double>? claim,
+  }) {
     return ReversePair$Fees$MinerFees(
-        lockup: (lockup != null ? lockup.value : this.lockup),
-        claim: (claim != null ? claim.value : this.claim));
+      lockup: (lockup != null ? lockup.value : this.lockup),
+      claim: (claim != null ? claim.value : this.claim),
+    );
   }
 }
 
 @JsonSerializable(explicitToJson: true)
 class ChainPair$Fees$MinerFees {
-  const ChainPair$Fees$MinerFees({
-    required this.lockup,
-    required this.claim,
-  });
+  const ChainPair$Fees$MinerFees({required this.lockup, required this.claim});
 
   factory ChainPair$Fees$MinerFees.fromJson(Map<String, dynamic> json) =>
       _$ChainPair$Fees$MinerFeesFromJson(json);
@@ -4840,14 +5751,19 @@ class ChainPair$Fees$MinerFees {
 extension $ChainPair$Fees$MinerFeesExtension on ChainPair$Fees$MinerFees {
   ChainPair$Fees$MinerFees copyWith({double? lockup, double? claim}) {
     return ChainPair$Fees$MinerFees(
-        lockup: lockup ?? this.lockup, claim: claim ?? this.claim);
+      lockup: lockup ?? this.lockup,
+      claim: claim ?? this.claim,
+    );
   }
 
-  ChainPair$Fees$MinerFees copyWithWrapped(
-      {Wrapped<double>? lockup, Wrapped<double>? claim}) {
+  ChainPair$Fees$MinerFees copyWithWrapped({
+    Wrapped<double>? lockup,
+    Wrapped<double>? claim,
+  }) {
     return ChainPair$Fees$MinerFees(
-        lockup: (lockup != null ? lockup.value : this.lockup),
-        claim: (claim != null ? claim.value : this.claim));
+      lockup: (lockup != null ? lockup.value : this.lockup),
+      claim: (claim != null ? claim.value : this.claim),
+    );
   }
 }
 
@@ -4898,7 +5814,8 @@ class $CustomJsonDecoder {
 class $JsonSerializableConverter extends chopper.JsonConverter {
   @override
   FutureOr<chopper.Response<ResultType>> convertResponse<ResultType, Item>(
-      chopper.Response response) async {
+    chopper.Response response,
+  ) async {
     if (response.bodyString.isEmpty) {
       // In rare cases, when let's say 204 (no content) is returned -
       // we cannot decode the missing json with the result type specified
@@ -4911,13 +5828,16 @@ class $JsonSerializableConverter extends chopper.JsonConverter {
 
     if (ResultType == DateTime) {
       return response.copyWith(
-          body: DateTime.parse((response.body as String).replaceAll('"', ''))
-              as ResultType);
+        body:
+            DateTime.parse((response.body as String).replaceAll('"', ''))
+                as ResultType,
+      );
     }
 
     final jsonRes = await super.convertResponse(response);
     return jsonRes.copyWith<ResultType>(
-        body: $jsonDecoder.decode<Item>(jsonRes.body) as ResultType);
+      body: $jsonDecoder.decode<Item>(jsonRes.body) as ResultType,
+    );
   }
 }
 

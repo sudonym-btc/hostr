@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// dart format width=80
 
 // **************************************************************************
 // InjectableConfigGenerator
@@ -42,19 +43,15 @@ const String _staging = 'staging';
 const String _prod = 'prod';
 
 extension GetItInjectableX on _i174.GetIt {
-// initializes the registration of main-scope dependencies inside of GetIt
+  // initializes the registration of main-scope dependencies inside of GetIt
   _i174.GetIt init({
     String? environment,
     _i526.EnvironmentFilter? environmentFilter,
   }) {
-    final gh = _i526.GetItHelper(
-      this,
-      environment,
-      environmentFilter,
-    );
-    gh.factory<_i237.ModeCubit>(() => _i237.ModeCubit());
+    final gh = _i526.GetItHelper(this, environment, environmentFilter);
     gh.factory<_i640.ModeStorage>(() => _i640.ModeStorage());
     gh.factory<_i315.RelayStorage>(() => _i315.RelayStorage());
+    gh.factory<_i237.ModeCubit>(() => _i237.ModeCubit());
     gh.singleton<_i946.KeyStorage>(() => _i946.KeyStorage());
     gh.factory<_i291.RelayConnector>(() => _i291.ProdRelayConnector());
     gh.factory<_i467.Config>(
@@ -64,10 +61,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i631.Rootstock>(() => _i631.RootstockImpl());
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsMock(),
-      registerFor: {
-        _test,
-        _mock,
-      },
+      registerFor: {_test, _mock},
     );
     gh.singleton<_i194.NostrService>(() => _i194.ProdNostrService());
     gh.singleton<_i311.SecureStorage>(
@@ -76,99 +70,62 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i467.Config>(
       () => _i331.MockConfig(),
-      registerFor: {
-        _mock,
-        _test,
-      },
+      registerFor: {_mock, _test},
     );
     gh.factory<_i151.PaymentService>(
       () => _i151.PaymentService(),
-      registerFor: {
-        _dev,
-        _staging,
-        _prod,
-      },
+      registerFor: {_dev, _staging, _prod},
     );
     gh.factory<_i915.ZapService>(
       () => _i915.ZapService(),
-      registerFor: {
-        _dev,
-        _staging,
-        _prod,
-      },
+      registerFor: {_dev, _staging, _prod},
     );
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsImpl(),
-      registerFor: {
-        _dev,
-        _staging,
-        _prod,
-      },
+      registerFor: {_dev, _staging, _prod},
     );
-    gh.singleton<_i432.SwapService>(
-        () => _i432.SwapService(gh<_i800.Config>()));
     gh.factory<_i467.Config>(
       () => _i1071.ProductionConfig(),
       registerFor: {_prod},
     );
-    gh.factoryParam<_i99.LnUrlPaymentCubit, _i99.LnUrlPaymentParameters,
-        dynamic>(
-      (
-        params,
-        _,
-      ) =>
-          _i99.MockLnUrlPaymentCubit(params: params),
-      registerFor: {
-        _test,
-        _mock,
-      },
+    gh.factoryParam<
+      _i99.LnUrlPaymentCubit,
+      _i99.LnUrlPaymentParameters,
+      dynamic
+    >(
+      (params, _) => _i99.MockLnUrlPaymentCubit(params: params),
+      registerFor: {_test, _mock},
     );
     gh.factory<_i428.BoltzClient>(() => _i428.BoltzClient(gh<_i800.Config>()));
     gh.singleton<_i857.Ndk>(() => _i396.NostrNdk(gh<_i800.Config>()));
-    gh.factoryParam<_i99.LnUrlPaymentCubit, _i99.LnUrlPaymentParameters,
-        dynamic>(
-      (
-        params,
-        _,
-      ) =>
-          _i99.LnUrlPaymentCubit(params: params),
-      registerFor: {
-        _dev,
-        _staging,
-        _prod,
-      },
+    gh.factoryParam<
+      _i99.LnUrlPaymentCubit,
+      _i99.LnUrlPaymentParameters,
+      dynamic
+    >(
+      (params, _) => _i99.LnUrlPaymentCubit(params: params),
+      registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
-      registerFor: {
-        _dev,
-        _mock,
-        _staging,
-        _prod,
-      },
+      registerFor: {_dev, _mock, _staging, _prod},
     );
     gh.singleton<_i303.NwcStorage>(
-        () => _i303.NwcStorage(gh<_i311.SecureStorage>()));
+      () => _i303.NwcStorage(gh<_i311.SecureStorage>()),
+    );
+    gh.singleton<_i432.SwapService>(
+      () => _i432.SwapService(gh<_i800.Config>()),
+    );
     gh.singleton<_i258.NwcService>(
       () => _i258.MockNostrWalletConnectService(
         gh<_i165.NwcStorage>(),
         gh<_i857.Ndk>(),
       ),
-      registerFor: {
-        _test,
-        _mock,
-      },
+      registerFor: {_test, _mock},
     );
     gh.singleton<_i258.NwcService>(
-      () => _i258.NwcService(
-        gh<_i165.NwcStorage>(),
-        gh<_i857.Ndk>(),
-      ),
-      registerFor: {
-        _dev,
-        _staging,
-        _prod,
-      },
+      () => _i258.NwcService(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
+      registerFor: {_dev, _staging, _prod},
     );
     return this;
   }

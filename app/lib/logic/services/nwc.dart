@@ -68,21 +68,32 @@ class NwcService {
   }
 
   Future<PayInvoiceResponse> payInvoice(
-      NwcConnection nwc, String invoice, int? amount) async {
+    NwcConnection nwc,
+    String invoice,
+    int? amount,
+  ) async {
     logger.i('Paying invoice $invoice $nwc');
 
     return nostr.nwc.payInvoice(nwc, invoice: invoice);
   }
 
   Future<MakeInvoiceResponse> makeInvoice(
-      NwcConnection nwc, int amountSats) async {
+    NwcConnection nwc,
+    int amountSats,
+  ) async {
     return nostr.nwc.makeInvoice(nwc, amountSats: amountSats);
   }
 
-  Future<LookupInvoiceResponse> lookupInvoice(NwcConnection nwc,
-      {String? paymentHash, String? invoice}) async {
-    return nostr.nwc
-        .lookupInvoice(nwc, paymentHash: paymentHash, invoice: invoice);
+  Future<LookupInvoiceResponse> lookupInvoice(
+    NwcConnection nwc, {
+    String? paymentHash,
+    String? invoice,
+  }) async {
+    return nostr.nwc.lookupInvoice(
+      nwc,
+      paymentHash: paymentHash,
+      invoice: invoice,
+    );
   }
 
   add(NwcCubit nwcCubit) async {
@@ -101,11 +112,12 @@ class NwcService {
 
   zap({required lnurl, required amountSats, String? a, String? e}) {
     return getIt<Ndk>().zaps.zap(
-        nwcConnection: connections[0].connection!,
-        lnurl: lnurl,
-        eventId: e,
-        // addressableId: a,
-        amountSats: amountSats);
+      nwcConnection: connections[0].connection!,
+      lnurl: lnurl,
+      eventId: e,
+      // addressableId: a,
+      amountSats: amountSats,
+    );
   }
 }
 
@@ -114,13 +126,18 @@ class MockNostrWalletConnectService extends NwcService {
   MockNostrWalletConnectService(super.nwcStorage, super.nostr);
 
   @override
-  Future<NwcConnection> connect(String url,
-      {Function(String?)? onError}) async {
+  Future<NwcConnection> connect(
+    String url, {
+    Function(String?)? onError,
+  }) async {
     Uri uri = parseNwc(url);
-    return NwcConnection(NostrWalletConnectUri(
+    return NwcConnection(
+      NostrWalletConnectUri(
         walletPubkey: uri.host,
-        relay: uri.queryParameters['relay']!,
-        secret: uri.queryParameters['secret']!));
+        relays: [uri.queryParameters['relay']!],
+        secret: uri.queryParameters['secret']!,
+      ),
+    );
   }
 
   @override
@@ -140,26 +157,36 @@ class MockNostrWalletConnectService extends NwcService {
 
   @override
   Future<PayInvoiceResponse> payInvoice(
-      NwcConnection nwc, String invoice, int? amount) async {
+    NwcConnection nwc,
+    String invoice,
+    int? amount,
+  ) async {
     return PayInvoiceResponse(
-        preimage: 'preimage', resultType: 'pay_invoice', feesPaid: 1);
+      preimage: 'preimage',
+      resultType: 'pay_invoice',
+      feesPaid: 1,
+    );
   }
 
   @override
-  Future<LookupInvoiceResponse> lookupInvoice(NwcConnection nwc,
-      {String? paymentHash, String? invoice}) async {
+  Future<LookupInvoiceResponse> lookupInvoice(
+    NwcConnection nwc, {
+    String? paymentHash,
+    String? invoice,
+  }) async {
     return LookupInvoiceResponse(
-        type: 'incoming',
-        invoice: 'lnbc1fonerjfneroj',
-        description: '',
-        descriptionHash: '',
-        preimage: '',
-        paymentHash: paymentHash ?? '',
-        amount: 1000,
-        feesPaid: 1,
-        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        expiresAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        settledAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        resultType: 'lookup_invoice');
+      type: 'incoming',
+      invoice: 'lnbc1fonerjfneroj',
+      description: '',
+      descriptionHash: '',
+      preimage: '',
+      paymentHash: paymentHash ?? '',
+      amount: 1000,
+      feesPaid: 1,
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      expiresAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      settledAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      resultType: 'lookup_invoice',
+    );
   }
 }

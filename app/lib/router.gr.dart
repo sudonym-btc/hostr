@@ -1,3 +1,4 @@
+// dart format width=80
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
 // **************************************************************************
@@ -13,10 +14,7 @@ part of 'router.dart';
 /// [BookingsScreen]
 class BookingsRoute extends PageRouteInfo<void> {
   const BookingsRoute({List<PageRouteInfo>? children})
-      : super(
-          BookingsRoute.name,
-          initialChildren: children,
-        );
+    : super(BookingsRoute.name, initialChildren: children);
 
   static const String name = 'BookingsRoute';
 
@@ -31,15 +29,13 @@ class BookingsRoute extends PageRouteInfo<void> {
 /// generated route for
 /// [EditListingScreen]
 class EditListingRoute extends PageRouteInfo<EditListingRouteArgs> {
-  EditListingRoute({
-    String? a,
-    List<PageRouteInfo>? children,
-  }) : super(
-          EditListingRoute.name,
-          args: EditListingRouteArgs(a: a),
-          rawPathParams: {'a': a},
-          initialChildren: children,
-        );
+  EditListingRoute({String? a, List<PageRouteInfo>? children})
+    : super(
+        EditListingRoute.name,
+        args: EditListingRouteArgs(a: a),
+        rawPathParams: {'a': a},
+        initialChildren: children,
+      );
 
   static const String name = 'EditListingRoute';
 
@@ -48,7 +44,8 @@ class EditListingRoute extends PageRouteInfo<EditListingRouteArgs> {
     builder: (data) {
       final pathParams = data.inheritedPathParams;
       final args = data.argsAs<EditListingRouteArgs>(
-          orElse: () => EditListingRouteArgs(a: pathParams.optString('a')));
+        orElse: () => EditListingRouteArgs(a: pathParams.optString('a')),
+      );
       return EditListingScreen(a: args.a);
     },
   );
@@ -63,16 +60,23 @@ class EditListingRouteArgs {
   String toString() {
     return 'EditListingRouteArgs{a: $a}';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! EditListingRouteArgs) return false;
+    return a == other.a;
+  }
+
+  @override
+  int get hashCode => a.hashCode;
 }
 
 /// generated route for
 /// [EditProfileScreen]
 class EditProfileRoute extends PageRouteInfo<void> {
   const EditProfileRoute({List<PageRouteInfo>? children})
-      : super(
-          EditProfileRoute.name,
-          initialChildren: children,
-        );
+    : super(EditProfileRoute.name, initialChildren: children);
 
   static const String name = 'EditProfileRoute';
 
@@ -88,10 +92,7 @@ class EditProfileRoute extends PageRouteInfo<void> {
 /// [FiltersScreen]
 class FiltersRoute extends PageRouteInfo<void> {
   const FiltersRoute({List<PageRouteInfo>? children})
-      : super(
-          FiltersRoute.name,
-          initialChildren: children,
-        );
+    : super(FiltersRoute.name, initialChildren: children);
 
   static const String name = 'FiltersRoute';
 
@@ -107,10 +108,7 @@ class FiltersRoute extends PageRouteInfo<void> {
 /// [HomeScreen]
 class HomeRoute extends PageRouteInfo<void> {
   const HomeRoute({List<PageRouteInfo>? children})
-      : super(
-          HomeRoute.name,
-          initialChildren: children,
-        );
+    : super(HomeRoute.name, initialChildren: children);
 
   static const String name = 'HomeRoute';
 
@@ -126,10 +124,7 @@ class HomeRoute extends PageRouteInfo<void> {
 /// [InboxScreen]
 class InboxRoute extends PageRouteInfo<void> {
   const InboxRoute({List<PageRouteInfo>? children})
-      : super(
-          InboxRoute.name,
-          initialChildren: children,
-        );
+    : super(InboxRoute.name, initialChildren: children);
 
   static const String name = 'InboxRoute';
 
@@ -150,19 +145,19 @@ class ListingRoute extends PageRouteInfo<ListingRouteArgs> {
     String? dateRangeEnd,
     List<PageRouteInfo>? children,
   }) : super(
-          ListingRoute.name,
-          args: ListingRouteArgs(
-            a: a,
-            dateRangeStart: dateRangeStart,
-            dateRangeEnd: dateRangeEnd,
-          ),
-          rawPathParams: {'a': a},
-          rawQueryParams: {
-            'dateRangeStart': dateRangeStart,
-            'dateRangeEnd': dateRangeEnd,
-          },
-          initialChildren: children,
-        );
+         ListingRoute.name,
+         args: ListingRouteArgs(
+           a: a,
+           dateRangeStart: dateRangeStart,
+           dateRangeEnd: dateRangeEnd,
+         ),
+         rawPathParams: {'a': a},
+         rawQueryParams: {
+           'dateRangeStart': dateRangeStart,
+           'dateRangeEnd': dateRangeEnd,
+         },
+         initialChildren: children,
+       );
 
   static const String name = 'ListingRoute';
 
@@ -172,11 +167,12 @@ class ListingRoute extends PageRouteInfo<ListingRouteArgs> {
       final pathParams = data.inheritedPathParams;
       final queryParams = data.queryParams;
       final args = data.argsAs<ListingRouteArgs>(
-          orElse: () => ListingRouteArgs(
-                a: pathParams.getString('a'),
-                dateRangeStart: queryParams.optString('dateRangeStart'),
-                dateRangeEnd: queryParams.optString('dateRangeEnd'),
-              ));
+        orElse: () => ListingRouteArgs(
+          a: pathParams.getString('a'),
+          dateRangeStart: queryParams.optString('dateRangeStart'),
+          dateRangeEnd: queryParams.optString('dateRangeEnd'),
+        ),
+      );
       return ListingScreen(
         a: args.a,
         dateRangeStart: args.dateRangeStart,
@@ -203,16 +199,26 @@ class ListingRouteArgs {
   String toString() {
     return 'ListingRouteArgs{a: $a, dateRangeStart: $dateRangeStart, dateRangeEnd: $dateRangeEnd}';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ListingRouteArgs) return false;
+    return a == other.a &&
+        dateRangeStart == other.dateRangeStart &&
+        dateRangeEnd == other.dateRangeEnd;
+  }
+
+  @override
+  int get hashCode =>
+      a.hashCode ^ dateRangeStart.hashCode ^ dateRangeEnd.hashCode;
 }
 
 /// generated route for
 /// [MyListingsScreen]
 class MyListingsRoute extends PageRouteInfo<void> {
   const MyListingsRoute({List<PageRouteInfo>? children})
-      : super(
-          MyListingsRoute.name,
-          initialChildren: children,
-        );
+    : super(MyListingsRoute.name, initialChildren: children);
 
   static const String name = 'MyListingsRoute';
 
@@ -228,10 +234,7 @@ class MyListingsRoute extends PageRouteInfo<void> {
 /// [ProfileScreen]
 class ProfileRoute extends PageRouteInfo<void> {
   const ProfileRoute({List<PageRouteInfo>? children})
-      : super(
-          ProfileRoute.name,
-          initialChildren: children,
-        );
+    : super(ProfileRoute.name, initialChildren: children);
 
   static const String name = 'ProfileRoute';
 
@@ -247,10 +250,7 @@ class ProfileRoute extends PageRouteInfo<void> {
 /// [RootScreen]
 class RootRoute extends PageRouteInfo<void> {
   const RootRoute({List<PageRouteInfo>? children})
-      : super(
-          RootRoute.name,
-          initialChildren: children,
-        );
+    : super(RootRoute.name, initialChildren: children);
 
   static const String name = 'RootRoute';
 
@@ -266,10 +266,7 @@ class RootRoute extends PageRouteInfo<void> {
 /// [SearchScreen]
 class SearchRoute extends PageRouteInfo<void> {
   const SearchRoute({List<PageRouteInfo>? children})
-      : super(
-          SearchRoute.name,
-          initialChildren: children,
-        );
+    : super(SearchRoute.name, initialChildren: children);
 
   static const String name = 'SearchRoute';
 
@@ -284,22 +281,21 @@ class SearchRoute extends PageRouteInfo<void> {
 /// generated route for
 /// [SignInScreen]
 class SignInRoute extends PageRouteInfo<SignInRouteArgs> {
-  SignInRoute({
-    Function? onSuccess,
-    List<PageRouteInfo>? children,
-  }) : super(
-          SignInRoute.name,
-          args: SignInRouteArgs(onSuccess: onSuccess),
-          initialChildren: children,
-        );
+  SignInRoute({Function? onSuccess, List<PageRouteInfo>? children})
+    : super(
+        SignInRoute.name,
+        args: SignInRouteArgs(onSuccess: onSuccess),
+        initialChildren: children,
+      );
 
   static const String name = 'SignInRoute';
 
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      final args =
-          data.argsAs<SignInRouteArgs>(orElse: () => const SignInRouteArgs());
+      final args = data.argsAs<SignInRouteArgs>(
+        orElse: () => const SignInRouteArgs(),
+      );
       return SignInScreen(onSuccess: args.onSuccess);
     },
   );
@@ -314,20 +310,28 @@ class SignInRouteArgs {
   String toString() {
     return 'SignInRouteArgs{onSuccess: $onSuccess}';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! SignInRouteArgs) return false;
+    return onSuccess == other.onSuccess;
+  }
+
+  @override
+  int get hashCode => onSuccess.hashCode;
 }
 
 /// generated route for
 /// [ThreadScreen]
 class ThreadRoute extends PageRouteInfo<ThreadRouteArgs> {
-  ThreadRoute({
-    required String id,
-    List<PageRouteInfo>? children,
-  }) : super(
-          ThreadRoute.name,
-          args: ThreadRouteArgs(id: id),
-          rawPathParams: {'id': id},
-          initialChildren: children,
-        );
+  ThreadRoute({required String id, List<PageRouteInfo>? children})
+    : super(
+        ThreadRoute.name,
+        args: ThreadRouteArgs(id: id),
+        rawPathParams: {'id': id},
+        initialChildren: children,
+      );
 
   static const String name = 'ThreadRoute';
 
@@ -336,7 +340,8 @@ class ThreadRoute extends PageRouteInfo<ThreadRouteArgs> {
     builder: (data) {
       final pathParams = data.inheritedPathParams;
       final args = data.argsAs<ThreadRouteArgs>(
-          orElse: () => ThreadRouteArgs(id: pathParams.getString('id')));
+        orElse: () => ThreadRouteArgs(id: pathParams.getString('id')),
+      );
       return ThreadScreen(id: args.id);
     },
   );
@@ -351,16 +356,23 @@ class ThreadRouteArgs {
   String toString() {
     return 'ThreadRouteArgs{id: $id}';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ThreadRouteArgs) return false;
+    return id == other.id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 /// generated route for
 /// [TripsScreen]
 class TripsRoute extends PageRouteInfo<void> {
   const TripsRoute({List<PageRouteInfo>? children})
-      : super(
-          TripsRoute.name,
-          initialChildren: children,
-        );
+    : super(TripsRoute.name, initialChildren: children);
 
   static const String name = 'TripsRoute';
 

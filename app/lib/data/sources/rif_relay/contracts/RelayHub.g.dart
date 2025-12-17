@@ -5,7 +5,8 @@
 // ignore_for_file: unused_local_variable, unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:web3dart/web3dart.dart' as _i1;
-import 'dart:typed_data' as _i2;
+import 'package:wallet/wallet.dart' as _i2;
+import 'dart:typed_data' as _i3;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
   '[{"inputs":[{"internalType":"address","name":"_penalizer","type":"address"},{"internalType":"uint256","name":"_maxWorkerCount","type":"uint256"},{"internalType":"uint256","name":"_minimumEntryDepositValue","type":"uint256"},{"internalType":"uint256","name":"_minimumUnstakeDelay","type":"uint256"},{"internalType":"uint256","name":"_minimumStake","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayWorker","type":"address"},{"indexed":false,"internalType":"address","name":"sender","type":"address"},{"indexed":false,"internalType":"uint256","name":"reward","type":"uint256"}],"name":"Penalized","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayManager","type":"address"},{"indexed":false,"internalType":"string","name":"relayUrl","type":"string"}],"name":"RelayServerRegistered","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayManager","type":"address"},{"indexed":false,"internalType":"address[]","name":"newRelayWorkers","type":"address[]"},{"indexed":false,"internalType":"uint256","name":"workersCount","type":"uint256"}],"name":"RelayWorkersAdded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayManager","type":"address"},{"indexed":false,"internalType":"address[]","name":"relayWorkers","type":"address[]"},{"indexed":false,"internalType":"uint256","name":"workersCount","type":"uint256"}],"name":"RelayWorkersDisabled","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayManager","type":"address"},{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":false,"internalType":"uint256","name":"stake","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"unstakeDelay","type":"uint256"}],"name":"StakeAdded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayManager","type":"address"},{"indexed":true,"internalType":"address","name":"beneficiary","type":"address"},{"indexed":false,"internalType":"uint256","name":"reward","type":"uint256"}],"name":"StakePenalized","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayManager","type":"address"},{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":false,"internalType":"uint256","name":"withdrawBlock","type":"uint256"}],"name":"StakeUnlocked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayManager","type":"address"},{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"StakeWithdrawn","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayManager","type":"address"},{"indexed":false,"internalType":"address","name":"relayWorker","type":"address"},{"indexed":false,"internalType":"bytes32","name":"relayRequestSigHash","type":"bytes32"},{"indexed":false,"internalType":"bytes","name":"relayedCallReturnValue","type":"bytes"}],"name":"TransactionRelayed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"relayManager","type":"address"},{"indexed":false,"internalType":"address","name":"relayWorker","type":"address"},{"indexed":false,"internalType":"bytes32","name":"relayRequestSigHash","type":"bytes32"},{"indexed":false,"internalType":"bytes","name":"reason","type":"bytes"}],"name":"TransactionRelayedButRevertedByRecipient","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"bytes","name":"returnValue","type":"bytes"}],"name":"TransactionResult","type":"event"},{"inputs":[{"internalType":"address[]","name":"newRelayWorkers","type":"address[]"}],"name":"addRelayWorkers","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"components":[{"components":[{"internalType":"address","name":"relayHub","type":"address"},{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"},{"internalType":"address","name":"recoverer","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"uint256","name":"nonce","type":"uint256"},{"internalType":"uint256","name":"tokenAmount","type":"uint256"},{"internalType":"uint256","name":"tokenGas","type":"uint256"},{"internalType":"uint256","name":"validUntilTime","type":"uint256"},{"internalType":"uint256","name":"index","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct IForwarder.DeployRequest","name":"request","type":"tuple"},{"components":[{"internalType":"uint256","name":"gasPrice","type":"uint256"},{"internalType":"address","name":"feesReceiver","type":"address"},{"internalType":"address","name":"callForwarder","type":"address"},{"internalType":"address","name":"callVerifier","type":"address"}],"internalType":"struct EnvelopingTypes.RelayData","name":"relayData","type":"tuple"}],"internalType":"struct EnvelopingTypes.DeployRequest","name":"deployRequest","type":"tuple"},{"internalType":"bytes","name":"signature","type":"bytes"}],"name":"deployCall","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address[]","name":"relayWorkers","type":"address[]"}],"name":"disableRelayWorkers","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"relayManager","type":"address"}],"name":"getRelayInfo","outputs":[{"components":[{"internalType":"address","name":"manager","type":"address"},{"internalType":"bool","name":"currentlyStaked","type":"bool"},{"internalType":"bool","name":"registered","type":"bool"},{"internalType":"string","name":"url","type":"string"}],"internalType":"struct IRelayHub.RelayManagerData","name":"relayManagerData","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"relayManager","type":"address"}],"name":"getStakeInfo","outputs":[{"components":[{"internalType":"uint256","name":"stake","type":"uint256"},{"internalType":"uint256","name":"unstakeDelay","type":"uint256"},{"internalType":"uint256","name":"withdrawBlock","type":"uint256"},{"internalType":"address payable","name":"owner","type":"address"}],"internalType":"struct IRelayHub.StakeInfo","name":"stakeInfo","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"relayManager","type":"address"}],"name":"isRelayManagerStaked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"maxWorkerCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"minimumEntryDepositValue","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"minimumStake","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"minimumUnstakeDelay","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"relayWorker","type":"address"},{"internalType":"address payable","name":"beneficiary","type":"address"}],"name":"penalize","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"penalizer","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"url","type":"string"}],"name":"registerRelayServer","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"components":[{"components":[{"internalType":"address","name":"relayHub","type":"address"},{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"uint256","name":"gas","type":"uint256"},{"internalType":"uint256","name":"nonce","type":"uint256"},{"internalType":"uint256","name":"tokenAmount","type":"uint256"},{"internalType":"uint256","name":"tokenGas","type":"uint256"},{"internalType":"uint256","name":"validUntilTime","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct IForwarder.ForwardRequest","name":"request","type":"tuple"},{"components":[{"internalType":"uint256","name":"gasPrice","type":"uint256"},{"internalType":"address","name":"feesReceiver","type":"address"},{"internalType":"address","name":"callForwarder","type":"address"},{"internalType":"address","name":"callVerifier","type":"address"}],"internalType":"struct EnvelopingTypes.RelayData","name":"relayData","type":"tuple"}],"internalType":"struct EnvelopingTypes.RelayRequest","name":"relayRequest","type":"tuple"},{"internalType":"bytes","name":"signature","type":"bytes"}],"name":"relayCall","outputs":[{"internalType":"bool","name":"destinationCallSuccess","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"relayData","outputs":[{"internalType":"address","name":"manager","type":"address"},{"internalType":"bool","name":"currentlyStaked","type":"bool"},{"internalType":"bool","name":"registered","type":"bool"},{"internalType":"string","name":"url","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"relayManager","type":"address"},{"internalType":"uint256","name":"unstakeDelay","type":"uint256"}],"name":"stakeForAddress","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"stakes","outputs":[{"internalType":"uint256","name":"stake","type":"uint256"},{"internalType":"uint256","name":"unstakeDelay","type":"uint256"},{"internalType":"uint256","name":"withdrawBlock","type":"uint256"},{"internalType":"address payable","name":"owner","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"relayManager","type":"address"}],"name":"unlockStake","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"versionHub","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"relayManager","type":"address"}],"name":"withdrawStake","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"workerCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"workerToManager","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"}]',
@@ -14,7 +15,7 @@ final _contractAbi = _i1.ContractAbi.fromJson(
 
 class RelayHub extends _i1.GeneratedContract {
   RelayHub({
-    required _i1.EthereumAddress address,
+    required _i2.EthereumAddress address,
     required _i1.Web3Client client,
     int? chainId,
   }) : super(
@@ -30,7 +31,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> addRelayWorkers(
-    ({List<_i1.EthereumAddress> newRelayWorkers}) args, {
+    ({List<_i2.EthereumAddress> newRelayWorkers}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -49,7 +50,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> deployCall(
-    ({dynamic deployRequest, _i2.Uint8List signature}) args, {
+    ({dynamic deployRequest, _i3.Uint8List signature}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -71,7 +72,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> disableRelayWorkers(
-    ({List<_i1.EthereumAddress> relayWorkers}) args, {
+    ({List<_i2.EthereumAddress> relayWorkers}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -90,7 +91,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<dynamic> getRelayInfo(
-    ({_i1.EthereumAddress relayManager}) args, {
+    ({_i2.EthereumAddress relayManager}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[4];
@@ -108,7 +109,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<dynamic> getStakeInfo(
-    ({_i1.EthereumAddress relayManager}) args, {
+    ({_i2.EthereumAddress relayManager}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[5];
@@ -126,7 +127,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<bool> isRelayManagerStaked(
-    ({_i1.EthereumAddress relayManager}) args, {
+    ({_i2.EthereumAddress relayManager}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[6];
@@ -204,7 +205,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> penalize(
-    ({_i1.EthereumAddress relayWorker, _i1.EthereumAddress beneficiary}) args, {
+    ({_i2.EthereumAddress relayWorker, _i2.EthereumAddress beneficiary}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -225,7 +226,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<_i1.EthereumAddress> penalizer({_i1.BlockNum? atBlock}) async {
+  Future<_i2.EthereumAddress> penalizer({_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[12];
     assert(checkSignature(function, 'c4775a68'));
     final params = [];
@@ -234,7 +235,7 @@ class RelayHub extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as _i1.EthereumAddress);
+    return (response[0] as _i2.EthereumAddress);
   }
 
   /// The optional [transaction] parameter can be used to override parameters
@@ -260,7 +261,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> relayCall(
-    ({dynamic relayRequest, _i2.Uint8List signature}) args, {
+    ({dynamic relayRequest, _i3.Uint8List signature}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -282,7 +283,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<RelayData> relayData(
-    ({_i1.EthereumAddress $param12}) args, {
+    ({_i2.EthereumAddress $param12}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[15];
@@ -300,7 +301,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> stakeForAddress(
-    ({_i1.EthereumAddress relayManager, BigInt unstakeDelay}) args, {
+    ({_i2.EthereumAddress relayManager, BigInt unstakeDelay}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -322,7 +323,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<Stakes> stakes(
-    ({_i1.EthereumAddress $param15}) args, {
+    ({_i2.EthereumAddress $param15}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[17];
@@ -340,7 +341,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> unlockStake(
-    ({_i1.EthereumAddress relayManager}) args, {
+    ({_i2.EthereumAddress relayManager}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -374,7 +375,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> withdrawStake(
-    ({_i1.EthereumAddress relayManager}) args, {
+    ({_i2.EthereumAddress relayManager}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -393,7 +394,7 @@ class RelayHub extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<BigInt> workerCount(
-    ({_i1.EthereumAddress $param18}) args, {
+    ({_i2.EthereumAddress $param18}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[21];
@@ -410,8 +411,8 @@ class RelayHub extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<_i2.Uint8List> workerToManager(
-    ({_i1.EthereumAddress $param19}) args, {
+  Future<_i3.Uint8List> workerToManager(
+    ({_i2.EthereumAddress $param19}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[22];
@@ -422,7 +423,7 @@ class RelayHub extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as _i2.Uint8List);
+    return (response[0] as _i3.Uint8List);
   }
 
   /// Returns a live stream of all Penalized events emitted by this contract.
@@ -693,12 +694,12 @@ class RelayHub extends _i1.GeneratedContract {
 
 class RelayData {
   RelayData(List<dynamic> response)
-      : manager = (response[0] as _i1.EthereumAddress),
+      : manager = (response[0] as _i2.EthereumAddress),
         currentlyStaked = (response[1] as bool),
         registered = (response[2] as bool),
         url = (response[3] as String);
 
-  final _i1.EthereumAddress manager;
+  final _i2.EthereumAddress manager;
 
   final bool currentlyStaked;
 
@@ -712,7 +713,7 @@ class Stakes {
       : stake = (response[0] as BigInt),
         unstakeDelay = (response[1] as BigInt),
         withdrawBlock = (response[2] as BigInt),
-        owner = (response[3] as _i1.EthereumAddress);
+        owner = (response[3] as _i2.EthereumAddress);
 
   final BigInt stake;
 
@@ -720,20 +721,20 @@ class Stakes {
 
   final BigInt withdrawBlock;
 
-  final _i1.EthereumAddress owner;
+  final _i2.EthereumAddress owner;
 }
 
 class Penalized {
   Penalized(
     List<dynamic> response,
     this.event,
-  )   : relayWorker = (response[0] as _i1.EthereumAddress),
-        sender = (response[1] as _i1.EthereumAddress),
+  )   : relayWorker = (response[0] as _i2.EthereumAddress),
+        sender = (response[1] as _i2.EthereumAddress),
         reward = (response[2] as BigInt);
 
-  final _i1.EthereumAddress relayWorker;
+  final _i2.EthereumAddress relayWorker;
 
-  final _i1.EthereumAddress sender;
+  final _i2.EthereumAddress sender;
 
   final BigInt reward;
 
@@ -744,10 +745,10 @@ class RelayServerRegistered {
   RelayServerRegistered(
     List<dynamic> response,
     this.event,
-  )   : relayManager = (response[0] as _i1.EthereumAddress),
+  )   : relayManager = (response[0] as _i2.EthereumAddress),
         relayUrl = (response[1] as String);
 
-  final _i1.EthereumAddress relayManager;
+  final _i2.EthereumAddress relayManager;
 
   final String relayUrl;
 
@@ -758,14 +759,14 @@ class RelayWorkersAdded {
   RelayWorkersAdded(
     List<dynamic> response,
     this.event,
-  )   : relayManager = (response[0] as _i1.EthereumAddress),
+  )   : relayManager = (response[0] as _i2.EthereumAddress),
         newRelayWorkers =
-            (response[1] as List<dynamic>).cast<_i1.EthereumAddress>(),
+            (response[1] as List<dynamic>).cast<_i2.EthereumAddress>(),
         workersCount = (response[2] as BigInt);
 
-  final _i1.EthereumAddress relayManager;
+  final _i2.EthereumAddress relayManager;
 
-  final List<_i1.EthereumAddress> newRelayWorkers;
+  final List<_i2.EthereumAddress> newRelayWorkers;
 
   final BigInt workersCount;
 
@@ -776,14 +777,14 @@ class RelayWorkersDisabled {
   RelayWorkersDisabled(
     List<dynamic> response,
     this.event,
-  )   : relayManager = (response[0] as _i1.EthereumAddress),
+  )   : relayManager = (response[0] as _i2.EthereumAddress),
         relayWorkers =
-            (response[1] as List<dynamic>).cast<_i1.EthereumAddress>(),
+            (response[1] as List<dynamic>).cast<_i2.EthereumAddress>(),
         workersCount = (response[2] as BigInt);
 
-  final _i1.EthereumAddress relayManager;
+  final _i2.EthereumAddress relayManager;
 
-  final List<_i1.EthereumAddress> relayWorkers;
+  final List<_i2.EthereumAddress> relayWorkers;
 
   final BigInt workersCount;
 
@@ -794,14 +795,14 @@ class StakeAdded {
   StakeAdded(
     List<dynamic> response,
     this.event,
-  )   : relayManager = (response[0] as _i1.EthereumAddress),
-        owner = (response[1] as _i1.EthereumAddress),
+  )   : relayManager = (response[0] as _i2.EthereumAddress),
+        owner = (response[1] as _i2.EthereumAddress),
         stake = (response[2] as BigInt),
         unstakeDelay = (response[3] as BigInt);
 
-  final _i1.EthereumAddress relayManager;
+  final _i2.EthereumAddress relayManager;
 
-  final _i1.EthereumAddress owner;
+  final _i2.EthereumAddress owner;
 
   final BigInt stake;
 
@@ -814,13 +815,13 @@ class StakePenalized {
   StakePenalized(
     List<dynamic> response,
     this.event,
-  )   : relayManager = (response[0] as _i1.EthereumAddress),
-        beneficiary = (response[1] as _i1.EthereumAddress),
+  )   : relayManager = (response[0] as _i2.EthereumAddress),
+        beneficiary = (response[1] as _i2.EthereumAddress),
         reward = (response[2] as BigInt);
 
-  final _i1.EthereumAddress relayManager;
+  final _i2.EthereumAddress relayManager;
 
-  final _i1.EthereumAddress beneficiary;
+  final _i2.EthereumAddress beneficiary;
 
   final BigInt reward;
 
@@ -831,13 +832,13 @@ class StakeUnlocked {
   StakeUnlocked(
     List<dynamic> response,
     this.event,
-  )   : relayManager = (response[0] as _i1.EthereumAddress),
-        owner = (response[1] as _i1.EthereumAddress),
+  )   : relayManager = (response[0] as _i2.EthereumAddress),
+        owner = (response[1] as _i2.EthereumAddress),
         withdrawBlock = (response[2] as BigInt);
 
-  final _i1.EthereumAddress relayManager;
+  final _i2.EthereumAddress relayManager;
 
-  final _i1.EthereumAddress owner;
+  final _i2.EthereumAddress owner;
 
   final BigInt withdrawBlock;
 
@@ -848,13 +849,13 @@ class StakeWithdrawn {
   StakeWithdrawn(
     List<dynamic> response,
     this.event,
-  )   : relayManager = (response[0] as _i1.EthereumAddress),
-        owner = (response[1] as _i1.EthereumAddress),
+  )   : relayManager = (response[0] as _i2.EthereumAddress),
+        owner = (response[1] as _i2.EthereumAddress),
         amount = (response[2] as BigInt);
 
-  final _i1.EthereumAddress relayManager;
+  final _i2.EthereumAddress relayManager;
 
-  final _i1.EthereumAddress owner;
+  final _i2.EthereumAddress owner;
 
   final BigInt amount;
 
@@ -865,18 +866,18 @@ class TransactionRelayed {
   TransactionRelayed(
     List<dynamic> response,
     this.event,
-  )   : relayManager = (response[0] as _i1.EthereumAddress),
-        relayWorker = (response[1] as _i1.EthereumAddress),
-        relayRequestSigHash = (response[2] as _i2.Uint8List),
-        relayedCallReturnValue = (response[3] as _i2.Uint8List);
+  )   : relayManager = (response[0] as _i2.EthereumAddress),
+        relayWorker = (response[1] as _i2.EthereumAddress),
+        relayRequestSigHash = (response[2] as _i3.Uint8List),
+        relayedCallReturnValue = (response[3] as _i3.Uint8List);
 
-  final _i1.EthereumAddress relayManager;
+  final _i2.EthereumAddress relayManager;
 
-  final _i1.EthereumAddress relayWorker;
+  final _i2.EthereumAddress relayWorker;
 
-  final _i2.Uint8List relayRequestSigHash;
+  final _i3.Uint8List relayRequestSigHash;
 
-  final _i2.Uint8List relayedCallReturnValue;
+  final _i3.Uint8List relayedCallReturnValue;
 
   final _i1.FilterEvent event;
 }
@@ -885,18 +886,18 @@ class TransactionRelayedButRevertedByRecipient {
   TransactionRelayedButRevertedByRecipient(
     List<dynamic> response,
     this.event,
-  )   : relayManager = (response[0] as _i1.EthereumAddress),
-        relayWorker = (response[1] as _i1.EthereumAddress),
-        relayRequestSigHash = (response[2] as _i2.Uint8List),
-        reason = (response[3] as _i2.Uint8List);
+  )   : relayManager = (response[0] as _i2.EthereumAddress),
+        relayWorker = (response[1] as _i2.EthereumAddress),
+        relayRequestSigHash = (response[2] as _i3.Uint8List),
+        reason = (response[3] as _i3.Uint8List);
 
-  final _i1.EthereumAddress relayManager;
+  final _i2.EthereumAddress relayManager;
 
-  final _i1.EthereumAddress relayWorker;
+  final _i2.EthereumAddress relayWorker;
 
-  final _i2.Uint8List relayRequestSigHash;
+  final _i3.Uint8List relayRequestSigHash;
 
-  final _i2.Uint8List reason;
+  final _i3.Uint8List reason;
 
   final _i1.FilterEvent event;
 }
@@ -905,9 +906,9 @@ class TransactionResult {
   TransactionResult(
     List<dynamic> response,
     this.event,
-  ) : returnValue = (response[0] as _i2.Uint8List);
+  ) : returnValue = (response[0] as _i3.Uint8List);
 
-  final _i2.Uint8List returnValue;
+  final _i3.Uint8List returnValue;
 
   final _i1.FilterEvent event;
 }
