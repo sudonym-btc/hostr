@@ -7,8 +7,14 @@ class Bolt11PaymentParameters extends PaymentParameters {
   Bolt11PaymentParameters({super.amount, super.comment, required super.to});
 }
 
-class Bolt11PaymentCubit extends PaymentCubit<Bolt11PaymentParameters,
-    ResolvedDetails, LightningCallbackDetails, LightningCompletedDetails> {
+class Bolt11PaymentCubit
+    extends
+        PaymentCubit<
+          Bolt11PaymentParameters,
+          ResolvedDetails,
+          LightningCallbackDetails,
+          LightningCompletedDetails
+        > {
   Bolt11PaymentCubit({required super.params});
 
   @override
@@ -16,9 +22,10 @@ class Bolt11PaymentCubit extends PaymentCubit<Bolt11PaymentParameters,
     Bolt11PaymentRequest pr = Bolt11PaymentRequest(params.to);
 
     return ResolvedDetails(
-        minAmount: pr.amount.toBigInt().toInt(),
-        maxAmount: pr.amount.toBigInt().toInt(),
-        commentAllowed: 0);
+      minAmount: pr.amount.toBigInt().toInt(),
+      maxAmount: pr.amount.toBigInt().toInt(),
+      commentAllowed: 0,
+    );
   }
 
   @override
@@ -29,9 +36,10 @@ class Bolt11PaymentCubit extends PaymentCubit<Bolt11PaymentParameters,
   @override
   Future<LightningCompletedDetails> complete() async {
     PayInvoiceResponse response = await getIt<NwcService>().payInvoice(
-        getIt<NwcService>().connections[0].connection!,
-        state.callbackDetails!.invoice.paymentRequest,
-        null);
-    return LightningCompletedDetails(preimage: response.preimage);
+      getIt<NwcService>().connections[0].connection!,
+      state.callbackDetails!.invoice.paymentRequest,
+      null,
+    );
+    return LightningCompletedDetails(preimage: response.preimage!);
   }
 }

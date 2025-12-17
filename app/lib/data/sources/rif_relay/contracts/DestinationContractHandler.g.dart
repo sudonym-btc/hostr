@@ -5,6 +5,7 @@
 // ignore_for_file: unused_local_variable, unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:web3dart/web3dart.dart' as _i1;
+import 'package:wallet/wallet.dart' as _i2;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
   '[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"inputs":[{"internalType":"address","name":"destinationContract","type":"address"}],"name":"acceptContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"acceptedContracts","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"destinationContract","type":"address"}],"name":"acceptsContract","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"contracts","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"destinationContract","type":"address"}],"name":"destinationContractValidation","outputs":[],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getAcceptedContracts","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"destinationContract","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"removeContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"}]',
@@ -13,7 +14,7 @@ final _contractAbi = _i1.ContractAbi.fromJson(
 
 class DestinationContractHandler extends _i1.GeneratedContract {
   DestinationContractHandler({
-    required _i1.EthereumAddress address,
+    required _i2.EthereumAddress address,
     required _i1.Web3Client client,
     int? chainId,
   }) : super(
@@ -29,7 +30,7 @@ class DestinationContractHandler extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> acceptContract(
-    ({_i1.EthereumAddress destinationContract}) args, {
+    ({_i2.EthereumAddress destinationContract}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -47,7 +48,7 @@ class DestinationContractHandler extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<_i1.EthereumAddress> acceptedContracts(
+  Future<_i2.EthereumAddress> acceptedContracts(
     ({BigInt $param1}) args, {
     _i1.BlockNum? atBlock,
   }) async {
@@ -59,14 +60,14 @@ class DestinationContractHandler extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as _i1.EthereumAddress);
+    return (response[0] as _i2.EthereumAddress);
   }
 
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<bool> acceptsContract(
-    ({_i1.EthereumAddress destinationContract}) args, {
+    ({_i2.EthereumAddress destinationContract}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[2];
@@ -84,7 +85,7 @@ class DestinationContractHandler extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<bool> contracts(
-    ({_i1.EthereumAddress $param3}) args, {
+    ({_i2.EthereumAddress $param3}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[3];
@@ -102,7 +103,7 @@ class DestinationContractHandler extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<void> destinationContractValidation(
-    ({_i1.EthereumAddress destinationContract}) args, {
+    ({_i2.EthereumAddress destinationContract}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[4];
@@ -118,7 +119,7 @@ class DestinationContractHandler extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<List<_i1.EthereumAddress>> getAcceptedContracts(
+  Future<List<_i2.EthereumAddress>> getAcceptedContracts(
       {_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[5];
     assert(checkSignature(function, 'd3f1e808'));
@@ -128,13 +129,13 @@ class DestinationContractHandler extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as List<dynamic>).cast<_i1.EthereumAddress>();
+    return (response[0] as List<dynamic>).cast<_i2.EthereumAddress>();
   }
 
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<_i1.EthereumAddress> owner({_i1.BlockNum? atBlock}) async {
+  Future<_i2.EthereumAddress> owner({_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[6];
     assert(checkSignature(function, '8da5cb5b'));
     final params = [];
@@ -143,14 +144,14 @@ class DestinationContractHandler extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as _i1.EthereumAddress);
+    return (response[0] as _i2.EthereumAddress);
   }
 
   /// The optional [transaction] parameter can be used to override parameters
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> removeContract(
-    ({_i1.EthereumAddress destinationContract, BigInt index}) args, {
+    ({_i2.EthereumAddress destinationContract, BigInt index}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -172,7 +173,7 @@ class DestinationContractHandler extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> transferOwnership(
-    ({_i1.EthereumAddress newOwner}) args, {
+    ({_i2.EthereumAddress newOwner}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -216,12 +217,12 @@ class OwnershipTransferred {
   OwnershipTransferred(
     List<dynamic> response,
     this.event,
-  )   : previousOwner = (response[0] as _i1.EthereumAddress),
-        newOwner = (response[1] as _i1.EthereumAddress);
+  )   : previousOwner = (response[0] as _i2.EthereumAddress),
+        newOwner = (response[1] as _i2.EthereumAddress);
 
-  final _i1.EthereumAddress previousOwner;
+  final _i2.EthereumAddress previousOwner;
 
-  final _i1.EthereumAddress newOwner;
+  final _i2.EthereumAddress newOwner;
 
   final _i1.FilterEvent event;
 }

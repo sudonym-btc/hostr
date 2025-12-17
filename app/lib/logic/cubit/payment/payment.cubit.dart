@@ -2,18 +2,14 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:models/main.dart';
-import 'package:web3dart/web3dart.dart';
+import 'package:wallet/wallet.dart';
 
 class PaymentParameters {
   final Amount? amount;
   final String to;
   final String? comment;
 
-  PaymentParameters({
-    required this.to,
-    this.amount,
-    this.comment,
-  });
+  PaymentParameters({required this.to, this.amount, this.comment});
 }
 
 class EvmPaymentParameters extends PaymentParameters {
@@ -25,18 +21,26 @@ class EvmPaymentParameters extends PaymentParameters {
 
 class ZapPaymentParameters extends PaymentParameters {
   final Event? event;
-  ZapPaymentParameters(
-      {super.amount, super.comment, required super.to, this.event});
+  ZapPaymentParameters({
+    super.amount,
+    super.comment,
+    required super.to,
+    this.event,
+  });
 }
 
-class PaymentCubit<T extends PaymentParameters, RD extends ResolvedDetails,
-        CD extends CallbackDetails, CmpD extends CompletedDetails>
+class PaymentCubit<
+  T extends PaymentParameters,
+  RD extends ResolvedDetails,
+  CD extends CallbackDetails,
+  CmpD extends CompletedDetails
+>
     extends Cubit<PaymentState<T, RD, CD, CmpD>> {
   CustomLogger logger = CustomLogger();
   final T params;
 
   PaymentCubit({required this.params})
-      : super(PaymentState(status: PaymentStatus.initial, params: params));
+    : super(PaymentState(status: PaymentStatus.initial, params: params));
 
   Future<RD> resolver() {
     throw Exception('Not implemented');
@@ -56,8 +60,12 @@ class PaymentCubit<T extends PaymentParameters, RD extends ResolvedDetails,
     emit(state.copyWith(status: PaymentStatus.resolveInitiated));
     try {
       RD resolvedDetails = await resolver();
-      emit(state.copyWith(
-          status: PaymentStatus.resolved, resolvedDetails: resolvedDetails));
+      emit(
+        state.copyWith(
+          status: PaymentStatus.resolved,
+          resolvedDetails: resolvedDetails,
+        ),
+      );
     } catch (e) {
       emit(state.copyWith(status: PaymentStatus.failed, error: e.toString()));
     }
@@ -69,9 +77,12 @@ class PaymentCubit<T extends PaymentParameters, RD extends ResolvedDetails,
     emit(state.copyWith(status: PaymentStatus.callbackInitiated));
     try {
       CD callbackDetails = await callback();
-      emit(state.copyWith(
+      emit(
+        state.copyWith(
           status: PaymentStatus.callbackComplete,
-          callbackDetails: callbackDetails));
+          callbackDetails: callbackDetails,
+        ),
+      );
     } catch (e) {
       emit(state.copyWith(status: PaymentStatus.failed, error: e.toString()));
     }
@@ -81,8 +92,12 @@ class PaymentCubit<T extends PaymentParameters, RD extends ResolvedDetails,
     emit(state.copyWith(status: PaymentStatus.inFlight));
     try {
       CmpD completedDetails = await complete();
-      emit(state.copyWith(
-          status: PaymentStatus.completed, completedDetails: completedDetails));
+      emit(
+        state.copyWith(
+          status: PaymentStatus.completed,
+          completedDetails: completedDetails,
+        ),
+      );
     } catch (e) {
       emit(state.copyWith(status: PaymentStatus.failed, error: e.toString()));
     }
@@ -105,10 +120,11 @@ class ResolvedDetails {
   final int maxAmount;
   final int? commentAllowed;
 
-  ResolvedDetails(
-      {required this.minAmount,
-      required this.maxAmount,
-      required this.commentAllowed});
+  ResolvedDetails({
+    required this.minAmount,
+    required this.maxAmount,
+    required this.commentAllowed,
+  });
 }
 
 class CallbackDetails {}
@@ -117,23 +133,26 @@ class CompletedDetails {}
 
 // States
 class PaymentState<
-    T extends PaymentParameters,
-    RD extends ResolvedDetails,
-    CD extends CallbackDetails,
-    CmpD extends CompletedDetails> extends Equatable {
+  T extends PaymentParameters,
+  RD extends ResolvedDetails,
+  CD extends CallbackDetails,
+  CmpD extends CompletedDetails
+>
+    extends Equatable {
   final PaymentStatus status;
   final T params;
   final RD? resolvedDetails;
   final CD? callbackDetails;
   final CmpD? completedDetails;
   final String? error;
-  const PaymentState(
-      {this.resolvedDetails,
-      this.completedDetails,
-      this.error,
-      this.callbackDetails,
-      required this.params,
-      required this.status});
+  const PaymentState({
+    this.resolvedDetails,
+    this.completedDetails,
+    this.error,
+    this.callbackDetails,
+    required this.params,
+    required this.status,
+  });
 
   copyWith({
     PaymentStatus? status,
@@ -143,22 +162,23 @@ class PaymentState<
     String? error,
   }) {
     return PaymentState(
-        status: status ?? this.status,
-        resolvedDetails: resolvedDetails ?? this.resolvedDetails,
-        callbackDetails: callbackDetails ?? this.callbackDetails,
-        completedDetails: completedDetails ?? this.completedDetails,
-        error: error ?? this.error,
-        params: this.params);
+      status: status ?? this.status,
+      resolvedDetails: resolvedDetails ?? this.resolvedDetails,
+      callbackDetails: callbackDetails ?? this.callbackDetails,
+      completedDetails: completedDetails ?? this.completedDetails,
+      error: error ?? this.error,
+      params: this.params,
+    );
   }
 
   @override
   List<Object?> get props => [
-        this.status,
-        this.callbackDetails,
-        this.resolvedDetails,
-        this.completedDetails,
-        this.error
-      ];
+    this.status,
+    this.callbackDetails,
+    this.resolvedDetails,
+    this.completedDetails,
+    this.error,
+  ];
 }
 
 enum PaymentStatus {

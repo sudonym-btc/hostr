@@ -18,13 +18,14 @@ class LnUrlResolvedDetails extends ResolvedDetails {
   final bool allowNostr;
   final String? nostrPubkey;
 
-  LnUrlResolvedDetails(
-      {required super.minAmount,
-      required super.maxAmount,
-      required super.commentAllowed,
-      required this.callback,
-      this.allowNostr = false,
-      this.nostrPubkey});
+  LnUrlResolvedDetails({
+    required super.minAmount,
+    required super.maxAmount,
+    required super.commentAllowed,
+    required this.callback,
+    this.allowNostr = false,
+    this.nostrPubkey,
+  });
 }
 
 class LightningCallbackDetails extends CallbackDetails {
@@ -38,8 +39,14 @@ class LightningCompletedDetails extends CompletedDetails {
 }
 
 @Injectable(env: Env.allButTestAndMock)
-class LnUrlPaymentCubit extends PaymentCubit<LnUrlPaymentParameters,
-    LnUrlResolvedDetails, LightningCallbackDetails, LightningCompletedDetails> {
+class LnUrlPaymentCubit
+    extends
+        PaymentCubit<
+          LnUrlPaymentParameters,
+          LnUrlResolvedDetails,
+          LightningCallbackDetails,
+          LightningCompletedDetails
+        > {
   LnUrlPaymentCubit({@factoryParam required super.params});
 
   @override
@@ -58,21 +65,23 @@ class LnUrlPaymentCubit extends PaymentCubit<LnUrlPaymentParameters,
     LNURLPayParams lnurlPayParams = lnurlParams.payParams!;
     logger.i('LNURLPayParams: $lnurlParams');
     return LnUrlResolvedDetails(
-        callback: lnurlPayParams.callback,
-        minAmount: lnurlPayParams.minSendable,
-        maxAmount: lnurlPayParams.maxSendable,
-        commentAllowed: 0);
+      callback: lnurlPayParams.callback,
+      minAmount: lnurlPayParams.minSendable,
+      maxAmount: lnurlPayParams.maxSendable,
+      commentAllowed: 0,
+    );
   }
 
   @override
   Future<LightningCallbackDetails> callback() async {
     // ZapRequest z = await getIt<Ndk>().zaps.createZapRequest(amountSats: (state.params.amount!.value * btcMilliSatoshiFactor).toInt(), signer: Bip340EventSigner(privateKey: Bip340.generatePrivateKey().privateKey), pubKey: pubKey, relays: relays)
-    Uri callbackUri =
-        Uri.parse(state.resolvedDetails!.callback).replace(queryParameters: {
-      'amount': (state.params.amount!.value * btcMilliSatoshiFactor)
-          .toInt()
-          .toString()
-    });
+    Uri callbackUri = Uri.parse(state.resolvedDetails!.callback).replace(
+      queryParameters: {
+        'amount': (state.params.amount!.value * btcMilliSatoshiFactor)
+            .toInt()
+            .toString(),
+      },
+    );
     logger.d('Callback uri: $callbackUri');
     Response r = await getIt<Dio>().get(callbackUri.toString());
     logger.d('Callback response: ${r.data}');
@@ -84,10 +93,11 @@ class LnUrlPaymentCubit extends PaymentCubit<LnUrlPaymentParameters,
   @override
   Future<LightningCompletedDetails> complete() async {
     PayInvoiceResponse response = await getIt<NwcService>().payInvoice(
-        getIt<NwcService>().connections[0].connection!,
-        state.callbackDetails!.invoice.paymentRequest,
-        null);
-    return LightningCompletedDetails(preimage: response.preimage);
+      getIt<NwcService>().connections[0].connection!,
+      state.callbackDetails!.invoice.paymentRequest,
+      null,
+    );
+    return LightningCompletedDetails(preimage: response.preimage!);
   }
 }
 
@@ -105,10 +115,11 @@ class MockLnUrlPaymentCubit extends LnUrlPaymentCubit {
   @override
   resolver() async {
     return LnUrlResolvedDetails(
-        callback: 'http://callbackurl.com/',
-        minAmount: 0,
-        maxAmount: 10000000000,
-        commentAllowed: 100);
+      callback: 'http://callbackurl.com/',
+      minAmount: 0,
+      maxAmount: 10000000000,
+      commentAllowed: 100,
+    );
   }
 
   @override

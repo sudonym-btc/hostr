@@ -11,19 +11,31 @@ abstract class NostrService {
   CustomLogger logger = CustomLogger();
   ReplaySubject<Event> events = ReplaySubject<Event>();
 
-  Stream<T> startRequest<T extends Event>(
-      {required List<Filter> filters, List<String>? relays});
-  Stream<T> subscribe<T extends Event>(
-      {required List<Filter> filters, List<String>? relays});
-  Future<List<T>> startRequestAsync<T extends Event>(
-      {required List<Filter> filters, Duration? timeout, List<String>? relays});
-  Future<int> count(
-      {required List<Filter> filters, Duration? timeout, List<String>? relays});
+  Stream<T> startRequest<T extends Event>({
+    required List<Filter> filters,
+    List<String>? relays,
+  });
+  Stream<T> subscribe<T extends Event>({
+    required List<Filter> filters,
+    List<String>? relays,
+  });
+  Future<List<T>> startRequestAsync<T extends Event>({
+    required List<Filter> filters,
+    Duration? timeout,
+    List<String>? relays,
+  });
+  Future<int> count({
+    required List<Filter> filters,
+    Duration? timeout,
+    List<String>? relays,
+  });
 
   Future<Nip51List?> trustedEscrows();
 
-  Future<List<RelayBroadcastResponse>> broadcast(
-      {required Nip01Event event, List<String>? relays});
+  Future<List<RelayBroadcastResponse>> broadcast({
+    required Nip01Event event,
+    List<String>? relays,
+  });
 
   List<RelayConnectivity> connectivity();
 }
@@ -31,52 +43,60 @@ abstract class NostrService {
 @Singleton(as: NostrService)
 class ProdNostrService extends NostrService {
   @override
-  Stream<T> subscribe<T extends Event>(
-      {required List<Filter> filters, List<String>? relays}) {
-    return getIt<Ndk>()
-        .requests
+  Stream<T> subscribe<T extends Event>({
+    required List<Filter> filters,
+    List<String>? relays,
+  }) {
+    return getIt<Ndk>().requests
         .subscription(filters: filters, cacheRead: false, cacheWrite: false)
         .stream
         .asyncMap((event) async {
-      return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair());
-    });
+          return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair());
+        });
   }
 
   @override
-  Stream<T> startRequest<T extends Event>(
-      {required List<Filter> filters, List<String>? relays}) {
-    return getIt<Ndk>()
-        .requests
+  Stream<T> startRequest<T extends Event>({
+    required List<Filter> filters,
+    List<String>? relays,
+  }) {
+    return getIt<Ndk>().requests
         .query(filters: filters, cacheRead: false, cacheWrite: false)
         .stream
         .asyncMap((event) async {
-      return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair());
-    });
+          return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair());
+        });
   }
 
   @override
-  startRequestAsync<T extends Event>(
-      {required List<Filter> filters,
-      Duration? timeout,
-      List<String>? relays}) async {
+  startRequestAsync<T extends Event>({
+    required List<Filter> filters,
+    Duration? timeout,
+    List<String>? relays,
+  }) async {
     return startRequest<T>(filters: filters).toList();
   }
 
   @override
-  Future<int> count(
-      {required List<Filter> filters,
-      Duration? timeout,
-      List<String>? relays}) async {
+  Future<int> count({
+    required List<Filter> filters,
+    Duration? timeout,
+    List<String>? relays,
+  }) async {
     var results = await startRequestAsync(
-        filters: filters, timeout: timeout, relays: relays);
+      filters: filters,
+      timeout: timeout,
+      relays: relays,
+    );
     return results.length;
   }
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast(
-      {required Nip01Event event, List<String>? relays}) {
-    return getIt<Ndk>()
-        .broadcast
+  Future<List<RelayBroadcastResponse>> broadcast({
+    required Nip01Event event,
+    List<String>? relays,
+  }) {
+    return getIt<Ndk>().broadcast
         .broadcast(nostrEvent: event)
         .broadcastDoneFuture;
   }
@@ -88,11 +108,7 @@ class ProdNostrService extends NostrService {
 
   @override
   Future<Nip51List?> trustedEscrows() {
-    return getIt<Ndk>().lists.getSingleNip51List(
-        NOSTR_KIND_ESCROW_TRUST,
-        Bip340EventSigner(
-            privateKey: getIt<KeyStorage>().getActiveKeyPairSync()!.privateKey,
-            publicKey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey));
+    return getIt<Ndk>().lists.getSingleNip51List(NOSTR_KIND_ESCROW_TRUST);
   }
 
   // @override

@@ -5,7 +5,8 @@
 // ignore_for_file: unused_local_variable, unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:web3dart/web3dart.dart' as _i1;
-import 'dart:typed_data' as _i2;
+import 'package:wallet/wallet.dart' as _i2;
+import 'dart:typed_data' as _i3;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
   '[{"type":"function","name":"IS_TEST","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"_revertDeployCodeTo","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"deployCodeHelper","inputs":[{"name":"what","type":"string","internalType":"string"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"excludeArtifacts","inputs":[],"outputs":[{"name":"excludedArtifacts_","type":"string[]","internalType":"string[]"}],"stateMutability":"view"},{"type":"function","name":"excludeContracts","inputs":[],"outputs":[{"name":"excludedContracts_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"excludeSelectors","inputs":[],"outputs":[{"name":"excludedSelectors_","type":"tuple[]","internalType":"struct StdInvariant.FuzzSelector[]","components":[{"name":"addr","type":"address","internalType":"address"},{"name":"selectors","type":"bytes4[]","internalType":"bytes4[]"}]}],"stateMutability":"view"},{"type":"function","name":"excludeSenders","inputs":[],"outputs":[{"name":"excludedSenders_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"failed","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"setUp","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"targetArtifactSelectors","inputs":[],"outputs":[{"name":"targetedArtifactSelectors_","type":"tuple[]","internalType":"struct StdInvariant.FuzzArtifactSelector[]","components":[{"name":"artifact","type":"string","internalType":"string"},{"name":"selectors","type":"bytes4[]","internalType":"bytes4[]"}]}],"stateMutability":"view"},{"type":"function","name":"targetArtifacts","inputs":[],"outputs":[{"name":"targetedArtifacts_","type":"string[]","internalType":"string[]"}],"stateMutability":"view"},{"type":"function","name":"targetContracts","inputs":[],"outputs":[{"name":"targetedContracts_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"targetInterfaces","inputs":[],"outputs":[{"name":"targetedInterfaces_","type":"tuple[]","internalType":"struct StdInvariant.FuzzInterface[]","components":[{"name":"addr","type":"address","internalType":"address"},{"name":"artifacts","type":"string[]","internalType":"string[]"}]}],"stateMutability":"view"},{"type":"function","name":"targetSelectors","inputs":[],"outputs":[{"name":"targetedSelectors_","type":"tuple[]","internalType":"struct StdInvariant.FuzzSelector[]","components":[{"name":"addr","type":"address","internalType":"address"},{"name":"selectors","type":"bytes4[]","internalType":"bytes4[]"}]}],"stateMutability":"view"},{"type":"function","name":"targetSenders","inputs":[],"outputs":[{"name":"targetedSenders_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"testFuzz_AssumeAddressIsNot","inputs":[{"name":"addr","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testFuzz_AssumeNotForgeAddress","inputs":[{"name":"addr","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"pure"},{"type":"function","name":"testFuzz_AssumeNotPrecompile","inputs":[{"name":"addr","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_AssumeNotPayable","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_AssumePayable","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_BytesToUint","inputs":[],"outputs":[],"stateMutability":"pure"},{"type":"function","name":"test_ChangePrankMsgSender","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_ChangePrankMsgSenderAndTxOrigin","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_Deal","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DealERC1155Token","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DealERC1155TokenAdjustTotalSupply","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DealERC721Token","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DealToken","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DealTokenAdjustTotalSupply","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DeployCode","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DeployCodeNoArgs","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DeployCodeTo","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DeployCodeVal","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DeployCodeValNoArgs","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DeriveRememberKey","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_DestroyAccount","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_GasMeteringModifier","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_Hoax","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_HoaxDifferentAddresses","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_HoaxOrigin","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_MakeAccountEquivalence","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_MakeAddrEquivalence","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_MakeAddrSigning","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_ParseJsonTxDetail","inputs":[],"outputs":[],"stateMutability":"view"},{"type":"function","name":"test_ReadEIP1559Transaction","inputs":[],"outputs":[],"stateMutability":"view"},{"type":"function","name":"test_ReadEIP1559Transactions","inputs":[],"outputs":[],"stateMutability":"view"},{"type":"function","name":"test_ReadReceipt","inputs":[],"outputs":[],"stateMutability":"view"},{"type":"function","name":"test_ReadReceipts","inputs":[],"outputs":[],"stateMutability":"view"},{"type":"function","name":"test_RevertIf_CannotDeployCodeTo","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_RevertIf_DeployCodeFail","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_Rewind","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_Skip","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_StartHoax","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"test_StartHoaxOrigin","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"SlotFound","inputs":[{"name":"who","type":"address","indexed":false,"internalType":"address"},{"name":"fsig","type":"bytes4","indexed":false,"internalType":"bytes4"},{"name":"keysHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"slot","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"WARNING_UninitedSlot","inputs":[{"name":"who","type":"address","indexed":false,"internalType":"address"},{"name":"slot","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log","inputs":[{"name":"","type":"string","indexed":false,"internalType":"string"}],"anonymous":false},{"type":"event","name":"log_address","inputs":[{"name":"","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"log_array","inputs":[{"name":"val","type":"uint256[]","indexed":false,"internalType":"uint256[]"}],"anonymous":false},{"type":"event","name":"log_array","inputs":[{"name":"val","type":"int256[]","indexed":false,"internalType":"int256[]"}],"anonymous":false},{"type":"event","name":"log_array","inputs":[{"name":"val","type":"address[]","indexed":false,"internalType":"address[]"}],"anonymous":false},{"type":"event","name":"log_bytes","inputs":[{"name":"","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},{"type":"event","name":"log_bytes32","inputs":[{"name":"","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"log_int","inputs":[{"name":"","type":"int256","indexed":false,"internalType":"int256"}],"anonymous":false},{"type":"event","name":"log_named_address","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"log_named_array","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"uint256[]","indexed":false,"internalType":"uint256[]"}],"anonymous":false},{"type":"event","name":"log_named_array","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"int256[]","indexed":false,"internalType":"int256[]"}],"anonymous":false},{"type":"event","name":"log_named_array","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"address[]","indexed":false,"internalType":"address[]"}],"anonymous":false},{"type":"event","name":"log_named_bytes","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},{"type":"event","name":"log_named_bytes32","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"log_named_decimal_int","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"int256","indexed":false,"internalType":"int256"},{"name":"decimals","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log_named_decimal_uint","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"decimals","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log_named_int","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"int256","indexed":false,"internalType":"int256"}],"anonymous":false},{"type":"event","name":"log_named_string","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"string","indexed":false,"internalType":"string"}],"anonymous":false},{"type":"event","name":"log_named_uint","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log_string","inputs":[{"name":"","type":"string","indexed":false,"internalType":"string"}],"anonymous":false},{"type":"event","name":"log_uint","inputs":[{"name":"","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"logs","inputs":[{"name":"","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false}]',
@@ -14,7 +15,7 @@ final _contractAbi = _i1.ContractAbi.fromJson(
 
 class StdCheatsTest extends _i1.GeneratedContract {
   StdCheatsTest({
-    required _i1.EthereumAddress address,
+    required _i2.EthereumAddress address,
     required _i1.Web3Client client,
     int? chainId,
   }) : super(
@@ -96,7 +97,7 @@ class StdCheatsTest extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<List<_i1.EthereumAddress>> excludeContracts(
+  Future<List<_i2.EthereumAddress>> excludeContracts(
       {_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[4];
     assert(checkSignature(function, 'e20c9f71'));
@@ -106,7 +107,7 @@ class StdCheatsTest extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as List<dynamic>).cast<_i1.EthereumAddress>();
+    return (response[0] as List<dynamic>).cast<_i2.EthereumAddress>();
   }
 
   /// The optional [atBlock] parameter can be used to view historical data. When
@@ -127,7 +128,7 @@ class StdCheatsTest extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<List<_i1.EthereumAddress>> excludeSenders(
+  Future<List<_i2.EthereumAddress>> excludeSenders(
       {_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[6];
     assert(checkSignature(function, '1ed7831c'));
@@ -137,7 +138,7 @@ class StdCheatsTest extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as List<dynamic>).cast<_i1.EthereumAddress>();
+    return (response[0] as List<dynamic>).cast<_i2.EthereumAddress>();
   }
 
   /// The optional [atBlock] parameter can be used to view historical data. When
@@ -206,7 +207,7 @@ class StdCheatsTest extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<List<_i1.EthereumAddress>> targetContracts(
+  Future<List<_i2.EthereumAddress>> targetContracts(
       {_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[11];
     assert(checkSignature(function, '3f7286f4'));
@@ -216,7 +217,7 @@ class StdCheatsTest extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as List<dynamic>).cast<_i1.EthereumAddress>();
+    return (response[0] as List<dynamic>).cast<_i2.EthereumAddress>();
   }
 
   /// The optional [atBlock] parameter can be used to view historical data. When
@@ -252,7 +253,7 @@ class StdCheatsTest extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<List<_i1.EthereumAddress>> targetSenders(
+  Future<List<_i2.EthereumAddress>> targetSenders(
       {_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[14];
     assert(checkSignature(function, '3e5e3c23'));
@@ -262,14 +263,14 @@ class StdCheatsTest extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as List<dynamic>).cast<_i1.EthereumAddress>();
+    return (response[0] as List<dynamic>).cast<_i2.EthereumAddress>();
   }
 
   /// The optional [transaction] parameter can be used to override parameters
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> testFuzz_AssumeAddressIsNot(
-    ({_i1.EthereumAddress addr}) args, {
+    ({_i2.EthereumAddress addr}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -288,7 +289,7 @@ class StdCheatsTest extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<void> testFuzz_AssumeNotForgeAddress(
-    ({_i1.EthereumAddress addr}) args, {
+    ({_i2.EthereumAddress addr}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[16];
@@ -305,7 +306,7 @@ class StdCheatsTest extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> testFuzz_AssumeNotPrecompile(
-    ({_i1.EthereumAddress addr}) args, {
+    ({_i2.EthereumAddress addr}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -1525,16 +1526,16 @@ class SlotFound {
   SlotFound(
     List<dynamic> response,
     this.event,
-  )   : who = (response[0] as _i1.EthereumAddress),
-        fsig = (response[1] as _i2.Uint8List),
-        keysHash = (response[2] as _i2.Uint8List),
+  )   : who = (response[0] as _i2.EthereumAddress),
+        fsig = (response[1] as _i3.Uint8List),
+        keysHash = (response[2] as _i3.Uint8List),
         slot = (response[3] as BigInt);
 
-  final _i1.EthereumAddress who;
+  final _i2.EthereumAddress who;
 
-  final _i2.Uint8List fsig;
+  final _i3.Uint8List fsig;
 
-  final _i2.Uint8List keysHash;
+  final _i3.Uint8List keysHash;
 
   final BigInt slot;
 
@@ -1545,10 +1546,10 @@ class WARNING_UninitedSlot {
   WARNING_UninitedSlot(
     List<dynamic> response,
     this.event,
-  )   : who = (response[0] as _i1.EthereumAddress),
+  )   : who = (response[0] as _i2.EthereumAddress),
         slot = (response[1] as BigInt);
 
-  final _i1.EthereumAddress who;
+  final _i2.EthereumAddress who;
 
   final BigInt slot;
 
@@ -1570,9 +1571,9 @@ class log_address {
   log_address(
     List<dynamic> response,
     this.event,
-  ) : var1 = (response[0] as _i1.EthereumAddress);
+  ) : var1 = (response[0] as _i2.EthereumAddress);
 
-  final _i1.EthereumAddress var1;
+  final _i2.EthereumAddress var1;
 
   final _i1.FilterEvent event;
 }
@@ -1603,9 +1604,9 @@ class log_array$3 {
   log_array$3(
     List<dynamic> response,
     this.event,
-  ) : val = (response[0] as List<dynamic>).cast<_i1.EthereumAddress>();
+  ) : val = (response[0] as List<dynamic>).cast<_i2.EthereumAddress>();
 
-  final List<_i1.EthereumAddress> val;
+  final List<_i2.EthereumAddress> val;
 
   final _i1.FilterEvent event;
 }
@@ -1614,9 +1615,9 @@ class log_bytes {
   log_bytes(
     List<dynamic> response,
     this.event,
-  ) : var1 = (response[0] as _i2.Uint8List);
+  ) : var1 = (response[0] as _i3.Uint8List);
 
-  final _i2.Uint8List var1;
+  final _i3.Uint8List var1;
 
   final _i1.FilterEvent event;
 }
@@ -1625,9 +1626,9 @@ class log_bytes32 {
   log_bytes32(
     List<dynamic> response,
     this.event,
-  ) : var1 = (response[0] as _i2.Uint8List);
+  ) : var1 = (response[0] as _i3.Uint8List);
 
-  final _i2.Uint8List var1;
+  final _i3.Uint8List var1;
 
   final _i1.FilterEvent event;
 }
@@ -1648,11 +1649,11 @@ class log_named_address {
     List<dynamic> response,
     this.event,
   )   : key = (response[0] as String),
-        val = (response[1] as _i1.EthereumAddress);
+        val = (response[1] as _i2.EthereumAddress);
 
   final String key;
 
-  final _i1.EthereumAddress val;
+  final _i2.EthereumAddress val;
 
   final _i1.FilterEvent event;
 }
@@ -1690,11 +1691,11 @@ class log_named_array$3 {
     List<dynamic> response,
     this.event,
   )   : key = (response[0] as String),
-        val = (response[1] as List<dynamic>).cast<_i1.EthereumAddress>();
+        val = (response[1] as List<dynamic>).cast<_i2.EthereumAddress>();
 
   final String key;
 
-  final List<_i1.EthereumAddress> val;
+  final List<_i2.EthereumAddress> val;
 
   final _i1.FilterEvent event;
 }
@@ -1704,11 +1705,11 @@ class log_named_bytes {
     List<dynamic> response,
     this.event,
   )   : key = (response[0] as String),
-        val = (response[1] as _i2.Uint8List);
+        val = (response[1] as _i3.Uint8List);
 
   final String key;
 
-  final _i2.Uint8List val;
+  final _i3.Uint8List val;
 
   final _i1.FilterEvent event;
 }
@@ -1718,11 +1719,11 @@ class log_named_bytes32 {
     List<dynamic> response,
     this.event,
   )   : key = (response[0] as String),
-        val = (response[1] as _i2.Uint8List);
+        val = (response[1] as _i3.Uint8List);
 
   final String key;
 
-  final _i2.Uint8List val;
+  final _i3.Uint8List val;
 
   final _i1.FilterEvent event;
 }
@@ -1829,9 +1830,9 @@ class logs {
   logs(
     List<dynamic> response,
     this.event,
-  ) : var1 = (response[0] as _i2.Uint8List);
+  ) : var1 = (response[0] as _i3.Uint8List);
 
-  final _i2.Uint8List var1;
+  final _i3.Uint8List var1;
 
   final _i1.FilterEvent event;
 }

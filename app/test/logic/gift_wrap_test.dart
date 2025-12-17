@@ -18,7 +18,7 @@ void main() {
   });
 
   group('Gift wrap should unpack child', () {
-    blocTest<GlobalGiftWrapCubit, ListCubitState<GiftWrap>>(
+    blocTest<GlobalGiftWrapCubit, ListCubitState<Event>>(
       'emits new thread when new message introduced',
       build: () =>
           GlobalGiftWrapCubit(authCubit: AuthCubit(initialState: LoggedIn()))

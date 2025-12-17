@@ -1,4 +1,3 @@
-import 'package:bip39/bip39.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,7 +8,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
-import 'package:web3dart/crypto.dart';
+import 'package:web3dart/web3dart.dart';
 
 class KeysWidget extends StatefulWidget {
   const KeysWidget({super.key});
@@ -52,40 +51,56 @@ class KeysWidgetState extends State<KeysWidget> {
               ),
               ListTile(
                 title: Text(AppLocalizations.of(context)!.evmAddress),
-                subtitle: Text(getEthCredentials(key!.privateKey!).address.hex),
+                subtitle: Text(
+                  getEthCredentials(key!.privateKey!).address.with0x,
+                ),
                 onTap: () {
-                  Clipboard.setData(ClipboardData(
-                      text: getEthCredentials(key!.privateKey!).address.hex));
+                  Clipboard.setData(
+                    ClipboardData(
+                      text: getEthCredentials(key!.privateKey!).address.with0x,
+                    ),
+                  );
                 },
               ),
               ListTile(
                 title: Text(
-                    '${AppLocalizations.of(context)!.evmAddress} from pubkey'),
-                subtitle: Text(getEthAddressFromPublicKey(key!.publicKey).hex),
+                  '${AppLocalizations.of(context)!.evmAddress} from pubkey',
+                ),
+                subtitle: Text(
+                  getEthAddressFromPublicKey(key!.publicKey).with0x,
+                ),
                 onTap: () {
-                  Clipboard.setData(ClipboardData(
-                      text: getEthCredentials(key!.privateKey!).address.hex));
+                  Clipboard.setData(
+                    ClipboardData(
+                      text: getEthCredentials(key!.privateKey!).address.with0x,
+                    ),
+                  );
                 },
               ),
               ListTile(
                 title: Text(AppLocalizations.of(context)!.evmPrivateKey),
-                subtitle: Text(bytesToHex(
-                    (getEthCredentials(key!.privateKey!).privateKey))),
-                onTap: () {
-                  Clipboard.setData(ClipboardData(
-                      text: bytesToHex(
-                          getEthCredentials(key!.privateKey!).privateKey,
-                          include0x: true)));
-                },
-              ),
-              ListTile(
-                title: Text('Mnemonic'),
-                subtitle: Text(entropyToMnemonic(key!.privateKey!)),
+                subtitle: Text(
+                  bytesToHex((getEthCredentials(key!.privateKey!).privateKey)),
+                ),
                 onTap: () {
                   Clipboard.setData(
-                      ClipboardData(text: entropyToMnemonic(key!.privateKey!)));
+                    ClipboardData(
+                      text: bytesToHex(
+                        getEthCredentials(key!.privateKey!).privateKey,
+                        include0x: true,
+                      ),
+                    ),
+                  );
                 },
               ),
+              // ListTile(
+              //   title: Text('Mnemonic'),
+              //   subtitle: Text(entropyToMnemonic(key!.privateKey!)),
+              //   onTap: () {
+              //     Clipboard.setData(
+              //         ClipboardData(text: entropyToMnemonic(key!.privateKey!)));
+              //   },
+              // ),
               ListTile(
                 title: Text('Boltz'),
                 subtitle: Text(getIt<Config>().boltzUrl),
@@ -94,27 +109,34 @@ class KeysWidgetState extends State<KeysWidget> {
                 title: Text('Rootstock'),
                 subtitle: Text(getIt<Config>().rootstockRpcUrl),
               ),
-              Row(children: [
-                FilledButton(
+              Row(
+                children: [
+                  FilledButton(
                     onPressed: () async {
-                      await Future.wait([
-                        context.read<ModeCubit>().setHost(),
-                        context
-                            .read<AuthCubit>()
-                            .signin(MockKeys.hoster.privateKey!)
-                      ] as Iterable<Future>);
+                      await Future.wait(
+                        [
+                              context.read<ModeCubit>().setHost(),
+                              context.read<AuthCubit>().signin(
+                                MockKeys.hoster.privateKey!,
+                              ),
+                            ]
+                            as Iterable<Future>,
+                      );
                     },
-                    child: Text('Log in host')),
-                FilledButton(
+                    child: Text('Log in host'),
+                  ),
+                  FilledButton(
                     onPressed: () async {
                       await context.read<AuthCubit>().logout();
                       await context.read<ModeCubit>().setGuest();
-                      await context
-                          .read<AuthCubit>()
-                          .signin(MockKeys.guest.privateKey!);
+                      await context.read<AuthCubit>().signin(
+                        MockKeys.guest.privateKey!,
+                      );
                     },
-                    child: Text('Log in guest'))
-              ])
+                    child: Text('Log in guest'),
+                  ),
+                ],
+              ),
             ],
           )
         : Container();

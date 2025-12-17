@@ -9,8 +9,6 @@ T parser<T extends Event>(Nip01Event event, KeyPair? key) {
   // print('eventKind: $eventKind, ${T.toString()} should be returned, $event ');
   if (Reservation.kinds.contains(eventKind)) {
     return Reservation.fromNostrEvent(event) as T;
-  } else if (GiftWrap.kinds.contains(eventKind)) {
-    return GiftWrap.fromNostrEvent(event, key!) as T;
   } else if (Seal.kinds.contains(eventKind)) {
     return Seal.fromNostrEvent(event, key!) as T;
   } else if (Message.kinds.contains(eventKind)) {

@@ -1,4 +1,3 @@
-import 'package:bip39/bip39.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
@@ -69,7 +68,7 @@ class AuthCubit extends Cubit<AuthState> {
       entropy = private;
     } else {
       try {
-        entropy = mnemonicToEntropy(private);
+        entropy = private;
       } catch (e) {
         logger.i('Invalid mnemonic');
       }
@@ -85,7 +84,9 @@ class AuthCubit extends Cubit<AuthState> {
     if (entropy != null) {
       await keyStorage.set(entropy);
       getIt<Ndk>().accounts.loginPrivateKey(
-          privkey: entropy, pubkey: Bip340.getPublicKey(entropy));
+        privkey: entropy,
+        pubkey: Bip340.getPublicKey(entropy),
+      );
       emit(LoggedIn());
     } else {
       logger.i('Key invalid');

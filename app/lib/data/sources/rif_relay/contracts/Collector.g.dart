@@ -5,6 +5,7 @@
 // ignore_for_file: unused_local_variable, unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:web3dart/web3dart.dart' as _i1;
+import 'package:wallet/wallet.dart' as _i2;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
   '[{"inputs":[{"internalType":"address","name":"_owner","type":"address"},{"internalType":"contract IERC20[]","name":"tokens","type":"address[]"},{"components":[{"internalType":"address payable","name":"beneficiary","type":"address"},{"internalType":"uint8","name":"share","type":"uint8"}],"internalType":"struct ICollector.RevenuePartner[]","name":"partners","type":"tuple[]"},{"internalType":"address","name":"remainderAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"contract IERC20","name":"token","type":"address"}],"name":"addToken","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getPartners","outputs":[{"components":[{"internalType":"address payable","name":"beneficiary","type":"address"},{"internalType":"uint8","name":"share","type":"uint8"}],"internalType":"struct ICollector.RevenuePartner[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getRemainderAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getTokens","outputs":[{"internalType":"contract IERC20[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"contract IERC20","name":"token","type":"address"},{"internalType":"uint256","name":"tokenIndex","type":"uint256"}],"name":"removeToken","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"contract IERC20","name":"","type":"address"}],"name":"tokenMap","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"remainderAddress","type":"address"}],"name":"updateRemainderAddress","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"components":[{"internalType":"address payable","name":"beneficiary","type":"address"},{"internalType":"uint8","name":"share","type":"uint8"}],"internalType":"struct ICollector.RevenuePartner[]","name":"partners","type":"tuple[]"}],"name":"updateShares","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"contract IERC20","name":"token","type":"address"}],"name":"withdrawToken","outputs":[],"stateMutability":"nonpayable","type":"function"}]',
@@ -13,7 +14,7 @@ final _contractAbi = _i1.ContractAbi.fromJson(
 
 class Collector extends _i1.GeneratedContract {
   Collector({
-    required _i1.EthereumAddress address,
+    required _i2.EthereumAddress address,
     required _i1.Web3Client client,
     int? chainId,
   }) : super(
@@ -29,7 +30,7 @@ class Collector extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> addToken(
-    ({_i1.EthereumAddress token}) args, {
+    ({_i2.EthereumAddress token}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -62,7 +63,7 @@ class Collector extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<_i1.EthereumAddress> getRemainderAddress(
+  Future<_i2.EthereumAddress> getRemainderAddress(
       {_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[3];
     assert(checkSignature(function, '96be99e0'));
@@ -72,13 +73,13 @@ class Collector extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as _i1.EthereumAddress);
+    return (response[0] as _i2.EthereumAddress);
   }
 
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<List<_i1.EthereumAddress>> getTokens({_i1.BlockNum? atBlock}) async {
+  Future<List<_i2.EthereumAddress>> getTokens({_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[4];
     assert(checkSignature(function, 'aa6ca808'));
     final params = [];
@@ -87,13 +88,13 @@ class Collector extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as List<dynamic>).cast<_i1.EthereumAddress>();
+    return (response[0] as List<dynamic>).cast<_i2.EthereumAddress>();
   }
 
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<_i1.EthereumAddress> owner({_i1.BlockNum? atBlock}) async {
+  Future<_i2.EthereumAddress> owner({_i1.BlockNum? atBlock}) async {
     final function = self.abi.functions[5];
     assert(checkSignature(function, '8da5cb5b'));
     final params = [];
@@ -102,14 +103,14 @@ class Collector extends _i1.GeneratedContract {
       params,
       atBlock,
     );
-    return (response[0] as _i1.EthereumAddress);
+    return (response[0] as _i2.EthereumAddress);
   }
 
   /// The optional [transaction] parameter can be used to override parameters
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> removeToken(
-    ({_i1.EthereumAddress token, BigInt tokenIndex}) args, {
+    ({_i2.EthereumAddress token, BigInt tokenIndex}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -131,7 +132,7 @@ class Collector extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<bool> tokenMap(
-    ({_i1.EthereumAddress $param3}) args, {
+    ({_i2.EthereumAddress $param3}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[7];
@@ -149,7 +150,7 @@ class Collector extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> transferOwnership(
-    ({_i1.EthereumAddress owner}) args, {
+    ({_i2.EthereumAddress owner}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -168,7 +169,7 @@ class Collector extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> updateRemainderAddress(
-    ({_i1.EthereumAddress remainderAddress}) args, {
+    ({_i2.EthereumAddress remainderAddress}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
@@ -224,7 +225,7 @@ class Collector extends _i1.GeneratedContract {
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
   Future<String> withdrawToken(
-    ({_i1.EthereumAddress token}) args, {
+    ({_i2.EthereumAddress token}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {

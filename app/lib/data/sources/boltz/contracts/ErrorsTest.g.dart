@@ -5,6 +5,7 @@
 // ignore_for_file: unused_local_variable, unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:web3dart/web3dart.dart' as _i1;
+import 'package:wallet/wallet.dart' as _i2;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
   '[{"type":"function","name":"arithmeticError","inputs":[{"name":"a","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"pure"},{"type":"function","name":"assertionError","inputs":[],"outputs":[],"stateMutability":"pure"},{"type":"function","name":"divError","inputs":[{"name":"a","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"pure"},{"type":"function","name":"encodeStgError","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"enumConversion","inputs":[{"name":"a","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"pure"},{"type":"function","name":"indexOOBError","inputs":[{"name":"a","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"pure"},{"type":"function","name":"intern","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"mem","inputs":[],"outputs":[],"stateMutability":"pure"},{"type":"function","name":"modError","inputs":[{"name":"a","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"pure"},{"type":"function","name":"pop","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"someArr","inputs":[{"name":"","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"}]',
@@ -13,7 +14,7 @@ final _contractAbi = _i1.ContractAbi.fromJson(
 
 class ErrorsTest extends _i1.GeneratedContract {
   ErrorsTest({
-    required _i1.EthereumAddress address,
+    required _i2.EthereumAddress address,
     required _i1.Web3Client client,
     int? chainId,
   }) : super(
