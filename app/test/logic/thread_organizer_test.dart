@@ -16,7 +16,10 @@ void main() {
   group('new message new group', () {
     blocTest<ThreadOrganizerCubit, ThreadOrganizerState>(
       'emits new thread when new message introduced',
-      build: () => ThreadOrganizerCubit(),
+      build: () => ThreadOrganizerCubit(
+        nostrService: getIt(),
+        routingService: getIt(),
+      ),
       act: (bloc) {
         // return bloc.sortMessage(giftWrapAndSeal(
         //     MockKeys.guest.publicKey,

@@ -217,12 +217,6 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
   );
 
   @override
-  set nwcService(_i4.NwcService? value) => super.noSuchMethod(
-    Invocation.setter(#nwcService, value),
-    returnValueForMissingStub: null,
-  );
-
-  @override
   set url(String? value) => super.noSuchMethod(
     Invocation.setter(#url, value),
     returnValueForMissingStub: null,

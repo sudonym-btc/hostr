@@ -21,6 +21,10 @@ T parser<T extends Event>(Nip01Event event, KeyPair? key) {
     return ReservationRequest.fromNostrEvent(event) as T;
   } else if (Review.kinds.contains(eventKind)) {
     return Review.fromNostrEvent(event) as T;
+  } else if (BadgeAward.kinds.contains(eventKind)) {
+    return BadgeAward.fromNostrEvent(event) as T;
+  } else if (BadgeDefinition.kinds.contains(eventKind)) {
+    return BadgeDefinition.fromNostrEvent(event) as T;
   }
   return event as T;
 }

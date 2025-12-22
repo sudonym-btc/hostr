@@ -7,6 +7,13 @@ targets:
           input_folder: lib/data/sources/boltz/swagger
           output_folder: lib/data/sources/boltz/swagger_generated
 
+      web3dart_builders:abi_generator:
+        generate_for:
+          exclude:
+            - lib/data/sources/boltz/contracts/911e933727e50dc0.abi.json
+            - lib/data/sources/boltz/contracts/LibVariable.abi.json
+            - lib/data/sources/boltz/contracts/StorageTest.abi.json
+
       mockito|mockBuilder:
         generate_for:
           - lib/mocks/**.dart

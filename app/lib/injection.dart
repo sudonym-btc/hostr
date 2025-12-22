@@ -17,17 +17,24 @@ void configureInjection(String environment) {
   getIt.init(environment: environment);
 
   // Configure Dio and allow self-signed certificates only outside production.
-  final Dio dio = Dio();
+  final Dio dio = getIt<Dio>();
   if (environment != Env.prod) {
-    (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
-      final HttpClient client = HttpClient();
-      client.badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
-      return client;
-    };
+    final adapter = dio.httpClientAdapter;
+    if (adapter is IOHttpClientAdapter) {
+      adapter.createHttpClient = () {
+        final HttpClient client = HttpClient();
+        client.badCertificateCallback =
+            (X509Certificate cert, String host, int port) => true;
+        return client;
+      };
+    }
   }
+}
 
-  getIt.registerSingleton<Dio>(dio);
+@module
+abstract class DioModule {
+  @lazySingleton
+  Dio dio() => Dio();
 }
 
 abstract class Env {

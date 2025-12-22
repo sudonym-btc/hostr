@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/app.controller.dart';
 import 'package:hostr/logic/main.dart';
 
@@ -31,20 +32,24 @@ class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AuthCubit>(
-            lazy: false, create: (context) => appController.authCubit..get()),
-        BlocProvider<GlobalGiftWrapCubit>(
-            lazy: false, create: (context) => appController.giftWrapListCubit),
-        BlocProvider<ThreadOrganizerCubit>(
-            lazy: false,
-            create: (context) => appController.threadOrganizerCubit),
+        BlocProvider<AuthCubit>.value(value: appController.authCubit..get()),
+        BlocProvider<GlobalGiftWrapCubit>.value(
+          value: appController.giftWrapListCubit,
+        ),
+        BlocProvider<ThreadOrganizerCubit>.value(
+          value: appController.threadOrganizerCubit,
+        ),
+        BlocProvider<EventPublisherCubit>.value(
+          value: appController.eventPublisherCubit,
+        ),
         BlocProvider<ModeCubit>(
-            lazy: false, create: (context) => ModeCubit()..get()),
-        BlocProvider<NwcCubit>(create: (_) => NwcCubit()),
-        BlocProvider<PaymentsManager>(
-            create: (context) => appController.paymentsManager),
-        BlocProvider<SwapManager>(
-            create: (context) => appController.swapManager),
+          create: (context) => ModeCubit(modeStorage: getIt())..get(),
+        ),
+        BlocProvider<NwcCubit>(create: (_) => NwcCubit(nwcService: getIt())),
+        BlocProvider<PaymentsManager>.value(
+          value: appController.paymentsManager,
+        ),
+        BlocProvider<SwapManager>.value(value: appController.swapManager),
       ],
       child: widget.child,
     );

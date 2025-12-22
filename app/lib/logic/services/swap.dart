@@ -24,11 +24,22 @@ BigInt satoshiWeiFactor = BigInt.from(10).pow(10);
 num btcSatoshiFactor = pow(10, 8);
 num btcMilliSatoshiFactor = pow(10, 11);
 
+enum SwapProgress {
+  initiated,
+  paymentCreated,
+  paymentInFlight,
+  waitingOnchain,
+  claimed,
+  completed,
+  failed,
+}
+
 @Singleton()
 class SwapService {
   CustomLogger logger = CustomLogger();
   Web3Client client;
   Config config;
+
   SwapService(this.config)
     : client = Web3Client(config.rootstockRpcUrl, Client());
 
@@ -74,9 +85,9 @@ class SwapService {
     final invoice = "";
     String invoicePreimageHash = Bolt11PaymentRequest(invoice).paymentRequest;
 
-    // Convert invoice amount to satoshis
-    int invoiceAmount =
-        (Bolt11PaymentRequest(invoice).amount.toDouble() * pow(10, 8)) as int;
+    // Convert invoice amount to satoshis (not used in current flow)
+    // final int invoiceAmount =
+    //     (Bolt11PaymentRequest(invoice).amount.toDouble() * pow(10, 8)) as int;
 
     try {
       // Initialize Boltz library
@@ -111,9 +122,6 @@ class SwapService {
   // }
 
   listEvents() async {
-    KeyPair? key = await getIt<KeyStorage>().getActiveKeyPair();
-    EthPrivateKey ethKey = getEthCredentials(key!.privateKey!);
-
     MultiEscrow e = MultiEscrow(
       address: EthereumAddress.fromHex(
         '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
@@ -187,7 +195,11 @@ class SwapService {
     logger.i(receipt);
   }
 
-  swapIn(int amountSats) async {
+  swapIn(
+    int amountSats, {
+    void Function(SwapProgress progress)? onProgress,
+    void Function(String paymentId)? onPaymentCreated,
+  }) async {
     /// Check that NWC is connected first
     Uri? nwc = await getIt<NwcStorage>().getUri();
     if (nwc == null) {
@@ -205,6 +217,7 @@ class SwapService {
     List<int> preimage = List<int>.generate(32, (i) => random.nextInt(256));
     String preimageHash = sha256.convert(preimage).toString();
     logger.i("Preimage: $preimage, ${preimage.length}");
+    onProgress?.call(SwapProgress.initiated);
 
     /// Create a reverse submarine swap
     final swap = await getIt<BoltzClient>().reverseSubmarine(
@@ -232,7 +245,7 @@ class SwapService {
     );
 
     /// Pay the invoice, though it won't complete until we reveal the preimage in the claim txn
-    PaymentCubit paymentCubit = PaymentsManager().create(
+    final start = getIt<PaymentsManager>().startPayment(
       Bolt11PaymentParameters(
         amount: Amount(
           currency: Currency.BTC,
@@ -241,8 +254,10 @@ class SwapService {
         to: invoiceToPay,
       ),
     );
-
-    paymentCubit.execute();
+    onPaymentCreated?.call(start.id);
+    onProgress?.call(SwapProgress.paymentCreated);
+    start.cubit.execute();
+    onProgress?.call(SwapProgress.paymentInFlight);
 
     while (true) {
       SwapStatus swapStatus = await getIt<BoltzClient>().getSwap(id: swap.id);
@@ -251,6 +266,7 @@ class SwapService {
 
       if (swapStatus.status == 'transaction.mempool' ||
           swapStatus.status == 'transaction.confirmed') {
+        onProgress?.call(SwapProgress.waitingOnchain);
         /// Fetch the from address of the lockup transaction to use as refund address
         TransactionInformation? lockupTx = await client.getTransactionByHash(
           swapStatus.transaction!.id!,
@@ -271,7 +287,7 @@ class SwapService {
 
           /// Why is swap.refundPublicKey null in the response
           refundAddress:
-              lockupTx.from!, //EthereumAddress.fromHex(swap.refundPublicKey!),
+              lockupTx.from, //EthereumAddress.fromHex(swap.refundPublicKey!),
 
           timelock: BigInt.from(swap.timeoutBlockHeight),
 
@@ -286,7 +302,9 @@ class SwapService {
         /// Withdraw the funds to our own address, providing swapper with preimage to settle lightning
         /// Must send via RIF if no previous balance exists
         String tx = await swapContract.claim(claimArgs, credentials: ethKey);
+        onProgress?.call(SwapProgress.claimed);
         logger.i('Sent RBTC in: $tx');
+        onProgress?.call(SwapProgress.completed);
         break;
       }
       await Future.delayed(Duration(milliseconds: 1000));
@@ -347,7 +365,7 @@ class SwapService {
         final logs = await client.getLogs(filter);
         logger.i('Filtered logs: ${logs.length} for hexTopic $hexTopic');
 
-        List<TradeCreated> tradeCreated = logs.map((FilterEvent result) {
+        final tradeCreated = logs.map((FilterEvent result) {
           logger.i('trade log topics: ${result.topics}');
           final decoded = tradeCreatedEvent.decodeResults(
             result.topics!,
@@ -355,6 +373,7 @@ class SwapService {
           );
           return TradeCreated(decoded, result);
         }).toList();
+        logger.i('Decoded ${tradeCreated.length} TradeCreated events');
       }
     }
   }

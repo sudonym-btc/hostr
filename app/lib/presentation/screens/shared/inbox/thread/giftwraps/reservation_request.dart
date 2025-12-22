@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/services/swap.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -18,42 +17,49 @@ class ThreadReservationRequestWidget extends StatelessWidget {
   final ReservationRequest r;
   final bool isSentByMe;
 
-  ThreadReservationRequestWidget(
-      {super.key, required this.counterparty, required this.item})
-      : r = item.child as ReservationRequest,
-        isSentByMe = item.child!.nip01Event.pubKey == counterparty.pubKey;
+  ThreadReservationRequestWidget({
+    super.key,
+    required this.counterparty,
+    required this.item,
+  }) : r = item.child as ReservationRequest,
+       isSentByMe = item.child!.nip01Event.pubKey == counterparty.pubKey;
 
   pay(BuildContext context) {
     showModalBottomSheet(
-        context: context,
-        builder: (context) {
-          return PaymentMethodWidget(r: r, counterparty: counterparty);
-        });
+      context: context,
+      builder: (context) {
+        return PaymentMethodWidget(r: r, counterparty: counterparty);
+      },
+    );
   }
 
   accept(BuildContext context, Listing l) {
     KeyPair k = getIt<KeyStorage>().getActiveKeyPairSync()!;
     context.read<EventPublisherCubit>().publishEvents([
       Nip01Event(
-          pubKey: k.publicKey,
-          kind: NOSTR_KIND_RESERVATION,
-          tags: [
-            ['a', l.anchor, context.read<ThreadCubit>().getAnchor()],
-            // ['c', context.read<ThreadCubit>().getAnchor()]
-          ],
-          content: json.encode(ReservationContent(
-                  start: r.parsedContent.start, end: r.parsedContent.end)
-              .toJson()))
-        ..sign(k.privateKey!)
+        pubKey: k.publicKey,
+        kind: NOSTR_KIND_RESERVATION,
+        tags: [
+          ['a', l.anchor, context.read<ThreadCubit>().getAnchor()],
+          // ['c', context.read<ThreadCubit>().getAnchor()]
+        ],
+        content: json.encode(
+          ReservationContent(
+            start: r.parsedContent.start,
+            end: r.parsedContent.end,
+          ).toJson(),
+        ),
+      )..sign(k.privateKey!),
     ]);
   }
 
   Widget paymentStatus(BuildContext context) {
     return StreamBuilder(
-        stream: getIt<SwapService>().checkEscrowStatus(r.nip01Event.id),
-        builder: (context, snapshot) {
-          return Text('Payment status: ${snapshot.data}');
-        });
+      stream: context.read<SwapManager>().checkEscrowStatus(r.nip01Event.id),
+      builder: (context, snapshot) {
+        return Text('Payment status: ${snapshot.data}');
+      },
+    );
 
     /// Look up the payment state by hashing the reservation request id
     /// Combine with escrow query as well
@@ -72,74 +78,95 @@ class ThreadReservationRequestWidget extends StatelessWidget {
     if (l.nip01Event.pubKey ==
         getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey) {
       return StreamBuilder(
-          stream: context.read<ThreadCubit>().loadBookingState(),
-          builder: (context, state) {
-            if (state.data == null) {
-              return BlocProvider<EventPublisherCubit>(
-                  create: (context) => EventPublisherCubit(),
-                  child: BlocBuilder<EventPublisherCubit, EventPublisherState>(
-                    builder: (context, state) => FilledButton(
-                        key: ValueKey('accept'),
-                        onPressed: () => accept(context, l),
-                        child: Text(isSentByMe
-                            ? AppLocalizations.of(context)!.reserve
-                            : AppLocalizations.of(context)!.accept)),
-                  ));
-            }
-            return FilledButton(
-              onPressed: null,
-              child: Text(AppLocalizations.of(context)!.accepted),
+        stream: context.read<ThreadCubit>().loadBookingState(),
+        builder: (context, state) {
+          if (state.data == null) {
+            return BlocProvider<EventPublisherCubit>(
+              create: (context) => EventPublisherCubit(
+                nostrService: getIt(),
+                workflow: getIt(),
+              ),
+              child: BlocBuilder<EventPublisherCubit, EventPublisherState>(
+                builder: (context, state) => FilledButton(
+                  key: ValueKey('accept'),
+                  onPressed: () => accept(context, l),
+                  child: Text(
+                    isSentByMe
+                        ? AppLocalizations.of(context)!.reserve
+                        : AppLocalizations.of(context)!.accept,
+                  ),
+                ),
+              ),
             );
-          });
+          }
+          return FilledButton(
+            onPressed: null,
+            child: Text(AppLocalizations.of(context)!.accepted),
+          );
+        },
+      );
     }
 
     // todo check payment status here too
     return FilledButton(
-        key: ValueKey('pay'),
-        onPressed: () => pay(context),
-        child: Text(AppLocalizations.of(context)!.pay));
+      key: ValueKey('pay'),
+      onPressed: () => pay(context),
+      child: Text(AppLocalizations.of(context)!.pay),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<EntityCubit<Listing>, EntityCubitState<Listing>>(
-        builder: (context, listingState) {
-      if (listingState.data == null) {
-        return CircularProgressIndicator();
-      }
-      return Align(
+      builder: (context, listingState) {
+        if (listingState.data == null) {
+          return CircularProgressIndicator();
+        }
+        return Align(
           alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
-          child: Column(children: [
-            ListingListItemWidget(
+          child: Column(
+            children: [
+              ListingListItemWidget(
                 listing: listingState.data!,
                 showPrice: false,
                 showFeedback: false,
-                smallImage: true),
-            Row(
+                smallImage: true,
+              ),
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CustomPadding(
-                      right: 0,
-                      top: 0,
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                                isSentByMe
-                                    ? 'You sent a reservation request'
-                                    : 'Received reservation offer',
-                                style: Theme.of(context).textTheme.bodyMedium!),
-                            Text(
-                                '${formatDateShort(r.parsedContent.start, context)} - ${formatDateShort(r.parsedContent.end, context)}',
-                                style: Theme.of(context).textTheme.bodyMedium!),
-                            Text(formatAmount(r.parsedContent.amount)),
-                            paymentStatus(context)
-                          ])),
+                    right: 0,
+                    top: 0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isSentByMe
+                              ? 'You sent a reservation request'
+                              : 'Received reservation offer',
+                          style: Theme.of(context).textTheme.bodyMedium!,
+                        ),
+                        Text(
+                          '${formatDateShort(r.parsedContent.start, context)} - ${formatDateShort(r.parsedContent.end, context)}',
+                          style: Theme.of(context).textTheme.bodyMedium!,
+                        ),
+                        Text(formatAmount(r.parsedContent.amount)),
+                        paymentStatus(context),
+                      ],
+                    ),
+                  ),
                   CustomPadding(
-                      top: 0, child: actionButton(context, listingState.data!))
-                ])
-          ]));
-    });
+                    top: 0,
+                    child: actionButton(context, listingState.data!),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

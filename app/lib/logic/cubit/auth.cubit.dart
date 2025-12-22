@@ -2,9 +2,8 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
-import 'package:hostr/injection.dart';
+import 'package:hostr/logic/workflows/auth_workflow.dart';
 import 'package:ndk/ndk.dart';
-import 'package:ndk/shared/nips/nip01/bip340.dart';
 
 /// Abstract class representing the state of authentication.
 abstract class AuthState extends Equatable {
@@ -31,24 +30,42 @@ class LoggedIn extends AuthState {
   const LoggedIn();
 }
 
-/// Cubit class to manage authentication state.
+/// Cubit managing authentication state.
+/// Business processes (signup/signin flows) delegated to AuthWorkflow.
+/// This cubit only manages state transitions and UI decisions.
 class AuthCubit extends Cubit<AuthState> {
   CustomLogger logger = CustomLogger();
-  KeyStorage keyStorage = getIt<KeyStorage>();
-  SecureStorage secureStorage = getIt<SecureStorage>();
+  final KeyStorage keyStorage;
+  final SecureStorage secureStorage;
+  final Ndk ndk;
+  final AuthWorkflow _workflow;
 
-  AuthCubit({AuthState? initialState}) : super(initialState ?? AuthInitial());
+  AuthCubit({
+    required this.keyStorage,
+    required this.secureStorage,
+    required this.ndk,
+    required AuthWorkflow workflow,
+    AuthState? initialState,
+  }) : _workflow = workflow,
+       super(initialState ?? AuthInitial());
 
-  /// Logs in the user by generating a key pair and requesting delegation.
+  /// Executes signup: delegates to workflow, updates state.
   Future<void> signup() async {
-    await logout();
-    await keyStorage.create();
-    emit(LoggedIn());
+    emit(LoggedOut()); // Start from logged-out during signup
+    try {
+      await _workflow.signup();
+      emit(LoggedIn());
+    } catch (e) {
+      logger.e('Signup failed: $e');
+      emit(LoggedOut());
+      rethrow;
+    }
   }
 
-  /// Checks if the user is logged in by verifying stored keys.
+  /// Checks authentication status: delegates to workflow, updates state.
   Future<bool> get() async {
-    if ((await keyStorage.getActiveKeyPair()) != null) {
+    final isAuthenticated = await _workflow.isAuthenticated();
+    if (isAuthenticated) {
       emit(LoggedIn());
       return true;
     }
@@ -56,40 +73,38 @@ class AuthCubit extends Cubit<AuthState> {
     return false;
   }
 
-  /// Logs out the user by wiping stored keys.
+  /// Executes logout: delegates to workflow, updates state.
   Future<void> logout() async {
-    await secureStorage.wipe();
-    emit(LoggedOut());
+    try {
+      await _workflow.logout();
+      emit(LoggedOut());
+    } catch (e) {
+      logger.e('Logout failed: $e');
+      rethrow;
+    }
   }
 
-  signin(String private) async {
-    String? entropy;
-    if (private.length == 64) {
-      entropy = private;
-    } else {
-      try {
-        entropy = private;
-      } catch (e) {
-        logger.i('Invalid mnemonic');
-      }
-    }
+  /// Executes signin: delegates to workflow, updates state.
+  Future<void> signin(String input) async {
+    try {
+      await _workflow.signin(input);
 
-    /// TODO Check nsec
-    // try {
-    //   entropy =
-    // } catch (e) {
-    //   logger.i('Invalid mnemonic');
-    // }
-    // }
-    if (entropy != null) {
-      await keyStorage.set(entropy);
-      getIt<Ndk>().accounts.loginPrivateKey(
-        privkey: entropy,
-        pubkey: Bip340.getPublicKey(entropy),
-      );
+      // Setup NDK with the imported key
+      final pubkey = await _workflow.getCurrentPubkey();
+      if (pubkey != null) {
+        ndk.accounts.loginPrivateKey(
+          privkey: input.length == 64
+              ? input
+              : '', // TODO: get actual privkey from workflow
+          pubkey: pubkey,
+        );
+      }
+
       emit(LoggedIn());
-    } else {
-      logger.i('Key invalid');
+    } catch (e) {
+      logger.e('Signin failed: $e');
+      emit(LoggedOut());
+      rethrow;
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:models/stubs/badge.dart';
 import 'package:models/stubs/blossom.dart';
 import 'package:models/stubs/escrow.dart';
 import 'package:models/stubs/escrow_trust.dart';
@@ -8,6 +9,7 @@ import 'package:models/stubs/reservation.dart';
 import 'package:models/stubs/review.dart';
 import 'package:models/stubs/zap_receipt.dart';
 
+export 'badge.dart';
 export 'blossom.dart';
 export 'escrow.dart';
 export 'escrow_trust.dart';
@@ -30,5 +32,7 @@ var MOCK_EVENTS = [
   ...MOCK_PROFILES,
   ...MOCK_REVIEWS.map((i) => i.nip01Event),
   ...MOCK_ZAP_RECEIPTS,
-  ...MOCK_BLOSSOM_SERVER_LISTS
+  ...MOCK_BLOSSOM_SERVER_LISTS,
+  ...MOCK_BADGE_DEFINITIONS.map((i) => i.nip01Event),
+  ...MOCK_BADGE_AWARDS.map((i) => i.nip01Event),
 ];

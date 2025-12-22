@@ -1,11 +1,13 @@
+import 'package:hostr/data/main.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:models/main.dart';
 
 class GlobalGiftWrapCubit extends ListCubit<Event> with HydratedMixin {
   final AuthCubit authCubit;
-  GlobalGiftWrapCubit({required this.authCubit})
-    : super(kinds: [NOSTR_KIND_GIFT_WRAP]) {
+  final NostrService nostrService;
+  GlobalGiftWrapCubit({required this.authCubit, required this.nostrService})
+    : super(nostrService: nostrService, kinds: [NOSTR_KIND_GIFT_WRAP]) {
     hydrate();
   }
 }

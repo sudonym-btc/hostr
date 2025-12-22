@@ -6,7 +6,6 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:hostr/logic/services/swap.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
 import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
@@ -34,49 +33,48 @@ class ProfileScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: ProfileProvider(
-                      pubkey:
-                          getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
-                      builder: (context, snapshot) => snapshot.data == null
-                          ? Center(child: CircularProgressIndicator())
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CircleAvatar(
-                                  radius: 40,
-                                  backgroundImage: snapshot.data!.picture !=
-                                          null
-                                      ? NetworkImage(snapshot.data!.picture!)
-                                      : null, // Replace with actual profile photo URL
+                    pubkey: getIt<KeyStorage>()
+                        .getActiveKeyPairSync()!
+                        .publicKey,
+                    builder: (context, snapshot) => snapshot.data == null
+                        ? Center(child: CircularProgressIndicator())
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 40,
+                                backgroundImage: snapshot.data!.picture != null
+                                    ? NetworkImage(snapshot.data!.picture!)
+                                    : null, // Replace with actual profile photo URL
+                              ),
+                              SizedBox(height: 16), // Increased padding
+                              Text(
+                                snapshot.data!.name ??
+                                    snapshot.data!.displayName ??
+                                    'Username', // Replace with actual username
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                SizedBox(height: 16), // Increased padding
-                                Text(
-                                  snapshot.data!.name ??
-                                      snapshot.data!.displayName ??
-                                      'Username', // Replace with actual username
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              ),
+                              SizedBox(height: 8), // Added padding
+                              Text(
+                                snapshot.data!.nip05 ??
+                                    'nip05_address@example.com', // Replace with actual nip05 address
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              SizedBox(height: 4), // Added padding
+                              Text(
+                                snapshot.data!.about ??
+                                    '', // Replace with actual about section text
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
                                 ),
-                                SizedBox(height: 8), // Added padding
-                                Text(
-                                  snapshot.data!.nip05 ??
-                                      'nip05_address@example.com', // Replace with actual nip05 address
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                SizedBox(height: 4), // Added padding
-                                Text(
-                                  snapshot.data!.about ??
-                                      '', // Replace with actual about section text
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            )),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
               ),
             ),
@@ -94,123 +92,157 @@ class ProfileScreen extends StatelessWidget {
             delegate: SliverChildListDelegate([
               ModeToggleWidget(),
               Section(
-                  title: AppLocalizations.of(context)!.wallet,
-                  action: FilledButton.tonal(
-                      onPressed: () {
-                        showModalBottomSheet(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return AddWalletWidget();
-                            });
+                title: AppLocalizations.of(context)!.wallet,
+                action: FilledButton.tonal(
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AddWalletWidget();
                       },
-                      child: Text(AppLocalizations.of(context)!.connect)),
-                  body: NostrWalletConnectWidget()),
+                    );
+                  },
+                  child: Text(AppLocalizations.of(context)!.connect),
+                ),
+                body: NostrWalletConnectWidget(),
+              ),
               Section(
                 title: "Relays",
                 action: FilledButton.tonal(
-                    onPressed: () {
-                      showModalBottomSheet(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return Text('');
-                          });
-                    },
-                    child: Text(AppLocalizations.of(context)!.connect)),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return Text('');
+                      },
+                    );
+                  },
+                  child: Text(AppLocalizations.of(context)!.connect),
+                ),
                 body: RelayListWidget(),
               ),
               Section(
                 title: "Trusted Escrows",
                 action: FilledButton.tonal(
-                    onPressed: () {
-                      showModalBottomSheet(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AddWalletWidget();
-                          });
-                    },
-                    child: Text(AppLocalizations.of(context)!.add)),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AddWalletWidget();
+                      },
+                    );
+                  },
+                  child: Text(AppLocalizations.of(context)!.add),
+                ),
                 body: FutureBuilder(
                   future: getIt<NostrService>().trustedEscrows(),
-                  builder: (BuildContext context,
-                      AsyncSnapshot<Nip51List?> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.done) {
-                      if (snapshot.hasData) {
-                        return Column(children: [
-                          SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
-                          ...snapshot.data!.elements.map((el) {
-                            return ProfileProvider(
-                                pubkey: el.value,
-                                builder: (context, profileSnapshot) {
-                                  return ListTile(
-                                      contentPadding: EdgeInsets.all(0),
-                                      leading: CircleAvatar(
-                                        backgroundImage: profileSnapshot
-                                                    .data?.picture !=
-                                                null
-                                            ? NetworkImage(
-                                                profileSnapshot.data!.picture!)
-                                            : null,
-                                      ),
-                                      title: Text(profileSnapshot.data?.name ??
-                                          profileSnapshot.data?.displayName ??
-                                          'Username'),
-                                      subtitle: Text(
-                                          profileSnapshot.data?.nip05 ?? ''));
-                                });
-                          })
-                        ]);
-                      } else {
-                        return Text("No escrows trusted yet");
-                      }
-                    } else {
-                      return CircularProgressIndicator();
-                    }
-                  },
+                  builder:
+                      (
+                        BuildContext context,
+                        AsyncSnapshot<Nip51List?> snapshot,
+                      ) {
+                        if (snapshot.connectionState == ConnectionState.done) {
+                          if (snapshot.hasData) {
+                            return Column(
+                              children: [
+                                SizedBox(
+                                  height: DEFAULT_PADDING.toDouble() / 2,
+                                ),
+                                ...snapshot.data!.elements.map((el) {
+                                  return ProfileProvider(
+                                    pubkey: el.value,
+                                    builder: (context, profileSnapshot) {
+                                      return ListTile(
+                                        contentPadding: EdgeInsets.all(0),
+                                        leading: CircleAvatar(
+                                          backgroundImage:
+                                              profileSnapshot.data?.picture !=
+                                                  null
+                                              ? NetworkImage(
+                                                  profileSnapshot
+                                                      .data!
+                                                      .picture!,
+                                                )
+                                              : null,
+                                        ),
+                                        title: Text(
+                                          profileSnapshot.data?.name ??
+                                              profileSnapshot
+                                                  .data
+                                                  ?.displayName ??
+                                              'Username',
+                                        ),
+                                        subtitle: Text(
+                                          profileSnapshot.data?.nip05 ?? '',
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }),
+                              ],
+                            );
+                          } else {
+                            return Text("No escrows trusted yet");
+                          }
+                        } else {
+                          return CircularProgressIndicator();
+                        }
+                      },
                 ),
               ),
               Section(title: 'Money in flight', body: MoneyInFlightWidget()),
 
               Section(
-                  body: Column(
-                children: [
-                  FilledButton(
-                    child: Text(AppLocalizations.of(context)!.logout),
-                    onPressed: () async {
-                      final router =
-                          AutoRouter.of(context); // Store the router instance
-                      await BlocProvider.of<AuthCubit>(context).logout();
-                      await router.replaceAll(
-                        [SignInRoute()],
-                        onFailure: (failure) => throw failure,
-                      );
-                    },
-                  )
-                ],
-              )),
-              Section(
-                  body: Column(children: [
-                CustomPadding(
-                    child: Text(
-                        'Hostr is open source software maintained by the community with ❤️.')),
-                Row(
+                body: Column(
                   children: [
                     FilledButton(
-                      child: Text(AppLocalizations.of(context)!.zapUs),
-                      onPressed: () {
-                        context.read<PaymentsManager>().create(
-                            LnUrlPaymentParameters(
-                                to: 'tips@hostr.development',
-                                amount: Amount(
-                                    currency: Currency.BTC, value: 0.00001)));
+                      child: Text(AppLocalizations.of(context)!.logout),
+                      onPressed: () async {
+                        final router = AutoRouter.of(
+                          context,
+                        ); // Store the router instance
+                        await BlocProvider.of<AuthCubit>(context).logout();
+                        await router.replaceAll([
+                          SignInRoute(),
+                        ], onFailure: (failure) => throw failure);
                       },
                     ),
-                    ZapListWidget(
-                      pubkey: MockKeys.hoster.publicKey,
-                      builder: (p0) => Text(p0.pubKey!),
-                    )
                   ],
-                )
-              ])),
+                ),
+              ),
+              Section(
+                body: Column(
+                  children: [
+                    CustomPadding(
+                      child: Text(
+                        'Hostr is open source software maintained by the community with ❤️.',
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        FilledButton(
+                          child: Text(AppLocalizations.of(context)!.zapUs),
+                          onPressed: () {
+                            context.read<PaymentsManager>().create(
+                              LnUrlPaymentParameters(
+                                to: 'tips@hostr.development',
+                                amount: Amount(
+                                  currency: Currency.BTC,
+                                  value: 0.00001,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        ZapListWidget(
+                          pubkey: MockKeys.hoster.publicKey,
+                          builder: (p0) => Text(p0.pubKey!),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
               // Info section as an expandable list item
               if (const bool.fromEnvironment('dart.vm.product') == false)
                 ExpansionTile(
@@ -221,21 +253,22 @@ class ProfileScreen extends StatelessWidget {
                       body: FilledButton(
                         child: Text('Bolt11'),
                         onPressed: () {
-                          context
-                              .read<PaymentsManager>()
-                              .create(Bolt11PaymentParameters(
-                                to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
-                              ));
+                          context.read<PaymentsManager>().create(
+                            Bolt11PaymentParameters(
+                              to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
+                            ),
+                          );
                         },
                       ),
                     ),
                     Section(
-                        title: 'Swap',
-                        body: Column(children: [
+                      title: 'Swap',
+                      body: Column(
+                        children: [
                           FilledButton(
                             child: Text('Swap in'),
                             onPressed: () {
-                              getIt<SwapService>().swapIn(100000);
+                              context.read<SwapManager>().swapIn(100000);
                             },
                           ),
                           // FilledButton(
@@ -247,21 +280,23 @@ class ProfileScreen extends StatelessWidget {
                           FilledButton(
                             child: Text('ListEvents'),
                             onPressed: () {
-                              getIt<SwapService>().listEvents();
+                              context.read<SwapManager>().listEvents();
                             },
                           ),
                           FilledButton(
                             child: Text('Swap out'),
                             onPressed: () {
-                              getIt<SwapService>().swapOutAll();
+                              context.read<SwapManager>().swapOutAll();
                             },
                           ),
-                        ])),
+                        ],
+                      ),
+                    ),
                     KeysWidget(),
                   ],
                 ),
             ]),
-          )
+          ),
         ],
       ),
     );

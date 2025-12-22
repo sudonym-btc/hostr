@@ -39,7 +39,9 @@ class NwcService {
   NwcService(this.nwcStorage, this.nostr) {
     nwcStorage.get().then((urls) {
       for (var url in urls) {
-        connections.add(NwcCubit(url: url)..connect(url));
+        connections.add(
+          NwcCubit(url: url, nwcService: getIt<NwcService>())..connect(url),
+        );
       }
       logger.i('Initializing nwc connections $urls');
       _connectionsSubject.add(connections);

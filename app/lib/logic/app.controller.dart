@@ -11,33 +11,63 @@ class AppController {
   late AuthCubit authCubit;
   late GlobalGiftWrapCubit giftWrapListCubit;
   late ThreadOrganizerCubit threadOrganizerCubit;
+  late EventPublisherCubit eventPublisherCubit;
 
   late PaymentsManager paymentsManager;
   late SwapManager swapManager;
   late Ndk ndk;
+  late NostrService nostrService;
+  late NwcService nwc;
 
   late StreamSubscription sub;
 
   AppController() {
-    authCubit = AuthCubit();
-    giftWrapListCubit = GlobalGiftWrapCubit(authCubit: authCubit);
-    threadOrganizerCubit =
-        ThreadOrganizerCubit(globalMessageCubit: giftWrapListCubit);
-    paymentsManager = PaymentsManager();
-    swapManager = SwapManager(paymentsManager: paymentsManager);
     ndk = getIt<Ndk>();
+    nostrService = getIt<NostrService>();
+    nwc = getIt<NwcService>();
+
+    authCubit = AuthCubit(
+      keyStorage: getIt(),
+      secureStorage: getIt(),
+      ndk: getIt(),
+      workflow: getIt(),
+    );
+    giftWrapListCubit = GlobalGiftWrapCubit(
+      nostrService: nostrService,
+      authCubit: authCubit,
+    );
+    threadOrganizerCubit = ThreadOrganizerCubit(
+      nostrService: nostrService,
+      globalMessageCubit: giftWrapListCubit,
+      routingService: getIt(),
+    );
+    eventPublisherCubit = EventPublisherCubit(
+      nostrService: nostrService,
+      workflow: getIt(),
+    );
+    paymentsManager = PaymentsManager(dio: getIt(), nwcService: nwc);
+    swapManager = SwapManager(
+      paymentsManager: paymentsManager,
+      swapService: getIt(),
+      workflow: getIt(),
+    );
 
     sub = authCubit.stream.listen((state) async {
       if (state is LoggedIn) {
         KeyPair key = getIt<KeyStorage>().getActiveKeyPairSync()!;
-        ndk.accounts
-            .loginPrivateKey(pubkey: key.publicKey, privkey: key.privateKey!);
+        ndk.accounts.loginPrivateKey(
+          pubkey: key.publicKey,
+          privkey: key.privateKey!,
+        );
 
-        await ndk.userRelayLists.setInitialUserRelayList(UserRelayList(
+        await ndk.userRelayLists.setInitialUserRelayList(
+          UserRelayList(
             pubKey: key.publicKey,
             relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
             createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-            refreshedTimestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000));
+            refreshedTimestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          ),
+        );
 
         logger.i('Synching gift wraps ${key.publicKey}');
 
@@ -58,6 +88,7 @@ class AppController {
     authCubit.close();
     giftWrapListCubit.close();
     threadOrganizerCubit.close();
+    eventPublisherCubit.close();
     paymentsManager.close();
     swapManager.close();
   }

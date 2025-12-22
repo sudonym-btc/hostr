@@ -17,7 +17,6 @@ class ListWidget<T extends Event> extends StatefulWidget {
 class ListWidgetState<T extends Event> extends State<ListWidget<T>> {
   final ScrollController _scrollController = ScrollController();
   final CustomLogger logger = CustomLogger();
-  double _previousScrollOffset = 0.0;
 
   @override
   void initState() {
@@ -40,7 +39,6 @@ class ListWidgetState<T extends Event> extends State<ListWidget<T>> {
         ScrollDirection.reverse) {
       logger.d('Scrolling down');
     }
-    _previousScrollOffset = _scrollController.offset;
   }
 
   @override

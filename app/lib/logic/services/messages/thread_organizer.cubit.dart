@@ -1,16 +1,28 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
+import 'package:hostr/data/sources/nostr/nostr/nostr.service.dart';
+import 'package:hostr/logic/services/thread_routing_service.dart';
 import 'package:models/main.dart';
 
 import 'global_gift_wrap.cubit.dart';
 import 'thread.cubit.dart';
 
+/// Cubit organizing messages into threads.
+/// Routing logic delegated to ThreadRoutingService.
+/// This cubit manages ThreadCubit instances and UI state.
 class ThreadOrganizerCubit<T extends Event>
     extends Cubit<ThreadOrganizerState> {
   CustomLogger logger = CustomLogger();
   final GlobalGiftWrapCubit? globalMessageCubit;
-  ThreadOrganizerCubit({this.globalMessageCubit})
-    : super(ThreadOrganizerState(threads: [])) {
+  final NostrService nostrService;
+  final ThreadRoutingService _routingService;
+  
+  ThreadOrganizerCubit({
+    this.globalMessageCubit,
+    required this.nostrService,
+    required ThreadRoutingService routingService,
+  })  : _routingService = routingService,
+        super(ThreadOrganizerState(threads: [])) {
     if (globalMessageCubit != null) {
       logger.d("Setting up listeners for ThreadOrganizerCubit");
 
@@ -34,22 +46,34 @@ class ThreadOrganizerCubit<T extends Event>
     }
   }
 
-  /// Attempt to add message to existing thread, if not found, create new thread
+  /// Attempt to add message to existing thread, if not found, create new thread.
+  /// Routing logic delegated to service.
   void sortMessage(Event event) {
-    final threads = state.threads;
-    if (getThreadId(event) == null) {
+    // Business decision: should we route this event?
+    if (!_routingService.shouldRouteToThread(event)) {
+      logger.i("Event should not be routed: $event");
+      return;
+    }
+
+    final threadId = _routingService.extractThreadId(event);
+    if (threadId == null) {
       logger.i("No thread id found for event $event");
       return;
     }
-    logger.i("Sorting message with anchor $event");
-    final ThreadCubit threadCubit = threads.firstWhere(
-      (thread) => thread.state.id == getThreadId(event),
+
+    logger.i("Sorting message with thread ID: $threadId");
+    final threads = state.threads;
+    
+    threads.firstWhere(
+      (thread) => thread.state.id == threadId,
       orElse: () {
+        // Business decision: create new thread
         ThreadCubit newThreadCubit = ThreadCubit(
-          ThreadCubitState(id: getThreadId(event)!, messages: []),
+          ThreadCubitState(id: threadId, messages: []),
+          nostrService: nostrService,
         );
         threads.add(newThreadCubit);
-        logger.i("Emitting $threads");
+        logger.i("Created new thread: $threadId");
 
         emit(
           ThreadOrganizerState(
@@ -65,12 +89,8 @@ class ThreadOrganizerCubit<T extends Event>
   }
 
   String? getThreadId(Event event) {
-    // if (event.child is Seal && (event.child as Seal).child is Event) {
-    //   return ((event.child as Seal).child as Event).anchor;
-    // }
-    // logger.i(
-    //     "No thread id found for event ${event.child.runtimeType}, ${event.child.runtimeType},${(event.child as Seal).child.runtimeType}, $event");
-    return null;
+    // Delegate to service
+    return _routingService.extractThreadId(event);
   }
 }
 

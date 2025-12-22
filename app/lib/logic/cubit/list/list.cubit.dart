@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/main.dart';
-import 'package:hostr/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -19,6 +18,7 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
   Filter? filter;
   final List<int> kinds;
   final PublishSubject<T> itemStream = PublishSubject<T>();
+  final NostrService nostrService;
 
   final FilterCubit? filterCubit;
   final SortCubit<T>? sortCubit;
@@ -32,6 +32,7 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
     this.nostrInstance,
     this.limit,
     required this.kinds,
+    required this.nostrService,
     this.filterCubit,
     this.filter,
     this.sortCubit,
@@ -46,8 +47,9 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
       emit(applySort(state, sortState.comparator));
     });
 
-    postResultFilterSubscription =
-        postResultFilterCubit?.stream.listen((postResultFilterState) {
+    postResultFilterSubscription = postResultFilterCubit?.stream.listen((
+      postResultFilterState,
+    ) {
       emit(applyPostResultFilter(state, postResultFilterState));
     });
   }
@@ -56,20 +58,20 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
   Filter getFilter() {
     final newestTimestamp = state.results.isNotEmpty
         ? state.results
-            .map((e) => e.nip01Event.createdAt)
-            .reduce((a, b) => a > b ? a : b)
+              .map((e) => e.nip01Event.createdAt)
+              .reduce((a, b) => a > b ? a : b)
         : null;
     return getCombinedFilter(
-        getCombinedFilter(Filter(kinds: kinds, since: newestTimestamp), filter),
-        filterCubit?.state.filter);
+      getCombinedFilter(Filter(kinds: kinds, since: newestTimestamp), filter),
+      filterCubit?.state.filter,
+    );
   }
 
   next() async {
     logger.i("next");
     Filter finalFilter = getFilter();
     logger.t('listFilter: $finalFilter');
-    await getIt<NostrService>()
-        .startRequest<T>(filters: [finalFilter]).listen((event) {
+    await nostrService.startRequest<T>(filters: [finalFilter]).listen((event) {
       addItem(event);
     }).asFuture();
   }
@@ -81,7 +83,7 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
     logger.t('listFilter: $finalFilter');
     await next();
     emit(state.copyWith(synching: false));
-    getIt<NostrService>().subscribe<T>(filters: [finalFilter]).listen((event) {
+    nostrService.subscribe<T>(filters: [finalFilter]).listen((event) {
       addItem(event);
     });
   }
@@ -96,11 +98,15 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
         postResultFilterCubit!.state(item)) {
       itemStream.add(item);
     }
-    emit(applySort(
+    emit(
+      applySort(
         state.copyWith(
-            results: [...state.results, item],
-            resultsRaw: [...state.results, item]),
-        sortCubit?.state.comparator));
+          results: [...state.results, item],
+          resultsRaw: [...state.results, item],
+        ),
+        sortCubit?.state.comparator,
+      ),
+    );
   }
 
   void applyFilter(FilterState filter) {
@@ -109,14 +115,19 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
   }
 
   ListCubitState<T> applyPostResultFilter(
-      ListCubitState<T> state, bool Function(T item)? postResultFilter) {
+    ListCubitState<T> state,
+    bool Function(T item)? postResultFilter,
+  ) {
     if (postResultFilter == null) return state;
     return state.copyWith(
-        results: state.resultsRaw.where(postResultFilter).toList());
+      results: state.resultsRaw.where(postResultFilter).toList(),
+    );
   }
 
   ListCubitState<T> applySort(
-      ListCubitState<T> state, Comparator<T>? sortState) {
+    ListCubitState<T> state,
+    Comparator<T>? sortState,
+  ) {
     if (sortState == null) return state;
     state.results.sort(sortState);
     return state.copyWith(results: state.results);
@@ -148,7 +159,7 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
 }
 
 class HydratedListCubit<T extends Event> extends ListCubit<T> {
-  HydratedListCubit({required super.kinds});
+  HydratedListCubit({required super.kinds, required super.nostrService});
 
   @override
   Map<String, dynamic>? toJson(ListCubitState<T> state) {

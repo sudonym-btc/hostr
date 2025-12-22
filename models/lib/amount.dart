@@ -22,7 +22,7 @@ extension CurrencyExtension on Currency {
   String get prefix {
     switch (this) {
       case Currency.BTC:
-        return '';
+        return '₿';
       case Currency.USD:
         return '\$';
     }
@@ -31,7 +31,7 @@ extension CurrencyExtension on Currency {
   String get suffix {
     switch (this) {
       case Currency.BTC:
-        return ' sats';
+        return '';
       case Currency.USD:
         return '';
     }
