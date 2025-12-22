@@ -22,3 +22,13 @@ const NOSTR_KIND_NWC_INFO = 13194;
 const NOSTR_KIND_NWC_REQUEST = 23194;
 const NOSTR_KIND_NWC_RESPONSE = 23195;
 const NOSTR_KIND_NWC_NOTIFICATION = 23196;
+
+/// NIP-58 Badge events
+/// Kind 8: Badge Award - awards a badge to one or more pubkeys
+const NOSTR_KIND_BADGE_AWARD = 8;
+
+/// Kind 30009: Badge Definition - defines a badge with metadata (replaceable)
+const NOSTR_KIND_BADGE_DEFINITION = 30009;
+
+/// Kind 30008: Profile Badges - user's chosen badges to display (replaceable)
+const NOSTR_KIND_PROFILE_BADGES = 30008;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -26,15 +27,16 @@ abstract class DefaultEntityProvider<Type extends Event>
   /// Provide a child if you want to consume the cubit later
   final Widget? child;
 
-  DefaultEntityProvider(
-      {super.key,
-      required this.kinds,
-      this.e,
-      this.pubkey,
-      this.onDone,
-      this.a,
-      this.builder,
-      this.child}) {
+  DefaultEntityProvider({
+    super.key,
+    required this.kinds,
+    this.e,
+    this.pubkey,
+    this.onDone,
+    this.a,
+    this.builder,
+    this.child,
+  }) {
     /// A builder or a child must be provided
     assert(builder != null || child != null);
     assert(builder == null || child == null);
@@ -49,20 +51,26 @@ abstract class DefaultEntityProvider<Type extends Event>
     Widget consumer = child != null
         ? child!
         : BlocBuilder<EntityCubit<Type>, EntityCubitState<Type>>(
-            builder: builder!);
+            builder: builder!,
+          );
 
     return BlocProvider<EntityCubit<Type>>(
-        create: (context) => EntityCubit<Type>(
-            filter: Filter(
+      create: (context) =>
+          EntityCubit<Type>(
+              filter: Filter(
                 kinds: kinds,
                 authors: pubkey != null ? [pubkey!] : null,
                 aTags: a != null ? [a!] : null,
-                eTags: e != null ? [e!] : null))
-          ..get().then((value) {
-            if (onDone != null && value != null) {
-              onDone!(value);
-            }
-          }),
-        child: consumer);
+                eTags: e != null ? [e!] : null,
+              ),
+              nostr: getIt(),
+            )
+            ..get().then((value) {
+              if (onDone != null && value != null) {
+                onDone!(value);
+              }
+            }),
+      child: consumer,
+    );
   }
 }

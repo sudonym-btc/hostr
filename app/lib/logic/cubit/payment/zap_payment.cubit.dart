@@ -1,6 +1,6 @@
-import 'package:bolt11_decoder/bolt11_decoder.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/services/swap.dart';
+import 'package:hostr/logic/workflows/lnurl_workflow.dart';
+import 'package:hostr/logic/services/nwc.dart';
 import 'package:hostr/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -28,15 +28,7 @@ class ZapResolvedDetails extends ResolvedDetails {
   });
 }
 
-class LightningCallbackDetails extends CallbackDetails {
-  final Bolt11PaymentRequest invoice;
-  LightningCallbackDetails({required this.invoice});
-}
-
-class LightningCompletedDetails extends CompletedDetails {
-  final String preimage;
-  LightningCompletedDetails({required this.preimage});
-}
+// Callback/completed details are defined in LnUrlWorkflow
 
 class ZapPaymentCubit
     extends
@@ -46,11 +38,13 @@ class ZapPaymentCubit
           LightningCallbackDetails,
           LightningCompletedDetails
         > {
-  ZapPaymentCubit({required super.params});
+  final NwcService nwcService;
+
+  ZapPaymentCubit({required super.params, required this.nwcService});
 
   @override
   Future<LightningCompletedDetails> complete() async {
-    ZapResponse response = await getIt<NwcService>().zap(
+    ZapResponse response = await nwcService.zap(
       lnurl: state.params.to,
       amountSats: state.params.amount!.value * btcSatoshiFactor,
     );

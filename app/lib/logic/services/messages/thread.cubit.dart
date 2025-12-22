@@ -9,11 +9,15 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class ThreadCubit extends Cubit<ThreadCubitState> {
   CustomLogger logger = CustomLogger();
-  ThreadCubit(super.initialState);
+  final NostrService nostrService;
+  ThreadCubit(super.initialState, {required this.nostrService});
 
   Stream<ListCubitState<Reservation>> loadBookingState() {
     var x = ListCubit<Reservation>(
-        kinds: [NOSTR_KIND_RESERVATION], filter: Filter(aTags: [getAnchor()]));
+      nostrService: nostrService,
+      kinds: [NOSTR_KIND_RESERVATION],
+      filter: Filter(aTags: [getAnchor()]),
+    );
     x.sync();
     return x.stream;
   }
@@ -35,9 +39,7 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
       return keys;
     }).toList();
 
-    return keys.firstWhere(
-      (element) => element != ours.publicKey,
-    );
+    return keys.firstWhere((element) => element != ours.publicKey);
   }
 
   String getListingAnchor() {
@@ -86,8 +88,11 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   DateTime getLastDateTime() {
     // Return most recent dateTime of messages
     return state.messages
-        .map((message) => DateTime.fromMillisecondsSinceEpoch(
-            message.nip01Event.createdAt * 1000))
+        .map(
+          (message) => DateTime.fromMillisecondsSinceEpoch(
+            message.nip01Event.createdAt * 1000,
+          ),
+        )
         .reduce((a, b) => a.isAfter(b) ? a : b);
   }
 }
@@ -98,7 +103,7 @@ enum LatestThreadState {
   MESSAGE_SENT,
   MESSAGE_RECEIVED,
   CONFIRMED,
-  CANCELLED
+  CANCELLED,
 }
 
 class ThreadCubitState {

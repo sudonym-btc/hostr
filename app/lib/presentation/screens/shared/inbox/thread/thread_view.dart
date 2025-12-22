@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/screens/shared/inbox/thread/giftwraps/message.dart';
@@ -93,7 +94,11 @@ class ThreadViewState extends State<ThreadView> {
                           ),
                           CustomPadding(
                             child: BlocProvider(
-                              create: (context) => ThreadReplyCubit(),
+                              // Inject dependencies
+                              create: (context) => ThreadReplyCubit(
+                                keyStorage: getIt(),
+                                publisher: getIt(),
+                              ),
                               child:
                                   BlocConsumer<
                                     ThreadReplyCubit,

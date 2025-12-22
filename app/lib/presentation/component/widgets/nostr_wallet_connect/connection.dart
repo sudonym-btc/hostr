@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 
 class NostrWalletConnectConnectionWidget extends StatelessWidget {
-  final CustomLogger logger = CustomLogger();
   final bool canClose;
 
-  NostrWalletConnectConnectionWidget({super.key, this.canClose = false});
+  const NostrWalletConnectConnectionWidget({super.key, this.canClose = false});
 
   @override
-  build(BuildContext context) {
+  Widget build(BuildContext context) {
     return StreamBuilder(
       stream: getIt<NwcService>().connectionsStream,
       builder: (context, connections) {
@@ -43,7 +41,7 @@ class NostrWalletConnectConnectionWidget extends StatelessWidget {
                       : Colors.orange,
                 ),
                 trailing: canClose ? closeButton : null,
-                title: Text(s.content.alias ?? 'NWC Wallet'),
+                title: Text(s.content.alias),
                 subtitle: Text(
                   'Connected',
                   maxLines: 1,

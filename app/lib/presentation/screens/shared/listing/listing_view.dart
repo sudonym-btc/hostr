@@ -111,6 +111,7 @@ class ListingView extends StatelessWidget {
                                           create: (context) =>
                                               ListCubit<Review>(
                                                   kinds: Review.kinds,
+                                                  nostrService: getIt(),
                                                   filter: Filter(aTags: [
                                                     state.data!.anchor
                                                   ]))

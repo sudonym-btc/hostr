@@ -1,17 +1,16 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/injection.dart';
 import 'package:ndk/ndk.dart';
 
 import '../services/nwc.dart';
 
 class NwcCubit extends Cubit<NwcCubitState> {
   CustomLogger logger = CustomLogger();
-  NwcService nwcService = getIt<NwcService>();
+  final NwcService nwcService;
   String? url;
   NwcConnection? connection;
-  NwcCubit({this.url}) : super(Idle());
+  NwcCubit({required this.nwcService, this.url}) : super(Idle());
 
   Future connect(String? url) async {
     emit(Loading());
@@ -27,12 +26,15 @@ class NwcCubit extends Cubit<NwcCubitState> {
 
   Future checkInfo() async {
     emit(Loading());
-    return nwcService.getInfo(connection!).then((value) {
-      emit(Success(content: value));
-    }).catchError((e) {
-      logger.e(e);
-      emit(Error(e: e));
-    });
+    return nwcService
+        .getInfo(connection!)
+        .then((value) {
+          emit(Success(content: value));
+        })
+        .catchError((e) {
+          logger.e(e);
+          emit(Error(e: e));
+        });
   }
 }
 

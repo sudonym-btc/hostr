@@ -21,7 +21,12 @@ void main() {
   group('login', () {
     blocTest<AuthCubit, AuthState>(
       'emits [LoggedOut] when get called().',
-      build: () => AuthCubit(),
+      build: () => AuthCubit(
+        keyStorage: getIt(),
+        secureStorage: getIt(),
+        ndk: getIt(),
+        workflow: getIt(),
+      ),
       act: (bloc) {
         return bloc.get();
       },
@@ -30,7 +35,12 @@ void main() {
 
     blocTest<AuthCubit, AuthState>(
       'emits [LoggedIn] when get called().',
-      build: () => AuthCubit(),
+      build: () => AuthCubit(
+        keyStorage: getIt(),
+        secureStorage: getIt(),
+        ndk: getIt(),
+        workflow: getIt(),
+      ),
       setUp: () {
         getIt<SecureStorage>().set('keys', [keyPair.privateKey]);
       },
@@ -42,7 +52,12 @@ void main() {
 
     blocTest<AuthCubit, AuthState>(
       'emits [LoggedIn] when login called().',
-      build: () => AuthCubit(),
+      build: () => AuthCubit(
+        keyStorage: getIt(),
+        secureStorage: getIt(),
+        ndk: getIt(),
+        workflow: getIt(),
+      ),
       act: (bloc) {
         return bloc.signup();
       },

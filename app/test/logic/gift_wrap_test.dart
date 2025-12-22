@@ -20,9 +20,16 @@ void main() {
   group('Gift wrap should unpack child', () {
     blocTest<GlobalGiftWrapCubit, ListCubitState<Event>>(
       'emits new thread when new message introduced',
-      build: () =>
-          GlobalGiftWrapCubit(authCubit: AuthCubit(initialState: LoggedIn()))
-            ..sync(),
+      build: () => GlobalGiftWrapCubit(
+        authCubit: AuthCubit(
+          keyStorage: getIt(),
+          secureStorage: getIt(),
+          ndk: getIt(),
+          workflow: getIt(),
+          initialState: LoggedIn(),
+        ),
+        nostrService: getIt(),
+      )..sync(),
       act: (bloc) async {
         // getIt<NostrService>().events.add(giftWrapAndSeal(
         //     MockKeys.guest.publicKey, MockKeys.hoster, MOCK_LISTINGS[0], null));

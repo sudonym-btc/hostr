@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../payment/payments.cubit.dart';
-import '../swap/swaps.cubit.dart';
+import '../payment/payment.manager.cubit.dart';
+import '../swap/swap.manager.cubit.dart';
 import 'escrow_deposit.cubit.dart';
 
 /// TODO: should be hydrated from storage
@@ -19,10 +19,11 @@ class EscrowDepositManager extends Cubit<EscrowDepositCubit?> {
   /// Pick up where we left off for each escrow deposit if required
   init() {
     escrowDeposits
-        .where((escrowDeposit) =>
-            escrowDeposit.state is! EscrowDepositStateTerminal)
+        .where(
+          (escrowDeposit) => escrowDeposit.state is! EscrowDepositStateTerminal,
+        )
         .forEach((escrowDeposit) {
-      escrowDeposit.checkStatus();
-    });
+          escrowDeposit.checkStatus();
+        });
   }
 }

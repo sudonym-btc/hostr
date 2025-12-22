@@ -10,6 +10,13 @@ Flutter application for peer‑to‑peer accommodation built on Nostr and Lightn
 - Data: `lib/data/**` (Nostr, NWC, APIs), generated clients in `swagger_generated/` and `*.g.dart`
 - UI: `lib/presentation/**` (screens, widgets, themes)
 
+### Standards (logic vs UI)
+
+- Keep logic/testable code in `lib/logic/**` and `lib/data/**`; widgets should consume cubits/services via providers.
+- Long-running work should emit `ProgressSnapshot` updates from `lib/logic/progress/progress.dart` so the UI can render progress consistently.
+- Prefer constructor injection for cubits/services (pass dependencies to constructors; avoid GetIt lookups inside widgets).
+- Add unit tests for cubits/managers in `test/logic/**`; see `test/logic/event_publisher_cubit_test.dart` for a pattern.
+
 ## Environments
 
 - `main_development.dart` → dev
@@ -25,6 +32,12 @@ See `lib/setup.dart` for environment bootstrapping and mock servers.
 - Prod: use `main_production.dart`
 
 From VS Code, choose the corresponding launch/entrypoint; from CLI, select the file as the `-t` target.
+
+## Automation
+
+- Screenshots: `./bin/generate_screenshots.sh` (set `DEVICE_ID=<device>` to override the target; defaults to macOS desktop). Outputs to `app/screenshots/`.
+- Widgetbook/storybook: `./bin/generate_widgetbook.sh` (runs build_runner inside `widgetbook_workspace`).
+- Tests: `flutter test` for unit/widget; integration screenshots live in `integration_test/screenshot.dart`.
 
 ## Notes
 

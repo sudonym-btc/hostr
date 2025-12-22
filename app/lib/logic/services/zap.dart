@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
@@ -29,10 +27,10 @@ class ZapService {
         ["amount", (amountSats * 1000).toString()],
         ["lnurl", lnurl],
         ["p", recipientPubkey],
-        if (eventId != null) ["e", eventId]
+        if (eventId != null) ["e", eventId],
       ],
       "content": content ?? "",
-      "keyPairs": keyPairs!
+      "keyPairs": keyPairs!,
     });
   }
 
@@ -46,17 +44,17 @@ class ZapService {
     String? eventId,
   }) async {
     Nip01Event event = generateZapRequestEvent(
-        recipientPubkey: recipientPubkey,
-        lnurl: lnurl,
-        amountSats: amountSats,
-        relays: relays,
-        content: content,
-        eventId: eventId);
+      recipientPubkey: recipientPubkey,
+      lnurl: lnurl,
+      amountSats: amountSats,
+      relays: relays,
+      content: content,
+      eventId: eventId,
+    );
 
-    String eventString = Uri.encodeQueryComponent(json.encode(event));
-
-    var result = await getIt<Dio>()
-        .get("$callback?amount=${amountSats * 1000}&nostr=$event&lnurl=$lnurl");
+    var result = await getIt<Dio>().get(
+      "$callback?amount=${amountSats * 1000}&nostr=$event&lnurl=$lnurl",
+    );
 
     if (result.statusCode! >= 300) {
       throw Exception("Failed to get invoice");

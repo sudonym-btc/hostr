@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/repositories/nostr/base.repository.dart';
 import 'package:hostr/data/sources/nostr/nostr/nostr.service.dart';
-import 'package:hostr/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:ndk/ndk.dart';
 
@@ -13,6 +12,7 @@ class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
   final CustomLogger logger = CustomLogger();
   final Ndk? nostrInstance;
   final List<int> kinds;
+  final NostrService nostrService;
 
   final FilterCubit? filterCubit;
 
@@ -21,6 +21,7 @@ class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
   CountCubit({
     this.nostrInstance,
     required this.kinds,
+    required this.nostrService,
     this.filterCubit,
   }) : super(CountCubitState()) {
     filterSubscription = filterCubit?.stream.listen((filterState) {
@@ -31,25 +32,23 @@ class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
   void count() async {
     logger.i("count");
     emit(CountCubitStateLoading());
-    int count = await getIt<NostrService>().count(filters: [
-      getCombinedFilter(Filter(kinds: kinds), filterCubit?.state.filter)
-    ]);
+    int count = await nostrService.count(
+      filters: [
+        getCombinedFilter(Filter(kinds: kinds), filterCubit?.state.filter),
+      ],
+    );
 
     emit(CountCubitState(count: count));
   }
 
   @override
   Map<String, dynamic>? toJson(CountCubitState state) {
-    return {
-      'count': state.count,
-    };
+    return {'count': state.count};
   }
 
   @override
   CountCubitState? fromJson(Map<String, dynamic> json) {
-    return CountCubitState(
-      count: json['count'],
-    );
+    return CountCubitState(count: json['count']);
   }
 
   @override
@@ -61,16 +60,12 @@ class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
 
 class CountCubitState {
   final int? count;
-  CountCubitState({
-    this.count,
-  });
+  CountCubitState({this.count});
 }
 
 class CountCubitStateLoading extends CountCubitState {}
 
 class CountCubitStateError extends CountCubitState {
   final String? error;
-  CountCubitStateError({
-    this.error,
-  });
+  CountCubitStateError({this.error});
 }

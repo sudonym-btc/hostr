@@ -24,6 +24,7 @@ class MyListingsScreen extends StatelessWidget {
             BlocProvider(
               create: (context) => ListCubit<Listing>(
                 kinds: Listing.kinds,
+                nostrService: getIt(),
                 filter: Filter(authors: [snapshot.data!.publicKey]),
               )..next(),
             ),
@@ -51,6 +52,7 @@ class MyListingsScreen extends StatelessWidget {
                             BlocProvider<ListCubit<Reservation>>(
                               create: (context) => ListCubit<Reservation>(
                                 kinds: Reservation.kinds,
+                                nostrService: getIt(),
                                 filter: Filter(
                                   authors: [snapshot.data!.publicKey],
                                   aTags: [el.id],

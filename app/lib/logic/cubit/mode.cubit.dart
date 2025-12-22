@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/sources/local/mode_storage.dart';
-import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 
 /// Abstract class representing the state of authentication.
@@ -22,9 +21,9 @@ class GuestMode extends ModeCubitState {}
 /// Cubit class to manage authentication state.
 @injectable
 class ModeCubit extends Cubit<ModeCubitState> {
-  ModeStorage modeStorage = getIt<ModeStorage>();
+  final ModeStorage modeStorage;
 
-  ModeCubit() : super(ModeInitial());
+  ModeCubit({required this.modeStorage}) : super(ModeInitial());
 
   Future<void> setHost() async {
     await modeStorage.set('host');

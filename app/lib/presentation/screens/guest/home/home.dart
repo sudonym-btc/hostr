@@ -14,18 +14,20 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        BlocListener<PaymentsManager, PaymentCubit?>(
+        BlocListener<PaymentsManager, PaymentsState>(
           listener: (c, state) {
-            if (state == null) return;
-            // Handle PaymentsManager state changes
+            if (state.payments.isEmpty) return;
+            final latest = state.payments.reduce(
+              (a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b,
+            );
+            final cubit = context.read<PaymentsManager>().cubitFor(latest.id);
+            if (cubit == null) return;
             showModalBottomSheet(
-                context: context,
-                builder: (c) {
-                  return SafeArea(
-                      child: PaymentWidget(
-                    paymentCubit: state,
-                  ));
-                });
+              context: context,
+              builder: (c) {
+                return SafeArea(child: PaymentWidget(paymentCubit: cubit));
+              },
+            );
           },
         ),
         // BlocListener<SwapManager, SwapState>(
@@ -39,40 +41,59 @@ class HomeScreen extends StatelessWidget {
         //   },
         // ),
       ],
-      child: BlocBuilder<ModeCubit, ModeCubitState>(builder: (context, state) {
-        if (state is HostMode) {
-          const hostTabs = [
+      child: BlocBuilder<ModeCubit, ModeCubitState>(
+        builder: (context, state) {
+          if (state is HostMode) {
+            const hostTabs = [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.list),
+                label: 'My Listings',
+              ),
+              BottomNavigationBarItem(icon: Icon(Icons.inbox), label: 'Inbox'),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person),
+                label: 'Profile',
+              ),
+            ];
+            return AutoTabsScaffold(
+              routes: [MyListingsRoute(), InboxRoute(), ProfileRoute()],
+              bottomNavigationBuilder: (context, tabsRouter) =>
+                  BottomNavigationBar(
+                    currentIndex: min(
+                      hostTabs.length - 1,
+                      tabsRouter.activeIndex,
+                    ),
+                    onTap: tabsRouter.setActiveIndex,
+                    items: hostTabs,
+                  ),
+            );
+          }
+          const otherTabs = [
             BottomNavigationBarItem(
-                icon: Icon(Icons.list), label: 'My Listings'),
+              icon: Icon(Icons.search, size: 30),
+              label: 'Search',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.travel_explore),
+              label: 'Trips',
+            ),
             BottomNavigationBarItem(icon: Icon(Icons.inbox), label: 'Inbox'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ];
           return AutoTabsScaffold(
-              routes: [MyListingsRoute(), InboxRoute(), ProfileRoute()],
-              bottomNavigationBuilder: (context, tabsRouter) =>
-                  BottomNavigationBar(
-                      currentIndex:
-                          min(hostTabs.length - 1, tabsRouter.activeIndex),
-                      onTap: tabsRouter.setActiveIndex,
-                      items: hostTabs));
-        }
-        const otherTabs = [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.search, size: 30), label: 'Search'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.travel_explore), label: 'Trips'),
-          BottomNavigationBarItem(icon: Icon(Icons.inbox), label: 'Inbox'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ];
-        return AutoTabsScaffold(
             routes: [SearchRoute(), TripsRoute(), InboxRoute(), ProfileRoute()],
             bottomNavigationBuilder: (context, tabsRouter) =>
                 BottomNavigationBar(
-                    currentIndex:
-                        min(otherTabs.length - 1, tabsRouter.activeIndex),
-                    onTap: tabsRouter.setActiveIndex,
-                    items: otherTabs));
-      }),
+                  currentIndex: min(
+                    otherTabs.length - 1,
+                    tabsRouter.activeIndex,
+                  ),
+                  onTap: tabsRouter.setActiveIndex,
+                  items: otherTabs,
+                ),
+          );
+        },
+      ),
     );
   }
 }
