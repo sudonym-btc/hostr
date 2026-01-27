@@ -57,7 +57,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
               borderRadius: BorderRadius.circular(8.0),
               child: BlossomImage(
                 image: i,
-                pubkey: widget.listing.nip01Event.pubKey,
+                pubkey: widget.listing.pubKey,
                 width: MediaQuery.of(context).size.width,
                 height: MediaQuery.of(
                   context,

@@ -1,118 +1,43 @@
 import 'package:hostr/core/main.dart';
-import 'package:hostr/data/sources/local/key_storage.dart';
-import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
-import 'package:models/main.dart';
 import 'package:ndk/entities.dart';
-import 'package:ndk/ndk.dart';
+import 'package:ndk/ndk.dart' show Ndk;
 import 'package:rxdart/rxdart.dart';
 
+import 'usecase/badge_awards/badge_awards.dart';
+import 'usecase/badge_definitions/badge_definitions.dart';
+import 'usecase/escrows/escrows.dart';
+import 'usecase/listings/listings.dart';
+import 'usecase/messaging/messaging.dart';
+import 'usecase/requests/requests.dart';
+import 'usecase/reservation_requests/reservation_requests.dart';
+import 'usecase/reservations/reservations.dart';
+
 abstract class NostrService {
+  NostrService({required Ndk ndk}) {
+    requests = Requests(ndk: ndk);
+    listings = Listings(requests: requests);
+    reservations = Reservations(requests: requests);
+    reservationRequests = ReservationRequests(requests: requests, ndk: ndk);
+    escrows = Escrows(requests: requests);
+    messaging = Messaging(ndk, requests);
+    badgeDefinitions = BadgeDefinitions(requests: requests);
+    badgeAwards = BadgeAwards(requests: requests);
+  }
+
   CustomLogger logger = CustomLogger();
-  ReplaySubject<Event> events = ReplaySubject<Event>();
-
-  Stream<T> startRequest<T extends Event>({
-    required List<Filter> filters,
-    List<String>? relays,
-  });
-  Stream<T> subscribe<T extends Event>({
-    required List<Filter> filters,
-    List<String>? relays,
-  });
-  Future<List<T>> startRequestAsync<T extends Event>({
-    required List<Filter> filters,
-    Duration? timeout,
-    List<String>? relays,
-  });
-  Future<int> count({
-    required List<Filter> filters,
-    Duration? timeout,
-    List<String>? relays,
-  });
-
-  Future<Nip51List?> trustedEscrows();
-
-  Future<List<RelayBroadcastResponse>> broadcast({
-    required Nip01Event event,
-    List<String>? relays,
-  });
-
-  List<RelayConnectivity> connectivity();
+  ReplaySubject<Nip01Event> events = ReplaySubject<Nip01Event>();
+  late final Requests requests;
+  late final Listings listings;
+  late final Reservations reservations;
+  late final Escrows escrows;
+  late final BadgeDefinitions badgeDefinitions;
+  late final BadgeAwards badgeAwards;
+  late final Messaging messaging;
+  late final ReservationRequests reservationRequests;
 }
 
 @Singleton(as: NostrService)
 class ProdNostrService extends NostrService {
-  @override
-  Stream<T> subscribe<T extends Event>({
-    required List<Filter> filters,
-    List<String>? relays,
-  }) {
-    return getIt<Ndk>().requests
-        .subscription(filters: filters, cacheRead: false, cacheWrite: false)
-        .stream
-        .asyncMap((event) async {
-          return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair());
-        });
-  }
-
-  @override
-  Stream<T> startRequest<T extends Event>({
-    required List<Filter> filters,
-    List<String>? relays,
-  }) {
-    return getIt<Ndk>().requests
-        .query(filters: filters, cacheRead: false, cacheWrite: false)
-        .stream
-        .asyncMap((event) async {
-          return parser<T>(event, await getIt<KeyStorage>().getActiveKeyPair());
-        });
-  }
-
-  @override
-  startRequestAsync<T extends Event>({
-    required List<Filter> filters,
-    Duration? timeout,
-    List<String>? relays,
-  }) async {
-    return startRequest<T>(filters: filters).toList();
-  }
-
-  @override
-  Future<int> count({
-    required List<Filter> filters,
-    Duration? timeout,
-    List<String>? relays,
-  }) async {
-    var results = await startRequestAsync(
-      filters: filters,
-      timeout: timeout,
-      relays: relays,
-    );
-    return results.length;
-  }
-
-  @override
-  Future<List<RelayBroadcastResponse>> broadcast({
-    required Nip01Event event,
-    List<String>? relays,
-  }) {
-    return getIt<Ndk>().broadcast
-        .broadcast(nostrEvent: event)
-        .broadcastDoneFuture;
-  }
-
-  @override
-  List<RelayConnectivity> connectivity() {
-    return getIt<Ndk>().relays.connectedRelays;
-  }
-
-  @override
-  Future<Nip51List?> trustedEscrows() {
-    return getIt<Ndk>().lists.getSingleNip51List(NOSTR_KIND_ESCROW_TRUST);
-  }
-
-  // @override
-  // count(Filter filter) {
-  //   return ndk.requests.;
-  // }
+  ProdNostrService(Ndk ndk) : super(ndk: ndk);
 }

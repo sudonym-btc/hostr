@@ -1,18 +1,19 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:hostr/data/sources/local/secure_storage.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/auth.cubit.dart';
+import 'package:hostr/main.dart';
 import 'package:models/bip340.dart';
+import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 void main() {
   KeyPair keyPair = Bip340.generatePrivateKey();
 
-  setUp(() {
+  setUp(() async {
     // Reset the GetIt instance to its initial state before each test
-    GetIt.I.reset();
+    await GetIt.I.reset(dispose: true);
+    getIt.allowReassignment = true;
 
     // Re-configure services for testing
     configureInjection(Env.test);
@@ -24,13 +25,17 @@ void main() {
       build: () => AuthCubit(
         keyStorage: getIt(),
         secureStorage: getIt(),
-        ndk: getIt(),
-        workflow: getIt(),
+        authService: getIt(),
       ),
       act: (bloc) {
         return bloc.get();
       },
       expect: () => <AuthState>[LoggedOut()],
+      verify: (_) {
+        final ndk = getIt<Ndk>();
+        // Basic check: at least one account exists
+        expect(ndk.accounts.accounts.isEmpty, true);
+      },
     );
 
     blocTest<AuthCubit, AuthState>(
@@ -38,8 +43,7 @@ void main() {
       build: () => AuthCubit(
         keyStorage: getIt(),
         secureStorage: getIt(),
-        ndk: getIt(),
-        workflow: getIt(),
+        authService: getIt(),
       ),
       setUp: () {
         getIt<SecureStorage>().set('keys', [keyPair.privateKey]);
@@ -55,13 +59,21 @@ void main() {
       build: () => AuthCubit(
         keyStorage: getIt(),
         secureStorage: getIt(),
-        ndk: getIt(),
-        workflow: getIt(),
+        authService: getIt(),
       ),
       act: (bloc) {
         return bloc.signup();
       },
       expect: () => [LoggedOut(), isA<LoggedIn>()],
+      verify: (_) {
+        final ndk = getIt<Ndk>();
+        // Basic check: at least one account exists
+        expect(ndk.accounts.accounts.isNotEmpty, true);
+
+        // Stronger check: it contains the current pubkey
+        final kp = getIt<KeyStorage>().getActiveKeyPairSync()!;
+        expect(ndk.accounts.hasAccount(kp.publicKey), true);
+      },
     );
   });
 }

@@ -38,7 +38,7 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
             ),
             CustomPadding(),
             FutureBuilder(
-              future: getIt<NostrService>().trustedEscrows(),
+              future: getIt<NostrService>().escrows.trusted(),
               builder:
                   (BuildContext context, AsyncSnapshot<Nip51List?> snapshot) {
                     if (snapshot.connectionState == ConnectionState.done) {
@@ -99,24 +99,23 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                     ? null
                     : () async {
                         List<Escrow> escrowServices =
-                            await getIt<NostrService>().startRequestAsync(
-                              filters: [
-                                Filter(
-                                  kinds: [NOSTR_KIND_ESCROW],
-                                  authors: [_current!],
-                                ),
-                              ],
-                            );
+                            await getIt<NostrService>().requests
+                                .startRequestAsync(
+                                  filter: Filter(
+                                    kinds: [NOSTR_KIND_ESCROW],
+                                    authors: [_current!],
+                                  ),
+                                );
                         await context.read<SwapManager>().escrow(
                           amount: widget.r.parsedContent.amount,
-                          eventId: widget.r.nip01Event.id,
+                          eventId: widget.r.id,
                           timelock: widget.r.parsedContent.end
                               .difference(DateTime.now())
                               .inMinutes,
                           escrowContractAddress:
                               escrowServices[0].parsedContent.contractAddress,
                           sellerPubkey: widget.counterparty.pubKey,
-                          escrowPubkey: MOCK_ESCROWS[0].nip01Event.pubKey,
+                          escrowPubkey: MOCK_ESCROWS[0].pubKey,
                         );
                       },
                 child: Text(AppLocalizations.of(context)!.selectEscrow),

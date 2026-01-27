@@ -28,14 +28,14 @@ class ImageCarouselWIdgetState extends State<ImageCarouselWidget> {
   Widget build(BuildContext context) {
     return CarouselSlider(
       options: CarouselOptions(
-          viewportFraction: 1,
-          padEnds: false,
-          height: MediaQuery.of(context).size.height / 3),
+        viewportFraction: 1,
+        padEnds: false,
+        height: MediaQuery.of(context).size.height / 3,
+      ),
       items: widget.item.parsedContent.images.map<Widget>((i) {
         return Builder(
           builder: (BuildContext context) {
-            return BlossomImage(
-                image: i, pubkey: widget.item.nip01Event.pubKey);
+            return BlossomImage(image: i, pubkey: widget.item.pubKey);
             // return Image.network(
             //   i,
             //   fit: BoxFit.cover,

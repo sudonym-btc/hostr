@@ -968,10 +968,10 @@ packages:
     description:
       path: "packages/ndk"
       ref: HEAD
-      resolved-ref: "937541a44837d5d861565b35cde3a39476d3cfc1"
+      resolved-ref: "07dfd2c0c9b59086df2e04bcbf496efd6b5ea78e"
       url: "https://github.com/relaystr/ndk.git"
     source: git
-    version: "0.6.1-dev.4"
+    version: "0.7.1-dev.0"
   nested:
     dependency: transitive
     description:

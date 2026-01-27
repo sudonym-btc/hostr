@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:ndk/domain_layer/entities/nip_01_event.dart';
+
 import 'event.dart';
 import 'serializable.dart';
 
@@ -7,10 +9,7 @@ abstract class JsonContentNostrEvent<ContentType extends EventContent>
     extends Event {
   late ContentType parsedContent;
 
-  JsonContentNostrEvent(super.nip01Event);
-
-  @override
-  String get content => parsedContent.toString();
+  JsonContentNostrEvent.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e);
 }
 
 class EventContent extends Serializable {

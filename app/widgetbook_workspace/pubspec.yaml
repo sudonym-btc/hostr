@@ -12,6 +12,10 @@ dependencies:
   widgetbook: ^3.8.1
   widgetbook_annotation: ^3.2.0
   flutter_bloc: ^9.0.0
+  ndk:
+    git:
+      url: https://github.com/relaystr/ndk.git 
+      path: packages/ndk 
   models: 
     path: ../../models
   hostr:
@@ -26,12 +30,6 @@ dev_dependencies:
   mockito: ^5.4.5
   shelf: ^1.4.2
   shelf_router: ^1.1.4
-  
-dependency_overrides:
-  ndk:
-    git:
-      url: https://github.com/relaystr/ndk.git
-      path: packages/ndk
 
 flutter:
   uses-material-design: true

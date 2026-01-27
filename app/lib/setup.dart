@@ -7,6 +7,7 @@ import 'package:hostr/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:models/main.dart';
 import 'package:ndk/entities.dart';
+import 'package:ndk/ndk.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'data/sources/nostr/mock.relay.dart';
@@ -36,33 +37,49 @@ Future<void> setup(String env) async {
 
   // If we are testing, launch a mock relay server
   if (env == Env.mock || env == Env.test) {
-    MockBlossomServer blossomServer = MockBlossomServer();
-    await blossomServer.start();
-    MockRelay mockRelay =
-        MockRelay(name: "Mock Relay", explicitPort: 5432, events: [
-      ...MOCK_EVENTS,
+    await setupMockRelay();
+  }
+
+  // Restore NDK session from stored keys before connecting relays.
+  await getIt<AuthService>().ensureNdkLoggedIn();
+  await getIt<RelayConnector>().connect();
+}
+
+Future<void> setupMockRelay() async {
+  MockBlossomServer blossomServer = MockBlossomServer();
+  await blossomServer.start();
+  MockRelay mockRelay = MockRelay(
+    name: "Mock Relay",
+    explicitPort: 5432,
+    events: [
+      ...await MOCK_EVENTS(),
 
       /// Preferred relay lists
-      Nip65(
-              pubKey: MockKeys.guest.publicKey,
-              relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
-              createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000)
-          .toEvent()
-        ..sign(MockKeys.guest.privateKey!),
-      Nip65(
-              pubKey: MockKeys.hoster.publicKey,
-              relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
-              createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000)
-          .toEvent()
-        ..sign(MockKeys.hoster.privateKey!),
-      Nip65(
-              pubKey: MockKeys.escrow.publicKey,
-              relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
-              createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000)
-          .toEvent()
-        ..sign(MockKeys.escrow.privateKey!)
-    ]);
-    await mockRelay.startServer();
-  }
-  await getIt<RelayConnector>().connect();
+      Nip01Utils.signWithPrivateKey(
+        privateKey: MockKeys.guest.privateKey!,
+        event: Nip65(
+          pubKey: MockKeys.guest.publicKey,
+          relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+        ).toEvent(),
+      ),
+      Nip01Utils.signWithPrivateKey(
+        privateKey: MockKeys.hoster.privateKey!,
+        event: Nip65(
+          pubKey: MockKeys.hoster.publicKey,
+          relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+        ).toEvent(),
+      ),
+      Nip01Utils.signWithPrivateKey(
+        privateKey: MockKeys.escrow.privateKey!,
+        event: Nip65(
+          pubKey: MockKeys.escrow.publicKey,
+          relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+        ).toEvent(),
+      ),
+    ],
+  );
+  await mockRelay.startServer();
 }

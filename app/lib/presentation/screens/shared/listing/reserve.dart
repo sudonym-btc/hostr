@@ -23,9 +23,8 @@ class ReserveState extends State<Reserve> {
     return BlocBuilder<DateRangeCubit, DateRangeState>(
       builder: (context, dateState) => BlocProvider<ReservationCubit>(
         create: (context) => ReservationCubit(
-          ndk: getIt(),
-          publisher: getIt(),
-          workflow: getIt(),
+          publisher: context.read<EventPublisherCubit>(),
+          nostrService: getIt(),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

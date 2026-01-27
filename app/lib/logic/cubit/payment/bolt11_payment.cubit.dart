@@ -1,9 +1,9 @@
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/workflows/lnurl_workflow.dart';
 import 'package:hostr/main.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
-import 'package:hostr/logic/workflows/lnurl_workflow.dart';
 
 class Bolt11PaymentParameters extends PaymentParameters {
   Bolt11PaymentParameters({super.amount, super.comment, required super.to});

@@ -58,7 +58,7 @@ class EventPublisherCubit extends Cubit<EventPublisherState> {
     // Delegate business process to workflow
     final sent = await _workflow.publishBatch(
       events: events,
-      publishEvent: (event) => _nostrService.broadcast(event: event),
+      publishEvent: (event) => _nostrService.requests.broadcast(event: event),
       onProgress: (progress) {
         // Business decision: update state based on workflow progress
         emit(

@@ -40,7 +40,8 @@ class NwcService {
     nwcStorage.get().then((urls) {
       for (var url in urls) {
         connections.add(
-          NwcCubit(url: url, nwcService: getIt<NwcService>())..connect(url),
+          // Use the current instance to avoid re-entrant GetIt lookups during construction
+          NwcCubit(url: url, nwcService: this)..connect(url),
         );
       }
       logger.i('Initializing nwc connections $urls');

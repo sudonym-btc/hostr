@@ -1,14 +1,16 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:ndk/ndk.dart';
+
 import '../nostr_kinds.dart';
 import 'type_json_content.dart';
 
 class Escrow extends JsonContentNostrEvent<EscrowContent> {
   static const List<int> kinds = [NOSTR_KIND_ESCROW];
 
-  Escrow.fromNostrEvent(super.e) {
-    parsedContent = EscrowContent.fromJson(json.decode(nip01Event.content));
+  Escrow.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
+    parsedContent = EscrowContent.fromJson(json.decode(content));
   }
 }
 

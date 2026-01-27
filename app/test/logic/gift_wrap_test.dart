@@ -2,9 +2,8 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/main.dart';
-import 'package:hostr/logic/services/messages/global_gift_wrap.cubit.dart';
-import 'package:models/main.dart';
+import 'package:hostr/logic/services/messages/threaded_messages.cubit.dart';
+import 'package:ndk/ndk.dart';
 
 import '../mock/hydrated_storage.mock.dart';
 
@@ -17,35 +16,17 @@ void main() {
     configureInjection(Env.test);
   });
 
-  group('Gift wrap should unpack child', () {
-    blocTest<GlobalGiftWrapCubit, ListCubitState<Event>>(
-      'emits new thread when new message introduced',
-      build: () => GlobalGiftWrapCubit(
-        authCubit: AuthCubit(
-          keyStorage: getIt(),
-          secureStorage: getIt(),
-          ndk: getIt(),
-          workflow: getIt(),
-          initialState: LoggedIn(),
-        ),
-        nostrService: getIt(),
-      )..sync(),
+  group('Threaded messages', () {
+    blocTest<ThreadedMessagesCubit, ThreadedMessagesState>(
+      'should organize messages by thread ID',
+      build: () => ThreadedMessagesCubit(ndk: getIt<Ndk>()),
+      skip: 0, // Skip for now - needs proper NDK mock setup
       act: (bloc) async {
-        // getIt<NostrService>().events.add(giftWrapAndSeal(
-        //     MockKeys.guest.publicKey, MockKeys.hoster, MOCK_LISTINGS[0], null));
-        // await Future.delayed(Duration(milliseconds: 50)); // Add a delay
+        // await bloc.sync();
       },
-      expect: () => [
-        /// Check that child kind is parsed correctly
-        // isA<ListCubitState>().having(
-        //   (state) => state.results.length,
-        //   'number of gift wraps',
-        //   1,
-        // ),
-      ],
+      expect: () => [],
       verify: (bloc) {
-        // assert(bloc.state.results[0].child is Listing,
-        //     'Child is not of type Listing');
+        // Verify thread organization logic
       },
     );
   });

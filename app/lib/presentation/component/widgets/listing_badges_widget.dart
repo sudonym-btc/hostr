@@ -247,13 +247,10 @@ class BadgeDetailsSheet extends StatelessWidget {
               const SizedBox(height: 12),
               _InfoRow(
                 label: 'Issued by',
-                child: ProfileChipWidget(id: award.nip01Event.pubKey),
+                child: ProfileChipWidget(id: award.pubKey),
               ),
               const SizedBox(height: 8),
-              _InfoRow(
-                label: 'Award ID',
-                value: _truncateHash(award.nip01Event.id),
-              ),
+              _InfoRow(label: 'Award ID', value: _truncateHash(award.id)),
               if (badgeAnchor != null) ...[
                 const SizedBox(height: 8),
                 _InfoRow(

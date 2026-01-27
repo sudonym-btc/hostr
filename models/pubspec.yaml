@@ -9,10 +9,5 @@ environment:
 dependencies:
   ndk:
     git:
-      url: https://github.com/relaystr/ndk
-
-dependency_overrides:
-  ndk:
-    git:
-      url: https://github.com/relaystr/ndk.git
-      path: packages/ndk
+      url: https://github.com/relaystr/ndk.git 
+      path: packages/ndk 

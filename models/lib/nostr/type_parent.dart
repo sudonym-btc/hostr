@@ -1,10 +1,12 @@
+import 'package:ndk/ndk.dart';
+
 import 'event.dart';
 
 abstract class ParentTypeNostrEvent<ChildType extends Event> extends Event {
   final ChildType? child;
 
-  ParentTypeNostrEvent(
-    super.nip01Event, {
+  ParentTypeNostrEvent.fromNostrEvent(
+    Nip01Event e, {
     this.child,
-  });
+  }) : super.fromNostrEvent(e);
 }

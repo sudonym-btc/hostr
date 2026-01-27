@@ -4,9 +4,11 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 var MOCK_LISTINGS = [
-  Listing.fromNostrEvent(Nip01Event(
-      pubKey: MockKeys.hoster.publicKey,
-      content: json.encode(ListingContent(
+  Listing.fromNostrEvent(Nip01Utils.signWithPrivateKey(
+      privateKey: MockKeys.hoster.privateKey!,
+      event: Nip01Event(
+          pubKey: MockKeys.hoster.publicKey,
+          content: json.encode(ListingContent(
               title: 'Cozy Cabin in the Woods',
               description: """
 A cozy, rustic cabin nestled in the woods. Perfect for a quiet retreat or a family vacation. Enjoy the serene surroundings and the beautiful nature trails. Close to local attractions and amenities.
@@ -34,19 +36,19 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
                 'https://a0.muscache.com/im/pictures/24c2d7ed-bf13-4050-aa3c-8dffd24b07e5.jpg?im_w=720&im_format=avif'
               ],
               type: ListingType.hostel,
-              amenities:
-                  Amenities.fromJSON({'wireless_internet': true, 'bbq': true}))
-          .toJson()),
-      createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-      kind: NOSTR_KIND_LISTING,
-      tags: [
-        ['d', '1'],
-        ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.publicKey}:1']
-      ])
-    ..sign(MockKeys.hoster.privateKey!)),
-  Listing.fromNostrEvent(Nip01Event(
-      pubKey: MockKeys.hoster.publicKey,
-      content: json.encode(ListingContent(
+              amenities: Amenities.fromJSON(
+                  {'wireless_internet': true, 'bbq': true})).toJson()),
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+          kind: NOSTR_KIND_LISTING,
+          tags: [
+            ['d', '1'],
+            ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.publicKey}:1']
+          ]))),
+  Listing.fromNostrEvent(Nip01Utils.signWithPrivateKey(
+      privateKey: MockKeys.hoster.privateKey!,
+      event: Nip01Event(
+          pubKey: MockKeys.hoster.publicKey,
+          content: json.encode(ListingContent(
               title: 'Modern City Apartment',
               description: """
 A cozy, rustic cabin nestled in the woods. Perfect for a quiet retreat or a family vacation. Enjoy the serene surroundings and the beautiful nature trails. Close to local attractions and amenities.
@@ -74,16 +76,14 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
                 'https://a0.muscache.com/im/pictures/24c2d7ed-bf13-4050-aa3c-8dffd24b07e5.jpg?im_w=720&im_format=avif'
               ],
               type: ListingType.hostel,
-              amenities:
-                  Amenities.fromJSON({'wireless_internet': true, 'bbq': true}))
-          .toJson()),
-      createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-      kind: NOSTR_KIND_LISTING,
-      tags: [
-        ['d', '2'],
-        ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.publicKey}:2']
-      ])
-    ..sign(MockKeys.hoster.privateKey!)),
+              amenities: Amenities.fromJSON(
+                  {'wireless_internet': true, 'bbq': true})).toJson()),
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+          kind: NOSTR_KIND_LISTING,
+          tags: [
+            ['d', '2'],
+            ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.publicKey}:2']
+          ]))),
 //   Listing.fromNostrEvent(NostrEvent.fromPartialData(
 //       keyPairs: MockKeys.hoster,
 //       content: json.encode(ListingContent(

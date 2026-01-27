@@ -1,27 +1,23 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/crud.usecase.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
   CustomLogger logger = CustomLogger();
-  final NostrService nostr;
+  final CrudUseCase<T> crud;
   final Filter? filter;
 
-  EntityCubit({required this.filter, required this.nostr})
+  EntityCubit({required this.filter, required this.crud})
     : super(const EntityCubitState(data: null));
 
   Future<T?> get() async {
     logger.i("getting $filter");
     emit(state.copyWith(active: true));
     try {
-      T? result = await nostr
-          .startRequestAsync(
-            filters: [getCombinedFilter(filter, Filter(limit: 1))],
-          )
-          .then((items) => items.isNotEmpty ? items.first as T : null);
+      T? result = await crud.getOne(filter!);
       if (result == null) {
         logger.e("Not found error");
         emit(EntityCubitStateError(data: state.data, error: 'not found'));

@@ -1,8 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/logic/workflows/reservation_workflow.dart';
 import 'package:hostr/main.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 enum ReservationStatus { initial, loading, success, error }
 
@@ -21,19 +19,17 @@ class ReservationState {
 }
 
 /// Cubit managing reservation request state.
-/// Business process (create rumor → seal → gift-wrap) delegated to ReservationWorkflow.
 /// This cubit only manages state transitions and UI decisions.
 class ReservationCubit extends Cubit<ReservationState> {
   final EventPublisherCubit _publisher;
-  final ReservationWorkflow _workflow;
+  final NostrService _nostrService;
 
   ReservationCubit({
-    required Ndk ndk,
+    required NostrService nostrService,
     required EventPublisherCubit publisher,
-    required ReservationWorkflow workflow,
-  })  : _publisher = publisher,
-        _workflow = workflow,
-        super(ReservationState(status: ReservationStatus.initial));
+  }) : _publisher = publisher,
+       _nostrService = nostrService,
+       super(ReservationState(status: ReservationStatus.initial));
 
   Future<String?> createReservation({
     required Listing listing,
@@ -42,26 +38,33 @@ class ReservationCubit extends Cubit<ReservationState> {
     required Function(String id) onSuccess,
   }) async {
     emit(ReservationState(status: ReservationStatus.loading));
-    
+
     try {
+      print('Creating reservation for listing ${listing.id}');
       // Delegate business process to workflow
       // TODO: Get actual sender/recipient pubkeys from auth/context
-      final result = await _workflow.createReservationRequest(
-        listing: listing,
-        startDate: startDate,
-        endDate: endDate,
-        senderPubkey: MockKeys.hoster.publicKey,
-        recipientPubkey: MockKeys.guest.publicKey,
+      final result = await _nostrService.reservationRequests
+          .createReservationRequest(
+            listing: listing,
+            startDate: startDate,
+            endDate: endDate,
+            recipientPubkey: listing.pubKey,
+          );
+      await _nostrService.messaging.broadcastEvent(
+        event: result,
+        tags: [
+          ['a', result.anchor],
+        ],
+        recipientPubkey: listing.pubKey,
       );
-
-      // Publish the resulting gift-wrapped event
-      await _publisher.publishEvents([result.giftWrapEvent]);
+      // print(result);
 
       // Business decision: emit success state
       emit(ReservationState(status: ReservationStatus.success));
-      onSuccess(result.reservationId);
-      return result.reservationId;
+      onSuccess(result.anchor);
+      return '';
     } catch (e) {
+      print(e.toString());
       // Business decision: emit error state
       emit(
         ReservationState(status: ReservationStatus.error, error: e.toString()),

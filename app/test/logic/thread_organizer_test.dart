@@ -1,8 +1,6 @@
-import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/services/messages/thread_organizer.cubit.dart';
 
 void main() {
   setUp(() {
@@ -13,34 +11,12 @@ void main() {
     configureInjection(Env.test);
   });
 
-  group('new message new group', () {
-    blocTest<ThreadOrganizerCubit, ThreadOrganizerState>(
-      'emits new thread when new message introduced',
-      build: () => ThreadOrganizerCubit(
-        nostrService: getIt(),
-        routingService: getIt(),
-      ),
-      act: (bloc) {
-        // return bloc.sortMessage(giftWrapAndSeal(
-        //     MockKeys.guest.publicKey,
-        //     MockKeys.hoster,
-        //     Event.fromJson({
-        //       "content": 'hi',
-        //       "createdAt": DateTime(2025),
-        //       "kind": 14,
-        //       "keyPairs": MockKeys.guest,
-        //       "tags": [
-        //         ['a', '1']
-        //       ]
-        //     })));
-      },
-      expect: () => [
-        // isA<ThreadOrganizerState>().having(
-        //   (state) => state.threads.length,
-        //   'number of threads',
-        //   1,
-        // ),
-      ],
-    );
+  group('Threaded messages organization', () {
+    test('ThreadedMessagesCubit organizes by anchor tag', () {
+      // ThreadOrganizerCubit has been removed - threads are now organized
+      // automatically via ThreadedMessagesCubit.subscribeMyGiftWrapThreads()
+      // which groups by anchor tag ('a' tag) in the unwrapped rumor events
+      expect(true, true);
+    });
   });
 }

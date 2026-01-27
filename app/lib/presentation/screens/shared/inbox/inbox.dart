@@ -1,9 +1,10 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/logic/services/main.dart';
-import 'package:hostr/presentation/screens/shared/inbox/inbox_item.dart';
+import 'package:hostr/data/main.dart';
+import 'package:hostr/injection.dart';
+
+import 'inbox_item.dart';
 
 @RoutePage()
 class InboxScreen extends StatelessWidget {
@@ -12,18 +13,22 @@ class InboxScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text(AppLocalizations.of(context)!.inbox),
-        ),
-        body: BlocBuilder<ThreadOrganizerCubit, ThreadOrganizerState>(
-            builder: (context, state) {
+      appBar: AppBar(title: Text(AppLocalizations.of(context)!.inbox)),
+      body: StreamBuilder(
+        stream: getIt<NostrService>().messaging.threads.outputStream,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Center(child: CircularProgressIndicator());
+          }
+          final threads = snapshot.data!.toList();
           return ListView.builder(
-              itemCount: state.threads.length,
-              itemBuilder: (context, index) {
-                return InboxItem(
-                  threadCubit: state.threads[index],
-                );
-              });
-        }));
+            itemCount: threads.length,
+            itemBuilder: (context, index) {
+              return InboxItem(thread: threads[index]);
+            },
+          );
+        },
+      ),
+    );
   }
 }
