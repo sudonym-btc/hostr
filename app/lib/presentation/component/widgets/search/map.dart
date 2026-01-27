@@ -29,8 +29,9 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
   final Completer<GoogleMapController> _controller =
       Completer<GoogleMapController>();
   final Map<String, Marker> _markers = {};
-  final BehaviorSubject<bool> _mapReadySubject =
-      BehaviorSubject<bool>.seeded(false);
+  final BehaviorSubject<bool> _mapReadySubject = BehaviorSubject<bool>.seeded(
+    false,
+  );
   final Set<String> _fetchedIds = {}; // Set to keep track of fetched IDs
 
   _onMapCreated(GoogleMapController controller) {
@@ -48,15 +49,18 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
 
     // Add markers for new locations
     for (var item in state.results) {
-      if (!_fetchedIds.contains(item.nip01Event.id)) {
-        _fetchedIds.add(item.nip01Event.id);
-        var res = await getIt<GoogleMaps>()
-            .getCoordinatesFromAddress(item.parsedContent.location);
+      if (!_fetchedIds.contains(item.id)) {
+        _fetchedIds.add(item.id);
+        var res = await getIt<GoogleMaps>().getCoordinatesFromAddress(
+          item.parsedContent.location,
+        );
 
         if (res != null) {
           setState(() {
-            _markers[item.nip01Event.id] =
-                Marker(markerId: MarkerId(item.nip01Event.id), position: res);
+            _markers[item.id] = Marker(
+              markerId: MarkerId(item.id),
+              position: res,
+            );
           });
         }
       }
@@ -64,8 +68,9 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
 
     // Collect markers to be removed
     _markers.values.where((marker) {
-      final shouldRemove = !state.results
-          .any((loc) => loc.nip01Event.id == marker.markerId.value);
+      final shouldRemove = !state.results.any(
+        (loc) => loc.id == marker.markerId.value,
+      );
       if (shouldRemove) {
         setState(() {
           _fetchedIds.remove(marker.markerId.value);
@@ -85,17 +90,15 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
 
     widget.logger.i("Init state");
     _mapReadySubject
-
         /// Only emit when the map is ready
         .where((isReady) => isReady)
         .doOnData((boo) {
           fetchLocationsAndMoveCamera(
-              BlocProvider.of<ListCubit<Listing>>(context).state);
+            BlocProvider.of<ListCubit<Listing>>(context).state,
+          );
         })
-
         /// Start listening to the list results
         .flatMap((_) => BlocProvider.of<ListCubit<Listing>>(context).stream)
-
         /// Debounce to avoid too many updates
         .debounceTime(Duration(milliseconds: 1000))
         .listen(fetchLocationsAndMoveCamera);
@@ -115,7 +118,8 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
         .map((p) => p.position.longitude)
         .reduce((a, b) => a > b ? a : b);
     widget.logger.i(
-        "Calculated bounds: minLat=$minLat, minLng=$minLng, maxLat=$maxLat, maxLng=$maxLng");
+      "Calculated bounds: minLat=$minLat, minLng=$minLng, maxLat=$maxLat, maxLng=$maxLng",
+    );
 
     // Add padding by expanding bounds by 10%
     double latPadding = 0; //(maxLat - minLat) * 0.1 + 0.1;
@@ -159,8 +163,9 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
   Widget build(BuildContext context) {
     var brightness = Theme.of(context).brightness;
     bool isDarkMode = brightness == Brightness.dark;
-    return Stack(children: [
-      AnimatedOpacity(
+    return Stack(
+      children: [
+        AnimatedOpacity(
           opacity: _controller.isCompleted ? 1 : 0,
           duration: const Duration(milliseconds: 1000),
           child: GoogleMap(
@@ -175,30 +180,32 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
             markers: _markers.values.toSet(),
             myLocationEnabled: false,
             myLocationButtonEnabled: false,
-          )),
-      Positioned(
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: mapsGoogleLogoSize,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              stops: [
-                0.75,
-                1.0
-              ], // More solid for 80%, quickly fades at the top
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: mapsGoogleLogoSize,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                stops: [
+                  0.75,
+                  1.0,
+                ], // More solid for 80%, quickly fades at the top
 
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [
-                Theme.of(context).scaffoldBackgroundColor,
-                Theme.of(context).scaffoldBackgroundColor.withAlpha(0),
-              ],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Theme.of(context).scaffoldBackgroundColor,
+                  Theme.of(context).scaffoldBackgroundColor.withAlpha(0),
+                ],
+              ),
             ),
           ),
         ),
-      )
-    ]);
+      ],
+    );
   }
 }

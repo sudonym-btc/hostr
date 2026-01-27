@@ -61,11 +61,11 @@ void main(List<String> arguments) async {
                   .toString())
             ..sign(privateKey));
       print('Broadcast escrow event');
-      multiEscrow
-          .tradeCreatedEvents(fromBlock: BlockNum.current())
-          .listen((event) {
-        print('Trade created: ${event}');
-      });
+      // multiEscrow
+      //     .tradeCreatedEvents(fromBlock: BlockNum.current())
+      //     .listen((event) {
+      //   print('Trade created: ${event}');
+      // });
       break;
     case 'list-pending':
       break;

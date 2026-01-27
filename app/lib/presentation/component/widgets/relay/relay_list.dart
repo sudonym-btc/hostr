@@ -28,12 +28,16 @@ class RelayListWidgetState extends State<RelayListWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
-      ...getIt<NostrService>().connectivity().map((connectivity) {
-        return RelayListItemWidget(
-            relay: connectivity.relayInfo, connectivity: connectivity);
-      })
-    ]);
+    return Column(
+      children: [
+        SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
+        ...getIt<NostrService>().requests.connectivity().map((connectivity) {
+          return RelayListItemWidget(
+            relay: connectivity.relayInfo,
+            connectivity: connectivity,
+          );
+        }),
+      ],
+    );
   }
 }

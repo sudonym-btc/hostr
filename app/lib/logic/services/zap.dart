@@ -3,7 +3,7 @@ import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
-import 'package:ndk/domain_layer/entities/nip_01_event.dart';
+import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 @Injectable(env: Env.allButTestAndMock)
@@ -20,7 +20,7 @@ class ZapService {
     String? eventId,
   }) async {
     KeyPair? keyPairs = await keyStorage.getActiveKeyPair();
-    return Nip01Event.fromJson({
+    return Nip01EventModel.fromJson({
       "kind": 9734,
       "tags": [
         ["relays", ...relays],

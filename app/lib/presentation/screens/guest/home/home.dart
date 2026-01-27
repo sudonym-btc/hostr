@@ -56,6 +56,7 @@ class HomeScreen extends StatelessWidget {
               ),
             ];
             return AutoTabsScaffold(
+              key: const ValueKey('hostTabs'),
               routes: [MyListingsRoute(), InboxRoute(), ProfileRoute()],
               bottomNavigationBuilder: (context, tabsRouter) =>
                   BottomNavigationBar(
@@ -81,6 +82,7 @@ class HomeScreen extends StatelessWidget {
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ];
           return AutoTabsScaffold(
+            key: const ValueKey('guestTabs'),
             routes: [SearchRoute(), TripsRoute(), InboxRoute(), ProfileRoute()],
             bottomNavigationBuilder: (context, tabsRouter) =>
                 BottomNavigationBar(

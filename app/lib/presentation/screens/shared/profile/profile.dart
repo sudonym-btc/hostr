@@ -135,7 +135,7 @@ class ProfileScreen extends StatelessWidget {
                   child: Text(AppLocalizations.of(context)!.add),
                 ),
                 body: FutureBuilder(
-                  future: getIt<NostrService>().trustedEscrows(),
+                  future: getIt<NostrService>().escrows.trusted(),
                   builder:
                       (
                         BuildContext context,

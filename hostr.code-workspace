@@ -5,6 +5,9 @@
       "path": "."
     },
     {
+      "path": "../ndk"
+    },
+    {
       "path": "../accommodation-nip"
     },
     {

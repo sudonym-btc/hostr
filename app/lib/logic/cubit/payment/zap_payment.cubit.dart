@@ -1,6 +1,5 @@
 import 'package:hostr/logic/services/swap.dart';
 import 'package:hostr/logic/workflows/lnurl_workflow.dart';
-import 'package:hostr/logic/services/nwc.dart';
 import 'package:hostr/main.dart';
 import 'package:ndk/ndk.dart';
 

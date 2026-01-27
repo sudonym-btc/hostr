@@ -3,7 +3,7 @@ import 'package:injectable/injectable.dart';
 import '../../../injection.dart';
 import 'base.config.dart';
 
-@Injectable(as: Config, env: [Env.mock, Env.test])
+@Injectable(as: Config, env: [Env.mock])
 class MockConfig extends Config {
   @override
   List<String> relays = ['ws://localhost:5432'];

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
@@ -7,7 +5,6 @@ import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
-import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../payment/payment_method.dart';
 
@@ -22,7 +19,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
     required this.counterparty,
     required this.item,
   }) : r = item.child as ReservationRequest,
-       isSentByMe = item.child!.nip01Event.pubKey == counterparty.pubKey;
+       isSentByMe = item.child!.pubKey == counterparty.pubKey;
 
   pay(BuildContext context) {
     showModalBottomSheet(
@@ -34,28 +31,28 @@ class ThreadReservationRequestWidget extends StatelessWidget {
   }
 
   accept(BuildContext context, Listing l) {
-    KeyPair k = getIt<KeyStorage>().getActiveKeyPairSync()!;
-    context.read<EventPublisherCubit>().publishEvents([
-      Nip01Event(
-        pubKey: k.publicKey,
-        kind: NOSTR_KIND_RESERVATION,
-        tags: [
-          ['a', l.anchor, context.read<ThreadCubit>().getAnchor()],
-          // ['c', context.read<ThreadCubit>().getAnchor()]
-        ],
-        content: json.encode(
-          ReservationContent(
-            start: r.parsedContent.start,
-            end: r.parsedContent.end,
-          ).toJson(),
-        ),
-      )..sign(k.privateKey!),
-    ]);
+    // KeyPair k = getIt<KeyStorage>().getActiveKeyPairSync()!;
+    // context.read<EventPublisherCubit>().publishEvents([
+    //   Nip01Event(
+    //     pubKey: k.publicKey,
+    //     kind: NOSTR_KIND_RESERVATION,
+    //     tags: [
+    //       ['a', l.anchor, context.read<ThreadCubit>().getAnchor()],
+    //       // ['c', context.read<ThreadCubit>().getAnchor()]
+    //     ],
+    //     content: json.encode(
+    //       ReservationContent(
+    //         start: r.parsedContent.start,
+    //         end: r.parsedContent.end,
+    //       ).toJson(),
+    //     ),
+    //   )..sign(k.privateKey!),
+    // ]);
   }
 
   Widget paymentStatus(BuildContext context) {
     return StreamBuilder(
-      stream: context.read<SwapManager>().checkEscrowStatus(r.nip01Event.id),
+      stream: context.read<SwapManager>().checkEscrowStatus(r.id),
       builder: (context, snapshot) {
         return Text('Payment status: ${snapshot.data}');
       },
@@ -75,36 +72,34 @@ class ThreadReservationRequestWidget extends StatelessWidget {
   }
 
   Widget actionButton(BuildContext context, Listing l) {
-    if (l.nip01Event.pubKey ==
-        getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey) {
-      return StreamBuilder(
-        stream: context.read<ThreadCubit>().loadBookingState(),
-        builder: (context, state) {
-          if (state.data == null) {
-            return BlocProvider<EventPublisherCubit>(
-              create: (context) => EventPublisherCubit(
-                nostrService: getIt(),
-                workflow: getIt(),
-              ),
-              child: BlocBuilder<EventPublisherCubit, EventPublisherState>(
-                builder: (context, state) => FilledButton(
-                  key: ValueKey('accept'),
-                  onPressed: () => accept(context, l),
-                  child: Text(
-                    isSentByMe
-                        ? AppLocalizations.of(context)!.reserve
-                        : AppLocalizations.of(context)!.accept,
-                  ),
-                ),
-              ),
-            );
-          }
-          return FilledButton(
-            onPressed: null,
-            child: Text(AppLocalizations.of(context)!.accepted),
-          );
-        },
-      );
+    if (l.pubKey == getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey) {
+      return Container();
+      // return StreamBuilder(
+      //   stream: context.read<ThreadCubit>().loadBookingState(),
+      //   builder: (context, state) {
+      //     if (state.data == null) {
+      //       return BlocProvider<EventPublisherCubit>(
+      //         create: (context) =>
+      //             EventPublisherCubit(nostrService: getIt(), workflow: getIt()),
+      //         child: BlocBuilder<EventPublisherCubit, EventPublisherState>(
+      //           builder: (context, state) => FilledButton(
+      //             key: ValueKey('accept'),
+      //             onPressed: () => accept(context, l),
+      //             child: Text(
+      //               isSentByMe
+      //                   ? AppLocalizations.of(context)!.reserve
+      //                   : AppLocalizations.of(context)!.accept,
+      //             ),
+      //           ),
+      //         ),
+      //       );
+      //     }
+      //     return FilledButton(
+      //       onPressed: null,
+      //       child: Text(AppLocalizations.of(context)!.accepted),
+      //     );
+      //   },
+      // );
     }
 
     // todo check payment status here too

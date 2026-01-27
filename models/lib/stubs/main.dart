@@ -8,6 +8,7 @@ import 'package:models/stubs/profile.dart';
 import 'package:models/stubs/reservation.dart';
 import 'package:models/stubs/review.dart';
 import 'package:models/stubs/zap_receipt.dart';
+import 'package:ndk/ndk.dart';
 
 export 'badge.dart';
 export 'blossom.dart';
@@ -23,16 +24,18 @@ export 'review.dart';
 export 'thread/main.dart';
 export 'zap_receipt.dart';
 
-var MOCK_EVENTS = [
-  ...MOCK_ESCROW_TRUSTS.map((i) => i.nip01Event),
-  ...MOCK_ESCROWS.map((i) => i.nip01Event),
-  ...MOCK_LISTINGS.map((i) => i.nip01Event),
-  ...MOCK_RESERVATIONS.map((i) => i.nip01Event),
-  ...MOCK_GIFT_WRAPS.map((i) => i.nip01Event),
-  ...MOCK_PROFILES,
-  ...MOCK_REVIEWS.map((i) => i.nip01Event),
-  ...MOCK_ZAP_RECEIPTS,
-  ...MOCK_BLOSSOM_SERVER_LISTS,
-  ...MOCK_BADGE_DEFINITIONS.map((i) => i.nip01Event),
-  ...MOCK_BADGE_AWARDS.map((i) => i.nip01Event),
-];
+Future<List<Nip01Event>> MOCK_EVENTS() async {
+  return [
+    ...MOCK_ESCROW_TRUSTS,
+    ...MOCK_ESCROWS,
+    ...MOCK_LISTINGS,
+    ...MOCK_RESERVATIONS,
+    ...await MOCK_GIFT_WRAPS(),
+    ...MOCK_PROFILES,
+    ...MOCK_REVIEWS,
+    ...MOCK_ZAP_RECEIPTS,
+    ...MOCK_BLOSSOM_SERVER_LISTS,
+    ...MOCK_BADGE_DEFINITIONS,
+    ...MOCK_BADGE_AWARDS,
+  ];
+}

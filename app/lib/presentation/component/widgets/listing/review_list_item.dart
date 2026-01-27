@@ -9,13 +9,19 @@ class ReviewListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-      Text(review.content),
-      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-        ProfileChipWidget(id: review.nip01Event.pubKey),
-        // ZapListWidget(
-        //     pubkey: review.anchor, builder: (e) => ZapReceiptWidget(zap: e))
-      ])
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(review.content),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            ProfileChipWidget(id: review.pubKey),
+            // ZapListWidget(
+            //     pubkey: review.anchor, builder: (e) => ZapReceiptWidget(zap: e))
+          ],
+        ),
+      ],
+    );
   }
 }

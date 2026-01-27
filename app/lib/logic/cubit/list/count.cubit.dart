@@ -32,10 +32,11 @@ class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
   void count() async {
     logger.i("count");
     emit(CountCubitStateLoading());
-    int count = await nostrService.count(
-      filters: [
-        getCombinedFilter(Filter(kinds: kinds), filterCubit?.state.filter),
-      ],
+    int count = await nostrService.requests.count(
+      filter: getCombinedFilter(
+        Filter(kinds: kinds),
+        filterCubit?.state.filter,
+      ),
     );
 
     emit(CountCubitState(count: count));

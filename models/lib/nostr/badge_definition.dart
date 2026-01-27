@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:ndk/ndk.dart';
+
 import '../nostr_kinds.dart';
 import 'type_json_content.dart';
 
@@ -10,24 +12,23 @@ import 'type_json_content.dart';
 class BadgeDefinition extends JsonContentNostrEvent<BadgeDefinitionContent> {
   static const List<int> kinds = [NOSTR_KIND_BADGE_DEFINITION];
 
-  BadgeDefinition.fromNostrEvent(super.e) {
+  BadgeDefinition.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
     try {
       parsedContent =
-          BadgeDefinitionContent.fromJson(json.decode(nip01Event.content));
+          BadgeDefinitionContent.fromJson(json.decode(this.content));
     } catch (e) {
       // Fallback to minimal content if parsing fails
       parsedContent = BadgeDefinitionContent(
-        name: nip01Event.getFirstTag('d') ?? 'Unknown Badge',
+        name: getFirstTag('d') ?? 'Unknown Badge',
       );
     }
   }
 
   /// Get the badge identifier from 'd' tag
-  String? get identifier => nip01Event.getFirstTag('d');
+  String? get identifier => getFirstTag('d');
 
   /// Get the anchor for this badge definition (kind:pubkey:d)
-  String get anchor =>
-      '${nip01Event.kind}:${nip01Event.pubKey}:${identifier ?? ''}';
+  String get anchor => '${kind}:${pubKey}:${identifier ?? ''}';
 }
 
 class BadgeDefinitionContent extends EventContent {

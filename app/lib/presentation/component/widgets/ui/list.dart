@@ -4,9 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
 
-class ListWidget<T extends Event> extends StatefulWidget {
+class ListWidget<T extends Nip01Event> extends StatefulWidget {
   final Widget Function(dynamic) builder;
   const ListWidget({super.key, required this.builder});
 
@@ -14,7 +14,7 @@ class ListWidget<T extends Event> extends StatefulWidget {
   ListWidgetState createState() => ListWidgetState<T>();
 }
 
-class ListWidgetState<T extends Event> extends State<ListWidget<T>> {
+class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
   final ScrollController _scrollController = ScrollController();
   final CustomLogger logger = CustomLogger();
 
@@ -45,17 +45,27 @@ class ListWidgetState<T extends Event> extends State<ListWidget<T>> {
   Widget build(BuildContext context) {
     return BlocBuilder<ListCubit<T>, ListCubitState>(
       builder: (context, state) {
+        if (state.synching || state.fetching) {
+          return const Center(child: CircularProgressIndicator.adaptive());
+        }
+
+        if (state.results.isEmpty) {
+          return const Center(child: Text('No items'));
+        }
+
         return ListView.builder(
-            padding: EdgeInsets.only(bottom: DEFAULT_PADDING.toDouble()),
-            controller: _scrollController,
-            itemCount: state.results.length,
-            itemBuilder: (context, index) {
-              return KeyedSubtree(
-                key: ValueKey(state.results[index].nip01Event
-                    .id), // Ensure each item has a unique key
-                child: widget.builder(state.results[index]),
-              );
-            });
+          padding: EdgeInsets.only(bottom: DEFAULT_PADDING.toDouble()),
+          controller: _scrollController,
+          itemCount: state.results.length,
+          itemBuilder: (context, index) {
+            return KeyedSubtree(
+              key: ValueKey(
+                state.results[index].id,
+              ), // Ensure each item has a unique key
+              child: widget.builder(state.results[index]),
+            );
+          },
+        );
       },
     );
   }

@@ -267,6 +267,7 @@ class SwapService {
       if (swapStatus.status == 'transaction.mempool' ||
           swapStatus.status == 'transaction.confirmed') {
         onProgress?.call(SwapProgress.waitingOnchain);
+
         /// Fetch the from address of the lockup transaction to use as refund address
         TransactionInformation? lockupTx = await client.getTransactionByHash(
           swapStatus.transaction!.id!,
@@ -316,16 +317,14 @@ class SwapService {
     Uint8List idBytes32 = getBytes32(reservationRequestId);
     String hexTopic = getTopicHex(idBytes32);
 
-    Nip51List? trustedEscrows = await getIt<NostrService>().trustedEscrows();
+    Nip51List? trustedEscrows = await getIt<NostrService>().escrows.trusted();
     if (trustedEscrows == null) {
       return;
     }
     for (Nip51ListElement item in trustedEscrows.elements) {
-      List<Escrow> escrowServices = await getIt<NostrService>()
+      List<Escrow> escrowServices = await getIt<NostrService>().requests
           .startRequestAsync(
-            filters: [
-              Filter(kinds: [NOSTR_KIND_ESCROW], authors: [item.value]),
-            ],
+            filter: Filter(kinds: [NOSTR_KIND_ESCROW], authors: [item.value]),
           );
       for (var escrow in escrowServices) {
         logger.i(

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:ndk/ndk.dart';
+
 import '../amount.dart';
 import '../nostr_kinds.dart';
 import '../price.dart';
@@ -10,8 +12,8 @@ import 'type_json_content.dart';
 class Listing extends JsonContentNostrEvent<ListingContent> {
   static const List<int> kinds = [NOSTR_KIND_LISTING];
 
-  Listing.fromNostrEvent(super.e) {
-    parsedContent = ListingContent.fromJson(json.decode(nip01Event.content));
+  Listing.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
+    parsedContent = ListingContent.fromJson(json.decode(content));
   }
 
   static isAvailable(

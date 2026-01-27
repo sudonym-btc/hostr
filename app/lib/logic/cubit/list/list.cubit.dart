@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -11,7 +10,7 @@ import 'filter.cubit.dart';
 import 'post_result_filter.cubit.dart';
 import 'sort.cubit.dart';
 
-class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
+class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   final CustomLogger logger = CustomLogger();
   final Ndk? nostrInstance;
   final int? limit;
@@ -27,6 +26,8 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
   late StreamSubscription? filterSubscription;
   late StreamSubscription? sortSubscription;
   late StreamSubscription? postResultFilterSubscription;
+  StreamSubscription<T>? nostrSubscription;
+  StreamSubscription<T>? requestSubscription;
 
   ListCubit({
     this.nostrInstance,
@@ -57,9 +58,7 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
   /// Nostr treats separate NostrFilters as OR, so we need to combine them
   Filter getFilter() {
     final newestTimestamp = state.results.isNotEmpty
-        ? state.results
-              .map((e) => e.nip01Event.createdAt)
-              .reduce((a, b) => a > b ? a : b)
+        ? state.results.map((e) => e.createdAt).reduce((a, b) => a > b ? a : b)
         : null;
     return getCombinedFilter(
       getCombinedFilter(Filter(kinds: kinds, since: newestTimestamp), filter),
@@ -71,21 +70,28 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
     logger.i("next");
     Filter finalFilter = getFilter();
     logger.t('listFilter: $finalFilter');
-    await nostrService.startRequest<T>(filters: [finalFilter]).listen((event) {
-      addItem(event);
-    }).asFuture();
+    await requestSubscription?.cancel();
+    requestSubscription = nostrService.requests
+        .startRequest<T>(filter: finalFilter)
+        .listen((event) {
+          addItem(event);
+        });
+    await requestSubscription?.asFuture();
   }
 
   sync() async {
+    await nostrSubscription?.cancel();
     emit(state.copyWith(synching: true));
     logger.i("sync");
     Filter finalFilter = getFilter();
     logger.t('listFilter: $finalFilter');
     await next();
     emit(state.copyWith(synching: false));
-    nostrService.subscribe<T>(filters: [finalFilter]).listen((event) {
-      addItem(event);
-    });
+    nostrSubscription = nostrService.requests
+        .subscribe<T>(filter: finalFilter)
+        .listen((event) {
+          addItem(event);
+        });
   }
 
   void reset() {
@@ -94,6 +100,7 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
 
   /// Should be overridden if a child type of list wants to perform subquery on each Item added
   void addItem(T item) {
+    if (isClosed || itemStream.isClosed) return;
     if (postResultFilterCubit?.state == null ||
         postResultFilterCubit!.state(item)) {
       itemStream.add(item);
@@ -110,6 +117,8 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
   }
 
   void applyFilter(FilterState filter) {
+    nostrSubscription?.cancel();
+    requestSubscription?.cancel();
     reset();
     next();
   }
@@ -135,37 +144,40 @@ class ListCubit<T extends Event> extends Cubit<ListCubitState<T>> {
 
   Map<String, dynamic>? toJson(ListCubitState<T> state) {
     return {
-      'results': state.results.map((e) => e.nip01Event.toJson()).toList(),
-      'resultsRaw': state.resultsRaw.map((e) => e.nip01Event.toJson()).toList(),
+      'results': state.results.map((e) => e.toString()).toList(),
+      'resultsRaw': state.resultsRaw.map((e) => e.toString()).toList(),
       'hasMore': state.hasMore,
     };
   }
 
   ListCubitState<T>? fromJson(Map<String, dynamic> json) {
     return ListCubitState(
-      resultsRaw: json['resultsRaw'].map<T>(Nip01Event.fromJson).toList(),
-      results: json['results'].map<T>(Nip01Event.fromJson).toList(),
+      resultsRaw: json['resultsRaw'].map<T>(Nip01EventModel.fromJson).toList(),
+      results: json['results'].map<T>(Nip01EventModel.fromJson).toList(),
       hasMore: json['hasMore'] ?? true,
     );
   }
 
   @override
-  Future<void> close() {
+  Future<void> close() async {
+    await nostrSubscription?.cancel();
+    await requestSubscription?.cancel();
     filterSubscription?.cancel();
     sortSubscription?.cancel();
     postResultFilterSubscription?.cancel();
+    await itemStream.close();
     return super.close();
   }
 }
 
-class HydratedListCubit<T extends Event> extends ListCubit<T> {
+class HydratedListCubit<T extends Nip01Event> extends ListCubit<T> {
   HydratedListCubit({required super.kinds, required super.nostrService});
 
   @override
   Map<String, dynamic>? toJson(ListCubitState<T> state) {
     return {
-      'results': state.results.map((e) => e.nip01Event.toJson()).toList(),
-      'resultsRaw': state.resultsRaw.map((e) => e.nip01Event.toJson()).toList(),
+      'results': state.results.map((e) => e.toString()).toList(),
+      'resultsRaw': state.resultsRaw.map((e) => e.toString()).toList(),
       'hasMore': state.hasMore,
     };
   }
@@ -173,14 +185,14 @@ class HydratedListCubit<T extends Event> extends ListCubit<T> {
   @override
   ListCubitState<T>? fromJson(Map<String, dynamic> json) {
     return ListCubitState(
-      resultsRaw: json['resultsRaw'].map<T>(Nip01Event.fromJson).toList(),
-      results: json['results'].map<T>(Nip01Event.fromJson).toList(),
+      resultsRaw: json['resultsRaw'].map<T>(Nip01EventModel.fromJson).toList(),
+      results: json['results'].map<T>(Nip01EventModel.fromJson).toList(),
       hasMore: json['hasMore'] ?? true,
     );
   }
 }
 
-class ListCubitState<T extends Event> {
+class ListCubitState<T extends Nip01Event> {
   final bool listening;
   final bool synching;
   final bool fetching;

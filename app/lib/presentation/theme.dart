@@ -13,14 +13,22 @@ ThemeData getTheme(bool isDark) {
             onSurface: Colors.white,
           ),
           bottomNavigationBarTheme: BottomNavigationBarThemeData(
-            selectedItemColor: Colors.white, // Use white for selected item
-            unselectedItemColor: Colors.grey, // Use grey for unselected item
+            backgroundColor: Colors.black,
+            selectedItemColor: Colors.white,
+            unselectedItemColor: Colors.grey,
+            type: BottomNavigationBarType.fixed,
           ),
           splashColor: Colors.white, // Set splash color to match theme
         )
       : ThemeData.light().copyWith(
           brightness: Brightness.light,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+            backgroundColor: Colors.white,
+            selectedItemColor: Colors.deepPurple,
+            unselectedItemColor: Colors.black54,
+            type: BottomNavigationBarType.fixed,
+          ),
           splashColor: Colors.deepPurple, // Set splash color to match theme
         );
 }

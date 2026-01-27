@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/injection.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/crud.usecase.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 abstract class DefaultEntityProvider<Type extends Event>
     extends StatelessWidget {
+  final CrudUseCase<Type> crud;
+
   /// Provide the kinds that this type is propagated as
   final List<int> kinds;
 
@@ -32,6 +34,7 @@ abstract class DefaultEntityProvider<Type extends Event>
     required this.kinds,
     this.e,
     this.pubkey,
+    required this.crud,
     this.onDone,
     this.a,
     this.builder,
@@ -63,7 +66,7 @@ abstract class DefaultEntityProvider<Type extends Event>
                 aTags: a != null ? [a!] : null,
                 eTags: e != null ? [e!] : null,
               ),
-              nostr: getIt(),
+              crud: crud,
             )
             ..get().then((value) {
               if (onDone != null && value != null) {

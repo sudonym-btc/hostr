@@ -1,15 +1,16 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:ndk/ndk.dart';
+
 import '../nostr_kinds.dart';
 import 'type_json_content.dart';
 
 class Reservation extends JsonContentNostrEvent<ReservationContent> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION];
 
-  Reservation.fromNostrEvent(super.e) {
-    parsedContent =
-        ReservationContent.fromJson(json.decode(nip01Event.content));
+  Reservation.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
+    parsedContent = ReservationContent.fromJson(json.decode(content));
   }
 }
 

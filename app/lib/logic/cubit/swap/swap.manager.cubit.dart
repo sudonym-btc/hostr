@@ -46,15 +46,15 @@ class SwapManager extends HydratedCubit<SwapsState> {
     required this.paymentsManager,
     required this.swapService,
     required SwapWorkflow workflow,
-  })  : _workflow = workflow,
-        super(SwapsState.initial()) {
+  }) : _workflow = workflow,
+       super(SwapsState.initial()) {
     _paymentSub = paymentsManager.stream.listen(_syncPaymentsIntoSwaps);
   }
 
   Future<void> swapIn(int amountSats) async {
     // Validate params via workflow
     _workflow.validateSwapInParams(amountSats: amountSats);
-    
+
     // Create swap record via workflow
     final id = _workflow.generateSwapId();
     final record = _workflow.createSwapRecord(
@@ -73,7 +73,11 @@ class SwapManager extends HydratedCubit<SwapsState> {
           _updateSwap(id, status: status);
         },
         onPaymentCreated: (paymentId) {
-          _updateSwap(id, status: SwapStatusSnapshot.paymentCreated, paymentId: paymentId);
+          _updateSwap(
+            id,
+            status: SwapStatusSnapshot.paymentCreated,
+            paymentId: paymentId,
+          );
         },
       );
     } catch (e) {
@@ -99,7 +103,7 @@ class SwapManager extends HydratedCubit<SwapsState> {
   }) {
     final swap = _swapFor(id);
     if (swap == null) return;
-    
+
     PaymentRecord? payment = swap.payment;
     if (paymentId != null) {
       try {
@@ -166,7 +170,7 @@ class SwapManager extends HydratedCubit<SwapsState> {
       escrowContractAddress: escrowContractAddress,
       timelock: timelock,
     );
-    
+
     return swapService.escrow(
       eventId: eventId,
       amount: amount,

@@ -1,6 +1,95 @@
 import 'package:models/main.dart';
-// import 'package:models/nostr/gift_wrap.dart';
 import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
+
+/// Helper to create mock gift wraps for testing
+/// Since NDK's GiftWrap usecase requires async operations and cryptography,
+/// these must be generated at runtime in seed.dart using the NDK instance
+Future<List<Nip01Event>> createMockGiftWraps(
+    KeyPair pair, Nip01Event rumor, String recipientPubkey) async {
+  Ndk ndk = Ndk(NdkConfig(
+      eventVerifier: Bip340EventVerifier(),
+      cache: MemCacheManager(),
+      engine: NdkEngine.JIT,
+      defaultQueryTimeout: Duration(seconds: 10),
+      bootstrapRelays: []));
+  ndk.accounts
+      .loginPrivateKey(pubkey: pair.publicKey, privkey: pair.privateKey!);
+  return [
+    await ndk.giftWrap
+        .toGiftWrap(rumor: rumor, recipientPubkey: recipientPubkey),
+    await ndk.giftWrap.toGiftWrap(rumor: rumor, recipientPubkey: pair.publicKey)
+  ];
+}
+
+/// Mock rumor events (unsigned inner messages) that will be wrapped
+final mockRumorHostToGuest1 = Nip01Event(
+  pubKey: MockKeys.hoster.publicKey,
+  kind: NOSTR_KIND_DM,
+  tags: [
+    ['a', 'thread-conversation-1'], // Thread ID via anchor tag
+    ['p', MockKeys.guest.publicKey],
+  ],
+  content: 'Hey! I have a great place available for your dates.',
+  createdAt: DateTime(2026, 1, 15).millisecondsSinceEpoch ~/ 1000,
+  id: '',
+  sig: '',
+);
+
+final mockRumorGuestToHost1 = Nip01Event(
+  pubKey: MockKeys.guest.publicKey,
+  kind: NOSTR_KIND_DM,
+  tags: [
+    ['a', 'thread-conversation-1'], // Same thread ID
+    ['p', MockKeys.hoster.publicKey],
+  ],
+  content: 'That sounds perfect! Can you tell me more about the amenities?',
+  createdAt: DateTime(2026, 1, 15, 10).millisecondsSinceEpoch ~/ 1000,
+  id: '',
+  sig: '',
+);
+
+final mockRumorHostToGuest2 = Nip01Event(
+  pubKey: MockKeys.hoster.publicKey,
+  kind: NOSTR_KIND_DM,
+  tags: [
+    ['a', 'thread-conversation-1'],
+    ['p', MockKeys.guest.publicKey],
+  ],
+  content: 'Sure! It has WiFi, kitchen, and a beautiful garden view.',
+  createdAt: DateTime(2026, 1, 15, 11).millisecondsSinceEpoch ~/ 1000,
+  id: '',
+  sig: '',
+);
+
+// Second thread
+final mockRumorGuestToHost2 = Nip01Event(
+  pubKey: MockKeys.guest.publicKey,
+  kind: NOSTR_KIND_DM,
+  tags: [
+    ['a', 'thread-booking-inquiry'], // Different thread
+    ['p', MockKeys.hoster.publicKey],
+  ],
+  content: 'Is your place pet-friendly?',
+  createdAt: DateTime(2026, 1, 16).millisecondsSinceEpoch ~/ 1000,
+  id: '',
+  sig: '',
+);
+
+final mockRumorHostToGuest3 = Nip01Event(
+  pubKey: MockKeys.hoster.publicKey,
+  kind: NOSTR_KIND_DM,
+  tags: [
+    ['a', 'thread-booking-inquiry'],
+    ['p', MockKeys.guest.publicKey],
+  ],
+  content: 'Yes! Small pets are welcome.',
+  createdAt: DateTime(2026, 1, 16, 9).millisecondsSinceEpoch ~/ 1000,
+  id: '',
+  sig: '',
+);
+
+/// Legacy mock events for reservation requests
 
 Nip01Event hostInvitesGuest = Nip01Event(
     pubKey: MockKeys.hoster.publicKey,
@@ -12,22 +101,23 @@ Nip01Event hostInvitesGuest = Nip01Event(
         MockKeys.guest.publicKey,
       ]
     ],
-    content: ReservationRequest.fromNostrEvent(Nip01Event(
-            kind: NOSTR_KIND_RESERVATION_REQUEST,
-            tags: [
-              ['a', MOCK_LISTINGS[0].anchor],
-            ],
-            createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-            content: ReservationRequestContent(
-                    start: DateTime(2026),
-                    end: DateTime(2026).add(Duration(days: 1)),
-                    quantity: 1,
-                    amount: Amount(currency: Currency.BTC, value: 0.0001),
-                    commitmentHash: 'hash',
-                    commitmentHashPreimageEnc: 'does')
-                .toString(),
-            pubKey: MockKeys.hoster.publicKey)
-          ..sign(MockKeys.hoster.privateKey!))
+    content: ReservationRequest.fromNostrEvent(Nip01Utils.signWithPrivateKey(
+            privateKey: MockKeys.hoster.privateKey!,
+            event: Nip01Event(
+                kind: NOSTR_KIND_RESERVATION_REQUEST,
+                tags: [
+                  ['a', MOCK_LISTINGS[0].anchor],
+                ],
+                createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+                content: ReservationRequestContent(
+                        start: DateTime(2026),
+                        end: DateTime(2026).add(Duration(days: 1)),
+                        quantity: 1,
+                        amount: Amount(currency: Currency.BTC, value: 0.0001),
+                        commitmentHash: 'hash',
+                        commitmentHashPreimageEnc: 'does')
+                    .toString(),
+                pubKey: MockKeys.hoster.publicKey)))
         .toString());
 
 Nip01Event guestRequest = Nip01Event(
@@ -40,76 +130,28 @@ Nip01Event guestRequest = Nip01Event(
         MockKeys.hoster.publicKey,
       ]
     ],
-    content: ReservationRequest.fromNostrEvent(Nip01Event(
-            kind: NOSTR_KIND_RESERVATION_REQUEST,
-            tags: [
-              ['a', MOCK_LISTINGS[0].anchor],
-            ],
-            createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-            content: ReservationRequestContent(
-                    start: DateTime(2026),
-                    end: DateTime(2026).add(Duration(days: 1)),
-                    quantity: 1,
-                    amount: Amount(currency: Currency.BTC, value: 0.0001),
-                    commitmentHash: 'hash',
-                    commitmentHashPreimageEnc: 'does')
-                .toString(),
-            pubKey: MockKeys.guest.publicKey)
-          ..sign(MockKeys.guest.privateKey!))
+    content: ReservationRequest.fromNostrEvent(Nip01Utils.signWithPrivateKey(
+            privateKey: MockKeys.guest.privateKey!,
+            event: Nip01Event(
+                kind: NOSTR_KIND_RESERVATION_REQUEST,
+                tags: [
+                  ['a', MOCK_LISTINGS[0].anchor],
+                ],
+                createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
+                content: ReservationRequestContent(
+                        start: DateTime(2026),
+                        end: DateTime(2026).add(Duration(days: 1)),
+                        quantity: 1,
+                        amount: Amount(currency: Currency.BTC, value: 0.0001),
+                        commitmentHash: 'hash',
+                        commitmentHashPreimageEnc: 'does')
+                    .toString(),
+                pubKey: MockKeys.guest.publicKey)))
         .toString());
 
-var MOCK_GIFT_WRAPS = [
-  /// Must send GiftWraps to yourself and recipient
-  ...[
-    // giftWrapAndSeal(
-    //     MockKeys.guest.public,
-    //     MockKeys.hoster,
-    //     Message.fromNostrEvent(
-    //         NostrEvent.fromPartialData(
-    //             kind: NOSTR_KIND_DM,
-    //             keyPairs: MockKeys.guest,
-    //             content: 'YOLO',
-    //             tags: [
-    //               ['a', 'random-anchor']
-    //             ]),
-    //         null,
-    //         null),
-    //     null),
-    // giftWrapAndSeal(
-    //     MockKeys.hoster.public,
-    //     MockKeys.hoster,
-    //     Message.fromNostrEvent(
-    //         NostrEvent.fromPartialData(
-    //             kind: NOSTR_KIND_DM,
-    //             keyPairs: MockKeys.guest,
-    //             content: 'YOLO',
-    //             tags: [
-    //               ['a', 'random-anchor']
-    //             ]),
-    //         null,
-    //         null),
-    //     null)
-  ],
-  // ...[
-  //   giftWrapAndSeal(
-  //       MockKeys.guest.publicKey, MockKeys.hoster, hostInvitesGuest, null),
-  //   giftWrapAndSeal(
-  //       MockKeys.hoster.publicKey, MockKeys.hoster, hostInvitesGuest, null),
-  //   giftWrapAndSeal(
-  //       MockKeys.guest.publicKey, MockKeys.guest, guestRequest, null),
-  //   giftWrapAndSeal(
-  //       MockKeys.hoster.publicKey, MockKeys.guest, guestRequest, null)
-  // ]
-].toList();
-// var MOCK_GIFT_WRAPS = [
-//   giftWrapAndSeal(
-//       MockKeys.guest.public,
-//       MockKeys.hoster,
-//       NostrEvent.fromPartialData(
-//         kind: NOSTR_KIND_DM,
-
-//         /// Should unsigned if the Nostr lib would allow
-//         keyPairs: NostrKeyPairs.generate(),
-//         content: 'YOLO',
-//       )),
-// ].toList();
+Future<List<Nip01Event>> MOCK_GIFT_WRAPS() async => [
+      ...(await createMockGiftWraps(
+          MockKeys.guest, guestRequest, MockKeys.hoster.publicKey)),
+      ...(await createMockGiftWraps(
+          MockKeys.hoster, hostInvitesGuest, MockKeys.guest.publicKey)),
+    ].toList();
