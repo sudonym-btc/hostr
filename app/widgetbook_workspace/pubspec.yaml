@@ -4,14 +4,15 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
-  sdk: ^3.6.0
+  sdk: ^3.10.0
 
 dependencies:
   flutter:
     sdk: flutter
-  widgetbook: ^3.8.1
-  widgetbook_annotation: ^3.2.0
+  widgetbook: ^3.20.2
+  widgetbook_annotation: ^3.9.0
   flutter_bloc: ^9.0.0
+  chopper: ^8.0.0
   ndk:
     git:
       url: https://github.com/relaystr/ndk.git 
@@ -25,11 +26,14 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  widgetbook_generator: ^3.9.1
+  widgetbook_generator: ^3.11.0
   build_runner: ^2.4.9
-  mockito: ^5.4.5
   shelf: ^1.4.2
   shelf_router: ^1.1.4
+  chopper_generator: ^8.0.0
+  swagger_dart_code_generator: ^4.0.0
+  mockito: ^5.4.4
+
 
 flutter:
   uses-material-design: true

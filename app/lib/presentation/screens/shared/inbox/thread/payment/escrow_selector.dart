@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -106,17 +105,22 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                                     authors: [_current!],
                                   ),
                                 );
-                        await context.read<SwapManager>().escrow(
-                          amount: widget.r.parsedContent.amount,
-                          eventId: widget.r.id,
-                          timelock: widget.r.parsedContent.end
-                              .difference(DateTime.now())
-                              .inMinutes,
-                          escrowContractAddress:
-                              escrowServices[0].parsedContent.contractAddress,
-                          sellerPubkey: widget.counterparty.pubKey,
-                          escrowPubkey: MOCK_ESCROWS[0].pubKey,
-                        );
+                        await context
+                            .read<NostrService>()
+                            .payments
+                            .escrow
+                            .escrow(
+                              amount: widget.r.parsedContent.amount,
+                              eventId: widget.r.id,
+                              timelock: widget.r.parsedContent.end
+                                  .difference(DateTime.now())
+                                  .inMinutes,
+                              escrowContractAddress: escrowServices[0]
+                                  .parsedContent
+                                  .contractAddress,
+                              sellerPubkey: widget.counterparty.pubKey,
+                              escrowPubkey: MOCK_ESCROWS[0].pubKey,
+                            );
                       },
                 child: Text(AppLocalizations.of(context)!.selectEscrow),
               ),

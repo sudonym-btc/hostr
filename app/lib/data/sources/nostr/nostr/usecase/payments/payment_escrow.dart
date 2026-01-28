@@ -1,0 +1,164 @@
+import 'dart:typed_data';
+
+import 'package:hostr/core/util/main.dart';
+import 'package:hostr/data/sources/escrow/MultiEscrow.g.dart';
+import 'package:hostr/data/sources/main.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrows/escrows.dart';
+import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:wallet/wallet.dart';
+import 'package:web3dart/web3dart.dart';
+
+import 'constants.dart';
+
+class PaymentEscrow {
+  final CustomLogger logger = CustomLogger();
+  final Web3Client client;
+  final BoltzClient boltzClient;
+  final Auth auth;
+  final Escrows escrows;
+
+  PaymentEscrow({
+    required this.client,
+    required this.boltzClient,
+    required this.auth,
+    required this.escrows,
+  });
+
+  listEvents() async {
+    MultiEscrow e = MultiEscrow(
+      address: EthereumAddress.fromHex(
+        '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+      ),
+      client: client,
+    );
+    // List past events
+    final filter = FilterOptions.events(
+      contract: e.self,
+      event: e.self.events.firstWhere((x) => x.name == 'DebugLog'),
+      fromBlock: BlockNum.exact(449),
+      toBlock: BlockNum.current(),
+    );
+
+    final logs = await client.getLogs(filter);
+    for (var log in logs) {
+      // logger.i('Past Trade created: $log');
+    }
+
+    // e.tradeCreatedEvents(fromBlock: BlockNum.genesis()).listen((event) {
+    //   logger.i('Trade created: $event');
+    // });
+  }
+
+  Future<void> escrow({
+    required String eventId,
+    required Amount amount,
+    required String sellerPubkey,
+    required String escrowPubkey,
+    required String escrowContractAddress,
+    required int timelock,
+  }) async {
+    KeyPair key = auth.activeKeyPair!;
+    EthPrivateKey ethKey = getEthCredentials(key.privateKey!);
+
+    MultiEscrow e = MultiEscrow(
+      address: EthereumAddress.fromHex(escrowContractAddress),
+      client: client,
+    );
+    var tuple = (
+      tradeId: getBytes32(eventId),
+      timelock: BigInt.from(timelock),
+
+      /// Arbiter public key from their nostr advertisement
+      arbiter: getEthAddressFromPublicKey(escrowPubkey),
+
+      /// Seller address derived from their nostr pubkey
+      seller: getEthAddressFromPublicKey(sellerPubkey),
+
+      /// Our address derived from our nostr private key
+      buyer: ethKey.address,
+      escrowFee: BigInt.from(100),
+    );
+    logger.i('Creating escrow for $eventId');
+    logger.i(tuple);
+    String escrowTx = await e.createTrade(
+      tuple,
+      credentials: ethKey,
+      transaction: Transaction(
+        value: EtherAmount.fromBigInt(
+          EtherUnit.wei,
+          BigInt.from(amount.value * btcSatoshiFactor) * satoshiWeiFactor,
+        ),
+      ),
+    );
+
+    final receipt = await client.getTransactionReceipt(escrowTx);
+    logger.i(receipt);
+  }
+
+  Stream<TradeCreated> checkEscrowStatus(String reservationRequestId) async* {
+    logger.i('Checking escrow status for reservation: $reservationRequestId');
+    Uint8List idBytes32 = getBytes32(reservationRequestId);
+    String hexTopic = getTopicHex(idBytes32);
+
+    Nip51List? trustedEscrows = await escrows.trusted();
+    if (trustedEscrows == null) {
+      return;
+    }
+    for (Nip51ListElement item in trustedEscrows.elements) {
+      List<Escrow> escrowServices = await escrows.list(
+        Filter(authors: [item.value]),
+      );
+      for (var escrow in escrowServices) {
+        logger.i(
+          'Searching for events from escrow: ${escrow.parsedContent.contractAddress}',
+        );
+        MultiEscrow e = MultiEscrow(
+          address: EthereumAddress.fromHex(
+            escrow.parsedContent.contractAddress,
+          ),
+          client: client,
+        );
+
+        Trades x = await e.trades(($param9: idBytes32));
+        logger.i('Current trade: $x');
+        final tradeCreatedEvent = e.self.events.firstWhere(
+          (x) => x.name == 'TradeCreated',
+        );
+        final sig = bytesToHex(
+          tradeCreatedEvent.signature,
+          padToEvenLength: true,
+          include0x: true,
+        );
+        logger.i('Log sig $sig');
+        final filter = FilterOptions(
+          topics: [
+            [
+              // TODO include other event type signatures
+              sig,
+            ], // Topic 0: event signature.
+            // Topic 1: tradeId indexed parameter.
+            [hexTopic],
+          ],
+          fromBlock: BlockNum.exact(0),
+          toBlock: BlockNum.exact(await client.getBlockNumber()),
+        );
+
+        final logs = await client.getLogs(filter);
+        logger.i('Filtered logs: ${logs.length} for hexTopic $hexTopic');
+
+        final tradeCreated = logs.map((FilterEvent result) {
+          logger.i('trade log topics: ${result.topics}');
+          final decoded = tradeCreatedEvent.decodeResults(
+            result.topics!,
+            result.data!,
+          );
+          return TradeCreated(decoded, result);
+        }).toList();
+        logger.i('Decoded ${tradeCreated.length} TradeCreated events');
+      }
+    }
+  }
+}

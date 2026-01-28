@@ -18,9 +18,9 @@ abstract class GoogleMaps {
 class GoogleMapsMock extends GoogleMaps {
   @override
   Future<LatLng?> getCoordinatesFromAddress(String address) async {
-    logger.i("Fetching coordinates of $address");
+    // logger.i("Fetching coordinates of $address");
     num hashcode = sha256.convert(address.codeUnits).hashCode / 100000000;
-    logger.i("hashcode address: $hashcode");
+    // logger.i("hashcode address: $hashcode");
 
     // Return random location in europe
     return LatLng(48.8566 + hashcode, 2.3522 + hashcode);
@@ -30,9 +30,7 @@ class GoogleMapsMock extends GoogleMaps {
   dynamic getLocationResults(String input, String? sessionToken) async {
     return [
       {
-        'text': {
-          'text': 'Paris, France',
-        },
+        'text': {'text': 'Paris, France'},
         'description': 'Paris, France',
         'place_id': 'ChIJD7fiBh9u5kcRYJSMaMOCCwQ',
         'structured_formatting': {
@@ -41,9 +39,7 @@ class GoogleMapsMock extends GoogleMaps {
         },
       },
       {
-        'text': {
-          'text': 'London, UK',
-        },
+        'text': {'text': 'London, UK'},
         'description': 'London, UK',
         'place_id': 'ChIJdd4hrwug2EcRmSrV3Vo6llI',
         'structured_formatting': {
@@ -52,9 +48,7 @@ class GoogleMapsMock extends GoogleMaps {
         },
       },
       {
-        'text': {
-          'text': 'Berlin, Germany',
-        },
+        'text': {'text': 'Berlin, Germany'},
         'description': 'Berlin, Germany',
         'place_id': 'ChIJAVkDPzdOqEcRcDteW0YgIQQ',
         'structured_formatting': {
@@ -93,13 +87,15 @@ class GoogleMapsImpl extends GoogleMaps {
     if (input.isEmpty) return [];
     // String type = '(regions)';
     String baseURL = 'https://places.googleapis.com/v1/places:autocomplete';
-    var response = await http.post(Uri.parse(baseURL), body: {
-      'input': input,
-      'includeQueryPredictions': 'false',
-      'sessionToken': sessionToken,
-    }, headers: {
-      'X-Goog-Api-Key': getIt<Config>().googleMapsApiKey
-    });
+    var response = await http.post(
+      Uri.parse(baseURL),
+      body: {
+        'input': input,
+        'includeQueryPredictions': 'false',
+        'sessionToken': sessionToken,
+      },
+      headers: {'X-Goog-Api-Key': getIt<Config>().googleMapsApiKey},
+    );
     if (response.statusCode == 200) {
       var body = json.decode(response.body);
       return body['suggestions'].map((i) => i['placePrediction']).toList();

@@ -41,7 +41,7 @@ Future<void> setup(String env) async {
   }
 
   // Restore NDK session from stored keys before connecting relays.
-  await getIt<AuthService>().ensureNdkLoggedIn();
+  await getIt<NostrService>().auth.ensureNdkLoggedIn();
   await getIt<RelayConnector>().connect();
 }
 

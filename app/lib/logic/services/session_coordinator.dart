@@ -33,6 +33,7 @@ class SessionCoordinator {
     _sub = authCubit.stream.listen((state) async {
       if (state is LoggedIn) {
         final pubKey = ndk.accounts.getPublicKey()!;
+        threadsCubit.sync();
 
         await ndk.userRelayLists.setInitialUserRelayList(
           UserRelayList(
@@ -42,9 +43,6 @@ class SessionCoordinator {
             refreshedTimestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
           ),
         );
-
-        _logger.i('Syncing threaded giftwrap messages');
-        threadsCubit.sync();
       } else {
         _logger.i('User logged out');
         threadsCubit.stop();

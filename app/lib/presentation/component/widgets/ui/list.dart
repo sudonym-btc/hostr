@@ -45,7 +45,8 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
   Widget build(BuildContext context) {
     return BlocBuilder<ListCubit<T>, ListCubitState>(
       builder: (context, state) {
-        if (state.synching || state.fetching) {
+        // Only show centered loading if we have no results yet
+        if ((state.synching || state.fetching) && state.results.isEmpty) {
           return const Center(child: CircularProgressIndicator.adaptive());
         }
 
@@ -53,11 +54,22 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
           return const Center(child: Text('No items'));
         }
 
+        final isLoading = state.synching || state.fetching;
+        final itemCount = state.results.length + (isLoading ? 1 : 0);
+
         return ListView.builder(
           padding: EdgeInsets.only(bottom: DEFAULT_PADDING.toDouble()),
           controller: _scrollController,
-          itemCount: state.results.length,
+          itemCount: itemCount,
           itemBuilder: (context, index) {
+            // Show loading indicator at the bottom
+            if (index == state.results.length) {
+              return const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(child: CircularProgressIndicator.adaptive()),
+              );
+            }
+
             return KeyedSubtree(
               key: ValueKey(
                 state.results[index].id,

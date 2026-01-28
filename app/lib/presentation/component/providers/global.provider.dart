@@ -45,7 +45,6 @@ class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
         BlocProvider<PaymentsManager>.value(
           value: appController.paymentsManager,
         ),
-        BlocProvider<SwapManager>.value(value: appController.swapManager),
       ],
       child: widget.child,
     );

@@ -22,8 +22,10 @@ class Message<T extends Event> extends ParentTypeNostrEvent {
     try {
       child = parser(Nip01EventModel.fromJson(jsonDecode(e.content)));
     } catch (e) {
-      print(e);
-      // child = null;
+      // Only sometimes is the message content meant to be of JSON type
+      // print(e);
+      // print('error parsing message child event');
+      child = null;
     }
     return Message.fromNostrEvent(e, child);
   }
