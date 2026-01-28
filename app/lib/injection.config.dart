@@ -26,7 +26,33 @@ import 'package:hostr/data/sources/local/nwc_storage.dart' as _i303;
 import 'package:hostr/data/sources/local/relay_storage.dart' as _i315;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
 import 'package:hostr/data/sources/nostr/ndk.dart' as _i396;
-import 'package:hostr/data/sources/nostr/nostr/nostr.service.dart' as _i194;
+import 'package:hostr/data/sources/nostr/nostr/hostr.dart' as _i552;
+import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart' as _i34;
+import 'package:hostr/data/sources/nostr/nostr/usecase/badge_awards/badge_awards.dart'
+    as _i232;
+import 'package:hostr/data/sources/nostr/nostr/usecase/badge_definitions/badge_definitions.dart'
+    as _i558;
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrows/escrows.dart'
+    as _i42;
+import 'package:hostr/data/sources/nostr/nostr/usecase/listings/listings.dart'
+    as _i456;
+import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
+    as _i463;
+import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart'
+    as _i249;
+import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/mock.metadata.dart'
+    as _i936;
+import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i909;
+import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payments.dart'
+    as _i244;
+import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart'
+    as _i100;
+import 'package:hostr/data/sources/nostr/nostr/usecase/requests/test.requests.dart'
+    as _i805;
+import 'package:hostr/data/sources/nostr/nostr/usecase/reservation_requests/reservation_requests.dart'
+    as _i525;
+import 'package:hostr/data/sources/nostr/nostr/usecase/reservations/reservations.dart'
+    as _i489;
 import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i291;
 import 'package:hostr/data/sources/rpc/rootstock.dart' as _i631;
 import 'package:hostr/export.dart' as _i1012;
@@ -114,11 +140,50 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i1012.KeyStorage>(),
       ),
     );
-    gh.singleton<_i194.NostrService>(
-      () => _i194.ProdNostrService(gh<_i857.Ndk>()),
+    gh.singleton<_i249.MetadataUseCase>(
+      () => _i249.MetadataUseCase(ndk: gh<_i857.Ndk>()),
+      registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i100.Requests>(
+      () => _i100.Requests(ndk: gh<_i857.Ndk>()),
+      registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i552.Hostr>(() => _i552.ProdHostr(gh<_i857.Ndk>()));
+    gh.singleton<_i100.Requests>(
+      () => _i805.TestRequests(ndk: gh<_i857.Ndk>()),
+      registerFor: {_test, _mock},
+    );
+    gh.singleton<_i34.Auth>(
+      () => _i34.Auth(
+        ndk: gh<_i857.Ndk>(),
+        keyStorage: gh<_i1012.KeyStorage>(),
+        secureStorage: gh<_i1012.SecureStorage>(),
+      ),
+    );
+    gh.singleton<_i463.Messaging>(
+      () => _i463.Messaging(gh<_i857.Ndk>(), gh<_i100.Requests>()),
     );
     gh.singleton<_i303.NwcStorage>(
       () => _i303.NwcStorage(gh<_i311.SecureStorage>()),
+    );
+    gh.singleton<_i232.BadgeAwards>(
+      () => _i232.BadgeAwards(requests: gh<_i100.Requests>()),
+    );
+    gh.singleton<_i558.BadgeDefinitions>(
+      () => _i558.BadgeDefinitions(requests: gh<_i100.Requests>()),
+    );
+    gh.singleton<_i42.Escrows>(
+      () => _i42.Escrows(requests: gh<_i100.Requests>()),
+    );
+    gh.singleton<_i456.Listings>(
+      () => _i456.Listings(requests: gh<_i100.Requests>()),
+    );
+    gh.singleton<_i489.Reservations>(
+      () => _i489.Reservations(requests: gh<_i100.Requests>()),
+    );
+    gh.singleton<_i909.Nwc>(
+      () => _i909.Nwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
+      registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i258.NwcService>(
       () => _i258.MockNostrWalletConnectService(
@@ -127,9 +192,33 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
+    gh.singleton<_i249.MetadataUseCase>(
+      () => _i936.MockMetadataUseCase(
+        requests: gh<_i100.Requests>(),
+        ndk: gh<_i857.Ndk>(),
+      ),
+      registerFor: {_mock, _test},
+    );
     gh.singleton<_i258.NwcService>(
       () => _i258.NwcService(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i909.Nwc>(
+      () => _i909.MockNwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
+      registerFor: {_test, _mock},
+    );
+    gh.singleton<_i525.ReservationRequests>(
+      () => _i525.ReservationRequests(
+        requests: gh<_i100.Requests>(),
+        ndk: gh<_i857.Ndk>(),
+      ),
+    );
+    gh.singleton<_i244.Payments>(
+      () => _i244.Payments(
+        auth: gh<_i34.Auth>(),
+        escrows: gh<_i42.Escrows>(),
+        nwc: gh<_i909.Nwc>(),
+      ),
     );
     gh.factoryParam<
       _i99.LnUrlPaymentCubit,

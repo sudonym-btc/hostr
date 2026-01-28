@@ -15,7 +15,7 @@ class InboxScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.inbox)),
       body: StreamBuilder(
-        stream: getIt<NostrService>().messaging.threads.outputStream,
+        stream: getIt<Hostr>().messaging.threads.outputStream,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return Center(child: CircularProgressIndicator());

@@ -12,6 +12,6 @@ class BadgeDefinitionProvider extends DefaultEntityProvider<BadgeDefinition> {
     super.child,
   }) : super(
          kinds: BadgeDefinition.kinds,
-         crud: getIt<NostrService>().badgeDefinitions,
+         crud: getIt<Hostr>().badgeDefinitions,
        );
 }

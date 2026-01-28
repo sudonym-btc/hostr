@@ -1,9 +1,10 @@
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:injectable/injectable.dart';
 import 'package:ndk/domain_layer/usecases/nwc/consts/bitcoin_network.dart';
 import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
-import 'package:ndk/ndk.dart';
+import 'package:ndk/ndk.dart' hide Nwc;
 import 'package:rxdart/rxdart.dart';
 
 Uri parseNwc(String nwcString) {
@@ -16,14 +17,7 @@ Uri parseNwc(String nwcString) {
   return nwcUri;
 }
 
-String parseSecret(Uri nwc) {
-  return nwc.queryParameters['secret']!;
-}
-
-String parsePubkey(Uri nwc) {
-  return nwc.host;
-}
-
+@Singleton(env: Env.allButTestAndMock)
 class Nwc {
   CustomLogger logger = CustomLogger();
   KeyStorage keyStorage = getIt<KeyStorage>();
@@ -67,8 +61,35 @@ class Nwc {
     _connectionsSubject.add(connections);
     await nwcStorage.set(connections.map((c) => c.uri.toUri()).toList());
   }
+
+  Future<NwcConnection> connect(
+    String url, {
+    Function(String?)? onError,
+  }) async {
+    return ndk.nwc.connect(url);
+  }
+
+  Future<GetInfoResponse> getInfo() async {
+    return ndk.nwc.getInfo(connections.first);
+  }
+
+  Future<PayInvoiceResponse> payInvoice(String invoice, int? amount) async {
+    return ndk.nwc.payInvoice(connections.first, invoice: invoice);
+  }
+
+  Future<LookupInvoiceResponse> lookupInvoice({
+    String? paymentHash,
+    String? invoice,
+  }) async {
+    return ndk.nwc.lookupInvoice(
+      connections.first,
+      paymentHash: paymentHash,
+      invoice: invoice,
+    );
+  }
 }
 
+@Singleton(as: Nwc, env: [Env.test, Env.mock])
 class MockNwc extends Nwc {
   MockNwc(super.nwcStorage, super.ndk);
 
@@ -88,7 +109,7 @@ class MockNwc extends Nwc {
   }
 
   @override
-  Future<GetInfoResponse> getInfo(NwcConnection nwc) async {
+  Future<GetInfoResponse> getInfo() async {
     return GetInfoResponse(
       alias: 'Wallet of Satoshi',
       color: '#FFFF00',
@@ -103,11 +124,7 @@ class MockNwc extends Nwc {
   }
 
   @override
-  Future<PayInvoiceResponse> payInvoice(
-    NwcConnection nwc,
-    String invoice,
-    int? amount,
-  ) async {
+  Future<PayInvoiceResponse> payInvoice(String invoice, int? amount) async {
     return PayInvoiceResponse(
       preimage: 'preimage',
       resultType: 'pay_invoice',
@@ -116,8 +133,7 @@ class MockNwc extends Nwc {
   }
 
   @override
-  Future<LookupInvoiceResponse> lookupInvoice(
-    NwcConnection nwc, {
+  Future<LookupInvoiceResponse> lookupInvoice({
     String? paymentHash,
     String? invoice,
   }) async {

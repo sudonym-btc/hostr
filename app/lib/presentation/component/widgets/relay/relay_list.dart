@@ -31,7 +31,7 @@ class RelayListWidgetState extends State<RelayListWidget> {
     return Column(
       children: [
         SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
-        ...getIt<NostrService>().requests.connectivity().map((connectivity) {
+        ...getIt<Hostr>().requests.connectivity().map((connectivity) {
           return RelayListItemWidget(
             relay: connectivity.relayInfo,
             connectivity: connectivity,

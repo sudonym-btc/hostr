@@ -17,13 +17,13 @@ class ThreadScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Get messages for this thread from ThreadedMessagesCubit
-    final threads = getIt<NostrService>().messaging.threads;
+    final threads = getIt<Hostr>().messaging.threads;
 
     // Create ThreadCubit on-demand for this thread
     return BlocProvider(
       create: (_) => ThreadCubit(
         ThreadCubitState(id: id, messages: []),
-        nostrService: getIt<NostrService>(),
+        nostrService: getIt<Hostr>(),
         thread: threads.threads[id]!,
       ),
       child: ThreadView(a: id),

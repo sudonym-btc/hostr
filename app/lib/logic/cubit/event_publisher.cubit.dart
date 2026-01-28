@@ -44,13 +44,13 @@ class EventPublisherState extends Equatable {
 /// This cubit only manages state transitions and UI decisions.
 class EventPublisherCubit extends Cubit<EventPublisherState> {
   EventPublisherCubit({
-    required NostrService nostrService,
+    required Hostr nostrService,
     required EventPublishingWorkflow workflow,
   }) : _nostrService = nostrService,
        _workflow = workflow,
        super(EventPublisherState.initial());
 
-  final NostrService _nostrService;
+  final Hostr _nostrService;
   final EventPublishingWorkflow _workflow;
   final CustomLogger logger = CustomLogger();
 

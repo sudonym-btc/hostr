@@ -17,7 +17,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   Filter? filter;
   final List<int> kinds;
   final PublishSubject<T> itemStream = PublishSubject<T>();
-  final NostrService nostrService;
+  final Hostr nostrService;
 
   final FilterCubit? filterCubit;
   final SortCubit<T>? sortCubit;

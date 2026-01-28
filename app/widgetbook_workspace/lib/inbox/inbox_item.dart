@@ -13,11 +13,11 @@ Widget inboxItem(BuildContext context) {
     child: BlocProvider<ThreadCubit>(
       create: (context) => ThreadCubit(
         ThreadCubitState(id: 'hi', messages: []),
-        nostrService: getIt<NostrService>(),
+        nostrService: getIt<Hostr>(),
         thread: Thread(
           'hi',
-          messaging: getIt<NostrService>().messaging,
-          accounts: getIt<NostrService>().messaging.ndk.accounts,
+          messaging: getIt<Hostr>().messaging,
+          accounts: getIt<Hostr>().messaging.ndk.accounts,
         ),
       ),
       child: BlocBuilder<ThreadCubit, ThreadCubitState>(
