@@ -316,6 +316,24 @@ abstract class AppLocalizations {
   /// **'Upcoming Reservations'**
   String get upcomingReservations;
 
+  /// No description provided for @youSentReservationRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'You sent a reservation request'**
+  String get youSentReservationRequest;
+
+  /// No description provided for @receivedReservationRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Received reservation offer'**
+  String get receivedReservationRequest;
+
+  /// No description provided for @useEscrowOrNot.
+  ///
+  /// In en, this message translates to:
+  /// **'Would you like to use an escrow to settle this transfer?'**
+  String get useEscrowOrNot;
+
   /// No description provided for @myListings.
   ///
   /// In en, this message translates to:

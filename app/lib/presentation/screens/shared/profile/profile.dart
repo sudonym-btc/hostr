@@ -265,30 +265,30 @@ class ProfileScreen extends StatelessWidget {
                       title: 'Swap',
                       body: Column(
                         children: [
-                          FilledButton(
-                            child: Text('Swap in'),
-                            onPressed: () {
-                              context.read<SwapManager>().swapIn(100000);
-                            },
-                          ),
                           // FilledButton(
-                          //   child: Text('Escrow'),
+                          //   child: Text('Swap in'),
                           //   onPressed: () {
-                          //     getIt<SwapService>().escrow();
+                          //     context.read<SwapManager>().swapIn(100000);
                           //   },
                           // ),
-                          FilledButton(
-                            child: Text('ListEvents'),
-                            onPressed: () {
-                              context.read<SwapManager>().listEvents();
-                            },
-                          ),
-                          FilledButton(
-                            child: Text('Swap out'),
-                            onPressed: () {
-                              context.read<SwapManager>().swapOutAll();
-                            },
-                          ),
+                          // // FilledButton(
+                          // //   child: Text('Escrow'),
+                          // //   onPressed: () {
+                          // //     getIt<SwapService>().escrow();
+                          // //   },
+                          // // ),
+                          // FilledButton(
+                          //   child: Text('ListEvents'),
+                          //   onPressed: () {
+                          //     context.read<SwapManager>().listEvents();
+                          //   },
+                          // ),
+                          // FilledButton(
+                          //   child: Text('Swap out'),
+                          //   onPressed: () {
+                          //     context.read<SwapManager>().swapOutAll();
+                          //   },
+                          // ),
                         ],
                       ),
                     ),

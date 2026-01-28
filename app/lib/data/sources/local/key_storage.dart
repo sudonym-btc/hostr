@@ -50,7 +50,7 @@ class KeyStorage {
 
   create() {
     var key = Bip340.generatePrivateKey();
-    return set(key.privateKey!);
+    return key;
   }
 
   wipe() {

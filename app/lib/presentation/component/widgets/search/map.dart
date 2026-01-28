@@ -117,16 +117,16 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     double maxLng = _markers.values
         .map((p) => p.position.longitude)
         .reduce((a, b) => a > b ? a : b);
-    widget.logger.i(
-      "Calculated bounds: minLat=$minLat, minLng=$minLng, maxLat=$maxLat, maxLng=$maxLng",
-    );
+    // widget.logger.i(
+    //   "Calculated bounds: minLat=$minLat, minLng=$minLng, maxLat=$maxLat, maxLng=$maxLng",
+    // );
 
     // Add padding by expanding bounds by 10%
     double latPadding = 0; //(maxLat - minLat) * 0.1 + 0.1;
     double lngPadding = 0; //(maxLng - minLng) * 0.1 + 0.1;
 
-    widget.logger.d("latPadding $latPadding");
-    widget.logger.d("lngPadding $lngPadding");
+    // widget.logger.d("latPadding $latPadding");
+    // widget.logger.d("lngPadding $lngPadding");
 
     return LatLngBounds(
       northeast: LatLng(maxLat + latPadding, maxLng + lngPadding),
@@ -135,7 +135,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
   }
 
   _moveCameraToFitAllMarkers() async {
-    widget.logger.i('Move camera to fit all markers ${_markers.length}');
+    // widget.logger.i('Move camera to fit all markers ${_markers.length}');
     if (_markers.isEmpty) return;
 
     LatLngBounds bounds = _calculateBounds();

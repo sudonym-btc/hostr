@@ -1,4 +1,3 @@
-export 'auth.dart';
 export 'nwc.dart';
 export 'request_delegation.dart';
 export 'session_coordinator.dart';

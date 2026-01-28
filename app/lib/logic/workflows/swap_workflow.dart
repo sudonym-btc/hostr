@@ -1,6 +1,6 @@
 import 'package:hostr/core/main.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/payments/swap.dart';
 import 'package:hostr/logic/cubit/payment/payment.manager.cubit.dart';
-import 'package:hostr/logic/services/swap.dart' as swap_service;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
@@ -11,21 +11,21 @@ class SwapWorkflow {
   final CustomLogger _logger = CustomLogger();
 
   /// Maps swap progress enum to status snapshot.
-  SwapStatusSnapshot mapProgressToStatus(swap_service.SwapProgress progress) {
+  SwapStatusSnapshot mapProgressToStatus(SwapProgress progress) {
     switch (progress) {
-      case swap_service.SwapProgress.initiated:
+      case SwapProgress.initiated:
         return SwapStatusSnapshot.initiated;
-      case swap_service.SwapProgress.paymentCreated:
+      case SwapProgress.paymentCreated:
         return SwapStatusSnapshot.paymentCreated;
-      case swap_service.SwapProgress.paymentInFlight:
+      case SwapProgress.paymentInFlight:
         return SwapStatusSnapshot.paymentInFlight;
-      case swap_service.SwapProgress.waitingOnchain:
+      case SwapProgress.waitingOnchain:
         return SwapStatusSnapshot.waitingOnchain;
-      case swap_service.SwapProgress.claimed:
+      case SwapProgress.claimed:
         return SwapStatusSnapshot.claimed;
-      case swap_service.SwapProgress.completed:
+      case SwapProgress.completed:
         return SwapStatusSnapshot.completed;
-      case swap_service.SwapProgress.failed:
+      case SwapProgress.failed:
         return SwapStatusSnapshot.failed;
     }
   }

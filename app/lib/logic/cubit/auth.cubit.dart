@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
-import 'package:hostr/logic/services/main.dart';
+import 'package:hostr/injection.dart';
 
 /// Abstract class representing the state of authentication.
 abstract class AuthState extends Equatable {
@@ -36,21 +36,18 @@ class AuthCubit extends Cubit<AuthState> {
   CustomLogger logger = CustomLogger();
   final KeyStorage keyStorage;
   final SecureStorage secureStorage;
-  final AuthService _authService;
 
   AuthCubit({
     required this.keyStorage,
     required this.secureStorage,
-    required AuthService authService,
     AuthState? initialState,
-  }) : _authService = authService,
-       super(initialState ?? AuthInitial());
+  }) : super(initialState ?? AuthInitial());
 
   /// Executes signup: delegates to workflow, updates state.
   Future<void> signup() async {
     emit(LoggedOut()); // Start from logged-out during signup
     try {
-      await _authService.signup();
+      await getIt<NostrService>().auth.signup();
       emit(LoggedIn());
     } catch (e) {
       logger.e('Signup failed: $e');
@@ -61,7 +58,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   /// Checks authentication status: delegates to workflow, updates state.
   Future<bool> get() async {
-    final isAuthenticated = await _authService.isAuthenticated();
+    final isAuthenticated = await getIt<NostrService>().auth.isAuthenticated();
     if (isAuthenticated) {
       emit(LoggedIn());
       return true;
@@ -73,7 +70,7 @@ class AuthCubit extends Cubit<AuthState> {
   /// Executes logout: delegates to workflow, updates state.
   Future<void> logout() async {
     try {
-      await _authService.logout();
+      await getIt<NostrService>().auth.logout();
       emit(LoggedOut());
     } catch (e) {
       logger.e('Logout failed: $e');
@@ -84,7 +81,7 @@ class AuthCubit extends Cubit<AuthState> {
   /// Executes signin: delegates to workflow, updates state.
   Future<void> signin(String input) async {
     try {
-      await _authService.signin(input);
+      await getIt<NostrService>().auth.signin(input);
       emit(LoggedIn());
     } catch (e) {
       logger.e('Signin failed: $e');

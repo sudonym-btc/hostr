@@ -11,7 +11,6 @@ class AppController {
   late EventPublisherCubit eventPublisherCubit;
 
   late PaymentsManager paymentsManager;
-  late SwapManager swapManager;
   late Ndk ndk;
   late NostrService nostrService;
   late NwcService nwc;
@@ -25,21 +24,12 @@ class AppController {
     nostrService = getIt<NostrService>();
     nwc = getIt<NwcService>();
 
-    authCubit = AuthCubit(
-      keyStorage: getIt(),
-      secureStorage: getIt(),
-      authService: getIt(),
-    );
+    authCubit = AuthCubit(keyStorage: getIt(), secureStorage: getIt());
     eventPublisherCubit = EventPublisherCubit(
       nostrService: nostrService,
       workflow: getIt(),
     );
     paymentsManager = PaymentsManager(dio: getIt(), nwcService: nwc);
-    swapManager = SwapManager(
-      paymentsManager: paymentsManager,
-      swapService: getIt(),
-      workflow: getIt(),
-    );
     threadsCubit = ThreadsCubit(nostrService);
 
     sessionCoordinator = getIt<SessionCoordinator>();
@@ -55,6 +45,5 @@ class AppController {
     authCubit.close();
     eventPublisherCubit.close();
     paymentsManager.close();
-    swapManager.close();
   }
 }

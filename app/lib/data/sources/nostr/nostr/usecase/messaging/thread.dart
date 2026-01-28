@@ -2,24 +2,41 @@ import 'dart:async';
 
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_response.dart';
-import 'package:ndk/ndk.dart' show Nip01Event;
+import 'package:ndk/ndk.dart' show Nip01Event, Accounts;
 
 import './messaging.dart';
 
 class Thread {
-  Thread(this.id, this.messaging);
+  Thread(this.id, {required this.messaging, required this.accounts});
   final String id;
   final Messaging messaging;
+  final Accounts accounts;
   final List<Message> messages = [];
   final StreamController<List<Message>> _messagesStreamController =
-      StreamController<List<Message>>();
+      StreamController<List<Message>>.broadcast();
   Stream<List<Message>> get outputStream => _messagesStreamController.stream;
-
-  String get counterpartPubkey => id.split(':')[1];
 
   void addMessage(Message message) {
     messages.add(message);
     _messagesStreamController.add(List<Message>.unmodifiable(messages));
+  }
+
+  String counterpartyPubkey() {
+    return accounts.getPublicKey() != messages[0].pubKey
+        ? messages[0].pubKey
+        : messages[0].pTags
+              .where((tag) => tag != accounts.getPublicKey())
+              .first;
+  }
+
+  Message? getLatestMessage() {
+    if (messages.isEmpty) return null;
+    return messages.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
+  }
+
+  DateTime getLastDateTime() {
+    final latest = messages.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
+    return DateTime.fromMillisecondsSinceEpoch(latest.createdAt * 1000);
   }
 
   Future<List<NdkBroadcastResponse>> replyText(String content) {
@@ -28,7 +45,7 @@ class Thread {
       tags: [
         ['a', id],
       ],
-      recipientPubkey: counterpartPubkey,
+      recipientPubkey: counterpartyPubkey(),
     );
   }
 
@@ -42,7 +59,7 @@ class Thread {
         ['a', id],
         ...tags,
       ],
-      recipientPubkey: counterpartPubkey,
+      recipientPubkey: counterpartyPubkey(),
     );
   }
 }

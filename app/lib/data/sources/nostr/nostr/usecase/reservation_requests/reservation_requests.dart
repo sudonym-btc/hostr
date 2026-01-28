@@ -23,7 +23,6 @@ class ReservationRequests extends CrudUseCase {
     required DateTime endDate,
     required String recipientPubkey,
   }) async {
-    print(ndk.accounts.getLoggedAccount());
     // Generate reservation ID
     return ReservationRequest.fromNostrEvent(
       await ndk.accounts.sign(

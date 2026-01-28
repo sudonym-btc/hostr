@@ -1,3 +1,4 @@
+// dart format width=80
 // coverage:ignore-file
 // ignore_for_file: type=lint
 // ignore_for_file: unused_import, prefer_relative_imports, directives_ordering
@@ -9,252 +10,301 @@
 // **************************************************************************
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:widgetbook/widgetbook.dart' as _i1;
-import 'package:widgetbook_workspace/component/filled_button.dart' as _i3;
+import 'package:widgetbook/widgetbook.dart' as _widgetbook;
+import 'package:widgetbook_workspace/component/filled_button.dart'
+    as _widgetbook_workspace_component_filled_button;
 import 'package:widgetbook_workspace/component/floating_action_button.dart'
-    as _i6;
-import 'package:widgetbook_workspace/evm/evm.dart' as _i4;
-import 'package:widgetbook_workspace/evm/locked_in_contract.dart' as _i5;
-import 'package:widgetbook_workspace/inbox/inbox.dart' as _i13;
-import 'package:widgetbook_workspace/inbox/inbox_item.dart' as _i8;
-import 'package:widgetbook_workspace/inbox/thread.dart' as _i14;
-import 'package:widgetbook_workspace/listing/edit.dart' as _i16;
-import 'package:widgetbook_workspace/listing/listing.dart' as _i15;
-import 'package:widgetbook_workspace/listing/listing_list_item.dart' as _i9;
-import 'package:widgetbook_workspace/nwc/nwc.dart' as _i10;
-import 'package:widgetbook_workspace/payment/amount_input.dart' as _i7;
+    as _widgetbook_workspace_component_floating_action_button;
+import 'package:widgetbook_workspace/evm/evm.dart'
+    as _widgetbook_workspace_evm_evm;
+import 'package:widgetbook_workspace/evm/locked_in_contract.dart'
+    as _widgetbook_workspace_evm_locked_in_contract;
+import 'package:widgetbook_workspace/inbox/inbox.dart'
+    as _widgetbook_workspace_inbox_inbox;
+import 'package:widgetbook_workspace/inbox/inbox_item.dart'
+    as _widgetbook_workspace_inbox_inbox_item;
+import 'package:widgetbook_workspace/inbox/thread.dart'
+    as _widgetbook_workspace_inbox_thread;
+import 'package:widgetbook_workspace/listing/edit.dart'
+    as _widgetbook_workspace_listing_edit;
+import 'package:widgetbook_workspace/listing/listing.dart'
+    as _widgetbook_workspace_listing_listing;
+import 'package:widgetbook_workspace/listing/listing_list_item.dart'
+    as _widgetbook_workspace_listing_listing_list_item;
+import 'package:widgetbook_workspace/nwc/nwc.dart'
+    as _widgetbook_workspace_nwc_nwc;
+import 'package:widgetbook_workspace/payment/amount_input.dart'
+    as _widgetbook_workspace_payment_amount_input;
 import 'package:widgetbook_workspace/payment/modal_payment_requested.dart'
-    as _i2;
-import 'package:widgetbook_workspace/profile/profile.dart' as _i18;
-import 'package:widgetbook_workspace/profile/profile_chip.dart' as _i11;
-import 'package:widgetbook_workspace/reserve.dart' as _i17;
-import 'package:widgetbook_workspace/search/check_in_check_out.dart' as _i12;
+    as _widgetbook_workspace_payment_modal_payment_requested;
+import 'package:widgetbook_workspace/profile/profile.dart'
+    as _widgetbook_workspace_profile_profile;
+import 'package:widgetbook_workspace/profile/profile_chip.dart'
+    as _widgetbook_workspace_profile_profile_chip;
+import 'package:widgetbook_workspace/reserve.dart'
+    as _widgetbook_workspace_reserve;
+import 'package:widgetbook_workspace/search/check_in_check_out.dart'
+    as _widgetbook_workspace_search_check_in_check_out;
 
-final directories = <_i1.WidgetbookNode>[
-  _i1.WidgetbookFolder(
+final directories = <_widgetbook.WidgetbookNode>[
+  _widgetbook.WidgetbookFolder(
     name: 'material',
     children: [
-      _i1.WidgetbookComponent(
+      _widgetbook.WidgetbookComponent(
         name: 'FilledButton',
         useCases: [
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'Bolt11',
-            builder: _i2.bolt11,
+            builder:
+                _widgetbook_workspace_payment_modal_payment_requested.bolt11,
           ),
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'Default',
-            builder: _i3.primaryButton,
+            builder:
+                _widgetbook_workspace_component_filled_button.primaryButton,
           ),
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'EVM balance',
-            builder: _i4.evmBalance,
+            builder: _widgetbook_workspace_evm_evm.evmBalance,
           ),
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'Icon',
-            builder: _i3.primaryButtonIcon,
+            builder:
+                _widgetbook_workspace_component_filled_button.primaryButtonIcon,
           ),
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'Lightning Address',
-            builder: _i2.lightningAddress,
+            builder: _widgetbook_workspace_payment_modal_payment_requested
+                .lightningAddress,
           ),
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'Lightning Address Amount Fixed',
-            builder: _i2.amountFixed,
+            builder: _widgetbook_workspace_payment_modal_payment_requested
+                .amountFixed,
           ),
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'Zap',
-            builder: _i2.zap,
+            builder: _widgetbook_workspace_payment_modal_payment_requested.zap,
           ),
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'defaultUseCase',
-            builder: _i5.lockedInContract,
+            builder:
+                _widgetbook_workspace_evm_locked_in_contract.lockedInContract,
           ),
         ],
       ),
-      _i1.WidgetbookComponent(
+      _widgetbook.WidgetbookComponent(
         name: 'FloatingActionButton',
         useCases: [
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'Default',
-            builder: _i6.floatingActionButton,
+            builder: _widgetbook_workspace_component_floating_action_button
+                .floatingActionButton,
           ),
-          _i1.WidgetbookUseCase(
+          _widgetbook.WidgetbookUseCase(
             name: 'Icon',
-            builder: _i6.floatingActionButtonIcon,
+            builder: _widgetbook_workspace_component_floating_action_button
+                .floatingActionButtonIcon,
           ),
         ],
       ),
     ],
   ),
-  _i1.WidgetbookFolder(
+  _widgetbook.WidgetbookFolder(
     name: 'presentation',
     children: [
-      _i1.WidgetbookFolder(
+      _widgetbook.WidgetbookFolder(
         name: 'component',
         children: [
-          _i1.WidgetbookFolder(
+          _widgetbook.WidgetbookFolder(
             name: 'widgets',
             children: [
-              _i1.WidgetbookFolder(
+              _widgetbook.WidgetbookFolder(
                 name: 'amount',
                 children: [
-                  _i1.WidgetbookComponent(
+                  _widgetbook.WidgetbookComponent(
                     name: 'AmountInputWidget',
                     useCases: [
-                      _i1.WidgetbookUseCase(
+                      _widgetbook.WidgetbookUseCase(
                         name: 'Currency chooser',
-                        builder: _i7.currencyChooserAmountUseCase,
+                        builder: _widgetbook_workspace_payment_amount_input
+                            .currencyChooserAmountUseCase,
                       ),
-                      _i1.WidgetbookUseCase(
+                      _widgetbook.WidgetbookUseCase(
                         name: 'Default',
-                        builder: _i7.defaultUseCase,
+                        builder: _widgetbook_workspace_payment_amount_input
+                            .defaultUseCase,
                       ),
-                      _i1.WidgetbookUseCase(
+                      _widgetbook.WidgetbookUseCase(
                         name: 'Fixed Currency',
-                        builder: _i7.fixedAmountUseCase,
+                        builder: _widgetbook_workspace_payment_amount_input
+                            .fixedAmountUseCase,
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
-              _i1.WidgetbookFolder(
+              _widgetbook.WidgetbookFolder(
                 name: 'inbox',
                 children: [
-                  _i1.WidgetbookLeafComponent(
+                  _widgetbook.WidgetbookComponent(
                     name: 'InboxItemWidget',
-                    useCase: _i1.WidgetbookUseCase(
-                      name: 'Default',
-                      builder: _i8.inboxItem,
-                    ),
-                  )
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Default',
+                        builder:
+                            _widgetbook_workspace_inbox_inbox_item.inboxItem,
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              _i1.WidgetbookFolder(
+              _widgetbook.WidgetbookFolder(
                 name: 'listing',
                 children: [
-                  _i1.WidgetbookLeafComponent(
+                  _widgetbook.WidgetbookComponent(
                     name: 'ListingListItemWidget',
-                    useCase: _i1.WidgetbookUseCase(
-                      name: 'Default',
-                      builder: _i9.listing,
-                    ),
-                  )
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Default',
+                        builder: _widgetbook_workspace_listing_listing_list_item
+                            .listing,
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              _i1.WidgetbookFolder(
+              _widgetbook.WidgetbookFolder(
                 name: 'nostr_wallet_connect',
                 children: [
-                  _i1.WidgetbookLeafComponent(
+                  _widgetbook.WidgetbookComponent(
                     name: 'NostrWalletConnectWidget',
-                    useCase: _i1.WidgetbookUseCase(
-                      name: 'Default',
-                      builder: _i10.nwc,
-                    ),
-                  )
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Default',
+                        builder: _widgetbook_workspace_nwc_nwc.nwc,
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              _i1.WidgetbookFolder(
+              _widgetbook.WidgetbookFolder(
                 name: 'profile',
                 children: [
-                  _i1.WidgetbookLeafComponent(
+                  _widgetbook.WidgetbookComponent(
                     name: 'ProfileChipWidget',
-                    useCase: _i1.WidgetbookUseCase(
-                      name: 'Default',
-                      builder: _i11.listing,
-                    ),
-                  )
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Default',
+                        builder:
+                            _widgetbook_workspace_profile_profile_chip.listing,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ],
-          )
+          ),
         ],
       ),
-      _i1.WidgetbookFolder(
+      _widgetbook.WidgetbookFolder(
         name: 'forms',
         children: [
-          _i1.WidgetbookFolder(
+          _widgetbook.WidgetbookFolder(
             name: 'search',
             children: [
-              _i1.WidgetbookLeafComponent(
+              _widgetbook.WidgetbookComponent(
                 name: 'DateRangeButtons',
-                useCase: _i1.WidgetbookUseCase(
-                  name: 'Default',
-                  builder: _i12.defaultUseCase,
-                ),
-              )
+                useCases: [
+                  _widgetbook.WidgetbookUseCase(
+                    name: 'Default',
+                    builder: _widgetbook_workspace_search_check_in_check_out
+                        .defaultUseCase,
+                  ),
+                ],
+              ),
             ],
-          )
+          ),
         ],
       ),
-      _i1.WidgetbookFolder(
+      _widgetbook.WidgetbookFolder(
         name: 'screens',
         children: [
-          _i1.WidgetbookFolder(
+          _widgetbook.WidgetbookFolder(
             name: 'shared',
             children: [
-              _i1.WidgetbookFolder(
+              _widgetbook.WidgetbookFolder(
                 name: 'inbox',
                 children: [
-                  _i1.WidgetbookLeafComponent(
+                  _widgetbook.WidgetbookComponent(
                     name: 'InboxScreen',
-                    useCase: _i1.WidgetbookUseCase(
-                      name: 'Empty',
-                      builder: _i13.inboxEmpty,
-                    ),
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Empty',
+                        builder: _widgetbook_workspace_inbox_inbox.inboxEmpty,
+                      ),
+                    ],
                   ),
-                  _i1.WidgetbookFolder(
+                  _widgetbook.WidgetbookFolder(
                     name: 'thread',
                     children: [
-                      _i1.WidgetbookLeafComponent(
+                      _widgetbook.WidgetbookComponent(
                         name: 'ThreadScreen',
-                        useCase: _i1.WidgetbookUseCase(
-                          name: 'Default',
-                          builder: _i14.thread,
-                        ),
-                      )
+                        useCases: [
+                          _widgetbook.WidgetbookUseCase(
+                            name: 'Default',
+                            builder: _widgetbook_workspace_inbox_thread.thread,
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ],
               ),
-              _i1.WidgetbookFolder(
+              _widgetbook.WidgetbookFolder(
                 name: 'listing',
                 children: [
-                  _i1.WidgetbookComponent(
+                  _widgetbook.WidgetbookComponent(
                     name: 'ListingScreen',
                     useCases: [
-                      _i1.WidgetbookUseCase(
+                      _widgetbook.WidgetbookUseCase(
                         name: 'Default',
-                        builder: _i15.listing,
+                        builder: _widgetbook_workspace_listing_listing.listing,
                       ),
-                      _i1.WidgetbookUseCase(
+                      _widgetbook.WidgetbookUseCase(
                         name: 'Edit',
-                        builder: _i16.edit,
+                        builder: _widgetbook_workspace_listing_edit.edit,
                       ),
                     ],
                   ),
-                  _i1.WidgetbookLeafComponent(
+                  _widgetbook.WidgetbookComponent(
                     name: 'Reserve',
-                    useCase: _i1.WidgetbookUseCase(
-                      name: 'Default',
-                      builder: _i17.reserve,
-                    ),
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Default',
+                        builder: _widgetbook_workspace_reserve.reserve,
+                      ),
+                    ],
                   ),
                 ],
               ),
-              _i1.WidgetbookFolder(
+              _widgetbook.WidgetbookFolder(
                 name: 'profile',
                 children: [
-                  _i1.WidgetbookLeafComponent(
+                  _widgetbook.WidgetbookComponent(
                     name: 'ProfileScreen',
-                    useCase: _i1.WidgetbookUseCase(
-                      name: 'Default',
-                      builder: _i18.defaultUseCase,
-                    ),
-                  )
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Default',
+                        builder: _widgetbook_workspace_profile_profile
+                            .defaultUseCase,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ],
-          )
+          ),
         ],
       ),
     ],

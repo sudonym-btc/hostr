@@ -51,12 +51,13 @@ class ThreadReservationRequestWidget extends StatelessWidget {
   }
 
   Widget paymentStatus(BuildContext context) {
-    return StreamBuilder(
-      stream: context.read<SwapManager>().checkEscrowStatus(r.id),
-      builder: (context, snapshot) {
-        return Text('Payment status: ${snapshot.data}');
-      },
-    );
+    // return StreamBuilder(
+    //   stream: context.read<NostrService>().payments.getStatus(r.id),
+    //   builder: (context, snapshot) {
+    //     return Text('Payment status: ${snapshot.data}');
+    //   },
+    // );
+    return Text('Payment status: TODO');
 
     /// Look up the payment state by hashing the reservation request id
     /// Combine with escrow query as well
@@ -139,8 +140,12 @@ class ThreadReservationRequestWidget extends StatelessWidget {
                       children: [
                         Text(
                           isSentByMe
-                              ? 'You sent a reservation request'
-                              : 'Received reservation offer',
+                              ? AppLocalizations.of(
+                                  context,
+                                )!.youSentReservationRequest
+                              : AppLocalizations.of(
+                                  context,
+                                )!.receivedReservationRequest,
                           style: Theme.of(context).textTheme.bodyMedium!,
                         ),
                         Text(

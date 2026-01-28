@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
+import 'package:ndk/ndk.dart';
 
 class ThreadHeaderWidget extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String? image;
+  final Metadata? metadata;
   final Widget? trailing;
-  const ThreadHeaderWidget(
-      {super.key,
-      required this.title,
-      required this.subtitle,
-      this.image,
-      this.trailing});
+  const ThreadHeaderWidget({super.key, this.metadata, this.trailing});
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundImage: image != null ? NetworkImage(image!) : null,
-        child: image == null ? Text(title[0]) : null,
+        backgroundImage: metadata?.picture != null
+            ? NetworkImage(metadata!.picture!)
+            : null,
+        child: metadata?.picture == null
+            ? Text(metadata?.name?[0] ?? '')
+            : null,
       ),
-      title: Text(title),
+      title: Text(metadata?.name ?? AppLocalizations.of(context)!.loading),
       subtitle: Text(
-        subtitle,
+        metadata?.cleanNip05 ??
+            metadata?.lud06 ??
+            metadata?.lud16 ??
+            metadata?.pubKey ??
+            '',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

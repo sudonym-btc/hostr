@@ -1,4 +1,4 @@
-import 'package:hostr/logic/services/swap.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/payments/constants.dart';
 import 'package:hostr/logic/workflows/lnurl_workflow.dart';
 import 'package:hostr/main.dart';
 import 'package:ndk/ndk.dart';
