@@ -9,24 +9,24 @@
     <meta name="generator" content="Retype 3.11.0">
 
     <!-- Primary Meta Tags -->
-    <title>Escrow</title>
-    <meta name="title" content="Escrow">
-    <meta name="description" content="We deposit using our EVM balance, usually after a swap in.">
+    <title>State and DI Guide</title>
+    <meta name="title" content="State and DI Guide">
+    <meta name="description" content="A quick decision helper for when to use GetIt singletons, global Bloc providers, feature cubits, or workflows in the Hostr app.">
 
     <!-- Canonical -->
-    <link rel="canonical" href="/.doc/app/escrow/">
+    <link rel="canonical" href="/.doc/guides/state_di/">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="/.doc/app/escrow/">
-    <meta property="og:title" content="Escrow">
-    <meta property="og:description" content="We deposit using our EVM balance, usually after a swap in.">
+    <meta property="og:url" content="/.doc/guides/state_di/">
+    <meta property="og:title" content="State and DI Guide">
+    <meta property="og:description" content="A quick decision helper for when to use GetIt singletons, global Bloc providers, feature cubits, or workflows in the Hostr app.">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="/.doc/app/escrow/">
-    <meta property="twitter:title" content="Escrow">
-    <meta property="twitter:description" content="We deposit using our EVM balance, usually after a swap in.">
+    <meta property="twitter:url" content="/.doc/guides/state_di/">
+    <meta property="twitter:title" content="State and DI Guide">
+    <meta property="twitter:description" content="A quick decision helper for when to use GetIt singletons, global Bloc providers, feature cubits, or workflows in the Hostr app.">
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
@@ -35,8 +35,6 @@
     <script data-cfasync="false" src="../../../resources/js/config.js?v=3.11.0.822889403721" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../resources/js/retype.js?v=3.11.0" data-turbo-eval="false" defer></script>
     <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=3.11.0.822889403721" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=3.11.0.822889403721" defer></script>
-    <script id="mermaid-js" data-cfasync="false" src="../../../resources/js/mermaid.js?v=3.11.0" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -181,94 +179,88 @@
                                 <!-- Rendered if sidebar right is enabled -->
                                 <div id="retype-sidebar-right-toggle"></div>
                                 <!-- Page content  -->
-<doc-anchor-target id="escrow" class="break-words">
+<doc-anchor-target id="state-and-di-guide" class="break-words">
     <h1>
-        <doc-anchor-trigger class="header-anchor-trigger" to="#escrow">#</doc-anchor-trigger>
-        <span>Escrow</span>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#state-and-di-guide">#</doc-anchor-trigger>
+        <span>State and DI Guide</span>
     </h1>
 </doc-anchor-target>
-<p>We deposit using our EVM balance, usually after a swap in.</p>
-<div class="overflow-hidden mb-6 py-4 dark:px-5 dark:bg-white rounded-md"><pre translate="no" class="mermaid w-full">flowchart TD
-    PayEscrow[Pay Escrow
-  amount, escrowPubkey, counterpartyPubkey]
-  --&gt; CalculateFees
-  --&gt; GenerateEscrow[GenerateEscrowContract,
-    amount, escrowPubkey, counterpartyPubkey]
-  --&gt; SwapIn[Swap In with params:
-    amountPlusFees, claimAddr, onComplete: next]
-  --&gt; FundEscrow(GenerateEscrowContract.id, amount, )
-</pre></div>
-<div class="codeblock-wrapper"><doc-codeblock>
-<pre translate="no" class="language-dart"><code v-pre class="language-dart">class EscrowDepositManager extends Cubit&lt;Map&lt;String, dynamic&gt;&gt; {
-  final SwapManager swapManager;
-  final RpcClient rpcClient;
-  Map&lt;String, dynamic&gt; pendingDeposits = {};
-
-  EscrowDepositManager(this.swapManager, this.rpcClient) : super({});
-
-  void initiateEscrowDeposit(double amount, String escrowPubkey, String counterpartyPubkey) {
-    final depositId = DateTime.now().millisecondsSinceEpoch.toString();
-    pendingDeposits[depositId] = {
-      'amount': amount,
-      'escrowPubkey': escrowPubkey,
-      'counterpartyPubkey': counterpartyPubkey,
-      'status': 'initiated'
-    };
-    emit(pendingDeposits);
-
-    swapManager.swapIn(amount);
-    swapManager.stream.listen((swapStatus) {
-      if (swapStatus == 'Completed') {
-        _completeEscrowDeposit(depositId);
-      }
-    });
-  }
-
-  void _completeEscrowDeposit(String depositId) {
-    final deposit = pendingDeposits[depositId];
-    if (deposit != null) {
-      final amount = deposit['amount'];
-      final escrowPubkey = deposit['escrowPubkey'];
-      final counterpartyPubkey = deposit['counterpartyPubkey'];
-
-      // Create and broadcast the escrow transaction
-      rpcClient.createEscrowTransaction(amount, escrowPubkey, counterpartyPubkey).then((txHash) {
-        deposit['status'] = 'completed';
-        deposit['txHash'] = txHash;
-        emit(pendingDeposits);
-      }).catchError((error) {
-        deposit['status'] = 'failed';
-        emit(pendingDeposits);
-      });
-    }
-  }
-
-  void resumePendingDeposits() {
-    pendingDeposits.forEach((depositId, deposit) {
-      if (deposit['status'] == 'initiated') {
-        swapManager.swapIn(deposit['amount']);
-        swapManager.stream.listen((swapStatus) {
-          if (swapStatus == 'Completed') {
-            _completeEscrowDeposit(depositId);
-          }
-        });
-      }
-    });
-  }</code></pre>
-</doc-codeblock></div>
-<div class="overflow-hidden mb-6 py-4 dark:px-5 dark:bg-white rounded-md"><pre translate="no" class="mermaid w-full">flowchart TD
-  A[Escrow Deposit Initiated] --&gt; B[Show Escrow Profile]
-  B --&gt; C[Show Listing Info Widget]
-  C --&gt; D[Show Profile of Seller]
-  D --&gt; E[Show Pricing + Fees]
-  E --&gt; F{Buyer OK's This?}
-  F -- Yes --&gt; G[Initiate Swap In]
-  G --&gt; H[Initiate Lightning Payment]
-  H --&gt; I{Swap Completed or Failed?}
-  I -- Completed --&gt; J[Open Escrow-Deposit Modal]
-  I -- Failed --&gt; K[Handle Swap Failure]
-  J --&gt; L[Wait for Escrow Transaction Confirmation]
-  L --&gt; M[Escrow Deposit Completed]</pre></div>
+<p>A quick decision helper for when to use GetIt singletons, global Bloc providers, feature cubits, or workflows in the Hostr app.</p>
+<doc-anchor-target id="decision-cheatsheet">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#decision-cheatsheet">#</doc-anchor-trigger>
+        <span>Decision cheatsheet</span>
+    </h2>
+</doc-anchor-target>
+<ul>
+<li>Multi-step orchestration that talks to multiple services → Workflow</li>
+<li>Shared service/client/cache with no UI state → Global singleton (GetIt)</li>
+<li>App-wide UI/session state that many screens read → Global cubit (top-level BlocProvider)</li>
+<li>Screen/feature-specific UI state → Feature cubit (route-level BlocProvider)</li>
+</ul>
+<doc-anchor-target id="global-singleton-getit">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#global-singleton-getit">#</doc-anchor-trigger>
+        <span>Global singleton (GetIt)</span>
+    </h2>
+</doc-anchor-target>
+<p>Use for stateless or long-lived services that sit below UI concerns.</p>
+<ul>
+<li>Good fits: data sources (Nostr, LN, storage), domain services, repositories, HTTP/LN clients, relay connectors, caches, schedulers.</li>
+<li>Traits: pure Dart, no Widget imports, no direct user interaction, safe to reuse across routes.</li>
+<li>Provider: register once in <a href="app/lib/injection.dart">app/lib/injection.dart</a>; inject via constructors.</li>
+<li>Avoid: storing UI state, depending on cubits, reaching into BuildContext.</li>
+</ul>
+<doc-anchor-target id="global-cubit-blocprovider-at-app-root">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#global-cubit-blocprovider-at-app-root">#</doc-anchor-trigger>
+        <span>Global cubit (BlocProvider at app root)</span>
+    </h2>
+</doc-anchor-target>
+<p>Use when UI-facing state must persist for the whole app session and be readable across many routes.</p>
+<ul>
+<li>Good fits: auth/session identity, app mode/env, wallet connectivity, globally cached streams (e.g., message stream cache), hydrated counts that improve UX.</li>
+<li>Traits: exposes UI-ready state, may hydrate, may subscribe to services, rarely depends on other cubits.</li>
+<li>Provider: set up in app root bootstrap; hydrate intentionally; keep side effects in services/workflows.</li>
+<li>Avoid: housing heavy orchestration; calling other cubits; holding references to feature cubits.</li>
+</ul>
+<doc-anchor-target id="feature-cubit-routescreen-scope">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#feature-cubit-routescreen-scope">#</doc-anchor-trigger>
+        <span>Feature cubit (route/screen scope)</span>
+    </h2>
+</doc-anchor-target>
+<p>Use for screen or flow-specific UI state that can be disposed when the route ends.</p>
+<ul>
+<li>Good fits: form state, screen filters/sorts, one reservation flow, one swap flow, paging/selection state.</li>
+<li>Traits: thin logic, delegates IO and complex steps to services/workflows; created via route-level providers or factories.</li>
+<li>Avoid: holding global caches, cross-feature responsibilities, or long-lived streams better suited for services.</li>
+</ul>
+<doc-anchor-target id="workflow">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#workflow">#</doc-anchor-trigger>
+        <span>Workflow</span>
+    </h2>
+</doc-anchor-target>
+<p>Use when an interaction is multi-step, touches multiple services, or needs progress/reporting.</p>
+<ul>
+<li>Good fits: auth/login/signup, reservation booking, swaps, LNURL flows, event publishing, multi-step payments.</li>
+<li>Traits: orchestrates service calls, sequences steps, maps errors, optionally drives cubits or returns a typed result; no widget imports.</li>
+<li>Provider: injectable class constructed via GetIt; invoked from cubits or UI; report progress with <code v-pre>ProgressSnapshot</code>.</li>
+<li>Avoid: storing long-lived UI state; emitting widgets; depending on BuildContext.</li>
+</ul>
+<doc-anchor-target id="patterns-to-keep">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#patterns-to-keep">#</doc-anchor-trigger>
+        <span>Patterns to keep</span>
+    </h2>
+</doc-anchor-target>
+<ul>
+<li>Cubit → Service/Workflow → Data source. Avoid Cubit → Cubit calls.</li>
+<li>Prefer constructor injection over runtime <code v-pre>GetIt</code> lookups inside widgets or cubits.</li>
+<li>Hydrate only when it improves UX; otherwise keep state transient.</li>
+</ul>
+<p>For architectural background and examples, see <a href="docs/architecture/ideal-architecture.md">docs/architecture/ideal-architecture.md</a>.</p>
 
                                 
                                 <!-- Required only on API pages -->
@@ -278,20 +270,20 @@
                             
                                 <nav id="retype-nextprev" class="print:hidden flex mt-14">
                                     <div class="w-1/2">
-                                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../.doc/app/ui/conversation_page/">
+                                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../.doc/guides/getting_started/">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
                                             <span>
                                                 <span class="block text-xs font-normal text-base-text-muted">Previous</span>
-                                                <span class="block mt-1">Conversation Page</span>
+                                                <span class="block mt-1">Getting started</span>
                                             </span>
                                         </a>
                                     </div>
                             
                                     <div class="w-1/2">
-                                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../.doc/app/payment/">
+                                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../.doc/escrow/">
                                             <span>
                                                 <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
-                                                <span class="block mt-1">Payment</span>
+                                                <span class="block mt-1">Escrow</span>
                                             </span>
                                             <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
                                         </a>
@@ -335,6 +327,6 @@
 
     <div id="retype-overlay-target"></div>
 
-    <script data-cfasync="false">window.__DOCS__ = { "title": "Escrow", level: 3, icon: "file", hasPrism: true, hasMermaid: true, hasMath: false, tocDepth: 23 }</script>
+    <script data-cfasync="false">window.__DOCS__ = { "title": "State and DI Guide", level: 3, icon: "file", hasPrism: false, hasMermaid: false, hasMath: false, tocDepth: 23 }</script>
 </body>
 </html>
