@@ -37,7 +37,7 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
             ),
             CustomPadding(),
             FutureBuilder(
-              future: getIt<NostrService>().escrows.trusted(),
+              future: getIt<Hostr>().escrows.trusted(),
               builder:
                   (BuildContext context, AsyncSnapshot<Nip51List?> snapshot) {
                     if (snapshot.connectionState == ConnectionState.done) {
@@ -97,30 +97,25 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                 onPressed: _current == null
                     ? null
                     : () async {
-                        List<Escrow> escrowServices =
-                            await getIt<NostrService>().requests
-                                .startRequestAsync(
-                                  filter: Filter(
-                                    kinds: [NOSTR_KIND_ESCROW],
-                                    authors: [_current!],
-                                  ),
-                                );
-                        await context
-                            .read<NostrService>()
-                            .payments
-                            .escrow
-                            .escrow(
-                              amount: widget.r.parsedContent.amount,
-                              eventId: widget.r.id,
-                              timelock: widget.r.parsedContent.end
-                                  .difference(DateTime.now())
-                                  .inMinutes,
-                              escrowContractAddress: escrowServices[0]
-                                  .parsedContent
-                                  .contractAddress,
-                              sellerPubkey: widget.counterparty.pubKey,
-                              escrowPubkey: MOCK_ESCROWS[0].pubKey,
+                        List<Escrow> escrowServices = await getIt<Hostr>()
+                            .requests
+                            .startRequestAsync(
+                              filter: Filter(
+                                kinds: [NOSTR_KIND_ESCROW],
+                                authors: [_current!],
+                              ),
                             );
+                        await context.read<Hostr>().payments.escrow.escrow(
+                          amount: widget.r.parsedContent.amount,
+                          eventId: widget.r.id,
+                          timelock: widget.r.parsedContent.end
+                              .difference(DateTime.now())
+                              .inMinutes,
+                          escrowContractAddress:
+                              escrowServices[0].parsedContent.contractAddress,
+                          sellerPubkey: widget.counterparty.pubKey,
+                          escrowPubkey: MOCK_ESCROWS[0].pubKey,
+                        );
                       },
                 child: Text(AppLocalizations.of(context)!.selectEscrow),
               ),

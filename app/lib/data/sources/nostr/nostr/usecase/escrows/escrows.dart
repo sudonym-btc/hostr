@@ -1,7 +1,9 @@
 import 'package:hostr/data/sources/nostr/nostr/usecase/crud.usecase.dart';
+import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip51List;
 
+@Singleton()
 class Escrows extends CrudUseCase<Escrow> {
   Escrows({required super.requests}) : super(kind: Escrow.kinds[0]);
 

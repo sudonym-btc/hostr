@@ -1,7 +1,9 @@
 import 'package:hostr/export.dart';
+import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
+@Singleton()
 class Auth {
   final Ndk ndk;
   final CustomLogger _logger = CustomLogger();

@@ -3,7 +3,7 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:models/nostr/message.dart';
 
 class ThreadsCubit extends HydratedCubit<List<Message>> {
-  final NostrService nostrService;
+  final Hostr nostrService;
   final List<Message> messages = [];
 
   ThreadsCubit(this.nostrService) : super([]);

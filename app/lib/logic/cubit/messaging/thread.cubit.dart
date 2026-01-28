@@ -10,7 +10,7 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class ThreadCubit extends Cubit<ThreadCubitState> {
   CustomLogger logger = CustomLogger();
-  final NostrService nostrService;
+  final Hostr nostrService;
   final Thread thread;
 
   ThreadCubit(

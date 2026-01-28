@@ -14,7 +14,7 @@ class SyncGuard extends AutoRouteGuard {
   @override
   void onNavigation(NavigationResolver resolver, StackRouter router) {
     logger.d('SyncGuard checking message sync status');
-    final nostrService = getIt<NostrService>();
+    final nostrService = getIt<Hostr>();
 
     // If messages are syncing, don't allow navigation - LoadingPage will show an overlay
     if (nostrService.messaging.threads.isSyncing) {

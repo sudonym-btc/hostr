@@ -12,5 +12,5 @@ class ListingProvider extends DefaultEntityProvider<Listing> {
     super.a,
     super.builder,
     super.child,
-  }) : super(crud: getIt<NostrService>().listings);
+  }) : super(crud: getIt<Hostr>().listings);
 }

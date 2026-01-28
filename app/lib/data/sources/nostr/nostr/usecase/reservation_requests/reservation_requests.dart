@@ -1,9 +1,11 @@
 import 'package:crypto/crypto.dart' as crypto;
+import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Ndk, Nip01Event;
 
 import '../crud.usecase.dart';
 
+@Singleton()
 class ReservationRequests extends CrudUseCase {
   final Ndk ndk;
   ReservationRequests({required super.requests, required this.ndk})

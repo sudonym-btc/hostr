@@ -9,7 +9,7 @@ class LoadingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nostrService = getIt<NostrService>();
+    final nostrService = getIt<Hostr>();
 
     return StreamBuilder<ThreadsSyncStatus>(
       stream: nostrService.messaging.threads.syncStatusStream,

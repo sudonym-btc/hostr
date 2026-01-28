@@ -47,7 +47,7 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> signup() async {
     emit(LoggedOut()); // Start from logged-out during signup
     try {
-      await getIt<NostrService>().auth.signup();
+      await getIt<Hostr>().auth.signup();
       emit(LoggedIn());
     } catch (e) {
       logger.e('Signup failed: $e');
@@ -58,7 +58,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   /// Checks authentication status: delegates to workflow, updates state.
   Future<bool> get() async {
-    final isAuthenticated = await getIt<NostrService>().auth.isAuthenticated();
+    final isAuthenticated = await getIt<Hostr>().auth.isAuthenticated();
     if (isAuthenticated) {
       emit(LoggedIn());
       return true;
@@ -70,7 +70,7 @@ class AuthCubit extends Cubit<AuthState> {
   /// Executes logout: delegates to workflow, updates state.
   Future<void> logout() async {
     try {
-      await getIt<NostrService>().auth.logout();
+      await getIt<Hostr>().auth.logout();
       emit(LoggedOut());
     } catch (e) {
       logger.e('Logout failed: $e');
@@ -81,7 +81,7 @@ class AuthCubit extends Cubit<AuthState> {
   /// Executes signin: delegates to workflow, updates state.
   Future<void> signin(String input) async {
     try {
-      await getIt<NostrService>().auth.signin(input);
+      await getIt<Hostr>().auth.signin(input);
       emit(LoggedIn());
     } catch (e) {
       logger.e('Signin failed: $e');

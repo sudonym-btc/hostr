@@ -12,7 +12,7 @@ class AppController {
 
   late PaymentsManager paymentsManager;
   late Ndk ndk;
-  late NostrService nostrService;
+  late Hostr nostrService;
   late NwcService nwc;
   late ThreadsCubit threadsCubit;
 
@@ -21,7 +21,7 @@ class AppController {
 
   AppController() {
     ndk = getIt<Ndk>();
-    nostrService = getIt<NostrService>();
+    nostrService = getIt<Hostr>();
     nwc = getIt<NwcService>();
 
     authCubit = AuthCubit(keyStorage: getIt(), secureStorage: getIt());

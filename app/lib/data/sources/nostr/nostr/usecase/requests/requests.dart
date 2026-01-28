@@ -1,3 +1,5 @@
+import 'package:hostr/injection.dart';
+import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart'
     show RelayBroadcastResponse, RelayConnectivity;
@@ -29,8 +31,11 @@ abstract class RequestsModel {
   });
 
   List<RelayConnectivity> connectivity();
+
+  Future<void> mock();
 }
 
+@Singleton(env: Env.allButTestAndMock)
 class Requests extends RequestsModel {
   final Ndk ndk;
   Requests({required this.ndk});
@@ -97,6 +102,12 @@ class Requests extends RequestsModel {
   @override
   List<RelayConnectivity> connectivity() {
     return ndk.relays.connectedRelays;
+  }
+
+  @override
+  Future<void> mock() {
+    // TODO: implement mock
+    throw UnimplementedError();
   }
 
   // @override

@@ -159,7 +159,7 @@ class MockRelay {
     return myPromise.future;
   }
 
-  _respondEvent(String requestId, Nip01Event event) {
+  void _respondEvent(String requestId, Nip01Event event) {
     List<dynamic> json = [];
     json.add("EVENT");
     json.add(requestId);
@@ -177,7 +177,7 @@ class MockRelay {
   }
 }
 
-matchEvent(Nip01Event event, Filter filter) {
+bool matchEvent(Nip01Event event, Filter filter) {
   /// Only match the correct event kinds
   if (filter.kinds != null && !filter.kinds!.contains(event.kind)) {
     return false;
@@ -196,22 +196,6 @@ matchEvent(Nip01Event event, Filter filter) {
       )) {
     return false;
   }
-
-  // logger.t("keys ${filter.additionalFilters.values}");
-
-  // /// Only match events that contain a tag
-  // if (filter.additionalFilters != null &&
-  //     filter.additionalFilters!.keys.isNotEmpty &&
-
-  //     /// Loop through all the additional filters
-  //     !filter.additionalFilters!.keys
-  //         .any((tagType) => event.tags!.any((eventTag) {
-  //               /// Returns true if the event contains
-  //               return (filter.additionalFilters![tagType] as List<String>)
-  //                   .any(eventTag.contains);
-  //             }))) {
-  //   return false;
-  // }
 
   if (filter.authors != null &&
       (!filter.authors!.contains(event.pubKey) ||

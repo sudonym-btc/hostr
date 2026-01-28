@@ -1,16 +1,19 @@
+import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Ndk, NdkBroadcastResponse, Nip01Event;
+import 'package:ndk/domain_layer/entities/broadcast_state.dart';
+import 'package:ndk/ndk.dart' show Ndk, Nip01Event;
 
 import '../requests/requests.dart';
 import 'threads.dart';
 
+@Singleton()
 class Messaging {
   final Ndk ndk;
   final Requests requests;
   late final Threads threads = Threads(this, requests, ndk);
   Messaging(this.ndk, this.requests);
 
-  Future<List<NdkBroadcastResponse>> broadcastMessage({
+  Future<List<Future<List<RelayBroadcastResponse>>>> broadcastMessage({
     required String content,
     required List<List<String>> tags,
     required String recipientPubkey,
@@ -22,14 +25,14 @@ class Messaging {
     );
 
     return [
-      ndk.broadcast.broadcast(
-        nostrEvent: await ndk.giftWrap.toGiftWrap(
+      requests.broadcast(
+        event: await ndk.giftWrap.toGiftWrap(
           rumor: rumor,
           recipientPubkey: recipientPubkey,
         ),
       ),
-      ndk.broadcast.broadcast(
-        nostrEvent: await ndk.giftWrap.toGiftWrap(
+      requests.broadcast(
+        event: await ndk.giftWrap.toGiftWrap(
           rumor: rumor,
           recipientPubkey: ndk.accounts.getPublicKey()!,
         ),
@@ -57,7 +60,7 @@ class Messaging {
     return threads.awaitId(rumor.id);
   }
 
-  Future<List<NdkBroadcastResponse>> broadcastEvent({
+  Future<List<Future<List<RelayBroadcastResponse>>>> broadcastEvent({
     required Nip01Event event,
     required List<List<String>> tags,
     required String recipientPubkey,

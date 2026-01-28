@@ -22,10 +22,10 @@ class ReservationState {
 /// This cubit only manages state transitions and UI decisions.
 class ReservationCubit extends Cubit<ReservationState> {
   final EventPublisherCubit _publisher;
-  final NostrService _nostrService;
+  final Hostr _nostrService;
 
   ReservationCubit({
-    required NostrService nostrService,
+    required Hostr nostrService,
     required EventPublisherCubit publisher,
   }) : _publisher = publisher,
        _nostrService = nostrService,

@@ -1,14 +1,16 @@
-import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:http/http.dart';
-import 'package:ndk/domain_layer/usecases/nwc/nwc.dart';
+import 'package:injectable/injectable.dart';
 import 'package:web3dart/web3dart.dart';
 
+import '../auth/auth.dart';
 import '../escrows/escrows.dart';
+import '../nwc/nwc.dart';
 import 'payment_escrow.dart';
 import 'swap.dart';
 
+@Singleton()
 class Payments {
   late final PaymentEscrow escrow;
   late final Swap swap;
@@ -39,5 +41,9 @@ class Payments {
   checkPaymentStatus(String reservationRequestId) {
     // return nwc.lookupInvoice(reservationRequestId);
     // return escrow.checkPaymentStatus(reservationRequestId);
+  }
+
+  pay(PaymentParameters params) {
+    return PaymentCubit(params: params);
   }
 }

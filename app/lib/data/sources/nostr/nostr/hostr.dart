@@ -1,0 +1,39 @@
+import 'package:hostr/core/main.dart';
+import 'package:hostr/injection.dart';
+import 'package:injectable/injectable.dart';
+import 'package:ndk/ndk.dart' show Ndk;
+
+import 'usecase/auth/auth.dart';
+import 'usecase/badge_awards/badge_awards.dart';
+import 'usecase/badge_definitions/badge_definitions.dart';
+import 'usecase/escrows/escrows.dart';
+import 'usecase/listings/listings.dart';
+import 'usecase/messaging/messaging.dart';
+import 'usecase/metadata/metadata.dart';
+import 'usecase/payments/payments.dart';
+import 'usecase/requests/requests.dart';
+import 'usecase/reservation_requests/reservation_requests.dart';
+import 'usecase/reservations/reservations.dart';
+
+abstract class Hostr {
+  final Ndk ndk;
+  Hostr({required this.ndk});
+
+  CustomLogger logger = CustomLogger();
+  Auth get auth => getIt<Auth>();
+  Requests get requests => getIt<Requests>();
+  MetadataUseCase get metadata => getIt<MetadataUseCase>();
+  Listings get listings => getIt<Listings>();
+  Reservations get reservations => getIt<Reservations>();
+  Escrows get escrows => getIt<Escrows>();
+  BadgeDefinitions get badgeDefinitions => getIt<BadgeDefinitions>();
+  BadgeAwards get badgeAwards => getIt<BadgeAwards>();
+  Messaging get messaging => getIt<Messaging>();
+  ReservationRequests get reservationRequests => getIt<ReservationRequests>();
+  Payments get payments => getIt<Payments>();
+}
+
+@Singleton(as: Hostr)
+class ProdHostr extends Hostr {
+  ProdHostr(Ndk ndk) : super(ndk: ndk);
+}

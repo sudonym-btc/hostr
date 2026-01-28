@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/repositories/nostr/base.repository.dart';
-import 'package:hostr/data/sources/nostr/nostr/nostr.service.dart';
+import 'package:hostr/data/sources/nostr/nostr/hostr.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:ndk/ndk.dart';
 
@@ -12,7 +12,7 @@ class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
   final CustomLogger logger = CustomLogger();
   final Ndk? nostrInstance;
   final List<int> kinds;
-  final NostrService nostrService;
+  final Hostr nostrService;
 
   final FilterCubit? filterCubit;
 
