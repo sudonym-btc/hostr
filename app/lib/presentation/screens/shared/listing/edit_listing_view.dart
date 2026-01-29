@@ -112,6 +112,7 @@ class EditListingViewState extends State<EditListingView> {
                   type: ListingType.room,
                   images: [],
                   amenities: Amenities(),
+                  requiresEscrow: false,
                 ).toString(),
               ),
             ),

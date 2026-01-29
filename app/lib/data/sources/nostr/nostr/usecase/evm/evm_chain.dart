@@ -1,27 +1,14 @@
 import 'dart:math';
 
-import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/injection.dart';
-import 'package:http/http.dart';
-import 'package:injectable/injectable.dart';
+import 'package:hostr/data/sources/boltz/contracts/EtherSwap.g.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
-abstract class Rootstock {
+abstract class EvmChain {
+  final Web3Client client;
+  EvmChain({required this.client});
   CustomLogger logger = CustomLogger();
-  Future<void> connectToRootstock();
-  Future<double> getBalance(EthereumAddress address);
-  Future<TransactionInformation?> getTransaction(String txHash);
-}
-
-@Injectable(as: Rootstock)
-class RootstockImpl extends Rootstock {
-  final Web3Client client = Web3Client(
-    getIt<Config>().rootstockRpcUrl,
-    Client(),
-  );
-  @override
   Future<void> connectToRootstock() async {
     try {
       final blockNumber = await client.getBlockNumber();
@@ -33,7 +20,6 @@ class RootstockImpl extends Rootstock {
     }
   }
 
-  @override
   Future<double> getBalance(EthereumAddress address) async {
     logger.d('Getting balance for $address');
     return await client.getBalance(address).then((val) {
@@ -42,7 +28,6 @@ class RootstockImpl extends Rootstock {
     });
   }
 
-  @override
   Future<TransactionInformation?> getTransaction(String txHash) async {
     logger.d('Getting transaction for $txHash');
     return await client.getTransactionByHash(txHash).then((val) {
@@ -53,12 +38,14 @@ class RootstockImpl extends Rootstock {
     });
   }
 
-  call(
+  Future<EtherSwap> getEtherSwapContract();
+
+  Future<List<dynamic>> call(
     ContractAbi abi,
     EthereumAddress address,
     ContractFunction func,
     params,
-  ) async {
+  ) {
     return client.call(
       contract: DeployedContract(abi, address),
       function: func,
@@ -67,6 +54,6 @@ class RootstockImpl extends Rootstock {
   }
 }
 
-convertWeiToSatoshi(double wei) {
+double convertWeiToSatoshi(double wei) {
   return wei / pow(10, 18 - 8);
 }

@@ -3,20 +3,21 @@ import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:crypto/crypto.dart';
-import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/data/sources/boltz/contracts/EtherSwap.g.dart';
 import 'package:hostr/data/sources/boltz/swagger_generated/boltz.swagger.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
-import 'constants.dart';
+import '../auth/auth.dart';
+import '../evm/evm_chain.dart';
+import '../payments/constants.dart';
 
 enum SwapProgress {
   initiated,
@@ -28,34 +29,14 @@ enum SwapProgress {
   failed,
 }
 
+@Singleton()
 class Swap {
   final CustomLogger logger = CustomLogger();
-  final Web3Client client;
-  final Config config;
-  final BoltzClient boltzClient;
   final Auth auth;
 
-  Swap({
-    required this.config,
-    required this.boltzClient,
-    required this.auth,
-    required this.client,
-  });
+  Swap({required this.auth});
 
-  Future<EtherSwap> getRootstockEtherSwapContract() async {
-    // Fetch RBTC contracts
-    final rbtcContracts = await getIt<BoltzClient>().rbtcContracts();
-    final rbtcSwapContract = rbtcContracts.swapContracts.etherSwap;
-
-    logger.i('RBTC Swap contract: $rbtcSwapContract');
-    // Initialize EtherSwap contract
-    return EtherSwap(
-      address: EthereumAddress.fromHex(rbtcSwapContract!),
-      client: client,
-    );
-  }
-
-  Future<void> swapOutAll() async {
+  Future<void> swapOutAll(EvmChain evmChain) async {
     /** @todo: determine how much amount is available to be swapped out */
     // Calculate the total amount of funds that can be swapped out.
     // This might involve fetching the balance from a wallet or another source.
@@ -66,7 +47,7 @@ class Swap {
 
     KeyPair? key = auth.activeKeyPair;
     EthPrivateKey ethKey = getEthCredentials(key!.privateKey!);
-    Rootstock r = getIt<Rootstock>();
+    EvmChain r = evmChain;
 
     double balance = await r.getBalance(
       getEthCredentials(key.privateKey!).address,
@@ -104,7 +85,7 @@ class Swap {
         timelock: BigInt.from(swap.timeoutBlockHeight),
       );
 
-      EtherSwap swapContract = await getRootstockEtherSwapContract();
+      EtherSwap swapContract = await evmChain.getEtherSwapContract();
 
       // Lock the funds in the EtherSwap contract
       String tx = await swapContract.lock(lockArgs, credentials: ethKey);
@@ -120,6 +101,7 @@ class Swap {
     int amountSats, {
     void Function(SwapProgress progress)? onProgress,
     void Function(String paymentId)? onPaymentCreated,
+    required EvmChain evmChain,
   }) async {
     /// Check that NWC is connected first
     Uri? nwc = await getIt<NwcStorage>().getUri();
@@ -148,7 +130,7 @@ class Swap {
     );
     String invoiceToPay = swap.invoice;
 
-    EtherSwap swapContract = await getRootstockEtherSwapContract();
+    EtherSwap swapContract = await evmChain.getEtherSwapContract();
 
     Bolt11PaymentRequest pr = Bolt11PaymentRequest(invoiceToPay);
 
@@ -190,7 +172,7 @@ class Swap {
         onProgress?.call(SwapProgress.waitingOnchain);
 
         /// Fetch the from address of the lockup transaction to use as refund address
-        TransactionInformation? lockupTx = await client.getTransactionByHash(
+        TransactionInformation? lockupTx = await evmChain.getTransaction(
           swapStatus.transaction!.id!,
         );
 

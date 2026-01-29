@@ -3,11 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:ndk/ndk.dart';
 
-import '../services/nwc.dart';
-
 class NwcCubit extends Cubit<NwcCubitState> {
   CustomLogger logger = CustomLogger();
-  final NwcService nwcService;
+  final Nwc nwcService;
   String? url;
   NwcConnection? connection;
   NwcCubit({required this.nwcService, this.url}) : super(Idle());

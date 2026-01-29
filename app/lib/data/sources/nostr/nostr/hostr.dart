@@ -7,13 +7,17 @@ import 'usecase/auth/auth.dart';
 import 'usecase/badge_awards/badge_awards.dart';
 import 'usecase/badge_definitions/badge_definitions.dart';
 import 'usecase/escrows/escrows.dart';
+import 'usecase/evm/evm.dart';
 import 'usecase/listings/listings.dart';
 import 'usecase/messaging/messaging.dart';
 import 'usecase/metadata/metadata.dart';
+import 'usecase/nwc/nwc.dart';
 import 'usecase/payments/payments.dart';
 import 'usecase/requests/requests.dart';
 import 'usecase/reservation_requests/reservation_requests.dart';
 import 'usecase/reservations/reservations.dart';
+import 'usecase/swap/swap.dart';
+import 'usecase/zaps/zaps.dart';
 
 abstract class Hostr {
   final Ndk ndk;
@@ -23,6 +27,8 @@ abstract class Hostr {
   Auth get auth => getIt<Auth>();
   Requests get requests => getIt<Requests>();
   MetadataUseCase get metadata => getIt<MetadataUseCase>();
+  Nwc get nwc => getIt<Nwc>();
+  Zaps get zaps => getIt<Zaps>();
   Listings get listings => getIt<Listings>();
   Reservations get reservations => getIt<Reservations>();
   Escrows get escrows => getIt<Escrows>();
@@ -31,6 +37,8 @@ abstract class Hostr {
   Messaging get messaging => getIt<Messaging>();
   ReservationRequests get reservationRequests => getIt<ReservationRequests>();
   Payments get payments => getIt<Payments>();
+  Swap get swaps => getIt<Swap>();
+  Evm get evm => getIt<Evm>();
 }
 
 @Singleton(as: Hostr)

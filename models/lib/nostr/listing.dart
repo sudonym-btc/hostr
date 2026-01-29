@@ -55,20 +55,23 @@ class ListingContent extends EventContent {
   final ListingType type;
   final List<String> images;
   final Amenities amenities;
+  final bool requiresEscrow;
 
-  ListingContent(
-      {required this.title,
-      required this.description,
-      required this.price,
-      this.allowBarter = false,
-      required this.minStay,
-      required this.checkIn,
-      required this.checkOut,
-      required this.location,
-      required this.quantity,
-      required this.type,
-      required this.images,
-      required this.amenities});
+  ListingContent({
+    required this.title,
+    required this.description,
+    required this.price,
+    this.allowBarter = false,
+    required this.minStay,
+    required this.checkIn,
+    required this.checkOut,
+    required this.location,
+    required this.quantity,
+    required this.type,
+    required this.images,
+    required this.amenities,
+    required this.requiresEscrow,
+  });
 
   @override
   Map<String, dynamic> toJson() {
@@ -85,6 +88,7 @@ class ListingContent extends EventContent {
       "type": type.toString().split('.').last,
       "images": images,
       "amenities": amenities.toMap(),
+      "requiresEscrow": requiresEscrow,
     };
   }
 
@@ -107,6 +111,7 @@ class ListingContent extends EventContent {
           .firstWhere((e) => e.toString() == 'ListingType.${json["type"]}'),
       images: List<String>.from(json["images"]),
       amenities: Amenities.fromJSON(json["amenities"]),
+      requiresEscrow: json["requiresEscrow"],
     );
   }
 }

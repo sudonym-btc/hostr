@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/evm_chain.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:models/main.dart';
@@ -17,8 +18,6 @@ class MoneyInFlightWidget extends StatefulWidget {
 }
 
 class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
-  Rootstock r = getIt<Rootstock>();
-  KeyStorage keyStorage = getIt<KeyStorage>();
   num? balance;
   bool isLoading = false;
   String? error;
@@ -43,24 +42,20 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
       isLoading = true;
       error = null;
     });
-    keyStorage.getActiveKeyPair().then((value) {
-      r.getBalance(getEthCredentials(value!.privateKey!).address).then((val) {
-        setState(() {
-          balance = val;
-          isLoading = false;
+    getIt<Hostr>().evm
+        .getBalance()
+        .then((value) {
+          setState(() {
+            balance = value;
+            isLoading = false;
+          });
+        })
+        .catchError((e) {
+          setState(() {
+            error = e.toString();
+            isLoading = false;
+          });
         });
-      }).catchError((e) {
-        setState(() {
-          error = e.toString();
-          isLoading = false;
-        });
-      });
-    }).catchError((e) {
-      setState(() {
-        error = e.toString();
-        isLoading = false;
-      });
-    });
   }
 
   @override
@@ -78,7 +73,8 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
         children: [
           SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
           Text(
-              '${formatAmount(Amount(value: convertWeiToSatoshi(balance!.toDouble()), currency: Currency.BTC), exact: false) ?? 'loading'}'),
+            '${formatAmount(Amount(value: convertWeiToSatoshi(balance!.toDouble()), currency: Currency.BTC), exact: false) ?? 'loading'}',
+          ),
         ],
       ),
     );

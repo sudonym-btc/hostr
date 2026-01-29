@@ -12,8 +12,7 @@ class AppController {
 
   late PaymentsManager paymentsManager;
   late Ndk ndk;
-  late Hostr nostrService;
-  late NwcService nwc;
+  late Hostr hostrService;
   late ThreadsCubit threadsCubit;
 
   late StreamSubscription sub;
@@ -21,16 +20,15 @@ class AppController {
 
   AppController() {
     ndk = getIt<Ndk>();
-    nostrService = getIt<Hostr>();
-    nwc = getIt<NwcService>();
+    hostrService = getIt<Hostr>();
 
     authCubit = AuthCubit(keyStorage: getIt(), secureStorage: getIt());
     eventPublisherCubit = EventPublisherCubit(
-      nostrService: nostrService,
+      hostr: hostrService,
       workflow: getIt(),
     );
-    paymentsManager = PaymentsManager(dio: getIt(), nwcService: nwc);
-    threadsCubit = ThreadsCubit(nostrService);
+    paymentsManager = PaymentsManager(dio: getIt(), hostr: hostrService);
+    threadsCubit = ThreadsCubit(hostrService);
 
     sessionCoordinator = getIt<SessionCoordinator>();
     sessionCoordinator.start(

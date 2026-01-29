@@ -6,6 +6,7 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/nwc/nwc_flow.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
 import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
@@ -98,7 +99,11 @@ class ProfileScreen extends StatelessWidget {
                     showModalBottomSheet(
                       context: context,
                       builder: (BuildContext context) {
-                        return AddWalletWidget();
+                        return NwcFlowWidget(
+                          onClose: () {
+                            // Navigator.pop(context);
+                          },
+                        );
                       },
                     );
                   },

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
@@ -105,7 +104,8 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                                 authors: [_current!],
                               ),
                             );
-                        await context.read<Hostr>().payments.escrow.escrow(
+                        await getIt<Hostr>().payments.escrow.escrow(
+                          evmChain: getIt<Hostr>().evm.supportedEvmChains[0],
                           amount: widget.r.parsedContent.amount,
                           eventId: widget.r.id,
                           timelock: widget.r.parsedContent.end

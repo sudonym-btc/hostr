@@ -21,12 +21,12 @@ class LnUrlPaymentCubit
           LightningCompletedDetails
         > {
   final LnUrlWorkflow _workflow;
-  final NwcService nwcService;
+  final Hostr hostr;
 
   LnUrlPaymentCubit({
     @factoryParam required super.params,
     required LnUrlWorkflow workflow,
-    required this.nwcService,
+    required this.hostr,
   }) : _workflow = workflow;
 
   @override
@@ -55,8 +55,7 @@ class LnUrlPaymentCubit
 
   @override
   Future<LightningCompletedDetails> complete() async {
-    PayInvoiceResponse response = await nwcService.payInvoice(
-      nwcService.connections[0].connection!,
+    PayInvoiceResponse response = await hostr.nwc.payInvoice(
       state.callbackDetails!.invoice.paymentRequest,
       null,
     );

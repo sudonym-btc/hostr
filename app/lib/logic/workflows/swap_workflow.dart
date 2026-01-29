@@ -1,5 +1,5 @@
 import 'package:hostr/core/main.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/payments/swap.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/swap/swap.dart';
 import 'package:hostr/logic/cubit/payment/payment.manager.cubit.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
