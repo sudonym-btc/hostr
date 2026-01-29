@@ -46,6 +46,8 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/mock.metadata.da
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i909;
 import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payments.dart'
     as _i244;
+import 'package:hostr/data/sources/nostr/nostr/usecase/relays/relays.dart'
+    as _i886;
 import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart'
     as _i100;
 import 'package:hostr/data/sources/nostr/nostr/usecase/requests/test.requests.dart'
@@ -56,14 +58,12 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/reservations/reservations
     as _i489;
 import 'package:hostr/data/sources/nostr/nostr/usecase/swap/swap.dart' as _i443;
 import 'package:hostr/data/sources/nostr/nostr/usecase/zaps/zaps.dart' as _i735;
-import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i291;
 import 'package:hostr/export.dart' as _i1012;
 import 'package:hostr/injection.dart' as _i490;
 import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
 import 'package:hostr/logic/cubit/payment/bolt11_payment.cubit.dart' as _i993;
 import 'package:hostr/logic/cubit/payment/lnurl_payment.cubit.dart' as _i99;
 import 'package:hostr/logic/services/session_coordinator.dart' as _i126;
-import 'package:hostr/logic/services/zap.dart' as _i915;
 import 'package:hostr/logic/workflows/event_publishing_workflow.dart' as _i338;
 import 'package:hostr/logic/workflows/lnurl_workflow.dart' as _i675;
 import 'package:hostr/logic/workflows/payment_workflow.dart' as _i558;
@@ -97,7 +97,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i361.Dio>(() => dioModule.dio());
     gh.factory<_i467.Config>(() => _i292.TestConfig(), registerFor: {_test});
     gh.factory<_i467.Config>(() => _i331.MockConfig(), registerFor: {_mock});
-    gh.factory<_i291.RelayConnector>(() => _i291.ProdRelayConnector());
     gh.factory<_i467.Config>(
       () => _i598.DevelopmentConfig(),
       registerFor: {_dev},
@@ -109,10 +108,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i311.SecureStorage>(
       () => _i311.MockSecureStorage(),
       registerFor: {_test},
-    );
-    gh.factory<_i915.ZapService>(
-      () => _i915.ZapService(),
-      registerFor: {_dev, _staging, _prod},
     );
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsImpl(),
@@ -144,11 +139,19 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i249.MetadataUseCase(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.singleton<_i886.Relays>(
+      () => _i886.Relays(ndk: gh<_i857.Ndk>()),
+      registerFor: {_dev, _staging, _prod},
+    );
     gh.singleton<_i100.Requests>(
       () => _i100.Requests(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i552.Hostr>(() => _i552.ProdHostr(gh<_i857.Ndk>()));
+    gh.singleton<_i886.Relays>(
+      () => _i886.MockRelays(ndk: gh<_i857.Ndk>()),
+      registerFor: {_test, _mock},
+    );
     gh.singleton<_i100.Requests>(
       () => _i805.TestRequests(ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
