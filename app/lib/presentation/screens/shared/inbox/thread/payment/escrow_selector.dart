@@ -36,9 +36,9 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
             ),
             CustomPadding(),
             FutureBuilder(
-              future: getIt<Hostr>().escrows.trusted(),
+              future: getIt<Hostr>().escrowTrusts.myTrusted(),
               builder:
-                  (BuildContext context, AsyncSnapshot<Nip51List?> snapshot) {
+                  (BuildContext context, AsyncSnapshot<EscrowTrust?> snapshot) {
                     if (snapshot.connectionState == ConnectionState.done) {
                       if (snapshot.hasData) {
                         return DropdownButton<dynamic>(
@@ -56,14 +56,12 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                             return [ProfileChipWidget(id: _current!)];
                           },
                           items: snapshot.data!
-                              .byTag('p')
-                              .map<DropdownMenuItem<dynamic>>((
-                                Nip51ListElement pubkey,
-                              ) {
+                              .getTags('p')
+                              .map<DropdownMenuItem<dynamic>>((String pubkey) {
                                 return DropdownMenuItem(
-                                  value: pubkey.value,
+                                  value: pubkey,
                                   child: Text(
-                                    pubkey.value,
+                                    pubkey,
                                     style: TextStyle(
                                       fontSize: 20,
                                       overflow: TextOverflow.ellipsis,
@@ -114,7 +112,7 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                           escrowContractAddress:
                               escrowServices[0].parsedContent.contractAddress,
                           sellerPubkey: widget.counterparty.pubKey,
-                          escrowPubkey: MOCK_ESCROWS[0].pubKey,
+                          escrowPubkey: (MOCK_ESCROWS())[0].pubKey,
                         );
                       },
                 child: Text(AppLocalizations.of(context)!.selectEscrow),

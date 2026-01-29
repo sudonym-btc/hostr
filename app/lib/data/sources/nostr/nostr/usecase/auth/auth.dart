@@ -38,23 +38,27 @@ class Auth {
     }
   }
 
+  Future<void> init() async {
+    await isAuthenticated();
+    await ensureNdkLoggedIn();
+  }
+
   /// Returns whether there is an active key pair.
   Future<bool> isAuthenticated() async {
-    final keyPair = await keyStorage.getActiveKeyPair();
-    return keyPair != null;
+    activeKeyPair = await keyStorage.getActiveKeyPair();
+    return activeKeyPair != null;
   }
 
   /// Restores NDK login using the stored key, if any.
   Future<bool> ensureNdkLoggedIn() async {
-    final keyPair = await keyStorage.getActiveKeyPair();
-    if (keyPair == null ||
-        keyPair.publicKey == null ||
-        keyPair.privateKey == null) {
+    if (activeKeyPair == null ||
+        activeKeyPair!.publicKey == null ||
+        activeKeyPair!.privateKey == null) {
       return false;
     }
 
-    final pubkey = keyPair.publicKey!;
-    final privkey = keyPair.privateKey!;
+    final pubkey = activeKeyPair!.publicKey!;
+    final privkey = activeKeyPair!.privateKey!;
     final alreadyLoggedIn =
         ndk.accounts.accounts.containsKey(pubkey) ||
         ndk.accounts.getPublicKey() == pubkey;
@@ -70,6 +74,7 @@ class Auth {
   /// Wipes key storage and secure storage.
   Future<void> logout() async {
     _logger.i('AuthService.logout');
+    activeKeyPair = null;
     await keyStorage.wipe();
     await secureStorage.wipe();
     ndk.accounts.accounts.forEach((pubkey, account) {

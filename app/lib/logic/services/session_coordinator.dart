@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/logic/cubit/messaging/threads.cubit.dart';
 import 'package:injectable/injectable.dart';
@@ -17,23 +18,27 @@ import 'package:ndk/ndk.dart';
 @lazySingleton
 class SessionCoordinator {
   final Config _config;
-  final KeyStorage _keyStorage;
+  final Auth auth;
   final CustomLogger _logger = CustomLogger();
 
   StreamSubscription<AuthState>? _sub;
 
-  SessionCoordinator(this._config, this._keyStorage);
+  SessionCoordinator(this._config, this.auth);
 
   void start({
     required AuthCubit authCubit,
     required Ndk ndk,
     required ThreadsCubit threadsCubit,
   }) {
+    auth.init();
+
     _sub?.cancel();
+
     _sub = authCubit.stream.listen((state) async {
       if (state is LoggedIn) {
-        final pubKey = ndk.accounts.getPublicKey()!;
         threadsCubit.sync();
+
+        final pubKey = ndk.accounts.getPublicKey()!;
 
         await ndk.userRelayLists.setInitialUserRelayList(
           UserRelayList(

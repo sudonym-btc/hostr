@@ -32,6 +32,10 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/badge_awards/badge_awards
     as _i232;
 import 'package:hostr/data/sources/nostr/nostr/usecase/badge_definitions/badge_definitions.dart'
     as _i558;
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_methods/escrows_methods.dart'
+    as _i291;
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_trusts/escrows_trusts.dart'
+    as _i445;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrows/escrows.dart'
     as _i42;
 import 'package:hostr/data/sources/nostr/nostr/usecase/evm/evm.dart' as _i961;
@@ -39,8 +43,6 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/listings/listings.dart'
     as _i456;
 import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
     as _i463;
-import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/threads.dart'
-    as _i465;
 import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart'
     as _i249;
 import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/mock.metadata.dart'
@@ -136,12 +138,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i675.LnUrlWorkflow(dio: gh<_i361.Dio>()),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.lazySingleton<_i126.SessionCoordinator>(
-      () => _i126.SessionCoordinator(
-        gh<_i1012.Config>(),
-        gh<_i1012.KeyStorage>(),
-      ),
-    );
     gh.singleton<_i249.MetadataUseCase>(
       () => _i249.MetadataUseCase(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
@@ -162,12 +158,6 @@ extension GetItInjectableX on _i174.GetIt {
         secureStorage: gh<_i1012.SecureStorage>(),
       ),
     );
-    gh.singleton<_i489.Reservations>(
-      () => _i489.Reservations(
-        requests: gh<_i100.Requests>(),
-        threads: gh<_i465.Threads>(),
-      ),
-    );
     gh.singleton<_i463.Messaging>(
       () => _i463.Messaging(gh<_i857.Ndk>(), gh<_i100.Requests>()),
     );
@@ -180,8 +170,8 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i558.BadgeDefinitions>(
       () => _i558.BadgeDefinitions(requests: gh<_i100.Requests>()),
     );
-    gh.singleton<_i42.Escrows>(
-      () => _i42.Escrows(requests: gh<_i100.Requests>()),
+    gh.singleton<_i291.EscrowMethods>(
+      () => _i291.EscrowMethods(requests: gh<_i100.Requests>()),
     );
     gh.singleton<_i456.Listings>(
       () => _i456.Listings(requests: gh<_i100.Requests>()),
@@ -193,12 +183,25 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
+    gh.singleton<_i445.EscrowTrusts>(
+      () => _i445.EscrowTrusts(
+        requests: gh<_i100.Requests>(),
+        auth: gh<_i34.Auth>(),
+      ),
+    );
     gh.singleton<_i886.Relays>(
       () => _i886.Relays(
         ndk: gh<_i857.Ndk>(),
         relayStorage: gh<_i15.RelayStorage>(),
       ),
       registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i42.Escrows>(
+      () => _i42.Escrows(
+        requests: gh<_i100.Requests>(),
+        escrowMethods: gh<_i291.EscrowMethods>(),
+        escrowTrusts: gh<_i445.EscrowTrusts>(),
+      ),
     );
     gh.singleton<_i909.Nwc>(
       () => _i909.Nwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
@@ -210,6 +213,12 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
       ),
       registerFor: {_mock, _test},
+    );
+    gh.singleton<_i489.Reservations>(
+      () => _i489.Reservations(
+        requests: gh<_i100.Requests>(),
+        messaging: gh<_i463.Messaging>(),
+      ),
     );
     gh.singleton<_i909.Nwc>(
       () => _i909.MockNwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
@@ -227,6 +236,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i961.Evm>(() => _i961.Evm(auth: gh<_i34.Auth>()));
     gh.singleton<_i443.Swap>(() => _i443.Swap(auth: gh<_i34.Auth>()));
+    gh.lazySingleton<_i126.SessionCoordinator>(
+      () => _i126.SessionCoordinator(gh<_i1012.Config>(), gh<_i34.Auth>()),
+    );
     gh.singleton<_i735.Zaps>(
       () => _i735.Zaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
