@@ -13,6 +13,7 @@ import 'usecase/messaging/messaging.dart';
 import 'usecase/metadata/metadata.dart';
 import 'usecase/nwc/nwc.dart';
 import 'usecase/payments/payments.dart';
+import 'usecase/relays/relays.dart';
 import 'usecase/requests/requests.dart';
 import 'usecase/reservation_requests/reservation_requests.dart';
 import 'usecase/reservations/reservations.dart';
@@ -39,6 +40,7 @@ abstract class Hostr {
   Payments get payments => getIt<Payments>();
   Swap get swaps => getIt<Swap>();
   Evm get evm => getIt<Evm>();
+  Relays get relays => getIt<Relays>();
 }
 
 @Singleton(as: Hostr)

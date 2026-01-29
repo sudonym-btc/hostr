@@ -3,4 +3,3 @@ export 'boltz/boltz.dart';
 export 'local/main.dart';
 export 'nostr/nostr/hostr.dart';
 export 'nostr/nostr/usecase/messaging/threads.dart';
-export 'nostr/relay_connector.dart';
