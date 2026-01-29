@@ -1,15 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:hostr/data/sources/local/relay_storage.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/main.dart';
 import 'package:ndk/entities.dart';
 
 class RelayListItemWidget extends StatefulWidget {
   final RelayInfo? relay;
   final RelayConnectivity connectivity;
-  const RelayListItemWidget(
-      {super.key, required this.relay, required this.connectivity});
+  const RelayListItemWidget({
+    super.key,
+    required this.relay,
+    required this.connectivity,
+  });
 
   @override
   RelayListItemWidgetState createState() => RelayListItemWidgetState();
@@ -49,13 +52,7 @@ class RelayListItemWidgetState extends State<RelayListItemWidget> {
       trailing: IconButton(
         icon: Icon(Icons.close),
         onPressed: () async {
-          widget.connectivity.close();
-          getIt<RelayStorage>().set([
-            ...await getIt<RelayStorage>().get().then((value) {
-              value.remove(widget.connectivity.url);
-              return value;
-            }),
-          ]);
+          await getIt<Hostr>().relays.remove(widget.connectivity.url);
         },
       ),
       //         Container(
@@ -63,9 +60,11 @@ class RelayListItemWidgetState extends State<RelayListItemWidget> {
       //   height: 10,
       //   decoration: BoxDecoration(
       title: Text(widget.relay?.name ?? displayHost),
-      subtitle: Text(widget.connectivity.relayTransport?.isOpen() == true
-          ? "Connected"
-          : "Disconnected"),
+      subtitle: Text(
+        widget.connectivity.relayTransport?.isOpen() == true
+            ? "Connected"
+            : "Disconnected",
+      ),
     );
   }
 }

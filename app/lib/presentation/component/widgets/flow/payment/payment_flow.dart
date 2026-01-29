@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/logic/cubit/payment/payment.cubit.dart';
+import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/export.dart';
+import 'package:models/amount.dart';
 
 import '../flow.dart';
 
@@ -10,11 +12,7 @@ class PaymentFlow extends FlowDefinition {
   String get id => 'payment-flow';
 
   @override
-  List<FlowStep> buildSteps() => [
-    const PaymentResolveStep(),
-    const PaymentOkStep(),
-    const PaymentConfirmStep(),
-  ];
+  List<FlowStep> buildSteps() => [PaymentCompletedStep()];
 }
 
 /// Renders the payment flow using FlowHost for step navigation.
@@ -44,7 +42,9 @@ class _PaymentFlowWidgetState extends State<PaymentFlowWidget> {
 
   @override
   void dispose() {
-    _flowHost.close();
+    if (!_flowHost.isClosed) {
+      _flowHost.close();
+    }
     super.dispose();
   }
 
@@ -73,6 +73,9 @@ class _PaymentFlowWidgetState extends State<PaymentFlowWidget> {
       case PaymentStatus.callbackInitiated:
       case PaymentStatus.inFlight:
         return const PaymentLoadingStep();
+
+      case PaymentStatus.resolved:
+        return const PaymentResolvedStep();
       case PaymentStatus.completed:
         return const PaymentCompletedStep();
       case PaymentStatus.failed:
@@ -116,6 +119,72 @@ class PaymentResolveStep extends StatelessWidget implements FlowStep {
             flowHost.onNext();
           },
           child: const Text('Continue'),
+        ),
+      ],
+    );
+  }
+}
+
+class PaymentResolvedStep extends StatelessWidget implements FlowStep {
+  const PaymentResolvedStep({super.key});
+
+  @override
+  String get id => 'payment-resolved';
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<PaymentCubit>();
+    final flowHost = context.read<FlowHost>();
+    Widget? nwcInfo;
+
+    if (cubit is LnUrlPaymentCubit || cubit is Bolt11PaymentCubit) {
+      nwcInfo = CustomPadding(child: NostrWalletConnectConnectionWidget());
+    }
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        nwcInfo ?? Container(),
+        CustomPadding(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      cubit.params.to,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    // todo: calc amount from invoice
+                    Text(
+                      formatAmount(
+                        cubit.params.amount ??
+                            Amount(currency: Currency.BTC, value: 0.0),
+                      ),
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ],
+                ),
+              ),
+              cubit.state.status == PaymentStatus.resolved
+                  ? FilledButton(
+                      child: Text(AppLocalizations.of(context)!.ok),
+                      onPressed: () {
+                        cubit.ok();
+                      },
+                    )
+                  : FilledButton(
+                      child: Text(AppLocalizations.of(context)!.pay),
+                      onPressed: () {
+                        cubit.confirm();
+                      },
+                    ),
+            ],
+          ),
         ),
       ],
     );
@@ -182,7 +251,7 @@ class PaymentLoadingStep extends StatelessWidget implements FlowStep {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
+    return const CustomPadding(child: CircularProgressIndicator());
   }
 }
 
@@ -195,13 +264,14 @@ class PaymentCompletedStep extends StatelessWidget implements FlowStep {
   @override
   Widget build(BuildContext context) {
     final flowHost = context.read<FlowHost>();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text('Payment completed'),
-        const SizedBox(height: 12),
-        FilledButton(onPressed: flowHost.close, child: const Text('Done')),
-      ],
+    return Material(
+      color: Colors.green,
+      child: CustomPadding(
+        child: SizedBox(
+          width: double.infinity,
+          child: Text(AppLocalizations.of(context)!.paymentCompleted),
+        ),
+      ),
     );
   }
 }
@@ -216,13 +286,11 @@ class PaymentFailedStep extends StatelessWidget implements FlowStep {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text('Payment failed'),
-        const SizedBox(height: 8),
-        if (error != null) Text(error!, textAlign: TextAlign.center),
-      ],
+    return Material(
+      color: Colors.red,
+      child: CustomPadding(
+        child: Text(context.read<PaymentCubit>().state.error!),
+      ),
     );
   }
 }

@@ -25,19 +25,21 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Add Wallet Connection',
+              AppLocalizations.of(context)!.connectWallet,
               style: Theme.of(context).textTheme.titleLarge!,
             ),
             NostrWalletAuthWidget(),
             CustomPadding(),
             BlocProvider<NwcCubit>(
-              create: (context) => NwcCubit(nwcService: getIt()),
+              create: (context) => NwcCubit(nwc: getIt<Hostr>().nwc),
               child: BlocBuilder<NwcCubit, NwcCubitState>(
                 builder: (context, state) {
                   if (state is Loading) {
                     return CircularProgressIndicator();
                   } else if (state is Success) {
-                    return Text('Connected to ${state.content.alias}');
+                    return Text(
+                      '${AppLocalizations.of(context)!.connectedTo} ${state.content.alias}',
+                    );
                   } else if (state is Error) {
                     return Text(
                       'Could not connect to NWC provider: ${state.e}',
@@ -77,7 +79,9 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                                     context,
                                   );
                                   await x.connect(clipboardData.text!);
-                                  await getIt<Hostr>().nwc.add(x.connection!);
+                                  if (x.connection != null) {
+                                    await getIt<Hostr>().nwc.add(x);
+                                  }
                                 }
                               },
                               child: Text(AppLocalizations.of(context)!.paste),

@@ -14,18 +14,15 @@ seed(String relayUrl) async {
 
   // Seed regular events
   for (var x in MOCKED_EVENTS) {
-    await ndk.broadcast.broadcast(nostrEvent: x);
+    var broadcastResult =
+        await ndk.broadcast.broadcast(nostrEvent: x).broadcastDoneFuture;
+    if (!broadcastResult.first.broadcastSuccessful) {
+      throw Exception(
+          'Failed to broadcast event: ${broadcastResult.first.msg}');
+    }
   }
 
-  // Generate and seed gift-wrapped messages
-  print("Generating gift wraps...");
-  final giftWraps = await _generateMockGiftWraps(ndk.giftWrap);
-  for (var gw in giftWraps) {
-    await ndk.broadcast.broadcast(nostrEvent: gw);
-  }
-
-  print(
-      'Seeded ${MOCKED_EVENTS.length} events and ${giftWraps.length} gift wraps.');
+  print('Seeded ${MOCKED_EVENTS.length} events.');
   exit(0);
 }
 

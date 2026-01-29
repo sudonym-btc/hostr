@@ -7,6 +7,8 @@ import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/nwc/nwc_flow.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/payment_flow.dart';
+import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
 import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
@@ -117,8 +119,13 @@ class ProfileScreen extends StatelessWidget {
                   onPressed: () {
                     showModalBottomSheet(
                       context: context,
-                      builder: (BuildContext context) {
-                        return Text('');
+                      isScrollControlled: true,
+                      builder: (BuildContext modalContext) {
+                        return RelayFlowWidget(
+                          onClose: () {
+                            Navigator.of(modalContext).pop();
+                          },
+                        );
                       },
                     );
                   },
@@ -228,14 +235,27 @@ class ProfileScreen extends StatelessWidget {
                         FilledButton(
                           child: Text(AppLocalizations.of(context)!.zapUs),
                           onPressed: () {
-                            context.read<PaymentsManager>().create(
-                              LnUrlPaymentParameters(
-                                to: 'tips@hostr.development',
-                                amount: Amount(
-                                  currency: Currency.BTC,
-                                  value: 0.00001,
-                                ),
+                            final params = LnUrlPaymentParameters(
+                              to: 'tips@hostr.development',
+                              amount: Amount(
+                                currency: Currency.BTC,
+                                value: 0.00001,
                               ),
+                            );
+                            final paymentCubit = getIt<Hostr>().payments.pay(
+                              params,
+                            )..resolve();
+                            showModalBottomSheet(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return PaymentFlowWidget(
+                                  paymentCubit: paymentCubit,
+                                  onClose: () {
+                                    print('closing modal');
+                                    // Navigator.pop(context);
+                                  },
+                                );
+                              },
                             );
                           },
                         ),
@@ -258,10 +278,22 @@ class ProfileScreen extends StatelessWidget {
                       body: FilledButton(
                         child: Text('Bolt11'),
                         onPressed: () {
-                          context.read<PaymentsManager>().create(
-                            Bolt11PaymentParameters(
-                              to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
-                            ),
+                          final params = Bolt11PaymentParameters(
+                            to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
+                          );
+                          final paymentCubit = getIt<Bolt11PaymentCubit>(
+                            param1: params,
+                          );
+                          showModalBottomSheet(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return PaymentFlowWidget(
+                                paymentCubit: paymentCubit,
+                                onClose: () {
+                                  Navigator.pop(context);
+                                },
+                              );
+                            },
                           );
                         },
                       ),

@@ -1,8 +1,7 @@
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
-import 'package:ndk/entities.dart'
-    show RelayBroadcastResponse, RelayConnectivity;
+import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter, Ndk;
 
 abstract class RequestsModel {
@@ -29,8 +28,6 @@ abstract class RequestsModel {
     required Nip01Event event,
     List<String>? relays,
   });
-
-  List<RelayConnectivity> connectivity();
 
   Future<void> mock();
 }
@@ -97,11 +94,6 @@ class Requests extends RequestsModel {
     List<String>? relays,
   }) {
     return ndk.broadcast.broadcast(nostrEvent: event).broadcastDoneFuture;
-  }
-
-  @override
-  List<RelayConnectivity> connectivity() {
-    return ndk.relays.connectedRelays;
   }
 
   @override

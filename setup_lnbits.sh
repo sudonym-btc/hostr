@@ -108,12 +108,18 @@ post_data() {
             "zaps": true
         }'
     echo $response
-    echo "$(echo $response | jq -r '.detail')"
-    if [ "$(echo $response | jq -r '.detail')"  != ""  ]; then
-        echo "Failed to post data"
-        exit 1
+    detail=$(echo $response | jq -r '.detail')
+    echo "$detail"
+    if [ "$detail" != "" ] && [ "$detail" != "null" ]; then
+        if echo "$detail" | grep -q "Username already taken"; then
+            echo "Username already exists, skipping creation"
+        else
+            echo "Failed to post data"
+            exit 1
+        fi
+    else
+        echo "Data posted successfully"
     fi
-    echo "Data posted successfully"
 }
 
 # Main script execution

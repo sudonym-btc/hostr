@@ -16,14 +16,28 @@ class RelayStorage {
     if (items == null || items.length == 0) {
       return [...config.relays];
     }
-    return items;
+    return List<String>.from(items);
   }
 
-  set(List<String> items) async {
+  Future<void> set(List<String> items) async {
     await storage.set('relays', items);
   }
 
-  wipe() {
+  Future<void> add(String item) async {
+    var items = await get();
+    if (!items.contains(item)) {
+      items.add(item);
+      await set(items);
+    }
+  }
+
+  Future<void> remove(String item) async {
+    var items = await get();
+    items.remove(item);
+    await set(items);
+  }
+
+  Future<void> wipe() {
     return storage.set('relays', null);
   }
 }

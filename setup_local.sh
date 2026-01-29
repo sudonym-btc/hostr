@@ -40,3 +40,5 @@ eval "$BTC generatetoaddress 10 $LND1_ADDR"
 
 ./setup_lnbits.sh 5055 jeremy
 ./setup_lnbits.sh 5056 jasmine
+./setup_albyhub.sh https://alby1.hostr.development test Testing123!
+./setup_albyhub.sh https://alby2.hostr.development test Testing123!

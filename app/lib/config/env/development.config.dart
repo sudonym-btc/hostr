@@ -10,9 +10,7 @@ class DevelopmentConfig extends Config {
   @override
   List<String> blossom = ['http://blossom.hostr.development'];
   @override
-  String rootstockRpcUrl =
-      'http://localhost:8545'; //'https://public-node.testnet.rsk.co';
+  String rootstockRpcUrl = 'http://localhost:8545'; //'https://public-node.testnet.rsk.co';
   @override
-  String boltzUrl =
-      'http://localhost:9001/v2'; //'https://api.testnet.boltz.exchange/v2';
+  String boltzUrl = 'http://localhost:9001/v2'; //'https://api.testnet.boltz.exchange/v2';
 }

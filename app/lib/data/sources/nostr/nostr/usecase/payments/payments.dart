@@ -1,4 +1,6 @@
 import 'package:hostr/export.dart';
+import 'package:hostr/injection.dart';
+import 'package:hostr/logic/workflows/lnurl_workflow.dart';
 import 'package:injectable/injectable.dart';
 
 import '../auth/auth.dart';
@@ -18,7 +20,21 @@ class Payments {
     // return escrow.checkPaymentStatus(reservationRequestId);
   }
 
-  pay(PaymentParameters params) {
-    return PaymentCubit(params: params);
+  PaymentCubit pay(PaymentParameters params) {
+    if (params is Bolt11PaymentParameters) {
+      return Bolt11PaymentCubit(
+        params: params,
+        nwc: nwc,
+        workflow: getIt<LnUrlWorkflow>(),
+      );
+    } else if (params is LnUrlPaymentParameters) {
+      return LnUrlPaymentCubit(
+        params: params,
+        nwc: nwc,
+        workflow: getIt<LnUrlWorkflow>(),
+      );
+    } else {
+      throw Exception('Unsupported payment type');
+    }
   }
 }

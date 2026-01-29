@@ -79,6 +79,7 @@ services:
       - VIRTUAL_HOST=relay.hostr.development
       - VIRTUAL_PORT=80
       - ENABLE_WEBSOCKETS=true
+      - HTTPS_METHOD=noredirect
     ports:
       - "${RELAY_PORT}:80"
     volumes:
@@ -92,9 +93,7 @@ services:
   # Nostr Blossom file server
   blossom:
     container_name: blossom
-    build:
-      context: ./docker/blossom
-      dockerfile: Dockerfile
+    image: ghcr.io/hzrd149/blossom-server:latest
     platform: linux/amd64
     environment:
       - VIRTUAL_HOST=blossom.hostr.development
@@ -171,8 +170,6 @@ services:
       [
         "bitcoind",
         "-port=${BITCOIN_PORT}",
-        "-upnp=0",
-        "-dnsseed=0",
         "-txindex=1",
         "-onlynet=ipv4",
         "-regtest=1",
@@ -184,7 +181,6 @@ services:
         "-zmqpubrawtx=tcp://0.0.0.0:${BITCOIN_ZMQ_TX_PORT}",
         "-zmqpubrawblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}",
         "-zmqpubhashblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}",
-        "-addnode=bitcoind",
       ]
     ports:
       - "${BITCOIN_PORT}:${BITCOIN_PORT}"

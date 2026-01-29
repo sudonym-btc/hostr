@@ -5,14 +5,16 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _i8;
 
-import 'package:flutter_bloc/flutter_bloc.dart' as _i10;
+import 'package:flutter_bloc/flutter_bloc.dart' as _i11;
 import 'package:hostr/core/main.dart' as _i2;
 import 'package:hostr/data/sources/local/key_storage.dart' as _i6;
 import 'package:hostr/data/sources/local/nwc_storage.dart' as _i9;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i3;
-import 'package:hostr/logic/cubit/nwc.cubit.dart' as _i5;
+import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.cubit.dart'
+    as _i5;
+import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i4;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:ndk/ndk.dart' as _i4;
+import 'package:ndk/ndk.dart' as _i10;
 import 'package:ndk/shared/nips/nip01/key_pair.dart' as _i7;
 
 // ignore_for_file: type=lint
@@ -170,18 +172,12 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
           as _i2.CustomLogger);
 
   @override
-  _i4.Nwc get nwcService =>
+  _i4.Nwc get nwc =>
       (super.noSuchMethod(
-            Invocation.getter(#nwcService),
-            returnValue: _FakeNwc_2(this, Invocation.getter(#nwcService)),
+            Invocation.getter(#nwc),
+            returnValue: _FakeNwc_2(this, Invocation.getter(#nwc)),
           )
           as _i4.Nwc);
-
-  @override
-  set logger(_i2.CustomLogger? value) => super.noSuchMethod(
-    Invocation.setter(#logger, value),
-    returnValueForMissingStub: null,
-  );
 
   @override
   set url(String? value) => super.noSuchMethod(
@@ -190,7 +186,7 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
   );
 
   @override
-  set connection(_i4.NwcConnection? value) => super.noSuchMethod(
+  set connection(_i10.NwcConnection? value) => super.noSuchMethod(
     Invocation.setter(#connection, value),
     returnValueForMissingStub: null,
   );
@@ -239,7 +235,7 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
   );
 
   @override
-  void onChange(_i10.Change<_i5.NwcCubitState>? change) => super.noSuchMethod(
+  void onChange(_i11.Change<_i5.NwcCubitState>? change) => super.noSuchMethod(
     Invocation.method(#onChange, [change]),
     returnValueForMissingStub: null,
   );

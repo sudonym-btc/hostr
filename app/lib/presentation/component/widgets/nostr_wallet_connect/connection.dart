@@ -1,82 +1,95 @@
-// import 'package:flutter/material.dart';
-// import 'package:hostr/data/main.dart';
-// import 'package:hostr/injection.dart';
-// import 'package:hostr/logic/main.dart';
-// import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/data/main.dart';
+import 'package:hostr/injection.dart';
+import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 
-// class NostrWalletConnectConnectionWidget extends StatelessWidget {
-//   final bool canClose;
+class NostrWalletConnectConnectionWidget extends StatelessWidget {
+  final bool canClose;
 
-//   const NostrWalletConnectConnectionWidget({super.key, this.canClose = false});
+  const NostrWalletConnectConnectionWidget({super.key, this.canClose = false});
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return StreamBuilder(
-//       stream: getIt<Hostr>().nwc.connectionsStream,
-//       builder: (context, connections) {
-//         if (!connections.hasData) {
-//           return ListTile(leading: CircularProgressIndicator());
-//         }
-//         return Column(
-//           children: connections.data!.map((connection) {
-//             Widget closeButton = IconButton(
-//               icon: Icon(Icons.close),
-//               onPressed: () {
-//                 getIt<Hostr>().nwc.remove(connection);
-//                 connection.close();
-//               },
-//             );
-//             if (connection.state is Success) {
-//               Success s = connection.state as Success;
-//               return ListTile(
-//                 contentPadding: EdgeInsets.all(0),
-//                 leading: CircleAvatar(
-//                   backgroundColor: s.content.color != null
-//                       ? Color(
-//                           int.parse(
-//                                 s.content.color!.substring(1, 7),
-//                                 radix: 16,
-//                               ) +
-//                               0xFF000000,
-//                         )
-//                       : Colors.orange,
-//                 ),
-//                 trailing: canClose ? closeButton : null,
-//                 title: Text(s.content.alias),
-//                 subtitle: Text(
-//                   'Connected',
-//                   maxLines: 1,
-//                   style: TextStyle(overflow: TextOverflow.ellipsis),
-//                 ),
-//               );
-//             }
-//             if (connection.state is Error) {
-//               Error state = connection.state as Error;
-//               return ListTile(
-//                 leading: Icon(Icons.error),
-//                 trailing: canClose ? closeButton : null,
-//                 contentPadding: EdgeInsets.all(0),
-//                 title: Text(
-//                   NostrWalletConnectUri.parseConnectionUri(
-//                     connection.url!,
-//                   ).relay,
-//                   style: TextStyle(overflow: TextOverflow.ellipsis),
-//                 ),
-//                 subtitle: Text(
-//                   state.e.toString(),
-//                   style: TextStyle(
-//                     overflow: TextOverflow.ellipsis,
-//                     color: Theme.of(context).colorScheme.error,
-//                   ),
-//                 ),
-//               );
-//             }
-//             return ListTile(leading: CircularProgressIndicator());
-//           }).toList(),
-//         );
-//       },
-//     );
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: getIt<Hostr>().nwc.connectionsStream,
+      builder: (context, connectionsSnapshot) {
+        if (!connectionsSnapshot.hasData) {
+          return ListTile(leading: CircularProgressIndicator());
+        }
+        return Column(
+          children: connectionsSnapshot.data!.map((reactiveConnection) {
+            Widget closeButton = IconButton(
+              icon: Icon(Icons.close),
+              onPressed: () {
+                getIt<Hostr>().nwc.remove(reactiveConnection);
+              },
+            );
 
-//     // nwcInfo = FutureBuilder(future: getIt<NwcCubit>()., builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {  return NwcProvider(pubkey: );});
-//   }
-// }
+            // Use BlocBuilder to listen to each connection's state changes
+            return BlocBuilder<NwcCubit, NwcCubitState>(
+              bloc: reactiveConnection,
+              builder: (context, state) {
+                if (state is Idle || state is Loading) {
+                  return ListTile(
+                    leading: CircularProgressIndicator(),
+                    trailing: canClose ? closeButton : null,
+                    contentPadding: EdgeInsets.all(0),
+                  );
+                }
+
+                if (state is Success) {
+                  return ListTile(
+                    contentPadding: EdgeInsets.all(0),
+                    leading: CircleAvatar(
+                      backgroundColor: state.content.color != null
+                          ? Color(
+                              int.parse(
+                                    state.content.color!.substring(1, 7),
+                                    radix: 16,
+                                  ) +
+                                  0xFF000000,
+                            )
+                          : Colors.orange,
+                    ),
+                    trailing: canClose ? closeButton : null,
+                    title: Text(state.content.alias),
+                    subtitle: Text(
+                      AppLocalizations.of(context)!.connected,
+                      maxLines: 1,
+                      style: TextStyle(overflow: TextOverflow.ellipsis),
+                    ),
+                  );
+                }
+
+                if (state is Error) {
+                  return ListTile(
+                    leading: Icon(Icons.error),
+                    trailing: canClose ? closeButton : null,
+                    contentPadding: EdgeInsets.all(0),
+                    title: Text(
+                      NostrWalletConnectUri.parseConnectionUri(
+                        reactiveConnection.url!,
+                      ).relays.first,
+                      style: TextStyle(overflow: TextOverflow.ellipsis),
+                    ),
+                    subtitle: Text(
+                      'Error',
+                      style: TextStyle(
+                        overflow: TextOverflow.ellipsis,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  );
+                }
+
+                return ListTile(leading: CircularProgressIndicator());
+              },
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}

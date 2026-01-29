@@ -3,6 +3,8 @@ import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 
+import 'connection.dart';
+
 class NostrWalletConnectWidget extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
 
@@ -30,9 +32,7 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
-            // NostrWalletConnectConnectionWidget(
-            //   canClose: true,
-            // ),
+            NostrWalletConnectConnectionWidget(canClose: true),
           ],
         ),
       ],

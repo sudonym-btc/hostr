@@ -250,6 +250,12 @@ abstract class AppLocalizations {
   /// **'Connect'**
   String get connect;
 
+  /// No description provided for @connected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get connected;
+
   /// No description provided for @connectedTo.
   ///
   /// In en, this message translates to:
@@ -297,6 +303,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Wallet'**
   String get wallet;
+
+  /// No description provided for @connectWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect Wallet'**
+  String get connectWallet;
 
   /// No description provided for @leaveATip.
   ///

@@ -17,12 +17,24 @@
         -out relay.hostr.development.crt \
         -subj "/CN=relay.hostr.development"
     sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ./relay.hostr.development.crt
+
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout alby1.hostr.development.key \
+        -out alby1.hostr.development.crt \
+        -subj "/CN=alby1.hostr.development"
+    sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ./alby1.hostr.development.crt
+
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout alby2.hostr.development.key \
+        -out alby2.hostr.development.crt \
+        -subj "/CN=alby2.hostr.development"
+    sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ./alby2.hostr.development.crt
 )
-# Setup wildcard routing for .local domains
-brew install dnsmasq
-mkdir -pv $(brew --prefix)/etc/
-echo 'address=/.hostr.development/127.0.0.1' >>$(brew --prefix)/etc/dnsmasq.conf
-echo 'port=53' >>$(brew --prefix)/etc/dnsmasq.conf
-sudo brew services start dnsmasq
-sudo mkdir -v /etc/resolver
-sudo bash -c 'echo "nameserver 127.0.0.1" > /etc/resolver/development'
+# # Setup wildcard routing for .local domains
+# brew install dnsmasq
+# mkdir -pv $(brew --prefix)/etc/
+# echo 'address=/.hostr.development/127.0.0.1' >>$(brew --prefix)/etc/dnsmasq.conf
+# echo 'port=53' >>$(brew --prefix)/etc/dnsmasq.conf
+# sudo brew services start dnsmasq
+# sudo mkdir -v /etc/resolver
+# sudo bash -c 'echo "nameserver 127.0.0.1" > /etc/resolver/development'
