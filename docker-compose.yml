@@ -116,7 +116,8 @@ services:
       - "8545:8545"
     volumes:
       - ./escrow/contracts:/usr/src/app
-    command: npx hardhat node
+      - /usr/src/app/node_modules
+    command: ["npm", "exec", "hardhat", "--", "node"]
 
   # Escrow client which watches nostr & chain to facilitate escrow transactions
   escrow:

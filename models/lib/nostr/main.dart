@@ -1,6 +1,7 @@
 export 'badge_award.dart';
 export 'badge_definition.dart';
 export 'escrow.dart';
+export 'escrow_method.dart';
 export 'escrow_trust.dart';
 export 'event.dart';
 // export 'gift_wrap.dart';

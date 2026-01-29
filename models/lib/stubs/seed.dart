@@ -3,14 +3,17 @@ import 'dart:io';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-seed(String relayUrl) async {
+seed(String relayUrl, {String? contractAddress}) async {
   print("Seeding $relayUrl...");
+  if (contractAddress != null) {
+    print("Using contract address: $contractAddress");
+  }
   Ndk ndk = Ndk(NdkConfig(
       eventVerifier: Bip340EventVerifier(),
       cache: MemCacheManager(),
       bootstrapRelays: [relayUrl]));
 
-  final MOCKED_EVENTS = await MOCK_EVENTS();
+  final MOCKED_EVENTS = await MOCK_EVENTS(contractAddress: contractAddress);
 
   // Seed regular events
   for (var x in MOCKED_EVENTS) {
@@ -88,5 +91,6 @@ void main(List<String> arguments) async {
   }
 
   String relayUrl = arguments[0];
-  await seed(relayUrl);
+  String? contractAddress = arguments.length > 1 ? arguments[1] : null;
+  await seed(relayUrl, contractAddress: contractAddress);
 }
