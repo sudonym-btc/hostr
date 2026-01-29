@@ -17,29 +17,32 @@ wait_for_sync() {
 
 # Function to check if channels already exist between two nodes
 ensure_channels() {
+    # Check if blockchain has blocks, if not mine some first
+    local block_count=$($BTC getblockcount 2>/dev/null || echo "0")
+    if [ "$block_count" -eq 0 ]; then
+        echo "No blocks mined yet. Generating initial blocks..."
+        eval "$BTC generatetoaddress 105 $LND1_ADDR"
+        eval "$BTC generatetoaddress 105 $LND2_ADDR"
+    fi
+    
+    # Wait for nodes to sync first
     wait_for_sync "$LND1"
     wait_for_sync "$LND2"
-
-    # Check if nodes are already connected
-    local lnd1_peers=$($LND1 listpeers | jq -r '.peers[].pub_key')
-    if echo "$lnd1_peers" | grep -q "$LND2_PUB"; then
-        echo "Nodes already connected. Checking for existing channels..."
-        
-        # Check if channels already exist
-        local lnd1_channels=$($LND1 listchannels | jq '.channels | length')
-        local lnd2_channels=$($LND2 listchannels | jq '.channels | length')
-        
-        if [ "$lnd1_channels" -gt 0 ] && [ "$lnd2_channels" -gt 0 ]; then
-            echo "Channels already exist. Skipping channel creation."
-            return 0
-        fi
+    
+    # Check if channels already exist
+    local lnd1_channels=$($LND1 listchannels 2>/dev/null | jq '.channels | length' 2>/dev/null || echo "0")
+    local lnd2_channels=$($LND2 listchannels 2>/dev/null | jq '.channels | length' 2>/dev/null || echo "0")
+    
+    if [ "$lnd1_channels" -gt 0 ] && [ "$lnd2_channels" -gt 0 ]; then
+        echo "Channels already exist. Skipping channel creation."
+        return 0
     fi
 
     echo "Channels not found. Creating channels between lnd1 and lnd2..."
 
-    # Generate addresses for both nodes
-    eval "$BTC generatetoaddress 105 $LND1_ADDR"
-    eval "$BTC generatetoaddress 105 $LND2_ADDR"
+    # Wait for nodes to sync after generating blocks
+    wait_for_sync "$LND1"
+    wait_for_sync "$LND2"
     
     # Connect nodes (from lnd1 perspective)
     eval "$LND1 connect ${LND2_PUB}@lnd2"

@@ -10,11 +10,13 @@ import 'escrow_selector.dart';
 
 class PaymentMethodWidget extends StatelessWidget {
   final Metadata counterparty;
-  final ReservationRequest r;
+  final ReservationRequest reservationRequest;
+  final Listing listing;
   const PaymentMethodWidget({
     super.key,
     required this.counterparty,
-    required this.r,
+    required this.listing,
+    required this.reservationRequest,
   });
 
   @override
@@ -42,7 +44,7 @@ class PaymentMethodWidget extends StatelessWidget {
                         context: context,
                         builder: (context) {
                           return EscrowSelectorWidget(
-                            r: r,
+                            r: reservationRequest,
                             counterparty: counterparty,
                           );
                         },
@@ -78,7 +80,7 @@ class PaymentMethodWidget extends StatelessWidget {
                       BlocProvider.of<PaymentsManager>(context).create(
                         LnUrlPaymentParameters(
                           to: counterparty.lud16 ?? counterparty.lud06!,
-                          amount: r.parsedContent.amount,
+                          amount: reservationRequest.parsedContent.amount,
                         ),
                       );
                     },
