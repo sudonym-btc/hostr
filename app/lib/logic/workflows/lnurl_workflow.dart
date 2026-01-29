@@ -1,21 +1,19 @@
-import 'dart:math';
-
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:dio/dio.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/sources/lnurl/lnurl.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/payments/constants.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/payment/payment.cubit.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:validators/validators.dart';
 
-final num btcMilliSatoshiFactor = pow(10, 11);
-
 /// Workflow handling the 3-phase LNURL payment protocol.
 /// Phase 1: Resolve LNURL/Lightning Address to payment parameters
 /// Phase 2: Callback to fetch invoice
 /// Phase 3: Pay invoice (delegated to NwcService)
-@injectable
+@Injectable(env: Env.allButTestAndMock)
 class LnUrlWorkflow {
   final Dio _dio;
   final CustomLogger _logger = CustomLogger();
@@ -94,6 +92,47 @@ class LnUrlWorkflow {
         'Amount $amountMsat msat exceeds maximum $maxAmount msat',
       );
     }
+  }
+}
+
+/// Mock workflow for LNURL payments (no network/Dio usage).
+/// Returns preset details for tests or mock environments.
+@Injectable(as: LnUrlWorkflow, env: [Env.test, Env.mock])
+class MockLnUrlWorkflow extends LnUrlWorkflow {
+  final LnUrlResolvedDetails resolvedDetails = LnUrlResolvedDetails(
+    minAmount: 0,
+    maxAmount: (1 * btcMilliSatoshiFactor).toInt(),
+    commentAllowed: 0,
+    callback: 'callback',
+  );
+  final LightningCallbackDetails callbackDetails = LightningCallbackDetails(
+    invoice: Bolt11PaymentRequest(
+      'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
+    ),
+  );
+  final LightningCompletedDetails completedDetails = LightningCompletedDetails(
+    preimage: 'mock',
+  );
+
+  MockLnUrlWorkflow({required super.dio});
+
+  /// Converts Lightning Address (email format) to LNURL.
+  @override
+  Future<LnUrlResolvedDetails> resolveLnUrl({required String to}) async {
+    final lnurl = isEmail(to) ? emailToLnUrl(to) : to;
+    _logger.i('Mock resolve LnUrl: $lnurl');
+    return resolvedDetails;
+  }
+
+  /// Phase 2: Returns a preset Lightning invoice.
+  @override
+  Future<LightningCallbackDetails> fetchInvoice({
+    required String callbackUrl,
+    required Amount amount,
+    String? comment,
+  }) async {
+    _logger.d('Mock callback url: $callbackUrl');
+    return callbackDetails;
   }
 }
 

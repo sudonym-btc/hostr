@@ -36,8 +36,9 @@ class PaymentWidget extends StatelessWidget {
 
           if (paymentCubit is LnUrlPaymentCubit ||
               paymentCubit is Bolt11PaymentCubit) {
-            // nwcInfo =
-            // CustomPadding(child: NostrWalletConnectConnectionWidget());
+            nwcInfo = CustomPadding(
+              child: NostrWalletConnectConnectionWidget(),
+            );
           }
 
           return Column(

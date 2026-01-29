@@ -1,7 +1,7 @@
 import 'package:hostr/core/main.dart';
 import 'package:injectable/injectable.dart';
+import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 
-import '../nostr/nostr/usecase/nwc/nwc.dart';
 import 'secure_storage.dart';
 
 @singleton
@@ -21,7 +21,11 @@ class NwcStorage {
 
   Future<Uri?> getUri() async {
     var items = await get();
-    return items.isEmpty ? null : parseNwc(items.first);
+    return items.isEmpty
+        ? null
+        : Uri.parse(
+            NostrWalletConnectUri.parseConnectionUri(items.first).toUri(),
+          );
   }
 
   Future<void> set(List<String> items) async {

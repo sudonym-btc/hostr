@@ -13,9 +13,21 @@ class Zaps {
 
   Future<ZapResponse> zap({required String lnurl, required int amountSats}) {
     return ndk.zaps.zap(
-      nwcConnection: nwc.connections[0],
+      nwcConnection: nwc.connections[0].connection!,
       lnurl: lnurl,
       amountSats: amountSats,
+    );
+  }
+
+  Future<InvoiceResponse?> fetchInvoice({
+    required String lud16Link,
+    required int amountSats,
+    ZapRequest? zapRequest,
+  }) {
+    return ndk.zaps.fetchInvoice(
+      lud16Link: lud16Link,
+      amountSats: amountSats,
+      zapRequest: zapRequest,
     );
   }
 }
@@ -23,6 +35,15 @@ class Zaps {
 @Singleton(as: Zaps, env: [Env.test, Env.mock])
 class MockZaps extends Zaps {
   MockZaps({required super.nwc, required super.ndk});
+
+  @override
+  fetchInvoice({
+    required String lud16Link,
+    required int amountSats,
+    ZapRequest? zapRequest,
+  }) async {
+    return InvoiceResponse(invoice: '', amountSats: amountSats);
+  }
 }
 
 

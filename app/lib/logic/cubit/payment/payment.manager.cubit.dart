@@ -191,13 +191,13 @@ class PaymentsManager extends HydratedCubit<PaymentsState> {
     if (params is Bolt11PaymentParameters) {
       return Bolt11PaymentCubit(
         params: params,
-        hostr: hostr,
+        nwc: hostr.nwc,
         workflow: getIt<LnUrlWorkflow>(),
       );
     } else if (params is LnUrlPaymentParameters) {
       return LnUrlPaymentCubit(
         params: params,
-        hostr: hostr,
+        nwc: hostr.nwc,
         workflow: getIt<LnUrlWorkflow>(),
       );
     } else {

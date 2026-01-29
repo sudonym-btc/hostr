@@ -1,8 +1,9 @@
+import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/workflows/lnurl_workflow.dart';
 import 'package:hostr/main.dart';
 import 'package:injectable/injectable.dart';
-import 'package:ndk/ndk.dart';
+import 'package:ndk/ndk.dart' hide Nwc;
 
 class LnUrlPaymentParameters extends PaymentParameters {
   LnUrlPaymentParameters({super.amount, super.comment, required super.to});
@@ -21,12 +22,12 @@ class LnUrlPaymentCubit
           LightningCompletedDetails
         > {
   final LnUrlWorkflow _workflow;
-  final Hostr hostr;
+  final Nwc nwc;
 
   LnUrlPaymentCubit({
     @factoryParam required super.params,
     required LnUrlWorkflow workflow,
-    required this.hostr,
+    required this.nwc,
   }) : _workflow = workflow;
 
   @override
@@ -55,7 +56,8 @@ class LnUrlPaymentCubit
 
   @override
   Future<LightningCompletedDetails> complete() async {
-    PayInvoiceResponse response = await hostr.nwc.payInvoice(
+    PayInvoiceResponse response = await nwc.payInvoice(
+      nwc.connections[0].connection!,
       state.callbackDetails!.invoice.paymentRequest,
       null,
     );

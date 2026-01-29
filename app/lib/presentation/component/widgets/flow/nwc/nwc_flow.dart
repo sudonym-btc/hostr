@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/main.dart';
 
 import '../../nostr_wallet_connect/add_wallet.dart';
 import '../flow.dart';
@@ -28,24 +27,32 @@ class NwcFlowWidget extends StatefulWidget {
 
 class _NwcFlowWidgetState extends State<NwcFlowWidget> {
   late FlowHost _flowHost;
+  late NwcCubit _nwcCubit;
 
   @override
   void initState() {
     super.initState();
+    _nwcCubit = NwcCubit(nwc: getIt<Hostr>().nwc);
     _flowHost = FlowHost(widget.onClose);
     _flowHost.init(NwcFlow());
   }
 
   @override
   void dispose() {
-    _flowHost.close();
+    if (!_flowHost.isClosed) {
+      _flowHost.close();
+    }
+    _nwcCubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<FlowHost>.value(
-      value: _flowHost,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<FlowHost>.value(value: _flowHost),
+        BlocProvider<NwcCubit>.value(value: _nwcCubit),
+      ],
       child: BlocBuilder<FlowHost, FlowState>(
         builder: (context, state) {
           return _NwcFlowScaffold(
@@ -130,10 +137,10 @@ class _NwcConnectingStepState extends State<NwcConnectingStep>
   }
 
   Future<void> _attemptConnection() async {
-    final nwcCubit = NwcCubit(nwcService: getIt());
+    final nwcCubit = context.read<NwcCubit>();
     await nwcCubit.connect(widget.connectionString);
-    if (nwcCubit.state is Success) {
-      await getIt<Hostr>().nwc.add(nwcCubit.connection!);
+    if (nwcCubit.state is Success && nwcCubit.connection != null) {
+      await getIt<Hostr>().nwc.add(nwcCubit);
     }
   }
 
@@ -155,90 +162,81 @@ class _NwcConnectingStepState extends State<NwcConnectingStep>
             );
           }
 
-          // Create the cubit again to check final state
-          final nwcCubit = NwcCubit(nwcService: getIt());
-
-          return FutureBuilder<void>(
-            future: nwcCubit.connect(widget.connectionString),
-            builder: (context, _) {
-              return BlocBuilder<NwcCubit, NwcCubitState>(
-                bloc: nwcCubit,
-                builder: (context, state) {
-                  if (state is Success) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
+          return BlocBuilder<NwcCubit, NwcCubitState>(
+            builder: (context, state) {
+              if (state is Success) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Connected to ${state.content.alias}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          context.read<FlowHost>().close();
+                        },
+                        child: const Text('Done'),
+                      ),
+                    ),
+                  ],
+                );
+              } else if (state is Error) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Connection Failed',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Could not connect to NWC provider: ${state.e}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
                       children: [
-                        const Icon(
-                          Icons.check_circle,
-                          color: Colors.green,
-                          size: 48,
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              context.read<FlowHost>().onBack();
+                            },
+                            child: const Text('Back'),
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Connected to ${state.content.alias}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
+                        const SizedBox(width: 8),
+                        Expanded(
                           child: ElevatedButton(
                             onPressed: () {
                               context.read<FlowHost>().close();
                             },
-                            child: const Text('Done'),
+                            child: const Text('Close'),
                           ),
                         ),
                       ],
-                    );
-                  } else if (state is Error) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 48,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Connection Failed',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Could not connect to NWC provider: ${state.e}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  context.read<FlowHost>().onBack();
-                                },
-                                child: const Text('Back'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  context.read<FlowHost>().close();
-                                },
-                                child: const Text('Close'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  }
+                    ),
+                  ],
+                );
+              }
 
-                  return const SizedBox.shrink();
-                },
-              );
+              return const SizedBox.shrink();
             },
           );
         },

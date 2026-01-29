@@ -13,30 +13,36 @@ class RelayListWidget extends StatefulWidget {
 }
 
 class RelayListWidgetState extends State<RelayListWidget> {
-  RelayStorage relayStorage = getIt<RelayStorage>();
-  List<String>? relays;
-
-  @override
-  void initState() {
-    super.initState();
-    relayStorage.get().then((r) {
-      setState(() {
-        relays = r;
-      });
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
-        ...getIt<Hostr>().requests.connectivity().map((connectivity) {
-          return RelayListItemWidget(
-            relay: connectivity.relayInfo,
-            connectivity: connectivity,
-          );
-        }),
+        StreamBuilder(
+          stream: getIt<Hostr>().relays.connectivity(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Error: ${snapshot.error}'),
+              );
+            }
+
+            if (!snapshot.hasData) {
+              return const SizedBox();
+            }
+
+            final connectivityList = snapshot.data;
+            return Column(
+              children: (connectivityList?.values ?? []).map((connectivity) {
+                return RelayListItemWidget(
+                  relay: connectivity.relayInfo,
+                  connectivity: connectivity,
+                );
+              }).toList(),
+            );
+          },
+        ),
       ],
     );
   }

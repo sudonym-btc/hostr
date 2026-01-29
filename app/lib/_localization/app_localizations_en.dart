@@ -87,6 +87,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connect => 'Connect';
 
   @override
+  String get connected => 'Connected';
+
+  @override
   String get connectedTo => 'Connected to';
 
   @override
@@ -109,6 +112,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wallet => 'Wallet';
+
+  @override
+  String get connectWallet => 'Connect Wallet';
 
   @override
   String get leaveATip => 'Leave a tip?';
