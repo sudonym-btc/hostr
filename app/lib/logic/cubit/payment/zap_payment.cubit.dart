@@ -37,15 +37,15 @@ class ZapPaymentCubit
           LightningCallbackDetails,
           LightningCompletedDetails
         > {
-  final NwcService nwcService;
+  final Hostr hostr;
 
-  ZapPaymentCubit({required super.params, required this.nwcService});
+  ZapPaymentCubit({required super.params, required this.hostr});
 
   @override
   Future<LightningCompletedDetails> complete() async {
-    ZapResponse response = await nwcService.zap(
+    ZapResponse response = await hostr.zaps.zap(
       lnurl: state.params.to,
-      amountSats: state.params.amount!.value * btcSatoshiFactor,
+      amountSats: (state.params.amount!.value * btcSatoshiFactor).toInt(),
     );
     return LightningCompletedDetails(
       preimage: response.payInvoiceResponse!.preimage!,

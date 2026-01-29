@@ -34,6 +34,7 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/badge_definitions/badge_d
     as _i558;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrows/escrows.dart'
     as _i42;
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/evm.dart' as _i961;
 import 'package:hostr/data/sources/nostr/nostr/usecase/listings/listings.dart'
     as _i456;
 import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
@@ -53,14 +54,14 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/reservation_requests/rese
     as _i525;
 import 'package:hostr/data/sources/nostr/nostr/usecase/reservations/reservations.dart'
     as _i489;
+import 'package:hostr/data/sources/nostr/nostr/usecase/swap/swap.dart' as _i443;
+import 'package:hostr/data/sources/nostr/nostr/usecase/zaps/zaps.dart' as _i735;
 import 'package:hostr/data/sources/nostr/relay_connector.dart' as _i291;
-import 'package:hostr/data/sources/rpc/rootstock.dart' as _i631;
 import 'package:hostr/export.dart' as _i1012;
 import 'package:hostr/injection.dart' as _i490;
 import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
 import 'package:hostr/logic/cubit/payment/bolt11_payment.cubit.dart' as _i993;
 import 'package:hostr/logic/cubit/payment/lnurl_payment.cubit.dart' as _i99;
-import 'package:hostr/logic/services/nwc.dart' as _i258;
 import 'package:hostr/logic/services/session_coordinator.dart' as _i126;
 import 'package:hostr/logic/services/zap.dart' as _i915;
 import 'package:hostr/logic/workflows/event_publishing_workflow.dart' as _i338;
@@ -101,7 +102,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i598.DevelopmentConfig(),
       registerFor: {_dev},
     );
-    gh.factory<_i631.Rootstock>(() => _i631.RootstockImpl());
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsMock(),
       registerFor: {_test, _mock},
@@ -160,6 +160,18 @@ extension GetItInjectableX on _i174.GetIt {
         secureStorage: gh<_i1012.SecureStorage>(),
       ),
     );
+    gh.factoryParam<
+      _i993.Bolt11PaymentCubit,
+      _i993.Bolt11PaymentParameters,
+      dynamic
+    >(
+      (params, _) => _i993.Bolt11PaymentCubit(
+        params: params,
+        hostr: gh<_i15.Hostr>(),
+        workflow: gh<_i675.LnUrlWorkflow>(),
+      ),
+      registerFor: {_dev, _staging, _prod},
+    );
     gh.singleton<_i463.Messaging>(
       () => _i463.Messaging(gh<_i857.Ndk>(), gh<_i100.Requests>()),
     );
@@ -185,13 +197,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i909.Nwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.singleton<_i258.NwcService>(
-      () => _i258.MockNostrWalletConnectService(
-        gh<_i165.NwcStorage>(),
-        gh<_i857.Ndk>(),
-      ),
-      registerFor: {_test, _mock},
-    );
     gh.singleton<_i249.MetadataUseCase>(
       () => _i936.MockMetadataUseCase(
         requests: gh<_i100.Requests>(),
@@ -199,8 +204,16 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_mock, _test},
     );
-    gh.singleton<_i258.NwcService>(
-      () => _i258.NwcService(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
+    gh.factoryParam<
+      _i99.LnUrlPaymentCubit,
+      _i99.LnUrlPaymentParameters,
+      dynamic
+    >(
+      (params, _) => _i99.LnUrlPaymentCubit(
+        params: params,
+        workflow: gh<_i675.LnUrlWorkflow>(),
+        hostr: gh<_i15.Hostr>(),
+      ),
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i909.Nwc>(
@@ -220,28 +233,14 @@ extension GetItInjectableX on _i174.GetIt {
         nwc: gh<_i909.Nwc>(),
       ),
     );
-    gh.factoryParam<
-      _i99.LnUrlPaymentCubit,
-      _i99.LnUrlPaymentParameters,
-      dynamic
-    >(
-      (params, _) => _i99.LnUrlPaymentCubit(
-        params: params,
-        workflow: gh<_i675.LnUrlWorkflow>(),
-        nwcService: gh<_i15.NwcService>(),
-      ),
-      registerFor: {_dev, _staging, _prod},
+    gh.singleton<_i735.Zaps>(
+      () => _i735.MockZaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
+      registerFor: {_test, _mock},
     );
-    gh.factoryParam<
-      _i993.Bolt11PaymentCubit,
-      _i993.Bolt11PaymentParameters,
-      dynamic
-    >(
-      (params, _) => _i993.Bolt11PaymentCubit(
-        params: params,
-        nwcService: gh<_i15.NwcService>(),
-        workflow: gh<_i675.LnUrlWorkflow>(),
-      ),
+    gh.singleton<_i961.Evm>(() => _i961.Evm(auth: gh<_i34.Auth>()));
+    gh.singleton<_i443.Swap>(() => _i443.Swap(auth: gh<_i34.Auth>()));
+    gh.singleton<_i735.Zaps>(
+      () => _i735.Zaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
     return this;

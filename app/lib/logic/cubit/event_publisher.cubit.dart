@@ -44,13 +44,13 @@ class EventPublisherState extends Equatable {
 /// This cubit only manages state transitions and UI decisions.
 class EventPublisherCubit extends Cubit<EventPublisherState> {
   EventPublisherCubit({
-    required Hostr nostrService,
+    required Hostr hostr,
     required EventPublishingWorkflow workflow,
-  }) : _nostrService = nostrService,
+  }) : _hostr = hostr,
        _workflow = workflow,
        super(EventPublisherState.initial());
 
-  final Hostr _nostrService;
+  final Hostr _hostr;
   final EventPublishingWorkflow _workflow;
   final CustomLogger logger = CustomLogger();
 
@@ -58,7 +58,7 @@ class EventPublisherCubit extends Cubit<EventPublisherState> {
     // Delegate business process to workflow
     final sent = await _workflow.publishBatch(
       events: events,
-      publishEvent: (event) => _nostrService.requests.broadcast(event: event),
+      publishEvent: (event) => _hostr.requests.broadcast(event: event),
       onProgress: (progress) {
         // Business decision: update state based on workflow progress
         emit(

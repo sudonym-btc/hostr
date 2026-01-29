@@ -77,7 +77,7 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                                     context,
                                   );
                                   await x.connect(clipboardData.text!);
-                                  await getIt<NwcService>().add(x);
+                                  await getIt<Hostr>().nwc.add(x.connection!);
                                 }
                               },
                               child: Text(AppLocalizations.of(context)!.paste),

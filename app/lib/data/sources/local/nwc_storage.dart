@@ -1,7 +1,7 @@
 import 'package:hostr/core/main.dart';
-import 'package:hostr/logic/services/nwc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../nostr/nostr/usecase/nwc/nwc.dart';
 import 'secure_storage.dart';
 
 @singleton
@@ -24,11 +24,11 @@ class NwcStorage {
     return items.isEmpty ? null : parseNwc(items.first);
   }
 
-  set(List<String> items) async {
+  Future<void> set(List<String> items) async {
     await storage.set('nwc', items);
   }
 
-  wipe() {
+  Future<void> wipe() async {
     return storage.set('nwc', null);
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/logic/workflows/lnurl_workflow.dart';
@@ -144,12 +145,12 @@ class PaymentsState {
 }
 
 class PaymentsManager extends HydratedCubit<PaymentsState> {
-  final NwcService nwcService;
+  final Hostr hostr;
   final Dio dio;
   final Map<String, StreamSubscription> _subscriptions = {};
   final Map<String, PaymentCubit> _cubitCache = {};
 
-  PaymentsManager({required this.nwcService, required this.dio})
+  PaymentsManager({required this.hostr, required this.dio})
     : super(PaymentsState.initial());
 
   PaymentStartResult startPayment(PaymentParameters params) {
@@ -190,13 +191,13 @@ class PaymentsManager extends HydratedCubit<PaymentsState> {
     if (params is Bolt11PaymentParameters) {
       return Bolt11PaymentCubit(
         params: params,
-        nwcService: nwcService,
+        hostr: hostr,
         workflow: getIt<LnUrlWorkflow>(),
       );
     } else if (params is LnUrlPaymentParameters) {
       return LnUrlPaymentCubit(
         params: params,
-        nwcService: nwcService,
+        hostr: hostr,
         workflow: getIt<LnUrlWorkflow>(),
       );
     } else {

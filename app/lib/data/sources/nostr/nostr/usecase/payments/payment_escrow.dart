@@ -3,36 +3,28 @@ import 'dart:typed_data';
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/sources/escrow/MultiEscrow.g.dart';
 import 'package:hostr/data/sources/main.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrows/escrows.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
+import '../auth/auth.dart';
+import '../escrows/escrows.dart';
+import '../evm/evm_chain.dart';
 import 'constants.dart';
 
 class PaymentEscrow {
   final CustomLogger logger = CustomLogger();
-  final Web3Client client;
-  final BoltzClient boltzClient;
   final Auth auth;
   final Escrows escrows;
 
-  PaymentEscrow({
-    required this.client,
-    required this.boltzClient,
-    required this.auth,
-    required this.escrows,
-  });
+  PaymentEscrow({required this.auth, required this.escrows});
 
-  listEvents() async {
+  listEvents({required EvmChain evmChain, required Escrow escrow}) async {
     MultiEscrow e = MultiEscrow(
-      address: EthereumAddress.fromHex(
-        '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-      ),
-      client: client,
+      address: EthereumAddress.fromHex(escrow.parsedContent.contractAddress),
+      client: evmChain.client,
     );
     // List past events
     final filter = FilterOptions.events(
@@ -42,7 +34,7 @@ class PaymentEscrow {
       toBlock: BlockNum.current(),
     );
 
-    final logs = await client.getLogs(filter);
+    final logs = await evmChain.client.getLogs(filter);
     for (var log in logs) {
       // logger.i('Past Trade created: $log');
     }
@@ -59,13 +51,14 @@ class PaymentEscrow {
     required String escrowPubkey,
     required String escrowContractAddress,
     required int timelock,
+    required EvmChain evmChain,
   }) async {
     KeyPair key = auth.activeKeyPair!;
     EthPrivateKey ethKey = getEthCredentials(key.privateKey!);
 
     MultiEscrow e = MultiEscrow(
       address: EthereumAddress.fromHex(escrowContractAddress),
-      client: client,
+      client: evmChain.client,
     );
     var tuple = (
       tradeId: getBytes32(eventId),
@@ -94,11 +87,14 @@ class PaymentEscrow {
       ),
     );
 
-    final receipt = await client.getTransactionReceipt(escrowTx);
+    final receipt = await evmChain.client.getTransactionReceipt(escrowTx);
     logger.i(receipt);
   }
 
-  Stream<TradeCreated> checkEscrowStatus(String reservationRequestId) async* {
+  Stream<TradeCreated> checkEscrowStatus(
+    String reservationRequestId, {
+    required EvmChain evmChain,
+  }) async* {
     logger.i('Checking escrow status for reservation: $reservationRequestId');
     Uint8List idBytes32 = getBytes32(reservationRequestId);
     String hexTopic = getTopicHex(idBytes32);
@@ -119,7 +115,7 @@ class PaymentEscrow {
           address: EthereumAddress.fromHex(
             escrow.parsedContent.contractAddress,
           ),
-          client: client,
+          client: evmChain.client,
         );
 
         Trades x = await e.trades(($param9: idBytes32));
@@ -143,10 +139,10 @@ class PaymentEscrow {
             [hexTopic],
           ],
           fromBlock: BlockNum.exact(0),
-          toBlock: BlockNum.exact(await client.getBlockNumber()),
+          toBlock: BlockNum.exact(await evmChain.client.getBlockNumber()),
         );
 
-        final logs = await client.getLogs(filter);
+        final logs = await evmChain.client.getLogs(filter);
         logger.i('Filtered logs: ${logs.length} for hexTopic $hexTopic');
 
         final tradeCreated = logs.map((FilterEvent result) {
