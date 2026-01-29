@@ -75,13 +75,24 @@ class _PaymentFlowWidgetState extends State<PaymentFlowWidget> {
         return const PaymentLoadingStep();
 
       case PaymentStatus.resolved:
+      case PaymentStatus.callbackComplete:
         return const PaymentResolvedStep();
       case PaymentStatus.completed:
         return const PaymentCompletedStep();
       case PaymentStatus.failed:
         return PaymentFailedStep(error: state.error);
-      default:
-        return _flowHost.currentStep?.build(context) ?? const SizedBox.shrink();
+
+      case PaymentStatus.initial:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case PaymentStatus.cancelled:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case PaymentStatus.expired:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 }
