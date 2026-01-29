@@ -2,7 +2,6 @@ import 'package:models/stubs/badge.dart';
 import 'package:models/stubs/blossom.dart';
 import 'package:models/stubs/escrow.dart';
 import 'package:models/stubs/escrow_method.dart';
-import 'package:models/stubs/escrow_trust.dart';
 import 'package:models/stubs/gift_wrap.dart';
 import 'package:models/stubs/listing.dart';
 import 'package:models/stubs/profile.dart';
@@ -10,6 +9,8 @@ import 'package:models/stubs/reservation.dart';
 import 'package:models/stubs/review.dart';
 import 'package:models/stubs/zap_receipt.dart';
 import 'package:ndk/ndk.dart';
+
+import 'escrow_trust.dart';
 
 export 'badge.dart';
 export 'blossom.dart';

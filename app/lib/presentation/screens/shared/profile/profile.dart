@@ -15,7 +15,6 @@ import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 import 'mode_toggle.dart';
 
@@ -147,50 +146,55 @@ class ProfileScreen extends StatelessWidget {
                   child: Text(AppLocalizations.of(context)!.add),
                 ),
                 body: FutureBuilder(
-                  future: getIt<Hostr>().escrows.trusted(),
+                  future: getIt<Hostr>().escrowTrusts.myTrusted(),
                   builder:
                       (
                         BuildContext context,
-                        AsyncSnapshot<Nip51List?> snapshot,
+                        AsyncSnapshot<EscrowTrust?> snapshot,
                       ) {
                         if (snapshot.connectionState == ConnectionState.done) {
                           if (snapshot.hasData) {
+                            print(snapshot.data);
                             return Column(
                               children: [
                                 SizedBox(
                                   height: DEFAULT_PADDING.toDouble() / 2,
                                 ),
-                                ...snapshot.data!.elements.map((el) {
-                                  return ProfileProvider(
-                                    pubkey: el.value,
-                                    builder: (context, profileSnapshot) {
-                                      return ListTile(
-                                        contentPadding: EdgeInsets.all(0),
-                                        leading: CircleAvatar(
-                                          backgroundImage:
-                                              profileSnapshot.data?.picture !=
-                                                  null
-                                              ? NetworkImage(
+                                ...snapshot.data!.tags
+                                    .where((el) => el[0] == 'p')
+                                    .map((el) {
+                                      return ProfileProvider(
+                                        pubkey: el[1],
+                                        builder: (context, profileSnapshot) {
+                                          return ListTile(
+                                            contentPadding: EdgeInsets.all(0),
+                                            leading: CircleAvatar(
+                                              backgroundImage:
                                                   profileSnapshot
-                                                      .data!
-                                                      .picture!,
-                                                )
-                                              : null,
-                                        ),
-                                        title: Text(
-                                          profileSnapshot.data?.name ??
-                                              profileSnapshot
-                                                  .data
-                                                  ?.displayName ??
-                                              'Username',
-                                        ),
-                                        subtitle: Text(
-                                          profileSnapshot.data?.nip05 ?? '',
-                                        ),
+                                                          .data
+                                                          ?.picture !=
+                                                      null
+                                                  ? NetworkImage(
+                                                      profileSnapshot
+                                                          .data!
+                                                          .picture!,
+                                                    )
+                                                  : null,
+                                            ),
+                                            title: Text(
+                                              profileSnapshot.data?.name ??
+                                                  profileSnapshot
+                                                      .data
+                                                      ?.displayName ??
+                                                  'Username',
+                                            ),
+                                            subtitle: Text(
+                                              profileSnapshot.data?.nip05 ?? '',
+                                            ),
+                                          );
+                                        },
                                       );
-                                    },
-                                  );
-                                }),
+                                    }),
                               ],
                             );
                           } else {

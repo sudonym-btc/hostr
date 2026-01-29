@@ -6,6 +6,8 @@ import 'package:ndk/ndk.dart' show Ndk;
 import 'usecase/auth/auth.dart';
 import 'usecase/badge_awards/badge_awards.dart';
 import 'usecase/badge_definitions/badge_definitions.dart';
+import 'usecase/escrow_methods/escrows_methods.dart';
+import 'usecase/escrow_trusts/escrows_trusts.dart';
 import 'usecase/escrows/escrows.dart';
 import 'usecase/evm/evm.dart';
 import 'usecase/listings/listings.dart';
@@ -33,6 +35,8 @@ abstract class Hostr {
   Listings get listings => getIt<Listings>();
   Reservations get reservations => getIt<Reservations>();
   Escrows get escrows => getIt<Escrows>();
+  EscrowTrusts get escrowTrusts => getIt<EscrowTrusts>();
+  EscrowMethods get escrowMethods => getIt<EscrowMethods>();
   BadgeDefinitions get badgeDefinitions => getIt<BadgeDefinitions>();
   BadgeAwards get badgeAwards => getIt<BadgeAwards>();
   Messaging get messaging => getIt<Messaging>();

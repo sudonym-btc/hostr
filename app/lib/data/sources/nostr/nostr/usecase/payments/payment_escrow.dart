@@ -99,7 +99,9 @@ class PaymentEscrow {
     Uint8List idBytes32 = getBytes32(reservationRequestId);
     String hexTopic = getTopicHex(idBytes32);
 
-    Nip51List? trustedEscrows = await escrows.trusted();
+    Nip51List? trustedEscrows = await escrows.trusted(
+      auth.activeKeyPair?.publicKey,
+    );
     if (trustedEscrows == null) {
       return;
     }

@@ -1,6 +1,7 @@
 #!/bin/bash
 source ./wait_for_healthy.sh
 source ./setup_evm.sh
+source ./seed_relay.sh
 
 # Create a shared network if it doesn't exist
 docker network inspect shared_network >/dev/null 2>&1 || docker network create shared_network
@@ -11,5 +12,5 @@ mkdir -p ./docker/data/lightning_data ./docker/data/lightning_shared/{1,2} ./doc
     wait_for_healthy && 
     ./setup_local.sh && 
     CONTRACT_ADDR=$(setup_evm) &&
-    (cd models && dart run lib/stubs/seed.dart ws://relay.hostr.development "$CONTRACT_ADDR") 
+    seed_relay "$CONTRACT_ADDR" 
     
