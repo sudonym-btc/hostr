@@ -19,8 +19,6 @@ class EscrowContent extends EventContent {
   final String contractAddress;
   final int chainId;
   final Duration maxDuration;
-  // final Price pricePercent;
-  // final Price priceFlat;
   final EscrowType type;
 
   EscrowContent(
@@ -37,8 +35,6 @@ class EscrowContent extends EventContent {
       "contractAddress": contractAddress,
       "chainId": chainId,
       "maxDuration": maxDuration.inSeconds,
-      // "pricePercent": pricePercent.toJson(),
-      // "priceFlat": priceFlat.toJson(),
       "type": type.toString().split('.').last,
     };
   }
@@ -49,12 +45,17 @@ class EscrowContent extends EventContent {
       contractAddress: json["contractAddress"],
       chainId: json["chainId"],
       maxDuration: Duration(seconds: json["maxDuration"]),
-      // pricePercent: Price.fromJson(json["pricePercent"]),
-      // priceFlat: Price.fromJson(json["priceFlat"]),
       type: EscrowType.values
           .firstWhere((e) => e.toString() == 'EscrowType.${json["type"]}'),
     );
   }
 }
 
-enum EscrowType { ROOTSTOCK }
+enum EscrowType { EVM }
+
+enum ChainIds {
+  Rootstock(30);
+
+  final int value;
+  const ChainIds(this.value);
+}

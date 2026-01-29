@@ -1,6 +1,7 @@
 import 'package:models/stubs/badge.dart';
 import 'package:models/stubs/blossom.dart';
 import 'package:models/stubs/escrow.dart';
+import 'package:models/stubs/escrow_method.dart';
 import 'package:models/stubs/escrow_trust.dart';
 import 'package:models/stubs/gift_wrap.dart';
 import 'package:models/stubs/listing.dart';
@@ -13,6 +14,7 @@ import 'package:ndk/ndk.dart';
 export 'badge.dart';
 export 'blossom.dart';
 export 'escrow.dart';
+export 'escrow_method.dart';
 export 'escrow_trust.dart';
 export 'gift_wrap.dart';
 export 'keypairs.dart';
@@ -24,10 +26,11 @@ export 'review.dart';
 export 'thread/main.dart';
 export 'zap_receipt.dart';
 
-Future<List<Nip01Event>> MOCK_EVENTS() async {
+Future<List<Nip01Event>> MOCK_EVENTS({String? contractAddress}) async {
   return [
-    ...MOCK_ESCROW_TRUSTS,
-    ...MOCK_ESCROWS,
+    ...await MOCK_ESCROW_TRUSTS(),
+    ...MOCK_ESCROWS(contractAddress: contractAddress),
+    ...await MOCK_ESCROW_METHODS(),
     ...MOCK_LISTINGS,
     ...MOCK_RESERVATIONS,
     ...await MOCK_GIFT_WRAPS(),

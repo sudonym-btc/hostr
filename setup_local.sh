@@ -7,6 +7,7 @@ wait_for_sync() {
     local lnd_command=$1
     while true; do
         synced=$($lnd_command getinfo | jq -r '.synced_to_chain')
+        echo $synced
         if [ "$synced" == "true" ]; then
             break
         fi
