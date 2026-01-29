@@ -67,7 +67,7 @@ start_albyhub() {
 }
 
 # Function to get authorization token
-get_auth_token() {
+unlock() {
     response=$(curl -s -k -X POST "$ALBYHUB_URL/api/unlock" \
         -H "Content-Type: application/json" \
         -d '{
@@ -124,7 +124,7 @@ create_app() {
                 "notifications"
             ],
             "isolated": false,
-            "unlockPassword": ""
+            "unlockPassword": "'"$PASSWORD"'"
         }')
     
     echo "$response"
@@ -137,6 +137,15 @@ create_app() {
             return 0
         else
             echo "Failed to create app: $error"
+            return 1
+        fi
+    fi
+    
+    # Check for error in message field
+    if echo "$response" | jq -e '.message' > /dev/null 2>&1; then
+        message=$(echo "$response" | jq -r '.message')
+        if echo "$message" | grep -q -i "failed\|error"; then
+            echo "Failed to create app: $message"
             return 1
         fi
     fi
@@ -156,10 +165,19 @@ create_app() {
 setup_albyhub
 start_albyhub
 
-# Only get auth token if not already set by start
+# Wait to avoid rate limiting
+echo "Waiting to avoid rate limit..."
+sleep 2
+
+# Always get auth token via unlock
+echo "Getting auth token..."
+unlock
+
+# Verify we have a token before proceeding
 if [ -z "$AUTH_TOKEN" ]; then
-    echo "Token not set, calling unlock..."
-    get_auth_token
+    echo "Failed to get authentication token, cannot create app"
+    exit 1
 fi
 
+echo "Using auth token to create app..."
 create_app

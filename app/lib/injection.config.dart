@@ -39,6 +39,8 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/listings/listings.dart'
     as _i456;
 import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
     as _i463;
+import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/threads.dart'
+    as _i465;
 import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart'
     as _i249;
 import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/mock.metadata.dart'
@@ -160,6 +162,12 @@ extension GetItInjectableX on _i174.GetIt {
         secureStorage: gh<_i1012.SecureStorage>(),
       ),
     );
+    gh.singleton<_i489.Reservations>(
+      () => _i489.Reservations(
+        requests: gh<_i100.Requests>(),
+        threads: gh<_i465.Threads>(),
+      ),
+    );
     gh.singleton<_i463.Messaging>(
       () => _i463.Messaging(gh<_i857.Ndk>(), gh<_i100.Requests>()),
     );
@@ -177,9 +185,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i456.Listings>(
       () => _i456.Listings(requests: gh<_i100.Requests>()),
-    );
-    gh.singleton<_i489.Reservations>(
-      () => _i489.Reservations(requests: gh<_i100.Requests>()),
     );
     gh.singleton<_i886.Relays>(
       () => _i886.MockRelays(
@@ -216,13 +221,6 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
       ),
     );
-    gh.singleton<_i244.Payments>(
-      () => _i244.Payments(
-        auth: gh<_i34.Auth>(),
-        escrows: gh<_i42.Escrows>(),
-        nwc: gh<_i909.Nwc>(),
-      ),
-    );
     gh.singleton<_i735.Zaps>(
       () => _i735.MockZaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
@@ -256,6 +254,14 @@ extension GetItInjectableX on _i174.GetIt {
         workflow: gh<_i675.LnUrlWorkflow>(),
       ),
       registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i244.Payments>(
+      () => _i244.Payments(
+        auth: gh<_i34.Auth>(),
+        escrows: gh<_i42.Escrows>(),
+        zaps: gh<_i735.Zaps>(),
+        nwc: gh<_i909.Nwc>(),
+      ),
     );
     return this;
   }

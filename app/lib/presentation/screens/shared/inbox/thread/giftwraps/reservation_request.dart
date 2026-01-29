@@ -21,11 +21,15 @@ class ThreadReservationRequestWidget extends StatelessWidget {
   }) : r = item.child as ReservationRequest,
        isSentByMe = item.child!.pubKey == counterparty.pubKey;
 
-  pay(BuildContext context) {
+  pay(BuildContext context, Listing listing) {
     showModalBottomSheet(
       context: context,
       builder: (context) {
-        return PaymentMethodWidget(r: r, counterparty: counterparty);
+        return PaymentMethodWidget(
+          reservationRequest: r,
+          counterparty: counterparty,
+          listing: listing,
+        );
       },
     );
   }
@@ -50,26 +54,13 @@ class ThreadReservationRequestWidget extends StatelessWidget {
     // ]);
   }
 
-  Widget paymentStatus(BuildContext context) {
-    // return StreamBuilder(
-    //   stream: context.read<NostrService>().payments.getStatus(r.id),
-    //   builder: (context, snapshot) {
-    //     return Text('Payment status: ${snapshot.data}');
-    //   },
-    // );
-    return Text('Payment status: TODO');
-
-    /// Look up the payment state by hashing the reservation request id
-    /// Combine with escrow query as well
-    // return FutureBuilder(
-    //     future: getIt<NwcService>().lookupInvoice(
-    //         getIt<NwcService>().connections[0].connection!,
-    //         paymentHash:
-    //             crypto.sha256.convert(r.nip01Event.id.codeUnits).toString()),
-    //     builder: (context, snapshot) {
-    //       return Text(
-    //           'Payment status: ${snapshot.data?.settledAt == null ? 'unconfirmed' : 'paid'}');
-    //     });
+  Widget paymentStatus(BuildContext contex, Listing l) {
+    return StreamBuilder(
+      stream: getIt<Hostr>().payments.checkPaymentStatus(l, r),
+      builder: (context, snapshot) {
+        return Text('Payment status: ${snapshot.data}');
+      },
+    );
   }
 
   Widget actionButton(BuildContext context, Listing l) {
@@ -106,7 +97,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
     // todo check payment status here too
     return FilledButton(
       key: ValueKey('pay'),
-      onPressed: () => pay(context),
+      onPressed: () => pay(context, l),
       child: Text(AppLocalizations.of(context)!.pay),
     );
   }
@@ -153,7 +144,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodyMedium!,
                         ),
                         Text(formatAmount(r.parsedContent.amount)),
-                        paymentStatus(context),
+                        paymentStatus(context, listingState.data!),
                       ],
                     ),
                   ),

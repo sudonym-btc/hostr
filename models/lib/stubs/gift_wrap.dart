@@ -101,6 +101,7 @@ Nip01Event hostInvitesGuest = Nip01Event(
         MockKeys.guest.publicKey,
       ]
     ],
+    createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
     content: ReservationRequest.fromNostrEvent(Nip01Utils.signWithPrivateKey(
             privateKey: MockKeys.hoster.privateKey!,
             event: Nip01Event(
@@ -130,6 +131,7 @@ Nip01Event guestRequest = Nip01Event(
         MockKeys.hoster.publicKey,
       ]
     ],
+    createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
     content: ReservationRequest.fromNostrEvent(Nip01Utils.signWithPrivateKey(
             privateKey: MockKeys.guest.privateKey!,
             event: Nip01Event(
