@@ -37,6 +37,35 @@ setup_albyhub() {
     return 0
 }
 
+# Function to start AlbyHub after setup
+start_albyhub() {
+    response=$(curl -s -k -X POST "$ALBYHUB_URL/api/start" \
+        -H "Content-Type: application/json" \
+        -d "{\"unlockPassword\": \"$PASSWORD\"}")
+
+    echo "$response"
+
+    if echo "$response" | jq -e '.error' > /dev/null 2>&1; then
+        error=$(echo "$response" | jq -r '.error')
+        if echo "$error" | grep -q "already started"; then
+            echo "AlbyHub already started"
+            return 0
+        else
+            echo "Failed to start AlbyHub: $error"
+            return 1
+        fi
+    fi
+
+    # Extract the JWT token if present
+    if echo "$response" | jq -e '.token' > /dev/null 2>&1; then
+        AUTH_TOKEN=$(echo "$response" | jq -r '.token')
+        echo "Successfully got token from start"
+    fi
+
+    echo "AlbyHub start completed"
+    return 0
+}
+
 # Function to get authorization token
 get_auth_token() {
     response=$(curl -s -k -X POST "$ALBYHUB_URL/api/unlock" \
@@ -125,5 +154,12 @@ create_app() {
 
 # Main script execution
 setup_albyhub
-get_auth_token
+start_albyhub
+
+# Only get auth token if not already set by start
+if [ -z "$AUTH_TOKEN" ]; then
+    echo "Token not set, calling unlock..."
+    get_auth_token
+fi
+
 create_app

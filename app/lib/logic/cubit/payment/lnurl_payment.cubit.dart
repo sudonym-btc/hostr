@@ -59,7 +59,6 @@ class LnUrlPaymentCubit
     PayInvoiceResponse response = await nwc.payInvoice(
       nwc.connections[0].connection!,
       state.callbackDetails!.invoice.paymentRequest,
-      null,
     );
     return LightningCompletedDetails(preimage: response.preimage!);
   }

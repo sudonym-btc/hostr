@@ -70,9 +70,20 @@ class Nwc {
   Future<PayInvoiceResponse> payInvoice(
     NwcConnection connection,
     String invoice,
-    int? amount,
   ) async {
-    return ndk.nwc.payInvoice(connection, invoice: invoice);
+    logger.i('Paying invoice $invoice');
+    try {
+      return await ndk.nwc.payInvoice(
+        connection,
+        invoice: invoice,
+        timeout: Duration(seconds: 20),
+      );
+    } catch (e, stackTrace) {
+      logger.e('Error paying invoice: $e');
+      logger.e('PayInvoice stack trace (from NDK): $stackTrace');
+      logger.e('PayInvoice stack trace (current): ${StackTrace.current}');
+      throw e;
+    }
   }
 
   Future<LookupInvoiceResponse> lookupInvoice(
@@ -116,7 +127,6 @@ class MockNwc extends Nwc {
   Future<PayInvoiceResponse> payInvoice(
     NwcConnection connection,
     String invoice,
-    int? amount,
   ) async {
     return PayInvoiceResponse(
       preimage: 'preimage',

@@ -1,6 +1,6 @@
 x-templates:
   lnd-base: &lnd-base
-    image: lightninglabs/lnd:v0.18.5-beta
+    image: lightninglabs/lnd:v0.20.0-beta
     depends_on:
       hostrbitcoind:
         condition: service_healthy

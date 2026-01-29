@@ -236,7 +236,7 @@ class ProfileScreen extends StatelessWidget {
                           child: Text(AppLocalizations.of(context)!.zapUs),
                           onPressed: () {
                             final params = LnUrlPaymentParameters(
-                              to: 'tips@hostr.development',
+                              to: 'tips@lnbits1.hostr.development',
                               amount: Amount(
                                 currency: Currency.BTC,
                                 value: 0.00001,

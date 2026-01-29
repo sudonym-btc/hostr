@@ -21,8 +21,10 @@ if [ -f "$DNSMASQ_CONF" ] && ! grep -q "address=/.hostr.development/" "$DNSMASQ_
     echo 'port=53' >> "$DNSMASQ_CONF"
 fi
 
-# Ensure dnsmasq is running
-if ! sudo brew services list | grep -q "dnsmasq.*started"; then
+# Ensure dnsmasq is running (system level)
+if sudo brew services list 2>/dev/null | grep -q "dnsmasq.*started"; then
+    :
+else
     echo "Starting dnsmasq..."
     sudo brew services start dnsmasq
 fi

@@ -98,15 +98,6 @@ post_data() {
             "wallet": "'$first_wallet_id'",
             "zaps": true
         }')
-    echo '{
-            "comment_chars": 0,
-            "description": "test",
-            "max": 10000000,
-            "min": 1,
-            "username": "'$USERNAME'",
-            "wallet": "'$first_wallet_id'",
-            "zaps": true
-        }'
     echo $response
     detail=$(echo $response | jq -r '.detail')
     echo "$detail"
@@ -119,6 +110,34 @@ post_data() {
         fi
     else
         echo "Data posted successfully"
+    fi
+    
+    # Create tips@ username
+    response=$(curl -s -L -X POST "$LNBITS_URL/lnurlp/api/v1/links" \
+        -H "X-Api-Key: $first_wallet_key" \
+        -H "Authorization: Bearer $admin_token" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "comment_chars": 0,
+            "description": "tips",
+            "max": 10000000,
+            "min": 1,
+            "username": "tips",
+            "wallet": "'$first_wallet_id'",
+            "zaps": true
+        }')
+    echo $response
+    detail=$(echo $response | jq -r '.detail')
+    echo "$detail"
+    if [ "$detail" != "" ] && [ "$detail" != "null" ]; then
+        if echo "$detail" | grep -q "Username already taken"; then
+            echo "Tips username already exists, skipping creation"
+        else
+            echo "Failed to create tips username"
+            exit 1
+        fi
+    else
+        echo "Tips username created successfully"
     fi
 }
 
