@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/sources/escrow/MultiEscrow.g.dart';
-import 'package:hostr/data/sources/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -47,14 +46,14 @@ class PaymentEscrow {
   Future<void> escrow({
     required String eventId,
     required Amount amount,
-    required String sellerPubkey,
-    required String escrowPubkey,
+    required String sellerEvmAddress,
+    required String escrowEvmAddress,
     required String escrowContractAddress,
     required int timelock,
     required EvmChain evmChain,
   }) async {
     KeyPair key = auth.activeKeyPair!;
-    EthPrivateKey ethKey = getEthCredentials(key.privateKey!);
+    EthPrivateKey ethKey = getEvmCredentials(key.privateKey!);
 
     MultiEscrow e = MultiEscrow(
       address: EthereumAddress.fromHex(escrowContractAddress),
@@ -65,10 +64,10 @@ class PaymentEscrow {
       timelock: BigInt.from(timelock),
 
       /// Arbiter public key from their nostr advertisement
-      arbiter: getEthAddressFromPublicKey(escrowPubkey),
+      arbiter: EthereumAddress.fromHex(escrowEvmAddress),
 
       /// Seller address derived from their nostr pubkey
-      seller: getEthAddressFromPublicKey(sellerPubkey),
+      seller: EthereumAddress.fromHex(sellerEvmAddress),
 
       /// Our address derived from our nostr private key
       buyer: ethKey.address,

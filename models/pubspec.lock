@@ -21,10 +21,10 @@ packages:
     dependency: transitive
     description:
       name: bip340
-      sha256: b7bcd70a860e605046006adaa72bc4f7453f4d31d7ba74a4ad9d5de387a0fc0b
+      sha256: "4c2df9fa2409d26f1d9334b2801015ebe4dc3978191f186743e60e89a90230c4"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.0"
+    version: "0.3.1"
   collection:
     dependency: transitive
     description:
@@ -34,7 +34,7 @@ packages:
     source: hosted
     version: "1.19.1"
   convert:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: convert
       sha256: b30acd5944035672bc15c6b7a8b47d773e41e2f17de064350988c5d02adb1c68
@@ -57,6 +57,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.7.0"
+  eip1559:
+    dependency: transitive
+    description:
+      name: eip1559
+      sha256: c2b81ac85f3e0e71aaf558201dd9a4600f051ece7ebacd0c5d70065c9b458004
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.2"
+  eip55:
+    dependency: transitive
+    description:
+      name: eip55
+      sha256: a81d6afe386ec965e584541fe8f19719bed8a7ae23a5f5061112e96c50e6521b
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
   elliptic:
     dependency: transitive
     description:
@@ -81,6 +97,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.4"
+  fixnum:
+    dependency: transitive
+    description:
+      name: fixnum
+      sha256: b6dc7065e46c974bc7c5f143080a6764ec7a4be6da1285ececdc37be96de53be
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
   http:
     dependency: transitive
     description:
@@ -105,6 +129,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.7"
+  json_rpc_2:
+    dependency: transitive
+    description:
+      name: json_rpc_2
+      sha256: "3c46c2633aec07810c3d6a2eb08d575b5b4072980db08f1344e66aeb53d6e4a7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.0"
   meta:
     dependency: transitive
     description:
@@ -134,10 +166,10 @@ packages:
     dependency: transitive
     description:
       name: pointycastle
-      sha256: "4be0097fcf3fd3e8449e53730c631200ebc7b88016acecab2b0da2f0149222fe"
+      sha256: "92aa3841d083cc4b0f4709b5c74fd6409a3e6ba833ffc7dc6a8fee096366acf5"
       url: "https://pub.dev"
     source: hosted
-    version: "3.9.1"
+    version: "4.0.0"
   rxdart:
     dependency: transitive
     description:
@@ -146,6 +178,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.28.0"
+  sec:
+    dependency: transitive
+    description:
+      name: sec
+      sha256: "52a93800943642e0b5225408d0973a1837e2452b9aa8a501fdfbc8e76b6ac135"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
   source_span:
     dependency: transitive
     description:
@@ -154,6 +194,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.1"
+  stack_trace:
+    dependency: transitive
+    description:
+      name: stack_trace
+      sha256: "8b27215b45d22309b5cddda1aa2b19bdfec9df0e765f2de506401c071d38d1b1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.12.1"
   stream_channel:
     dependency: transitive
     description:
@@ -162,6 +210,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.4"
+  stream_transform:
+    dependency: transitive
+    description:
+      name: stream_transform
+      sha256: ad47125e588cfd37a9a7f86c7d6356dde8dfe89d071d293f80ca9e9273a33871
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.1"
   string_scanner:
     dependency: transitive
     description:
@@ -186,6 +242,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  uuid:
+    dependency: transitive
+    description:
+      name: uuid
+      sha256: a11b666489b1954e01d992f3d601b1804a33937b5a8fe677bd26b8a9f96f96e8
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.5.2"
+  wallet:
+    dependency: transitive
+    description:
+      name: wallet
+      sha256: "20b6d8440039726841bd23b2bac64f888ec1ce1509edcc3ed2ad1753f613521e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.18"
   web:
     dependency: transitive
     description:
@@ -194,6 +266,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  web3dart:
+    dependency: "direct main"
+    description:
+      name: web3dart
+      sha256: b7401f8c57833fbde08aaaa8c56e020c5cbdef6bab7f946f69bcc342c9c492b2
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.2"
   web_socket:
     dependency: transitive
     description:
