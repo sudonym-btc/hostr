@@ -10,10 +10,10 @@ This monorepo powers a peer‑to‑peer accommodation platform built on Nostr an
 
 ## Developer Workflows
 
-- **Start full local stack:** `./start_local.sh` → brings up Docker, waits healthy, seeds Nostr with mock events via [models/lib/stubs/seed.dart](models/lib/stubs/seed.dart), deploys Hardhat escrow contract, starts the Dart escrow CLI, then the container.
-  - Channel setup and LNbits bootstrap: [setup_local.sh](setup_local.sh), [aliases.sh](aliases.sh), [setup_lnbits.sh](setup_lnbits.sh).
-- **Alternative stack (Boltz):** `./start.sh` → starts Boltz bundle under `docker/boltz`, then `docker-compose up`.
-- **Wait for health:** `./wait_for_healthy.sh` is used by scripts to block until services report healthy.
+- **Start full local stack:** `./scripts/start_local.sh` → brings up Docker, waits healthy, seeds Nostr with mock events via [models/lib/stubs/seed.dart](models/lib/stubs/seed.dart), deploys Hardhat escrow contract, starts the Dart escrow CLI, then the container.
+  - Channel setup and LNbits bootstrap: [scripts/setup_local.sh](scripts/setup_local.sh), [scripts/aliases.sh](scripts/aliases.sh), [scripts/setup_lnbits.sh](scripts/setup_lnbits.sh).
+- **Alternative stack (Boltz):** `./scripts/start.sh` → starts Boltz bundle under `docker/boltz`, then `docker-compose up`.
+- **Wait for health:** `./scripts/wait_for_healthy.sh` is used by scripts to block until services report healthy.
 - **Run the app:** choose the environment entrypoint in [app/lib/main_development.dart](app/lib/main_development.dart), [app/lib/main_staging.dart](app/lib/main_staging.dart), [app/lib/main_production.dart](app/lib/main_production.dart), or [app/lib/main_mock.dart](app/lib/main_mock.dart). Each calls `setup(env)` from [app/lib/setup.dart](app/lib/setup.dart).
 - **Tests:** in [app/test](app/test). Run `cd app && flutter test`. See pattern in [app/test/logic/event_publisher_cubit_test.dart](app/test/logic/event_publisher_cubit_test.dart).
 - **Codegen:** `cd app && flutter pub run build_runner build --delete-conflicting-outputs` for `injection.config.dart`, `router.gr.dart`, `*.g.dart`. Generated files are excluded in [app/analysis_options.yaml](app/analysis_options.yaml).
@@ -46,11 +46,11 @@ This monorepo powers a peer‑to‑peer accommodation platform built on Nostr an
 
 - Local stack:
   ```bash
-  ./start_local.sh
+  ./scripts/start_local.sh
   ```
 - Alternative stack (Boltz):
   ```bash
-  ./start.sh
+  ./scripts/start.sh
   ```
 - App tests & codegen:
   ```bash

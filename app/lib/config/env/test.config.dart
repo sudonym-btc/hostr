@@ -11,7 +11,7 @@ class TestConfig extends Config {
   String hostrRelay = 'ws://localhost:5432';
 
   @override
-  List<String> blossom = ['http://localhost:3000'];
+  List<String> blossom = ['http://localhost:3001'];
   @override
   String rootstockRpcUrl = 'http://localhost:8545';
   @override
