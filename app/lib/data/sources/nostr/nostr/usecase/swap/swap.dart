@@ -46,12 +46,10 @@ class Swap {
     // The invoice should be for the total amount minus any applicable fees.
 
     KeyPair? key = auth.activeKeyPair;
-    EthPrivateKey ethKey = getEthCredentials(key!.privateKey!);
+    EthPrivateKey ethKey = getEvmCredentials(key!.privateKey!);
     EvmChain r = evmChain;
 
-    double balance = await r.getBalance(
-      getEthCredentials(key.privateKey!).address,
-    );
+    double balance = await r.getBalance(ethKey.address);
     if (balance == 0) {
       logger.i('No balance to swap out');
       return;
@@ -110,7 +108,7 @@ class Swap {
     }
 
     KeyPair? key = auth.activeKeyPair;
-    EthPrivateKey ethKey = getEthCredentials(key!.privateKey!);
+    EthPrivateKey ethKey = getEvmCredentials(key!.privateKey!);
 
     /// We generate the preimage for the invoice we will pay
     /// This prevents swapper from being able to claim the HTLC

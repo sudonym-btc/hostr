@@ -1,12 +1,10 @@
 import 'dart:async';
 
-import 'package:convert/convert.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
-import 'package:web3dart/web3dart.dart';
 
 import 'secure_storage.dart';
 
@@ -23,18 +21,7 @@ class KeyStorage {
     if (items == null || items.length == 0) {
       return null;
     }
-    print('STORED PRIVATE KEY: ${items[0]}');
-    KeyPair fetched = Bip340.fromPrivateKey(items[0]);
-    print('KEYPAIR PRIV: ${fetched.privateKey}');
-    print('KEYPAIR PUB: ${fetched.publicKey}');
-
-    // Verify by deriving public key from private
-    KeyPair verify = Bip340.fromPrivateKey(fetched.privateKey!);
-    print('VERIFY PUB: ${verify.publicKey}');
-    print('PUBKEYS MATCH: ${fetched.publicKey == verify.publicKey}');
-
-    keyPair = fetched;
-    return fetched;
+    return Bip340.fromPrivateKey(items[0]);
   }
 
   KeyPair? getActiveKeyPairSync() {
@@ -63,8 +50,4 @@ class KeyStorage {
     keyPair = null;
     return getIt<SecureStorage>().set('keys', null);
   }
-}
-
-EthPrivateKey getEthCredentials(String nostrPrivateKey) {
-  return EthPrivateKey.fromHex(hex.encode(hex.decode(nostrPrivateKey)));
 }

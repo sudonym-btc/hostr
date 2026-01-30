@@ -138,10 +138,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i675.LnUrlWorkflow(dio: gh<_i361.Dio>()),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.singleton<_i249.MetadataUseCase>(
-      () => _i249.MetadataUseCase(ndk: gh<_i857.Ndk>()),
-      registerFor: {_dev, _staging, _prod},
-    );
     gh.singleton<_i100.Requests>(
       () => _i100.Requests(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
@@ -189,6 +185,14 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i34.Auth>(),
       ),
     );
+    gh.singleton<_i249.MetadataUseCase>(
+      () => _i249.MetadataUseCase(
+        ndk: gh<_i857.Ndk>(),
+        auth: gh<_i34.Auth>(),
+        requests: gh<_i100.Requests>(),
+      ),
+      registerFor: {_dev, _staging, _prod},
+    );
     gh.singleton<_i886.Relays>(
       () => _i886.Relays(
         ndk: gh<_i857.Ndk>(),
@@ -218,6 +222,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i936.MockMetadataUseCase(
         requests: gh<_i100.Requests>(),
         ndk: gh<_i857.Ndk>(),
+        auth: gh<_i34.Auth>(),
       ),
       registerFor: {_mock, _test},
     );
@@ -237,9 +242,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i961.Evm>(() => _i961.Evm(auth: gh<_i34.Auth>()));
     gh.singleton<_i443.Swap>(() => _i443.Swap(auth: gh<_i34.Auth>()));
-    gh.lazySingleton<_i126.SessionCoordinator>(
-      () => _i126.SessionCoordinator(gh<_i1012.Config>(), gh<_i34.Auth>()),
-    );
     gh.singleton<_i735.Zaps>(
       () => _i735.Zaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
@@ -267,6 +269,13 @@ extension GetItInjectableX on _i174.GetIt {
         workflow: gh<_i675.LnUrlWorkflow>(),
       ),
       registerFor: {_dev, _staging, _prod},
+    );
+    gh.lazySingleton<_i126.SessionCoordinator>(
+      () => _i126.SessionCoordinator(
+        config: gh<_i1012.Config>(),
+        auth: gh<_i34.Auth>(),
+        metadataUseCase: gh<_i249.MetadataUseCase>(),
+      ),
     );
     gh.singleton<_i244.Payments>(
       () => _i244.Payments(

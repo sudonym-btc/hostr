@@ -1,8 +1,7 @@
+import 'package:models/util/main.dart';
 import 'package:ndk/ndk.dart';
 
 import 'keypairs.dart';
-
-// todo follow https://github.com/nostr-protocol/nips/blob/master/06.md for key derivation
 
 var MOCK_PROFILES = [
   Nip01Utils.signWithPrivateKey(
@@ -15,7 +14,12 @@ var MOCK_PROFILES = [
         about: 'We love weloming new guests into our home',
         picture:
             'https://plus.unsplash.com/premium_photo-1689530775582-83b8abdb5020?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8cmFuZG9tJTIwcGVyc29ufGVufDB8fDB8fHww',
-      ).toEvent()),
+      ).toEvent()
+        ..tags.add([
+          'i',
+          'evm:address',
+          getEvmCredentials(MockKeys.hoster.privateKey!).address.eip55With0x
+        ])),
   Nip01Utils.signWithPrivateKey(
       privateKey: MockKeys.guest.privateKey!,
       event: Metadata(
@@ -26,7 +30,12 @@ var MOCK_PROFILES = [
         lud16: 'jasmine@lnbits2.hostr.development',
         picture:
             'https://r2.starryai.com/results/1005156662/01ea57ea-66bd-4bed-a467-11bbdedb43ea.webp',
-      ).toEvent()),
+      ).toEvent()
+        ..tags.add([
+          'i',
+          'evm:address',
+          getEvmCredentials(MockKeys.guest.privateKey!).address.eip55With0x
+        ])),
   Nip01Utils.signWithPrivateKey(
       privateKey: MockKeys.escrow.privateKey!,
       event: Metadata(
@@ -36,5 +45,10 @@ var MOCK_PROFILES = [
         nip05: 'escrow@hostr.development',
         picture:
             'https://wp.decrypt.co/wp-content/uploads/2019/03/bitcoin-logo-bitboy.png',
-      ).toEvent()),
+      ).toEvent()
+        ..tags.add([
+          'i',
+          'evm:address',
+          getEvmCredentials(MockKeys.escrow.privateKey!).address.eip55With0x
+        ])),
 ].toList();

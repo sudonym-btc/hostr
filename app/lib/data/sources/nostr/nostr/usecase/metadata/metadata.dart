@@ -1,6 +1,6 @@
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/util/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' hide Requests;
 
@@ -32,7 +32,7 @@ class MetadataUseCase {
         .where((tag) => tag[0] == 'evm:address')
         .toList();
 
-    String evmAddress = getEthCredentials(
+    String evmAddress = getEvmCredentials(
       auth.activeKeyPair!.privateKey!,
     ).address.eip55With0x;
 
