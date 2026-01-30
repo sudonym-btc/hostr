@@ -5,6 +5,7 @@ export 'escrow_method.dart';
 export 'escrow_trust.dart';
 export 'event.dart';
 // export 'gift_wrap.dart';
+export 'guest_participation_proof.dart';
 export 'listing.dart';
 export 'message.dart';
 export 'reservation.dart';

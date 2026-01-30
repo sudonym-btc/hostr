@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
 import 'package:hostr/core/main.dart';
@@ -7,8 +6,6 @@ import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
-import 'package:pointycastle/ecc/curves/secp256k1.dart';
-import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import 'secure_storage.dart';
@@ -26,7 +23,16 @@ class KeyStorage {
     if (items == null || items.length == 0) {
       return null;
     }
+    print('STORED PRIVATE KEY: ${items[0]}');
     KeyPair fetched = Bip340.fromPrivateKey(items[0]);
+    print('KEYPAIR PRIV: ${fetched.privateKey}');
+    print('KEYPAIR PUB: ${fetched.publicKey}');
+
+    // Verify by deriving public key from private
+    KeyPair verify = Bip340.fromPrivateKey(fetched.privateKey!);
+    print('VERIFY PUB: ${verify.publicKey}');
+    print('PUBKEYS MATCH: ${fetched.publicKey == verify.publicKey}');
+
     keyPair = fetched;
     return fetched;
   }
@@ -61,27 +67,4 @@ class KeyStorage {
 
 EthPrivateKey getEthCredentials(String nostrPrivateKey) {
   return EthPrivateKey.fromHex(hex.encode(hex.decode(nostrPrivateKey)));
-}
-
-EthereumAddress getEthAddressFromPublicKey(String bip340PublicKey) {
-  final ecCurve = ECCurve_secp256k1();
-  Uint8List publicKeyBytes = Uint8List.fromList(hex.decode(bip340PublicKey));
-
-  // Ensure the public key is in the correct format
-  if (publicKeyBytes.length == 32) {
-    // Add the 0x02 prefix for compressed public key
-    publicKeyBytes = Uint8List.fromList([0x02] + publicKeyBytes);
-  } else if (publicKeyBytes.length == 64) {
-    // Add the 0x04 prefix for uncompressed public key
-    publicKeyBytes = Uint8List.fromList([0x04] + publicKeyBytes);
-  }
-
-  // Decode the public key
-  final ecPoint = ecCurve.curve.decodePoint(publicKeyBytes);
-  final uncompressedPublicKey = ecPoint!
-      .getEncoded(false)
-      .sublist(1); // Remove the prefix byte
-
-  // Generate Ethereum address from the uncompressed public key
-  return EthereumAddress.fromPublicKey(PublicKey(uncompressedPublicKey));
 }

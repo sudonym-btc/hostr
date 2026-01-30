@@ -11,7 +11,7 @@ class Reservation extends JsonContentNostrEvent<ReservationContent> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION];
 
   getCommitmentHash() {
-    return tags.firstWhere((tag) => tag[0] == 'commitmentHash')[1];
+    return getFirstTag('guestCommitmentHash');
   }
 
   Reservation.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
@@ -60,7 +60,7 @@ class Reservation extends JsonContentNostrEvent<ReservationContent> {
         }
       } else if (reservation.parsedContent.proof!.escrowProof != null) {
         // Validate escrow proof
-        EscrowProof proof = reservation.parsedContent.proof!.escrowProof!;
+        // TODO: Implement escrow proof validation
       }
     }
     return false;
@@ -72,13 +72,24 @@ class ReservationContent extends EventContent {
   final DateTime end;
   final SelfSignedProof? proof;
 
-  ReservationContent({required this.start, required this.end, this.proof});
+  /// Blinded guest identifier: SHA256(guest_pubkey + random_salt)
+  /// Only the guest knows the salt, allowing them to prove participation by revealing it.
+  /// Each reservation has a unique random salt, preventing linking across reservations.
+  final String guestCommitmentHash;
+
+  ReservationContent({
+    required this.start,
+    required this.end,
+    required this.guestCommitmentHash,
+    this.proof,
+  });
 
   @override
   Map<String, dynamic> toJson() {
     return {
       "start": start.toIso8601String(),
       "end": end.toIso8601String(),
+      "guestCommitmentHash": guestCommitmentHash,
       "proof": proof?.toJson(),
     };
   }
@@ -87,6 +98,7 @@ class ReservationContent extends EventContent {
     return ReservationContent(
       start: DateTime.parse(json["start"]),
       end: DateTime.parse(json["end"]),
+      guestCommitmentHash: json["guestCommitmentHash"] ?? '',
       proof: json["proof"] != null
           ? SelfSignedProof.fromJson(json["proof"])
           : null,

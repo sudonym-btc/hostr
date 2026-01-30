@@ -72,7 +72,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     logger.t('listFilter: $finalFilter');
     await requestSubscription?.cancel();
     requestSubscription = nostrService.requests
-        .startRequest<T>(filter: finalFilter)
+        .query<T>(filter: finalFilter)
         .listen((event) {
           addItem(event);
         });

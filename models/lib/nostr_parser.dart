@@ -30,6 +30,9 @@ T parser<T extends Nip01Event>(Nip01Event event) {
       return BadgeDefinition.fromNostrEvent(event) as T;
     }
   } catch (e) {
+    print(event);
+    print('Error parsing event kind $eventKind: $e');
+    throw e;
     // If parsing fails, return the raw event
     return event as T;
   }

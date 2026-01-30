@@ -203,6 +203,13 @@ extension GetItInjectableX on _i174.GetIt {
         escrowTrusts: gh<_i445.EscrowTrusts>(),
       ),
     );
+    gh.singleton<_i489.Reservations>(
+      () => _i489.Reservations(
+        requests: gh<_i100.Requests>(),
+        messaging: gh<_i463.Messaging>(),
+        auth: gh<_i34.Auth>(),
+      ),
+    );
     gh.singleton<_i909.Nwc>(
       () => _i909.Nwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
@@ -213,12 +220,6 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
       ),
       registerFor: {_mock, _test},
-    );
-    gh.singleton<_i489.Reservations>(
-      () => _i489.Reservations(
-        requests: gh<_i100.Requests>(),
-        messaging: gh<_i463.Messaging>(),
-      ),
     );
     gh.singleton<_i909.Nwc>(
       () => _i909.MockNwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),

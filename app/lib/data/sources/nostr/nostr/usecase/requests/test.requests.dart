@@ -2,8 +2,7 @@ import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
 import 'package:models/stubs/main.dart';
-import 'package:ndk/entities.dart'
-    show RelayBroadcastResponse, RelayConnectivity;
+import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter, Ndk;
 import 'package:rxdart/rxdart.dart';
 
@@ -23,7 +22,7 @@ class _Subscription<T extends Nip01Event> {
 }
 
 @Singleton(as: Requests, env: [Env.test, Env.mock])
-class TestRequests extends Requests {
+class TestRequests extends Requests implements RequestsModel {
   @override
   final Ndk ndk;
   final List<Nip01Event> _events = [];
@@ -107,9 +106,10 @@ class TestRequests extends Requests {
   }
 
   @override
-  Stream<T> startRequest<T extends Nip01Event>({
+  Stream<T> query<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
+    Duration? timeout,
   }) async* {
     // Return matching events then close
     for (var event in _events) {
@@ -118,23 +118,6 @@ class TestRequests extends Requests {
         yield parsedEvent;
       }
     }
-  }
-
-  @override
-  Future<List<T>> startRequestAsync<T extends Nip01Event>({
-    required Filter filter,
-    Duration? timeout,
-    List<String>? relays,
-  }) async {
-    final matching = _events
-        .where((event) => matchEvent(event, filter))
-        .toList();
-    final parsed = <T>[];
-    for (var event in matching) {
-      final parsedEvent = await parserWithGiftWrap<T>(event, ndk);
-      parsed.add(parsedEvent);
-    }
-    return parsed;
   }
 
   @override
@@ -160,12 +143,6 @@ class TestRequests extends Requests {
         msg: '',
       ),
     ];
-  }
-
-  @override
-  List<RelayConnectivity> connectivity() {
-    // Return empty list for mock - connectivity not tracked
-    return [];
   }
 
   /// Clean up subscriptions.

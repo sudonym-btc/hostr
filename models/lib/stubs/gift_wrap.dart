@@ -102,24 +102,7 @@ Nip01Event hostInvitesGuest = Nip01Event(
       ]
     ],
     createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-    content: ReservationRequest.fromNostrEvent(Nip01Utils.signWithPrivateKey(
-            privateKey: MockKeys.hoster.privateKey!,
-            event: Nip01Event(
-                kind: NOSTR_KIND_RESERVATION_REQUEST,
-                tags: [
-                  ['a', MOCK_LISTINGS[0].anchor],
-                ],
-                createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-                content: ReservationRequestContent(
-                        start: DateTime(2026),
-                        end: DateTime(2026).add(Duration(days: 1)),
-                        quantity: 1,
-                        amount: Amount(currency: Currency.BTC, value: 0.0001),
-                        commitmentHash: 'hash',
-                        commitmentHashPreimageEnc: 'does')
-                    .toString(),
-                pubKey: MockKeys.hoster.publicKey)))
-        .toString());
+    content: hostInvitesGuestReservationRequest.toString());
 
 Nip01Event guestRequest = Nip01Event(
     pubKey: MockKeys.guest.publicKey,
@@ -132,24 +115,7 @@ Nip01Event guestRequest = Nip01Event(
       ]
     ],
     createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-    content: ReservationRequest.fromNostrEvent(Nip01Utils.signWithPrivateKey(
-            privateKey: MockKeys.guest.privateKey!,
-            event: Nip01Event(
-                kind: NOSTR_KIND_RESERVATION_REQUEST,
-                tags: [
-                  ['a', MOCK_LISTINGS[0].anchor],
-                ],
-                createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-                content: ReservationRequestContent(
-                        start: DateTime(2026),
-                        end: DateTime(2026).add(Duration(days: 1)),
-                        quantity: 1,
-                        amount: Amount(currency: Currency.BTC, value: 0.0001),
-                        commitmentHash: 'hash',
-                        commitmentHashPreimageEnc: 'does')
-                    .toString(),
-                pubKey: MockKeys.guest.publicKey)))
-        .toString());
+    content: guestInvitesHostReservationRequest.toString().toString());
 
 Future<List<Nip01Event>> MOCK_GIFT_WRAPS() async => [
       ...(await createMockGiftWraps(

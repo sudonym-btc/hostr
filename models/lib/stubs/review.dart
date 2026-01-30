@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -7,13 +9,20 @@ var MOCK_REVIEWS = [
         privateKey: MockKeys.guest.privateKey!,
         event: Nip01Event(
             pubKey: MockKeys.guest.publicKey,
-            content: 'I had a great time staying here!',
+            content: json.encode(
+              ReviewContent(
+                rating: 5,
+                content: 'I had a great time staying here!',
+                proof: GuestParticipationProof(
+                  salt: guestInvitesHostReservationRequest.parsedContent.salt,
+                ),
+                reservationId: MOCK_RESERVATIONS[0].id,
+              ).toJson(),
+            ),
             createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
             kind: NOSTR_KIND_REVIEW,
             tags: [
-              ['commit_hash_preimage', 'commit_hash_preimage'],
-              ['e', MOCK_LISTINGS[0].id],
-              ['d', MOCK_LISTINGS[0].getDtag()!],
+              ['e', MOCK_RESERVATIONS[0].id],
               ['a', MOCK_LISTINGS[0].anchor]
             ])),
   ),
