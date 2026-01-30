@@ -1,22 +1,43 @@
-// import 'dart:convert';
+import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
 
-// import 'package:hostr/config/main.dart';
+ReservationRequest hostInvitesGuestReservationRequest =
+    ReservationRequest.fromNostrEvent(Nip01Utils.signWithPrivateKey(
+        privateKey: MockKeys.hoster.privateKey!,
+        event: Nip01Event(
+            kind: NOSTR_KIND_RESERVATION_REQUEST,
+            tags: [
+              ['a', MOCK_LISTINGS[0].anchor],
+            ],
+            createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+            content: ReservationRequestContent(
+                    start: DateTime(2026),
+                    end: DateTime(2026).add(Duration(days: 1)),
+                    quantity: 1,
+                    amount: Amount(currency: Currency.BTC, value: 0.0001),
+                    salt: 'random-salt-1')
+                .toString(),
+            pubKey: MockKeys.hoster.publicKey)));
 
-// import '../models/amount.dart';
-// import '../models/nostr_kind/reservation_request.dart';
-// import 'keypairs.dart';
-// import 'reservation.dart';
+ReservationRequest guestInvitesHostReservationRequest =
+    ReservationRequest.fromNostrEvent(Nip01Utils.signWithPrivateKey(
+        privateKey: MockKeys.guest.privateKey!,
+        event: Nip01Event(
+            kind: NOSTR_KIND_RESERVATION_REQUEST,
+            tags: [
+              ['a', MOCK_LISTINGS[0].anchor],
+            ],
+            createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
+            content: ReservationRequestContent(
+                    start: DateTime(2026),
+                    end: DateTime(2026).add(Duration(days: 1)),
+                    quantity: 1,
+                    amount: Amount(currency: Currency.BTC, value: 0.0001),
+                    salt: 'random-salt-2')
+                .toString(),
+            pubKey: MockKeys.guest.publicKey)));
 
-// var MOCK_RESERVATION_REQUESTS = [
-//   // ReservationRequest.fromNostrEvent(NostrEvent.fromPartialData(
-//   //     keyPairs: MockKeys.hoster,
-//   //     content: json.encode(ReservationRequestContent(
-//   //             start: MOCK_RESERVATIONS[0].parsedContent.start,
-//   //             end: MOCK_RESERVATIONS[0].parsedContent.end,
-//   //             quantity: 1,
-//   //             amount: Amount(value: 0.001, currency: Currency.BTC))
-//   //         .toJson()),
-//   //     createdAt: DateTime(2025),
-//   //     kind: NOSTR_KIND_RESERVATION_REQUEST,
-//   //     tags: [])),
-// ].toList();
+var MOCK_RESERVATION_REQUESTS = [
+  hostInvitesGuestReservationRequest,
+  guestInvitesHostReservationRequest,
+];

@@ -1,6 +1,8 @@
+import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:rxdart/rxdart.dart';
 
 import '../crud.usecase.dart';
 import '../messaging/messaging.dart';
@@ -8,36 +10,55 @@ import '../messaging/messaging.dart';
 @Singleton()
 class Reservations extends CrudUseCase<Reservation> {
   final Messaging messaging;
-  Reservations({required super.requests, required this.messaging})
-    : super(kind: Reservation.kinds[0]);
+  final Auth auth;
+  Stream<Reservation>? _myReservationsStream;
+  Reservations({
+    required super.requests,
+    required this.messaging,
+    required this.auth,
+  }) : super(kind: Reservation.kinds[0]);
 
   Future<List<Reservation>> getListingReservations({
     required String listingAnchor,
   }) {
-    return list(Filter(aTags: [listingAnchor]));
+    logger.d('Fetching reservations for listing: $listingAnchor');
+    return list(Filter(kinds: Reservation.kinds, aTags: [listingAnchor])).then((
+      reservations,
+    ) {
+      logger.d('Found ${reservations.length} reservations');
+      return reservations;
+    });
   }
 
   Stream<Reservation> subscribeToMyReservations() {
-    // First fetch all messages
-    // Filter by reservation requests
-    // Optional: needed to check wether Reservation is ours, but not if we're going through own messages anyway. Decrypt the commitmentHashPreimageEnc with auth keys
-    // Then fetch Reservations by commitmentHash
-    return messaging.threads.messageStream
-        .where((message) => message.content is ReservationRequest)
-        .map((message) => message.content as ReservationRequest)
+    if (_myReservationsStream != null) {
+      return _myReservationsStream!;
+    }
+
+    _myReservationsStream = messaging.threads.messageStream
+        .where((message) => message.child is ReservationRequest)
+        .map((message) => message.child as ReservationRequest)
         .asyncMap((reservationRequest) async {
-          final reservations = await getListingReservations(
-            listingAnchor: reservationRequest.tags.firstWhere(
-              (tag) => tag[0] == 'commitmentHash',
-            )[1],
+          logger.d(
+            'Processing reservation request: $reservationRequest, ${reservationRequest.getFirstTag('a')}',
           );
+          final reservations = await getListingReservations(
+            listingAnchor: reservationRequest.getFirstTag('a')!,
+          );
+          logger.d('Found reservations: $reservations');
           return reservations.firstWhere(
             (reservation) =>
                 reservation.getCommitmentHash() ==
-                reservationRequest.parsedContent.commitmentHash,
+                GuestParticipationProof.computeCommitmentHash(
+                  auth.activeKeyPair!.publicKey,
+                  reservationRequest.parsedContent.salt,
+                ),
             orElse: () => throw Exception('Reservation not found'),
           );
-        });
-    ;
+        })
+        .publishReplay()
+        .refCount();
+
+    return _myReservationsStream!;
   }
 }

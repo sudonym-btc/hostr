@@ -52,27 +52,14 @@ class KeysWidgetState extends State<KeysWidget> {
               ListTile(
                 title: Text(AppLocalizations.of(context)!.evmAddress),
                 subtitle: Text(
-                  getEthCredentials(key!.privateKey!).address.with0x,
+                  getEthCredentials(key!.privateKey!).address.eip55With0x,
                 ),
                 onTap: () {
                   Clipboard.setData(
                     ClipboardData(
-                      text: getEthCredentials(key!.privateKey!).address.with0x,
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                title: Text(
-                  '${AppLocalizations.of(context)!.evmAddress} from pubkey',
-                ),
-                subtitle: Text(
-                  getEthAddressFromPublicKey(key!.publicKey).with0x,
-                ),
-                onTap: () {
-                  Clipboard.setData(
-                    ClipboardData(
-                      text: getEthCredentials(key!.privateKey!).address.with0x,
+                      text: getEthCredentials(
+                        key!.privateKey!,
+                      ).address.eip55With0x,
                     ),
                   );
                 },

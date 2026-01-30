@@ -5,17 +5,13 @@ import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter, Ndk;
 
 abstract class RequestsModel {
-  Stream<T> startRequest<T extends Nip01Event>({
+  Stream<T> query<T extends Nip01Event>({
     required Filter filter,
+    Duration? timeout,
     List<String>? relays,
   });
   Stream<T> subscribe<T extends Nip01Event>({
     required Filter filter,
-    List<String>? relays,
-  });
-  Future<List<T>> startRequestAsync<T extends Nip01Event>({
-    required Filter filter,
-    Duration? timeout,
     List<String>? relays,
   });
   Future<int> count({
@@ -47,44 +43,40 @@ class Requests extends RequestsModel {
         .stream
         .asyncMap((event) async {
           return parserWithGiftWrap<T>(event, ndk);
-        })
-        .cast<T>();
+        });
   }
 
   @override
-  Stream<T> startRequest<T extends Nip01Event>({
+  Stream<T> query<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
+    Duration? timeout,
   }) {
     return ndk.requests
-        .query(filter: filter, cacheRead: false, cacheWrite: false)
+        .query(
+          filter: filter,
+          cacheRead: false,
+          cacheWrite: false,
+          timeout: timeout,
+        )
         .stream
         .asyncMap((event) async {
           return parserWithGiftWrap<T>(event, ndk);
-        })
-        .cast<T>();
+        });
   }
 
-  @override
-  startRequestAsync<T extends Nip01Event>({
-    required Filter filter,
-    Duration? timeout,
-    List<String>? relays,
-  }) async {
-    return startRequest<T>(filter: filter).toList();
-  }
-
+  // @TODO: There must be a better way to do this
   @override
   Future<int> count({
     required Filter filter,
     Duration? timeout,
     List<String>? relays,
   }) async {
-    var results = await startRequestAsync(
+    var results = await query(
       filter: filter,
       timeout: timeout,
       relays: relays,
-    );
+    ).toList();
     return results.length;
   }
 
@@ -101,9 +93,4 @@ class Requests extends RequestsModel {
     // TODO: implement mock
     throw UnimplementedError();
   }
-
-  // @override
-  // count(Filter filter) {
-  //   return ndk.requests.;
-  // }
 }

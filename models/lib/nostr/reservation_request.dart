@@ -21,16 +21,14 @@ class ReservationRequestContent extends EventContent {
   final DateTime end;
   final int quantity;
   final Amount amount;
-  final String commitmentHash;
-  final String commitmentHashPreimageEnc;
+  final String salt;
 
   ReservationRequestContent(
       {required this.start,
       required this.end,
       required this.quantity,
       required this.amount,
-      required this.commitmentHash,
-      required this.commitmentHashPreimageEnc});
+      required this.salt});
 
   @override
   Map<String, dynamic> toJson() {
@@ -39,8 +37,7 @@ class ReservationRequestContent extends EventContent {
       "end": end.toIso8601String(),
       "quantity": quantity,
       "amount": amount.toJson(),
-      "commitmentHash": commitmentHash,
-      "commitmentHashPreimageEnc": commitmentHashPreimageEnc,
+      "salt": salt,
     };
   }
 
@@ -50,8 +47,7 @@ class ReservationRequestContent extends EventContent {
       end: DateTime.parse(json["end"]),
       quantity: json["quantity"],
       amount: Amount.fromJson(json["amount"]),
-      commitmentHash: json["commitmentHash"],
-      commitmentHashPreimageEnc: json["commitmentHashPreimageEnc"],
+      salt: json["salt"],
     );
   }
 }

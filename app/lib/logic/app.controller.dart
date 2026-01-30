@@ -28,7 +28,7 @@ class AppController {
       workflow: getIt(),
     );
     paymentsManager = PaymentsManager(dio: getIt(), hostr: hostrService);
-    threadsCubit = ThreadsCubit(hostrService);
+    threadsCubit = ThreadsCubit(hostrService.messaging.threads);
 
     sessionCoordinator = getIt<SessionCoordinator>();
     sessionCoordinator.start(
@@ -43,5 +43,6 @@ class AppController {
     authCubit.close();
     eventPublisherCubit.close();
     paymentsManager.close();
+    threadsCubit.close();
   }
 }

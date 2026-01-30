@@ -154,7 +154,6 @@ class ProfileScreen extends StatelessWidget {
                       ) {
                         if (snapshot.connectionState == ConnectionState.done) {
                           if (snapshot.hasData) {
-                            print(snapshot.data);
                             return Column(
                               children: [
                                 SizedBox(

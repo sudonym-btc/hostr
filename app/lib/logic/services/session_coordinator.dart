@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/logic/cubit/messaging/threads.cubit.dart';
 import 'package:injectable/injectable.dart';
@@ -17,13 +18,18 @@ import 'package:ndk/ndk.dart';
 /// - Clear gift-wrap list.
 @lazySingleton
 class SessionCoordinator {
-  final Config _config;
+  final Config config;
   final Auth auth;
+  final MetadataUseCase metadataUseCase;
   final CustomLogger _logger = CustomLogger();
 
   StreamSubscription<AuthState>? _sub;
 
-  SessionCoordinator(this._config, this.auth);
+  SessionCoordinator({
+    required this.config,
+    required this.auth,
+    required this.metadataUseCase,
+  });
 
   void start({
     required AuthCubit authCubit,
@@ -38,15 +44,14 @@ class SessionCoordinator {
       if (state is LoggedIn) {
         threadsCubit.sync();
 
-        final pubKey = ndk.accounts.getPublicKey()!;
+        // Update an existing profile with any missing info (e.g. evm address)
+        await metadataUseCase.upsertMetadata();
 
-        await ndk.userRelayLists.setInitialUserRelayList(
-          UserRelayList(
-            pubKey: pubKey,
-            relays: {_config.hostrRelay: ReadWriteMarker.readWrite},
-            createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-            refreshedTimestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-          ),
+        // Ensure initial user relay list is set
+        await ndk.userRelayLists.broadcastAddNip65Relay(
+          relayUrl: config.hostrRelay,
+          marker: ReadWriteMarker.readWrite,
+          broadcastRelays: [...config.relays],
         );
       } else {
         _logger.i('User logged out');

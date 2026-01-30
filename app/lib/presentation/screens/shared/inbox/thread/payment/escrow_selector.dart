@@ -95,9 +95,9 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                     ? null
                     : () async {
                         List<Escrow> escrowServices = await getIt<Hostr>()
-                            .requests
-                            .startRequestAsync(
-                              filter: Filter(
+                            .escrows
+                            .list(
+                              Filter(
                                 kinds: [NOSTR_KIND_ESCROW],
                                 authors: [_current!],
                               ),

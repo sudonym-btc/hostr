@@ -1,3 +1,4 @@
+import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
@@ -6,6 +7,7 @@ import 'package:ndk/ndk.dart' show Nip01Event, Filter;
 import 'requests/requests.dart';
 
 class CrudUseCase<T extends Nip01Event> {
+  final CustomLogger logger = CustomLogger();
   final Requests requests;
   final int kind;
   final int? draftKind;
@@ -25,21 +27,29 @@ class CrudUseCase<T extends Nip01Event> {
   }
 
   Future<List<T>> list(Filter f) {
-    return requests.startRequestAsync<T>(filter: f);
+    return requests.query<T>(filter: f).toList();
   }
 
   Future<T> getOne(Filter f) {
     return requests
-        .startRequest<T>(filter: getCombinedFilter(f, Filter(limit: 1)))
+        .query<T>(filter: getCombinedFilter(f, Filter(kinds: [kind], limit: 1)))
         .first;
   }
 
-  Future<T> getByAnchor() {
-    return requests.startRequest<T>(filter: Filter()).first;
+  Future<T> getByAnchor(String anchor) {
+    return requests
+        .query<T>(
+          filter: Filter(kinds: [kind], aTags: [anchor], limit: 1),
+        )
+        .first;
   }
 
-  Future<T> getById() {
-    return requests.startRequest<T>(filter: Filter()).first;
+  Future<T> getById(String id) {
+    return requests
+        .query<T>(
+          filter: Filter(kinds: [kind], ids: [id], limit: 1),
+        )
+        .first;
   }
 
   Future<int> count() {

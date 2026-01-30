@@ -2,6 +2,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Ndk, Nip01Event;
+import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 import '../crud.usecase.dart';
 
@@ -25,7 +26,9 @@ class ReservationRequests extends CrudUseCase {
     required DateTime endDate,
     required String recipientPubkey,
   }) async {
-    // Generate reservation ID
+    // Generate random salt for this reservation request
+    final salt = Helpers.getSecureRandomHex(32);
+
     return ReservationRequest.fromNostrEvent(
       await ndk.accounts.sign(
         Nip01Event(
@@ -38,8 +41,7 @@ class ReservationRequests extends CrudUseCase {
             end: endDate,
             quantity: 1,
             amount: listing.cost(startDate, endDate),
-            commitmentHash: 'hash',
-            commitmentHashPreimageEnc: 'does',
+            salt: salt,
           ).toString(),
           pubKey: ndk.accounts.getPublicKey()!,
         ),

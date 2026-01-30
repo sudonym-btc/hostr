@@ -40,7 +40,6 @@ class ReservationCubit extends Cubit<ReservationState> {
     emit(ReservationState(status: ReservationStatus.loading));
 
     try {
-      print('Creating reservation for listing ${listing.id}');
       final result = await _nostrService.reservationRequests
           .createReservationRequest(
             listing: listing,
@@ -48,16 +47,13 @@ class ReservationCubit extends Cubit<ReservationState> {
             endDate: endDate,
             recipientPubkey: listing.pubKey,
           );
-      print(
-        await _nostrService.messaging.broadcastMessageAndAwait(
-          content: result.toString(),
-          tags: [
-            ['a', result.anchor],
-          ],
-          recipientPubkey: listing.pubKey,
-        ),
+      await _nostrService.messaging.broadcastMessageAndAwait(
+        content: result.toString(),
+        tags: [
+          ['a', result.anchor],
+        ],
+        recipientPubkey: listing.pubKey,
       );
-      print('FOUND MSD');
       // Business decision: emit success state
       emit(ReservationState(status: ReservationStatus.success));
       onSuccess(result.anchor);
