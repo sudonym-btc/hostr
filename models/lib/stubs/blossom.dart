@@ -8,7 +8,7 @@ var MOCK_BLOSSOM_SERVER_LISTS = [
           pubKey: MockKeys.hoster.publicKey,
           kind: Blossom.kBlossomUserServerList,
           tags: [
-            ['server', 'http://localhost:3000']
+            ['server', 'http://blossom.hostr.development']
           ],
           content: '')),
   Nip01Utils.signWithPrivateKey(
@@ -17,7 +17,7 @@ var MOCK_BLOSSOM_SERVER_LISTS = [
           pubKey: MockKeys.guest.publicKey,
           kind: Blossom.kBlossomUserServerList,
           tags: [
-            ['server', 'http://localhost:3000']
+            ['server', 'http://blossom.hostr.development']
           ],
           content: ''))
 ].toList();

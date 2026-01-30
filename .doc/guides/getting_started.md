@@ -20,22 +20,14 @@ Install dnsmasq and route hostr.development to docker.
 
 Launch all services to fully test app.
 
-Light mode (does not launch boltz for chain swaps)
-
 ```bash
-./start_local.sh
-```
-
-Full escrow mode exchange
-
-```bash
-./start.sh
+./scripts/start.sh
 ```
 
 Power down.
 
 ```bash
-./stop.sh
+./scripts/stop.sh
 ```
 
 Wipe the local relay.

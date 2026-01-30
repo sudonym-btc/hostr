@@ -21,7 +21,7 @@ seed(String relayUrl, {String? contractAddress}) async {
         await ndk.broadcast.broadcast(nostrEvent: x).broadcastDoneFuture;
     if (!broadcastResult.first.broadcastSuccessful) {
       throw Exception(
-          'Failed to broadcast event: ${broadcastResult.first.msg}');
+          'Failed to broadcast event: ${broadcastResult.first.msg}, ${x.toString()}');
     }
   }
 

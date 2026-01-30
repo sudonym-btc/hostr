@@ -1,7 +1,9 @@
 #!/bin/bash
-source ./aliases.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+source "$SCRIPT_DIR/setup_lnbits.sh"
+source "$SCRIPT_DIR/setup_albyhub.sh"
 
-# Wait for lightning nodes to be synched to chain
 # Function to wait for LND to sync
 wait_for_sync() {
     local lnd_command=$1
@@ -18,6 +20,9 @@ wait_for_sync() {
 
 # Function to check if channels already exist between two nodes
 ensure_channels() {
+    # Source aliases here, after containers are running
+    source "$SCRIPT_DIR/aliases.sh"
+    
     # Check if blockchain has blocks, if not mine some first
     local block_count=$($BTC getblockcount 2>/dev/null || echo "0")
     if [ "$block_count" -eq 0 ]; then
@@ -65,10 +70,17 @@ ensure_channels() {
     echo "Channels created successfully."
 }
 
-# Ensure channels between lnd1 and lnd2
-ensure_channels
+setup_ln() {
+    # Ensure channels between lnd1 and lnd2
+    ensure_channels
 
-./setup_lnbits.sh 5055 jeremy
-./setup_lnbits.sh 5056 jasmine
-./setup_albyhub.sh https://alby1.hostr.development test Testing123!
-./setup_albyhub.sh https://alby2.hostr.development test Testing123!
+    setup_lnbits 5055 jeremy
+    setup_lnbits 5056 jasmine
+    setup_albyhub https://alby1.hostr.development test Testing123!
+    setup_albyhub https://alby2.hostr.development test Testing123!
+}
+
+# If script is executed directly (not sourced), run the function
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    setup_ln "$@"
+fi

@@ -45,7 +45,7 @@ This repo contains
 ## Clone
 
 ```bash
-git clone git@github.com:sudonym-btc/hostr.git
+git clone --recursive git@github.com:sudonym-btc/hostr.git
 ```
 
 Quickstart: see the client app guide at `app/README.md` for run targets by environment.

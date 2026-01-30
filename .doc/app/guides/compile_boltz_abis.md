@@ -8,11 +8,10 @@ If we import the ABIs, we can use [web3dart](https://pub.dev/packages/web3dart) 
 We only need to run this if there is a change in the ABIs, since the compiled dart is committed in the `/app` folder.
 
 ```bash
-git clone git@github.com:BoltzExchange/boltz-core.git
 (
-    cd boltz-core && npm install && curl -L https://foundry.paradigm.xyz | bash && foundryup && npm run compile:solidity
+    cd dependencies/boltz-core && npm install && curl -L https://foundry.paradigm.xyz | bash && foundryup && npm run compile:solidity
 )
-cp ./boltz-core/out/**/* ./app/lib/data/sources/boltz/contracts
+cp ./dependencies/boltz-core/out/**/* ./app/lib/data/sources/boltz/contracts
 (
     cd ./app/lib/data/sources/boltz/contracts
     for file in *.json; do

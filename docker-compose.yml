@@ -99,25 +99,26 @@ services:
       - VIRTUAL_HOST=blossom.hostr.development
       - VIRTUAL_PORT=3000
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
-      - ./docker/blossom.yaml:/app/config.yml
+      - ./dependencies/blossom.yaml:/app/config.yml
       - ./docker/data/blossom:/app/data
     networks:
       default:
         aliases:
           - blossom.hostr.development
-  # Run EVM when don't want to run boltz but still want RPC client
-  evm:
-    build:
-      context: ./escrow/contracts
-      dockerfile: Dockerfile
-    ports:
-      - "8545:8545"
-    volumes:
-      - ./escrow/contracts:/usr/src/app
-      - /usr/src/app/node_modules
-    command: ["npm", "exec", "hardhat", "--", "node"]
+    
+  # Run EVM when don't want to run boltz but still want RPC client @TODO: add profile
+  # evm:
+  #   build:
+  #     context: ./escrow/contracts
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8545:8545"
+  #   volumes:
+  #     - ./escrow/contracts:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #   command: ["npm", "exec", "hardhat", "--", "node"]
 
   # Escrow client which watches nostr & chain to facilitate escrow transactions
   escrow:
