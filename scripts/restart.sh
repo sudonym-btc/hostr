@@ -6,7 +6,7 @@ source "$SCRIPT_DIR/start.sh"
 restart_hostr() {
     stop_hostr &&
         rm -rf docker/data &&
-        (cd "$SCRIPT_DIR/../dependencies/boltz-regtest" && git checkout -- data/) &&
+        (cd "$SCRIPT_DIR/../dependencies/boltz-regtest" && git clean -fdx data/) &&
         start
 }
 

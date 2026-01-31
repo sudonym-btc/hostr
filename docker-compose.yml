@@ -9,7 +9,7 @@ x-templates:
       test:
         [
           "CMD-SHELL",
-          'lncli --network=regtest --rpcserver=localhost:8080 --macaroonpath=/shared/$$SEQUENCE/admin.macaroon --tlscertpath=/shared/$$SEQUENCE/tls.cert getinfo | grep ''"block_height":'' || exit 1',
+          'lncli --network=regtest --rpcserver=localhost:${LIGHTNING_RPC_PORT} --macaroonpath=/lnd/$$SEQUENCE/data/chain/bitcoin/regtest/admin.macaroon --tlscertpath=/lnd/$$SEQUENCE/tls.cert getinfo | grep ''"block_height":'' || exit 1',
         ]
       interval: 1s
       timeout: 1s
@@ -21,12 +21,12 @@ x-templates:
         "--alias=Alby",
         "--tlsextradomain=lnd1",
         "--tlsextradomain=lnd2",
-        "--adminmacaroonpath=/shared/$$SEQUENCE/admin.macaroon",
-        "--tlscertpath=/shared/$$SEQUENCE/tls.cert",
+        "--adminmacaroonpath=/lnd/$$SEQUENCE/data/chain/bitcoin/regtest/admin.macaroon",
+        "--tlscertpath=/lnd/$$SEQUENCE/tls.cert",
         "--datadir=/lnd/$$SEQUENCE",
         "--noseedbackup",
-        "--rpclisten=0.0.0.0:8080",
-        "--restlisten=0.0.0.0:8081",
+        "--rpclisten=0.0.0.0:${LIGHTNING_RPC_PORT}",
+        "--restlisten=0.0.0.0:${LIGHTNING_REST_PORT}",
         "--tlsextraip=0.0.0.0",
         "--bitcoin.regtest",
         "--bitcoin.node=bitcoind",
@@ -38,7 +38,6 @@ x-templates:
       ]
     volumes:
       - ./docker/data/lightning_data:/lnd
-      - ./docker/data/lightning_shared:/shared
     networks:
       - default
       - shared_network
@@ -136,19 +135,6 @@ services:
     profiles:
       - escrow
 
-  # Rootstock chain for escrow
-  # evm:
-  #   build:
-  #     context: ./escrow/contracts
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8545:8545"
-  #   volumes:
-  #     - ./escrow/contracts:/usr/src/app
-  #   command: npx hardhat node
-  #   networks:
-  #     - default
-
   # Shared bitcoin node
   hostrbitcoind:
     container_name: hostrbitcoind
@@ -172,6 +158,7 @@ services:
       [
         "bitcoind",
         "-port=${BITCOIN_PORT}",
+        "-addnode=boltz-bitcoind:18444",
         "-txindex=1",
         "-onlynet=ipv4",
         "-regtest=1",
@@ -215,7 +202,7 @@ services:
       lnd1:
         condition: service_healthy
     ports:
-      - "5055:5000"
+      - "${LNBITS_1_PORT}:5000"
     environment:
       - VIRTUAL_HOST=lnbits1.hostr.development
       - VIRTUAL_PORT=5000
@@ -229,7 +216,7 @@ services:
       - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp"
 
     volumes:
-      - ./docker/data/lightning_shared/1:/app/lnd
+      - ./docker/data/lightning_data/1:/app/lnd
       - ./docker/data/lnbits/1:/app/data
     networks:
       - default
@@ -240,7 +227,7 @@ services:
       lnd2:
         condition: service_healthy
     ports:
-      - "5056:5000"
+      - "${LNBITS_2_PORT}:5000"
     environment:
       - VIRTUAL_HOST=lnbits2.hostr.development
       - VIRTUAL_PORT=5000
@@ -254,7 +241,7 @@ services:
       - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp"
 
     volumes:
-      - ./docker/data/lightning_shared/2:/app/lnd
+      - ./docker/data/lightning_data/2:/app/lnd
       - ./docker/data/lnbits/2:/app/data
     networks:
       - default
@@ -265,7 +252,7 @@ services:
       lnd1:
         condition: service_healthy
     volumes:
-      - ./docker/data/lightning_shared/1:/lnd
+      - ./docker/data/lightning_data/1:/lnd
       - ./docker/data/albyhub:/data
     environment:
       - VIRTUAL_HOST=alby1.hostr.development
@@ -274,11 +261,11 @@ services:
       - AUTO_UNLOCK_PASSWORD=Testing123!
       - LOG_EVENTS=true
       - LN_BACKEND_TYPE=LND
-      - LND_MACAROON_FILE=/lnd/admin.macaroon
+      - LND_MACAROON_FILE=${LND_ADMIN_MACAROON_PATH}
       - LND_ADDRESS=lnd1:8080
       - WORK_DIR=data/1
     ports:
-      - "12345:8080"
+      - "${ALBYHUB_1_PORT}:8080"
 
   albyhub2:
     <<: *albyhub-base
@@ -286,7 +273,7 @@ services:
       lnd2:
         condition: service_healthy
     volumes:
-      - ./docker/data/lightning_shared/2:/lnd
+      - ./docker/data/lightning_data/2:/lnd
       - ./docker/data/albyhub:/data
     environment:
       - VIRTUAL_HOST=alby2.hostr.development
@@ -294,16 +281,15 @@ services:
       - RELAY=ws://relay.hostr.development
       - LOG_EVENTS=true
       - LN_BACKEND_TYPE=LND
-      - LND_MACAROON_FILE=/lnd/admin.macaroon
+      - LND_MACAROON_FILE=${LND_ADMIN_MACAROON_PATH}
       - LND_ADDRESS=lnd2:8080
       - WORK_DIR=data/2
     ports:
-      - "12346:8080"
+      - "${ALBYHUB_2_PORT}:8080"
 
 volumes:
   bitcoind:
   lightning_data:
-  lightning_shared:
 
 networks:
   default:

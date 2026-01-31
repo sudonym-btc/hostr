@@ -11,11 +11,16 @@ setup_lnbits() {
     local PORT=$1
     local USERNAME=$2
 
+    # Load environment variables
+    if [ -f "$(dirname "${BASH_SOURCE[0]}")/../.env" ]; then
+        export $(cat "$(dirname "${BASH_SOURCE[0]}")/../.env" | grep -v '^#' | xargs)
+    fi
+
     # Define variables
     local LNBITS_URL="http://localhost:$PORT"
-    local ADMIN_EMAIL="admin@example.com"
-    local ADMIN_PASSWORD="adminpassword"
-    local EXTENSION_NAME="lnurlp"
+    local ADMIN_EMAIL="${LNBITS_ADMIN_EMAIL}"
+    local ADMIN_PASSWORD="${LNBITS_ADMIN_PASSWORD}"
+    local EXTENSION_NAME="${LNBITS_EXTENSION_NAME}"
     local admin_token=""
     local first_wallet_id=""
     local first_wallet_key=""
