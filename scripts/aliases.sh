@@ -1,12 +1,25 @@
 #!/bin/bash
 
-# Define aliases for commonly used commands
-BTC="docker exec hostrbitcoind bitcoin-cli -regtest -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=18888"
-LND1="docker exec hostr-lnd1-1 lncli --rpcserver=localhost:8080 --macaroonpath=/shared/1/admin.macaroon --tlscertpath=/shared/1/tls.cert"
-LND2="docker exec hostr-lnd2-1 lncli --rpcserver=localhost:8080 --macaroonpath=/shared/2/admin.macaroon --tlscertpath=/shared/2/tls.cert"
+# Load environment variables from .env
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/../.env" ]; then
+    export $(cat "$(dirname "${BASH_SOURCE[0]}")/../.env" | grep -v '^#' | xargs)
+fi
 
-LND1_PUB=$(eval "$LND1 getinfo" | jq -r .identity_pubkey)
-LND2_PUB=$(eval "$LND2 getinfo" | jq -r .identity_pubkey)
+# Define command functions for commonly used commands
+BTC() {
+    docker exec ${BITCOIN_HOST} bitcoin-cli -regtest -rpcuser=${BITCOIN_RPC_USER} -rpcpassword=${BITCOIN_RPC_PASSWORD} -rpcport=${BITCOIN_RPC_PORT} "$@"
+}
 
-LND1_ADDR=$(eval "$LND1 newaddress p2tr" | jq -r .address)
-LND2_ADDR=$(eval "$LND2 newaddress p2tr" | jq -r .address)
+LND1() {
+    docker exec ${LND1_CONTAINER} lncli --rpcserver=localhost:${LIGHTNING_RPC_PORT} --macaroonpath=${LND1_MACAROON} --tlscertpath=${LND1_TLS} "$@"
+}
+
+LND2() {
+    docker exec ${LND2_CONTAINER} lncli --rpcserver=localhost:${LIGHTNING_RPC_PORT} --macaroonpath=${LND2_MACAROON} --tlscertpath=${LND2_TLS} "$@"
+}
+
+LND1_PUB=$(LND1 getinfo | jq -r .identity_pubkey)
+LND2_PUB=$(LND2 getinfo | jq -r .identity_pubkey)
+
+LND1_ADDR=$(LND1 newaddress p2tr | jq -r .address)
+LND2_ADDR=$(LND2 newaddress p2tr | jq -r .address)
