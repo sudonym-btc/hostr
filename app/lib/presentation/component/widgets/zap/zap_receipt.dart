@@ -47,9 +47,11 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
               ),
             ),
           ),
-          avatar: snapshot.data?.picture != null
+          avatar: snapshot.data?.metadata.picture != null
               ? CircleAvatar(
-                  backgroundImage: NetworkImage(snapshot.data!.picture!),
+                  backgroundImage: NetworkImage(
+                    snapshot.data!.metadata.picture!,
+                  ),
                 )
               : CircleAvatar(backgroundColor: Colors.grey),
         );

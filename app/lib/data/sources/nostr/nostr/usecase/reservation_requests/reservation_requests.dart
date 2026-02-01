@@ -34,7 +34,7 @@ class ReservationRequests extends CrudUseCase {
         Nip01Event(
           kind: NOSTR_KIND_RESERVATION_REQUEST,
           tags: [
-            ['a', listing.anchor],
+            [REFERENCE_LISTING_TAG, listing.anchor],
           ],
           content: ReservationRequestContent(
             start: startDate,

@@ -34,14 +34,8 @@ class LoggedIn extends AuthState {
 /// This cubit only manages state transitions and UI decisions.
 class AuthCubit extends Cubit<AuthState> {
   CustomLogger logger = CustomLogger();
-  final KeyStorage keyStorage;
-  final SecureStorage secureStorage;
 
-  AuthCubit({
-    required this.keyStorage,
-    required this.secureStorage,
-    AuthState? initialState,
-  }) : super(initialState ?? AuthInitial());
+  AuthCubit({AuthState? initialState}) : super(initialState ?? AuthInitial());
 
   /// Executes signup: delegates to workflow, updates state.
   Future<void> signup() async {

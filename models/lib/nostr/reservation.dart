@@ -1,17 +1,33 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-import '../nostr_kinds.dart';
-import 'listing.dart';
-import 'type_json_content.dart';
+String REFERENCE_LISTING_TAG = 'l';
+String REFERENCE_RESERVATION_TAG = 'r';
 
 class Reservation extends JsonContentNostrEvent<ReservationContent> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION];
 
-  getCommitmentHash() {
+  String? get commitmentHash {
     return getFirstTag('guestCommitmentHash');
+  }
+
+  String get listingAnchor {
+    return getFirstTag(REFERENCE_LISTING_TAG)!;
+  }
+
+  set listingAnchor(String anchor) {
+    tags.add([REFERENCE_LISTING_TAG, anchor]);
+  }
+
+  String get threadAnchor {
+    return getFirstTag(THREAD_ANCHOR_TAG)!;
+  }
+
+  set threadAnchor(String anchor) {
+    tags.add([THREAD_ANCHOR_TAG, anchor]);
   }
 
   Reservation.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {

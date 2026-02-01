@@ -2,6 +2,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 class EditProfileController {
@@ -12,13 +13,16 @@ class EditProfileController {
   final TextEditingController lightningAddressController =
       TextEditingController();
 
-  setState(Metadata? metadata) {
+  setState(ProfileMetadata? profile) {
     imageController.setImages(
-        metadata?.picture != null ? [CustomImage.path(metadata?.picture)] : []);
-    nameController.text = metadata?.name ?? '';
-    aboutMeController.text = metadata?.about ?? '';
-    nip05Controller.text = metadata?.nip05 ?? '';
-    lightningAddressController.text = metadata?.lud16 ?? '';
+      profile?.metadata.picture != null
+          ? [CustomImage.path(profile?.metadata.picture)]
+          : [],
+    );
+    nameController.text = profile?.metadata.name ?? '';
+    aboutMeController.text = profile?.metadata.about ?? '';
+    nip05Controller.text = profile?.metadata.nip05 ?? '';
+    lightningAddressController.text = profile?.metadata.lud16 ?? '';
   }
 
   save() async {
@@ -37,11 +41,14 @@ class EditProfileController {
       image = sha256.convert(data).toString();
     }
 
-    await getIt<Ndk>().metadata.broadcastMetadata(Metadata(
+    await getIt<Ndk>().metadata.broadcastMetadata(
+      Metadata(
         name: name,
         about: aboutMe,
         nip05: nip05,
         lud16: lightningAddress,
-        picture: image));
+        picture: image,
+      ),
+    );
   }
 }

@@ -13,6 +13,73 @@ class ReservationRequest
   ReservationRequest.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
     parsedContent = ReservationRequestContent.fromJson(json.decode(content));
   }
+
+  String get listingAnchor {
+    return getFirstTag(REFERENCE_LISTING_TAG)!;
+  }
+
+  set listingAnchor(String anchor) {
+    tags.add([REFERENCE_LISTING_TAG, anchor]);
+  }
+
+  static bool canAttemptPay(
+      {required ReservationRequest request,
+      required Listing listing,
+      required KeyPair ourKey}) {
+    return listing.pubKey != ourKey.publicKey;
+  }
+
+  static bool canPayWithZapReceipt(
+      LnurlResponse hostLnurlResponse, Listing listing) {
+    return hostLnurlResponse.doesAllowsNostr &&
+        hostLnurlResponse.nostrPubkey == listing.pubKey;
+  }
+
+  static bool canPayDirectly(ProfileMetadata hostProfile, Listing listing) {
+    return hostProfile.metadata.lud16 != null;
+  }
+
+  static bool canUseEscrow(ProfileMetadata hostProfile,
+      ProfileMetadata guestProfile, Nip51List hostEscrowList) {
+    return hostProfile.evmAddress != null &&
+        guestProfile.evmAddress != null &&
+        hostEscrowList.elements.length > 0;
+  }
+
+  static bool isAvailableForReservation(
+      {required ReservationRequest reservationRequest,
+      required List<Reservation> reservations}) {
+    return Listing.isAvailable(reservationRequest.parsedContent.start,
+        reservationRequest.parsedContent.end, reservations);
+  }
+
+  static bool canAccept(
+      {required ReservationRequest request,
+      required Listing listing,
+      required KeyPair ourKey}) {
+    return request.pubKey != ourKey.publicKey &&
+        listing.pubKey == ourKey.publicKey;
+  }
+
+  static ReservationStatus getStatus({
+    required String anchor,
+    required Listing listing,
+    // List of reservations associated with this request (salt must be validated before to check it's definitely assigned to our user)
+    required List<Reservation> reservations,
+    required KeyPair ourKey,
+  }) {
+    final reservationByHost = reservations.where(
+      (reservation) => reservation.pubKey == listing.pubKey,
+    );
+    if (reservationByHost.any((r) => Reservation.validate(r, listing))) {
+      return ReservationStatus.accepted;
+    } else if (reservations.any((r) => Reservation.validate(r, listing))) {
+      return ReservationStatus.paid;
+    } else if (reservations.any((r) => r.anchor == anchor)) {
+      return ReservationStatus.pending;
+    }
+    return ReservationStatus.pending;
+  }
 }
 
 class ReservationRequestContent extends EventContent {
@@ -49,58 +116,13 @@ class ReservationRequestContent extends EventContent {
       salt: json["salt"],
     );
   }
-
-  static bool canAttemptPay(
-      {required ReservationRequest request,
-      required Listing listing,
-      required KeyPair ourKey}) {
-    return listing.pubKey != ourKey.publicKey;
-  }
-
-  static bool canPayWithZapReceipt(
-      LnurlResponse hostLnurlResponse, Listing listing) {
-    return hostLnurlResponse.doesAllowsNostr &&
-        hostLnurlResponse.nostrPubkey == listing.pubKey;
-  }
-
-  static bool canPayDirectly(ProfileMetadata hostProfile, Listing listing) {
-    return hostProfile.metadata.lud16 != null;
-  }
-
-  static bool canUseEscrow(ProfileMetadata hostProfile,
-      ProfileMetadata guestProfile, Nip51List hostEscrowList) {
-    return hostProfile.evmAddress != null &&
-        guestProfile.evmAddress != null &&
-        hostEscrowList.elements.length > 0;
-  }
-
-  static bool canAccept(
-      {required ReservationRequest request,
-      required Listing listing,
-      required KeyPair ourKey}) {
-    return request.pubKey != ourKey.publicKey &&
-        listing.pubKey == ourKey.publicKey;
-  }
-
-  static ReservationStatus getStatus({
-    required String anchor,
-    required Listing listing,
-    // List of reservations associated with this request (salt must be validated before to check it's definitely assigned to our user)
-    required List<Reservation> reservations,
-    required KeyPair ourKey,
-  }) {
-    final reservationByHost = reservations.where(
-      (reservation) => reservation.pubKey == listing.pubKey,
-    );
-    if (reservationByHost.any((r) => Reservation.validate(r, listing))) {
-      return ReservationStatus.accepted;
-    } else if (reservations.any((r) => Reservation.validate(r, listing))) {
-      return ReservationStatus.paid;
-    } else if (reservations.any((r) => r.anchor == anchor)) {
-      return ReservationStatus.pending;
-    }
-    return ReservationStatus.pending;
-  }
 }
 
-enum ReservationStatus { pending, accepted, cancelled, completed, paid }
+enum ReservationStatus {
+  pending,
+  accepted,
+  cancelled,
+  completed,
+  paid,
+  refunded
+}

@@ -19,7 +19,7 @@ var MOCK_RESERVATIONS = [
           createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
           kind: NOSTR_KIND_RESERVATION,
           tags: [
-            ['a', MOCK_LISTINGS[0].anchor],
+            [REFERENCE_LISTING_TAG, MOCK_LISTINGS[0].anchor],
             [
               'guestCommitmentHash',
               GuestParticipationProof.computeCommitmentHash(
@@ -43,7 +43,7 @@ var MOCK_RESERVATIONS = [
           createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
           kind: NOSTR_KIND_RESERVATION,
           tags: [
-            ['a', MOCK_LISTINGS[1].anchor],
+            [REFERENCE_LISTING_TAG, MOCK_LISTINGS[1].anchor],
             [
               'guestCommitmentHash',
               GuestParticipationProof.computeCommitmentHash(

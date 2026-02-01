@@ -35,9 +35,7 @@ class ProfileScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: ProfileProvider(
-                    pubkey: getIt<KeyStorage>()
-                        .getActiveKeyPairSync()!
-                        .publicKey,
+                    pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
                     builder: (context, snapshot) => snapshot.data == null
                         ? Center(child: CircularProgressIndicator())
                         : Column(
@@ -45,14 +43,17 @@ class ProfileScreen extends StatelessWidget {
                             children: [
                               CircleAvatar(
                                 radius: 40,
-                                backgroundImage: snapshot.data!.picture != null
-                                    ? NetworkImage(snapshot.data!.picture!)
+                                backgroundImage:
+                                    snapshot.data!.metadata.picture != null
+                                    ? NetworkImage(
+                                        snapshot.data!.metadata.picture!,
+                                      )
                                     : null, // Replace with actual profile photo URL
                               ),
                               SizedBox(height: 16), // Increased padding
                               Text(
-                                snapshot.data!.name ??
-                                    snapshot.data!.displayName ??
+                                snapshot.data!.metadata.name ??
+                                    snapshot.data!.metadata.displayName ??
                                     'Username', // Replace with actual username
                                 style: TextStyle(
                                   fontSize: 16,
@@ -61,13 +62,13 @@ class ProfileScreen extends StatelessWidget {
                               ),
                               SizedBox(height: 8), // Added padding
                               Text(
-                                snapshot.data!.nip05 ??
+                                snapshot.data!.metadata.nip05 ??
                                     'nip05_address@example.com', // Replace with actual nip05 address
                                 style: TextStyle(fontSize: 14),
                               ),
                               SizedBox(height: 4), // Added padding
                               Text(
-                                snapshot.data!.about ??
+                                snapshot.data!.metadata.about ??
                                     '', // Replace with actual about section text
                                 style: TextStyle(
                                   fontSize: 12,
@@ -171,24 +172,34 @@ class ProfileScreen extends StatelessWidget {
                                               backgroundImage:
                                                   profileSnapshot
                                                           .data
-                                                          ?.picture !=
+                                                          ?.metadata
+                                                          .picture !=
                                                       null
                                                   ? NetworkImage(
                                                       profileSnapshot
                                                           .data!
+                                                          .metadata
                                                           .picture!,
                                                     )
                                                   : null,
                                             ),
                                             title: Text(
-                                              profileSnapshot.data?.name ??
+                                              profileSnapshot
+                                                      .data
+                                                      ?.metadata
+                                                      .name ??
                                                   profileSnapshot
                                                       .data
-                                                      ?.displayName ??
+                                                      ?.metadata
+                                                      .displayName ??
                                                   'Username',
                                             ),
                                             subtitle: Text(
-                                              profileSnapshot.data?.nip05 ?? '',
+                                              profileSnapshot
+                                                      .data
+                                                      ?.metadata
+                                                      .nip05 ??
+                                                  '',
                                             ),
                                           );
                                         },

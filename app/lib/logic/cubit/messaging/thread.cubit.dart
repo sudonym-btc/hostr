@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/util/custom_logger.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/thread.dart';
-import 'package:hostr/injection.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
@@ -23,7 +22,7 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   LatestThreadState? getLatestState() {
     logger.i('Getting latest state');
 
-    KeyPair? ours = getIt<KeyStorage>().getActiveKeyPairSync();
+    KeyPair? ours = nostrService.auth.activeKeyPair;
     if (ours == null) return null;
 
     for (Message m in state.messages.reversed) {

@@ -10,7 +10,6 @@ import 'package:rxdart/rxdart.dart';
 @Singleton(env: Env.allButTestAndMock)
 class Nwc {
   CustomLogger logger = CustomLogger();
-  KeyStorage keyStorage = getIt<KeyStorage>();
   NwcStorage nwcStorage;
   Ndk ndk;
   List<NwcCubit> connections = [];

@@ -34,7 +34,7 @@ class EditProfileViewState extends State<EditProfileView> {
         child: CustomPadding(
           child: ImageUpload(
             controller: controller.imageController,
-            pubkey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
+            pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
           ),
         ),
       ),
@@ -45,18 +45,24 @@ class EditProfileViewState extends State<EditProfileView> {
       TextFormField(
         controller: controller.aboutMeController,
         maxLines: 3,
-        decoration:
-            const InputDecoration(labelText: 'About me', hintText: 'About me'),
+        decoration: const InputDecoration(
+          labelText: 'About me',
+          hintText: 'About me',
+        ),
       ),
       TextFormField(
         controller: controller.nip05Controller,
-        decoration:
-            const InputDecoration(labelText: 'NIP 05', hintText: 'NIP 05'),
+        decoration: const InputDecoration(
+          labelText: 'NIP 05',
+          hintText: 'NIP 05',
+        ),
       ),
       TextFormField(
         controller: controller.lightningAddressController,
         decoration: const InputDecoration(
-            labelText: 'Lightning address', hintText: 'Lightning address'),
+          labelText: 'Lightning address',
+          hintText: 'Lightning address',
+        ),
       ),
     ];
   }
@@ -64,46 +70,41 @@ class EditProfileViewState extends State<EditProfileView> {
   @override
   Widget build(BuildContext context) {
     return Form(
-        key: formKey,
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(AppLocalizations.of(context)!.editProfile),
-          ),
-          body: ProfileProvider(
-            pubkey: getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey,
-            onDone: (metadata) => controller.setState(metadata),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return CircularProgressIndicator();
-              }
-              if (snapshot.connectionState == ConnectionState.done) {
-                return CustomPadding(
-                  child: Column(children: buildFormFields()),
-                );
-              }
-              return const Text('Error');
-            },
-          ),
-          bottomNavigationBar: BottomAppBar(
-            shape: CircularNotchedRectangle(),
-            child: CustomPadding(
-              top: 0,
-              bottom: 0,
-              child: FilledButton(
-                onPressed: loading
-                    ? null
-                    : () async {
-                        setState(() => loading = true);
-                        await controller.save();
-                        context.router.back();
-                        setState(
-                          () => loading = false,
-                        );
-                      },
-                child: Text(AppLocalizations.of(context)!.save),
-              ),
+      key: formKey,
+      child: Scaffold(
+        appBar: AppBar(title: Text(AppLocalizations.of(context)!.editProfile)),
+        body: ProfileProvider(
+          pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+          onDone: (metadata) => controller.setState(metadata),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return CircularProgressIndicator();
+            }
+            if (snapshot.connectionState == ConnectionState.done) {
+              return CustomPadding(child: Column(children: buildFormFields()));
+            }
+            return const Text('Error');
+          },
+        ),
+        bottomNavigationBar: BottomAppBar(
+          shape: CircularNotchedRectangle(),
+          child: CustomPadding(
+            top: 0,
+            bottom: 0,
+            child: FilledButton(
+              onPressed: loading
+                  ? null
+                  : () async {
+                      setState(() => loading = true);
+                      await controller.save();
+                      context.router.back();
+                      setState(() => loading = false);
+                    },
+              child: Text(AppLocalizations.of(context)!.save),
             ),
           ),
-        ));
+        ),
+      ),
+    );
   }
 }

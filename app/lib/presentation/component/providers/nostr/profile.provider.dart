@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:ndk/ndk.dart';
+import 'package:models/nostr/main.dart';
 
 class ProfileProvider extends StatelessWidget {
   final String pubkey;
-  final Function(BuildContext context, AsyncSnapshot<Metadata?> profile)
+  final Function(BuildContext context, AsyncSnapshot<ProfileMetadata?> profile)
   builder;
-  final Function(Metadata? metadata)? onDone;
+  final Function(ProfileMetadata? metadata)? onDone;
   const ProfileProvider({
     super.key,
     required this.pubkey,

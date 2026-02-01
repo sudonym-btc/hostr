@@ -45,8 +45,6 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
     as _i463;
 import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart'
     as _i249;
-import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/mock.metadata.dart'
-    as _i936;
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i909;
 import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payments.dart'
     as _i244;
@@ -185,14 +183,6 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i34.Auth>(),
       ),
     );
-    gh.singleton<_i249.MetadataUseCase>(
-      () => _i249.MetadataUseCase(
-        ndk: gh<_i857.Ndk>(),
-        auth: gh<_i34.Auth>(),
-        requests: gh<_i100.Requests>(),
-      ),
-      registerFor: {_dev, _staging, _prod},
-    );
     gh.singleton<_i886.Relays>(
       () => _i886.Relays(
         ndk: gh<_i857.Ndk>(),
@@ -219,12 +209,10 @@ extension GetItInjectableX on _i174.GetIt {
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i249.MetadataUseCase>(
-      () => _i936.MockMetadataUseCase(
-        requests: gh<_i100.Requests>(),
-        ndk: gh<_i857.Ndk>(),
+      () => _i249.MetadataUseCase(
         auth: gh<_i34.Auth>(),
+        requests: gh<_i100.Requests>(),
       ),
-      registerFor: {_mock, _test},
     );
     gh.singleton<_i909.Nwc>(
       () => _i909.MockNwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),

@@ -22,8 +22,8 @@ var MOCK_REVIEWS = [
             createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
             kind: NOSTR_KIND_REVIEW,
             tags: [
-              ['e', MOCK_RESERVATIONS[0].id],
-              ['a', MOCK_LISTINGS[0].anchor]
+              [REFERENCE_RESERVATION_TAG, MOCK_RESERVATIONS[0].id],
+              [REFERENCE_LISTING_TAG, MOCK_LISTINGS[0].anchor]
             ])),
   ),
 ].toList();
