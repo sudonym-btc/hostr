@@ -111,8 +111,11 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                               .inMinutes,
                           escrowContractAddress:
                               escrowServices[0].parsedContent.contractAddress,
-                          sellerPubkey: widget.counterparty.pubKey,
-                          escrowPubkey: (MOCK_ESCROWS())[0].pubKey,
+                          sellerEvmAddress: widget
+                              .counterparty
+                              .pubKey, // @TODO: Must be updated to profile evm address
+                          escrowEvmAddress: (MOCK_ESCROWS())[0]
+                              .pubKey, // @TODO: Must be updated to profile evm address
                         );
                       },
                 child: Text(AppLocalizations.of(context)!.selectEscrow),

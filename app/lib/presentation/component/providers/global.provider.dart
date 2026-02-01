@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/app.controller.dart';
-import 'package:hostr/logic/cubit/messaging/threads.cubit.dart';
 import 'package:hostr/logic/main.dart';
 
 class GlobalProviderWidget extends StatefulWidget {
@@ -34,7 +34,7 @@ class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
     return MultiBlocProvider(
       providers: [
         BlocProvider<AuthCubit>.value(value: appController.authCubit..get()),
-        BlocProvider<ThreadsCubit>.value(value: appController.threadsCubit),
+        BlocProvider<Threads>.value(value: appController.threads),
         BlocProvider<EventPublisherCubit>.value(
           value: appController.eventPublisherCubit,
         ),

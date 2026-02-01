@@ -22,10 +22,7 @@ class ReserveState extends State<Reserve> {
   Widget build(BuildContext context) {
     return BlocBuilder<DateRangeCubit, DateRangeState>(
       builder: (context, dateState) => BlocProvider<ReservationCubit>(
-        create: (context) => ReservationCubit(
-          publisher: context.read<EventPublisherCubit>(),
-          nostrService: getIt(),
-        ),
+        create: (context) => ReservationCubit(nostrService: getIt()),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -52,11 +49,11 @@ class ReserveState extends State<Reserve> {
                     onTap: () =>
                         selectDates(context, context.read<DateRangeCubit>()),
                   ),
-            BlocBuilder<ReservationCubit, ReservationState>(
+            BlocBuilder<ReservationCubit, ReservationCubitState>(
               builder: (context, state) {
                 return FilledButton(
                   onPressed:
-                      state.status == ReservationStatus.loading ||
+                      state.status == ReservationCubitStatus.loading ||
                           dateState.dateRange == null
                       ? null
                       : () async {
@@ -73,7 +70,7 @@ class ReserveState extends State<Reserve> {
                                 },
                               );
                         },
-                  child: state.status == ReservationStatus.loading
+                  child: state.status == ReservationCubitStatus.loading
                       ? CircularProgressIndicator(
                           constraints: BoxConstraints(
                             minWidth: 5,

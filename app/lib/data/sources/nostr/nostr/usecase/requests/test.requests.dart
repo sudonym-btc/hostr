@@ -27,7 +27,6 @@ class TestRequests extends Requests implements RequestsModel {
   final Ndk ndk;
   final List<Nip01Event> _events = [];
   final List<_Subscription> _subscriptions = [];
-  final BehaviorSubject<Nip01Event> _onAddEvent = BehaviorSubject();
   int _subCounter = 0;
 
   TestRequests({required this.ndk}) : super(ndk: ndk);
@@ -59,7 +58,6 @@ class TestRequests extends Requests implements RequestsModel {
     }
 
     _events.add(event);
-    _onAddEvent.add(event);
 
     // Notify matching subscriptions
     for (var sub in _subscriptions) {
@@ -70,7 +68,7 @@ class TestRequests extends Requests implements RequestsModel {
   }
 
   @override
-  Stream<T> subscribe<T extends Nip01Event>({
+  CustomNdkResponse<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
   }) {
@@ -85,24 +83,23 @@ class TestRequests extends Requests implements RequestsModel {
 
     _subscriptions.add(subscription);
 
-    // Return existing matching events immediately
-    for (var event in _events) {
-      if (matchEvent(event, filter)) {
-        parserWithGiftWrap<T>(event, ndk).then((parsedEvent) {
-          controller.add(parsedEvent);
-        });
+    final initialEvents = _events.where((event) => matchEvent(event, filter));
+
+    final initialFuture = () async {
+      final List<T> parsedEvents = [];
+      for (final event in initialEvents) {
+        final parsedEvent = await parserWithGiftWrap<T>(event, ndk);
+        controller.add(parsedEvent);
+        parsedEvents.add(parsedEvent);
       }
-    }
+      return parsedEvents;
+    }();
 
-    // Listen for future events
-    _onAddEvent.where((event) => matchEvent(event, filter)).listen((
-      event,
-    ) async {
-      final parsedEvent = await parserWithGiftWrap<T>(event, ndk);
-      controller.add(parsedEvent);
-    });
-
-    return controller.stream;
+    return CustomNdkResponse<T>(
+      subId,
+      controller.stream,
+      future: initialFuture,
+    );
   }
 
   @override
@@ -151,7 +148,6 @@ class TestRequests extends Requests implements RequestsModel {
       sub.controller.close();
     }
     _subscriptions.clear();
-    _onAddEvent.close();
   }
 
   /// Seed events for testing.

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/messaging/threads.cubit.dart';
 import 'package:ndk/ndk.dart';
 
 class AppController {
@@ -13,7 +12,7 @@ class AppController {
   late PaymentsManager paymentsManager;
   late Ndk ndk;
   late Hostr hostrService;
-  late ThreadsCubit threadsCubit;
+  late Threads threads;
 
   late StreamSubscription sub;
   late SessionCoordinator sessionCoordinator;
@@ -28,14 +27,10 @@ class AppController {
       workflow: getIt(),
     );
     paymentsManager = PaymentsManager(dio: getIt(), hostr: hostrService);
-    threadsCubit = ThreadsCubit(hostrService.messaging.threads);
+    threads = hostrService.messaging.threads;
 
     sessionCoordinator = getIt<SessionCoordinator>();
-    sessionCoordinator.start(
-      authCubit: authCubit,
-      ndk: ndk,
-      threadsCubit: threadsCubit,
-    );
+    sessionCoordinator.start(authCubit: authCubit, ndk: ndk, threads: threads);
   }
 
   void dispose() {
@@ -43,6 +38,6 @@ class AppController {
     authCubit.close();
     eventPublisherCubit.close();
     paymentsManager.close();
-    threadsCubit.close();
+    threads.close();
   }
 }

@@ -89,6 +89,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     emit(state.copyWith(synching: false));
     nostrSubscription = nostrService.requests
         .subscribe<T>(filter: finalFilter)
+        .stream
         .listen((event) {
           addItem(event);
         });
@@ -162,6 +163,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   Future<void> close() async {
     await nostrSubscription?.cancel();
     await requestSubscription?.cancel();
+    // @TODO: Close the actual nostr subscription too hostr.requests.cancelSubscription
     filterSubscription?.cancel();
     sortSubscription?.cancel();
     postResultFilterSubscription?.cancel();

@@ -18,6 +18,14 @@ class Reservation extends JsonContentNostrEvent<ReservationContent> {
     parsedContent = ReservationContent.fromJson(json.decode(content));
   }
 
+  static Reservation getSeniorReservation(
+      {required List<Reservation> reservations, required Listing listing}) {
+    return reservations
+        .where((reservation) => Reservation.validate(reservation, listing))
+        .firstWhere((reservation) => reservation.pubKey == listing.pubKey,
+            orElse: () => reservations.first);
+  }
+
   static validate(Reservation reservation, Listing listing) {
     // Any reservation published by the listing owner is valid
     if (reservation.pubKey == listing.pubKey) {

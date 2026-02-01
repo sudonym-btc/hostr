@@ -52,12 +52,12 @@ class KeysWidgetState extends State<KeysWidget> {
               ListTile(
                 title: Text(AppLocalizations.of(context)!.evmAddress),
                 subtitle: Text(
-                  getEthCredentials(key!.privateKey!).address.eip55With0x,
+                  getEvmCredentials(key!.privateKey!).address.eip55With0x,
                 ),
                 onTap: () {
                   Clipboard.setData(
                     ClipboardData(
-                      text: getEthCredentials(
+                      text: getEvmCredentials(
                         key!.privateKey!,
                       ).address.eip55With0x,
                     ),
@@ -67,13 +67,13 @@ class KeysWidgetState extends State<KeysWidget> {
               ListTile(
                 title: Text(AppLocalizations.of(context)!.evmPrivateKey),
                 subtitle: Text(
-                  bytesToHex((getEthCredentials(key!.privateKey!).privateKey)),
+                  bytesToHex((getEvmCredentials(key!.privateKey!).privateKey)),
                 ),
                 onTap: () {
                   Clipboard.setData(
                     ClipboardData(
                       text: bytesToHex(
-                        getEthCredentials(key!.privateKey!).privateKey,
+                        getEvmCredentials(key!.privateKey!).privateKey,
                         include0x: true,
                       ),
                     ),
