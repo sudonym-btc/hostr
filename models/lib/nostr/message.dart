@@ -8,8 +8,19 @@ import '../nostr_parser.dart';
 import 'event.dart';
 import 'type_parent.dart';
 
+String THREAD_ANCHOR_TAG = 't';
+
 class Message<T extends Event> extends ParentTypeNostrEvent {
   static const List<int> kinds = [NOSTR_KIND_DM];
+
+  String? get threadAnchor {
+    return getFirstTag(THREAD_ANCHOR_TAG)!;
+  }
+
+  set threadAnchor(String? anchor) {
+    if (anchor == null) return;
+    tags.add([THREAD_ANCHOR_TAG, anchor]);
+  }
 
   Message.fromNostrEvent(Nip01Event e, T? child)
       : super.fromNostrEvent(

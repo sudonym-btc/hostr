@@ -11,13 +11,13 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
   EscrowTrusts({required super.requests, required this.auth})
     : super(kind: EscrowTrust.kinds[0]);
 
-  Future<EscrowTrust> trusted(String pubkey) async {
+  Future<EscrowTrust?> trusted(String pubkey) async {
     return await getOne(
       Filter(kinds: [EscrowTrust.kinds[0]], authors: [pubkey]),
     );
   }
 
-  Future<EscrowTrust> myTrusted() async {
+  Future<EscrowTrust?> myTrusted() async {
     String pubkey = auth.activeKeyPair!.publicKey;
     return trusted(pubkey);
   }

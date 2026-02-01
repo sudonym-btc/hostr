@@ -22,11 +22,9 @@ class Thread {
   }
 
   String counterpartyPubkey() {
-    return accounts.getPublicKey() != messages[0].pubKey
-        ? messages[0].pubKey
-        : messages[0].pTags
-              .where((tag) => tag != accounts.getPublicKey())
-              .first;
+    return messages[0].pubKey == accounts.getPublicKey()
+        ? messages[0].pTags.first
+        : messages[0].pubKey;
   }
 
   Message? getLatestMessage() {
@@ -35,15 +33,15 @@ class Thread {
   }
 
   DateTime getLastDateTime() {
-    final latest = messages.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
-    return DateTime.fromMillisecondsSinceEpoch(latest.createdAt * 1000);
+    final latest = getLatestMessage();
+    return DateTime.fromMillisecondsSinceEpoch(latest!.createdAt * 1000);
   }
 
   Future<List<Future<List<RelayBroadcastResponse>>>> replyText(String content) {
     return messaging.broadcastMessage(
       content: content,
       tags: [
-        ['a', id],
+        [THREAD_ANCHOR_TAG, id],
       ],
       recipientPubkey: counterpartyPubkey(),
     );
@@ -55,7 +53,7 @@ class Thread {
     return messaging.broadcastEvent(
       event: event,
       tags: [
-        ['a', id],
+        [THREAD_ANCHOR_TAG, id],
         ...tags,
       ],
       recipientPubkey: counterpartyPubkey(),

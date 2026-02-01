@@ -21,7 +21,7 @@ class AppController {
     ndk = getIt<Ndk>();
     hostrService = getIt<Hostr>();
 
-    authCubit = AuthCubit(keyStorage: getIt(), secureStorage: getIt());
+    authCubit = AuthCubit();
     eventPublisherCubit = EventPublisherCubit(
       hostr: hostrService,
       workflow: getIt(),

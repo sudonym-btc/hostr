@@ -30,7 +30,7 @@ class CrudUseCase<T extends Nip01Event> {
     return requests.query<T>(filter: f).toList();
   }
 
-  Future<T> getOne(Filter f) {
+  Future<T?> getOne(Filter f) {
     return requests
         .query<T>(filter: getCombinedFilter(f, Filter(kinds: [kind], limit: 1)))
         .first;

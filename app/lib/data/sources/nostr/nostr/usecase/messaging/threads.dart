@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:hostr/core/main.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart'
-    show Nip01Event, Ndk, Filter, GiftWrap, Nip01EventModel;
+import 'package:ndk/ndk.dart' show Ndk, Filter, GiftWrap, Nip01EventModel;
 import 'package:rxdart/rxdart.dart';
 
 import '../requests/requests.dart';
@@ -117,7 +116,7 @@ class Threads extends HydratedCubit<List<Message>> {
     if (state.any((existing) => existing.id == message.id)) {
       return;
     }
-    String? id = extractAnchorThreadId(message);
+    String? id = message.threadAnchor;
     if (id == null) {
       return;
     }
@@ -144,7 +143,7 @@ class Threads extends HydratedCubit<List<Message>> {
   void _rebuildThreadsFromMessages(List<Message> messages) {
     threads.clear();
     for (final message in messages) {
-      String? id = extractAnchorThreadId(message);
+      String? id = message.threadAnchor;
       if (id == null) {
         continue;
       }
@@ -179,14 +178,4 @@ class Threads extends HydratedCubit<List<Message>> {
     await _messageReplaySubject.close();
     return super.close();
   }
-}
-
-String? extractAnchorThreadId(Nip01Event event) {
-  final tags = event.tags;
-  for (final tag in tags) {
-    if (tag.isNotEmpty && tag[0] == 'a' && tag.length > 1) {
-      return tag[1];
-    }
-  }
-  return null;
 }

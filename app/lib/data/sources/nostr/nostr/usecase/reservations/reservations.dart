@@ -23,9 +23,14 @@ class Reservations extends CrudUseCase<Reservation> {
     required String listingAnchor,
   }) {
     logger.d('Fetching reservations for listing: $listingAnchor');
-    return list(Filter(kinds: Reservation.kinds, aTags: [listingAnchor])).then((
-      reservations,
-    ) {
+    return list(
+      Filter(
+        kinds: Reservation.kinds,
+        tags: {
+          REFERENCE_LISTING_TAG: [listingAnchor],
+        },
+      ),
+    ).then((reservations) {
       logger.d('Found ${reservations.length} reservations');
       return reservations;
     });
@@ -44,12 +49,12 @@ class Reservations extends CrudUseCase<Reservation> {
             'Processing reservation request: $reservationRequest, ${reservationRequest.getFirstTag('a')}',
           );
           final reservations = await getListingReservations(
-            listingAnchor: reservationRequest.getFirstTag('a')!,
+            listingAnchor: reservationRequest.listingAnchor,
           );
           logger.d('Found reservations: $reservations');
           return reservations.firstWhere(
             (reservation) =>
-                reservation.getCommitmentHash() ==
+                reservation.commitmentHash ==
                 GuestParticipationProof.computeCommitmentHash(
                   auth.activeKeyPair!.publicKey,
                   reservationRequest.parsedContent.salt,
@@ -64,6 +69,7 @@ class Reservations extends CrudUseCase<Reservation> {
   }
 
   Future<List<RelayBroadcastResponse>> accept(
+    Message message,
     ReservationRequest request,
     String guestPubkey,
   ) {
@@ -71,8 +77,8 @@ class Reservations extends CrudUseCase<Reservation> {
       Nip01Event(
         kind: NOSTR_KIND_RESERVATION,
         tags: [
-          ['a', request.anchor],
-          ['r', request.id],
+          [REFERENCE_LISTING_TAG, request.listingAnchor],
+          [THREAD_ANCHOR_TAG, message.threadAnchor!],
         ],
         content: ReservationContent(
           start: request.parsedContent.start,

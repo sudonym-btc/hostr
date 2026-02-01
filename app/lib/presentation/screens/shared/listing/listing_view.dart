@@ -50,9 +50,7 @@ class ListingView extends StatelessWidget {
                         stretch: true,
                         actions: [
                           if (state.data!.pubKey ==
-                              getIt<KeyStorage>()
-                                  .getActiveKeyPairSync()
-                                  ?.publicKey)
+                              getIt<Hostr>().auth.activeKeyPair?.publicKey)
                             IconButton(
                               icon: Icon(Icons.edit),
                               onPressed: () {

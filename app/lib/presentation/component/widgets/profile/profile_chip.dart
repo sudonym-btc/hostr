@@ -9,27 +9,26 @@ class ProfileChipWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ProfileProvider(
-        pubkey: id,
-        builder: (context, snapshot) {
-          var name = snapshot.data?.name ?? id;
-          return ConstrainedBox(
-              constraints: BoxConstraints(
-                  maxWidth: 200), // Set your desired max width here
-              child: Chip(
-                  shape: StadiumBorder(),
-                  avatar: snapshot.data?.picture != null
-                      ? CircleAvatar(
-                          backgroundImage:
-                              NetworkImage(snapshot.data!.picture!),
-                        )
-                      : CircleAvatar(
-                          backgroundColor: Colors.grey,
-                        ),
-                  label: Text(
-                    name,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
-                  )));
-        });
+      pubkey: id,
+      builder: (context, snapshot) {
+        var name = snapshot.data?.metadata.name ?? id;
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 200,
+          ), // Set your desired max width here
+          child: Chip(
+            shape: StadiumBorder(),
+            avatar: snapshot.data?.metadata.picture != null
+                ? CircleAvatar(
+                    backgroundImage: NetworkImage(
+                      snapshot.data!.metadata.picture!,
+                    ),
+                  )
+                : CircleAvatar(backgroundColor: Colors.grey),
+            label: Text(name, overflow: TextOverflow.ellipsis, softWrap: false),
+          ),
+        );
+      },
+    );
   }
 }

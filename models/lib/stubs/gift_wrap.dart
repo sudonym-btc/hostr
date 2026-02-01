@@ -27,7 +27,7 @@ final mockRumorHostToGuest1 = Nip01Event(
   pubKey: MockKeys.hoster.publicKey,
   kind: NOSTR_KIND_DM,
   tags: [
-    ['a', 'thread-conversation-1'], // Thread ID via anchor tag
+    [THREAD_ANCHOR_TAG, 'thread-conversation-1'], // Thread ID via anchor tag
     ['p', MockKeys.guest.publicKey],
   ],
   content: 'Hey! I have a great place available for your dates.',
@@ -40,7 +40,7 @@ final mockRumorGuestToHost1 = Nip01Event(
   pubKey: MockKeys.guest.publicKey,
   kind: NOSTR_KIND_DM,
   tags: [
-    ['a', 'thread-conversation-1'], // Same thread ID
+    [THREAD_ANCHOR_TAG, 'thread-conversation-1'], // Same thread ID
     ['p', MockKeys.hoster.publicKey],
   ],
   content: 'That sounds perfect! Can you tell me more about the amenities?',
@@ -53,7 +53,7 @@ final mockRumorHostToGuest2 = Nip01Event(
   pubKey: MockKeys.hoster.publicKey,
   kind: NOSTR_KIND_DM,
   tags: [
-    ['a', 'thread-conversation-1'],
+    [THREAD_ANCHOR_TAG, 'thread-conversation-1'],
     ['p', MockKeys.guest.publicKey],
   ],
   content: 'Sure! It has WiFi, kitchen, and a beautiful garden view.',
@@ -67,7 +67,7 @@ final mockRumorGuestToHost2 = Nip01Event(
   pubKey: MockKeys.guest.publicKey,
   kind: NOSTR_KIND_DM,
   tags: [
-    ['a', 'thread-booking-inquiry'], // Different thread
+    [THREAD_ANCHOR_TAG, 'thread-booking-inquiry'], // Different thread
     ['p', MockKeys.hoster.publicKey],
   ],
   content: 'Is your place pet-friendly?',
@@ -80,7 +80,7 @@ final mockRumorHostToGuest3 = Nip01Event(
   pubKey: MockKeys.hoster.publicKey,
   kind: NOSTR_KIND_DM,
   tags: [
-    ['a', 'thread-booking-inquiry'],
+    [THREAD_ANCHOR_TAG, 'thread-booking-inquiry'],
     ['p', MockKeys.guest.publicKey],
   ],
   content: 'Yes! Small pets are welcome.',
@@ -95,7 +95,7 @@ Nip01Event hostInvitesGuest = Nip01Event(
     pubKey: MockKeys.hoster.publicKey,
     kind: NOSTR_KIND_DM,
     tags: [
-      ['a', 'random-topic-id'],
+      [THREAD_ANCHOR_TAG, 'random-topic-id'],
       [
         'p',
         MockKeys.guest.publicKey,
@@ -108,7 +108,7 @@ Nip01Event guestRequest = Nip01Event(
     pubKey: MockKeys.guest.publicKey,
     kind: NOSTR_KIND_DM,
     tags: [
-      ['a', 'random-topic-id-2'],
+      [THREAD_ANCHOR_TAG, 'random-topic-id-2'],
       [
         'p',
         MockKeys.hoster.publicKey,

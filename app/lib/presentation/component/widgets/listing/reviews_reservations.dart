@@ -12,7 +12,14 @@ class ReviewsReservationsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => FilterCubit()..updateFilter(Filter(aTags: [a])),
+      create: (context) => FilterCubit()
+        ..updateFilter(
+          Filter(
+            tags: {
+              REFERENCE_LISTING_TAG: [a],
+            },
+          ),
+        ),
       child: Row(
         children: [
           BlocProvider(

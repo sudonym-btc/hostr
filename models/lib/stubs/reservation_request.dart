@@ -7,7 +7,7 @@ ReservationRequest hostInvitesGuestReservationRequest =
         event: Nip01Event(
             kind: NOSTR_KIND_RESERVATION_REQUEST,
             tags: [
-              ['a', MOCK_LISTINGS[0].anchor],
+              [REFERENCE_LISTING_TAG, MOCK_LISTINGS[0].anchor],
             ],
             createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
             content: ReservationRequestContent(
@@ -25,7 +25,7 @@ ReservationRequest guestInvitesHostReservationRequest =
         event: Nip01Event(
             kind: NOSTR_KIND_RESERVATION_REQUEST,
             tags: [
-              ['a', MOCK_LISTINGS[0].anchor],
+              [REFERENCE_LISTING_TAG, MOCK_LISTINGS[0].anchor],
             ],
             createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
             content: ReservationRequestContent(

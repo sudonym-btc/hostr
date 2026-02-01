@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
-
-import 'inbox_item.dart';
+import 'package:hostr/presentation/main.dart';
 
 @RoutePage()
 class InboxScreen extends StatelessWidget {
