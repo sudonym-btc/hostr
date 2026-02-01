@@ -2,16 +2,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/main.dart';
 import 'package:models/main.dart';
 
-enum ReservationStatus { initial, loading, success, error }
+enum ReservationCubitStatus { initial, loading, success, error }
 
-class ReservationState {
-  final ReservationStatus status;
+class ReservationCubitState {
+  final ReservationCubitStatus status;
   final String? error;
 
-  ReservationState({required this.status, this.error});
+  ReservationCubitState({required this.status, this.error});
 
-  ReservationState copyWith({ReservationStatus? status, String? error}) {
-    return ReservationState(
+  ReservationCubitState copyWith({
+    ReservationCubitStatus? status,
+    String? error,
+  }) {
+    return ReservationCubitState(
       status: status ?? this.status,
       error: error ?? this.error,
     );
@@ -20,16 +23,12 @@ class ReservationState {
 
 /// Cubit managing reservation request state.
 /// This cubit only manages state transitions and UI decisions.
-class ReservationCubit extends Cubit<ReservationState> {
-  final EventPublisherCubit _publisher;
+class ReservationCubit extends Cubit<ReservationCubitState> {
   final Hostr _nostrService;
 
-  ReservationCubit({
-    required Hostr nostrService,
-    required EventPublisherCubit publisher,
-  }) : _publisher = publisher,
-       _nostrService = nostrService,
-       super(ReservationState(status: ReservationStatus.initial));
+  ReservationCubit({required Hostr nostrService})
+    : _nostrService = nostrService,
+      super(ReservationCubitState(status: ReservationCubitStatus.initial));
 
   Future<String?> createReservation({
     required Listing listing,
@@ -37,7 +36,7 @@ class ReservationCubit extends Cubit<ReservationState> {
     required DateTime endDate,
     required Function(String id) onSuccess,
   }) async {
-    emit(ReservationState(status: ReservationStatus.loading));
+    emit(ReservationCubitState(status: ReservationCubitStatus.loading));
 
     try {
       final result = await _nostrService.reservationRequests
@@ -55,14 +54,17 @@ class ReservationCubit extends Cubit<ReservationState> {
         recipientPubkey: listing.pubKey,
       );
       // Business decision: emit success state
-      emit(ReservationState(status: ReservationStatus.success));
+      emit(ReservationCubitState(status: ReservationCubitStatus.success));
       onSuccess(result.anchor);
       return result.anchor;
     } catch (e) {
       print(e.toString());
       // Business decision: emit error state
       emit(
-        ReservationState(status: ReservationStatus.error, error: e.toString()),
+        ReservationCubitState(
+          status: ReservationCubitStatus.error,
+          error: e.toString(),
+        ),
       );
       return null;
     }

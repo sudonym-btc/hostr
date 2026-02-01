@@ -8,6 +8,7 @@ export 'event.dart';
 export 'guest_participation_proof.dart';
 export 'listing.dart';
 export 'message.dart';
+export 'profile_metadata.dart';
 export 'reservation.dart';
 export 'reservation_request.dart';
 export 'review.dart';

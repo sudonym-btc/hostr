@@ -26,7 +26,7 @@ void main() {
   });
 
   group('reservation', () {
-    blocTest<ReservationCubit, ReservationState>(
+    blocTest<ReservationCubit, ReservationCubitState>(
       'emits loading then success',
       build: () {
         EventPublisherCubit ep = EventPublisherCubit(
@@ -42,12 +42,12 @@ void main() {
         onSuccess: (String id) {},
       ),
       expect: () => [
-        isA<ReservationState>().having(
+        isA<ReservationCubitState>().having(
           (s) => s.status,
           'status',
           ReservationStatus.loading,
         ),
-        isA<ReservationState>().having(
+        isA<ReservationCubitState>().having(
           (s) => s.status,
           'status',
           ReservationStatus.success,

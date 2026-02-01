@@ -13,10 +13,9 @@ class LoadingPage extends StatelessWidget {
 
     return StreamBuilder<ThreadsSyncStatus>(
       stream: nostrService.messaging.threads.syncStatusStream,
-      initialData: ThreadsSyncStatus(syncing: false, threads: []),
       builder: (context, snapshot) {
-        final isSyncing = snapshot.data?.syncing ?? false;
-        if (isSyncing) {
+        final isCompleted = snapshot.data?.completed ?? false;
+        if (!isCompleted) {
           return Scaffold(
             body: Center(
               child: Column(

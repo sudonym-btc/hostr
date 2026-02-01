@@ -35,23 +35,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
   }
 
   accept(BuildContext context, Listing l) {
-    // KeyPair k = getIt<KeyStorage>().getActiveKeyPairSync()!;
-    // context.read<EventPublisherCubit>().publishEvents([
-    //   Nip01Event(
-    //     pubKey: k.publicKey,
-    //     kind: NOSTR_KIND_RESERVATION,
-    //     tags: [
-    //       ['a', l.anchor, context.read<ThreadCubit>().getAnchor()],
-    //       // ['c', context.read<ThreadCubit>().getAnchor()]
-    //     ],
-    //     content: json.encode(
-    //       ReservationContent(
-    //         start: r.parsedContent.start,
-    //         end: r.parsedContent.end,
-    //       ).toJson(),
-    //     ),
-    //   )..sign(k.privateKey!),
-    // ]);
+    return context.read<Hostr>().reservations.accept(r, counterparty.pubKey);
   }
 
   Widget paymentStatus(BuildContext contex, Listing l) {
@@ -64,36 +48,30 @@ class ThreadReservationRequestWidget extends StatelessWidget {
   }
 
   Widget actionButton(BuildContext context, Listing l) {
-    if (l.pubKey == getIt<KeyStorage>().getActiveKeyPairSync()!.publicKey) {
-      return Container();
-      // return StreamBuilder(
-      //   stream: context.read<ThreadCubit>().loadBookingState(),
-      //   builder: (context, state) {
-      //     if (state.data == null) {
-      //       return BlocProvider<EventPublisherCubit>(
-      //         create: (context) =>
-      //             EventPublisherCubit(nostrService: getIt(), workflow: getIt()),
-      //         child: BlocBuilder<EventPublisherCubit, EventPublisherState>(
-      //           builder: (context, state) => FilledButton(
-      //             key: ValueKey('accept'),
-      //             onPressed: () => accept(context, l),
-      //             child: Text(
-      //               isSentByMe
-      //                   ? AppLocalizations.of(context)!.reserve
-      //                   : AppLocalizations.of(context)!.accept,
-      //             ),
-      //           ),
-      //         ),
-      //       );
-      //     }
-      //     return FilledButton(
-      //       onPressed: null,
-      //       child: Text(AppLocalizations.of(context)!.accepted),
-      //     );
-      //   },
-      // );
-    }
+    return Container();
+    // return StreamBuilder(
+    //   stream: context.read<Hostr>().messaging.(),
+    //   builder: (context, state) {
+    //     if (state.data == null) {
+    //       return FilledButton(
+    //         key: ValueKey('accept'),
+    //         onPressed: () => accept(context, l),
+    //         child: Text(
+    //           isSentByMe
+    //               ? AppLocalizations.of(context)!.reserve
+    //               : AppLocalizations.of(context)!.accept,
+    //         ),
+    //       );
+    //     }
+    //     return FilledButton(
+    //       onPressed: null,
+    //       child: Text(AppLocalizations.of(context)!.accepted),
+    //     );
+    //   },
+    // );
+  }
 
+  payButton(BuildContext context, Listing l) {
     // todo check payment status here too
     return FilledButton(
       key: ValueKey('pay'),

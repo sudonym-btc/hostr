@@ -1,6 +1,7 @@
 import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -60,5 +61,31 @@ class Reservations extends CrudUseCase<Reservation> {
         .refCount();
 
     return _myReservationsStream!;
+  }
+
+  Future<List<RelayBroadcastResponse>> accept(
+    ReservationRequest request,
+    String guestPubkey,
+  ) {
+    final reservation = Reservation.fromNostrEvent(
+      Nip01Event(
+        kind: NOSTR_KIND_RESERVATION,
+        tags: [
+          ['a', request.anchor],
+          ['r', request.id],
+        ],
+        content: ReservationContent(
+          start: request.parsedContent.start,
+          end: request.parsedContent.end,
+          guestCommitmentHash: GuestParticipationProof.computeCommitmentHash(
+            guestPubkey,
+            request.parsedContent.salt,
+          ),
+        ).toString(),
+        pubKey: auth.activeKeyPair!.publicKey,
+      ),
+    );
+    logger.d('Accepting reservation request: $request');
+    return create(reservation);
   }
 }

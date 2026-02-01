@@ -17,7 +17,7 @@ class SyncGuard extends AutoRouteGuard {
     final nostrService = getIt<Hostr>();
 
     // If messages are syncing, don't allow navigation - LoadingPage will show an overlay
-    if (nostrService.messaging.threads.isSyncing) {
+    if (nostrService.messaging.threads.subscriptionCompleted == false) {
       logger.d('SyncGuard: Messages still syncing, blocking navigation');
       // Don't call resolver.next() to block navigation
       return;

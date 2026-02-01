@@ -61,4 +61,12 @@ class Thread {
       recipientPubkey: counterpartyPubkey(),
     );
   }
+
+  bool isLastMessageOurs() {
+    if (messages.isEmpty) return false;
+    final ours = accounts.getPublicKey();
+    if (ours == null) return false;
+    final latest = messages.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
+    return latest.pubKey == ours;
+  }
 }

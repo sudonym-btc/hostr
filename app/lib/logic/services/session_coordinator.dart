@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart';
 import 'package:hostr/export.dart';
-import 'package:hostr/logic/cubit/messaging/threads.cubit.dart';
 import 'package:injectable/injectable.dart';
-import 'package:ndk/entities.dart';
 import 'package:ndk/ndk.dart';
 
 /// Coordinates session-driven side effects when auth state changes.
@@ -34,7 +32,7 @@ class SessionCoordinator {
   void start({
     required AuthCubit authCubit,
     required Ndk ndk,
-    required ThreadsCubit threadsCubit,
+    required Threads threads,
   }) {
     auth.init();
 
@@ -42,20 +40,20 @@ class SessionCoordinator {
 
     _sub = authCubit.stream.listen((state) async {
       if (state is LoggedIn) {
-        threadsCubit.sync();
+        threads.sync();
 
-        // Update an existing profile with any missing info (e.g. evm address)
-        await metadataUseCase.upsertMetadata();
+        // // Update an existing profile with any missing info (e.g. evm address)
+        // await metadataUseCase.upsertMetadata();
 
-        // Ensure initial user relay list is set
-        await ndk.userRelayLists.broadcastAddNip65Relay(
-          relayUrl: config.hostrRelay,
-          marker: ReadWriteMarker.readWrite,
-          broadcastRelays: [...config.relays],
-        );
+        // // Ensure initial user relay list is set
+        // await ndk.userRelayLists.broadcastAddNip65Relay(
+        //   relayUrl: config.hostrRelay,
+        //   marker: ReadWriteMarker.readWrite,
+        //   broadcastRelays: [...config.relays],
+        // );
       } else {
         _logger.i('User logged out');
-        threadsCubit.stop();
+        threads.stop();
       }
     });
   }
