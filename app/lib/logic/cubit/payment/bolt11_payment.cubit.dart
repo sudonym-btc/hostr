@@ -20,13 +20,8 @@ class Bolt11PaymentCubit
           LightningCompletedDetails
         > {
   final Nwc nwc;
-  final LnUrlWorkflow workflow;
 
-  Bolt11PaymentCubit({
-    @factoryParam required super.params,
-    required this.nwc,
-    required this.workflow,
-  });
+  Bolt11PaymentCubit({@factoryParam required super.params, required this.nwc});
 
   @override
   Future<ResolvedDetails> resolver() async {

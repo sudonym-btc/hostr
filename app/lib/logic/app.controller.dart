@@ -9,7 +9,6 @@ class AppController {
   late AuthCubit authCubit;
   late EventPublisherCubit eventPublisherCubit;
 
-  late PaymentsManager paymentsManager;
   late Ndk ndk;
   late Hostr hostrService;
   late Threads threads;
@@ -26,7 +25,6 @@ class AppController {
       hostr: hostrService,
       workflow: getIt(),
     );
-    paymentsManager = PaymentsManager(dio: getIt(), hostr: hostrService);
     threads = hostrService.messaging.threads;
 
     sessionCoordinator = getIt<SessionCoordinator>();
@@ -37,7 +35,6 @@ class AppController {
     sessionCoordinator.dispose();
     authCubit.close();
     eventPublisherCubit.close();
-    paymentsManager.close();
     threads.close();
   }
 }

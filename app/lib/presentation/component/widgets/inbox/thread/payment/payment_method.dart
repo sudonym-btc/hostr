@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/data/main.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:models/main.dart';
@@ -77,7 +78,7 @@ class PaymentMethodWidget extends StatelessWidget {
                       /// Clients SHOULD consider Reservations published by non-author as valid if LUD nostr event was signed by currently correct address
                       /// But guest MUST not consider this reservation final until signed by hoster
 
-                      BlocProvider.of<PaymentsManager>(context).create(
+                      getIt<Hostr>().payments.pay(
                         LnUrlPaymentParameters(
                           to: counterparty.lud16 ?? counterparty.lud06!,
                           amount: reservationRequest.parsedContent.amount,

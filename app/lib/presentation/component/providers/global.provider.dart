@@ -41,9 +41,6 @@ class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
         BlocProvider<ModeCubit>(
           create: (context) => ModeCubit(modeStorage: getIt())..get(),
         ),
-        BlocProvider<PaymentsManager>.value(
-          value: appController.paymentsManager,
-        ),
       ],
       child: widget.child,
     );

@@ -7,6 +7,7 @@ import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/data/sources/boltz/contracts/EtherSwap.g.dart';
 import 'package:hostr/data/sources/boltz/swagger_generated/boltz.swagger.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payments.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:injectable/injectable.dart';
@@ -33,8 +34,9 @@ enum SwapProgress {
 class Swap {
   final CustomLogger logger = CustomLogger();
   final Auth auth;
+  final Payments payments;
 
-  Swap({required this.auth});
+  Swap({required this.auth, required this.payments});
 
   Future<void> swapOutAll(EvmChain evmChain) async {
     /** @todo: determine how much amount is available to be swapped out */
@@ -98,14 +100,14 @@ class Swap {
   Future<void> swapIn(
     int amountSats, {
     void Function(SwapProgress progress)? onProgress,
-    void Function(String paymentId)? onPaymentCreated,
+    void Function(PaymentCubit payment)? onPaymentCreated,
     required EvmChain evmChain,
   }) async {
     /// Check that NWC is connected first
-    Uri? nwc = await getIt<NwcStorage>().getUri();
-    if (nwc == null) {
-      throw Exception('No NWC URI found');
-    }
+    // Uri? nwc = await getIt<NwcStorage>().getUri();
+    // if (nwc == null) {
+    //   throw Exception('No NWC URI found');
+    // }
 
     KeyPair? key = auth.activeKeyPair;
     EthPrivateKey ethKey = getEvmCredentials(key!.privateKey!);
@@ -146,7 +148,7 @@ class Swap {
     );
 
     /// Pay the invoice, though it won't complete until we reveal the preimage in the claim txn
-    final start = getIt<PaymentsManager>().startPayment(
+    final payment = payments.pay(
       Bolt11PaymentParameters(
         amount: Amount(
           currency: Currency.BTC,
@@ -155,9 +157,12 @@ class Swap {
         to: invoiceToPay,
       ),
     );
-    onPaymentCreated?.call(start.id);
+    onPaymentCreated?.call(payment);
+    print('PAYEMNT');
+    print(payment);
+    print(payment.toString());
     onProgress?.call(SwapProgress.paymentCreated);
-    start.cubit.execute();
+    payment.execute();
     onProgress?.call(SwapProgress.paymentInFlight);
 
     while (true) {
@@ -203,7 +208,14 @@ class Swap {
 
         /// Withdraw the funds to our own address, providing swapper with preimage to settle lightning
         /// Must send via RIF if no previous balance exists
-        String tx = await swapContract.claim(claimArgs, credentials: ethKey);
+        String tx = await getIt<RifRelayService>().relayClaimTransaction(
+          signer: ethKey,
+          etherSwap: swapContract,
+          preimage: claimArgs.preimage,
+          amountWei: claimArgs.amount,
+          refundAddress: claimArgs.refundAddress,
+          timeoutBlockHeight: claimArgs.timelock,
+        );
         onProgress?.call(SwapProgress.claimed);
         logger.i('Sent RBTC in: $tx');
         onProgress?.call(SwapProgress.completed);

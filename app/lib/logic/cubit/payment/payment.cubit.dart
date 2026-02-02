@@ -104,7 +104,7 @@ class PaymentCubit<
   }
 
   /// Called when we want to execute this payment right away
-  execute() async {
+  Future<void> execute() async {
     await resolve();
     if (state.status == PaymentStatus.resolved) {
       await ok();

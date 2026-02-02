@@ -316,12 +316,16 @@ class ProfileScreen extends StatelessWidget {
                       title: 'Swap',
                       body: Column(
                         children: [
-                          // FilledButton(
-                          //   child: Text('Swap in'),
-                          //   onPressed: () {
-                          //     context.read<SwapManager>().swapIn(100000);
-                          //   },
-                          // ),
+                          FilledButton(
+                            child: Text('Swap in'),
+                            onPressed: () {
+                              getIt<Hostr>().swaps.swapIn(
+                                100000,
+                                evmChain:
+                                    getIt<Hostr>().evm.supportedEvmChains[0],
+                              );
+                            },
+                          ),
                           // // FilledButton(
                           // //   child: Text('Escrow'),
                           // //   onPressed: () {

@@ -262,7 +262,7 @@ services:
       - LOG_EVENTS=true
       - LN_BACKEND_TYPE=LND
       - LND_MACAROON_FILE=${LND_ADMIN_MACAROON_PATH}
-      - LND_ADDRESS=lnd1:8080
+      - LND_ADDRESS=lnd1:${LIGHTNING_RPC_PORT}
       - WORK_DIR=data/1
     ports:
       - "${ALBYHUB_1_PORT}:8080"
@@ -282,7 +282,7 @@ services:
       - LOG_EVENTS=true
       - LN_BACKEND_TYPE=LND
       - LND_MACAROON_FILE=${LND_ADMIN_MACAROON_PATH}
-      - LND_ADDRESS=lnd2:8080
+      - LND_ADDRESS=lnd2:${LIGHTNING_RPC_PORT}
       - WORK_DIR=data/2
     ports:
       - "${ALBYHUB_2_PORT}:8080"
