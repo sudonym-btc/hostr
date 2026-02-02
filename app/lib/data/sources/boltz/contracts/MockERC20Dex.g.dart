@@ -5,16 +5,16 @@
 // ignore_for_file: unused_local_variable, unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:web3dart/web3dart.dart' as _i1;
-import 'dart:typed_data' as _i2;
+import 'package:wallet/wallet.dart' as _i2;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
-  '[{"type":"function","name":"onERC721Received","inputs":[{"name":"","type":"address","internalType":"address"},{"name":"","type":"address","internalType":"address"},{"name":"","type":"uint256","internalType":"uint256"},{"name":"","type":"bytes","internalType":"bytes"}],"outputs":[{"name":"","type":"bytes4","internalType":"bytes4"}],"stateMutability":"nonpayable"}]',
-  'RevertingERC721Recipient',
+  '[{"type":"constructor","inputs":[{"name":"inputToken","type":"address","internalType":"contract TestERC20"},{"name":"outputToken","type":"address","internalType":"contract TestERC20"}],"stateMutability":"nonpayable"},{"type":"function","name":"swap","inputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"}]',
+  'MockERC20Dex',
 );
 
-class RevertingERC721Recipient extends _i1.GeneratedContract {
-  RevertingERC721Recipient({
-    required _i1.EthereumAddress address,
+class MockERC20Dex extends _i1.GeneratedContract {
+  MockERC20Dex({
+    required _i2.EthereumAddress address,
     required _i1.Web3Client client,
     int? chainId,
   }) : super(
@@ -29,24 +29,14 @@ class RevertingERC721Recipient extends _i1.GeneratedContract {
   /// The optional [transaction] parameter can be used to override parameters
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
-  Future<String> onERC721Received(
-    ({
-      _i1.EthereumAddress $param0,
-      _i1.EthereumAddress $param1,
-      BigInt $param2,
-      _i2.Uint8List $param3
-    }) args, {
+  Future<String> swap(
+    ({BigInt amount}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[0];
-    assert(checkSignature(function, '150b7a02'));
-    final params = [
-      args.$param0,
-      args.$param1,
-      args.$param2,
-      args.$param3,
-    ];
+    final function = self.abi.functions[1];
+    assert(checkSignature(function, '94b918de'));
+    final params = [args.amount];
     return write(
       credentials,
       transaction,

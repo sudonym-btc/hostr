@@ -9,7 +9,7 @@ import 'package:wallet/wallet.dart' as _i2;
 import 'dart:typed_data' as _i3;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
-  '[{"type":"function","name":"exposed_bound","inputs":[{"name":"num","type":"uint256","internalType":"uint256"},{"name":"min","type":"uint256","internalType":"uint256"},{"name":"max","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"pure"},{"type":"function","name":"exposed_bound","inputs":[{"name":"num","type":"int256","internalType":"int256"},{"name":"min","type":"int256","internalType":"int256"},{"name":"max","type":"int256","internalType":"int256"}],"outputs":[{"name":"","type":"int256","internalType":"int256"}],"stateMutability":"pure"},{"type":"function","name":"exposed_bytesToUint","inputs":[{"name":"b","type":"bytes","internalType":"bytes"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"pure"},{"type":"function","name":"exposed_getTokenBalances","inputs":[{"name":"token","type":"address","internalType":"address"},{"name":"addresses","type":"address[]","internalType":"address[]"}],"outputs":[{"name":"balances","type":"uint256[]","internalType":"uint256[]"}],"stateMutability":"nonpayable"}]',
+  '[{"type":"function","name":"exposedBound","inputs":[{"name":"num","type":"int256","internalType":"int256"},{"name":"min","type":"int256","internalType":"int256"},{"name":"max","type":"int256","internalType":"int256"}],"outputs":[{"name":"","type":"int256","internalType":"int256"}],"stateMutability":"pure"},{"type":"function","name":"exposedBound","inputs":[{"name":"num","type":"uint256","internalType":"uint256"},{"name":"min","type":"uint256","internalType":"uint256"},{"name":"max","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"pure"},{"type":"function","name":"exposedBytesToUint","inputs":[{"name":"b","type":"bytes","internalType":"bytes"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"pure"},{"type":"function","name":"exposedGetTokenBalances","inputs":[{"name":"token","type":"address","internalType":"address"},{"name":"addresses","type":"address[]","internalType":"address[]"}],"outputs":[{"name":"balances","type":"uint256[]","internalType":"uint256[]"}],"stateMutability":"nonpayable"}]',
   'StdUtilsMock',
 );
 
@@ -30,12 +30,12 @@ class StdUtilsMock extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<BigInt> exposed_bound(
+  Future<BigInt> exposedBound(
     ({BigInt num, BigInt min, BigInt max}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[0];
-    assert(checkSignature(function, 'a788f236'));
+    assert(checkSignature(function, '08cdd008'));
     final params = [
       args.num,
       args.min,
@@ -52,12 +52,12 @@ class StdUtilsMock extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<BigInt> exposed_bound$2(
+  Future<BigInt> exposedBound$2(
     ({BigInt num, BigInt min, BigInt max}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[1];
-    assert(checkSignature(function, 'c20e95eb'));
+    assert(checkSignature(function, '933cf18a'));
     final params = [
       args.num,
       args.min,
@@ -74,12 +74,12 @@ class StdUtilsMock extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<BigInt> exposed_bytesToUint(
+  Future<BigInt> exposedBytesToUint(
     ({_i3.Uint8List b}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[2];
-    assert(checkSignature(function, 'd680beeb'));
+    assert(checkSignature(function, '4a12d451'));
     final params = [args.b];
     final response = await read(
       function,
@@ -92,13 +92,13 @@ class StdUtilsMock extends _i1.GeneratedContract {
   /// The optional [transaction] parameter can be used to override parameters
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
-  Future<String> exposed_getTokenBalances(
+  Future<String> exposedGetTokenBalances(
     ({_i2.EthereumAddress token, List<_i2.EthereumAddress> addresses}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[3];
-    assert(checkSignature(function, 'c49b5b56'));
+    assert(checkSignature(function, 'afa63af6'));
     final params = [
       args.token,
       args.addresses,
