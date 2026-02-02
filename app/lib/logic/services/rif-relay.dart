@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/sources/boltz/contracts/EtherSwap.g.dart';
+import 'package:hostr/data/sources/rif_relay/contracts/BaseSmartWallet.g.dart';
 import 'package:hostr/data/sources/rif_relay/contracts/IForwarder.g.dart';
 import 'package:hostr/data/sources/rif_relay/contracts/SmartWalletFactory.g.dart';
 import 'package:http/http.dart' as http;
@@ -11,6 +12,7 @@ import 'package:injectable/injectable.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
+// THIS FILE SHOULD MIRROR JS IMPLEMENTATION: https://github.com/BoltzExchange/boltz-web-app/tree/162ecc350f61460d6f8b888cd873bd5d90e02e29/src/rif
 class RifMetadata {
   String? signature;
   int relayMaxNonce;
@@ -93,7 +95,7 @@ class SmartWalletAddressInfo {
 const String _zeroAddress = '0x0000000000000000000000000000000000000000';
 const int _maxRelayNonceGap = 3;
 const int _defaultGasNeededToClaim = 250000;
-const int _validUntilSeconds = 30 * 60;
+const int _validUntilSeconds = 24 * 60 * 60;
 
 @Singleton()
 class RifRelayService {
@@ -170,6 +172,8 @@ class RifRelayService {
       }),
     );
 
+    print(response.body);
+
     if (response.statusCode == 200) {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       return RelayResponse(txHash: body['txHash'] ?? body['transactionHash']);
@@ -219,7 +223,6 @@ class RifRelayService {
       }
       ..relayData = {
         'feesReceiver': chainInfo.feesReceiver,
-        'callVerifier': config.rifRelayCallVerifier,
         'gasPrice': _calculateGasPrice(
           gasPrice,
           chainInfo.minGasPrice,
@@ -227,11 +230,16 @@ class RifRelayService {
       };
 
     if (!smartWalletExists) {
+      if (config.rifRelayDeployVerifier.isEmpty) {
+        throw StateError('Missing rifRelayDeployVerifier in Config.');
+      }
       if (config.rifSmartWalletFactoryAddress.isEmpty) {
         throw StateError(
           'Missing rifSmartWalletFactoryAddress in Config for relay deploy.',
         );
       }
+      envelopingRequest.relayData['callVerifier'] =
+          config.rifRelayDeployVerifier;
       envelopingRequest.request['recoverer'] = _zeroAddress;
       envelopingRequest.request['index'] = smartWalletInfo.nonce.toInt();
       envelopingRequest.request['nonce'] =
@@ -241,6 +249,7 @@ class RifRelayService {
       envelopingRequest.relayData['callForwarder'] =
           config.rifSmartWalletFactoryAddress;
     } else {
+      envelopingRequest.relayData['callVerifier'] = config.rifRelayCallVerifier;
       envelopingRequest.request['gas'] = _defaultGasNeededToClaim;
       envelopingRequest.request['nonce'] = (await getForwarder(
         smartWalletInfo.address,
@@ -261,12 +270,14 @@ class RifRelayService {
           _maxRelayNonceGap,
     );
 
-    final estimateRes = await estimate(envelopingRequest, metadata);
-    logger.d('RIF gas estimation response: $estimateRes');
-
-    envelopingRequest.request['tokenGas'] =
-        int.tryParse(estimateRes.estimation) ?? 0;
-    envelopingRequest.request['tokenAmount'] = estimateRes.requiredTokenAmount;
+    // final estimateRes = await estimate(envelopingRequest, metadata);
+    // logger.d('RIF gas estimation response: $estimateRes');
+    // envelopingRequest.request['tokenGas'] =
+    //     int.tryParse(estimateRes.estimation) ?? 0;
+    // envelopingRequest.request['tokenAmount'] = estimateRes.requiredTokenAmount;
+    // Skip estimate and use dummy values
+    envelopingRequest.request['tokenGas'] = '20000';
+    envelopingRequest.request['tokenAmount'] = '0';
     metadata.signature = await signRelayRequest(signer, envelopingRequest);
 
     final relayRes = await relay(envelopingRequest, metadata);
@@ -309,17 +320,25 @@ class RifRelayService {
     final callForwarder = EthereumAddress.fromHex(
       relay.relayData['callForwarder'],
     );
-    final domainSeparator = await _getDomainSeparator(callForwarder);
+    final isDeploy = _isDeployRequest(relay.request);
+    final domainSeparator = await _getDomainSeparator(
+      callForwarder,
+      isDeploy: isDeploy,
+    );
     final relayRequestHash = _hashRelayRequest(relay);
     final preimage = Uint8List.fromList(
       [0x19, 0x01] + domainSeparator + relayRequestHash,
     );
 
-    final chainId = await client.getChainId();
-    final signature = signer.signToUint8List(
-      preimage,
-      chainId: chainId.toInt(),
-    );
+    final sig = signer.signToEcSignature(preimage);
+    var v = sig.v;
+    if (v < 27) {
+      v += 27;
+    }
+    final r = padUint8ListTo32(unsignedIntToBytes(sig.r));
+    final s = padUint8ListTo32(unsignedIntToBytes(sig.s));
+    final vBytes = unsignedIntToBytes(BigInt.from(v));
+    final signature = uint8ListFromList(r + s + vBytes);
     return bytesToHex(signature, include0x: true);
   }
 
@@ -360,43 +379,101 @@ class RifRelayService {
 
   Uint8List _hashRelayRequest(EnvelopingRequest relay) {
     final request = relay.request;
+    if (_isDeployRequest(request)) {
+      return _hashDeployRelayRequest(relay);
+    }
+    return _hashForwardRelayRequest(relay);
+  }
+
+  Uint8List _hashForwardRelayRequest(EnvelopingRequest relay) {
+    final request = relay.request;
     final relayData = relay.relayData;
 
-    if (!request.containsKey('gas')) {
-      throw StateError(
-        'Relay request is missing gas. Deploy-request signing is not supported.',
-      );
-    }
-
-    final forwardRequestType =
-        'ForwardRequest(address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,bytes data)';
-    final relayDataType =
-        'RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)';
     final relayRequestType =
-        'RelayRequest(ForwardRequest request,RelayData relayData)$forwardRequestType$relayDataType';
+        'RelayRequest(address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,bytes data,RelayData relayData)'
+        'RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)';
 
-    final forwardTypeHash = keccakUtf8(forwardRequestType);
-    final relayDataTypeHash = keccakUtf8(relayDataType);
     final relayRequestTypeHash = keccakUtf8(relayRequestType);
+    final relayDataHash = _hashRelayData(relayData);
 
-    final forwardHash = keccak256(
+    return keccak256(
       _concat([
-        forwardTypeHash,
-        _encodeAddress(request['relayHub']),
-        _encodeAddress(request['from']),
-        _encodeAddress(request['to']),
-        _encodeAddress(request['tokenContract']),
-        _encodeUint(request['value']),
-        _encodeUint(request['gas']),
-        _encodeUint(request['nonce']),
-        _encodeUint(request['tokenAmount']),
-        _encodeUint(request['tokenGas']),
-        _encodeUint(request['validUntilTime']),
-        _encodeBytes32(keccak256(hexToBytes(_with0x(request['data'])))),
+        relayRequestTypeHash,
+        _concat([
+          _encodeAddress(request['relayHub']),
+          _encodeAddress(request['from']),
+          _encodeAddress(request['to']),
+          _encodeAddress(request['tokenContract']),
+          _encodeUint(request['value']),
+          _encodeUint(request['gas']),
+          _encodeUint(request['nonce']),
+          _encodeUint(request['tokenAmount']),
+          _encodeUint(request['tokenGas']),
+          _encodeUint(request['validUntilTime']),
+          _encodeBytes32(keccak256(hexToBytes(_with0x(request['data'])))),
+        ]),
+        _encodeBytes32(relayDataHash),
       ]),
     );
+  }
 
-    final relayDataHash = keccak256(
+  Uint8List _hashDeployRelayRequest(EnvelopingRequest relay) {
+    final request = relay.request;
+    final relayData = relay.relayData;
+
+    final relayRequestType =
+        'RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,uint256 index,bytes data,RelayData relayData)'
+        'RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)';
+
+    final relayRequestTypeHash = keccakUtf8(relayRequestType);
+    final relayDataHash = _hashRelayData(relayData);
+
+    return keccak256(
+      _concat([
+        relayRequestTypeHash,
+        _concat([
+          _encodeAddress(request['relayHub']),
+          _encodeAddress(request['from']),
+          _encodeAddress(request['to']),
+          _encodeAddress(request['tokenContract']),
+          _encodeAddress(request['recoverer']),
+          _encodeUint(request['value']),
+          _encodeUint(request['nonce']),
+          _encodeUint(request['tokenAmount']),
+          _encodeUint(request['tokenGas']),
+          _encodeUint(request['validUntilTime']),
+          _encodeUint(request['index']),
+          _encodeBytes32(keccak256(hexToBytes(_with0x(request['data'])))),
+        ]),
+        _encodeBytes32(relayDataHash),
+      ]),
+    );
+  }
+
+  bool _isDeployRequest(Map<String, dynamic> request) {
+    return request.containsKey('recoverer') && !request.containsKey('gas');
+  }
+
+  Future<Uint8List> _getDomainSeparator(
+    EthereumAddress callForwarder, {
+    required bool isDeploy,
+  }) async {
+    if (isDeploy) {
+      final contract = SmartWalletFactory(
+        address: callForwarder,
+        client: client,
+      );
+      return contract.domainSeparator();
+    }
+    final contract = BaseSmartWallet(address: callForwarder, client: client);
+    return contract.domainSeparator();
+  }
+
+  Uint8List _hashRelayData(Map<String, dynamic> relayData) {
+    final relayDataType =
+        'RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)';
+    final relayDataTypeHash = keccakUtf8(relayDataType);
+    return keccak256(
       _concat([
         relayDataTypeHash,
         _encodeUint(relayData['gasPrice']),
@@ -405,19 +482,6 @@ class RifRelayService {
         _encodeAddress(relayData['callVerifier']),
       ]),
     );
-
-    return keccak256(
-      _concat([
-        relayRequestTypeHash,
-        _encodeBytes32(forwardHash),
-        _encodeBytes32(relayDataHash),
-      ]),
-    );
-  }
-
-  Future<Uint8List> _getDomainSeparator(EthereumAddress callForwarder) async {
-    final contract = SmartWalletFactory(address: callForwarder, client: client);
-    return contract.domainSeparator();
   }
 
   Uint8List _encodeAddress(String addressHex) {
