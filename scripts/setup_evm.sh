@@ -1,10 +1,12 @@
 #!/bin/bash
 
 setup_evm() {
+    local hardhat_network="${HARDHAT_NETWORK:-localhost}"
+
     # Deploy Hardhat contracts and capture the output.
     # We use Hardhat Ignition as shown in [escrow/contracts/README.md](escrow/contracts/README.md)
     cd escrow/contracts
-    DEPLOY_OUTPUT=$(HARDHAT_IGNITION_CONFIRM_DEPLOYMENT=false npx hardhat ignition deploy ./ignition/modules/Escrow.ts --network localhost)
+    DEPLOY_OUTPUT=$(HARDHAT_IGNITION_CONFIRM_DEPLOYMENT=false npx hardhat ignition deploy ./ignition/modules/Escrow.ts --network "$hardhat_network")
     echo "$DEPLOY_OUTPUT" >&2
     # Extract the contract address (assumes the output contains a 0x-prefixed address)
     CONTRACT_ADDR=$(echo "$DEPLOY_OUTPUT" | grep -oE '0x[a-fA-F0-9]{40}')

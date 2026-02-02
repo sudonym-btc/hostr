@@ -9,8 +9,16 @@ class ProfileMetadata extends Event {
 
   Metadata get metadata => Metadata.fromEvent(this);
 
-  String? get evmAddress =>
-      this.getTags('i').firstWhere((t) => t[0] == 'evm:address')[1];
+  String? get evmAddress {
+    print(this.tags.where((tag) => tag[0] == 'i' && tag[1] == 'evm:address'));
+    return this
+        .tags
+        .firstWhere((tag) => tag[0] == 'i' && tag[1] == 'evm:address')[2];
+    // this.t
+    // final tags = this.getTags('i');
+    // print(tags);
+    // return tags.firstWhere((t) => t[0] == 'evm:address')[1];
+  }
 
   setEvmAddress(String address) {
     this.tags.removeWhere((t) => t[0] == 'i' && t[1] == 'evm:address');

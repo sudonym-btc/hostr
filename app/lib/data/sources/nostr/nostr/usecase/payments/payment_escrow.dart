@@ -84,8 +84,12 @@ class PaymentEscrow {
       buyer: ethKey.address,
       escrowFee: BigInt.from(100),
     );
-    logger.i('Creating escrow for $eventId');
+    logger.i('Creating escrow for $eventId at $escrowContractAddress');
     logger.i(tuple);
+    final balance = await evmChain.client.getBalance(ethKey.address);
+    logger.i(
+      'Escrow sender balance: ${balance.getValueInUnit(EtherUnit.ether)} RBTC',
+    );
     String escrowTx = await e.createTrade(
       tuple,
       credentials: ethKey,

@@ -15,6 +15,8 @@ import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 import 'mode_toggle.dart';
 
@@ -326,12 +328,37 @@ class ProfileScreen extends StatelessWidget {
                               );
                             },
                           ),
-                          // // FilledButton(
-                          // //   child: Text('Escrow'),
-                          // //   onPressed: () {
-                          // //     getIt<SwapService>().escrow();
-                          // //   },
-                          // // ),
+                          FilledButton(
+                            child: Text('Escrow'),
+                            onPressed: () async {
+                              getIt<Hostr>().payments.escrow.escrow(
+                                evmChain:
+                                    getIt<Hostr>().evm.supportedEvmChains[0],
+                                amount: Amount(
+                                  currency: Currency.BTC,
+                                  value: 0.00001,
+                                ),
+                                eventId: Helpers.getSecureRandomHex(32),
+                                timelock: 200,
+                                escrowContractAddress:
+                                    (await getIt<Hostr>().escrows.list(
+                                      Filter(),
+                                    )).first.parsedContent.contractAddress,
+
+                                ///Host
+                                sellerEvmAddress:
+                                    ProfileMetadata.fromNostrEvent(
+                                      MOCK_PROFILES[0],
+                                    ).evmAddress!,
+
+                                /// Escrow profile
+                                escrowEvmAddress:
+                                    ProfileMetadata.fromNostrEvent(
+                                      MOCK_PROFILES[2],
+                                    ).evmAddress!, // @TO);
+                              );
+                            },
+                          ),
                           // FilledButton(
                           //   child: Text('ListEvents'),
                           //   onPressed: () {
