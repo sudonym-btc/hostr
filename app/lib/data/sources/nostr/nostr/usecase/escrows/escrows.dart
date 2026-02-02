@@ -37,6 +37,8 @@ class Escrows extends CrudUseCase<Escrow> {
     final trust2 = results[1];
     final methods1 = results[2];
     final methods2 = results[3];
+    print(methods1);
+    print((await (methods1 as EscrowMethod).toNip51List()).elements);
 
     // Extract trusted pubkeys from each user's trust list
     final trustedPubkeys1 = (await (trust1 as EscrowTrust).toNip51List())
@@ -47,6 +49,8 @@ class Escrows extends CrudUseCase<Escrow> {
         .elements
         .map((e) => e.value)
         .toSet();
+
+    logger.d('Trusted escrow pubkeys: $trustedPubkeys2 $trustedPubkeys2');
 
     // Find mutually trusted pubkeys
     final mutuallyTrustedPubkeys = trustedPubkeys1.intersection(
@@ -66,6 +70,9 @@ class Escrows extends CrudUseCase<Escrow> {
     final types2 = (await (methods2 as EscrowMethod).toNip51List()).elements
         .map((e) => e.value)
         .toSet();
+
+    logger.d('Trusted escrow methods: $types1 $types2');
+
     // Find overlapping escrow types
     final overlappingTypes = types1.intersection(types2);
 
@@ -83,7 +90,7 @@ class Escrows extends CrudUseCase<Escrow> {
     return escrows
         .where(
           (escrow) =>
-              overlappingTypes.contains(escrow.parsedContent.type.toString()),
+              overlappingTypes.contains(escrow.parsedContent.type.name),
         )
         .toList();
   }

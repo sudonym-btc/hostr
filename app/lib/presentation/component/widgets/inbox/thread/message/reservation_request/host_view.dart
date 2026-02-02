@@ -3,14 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/data/main.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 import 'guest_view.dart';
 
 class ThreadReservationRequestHostViewWidget
     implements ThreadReservationRequestGuestHostComponents {
   final Message item;
-  final Metadata counterparty;
+  final ProfileMetadata counterparty;
   final ReservationRequest reservationRequest;
   final Listing listing;
   final List<Reservation> reservations;

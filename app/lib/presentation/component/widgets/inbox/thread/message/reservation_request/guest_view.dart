@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/data/sources/nostr/nostr/hostr.dart';
+import 'package:hostr/injection.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
-
-import '../../payment/payment_method.dart';
 
 abstract class ThreadReservationRequestGuestHostComponents {
   Widget actionButton(BuildContext context);
@@ -13,7 +12,7 @@ abstract class ThreadReservationRequestGuestHostComponents {
 class ThreadReservationRequestGuestViewWidget
     implements ThreadReservationRequestGuestHostComponents {
   final Message item;
-  final Metadata counterparty;
+  final ProfileMetadata counterparty;
   final ReservationRequest reservationRequest;
   final Listing listing;
   final List<Reservation> reservations;
@@ -36,17 +35,32 @@ class ThreadReservationRequestGuestViewWidget
          refunded: false,
        );
 
-  pay(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return PaymentMethodWidget(
-          reservationRequest: reservationRequest,
-          counterparty: counterparty,
-          listing: listing,
-        );
-      },
+  pay(BuildContext context) async {
+    final escrows = await getIt<Hostr>().escrows.determineMutualEscrow(
+      getIt<Hostr>().auth.activeKeyPair!.publicKey,
+      counterparty.pubKey,
     );
+
+    getIt<Hostr>().payments.escrow.escrow(
+      eventId: reservationRequest.id,
+      amount: reservationRequest.parsedContent.amount,
+      sellerEvmAddress: counterparty.evmAddress!,
+      escrowEvmAddress: escrows[0].parsedContent.evmAddress,
+      escrowContractAddress: escrows[0].parsedContent.contractAddress,
+      timelock: 200,
+      evmChain: getIt<Hostr>().evm.supportedEvmChains[0],
+    );
+
+    // showModalBottomSheet(
+    //   context: context,
+    //   builder: (context) {
+    //     return PaymentMethodWidget(
+    //       reservationRequest: reservationRequest,
+    //       counterparty: counterparty,
+    //       listing: listing,
+    //     );
+    //   },
+    // );
   }
 
   Widget actionButton(BuildContext context) {

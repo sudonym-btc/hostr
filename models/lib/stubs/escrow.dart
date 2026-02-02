@@ -11,6 +11,9 @@ List<Escrow> MOCK_ESCROWS({String? contractAddress}) => [
               content: json.encode(EscrowContent(
                       chainId: ChainIds.RootstockRegtest.value,
                       pubkey: MockKeys.escrow.publicKey,
+                      evmAddress: getEvmCredentials(MockKeys.escrow.privateKey!)
+                          .address
+                          .eip55With0x,
                       contractAddress: contractAddress ??
                           "0x1460fd6f56f2e62104a794C69Cc06BE7DC975Bed",
                       maxDuration: Duration(days: 365),

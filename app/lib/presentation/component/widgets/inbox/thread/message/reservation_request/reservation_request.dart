@@ -3,14 +3,13 @@ import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/listing/price.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 import 'guest_view.dart';
 import 'host_view.dart';
 
 class ThreadReservationRequestWidget extends StatelessWidget {
   final Message item;
-  final Metadata counterparty;
+  final ProfileMetadata counterparty;
   final ReservationRequest reservationRequest;
   final Listing listing;
   final List<Reservation> reservations;

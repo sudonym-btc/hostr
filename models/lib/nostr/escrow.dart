@@ -16,6 +16,7 @@ class Escrow extends JsonContentNostrEvent<EscrowContent> {
 
 class EscrowContent extends EventContent {
   final String pubkey;
+  final String evmAddress;
   final String contractAddress;
   final int chainId;
   final Duration maxDuration;
@@ -23,6 +24,7 @@ class EscrowContent extends EventContent {
 
   EscrowContent(
       {required this.pubkey,
+      required this.evmAddress,
       required this.contractAddress,
       required this.chainId,
       required this.maxDuration,
@@ -32,6 +34,7 @@ class EscrowContent extends EventContent {
   Map<String, dynamic> toJson() {
     return {
       "pubkey": pubkey,
+      "evmAddress": evmAddress,
       "contractAddress": contractAddress,
       "chainId": chainId,
       "maxDuration": maxDuration.inSeconds,
@@ -42,6 +45,7 @@ class EscrowContent extends EventContent {
   static EscrowContent fromJson(Map<String, dynamic> json) {
     return EscrowContent(
       pubkey: json["pubkey"],
+      evmAddress: json["evmAddress"],
       contractAddress: json["contractAddress"],
       chainId: json["chainId"],
       maxDuration: Duration(seconds: json["maxDuration"]),
