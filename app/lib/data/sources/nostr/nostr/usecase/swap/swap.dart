@@ -176,7 +176,8 @@ class Swap {
       // ReverseResponse swap = await getIt<BoltzClient>().getSwap
       logger.i('Swap status: ${swapStatus.status}, $swapStatus');
 
-      if (swapStatus.status == 'transaction.confirmed') {
+      if (swapStatus.status == 'transaction.confirmed' ||
+          swapStatus.status == 'transaction.mempool') {
         onProgress?.call(SwapProgress.waitingOnchain);
 
         /// Fetch the from address of the lockup transaction to use as refund address
