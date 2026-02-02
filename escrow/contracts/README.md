@@ -13,6 +13,6 @@ npx hardhat ignition deploy ./ignition/modules/Escrow.ts --network localhost
 ```
 
 Run the node in docker-compose for ease-of-use.
-If the contract is changed, copy the api from artifacts dir into the app, and run build runner which will create web3dart interface.
+If the contract is changed, re-run ./scripts/compile_abis.sh.
 
 npx hardhat run task/fund.ts --network localhost

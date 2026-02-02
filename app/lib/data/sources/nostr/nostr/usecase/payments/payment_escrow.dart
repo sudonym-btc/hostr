@@ -165,7 +165,6 @@ class PaymentEscrow {
           ),
           client: evmChain.client,
         );
-
         Trades x = await e.trades(($param9: idBytes32));
         logger.i('Current trade: $x');
         final tradeCreatedEvent = e.self.events.firstWhere(

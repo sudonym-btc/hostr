@@ -2,6 +2,9 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR=$SCRIPT_DIR/../
 
+
+# First compile the boltz abis
+
 (
     cd $ROOT_DIR/dependencies/boltz-core && npm install && curl -L https://foundry.paradigm.xyz | bash && foundryup && npm run compile:solidity
 ) &&
@@ -18,4 +21,12 @@ find "$ROOT_DIR/dependencies/boltz-core/out" \
         mv -- "$file" "${file%.json}.abi.json"
     done
 ) &&
+
+# Now compile our escrow abis
+(
+    cd $ROOT_DIR/escrow/contracts && npm install && npx hardhat compile
+) &&
+cp "$ROOT_DIR/escrow/contracts/artifacts/contracts/MultiEscrow.sol/MultiEscrow.json" \
+   "$ROOT_DIR/app/lib/data/sources/escrow/MultiEscrow.abi.json" &&
+
 (cd $ROOT_DIR/app && dart run build_runner build --delete-conflicting-outputs)
