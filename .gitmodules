@@ -7,3 +7,6 @@
 [submodule "dependencies/blossom"]
 	path = dependencies/blossom
 	url = git@github.com:hzrd149/blossom-server.git
+[submodule "dependencies/rif-relay-contracts"]
+	path = dependencies/rif-relay-contracts
+	url = git@github.com:rsksmart/rif-relay-contracts.git

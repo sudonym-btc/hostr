@@ -12,6 +12,9 @@ setup_albyhub() {
     local APP_NAME=$2
     local PASSWORD=$3
     local AUTH_TOKEN=""
+    local ROOT_DIR
+    ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+    local PAIRING_FILE="$ROOT_DIR/pairing_urls.txt"
 
     # Function to setup AlbyHub
     setup_albyhub_init() {
@@ -156,6 +159,7 @@ setup_albyhub() {
             pairing_uri=$(echo "$response" | jq -r '.pairingUri')
             echo "App created successfully"
             echo "Pairing URI: $pairing_uri"
+            echo "${ALBYHUB_URL}: ${pairing_uri}" >> "$PAIRING_FILE"
             return 0
         fi
         

@@ -1,9 +1,15 @@
+import 'package:bolt11_decoder/bolt11_decoder.dart';
+import 'package:dio/dio.dart';
+import 'package:hostr/data/sources/lnurl/lnurl.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/payments/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/workflows/lnurl_workflow.dart';
 import 'package:hostr/main.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/amount.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
+import 'package:validators/validators.dart';
 
 class LnUrlPaymentParameters extends PaymentParameters {
   LnUrlPaymentParameters({super.amount, super.comment, required super.to});
@@ -21,37 +27,77 @@ class LnUrlPaymentCubit
           LightningCallbackDetails,
           LightningCompletedDetails
         > {
-  final LnUrlWorkflow _workflow;
   final Nwc nwc;
 
-  LnUrlPaymentCubit({
-    @factoryParam required super.params,
-    required LnUrlWorkflow workflow,
-    required this.nwc,
-  }) : _workflow = workflow;
+  LnUrlPaymentCubit({@factoryParam required super.params, required this.nwc});
+
+  /// Converts Lightning Address (email format) to LNURL.
+  String emailToLnUrl(String email) {
+    final user = email.split('@')[0];
+    final domain = email.split('@')[1];
+    return 'lnurlp://$domain/.well-known/lnurlp/$user';
+  }
 
   @override
   Future<LnUrlResolvedDetails> resolver() async {
-    return await _workflow.resolveLnUrl(to: params.to);
+    // Convert lightning address to lnurl if needed
+    final lnurl = isEmail(state.params.to)
+        ? emailToLnUrl(state.params.to)
+        : state.params.to;
+
+    // Fetch the lnurl params from the remote host
+    final lnurlParams = await getParams(lnurl);
+
+    if (lnurlParams.error != null) {
+      throw Exception(lnurlParams.error!.reason);
+    }
+
+    final lnurlPayParams = lnurlParams.payParams!;
+
+    return LnUrlResolvedDetails(
+      callback: lnurlPayParams.callback,
+      minAmount: lnurlPayParams.minSendable,
+      maxAmount: lnurlPayParams.maxSendable,
+      commentAllowed: 0,
+    );
+  }
+
+  /// Validates that amount is within LNURL limits.
+  void validateAmount({
+    required Amount amount,
+    required int minAmount,
+    required int maxAmount,
+  }) {
+    final amountMsat = (amount.value * btcMilliSatoshiFactor).toInt();
+    if (amountMsat < minAmount) {
+      throw Exception(
+        'Amount $amountMsat msat is below minimum $minAmount msat',
+      );
+    }
+    if (amountMsat > maxAmount) {
+      throw Exception(
+        'Amount $amountMsat msat exceeds maximum $maxAmount msat',
+      );
+    }
   }
 
   @override
   Future<LightningCallbackDetails> callback() async {
-    if (state.resolvedDetails == null || state.params.amount == null) {
-      throw Exception('Must resolve before callback');
-    }
-
-    _workflow.validateAmount(
-      amount: state.params.amount!,
-      minAmount: state.resolvedDetails!.minAmount,
-      maxAmount: state.resolvedDetails!.maxAmount,
+    final callbackUri = Uri.parse(state.resolvedDetails!.callback).replace(
+      queryParameters: {
+        'amount': (state.params.amount!.value * btcMilliSatoshiFactor)
+            .toInt()
+            .toString(),
+        if (state.params.comment != null && state.params.comment!.isNotEmpty)
+          'comment': state.params.comment,
+      },
     );
 
-    return await _workflow.fetchInvoice(
-      callbackUrl: state.resolvedDetails!.callback,
-      amount: state.params.amount!,
-      comment: state.params.comment,
-    );
+    final response = await getIt<Dio>().get(callbackUri.toString());
+
+    final invoice = response.data['pr'] as String;
+
+    return LightningCallbackDetails(invoice: Bolt11PaymentRequest(invoice));
   }
 
   @override

@@ -1,6 +1,4 @@
 import 'package:hostr/export.dart';
-import 'package:hostr/injection.dart';
-import 'package:hostr/logic/workflows/lnurl_workflow.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
@@ -43,17 +41,9 @@ class Payments {
 
   PaymentCubit pay(PaymentParameters params) {
     if (params is Bolt11PaymentParameters) {
-      return Bolt11PaymentCubit(
-        params: params,
-        nwc: nwc,
-        workflow: getIt<LnUrlWorkflow>(),
-      );
+      return Bolt11PaymentCubit(params: params, nwc: nwc);
     } else if (params is LnUrlPaymentParameters) {
-      return LnUrlPaymentCubit(
-        params: params,
-        nwc: nwc,
-        workflow: getIt<LnUrlWorkflow>(),
-      );
+      return LnUrlPaymentCubit(params: params, nwc: nwc);
     } else {
       throw Exception('Unsupported payment type');
     }
