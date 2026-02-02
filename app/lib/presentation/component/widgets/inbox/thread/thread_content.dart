@@ -59,7 +59,7 @@ class ThreadContent extends StatelessWidget {
       );
     } else if (message.child is ReservationRequest) {
       return ThreadReservationRequestWidget(
-        counterparty: profile.state.data!.metadata,
+        counterparty: profile.state.data!,
         item: message,
         listing: listing.state.data!,
         reservations: reservations,

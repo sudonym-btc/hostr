@@ -12,9 +12,7 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
     : super(kind: EscrowTrust.kinds[0]);
 
   Future<EscrowTrust?> trusted(String pubkey) async {
-    return await getOne(
-      Filter(kinds: [EscrowTrust.kinds[0]], authors: [pubkey]),
-    );
+    return await getOne(Filter(authors: [pubkey]));
   }
 
   Future<EscrowTrust?> myTrusted() async {
