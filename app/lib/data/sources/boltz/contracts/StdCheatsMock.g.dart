@@ -8,7 +8,7 @@ import 'package:web3dart/web3dart.dart' as _i1;
 import 'package:wallet/wallet.dart' as _i2;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
-  '[{"type":"function","name":"exposed_assumeNotBlacklisted","inputs":[{"name":"token","type":"address","internalType":"address"},{"name":"addr","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"view"},{"type":"function","name":"exposed_assumeNotPayable","inputs":[{"name":"addr","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"exposed_assumePayable","inputs":[{"name":"addr","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"}]',
+  '[{"type":"function","name":"exposedAssumeNotBlacklisted","inputs":[{"name":"token","type":"address","internalType":"address"},{"name":"addr","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"view"},{"type":"function","name":"exposedAssumeNotPayable","inputs":[{"name":"addr","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"exposedAssumePayable","inputs":[{"name":"addr","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"}]',
   'StdCheatsMock',
 );
 
@@ -29,12 +29,12 @@ class StdCheatsMock extends _i1.GeneratedContract {
   /// The optional [atBlock] parameter can be used to view historical data. When
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
-  Future<void> exposed_assumeNotBlacklisted(
+  Future<void> exposedAssumeNotBlacklisted(
     ({_i2.EthereumAddress token, _i2.EthereumAddress addr}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[0];
-    assert(checkSignature(function, '95b9a383'));
+    assert(checkSignature(function, '584761eb'));
     final params = [
       args.token,
       args.addr,
@@ -49,13 +49,13 @@ class StdCheatsMock extends _i1.GeneratedContract {
   /// The optional [transaction] parameter can be used to override parameters
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
-  Future<String> exposed_assumeNotPayable(
+  Future<String> exposedAssumeNotPayable(
     ({_i2.EthereumAddress addr}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[1];
-    assert(checkSignature(function, '17cc73a0'));
+    assert(checkSignature(function, 'd1d91fe7'));
     final params = [args.addr];
     return write(
       credentials,
@@ -68,13 +68,13 @@ class StdCheatsMock extends _i1.GeneratedContract {
   /// The optional [transaction] parameter can be used to override parameters
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
-  Future<String> exposed_assumePayable(
+  Future<String> exposedAssumePayable(
     ({_i2.EthereumAddress addr}) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[2];
-    assert(checkSignature(function, 'de4a5dcd'));
+    assert(checkSignature(function, '6bd294dc'));
     final params = [args.addr];
     return write(
       credentials,
