@@ -159,12 +159,23 @@ class PaymentEscrow {
           'Searching for events from escrow: ${escrow.parsedContent.contractAddress}',
         );
 
-        MultiEscrow e = MultiEscrow(
-          address: EthereumAddress.fromHex(
-            escrow.parsedContent.contractAddress,
-          ),
-          client: evmChain.client,
+        EthereumAddress a = EthereumAddress.fromHex(
+          escrow.parsedContent.contractAddress,
         );
+        print('parsed address ${a.eip55With0x}');
+        final chainId = await evmChain.client.getChainId();
+        final code = await evmChain.client.getCode(a);
+        final balance = await evmChain.client.getBalance(a);
+        logger.d('EVM chainId: $chainId');
+        logger.d('Contract code length: ${code.length}');
+        logger.d(
+          'Contract balance: ${balance.getValueInUnit(EtherUnit.ether)}',
+        );
+        if (code.isEmpty || code == '0x') {
+          logger.w('No contract code at ${a.eip55With0x}; skipping.');
+          continue;
+        }
+        MultiEscrow e = MultiEscrow(address: a, client: evmChain.client);
         Trades x = await e.trades(($param9: idBytes32));
         logger.i('Current trade: $x');
         final tradeCreatedEvent = e.self.events.firstWhere(
