@@ -122,12 +122,18 @@ class Swap {
     logger.i("Preimage: $preimage, ${preimage.length}");
     onProgress?.call(SwapProgress.initiated);
 
+    final smartWalletInfo = await getIt<RifRelayService>()
+        .getSmartWalletAddress(ethKey);
+    final claimAddress = smartWalletInfo.address.eip55With0x;
+    logger.i('Using RIF smart wallet as claim address: $claimAddress');
+
     /// Create a reverse submarine swap
     final swap = await getIt<BoltzClient>().reverseSubmarine(
       invoiceAmount: amountSats.toDouble(),
-      claimAddress: ethKey.address.eip55With0x, // Check with 0x or not
+      claimAddress: claimAddress,
       preimageHash: preimageHash,
     );
+    logger.d('Swap ${swap.toString()}');
     String invoiceToPay = swap.invoice;
 
     EtherSwap swapContract = await evmChain.getEtherSwapContract();
@@ -170,8 +176,7 @@ class Swap {
       // ReverseResponse swap = await getIt<BoltzClient>().getSwap
       logger.i('Swap status: ${swapStatus.status}, $swapStatus');
 
-      if (swapStatus.status == 'transaction.mempool' ||
-          swapStatus.status == 'transaction.confirmed') {
+      if (swapStatus.status == 'transaction.confirmed') {
         onProgress?.call(SwapProgress.waitingOnchain);
 
         /// Fetch the from address of the lockup transaction to use as refund address
