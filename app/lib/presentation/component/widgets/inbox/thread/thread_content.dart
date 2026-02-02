@@ -4,10 +4,10 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/thread.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:hostr/logic/cubit/entity/entity.cubit.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
-import 'package:hostr/presentation/component/widgets/inbox/thread/giftwraps/message.dart';
+import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
 import 'package:models/main.dart';
 
-import 'giftwraps/reservation_request.dart';
+import 'message/reservation_request/reservation_request.dart';
 
 class ThreadContent extends StatelessWidget {
   const ThreadContent({super.key});

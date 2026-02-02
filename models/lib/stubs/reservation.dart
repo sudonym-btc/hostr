@@ -20,6 +20,7 @@ var MOCK_RESERVATIONS = [
           kind: NOSTR_KIND_RESERVATION,
           tags: [
             [REFERENCE_LISTING_TAG, MOCK_LISTINGS[0].anchor],
+            [THREAD_ANCHOR_TAG, hostInvitesGuest.threadAnchor!],
             [
               'guestCommitmentHash',
               GuestParticipationProof.computeCommitmentHash(
@@ -44,6 +45,7 @@ var MOCK_RESERVATIONS = [
           kind: NOSTR_KIND_RESERVATION,
           tags: [
             [REFERENCE_LISTING_TAG, MOCK_LISTINGS[1].anchor],
+            [THREAD_ANCHOR_TAG, guestRequest.threadAnchor!],
             [
               'guestCommitmentHash',
               GuestParticipationProof.computeCommitmentHash(

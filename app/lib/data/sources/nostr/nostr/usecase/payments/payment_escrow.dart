@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/sources/escrow/MultiEscrow.g.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_trusts/escrows_trusts.dart';
+import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -10,15 +12,24 @@ import 'package:web3dart/web3dart.dart';
 
 import '../auth/auth.dart';
 import '../escrows/escrows.dart';
+import '../evm/evm.dart';
 import '../evm/evm_chain.dart';
 import 'constants.dart';
 
+@Singleton()
 class PaymentEscrow {
   final CustomLogger logger = CustomLogger();
   final Auth auth;
   final Escrows escrows;
+  final EscrowTrusts escrowTrusts;
+  final Evm evm;
 
-  PaymentEscrow({required this.auth, required this.escrows});
+  PaymentEscrow({
+    required this.auth,
+    required this.escrows,
+    required this.escrowTrusts,
+    required this.evm,
+  });
 
   listEvents({required EvmChain evmChain, required Escrow escrow}) async {
     MultiEscrow e = MultiEscrow(
@@ -91,27 +102,63 @@ class PaymentEscrow {
   }
 
   Stream<TradeCreated> checkEscrowStatus(
-    String reservationRequestId, {
-    required EvmChain evmChain,
-  }) async* {
+    String reservationRequestId,
+    String counterpartyPubkey,
+  ) async* {
     logger.i('Checking escrow status for reservation: $reservationRequestId');
     Uint8List idBytes32 = getBytes32(reservationRequestId);
+    logger.d(reservationRequestId);
+    logger.d('idBytes32: ${idBytes32.length} bytes');
     String hexTopic = getTopicHex(idBytes32);
 
-    Nip51List? trustedEscrows = await escrows.trusted(
-      auth.activeKeyPair?.publicKey,
+    EscrowTrust? myTrustedEscrows = await escrowTrusts.trusted(
+      auth.activeKeyPair!.publicKey,
     );
-    if (trustedEscrows == null) {
+    EscrowTrust? theirTrustedEscrows = await escrowTrusts.trusted(
+      counterpartyPubkey,
+    );
+
+    final myTrustedList = myTrustedEscrows == null
+        ? null
+        : await myTrustedEscrows.toNip51List();
+    final theirTrustedList = theirTrustedEscrows == null
+        ? null
+        : await theirTrustedEscrows.toNip51List();
+
+    List<Nip51ListElement> trustedEscrows = [
+      ...myTrustedList?.elements ?? [],
+      ...theirTrustedList?.elements ?? [],
+    ];
+
+    logger.d('Trusted escrows: $trustedEscrows');
+
+    if (trustedEscrows.isEmpty) {
+      logger.w('No trusted escrows for either party.');
       return;
     }
-    for (Nip51ListElement item in trustedEscrows.elements) {
+    for (Nip51ListElement item in trustedEscrows) {
       List<Escrow> escrowServices = await escrows.list(
         Filter(authors: [item.value]),
       );
       for (var escrow in escrowServices) {
+        EvmChain? evmChain;
+        for (EvmChain chain in evm.supportedEvmChains) {
+          BigInt chainId = await chain.getChainId();
+          if (chainId.toInt() == escrow.parsedContent.chainId) {
+            evmChain = chain;
+            break;
+          }
+        }
+        if (evmChain == null) {
+          logger.w(
+            'No supported EVM chain found for escrow: ${escrow.parsedContent.contractAddress} on chainId: ${escrow.parsedContent.chainId}',
+          );
+          continue;
+        }
         logger.i(
           'Searching for events from escrow: ${escrow.parsedContent.contractAddress}',
         );
+
         MultiEscrow e = MultiEscrow(
           address: EthereumAddress.fromHex(
             escrow.parsedContent.contractAddress,

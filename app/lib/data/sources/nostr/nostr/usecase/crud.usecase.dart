@@ -27,7 +27,9 @@ class CrudUseCase<T extends Nip01Event> {
   }
 
   Future<List<T>> list(Filter f) {
-    return requests.query<T>(filter: f).toList();
+    return requests
+        .query<T>(filter: getCombinedFilter(f, Filter(kinds: [kind])))
+        .toList();
   }
 
   Future<T?> getOne(Filter f) {

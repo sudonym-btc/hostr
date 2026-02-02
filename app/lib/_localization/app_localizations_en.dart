@@ -157,6 +157,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accepted => 'Accepted';
 
   @override
+  String get refund => 'Refund';
+
+  @override
+  String get publish => 'Publish';
+
+  @override
   String get tip => 'Tip';
 
   @override

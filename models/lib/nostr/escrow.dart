@@ -54,7 +54,8 @@ class EscrowContent extends EventContent {
 enum EscrowType { EVM }
 
 enum ChainIds {
-  Rootstock(30);
+  Rootstock(30),
+  RootstockRegtest(33);
 
   final int value;
   const ChainIds(this.value);

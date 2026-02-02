@@ -9,7 +9,7 @@ List<Escrow> MOCK_ESCROWS({String? contractAddress}) => [
           event: Nip01Event(
               pubKey: MockKeys.escrow.publicKey,
               content: json.encode(EscrowContent(
-                      chainId: 30,
+                      chainId: ChainIds.RootstockRegtest.value,
                       pubkey: MockKeys.escrow.publicKey,
                       contractAddress: contractAddress ??
                           "0x1460fd6f56f2e62104a794C69Cc06BE7DC975Bed",
