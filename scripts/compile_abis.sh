@@ -29,4 +29,6 @@ find "$ROOT_DIR/dependencies/boltz-core/out" \
 cp "$ROOT_DIR/escrow/contracts/artifacts/contracts/MultiEscrow.sol/MultiEscrow.json" \
    "$ROOT_DIR/app/lib/data/sources/escrow/MultiEscrow.abi.json" &&
 
+# Now run build_runner to compile abis into dart interfaces
+
 (cd $ROOT_DIR/app && dart run build_runner build --delete-conflicting-outputs)
