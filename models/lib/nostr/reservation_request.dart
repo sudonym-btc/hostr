@@ -61,24 +61,99 @@ class ReservationRequest
         listing.pubKey == ourKey.publicKey;
   }
 
-  static ReservationStatus getStatus({
-    required String anchor,
-    required Listing listing,
-    // List of reservations associated with this request (salt must be validated before to check it's definitely assigned to our user)
+  static bool isReservationValid(Reservation reservation, Listing listing) {
+    final result = Reservation.validate(reservation, listing);
+    return result == true;
+  }
+
+  static bool hasHostReservationForThread({
     required List<Reservation> reservations,
-    required KeyPair ourKey,
+    required Listing listing,
+    required String threadAnchor,
   }) {
-    final reservationByHost = reservations.where(
-      (reservation) => reservation.pubKey == listing.pubKey,
+    return reservations.any(
+      (reservation) =>
+          reservation.pubKey == listing.pubKey &&
+          reservation.threadAnchor == threadAnchor &&
+          isReservationValid(reservation, listing),
     );
-    if (reservationByHost.any((r) => Reservation.validate(r, listing))) {
-      return ReservationStatus.accepted;
-    } else if (reservations.any((r) => Reservation.validate(r, listing))) {
-      return ReservationStatus.paid;
-    } else if (reservations.any((r) => r.anchor == anchor)) {
-      return ReservationStatus.pending;
+  }
+
+  static bool hasAnyReservationForThread({
+    required List<Reservation> reservations,
+    required Listing listing,
+    required String threadAnchor,
+  }) {
+    return reservations.any(
+      (reservation) =>
+          reservation.threadAnchor == threadAnchor &&
+          isReservationValid(reservation, listing),
+    );
+  }
+
+  static ReservationRequestStatus resolveStatus({
+    required ReservationRequest request,
+    required Listing listing,
+    required List<Reservation> reservations,
+    required String threadAnchor,
+    required bool paid,
+    required bool refunded,
+  }) {
+    final hostReservationExists = hasHostReservationForThread(
+      reservations: reservations,
+      listing: listing,
+      threadAnchor: threadAnchor,
+    );
+    final available = isAvailableForReservation(
+      reservationRequest: request,
+      reservations: reservations,
+    );
+
+    if (refunded) {
+      return ReservationRequestStatus.refunded;
     }
-    return ReservationStatus.pending;
+
+    if (hostReservationExists) {
+      return ReservationRequestStatus.confirmed;
+    }
+
+    if (paid && !hostReservationExists) {
+      return ReservationRequestStatus.unconfirmed;
+    }
+
+    if (!available) {
+      return ReservationRequestStatus.unavailable;
+    }
+
+    return ReservationRequestStatus.unconfirmed;
+  }
+
+  static ReservationRequestHostAction resolveHostAction({
+    required ReservationRequestStatus status,
+  }) {
+    switch (status) {
+      case ReservationRequestStatus.unconfirmed:
+        return ReservationRequestHostAction.accept;
+      case ReservationRequestStatus.pendingPublish:
+        return ReservationRequestHostAction.publish;
+      case ReservationRequestStatus.confirmed:
+        return ReservationRequestHostAction.refund;
+      default:
+        return ReservationRequestHostAction.none;
+    }
+  }
+
+  static ReservationRequestGuestAction resolveGuestAction({
+    required ReservationRequestStatus status,
+  }) {
+    switch (status) {
+      case ReservationRequestStatus.unconfirmed:
+        return ReservationRequestGuestAction.pay;
+      case ReservationRequestStatus.pendingPublish:
+        return ReservationRequestGuestAction.publish;
+      default:
+        return ReservationRequestGuestAction.none;
+    }
   }
 }
 
@@ -126,3 +201,15 @@ enum ReservationStatus {
   paid,
   refunded
 }
+
+enum ReservationRequestStatus {
+  unconfirmed,
+  pendingPublish,
+  refunded,
+  unavailable,
+  confirmed
+}
+
+enum ReservationRequestHostAction { accept, publish, refund, none }
+
+enum ReservationRequestGuestAction { pay, publish, none }

@@ -91,7 +91,7 @@ final mockRumorHostToGuest3 = Nip01Event(
 
 /// Legacy mock events for reservation requests
 
-Nip01Event hostInvitesGuest = Nip01Event(
+Message hostInvitesGuest = Message.safeFromNostrEvent(Nip01Event(
     pubKey: MockKeys.hoster.publicKey,
     kind: NOSTR_KIND_DM,
     tags: [
@@ -102,9 +102,9 @@ Nip01Event hostInvitesGuest = Nip01Event(
       ]
     ],
     createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-    content: hostInvitesGuestReservationRequest.toString());
+    content: hostInvitesGuestReservationRequest.toString()));
 
-Nip01Event guestRequest = Nip01Event(
+Message guestRequest = Message.safeFromNostrEvent(Nip01Event(
     pubKey: MockKeys.guest.publicKey,
     kind: NOSTR_KIND_DM,
     tags: [
@@ -115,7 +115,7 @@ Nip01Event guestRequest = Nip01Event(
       ]
     ],
     createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-    content: guestInvitesHostReservationRequest.toString().toString());
+    content: guestInvitesHostReservationRequest.toString().toString()));
 
 Future<List<Nip01Event>> MOCK_GIFT_WRAPS() async => [
       ...(await createMockGiftWraps(

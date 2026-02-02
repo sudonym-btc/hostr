@@ -11,7 +11,7 @@ var MOCK_ESCROW_METHODS = () async {
               kind: NOSTR_KIND_ESCROW_METHOD,
               elements: [])
             ..addElement(EscrowType.EVM.toString(),
-                ChainIds.Rootstock.value.toString(), false))
+                ChainIds.RootstockRegtest.value.toString(), false))
           .toEvent(Bip340EventSigner(
               privateKey: MockKeys.hoster.privateKey,
               publicKey: MockKeys.hoster.publicKey)),
@@ -24,7 +24,7 @@ var MOCK_ESCROW_METHODS = () async {
                 kind: NOSTR_KIND_ESCROW_METHOD,
                 elements: [])
               ..addElement(EscrowType.EVM.toString(),
-                  ChainIds.Rootstock.value.toString(), false))
+                  ChainIds.RootstockRegtest.value.toString(), false))
             .toEvent(Bip340EventSigner(
                 privateKey: MockKeys.guest.privateKey,
                 publicKey: MockKeys.guest.publicKey))))

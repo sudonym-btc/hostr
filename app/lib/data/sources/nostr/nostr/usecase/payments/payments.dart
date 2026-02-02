@@ -5,33 +5,40 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
 import '../auth/auth.dart';
-import '../escrows/escrows.dart';
 import '../nwc/nwc.dart';
 import '../zaps/zaps.dart';
 import 'payment_escrow.dart';
 
 @Singleton()
 class Payments {
+  CustomLogger logger = CustomLogger();
   late final PaymentEscrow escrow;
   late final Zaps zaps;
   late final Nwc nwc;
 
   Payments({
     required Auth auth,
-    required Escrows escrows,
+    required this.escrow,
     required this.zaps,
     required this.nwc,
   });
 
-  checkPaymentStatus(Listing l, ReservationRequest reservationRequest) {
+  // Once we have published a reservation item, we can use the payment proof to easily track status, so if we change trusted escrows, it doesn't matter.
+  Stream checkPaymentStatus(Listing l, ReservationRequest reservationRequest) {
+    escrow.checkEscrowStatus(reservationRequest.id, l.pubKey).listen((
+      escrowStatus,
+    ) {
+      // Handle escrow status updates here
+      logger.i(
+        'Escrow status for reservation ${reservationRequest.id}: $escrowStatus',
+      );
+    });
     return zaps.ndk.zaps
         .subscribeToZapReceipts(
           pubKey: l.pubKey,
           addressableId: reservationRequest.id,
         )
         .stream;
-    // return nwc.lookupInvoice(reservationRequestId);
-    // return escrow.checkPaymentStatus(reservationRequestId);
   }
 
   PaymentCubit pay(PaymentParameters params) {

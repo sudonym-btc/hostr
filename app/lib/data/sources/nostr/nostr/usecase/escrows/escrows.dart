@@ -1,7 +1,7 @@
 import 'package:hostr/data/sources/nostr/nostr/usecase/crud.usecase.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Filter, Nip51List;
+import 'package:ndk/ndk.dart' show Filter;
 
 import '../escrow_methods/escrows_methods.dart';
 import '../escrow_trusts/escrows_trusts.dart';
@@ -86,12 +86,5 @@ class Escrows extends CrudUseCase<Escrow> {
               overlappingTypes.contains(escrow.parsedContent.type.toString()),
         )
         .toList();
-  }
-
-  Future<Nip51List?> trusted(String? pubkey) async {
-    EscrowTrust? escrowList = await escrowTrusts.getOne(
-      Filter(kinds: [EscrowTrust.kinds[0]], authors: [pubkey!]),
-    );
-    return null;
   }
 }

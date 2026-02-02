@@ -388,6 +388,18 @@ abstract class AppLocalizations {
   /// **'Accepted'**
   String get accepted;
 
+  /// No description provided for @refund.
+  ///
+  /// In en, this message translates to:
+  /// **'Refund'**
+  String get refund;
+
+  /// No description provided for @publish.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish'**
+  String get publish;
+
   /// No description provided for @tip.
   ///
   /// In en, this message translates to:

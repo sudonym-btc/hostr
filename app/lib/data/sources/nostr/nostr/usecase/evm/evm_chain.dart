@@ -20,6 +20,10 @@ abstract class EvmChain {
     }
   }
 
+  Future<BigInt> getChainId() async {
+    return await client.getChainId();
+  }
+
   Future<double> getBalance(EthereumAddress address) async {
     logger.d('Getting balance for $address');
     return await client.getBalance(address).then((val) {

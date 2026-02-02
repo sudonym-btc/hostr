@@ -46,6 +46,8 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
 import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart'
     as _i249;
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i909;
+import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payment_escrow.dart'
+    as _i1052;
 import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payments.dart'
     as _i244;
 import 'package:hostr/data/sources/nostr/nostr/usecase/relays/relays.dart'
@@ -265,10 +267,18 @@ extension GetItInjectableX on _i174.GetIt {
         metadataUseCase: gh<_i249.MetadataUseCase>(),
       ),
     );
+    gh.singleton<_i1052.PaymentEscrow>(
+      () => _i1052.PaymentEscrow(
+        auth: gh<_i34.Auth>(),
+        escrows: gh<_i42.Escrows>(),
+        escrowTrusts: gh<_i445.EscrowTrusts>(),
+        evm: gh<_i961.Evm>(),
+      ),
+    );
     gh.singleton<_i244.Payments>(
       () => _i244.Payments(
         auth: gh<_i34.Auth>(),
-        escrows: gh<_i42.Escrows>(),
+        escrow: gh<_i1052.PaymentEscrow>(),
         zaps: gh<_i735.Zaps>(),
         nwc: gh<_i909.Nwc>(),
       ),
