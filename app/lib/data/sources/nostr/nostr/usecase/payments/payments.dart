@@ -23,6 +23,7 @@ class Payments {
 
   // Once we have published a reservation item, we can use the payment proof to easily track status, so if we change trusted escrows, it doesn't matter.
   Stream checkPaymentStatus(Listing l, ReservationRequest reservationRequest) {
+    print(reservationRequest);
     escrow.checkEscrowStatus(reservationRequest.id, l.pubKey).listen((
       escrowStatus,
     ) {

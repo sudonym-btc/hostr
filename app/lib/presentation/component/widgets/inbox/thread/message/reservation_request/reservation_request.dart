@@ -51,6 +51,7 @@ class ThreadReservationRequestWidget extends StatelessWidget {
             smallImage: true,
           ),
           StreamBuilder(
+            // Should only stream when an emitted proof of reservation is not there.
             stream: getIt<Hostr>().payments.checkPaymentStatus(
               listing,
               reservationRequest,

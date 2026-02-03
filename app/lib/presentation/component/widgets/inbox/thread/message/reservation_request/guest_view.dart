@@ -30,7 +30,7 @@ class ThreadReservationRequestGuestViewWidget
          request: item.child as ReservationRequest,
          listing: listing,
          reservations: reservations,
-         threadAnchor: (item.child as ReservationRequest).id,
+         threadAnchor: (item.child as ReservationRequest).anchor!,
          paid: false,
          refunded: false,
        );
@@ -41,15 +41,35 @@ class ThreadReservationRequestGuestViewWidget
       counterparty.pubKey,
     );
 
-    getIt<Hostr>().payments.escrow.escrow(
+    final chain = getIt<Hostr>().evm.supportedEvmChains[0];
+
+    final txId = await getIt<Hostr>().payments.escrow.escrow(
       eventId: reservationRequest.id,
       amount: reservationRequest.parsedContent.amount,
       sellerEvmAddress: counterparty.evmAddress!,
-      escrowEvmAddress: escrows[0].parsedContent.evmAddress,
-      escrowContractAddress: escrows[0].parsedContent.contractAddress,
+      escrowEvmAddress: escrows.compatibleServices[0].parsedContent.evmAddress,
+      escrowContractAddress:
+          escrows.compatibleServices[0].parsedContent.contractAddress,
       timelock: 200,
-      evmChain: getIt<Hostr>().evm.supportedEvmChains[0],
+      evmChain: chain,
     );
+
+    getIt<Hostr>().reservations.createSelfSigned(
+      threadId: item.reservationRequestAnchor!,
+      reservationRequest: reservationRequest,
+      listing: listing,
+      hoster: counterparty,
+      zapProof: null,
+      escrowProof: EscrowProof(
+        method: 'EVM',
+        chainId: (await chain.client.getChainId()).toString(),
+        txHash: txId,
+        hostsTrustedEscrows: escrows.hostTrust,
+        hostsEscrowMethods: escrows.hostMethod,
+      ),
+    );
+
+    // @Todo: ideally would create a transaction listener on all chains we can handle and then automatically trigger self-signed. Don't want to rely on escrow call completing as app might go into background.
 
     // showModalBottomSheet(
     //   context: context,

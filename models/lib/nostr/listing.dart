@@ -12,6 +12,15 @@ import 'type_json_content.dart';
 class Listing extends JsonContentNostrEvent<ListingContent> {
   static const List<int> kinds = [NOSTR_KIND_LISTING];
 
+  Listing(
+      {required super.pubKey,
+      required super.tags,
+      required super.content,
+      super.createdAt,
+      super.id,
+      super.sig})
+      : super(kind: NOSTR_KIND_LISTING);
+
   Listing.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
     parsedContent = ListingContent.fromJson(json.decode(content));
   }

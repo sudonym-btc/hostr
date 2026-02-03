@@ -1,17 +1,24 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/nip_01_event.dart';
 
-import '../nostr_kinds.dart';
-import 'event.dart';
-import 'guest_participation_proof.dart';
-import 'reservation.dart';
-
-class Review extends Event {
+class Review extends JsonContentNostrEvent<ReviewContent> {
   static const List<int> kinds = [NOSTR_KIND_REVIEW];
 
-  Review.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e);
+  Review(
+      {required super.pubKey,
+      required super.tags,
+      required super.content,
+      super.createdAt,
+      super.id,
+      super.sig})
+      : super(kind: NOSTR_KIND_REVIEW);
+
+  Review.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
+    parsedContent = ReviewContent.fromJson(json.decode(content));
+  }
 
   /// Validate that a review's proof matches the reservation's guest commitment
   ///
@@ -32,7 +39,7 @@ class Review extends Event {
 }
 
 /// Content of a review event, which includes proof of reservation participation
-class ReviewContent {
+class ReviewContent extends EventContent {
   /// Rating from 1-5
   final int rating;
 

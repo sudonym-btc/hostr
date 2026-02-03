@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 abstract class Event extends Nip01Event {
   static List<int> kinds = [];
@@ -21,8 +22,10 @@ abstract class Event extends Nip01Event {
     required super.kind,
     required super.tags,
     required super.content,
-    required super.sig,
-    required super.validSig,
+    super.sig,
+    super.validSig,
+    super.id,
+    super.createdAt,
   });
 
   @override
@@ -30,5 +33,32 @@ abstract class Event extends Nip01Event {
     return jsonEncode(Nip01EventModel.fromEntity(this).toJson());
   }
 
-  String get anchor => getFirstTag('a')!;
+  T signAs<T extends Event>(
+    KeyPair key,
+    T Function(Nip01Event signed) fromNostrEvent,
+  ) {
+    final signed = Nip01Utils.signWithPrivateKey(
+      event: this,
+      privateKey: key.privateKey!,
+    );
+    return fromNostrEvent(signed);
+  }
+
+  Nip01EventModel get model => Nip01EventModel.fromEntity(this);
+
+  String? get anchor => getDtag() == null ? null : '$kind:$pubKey:${getDtag()}';
+
+  String getDTagForKind(int kind) {
+    return Event.getDFromATag(getATagForKind(kind));
+  }
+
+  static getDFromATag(String a) {
+    return a.split(':')[2];
+  }
+
+  String getATagForKind(int kind) {
+    return getTags('a').where((el) {
+      return int.parse(el.split(':')[0]) == kind;
+    }).first;
+  }
 }

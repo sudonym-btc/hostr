@@ -6,25 +6,22 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 class ReviewsReservationsWidget extends StatelessWidget {
-  final String a;
-  const ReviewsReservationsWidget({super.key, required this.a});
+  final Listing listing;
+  const ReviewsReservationsWidget({super.key, required this.listing});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => FilterCubit()
-        ..updateFilter(
-          Filter(
-            tags: {
-              REFERENCE_LISTING_TAG: [a],
-            },
-          ),
-        ),
+      create: (context) =>
+          FilterCubit()..updateFilter(Filter(aTags: [listing.anchor!])),
       child: Row(
         children: [
           BlocProvider(
-            create: (context) =>
-                CountCubit(kinds: Review.kinds, nostrService: getIt())..count(),
+            create: (context) => CountCubit(
+              kinds: Review.kinds,
+              nostrService: getIt(),
+              filterCubit: context.read<FilterCubit>(),
+            )..count(),
             child: BlocBuilder<CountCubit, CountCubitState>(
               builder: (context, state) {
                 return Text("${state.count} reviews");
@@ -32,9 +29,11 @@ class ReviewsReservationsWidget extends StatelessWidget {
             ),
           ),
           BlocProvider(
-            create: (context) =>
-                CountCubit(kinds: Reservation.kinds, nostrService: getIt())
-                  ..count(),
+            create: (context) => CountCubit(
+              kinds: Reservation.kinds,
+              nostrService: getIt(),
+              filterCubit: context.read<FilterCubit>(),
+            )..count(),
             child: BlocBuilder<CountCubit, CountCubitState>(
               builder: (context, state) {
                 return Text(" · ${state.count} stays");

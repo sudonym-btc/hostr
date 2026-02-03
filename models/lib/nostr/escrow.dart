@@ -9,6 +9,15 @@ import 'type_json_content.dart';
 class Escrow extends JsonContentNostrEvent<EscrowContent> {
   static const List<int> kinds = [NOSTR_KIND_ESCROW];
 
+  Escrow(
+      {required super.pubKey,
+      required super.tags,
+      required super.content,
+      super.createdAt,
+      super.id,
+      super.sig})
+      : super(kind: NOSTR_KIND_ESCROW);
+
   Escrow.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
     parsedContent = EscrowContent.fromJson(json.decode(content));
   }

@@ -68,7 +68,7 @@ final MOCK_BADGE_AWARDS = [
             'a',
             '$NOSTR_KIND_BADGE_DEFINITION:${MockKeys.escrow.publicKey}:verified-host'
           ],
-          ['a', MOCK_LISTINGS[0].anchor],
+          ['a', MOCK_LISTINGS[0].anchor!],
           ['p', MockKeys.hoster.publicKey],
         ],
       ))),
@@ -85,7 +85,7 @@ final MOCK_BADGE_AWARDS = [
             'a',
             '$NOSTR_KIND_BADGE_DEFINITION:${MockKeys.escrow.publicKey}:verified-host'
           ],
-          ['a', MOCK_LISTINGS[0].anchor],
+          ['a', MOCK_LISTINGS[0].anchor!],
           ['p', MockKeys.hoster.publicKey],
         ],
       ))),

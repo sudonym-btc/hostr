@@ -23,99 +23,82 @@ Future<List<Nip01Event>> createMockGiftWraps(
 }
 
 /// Mock rumor events (unsigned inner messages) that will be wrapped
-final mockRumorHostToGuest1 = Nip01Event(
-  pubKey: MockKeys.hoster.publicKey,
-  kind: NOSTR_KIND_DM,
-  tags: [
-    [THREAD_ANCHOR_TAG, 'thread-conversation-1'], // Thread ID via anchor tag
-    ['p', MockKeys.guest.publicKey],
-  ],
-  content: 'Hey! I have a great place available for your dates.',
-  createdAt: DateTime(2026, 1, 15).millisecondsSinceEpoch ~/ 1000,
-  id: '',
-  sig: '',
-);
+// final mockRumorHostToGuest1 = Message(
+//   pubKey: MockKeys.hoster.publicKey,
+//   tags: [
+//     ['a', ], // Thread ID via anchor tag
+//     ['p', MockKeys.guest.publicKey],
+//   ],
+//   content: 'Hey! I have a great place available for your dates.',
+//   createdAt: DateTime(2026, 1, 15).millisecondsSinceEpoch ~/ 1000,
+// );
 
-final mockRumorGuestToHost1 = Nip01Event(
-  pubKey: MockKeys.guest.publicKey,
-  kind: NOSTR_KIND_DM,
-  tags: [
-    [THREAD_ANCHOR_TAG, 'thread-conversation-1'], // Same thread ID
-    ['p', MockKeys.hoster.publicKey],
-  ],
-  content: 'That sounds perfect! Can you tell me more about the amenities?',
-  createdAt: DateTime(2026, 1, 15, 10).millisecondsSinceEpoch ~/ 1000,
-  id: '',
-  sig: '',
-);
+// final mockRumorGuestToHost1 = Message(
+//   pubKey: MockKeys.guest.publicKey,
+//   tags: [
+//     [THREAD_ANCHOR_TAG, 'thread-conversation-1'], // Same thread ID
+//     ['p', MockKeys.hoster.publicKey],
+//   ],
+//   content: 'That sounds perfect! Can you tell me more about the amenities?',
+//   createdAt: DateTime(2026, 1, 15, 10).millisecondsSinceEpoch ~/ 1000,
+// );
 
-final mockRumorHostToGuest2 = Nip01Event(
-  pubKey: MockKeys.hoster.publicKey,
-  kind: NOSTR_KIND_DM,
-  tags: [
-    [THREAD_ANCHOR_TAG, 'thread-conversation-1'],
-    ['p', MockKeys.guest.publicKey],
-  ],
-  content: 'Sure! It has WiFi, kitchen, and a beautiful garden view.',
-  createdAt: DateTime(2026, 1, 15, 11).millisecondsSinceEpoch ~/ 1000,
-  id: '',
-  sig: '',
-);
+// final mockRumorHostToGuest2 = Message(
+//   pubKey: MockKeys.hoster.publicKey,
+//   tags: [
+//     [THREAD_ANCHOR_TAG, 'thread-conversation-1'],
+//     ['p', MockKeys.guest.publicKey],
+//   ],
+//   content: 'Sure! It has WiFi, kitchen, and a beautiful garden view.',
+//   createdAt: DateTime(2026, 1, 15, 11).millisecondsSinceEpoch ~/ 1000,
+// );
 
-// Second thread
-final mockRumorGuestToHost2 = Nip01Event(
-  pubKey: MockKeys.guest.publicKey,
-  kind: NOSTR_KIND_DM,
-  tags: [
-    [THREAD_ANCHOR_TAG, 'thread-booking-inquiry'], // Different thread
-    ['p', MockKeys.hoster.publicKey],
-  ],
-  content: 'Is your place pet-friendly?',
-  createdAt: DateTime(2026, 1, 16).millisecondsSinceEpoch ~/ 1000,
-  id: '',
-  sig: '',
-);
+// // Second thread
+// final mockRumorGuestToHost2 = Message(
+//   pubKey: MockKeys.guest.publicKey,
+//   tags: [
+//     [THREAD_ANCHOR_TAG, 'thread-booking-inquiry'], // Different thread
+//     ['p', MockKeys.hoster.publicKey],
+//   ],
+//   content: 'Is your place pet-friendly?',
+//   createdAt: DateTime(2026, 1, 16).millisecondsSinceEpoch ~/ 1000,
+// );
 
-final mockRumorHostToGuest3 = Nip01Event(
-  pubKey: MockKeys.hoster.publicKey,
-  kind: NOSTR_KIND_DM,
-  tags: [
-    [THREAD_ANCHOR_TAG, 'thread-booking-inquiry'],
-    ['p', MockKeys.guest.publicKey],
-  ],
-  content: 'Yes! Small pets are welcome.',
-  createdAt: DateTime(2026, 1, 16, 9).millisecondsSinceEpoch ~/ 1000,
-  id: '',
-  sig: '',
-);
+// final mockRumorHostToGuest3 = Message(
+//   pubKey: MockKeys.hoster.publicKey,
+//   tags: [
+//     [THREAD_ANCHOR_TAG, 'thread-booking-inquiry'],
+//     ['p', MockKeys.guest.publicKey],
+//   ],
+//   content: 'Yes! Small pets are welcome.',
+//   createdAt: DateTime(2026, 1, 16, 9).millisecondsSinceEpoch ~/ 1000,
+// );
 
 /// Legacy mock events for reservation requests
 
-Message hostInvitesGuest = Message.safeFromNostrEvent(Nip01Event(
+Message hostInvitesGuest = Message(
     pubKey: MockKeys.hoster.publicKey,
-    kind: NOSTR_KIND_DM,
     tags: [
-      [THREAD_ANCHOR_TAG, 'random-topic-id'],
+      ['a', hostInvitesGuestReservationRequest.anchor!],
       [
         'p',
         MockKeys.guest.publicKey,
       ]
     ],
     createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-    content: hostInvitesGuestReservationRequest.toString()));
+    child: hostInvitesGuestReservationRequest);
 
-Message guestRequest = Message.safeFromNostrEvent(Nip01Event(
+Message guestRequest = Message(
     pubKey: MockKeys.guest.publicKey,
-    kind: NOSTR_KIND_DM,
     tags: [
-      [THREAD_ANCHOR_TAG, 'random-topic-id-2'],
+      ['a', guestInvitesHostReservationRequest.anchor!],
       [
         'p',
         MockKeys.hoster.publicKey,
       ]
     ],
     createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-    content: guestInvitesHostReservationRequest.toString().toString()));
+    child: guestInvitesHostReservationRequest);
 
 Future<List<Nip01Event>> MOCK_GIFT_WRAPS() async => [
       ...(await createMockGiftWraps(

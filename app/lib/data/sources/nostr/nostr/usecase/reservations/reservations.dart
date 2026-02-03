@@ -23,14 +23,9 @@ class Reservations extends CrudUseCase<Reservation> {
     required String listingAnchor,
   }) {
     logger.d('Fetching reservations for listing: $listingAnchor');
-    return list(
-      Filter(
-        kinds: Reservation.kinds,
-        tags: {
-          REFERENCE_LISTING_TAG: [listingAnchor],
-        },
-      ),
-    ).then((reservations) {
+    return list(Filter(kinds: Reservation.kinds, aTags: [listingAnchor])).then((
+      reservations,
+    ) {
       logger.d('Found ${reservations.length} reservations');
       return reservations;
     });
@@ -73,25 +68,60 @@ class Reservations extends CrudUseCase<Reservation> {
     ReservationRequest request,
     String guestPubkey,
   ) {
-    final reservation = Reservation.fromNostrEvent(
-      Nip01Event(
-        kind: NOSTR_KIND_RESERVATION,
-        tags: [
-          [REFERENCE_LISTING_TAG, request.listingAnchor],
-          [THREAD_ANCHOR_TAG, message.threadAnchor!],
-        ],
-        content: ReservationContent(
-          start: request.parsedContent.start,
-          end: request.parsedContent.end,
-          guestCommitmentHash: GuestParticipationProof.computeCommitmentHash(
-            guestPubkey,
-            request.parsedContent.salt,
-          ),
-        ).toString(),
-        pubKey: auth.activeKeyPair!.publicKey,
+    final reservation = Reservation(
+      tags: [
+        ['a', request.listingAnchor],
+        ['a', message.reservationRequestAnchor!],
+      ],
+      content: ReservationContent(
+        start: request.parsedContent.start,
+        end: request.parsedContent.end,
+        guestCommitmentHash: GuestParticipationProof.computeCommitmentHash(
+          guestPubkey,
+          request.parsedContent.salt,
+        ),
       ),
+      pubKey: auth.activeKeyPair!.publicKey,
     );
     logger.d('Accepting reservation request: $request');
     return create(reservation);
+  }
+
+  Future<Reservation> createSelfSigned({
+    required String threadId,
+    required ReservationRequest reservationRequest,
+    required Listing listing,
+    required ProfileMetadata hoster,
+    ZapProof? zapProof,
+    EscrowProof? escrowProof,
+  }) async {
+    if (zapProof == null && escrowProof == null) {
+      throw Exception('Must provide payment proof');
+    }
+    String commitment = GuestParticipationProof.computeCommitmentHash(
+      auth.activeKeyPair!.publicKey,
+      reservationRequest.parsedContent.salt,
+    );
+    Reservation reservation = Reservation(
+      content: ReservationContent(
+        start: reservationRequest.parsedContent.start,
+        end: reservationRequest.parsedContent.end,
+        guestCommitmentHash: commitment,
+        proof: SelfSignedProof(
+          hoster: hoster,
+          listing: listing,
+          zapProof: zapProof,
+          escrowProof: escrowProof,
+        ),
+      ),
+      pubKey: auth.activeKeyPair!.publicKey,
+      tags: [
+        ['a', listing.anchor!],
+        ['a', threadId],
+      ],
+    )..commitmentHash = commitment;
+    await create(reservation);
+    logger.d(reservation);
+    return reservation;
   }
 }

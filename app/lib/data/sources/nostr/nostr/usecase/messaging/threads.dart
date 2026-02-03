@@ -116,7 +116,7 @@ class Threads extends HydratedCubit<List<Message>> {
     if (state.any((existing) => existing.id == message.id)) {
       return;
     }
-    String? id = message.threadAnchor;
+    String? id = message.reservationRequestAnchor;
     if (id == null) {
       return;
     }
@@ -143,7 +143,7 @@ class Threads extends HydratedCubit<List<Message>> {
   void _rebuildThreadsFromMessages(List<Message> messages) {
     threads.clear();
     for (final message in messages) {
-      String? id = message.threadAnchor;
+      String? id = message.reservationRequestAnchor;
       if (id == null) {
         continue;
       }

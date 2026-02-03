@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:models/nostr/reservation_request.dart';
 import 'package:ndk/ndk.dart';
 
 import '../nostr_kinds.dart';
@@ -8,18 +9,28 @@ import '../nostr_parser.dart';
 import 'event.dart';
 import 'type_parent.dart';
 
-String THREAD_ANCHOR_TAG = 't';
-
 class Message<T extends Event> extends ParentTypeNostrEvent {
   static const List<int> kinds = [NOSTR_KIND_DM];
 
-  String? get threadAnchor {
-    return getFirstTag(THREAD_ANCHOR_TAG)!;
+  Message(
+      {required super.pubKey,
+      required super.tags,
+      super.child,
+      super.content,
+      super.createdAt,
+      super.id,
+      super.sig})
+      : super(
+          kind: NOSTR_KIND_DM,
+        );
+
+  String? get reservationRequestAnchor {
+    return getATagForKind(ReservationRequest.kinds[0]);
   }
 
-  set threadAnchor(String? anchor) {
+  set reservationRequestAnchor(String? anchor) {
     if (anchor == null) return;
-    tags.add([THREAD_ANCHOR_TAG, anchor]);
+    tags.add(['a', anchor]);
   }
 
   Message.fromNostrEvent(Nip01Event e, T? child)

@@ -17,7 +17,7 @@ class Escrows extends CrudUseCase<Escrow> {
     required this.escrowTrusts,
   }) : super(kind: Escrow.kinds[0]);
 
-  Future<List<Escrow>> determineMutualEscrow(
+  Future<MutualEscrowResult> determineMutualEscrow(
     String pubkey1,
     String pubkey2,
   ) async {
@@ -33,20 +33,23 @@ class Escrows extends CrudUseCase<Escrow> {
       ),
     ]);
 
-    final trust1 = results[0];
-    final trust2 = results[1];
-    final methods1 = results[2];
-    final methods2 = results[3];
-    print(methods1);
-    print((await (methods1 as EscrowMethod).toNip51List()).elements);
+    final trust1 = results[0] as EscrowTrust;
+    final trust2 = results[1] as EscrowTrust;
+    final methods1 = results[2] as EscrowMethod;
+    final methods2 = results[3] as EscrowMethod;
+
+    final result = MutualEscrowResult(
+      hostTrust: trust1,
+      guestTrust: trust2,
+      hostMethod: methods1,
+      guestMethod: methods2,
+    );
 
     // Extract trusted pubkeys from each user's trust list
-    final trustedPubkeys1 = (await (trust1 as EscrowTrust).toNip51List())
-        .elements
+    final trustedPubkeys1 = (await result.hostTrust.toNip51List()).elements
         .map((e) => e.value)
         .toSet();
-    final trustedPubkeys2 = (await (trust2 as EscrowTrust).toNip51List())
-        .elements
+    final trustedPubkeys2 = (await result.guestTrust.toNip51List()).elements
         .map((e) => e.value)
         .toSet();
 
@@ -64,10 +67,10 @@ class Escrows extends CrudUseCase<Escrow> {
     }
 
     // Extract escrow types from each user's method list
-    final types1 = (await (methods1 as EscrowMethod).toNip51List()).elements
+    final types1 = (await result.hostMethod.toNip51List()).elements
         .map((e) => e.value)
         .toSet();
-    final types2 = (await (methods2 as EscrowMethod).toNip51List()).elements
+    final types2 = (await result.guestMethod.toNip51List()).elements
         .map((e) => e.value)
         .toSet();
 
@@ -83,15 +86,32 @@ class Escrows extends CrudUseCase<Escrow> {
     }
 
     // Query escrows from mutually trusted pubkeys with overlapping types
-    final escrows = await list(
+    final escrowServices = await list(
       Filter(kinds: Escrow.kinds, authors: mutuallyTrustedPubkeys.toList()),
     );
 
-    return escrows
+    final escrowServicesFiltered = escrowServices
         .where(
-          (escrow) =>
-              overlappingTypes.contains(escrow.parsedContent.type.name),
+          (escrow) => overlappingTypes.contains(escrow.parsedContent.type.name),
         )
         .toList();
+
+    result.compatibleServices = escrowServicesFiltered;
+    return result;
   }
+}
+
+class MutualEscrowResult {
+  EscrowTrust hostTrust;
+  EscrowTrust guestTrust;
+  EscrowMethod hostMethod;
+  EscrowMethod guestMethod;
+  late List<Escrow> compatibleServices;
+
+  MutualEscrowResult({
+    required this.hostTrust,
+    required this.guestTrust,
+    required this.hostMethod,
+    required this.guestMethod,
+  });
 }

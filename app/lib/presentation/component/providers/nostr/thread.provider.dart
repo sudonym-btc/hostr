@@ -33,12 +33,7 @@ class ThreadProvider extends StatelessWidget {
 
     final listingAnchor = MessagingListings.getThreadListing(thread: thread);
     final reservationsResponse = getIt<Hostr>().requests.subscribe<Reservation>(
-      filter: Filter(
-        kinds: Reservation.kinds,
-        tags: {
-          REFERENCE_LISTING_TAG: [listingAnchor],
-        },
-      ),
+      filter: Filter(kinds: Reservation.kinds, aTags: [listingAnchor]),
     );
 
     return MultiRepositoryProvider(
@@ -60,7 +55,7 @@ class ThreadProvider extends StatelessWidget {
           BlocProvider<EntityCubit<Listing>>(
             create: (_) => EntityCubit<Listing>(
               crud: getIt<Hostr>().listings,
-              filter: Filter(aTags: [listingAnchor]),
+              filter: Filter(dTags: [Event.getDFromATag(listingAnchor)]),
             )..get(),
           ),
           BlocProvider<ProfileCubit>(

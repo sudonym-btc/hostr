@@ -27,7 +27,7 @@ class ThreadReservationRequestHostViewWidget
          request: item.child as ReservationRequest,
          listing: listing,
          reservations: reservations,
-         threadAnchor: (item.child as ReservationRequest).id,
+         threadAnchor: (item.child as ReservationRequest).anchor!,
          paid: false,
          refunded: false,
        );

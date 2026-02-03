@@ -41,7 +41,7 @@ class Thread {
     return messaging.broadcastMessage(
       content: content,
       tags: [
-        [THREAD_ANCHOR_TAG, id],
+        ['a', id],
       ],
       recipientPubkey: counterpartyPubkey(),
     );
@@ -53,7 +53,7 @@ class Thread {
     return messaging.broadcastEvent(
       event: event,
       tags: [
-        [THREAD_ANCHOR_TAG, id],
+        ['a', id],
         ...tags,
       ],
       recipientPubkey: counterpartyPubkey(),

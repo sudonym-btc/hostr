@@ -21,7 +21,10 @@ class Messaging {
     Nip01Event rumor = await ndk.giftWrap.createRumor(
       content: content,
       kind: NOSTR_KIND_DM,
-      tags: tags,
+      tags: [
+        ...tags,
+        ['p', recipientPubkey],
+      ],
     );
 
     return [
@@ -40,6 +43,15 @@ class Messaging {
     ];
   }
 
+  Future<Message> broadcastEventAndWait({
+    required Nip01Event event,
+    required List<List<String>> tags,
+    required String recipientPubkey,
+  }) async {
+    broadcastEvent(event: event, tags: tags, recipientPubkey: recipientPubkey);
+    return threads.awaitId(event.id);
+  }
+
   Future<Message> broadcastMessageAndAwait({
     required String content,
     required List<List<String>> tags,
@@ -48,16 +60,16 @@ class Messaging {
     Nip01Event rumor = await ndk.giftWrap.createRumor(
       content: content,
       kind: NOSTR_KIND_DM,
-      tags: tags,
+      tags: [
+        ...tags,
+        ['p', recipientPubkey],
+      ],
     );
-
-    final r = broadcastMessage(
-      content: content,
+    return broadcastEventAndWait(
+      event: rumor,
       tags: tags,
       recipientPubkey: recipientPubkey,
     );
-
-    return threads.awaitId(rumor.id);
   }
 
   Future<List<Future<List<RelayBroadcastResponse>>>> broadcastEvent({

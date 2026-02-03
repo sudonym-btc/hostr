@@ -12,7 +12,7 @@ class ReviewListItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(review.content),
+        Text(review.parsedContent.content),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [

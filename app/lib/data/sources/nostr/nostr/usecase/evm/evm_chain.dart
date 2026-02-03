@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:hostr/core/main.dart';
@@ -28,8 +29,25 @@ abstract class EvmChain {
     logger.d('Getting balance for $address');
     return await client.getBalance(address).then((val) {
       logger.d('Balance for $address: ${val.getInWei}');
-      return convertWeiToSatoshi(val.getInWei.toDouble());
+      logger.d('${convertWeiToBTC(val.getInWei.toDouble())}');
+      return convertWeiToBTC(val.getInWei.toDouble());
     });
+  }
+
+  Stream<double> subscribeBalance(EthereumAddress address) async* {
+    try {
+      yield await getBalance(address);
+    } catch (e) {
+      logger.w('Failed initial balance fetch: $e');
+    }
+
+    await for (final _ in client.addedBlocks()) {
+      try {
+        yield await getBalance(address);
+      } catch (e) {
+        logger.w('Failed to fetch balance on new block: $e');
+      }
+    }
   }
 
   Future<TransactionInformation?> getTransaction(String txHash) async {
@@ -60,4 +78,8 @@ abstract class EvmChain {
 
 double convertWeiToSatoshi(double wei) {
   return wei / pow(10, 18 - 8);
+}
+
+double convertWeiToBTC(double wei) {
+  return wei / pow(10, 18);
 }
