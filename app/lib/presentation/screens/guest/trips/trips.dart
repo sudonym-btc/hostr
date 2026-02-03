@@ -31,7 +31,7 @@ class _TripsScreenState extends State<TripsScreen> {
         child: StreamBuilder(
           stream: _reservationsStream,
           builder: (BuildContext context, AsyncSnapshot<Reservation> snapshot) {
-            print("data ${snapshot.data}");
+            print(snapshot.data);
             if (snapshot.connectionState == ConnectionState.waiting) {
               return CircularProgressIndicator();
             } else if (snapshot.hasData) {

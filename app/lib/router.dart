@@ -17,12 +17,12 @@ class AppRouter extends RootStackRouter {
         AutoRoute(page: ListingRoute.page, path: 'listing/:a'),
         AutoRoute(
           page: ThreadRoute.page,
-          guards: [AuthGuard(), SyncGuard()],
+          guards: [AuthGuard()],
           path: 'inbox/:id',
         ),
         AutoRoute(
           page: HomeRoute.page,
-          guards: [AuthGuard(), SyncGuard()],
+          guards: [AuthGuard()],
           initial: true,
           children: [
             /// Public routes
@@ -37,28 +37,28 @@ class AppRouter extends RootStackRouter {
             AutoRoute(
               page: ProfileRoute.page,
               path: 'profile',
-              guards: [AuthGuard(), SyncGuard()],
+              guards: [AuthGuard()],
             ),
             AutoRoute(
               page: BookingsRoute.page,
               path: 'bookings',
-              guards: [AuthGuard(), SyncGuard()],
+              guards: [AuthGuard()],
             ),
             AutoRoute(
               page: TripsRoute.page,
               path: 'trips',
-              guards: [AuthGuard(), SyncGuard()],
+              guards: [AuthGuard()],
             ),
             AutoRoute(
               page: InboxRoute.page,
               path: 'inbox',
-              guards: [AuthGuard(), SyncGuard()],
+              guards: [AuthGuard()],
               children: [],
             ),
             AutoRoute(
               page: MyListingsRoute.page,
               path: 'my-listings',
-              guards: [AuthGuard(), SyncGuard()],
+              guards: [AuthGuard()],
             ),
           ],
         ),
@@ -70,7 +70,7 @@ class AppRouter extends RootStackRouter {
         AutoRoute(
           page: EditProfileRoute.page,
           path: 'edit-profile',
-          guards: [AuthGuard(), SyncGuard()],
+          guards: [AuthGuard()],
         ),
       ],
     ),

@@ -10,48 +10,36 @@ import '../requests/requests.dart';
 import 'messaging.dart';
 import 'thread.dart';
 
-class ThreadsSyncStatus {
-  final bool subscribed;
-  final bool completed;
-  final List<Thread> threads;
-
-  ThreadsSyncStatus({
-    required this.subscribed,
-    required this.completed,
-    required this.threads,
-  });
-}
-
 class Threads extends HydratedCubit<List<Message>> {
   final CustomLogger logger = CustomLogger();
   final Messaging messaging;
   final Requests requests;
   final Ndk ndk;
+
+  final StreamController<Message> threadController =
+      StreamController<Message>();
+  Stream<Message<Event>> get theadStream => threadController.stream;
+
+  final BehaviorSubject<SubscriptionStatus> _statusSubject =
+      BehaviorSubject<SubscriptionStatus>.seeded(SubscriptionStatusIdle());
+  Stream<SubscriptionStatus> get status => _statusSubject.stream;
+
   final Map<String, Thread> threads = {};
 
-  StreamController<List<Thread>> outputStreamController =
-      StreamController<List<Thread>>();
-  Stream<List<Thread>> get outputStream => outputStreamController.stream;
+  @override
+  get state => subscription?.list.value ?? [];
 
-  StreamController<ThreadsSyncStatus> syncStatusController =
-      StreamController<ThreadsSyncStatus>.broadcast();
-  Stream<ThreadsSyncStatus> get syncStatusStream => syncStatusController.stream;
+  ReplayStream<Message<Event>> get messageStream =>
+      subscription!.stream.shareReplay();
 
-  final ReplaySubject<Message> _messageReplaySubject = ReplaySubject<Message>();
-  Stream<Message> get messageStream => _messageReplaySubject.stream;
-
-  CustomNdkResponse<Message>? _subscription;
-  StreamSubscription<Message>? _streamSubscription;
-  bool get isSubscribed => _subscription != null;
-  bool subscriptionCompleted = false;
+  SubscriptionResponse<Message>? subscription;
+  StreamSubscription<SubscriptionStatus>? _statusSubscription;
+  StreamSubscription<Message>? _messageSubscription;
 
   Threads(this.messaging, this.requests, this.ndk) : super([]);
 
   void sync() {
     _closeSubscription();
-    subscriptionCompleted = false;
-    _emitSyncStatus();
-
     _rebuildThreadsFromMessages(state);
 
     final myPubkey = ndk.accounts.getPublicKey();
@@ -66,54 +54,41 @@ class Threads extends HydratedCubit<List<Message>> {
     logger.d(
       'Subscribing to message gift-wraps with filter: $filter since ${getMostRecentTimestamp()}',
     );
-    _subscription = requests.subscribe<Message>(filter: filter);
-    _subscription!.future.then((_) {
-      logger.d('Threads query completed.');
-      subscriptionCompleted = true;
-      _emitSyncStatus();
+    subscription = requests.subscribe<Message>(filter: filter);
+    _statusSubscription?.cancel();
+    _statusSubscription = subscription!.status.listen((status) {
+      _statusSubject.add(status);
+      if (status is SubscriptionStatusQueryComplete) {
+        logger.d('Threads query complete');
+      }
     });
-
-    _streamSubscription = _subscription!.stream.listen(processMessage);
+    _messageSubscription?.cancel();
+    _messageSubscription = subscription!.stream.listen(processMessage);
   }
 
   void stop() {
     _closeSubscription();
-    subscriptionCompleted = false;
-    _emitSyncStatus();
   }
 
   void _closeSubscription() {
-    _streamSubscription?.cancel();
-    _streamSubscription = null;
-    final subscriptionId = _subscription?.requestId;
-    _subscription = null;
-    subscriptionCompleted = false;
-    if (subscriptionId == null) return;
+    _statusSubscription?.cancel();
+    _statusSubscription = null;
+    _messageSubscription?.cancel();
+    _messageSubscription = null;
+    subscription?.close();
+    if (subscription?.requestId == null) return;
     // Best-effort: close the underlying NDK subscription to free relay resources.
-    ndk.requests.closeSubscription(subscriptionId);
-  }
-
-  void _emitSyncStatus() {
-    syncStatusController.add(
-      ThreadsSyncStatus(
-        subscribed: _subscription != null,
-        completed: subscriptionCompleted,
-        threads: threads.values.toList(),
-      ),
-    );
+    ndk.requests.closeSubscription(subscription!.requestId);
   }
 
   /// Waits for a message with the specified ID to be received.
   /// Listens to the replay subject which captures all messages.
   Future<Message> awaitId(String expectedId) {
     logger.d('Awaiting message with id $expectedId');
-    return _messageReplaySubject.firstWhere(
-      (message) => message.id == expectedId,
-    );
+    return messageStream.firstWhere((message) => message.id == expectedId);
   }
 
   void processMessage(Message message) {
-    _messageReplaySubject.add(message);
     logger.d('Received message with id ${message.id} ${message}');
     if (state.any((existing) => existing.id == message.id)) {
       return;
@@ -124,7 +99,7 @@ class Threads extends HydratedCubit<List<Message>> {
     }
     if (threads[id] == null) {
       threads[id] = Thread(id, messaging: messaging, accounts: ndk.accounts);
-      outputStreamController.add(threads.values.toList());
+      threadController.add(message);
     }
     threads[id]!.addMessage(message);
     emit([...state, message]);
@@ -145,14 +120,8 @@ class Threads extends HydratedCubit<List<Message>> {
   void _rebuildThreadsFromMessages(List<Message> messages) {
     threads.clear();
     for (final message in messages) {
-      String? id = message.reservationRequestAnchor;
-      if (id == null) {
-        continue;
-      }
-      threads[id] ??= Thread(id, messaging: messaging, accounts: ndk.accounts);
-      threads[id]!.addMessage(message);
+      processMessage(message);
     }
-    outputStreamController.add(threads.values.toList());
   }
 
   @override
@@ -174,10 +143,9 @@ class Threads extends HydratedCubit<List<Message>> {
 
   @override
   Future<void> close() async {
-    stop();
-    await outputStreamController.close();
-    await syncStatusController.close();
-    await _messageReplaySubject.close();
+    _statusSubscription?.cancel();
+    _messageSubscription?.cancel();
+    await _statusSubject.close();
     return super.close();
   }
 }

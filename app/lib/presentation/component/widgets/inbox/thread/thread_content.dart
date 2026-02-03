@@ -15,11 +15,12 @@ class ThreadContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final thread = context.read<Thread>();
-    final reservationsResponse = context.read<CustomNdkResponse<Reservation>>();
+    final reservationsResponse = context
+        .read<SubscriptionResponse<Reservation>>();
 
     return Expanded(
-      child: FutureBuilder<List<Reservation>>(
-        future: reservationsResponse.future,
+      child: StreamBuilder<List<Reservation>>(
+        stream: reservationsResponse.list,
         builder: (context, reservationsSnapshot) {
           return StreamBuilder<List<Message>>(
             stream: thread.outputStream,

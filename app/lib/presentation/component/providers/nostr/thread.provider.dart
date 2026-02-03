@@ -39,7 +39,7 @@ class ThreadProvider extends StatelessWidget {
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<Thread>.value(value: thread),
-        RepositoryProvider<CustomNdkResponse<Reservation>>.value(
+        RepositoryProvider<SubscriptionResponse<Reservation>>.value(
           value: reservationsResponse,
         ),
       ],

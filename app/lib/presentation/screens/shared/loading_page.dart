@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 
@@ -16,28 +17,27 @@ class LoadingPage extends StatelessWidget {
     return BlocBuilder<AuthCubit, AuthState>(
       builder: (context, authState) {
         if (authState is LoggedIn) {
-          return StreamBuilder<ThreadsSyncStatus>(
-            stream: nostrService.messaging.threads.syncStatusStream,
+          return StreamBuilder<SubscriptionStatus>(
+            stream: nostrService.messaging.threads.status,
             builder: (context, snapshot) {
-              final isCompleted = snapshot.data?.completed ?? false;
-              if (!isCompleted) {
-                return Scaffold(
-                  body: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const CircularProgressIndicator(),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Syncing messages...',
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+              if (snapshot.data is SubscriptionStatusLive) {
+                return child;
               }
-              return child;
+              return Scaffold(
+                body: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Syncing messages...',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
+                ),
+              );
             },
           );
         }
