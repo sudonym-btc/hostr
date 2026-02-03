@@ -30,11 +30,11 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
     : _nostrService = nostrService,
       super(ReservationCubitState(status: ReservationCubitStatus.initial));
 
-  Future<String?> createReservationRequest({
+  Future<ReservationRequest?> createReservationRequest({
     required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
-    required Function(String id) onSuccess,
+    required Function(ReservationRequest reservationRequest) onSuccess,
   }) async {
     emit(ReservationCubitState(status: ReservationCubitStatus.loading));
 
@@ -46,8 +46,8 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
             endDate: endDate,
             recipientPubkey: listing.pubKey,
           );
-      await _nostrService.messaging.broadcastMessageAndAwait(
-        content: result.toString(),
+      await _nostrService.messaging.broadcastEventAndWait(
+        event: result,
         tags: [
           ['a', result.anchor!],
         ],
@@ -55,8 +55,8 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
       );
       // Business decision: emit success state
       emit(ReservationCubitState(status: ReservationCubitStatus.success));
-      onSuccess(result.id);
-      return result.id;
+      onSuccess(result);
+      return result;
     } catch (e) {
       print(e.toString());
       // Business decision: emit error state
