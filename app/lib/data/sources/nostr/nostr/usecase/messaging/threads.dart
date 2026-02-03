@@ -106,6 +106,7 @@ class Threads extends HydratedCubit<List<Message>> {
   /// Waits for a message with the specified ID to be received.
   /// Listens to the replay subject which captures all messages.
   Future<Message> awaitId(String expectedId) {
+    logger.d('Awaiting message with id $expectedId');
     return _messageReplaySubject.firstWhere(
       (message) => message.id == expectedId,
     );
@@ -113,6 +114,7 @@ class Threads extends HydratedCubit<List<Message>> {
 
   void processMessage(Message message) {
     _messageReplaySubject.add(message);
+    logger.d('Received message with id ${message.id} ${message}');
     if (state.any((existing) => existing.id == message.id)) {
       return;
     }

@@ -566,7 +566,7 @@ void main() {
 
       // This test passes by verifying the Messaging class
       // can be instantiated and has the broadcastMessage method
-      expect(messaging.broadcastMessage, isNotNull);
+      expect(messaging.broadcastText, isNotNull);
     });
   });
 }

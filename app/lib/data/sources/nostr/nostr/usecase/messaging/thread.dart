@@ -38,7 +38,7 @@ class Thread {
   }
 
   Future<List<Future<List<RelayBroadcastResponse>>>> replyText(String content) {
-    return messaging.broadcastMessage(
+    return messaging.broadcastText(
       content: content,
       tags: [
         ['a', id],
