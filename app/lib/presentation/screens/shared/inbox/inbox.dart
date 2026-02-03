@@ -14,12 +14,10 @@ class InboxScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.inbox)),
       body: StreamBuilder(
-        stream: getIt<Hostr>().messaging.threads.outputStream,
+        stream: getIt<Hostr>().messaging.threads.theadStream,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return Center(child: CircularProgressIndicator());
-          }
-          final threads = snapshot.data!.toList();
+          final threads = getIt<Hostr>().messaging.threads.threads.values
+              .toList();
           return ListView.builder(
             itemCount: threads.length,
             itemBuilder: (context, index) {

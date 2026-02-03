@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter, Ndk;
-import 'package:rxdart/rxdart.dart';
 
 import '../../../mock.relay.dart';
 import 'requests.dart';
@@ -12,12 +13,12 @@ import 'requests.dart';
 class _Subscription<T extends Nip01Event> {
   final String id;
   final Filter filter;
-  final BehaviorSubject<T> controller;
+  final SubscriptionResponse response;
 
   _Subscription({
     required this.id,
     required this.filter,
-    required this.controller,
+    required this.response,
   });
 }
 
@@ -40,7 +41,7 @@ class TestRequests extends Requests implements RequestsModel {
 
   /// Add an event to the mock storage and notify subscriptions.
   void addEvent(Nip01Event event) {
-    // Update existing event if it has an 'a' tag match
+    // Update existing event if it has an 'a' tag match @TODO SHOULD BE D TAG!
     List<Nip01Event> existingEvents = _events
         .where(
           (e) =>
@@ -62,44 +63,49 @@ class TestRequests extends Requests implements RequestsModel {
     // Notify matching subscriptions
     for (var sub in _subscriptions) {
       if (matchEvent(event, sub.filter)) {
-        sub.controller.add(event as dynamic);
+        sub.response.add(event as dynamic);
       }
     }
   }
 
   @override
-  CustomNdkResponse<T> subscribe<T extends Nip01Event>({
+  SubscriptionResponse<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
   }) {
     final subId = 'sub_${_subCounter++}';
-    final controller = BehaviorSubject<T>();
+    final SubscriptionResponse response = SubscriptionResponse(subId);
 
     final subscription = _Subscription<T>(
       id: subId,
       filter: filter,
-      controller: controller,
+      response: response,
     );
 
     _subscriptions.add(subscription);
 
     final initialEvents = _events.where((event) => matchEvent(event, filter));
+    response.addStatus(SubscriptionStatusQuerying());
 
     final initialFuture = () async {
       final List<T> parsedEvents = [];
       for (final event in initialEvents) {
         final parsedEvent = await parserWithGiftWrap<T>(event, ndk);
-        controller.add(parsedEvent);
+        response.add(parsedEvent);
         parsedEvents.add(parsedEvent);
       }
       return parsedEvents;
     }();
 
-    return CustomNdkResponse<T>(
-      subId,
-      controller.stream,
-      future: initialFuture,
-    );
+    response.addStatus(SubscriptionStatusQueryComplete());
+
+    initialFuture.then((events) {
+      response.addAll(events);
+      response.addStatus(SubscriptionStatusQueryComplete());
+      response.addStatus(SubscriptionStatusLive());
+    });
+
+    return SubscriptionResponse<T>(subId);
   }
 
   @override
@@ -145,7 +151,7 @@ class TestRequests extends Requests implements RequestsModel {
   /// Clean up subscriptions.
   void dispose() {
     for (var sub in _subscriptions) {
-      sub.controller.close();
+      sub.response.close();
     }
     _subscriptions.clear();
   }

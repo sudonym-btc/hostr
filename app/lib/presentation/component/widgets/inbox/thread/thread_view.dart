@@ -46,7 +46,7 @@ class ThreadView extends StatelessWidget {
                             children: [
                               StreamBuilder(
                                 stream: context
-                                    .read<CustomNdkResponse<Reservation>>()
+                                    .read<SubscriptionResponse<Reservation>>()
                                     .stream,
                                 builder: (context, snapshot) {
                                   return ReservationStatusWidget(
