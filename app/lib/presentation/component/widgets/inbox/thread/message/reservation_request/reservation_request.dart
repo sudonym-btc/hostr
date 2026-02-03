@@ -7,37 +7,59 @@ import 'package:models/main.dart';
 import 'guest_view.dart';
 import 'host_view.dart';
 
-class ThreadReservationRequestWidget extends StatelessWidget {
+class ThreadReservationRequestWidget extends StatefulWidget {
   final Message item;
   final ProfileMetadata counterparty;
-  final ReservationRequest reservationRequest;
   final Listing listing;
   final List<Reservation> reservations;
-  final bool isSentByMe;
-  late final ThreadReservationRequestGuestHostComponents viewComponents;
 
-  ThreadReservationRequestWidget({
+  const ThreadReservationRequestWidget({
     super.key,
     required this.counterparty,
     required this.item,
     required this.listing,
     required this.reservations,
-  }) : reservationRequest = item.child as ReservationRequest,
-       isSentByMe = item.child!.pubKey == counterparty.pubKey,
-       viewComponents =
-           listing.pubKey != getIt<Hostr>().auth.activeKeyPair!.publicKey
-           ? ThreadReservationRequestGuestViewWidget(
-               counterparty: counterparty,
-               item: item,
-               listing: listing,
-               reservations: reservations,
-             )
-           : ThreadReservationRequestHostViewWidget(
-               counterparty: counterparty,
-               item: item,
-               listing: listing,
-               reservations: reservations,
-             );
+  });
+
+  @override
+  State<ThreadReservationRequestWidget> createState() =>
+      _ThreadReservationRequestWidgetState();
+}
+
+class _ThreadReservationRequestWidgetState
+    extends State<ThreadReservationRequestWidget> {
+  late Stream<dynamic> _paymentStatusStream;
+
+  ReservationRequest get reservationRequest =>
+      widget.item.child as ReservationRequest;
+
+  bool get isSentByMe =>
+      widget.item.child!.pubKey == widget.counterparty.pubKey;
+
+  ThreadReservationRequestGuestHostComponents get viewComponents =>
+      widget.listing.pubKey != getIt<Hostr>().auth.activeKeyPair!.publicKey
+      ? ThreadReservationRequestGuestViewWidget(
+          counterparty: widget.counterparty,
+          item: widget.item,
+          listing: widget.listing,
+          reservations: widget.reservations,
+        )
+      : ThreadReservationRequestHostViewWidget(
+          counterparty: widget.counterparty,
+          item: widget.item,
+          listing: widget.listing,
+          reservations: widget.reservations,
+        );
+
+  @override
+  void initState() {
+    super.initState();
+    _paymentStatusStream = getIt<Hostr>().payments.checkPaymentStatus(
+      widget.listing,
+      reservationRequest,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Align(
@@ -45,17 +67,14 @@ class ThreadReservationRequestWidget extends StatelessWidget {
       child: Column(
         children: [
           ListingListItemWidget(
-            listing: listing,
+            listing: widget.listing,
             showPrice: false,
             showFeedback: false,
             smallImage: true,
           ),
           StreamBuilder(
             // Should only stream when an emitted proof of reservation is not there.
-            stream: getIt<Hostr>().payments.checkPaymentStatus(
-              listing,
-              reservationRequest,
-            ),
+            stream: _paymentStatusStream,
             builder: (context, snapshot) {
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

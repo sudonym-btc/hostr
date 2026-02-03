@@ -74,9 +74,15 @@ class TestRequests extends Requests implements RequestsModel {
     List<String>? relays,
   }) {
     final subId = 'sub_${_subCounter++}';
-    final SubscriptionResponse response = SubscriptionResponse(subId);
+    late final _Subscription<T> subscription;
+    final SubscriptionResponse response = SubscriptionResponse(
+      subId,
+      onClose: () {
+        _subscriptions.remove(subscription);
+      },
+    );
 
-    final subscription = _Subscription<T>(
+    subscription = _Subscription<T>(
       id: subId,
       filter: filter,
       response: response,
