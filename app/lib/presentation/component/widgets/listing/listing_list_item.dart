@@ -98,13 +98,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
                 if (widget.showFeedback)
                   BlocProvider(
                     create: (context) => FilterCubit()
-                      ..updateFilter(
-                        Filter(
-                          tags: {
-                            REFERENCE_LISTING_TAG: [widget.listing.anchor],
-                          },
-                        ),
-                      ),
+                      ..updateFilter(Filter(aTags: [widget.listing.anchor!])),
                     child: Row(
                       children: [
                         BlocProvider(
@@ -155,7 +149,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
       onTap: () {
         AutoRouter.of(context).push(
           ListingRoute(
-            a: widget.listing.anchor,
+            a: widget.listing.anchor!,
             dateRangeStart: widget.dateRange?.start != null
                 ? widget.dateRange!.start.toIso8601String()
                 : null,

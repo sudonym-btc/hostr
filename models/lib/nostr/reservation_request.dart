@@ -10,16 +10,21 @@ class ReservationRequest
     extends JsonContentNostrEvent<ReservationRequestContent> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION_REQUEST];
 
+  ReservationRequest(
+      {required super.pubKey,
+      required super.tags,
+      required super.content,
+      super.createdAt,
+      super.id,
+      super.sig})
+      : super(kind: NOSTR_KIND_RESERVATION_REQUEST);
+
   ReservationRequest.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
     parsedContent = ReservationRequestContent.fromJson(json.decode(content));
   }
 
   String get listingAnchor {
-    return getFirstTag(REFERENCE_LISTING_TAG)!;
-  }
-
-  set listingAnchor(String anchor) {
-    tags.add([REFERENCE_LISTING_TAG, anchor]);
+    return getATagForKind(Listing.kinds[0]);
   }
 
   static bool canAttemptPay(

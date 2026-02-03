@@ -24,10 +24,10 @@ export 'profile.dart';
 export 'reservation.dart';
 export 'reservation_request.dart';
 export 'review.dart';
-export 'thread/main.dart';
 export 'zap_receipt.dart';
 
 Future<List<Nip01Event>> MOCK_EVENTS({String? contractAddress}) async {
+  print(MOCK_LISTINGS[0].getDtag());
   return [
     ...await MOCK_ESCROW_TRUSTS(),
     ...MOCK_ESCROWS(contractAddress: contractAddress),

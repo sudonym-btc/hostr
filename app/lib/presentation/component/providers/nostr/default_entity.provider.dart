@@ -63,7 +63,7 @@ abstract class DefaultEntityProvider<Type extends Event>
               filter: Filter(
                 kinds: kinds,
                 authors: pubkey != null ? [pubkey!] : null,
-                aTags: a != null ? [a!] : null,
+                dTags: a != null ? [Event.getDFromATag(a!)] : null,
                 eTags: e != null ? [e!] : null,
               ),
               crud: crud,

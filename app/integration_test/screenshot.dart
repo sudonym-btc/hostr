@@ -11,24 +11,29 @@ import 'package:models/main.dart';
 
 appWrapper(Widget child) {
   return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: GlobalProviderWidget(child: Center(child: child)));
+    debugShowCheckedModeBanner: false,
+    home: GlobalProviderWidget(child: Center(child: child)),
+  );
 }
 
 loadWidgetAndTakeScreenshot(
-    WidgetTester tester,
-    IntegrationTestWidgetsFlutterBinding binding,
-    Widget child,
-    String name) async {
+  WidgetTester tester,
+  IntegrationTestWidgetsFlutterBinding binding,
+  Widget child,
+  String name,
+) async {
   await mockNetworkImages(
-      () async => await tester.pumpWidget(appWrapper(child)));
+    () async => await tester.pumpWidget(appWrapper(child)),
+  );
   await binding.convertFlutterSurfaceToImage();
   await tester.pumpAndSettle(Duration(seconds: 5));
   await takeScreenshot(binding, name);
 }
 
 takeScreenshot(
-    IntegrationTestWidgetsFlutterBinding binding, String name) async {
+  IntegrationTestWidgetsFlutterBinding binding,
+  String name,
+) async {
   await binding.takeScreenshot('screenshots/$name.png');
 }
 
@@ -37,9 +42,7 @@ void main() {
 
   group('screenshots', () {
     AppRouter appRouter = AppRouter();
-    MyApp app = MyApp(
-      appRouter: appRouter,
-    );
+    MyApp app = MyApp(appRouter: appRouter);
     setUpAll(() async {
       await setup(Env.test);
     });
@@ -63,7 +66,7 @@ void main() {
     });
     testWidgets('listing', (tester) async {
       /// Navigate to the listing screen and screenshot
-      appRouter.navigate(ListingRoute(a: MOCK_LISTINGS[0].anchor));
+      appRouter.navigate(ListingRoute(a: MOCK_LISTINGS[0].anchor!));
       await loadWidgetAndTakeScreenshot(tester, binding, app, 'listing');
     });
     testWidgets('thread', (tester) async {
@@ -73,7 +76,8 @@ void main() {
 
       /// Navigate to a thread screen and screenshot
       appRouter.navigate(
-          ThreadRoute(id: guestRequest.tags.firstWhere((i) => i[0] == 'a')[1]));
+        ThreadRoute(id: guestRequest.tags.firstWhere((i) => i[0] == 'a')[1]),
+      );
       await tester.pumpAndSettle(Duration(seconds: 1));
       await takeScreenshot(binding, 'thread');
 

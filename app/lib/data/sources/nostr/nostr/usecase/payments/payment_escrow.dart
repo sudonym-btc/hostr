@@ -54,7 +54,7 @@ class PaymentEscrow {
     // });
   }
 
-  Future<void> escrow({
+  Future<String> escrow({
     required String eventId,
     required Amount amount,
     required String sellerEvmAddress,
@@ -101,8 +101,9 @@ class PaymentEscrow {
       ),
     );
 
-    final receipt = await evmChain.client.getTransactionReceipt(escrowTx);
-    logger.i(receipt);
+    // final receipt = await evmChain.client.getTransactionReceipt(escrowTx);
+    logger.i(escrowTx);
+    return escrowTx;
   }
 
   Stream<TradeCreated> checkEscrowStatus(

@@ -3,31 +3,31 @@ import 'dart:core';
 
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
-
-String REFERENCE_LISTING_TAG = 'l';
-String REFERENCE_RESERVATION_TAG = 'r';
+import 'package:web3dart/web3dart.dart';
 
 class Reservation extends JsonContentNostrEvent<ReservationContent> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION];
+
+  Reservation(
+      {required super.pubKey,
+      required super.tags,
+      required super.content,
+      super.createdAt,
+      super.id,
+      super.sig})
+      : super(kind: NOSTR_KIND_RESERVATION);
 
   String? get commitmentHash {
     return getFirstTag('guestCommitmentHash');
   }
 
-  String get listingAnchor {
-    return getFirstTag(REFERENCE_LISTING_TAG)!;
-  }
-
-  set listingAnchor(String anchor) {
-    tags.add([REFERENCE_LISTING_TAG, anchor]);
+  set commitmentHash(String? value) {
+    if (value == null) return;
+    tags.add(['guestCommitmentHash', value]);
   }
 
   String get threadAnchor {
-    return getFirstTag(THREAD_ANCHOR_TAG)!;
-  }
-
-  set threadAnchor(String anchor) {
-    tags.add([THREAD_ANCHOR_TAG, anchor]);
+    return getATagForKind(ReservationRequest.kinds[0]);
   }
 
   Reservation.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
@@ -144,9 +144,10 @@ class SelfSignedProof {
 
   Map<String, dynamic> toJson() {
     return {
-      "listing": listing.toString(),
-      "zapProof": zapProof,
-      "escrowProof": escrowProof,
+      "hoster": Nip01EventModel.fromEntity(hoster).toJson(),
+      "listing": Nip01EventModel.fromEntity(listing).toJson(),
+      "zapProof": zapProof?.toJson(),
+      "escrowProof": escrowProof?.toJson(),
     };
   }
 
@@ -154,33 +155,92 @@ class SelfSignedProof {
     return SelfSignedProof(
       listing:
           Listing.fromNostrEvent(Nip01EventModel.fromJson(json["listing"])),
-      zapProof: ZapProof.fromJson(json["zapProof"]),
-      escrowProof: EscrowProof.fromJson(json["escrowProof"]),
+      zapProof:
+          json["zapProof"] != null ? ZapProof.fromJson(json["zapProof"]) : null,
+      escrowProof: json["escrowProof"] != null
+          ? EscrowProof.fromJson(json["escrowProof"])
+          : null,
       hoster: Nip01EventModel.fromJson(json["hoster"]),
     );
   }
 }
 
 class EscrowProof {
-  dynamic escrowStateUponFunding;
-  // Signed list of trusted escrows by hostr
-  Nip01Event hostsTrustedEscrows;
+  String method;
+  String chainId;
+  String txHash;
+
+  // Signed list of trusted escrows by hoster
+  EscrowTrust hostsTrustedEscrows;
+  EscrowMethod hostsEscrowMethods;
 
   EscrowProof(
-      {required this.escrowStateUponFunding,
-      required this.hostsTrustedEscrows});
+      {required this.method,
+      required this.chainId,
+      required this.txHash,
+      required this.hostsTrustedEscrows,
+      required this.hostsEscrowMethods});
+
   toJson() {
     return {
-      "escrowStateUponFunding": escrowStateUponFunding,
+      "method": method,
+      "chainId": chainId,
+      "txHash": txHash,
+      "hostsEscrowMethods": hostsEscrowMethods.toString(),
       "hostsTrustedEscrows": hostsTrustedEscrows.toString(),
     };
   }
 
+  // @TODO: Must validate all components
+  static Future<bool> validate({
+    required EscrowProof proof,
+    required Web3Client client,
+    required BigInt minAmount,
+  }) async {
+    final txHash = proof.txHash;
+    if (txHash == null) {
+      return false;
+    }
+
+    final information = await client.getTransactionByHash(txHash);
+    if (information == null) {
+      return false;
+    }
+
+    final receipt = await client.getTransactionReceipt(txHash);
+    if (receipt == null) {
+      return false;
+    }
+
+    final to = information.to;
+    final value = information.value;
+    if (to == null || value == null) {
+      return false;
+    }
+
+    assert(
+      (await proof.hostsTrustedEscrows.toNip51List())
+          .elements
+          .any((el) => el.value == to),
+      'Transaction does not target escrow address',
+    );
+    assert(
+      receipt.status == true,
+      'Escrow funding transaction failed',
+    );
+
+    return false;
+  }
+
   static fromJson(Map<String, dynamic> json) {
     return EscrowProof(
-      escrowStateUponFunding: json["escrowStateUponFunding"],
-      hostsTrustedEscrows:
-          Nip01EventModel.fromJson(json["hostsTrustedEscrows"]),
+      method: json["method"],
+      chainId: json["chainId"],
+      txHash: json['txHash'],
+      hostsEscrowMethods: EscrowMethod.fromNostrEvent(
+          Nip01EventModel.fromJson(jsonDecode(json["hostsEscrowMethods"]))),
+      hostsTrustedEscrows: EscrowTrust.fromNostrEvent(
+          Nip01EventModel.fromJson(jsonDecode(json["hostsTrustedEscrows"]))),
     );
   }
 }

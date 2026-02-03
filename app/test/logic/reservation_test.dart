@@ -35,7 +35,7 @@ void main() {
         );
         return ReservationCubit(publisher: ep, ndk: getIt());
       },
-      act: (cubit) => cubit.createReservation(
+      act: (cubit) => cubit.createReservationRequest(
         listing: MOCK_LISTINGS[0],
         startDate: DateTime.now(),
         endDate: DateTime.now().add(Duration(days: 1)),

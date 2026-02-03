@@ -6,10 +6,12 @@ class MessagingListings {
   MessagingListings();
 
   static String getThreadListing({required Thread thread}) {
-    return (thread.messages.firstWhere((element) {
+    ReservationRequest? r =
+        (thread.messages.firstWhere((element) {
               return element.child is ReservationRequest;
             }).child
-            as ReservationRequest)
-        .listingAnchor;
+            as ReservationRequest);
+    if (r == null) throw Exception('Thread had to reservation requests');
+    return r.listingAnchor;
   }
 }

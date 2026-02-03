@@ -88,9 +88,7 @@ class ListingView extends StatelessWidget {
                                   ],
                                 ),
                                 const SizedBox(height: 8.0),
-                                ReviewsReservationsWidget(
-                                  a: state.data!.anchor,
-                                ),
+                                ReviewsReservationsWidget(listing: state.data!),
                                 const SizedBox(height: 8),
                                 AmenityTagsWidget(
                                   amenities:
@@ -111,7 +109,7 @@ class ListingView extends StatelessWidget {
                                       kinds: Review.kinds,
                                       nostrService: getIt(),
                                       filter: Filter(
-                                        aTags: [state.data!.anchor],
+                                        aTags: [state.data!.anchor!],
                                       ),
                                     )..next(),
                                     child: ListWidget<Review>(

@@ -59,7 +59,7 @@ class ReserveState extends State<Reserve> {
                       : () async {
                           await context
                               .read<ReservationCubit>()
-                              .createReservation(
+                              .createReservationRequest(
                                 listing: widget.listing,
                                 startDate: dateState.dateRange!.start,
                                 endDate: dateState.dateRange!.end,

@@ -29,18 +29,21 @@ class ReservationRequests extends CrudUseCase {
     // Generate random salt for this reservation request
     final salt = Helpers.getSecureRandomHex(32);
 
+    logger.d('Creating new reservation request with salt $salt');
     return ReservationRequest.fromNostrEvent(
       await ndk.accounts.sign(
         Nip01Event(
           kind: NOSTR_KIND_RESERVATION_REQUEST,
           tags: [
-            [REFERENCE_LISTING_TAG, listing.anchor],
+            ['a', listing.anchor!],
+            ['d', Helpers.getSecureRandomHex(32)],
           ],
           content: ReservationRequestContent(
             start: startDate,
             end: endDate,
             quantity: 1,
             amount: listing.cost(startDate, endDate),
+            // @todo: salt must be encrypted for me, so that the hoster can't publish a review on my behalf
             salt: salt,
           ).toString(),
           pubKey: ndk.accounts.getPublicKey()!,
