@@ -87,6 +87,7 @@ P1
 P2
 
 - [ ] Payment flow in one "snackbar" instead of repeated popups
+- [ ] Scan for NWC https://github.com/benthecarman/nips/blob/nostr-wallet-connect-connect/67.md
 
 ### Escrow
 

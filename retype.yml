@@ -4,12 +4,12 @@ url: # Add your website address here
 include:
   - ".doc/**/*"
   - "app/screenshots/*"
-  - "docs/architecture/**/*.md"
 exclude: 
   - "app"
   - "escrow"
   - "infrastructure"
   - "docker"
+  - "dependencies"
 
 branding:
   title: Hostr
@@ -19,10 +19,6 @@ branding:
 links:
   - text: Getting Started
     link: /.doc/guides/getting_started.md
-  - text: Ideal Architecture
-    link: /docs/architecture/ideal-architecture.md
-  - text: State & DI Guide
-    link: /.doc/guides/state_di.md
 
 generator:
   paths: absolute
