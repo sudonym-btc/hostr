@@ -14,7 +14,7 @@ class InboxScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.inbox)),
       body: StreamBuilder(
-        stream: getIt<Hostr>().messaging.threads.theadStream,
+        stream: getIt<Hostr>().messaging.threads.threadStream,
         builder: (context, snapshot) {
           final threads = getIt<Hostr>().messaging.threads.threads.values
               .toList();

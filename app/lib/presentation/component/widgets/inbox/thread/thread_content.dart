@@ -18,29 +18,27 @@ class ThreadContent extends StatelessWidget {
     final reservationsResponse = context
         .read<SubscriptionResponse<Reservation>>();
 
-    return Expanded(
-      child: StreamBuilder<List<Reservation>>(
-        stream: reservationsResponse.list,
-        builder: (context, reservationsSnapshot) {
-          return StreamBuilder<List<Message>>(
-            stream: thread.outputStream,
-            builder: (context, s) {
-              return ListView.builder(
-                itemCount: thread.messages.length,
-                itemBuilder: (listContext, index) {
-                  final message = thread.messages[index];
-                  return _buildMessage(
-                    context,
-                    thread,
-                    message,
-                    reservationsSnapshot.data ?? [],
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
+    return StreamBuilder<List<Reservation>>(
+      stream: reservationsResponse.list,
+      builder: (context, reservationsSnapshot) {
+        return StreamBuilder<List<Message>>(
+          stream: thread.outputStream,
+          builder: (context, s) {
+            return ListView.builder(
+              itemCount: thread.messages.length,
+              itemBuilder: (listContext, index) {
+                final message = thread.messages[index];
+                return _buildMessage(
+                  context,
+                  thread,
+                  message,
+                  reservationsSnapshot.data ?? [],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 

@@ -11,7 +11,7 @@ import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-class ThreadProvider extends StatelessWidget {
+class ThreadProvider extends StatefulWidget {
   final String threadId;
   final Widget child;
 
@@ -22,32 +22,57 @@ class ThreadProvider extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final threads = getIt<Hostr>().messaging.threads;
-    final thread = threads.threads[threadId];
+  State<ThreadProvider> createState() => _ThreadProviderState();
+}
 
-    if (thread == null) {
-      assert(false, 'Thread not found for id: $threadId');
-      return const SizedBox.shrink();
-    }
+class _ThreadProviderState extends State<ThreadProvider> {
+  SubscriptionResponse<Reservation>? _reservationsResponse;
+  String? _listingAnchor;
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureReservationsSubscription();
+  }
+
+  void _ensureReservationsSubscription() {
+    final threads = getIt<Hostr>().messaging.threads;
+    final thread = threads.threads[widget.threadId];
+    if (thread == null) return;
 
     final listingAnchor = MessagingListings.getThreadListing(thread: thread);
-    final reservationsResponse = getIt<Hostr>().requests.subscribe<Reservation>(
-      filter: Filter(kinds: Reservation.kinds, aTags: [listingAnchor]),
-    );
+    if (_reservationsResponse == null || _listingAnchor != listingAnchor) {
+      _reservationsResponse?.close();
+      _listingAnchor = listingAnchor;
+      _reservationsResponse = getIt<Hostr>().requests.subscribe<Reservation>(
+        filter: Filter(kinds: Reservation.kinds, aTags: [listingAnchor]),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final threads = getIt<Hostr>().messaging.threads;
+    final thread = threads.threads[widget.threadId];
+
+    if (thread == null) {
+      assert(false, 'Thread not found for id: ${widget.threadId}');
+      return const SizedBox.shrink();
+    }
+    final listingAnchor = MessagingListings.getThreadListing(thread: thread);
 
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<Thread>.value(value: thread),
         RepositoryProvider<SubscriptionResponse<Reservation>>.value(
-          value: reservationsResponse,
+          value: _reservationsResponse!,
         ),
       ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<ThreadCubit>(
             create: (_) => ThreadCubit(
-              ThreadCubitState(id: threadId, messages: thread.messages),
+              ThreadCubitState(id: widget.threadId, messages: thread.messages),
               nostrService: getIt<Hostr>(),
               thread: thread,
             ),
@@ -64,8 +89,14 @@ class ThreadProvider extends StatelessWidget {
                   ..load(thread.counterpartyPubkey()),
           ),
         ],
-        child: child,
+        child: widget.child,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _reservationsResponse?.close();
+    super.dispose();
   }
 }

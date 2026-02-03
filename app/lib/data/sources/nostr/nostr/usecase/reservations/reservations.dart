@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../crud.usecase.dart';
@@ -12,7 +16,8 @@ import '../messaging/messaging.dart';
 class Reservations extends CrudUseCase<Reservation> {
   final Messaging messaging;
   final Auth auth;
-  Stream<Reservation>? _myReservationsStream;
+  SubscriptionResponse<Reservation>? _myReservations;
+  StreamSubscription<Reservation>? _myReservationsSubscription;
   Reservations({
     required super.requests,
     required this.messaging,
@@ -31,14 +36,26 @@ class Reservations extends CrudUseCase<Reservation> {
     });
   }
 
-  Stream<Reservation> subscribeToMyReservations() {
-    if (_myReservationsStream != null) {
-      return _myReservationsStream!;
+  SubscriptionResponse<Reservation> subscribeToMyReservations() {
+    if (_myReservations != null) {
+      return _myReservations!;
     }
 
-    _myReservationsStream = messaging.threads.messageStream
+    print('processing reservation=s');
+
+    final response = SubscriptionResponse<Reservation>(
+      Helpers.getSecureRandomHex(32),
+    );
+    response.addStatus(SubscriptionStatusLive());
+
+    _myReservations = response;
+
+    final reservationsStream = messaging.threads.subscription!.replay
         .where((message) => message.child is ReservationRequest)
         .map((message) => message.child as ReservationRequest)
+        .doOnData((data) {
+          print('processing message in reservation habndler');
+        })
         .asyncMap((reservationRequest) async {
           logger.d(
             'Processing reservation request: $reservationRequest, ${reservationRequest.getFirstTag('a')}',
@@ -57,10 +74,15 @@ class Reservations extends CrudUseCase<Reservation> {
             orElse: () => throw Exception('Reservation not found'),
           );
         })
-        .publishReplay()
-        .refCount();
+        .distinct((a, b) => a.id == b.id);
 
-    return _myReservationsStream!;
+    _myReservationsSubscription?.cancel();
+    _myReservationsSubscription = reservationsStream.listen(
+      response.add,
+      onError: response.addError,
+    );
+
+    return response;
   }
 
   Future<List<RelayBroadcastResponse>> accept(
@@ -123,5 +145,10 @@ class Reservations extends CrudUseCase<Reservation> {
     await create(reservation);
     logger.d(reservation);
     return reservation;
+  }
+
+  void dispose() {
+    _myReservations?.close();
+    _myReservationsSubscription?.cancel();
   }
 }

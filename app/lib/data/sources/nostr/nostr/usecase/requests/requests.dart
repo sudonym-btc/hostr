@@ -31,9 +31,14 @@ class SubscriptionResponse<T extends Nip01Event> {
   /// The unique identifier for the request that generated this response.
   String requestId;
 
+  Function? onClose;
+
   StreamController<T> controller = StreamController<T>.broadcast();
   StreamController<SubscriptionStatus> statusController =
       StreamController<SubscriptionStatus>.broadcast();
+
+  late final ReplaySubject<T> _replaySubject = ReplaySubject<T>();
+  late final StreamSubscription<T> _replaySubscription;
 
   /// A stream of [T] objects returned by the request.
   ///
@@ -41,20 +46,26 @@ class SubscriptionResponse<T extends Nip01Event> {
   /// as they arrive from the nostr request.
   Stream<T> get stream => controller.stream;
 
+  /// A replaying stream of all [T] objects emitted since subscription start.
+  Stream<T> get replay => _replaySubject.stream;
+
   /// A stream of all items received so far, emitted when new items arrive.
-  late final ValueStream<List<T>> list;
+  late final BehaviorSubject<List<T>> _listSubject = BehaviorSubject.seeded(
+    <T>[],
+  );
+
+  ValueStream<List<T>> get list => _listSubject;
 
   /// A stream reporting the subscription status.
-  Stream<SubscriptionStatus> get status =>
-      statusController.stream.shareValueSeeded(SubscriptionStatusIdle());
+  late final ValueStream<SubscriptionStatus> status = statusController.stream
+      .shareValueSeeded(SubscriptionStatusIdle());
 
-  SubscriptionResponse(this.requestId) {
-    list = controller.stream
-        .scan<List<T>>(
-          (acc, value, _) => List.unmodifiable([...acc, value]),
-          <T>[],
-        )
-        .shareValueSeeded(<T>[]);
+  SubscriptionResponse(this.requestId, {this.onClose}) {
+    _replaySubscription = controller.stream.listen(
+      _replaySubject.add,
+      onError: _replaySubject.addError,
+      onDone: _replaySubject.close,
+    );
   }
 
   addError(Object error, StackTrace? stackTrace) {
@@ -68,15 +79,23 @@ class SubscriptionResponse<T extends Nip01Event> {
 
   add(T item) {
     controller.add(item);
+    final current = _listSubject.value;
+    _listSubject.add(List.unmodifiable([...current, item]));
   }
 
   addAll(List<T> items) {
-    items.map(add);
+    for (final item in items) {
+      add(item);
+    }
   }
 
   close() {
     controller.close();
     statusController.close();
+    _listSubject.close();
+    _replaySubscription.cancel();
+    _replaySubject.close();
+    onClose?.call();
   }
 
   Map<String, dynamic> toJson() {
@@ -135,7 +154,14 @@ class Requests extends RequestsModel {
       cacheWrite: false,
     );
 
-    final response = SubscriptionResponse<T>(queryResponse.requestId);
+    final subName = '${queryResponse.requestId}-sub';
+
+    final response = SubscriptionResponse<T>(
+      queryResponse.requestId,
+      onClose: () {
+        ndk.requests.closeSubscription(subName);
+      },
+    );
 
     response.addStatus(SubscriptionStatusQuerying());
 
@@ -156,6 +182,7 @@ class Requests extends RequestsModel {
                     ? maxCreatedAt + 1
                     : liveFilter.since);
           final subResponse = ndk.requests.subscription(
+            id: subName,
             filter: liveFilter,
             cacheRead: false,
             cacheWrite: false,

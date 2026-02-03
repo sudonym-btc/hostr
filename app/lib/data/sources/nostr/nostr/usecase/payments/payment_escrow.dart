@@ -113,7 +113,6 @@ class PaymentEscrow {
     logger.i('Checking escrow status for reservation: $reservationRequestId');
     Uint8List idBytes32 = getBytes32(reservationRequestId);
     logger.d(reservationRequestId);
-    logger.d('idBytes32: ${idBytes32.length} bytes');
     String hexTopic = getTopicHex(idBytes32);
 
     EscrowTrust? myTrustedEscrows = await escrowTrusts.trusted(
@@ -134,8 +133,6 @@ class PaymentEscrow {
       ...myTrustedList?.elements ?? [],
       ...theirTrustedList?.elements ?? [],
     ];
-
-    logger.d('Trusted escrows: $trustedEscrows');
 
     if (trustedEscrows.isEmpty) {
       logger.w('No trusted escrows for either party.');
@@ -167,15 +164,14 @@ class PaymentEscrow {
         EthereumAddress a = EthereumAddress.fromHex(
           escrow.parsedContent.contractAddress,
         );
-        print('parsed address ${a.eip55With0x}');
         final chainId = await evmChain.client.getChainId();
         final code = await evmChain.client.getCode(a);
         final balance = await evmChain.client.getBalance(a);
-        logger.d('EVM chainId: $chainId');
-        logger.d('Contract code length: ${code.length}');
-        logger.d(
-          'Contract balance: ${balance.getValueInUnit(EtherUnit.ether)}',
-        );
+        // logger.d('EVM chainId: $chainId');
+        // logger.d('Contract code length: ${code.length}');
+        // logger.d(
+        //   'Contract balance: ${balance.getValueInUnit(EtherUnit.ether)}',
+        // );
         if (code.isEmpty || code == '0x') {
           logger.w('No contract code at ${a.eip55With0x}; skipping.');
           continue;
@@ -191,7 +187,6 @@ class PaymentEscrow {
           padToEvenLength: true,
           include0x: true,
         );
-        logger.i('Log sig $sig');
         final filter = FilterOptions(
           topics: [
             [
