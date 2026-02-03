@@ -12,10 +12,10 @@ add
 
 `127.0.0.1  relay` -->
 
-Install dnsmasq and route hostr.development to docker.
+Install dependencies: dnsmasq and route hostr.development to docker.
 
 ```bash
-# sh docker/certs.sh
+ sh ./scripts/install.sh
 ```
 
 Launch all services to fully test app.
@@ -28,6 +28,12 @@ Power down.
 
 ```bash
 ./scripts/stop.sh
+```
+
+Tear down.
+
+```bash
+./scripts/restart.sh
 ```
 
 Wipe the local relay.

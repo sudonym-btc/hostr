@@ -1,4 +1,4 @@
-# Compile Swap ABIs
+# Compile ABIs
 
 We use [Boltz](https://boltz.exchange/) to swap into and out of escrow contracts on [Rootstock](https://rootstock.io/)'s EVM L2.
 

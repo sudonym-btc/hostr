@@ -52,7 +52,7 @@ flutter run
 ## Improvements
 
 - Swap in transaction should go straight into the contract
-- Escrow contract COULD encode bolt12, and then escrcow can do the swap by proving they paid a corresponding bolt11 invoice and releasing the funds to themselves. Out of scope.
+- Escrow contract COULD encode bolt12, and then escrcow can do the swap by proving they paid a corresponding bolt11 invoice and releasing the funds to themselves. Out of scope. For now using LUD16 for zapReceipt.
 
 ## Assets
 
