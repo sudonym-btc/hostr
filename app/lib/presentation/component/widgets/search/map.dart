@@ -33,6 +33,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     false,
   );
   final Set<String> _fetchedIds = {}; // Set to keep track of fetched IDs
+  StreamSubscription<ListCubitState<Listing>>? _listSubscription;
 
   void _onMapCreated(GoogleMapController controller) {
     widget.logger.i("Map created");
@@ -44,7 +45,9 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     }
   }
 
-  Future<void> fetchLocationsAndMoveCamera(ListCubitState<Listing> state) async {
+  Future<void> fetchLocationsAndMoveCamera(
+    ListCubitState<Listing> state,
+  ) async {
     widget.logger.i("New state $state");
 
     // Add markers for new locations
@@ -89,7 +92,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     WidgetsBinding.instance.addObserver(this);
 
     widget.logger.i("Init state");
-    _mapReadySubject
+    _listSubscription = _mapReadySubject
         /// Only emit when the map is ready
         .where((isReady) => isReady)
         .doOnData((boo) {
@@ -147,6 +150,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _listSubscription?.cancel();
     _mapReadySubject.close();
     // _controller = Completer<GoogleMapController>();
     super.dispose();

@@ -17,6 +17,7 @@ class MockRelay {
   Subject<Nip01Event> onAddEvent = BehaviorSubject();
   bool signEvents;
   bool requireAuthForRequests;
+  final List<StreamSubscription<Nip01Event>> _eventSubscriptions = [];
 
   static int startPort = 4040;
 
@@ -67,87 +68,97 @@ class MockRelay {
           challenge = Helpers.getRandomString(10);
           webSocket.add(jsonEncode(["AUTH", challenge]));
         }
-        webSocket.listen((message) {
-          if (message == "ping") {
-            webSocket.add("pong");
-            return;
-          }
-          var eventJson = json.decode(message);
-          if (eventJson[0] == "AUTH") {
-            Nip01Event event = Nip01EventModel.fromJson(eventJson[1]);
-            if (verify(event.pubKey, event.id, event.sig!)) {
-              String? relay = event.getFirstTag("relay");
-              String? eventChallenge = event.getFirstTag("challenge");
-              if (eventChallenge == challenge && relay == url) {
-                signedChallenge = true;
-              }
+        webSocket.listen(
+          (message) {
+            if (message == "ping") {
+              webSocket.add("pong");
+              return;
             }
-            webSocket.add(
-              jsonEncode([
-                "OK",
-                event.id,
-                signedChallenge,
-                signedChallenge
-                    ? ""
-                    : "auth-required: we can't serve requests to unauthenticated users",
-              ]),
-            );
-            return;
-          }
-          if (requireAuthForRequests && !signedChallenge) {
-            webSocket.add(
-              jsonEncode([
-                "CLOSED",
-                "sub_1",
-                "auth-required: we can't serve requests to unauthenticated users",
-              ]),
-            );
-            return;
-          }
-          if (eventJson[0] == "REQ") {
-            String requestId = eventJson[1];
-            log('Received: $eventJson');
-            Filter filter = Filter.fromMap(eventJson[2]);
-            for (Nip01Event e in this.events) {
-              if (matchEvent(e, filter)) {
-                _respondEvent(requestId, e);
+            var eventJson = json.decode(message);
+            if (eventJson[0] == "AUTH") {
+              Nip01Event event = Nip01EventModel.fromJson(eventJson[1]);
+              if (verify(event.pubKey, event.id, event.sig!)) {
+                String? relay = event.getFirstTag("relay");
+                String? eventChallenge = event.getFirstTag("challenge");
+                if (eventChallenge == challenge && relay == url) {
+                  signedChallenge = true;
+                }
               }
+              webSocket.add(
+                jsonEncode([
+                  "OK",
+                  event.id,
+                  signedChallenge,
+                  signedChallenge
+                      ? ""
+                      : "auth-required: we can't serve requests to unauthenticated users",
+                ]),
+              );
+              return;
             }
-            List<dynamic> eose = [];
-            eose.add("EOSE");
-            eose.add(requestId);
-            webSocket.add(jsonEncode(eose));
-            // @todo not closing closed connections could lead to memory leaks
-            onAddEvent
-                // .takeUntil(webSocket.asBroadcastStream())
-                .where((event) {
-                  return matchEvent(event, filter);
-                })
-                .listen((event) => _respondEvent(requestId, event));
-          } else if (eventJson[0] == "EVENT") {
-            log('Received: $eventJson');
-            Nip01Event event = Nip01EventModel.fromJson(eventJson[1]);
-            List<Nip01Event> existingEvents = this.events
-                .where(
-                  (e) =>
-                      e.pubKey == event.pubKey &&
-                      e.kind == event.kind &&
-                      e.getFirstTag('d') != null &&
-                      event.getFirstTag('d') != null &&
-                      e.getFirstTag('d') == event.getFirstTag('d'),
-                )
-                .toList();
-            if (existingEvents.isNotEmpty) {
-              for (var e in existingEvents) {
-                this.events.remove(e);
-                log('Updated existing event: ${e.id}');
+            if (requireAuthForRequests && !signedChallenge) {
+              webSocket.add(
+                jsonEncode([
+                  "CLOSED",
+                  "sub_1",
+                  "auth-required: we can't serve requests to unauthenticated users",
+                ]),
+              );
+              return;
+            }
+            if (eventJson[0] == "REQ") {
+              String requestId = eventJson[1];
+              log('Received: $eventJson');
+              Filter filter = Filter.fromMap(eventJson[2]);
+              for (Nip01Event e in this.events) {
+                if (matchEvent(e, filter)) {
+                  _respondEvent(requestId, e);
+                }
               }
+              List<dynamic> eose = [];
+              eose.add("EOSE");
+              eose.add(requestId);
+              webSocket.add(jsonEncode(eose));
+              // @todo not closing closed connections could lead to memory leaks
+              final sub = onAddEvent
+                  // .takeUntil(webSocket.asBroadcastStream())
+                  .where((event) {
+                    return matchEvent(event, filter);
+                  })
+                  .listen((event) => _respondEvent(requestId, event));
+              _eventSubscriptions.add(sub);
+            } else if (eventJson[0] == "EVENT") {
+              log('Received: $eventJson');
+              Nip01Event event = Nip01EventModel.fromJson(eventJson[1]);
+              List<Nip01Event> existingEvents = this.events
+                  .where(
+                    (e) =>
+                        e.pubKey == event.pubKey &&
+                        e.kind == event.kind &&
+                        e.getFirstTag('d') != null &&
+                        event.getFirstTag('d') != null &&
+                        e.getFirstTag('d') == event.getFirstTag('d'),
+                  )
+                  .toList();
+              if (existingEvents.isNotEmpty) {
+                for (var e in existingEvents) {
+                  this.events.remove(e);
+                  log('Updated existing event: ${e.id}');
+                }
+              }
+              this.events.add(event);
+              onAddEvent.add(event);
+              webSocket.add(jsonEncode(["OK", event.id, true, '']));
             }
-            this.events.add(event);
-            onAddEvent.add(event);
-            webSocket.add(jsonEncode(["OK", event.id, true, '']));
-          }
-        });
+          },
+          onDone: () {
+            _cancelEventSubscriptions();
+          },
+          onError: (error) {
+            log(' error: $error');
+            _cancelEventSubscriptions();
+          },
+        );
       },
       onError: (error) {
         log(' error: $error');
@@ -171,10 +182,19 @@ class MockRelay {
   }
 
   Future<void> stopServer() async {
+    _cancelEventSubscriptions();
+    await onAddEvent.close();
     if (server != null) {
       log('closing server on localhost:$url');
       return await server!.close();
     }
+  }
+
+  void _cancelEventSubscriptions() {
+    for (final sub in _eventSubscriptions) {
+      sub.cancel();
+    }
+    _eventSubscriptions.clear();
   }
 }
 

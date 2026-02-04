@@ -96,6 +96,14 @@ class Nwc {
       invoice: invoice,
     );
   }
+
+  Future<void> dispose() async {
+    for (final connection in connections) {
+      await connection.close();
+    }
+    connections.clear();
+    await _connectionsSubject.close();
+  }
 }
 
 @Singleton(as: Nwc, env: [Env.test, Env.mock])

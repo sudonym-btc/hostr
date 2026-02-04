@@ -98,6 +98,10 @@ class Auth {
     }
   }
 
+  Future<void> dispose() async {
+    await _authStateContoller.close();
+  }
+
   /// Validates and returns a private key hex string.
   String _parseAndValidateKey(String input) {
     final trimmed = input.trim();

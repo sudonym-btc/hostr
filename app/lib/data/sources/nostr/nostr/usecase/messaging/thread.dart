@@ -67,4 +67,8 @@ class Thread {
     final latest = messages.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
     return latest.pubKey == ours;
   }
+
+  Future<void> dispose() async {
+    await _messagesStreamController.close();
+  }
 }
