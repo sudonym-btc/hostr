@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/main.dart';
 
 /// Wrapper that shows a global syncing indicator until initial data is ready.
 class LoadingPage extends StatelessWidget {
@@ -13,13 +12,14 @@ class LoadingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nostrService = getIt<Hostr>();
-
-    return BlocBuilder<AuthCubit, AuthState>(
-      builder: (context, authState) {
-        if (authState is LoggedIn) {
+    return StreamBuilder<AuthState>(
+      stream: getIt<Hostr>().auth.authState,
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data is LoggedIn) {
           return StreamBuilder<SubscriptionStatus>(
             stream: nostrService.messaging.threads.status,
             builder: (context, snapshot) {
+              // If this user is logged in, make sure we
               if (snapshot.data is SubscriptionStatusLive) {
                 return child;
               }

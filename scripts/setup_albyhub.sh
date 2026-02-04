@@ -14,7 +14,7 @@ setup_albyhub() {
     local AUTH_TOKEN=""
     local ROOT_DIR
     ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-    local PAIRING_FILE="$ROOT_DIR/pairing_urls.txt"
+    local PAIRING_FILE="$ROOT_DIR/docker/data/pairing_urls.txt"
 
     # Function to setup AlbyHub
     setup_albyhub_init() {

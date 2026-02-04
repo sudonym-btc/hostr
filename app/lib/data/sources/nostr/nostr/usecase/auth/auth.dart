@@ -1,7 +1,11 @@
+import 'dart:async';
+
+import 'package:equatable/equatable.dart';
 import 'package:hostr/export.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:rxdart/rxdart.dart';
 
 @Singleton()
 class Auth {
@@ -9,6 +13,9 @@ class Auth {
   final CustomLogger _logger = CustomLogger();
   final KeyStorage keyStorage;
   final SecureStorage secureStorage;
+  final BehaviorSubject<AuthState> _authStateContoller =
+      BehaviorSubject<AuthState>.seeded(AuthInitial());
+  ValueStream<AuthState> get authState => _authStateContoller;
   KeyPair? activeKeyPair;
 
   Auth({
@@ -21,8 +28,7 @@ class Auth {
   Future<void> signup() async {
     _logger.i('AuthService.signup');
     await logout();
-    String key = await keyStorage.create();
-    await signin(key);
+    await signin(await keyStorage.create());
   }
 
   /// Imports a private key (hex) or mnemonic and stores it.
@@ -30,56 +36,66 @@ class Auth {
     _logger.i('AuthService.signin');
     final privateKey = _parseAndValidateKey(input);
     await keyStorage.set(privateKey);
-    activeKeyPair = await keyStorage.getActiveKeyPair();
-    // Setup NDK with the imported key
-    final pubkey = activeKeyPair?.publicKey;
-    if (pubkey != null) {
-      ndk.accounts.loginPrivateKey(privkey: privateKey, pubkey: pubkey);
-    }
-  }
-
-  Future<void> init() async {
-    await isAuthenticated();
-    await ensureNdkLoggedIn();
-  }
-
-  /// Returns whether there is an active key pair.
-  Future<bool> isAuthenticated() async {
-    activeKeyPair = await keyStorage.getActiveKeyPair();
-    return activeKeyPair != null;
-  }
-
-  /// Restores NDK login using the stored key, if any.
-  Future<bool> ensureNdkLoggedIn() async {
-    if (activeKeyPair == null ||
-        activeKeyPair!.publicKey == null ||
-        activeKeyPair!.privateKey == null) {
-      return false;
-    }
-
-    final pubkey = activeKeyPair!.publicKey!;
-    final privkey = activeKeyPair!.privateKey!;
-    final alreadyLoggedIn =
-        ndk.accounts.accounts.containsKey(pubkey) ||
-        ndk.accounts.getPublicKey() == pubkey;
-
-    if (!alreadyLoggedIn) {
-      _logger.i('Restoring NDK session for stored key');
-      ndk.accounts.loginPrivateKey(privkey: privkey, pubkey: pubkey);
-    }
-
-    return true;
+    await _loadActiveKeyPair();
+    ensureNdkAccountsMatch();
+    _syncAuthState();
   }
 
   /// Wipes key storage and secure storage.
   Future<void> logout() async {
     _logger.i('AuthService.logout');
-    activeKeyPair = null;
     await keyStorage.wipe();
     await secureStorage.wipe();
-    ndk.accounts.accounts.forEach((pubkey, account) {
-      ndk.accounts.removeAccount(pubkey: pubkey);
-    });
+    _loadActiveKeyPair();
+    _syncAuthState();
+  }
+
+  Future<void> init() async {
+    await _loadActiveKeyPair();
+    ensureNdkAccountsMatch();
+    _syncAuthState();
+  }
+
+  /// Returns whether there is an active key pair.
+  Future<bool> isAuthenticated() async {
+    await _loadActiveKeyPair();
+    return activeKeyPair != null;
+  }
+
+  /// Restores NDK login using the stored key, if any.
+  bool ensureNdkAccountsMatch() {
+    if (activeKeyPair == null) {
+      ndk.accounts.accounts.forEach((pubkey, account) {
+        ndk.accounts.removeAccount(pubkey: pubkey);
+      });
+    } else {
+      final pubkey = activeKeyPair!.publicKey!;
+      final privkey = activeKeyPair!.privateKey!;
+      final alreadyLoggedIn =
+          ndk.accounts.accounts.containsKey(pubkey) ||
+          ndk.accounts.getPublicKey() == pubkey;
+
+      if (!alreadyLoggedIn) {
+        _logger.i('Restoring NDK account for stored key');
+        ndk.accounts.loginPrivateKey(privkey: privkey, pubkey: pubkey);
+      }
+    }
+
+    return true;
+  }
+
+  Future<void> _loadActiveKeyPair() async {
+    activeKeyPair = await keyStorage.getActiveKeyPair();
+  }
+
+  void _syncAuthState() {
+    _emitAuthState(activeKeyPair != null ? const LoggedIn() : LoggedOut());
+  }
+
+  void _emitAuthState(AuthState state) {
+    if (_authStateContoller.value != state) {
+      _authStateContoller.add(state);
+    }
   }
 
   /// Validates and returns a private key hex string.
@@ -103,4 +119,29 @@ class Auth {
   bool _isHex(String str) {
     return RegExp(r'^[0-9a-fA-F]+$').hasMatch(str);
   }
+}
+
+/// Abstract class representing the state of authentication.
+abstract class AuthState extends Equatable {
+  const AuthState();
+
+  @override
+  List<Object> get props => [];
+}
+
+/// Initial state of authentication.
+class AuthInitial extends AuthState {}
+
+/// State representing a logged-out user.
+class LoggedOut extends AuthState {}
+
+/// State representing a progress in authentication.
+// class Progress extends AuthState {
+//   Stream<DelegationProgress> progress;
+//   Progress(this.progress);
+// }
+
+/// State representing a logged-in user.
+class LoggedIn extends AuthState {
+  const LoggedIn();
 }
