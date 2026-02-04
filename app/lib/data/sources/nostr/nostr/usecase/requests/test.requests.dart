@@ -75,12 +75,11 @@ class TestRequests extends Requests implements RequestsModel {
   }) {
     final subId = 'sub_${_subCounter++}';
     late final _Subscription<T> subscription;
-    final SubscriptionResponse response = SubscriptionResponse(
+    final SubscriptionResponse<T> response = SubscriptionResponse<T>(
       onClose: () {
         _subscriptions.remove(subscription);
       },
     );
-
     subscription = _Subscription<T>(
       id: subId,
       filter: filter,
@@ -102,15 +101,13 @@ class TestRequests extends Requests implements RequestsModel {
       return parsedEvents;
     }();
 
-    response.addStatus(SubscriptionStatusQueryComplete());
-
     initialFuture.then((events) {
       response.addAll(events);
       response.addStatus(SubscriptionStatusQueryComplete());
       response.addStatus(SubscriptionStatusLive());
     });
 
-    return SubscriptionResponse<T>();
+    return response;
   }
 
   @override
