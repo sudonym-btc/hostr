@@ -81,6 +81,12 @@ abstract class Hostr {
 
   void dispose() {
     stop();
+    messaging.threads.close();
+    reservations.dispose();
+    payments.dispose();
+    nwc.dispose();
+    evm.dispose();
+    auth.dispose();
   }
 }
 

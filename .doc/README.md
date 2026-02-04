@@ -57,6 +57,8 @@ Quickstart: see the client app guide at `app/README.md` for run targets by envir
 P1
 
 - [ ] Background worker: https://docs.page/fluttercommunity/flutter_workmanager/quickstart
+- [ ] Rif-relay mocking
+- [ ] Event validation - async?
 - [ ] Startup loading page
   - [ ] Sync giftwraps
   - [ ] Broadcast preferred user blossom servers if not found

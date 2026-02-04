@@ -77,4 +77,11 @@ class Evm {
 
     return _balanceSubject!.stream;
   }
+
+  Future<void> dispose() async {
+    await _balanceSubscription?.cancel();
+    _balanceSubscription = null;
+    await _balanceSubject?.close();
+    _balanceSubject = null;
+  }
 }

@@ -138,6 +138,11 @@ class Threads extends HydratedCubit<List<Message>> {
   Future<void> close() async {
     // @todo are the right close methods called here?
     stop();
+    for (final thread in threads.values) {
+      await thread.dispose();
+    }
+    threads.clear();
+    await threadController.close();
     await _statusSubject.close();
     return super.close();
   }

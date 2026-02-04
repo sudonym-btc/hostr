@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
@@ -28,6 +29,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   late StreamSubscription? postResultFilterSubscription;
   StreamSubscription<T>? nostrSubscription;
   StreamSubscription<T>? requestSubscription;
+  SubscriptionResponse<T>? _nostrResponse;
 
   ListCubit({
     this.nostrInstance,
@@ -81,18 +83,18 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
 
   Future<void> sync() async {
     await nostrSubscription?.cancel();
+    _nostrResponse?.close();
+    _nostrResponse = null;
     emit(state.copyWith(synching: true));
     logger.i("sync");
     Filter finalFilter = getFilter();
     logger.t('listFilter: $finalFilter');
     await next();
     emit(state.copyWith(synching: false));
-    nostrSubscription = nostrService.requests
-        .subscribe<T>(filter: finalFilter)
-        .stream
-        .listen((event) {
-          addItem(event);
-        });
+    _nostrResponse = nostrService.requests.subscribe<T>(filter: finalFilter);
+    nostrSubscription = _nostrResponse!.stream.listen((event) {
+      addItem(event);
+    });
   }
 
   void reset() {
@@ -119,6 +121,8 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
 
   void applyFilter(FilterState filter) {
     nostrSubscription?.cancel();
+    _nostrResponse?.close();
+    _nostrResponse = null;
     requestSubscription?.cancel();
     reset();
     next();
@@ -163,7 +167,8 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   Future<void> close() async {
     await nostrSubscription?.cancel();
     await requestSubscription?.cancel();
-    // @TODO: Close the actual nostr subscription too hostr.requests.cancelSubscription
+    _nostrResponse?.close();
+    _nostrResponse = null;
     filterSubscription?.cancel();
     sortSubscription?.cancel();
     postResultFilterSubscription?.cancel();
