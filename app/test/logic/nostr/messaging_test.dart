@@ -133,7 +133,7 @@ void main() {
       // Assert
       expect(threads.threads.containsKey(threadId), true);
       expect(threads.threads[threadId]!.messages.length, 1);
-      expect(threads.threads[threadId]!.id, threadId);
+      expect(threads.threads[threadId]!.anchor, threadId);
     });
 
     test('Multiple messages added to same thread', () {
@@ -263,7 +263,7 @@ void main() {
         emits(
           isA<List<Thread>>()
               .having((list) => list.length, 'length', 1)
-              .having((list) => list[0].id, 'id', threadId),
+              .having((list) => list[0].anchor, 'id', threadId),
         ),
       );
 

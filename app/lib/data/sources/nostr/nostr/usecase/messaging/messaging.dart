@@ -71,7 +71,7 @@ class Messaging {
     broadcastEvent(event: event, tags: tags, recipientPubkey: recipientPubkey);
 
     // Need to get the wrapped event here
-    return threads.awaitId(rumor.id);
+    return threads.awaitMessageId(rumor.id);
   }
 
   Future<List<Future<List<RelayBroadcastResponse>>>> broadcastEvent({

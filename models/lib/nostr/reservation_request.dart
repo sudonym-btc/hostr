@@ -8,12 +8,9 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class ReservationRequest
     extends JsonContentNostrEvent<ReservationRequestContent>
-    with
-        ReferencesListing<ReservationRequest>,
-        ReferencesThread<ReservationRequest> {
+    with ReferencesListing<ReservationRequest> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION_REQUEST];
   static const requiredTags = [
-    [THREAD_REFERENCE_TAG],
     [LISTING_REFERENCE_TAG]
   ];
   ReservationRequest(

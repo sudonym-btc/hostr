@@ -8,5 +8,5 @@ Widget thread(BuildContext context) {
   context.knobs.boolean(label: 'test');
   // BlocProvider.of<GlobalGiftWrapCubit>(context)
   // .addItem(MOCK_GUEST_RESERVATION_REQUEST[0]);
-  return ThreadScreen(id: '1');
+  return ThreadScreen(anchor: '1');
 }

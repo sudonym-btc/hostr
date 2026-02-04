@@ -16,9 +16,8 @@ class Threads extends HydratedCubit<List<Message>> {
   final Requests requests;
   final Ndk ndk;
 
-  final StreamController<Message> threadController =
-      StreamController<Message>();
-  Stream<Message<Event>> get threadStream => threadController.stream;
+  final StreamController<Thread> threadController = StreamController<Thread>();
+  Stream<Thread> get threadStream => threadController.stream;
 
   final BehaviorSubject<SubscriptionStatus> _statusSubject =
       BehaviorSubject<SubscriptionStatus>.seeded(SubscriptionStatusIdle());
@@ -75,7 +74,7 @@ class Threads extends HydratedCubit<List<Message>> {
 
   /// Waits for a message with the specified ID to be received.
   /// Listens to the replay subject which captures all messages.
-  Future<Message> awaitId(String expectedId) {
+  Future<Message> awaitMessageId(String expectedId) {
     logger.d('Awaiting message with id $expectedId');
     return subscription!.replay.firstWhere(
       (message) => message.id == expectedId,
@@ -95,7 +94,7 @@ class Threads extends HydratedCubit<List<Message>> {
 
     if (threads[id] == null) {
       threads[id] = Thread(id, messaging: messaging, accounts: ndk.accounts);
-      threadController.add(message);
+      threadController.add(threads[id]!);
     }
     threads[id]!.addMessage(message);
     emit([...state, message]);

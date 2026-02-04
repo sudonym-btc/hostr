@@ -35,7 +35,7 @@ class InboxItem extends StatelessWidget {
             ),
             subtitle: subtitle,
             onTap: () {
-              AutoRouter.of(context).push(ThreadRoute(id: thread.id));
+              AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
             },
           );
         }
@@ -58,7 +58,7 @@ class InboxItem extends StatelessWidget {
             ],
           ),
           onTap: () {
-            AutoRouter.of(context).push(ThreadRoute(id: thread.id));
+            AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
           },
         );
       },

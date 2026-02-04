@@ -325,11 +325,11 @@ class SignInRouteArgs {
 /// generated route for
 /// [ThreadScreen]
 class ThreadRoute extends PageRouteInfo<ThreadRouteArgs> {
-  ThreadRoute({required String id, List<PageRouteInfo>? children})
+  ThreadRoute({required String anchor, List<PageRouteInfo>? children})
     : super(
         ThreadRoute.name,
-        args: ThreadRouteArgs(id: id),
-        rawPathParams: {'id': id},
+        args: ThreadRouteArgs(anchor: anchor),
+        rawPathParams: {'anchor': anchor},
         initialChildren: children,
       );
 
@@ -340,32 +340,32 @@ class ThreadRoute extends PageRouteInfo<ThreadRouteArgs> {
     builder: (data) {
       final pathParams = data.inheritedPathParams;
       final args = data.argsAs<ThreadRouteArgs>(
-        orElse: () => ThreadRouteArgs(id: pathParams.getString('id')),
+        orElse: () => ThreadRouteArgs(anchor: pathParams.getString('anchor')),
       );
-      return ThreadScreen(id: args.id);
+      return ThreadScreen(anchor: args.anchor);
     },
   );
 }
 
 class ThreadRouteArgs {
-  const ThreadRouteArgs({required this.id});
+  const ThreadRouteArgs({required this.anchor});
 
-  final String id;
+  final String anchor;
 
   @override
   String toString() {
-    return 'ThreadRouteArgs{id: $id}';
+    return 'ThreadRouteArgs{anchor: $anchor}';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     if (other is! ThreadRouteArgs) return false;
-    return id == other.id;
+    return anchor == other.anchor;
   }
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => anchor.hashCode;
 }
 
 /// generated route for

@@ -131,9 +131,10 @@ class MockRelay {
                 .where(
                   (e) =>
                       e.pubKey == event.pubKey &&
-                      e.getFirstTag('a') != null &&
-                      event.getFirstTag('a') != null &&
-                      e.getFirstTag('a') == event.getFirstTag('a'),
+                      e.kind == event.kind &&
+                      e.getFirstTag('d') != null &&
+                      event.getFirstTag('d') != null &&
+                      e.getFirstTag('d') == event.getFirstTag('d'),
                 )
                 .toList();
             if (existingEvents.isNotEmpty) {
@@ -177,6 +178,7 @@ class MockRelay {
   }
 }
 
+// @todo match all TAGS!!!
 bool matchEvent(Nip01Event event, Filter filter) {
   /// Only match the correct event kinds
   if (filter.kinds != null && !filter.kinds!.contains(event.kind)) {

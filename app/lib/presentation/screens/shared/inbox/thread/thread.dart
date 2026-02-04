@@ -5,12 +5,13 @@ import 'package:hostr/presentation/component/widgets/inbox/thread/thread_view.da
 
 @RoutePage()
 class ThreadScreen extends StatelessWidget {
-  final String id;
+  final String anchor;
   // ignore: use_key_in_widget_constructors
-  const ThreadScreen({@pathParam required this.id});
+  const ThreadScreen({@pathParam required this.anchor});
 
   @override
   Widget build(BuildContext context) {
-    return ThreadProvider(threadId: id, child: ThreadView());
+    print('Building ThreadScreen with tag: $anchor');
+    return ThreadProvider(threadId: anchor, child: ThreadView());
   }
 }
