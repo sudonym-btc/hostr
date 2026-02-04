@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/data/main.dart';
 import 'package:models/main.dart';
+import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 
 import 'guest_view.dart';
 
@@ -49,6 +50,7 @@ class ThreadReservationRequestHostViewWidget
     );
   }
 
+  @override
   Widget actionButton(BuildContext context) {
     final action = ReservationRequest.resolveHostAction(
       status: reservationStatus,
@@ -63,6 +65,7 @@ class ThreadReservationRequestHostViewWidget
     }
   }
 
+  @override
   Widget statusText(BuildContext context) {
     switch (reservationStatus) {
       case ReservationRequestStatus.unconfirmed:
@@ -83,7 +86,7 @@ class ThreadReservationRequestHostViewWidget
     }
   }
 
-  accept(BuildContext context) {
+  Future<List<RelayBroadcastResponse>> accept(BuildContext context) {
     return context.read<Hostr>().reservations.accept(
       item,
       reservationRequest,

@@ -28,12 +28,12 @@ class KeyStorage {
     return keyPair;
   }
 
-  set(String item) async {
+  Future<String> set(String item) async {
     await getIt<SecureStorage>().set('keys', [item]);
     return item;
   }
 
-  get() async {
+  Future<dynamic> get() async {
     var items = await getIt<SecureStorage>().get('keys');
     if (items == null || items.length == 0) {
       return [];
@@ -41,12 +41,12 @@ class KeyStorage {
     return items;
   }
 
-  create() {
+  KeyPair create() {
     var key = Bip340.generatePrivateKey();
     return key;
   }
 
-  wipe() {
+  Future<dynamic> wipe() {
     keyPair = null;
     return getIt<SecureStorage>().set('keys', null);
   }

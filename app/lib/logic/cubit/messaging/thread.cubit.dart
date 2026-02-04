@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/util/custom_logger.dart';
 import 'package:hostr/data/main.dart';
@@ -29,14 +27,14 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
       Event? content = m.child;
       if (content is ReservationRequest) {
         if (m.pubKey == ours.publicKey) {
-          return LatestThreadState.RESERVATION_REQUEST_SENT;
+          return LatestThreadState.reservationRequestSent;
         }
-        return LatestThreadState.RESERVATION_REQUEST_RECEIVED;
+        return LatestThreadState.reservationRequestReceived;
       } else {
         if (m.pubKey == ours.publicKey) {
-          return LatestThreadState.MESSAGE_SENT;
+          return LatestThreadState.messageSent;
         }
-        return LatestThreadState.MESSAGE_RECEIVED;
+        return LatestThreadState.messageReceived;
       }
     }
 
@@ -44,21 +42,16 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
     return null;
   }
 
-  getReadStatus() {}
-
-  @override
-  Future<void> close() async {
-    return super.close();
-  }
+  void getReadStatus() {}
 }
 
 enum LatestThreadState {
-  RESERVATION_REQUEST_RECEIVED,
-  RESERVATION_REQUEST_SENT,
-  MESSAGE_SENT,
-  MESSAGE_RECEIVED,
-  CONFIRMED,
-  CANCELLED,
+  reservationRequestReceived,
+  reservationRequestSent,
+  messageSent,
+  messageReceived,
+  confirmed,
+  cancelled,
 }
 
 class ThreadCubitState {

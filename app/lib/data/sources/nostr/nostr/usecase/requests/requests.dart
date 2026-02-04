@@ -63,28 +63,28 @@ class SubscriptionResponse<T extends Nip01Event> {
     );
   }
 
-  addError(Object error, StackTrace? stackTrace) {
+  void addError(Object error, StackTrace? stackTrace) {
     status.add(SubscriptionStatusError(error, stackTrace));
     controller.addError(error, stackTrace);
   }
 
-  addStatus(SubscriptionStatus newStatus) {
+  void addStatus(SubscriptionStatus newStatus) {
     status.add(newStatus);
   }
 
-  add(T item) {
+  void add(T item) {
     controller.add(item);
     final current = _listSubject.value;
     _listSubject.add(List.unmodifiable([...current, item]));
   }
 
-  addAll(List<T> items) {
+  void addAll(List<T> items) {
     for (final item in items) {
       add(item);
     }
   }
 
-  close() {
+  void close() {
     controller.close();
     status.close();
     _listSubject.close();

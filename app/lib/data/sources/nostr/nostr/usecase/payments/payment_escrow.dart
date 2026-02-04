@@ -31,7 +31,7 @@ class PaymentEscrow {
     required this.evm,
   });
 
-  listEvents({required EvmChain evmChain, required Escrow escrow}) async {
+  Future<void> listEvents({required EvmChain evmChain, required Escrow escrow}) async {
     MultiEscrow e = MultiEscrow(
       address: EthereumAddress.fromHex(escrow.parsedContent.contractAddress),
       client: evmChain.client,

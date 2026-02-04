@@ -34,7 +34,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
   );
   final Set<String> _fetchedIds = {}; // Set to keep track of fetched IDs
 
-  _onMapCreated(GoogleMapController controller) {
+  void _onMapCreated(GoogleMapController controller) {
     widget.logger.i("Map created");
     if (!_controller.isCompleted && mounted) {
       widget.logger.i("Map completed");
@@ -44,7 +44,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     }
   }
 
-  fetchLocationsAndMoveCamera(ListCubitState<Listing> state) async {
+  Future<void> fetchLocationsAndMoveCamera(ListCubitState<Listing> state) async {
     widget.logger.i("New state $state");
 
     // Add markers for new locations
@@ -104,7 +104,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
         .listen(fetchLocationsAndMoveCamera);
   }
 
-  _calculateBounds() {
+  LatLngBounds _calculateBounds() {
     double minLat = _markers.values
         .map((p) => p.position.latitude)
         .reduce((a, b) => a < b ? a : b);
@@ -134,7 +134,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     );
   }
 
-  _moveCameraToFitAllMarkers() async {
+  Future<void> _moveCameraToFitAllMarkers() async {
     // widget.logger.i('Move camera to fit all markers ${_markers.length}');
     if (_markers.isEmpty) return;
 

@@ -28,7 +28,7 @@ class Auth {
   Future<void> signup() async {
     _logger.i('AuthService.signup');
     await logout();
-    await signin(await keyStorage.create());
+    await signin(keyStorage.create().privateKey!);
   }
 
   /// Imports a private key (hex) or mnemonic and stores it.
@@ -69,7 +69,7 @@ class Auth {
         ndk.accounts.removeAccount(pubkey: pubkey);
       });
     } else {
-      final pubkey = activeKeyPair!.publicKey!;
+      final pubkey = activeKeyPair!.publicKey;
       final privkey = activeKeyPair!.privateKey!;
       final alreadyLoggedIn =
           ndk.accounts.accounts.containsKey(pubkey) ||

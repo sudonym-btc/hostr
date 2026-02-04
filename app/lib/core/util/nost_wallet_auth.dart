@@ -8,7 +8,7 @@ class BudgetPeriod {
 }
 
 class NostrWalletAuth {
-  generateUri(
+  Uri generateUri(
       {required KeyPair keyPair,
       required int budget,
       required String budgetPeriod,

@@ -11,7 +11,6 @@ class MessagingListings {
               return element.child is ReservationRequest;
             }).child
             as ReservationRequest);
-    if (r == null) throw Exception('Thread had to reservation requests');
     return r.listingAnchor;
   }
 }

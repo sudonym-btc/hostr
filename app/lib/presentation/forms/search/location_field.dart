@@ -33,7 +33,7 @@ class LocationFieldState extends State<LocationField> {
     });
   }
 
-  onChanged() async {
+  Future<void> onChanged() async {
     if (_sessionToken == null) {
       setState(() {
         _sessionToken = uuid.v4();

@@ -6,7 +6,6 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart';
-import 'package:rxdart/rxdart.dart';
 
 import '../crud.usecase.dart';
 import '../messaging/messaging.dart';
@@ -45,8 +44,6 @@ class Reservations extends CrudUseCase<Reservation> {
       return _myReservations!;
     }
 
-    print('processing reservation=s');
-
     final response = SubscriptionResponse<Reservation>();
     response.addStatus(SubscriptionStatusLive());
 
@@ -55,9 +52,6 @@ class Reservations extends CrudUseCase<Reservation> {
     final reservationsStream = messaging.threads.subscription!.replay
         .where((message) => message.child is ReservationRequest)
         .map((message) => message.child as ReservationRequest)
-        .doOnData((data) {
-          print('processing message in reservation habndler');
-        })
         .asyncMap((reservationRequest) async {
           logger.d(
             'Processing reservation request: $reservationRequest, ${reservationRequest.getFirstTag('a')}',
@@ -95,7 +89,7 @@ class Reservations extends CrudUseCase<Reservation> {
     final reservation = Reservation(
       tags: [
         ['a', request.listingAnchor],
-        ['a', message.threadAnchor!],
+        ['a', message.threadAnchor],
       ],
       content: ReservationContent(
         start: request.parsedContent.start,

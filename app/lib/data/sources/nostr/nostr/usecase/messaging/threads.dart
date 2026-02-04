@@ -82,15 +82,12 @@ class Threads extends HydratedCubit<List<Message>> {
   }
 
   void processMessage(Message message) {
-    logger.d('Received message with id ${message.id} ${message}');
+    logger.d('Received message with id ${message.id} $message');
     if (state.any((existing) => existing.id == message.id)) {
       return;
     }
 
     String? id = message.threadAnchor;
-    if (id == null) {
-      return;
-    }
 
     if (threads[id] == null) {
       threads[id] = Thread(id, messaging: messaging, accounts: ndk.accounts);
@@ -114,7 +111,7 @@ class Threads extends HydratedCubit<List<Message>> {
 
   void _rebuildThreadsFromMessages(List<Message> messages) {
     threads.clear();
-    print('rebuilding from state $messages');
+    logger.d('Rebuilding threads from ${messages.length} messages');
     for (final message in messages) {
       processMessage(message);
     }
