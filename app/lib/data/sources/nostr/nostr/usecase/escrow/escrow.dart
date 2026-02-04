@@ -1,8 +1,10 @@
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/sources/escrow/MultiEscrow.g.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_trusts/escrows_trusts.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/swap/swap.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -14,7 +16,28 @@ import '../auth/auth.dart';
 import '../escrows/escrows.dart';
 import '../evm/evm.dart';
 import '../evm/evm_chain.dart';
-import 'constants.dart';
+import '../payments/constants.dart';
+
+sealed class EscrowState {}
+
+class EscrowSwapProgress extends EscrowState {
+  final SwapState swap;
+  EscrowSwapProgress(this.swap);
+}
+
+class EscrowTradeProgress extends EscrowState {}
+
+class EscrowCompleted extends EscrowState {
+  String txHash;
+  EscrowCompleted({required this.txHash});
+}
+
+class EscrowFailed extends EscrowState {}
+
+class EscrowSwapFailed extends EscrowFailed {
+  final SwapFailed swap;
+  EscrowSwapFailed(this.swap);
+}
 
 @Singleton()
 class PaymentEscrow {
@@ -23,15 +46,20 @@ class PaymentEscrow {
   final Escrows escrows;
   final EscrowTrusts escrowTrusts;
   final Evm evm;
+  final Swap swap;
 
   PaymentEscrow({
     required this.auth,
     required this.escrows,
     required this.escrowTrusts,
     required this.evm,
+    required this.swap,
   });
 
-  Future<void> listEvents({required EvmChain evmChain, required Escrow escrow}) async {
+  Future<void> listEvents({
+    required EvmChain evmChain,
+    required Escrow escrow,
+  }) async {
     MultiEscrow e = MultiEscrow(
       address: EthereumAddress.fromHex(escrow.parsedContent.contractAddress),
       client: evmChain.client,
@@ -54,7 +82,7 @@ class PaymentEscrow {
     // });
   }
 
-  Future<String> escrow({
+  Stream<EscrowState> escrow({
     required String eventId,
     required Amount amount,
     required String sellerEvmAddress,
@@ -62,15 +90,38 @@ class PaymentEscrow {
     required String escrowContractAddress,
     required int timelock,
     required EvmChain evmChain,
-  }) async {
+  }) async* {
     KeyPair key = auth.activeKeyPair!;
     EthPrivateKey ethKey = getEvmCredentials(key.privateKey!);
+
+    final balance = await evmChain.getBalance(ethKey.address);
+    logger.i('Escrow sender balance: $balance RBTC');
+    final requiredAmountInBtc = amount.value - balance;
+    if (requiredAmountInBtc > 0) {
+      logger.e('Insufficient balance for escrow deposit. Have $balance RBTC');
+      final requiredAmountForSwapInSats = max(
+        await evmChain.getMinimumSwapIn(),
+        requiredAmountInBtc * btcSatoshiFactor.toInt(),
+      ).toInt();
+      try {
+        await for (final swapState in evmChain.swapIn(
+          key: key,
+          amountSats: requiredAmountForSwapInSats,
+        )) {
+          yield EscrowSwapProgress(swapState);
+        }
+      } on SwapFailed catch (e, st) {
+        logger.e('Swap failed during escrow deposit', error: e, stackTrace: st);
+        yield EscrowSwapFailed(e);
+        return;
+      }
+    }
 
     MultiEscrow e = MultiEscrow(
       address: EthereumAddress.fromHex(escrowContractAddress),
       client: evmChain.client,
     );
-    var tuple = (
+    final tuple = (
       tradeId: getBytes32(eventId),
       timelock: BigInt.from(timelock),
 
@@ -86,10 +137,6 @@ class PaymentEscrow {
     );
     logger.i('Creating escrow for $eventId at $escrowContractAddress');
     logger.i(tuple);
-    final balance = await evmChain.client.getBalance(ethKey.address);
-    logger.i(
-      'Escrow sender balance: ${balance.getValueInUnit(EtherUnit.ether)} RBTC',
-    );
     String escrowTx = await e.createTrade(
       tuple,
       credentials: ethKey,
@@ -100,10 +147,7 @@ class PaymentEscrow {
         ),
       ),
     );
-
-    // final receipt = await evmChain.client.getTransactionReceipt(escrowTx);
-    logger.i(escrowTx);
-    return escrowTx;
+    yield EscrowCompleted(txHash: escrowTx);
   }
 
   Stream<TradeCreated> checkEscrowStatus(

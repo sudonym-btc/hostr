@@ -2,6 +2,7 @@ import 'package:injectable/injectable.dart';
 
 import '../../../injection.dart';
 import 'base.config.dart';
+import 'development.config.dart';
 
 @Injectable(as: Config, env: [Env.test])
 class TestConfig extends Config {
@@ -13,7 +14,5 @@ class TestConfig extends Config {
   @override
   List<String> blossom = ['http://localhost:3001'];
   @override
-  String rootstockRpcUrl = 'http://localhost:8545';
-  @override
-  String boltzUrl = 'https://api.testnet.boltz.exchange/v2';
+  RootstockConfig rootstock = DevelopmentRootstockConfig();
 }

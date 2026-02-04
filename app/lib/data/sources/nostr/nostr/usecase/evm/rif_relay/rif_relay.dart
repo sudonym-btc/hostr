@@ -97,19 +97,18 @@ const int _maxRelayNonceGap = 3;
 const int _defaultGasNeededToClaim = 250000;
 const int _validUntilSeconds = 24 * 60 * 60;
 
-@Singleton()
-class RifRelayService {
+@Injectable()
+class RifRelay {
   final CustomLogger logger = CustomLogger();
   final Web3Client client;
   final Config config;
 
-  RifRelayService(this.config)
-    : client = Web3Client(config.rootstockRpcUrl, http.Client());
+  RifRelay(this.config, @factoryParam this.client);
 
   /// Http GET request to the relay server to get the metadata
   Future<ChainInfo> getChainInfo() async {
     final response = await http.get(
-      Uri.parse('${config.rifRelayUrl}/chain-info'),
+      Uri.parse('${config.rootstock.boltz.rifRelayUrl}/chain-info'),
     );
     if (response.statusCode == 200) {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -133,7 +132,7 @@ class RifRelayService {
     RifMetadata metadata,
   ) async {
     final response = await http.post(
-      Uri.parse('${config.rifRelayUrl}/estimate'),
+      Uri.parse('${config.rootstock.boltz.rifRelayUrl}/estimate'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'metadata': metadata.toJson(),
@@ -164,7 +163,7 @@ class RifRelayService {
     RifMetadata metadata,
   ) async {
     final response = await http.post(
-      Uri.parse('${config.rifRelayUrl}/relay'),
+      Uri.parse('${config.rootstock.boltz.rifRelayUrl}/relay'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'metadata': metadata.toJson(),
@@ -230,16 +229,16 @@ class RifRelayService {
       };
 
     if (!smartWalletExists) {
-      if (config.rifRelayDeployVerifier.isEmpty) {
+      if (config.rootstock.boltz.rifRelayDeployVerifier.isEmpty) {
         throw StateError('Missing rifRelayDeployVerifier in Config.');
       }
-      if (config.rifSmartWalletFactoryAddress.isEmpty) {
+      if (config.rootstock.boltz.rifSmartWalletFactoryAddress.isEmpty) {
         throw StateError(
           'Missing rifSmartWalletFactoryAddress in Config for relay deploy.',
         );
       }
       envelopingRequest.relayData['callVerifier'] =
-          config.rifRelayDeployVerifier;
+          config.rootstock.boltz.rifRelayDeployVerifier;
       envelopingRequest.request['recoverer'] = _zeroAddress;
       envelopingRequest.request['index'] = smartWalletInfo.nonce.toInt();
       envelopingRequest.request['nonce'] =
@@ -247,9 +246,10 @@ class RifRelayService {
             from: signerAddress,
           ))).toString();
       envelopingRequest.relayData['callForwarder'] =
-          config.rifSmartWalletFactoryAddress;
+          config.rootstock.boltz.rifSmartWalletFactoryAddress;
     } else {
-      envelopingRequest.relayData['callVerifier'] = config.rifRelayCallVerifier;
+      envelopingRequest.relayData['callVerifier'] =
+          config.rootstock.boltz.rifRelayCallVerifier;
       envelopingRequest.request['gas'] = _defaultGasNeededToClaim;
       envelopingRequest.request['nonce'] = (await getForwarder(
         smartWalletInfo.address,
@@ -299,7 +299,7 @@ class RifRelayService {
   }
 
   SmartWalletFactory _getSmartWalletFactory() {
-    final factoryAddress = config.rifSmartWalletFactoryAddress;
+    final factoryAddress = config.rootstock.boltz.rifSmartWalletFactoryAddress;
     if (factoryAddress.isEmpty) {
       throw StateError('Missing rifSmartWalletFactoryAddress in Config.');
     }
