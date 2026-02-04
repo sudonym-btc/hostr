@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
@@ -47,18 +48,56 @@ abstract class Event extends Nip01Event {
   Nip01EventModel get model => Nip01EventModel.fromEntity(this);
 
   String? get anchor => getDtag() == null ? null : '$kind:$pubKey:${getDtag()}';
+}
 
-  String getDTagForKind(int kind) {
-    return Event.getDFromATag(getATagForKind(kind));
+getDTagFromAnchor(String anchor) {
+  return anchor.split(':')[2];
+}
+
+bool hasRequiredTags(
+  List<List<String>> tags,
+  List<List<String>> required,
+) {
+  final requiredKeys = required.map((t) => t.first).toSet();
+  final presentKeys = tags.map((t) => t.first).toSet();
+  return requiredKeys.every(presentKeys.contains);
+}
+
+mixin ReferencesListing<T extends ReferencesListing<T>> on Event {
+  String get listingAnchor {
+    return getTags(LISTING_REFERENCE_TAG).first;
   }
 
-  static getDFromATag(String a) {
-    return a.split(':')[2];
+  T setListingAnchor(String? anchor) {
+    if (anchor != null) {
+      tags.add([LISTING_REFERENCE_TAG, anchor]);
+    }
+    return this as T;
+  }
+}
+
+mixin ReferencesReservation<T extends ReferencesReservation<T>> on Event {
+  String get reservationAnchor {
+    return getTags(RESERVATION_REFERENCE_TAG).first;
   }
 
-  String getATagForKind(int kind) {
-    return getTags('a').where((el) {
-      return int.parse(el.split(':')[0]) == kind;
-    }).first;
+  T setReservationAnchor(String? anchor) {
+    if (anchor != null) {
+      tags.add([RESERVATION_REFERENCE_TAG, anchor]);
+    }
+    return this as T;
+  }
+}
+
+mixin ReferencesThread<T extends ReferencesThread<T>> on Event {
+  String get threadAnchor {
+    return getTags(THREAD_REFERENCE_TAG).first;
+  }
+
+  T setThreadAnchor(String? anchor) {
+    if (anchor != null) {
+      tags.add([THREAD_REFERENCE_TAG, anchor]);
+    }
+    return this as T;
   }
 }

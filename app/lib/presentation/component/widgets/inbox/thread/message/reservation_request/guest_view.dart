@@ -55,7 +55,7 @@ class ThreadReservationRequestGuestViewWidget
     );
 
     getIt<Hostr>().reservations.createSelfSigned(
-      threadId: item.reservationRequestAnchor!,
+      threadId: item.threadAnchor!,
       reservationRequest: reservationRequest,
       listing: listing,
       hoster: counterparty,

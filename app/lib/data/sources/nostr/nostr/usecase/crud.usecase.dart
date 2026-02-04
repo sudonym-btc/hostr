@@ -38,14 +38,6 @@ class CrudUseCase<T extends Nip01Event> {
         .first;
   }
 
-  Future<T> getByAnchor(String anchor) {
-    return requests
-        .query<T>(
-          filter: Filter(kinds: [kind], aTags: [anchor], limit: 1),
-        )
-        .first;
-  }
-
   Future<T> getById(String id) {
     return requests
         .query<T>(

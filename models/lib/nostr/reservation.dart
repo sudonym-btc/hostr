@@ -5,8 +5,13 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:web3dart/web3dart.dart';
 
-class Reservation extends JsonContentNostrEvent<ReservationContent> {
+class Reservation extends JsonContentNostrEvent<ReservationContent>
+    with ReferencesListing<Reservation>, ReferencesThread<Reservation> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION];
+  static const requiredTags = [
+    [THREAD_REFERENCE_TAG],
+    [LISTING_REFERENCE_TAG]
+  ];
 
   Reservation(
       {required super.pubKey,
@@ -15,7 +20,8 @@ class Reservation extends JsonContentNostrEvent<ReservationContent> {
       super.createdAt,
       super.id,
       super.sig})
-      : super(kind: NOSTR_KIND_RESERVATION);
+      : assert(hasRequiredTags(tags, Reservation.requiredTags)),
+        super(kind: NOSTR_KIND_RESERVATION);
 
   String? get commitmentHash {
     return getFirstTag('guestCommitmentHash');
@@ -26,20 +32,24 @@ class Reservation extends JsonContentNostrEvent<ReservationContent> {
     tags.add(['guestCommitmentHash', value]);
   }
 
-  String get threadAnchor {
-    return getATagForKind(ReservationRequest.kinds[0]);
-  }
-
   Reservation.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
     parsedContent = ReservationContent.fromJson(json.decode(content));
   }
 
-  static Reservation getSeniorReservation(
+  static Reservation? getSeniorReservation(
       {required List<Reservation> reservations, required Listing listing}) {
-    return reservations
+    final validReservations = reservations
         .where((reservation) => Reservation.validate(reservation, listing))
-        .firstWhere((reservation) => reservation.pubKey == listing.pubKey,
-            orElse: () => reservations.first);
+        .toList();
+
+    if (validReservations.isEmpty) {
+      return null;
+    }
+
+    return validReservations.firstWhere(
+      (reservation) => reservation.pubKey == listing.pubKey,
+      orElse: () => validReservations.first,
+    );
   }
 
   static validate(Reservation reservation, Listing listing) {

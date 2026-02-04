@@ -42,10 +42,17 @@ class _ThreadProviderState extends State<ThreadProvider> {
 
     final listingAnchor = MessagingListings.getThreadListing(thread: thread);
     if (_reservationsResponse == null || _listingAnchor != listingAnchor) {
+      print('Subscribing to reservations for listing anchor: $listingAnchor');
       _reservationsResponse?.close();
       _listingAnchor = listingAnchor;
       _reservationsResponse = getIt<Hostr>().requests.subscribe<Reservation>(
-        filter: Filter(kinds: Reservation.kinds, aTags: [listingAnchor]),
+        filter: Filter(
+          kinds: Reservation.kinds,
+          tags: {
+            LISTING_REFERENCE_TAG: [listingAnchor],
+            THREAD_REFERENCE_TAG: [thread.id],
+          },
+        ),
       );
     }
   }
@@ -80,7 +87,7 @@ class _ThreadProviderState extends State<ThreadProvider> {
           BlocProvider<EntityCubit<Listing>>(
             create: (_) => EntityCubit<Listing>(
               crud: getIt<Hostr>().listings,
-              filter: Filter(dTags: [Event.getDFromATag(listingAnchor)]),
+              filter: Filter(dTags: [getDTagFromAnchor(listingAnchor)]),
             )..get(),
           ),
           BlocProvider<ProfileCubit>(

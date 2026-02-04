@@ -6,6 +6,7 @@ import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
+import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
 
 class SubscriptionStatus {}
@@ -28,9 +29,6 @@ enum SubscriptionPhase { querying, queryComplete, live, error, idle }
 
 /// Represents a response from a Nostr Development Kit (NDK) subscription.
 class SubscriptionResponse<T extends Nip01Event> {
-  /// The unique identifier for the request that generated this response.
-  String requestId;
-
   Function? onClose;
 
   StreamController<T> controller = StreamController<T>.broadcast();
@@ -60,7 +58,7 @@ class SubscriptionResponse<T extends Nip01Event> {
   late final ValueStream<SubscriptionStatus> status = statusController.stream
       .shareValueSeeded(SubscriptionStatusIdle());
 
-  SubscriptionResponse(this.requestId, {this.onClose}) {
+  SubscriptionResponse({this.onClose}) {
     _replaySubscription = controller.stream.listen(
       _replaySubject.add,
       onError: _replaySubject.addError,
@@ -99,10 +97,7 @@ class SubscriptionResponse<T extends Nip01Event> {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      "requestId": requestId,
-      "items": list.value.map((el) => el.toString()),
-    };
+    return {"items": list.value.map((el) => el.toString())};
   }
 
   // static SubscriptionResponse<T> fromJson<T extends Nip01Event>(
@@ -148,53 +143,45 @@ class Requests extends RequestsModel {
     required Filter filter,
     List<String>? relays,
   }) {
-    final queryResponse = ndk.requests.query(
-      filter: filter,
-      cacheRead: false,
-      cacheWrite: false,
-    );
-
-    final subName = '${queryResponse.requestId}-sub';
+    final ndkSubName = "sub-${Helpers.getRandomString(10)}";
 
     final response = SubscriptionResponse<T>(
-      queryResponse.requestId,
       onClose: () {
-        ndk.requests.closeSubscription(subName);
+        ndk.requests.closeSubscription(ndkSubName);
       },
     );
 
     response.addStatus(SubscriptionStatusQuerying());
 
-    queryResponse.stream
+    ndk.requests
+        .query(filter: filter, cacheRead: false, cacheWrite: false)
+        .stream
+        .doOnDone(() => response.addStatus(SubscriptionStatusQueryComplete()))
+        .concatWith([
+          Rx.defer(() {
+            final liveFilter = filter.clone();
+            final maxCreatedAt = response.list.value.isEmpty
+                ? null
+                : response.list.value.map((e) => e.createdAt).reduce(max);
+            liveFilter.since = maxCreatedAt == null
+                ? liveFilter.since
+                : (liveFilter.since == null || maxCreatedAt > liveFilter.since!
+                      ? maxCreatedAt
+                      : liveFilter.since);
+            response.addStatus(SubscriptionStatusLive());
+
+            return ndk.requests
+                .subscription(
+                  id: ndkSubName,
+                  filter: liveFilter,
+                  cacheRead: false,
+                  cacheWrite: false,
+                )
+                .stream;
+          }),
+        ])
         .asyncMap((event) async => parserWithGiftWrap<T>(event, ndk))
-        .doOnError(response.addError)
-        .doOnDone(() {
-          response.addStatus(SubscriptionStatusQueryComplete());
-
-          final liveFilter = filter.clone();
-          final maxCreatedAt = response.list.value.isEmpty
-              ? null
-              : response.list.value.map((e) => e.createdAt).reduce(max);
-          liveFilter.since = maxCreatedAt == null
-              ? liveFilter.since
-              : (liveFilter.since == null ||
-                        maxCreatedAt + 1 > liveFilter.since!
-                    ? maxCreatedAt + 1
-                    : liveFilter.since);
-          final subResponse = ndk.requests.subscription(
-            id: subName,
-            filter: liveFilter,
-            cacheRead: false,
-            cacheWrite: false,
-          );
-          response.requestId = subResponse.requestId;
-          response.addStatus(SubscriptionStatusLive());
-
-          subResponse.stream
-              .asyncMap((event) async => parserWithGiftWrap<T>(event, ndk))
-              .listen(response.add, onError: response.addError);
-        })
-        .listen(response.add);
+        .listen(response.add, onError: response.addError);
 
     return response;
   }

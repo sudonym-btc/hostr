@@ -16,7 +16,7 @@ class ReservationListItem extends StatelessWidget {
         AutoRouter.of(context).push(ThreadRoute(id: reservation.threadAnchor));
       },
       child: ListingProvider(
-        a: reservation.getATagForKind(Listing.kinds[0]),
+        a: reservation.listingAnchor,
         builder: (context, state) {
           if (state.active) return CircularProgressIndicator();
           return CustomPadding(

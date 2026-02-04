@@ -57,7 +57,6 @@ class ReserveState extends State<Reserve> {
                           dateState.dateRange == null
                       ? null
                       : () async {
-                          print('prepare to launch!');
                           await context
                               .read<ReservationCubit>()
                               .createReservationRequest(
@@ -65,8 +64,6 @@ class ReserveState extends State<Reserve> {
                                 startDate: dateState.dateRange!.start,
                                 endDate: dateState.dateRange!.end,
                                 onSuccess: (reservationRequest) {
-                                  print(reservationRequest);
-                                  print('ccreated');
                                   AutoRouter.of(context).push(
                                     ThreadRoute(id: reservationRequest.anchor!),
                                   );

@@ -20,7 +20,11 @@ class ListingBadgesWidget extends StatelessWidget {
       create: (context) => ListCubit<BadgeAward>(
         kinds: BadgeAward.kinds,
         nostrService: getIt(),
-        filter: Filter(aTags: [listingAnchor]),
+        filter: Filter(
+          tags: {
+            LISTING_REFERENCE_TAG: [listingAnchor],
+          },
+        ),
       )..next(),
       child: BlocBuilder<ListCubit<BadgeAward>, ListCubitState<BadgeAward>>(
         builder: (context, state) {
