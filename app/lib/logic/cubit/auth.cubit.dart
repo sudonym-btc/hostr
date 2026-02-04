@@ -1,33 +1,8 @@
-import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/injection.dart';
-
-/// Abstract class representing the state of authentication.
-abstract class AuthState extends Equatable {
-  const AuthState();
-
-  @override
-  List<Object> get props => [];
-}
-
-/// Initial state of authentication.
-class AuthInitial extends AuthState {}
-
-/// State representing a logged-out user.
-class LoggedOut extends AuthState {}
-
-/// State representing a progress in authentication.
-// class Progress extends AuthState {
-//   Stream<DelegationProgress> progress;
-//   Progress(this.progress);
-// }
-
-/// State representing a logged-in user.
-class LoggedIn extends AuthState {
-  const LoggedIn();
-}
 
 /// Cubit managing authentication state.
 /// Business processes (signup/signin flows) delegated to AuthWorkflow.

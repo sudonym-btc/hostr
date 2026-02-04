@@ -87,7 +87,13 @@ class _ThreadReservationRequestWidgetState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${formatDateShort(reservationRequest.parsedContent.start, context)} - ${formatDateShort(reservationRequest.parsedContent.end, context)}',
+                          formatDateRangeShort(
+                            DateTimeRange(
+                              start: reservationRequest.parsedContent.start,
+                              end: reservationRequest.parsedContent.end,
+                            ),
+                            Localizations.localeOf(context),
+                          ),
                           style: Theme.of(context).textTheme.bodyMedium!,
                         ),
                         PriceText(

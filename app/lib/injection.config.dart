@@ -68,7 +68,6 @@ import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
 import 'package:hostr/logic/cubit/payment/bolt11_payment.cubit.dart' as _i993;
 import 'package:hostr/logic/cubit/payment/lnurl_payment.cubit.dart' as _i99;
 import 'package:hostr/logic/services/rif-relay.dart' as _i243;
-import 'package:hostr/logic/services/session_coordinator.dart' as _i126;
 import 'package:hostr/logic/workflows/event_publishing_workflow.dart' as _i338;
 import 'package:hostr/logic/workflows/lnurl_workflow.dart' as _i675;
 import 'package:hostr/logic/workflows/payment_workflow.dart' as _i558;
@@ -254,13 +253,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i735.Zaps>(
       () => _i735.Zaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
-    );
-    gh.lazySingleton<_i126.SessionCoordinator>(
-      () => _i126.SessionCoordinator(
-        config: gh<_i1012.Config>(),
-        auth: gh<_i34.Auth>(),
-        metadataUseCase: gh<_i249.MetadataUseCase>(),
-      ),
     );
     gh.singleton<_i1052.PaymentEscrow>(
       () => _i1052.PaymentEscrow(

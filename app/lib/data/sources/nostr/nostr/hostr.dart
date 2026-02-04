@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
@@ -45,6 +47,41 @@ abstract class Hostr {
   Swap get swaps => getIt<Swap>();
   Evm get evm => getIt<Evm>();
   Relays get relays => getIt<Relays>();
+
+  StreamSubscription? _authStateSubscription;
+
+  void start() {
+    stop();
+
+    auth.init();
+
+    _authStateSubscription = auth.authState.listen((state) async {
+      if (state is LoggedIn) {
+        messaging.threads.sync();
+
+        // // Update an existing profile with any missing info (e.g. evm address)
+        // await metadataUseCase.upsertMetadata();
+
+        // // Ensure initial user relay list is set
+        // await ndk.userRelayLists.broadcastAddNip65Relay(
+        //   relayUrl: config.hostrRelay,
+        //   marker: ReadWriteMarker.readWrite,
+        //   broadcastRelays: [...config.relays],
+        // );
+      } else {
+        logger.i('User logged out');
+        messaging.threads.stop();
+      }
+    });
+  }
+
+  void stop() {
+    _authStateSubscription?.cancel();
+  }
+
+  void dispose() {
+    stop();
+  }
 }
 
 @Singleton(as: Hostr)
