@@ -9,14 +9,14 @@ import 'package:integration_test/integration_test.dart';
 import 'package:mocktail_image_network/mocktail_image_network.dart';
 import 'package:models/main.dart';
 
-appWrapper(Widget child) {
+MaterialApp appWrapper(Widget child) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
     home: GlobalProviderWidget(child: Center(child: child)),
   );
 }
 
-loadWidgetAndTakeScreenshot(
+Future<void> loadWidgetAndTakeScreenshot(
   WidgetTester tester,
   IntegrationTestWidgetsFlutterBinding binding,
   Widget child,
@@ -30,7 +30,7 @@ loadWidgetAndTakeScreenshot(
   await takeScreenshot(binding, name);
 }
 
-takeScreenshot(
+Future<void> takeScreenshot(
   IntegrationTestWidgetsFlutterBinding binding,
   String name,
 ) async {

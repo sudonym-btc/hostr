@@ -164,9 +164,6 @@ class Swap {
       ),
     );
     onPaymentCreated?.call(payment);
-    print('PAYEMNT');
-    print(payment);
-    print(payment.toString());
     onProgress?.call(SwapProgress.paymentCreated);
     payment.execute();
     onProgress?.call(SwapProgress.paymentInFlight);

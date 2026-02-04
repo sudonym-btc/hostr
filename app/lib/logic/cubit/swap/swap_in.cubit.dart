@@ -1,6 +1,7 @@
 import 'swap.cubit.dart';
 
 class SwapInCubit extends SwapCubit {
+  @override
   init() {}
 }
 

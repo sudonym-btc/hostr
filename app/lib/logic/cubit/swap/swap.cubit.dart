@@ -3,13 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 class SwapCubit extends Cubit<SwapCubitState> {
   SwapCubit() : super(SwapCubitState());
 
-  init() {
+  void init() {
     checkStatus();
   }
 
-  checkStatus() {}
+  void checkStatus() {}
 
-  abortInFlight() {}
+  void abortInFlight() {}
 }
 
 class SwapCubitState {}

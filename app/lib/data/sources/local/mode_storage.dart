@@ -22,7 +22,7 @@ class ModeStorage {
     return item;
   }
 
-  wipe() {
+  Future<dynamic> wipe() {
     return storage.set('mode', null);
   }
 }

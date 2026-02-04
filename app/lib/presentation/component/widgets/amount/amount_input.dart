@@ -15,7 +15,7 @@ var format = (bool fiat) => NumberFormat.currency(
 
 var compactFormat = (bool fiat) => NumberFormat.compact(locale: "en_US");
 
-formatAmount(Amount amount, {exact = false}) {
+String formatAmount(Amount amount, {exact = false}) {
   String prefix = amount.currency.prefix == ''
       ? ''
       : '${amount.currency.prefix} ';

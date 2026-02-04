@@ -81,7 +81,7 @@ class Nwc {
       logger.e('Error paying invoice: $e');
       logger.e('PayInvoice stack trace (from NDK): $stackTrace');
       logger.e('PayInvoice stack trace (current): ${StackTrace.current}');
-      throw e;
+      rethrow;
     }
   }
 

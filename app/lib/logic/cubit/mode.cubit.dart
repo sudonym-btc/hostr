@@ -35,7 +35,7 @@ class ModeCubit extends Cubit<ModeCubitState> {
     emit(GuestMode());
   }
 
-  get() async {
+  Future<void> get() async {
     String mode = await modeStorage.get();
     if (mode == 'host') {
       emit(HostMode());

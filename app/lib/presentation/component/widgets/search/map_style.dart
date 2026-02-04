@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-getMapStyle(BuildContext context, bool isDarkMode) {
+String getMapStyle(BuildContext context, bool isDarkMode) {
   if (isDarkMode) {
     return '''
 [

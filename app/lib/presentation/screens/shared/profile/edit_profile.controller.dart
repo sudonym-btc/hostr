@@ -13,7 +13,7 @@ class EditProfileController {
   final TextEditingController lightningAddressController =
       TextEditingController();
 
-  setState(ProfileMetadata? profile) {
+  void setState(ProfileMetadata? profile) {
     imageController.setImages(
       profile?.metadata.picture != null
           ? [CustomImage.path(profile?.metadata.picture)]
@@ -25,7 +25,7 @@ class EditProfileController {
     lightningAddressController.text = profile?.metadata.lud16 ?? '';
   }
 
-  save() async {
+  Future<void> save() async {
     var image = imageController.images.isNotEmpty
         ? imageController.images.first.path
         : null;

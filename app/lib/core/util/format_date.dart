@@ -10,7 +10,7 @@ String formatDate(DateTime date) {
   }
 }
 
-formatDateShort(DateTime date, Locale locale) {
+String formatDateShort(DateTime date, Locale locale) {
   final now = DateTime.now();
   final dayDateFormat = DateFormat('MMM d', locale.toString());
   final yearFormat = DateFormat('MMM d, yyyy', locale.toString());

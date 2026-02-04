@@ -7,12 +7,12 @@ import '../swap/swap_in.cubit.dart';
 class EscrowDepositCubit extends Cubit<EscrowDepositState?> {
   EscrowDepositCubit() : super(EscrowDepositState());
 
-  init() {
+  void init() {
     checkStatus();
   }
 
   /// Check the status of the swap and payment associated with this escrow deposit
-  checkStatus() {}
+  void checkStatus() {}
 }
 
 class EscrowDepositState {

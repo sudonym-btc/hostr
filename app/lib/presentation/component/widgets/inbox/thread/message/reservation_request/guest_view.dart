@@ -35,7 +35,7 @@ class ThreadReservationRequestGuestViewWidget
          refunded: false,
        );
 
-  pay(BuildContext context) async {
+  Future<void> pay(BuildContext context) async {
     final escrows = await getIt<Hostr>().escrows.determineMutualEscrow(
       getIt<Hostr>().auth.activeKeyPair!.publicKey,
       counterparty.pubKey,
@@ -55,7 +55,7 @@ class ThreadReservationRequestGuestViewWidget
     );
 
     getIt<Hostr>().reservations.createSelfSigned(
-      threadId: item.threadAnchor!,
+      threadId: item.threadAnchor,
       reservationRequest: reservationRequest,
       listing: listing,
       hoster: counterparty,
@@ -83,6 +83,7 @@ class ThreadReservationRequestGuestViewWidget
     // );
   }
 
+  @override
   Widget actionButton(BuildContext context) {
     final action = ReservationRequest.resolveGuestAction(
       status: reservationStatus,
@@ -95,6 +96,7 @@ class ThreadReservationRequestGuestViewWidget
     }
   }
 
+  @override
   Widget statusText(BuildContext context) {
     switch (reservationStatus) {
       case ReservationRequestStatus.unconfirmed:
@@ -115,7 +117,7 @@ class ThreadReservationRequestGuestViewWidget
     }
   }
 
-  payButton(BuildContext context) {
+  FilledButton payButton(BuildContext context) {
     // todo check payment status here too
     return FilledButton(
       key: ValueKey('pay'),

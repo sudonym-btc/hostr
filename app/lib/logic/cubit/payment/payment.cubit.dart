@@ -56,7 +56,7 @@ class PaymentCubit<
 
   /// Called upon initialization
   /// Estimates fees etc
-  resolve() async {
+  Future<void> resolve() async {
     emit(state.copyWith(status: PaymentStatus.resolveInitiated));
     try {
       RD resolvedDetails = await resolver();
@@ -73,7 +73,7 @@ class PaymentCubit<
 
   /// Called if a step is required to fetch the final payment address
   /// E.g. for LNURL
-  ok() async {
+  Future<void> ok() async {
     emit(state.copyWith(status: PaymentStatus.callbackInitiated));
     try {
       CD callbackDetails = await callback();
@@ -88,7 +88,7 @@ class PaymentCubit<
     }
   }
 
-  confirm() async {
+  Future<void> confirm() async {
     emit(state.copyWith(status: PaymentStatus.inFlight));
     try {
       CmpD completedDetails = await complete();
@@ -154,7 +154,7 @@ class PaymentState<
     required this.status,
   });
 
-  copyWith({
+  PaymentState<T, RD, CD, CmpD> copyWith({
     PaymentStatus? status,
     RD? resolvedDetails,
     CD? callbackDetails,
@@ -167,17 +167,17 @@ class PaymentState<
       callbackDetails: callbackDetails ?? this.callbackDetails,
       completedDetails: completedDetails ?? this.completedDetails,
       error: error ?? this.error,
-      params: this.params,
+      params: params,
     );
   }
 
   @override
   List<Object?> get props => [
-    this.status,
-    this.callbackDetails,
-    this.resolvedDetails,
-    this.completedDetails,
-    this.error,
+    status,
+    callbackDetails,
+    resolvedDetails,
+    completedDetails,
+    error,
   ];
 }
 

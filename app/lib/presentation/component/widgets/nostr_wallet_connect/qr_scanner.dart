@@ -33,7 +33,7 @@ class NwcQrScannerWidgetState extends State<NwcQrScannerWidget>
     unawaited(controller.start());
   }
 
-  _handleQR(BarcodeCapture code) {
+  void _handleQR(BarcodeCapture code) {
     logger.i('QR code: ${code.barcodes}');
     // context.read<NostrWalletConnectCubit>().connect(code.value);
   }

@@ -71,7 +71,7 @@ class _SearchFormState extends State<SearchForm> {
     );
   }
 
-  showDatePicker() async {
+  Future<void> showDatePicker() async {
     final picked = await showDateRangePicker(
         context: context,
         firstDate: DateTime.now(),

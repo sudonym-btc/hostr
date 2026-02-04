@@ -66,7 +66,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     );
   }
 
-  next() async {
+  Future<void> next() async {
     logger.i("next");
     Filter finalFilter = getFilter();
     logger.t('listFilter: $finalFilter');
@@ -79,7 +79,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     await requestSubscription?.asFuture();
   }
 
-  sync() async {
+  Future<void> sync() async {
     await nostrSubscription?.cancel();
     emit(state.copyWith(synching: true));
     logger.i("sync");

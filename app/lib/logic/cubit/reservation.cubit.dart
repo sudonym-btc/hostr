@@ -58,7 +58,6 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
       onSuccess(result);
       return result;
     } catch (e) {
-      print(e.toString());
       // Business decision: emit error state
       emit(
         ReservationCubitState(

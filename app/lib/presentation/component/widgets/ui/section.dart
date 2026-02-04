@@ -22,7 +22,7 @@ class Section extends StatelessWidget {
                   title!,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-              if (action != null) action!
+              ?action
             ]),
             body
           ],

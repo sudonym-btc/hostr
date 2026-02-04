@@ -11,7 +11,7 @@ class EditListingController {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
 
-  setState(Listing? data) {
+  void setState(Listing? data) {
     l = data;
     imageController.setImages(
       (data?.parsedContent.images ?? [])
@@ -22,7 +22,7 @@ class EditListingController {
     descriptionController.text = data?.parsedContent.description ?? '';
   }
 
-  save() async {
+  Future<void> save() async {
     for (var i = 0; i < imageController.images.length; i++) {
       var image = imageController.images[i];
       if (image.file != null) {

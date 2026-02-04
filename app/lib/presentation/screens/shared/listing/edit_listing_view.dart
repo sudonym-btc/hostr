@@ -20,7 +20,7 @@ class EditListingViewState extends State<EditListingView> {
   bool loading = false;
   final EditListingController controller = EditListingController();
 
-  buildListing(BuildContext context, Listing l) {
+  Scaffold buildListing(BuildContext context, Listing l) {
     return Scaffold(
       appBar: AppBar(),
       bottomNavigationBar: BottomAppBar(
