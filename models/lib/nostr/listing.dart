@@ -10,7 +10,7 @@ import 'reservation.dart';
 import 'type_json_content.dart';
 
 class Listing extends JsonContentNostrEvent<ListingContent> {
-  static const List<int> kinds = [NOSTR_KIND_LISTING];
+  static const List<int> kinds = [kNostrKindListing];
 
   Listing(
       {required super.pubKey,
@@ -19,7 +19,7 @@ class Listing extends JsonContentNostrEvent<ListingContent> {
       super.createdAt,
       super.id,
       super.sig})
-      : super(kind: NOSTR_KIND_LISTING);
+      : super(kind: kNostrKindListing);
 
   Listing.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
     parsedContent = ListingContent.fromJson(json.decode(content));

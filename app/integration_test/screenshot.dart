@@ -76,7 +76,9 @@ void main() {
 
       /// Navigate to a thread screen and screenshot
       appRouter.navigate(
-        ThreadRoute(id: guestRequest.tags.firstWhere((i) => i[0] == 'a')[1]),
+        ThreadRoute(
+          anchor: guestRequest.tags.firstWhere((i) => i[0] == 'a')[1],
+        ),
       );
       await tester.pumpAndSettle(Duration(seconds: 1));
       await takeScreenshot(binding, 'thread');

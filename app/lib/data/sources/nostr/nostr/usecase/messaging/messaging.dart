@@ -20,7 +20,7 @@ class Messaging {
   ) {
     return ndk.giftWrap.createRumor(
       content: content,
-      kind: NOSTR_KIND_DM,
+      kind: kNostrKindDM,
       tags: [
         ...tags,
         ['p', recipientPubkey],

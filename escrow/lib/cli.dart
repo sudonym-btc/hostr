@@ -50,7 +50,7 @@ void main(List<String> arguments) async {
       await ndk.broadcast.broadcast(
           nostrEvent: Nip01Event(
               pubKey: keyPair.publicKey,
-              kind: NOSTR_KIND_ESCROW,
+              kind: kNostrKindEscrow,
               tags: [],
               content: EscrowContent(
                       pubkey: keyPair.publicKey,

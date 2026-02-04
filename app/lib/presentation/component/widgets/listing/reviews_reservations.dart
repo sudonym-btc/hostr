@@ -16,7 +16,7 @@ class ReviewsReservationsWidget extends StatelessWidget {
         ..updateFilter(
           Filter(
             tags: {
-              LISTING_REFERENCE_TAG: [listing.anchor!],
+              kListingRefTag: [listing.anchor!],
             },
           ),
         ),

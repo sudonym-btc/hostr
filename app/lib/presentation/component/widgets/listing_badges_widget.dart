@@ -22,7 +22,7 @@ class ListingBadgesWidget extends StatelessWidget {
         nostrService: getIt(),
         filter: Filter(
           tags: {
-            LISTING_REFERENCE_TAG: [listingAnchor],
+            kListingRefTag: [listingAnchor],
           },
         ),
       )..next(),

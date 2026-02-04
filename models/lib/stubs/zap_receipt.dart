@@ -7,7 +7,7 @@ var MOCK_ZAP_RECEIPTS = [
       privateKey: MockKeys.hoster.privateKey!,
       event: Nip01Event(
           pubKey: MockKeys.hoster.publicKey,
-          kind: NOSTR_KIND_ZAP_RECEIPT,
+          kind: kNostrKindZapReceipt,
           tags: [
             ['bolt11', 'lnbc1m1p0zv9zvpp5'],
             ['preimage', 'preimage'],

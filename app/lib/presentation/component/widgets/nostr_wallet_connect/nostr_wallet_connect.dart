@@ -31,7 +31,7 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
+            SizedBox(height: kDefaultPadding.toDouble() / 2),
             NostrWalletConnectConnectionWidget(canClose: true),
           ],
         ),

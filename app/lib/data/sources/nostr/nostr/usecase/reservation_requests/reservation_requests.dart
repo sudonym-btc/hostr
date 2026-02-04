@@ -35,10 +35,10 @@ class ReservationRequests extends CrudUseCase {
     return ReservationRequest.fromNostrEvent(
       await ndk.accounts.sign(
         Nip01Event(
-          kind: NOSTR_KIND_RESERVATION_REQUEST,
+          kind: kNostrKindReservationRequest,
           tags: [
-            [LISTING_REFERENCE_TAG, listing.anchor!],
-            [THREAD_REFERENCE_TAG, threadId],
+            [kListingRefTag, listing.anchor!],
+            [kThreadRefTag, threadId],
             ['d', threadId],
           ],
           content: ReservationRequestContent(

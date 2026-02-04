@@ -8,7 +8,7 @@ var MOCK_ESCROW_METHODS = () async {
       event: await (Nip51List(
               pubKey: MockKeys.hoster.publicKey,
               createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-              kind: NOSTR_KIND_ESCROW_METHOD,
+              kind: kNostrKindEscrowMethod,
               elements: [])
             ..addElement('t', EscrowType.EVM.name, false))
           .toEvent(Bip340EventSigner(
@@ -20,7 +20,7 @@ var MOCK_ESCROW_METHODS = () async {
         event: await (Nip51List(
                 pubKey: MockKeys.guest.publicKey,
                 createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-                kind: NOSTR_KIND_ESCROW_METHOD,
+                kind: kNostrKindEscrowMethod,
                 elements: [])
               ..addElement('t', EscrowType.EVM.name, false))
             .toEvent(Bip340EventSigner(

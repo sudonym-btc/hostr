@@ -8,16 +8,19 @@ class CustomPadding extends StatelessWidget {
   final double right;
   final Widget? child;
 
-  const CustomPadding(
-      {super.key,
-      this.child,
-      this.top = 1,
-      this.bottom = 1,
-      this.left = 1,
-      this.right = 1});
+  const CustomPadding({
+    super.key,
+    this.child,
+    this.top = 1,
+    this.bottom = 1,
+    this.left = 1,
+    this.right = 1,
+  });
 
-  factory CustomPadding.vertical(
-      {double multiplier = 1, required Widget child}) {
+  factory CustomPadding.vertical({
+    double multiplier = 1,
+    required Widget child,
+  }) {
     return CustomPadding(
       top: multiplier,
       bottom: multiplier,
@@ -29,12 +32,13 @@ class CustomPadding extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-        padding: EdgeInsets.only(
-          top: top * DEFAULT_PADDING.toDouble(),
-          bottom: bottom * DEFAULT_PADDING.toDouble(),
-          left: left * DEFAULT_PADDING.toDouble(),
-          right: right * DEFAULT_PADDING.toDouble(),
-        ),
-        child: child ?? Container());
+      padding: EdgeInsets.only(
+        top: top * kDefaultPadding.toDouble(),
+        bottom: bottom * kDefaultPadding.toDouble(),
+        left: left * kDefaultPadding.toDouble(),
+        right: right * kDefaultPadding.toDouble(),
+      ),
+      child: child ?? Container(),
+    );
   }
 }

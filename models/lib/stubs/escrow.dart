@@ -20,6 +20,6 @@ List<Escrow> MOCK_ESCROWS({String? contractAddress}) => [
                       type: EscrowType.EVM)
                   .toJson()),
               createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-              kind: NOSTR_KIND_ESCROW,
+              kind: kNostrKindEscrow,
               tags: []))),
     ].toList();

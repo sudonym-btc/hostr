@@ -51,8 +51,10 @@ find "$ROOT_DIR/dependencies/rif-relay-contracts/artifacts/contracts" \
     cd $ROOT_DIR/escrow/contracts && npm install && npx hardhat compile
 ) &&
 cp "$ROOT_DIR/escrow/contracts/artifacts/contracts/MultiEscrow.sol/MultiEscrow.json" \
-   "$ROOT_DIR/app/lib/data/sources/escrow/MultiEscrow.abi.json" &&
+   "$ROOT_DIR/app/lib/data/sources/escrow/MultiEscrow.abi.json"
 
 # Now run build_runner to compile abis into dart interfaces
 
 (cd $ROOT_DIR/app && dart run build_runner build --delete-conflicting-outputs)
+
+# @todo: also need to compile abi directly in the escrow folder for the server to use

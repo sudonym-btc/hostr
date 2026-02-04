@@ -13,8 +13,8 @@ var MOCK_RESERVATIONS = [
       ),
       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
       tags: [
-        [LISTING_REFERENCE_TAG, MOCK_LISTINGS[0].anchor!],
-        [THREAD_REFERENCE_TAG, hostInvitesGuest.threadAnchor],
+        [kListingRefTag, MOCK_LISTINGS[0].anchor!],
+        [kThreadRefTag, hostInvitesGuest.threadAnchor],
         ['d', '1'],
         [
           'guestCommitmentHash',
@@ -36,8 +36,8 @@ var MOCK_RESERVATIONS = [
       ),
       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
       tags: [
-        [LISTING_REFERENCE_TAG, MOCK_LISTINGS[1].anchor!],
-        [THREAD_REFERENCE_TAG, guestRequest.threadAnchor],
+        [kListingRefTag, MOCK_LISTINGS[1].anchor!],
+        [kThreadRefTag, guestRequest.threadAnchor],
         ['d', '2'],
         [
           'guestCommitmentHash',

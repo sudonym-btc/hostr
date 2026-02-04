@@ -10,7 +10,7 @@ import 'type_json_content.dart';
 /// Defines a badge with metadata (replaceable by 'd' tag)
 /// Can be updated by re-publishing with same 'd' tag
 class BadgeDefinition extends JsonContentNostrEvent<BadgeDefinitionContent> {
-  static const List<int> kinds = [NOSTR_KIND_BADGE_DEFINITION];
+  static const List<int> kinds = [kNostrKindBadgeDefinition];
 
   BadgeDefinition.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
     try {

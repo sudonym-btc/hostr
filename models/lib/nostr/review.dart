@@ -6,10 +6,10 @@ import 'package:ndk/domain_layer/entities/nip_01_event.dart';
 
 class Review extends JsonContentNostrEvent<ReviewContent>
     with ReferencesListing<Review>, ReferencesReservation<Review> {
-  static const List<int> kinds = [NOSTR_KIND_REVIEW];
+  static const List<int> kinds = [kNostrKindReview];
   static const requiredTags = [
-    [RESERVATION_REFERENCE_TAG],
-    [LISTING_REFERENCE_TAG]
+    [kReservationRefTag],
+    [kListingRefTag]
   ];
 
   Review(
@@ -19,7 +19,7 @@ class Review extends JsonContentNostrEvent<ReviewContent>
       super.createdAt,
       super.id,
       super.sig})
-      : super(kind: NOSTR_KIND_REVIEW);
+      : super(kind: kNostrKindReview);
 
   Review.fromNostrEvent(Nip01Event e)
       : assert(hasRequiredTags(e.tags, Review.requiredTags)),

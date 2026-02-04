@@ -7,10 +7,10 @@ import 'package:web3dart/web3dart.dart';
 
 class Reservation extends JsonContentNostrEvent<ReservationContent>
     with ReferencesListing<Reservation>, ReferencesThread<Reservation> {
-  static const List<int> kinds = [NOSTR_KIND_RESERVATION];
+  static const List<int> kinds = [kNostrKindReservation];
   static const requiredTags = [
-    [THREAD_REFERENCE_TAG],
-    [LISTING_REFERENCE_TAG]
+    [kThreadRefTag],
+    [kListingRefTag]
   ];
 
   Reservation(
@@ -21,7 +21,7 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
       super.id,
       super.sig})
       : assert(hasRequiredTags(tags, Reservation.requiredTags)),
-        super(kind: NOSTR_KIND_RESERVATION);
+        super(kind: kNostrKindReservation);
 
   String? get commitmentHash {
     return getFirstTag('guestCommitmentHash');

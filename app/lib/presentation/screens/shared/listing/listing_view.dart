@@ -110,9 +110,7 @@ class ListingView extends StatelessWidget {
                                       nostrService: getIt(),
                                       filter: Filter(
                                         tags: {
-                                          LISTING_REFERENCE_TAG: [
-                                            state.data!.anchor!,
-                                          ],
+                                          kListingRefTag: [state.data!.anchor!],
                                         },
                                       ),
                                     )..next(),

@@ -79,7 +79,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
                       ..updateFilter(
                         Filter(
                           tags: {
-                            LISTING_REFERENCE_TAG: [widget.listing.anchor!],
+                            kListingRefTag: [widget.listing.anchor!],
                           },
                         ),
                       ),
@@ -148,7 +148,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
             ? Row(
                 children: [
                   SizedBox(height: 100, width: 100, child: getImage()),
-                  SizedBox(width: DEFAULT_PADDING.toDouble()),
+                  SizedBox(width: kDefaultPadding.toDouble()),
                   Expanded(child: getDetails(context)),
                 ],
               )

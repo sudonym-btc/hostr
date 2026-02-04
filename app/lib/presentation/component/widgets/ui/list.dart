@@ -58,7 +58,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
         final itemCount = state.results.length + (isLoading ? 1 : 0);
 
         return ListView.builder(
-          padding: EdgeInsets.only(bottom: DEFAULT_PADDING.toDouble()),
+          padding: EdgeInsets.only(bottom: kDefaultPadding.toDouble()),
           controller: _scrollController,
           itemCount: itemCount,
           itemBuilder: (context, index) {

@@ -7,7 +7,7 @@ import '../nostr_kinds.dart';
 import '../stubs/keypairs.dart';
 
 class EscrowMethod extends Event {
-  static const List<int> kinds = [NOSTR_KIND_ESCROW_METHOD];
+  static const List<int> kinds = [kNostrKindEscrowMethod];
 
   EscrowMethod.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e);
 

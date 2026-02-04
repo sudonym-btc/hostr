@@ -7,7 +7,7 @@ import 'package:ndk/ndk.dart';
 import '../nostr_kinds.dart';
 
 class EscrowTrust extends Event {
-  static const List<int> kinds = [NOSTR_KIND_ESCROW_TRUST];
+  static const List<int> kinds = [kNostrKindEscrowTrust];
 
   EscrowTrust.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e);
 

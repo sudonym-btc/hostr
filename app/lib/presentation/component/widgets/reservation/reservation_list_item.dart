@@ -29,7 +29,7 @@ class ReservationListItem extends StatelessWidget {
                   width: 100,
                   child: ListingCarousel(listing: state.data!),
                 ),
-                SizedBox(width: DEFAULT_PADDING.toDouble()),
+                SizedBox(width: kDefaultPadding.toDouble()),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

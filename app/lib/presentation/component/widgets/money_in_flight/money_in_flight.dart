@@ -35,7 +35,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
       maintainState: false,
       child: Column(
         children: [
-          SizedBox(height: DEFAULT_PADDING.toDouble() / 2),
+          SizedBox(height: kDefaultPadding.toDouble() / 2),
 
           StreamBuilder(
             stream: _balanceStream,

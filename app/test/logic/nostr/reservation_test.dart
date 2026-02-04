@@ -34,7 +34,7 @@ class FakeReservationRequest extends Fake implements ReservationRequest {
   final String pubKey;
 
   @override
-  final int kind = NOSTR_KIND_RESERVATION_REQUEST;
+  final int kind = kNostrKindReservationRequest;
 
   @override
   final String content;
@@ -102,7 +102,7 @@ class FakeMessage extends Fake implements Message {
   final List<List<String>> tags;
 
   @override
-  final int kind = NOSTR_KIND_DM;
+  final int kind = kNostrKindDM;
 
   FakeMessage({
     required this.id,
@@ -139,7 +139,7 @@ void main() {
       );
 
       // Assert
-      expect(reservationRequest.kind, NOSTR_KIND_RESERVATION_REQUEST);
+      expect(reservationRequest.kind, kNostrKindReservationRequest);
       expect(reservationRequest.pubKey, 'guest-pubkey');
       expect(reservationRequest.parsedContent.start, startDate);
       expect(reservationRequest.parsedContent.end, endDate);
@@ -296,7 +296,7 @@ void main() {
 
       // Assert - Event is properly structured for broadcasting
       expect(reservationRequest.id, isNotEmpty);
-      expect(reservationRequest.kind, NOSTR_KIND_RESERVATION_REQUEST);
+      expect(reservationRequest.kind, kNostrKindReservationRequest);
       expect(reservationRequest.pubKey, 'guest-pubkey');
       expect(reservationRequest.content, isNotEmpty);
     });
@@ -439,7 +439,7 @@ void main() {
         );
 
         // Assert - Message carries reservation request data and context
-        expect(message.kind, NOSTR_KIND_DM);
+        expect(message.kind, kNostrKindDM);
         expect(message.content, reservationRequest.content);
         expect(message.tags, hasLength(1));
         expect(message.tags[0], equals(['a', listingAnchor]));
@@ -559,7 +559,7 @@ void main() {
       );
 
       // Assert - Message preserves all data
-      expect(broadcastMessage.kind, NOSTR_KIND_DM);
+      expect(broadcastMessage.kind, kNostrKindDM);
       expect(broadcastMessage.content, reservationRequest.content);
       expect(broadcastMessage.tags, hasLength(1));
       expect(broadcastMessage.tags[0], equals(['a', listing.anchor]));
