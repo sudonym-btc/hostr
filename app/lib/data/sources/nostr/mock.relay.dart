@@ -199,6 +199,24 @@ bool matchEvent(Nip01Event event, Filter filter) {
     return false;
   }
 
+  /// Match miscellaneous tag filters (filter.tags), keys are prefixed with '#'
+  if (filter.tags != null) {
+    for (final entry in filter.tags!.entries) {
+      final tagKey = entry.key.startsWith('#')
+          ? entry.key.substring(1)
+          : entry.key;
+      final values = entry.value;
+
+      final matchesTag = event.tags.any(
+        (tag) => tag.isNotEmpty && tag[0] == tagKey && tag.any(values.contains),
+      );
+
+      if (!matchesTag) {
+        return false;
+      }
+    }
+  }
+
   if (filter.authors != null &&
       (!filter.authors!.contains(event.pubKey) ||
           (event.tags.contains((tag) => tag[0] == "delegation") &&

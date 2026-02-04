@@ -33,8 +33,8 @@ class SubscriptionResponse<T extends Nip01Event> {
   Function? onClose;
 
   StreamController<T> controller = StreamController<T>.broadcast();
-  StreamController<SubscriptionStatus> statusController =
-      StreamController<SubscriptionStatus>.broadcast();
+  BehaviorSubject<SubscriptionStatus> status =
+      BehaviorSubject<SubscriptionStatus>.seeded(SubscriptionStatusIdle());
 
   late final ReplaySubject<T> _replaySubject = ReplaySubject<T>();
   late final StreamSubscription<T> _replaySubscription;
@@ -55,10 +55,6 @@ class SubscriptionResponse<T extends Nip01Event> {
 
   ValueStream<List<T>> get list => _listSubject;
 
-  /// A stream reporting the subscription status.
-  late final ValueStream<SubscriptionStatus> status = statusController.stream
-      .shareValueSeeded(SubscriptionStatusIdle());
-
   SubscriptionResponse({this.onClose}) {
     _replaySubscription = controller.stream.listen(
       _replaySubject.add,
@@ -68,12 +64,12 @@ class SubscriptionResponse<T extends Nip01Event> {
   }
 
   addError(Object error, StackTrace? stackTrace) {
-    statusController.add(SubscriptionStatusError(error, stackTrace));
+    status.add(SubscriptionStatusError(error, stackTrace));
     controller.addError(error, stackTrace);
   }
 
-  addStatus(SubscriptionStatus status) {
-    statusController.add(status);
+  addStatus(SubscriptionStatus newStatus) {
+    status.add(newStatus);
   }
 
   add(T item) {
@@ -90,7 +86,7 @@ class SubscriptionResponse<T extends Nip01Event> {
 
   close() {
     controller.close();
-    statusController.close();
+    status.close();
     _listSubject.close();
     _replaySubscription.cancel();
     _replaySubject.close();
