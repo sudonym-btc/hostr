@@ -2,7 +2,7 @@ import 'package:models/main.dart';
 
 ReservationRequest hostInvitesGuestReservationRequest = ReservationRequest(
         tags: [
-      [LISTING_REFERENCE_TAG, MOCK_LISTINGS[0].anchor!],
+      [kListingRefTag, MOCK_LISTINGS[0].anchor!],
       ['d', '1'],
     ],
         createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
@@ -17,7 +17,7 @@ ReservationRequest hostInvitesGuestReservationRequest = ReservationRequest(
 
 ReservationRequest guestInvitesHostReservationRequest = ReservationRequest(
         tags: [
-      [LISTING_REFERENCE_TAG, MOCK_LISTINGS[0].anchor!],
+      [kListingRefTag, MOCK_LISTINGS[0].anchor!],
       ['d', '2'],
     ],
         createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,

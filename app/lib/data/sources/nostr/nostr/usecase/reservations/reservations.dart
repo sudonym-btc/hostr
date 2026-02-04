@@ -31,7 +31,7 @@ class Reservations extends CrudUseCase<Reservation> {
       Filter(
         kinds: Reservation.kinds,
         tags: {
-          LISTING_REFERENCE_TAG: [listingAnchor],
+          kListingRefTag: [listingAnchor],
         },
       ),
     ).then((reservations) {

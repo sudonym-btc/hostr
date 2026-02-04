@@ -10,9 +10,9 @@ import 'type_parent.dart';
 
 class Message<T extends Event> extends ParentTypeNostrEvent
     with ReferencesThread<Message<T>> {
-  static const List<int> kinds = [NOSTR_KIND_DM];
+  static const List<int> kinds = [kNostrKindDM];
   static const requiredTags = [
-    [THREAD_REFERENCE_TAG],
+    [kThreadRefTag],
   ];
 
   Message(
@@ -24,7 +24,7 @@ class Message<T extends Event> extends ParentTypeNostrEvent
       super.id,
       super.sig})
       : super(
-          kind: NOSTR_KIND_DM,
+          kind: kNostrKindDM,
         );
 
   Message.fromNostrEvent(Nip01Event e, T? child)

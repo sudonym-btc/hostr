@@ -65,12 +65,12 @@ bool hasRequiredTags(
 
 mixin ReferencesListing<T extends ReferencesListing<T>> on Event {
   String get listingAnchor {
-    return getTags(LISTING_REFERENCE_TAG).first;
+    return getTags(kListingRefTag).first;
   }
 
   T setListingAnchor(String? anchor) {
     if (anchor != null) {
-      tags.add([LISTING_REFERENCE_TAG, anchor]);
+      tags.add([kListingRefTag, anchor]);
     }
     return this as T;
   }
@@ -78,12 +78,12 @@ mixin ReferencesListing<T extends ReferencesListing<T>> on Event {
 
 mixin ReferencesReservation<T extends ReferencesReservation<T>> on Event {
   String get reservationAnchor {
-    return getTags(RESERVATION_REFERENCE_TAG).first;
+    return getTags(kReservationRefTag).first;
   }
 
   T setReservationAnchor(String? anchor) {
     if (anchor != null) {
-      tags.add([RESERVATION_REFERENCE_TAG, anchor]);
+      tags.add([kReservationRefTag, anchor]);
     }
     return this as T;
   }
@@ -91,12 +91,12 @@ mixin ReferencesReservation<T extends ReferencesReservation<T>> on Event {
 
 mixin ReferencesThread<T extends ReferencesThread<T>> on Event {
   String get threadAnchor {
-    return getTags(THREAD_REFERENCE_TAG).first;
+    return getTags(kThreadRefTag).first;
   }
 
   T setThreadAnchor(String? anchor) {
     if (anchor != null) {
-      tags.add([THREAD_REFERENCE_TAG, anchor]);
+      tags.add([kThreadRefTag, anchor]);
     }
     return this as T;
   }

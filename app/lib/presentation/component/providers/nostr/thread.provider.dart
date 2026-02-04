@@ -44,8 +44,8 @@ class _ThreadProviderState extends State<ThreadProvider> {
     if (_reservationsResponse == null || _listingAnchor != listingAnchor) {
       print(
         'Subscribing to reservations for listing anchor: $listingAnchor ${Filter(kinds: Reservation.kinds, tags: {
-          LISTING_REFERENCE_TAG: [listingAnchor],
-          THREAD_REFERENCE_TAG: [thread.anchor],
+          kListingRefTag: [listingAnchor],
+          kThreadRefTag: [thread.anchor],
         })}',
       );
       _reservationsResponse?.close();
@@ -54,8 +54,8 @@ class _ThreadProviderState extends State<ThreadProvider> {
         filter: Filter(
           kinds: Reservation.kinds,
           tags: {
-            LISTING_REFERENCE_TAG: [listingAnchor],
-            THREAD_REFERENCE_TAG: [thread.anchor],
+            kListingRefTag: [listingAnchor],
+            kThreadRefTag: [thread.anchor],
           },
         ),
       );

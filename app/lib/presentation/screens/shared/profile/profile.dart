@@ -160,7 +160,7 @@ class ProfileScreen extends StatelessWidget {
                             return Column(
                               children: [
                                 SizedBox(
-                                  height: DEFAULT_PADDING.toDouble() / 2,
+                                  height: kDefaultPadding.toDouble() / 2,
                                 ),
                                 ...snapshot.data!.tags
                                     .where((el) => el[0] == 'p')

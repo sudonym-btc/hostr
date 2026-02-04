@@ -98,7 +98,7 @@ class _EscrowSelectorWidgetState extends State<EscrowSelectorWidget> {
                             .escrows
                             .list(
                               Filter(
-                                kinds: [NOSTR_KIND_ESCROW],
+                                kinds: [kNostrKindEscrow],
                                 authors: [_current!],
                               ),
                             );

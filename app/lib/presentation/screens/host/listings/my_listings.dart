@@ -56,7 +56,7 @@ class MyListingsScreen extends StatelessWidget {
                                 getIt<Hostr>().auth.activeKeyPair!.publicKey,
                               ],
                               tags: {
-                                LISTING_REFERENCE_TAG: [el.anchor!],
+                                kListingRefTag: [el.anchor!],
                               },
                             ),
                           )..next(),

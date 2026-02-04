@@ -9,9 +9,9 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 class ReservationRequest
     extends JsonContentNostrEvent<ReservationRequestContent>
     with ReferencesListing<ReservationRequest> {
-  static const List<int> kinds = [NOSTR_KIND_RESERVATION_REQUEST];
+  static const List<int> kinds = [kNostrKindReservationRequest];
   static const requiredTags = [
-    [LISTING_REFERENCE_TAG]
+    [kListingRefTag]
   ];
   ReservationRequest(
       {required super.pubKey,
@@ -20,7 +20,7 @@ class ReservationRequest
       super.createdAt,
       super.id,
       super.sig})
-      : super(kind: NOSTR_KIND_RESERVATION_REQUEST);
+      : super(kind: kNostrKindReservationRequest);
 
   ReservationRequest.fromNostrEvent(Nip01Event e)
       : assert(hasRequiredTags(e.tags, ReservationRequest.requiredTags)),

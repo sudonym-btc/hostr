@@ -16,7 +16,7 @@ final MOCK_BADGE_DEFINITIONS = [
               'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Twitter_Verified_Badge.svg/1200px-Twitter_Verified_Badge.svg.png',
         }),
         createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-        kind: NOSTR_KIND_BADGE_DEFINITION,
+        kind: kNostrKindBadgeDefinition,
         tags: [
           ['d', 'verified-host'],
         ],
@@ -31,7 +31,7 @@ final MOCK_BADGE_DEFINITIONS = [
           'image': 'https://cdn-icons-png.flaticon.com/512/1828/1828970.png',
         }),
         createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-        kind: NOSTR_KIND_BADGE_DEFINITION,
+        kind: kNostrKindBadgeDefinition,
         tags: [
           ['d', 'top-rated'],
         ],
@@ -45,7 +45,7 @@ final MOCK_BADGE_DEFINITIONS = [
           'description': 'This property follows sustainable practices',
         }),
         createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-        kind: NOSTR_KIND_BADGE_DEFINITION,
+        kind: kNostrKindBadgeDefinition,
         tags: [
           ['d', 'eco-friendly'],
         ],
@@ -62,11 +62,11 @@ final MOCK_BADGE_AWARDS = [
         pubKey: MockKeys.escrow.publicKey,
         content: '',
         createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-        kind: NOSTR_KIND_BADGE_AWARD,
+        kind: kNostrKindBadgeAward,
         tags: [
           [
             'a',
-            '$NOSTR_KIND_BADGE_DEFINITION:${MockKeys.escrow.publicKey}:verified-host'
+            '$kNostrKindBadgeDefinition:${MockKeys.escrow.publicKey}:verified-host'
           ],
           ['a', MOCK_LISTINGS[0].anchor!],
           ['p', MockKeys.hoster.publicKey],
@@ -79,11 +79,11 @@ final MOCK_BADGE_AWARDS = [
         pubKey: MockKeys.escrow.publicKey,
         content: '',
         createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-        kind: NOSTR_KIND_BADGE_AWARD,
+        kind: kNostrKindBadgeAward,
         tags: [
           [
             'a',
-            '$NOSTR_KIND_BADGE_DEFINITION:${MockKeys.escrow.publicKey}:verified-host'
+            '$kNostrKindBadgeDefinition:${MockKeys.escrow.publicKey}:verified-host'
           ],
           ['a', MOCK_LISTINGS[0].anchor!],
           ['p', MockKeys.hoster.publicKey],

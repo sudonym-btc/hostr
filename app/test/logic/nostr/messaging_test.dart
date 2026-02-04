@@ -29,7 +29,7 @@ class MockNip01Event extends Mock implements Nip01Event {
   String get pubKey => 'test-pubkey';
 
   @override
-  int get kind => NOSTR_KIND_DM;
+  int get kind => kNostrKindDM;
 
   @override
   List<List<String>> get tags => [];
@@ -49,7 +49,7 @@ class FakeMessage extends Fake implements Message {
   final String pubKey;
 
   @override
-  final int kind = NOSTR_KIND_DM;
+  final int kind = kNostrKindDM;
 
   @override
   final List<List<String>> tags;
@@ -91,7 +91,7 @@ class FakeNip01Event extends Fake implements Nip01Event {
     required this.content,
     required this.createdAt,
     required this.pubKey,
-    this.kind = NOSTR_KIND_DM,
+    this.kind = kNostrKindDM,
     required this.tags,
   });
 }

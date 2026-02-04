@@ -11,8 +11,11 @@ class ImageUpload extends StatelessWidget {
   final ImagePickerCubit controller;
   final String pubkey;
 
-  const ImageUpload(
-      {super.key, required this.controller, required this.pubkey});
+  const ImageUpload({
+    super.key,
+    required this.controller,
+    required this.pubkey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,24 +23,22 @@ class ImageUpload extends StatelessWidget {
       return Row(
         children: [
           Expanded(
-              child: FilledButton.tonal(
-            onPressed: () {
-              context.read<ImagePickerCubit>().pickMultipleImages();
-            },
-            child: Text(
-              "Gallery",
+            child: FilledButton.tonal(
+              onPressed: () {
+                context.read<ImagePickerCubit>().pickMultipleImages();
+              },
+              child: Text("Gallery"),
             ),
-          )),
-          SizedBox(width: DEFAULT_PADDING.toDouble()),
+          ),
+          SizedBox(width: kDefaultPadding.toDouble()),
           Expanded(
-              child: FilledButton.tonal(
-            onPressed: () {
-              context.read<ImagePickerCubit>().captureImageWithCamera();
-            },
-            child: Text(
-              "Camera",
+            child: FilledButton.tonal(
+              onPressed: () {
+                context.read<ImagePickerCubit>().captureImageWithCamera();
+              },
+              child: Text("Camera"),
             ),
-          )),
+          ),
         ],
       );
     }
@@ -65,10 +66,13 @@ class ImageUpload extends StatelessWidget {
                       ? GridView.builder(
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: min(3, controller.maxImages ?? 3),
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
-                          ),
+                                crossAxisCount: min(
+                                  3,
+                                  controller.maxImages ?? 3,
+                                ),
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
                           itemCount: controller.images.length,
                           itemBuilder: (context, index) {
                             final image = controller.images[index];
@@ -82,8 +86,10 @@ class ImageUpload extends StatelessWidget {
                                           image: image.path!,
                                           pubkey: pubkey,
                                         )
-                                      : Image.file(File(image.file!.path),
-                                          fit: BoxFit.cover),
+                                      : Image.file(
+                                          File(image.file!.path),
+                                          fit: BoxFit.cover,
+                                        ),
                                 ),
                                 Positioned(
                                   top: 7,
@@ -95,8 +101,11 @@ class ImageUpload extends StatelessWidget {
                                     child: CircleAvatar(
                                       radius: 16,
                                       backgroundColor: Colors.red,
-                                      child: Icon(Icons.close,
-                                          size: 16, color: Colors.white),
+                                      child: Icon(
+                                        Icons.close,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -109,7 +118,7 @@ class ImageUpload extends StatelessWidget {
                           style: TextStyle(fontSize: 14, color: Colors.grey),
                         ),
                 ),
-                SizedBox(height: DEFAULT_PADDING.toDouble()),
+                SizedBox(height: kDefaultPadding.toDouble()),
                 buildButtons(context),
               ],
             ),
