@@ -65,7 +65,10 @@ class ReserveState extends State<Reserve> {
                                 endDate: dateState.dateRange!.end,
                                 onSuccess: (reservationRequest) {
                                   AutoRouter.of(context).push(
-                                    ThreadRoute(id: reservationRequest.anchor!),
+                                    ThreadRoute(
+                                      // If reservationRequest keeps thread anchor tag, retain. Otherwise parse it from the d tag
+                                      anchor: reservationRequest.anchor!,
+                                    ),
                                   );
                                 },
                               );

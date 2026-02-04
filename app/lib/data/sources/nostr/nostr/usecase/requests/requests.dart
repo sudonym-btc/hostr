@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:hostr/data/repositories/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
@@ -154,7 +155,7 @@ class Requests extends RequestsModel {
     response.addStatus(SubscriptionStatusQuerying());
 
     ndk.requests
-        .query(filter: filter, cacheRead: false, cacheWrite: false)
+        .query(filter: cleanTags(filter), cacheRead: false, cacheWrite: false)
         .stream
         .doOnDone(() => response.addStatus(SubscriptionStatusQueryComplete()))
         .concatWith([
@@ -173,7 +174,7 @@ class Requests extends RequestsModel {
             return ndk.requests
                 .subscription(
                   id: ndkSubName,
-                  filter: liveFilter,
+                  filter: cleanTags(liveFilter),
                   cacheRead: false,
                   cacheWrite: false,
                 )
@@ -194,7 +195,7 @@ class Requests extends RequestsModel {
   }) {
     return ndk.requests
         .query(
-          filter: filter,
+          filter: cleanTags(filter),
           cacheRead: false,
           cacheWrite: false,
           timeout: timeout,

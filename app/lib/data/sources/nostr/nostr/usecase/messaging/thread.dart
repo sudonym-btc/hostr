@@ -7,8 +7,8 @@ import 'package:ndk/ndk.dart' show Nip01Event, Accounts;
 import './messaging.dart';
 
 class Thread {
-  Thread(this.id, {required this.messaging, required this.accounts});
-  final String id;
+  Thread(this.anchor, {required this.messaging, required this.accounts});
+  final String anchor;
   final Messaging messaging;
   final Accounts accounts;
   final List<Message> messages = [];
@@ -41,7 +41,7 @@ class Thread {
     return messaging.broadcastText(
       content: content,
       tags: [
-        ['a', id],
+        [THREAD_REFERENCE_TAG, anchor],
       ],
       recipientPubkey: counterpartyPubkey(),
     );
@@ -53,7 +53,7 @@ class Thread {
     return messaging.broadcastEvent(
       event: event,
       tags: [
-        ['a', id],
+        [THREAD_REFERENCE_TAG, anchor],
         ...tags,
       ],
       recipientPubkey: counterpartyPubkey(),

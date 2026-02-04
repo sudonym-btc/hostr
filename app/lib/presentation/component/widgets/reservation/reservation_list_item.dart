@@ -13,7 +13,9 @@ class ReservationListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        AutoRouter.of(context).push(ThreadRoute(id: reservation.threadAnchor));
+        AutoRouter.of(
+          context,
+        ).push(ThreadRoute(anchor: reservation.threadAnchor));
       },
       child: ListingProvider(
         a: reservation.listingAnchor,

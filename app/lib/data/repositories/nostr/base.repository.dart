@@ -14,7 +14,35 @@ class Err<T> extends DataResult<T> {
   Err(this.message);
 }
 
+Filter? cleanTags(Filter? filter) {
+  if (filter == null) {
+    return null;
+  }
+
+  final tags = filter.tags;
+  if (tags == null) {
+    return filter;
+  }
+
+  final cleaned = <String, List<String>>{};
+  for (final entry in tags.entries) {
+    final key = entry.key.startsWith('#') ? entry.key : '#${entry.key}';
+    cleaned.update(
+      key,
+      (existing) => [...existing, ...entry.value],
+      ifAbsent: () => [...entry.value],
+    );
+  }
+
+  Filter cleanFilter = filter.clone();
+  cleanFilter.tags = cleaned.isEmpty ? null : cleaned;
+  return cleanFilter;
+}
+
 Filter getCombinedFilter(Filter? filter1, Filter? filter2) {
+  final cleanedFilter1 = cleanTags(filter1);
+  final cleanedFilter2 = cleanTags(filter2);
+
   Map<String, List<String>>? mergeTags(
     Map<String, List<String>>? first,
     Map<String, List<String>>? second,
@@ -27,9 +55,8 @@ Filter getCombinedFilter(Filter? filter1, Filter? filter2) {
 
     void addAll(Map<String, List<String>> source) {
       for (final entry in source.entries) {
-        final key = entry.key.startsWith('#') ? entry.key : '#${entry.key}';
         merged.update(
-          key,
+          entry.key,
           (existing) => [...existing, ...entry.value],
           ifAbsent: () => [...entry.value],
         );
@@ -47,34 +74,35 @@ Filter getCombinedFilter(Filter? filter1, Filter? filter2) {
   }
 
   return Filter(
-    ids: (filter1?.ids != null || filter2?.ids != null)
-        ? [...?filter1?.ids, ...?filter2?.ids]
+    ids: (cleanedFilter1?.ids != null || cleanedFilter2?.ids != null)
+        ? [...?cleanedFilter1?.ids, ...?cleanedFilter2?.ids]
         : null,
-    authors: (filter1?.authors != null || filter2?.authors != null)
-        ? [...?filter1?.authors, ...?filter2?.authors]
+    authors:
+        (cleanedFilter1?.authors != null || cleanedFilter2?.authors != null)
+        ? [...?cleanedFilter1?.authors, ...?cleanedFilter2?.authors]
         : null,
-    kinds: (filter1?.kinds != null || filter2?.kinds != null)
-        ? [...?filter1?.kinds, ...?filter2?.kinds]
+    kinds: (cleanedFilter1?.kinds != null || cleanedFilter2?.kinds != null)
+        ? [...?cleanedFilter1?.kinds, ...?cleanedFilter2?.kinds]
         : null,
-    eTags: (filter1?.eTags != null || filter2?.eTags != null)
-        ? [...?filter1?.eTags, ...?filter2?.eTags]
+    eTags: (cleanedFilter1?.eTags != null || cleanedFilter2?.eTags != null)
+        ? [...?cleanedFilter1?.eTags, ...?cleanedFilter2?.eTags]
         : null,
-    pTags: (filter1?.pTags != null || filter2?.pTags != null)
-        ? [...?filter1?.pTags, ...?filter2?.pTags]
+    pTags: (cleanedFilter1?.pTags != null || cleanedFilter2?.pTags != null)
+        ? [...?cleanedFilter1?.pTags, ...?cleanedFilter2?.pTags]
         : null,
-    tTags: (filter1?.tTags != null || filter2?.tTags != null)
-        ? [...?filter1?.tTags, ...?filter2?.tTags]
+    tTags: (cleanedFilter1?.tTags != null || cleanedFilter2?.tTags != null)
+        ? [...?cleanedFilter1?.tTags, ...?cleanedFilter2?.tTags]
         : null,
-    aTags: (filter1?.aTags != null || filter2?.aTags != null)
-        ? [...?filter1?.aTags, ...?filter2?.aTags]
+    aTags: (cleanedFilter1?.aTags != null || cleanedFilter2?.aTags != null)
+        ? [...?cleanedFilter1?.aTags, ...?cleanedFilter2?.aTags]
         : null,
-    dTags: (filter1?.dTags != null || filter2?.dTags != null)
-        ? [...?filter1?.dTags, ...?filter2?.dTags]
+    dTags: (cleanedFilter1?.dTags != null || cleanedFilter2?.dTags != null)
+        ? [...?cleanedFilter1?.dTags, ...?cleanedFilter2?.dTags]
         : null,
-    tags: mergeTags(filter1?.tags, filter2?.tags),
-    since: filter1?.since ?? filter2?.since,
-    until: filter1?.until ?? filter2?.until,
-    limit: filter1?.limit ?? filter2?.limit,
-    search: filter1?.search ?? filter2?.search,
+    tags: mergeTags(cleanedFilter1?.tags, cleanedFilter2?.tags),
+    since: cleanedFilter1?.since ?? cleanedFilter2?.since,
+    until: cleanedFilter1?.until ?? cleanedFilter2?.until,
+    limit: cleanedFilter1?.limit ?? cleanedFilter2?.limit,
+    search: cleanedFilter1?.search ?? cleanedFilter2?.search,
   );
 }

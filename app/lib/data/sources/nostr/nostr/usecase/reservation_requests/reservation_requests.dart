@@ -28,15 +28,18 @@ class ReservationRequests extends CrudUseCase {
   }) async {
     // Generate random salt for this reservation request
     final salt = Helpers.getSecureRandomHex(32);
+    final threadId = Helpers.getSecureRandomHex(32);
 
     logger.d('Creating new reservation request with salt $salt');
+    // @todo, switch to hostr.auth.sign
     return ReservationRequest.fromNostrEvent(
       await ndk.accounts.sign(
         Nip01Event(
           kind: NOSTR_KIND_RESERVATION_REQUEST,
           tags: [
-            ['a', listing.anchor!],
-            ['d', Helpers.getSecureRandomHex(32)],
+            [LISTING_REFERENCE_TAG, listing.anchor!],
+            [THREAD_REFERENCE_TAG, threadId],
+            ['d', threadId],
           ],
           content: ReservationRequestContent(
             start: startDate,

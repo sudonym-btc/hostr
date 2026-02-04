@@ -49,7 +49,7 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
       await _nostrService.messaging.broadcastEventAndWait(
         event: result,
         tags: [
-          ['a', result.anchor!],
+          [THREAD_REFERENCE_TAG, result.anchor!],
         ],
         recipientPubkey: listing.pubKey,
       );
