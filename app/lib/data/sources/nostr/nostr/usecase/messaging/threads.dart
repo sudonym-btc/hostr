@@ -26,9 +26,6 @@ class Threads extends HydratedCubit<List<Message>> {
 
   final Map<String, Thread> threads = {};
 
-  @override
-  get state => subscription?.list.value ?? [];
-
   SubscriptionResponse<Message>? subscription;
   StreamSubscription<SubscriptionStatus>? _statusSubscription;
   StreamSubscription<Message>? _messageSubscription;
@@ -55,6 +52,7 @@ class Threads extends HydratedCubit<List<Message>> {
     _statusSubscription?.cancel();
     _statusSubscription = subscription!.status.listen((status) {
       _statusSubject.add(status);
+      logger.d("Thread stats $status");
       if (status is SubscriptionStatusQueryComplete) {
         logger.d('Threads query complete');
       }
@@ -89,10 +87,12 @@ class Threads extends HydratedCubit<List<Message>> {
     if (state.any((existing) => existing.id == message.id)) {
       return;
     }
-    String? id = message.reservationRequestAnchor;
+
+    String? id = message.threadAnchor;
     if (id == null) {
       return;
     }
+
     if (threads[id] == null) {
       threads[id] = Thread(id, messaging: messaging, accounts: ndk.accounts);
       threadController.add(message);
@@ -115,6 +115,7 @@ class Threads extends HydratedCubit<List<Message>> {
 
   void _rebuildThreadsFromMessages(List<Message> messages) {
     threads.clear();
+    print('rebuilding from state $messages');
     for (final message in messages) {
       processMessage(message);
     }
@@ -139,8 +140,8 @@ class Threads extends HydratedCubit<List<Message>> {
 
   @override
   Future<void> close() async {
-    _statusSubscription?.cancel();
-    _messageSubscription?.cancel();
+    // @todo are the right close methods called here?
+    stop();
     await _statusSubject.close();
     return super.close();
   }

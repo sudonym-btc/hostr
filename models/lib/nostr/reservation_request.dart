@@ -7,9 +7,15 @@ import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class ReservationRequest
-    extends JsonContentNostrEvent<ReservationRequestContent> {
+    extends JsonContentNostrEvent<ReservationRequestContent>
+    with
+        ReferencesListing<ReservationRequest>,
+        ReferencesThread<ReservationRequest> {
   static const List<int> kinds = [NOSTR_KIND_RESERVATION_REQUEST];
-
+  static const requiredTags = [
+    [THREAD_REFERENCE_TAG],
+    [LISTING_REFERENCE_TAG]
+  ];
   ReservationRequest(
       {required super.pubKey,
       required super.tags,
@@ -19,12 +25,10 @@ class ReservationRequest
       super.sig})
       : super(kind: NOSTR_KIND_RESERVATION_REQUEST);
 
-  ReservationRequest.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
+  ReservationRequest.fromNostrEvent(Nip01Event e)
+      : assert(hasRequiredTags(e.tags, ReservationRequest.requiredTags)),
+        super.fromNostrEvent(e) {
     parsedContent = ReservationRequestContent.fromJson(json.decode(content));
-  }
-
-  String get listingAnchor {
-    return getATagForKind(Listing.kinds[0]);
   }
 
   static bool canAttemptPay(

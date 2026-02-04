@@ -33,3 +33,7 @@ const NOSTR_KIND_BADGE_DEFINITION = 30009;
 
 /// Kind 30008: Profile Badges - user's chosen badges to display (replaceable)
 const NOSTR_KIND_PROFILE_BADGES = 30008;
+
+const RESERVATION_REFERENCE_TAG = "r";
+const THREAD_REFERENCE_TAG = "t";
+const LISTING_REFERENCE_TAG = "l";

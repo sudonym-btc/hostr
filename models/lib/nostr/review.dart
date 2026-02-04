@@ -4,8 +4,13 @@ import 'dart:core';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/nip_01_event.dart';
 
-class Review extends JsonContentNostrEvent<ReviewContent> {
+class Review extends JsonContentNostrEvent<ReviewContent>
+    with ReferencesListing<Review>, ReferencesReservation<Review> {
   static const List<int> kinds = [NOSTR_KIND_REVIEW];
+  static const requiredTags = [
+    [RESERVATION_REFERENCE_TAG],
+    [LISTING_REFERENCE_TAG]
+  ];
 
   Review(
       {required super.pubKey,
@@ -16,7 +21,9 @@ class Review extends JsonContentNostrEvent<ReviewContent> {
       super.sig})
       : super(kind: NOSTR_KIND_REVIEW);
 
-  Review.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
+  Review.fromNostrEvent(Nip01Event e)
+      : assert(hasRequiredTags(e.tags, Review.requiredTags)),
+        super.fromNostrEvent(e) {
     parsedContent = ReviewContent.fromJson(json.decode(content));
   }
 

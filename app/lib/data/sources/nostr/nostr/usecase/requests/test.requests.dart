@@ -76,7 +76,6 @@ class TestRequests extends Requests implements RequestsModel {
     final subId = 'sub_${_subCounter++}';
     late final _Subscription<T> subscription;
     final SubscriptionResponse response = SubscriptionResponse(
-      subId,
       onClose: () {
         _subscriptions.remove(subscription);
       },
@@ -111,7 +110,7 @@ class TestRequests extends Requests implements RequestsModel {
       response.addStatus(SubscriptionStatusLive());
     });
 
-    return SubscriptionResponse<T>(subId);
+    return SubscriptionResponse<T>();
   }
 
   @override

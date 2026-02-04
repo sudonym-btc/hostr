@@ -15,6 +15,37 @@ class Err<T> extends DataResult<T> {
 }
 
 Filter getCombinedFilter(Filter? filter1, Filter? filter2) {
+  Map<String, List<String>>? mergeTags(
+    Map<String, List<String>>? first,
+    Map<String, List<String>>? second,
+  ) {
+    if (first == null && second == null) {
+      return null;
+    }
+
+    final merged = <String, List<String>>{};
+
+    void addAll(Map<String, List<String>> source) {
+      for (final entry in source.entries) {
+        final key = entry.key.startsWith('#') ? entry.key : '#${entry.key}';
+        merged.update(
+          key,
+          (existing) => [...existing, ...entry.value],
+          ifAbsent: () => [...entry.value],
+        );
+      }
+    }
+
+    if (first != null) {
+      addAll(first);
+    }
+    if (second != null) {
+      addAll(second);
+    }
+
+    return merged.isEmpty ? null : merged;
+  }
+
   return Filter(
     ids: (filter1?.ids != null || filter2?.ids != null)
         ? [...?filter1?.ids, ...?filter2?.ids]
@@ -40,6 +71,7 @@ Filter getCombinedFilter(Filter? filter1, Filter? filter2) {
     dTags: (filter1?.dTags != null || filter2?.dTags != null)
         ? [...?filter1?.dTags, ...?filter2?.dTags]
         : null,
+    tags: mergeTags(filter1?.tags, filter2?.tags),
     since: filter1?.since ?? filter2?.since,
     until: filter1?.until ?? filter2?.until,
     limit: filter1?.limit ?? filter2?.limit,

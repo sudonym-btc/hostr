@@ -13,9 +13,9 @@ var MOCK_RESERVATIONS = [
       ),
       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
       tags: [
+        [LISTING_REFERENCE_TAG, MOCK_LISTINGS[0].anchor!],
+        [THREAD_REFERENCE_TAG, hostInvitesGuest.threadAnchor],
         ['d', '1'],
-        ['a', MOCK_LISTINGS[0].anchor!],
-        ['a', hostInvitesGuest.reservationRequestAnchor!],
         [
           'guestCommitmentHash',
           GuestParticipationProof.computeCommitmentHash(
@@ -36,9 +36,9 @@ var MOCK_RESERVATIONS = [
       ),
       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
       tags: [
+        [LISTING_REFERENCE_TAG, MOCK_LISTINGS[1].anchor!],
+        [THREAD_REFERENCE_TAG, guestRequest.threadAnchor],
         ['d', '2'],
-        ['a', MOCK_LISTINGS[1].anchor!],
-        ['a', guestRequest.reservationRequestAnchor!],
         [
           'guestCommitmentHash',
           GuestParticipationProof.computeCommitmentHash(

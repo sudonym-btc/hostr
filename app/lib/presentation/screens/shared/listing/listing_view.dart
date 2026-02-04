@@ -109,7 +109,11 @@ class ListingView extends StatelessWidget {
                                       kinds: Review.kinds,
                                       nostrService: getIt(),
                                       filter: Filter(
-                                        aTags: [state.data!.anchor!],
+                                        tags: {
+                                          LISTING_REFERENCE_TAG: [
+                                            state.data!.anchor!,
+                                          ],
+                                        },
                                       ),
                                     )..next(),
                                     child: ListWidget<Review>(

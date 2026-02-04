@@ -12,8 +12,8 @@ var MOCK_REVIEWS = [
       reservationId: MOCK_RESERVATIONS[0].id,
     ),
     tags: [
-      ['a', MOCK_RESERVATIONS[0].anchor!],
-      ['a', MOCK_LISTINGS[0].anchor!]
+      [LISTING_REFERENCE_TAG, MOCK_LISTINGS[0].anchor!],
+      [RESERVATION_REFERENCE_TAG, MOCK_RESERVATIONS[0].anchor!],
     ],
     createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
   ).signAs(MockKeys.guest, Review.fromNostrEvent)

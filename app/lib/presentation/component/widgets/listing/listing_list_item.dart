@@ -76,7 +76,13 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
                 if (widget.showFeedback)
                   BlocProvider(
                     create: (context) => FilterCubit()
-                      ..updateFilter(Filter(aTags: [widget.listing.anchor!])),
+                      ..updateFilter(
+                        Filter(
+                          tags: {
+                            LISTING_REFERENCE_TAG: [widget.listing.anchor!],
+                          },
+                        ),
+                      ),
                     child: Row(
                       children: [
                         BlocProvider(
