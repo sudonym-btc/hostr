@@ -4,7 +4,6 @@ import 'package:hostr/data/sources/lnurl/lnurl.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/payments/constants.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/workflows/lnurl_workflow.dart';
 import 'package:hostr/main.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/amount.dart';
@@ -110,4 +109,27 @@ class LnUrlPaymentCubit
   }
 }
 
-// MockLnUrlPaymentCubit removed - use mocked LnUrlWorkflow in tests instead
+class LnUrlResolvedDetails extends ResolvedDetails {
+  final String callback;
+  final bool allowNostr;
+  final String? nostrPubkey;
+
+  LnUrlResolvedDetails({
+    required super.minAmount,
+    required super.maxAmount,
+    required super.commentAllowed,
+    required this.callback,
+    this.allowNostr = false,
+    this.nostrPubkey,
+  });
+}
+
+class LightningCallbackDetails extends CallbackDetails {
+  final Bolt11PaymentRequest invoice;
+  LightningCallbackDetails({required this.invoice});
+}
+
+class LightningCompletedDetails extends CompletedDetails {
+  final String preimage;
+  LightningCompletedDetails({required this.preimage});
+}

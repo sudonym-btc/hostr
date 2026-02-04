@@ -68,9 +68,6 @@ import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
 import 'package:hostr/logic/cubit/payment/bolt11_payment.cubit.dart' as _i993;
 import 'package:hostr/logic/cubit/payment/lnurl_payment.cubit.dart' as _i99;
 import 'package:hostr/logic/services/rif-relay.dart' as _i243;
-import 'package:hostr/logic/workflows/event_publishing_workflow.dart' as _i338;
-import 'package:hostr/logic/workflows/lnurl_workflow.dart' as _i675;
-import 'package:hostr/logic/workflows/payment_workflow.dart' as _i558;
 import 'package:hostr/main.dart' as _i15;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:ndk/ndk.dart' as _i857;
@@ -91,10 +88,6 @@ extension GetItInjectableX on _i174.GetIt {
     final dioModule = _$DioModule();
     gh.factory<_i640.ModeStorage>(() => _i640.ModeStorage());
     gh.factory<_i315.RelayStorage>(() => _i315.RelayStorage());
-    gh.factory<_i338.EventPublishingWorkflow>(
-      () => _i338.EventPublishingWorkflow(),
-    );
-    gh.factory<_i558.PaymentWorkflow>(() => _i558.PaymentWorkflow());
     gh.singleton<_i946.KeyStorage>(() => _i946.KeyStorage());
     gh.lazySingleton<_i361.Dio>(() => dioModule.dio());
     gh.factory<_i467.Config>(() => _i292.TestConfig(), registerFor: {_test});
@@ -115,10 +108,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i575.GoogleMapsImpl(),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.factory<_i675.LnUrlWorkflow>(
-      () => _i675.MockLnUrlWorkflow(dio: gh<_i361.Dio>()),
-      registerFor: {_test, _mock},
-    );
     gh.factory<_i467.Config>(
       () => _i1071.ProductionConfig(),
       registerFor: {_prod},
@@ -134,10 +123,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
       registerFor: {_dev, _mock, _staging, _prod},
-    );
-    gh.factory<_i675.LnUrlWorkflow>(
-      () => _i675.LnUrlWorkflow(dio: gh<_i361.Dio>()),
-      registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i100.Requests>(
       () => _i100.Requests(ndk: gh<_i857.Ndk>()),

@@ -2,7 +2,6 @@ export 'auth.cubit.dart';
 export 'date_range.cubit.dart';
 export 'entity/entity.cubit.dart';
 export 'escrow_deposit/main.dart';
-export 'event_publisher.cubit.dart';
 export 'image_picker.cubit.dart';
 export 'list/main.dart';
 export 'mode.cubit.dart';

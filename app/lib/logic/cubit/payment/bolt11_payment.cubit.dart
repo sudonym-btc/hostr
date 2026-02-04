@@ -1,7 +1,6 @@
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/workflows/lnurl_workflow.dart';
 import 'package:hostr/main.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart' hide Nwc;

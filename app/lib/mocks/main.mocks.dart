@@ -5,17 +5,18 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _i8;
 
-import 'package:flutter_bloc/flutter_bloc.dart' as _i11;
+import 'package:flutter_bloc/flutter_bloc.dart' as _i12;
 import 'package:hostr/core/main.dart' as _i2;
-import 'package:hostr/data/sources/local/key_storage.dart' as _i6;
-import 'package:hostr/data/sources/local/nwc_storage.dart' as _i9;
-import 'package:hostr/data/sources/local/secure_storage.dart' as _i3;
+import 'package:hostr/data/sources/local/key_storage.dart' as _i7;
+import 'package:hostr/data/sources/local/nwc_storage.dart' as _i10;
+import 'package:hostr/data/sources/local/secure_storage.dart' as _i4;
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.cubit.dart'
-    as _i5;
-import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i4;
+    as _i6;
+import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i5;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:ndk/ndk.dart' as _i10;
-import 'package:ndk/shared/nips/nip01/key_pair.dart' as _i7;
+import 'package:mockito/src/dummies.dart' as _i9;
+import 'package:ndk/ndk.dart' as _i11;
+import 'package:ndk/shared/nips/nip01/key_pair.dart' as _i3;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -37,25 +38,30 @@ class _FakeCustomLogger_0 extends _i1.SmartFake implements _i2.CustomLogger {
     : super(parent, parentInvocation);
 }
 
-class _FakeSecureStorage_1 extends _i1.SmartFake implements _i3.SecureStorage {
-  _FakeSecureStorage_1(Object parent, Invocation parentInvocation)
+class _FakeKeyPair_1 extends _i1.SmartFake implements _i3.KeyPair {
+  _FakeKeyPair_1(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeNwc_2 extends _i1.SmartFake implements _i4.Nwc {
-  _FakeNwc_2(Object parent, Invocation parentInvocation)
+class _FakeSecureStorage_2 extends _i1.SmartFake implements _i4.SecureStorage {
+  _FakeSecureStorage_2(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeNwcCubitState_3 extends _i1.SmartFake implements _i5.NwcCubitState {
-  _FakeNwcCubitState_3(Object parent, Invocation parentInvocation)
+class _FakeNwc_3 extends _i1.SmartFake implements _i5.Nwc {
+  _FakeNwc_3(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
+}
+
+class _FakeNwcCubitState_4 extends _i1.SmartFake implements _i6.NwcCubitState {
+  _FakeNwcCubitState_4(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
 /// A class which mocks [KeyStorage].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockKeyStorage extends _i1.Mock implements _i6.KeyStorage {
+class MockKeyStorage extends _i1.Mock implements _i7.KeyStorage {
   MockKeyStorage() {
     _i1.throwOnMissingStub(this);
   }
@@ -75,42 +81,72 @@ class MockKeyStorage extends _i1.Mock implements _i6.KeyStorage {
   );
 
   @override
-  set keyPair(_i7.KeyPair? value) => super.noSuchMethod(
+  set keyPair(_i3.KeyPair? value) => super.noSuchMethod(
     Invocation.setter(#keyPair, value),
     returnValueForMissingStub: null,
   );
 
   @override
-  _i8.Future<_i7.KeyPair?> getActiveKeyPair() =>
+  _i8.Future<_i3.KeyPair?> getActiveKeyPair() =>
       (super.noSuchMethod(
             Invocation.method(#getActiveKeyPair, []),
-            returnValue: _i8.Future<_i7.KeyPair?>.value(),
+            returnValue: _i8.Future<_i3.KeyPair?>.value(),
           )
-          as _i8.Future<_i7.KeyPair?>);
+          as _i8.Future<_i3.KeyPair?>);
 
   @override
-  dynamic set(String? item) =>
-      super.noSuchMethod(Invocation.method(#set, [item]));
+  _i8.Future<String> set(String? item) =>
+      (super.noSuchMethod(
+            Invocation.method(#set, [item]),
+            returnValue: _i8.Future<String>.value(
+              _i9.dummyValue<String>(this, Invocation.method(#set, [item])),
+            ),
+          )
+          as _i8.Future<String>);
+
+  @override
+  _i8.Future<dynamic> get() =>
+      (super.noSuchMethod(
+            Invocation.method(#get, []),
+            returnValue: _i8.Future<dynamic>.value(),
+          )
+          as _i8.Future<dynamic>);
+
+  @override
+  _i3.KeyPair create() =>
+      (super.noSuchMethod(
+            Invocation.method(#create, []),
+            returnValue: _FakeKeyPair_1(this, Invocation.method(#create, [])),
+          )
+          as _i3.KeyPair);
+
+  @override
+  _i8.Future<dynamic> wipe() =>
+      (super.noSuchMethod(
+            Invocation.method(#wipe, []),
+            returnValue: _i8.Future<dynamic>.value(),
+          )
+          as _i8.Future<dynamic>);
 }
 
 /// A class which mocks [NwcStorage].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockNwcStorage extends _i1.Mock implements _i9.NwcStorage {
+class MockNwcStorage extends _i1.Mock implements _i10.NwcStorage {
   MockNwcStorage() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i3.SecureStorage get storage =>
+  _i4.SecureStorage get storage =>
       (super.noSuchMethod(
             Invocation.getter(#storage),
-            returnValue: _FakeSecureStorage_1(
+            returnValue: _FakeSecureStorage_2(
               this,
               Invocation.getter(#storage),
             ),
           )
-          as _i3.SecureStorage);
+          as _i4.SecureStorage);
 
   @override
   _i2.CustomLogger get logger =>
@@ -158,7 +194,7 @@ class MockNwcStorage extends _i1.Mock implements _i9.NwcStorage {
 /// A class which mocks [NwcCubit].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
+class MockNwcCubit extends _i1.Mock implements _i6.NwcCubit {
   MockNwcCubit() {
     _i1.throwOnMissingStub(this);
   }
@@ -172,12 +208,12 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
           as _i2.CustomLogger);
 
   @override
-  _i4.Nwc get nwc =>
+  _i5.Nwc get nwc =>
       (super.noSuchMethod(
             Invocation.getter(#nwc),
-            returnValue: _FakeNwc_2(this, Invocation.getter(#nwc)),
+            returnValue: _FakeNwc_3(this, Invocation.getter(#nwc)),
           )
-          as _i4.Nwc);
+          as _i5.Nwc);
 
   @override
   set url(String? value) => super.noSuchMethod(
@@ -186,26 +222,26 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
   );
 
   @override
-  set connection(_i10.NwcConnection? value) => super.noSuchMethod(
+  set connection(_i11.NwcConnection? value) => super.noSuchMethod(
     Invocation.setter(#connection, value),
     returnValueForMissingStub: null,
   );
 
   @override
-  _i5.NwcCubitState get state =>
+  _i6.NwcCubitState get state =>
       (super.noSuchMethod(
             Invocation.getter(#state),
-            returnValue: _FakeNwcCubitState_3(this, Invocation.getter(#state)),
+            returnValue: _FakeNwcCubitState_4(this, Invocation.getter(#state)),
           )
-          as _i5.NwcCubitState);
+          as _i6.NwcCubitState);
 
   @override
-  _i8.Stream<_i5.NwcCubitState> get stream =>
+  _i8.Stream<_i6.NwcCubitState> get stream =>
       (super.noSuchMethod(
             Invocation.getter(#stream),
-            returnValue: _i8.Stream<_i5.NwcCubitState>.empty(),
+            returnValue: _i8.Stream<_i6.NwcCubitState>.empty(),
           )
-          as _i8.Stream<_i5.NwcCubitState>);
+          as _i8.Stream<_i6.NwcCubitState>);
 
   @override
   bool get isClosed =>
@@ -229,13 +265,13 @@ class MockNwcCubit extends _i1.Mock implements _i5.NwcCubit {
           as _i8.Future<dynamic>);
 
   @override
-  void emit(_i5.NwcCubitState? state) => super.noSuchMethod(
+  void emit(_i6.NwcCubitState? state) => super.noSuchMethod(
     Invocation.method(#emit, [state]),
     returnValueForMissingStub: null,
   );
 
   @override
-  void onChange(_i11.Change<_i5.NwcCubitState>? change) => super.noSuchMethod(
+  void onChange(_i12.Change<_i6.NwcCubitState>? change) => super.noSuchMethod(
     Invocation.method(#onChange, [change]),
     returnValueForMissingStub: null,
   );
