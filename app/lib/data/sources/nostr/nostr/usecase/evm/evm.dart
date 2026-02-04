@@ -1,9 +1,6 @@
 import 'dart:async';
 
-import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/injection.dart';
-import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
@@ -17,17 +14,14 @@ import 'rootstock.dart';
 class Evm {
   final CustomLogger logger = CustomLogger();
   final Auth auth;
+  final Rootstock rootstock;
 
   BehaviorSubject<double>? _balanceSubject;
   StreamSubscription<double>? _balanceSubscription;
 
   late final List<EvmChain> supportedEvmChains;
-  Evm({required this.auth}) {
-    supportedEvmChains = [
-      Rootstock(
-        client: Web3Client(getIt<Config>().rootstockRpcUrl, http.Client()),
-      ),
-    ];
+  Evm({required this.auth, required this.rootstock}) {
+    supportedEvmChains = [rootstock];
   }
 
   Future<int> getBalance() async {

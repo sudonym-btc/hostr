@@ -32,6 +32,8 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/badge_awards/badge_awards
     as _i232;
 import 'package:hostr/data/sources/nostr/nostr/usecase/badge_definitions/badge_definitions.dart'
     as _i558;
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow.dart'
+    as _i1052;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_methods/escrows_methods.dart'
     as _i291;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_trusts/escrows_trusts.dart'
@@ -39,6 +41,10 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_trusts/escrows_tru
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrows/escrows.dart'
     as _i42;
 import 'package:hostr/data/sources/nostr/nostr/usecase/evm/evm.dart' as _i961;
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/rif_relay/rif_relay.dart'
+    as _i213;
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/rootstock.dart'
+    as _i87;
 import 'package:hostr/data/sources/nostr/nostr/usecase/listings/listings.dart'
     as _i456;
 import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
@@ -46,8 +52,6 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
 import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart'
     as _i249;
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i909;
-import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payment_escrow.dart'
-    as _i1052;
 import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payments.dart'
     as _i244;
 import 'package:hostr/data/sources/nostr/nostr/usecase/relays/relays.dart'
@@ -67,10 +71,10 @@ import 'package:hostr/injection.dart' as _i490;
 import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
 import 'package:hostr/logic/cubit/payment/bolt11_payment.cubit.dart' as _i993;
 import 'package:hostr/logic/cubit/payment/lnurl_payment.cubit.dart' as _i99;
-import 'package:hostr/logic/services/rif-relay.dart' as _i243;
 import 'package:hostr/main.dart' as _i15;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:ndk/ndk.dart' as _i857;
+import 'package:web3dart/web3dart.dart' as _i641;
 
 const String _test = 'test';
 const String _mock = 'mock';
@@ -113,16 +117,19 @@ extension GetItInjectableX on _i174.GetIt {
       registerFor: {_prod},
     );
     gh.factory<_i428.BoltzClient>(() => _i428.BoltzClient(gh<_i800.Config>()));
-    gh.singleton<_i243.RifRelayService>(
-      () => _i243.RifRelayService(gh<_i800.Config>()),
-    );
     gh.factory<_i237.ModeCubit>(
       () => _i237.ModeCubit(modeStorage: gh<_i640.ModeStorage>()),
     );
     gh.singleton<_i857.Ndk>(() => _i396.NostrNdk(gh<_i800.Config>()));
+    gh.singleton<_i87.Rootstock>(
+      () => _i87.Rootstock(config: gh<_i800.Config>()),
+    );
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
       registerFor: {_dev, _mock, _staging, _prod},
+    );
+    gh.factoryParam<_i213.RifRelay, _i641.Web3Client, dynamic>(
+      (client, _) => _i213.RifRelay(gh<_i800.Config>(), client),
     );
     gh.singleton<_i100.Requests>(
       () => _i100.Requests(ndk: gh<_i857.Ndk>()),
@@ -145,6 +152,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i303.NwcStorage>(
       () => _i303.NwcStorage(gh<_i311.SecureStorage>()),
+    );
+    gh.singleton<_i961.Evm>(
+      () => _i961.Evm(auth: gh<_i34.Auth>(), rootstock: gh<_i87.Rootstock>()),
     );
     gh.singleton<_i232.BadgeAwards>(
       () => _i232.BadgeAwards(requests: gh<_i100.Requests>()),
@@ -234,7 +244,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i735.MockZaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i961.Evm>(() => _i961.Evm(auth: gh<_i34.Auth>()));
+    gh.singleton<_i443.Swap>(() => _i443.Swap(auth: gh<_i34.Auth>()));
     gh.singleton<_i735.Zaps>(
       () => _i735.Zaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
@@ -245,6 +255,7 @@ extension GetItInjectableX on _i174.GetIt {
         escrows: gh<_i42.Escrows>(),
         escrowTrusts: gh<_i445.EscrowTrusts>(),
         evm: gh<_i961.Evm>(),
+        swap: gh<_i443.Swap>(),
       ),
     );
     gh.singleton<_i244.Payments>(
@@ -254,9 +265,6 @@ extension GetItInjectableX on _i174.GetIt {
         zaps: gh<_i735.Zaps>(),
         nwc: gh<_i909.Nwc>(),
       ),
-    );
-    gh.singleton<_i443.Swap>(
-      () => _i443.Swap(auth: gh<_i34.Auth>(), payments: gh<_i244.Payments>()),
     );
     return this;
   }

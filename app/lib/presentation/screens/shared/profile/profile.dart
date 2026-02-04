@@ -321,42 +321,52 @@ class ProfileScreen extends StatelessWidget {
                           FilledButton(
                             child: Text('Swap in'),
                             onPressed: () {
-                              getIt<Hostr>().swaps.swapIn(
-                                100000,
-                                evmChain:
-                                    getIt<Hostr>().evm.supportedEvmChains[0],
-                              );
+                              getIt<Hostr>().swaps
+                                  .swapIn(
+                                    amountSats: 100000,
+                                    evmChain: getIt<Hostr>()
+                                        .evm
+                                        .supportedEvmChains[0],
+                                  )
+                                  .listen((data) {
+                                    print('state $data');
+                                  });
                             },
                           ),
                           FilledButton(
                             child: Text('Escrow'),
                             onPressed: () async {
-                              getIt<Hostr>().payments.escrow.escrow(
-                                evmChain:
-                                    getIt<Hostr>().evm.supportedEvmChains[0],
-                                amount: Amount(
-                                  currency: Currency.BTC,
-                                  value: 0.00001,
-                                ),
-                                eventId: Helpers.getSecureRandomHex(32),
-                                timelock: 200,
-                                escrowContractAddress:
-                                    (await getIt<Hostr>().escrows.list(
-                                      Filter(),
-                                    )).first.parsedContent.contractAddress,
+                              getIt<Hostr>().payments.escrow
+                                  .escrow(
+                                    evmChain: getIt<Hostr>()
+                                        .evm
+                                        .supportedEvmChains[0],
+                                    amount: Amount(
+                                      currency: Currency.BTC,
+                                      value: 0.001,
+                                    ),
+                                    eventId: Helpers.getSecureRandomHex(32),
+                                    timelock: 200,
+                                    escrowContractAddress:
+                                        (await getIt<Hostr>().escrows.list(
+                                          Filter(),
+                                        )).first.parsedContent.contractAddress,
 
-                                ///Host
-                                sellerEvmAddress:
-                                    ProfileMetadata.fromNostrEvent(
-                                      MOCK_PROFILES[0],
-                                    ).evmAddress!,
+                                    ///Host
+                                    sellerEvmAddress:
+                                        ProfileMetadata.fromNostrEvent(
+                                          MOCK_PROFILES[0],
+                                        ).evmAddress!,
 
-                                /// Escrow profile
-                                escrowEvmAddress:
-                                    ProfileMetadata.fromNostrEvent(
-                                      MOCK_PROFILES[2],
-                                    ).evmAddress!, // @TO);
-                              );
+                                    /// Escrow profile
+                                    escrowEvmAddress:
+                                        ProfileMetadata.fromNostrEvent(
+                                          MOCK_PROFILES[2],
+                                        ).evmAddress!, // @TO);
+                                  )
+                                  .listen((state) {
+                                    print('Escrow state: $state');
+                                  });
                             },
                           ),
                           // FilledButton(

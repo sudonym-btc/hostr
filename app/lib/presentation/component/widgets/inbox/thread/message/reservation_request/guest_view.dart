@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/data/sources/nostr/nostr/hostr.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow.dart';
 import 'package:hostr/injection.dart';
 import 'package:models/main.dart';
 
@@ -43,16 +44,23 @@ class ThreadReservationRequestGuestViewWidget
 
     final chain = getIt<Hostr>().evm.supportedEvmChains[0];
 
-    final txId = await getIt<Hostr>().payments.escrow.escrow(
-      eventId: reservationRequest.id,
-      amount: reservationRequest.parsedContent.amount,
-      sellerEvmAddress: counterparty.evmAddress!,
-      escrowEvmAddress: escrows.compatibleServices[0].parsedContent.evmAddress,
-      escrowContractAddress:
-          escrows.compatibleServices[0].parsedContent.contractAddress,
-      timelock: 200,
-      evmChain: chain,
-    );
+    EscrowCompleted escrowCompleted =
+        await getIt<Hostr>().payments.escrow
+                .escrow(
+                  eventId: reservationRequest.id,
+                  amount: reservationRequest.parsedContent.amount,
+                  sellerEvmAddress: counterparty.evmAddress!,
+                  escrowEvmAddress:
+                      escrows.compatibleServices[0].parsedContent.evmAddress,
+                  escrowContractAddress: escrows
+                      .compatibleServices[0]
+                      .parsedContent
+                      .contractAddress,
+                  timelock: 200,
+                  evmChain: chain,
+                )
+                .last
+            as EscrowCompleted;
 
     getIt<Hostr>().reservations.createSelfSigned(
       threadId: item.threadAnchor,
@@ -63,7 +71,7 @@ class ThreadReservationRequestGuestViewWidget
       escrowProof: EscrowProof(
         method: 'EVM',
         chainId: (await chain.client.getChainId()).toString(),
-        txHash: txId,
+        txHash: escrowCompleted.txHash,
         hostsTrustedEscrows: escrows.hostTrust,
         hostsEscrowMethods: escrows.hostMethod,
       ),

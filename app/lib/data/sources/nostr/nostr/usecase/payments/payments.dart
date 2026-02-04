@@ -3,9 +3,9 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
 import '../auth/auth.dart';
+import '../escrow/escrow.dart';
 import '../nwc/nwc.dart';
 import '../zaps/zaps.dart';
-import 'payment_escrow.dart';
 
 @Singleton()
 class Payments {

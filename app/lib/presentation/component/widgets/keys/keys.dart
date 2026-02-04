@@ -90,11 +90,11 @@ class KeysWidgetState extends State<KeysWidget> {
               // ),
               ListTile(
                 title: Text('Boltz'),
-                subtitle: Text(getIt<Config>().boltzUrl),
+                subtitle: Text(getIt<Config>().rootstock.boltz.apiUrl),
               ),
               ListTile(
                 title: Text('Rootstock'),
-                subtitle: Text(getIt<Config>().rootstockRpcUrl),
+                subtitle: Text(getIt<Config>().rootstock.rpcUrl),
               ),
               Row(
                 children: [

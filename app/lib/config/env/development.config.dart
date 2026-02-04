@@ -10,7 +10,31 @@ class DevelopmentConfig extends Config {
   @override
   List<String> blossom = ['http://blossom.hostr.development'];
   @override
-  String rootstockRpcUrl = 'http://localhost:8545'; //'https://public-node.testnet.rsk.co';
+  RootstockConfig rootstock = DevelopmentRootstockConfig();
+}
+
+class DevelopmentRootstockConfig extends RootstockConfig {
   @override
-  String boltzUrl = 'http://localhost:9001/v2'; //'https://api.testnet.boltz.exchange/v2';
+  int get chainId => 33;
+  @override
+  BoltzConfig get boltz => DevelopmentBoltzConfig();
+  @override
+  String get rpcUrl => 'http://localhost:8545';
+}
+
+class DevelopmentBoltzConfig extends BoltzConfig {
+  @override
+  String apiUrl = 'http://localhost:9001/v2'; //'https://api.testnet.boltz.exchange/v2';
+
+  @override
+  String get rifRelayUrl => 'http://localhost:8090';
+  @override
+  String get rifRelayCallVerifier =>
+      '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
+  @override
+  String get rifRelayDeployVerifier =>
+      '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+  @override
+  String get rifSmartWalletFactoryAddress =>
+      '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE';
 }
