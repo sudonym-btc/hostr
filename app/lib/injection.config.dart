@@ -33,7 +33,7 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/badge_awards/badge_awards
 import 'package:hostr/data/sources/nostr/nostr/usecase/badge_definitions/badge_definitions.dart'
     as _i558;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow.dart'
-    as _i1052;
+    as _i722;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_methods/escrows_methods.dart'
     as _i291;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_trusts/escrows_trusts.dart'
@@ -52,6 +52,8 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
 import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart'
     as _i249;
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i909;
+import 'package:hostr/data/sources/nostr/nostr/usecase/payment_status/payment_status.dart'
+    as _i662;
 import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payments.dart'
     as _i244;
 import 'package:hostr/data/sources/nostr/nostr/usecase/relays/relays.dart'
@@ -64,7 +66,6 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/reservation_requests/rese
     as _i525;
 import 'package:hostr/data/sources/nostr/nostr/usecase/reservations/reservations.dart'
     as _i489;
-import 'package:hostr/data/sources/nostr/nostr/usecase/swap/swap.dart' as _i443;
 import 'package:hostr/data/sources/nostr/nostr/usecase/zaps/zaps.dart' as _i735;
 import 'package:hostr/export.dart' as _i1012;
 import 'package:hostr/injection.dart' as _i490;
@@ -206,6 +207,14 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i909.Nwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.singleton<_i722.EscrowUseCase>(
+      () => _i722.EscrowUseCase(
+        auth: gh<_i34.Auth>(),
+        escrows: gh<_i42.Escrows>(),
+        escrowTrusts: gh<_i445.EscrowTrusts>(),
+        evm: gh<_i961.Evm>(),
+      ),
+    );
     gh.factoryParam<
       _i993.Bolt11PaymentCubit,
       _i993.Bolt11PaymentParameters,
@@ -244,27 +253,18 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i735.MockZaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i443.Swap>(() => _i443.Swap(auth: gh<_i34.Auth>()));
     gh.singleton<_i735.Zaps>(
       () => _i735.Zaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.singleton<_i1052.PaymentEscrow>(
-      () => _i1052.PaymentEscrow(
-        auth: gh<_i34.Auth>(),
-        escrows: gh<_i42.Escrows>(),
-        escrowTrusts: gh<_i445.EscrowTrusts>(),
-        evm: gh<_i961.Evm>(),
-        swap: gh<_i443.Swap>(),
+    gh.singleton<_i662.PaymentStatus>(
+      () => _i662.PaymentStatus(
+        escrow: gh<_i722.EscrowUseCase>(),
+        zaps: gh<_i735.Zaps>(),
       ),
     );
     gh.singleton<_i244.Payments>(
-      () => _i244.Payments(
-        auth: gh<_i34.Auth>(),
-        escrow: gh<_i1052.PaymentEscrow>(),
-        zaps: gh<_i735.Zaps>(),
-        nwc: gh<_i909.Nwc>(),
-      ),
+      () => _i244.Payments(zaps: gh<_i735.Zaps>(), nwc: gh<_i909.Nwc>()),
     );
     return this;
   }

@@ -6,8 +6,6 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/component/widgets/flow/nwc/nwc_flow.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/payment_flow.dart';
 import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
@@ -15,8 +13,6 @@ import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
-import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 import 'mode_toggle.dart';
 
@@ -103,11 +99,7 @@ class ProfileScreen extends StatelessWidget {
                     showModalBottomSheet(
                       context: context,
                       builder: (BuildContext context) {
-                        return NwcFlowWidget(
-                          onClose: () {
-                            // Navigator.pop(context);
-                          },
-                        );
+                        return NostrWalletConnectWidget();
                       },
                     );
                   },
@@ -258,21 +250,7 @@ class ProfileScreen extends StatelessWidget {
                                 value: 0.00001,
                               ),
                             );
-                            final paymentCubit = getIt<Hostr>().payments.pay(
-                              params,
-                            )..resolve();
-                            showModalBottomSheet(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return PaymentFlowWidget(
-                                  paymentCubit: paymentCubit,
-                                  onClose: () {
-                                    print('closing modal');
-                                    // Navigator.pop(context);
-                                  },
-                                );
-                              },
-                            );
+                            getIt<Hostr>().payments.pay(params).resolve();
                           },
                         ),
                         ZapListWidget(
@@ -297,20 +275,9 @@ class ProfileScreen extends StatelessWidget {
                           final params = Bolt11PaymentParameters(
                             to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
                           );
-                          final paymentCubit = getIt<Bolt11PaymentCubit>(
-                            param1: params,
-                          );
-                          showModalBottomSheet(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return PaymentFlowWidget(
-                                paymentCubit: paymentCubit,
-                                onClose: () {
-                                  Navigator.pop(context);
-                                },
-                              );
-                            },
-                          );
+                          final paymentCubit = getIt<Hostr>().payments
+                              .pay(params)
+                              .resolve();
                         },
                       ),
                     ),
@@ -318,55 +285,50 @@ class ProfileScreen extends StatelessWidget {
                       title: 'Swap',
                       body: Column(
                         children: [
-                          FilledButton(
-                            child: Text('Swap in'),
-                            onPressed: () {
-                              getIt<Hostr>().swaps
-                                  .swapIn(
-                                    amountSats: 100000,
-                                    evmChain: getIt<Hostr>()
-                                        .evm
-                                        .supportedEvmChains[0],
-                                  )
-                                  .listen((data) {
-                                    print('state $data');
-                                  });
-                            },
-                          ),
+                          // FilledButton(
+                          //   child: Text('Swap in'),
+                          //   onPressed: () {
+                          //     getIt<Hostr>().evm.supportedEvmChains.first
+                          //         .swapIn(
+                          //           key: key,
+                          //           amount: Amount(
+                          //             currency: Currency.BTC,
+                          //             value: 0.0001,
+                          //           ),
+                          //         );
+                          //   },
+                          // ),
                           FilledButton(
                             child: Text('Escrow'),
                             onPressed: () async {
-                              getIt<Hostr>().payments.escrow
-                                  .escrow(
-                                    evmChain: getIt<Hostr>()
-                                        .evm
-                                        .supportedEvmChains[0],
-                                    amount: Amount(
-                                      currency: Currency.BTC,
-                                      value: 0.001,
-                                    ),
-                                    eventId: Helpers.getSecureRandomHex(32),
-                                    timelock: 200,
-                                    escrowContractAddress:
-                                        (await getIt<Hostr>().escrows.list(
-                                          Filter(),
-                                        )).first.parsedContent.contractAddress,
+                              // getIt<Hostr>().escrow.escrow(
+                              //   EscrowCubitParams(
+                              //     evmChain:
+                              //         getIt<Hostr>().evm.supportedEvmChains[0],
+                              //     amount: Amount(
+                              //       currency: Currency.BTC,
+                              //       value: 0.001,
+                              //     ),
+                              //     eventId: Helpers.getSecureRandomHex(32),
+                              //     timelock: 200,
+                              //     escrowContractAddress:
+                              //         (await getIt<Hostr>().escrows.list(
+                              //           Filter(),
+                              //         )).first.parsedContent.contractAddress,
 
-                                    ///Host
-                                    sellerEvmAddress:
-                                        ProfileMetadata.fromNostrEvent(
-                                          MOCK_PROFILES[0],
-                                        ).evmAddress!,
+                              //     ///Host
+                              //     sellerEvmAddress:
+                              //         ProfileMetadata.fromNostrEvent(
+                              //           MOCK_PROFILES[0],
+                              //         ).evmAddress!,
 
-                                    /// Escrow profile
-                                    escrowEvmAddress:
-                                        ProfileMetadata.fromNostrEvent(
-                                          MOCK_PROFILES[2],
-                                        ).evmAddress!, // @TO);
-                                  )
-                                  .listen((state) {
-                                    print('Escrow state: $state');
-                                  });
+                              //     /// Escrow profile
+                              //     escrowEvmAddress:
+                              //         ProfileMetadata.fromNostrEvent(
+                              //           MOCK_PROFILES[2],
+                              //         ).evmAddress!, // @TO);)
+                              //   ),
+                              // );
                             },
                           ),
                           // FilledButton(

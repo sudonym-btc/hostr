@@ -8,6 +8,7 @@ import 'package:ndk/ndk.dart' show Ndk;
 import 'usecase/auth/auth.dart';
 import 'usecase/badge_awards/badge_awards.dart';
 import 'usecase/badge_definitions/badge_definitions.dart';
+import 'usecase/escrow/escrow.dart';
 import 'usecase/escrow_methods/escrows_methods.dart';
 import 'usecase/escrow_trusts/escrows_trusts.dart';
 import 'usecase/escrows/escrows.dart';
@@ -16,12 +17,12 @@ import 'usecase/listings/listings.dart';
 import 'usecase/messaging/messaging.dart';
 import 'usecase/metadata/metadata.dart';
 import 'usecase/nwc/nwc.dart';
+import 'usecase/payment_status/payment_status.dart';
 import 'usecase/payments/payments.dart';
 import 'usecase/relays/relays.dart';
 import 'usecase/requests/requests.dart';
 import 'usecase/reservation_requests/reservation_requests.dart';
 import 'usecase/reservations/reservations.dart';
-import 'usecase/swap/swap.dart';
 import 'usecase/zaps/zaps.dart';
 
 abstract class Hostr {
@@ -36,6 +37,7 @@ abstract class Hostr {
   Zaps get zaps => getIt<Zaps>();
   Listings get listings => getIt<Listings>();
   Reservations get reservations => getIt<Reservations>();
+  EscrowUseCase get escrow => getIt<EscrowUseCase>();
   Escrows get escrows => getIt<Escrows>();
   EscrowTrusts get escrowTrusts => getIt<EscrowTrusts>();
   EscrowMethods get escrowMethods => getIt<EscrowMethods>();
@@ -44,7 +46,7 @@ abstract class Hostr {
   Messaging get messaging => getIt<Messaging>();
   ReservationRequests get reservationRequests => getIt<ReservationRequests>();
   Payments get payments => getIt<Payments>();
-  Swap get swaps => getIt<Swap>();
+  PaymentStatus get paymentStatus => getIt<PaymentStatus>();
   Evm get evm => getIt<Evm>();
   Relays get relays => getIt<Relays>();
 
