@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/data/sources/nostr/nostr/hostr.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow.dart';
-import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/payment_method/payment_method.dart';
 import 'package:models/main.dart';
+
+import 'payment_status_cubit.dart';
 
 abstract class ThreadReservationRequestGuestHostComponents {
   Widget actionButton(BuildContext context);
@@ -37,58 +38,32 @@ class ThreadReservationRequestGuestViewWidget
        );
 
   Future<void> pay(BuildContext context) async {
-    final escrows = await getIt<Hostr>().escrows.determineMutualEscrow(
-      getIt<Hostr>().auth.activeKeyPair!.publicKey,
-      counterparty.pubKey,
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return PaymentMethodWidget(
+          counterparty: counterparty,
+          reservationRequest: reservationRequest,
+        );
+      },
     );
 
-    final chain = getIt<Hostr>().evm.supportedEvmChains[0];
-
-    EscrowCompleted escrowCompleted =
-        await getIt<Hostr>().payments.escrow
-                .escrow(
-                  eventId: reservationRequest.id,
-                  amount: reservationRequest.parsedContent.amount,
-                  sellerEvmAddress: counterparty.evmAddress!,
-                  escrowEvmAddress:
-                      escrows.compatibleServices[0].parsedContent.evmAddress,
-                  escrowContractAddress: escrows
-                      .compatibleServices[0]
-                      .parsedContent
-                      .contractAddress,
-                  timelock: 200,
-                  evmChain: chain,
-                )
-                .last
-            as EscrowCompleted;
-
-    getIt<Hostr>().reservations.createSelfSigned(
-      threadId: item.threadAnchor,
-      reservationRequest: reservationRequest,
-      listing: listing,
-      hoster: counterparty,
-      zapProof: null,
-      escrowProof: EscrowProof(
-        method: 'EVM',
-        chainId: (await chain.client.getChainId()).toString(),
-        txHash: escrowCompleted.txHash,
-        hostsTrustedEscrows: escrows.hostTrust,
-        hostsEscrowMethods: escrows.hostMethod,
-      ),
-    );
+    // getIt<Hostr>().reservations.createSelfSigned(
+    //   threadId: item.threadAnchor,
+    //   reservationRequest: reservationRequest,
+    //   listing: listing,
+    //   hoster: counterparty,
+    //   zapProof: null,
+    //   escrowProof: EscrowProof(
+    //     method: 'EVM',
+    //     chainId: (await chain.client.getChainId()).toString(),
+    //     txHash: escrowCompleted.txHash,
+    //     hostsTrustedEscrows: escrows.hostTrust,
+    //     hostsEscrowMethods: escrows.hostMethod,
+    //   ),
+    // );
 
     // @Todo: ideally would create a transaction listener on all chains we can handle and then automatically trigger self-signed. Don't want to rely on escrow call completing as app might go into background.
-
-    // showModalBottomSheet(
-    //   context: context,
-    //   builder: (context) {
-    //     return PaymentMethodWidget(
-    //       reservationRequest: reservationRequest,
-    //       counterparty: counterparty,
-    //       listing: listing,
-    //     );
-    //   },
-    // );
   }
 
   @override
@@ -125,12 +100,23 @@ class ThreadReservationRequestGuestViewWidget
     }
   }
 
-  FilledButton payButton(BuildContext context) {
-    // todo check payment status here too
-    return FilledButton(
-      key: ValueKey('pay'),
-      onPressed: () => pay(context),
-      child: Text(AppLocalizations.of(context)!.pay),
+  Widget payButton(BuildContext context) {
+    return BlocBuilder<PaymentStatusCubit, PaymentStatusCubitState>(
+      builder: (context, state) {
+        switch (state) {
+          case PaymentStatusCubitDone():
+            // todo check payment status here too
+            return FilledButton(
+              key: ValueKey('pay'),
+              onPressed: () => pay(context),
+              child: Text(AppLocalizations.of(context)!.pay),
+            );
+          case PaymentStatusCubitPaid():
+            return Text('Paid');
+          default:
+            return CircularProgressIndicator();
+        }
+      },
     );
   }
 }

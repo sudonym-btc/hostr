@@ -120,6 +120,9 @@ class Reservations extends CrudUseCase<Reservation> {
       auth.activeKeyPair!.publicKey,
       reservationRequest.parsedContent.salt,
     );
+
+    final randomKeyPair = Bip340.generatePrivateKey();
+
     Reservation reservation = Reservation(
       content: ReservationContent(
         start: reservationRequest.parsedContent.start,
@@ -132,12 +135,13 @@ class Reservations extends CrudUseCase<Reservation> {
           escrowProof: escrowProof,
         ),
       ),
-      pubKey: auth.activeKeyPair!.publicKey,
+      pubKey: randomKeyPair.publicKey,
       tags: [
-        ['a', listing.anchor!],
-        ['a', threadId],
+        [kListingRefTag, listing.anchor!],
+        [kThreadRefTag, threadId],
       ],
     )..commitmentHash = commitment;
+    reservation.signAs(randomKeyPair, Reservation.fromNostrEvent);
     await create(reservation);
     logger.d(reservation);
     return reservation;

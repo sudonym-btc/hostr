@@ -78,4 +78,13 @@ class Evm {
     await _balanceSubject?.close();
     _balanceSubject = null;
   }
+
+  Future<EvmChain> getClientForChainId(int chainId) async {
+    for (var chain in supportedEvmChains) {
+      if ((await chain.getChainId()).toInt() == chainId) {
+        return chain;
+      }
+    }
+    throw Exception('EVM chain with ID $chainId not supported.');
+  }
 }

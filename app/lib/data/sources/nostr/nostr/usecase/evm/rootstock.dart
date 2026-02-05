@@ -20,6 +20,8 @@ import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../payments/constants.dart';
+import '../swap/rootstock_swap_cubit.dart';
+import '../swap/swap_cubit.dart';
 import 'evm_chain.dart';
 
 @Singleton()
@@ -31,32 +33,32 @@ class Rootstock extends EvmChain {
 
   Future<ReverseResponse> generateSwapRequest({
     required EthPrivateKey ethKey,
-    required int amountSats,
+    required Amount amount,
     required String preimageHash,
   }) async {
     final smartWalletInfo = await rifRelay.getSmartWalletAddress(ethKey);
     final claimAddress = smartWalletInfo.address.eip55With0x;
     logger.i('Using RIF smart wallet as claim address: $claimAddress');
     return getIt<BoltzClient>().reverseSubmarine(
-      invoiceAmount: amountSats.toDouble(),
+      invoiceAmount: (amount.value * btcSatoshiFactor).toInt().toDouble(),
       claimAddress: claimAddress,
       preimageHash: preimageHash,
     );
   }
 
-  PaymentCubit paySwapInvoice({
+  PaymentCubit getPaymentCubitForSwap({
     required String invoice,
-    required amountSats,
+    required Amount amount,
     required String preimageHash,
   }) {
     Bolt11PaymentRequest pr = Bolt11PaymentRequest(invoice);
 
     logger.i(
-      'Invoice to pay: ${pr.amount.toDouble() * btcSatoshiFactor} against $amountSats planned, hash: ${pr.tags.firstWhere((t) => t.type == 'payment_hash').data} against planned $preimageHash',
+      'Invoice to pay: ${pr.amount.toDouble()} against ${amount.value} planned, hash: ${pr.tags.firstWhere((t) => t.type == 'payment_hash').data} against planned $preimageHash',
     );
 
     /// Before paying, check that the invoice swapper generated is for the correct amount
-    assert(pr.amount.toDouble() * btcSatoshiFactor == amountSats.toDouble());
+    assert(pr.amount.toDouble() == amount.value);
 
     /// Before paying, check that the invoice hash is equivalent to the preimage hash we generated
     /// Ensures we know the invoice can't be settled until we reveal it in the claim txn
@@ -66,13 +68,7 @@ class Rootstock extends EvmChain {
 
     /// Pay the invoice, though it won't complete until we reveal the preimage in the claim txn
     final payment = getIt<Payments>().pay(
-      Bolt11PaymentParameters(
-        amount: Amount(
-          currency: Currency.BTC,
-          value: amountSats.toDouble() / btcSatoshiFactor,
-        ),
-        to: invoice,
-      ),
+      Bolt11PaymentParameters(amount: amount, to: invoice),
     );
     payment.execute();
     return payment;
@@ -119,14 +115,14 @@ class Rootstock extends EvmChain {
   /// This prevents swapper from being able to claim the HTLC
   /// until we reveil the preimage to make the claim transaction
   /// Has to be 32 bytes for the claim txn to pass
-  ({List<int> preimage, String hash}) _newPreimage() {
+  ({List<int> preimage, String hash}) newPreimage() {
     final random = Random.secure();
     final preimage = List<int>.generate(32, (i) => random.nextInt(256));
     final hash = sha256.convert(preimage).toString();
     return (preimage: preimage, hash: hash);
   }
 
-  Future<SwapStatus> _waitForSwapOnChain(String id) {
+  Future<SwapStatus> waitForSwapOnChain(String id) {
     return getIt<BoltzClient>()
         .subscribeToSwap(id: id)
         .doOnData((swapStatus) {
@@ -140,62 +136,16 @@ class Rootstock extends EvmChain {
   }
 
   @override
-  Future<int> getMinimumSwapIn() async {
+  Future<int> getMinimumSwapInSats() async {
     final response = (await getIt<BoltzClient>().getSwapReserve());
     return response.body["BTC"]["RBTC"]["limits"]["minimal"];
   }
 
   @override
-  Stream<SwapState> swapIn({
-    required KeyPair key,
-    required int amountSats,
-  }) async* {
-    EthPrivateKey ethKey = getEvmCredentials(key.privateKey!);
-
-    final preimageData = _newPreimage();
-    logger.i("Preimage: ${preimageData.hash}, ${preimageData.preimage.length}");
-
-    /// Create a reverse submarine swap
-    final swap = await generateSwapRequest(
-      amountSats: amountSats,
-      ethKey: ethKey,
-      preimageHash: preimageData.hash,
+  SwapCubit swapIn({required EthPrivateKey key, required Amount amount}) {
+    return RootstockSwapCubit(
+      RootstockSwapCubitParams(ethKey: key, amount: amount, evmChain: this),
     );
-    yield SwapInitiated();
-
-    logger.d('Swap ${swap.toString()}');
-    PaymentCubit p = paySwapInvoice(
-      invoice: swap.invoice,
-      amountSats: amountSats,
-      preimageHash: preimageData.hash,
-    );
-    yield SwapPaymentCreated(paymentCubit: p);
-    SwapStatus swapStatus = await _waitForSwapOnChain(swap.id);
-
-    yield SwapAwaitingOnChain();
-
-    TransactionInformation lockupTx = await awaitTransaction(
-      swapStatus.transaction!.id!,
-    );
-    yield SwapFunded();
-
-    /// Create the args record for the claim function
-    final claimArgs = generateClaimArgs(
-      lockupTx: lockupTx,
-      swap: swap,
-      preimage: preimageData.preimage,
-    );
-
-    logger.i('Claim can be unlocked with arguments: $claimArgs');
-
-    /// Withdraw the funds to our own address, providing swapper with preimage to settle lightning
-    /// Must send via RIF if no previous balance exists
-    String tx = await claim(ethKey: ethKey, claimArgs: claimArgs);
-    yield SwapClaimed();
-    final receipt = await awaitReceipt(tx);
-    logger.i('Claim receipt: $receipt');
-    yield SwapCompleted();
-    logger.i('Sent RBTC in: $tx');
   }
 
   Future<void> swapOutAll({required KeyPair key}) async {

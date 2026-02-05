@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/listing/price.dart';
@@ -28,8 +29,6 @@ class ThreadReservationRequestWidget extends StatefulWidget {
 
 class _ThreadReservationRequestWidgetState
     extends State<ThreadReservationRequestWidget> {
-  late Stream<dynamic> _paymentStatusStream;
-
   ReservationRequest get reservationRequest =>
       widget.item.child as ReservationRequest;
 
@@ -54,10 +53,6 @@ class _ThreadReservationRequestWidgetState
   @override
   void initState() {
     super.initState();
-    _paymentStatusStream = getIt<Hostr>().payments.checkPaymentStatus(
-      widget.listing,
-      reservationRequest,
-    );
   }
 
   @override
@@ -72,44 +67,44 @@ class _ThreadReservationRequestWidgetState
             showFeedback: false,
             smallImage: true,
           ),
-          StreamBuilder(
-            // Should only stream when an emitted proof of reservation is not there.
-            stream: _paymentStatusStream,
-            builder: (context, snapshot) {
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomPadding(
-                    right: 0,
-                    top: 0,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          formatDateRangeShort(
-                            DateTimeRange(
-                              start: reservationRequest.parsedContent.start,
-                              end: reservationRequest.parsedContent.end,
-                            ),
-                            Localizations.localeOf(context),
+          BlocProvider(
+            create: (context) => getIt<Hostr>().paymentStatus.check(
+              widget.listing,
+              reservationRequest,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CustomPadding(
+                  right: 0,
+                  top: 0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        formatDateRangeShort(
+                          DateTimeRange(
+                            start: reservationRequest.parsedContent.start,
+                            end: reservationRequest.parsedContent.end,
                           ),
-                          style: Theme.of(context).textTheme.bodyMedium!,
+                          Localizations.localeOf(context),
                         ),
-                        PriceText(
-                          formatAmount(reservationRequest.parsedContent.amount),
-                        ),
-                        viewComponents.statusText(context),
-                      ],
-                    ),
+                        style: Theme.of(context).textTheme.bodyMedium!,
+                      ),
+                      PriceText(
+                        formatAmount(reservationRequest.parsedContent.amount),
+                      ),
+                      viewComponents.statusText(context),
+                    ],
                   ),
-                  CustomPadding(
-                    top: 0,
-                    child: viewComponents.actionButton(context),
-                  ),
-                ],
-              );
-            },
+                ),
+                CustomPadding(
+                  top: 0,
+                  child: viewComponents.actionButton(context),
+                ),
+              ],
+            ),
           ),
         ],
       ),

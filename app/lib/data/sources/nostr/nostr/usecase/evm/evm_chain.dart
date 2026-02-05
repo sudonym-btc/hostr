@@ -3,49 +3,12 @@ import 'dart:math';
 
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/sources/boltz/contracts/EtherSwap.g.dart';
-import 'package:hostr/logic/cubit/payment/payment.cubit.dart';
+import 'package:models/amount.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
-sealed class SwapState {
-  const SwapState();
-}
-
-final class SwapInitiated extends SwapState {
-  const SwapInitiated();
-}
-
-final class SwapPaymentCreated extends SwapState {
-  final PaymentCubit paymentCubit;
-  const SwapPaymentCreated({required this.paymentCubit});
-}
-
-final class SwapPaymentInFlight extends SwapPaymentCreated {
-  SwapPaymentInFlight({required super.paymentCubit});
-}
-
-final class SwapAwaitingOnChain extends SwapState {
-  const SwapAwaitingOnChain();
-}
-
-final class SwapFunded extends SwapState {
-  const SwapFunded();
-}
-
-final class SwapClaimed extends SwapState {
-  const SwapClaimed();
-}
-
-final class SwapCompleted extends SwapState {
-  const SwapCompleted();
-}
-
-final class SwapFailed extends SwapState {
-  const SwapFailed(this.error, [this.stackTrace]);
-  final Object error;
-  final StackTrace? stackTrace;
-}
+import '../swap/swap_cubit.dart';
 
 abstract class EvmChain {
   final Web3Client client;
@@ -119,8 +82,8 @@ abstract class EvmChain {
 
   Future<EtherSwap> getEtherSwapContract();
 
-  Future<int> getMinimumSwapIn();
-  Stream<SwapState> swapIn({required KeyPair key, required int amountSats});
+  Future<int> getMinimumSwapInSats();
+  SwapCubit swapIn({required EthPrivateKey key, required Amount amount});
 
   swapOutAll({required KeyPair key});
 
