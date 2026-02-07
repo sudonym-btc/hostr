@@ -1,6 +1,6 @@
 # Override the domain thats is used in the blobs "url" field
 # By default it uses the domain the incoming HTTP request was made on
-publicDomain: ""
+publicDomain: "http://blossom:3000"
 
 databasePath: data/sqlite.db
 
@@ -71,7 +71,7 @@ upload:
   # enable / disable uploads (default false)
   enabled: true
   # require auth to upload
-  requireAuth: true
+  requireAuth: false
   # only check rules that include "pubkeys"
   requirePubkeyInRule: false
 
@@ -91,9 +91,9 @@ media:
     # create progressive jpeg / png images for large images > 1024x768 (default true)
     progressive: true
     # max width (default 1920)
-    maxWidth: 1920
+    maxWidth: 19200
     # max height (default 1080)
-    maxHeight: 1080
+    maxHeight: 10800
     # image format (default webp)
     outputFormat: "webp"
     # keep aspect radio when resizing (default true)

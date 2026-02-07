@@ -63,7 +63,9 @@ services:
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./docker/certs:/etc/nginx/certs:ro
-      - ./docker/relay.hostr.development:/etc/nginx/vhosts.d/relay.hostr.development:ro
+      - ./docker/blossom.hostr.development:/etc/nginx/vhost.d/blossom.hostr.development:ro
+      - ./docker/blossom.hostr.development_location:/etc/nginx/vhost.d/blossom.hostr.development_location:ro
+      - ./docker/nginx-proxy.conf:/etc/nginx/conf.d/zzz_upload.conf:ro
     environment:
       - ENABLE_WEBSOCKETS=true
     networks:
@@ -100,7 +102,7 @@ services:
     ports:
       - "3001:3000"
     volumes:
-      - ./dependencies/blossom.yaml:/app/config.yml
+      - ./docker/blossom.yaml:/app/config.yml
       - ./docker/data/blossom:/app/data
     networks:
       default:

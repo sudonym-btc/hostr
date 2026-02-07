@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:hostr/config/main.dart' show Config;
 import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
@@ -29,6 +30,7 @@ abstract class Hostr {
   final Ndk ndk;
   Hostr({required this.ndk});
 
+  Config config = getIt<Config>();
   CustomLogger logger = CustomLogger();
   Auth get auth => getIt<Auth>();
   Requests get requests => getIt<Requests>();
@@ -70,6 +72,18 @@ abstract class Hostr {
         //   marker: ReadWriteMarker.readWrite,
         //   broadcastRelays: [...config.relays],
         // );
+        final blossomList = await ndk.blossomUserServerList.getUserServerList(
+          pubkeys: [auth.activeKeyPair!.publicKey],
+        );
+        print('Blossom list: $blossomList');
+        final broadcastResponse = await ndk.blossomUserServerList
+            .publishUserServerList(
+              serverUrlsOrdered: {
+                ...blossomList ?? [],
+                ...config.blossom,
+              }.toList(),
+            );
+        print('Blossom list publish response: $broadcastResponse');
       } else {
         logger.i('User logged out');
         messaging.threads.stop();

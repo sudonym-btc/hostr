@@ -38,16 +38,23 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
   initState() {
     super.initState();
     // Preload images
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return; // Check if the widget is still mounted
-      for (var imageUrl in widget.listing.parsedContent.images) {
-        precacheImage(NetworkImage(imageUrl), context);
-      }
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   if (!mounted) return; // Check if the widget is still mounted
+    //   for (var imageUrl in widget.listing.parsedContent.images) {
+    //     precacheImage(NetworkImage(imageUrl), context);
+    //   }
+    // });
   }
 
   Widget getImage() {
-    return ListingCarousel(listing: widget.listing);
+    return SizedBox(
+      height: 200,
+      width: double.infinity,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8.0),
+        child: ListingCarousel(listing: widget.listing),
+      ),
+    );
   }
 
   Widget getDetails(BuildContext context) {
