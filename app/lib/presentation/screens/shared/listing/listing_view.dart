@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/router.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -60,7 +61,7 @@ class ListingView extends StatelessWidget {
                         ],
                         expandedHeight: MediaQuery.of(context).size.height / 4,
                         flexibleSpace: FlexibleSpaceBar(
-                          background: ImageCarouselWidget(item: state.data!),
+                          background: ListingCarousel(listing: state.data!),
                         ),
                       ),
                       SliverList(

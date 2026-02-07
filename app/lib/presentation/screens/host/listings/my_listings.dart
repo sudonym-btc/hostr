@@ -60,7 +60,7 @@ class MyListingsScreen extends StatelessWidget {
                               },
                             ),
                           )..next(),
-                          child: Text('hi'),
+                          child: Text('Reservations placeholder'),
                         ),
                   ),
                 ),
