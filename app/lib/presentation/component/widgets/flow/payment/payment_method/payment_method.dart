@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow_cubit.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/escrow.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/operations/fund/escrow_fund_models.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund_cubit.dart';
 import 'package:models/main.dart';
 
 import '../../modal_bottom_sheet.dart';
@@ -65,21 +65,23 @@ class PaymentMethodWidget extends StatelessWidget {
                             showModalBottomSheet(
                               context: context,
                               builder: (BuildContext context) {
-                                return BlocProvider<EscrowCubit>(
-                                  create: (BuildContext context) => EscrowCubit(
-                                    EscrowFundParams(
-                                      reservationRequest: reservationRequest,
-                                      amount: reservationRequest
-                                          .parsedContent
-                                          .amount,
-                                      sellerProfile: counterparty,
-                                      escrowService: state.selectedEscrow,
-                                    ),
-                                  ),
+                                return BlocProvider<EscrowFundCubit>(
+                                  create: (BuildContext context) =>
+                                      EscrowFundCubit(
+                                        EscrowFundParams(
+                                          reservationRequest:
+                                              reservationRequest,
+                                          amount: reservationRequest
+                                              .parsedContent
+                                              .amount,
+                                          sellerProfile: counterparty,
+                                          escrowService: state.selectedEscrow,
+                                        ),
+                                      ),
                                   child: Builder(
                                     builder: (context) {
-                                      return EscrowFlowWidget(
-                                        cubit: context.read<EscrowCubit>(),
+                                      return EscrowFundWidget(
+                                        cubit: context.read<EscrowFundCubit>(),
                                       );
                                     },
                                   ),

@@ -7,8 +7,8 @@ import 'package:rxdart/rxdart.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../auth/auth.dart';
-import 'evm_chain.dart';
-import 'rootstock.dart';
+import 'chain/evm_chain.dart';
+import 'chain/rootstock/rootstock.dart';
 
 @Singleton()
 class Evm {

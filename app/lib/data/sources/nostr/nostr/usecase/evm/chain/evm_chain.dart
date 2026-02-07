@@ -5,12 +5,13 @@ import 'package:hostr/core/main.dart';
 import 'package:hostr/data/sources/boltz/contracts/EtherSwap.g.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/operations/swap_in/swap_in_models.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
-import '../swap/swap_cubit.dart';
+import '../operations/swap_in/swap_in_operation.dart';
 
 abstract class EvmChain {
   final Web3Client client;
@@ -94,12 +95,8 @@ abstract class EvmChain {
   Future<EtherSwap> getEtherSwapContract();
 
   Future<BitcoinAmount> getMinimumSwapIn();
-  Stream<SwapState> swapIn({
-    required EthPrivateKey key,
-    required BitcoinAmount amount,
-  });
 
-  Future<BitcoinAmount> estimateSwapInFees(BitcoinAmount amount);
+  SwapInOperation swapIn(SwapInParams params);
 
   swapOutAll({required KeyPair key});
 
