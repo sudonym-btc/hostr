@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
-import 'package:models/nostr/escrow.dart';
+import 'package:models/main.dart';
 
 import 'escrow_selector.cubit.dart';
 
@@ -26,7 +26,7 @@ class EscrowSelectorWidget extends StatelessWidget {
                 return [ProfileChipWidget(id: state.selectedEscrow.pubKey)];
               },
               items: state.result.compatibleServices
-                  .map<DropdownMenuItem<dynamic>>((Escrow escrow) {
+                  .map<DropdownMenuItem<dynamic>>((EscrowService escrow) {
                     return DropdownMenuItem(
                       value: escrow,
                       child: Text(

@@ -2,7 +2,7 @@ const kNostrKindListing = 32121;
 const kNostrKindReservation = 32122;
 const kNostrKindReservationRequest = 32123;
 const kNostrKindReview = 32124;
-const kNostrKindEscrow = 40021;
+const kNostrKindEscrowService = 40021;
 const kNostrKindEscrowTrust = 30300;
 const kNostrKindEscrowMethod = 30301;
 

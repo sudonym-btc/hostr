@@ -32,8 +32,7 @@ class _ThreadReservationRequestWidgetState
   ReservationRequest get reservationRequest =>
       widget.item.child as ReservationRequest;
 
-  bool get isSentByMe =>
-      widget.item.child!.pubKey == widget.counterparty.pubKey;
+  bool get isSentByMe => widget.item.pubKey == widget.counterparty.pubKey;
 
   ThreadReservationRequestGuestHostComponents get viewComponents =>
       widget.listing.pubKey != getIt<Hostr>().auth.activeKeyPair!.publicKey

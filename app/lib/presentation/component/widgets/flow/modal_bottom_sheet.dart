@@ -38,29 +38,35 @@ class ModalBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SafeArea(
-      child: Theme(
-        data: theme.copyWith(colorScheme: _scheme(theme.colorScheme)),
-        child: Material(
-          child: CustomPadding(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (title != null)
-                  Text(title!, style: Theme.of(context).textTheme.titleLarge),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    subtitle!,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
+    return Theme(
+      data: theme.copyWith(colorScheme: _scheme(theme.colorScheme)),
+      child: Material(
+        child: SizedBox(
+          width: double.infinity,
+          child: SafeArea(
+            child: CustomPadding(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (title != null)
+                    Text(title!, style: Theme.of(context).textTheme.titleLarge),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  content,
+                  if (buttons != null) ...[
+                    const SizedBox(height: 24),
+                    buttons!,
+                  ],
                 ],
-                const SizedBox(height: 16),
-                content,
-                if (buttons != null) ...[const SizedBox(height: 24), buttons!],
-              ],
+              ),
             ),
           ),
         ),

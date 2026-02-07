@@ -41,7 +41,7 @@ class Listing extends JsonContentNostrEvent<ListingContent> {
     // Loop through prices and choose the cheepest result
     List<Amount> costs = parsedContent.price
         .map((p) => Amount(
-            value: (end.difference(start).inDays.abs() /
+            value: BigInt.from(end.difference(start).inDays.abs() /
                     FrequencyInDays.of(p.frequency)) *
                 p.amount.value,
             currency: p.amount.currency))

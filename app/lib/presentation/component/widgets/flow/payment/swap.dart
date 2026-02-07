@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/swap/swap_cubit.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 
 import '../modal_bottom_sheet.dart';
 
@@ -14,23 +15,35 @@ class SwapFlowWidget extends StatelessWidget {
       value: cubit,
       child: BlocBuilder<SwapCubit, SwapState>(
         builder: (context, state) {
-          switch (state) {
-            case SwapInitialised():
-              return SwapConfirmWidget(onConfirm: () => cubit.confirm());
-            case SwapPaymentProgress():
-              return SwapPaymentWidget(state);
-            case SwapCompleted():
-              return SwapSuccessWidget(state);
-            case SwapFailed():
-              return const SwapFailureWidget('Swap failed.');
-            case SwapAwaitingOnChain():
-            case SwapFunded():
-            case SwapClaimed():
-              throw UnimplementedError();
-          }
+          return SwapViewWidget(state, onConfirm: () => cubit.confirm());
         },
       ),
     );
+  }
+}
+
+class SwapViewWidget extends StatelessWidget {
+  final SwapState state;
+  final VoidCallback? onConfirm;
+  const SwapViewWidget(this.state, {super.key, this.onConfirm});
+
+  @override
+  build(BuildContext context) {
+    switch (state) {
+      case SwapInitialised():
+        return SwapConfirmWidget(onConfirm: onConfirm ?? () {});
+      case SwapPaymentProgress():
+        return SwapPaymentProgressWidget(state as SwapPaymentProgress);
+      case SwapCompleted():
+        return SwapSuccessWidget(state as SwapCompleted);
+      case SwapFailed():
+        return const SwapFailureWidget('Swap failed.');
+      case SwapAwaitingOnChain():
+      case SwapFunded():
+      case SwapClaimed():
+      case SwapRequestCreated():
+        return SwapProgressWidget(state);
+    }
   }
 }
 
@@ -52,28 +65,25 @@ class SwapConfirmWidget extends StatelessWidget {
   }
 }
 
-class SwapProgressWidget extends StatelessWidget {
-  final SwapPaymentProgress progress;
-  const SwapProgressWidget(this.progress, {super.key});
+class SwapPaymentProgressWidget extends StatelessWidget {
+  final SwapPaymentProgress state;
+  const SwapPaymentProgressWidget(this.state, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.normal,
-      content: Column(children: [Text('Swap in progress: $progress')]),
-    );
+    return PaymentViewWidget(state.paymentState);
   }
 }
 
-class SwapPaymentWidget extends StatelessWidget {
-  final SwapPaymentProgress state;
-  const SwapPaymentWidget(this.state, {super.key});
+class SwapProgressWidget extends StatelessWidget {
+  final SwapState state;
+  const SwapProgressWidget(this.state, {super.key});
 
   @override
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      content: Text('Swap trade in progress...'),
+      content: Center(child: CircularProgressIndicator()),
     );
   }
 }

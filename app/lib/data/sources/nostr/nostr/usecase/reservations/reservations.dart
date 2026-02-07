@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:hostr/core/util/stream_status.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
@@ -14,7 +14,7 @@ import '../messaging/messaging.dart';
 class Reservations extends CrudUseCase<Reservation> {
   final Messaging messaging;
   final Auth auth;
-  SubscriptionResponse<Reservation>? _myReservations;
+  StreamWithStatus<Reservation>? _myReservations;
   StreamSubscription<Reservation>? _myReservationsSubscription;
   Reservations({
     required super.requests,
@@ -39,13 +39,13 @@ class Reservations extends CrudUseCase<Reservation> {
     });
   }
 
-  SubscriptionResponse<Reservation> subscribeToMyReservations() {
+  StreamWithStatus<Reservation> subscribeToMyReservations() {
     if (_myReservations != null) {
       return _myReservations!;
     }
 
-    final response = SubscriptionResponse<Reservation>();
-    response.addStatus(SubscriptionStatusLive());
+    final response = StreamWithStatus<Reservation>();
+    response.addStatus(StreamStatusLive());
 
     _myReservations = response;
 

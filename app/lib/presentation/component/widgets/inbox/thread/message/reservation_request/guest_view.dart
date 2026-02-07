@@ -27,7 +27,10 @@ class ThreadReservationRequestGuestViewWidget
     required this.listing,
     required this.reservations,
   }) : reservationRequest = item.child as ReservationRequest,
-       isSentByMe = item.child!.pubKey == counterparty.pubKey,
+       isSentByMe = !ReservationRequest.wasSentByHost(
+         request: item.child as ReservationRequest,
+         listing: listing,
+       ),
        reservationStatus = ReservationRequest.resolveStatus(
          request: item.child as ReservationRequest,
          listing: listing,

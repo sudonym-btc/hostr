@@ -15,10 +15,7 @@ class Price {
 
   Map<String, dynamic> toJson() {
     return {
-      'amount': {
-        'value': amount.value,
-        'currency': amount.currency.toString().split('.').last,
-      },
+      'amount': amount.toJson(),
       'frequency': frequency.toString().split('.').last
     };
   }

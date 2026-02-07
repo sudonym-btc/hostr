@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
 import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
@@ -99,7 +99,7 @@ class ProfileScreen extends StatelessWidget {
                     showModalBottomSheet(
                       context: context,
                       builder: (BuildContext context) {
-                        return NostrWalletConnectWidget();
+                        return AddWalletWidget();
                       },
                     );
                   },
@@ -115,11 +115,12 @@ class ProfileScreen extends StatelessWidget {
                       context: context,
                       isScrollControlled: true,
                       builder: (BuildContext modalContext) {
-                        return RelayFlowWidget(
-                          onClose: () {
-                            Navigator.of(modalContext).pop();
-                          },
-                        );
+                        return Text('To do');
+                        // return RelayFlowWidget(
+                        //   onClose: () {
+                        //     Navigator.of(modalContext).pop();
+                        //   },
+                        // );
                       },
                     );
                   },
@@ -245,9 +246,9 @@ class ProfileScreen extends StatelessWidget {
                           onPressed: () {
                             final params = LnUrlPaymentParameters(
                               to: 'tips@lnbits1.hostr.development',
-                              amount: Amount(
-                                currency: Currency.BTC,
-                                value: 0.00001,
+                              amount: BitcoinAmount.fromInt(
+                                BitcoinUnit.sat,
+                                10000,
                               ),
                             );
                             getIt<Hostr>().payments.pay(params).resolve();

@@ -100,7 +100,10 @@ class EditListingViewState extends State<EditListingView> {
                   description: '',
                   price: [
                     Price(
-                      amount: Amount(currency: Currency.BTC, value: 0.00001),
+                      amount: Amount(
+                        currency: Currency.BTC,
+                        value: BigInt.from(100000),
+                      ),
                       frequency: Frequency.daily,
                     ),
                   ],

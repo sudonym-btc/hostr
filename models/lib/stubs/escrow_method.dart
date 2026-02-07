@@ -10,7 +10,8 @@ var MOCK_ESCROW_METHODS = () async {
               createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
               kind: kNostrKindEscrowMethod,
               elements: [])
-            ..addElement('t', EscrowType.EVM.name, false))
+            ..addElement('t', EscrowType.EVM.name, false)
+            ..addElement('c', "DeployedBytecodeHash", false))
           .toEvent(Bip340EventSigner(
               privateKey: MockKeys.hoster.privateKey,
               publicKey: MockKeys.hoster.publicKey)),
@@ -22,7 +23,8 @@ var MOCK_ESCROW_METHODS = () async {
                 createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
                 kind: kNostrKindEscrowMethod,
                 elements: [])
-              ..addElement('t', EscrowType.EVM.name, false))
+              ..addElement('t', EscrowType.EVM.name, false)
+              ..addElement('c', "DeployedBytecodeHash", false))
             .toEvent(Bip340EventSigner(
                 privateKey: MockKeys.guest.privateKey,
                 publicKey: MockKeys.guest.publicKey))))

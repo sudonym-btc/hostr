@@ -35,6 +35,11 @@ class ReservationRequest
     return listing.pubKey != ourKey.publicKey;
   }
 
+  static bool wasSentByHost(
+      {required ReservationRequest request, required Listing listing}) {
+    return request.pubKey == listing.pubKey;
+  }
+
   static bool canPayWithZapReceipt(
       LnurlResponse hostLnurlResponse, Listing listing) {
     return hostLnurlResponse.doesAllowsNostr &&

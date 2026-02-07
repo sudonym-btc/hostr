@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/core/util/stream_status.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/thread.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:hostr/logic/cubit/entity/entity.cubit.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
@@ -15,8 +15,7 @@ class ThreadContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final thread = context.read<Thread>();
-    final reservationsResponse = context
-        .read<SubscriptionResponse<Reservation>>();
+    final reservationsResponse = context.read<StreamWithStatus<Reservation>>();
 
     return StreamBuilder<List<Reservation>>(
       stream: reservationsResponse.list,

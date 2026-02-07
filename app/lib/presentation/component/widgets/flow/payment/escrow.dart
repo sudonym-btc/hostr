@@ -42,7 +42,7 @@ class EscrowConfirmWidget extends StatelessWidget {
       type: ModalBottomSheetType.normal,
       title: 'Deposit Funds',
       content: AmountWidget(
-        to: 'Escrow Service',
+        toPubkey: context.read<EscrowCubit>().params.escrowService.pubKey,
         amount: context.read<EscrowCubit>().params.amount,
         onConfirm: onConfirm,
       ),
@@ -56,7 +56,7 @@ class EscrowProgressWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SwapFlowWidget(cubit: progress.swap);
+    return SwapViewWidget(progress.swapState);
   }
 }
 
@@ -80,8 +80,8 @@ class EscrowSuccessWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      title: 'Funds deposited',
-      subtitle: 'Transaction ID: ${state.txHash}',
+      title: 'Deposit Success',
+      subtitle: 'Transaction ID: ${state.transactionInformation.hash}',
       content: Container(),
     );
   }

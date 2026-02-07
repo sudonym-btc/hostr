@@ -1,21 +1,15 @@
-import 'dart:typed_data';
-
 import 'package:hostr/core/util/main.dart';
-import 'package:hostr/data/sources/escrow/MultiEscrow.g.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow_cubit.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_trusts/escrows_trusts.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
-import 'package:rxdart/rxdart.dart';
-import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../auth/auth.dart';
 import '../escrows/escrows.dart';
 import '../evm/evm.dart';
-import '../evm/evm_chain.dart';
-import '../payments/constants.dart';
 
 @Singleton()
 class EscrowUseCase {
@@ -32,152 +26,177 @@ class EscrowUseCase {
     required this.evm,
   });
 
-  EscrowCubit escrow(EscrowCubitParams params) {
-    return EscrowCubit(params);
+  Future<BitcoinAmount> doesEscrowRequireSwap(EscrowFundParams params) async {
+    final balance = await evm
+        .getChainForEscrowService(params.escrowService)
+        .getBalance(auth.getActiveEvmKey().address);
+    logger.i('Escrow sender balance: $balance RBTC');
+
+    final transactionFee = await evm
+        .getChainForEscrowService(params.escrowService)
+        .getSupportedEscrowContract(params.escrowService)
+        .estimateDespositFee(params.toContractParams(auth.getActiveEvmKey()));
+
+    final leftAfterTrade =
+        balance - BitcoinAmount.fromAmount(params.amount) - transactionFee;
+
+    if (leftAfterTrade < BitcoinAmount.zero()) {
+      logger.e(
+        'Insufficient balance for escrow deposit. Have $balance RBTC, would leave us with $leftAfterTrade',
+      );
+
+      return BitcoinAmount.max(
+        await evm
+            .getChainForEscrowService(params.escrowService)
+            .getMinimumSwapIn(),
+        leftAfterTrade.abs(),
+      ).roundUp(BitcoinUnit.sat);
+    }
+    return BitcoinAmount.zero();
   }
 
-  Stream<TradeCreated> checkEscrowStatus(
+  Stream<EscrowSwapProgress> swapRequiredAmount(
+    EscrowFundParams params,
+  ) async* {
+    final requiredAmountInBtc = await doesEscrowRequireSwap(params);
+    if (requiredAmountInBtc > BitcoinAmount.zero()) {
+      yield* evm
+          .getChainForEscrowService(params.escrowService)
+          .swapIn(key: auth.getActiveEvmKey(), amount: requiredAmountInBtc)
+          .map((swap) => EscrowSwapProgress(swap));
+    }
+  }
+
+  Future<EscrowFees> estimateFees(EscrowFundParams params) async {
+    final requiredSwapAmount = await doesEscrowRequireSwap(params);
+    return EscrowFees(
+      estimatedGasFees: await evm
+          .getChainForEscrowService(params.escrowService)
+          .getSupportedEscrowContract(params.escrowService)
+          .estimateDespositFee(params.toContractParams(auth.getActiveEvmKey())),
+      estimatedSwapFees: requiredSwapAmount > BitcoinAmount.zero()
+          ? await evm
+                .getChainForEscrowService(params.escrowService)
+                .estimateSwapInFees(requiredSwapAmount)
+          : BitcoinAmount.zero(),
+    );
+  }
+
+  Stream<EscrowState> fund(EscrowFundParams params) async* {
+    try {
+      yield* swapRequiredAmount(params);
+
+      logger.i(
+        'Creating escrow for ${params.reservationRequest.id} at ${params.escrowService.parsedContent.contractAddress}',
+      );
+      TransactionInformation tx = await evm
+          .getChainForEscrowService(params.escrowService)
+          .getSupportedEscrowContract(params.escrowService)
+          .deposit(params.toContractParams(auth.getActiveEvmKey()));
+      yield EscrowCompleted(transactionInformation: tx);
+    } catch (error, stackTrace) {
+      logger.e('Escrow failed', error: error, stackTrace: stackTrace);
+      final e = EscrowFailed(error, stackTrace);
+      yield (e);
+      throw e;
+    }
+  }
+
+  StreamWithStatus<FundedEvent> checkEscrowStatus(
     String tradeId,
     String counterpartyPubkey,
-  ) async* {
+  ) {
     logger.i('Checking escrow status for reservation: $tradeId');
-    Uint8List idBytes32 = getBytes32(tradeId);
-    // logger.d(reservationRequestId);
-    String hexTopic = getTopicHex(idBytes32);
 
-    EscrowTrust? myTrustedEscrows = await escrowTrusts.trusted(
-      auth.activeKeyPair!.publicKey,
-    );
-    EscrowTrust? theirTrustedEscrows = await escrowTrusts.trusted(
-      counterpartyPubkey,
-    );
-
-    final myTrustedList = myTrustedEscrows == null
-        ? null
-        : await myTrustedEscrows.toNip51List();
-    final theirTrustedList = theirTrustedEscrows == null
-        ? null
-        : await theirTrustedEscrows.toNip51List();
-
-    List<Nip51ListElement> trustedEscrows = [
-      ...myTrustedList?.elements ?? [],
-      ...theirTrustedList?.elements ?? [],
-    ];
-
-    if (trustedEscrows.isEmpty) {
-      logger.w('No trusted escrows for either party.');
-      return;
-    }
-    for (Nip51ListElement item in trustedEscrows) {
-      List<Escrow> escrowServices = await escrows.list(
-        Filter(authors: [item.value]),
+    Future<List<String>> getBothTrustedEscrows() async {
+      EscrowTrust? myTrustedEscrows = await escrowTrusts.trusted(
+        auth.activeKeyPair!.publicKey,
       );
-      for (var escrow in escrowServices) {
-        EvmChain? evmChain;
-        for (EvmChain chain in evm.supportedEvmChains) {
-          BigInt chainId = await chain.getChainId();
-          if (chainId.toInt() == escrow.parsedContent.chainId) {
-            evmChain = chain;
-            break;
+      EscrowTrust? theirTrustedEscrows = await escrowTrusts.trusted(
+        counterpartyPubkey,
+      );
+
+      final myTrustedList = myTrustedEscrows == null
+          ? null
+          : await myTrustedEscrows.toNip51List();
+      final theirTrustedList = theirTrustedEscrows == null
+          ? null
+          : await theirTrustedEscrows.toNip51List();
+
+      final trustedEscrowPubkeys = <String>{
+        ...(myTrustedList?.elements ?? []).map((e) => e.value),
+        ...(theirTrustedList?.elements ?? []).map((e) => e.value),
+      }.toList();
+
+      if (trustedEscrowPubkeys.isEmpty) {
+        logger.w('No trusted escrows for either party.');
+      }
+      return trustedEscrowPubkeys;
+    }
+
+    Future<List<SupportedEscrowContract>> getSubscribableContracts() async {
+      final supportedContracts = <String, SupportedEscrowContract>{};
+      List<String> escrowPubkeys = await getBothTrustedEscrows();
+      for (String item in escrowPubkeys) {
+        List<EscrowService> escrowServices = await escrows.list(
+          Filter(authors: [item]),
+        );
+        for (var escrow in escrowServices) {
+          try {
+            final contract = evm
+                .getChainForEscrowService(escrow)
+                .getSupportedEscrowContract(escrow);
+            supportedContracts[contract.address.toString()] = contract;
+          } catch (e) {
+            logger.e(
+              'Error getting supported escrow contract for ${escrow.id}',
+              error: e,
+            );
           }
         }
-        if (evmChain == null) {
-          logger.w(
-            'No supported EVM chain found for escrow: ${escrow.parsedContent.contractAddress} on chainId: ${escrow.parsedContent.chainId}',
-          );
-          continue;
-        }
-        logger.i(
-          'Searching for events from escrow: ${escrow.parsedContent.contractAddress}',
-        );
-
-        EthereumAddress a = EthereumAddress.fromHex(
-          escrow.parsedContent.contractAddress,
-        );
-        final chainId = await evmChain.client.getChainId();
-        final code = await evmChain.client.getCode(a);
-        final balance = await evmChain.client.getBalance(a);
-        // logger.d('EVM chainId: $chainId');
-        // logger.d('Contract code length: ${code.length}');
-        // logger.d(
-        //   'Contract balance: ${balance.getValueInUnit(EtherUnit.ether)}',
-        // );
-        if (code.isEmpty || code == '0x') {
-          logger.w('No contract code at ${a.eip55With0x}; skipping.');
-          continue;
-        }
-        MultiEscrow e = MultiEscrow(address: a, client: evmChain.client);
-        // Trades x = await e.trades(($param9: idBytes32));
-        // logger.i('Current trade: $x');
-        final tradeCreatedEvent = e.self.events.firstWhere(
-          (x) => x.name == 'TradeCreated',
-        );
-        final sig = bytesToHex(
-          tradeCreatedEvent.signature,
-          padToEvenLength: true,
-          include0x: true,
-        );
-        final filter = FilterOptions(
-          topics: [
-            [
-              // TODO include other event type signatures
-              sig,
-            ], // Topic 0: event signature.
-            // Topic 1: tradeId indexed parameter.
-            [hexTopic],
-          ],
-          fromBlock: BlockNum.exact(0),
-          toBlock: BlockNum.exact(await evmChain.client.getBlockNumber()),
-        );
-
-        // listEvents(evmChain: evmChain, escrow: escrow);
-
-        final logs = await evmChain.client.getLogs(filter);
-        // logger.i('Filtered logs: ${logs.length} for hexTopic $hexTopic');
-
-        final tradeCreated = logs.map((FilterEvent result) {
-          logger.i('trade log topics: ${result}');
-          final decoded = tradeCreatedEvent.decodeResults(
-            result.topics!,
-            result.data!,
-          );
-          return TradeCreated(decoded, result);
-        }).toList();
-        logger.i('Decoded ${tradeCreated.length} TradeCreated events');
-        for (var trade in tradeCreated) {
-          yield trade;
-        }
-        yield* e
-            .tradeCreatedEvents(
-              fromBlock: logs.isEmpty
-                  ? BlockNum.current()
-                  : BlockNum.exact(
-                      logs
-                          .reduce(
-                            (value, element) =>
-                                value.blockNum!.toInt() <
-                                    element.blockNum!.toInt()
-                                ? value
-                                : element,
-                          )
-                          .blockNum!,
-                    ),
-            )
-            .doOnError((error, stackTrace) {
-              logger.e(
-                'TradeCreated stream error',
-                error: error,
-                stackTrace: stackTrace,
-              );
-            })
-            .doOnDone(() {
-              logger.w('TradeCreated stream closed');
-            })
-            .where((event) {
-              return bytesToHex(event.tradeId, padToEvenLength: true) ==
-                  hexTopic;
-            });
       }
+      return supportedContracts.values.toList();
     }
+
+    return StreamWithStatus.combineAsync(
+      getSubscribableContracts().then(
+        (contracts) => contracts
+            .map((contract) => contract.fundedEvents(tradeId))
+            .toList(),
+      ),
+    );
   }
+}
+
+class EscrowFundParams {
+  final EscrowService escrowService;
+  final ReservationRequest reservationRequest;
+  final ProfileMetadata sellerProfile;
+  final Amount amount;
+
+  EscrowFundParams({
+    required this.escrowService,
+    required this.reservationRequest,
+    required this.sellerProfile,
+    required this.amount,
+  });
+
+  ContractFundEscrowParams toContractParams(EthPrivateKey ethKey) {
+    return ContractFundEscrowParams(
+      tradeId: reservationRequest.id,
+      amount: BitcoinAmount.fromAmount(amount),
+      sellerEvmAddress: sellerProfile.evmAddress!,
+      arbiterEvmAddress: escrowService.parsedContent.evmAddress,
+      ethKey: ethKey,
+      timelock: 100,
+      // escrowFee: escrowService.parsedContent.fee,
+    );
+  }
+}
+
+class EscrowFees {
+  final BitcoinAmount estimatedGasFees;
+  final BitcoinAmount estimatedSwapFees;
+
+  EscrowFees({required this.estimatedGasFees, required this.estimatedSwapFees});
 }

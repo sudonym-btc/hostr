@@ -1,12 +1,11 @@
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
 import 'package:web3dart/web3dart.dart';
 
 BigInt satoshiWeiFactor = BigInt.from(10).pow(10);
-num btcSatoshiFactor = pow(10, 8);
-num btcMilliSatoshiFactor = pow(10, 11);
+BigInt btcSatoshiFactor = BigInt.from(10).pow(8);
+BigInt btcMilliSatoshiFactor = BigInt.from(10).pow(11);
 
 Uint8List getBytes32(String eventId) {
   return Uint8List.fromList(hex.decode(eventId));

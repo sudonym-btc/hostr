@@ -2,11 +2,9 @@ import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:dio/dio.dart';
 import 'package:hostr/data/sources/lnurl/lnurl.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/payments/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:injectable/injectable.dart';
-import 'package:models/amount.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
 import 'package:validators/validators.dart';
 
@@ -63,20 +61,15 @@ class LnUrlPaymentCubit
 
   /// Validates that amount is within LNURL limits.
   void validateAmount({
-    required Amount amount,
-    required int minAmount,
-    required int maxAmount,
+    required BitcoinAmount amount,
+    required BitcoinAmount minAmount,
+    required BitcoinAmount maxAmount,
   }) {
-    final amountMsat = (amount.value * btcMilliSatoshiFactor).toInt();
-    if (amountMsat < minAmount) {
-      throw Exception(
-        'Amount $amountMsat msat is below minimum $minAmount msat',
-      );
+    if (amount < minAmount) {
+      throw Exception('Amount $amount msat is below minimum $minAmount msat');
     }
-    if (amountMsat > maxAmount) {
-      throw Exception(
-        'Amount $amountMsat msat exceeds maximum $maxAmount msat',
-      );
+    if (amount > maxAmount) {
+      throw Exception('Amount $amount msat exceeds maximum $maxAmount msat');
     }
   }
 
@@ -84,9 +77,7 @@ class LnUrlPaymentCubit
   Future<LightningCallbackDetails> callback() async {
     final callbackUri = Uri.parse(state.resolvedDetails!.callback).replace(
       queryParameters: {
-        'amount': (state.params.amount!.value * btcMilliSatoshiFactor)
-            .toInt()
-            .toString(),
+        'amount': state.params.amount!.getInMSats.toString(),
         if (state.params.comment != null && state.params.comment!.isNotEmpty)
           'comment': state.params.comment,
       },

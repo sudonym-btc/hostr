@@ -78,9 +78,7 @@ class Nwc {
         timeout: Duration(seconds: 20),
       );
     } catch (e, stackTrace) {
-      logger.e('Error paying invoice: $e');
-      logger.e('PayInvoice stack trace (from NDK): $stackTrace');
-      logger.e('PayInvoice stack trace (current): ${StackTrace.current}');
+      logger.e('Error paying invoice: $e $stackTrace');
       rethrow;
     }
   }

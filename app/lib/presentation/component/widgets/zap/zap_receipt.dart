@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/payments/constants.dart';
 import 'package:hostr/presentation/component/providers/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -24,7 +23,7 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
           formatAmount(
             Amount(
               currency: Currency.BTC,
-              value: (widget.zap.amountSats! * btcSatoshiFactor).toDouble(),
+              value: BigInt.from(widget.zap.amountSats!),
             ),
           ),
         ),
@@ -43,7 +42,7 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
             formatAmount(
               Amount(
                 currency: Currency.BTC,
-                value: (widget.zap.amountSats! / btcSatoshiFactor).toDouble(),
+                value: BigInt.from(widget.zap.amountSats!),
               ),
             ),
           ),
