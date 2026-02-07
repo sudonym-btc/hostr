@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/payments/constants.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:intl/intl.dart';
 import 'package:models/main.dart';
@@ -16,16 +15,20 @@ var format = (bool fiat) => NumberFormat.currency(
 var compactFormat = (bool fiat) => NumberFormat.compact(locale: "en_US");
 
 String formatAmount(Amount amount, {exact = false}) {
-  String prefix = amount.currency.prefix == ''
-      ? ''
-      : '${amount.currency.prefix} ';
-  var f = exact
-      ? format(amount.currency != Currency.BTC)
-      : compactFormat(amount.currency != Currency.BTC);
-  var val = amount.currency != Currency.BTC
-      ? amount.value
-      : amount.value * btcSatoshiFactor;
-  return '$prefix${f.format(val)}${amount.currency.suffix}';
+  String prefix = '${amount.currency.prefix} ';
+  var amountAsDouble =
+      amount.value / BigInt.from(10).pow(amount.currency.decimals);
+
+  if (amount.currency == Currency.BTC) {
+    amountAsDouble = amount.value.toDouble();
+  }
+
+  final value = trimTrailingZeros(
+    exact
+        ? format(amount.currency == Currency.USD).format(amountAsDouble)
+        : compactFormat(amount.currency == Currency.USD).format(amountAsDouble),
+  );
+  return '$prefix$value${amount.currency.suffix}';
 }
 
 String trimTrailingZeros(String value) {
@@ -44,8 +47,12 @@ class AmountInputWidget extends FormField<Amount> {
 
   AmountInputWidget({super.key, initialValue})
     : super(
-        initialValue: initialValue ?? Amount(currency: Currency.BTC, value: 0),
+        initialValue:
+            initialValue ?? Amount(currency: Currency.BTC, value: BigInt.zero),
         builder: (field) {
+          final maxDecimals = field.value!.currency == Currency.BTC
+              ? 8
+              : field.value!.currency.decimals;
           return Expanded(
             child: Column(
               children: [
@@ -94,38 +101,54 @@ class AmountInputWidget extends FormField<Amount> {
 
                             return GestureDetector(
                               onTap: () {
-                                print(index);
-                                print(
-                                  '${field.value!.value.toString()}${buttons[index]}',
+                                String currentValue = trimTrailingZeros(
+                                  field.value!.toDecimalString(
+                                    maxDecimals: maxDecimals,
+                                  ),
                                 );
-                                if (buttons[index] is int) {
-                                  String stringVal = trimTrailingZeros(
-                                    field.value!.value.toString(),
-                                  );
-                                  String newValue =
-                                      stringVal + buttons[index].toString();
-                                  print('new value: $newValue');
 
+                                if (buttons[index] is int) {
+                                  if (currentValue == '0') {
+                                    currentValue = '';
+                                  }
+                                  final newValue =
+                                      currentValue + buttons[index].toString();
                                   field.didChange(
-                                    Amount(
+                                    Amount.fromDecimal(
+                                      decimal: newValue,
                                       currency: field.value!.currency,
-                                      value: double.parse(newValue),
                                     ),
                                   );
+                                  return;
                                 }
+
+                                if (buttons[index] == '.') {
+                                  if (!currentValue.contains('.')) {
+                                    final newValue = currentValue.isEmpty
+                                        ? '0.'
+                                        : '$currentValue.';
+                                    field.didChange(
+                                      Amount.fromDecimal(
+                                        decimal: newValue,
+                                        currency: field.value!.currency,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+
                                 if (buttons[index] == 'backspace') {
-                                  String currentValue = field.value!.value
-                                      .toString();
                                   if (currentValue.isNotEmpty) {
-                                    String newValue = currentValue.substring(
+                                    final newValue = currentValue.substring(
                                       0,
                                       currentValue.length - 1,
                                     );
-                                    print('new value: $newValue');
                                     field.didChange(
-                                      Amount(
+                                      Amount.fromDecimal(
+                                        decimal: newValue.isEmpty
+                                            ? '0'
+                                            : newValue,
                                         currency: field.value!.currency,
-                                        value: double.tryParse(newValue) ?? 0,
                                       ),
                                     );
                                   }

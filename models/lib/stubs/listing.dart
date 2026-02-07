@@ -16,7 +16,8 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
 """,
           price: [
             Price(
-                amount: Amount(value: 0.002, currency: Currency.BTC),
+                amount:
+                    Amount(value: BigInt.from(200000), currency: Currency.BTC),
                 frequency: Frequency.daily)
           ], // 0.002 per day
           minStay: Duration(days: 2), // 2 days min stay
@@ -54,7 +55,8 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
 """,
           price: [
             Price(
-                amount: Amount(value: 0.002, currency: Currency.BTC),
+                amount:
+                    Amount(value: BigInt.from(120000), currency: Currency.BTC),
                 frequency: Frequency.daily)
           ], // 0.002 per day
           minStay: Duration(days: 2), // 2 days min stay

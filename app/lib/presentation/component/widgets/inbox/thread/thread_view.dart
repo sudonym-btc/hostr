@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr/logic/main.dart';
@@ -17,14 +17,14 @@ class ThreadView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: context.read<SubscriptionResponse<Reservation>>().status,
+      stream: context.read<StreamWithStatus<Reservation>>().status,
       builder: (context, snapshot) {
         return BlocBuilder<ProfileCubit, ProfileCubitState>(
           builder: (context, profileState) {
             // When to display loading
             if (profileState.active ||
                 profileState.data == null ||
-                snapshot.data is! SubscriptionStatusLive) {
+                snapshot.data is! StreamStatusLive) {
               return Scaffold(
                 appBar: AppBar(
                   title: Text(AppLocalizations.of(context)!.loading),
@@ -57,7 +57,7 @@ class ThreadView extends StatelessWidget {
                             children: [
                               StreamBuilder<List<Reservation>>(
                                 stream: context
-                                    .read<SubscriptionResponse<Reservation>>()
+                                    .read<StreamWithStatus<Reservation>>()
                                     .list,
                                 builder: (context, snapshot) {
                                   return ReservationStatusWidget(

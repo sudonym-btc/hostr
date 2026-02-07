@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:models/main.dart';
 
 class EscrowListItemWidget extends StatefulWidget {
-  final Escrow entity;
+  final EscrowService entity;
   const EscrowListItemWidget({super.key, required this.entity});
 
   @override

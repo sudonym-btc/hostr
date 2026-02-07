@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/repositories/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
@@ -10,108 +11,13 @@ import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
 
-class SubscriptionStatus {}
-
-class SubscriptionStatusIdle extends SubscriptionStatus {}
-
-class SubscriptionStatusQuerying extends SubscriptionStatus {}
-
-class SubscriptionStatusQueryComplete extends SubscriptionStatus {}
-
-class SubscriptionStatusLive extends SubscriptionStatus {}
-
-class SubscriptionStatusError extends SubscriptionStatus {
-  final Object? error;
-  final StackTrace? stackTrace;
-  SubscriptionStatusError(this.error, this.stackTrace);
-}
-
-enum SubscriptionPhase { querying, queryComplete, live, error, idle }
-
-/// Represents a response from a Nostr Development Kit (NDK) subscription.
-class SubscriptionResponse<T extends Nip01Event> {
-  Function? onClose;
-
-  StreamController<T> controller = StreamController<T>.broadcast();
-  BehaviorSubject<SubscriptionStatus> status =
-      BehaviorSubject<SubscriptionStatus>.seeded(SubscriptionStatusIdle());
-
-  late final ReplaySubject<T> _replaySubject = ReplaySubject<T>();
-  late final StreamSubscription<T> _replaySubscription;
-
-  /// A stream of [T] objects returned by the request.
-  ///
-  /// This stream can be listened to for real-time processing of events
-  /// as they arrive from the nostr request.
-  Stream<T> get stream => controller.stream;
-
-  /// A replaying stream of all [T] objects emitted since subscription start.
-  Stream<T> get replay => _replaySubject.stream;
-
-  /// A stream of all items received so far, emitted when new items arrive.
-  late final BehaviorSubject<List<T>> _listSubject = BehaviorSubject.seeded(
-    <T>[],
-  );
-
-  ValueStream<List<T>> get list => _listSubject;
-
-  SubscriptionResponse({this.onClose}) {
-    _replaySubscription = controller.stream.listen(
-      _replaySubject.add,
-      onError: _replaySubject.addError,
-      onDone: _replaySubject.close,
-    );
-  }
-
-  void addError(Object error, StackTrace? stackTrace) {
-    status.add(SubscriptionStatusError(error, stackTrace));
-    controller.addError(error, stackTrace);
-  }
-
-  void addStatus(SubscriptionStatus newStatus) {
-    status.add(newStatus);
-  }
-
-  void add(T item) {
-    controller.add(item);
-    final current = _listSubject.value;
-    _listSubject.add(List.unmodifiable([...current, item]));
-  }
-
-  void addAll(List<T> items) {
-    for (final item in items) {
-      add(item);
-    }
-  }
-
-  void close() {
-    controller.close();
-    status.close();
-    _listSubject.close();
-    _replaySubscription.cancel();
-    _replaySubject.close();
-    onClose?.call();
-  }
-
-  Map<String, dynamic> toJson() {
-    return {"items": list.value.map((el) => el.toString())};
-  }
-
-  // static SubscriptionResponse<T> fromJson<T extends Nip01Event>(
-  //   Map<String, dynamic> json,
-  // ) {
-  //   final response = SubscriptionResponse(json["requestId"]);
-  //   response.addAll(jsonDecode(json["items"]).map((el)));
-  // }
-}
-
 abstract class RequestsModel {
   Stream<T> query<T extends Nip01Event>({
     required Filter filter,
     Duration? timeout,
     List<String>? relays,
   });
-  SubscriptionResponse<T> subscribe<T extends Nip01Event>({
+  StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
   });
@@ -136,24 +42,24 @@ class Requests extends RequestsModel {
 
   // NDK does not let us subscribe to fetch old events, complete, and keep streaming, so we have to implement our own version
   @override
-  SubscriptionResponse<T> subscribe<T extends Nip01Event>({
+  StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
   }) {
     final ndkSubName = "sub-${Helpers.getRandomString(10)}";
 
-    final response = SubscriptionResponse<T>(
+    final response = StreamWithStatus<T>(
       onClose: () {
         ndk.requests.closeSubscription(ndkSubName);
       },
     );
 
-    response.addStatus(SubscriptionStatusQuerying());
+    response.addStatus(StreamStatusQuerying());
 
     ndk.requests
         .query(filter: cleanTags(filter), cacheRead: false, cacheWrite: false)
         .stream
-        .doOnDone(() => response.addStatus(SubscriptionStatusQueryComplete()))
+        .doOnDone(() => response.addStatus(StreamStatusQueryComplete()))
         .concatWith([
           Rx.defer(() {
             final liveFilter = filter.clone();
@@ -165,7 +71,7 @@ class Requests extends RequestsModel {
                 : (liveFilter.since == null || maxCreatedAt > liveFilter.since!
                       ? maxCreatedAt
                       : liveFilter.since);
-            response.addStatus(SubscriptionStatusLive());
+            response.addStatus(StreamStatusLive());
 
             return ndk.requests
                 .subscription(

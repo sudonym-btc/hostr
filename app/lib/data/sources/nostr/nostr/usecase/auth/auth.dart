@@ -6,6 +6,7 @@ import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:web3dart/web3dart.dart';
 
 @Singleton()
 class Auth {
@@ -86,6 +87,13 @@ class Auth {
 
   Future<void> _loadActiveKeyPair() async {
     activeKeyPair = await keyStorage.getActiveKeyPair();
+  }
+
+  EthPrivateKey getActiveEvmKey() {
+    if (activeKeyPair == null) {
+      throw Exception('No active key pair');
+    }
+    return EthPrivateKey.fromHex(activeKeyPair!.privateKey!);
   }
 
   void _syncAuthState() {

@@ -73,7 +73,8 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
             reservation.parsedContent.proof!.listing
                 .cost(reservation.parsedContent.start,
                     reservation.parsedContent.end)
-                .value) {
+                .value
+                .toInt()) {
           return 'Amount insufficient';
         }
         // Check that the receipt commits to the correct reservation request

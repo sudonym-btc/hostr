@@ -3,7 +3,9 @@ import 'dart:math';
 
 import 'package:hostr/core/main.dart';
 import 'package:hostr/data/sources/boltz/contracts/EtherSwap.g.dart';
-import 'package:models/amount.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
+import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
@@ -15,20 +17,29 @@ abstract class EvmChain {
   EvmChain({required this.client});
   CustomLogger logger = CustomLogger();
 
+  SupportedEscrowContract getSupportedEscrowContract(
+    EscrowService escrowService,
+  ) {
+    return SupportedEscrowContractRegistry.getSupportedContract(
+      'MultiEscrow', // to be replaced with ABI hash or bytecode hash
+      client,
+      EthereumAddress.fromHex(escrowService.parsedContent.contractAddress),
+    )!;
+  }
+
   Future<BigInt> getChainId() async {
     return await client.getChainId();
   }
 
-  Future<double> getBalance(EthereumAddress address) async {
+  Future<BitcoinAmount> getBalance(EthereumAddress address) async {
     logger.d('Getting balance for $address');
     return await client.getBalance(address).then((val) {
-      logger.d('Balance for $address: ${val.getInWei}');
-      logger.d('${convertWeiToBTC(val.getInWei.toDouble())}');
-      return convertWeiToBTC(val.getInWei.toDouble());
+      logger.d('Balance for $address: $val');
+      return BitcoinAmount.inWei(val.getInWei);
     });
   }
 
-  Stream<double> subscribeBalance(EthereumAddress address) async* {
+  Stream<BitcoinAmount> subscribeBalance(EthereumAddress address) async* {
     try {
       yield await getBalance(address);
     } catch (e) {
@@ -82,8 +93,13 @@ abstract class EvmChain {
 
   Future<EtherSwap> getEtherSwapContract();
 
-  Future<int> getMinimumSwapInSats();
-  SwapCubit swapIn({required EthPrivateKey key, required Amount amount});
+  Future<BitcoinAmount> getMinimumSwapIn();
+  Stream<SwapState> swapIn({
+    required EthPrivateKey key,
+    required BitcoinAmount amount,
+  });
+
+  Future<BitcoinAmount> estimateSwapInFees(BitcoinAmount amount);
 
   swapOutAll({required KeyPair key});
 
@@ -101,10 +117,10 @@ abstract class EvmChain {
   }
 }
 
-double convertWeiToSatoshi(double wei) {
-  return wei / pow(10, 18 - 8);
+double convertWeiToSatoshi(BigInt wei) {
+  return wei.toDouble() / pow(10, 18 - 8);
 }
 
-double convertWeiToBTC(double wei) {
-  return wei / pow(10, 18);
+double convertWeiToBTC(BigInt wei) {
+  return wei.toDouble() / pow(10, 18);
 }

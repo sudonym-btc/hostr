@@ -7,7 +7,7 @@ import '../escrow_methods/escrows_methods.dart';
 import '../escrow_trusts/escrows_trusts.dart';
 
 @Singleton()
-class Escrows extends CrudUseCase<Escrow> {
+class Escrows extends CrudUseCase<EscrowService> {
   EscrowMethods escrowMethods;
   EscrowTrusts escrowTrusts;
 
@@ -15,7 +15,7 @@ class Escrows extends CrudUseCase<Escrow> {
     required super.requests,
     required this.escrowMethods,
     required this.escrowTrusts,
-  }) : super(kind: Escrow.kinds[0]);
+  }) : super(kind: EscrowService.kinds[0]);
 
   Future<MutualEscrowResult> determineMutualEscrow(
     String pubkey1,
@@ -87,7 +87,10 @@ class Escrows extends CrudUseCase<Escrow> {
 
     // Query escrows from mutually trusted pubkeys with overlapping types
     final escrowServices = await list(
-      Filter(kinds: Escrow.kinds, authors: mutuallyTrustedPubkeys.toList()),
+      Filter(
+        kinds: EscrowService.kinds,
+        authors: mutuallyTrustedPubkeys.toList(),
+      ),
     );
 
     final escrowServicesFiltered = escrowServices
@@ -106,7 +109,7 @@ class MutualEscrowResult {
   EscrowTrust guestTrust;
   EscrowMethod hostMethod;
   EscrowMethod guestMethod;
-  late List<Escrow> compatibleServices;
+  late List<EscrowService> compatibleServices;
 
   MutualEscrowResult({
     required this.hostTrust,

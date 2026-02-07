@@ -12,8 +12,8 @@ T parser<T extends Nip01Event>(Nip01Event event) {
       return Reservation.fromNostrEvent(event) as T;
     } else if (Message.kinds.contains(eventKind)) {
       return Message.safeFromNostrEvent(event) as T;
-    } else if (Escrow.kinds.contains(eventKind)) {
-      return Escrow.fromNostrEvent(event) as T;
+    } else if (EscrowService.kinds.contains(eventKind)) {
+      return EscrowService.fromNostrEvent(event) as T;
     } else if (EscrowTrust.kinds.contains(eventKind)) {
       return EscrowTrust.fromNostrEvent(event) as T;
     } else if (EscrowMethod.kinds.contains(eventKind)) {

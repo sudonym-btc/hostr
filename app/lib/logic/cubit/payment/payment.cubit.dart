@@ -5,7 +5,7 @@ import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
 
 class PaymentParameters {
-  final Amount? amount;
+  final BitcoinAmount? amount;
   final String to;
   final String? comment;
 

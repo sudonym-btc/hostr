@@ -16,15 +16,15 @@ class Evm {
   final Auth auth;
   final Rootstock rootstock;
 
-  BehaviorSubject<double>? _balanceSubject;
-  StreamSubscription<double>? _balanceSubscription;
+  BehaviorSubject<BitcoinAmount>? _balanceSubject;
+  StreamSubscription<BitcoinAmount>? _balanceSubscription;
 
   late final List<EvmChain> supportedEvmChains;
   Evm({required this.auth, required this.rootstock}) {
     supportedEvmChains = [rootstock];
   }
 
-  Future<int> getBalance() async {
+  Future<BitcoinAmount> getBalance() async {
     // Get current user's Ethereum address
     final keyPair = auth.activeKeyPair!;
 
@@ -34,7 +34,7 @@ class Evm {
     final userAddress = ethPrivateKey.address;
 
     // Loop all supported EVM chains and sum balances
-    double totalBalance = 0;
+    BitcoinAmount totalBalance = BitcoinAmount.zero();
     for (var chain in supportedEvmChains) {
       try {
         final chainBalance = await chain.getBalance(userAddress);
@@ -44,11 +44,23 @@ class Evm {
       }
     }
 
-    return totalBalance.toInt();
+    return totalBalance;
   }
 
-  ValueStream<double> subscribeBalance() {
-    _balanceSubject ??= BehaviorSubject<double>();
+  EvmChain getChainForEscrowService(EscrowService service) {
+    for (var chain in supportedEvmChains) {
+      return chain;
+      // if (chain.matchesEscrowService(service)) {
+      //   return chain;
+      // }
+    }
+    throw Exception(
+      'No supported EVM chain found for escrow service ${service.id}',
+    );
+  }
+
+  ValueStream<BitcoinAmount> subscribeBalance() {
+    _balanceSubject ??= BehaviorSubject<BitcoinAmount>();
 
     if (_balanceSubscription == null) {
       final streams = supportedEvmChains
@@ -59,8 +71,11 @@ class Evm {
           )
           .toList();
 
-      final combined = Rx.combineLatestList<double>(streams).map(
-        (balances) => balances.fold<double>(0, (sum, value) => sum + value),
+      final combined = Rx.combineLatestList<BitcoinAmount>(streams).map(
+        (balances) => balances.fold<BitcoinAmount>(
+          BitcoinAmount.zero(),
+          (sum, value) => sum + value,
+        ),
       );
 
       _balanceSubscription = combined.distinct().listen(

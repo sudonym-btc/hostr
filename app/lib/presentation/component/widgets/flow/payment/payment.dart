@@ -4,48 +4,64 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/main.dart';
 import 'package:models/main.dart';
 
-class PaymentWidget extends StatelessWidget {
-  final PaymentCubit paymentCubit;
-  const PaymentWidget({super.key, required this.paymentCubit});
+import '../modal_bottom_sheet.dart';
+
+class PaymentFlowWidget extends StatelessWidget {
+  final PaymentCubit cubit;
+  const PaymentFlowWidget({super.key, required this.cubit});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<PaymentCubit>.value(
-      value: paymentCubit,
+    return BlocProvider.value(
+      value: cubit,
       child: BlocBuilder<PaymentCubit, PaymentState>(
         builder: (context, state) {
-          if (state.status == PaymentStatus.failed) {
-            return Material(
-              color: Colors.red,
-              child: CustomPadding(child: Text(state.error!)),
-            );
-          } else if (state.status == PaymentStatus.completed) {
-            return Material(
-              color: Colors.green,
-              child: CustomPadding(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Text(AppLocalizations.of(context)!.paymentCompleted),
-                ),
-              ),
-            );
-          } else if (state.status == PaymentStatus.inFlight) {
-            return CustomPadding(child: CircularProgressIndicator());
-          }
-          Widget? nwcInfo;
+          return PaymentViewWidget(state);
+        },
+      ),
+    );
+  }
+}
 
-          if (paymentCubit is LnUrlPaymentCubit ||
-              paymentCubit is Bolt11PaymentCubit) {
-            nwcInfo = CustomPadding(
-              child: NostrWalletConnectConnectionWidget(),
-            );
-          }
+class PaymentViewWidget extends StatelessWidget {
+  final PaymentState state;
+  final VoidCallback? onConfirm;
+  const PaymentViewWidget(this.state, {super.key, this.onConfirm});
+
+  @override
+  build(BuildContext context) {
+    switch (state.status) {
+      case PaymentStatus.failed:
+        return PaymentFailureWidget(state);
+      case PaymentStatus.inFlight:
+        return PaymentProgressWidget(state);
+      case PaymentStatus.completed:
+        return PaymentSuccessWidget(state);
+      default:
+        return PaymentConfirmWidget(state: state);
+    }
+  }
+}
+
+class PaymentConfirmWidget extends StatelessWidget {
+  final PaymentState state;
+  const PaymentConfirmWidget({required this.state, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ModalBottomSheet(
+      type: ModalBottomSheetType.normal,
+      content: Builder(
+        builder: (context) {
+          Widget nwcInfo = CustomPadding(
+            child: NostrWalletConnectConnectionWidget(),
+          );
 
           return Column(
             mainAxisAlignment: MainAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
-              nwcInfo ?? Container(),
+              nwcInfo,
               CustomPadding(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -63,8 +79,11 @@ class PaymentWidget extends StatelessWidget {
                           // todo: calc amount from invoice
                           Text(
                             formatAmount(
-                              state.params.amount ??
-                                  Amount(currency: Currency.BTC, value: 0.0),
+                              state.params.amount?.toAmount() ??
+                                  Amount(
+                                    currency: Currency.BTC,
+                                    value: BigInt.from(0),
+                                  ),
                             ),
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
@@ -75,13 +94,13 @@ class PaymentWidget extends StatelessWidget {
                         ? FilledButton(
                             child: Text(AppLocalizations.of(context)!.ok),
                             onPressed: () {
-                              paymentCubit.ok();
+                              context.read<PaymentCubit>().ok();
                             },
                           )
                         : FilledButton(
                             child: Text(AppLocalizations.of(context)!.pay),
                             onPressed: () {
-                              paymentCubit.confirm();
+                              context.read<PaymentCubit>().confirm();
                             },
                           ),
                   ],
@@ -91,6 +110,45 @@ class PaymentWidget extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class PaymentProgressWidget extends StatelessWidget {
+  final PaymentState state;
+  const PaymentProgressWidget(this.state, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ModalBottomSheet(
+      type: ModalBottomSheetType.normal,
+      content: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class PaymentSuccessWidget extends StatelessWidget {
+  final PaymentState state;
+  const PaymentSuccessWidget(this.state, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ModalBottomSheet(
+      type: ModalBottomSheetType.success,
+      content: Text(AppLocalizations.of(context)!.paymentCompleted),
+    );
+  }
+}
+
+class PaymentFailureWidget extends StatelessWidget {
+  final PaymentState state;
+  const PaymentFailureWidget(this.state, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ModalBottomSheet(
+      type: ModalBottomSheetType.error,
+      content: Text('Payment failed: ${state.error}'),
     );
   }
 }

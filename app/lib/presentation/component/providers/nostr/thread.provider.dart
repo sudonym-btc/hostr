@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/core/util/stream_status.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/thread.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/messaging_listings/messaging_listings.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/entity/entity.cubit.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
@@ -26,7 +26,7 @@ class ThreadProvider extends StatefulWidget {
 }
 
 class _ThreadProviderState extends State<ThreadProvider> {
-  SubscriptionResponse<Reservation>? _reservationsResponse;
+  StreamWithStatus<Reservation>? _reservationsResponse;
   String? _listingAnchor;
 
   @override
@@ -76,7 +76,7 @@ class _ThreadProviderState extends State<ThreadProvider> {
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<Thread>.value(value: thread),
-        RepositoryProvider<SubscriptionResponse<Reservation>>.value(
+        RepositoryProvider<StreamWithStatus<Reservation>>.value(
           value: _reservationsResponse!,
         ),
       ],

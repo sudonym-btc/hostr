@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/main.dart';
@@ -15,7 +16,7 @@ class MoneyInFlightWidget extends StatefulWidget {
 }
 
 class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
-  late final Stream<double> _balanceStream;
+  late final Stream<BitcoinAmount> _balanceStream;
 
   @override
   void dispose() {
@@ -46,7 +47,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
               return Text(
                 formatAmount(
                   Amount(
-                    value: snapshot.data!.toDouble(),
+                    value: snapshot.data!.getInSats,
                     currency: Currency.BTC,
                   ),
                   exact: false,

@@ -1,7 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/reservation/reservation_list_item.dart';
@@ -16,7 +15,7 @@ class TripsScreen extends StatefulWidget {
 }
 
 class _TripsScreenState extends State<TripsScreen> {
-  late final SubscriptionResponse<Reservation> _reservationsStream;
+  late final StreamWithStatus<Reservation> _reservationsStream;
 
   @override
   void initState() {

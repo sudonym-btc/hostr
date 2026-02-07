@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
@@ -13,7 +14,7 @@ import 'requests.dart';
 class _Subscription<T extends Nip01Event> {
   final String id;
   final Filter filter;
-  final SubscriptionResponse response;
+  final StreamWithStatus<T> response;
 
   _Subscription({
     required this.id,
@@ -69,13 +70,13 @@ class TestRequests extends Requests implements RequestsModel {
   }
 
   @override
-  SubscriptionResponse<T> subscribe<T extends Nip01Event>({
+  StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
   }) {
     final subId = 'sub_${_subCounter++}';
     late final _Subscription<T> subscription;
-    final SubscriptionResponse<T> response = SubscriptionResponse<T>(
+    final StreamWithStatus<T> response = StreamWithStatus<T>(
       onClose: () {
         _subscriptions.remove(subscription);
       },
@@ -89,7 +90,7 @@ class TestRequests extends Requests implements RequestsModel {
     _subscriptions.add(subscription);
 
     final initialEvents = _events.where((event) => matchEvent(event, filter));
-    response.addStatus(SubscriptionStatusQuerying());
+    response.addStatus(StreamStatusQuerying());
 
     final initialFuture = () async {
       final List<T> parsedEvents = [];
@@ -103,8 +104,8 @@ class TestRequests extends Requests implements RequestsModel {
 
     initialFuture.then((events) {
       response.addAll(events);
-      response.addStatus(SubscriptionStatusQueryComplete());
-      response.addStatus(SubscriptionStatusLive());
+      response.addStatus(StreamStatusQueryComplete());
+      response.addStatus(StreamStatusLive());
     });
 
     return response;

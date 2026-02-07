@@ -1,4 +1,3 @@
-import 'package:hostr/data/sources/nostr/nostr/usecase/payments/constants.dart';
 import 'package:hostr/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -44,7 +43,7 @@ class ZapPaymentCubit
   Future<LightningCompletedDetails> complete() async {
     ZapResponse response = await hostr.zaps.zap(
       lnurl: state.params.to,
-      amountSats: (state.params.amount!.value * btcSatoshiFactor).toInt(),
+      amountSats: state.params.amount!.getInSats.toInt(),
     );
     return LightningCompletedDetails(
       preimage: response.payInvoiceResponse!.preimage!,

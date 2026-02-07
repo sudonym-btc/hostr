@@ -19,14 +19,14 @@ class Threads extends HydratedCubit<List<Message>> {
   final StreamController<Thread> threadController = StreamController<Thread>();
   Stream<Thread> get threadStream => threadController.stream;
 
-  final BehaviorSubject<SubscriptionStatus> _statusSubject =
-      BehaviorSubject<SubscriptionStatus>.seeded(SubscriptionStatusIdle());
-  Stream<SubscriptionStatus> get status => _statusSubject.stream;
+  final BehaviorSubject<StreamStatus> _statusSubject =
+      BehaviorSubject<StreamStatus>.seeded(StreamStatusIdle());
+  Stream<StreamStatus> get status => _statusSubject.stream;
 
   final Map<String, Thread> threads = {};
 
-  SubscriptionResponse<Message>? subscription;
-  StreamSubscription<SubscriptionStatus>? _statusSubscription;
+  StreamWithStatus<Message>? subscription;
+  StreamSubscription<StreamStatus>? _statusSubscription;
   StreamSubscription<Message>? _messageSubscription;
 
   Threads(this.messaging, this.requests, this.ndk) : super([]);
@@ -52,7 +52,7 @@ class Threads extends HydratedCubit<List<Message>> {
     _statusSubscription = subscription!.status.listen((status) {
       _statusSubject.add(status);
       logger.d("Thread stats $status");
-      if (status is SubscriptionStatusQueryComplete) {
+      if (status is StreamStatusQueryComplete) {
         logger.d('Threads query complete');
       }
     });

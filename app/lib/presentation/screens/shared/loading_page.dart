@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/core/main.dart';
 import 'package:hostr/data/main.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:hostr/injection.dart';
 
 /// Wrapper that shows a global syncing indicator until initial data is ready.
@@ -16,11 +16,11 @@ class LoadingPage extends StatelessWidget {
       stream: getIt<Hostr>().auth.authState,
       builder: (context, snapshot) {
         if (snapshot.hasData && snapshot.data is LoggedIn) {
-          return StreamBuilder<SubscriptionStatus>(
+          return StreamBuilder<StreamStatus>(
             stream: nostrService.messaging.threads.status,
             builder: (context, snapshot) {
               // If this user is logged in, make sure we
-              if (snapshot.data is SubscriptionStatusLive) {
+              if (snapshot.data is StreamStatusLive) {
                 return child;
               }
               return Scaffold(

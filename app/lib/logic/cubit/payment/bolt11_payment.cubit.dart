@@ -40,10 +40,15 @@ class Bolt11PaymentCubit
 
   @override
   Future<LightningCompletedDetails> complete() async {
-    PayInvoiceResponse response = await nwc.payInvoice(
-      nwc.connections[0].connection!,
-      state.callbackDetails!.invoice.paymentRequest,
-    );
-    return LightningCompletedDetails(preimage: response.preimage!);
+    try {
+      PayInvoiceResponse response = await nwc.payInvoice(
+        nwc.connections[0].connection!,
+        state.callbackDetails!.invoice.paymentRequest,
+      );
+      return LightningCompletedDetails(preimage: response.preimage!);
+    } catch (e, stackTrace) {
+      logger.e('Error paying invoice: $e $stackTrace');
+      rethrow;
+    }
   }
 }

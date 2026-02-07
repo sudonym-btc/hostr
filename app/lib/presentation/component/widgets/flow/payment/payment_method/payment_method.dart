@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/sources/nostr/nostr/hostr.dart';
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow.dart';
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow_cubit.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow.dart';
 import 'package:models/main.dart';
 
@@ -58,7 +57,7 @@ class PaymentMethodWidget extends StatelessWidget {
                       case EscrowSelectorLoading():
                         return const CircularProgressIndicator();
                       case EscrowSelectorError():
-                        return const Text('Error loading escrows');
+                        return Text(state.message);
                       case EscrowSelectorLoaded():
                         return FilledButton(
                           onPressed: () {
@@ -66,35 +65,23 @@ class PaymentMethodWidget extends StatelessWidget {
                             showModalBottomSheet(
                               context: context,
                               builder: (BuildContext context) {
-                                return EscrowFlowWidget(
-                                  cubit: getIt<Hostr>().escrow.escrow(
-                                    EscrowCubitParams(
-                                      eventId: reservationRequest.id,
+                                return BlocProvider<EscrowCubit>(
+                                  create: (BuildContext context) => EscrowCubit(
+                                    EscrowFundParams(
+                                      reservationRequest: reservationRequest,
                                       amount: reservationRequest
                                           .parsedContent
                                           .amount,
-                                      sellerEvmAddress:
-                                          counterparty.evmAddress!,
-                                      escrowEvmAddress: state
-                                          .selectedEscrow
-                                          .parsedContent
-                                          .evmAddress,
-                                      escrowContractAddress: state
-                                          .selectedEscrow
-                                          .parsedContent
-                                          .contractAddress,
-                                      timelock: 200,
-                                      evmChain: getIt<Hostr>()
-                                          .evm
-                                          .supportedEvmChains
-                                          .first,
-                                      ethKey: getEvmCredentials(
-                                        getIt<Hostr>()
-                                            .auth
-                                            .activeKeyPair!
-                                            .privateKey!,
-                                      ),
+                                      sellerProfile: counterparty,
+                                      escrowService: state.selectedEscrow,
                                     ),
+                                  ),
+                                  child: Builder(
+                                    builder: (context) {
+                                      return EscrowFlowWidget(
+                                        cubit: context.read<EscrowCubit>(),
+                                      );
+                                    },
                                   ),
                                 );
                               },

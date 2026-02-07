@@ -32,7 +32,8 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
       emit(
         EscrowSelectorLoaded(selectedEscrow: selectedEscrow, result: escrows),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print(stackTrace);
       emit(EscrowSelectorError('Failed to load escrows: $e'));
     }
   }
@@ -43,7 +44,7 @@ class EscrowSelectorState {}
 class EscrowSelectorLoading extends EscrowSelectorState {}
 
 class EscrowSelectorLoaded extends EscrowSelectorState {
-  Escrow selectedEscrow;
+  EscrowService selectedEscrow;
   MutualEscrowResult result;
   EscrowSelectorLoaded({required this.selectedEscrow, required this.result});
 }

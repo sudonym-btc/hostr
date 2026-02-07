@@ -14,9 +14,13 @@ final class SwapInitialised extends SwapState {
   const SwapInitialised();
 }
 
+final class SwapRequestCreated extends SwapState {
+  const SwapRequestCreated();
+}
+
 final class SwapPaymentProgress extends SwapState {
-  final PaymentCubit paymentCubit;
-  const SwapPaymentProgress({required this.paymentCubit});
+  final PaymentState paymentState;
+  const SwapPaymentProgress({required this.paymentState});
 }
 
 final class SwapAwaitingOnChain extends SwapState {
@@ -57,5 +61,12 @@ abstract class SwapCubit<T extends SwapCubitParams> extends Cubit<SwapState> {
   CustomLogger logger = CustomLogger();
   final T params;
   SwapCubit(this.params) : super(SwapInitialised());
-  Future<void> confirm() async {}
+  void confirm() {
+    params.evmChain
+        .swapIn(
+          key: params.ethKey,
+          amount: BitcoinAmount.fromAmount(params.amount),
+        )
+        .listen(emit);
+  }
 }

@@ -10,7 +10,7 @@ ReservationRequest hostInvitesGuestReservationRequest = ReservationRequest(
             start: DateTime(2026),
             end: DateTime(2026).add(Duration(days: 1)),
             quantity: 1,
-            amount: Amount(currency: Currency.BTC, value: 0.0001),
+            amount: Amount(currency: Currency.BTC, value: BigInt.from(1000000)),
             salt: 'random-salt-1'),
         pubKey: MockKeys.hoster.publicKey)
     .signAs(MockKeys.hoster, ReservationRequest.fromNostrEvent);
@@ -25,7 +25,7 @@ ReservationRequest guestInvitesHostReservationRequest = ReservationRequest(
             start: DateTime(2026),
             end: DateTime(2026).add(Duration(days: 1)),
             quantity: 1,
-            amount: Amount(currency: Currency.BTC, value: 0.0001),
+            amount: Amount(currency: Currency.BTC, value: BigInt.from(1000000)),
             salt: 'random-salt-2'),
         pubKey: MockKeys.guest.publicKey)
     .signAs(MockKeys.guest, ReservationRequest.fromNostrEvent);

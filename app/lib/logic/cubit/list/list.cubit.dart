@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/data/main.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
@@ -29,7 +28,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   late StreamSubscription? postResultFilterSubscription;
   StreamSubscription<T>? nostrSubscription;
   StreamSubscription<T>? requestSubscription;
-  SubscriptionResponse<T>? _nostrResponse;
+  StreamWithStatus<T>? _nostrResponse;
 
   ListCubit({
     this.nostrInstance,
