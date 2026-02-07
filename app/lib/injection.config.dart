@@ -34,17 +34,25 @@ import 'package:hostr/data/sources/nostr/nostr/usecase/badge_definitions/badge_d
     as _i558;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow.dart'
     as _i722;
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/operations/fund/escrow_fund_models.dart'
+    as _i368;
+import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/operations/fund/escrow_fund_operation.dart'
+    as _i580;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_methods/escrows_methods.dart'
     as _i291;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_trusts/escrows_trusts.dart'
     as _i445;
 import 'package:hostr/data/sources/nostr/nostr/usecase/escrows/escrows.dart'
     as _i42;
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/evm.dart' as _i961;
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/rif_relay/rif_relay.dart'
-    as _i213;
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/rootstock.dart'
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/chain/rootstock/operations/swap_in/swap_in_operation.dart'
+    as _i921;
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart'
+    as _i825;
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/chain/rootstock/rootstock.dart'
     as _i87;
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/evm.dart' as _i961;
+import 'package:hostr/data/sources/nostr/nostr/usecase/evm/operations/swap_in/swap_in_models.dart'
+    as _i997;
 import 'package:hostr/data/sources/nostr/nostr/usecase/listings/listings.dart'
     as _i456;
 import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
@@ -129,8 +137,8 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i311.ImplSecureStorage(),
       registerFor: {_dev, _mock, _staging, _prod},
     );
-    gh.factoryParam<_i213.RifRelay, _i641.Web3Client, dynamic>(
-      (client, _) => _i213.RifRelay(gh<_i800.Config>(), client),
+    gh.factoryParam<_i825.RifRelay, _i641.Web3Client, dynamic>(
+      (client, _) => _i825.RifRelay(gh<_i800.Config>(), client),
     );
     gh.singleton<_i100.Requests>(
       () => _i100.Requests(ndk: gh<_i857.Ndk>()),
@@ -154,8 +162,16 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i303.NwcStorage>(
       () => _i303.NwcStorage(gh<_i311.SecureStorage>()),
     );
-    gh.singleton<_i961.Evm>(
-      () => _i961.Evm(auth: gh<_i34.Auth>(), rootstock: gh<_i87.Rootstock>()),
+    gh.factoryParam<
+      _i921.RootstockSwapInOperation,
+      _i997.SwapInParams,
+      dynamic
+    >(
+      (params, _) => _i921.RootstockSwapInOperation(
+        rootstock: gh<_i87.Rootstock>(),
+        auth: gh<_i34.Auth>(),
+        params: params,
+      ),
     );
     gh.singleton<_i232.BadgeAwards>(
       () => _i232.BadgeAwards(requests: gh<_i100.Requests>()),
@@ -207,14 +223,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i909.Nwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.singleton<_i722.EscrowUseCase>(
-      () => _i722.EscrowUseCase(
-        auth: gh<_i34.Auth>(),
-        escrows: gh<_i42.Escrows>(),
-        escrowTrusts: gh<_i445.EscrowTrusts>(),
-        evm: gh<_i961.Evm>(),
-      ),
-    );
     gh.factoryParam<
       _i993.Bolt11PaymentCubit,
       _i993.Bolt11PaymentParameters,
@@ -249,6 +257,9 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
       ),
     );
+    gh.singleton<_i961.Evm>(
+      () => _i961.Evm(auth: gh<_i34.Auth>(), rootstock: gh<_i87.Rootstock>()),
+    );
     gh.singleton<_i735.Zaps>(
       () => _i735.MockZaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
@@ -257,14 +268,26 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i735.Zaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.factoryParam<_i580.EscrowFundOperation, _i368.EscrowFundParams, dynamic>(
+      (params, _) =>
+          _i580.EscrowFundOperation(gh<_i34.Auth>(), gh<_i961.Evm>(), params),
+    );
+    gh.singleton<_i722.EscrowUseCase>(
+      () => _i722.EscrowUseCase(
+        auth: gh<_i34.Auth>(),
+        escrows: gh<_i42.Escrows>(),
+        escrowTrusts: gh<_i445.EscrowTrusts>(),
+        evm: gh<_i961.Evm>(),
+      ),
+    );
+    gh.singleton<_i244.Payments>(
+      () => _i244.Payments(zaps: gh<_i735.Zaps>(), nwc: gh<_i909.Nwc>()),
+    );
     gh.singleton<_i662.PaymentStatus>(
       () => _i662.PaymentStatus(
         escrow: gh<_i722.EscrowUseCase>(),
         zaps: gh<_i735.Zaps>(),
       ),
-    );
-    gh.singleton<_i244.Payments>(
-      () => _i244.Payments(zaps: gh<_i735.Zaps>(), nwc: gh<_i909.Nwc>()),
     );
     return this;
   }

@@ -14,6 +14,7 @@ class EditListingController {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
+  final TextEditingController locationController = TextEditingController();
   Amenities amenities = Amenities();
   Set<String> selectedAmenityKeys = {};
   Currency priceCurrency = Currency.BTC;
@@ -37,6 +38,7 @@ class EditListingController {
     );
     titleController.text = data?.parsedContent.title ?? '';
     descriptionController.text = data?.parsedContent.description ?? '';
+    locationController.text = data?.parsedContent.location ?? '';
     amenities = data?.parsedContent.amenities ?? Amenities();
     selectedAmenityKeys = _selectedKeysFromAmenities(amenities);
 
@@ -113,6 +115,7 @@ class EditListingController {
 
     final title = titleController.text;
     final description = descriptionController.text;
+    final location = locationController.text;
 
     if (l == null) {
       throw Exception('Listing not loaded');
@@ -132,7 +135,7 @@ class EditListingController {
       minStay: current.minStay,
       checkIn: current.checkIn,
       checkOut: current.checkOut,
-      location: current.location,
+      location: location,
       quantity: current.quantity,
       type: current.type,
       images: images,

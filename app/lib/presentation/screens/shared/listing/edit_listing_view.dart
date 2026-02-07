@@ -27,6 +27,20 @@ class EditListingViewState extends State<EditListingView> {
   void initState() {
     super.initState();
     _amenityFocusNode.addListener(() {
+      if (_amenityFocusNode.hasFocus && _amenityController.text.isEmpty) {
+        _amenityController.value = const TextEditingValue(
+          text: ' ',
+          selection: TextSelection.collapsed(offset: 1),
+        );
+        Future.microtask(() {
+          if (mounted) {
+            _amenityController.value = const TextEditingValue(
+              text: '',
+              selection: TextSelection.collapsed(offset: 0),
+            );
+          }
+        });
+      }
       setState(() {});
     });
   }
@@ -93,6 +107,14 @@ class EditListingViewState extends State<EditListingView> {
                           decoration: const InputDecoration(
                             labelText: 'Title',
                             hintText: 'Title',
+                          ),
+                        ),
+                        const SizedBox(height: 8.0),
+                        TextFormField(
+                          controller: controller.locationController,
+                          decoration: const InputDecoration(
+                            labelText: 'Address',
+                            hintText: 'Address',
                           ),
                         ),
                         const SizedBox(height: 8.0),
