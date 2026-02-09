@@ -10,6 +10,7 @@ import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wa
     show AddWalletWidget;
 import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
+import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart';
@@ -269,6 +270,7 @@ class ProfileScreen extends StatelessWidget {
                 ExpansionTile(
                   title: Text('Dev'),
                   children: [
+                    BackgroundTasks(),
                     Section(
                       title: 'bolt11',
                       body: FilledButton(
