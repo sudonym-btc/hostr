@@ -5,24 +5,12 @@ import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
 
 final getIt = GetIt.instance;
-HostrConfig? _hostrConfig;
 
 @injectableInit
 void configureInjection(String environment, {required HostrConfig config}) {
-  _hostrConfig = config;
+  getIt.registerSingleton<HostrConfig>(config);
+  getIt.registerSingleton<Ndk>(Ndk(config.ndkConfig));
   getIt.init(environment: environment);
-}
-
-@module
-abstract class HostrSdkModule {
-  @singleton
-  HostrConfig get hostrConfig => _hostrConfig!;
-
-  @singleton
-  RootstockConfig rootstockConfig(HostrConfig config) => config.rootstockConfig;
-
-  @singleton
-  Ndk ndk(HostrConfig config) => Ndk(config.ndkConfig);
 }
 
 abstract class Env {
