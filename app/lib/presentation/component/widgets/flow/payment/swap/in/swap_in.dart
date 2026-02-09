@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in_cubit.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../../modal_bottom_sheet.dart';
 
 class SwapInFlowWidget extends StatelessWidget {
-  final SwapInCubit cubit;
+  final SwapInOperation cubit;
   const SwapInFlowWidget({super.key, required this.cubit});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: cubit,
-      child: BlocBuilder<SwapInCubit, SwapInState>(
+      child: BlocBuilder<SwapInOperation, SwapInState>(
         builder: (context, state) {
-          return SwapInViewWidget(state, onConfirm: () => cubit.confirm());
+          return SwapInViewWidget(state, onConfirm: () => cubit.execute());
         },
       ),
     );

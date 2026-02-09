@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:hostr/config/main.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
@@ -30,6 +31,7 @@ Future<void> setup(String env) async {
   }
 
   configureInjection(env);
+  getIt.registerSingleton<Hostr>(Hostr(config: getIt<Config>().hostrConfig));
 
   // If we are testing, launch a mock relay server
   if (env == Env.mock || env == Env.test) {

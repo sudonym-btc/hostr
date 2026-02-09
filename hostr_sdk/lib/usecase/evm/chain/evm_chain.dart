@@ -16,8 +16,8 @@ import '../operations/swap_in/swap_in_operation.dart';
 
 abstract class EvmChain {
   final Web3Client client;
-  EvmChain({required this.client});
-  CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
+  EvmChain({required this.client, required this.logger});
 
   SupportedEscrowContract getSupportedEscrowContract(
     EscrowService escrowService,

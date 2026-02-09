@@ -26,10 +26,9 @@ class StreamWithStatus<T> {
 
   final List<StreamSubscription<T>> _subscriptions = [];
 
-  StreamController<T> controller = StreamController<T>.broadcast();
-  BehaviorSubject<StreamStatus> status = BehaviorSubject<StreamStatus>.seeded(
-    StreamStatusIdle(),
-  );
+  final StreamController<T> controller = StreamController<T>.broadcast();
+  final BehaviorSubject<StreamStatus> status =
+      BehaviorSubject<StreamStatus>.seeded(StreamStatusIdle());
 
   late final ReplaySubject<T> _replaySubject = ReplaySubject<T>();
   late final StreamSubscription<T> _replaySubscription;

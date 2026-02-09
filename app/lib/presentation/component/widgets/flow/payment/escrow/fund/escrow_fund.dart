@@ -1,25 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund_cubit.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../../modal_bottom_sheet.dart';
 
 class EscrowFundWidget extends StatelessWidget {
-  final EscrowFundCubit cubit;
+  final EscrowFundOperation cubit;
   const EscrowFundWidget({super.key, required this.cubit});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: cubit,
-      child: BlocBuilder<EscrowFundCubit, EscrowFundState>(
+      child: BlocBuilder<EscrowFundOperation, EscrowFundState>(
         builder: (context, state) {
           switch (state) {
             case EscrowFundInitialised():
-              return EscrowFundConfirmWidget(onConfirm: () => cubit.confirm());
+              return EscrowFundConfirmWidget(onConfirm: () => cubit.execute());
             case EscrowFundSwapProgress():
               return EscrowFundProgressWidget(state);
             case EscrowFundCompleted():
@@ -43,8 +42,12 @@ class EscrowFundConfirmWidget extends StatelessWidget {
       type: ModalBottomSheetType.normal,
       title: 'Deposit Funds',
       content: AmountWidget(
-        toPubkey: context.read<EscrowFundCubit>().params.escrowService.pubKey,
-        amount: context.read<EscrowFundCubit>().params.amount,
+        toPubkey: context
+            .read<EscrowFundOperation>()
+            .params
+            .escrowService
+            .pubKey,
+        amount: context.read<EscrowFundOperation>().params.amount,
         onConfirm: onConfirm,
       ),
     );

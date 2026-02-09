@@ -13,6 +13,7 @@ import 'package:web3dart/web3dart.dart';
 import '../../../../datasources/boltz/boltz.dart';
 import '../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../util/bitcoin_amount.dart';
+import '../../../../util/custom_logger.dart';
 import '../../operations/swap_in/swap_in_models.dart';
 import '../evm_chain.dart';
 import 'operations/swap_in/swap_in_operation.dart';
@@ -20,8 +21,11 @@ import 'operations/swap_in/swap_in_operation.dart';
 @Singleton()
 class Rootstock extends EvmChain {
   final HostrConfig config;
-  Rootstock({required this.config})
-    : super(client: Web3Client(config.rootstockConfig.rpcUrl, http.Client()));
+  Rootstock({required this.config, required CustomLogger logger})
+    : super(
+        client: Web3Client(config.rootstockConfig.rpcUrl, http.Client()),
+        logger: logger,
+      );
 
   Future<void> swapOutAll({required KeyPair key}) async {
     /** @todo: determine how much amount is available to be swapped out */

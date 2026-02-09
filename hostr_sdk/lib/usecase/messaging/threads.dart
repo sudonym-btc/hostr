@@ -11,7 +11,7 @@ import 'messaging.dart';
 import 'thread.dart';
 
 class Threads extends HydratedCubit<List<Message>> {
-  final CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   final Messaging messaging;
   final Requests requests;
   final Ndk ndk;
@@ -29,7 +29,7 @@ class Threads extends HydratedCubit<List<Message>> {
   StreamSubscription<StreamStatus>? _statusSubscription;
   StreamSubscription<Message>? _messageSubscription;
 
-  Threads(this.messaging, this.requests, this.ndk) : super([]);
+  Threads(this.messaging, this.requests, this.ndk, this.logger) : super([]);
 
   void sync() {
     _closeSubscription();

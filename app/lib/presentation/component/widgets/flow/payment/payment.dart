@@ -2,20 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/main.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart';
+import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:models/main.dart';
 
 import '../modal_bottom_sheet.dart';
 
 class PaymentFlowWidget extends StatelessWidget {
-  final PaymentCubit cubit;
+  final PayOperation cubit;
   const PaymentFlowWidget({super.key, required this.cubit});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: cubit,
-      child: BlocBuilder<PaymentCubit, PayState>(
+      child: BlocBuilder<PayOperation, PayState>(
         builder: (context, state) {
           return PaymentViewWidget(state);
         },
@@ -25,19 +26,21 @@ class PaymentFlowWidget extends StatelessWidget {
 }
 
 class PaymentViewWidget extends StatelessWidget {
-  final PaymentState state;
+  final PayState state;
   final VoidCallback? onConfirm;
   const PaymentViewWidget(this.state, {super.key, this.onConfirm});
 
   @override
   build(BuildContext context) {
-    switch (state.status) {
-      case PaymentStatus.failed:
-        return PaymentFailureWidget(state);
-      case PaymentStatus.inFlight:
+    switch (state) {
+      case PayFailed():
+        return PaymentFailureWidget(state as PayFailed);
+      case PayInFlight():
         return PaymentProgressWidget(state);
-      case PaymentStatus.completed:
+      case PayCompleted():
         return PaymentSuccessWidget(state);
+      case PayResolved():
+      case PayCallbackComplete():
       default:
         return PaymentConfirmWidget(state: state);
     }
@@ -45,7 +48,7 @@ class PaymentViewWidget extends StatelessWidget {
 }
 
 class PaymentConfirmWidget extends StatelessWidget {
-  final PaymentState state;
+  final PayState state;
   const PaymentConfirmWidget({required this.state, super.key});
 
   @override
@@ -91,17 +94,17 @@ class PaymentConfirmWidget extends StatelessWidget {
                         ],
                       ),
                     ),
-                    state.status == PaymentStatus.resolved
+                    state is PayResolved
                         ? FilledButton(
                             child: Text(AppLocalizations.of(context)!.ok),
                             onPressed: () {
-                              context.read<PaymentCubit>().ok();
+                              context.read<PayOperation>().finalize();
                             },
                           )
                         : FilledButton(
                             child: Text(AppLocalizations.of(context)!.pay),
                             onPressed: () {
-                              context.read<PaymentCubit>().confirm();
+                              context.read<PayOperation>().complete();
                             },
                           ),
                   ],
@@ -116,7 +119,7 @@ class PaymentConfirmWidget extends StatelessWidget {
 }
 
 class PaymentProgressWidget extends StatelessWidget {
-  final PaymentState state;
+  final PayState state;
   const PaymentProgressWidget(this.state, {super.key});
 
   @override
@@ -129,7 +132,7 @@ class PaymentProgressWidget extends StatelessWidget {
 }
 
 class PaymentSuccessWidget extends StatelessWidget {
-  final PaymentState state;
+  final PayState state;
   const PaymentSuccessWidget(this.state, {super.key});
 
   @override
@@ -142,7 +145,7 @@ class PaymentSuccessWidget extends StatelessWidget {
 }
 
 class PaymentFailureWidget extends StatelessWidget {
-  final PaymentState state;
+  final PayFailed state;
   const PaymentFailureWidget(this.state, {super.key});
 
   @override

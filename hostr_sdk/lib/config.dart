@@ -1,4 +1,4 @@
-import 'package:hostr_sdk/datasources/storage.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:ndk/ndk.dart';
 
 class HostrConfig {
@@ -7,6 +7,7 @@ class HostrConfig {
   final RootstockConfig rootstockConfig;
   final NdkConfig ndkConfig;
   final HostrSDKStorage storage;
+  final CustomLogger logger;
 
   HostrConfig({
     required this.bootstrapRelays,
@@ -14,6 +15,7 @@ class HostrConfig {
     required this.rootstockConfig,
     KeyValueStorage? storage,
     NdkConfig? ndk,
+    CustomLogger? logs,
   }) : storage = HostrSDKStorage.fromKeyValue(
          storage ?? InMemoryKeyValueStorage(),
        ),
@@ -25,7 +27,8 @@ class HostrConfig {
              engine: NdkEngine.JIT,
              defaultQueryTimeout: Duration(seconds: 10),
              bootstrapRelays: bootstrapRelays,
-           );
+           ),
+       logger = logs ?? CustomLogger();
 }
 
 abstract class EvmConfig {

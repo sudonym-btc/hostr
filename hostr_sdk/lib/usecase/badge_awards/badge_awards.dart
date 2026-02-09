@@ -5,5 +5,6 @@ import '../crud.usecase.dart';
 
 @Singleton()
 class BadgeAwards extends CrudUseCase<BadgeAward> {
-  BadgeAwards({required super.requests}) : super(kind: BadgeAward.kinds[0]);
+  BadgeAwards({required super.requests, required super.logger})
+    : super(kind: BadgeAward.kinds[0]);
 }

@@ -3,6 +3,7 @@ import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Ndk, Nip01Event;
 
+import '../../util/custom_logger.dart';
 import '../requests/requests.dart';
 import 'threads.dart';
 
@@ -10,8 +11,9 @@ import 'threads.dart';
 class Messaging {
   final Ndk ndk;
   final Requests requests;
-  late final Threads threads = Threads(this, requests, ndk);
-  Messaging(this.ndk, this.requests);
+  final CustomLogger logger;
+  late final Threads threads = Threads(this, requests, ndk, logger);
+  Messaging(this.ndk, this.requests, this.logger);
 
   Future<Nip01Event> getRumour(
     String content,

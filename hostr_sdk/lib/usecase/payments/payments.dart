@@ -10,11 +10,11 @@ import 'operations/pay_operation.dart';
 
 @Singleton()
 class Payments {
-  CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   late final Zaps zaps;
   late final Nwc nwc;
 
-  Payments({required this.zaps, required this.nwc});
+  Payments({required this.zaps, required this.nwc, required this.logger});
 
   PayOperation pay(PayParameters params) {
     if (params is Bolt11PayParameters) {

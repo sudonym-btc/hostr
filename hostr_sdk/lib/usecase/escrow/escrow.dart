@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -13,13 +14,14 @@ import 'supported_escrow_contract/supported_escrow_contract.dart';
 
 @Singleton()
 class EscrowUseCase {
-  final CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   final Auth auth;
   final Escrows escrows;
   final EscrowTrusts escrowTrusts;
   final Evm evm;
 
   EscrowUseCase({
+    required this.logger,
     required this.auth,
     required this.escrows,
     required this.escrowTrusts,

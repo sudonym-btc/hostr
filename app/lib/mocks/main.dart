@@ -1,5 +1,5 @@
-import 'package:hostr/export.dart';
-import 'package:mockito/annotations.dart';
+// import 'package:hostr/export.dart';
+// import 'package:mockito/annotations.dart';
 
-@GenerateMocks([KeyStorage, NwcStorage, NwcCubit])
-void main() {}
+// @GenerateMocks([KeyStorage, NwcStorage, NwcCubit])
+// void main() {}

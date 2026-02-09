@@ -4,11 +4,11 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
 
 class NwcCubit extends Cubit<NwcCubitState> {
-  final CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   final Nwc nwc;
   String? url;
   NwcConnection? connection;
-  NwcCubit({required this.nwc, this.url}) : super(Idle());
+  NwcCubit({required this.nwc, required this.logger, this.url}) : super(Idle());
 
   Future connect(String? url) async {
     emit(Loading());

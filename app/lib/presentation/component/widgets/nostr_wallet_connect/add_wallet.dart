@@ -5,6 +5,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/usecase/nwc/nwc.cubit.dart';
 
 import 'qr_scanner.dart';
 
@@ -32,7 +33,10 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
             NostrWalletAuthWidget(),
             CustomPadding(),
             BlocProvider<NwcCubit>(
-              create: (context) => NwcCubit(nwc: getIt<Hostr>().nwc),
+              create: (context) => NwcCubit(
+                nwc: getIt<Hostr>().nwc,
+                logger: getIt<Hostr>().logger,
+              ),
               child: BlocBuilder<NwcCubit, NwcCubitState>(
                 builder: (context, state) {
                   if (state is Loading) {

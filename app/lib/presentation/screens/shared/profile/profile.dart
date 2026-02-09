@@ -11,6 +11,8 @@ import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart';
+import 'package:hostr_sdk/usecase/payments/operations/lnurl_operation.dart';
 import 'package:models/main.dart';
 
 import 'mode_toggle.dart';
@@ -272,7 +274,7 @@ class ProfileScreen extends StatelessWidget {
                       body: FilledButton(
                         child: Text('Bolt11'),
                         onPressed: () {
-                          final params = Bolt11PaymentParameters(
+                          final params = Bolt11PayParameters(
                             to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
                           );
                           final paymentCubit = getIt<Hostr>().payments

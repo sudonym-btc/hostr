@@ -12,7 +12,7 @@ import 'chain/rootstock/rootstock.dart';
 
 @Singleton()
 class Evm {
-  final CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   final Auth auth;
   final Rootstock rootstock;
 
@@ -20,7 +20,7 @@ class Evm {
   StreamSubscription<BitcoinAmount>? _balanceSubscription;
 
   late final List<EvmChain> supportedEvmChains;
-  Evm({required this.auth, required this.rootstock}) {
+  Evm({required this.auth, required this.rootstock, required this.logger}) {
     supportedEvmChains = [rootstock];
   }
 

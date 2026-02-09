@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hostr_sdk/injection.dart';
+import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart';
+import 'package:hostr_sdk/usecase/payments/payments.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
@@ -13,6 +15,7 @@ import '../../../../../../datasources/boltz/boltz.dart';
 import '../../../../../../datasources/boltz/swagger_generated/boltz.swagger.dart';
 import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../../../util/main.dart';
+import '../../../../../payments/operations/pay_state.dart';
 import '../../../../operations/swap_in/swap_in_operation.dart';
 import '../../../../operations/swap_in/swap_in_state.dart';
 import '../../rif_relay/rif_relay.dart';
@@ -26,13 +29,14 @@ class RootstockSwapInOperation extends SwapInOperation {
   RootstockSwapInOperation({
     required this.rootstock,
     required super.auth,
+    required super.logger,
     @factoryParam required super.params,
   }) {
     preimage = _newPreimage();
   }
 
   @override
-  Stream<SwapInState> execute() async* {
+  Future<void> execute() async {
     try {
       final preimageData = _newPreimage();
       logger.i(
@@ -41,12 +45,12 @@ class RootstockSwapInOperation extends SwapInOperation {
 
       /// Create a reverse submarine swap
       final swap = await _generateSwapRequest();
-      yield SwapInRequestCreated();
+      emit(SwapInRequestCreated());
 
       logger.d('Swap ${swap.toString()}');
 
       // Need to ignore timeout errors here, since the invoice only completes after the swap is done
-      PaymentCubit p = _getPaymentCubitForSwap(
+      final p = _getPaymentCubitForSwap(
         invoice: swap.invoice,
         amount: params.amount,
       );
@@ -54,20 +58,19 @@ class RootstockSwapInOperation extends SwapInOperation {
       Future<SwapStatus> swapStatus = _waitForSwapOnChain(swap.id);
 
       // @todo: should not await completion, but should throw if payment can't even be initiated
-      await for (final paymentState
-          in p.stream
-              .where((state) => state.status == PaymentStatus.failed)
-              .takeUntil(swapStatus.asStream())) {
+      await for (final paymentState in p.whereType<PayFailed>().takeUntil(
+        swapStatus.asStream(),
+      )) {
         logger.e('Payment failed with state: $paymentState');
-        yield SwapInPaymentProgress(paymentState: paymentState);
+        emit(SwapInPaymentProgress(paymentState: paymentState));
       }
 
-      yield SwapInAwaitingOnChain();
+      emit(SwapInAwaitingOnChain());
 
       TransactionInformation lockupTx = await rootstock.awaitTransaction(
         (await swapStatus).transaction!.id!,
       );
-      yield SwapInFunded();
+      emit(SwapInFunded());
 
       /// Create the args record for the claim function
       final claimArgs = _generateClaimArgs(lockupTx: lockupTx, swap: swap);
@@ -77,15 +80,18 @@ class RootstockSwapInOperation extends SwapInOperation {
       /// Withdraw the funds to our own address, providing swapper with preimage to settle lightning
       /// Must send via RIF if no previous balance exists
       String tx = await _claim(claimArgs: claimArgs);
-      yield SwapInClaimed();
+      emit(SwapInClaimed());
       final receipt = await rootstock.awaitReceipt(tx);
       logger.i('Claim receipt: $receipt');
-      yield SwapInCompleted();
+      emit(SwapInCompleted());
       logger.i('Sent RBTC in: $tx');
     } catch (e, st) {
       logger.e('Error during swap in operation: $e');
-      yield SwapInFailed(e, st);
+      emit(SwapInFailed(e, st));
+      addError(SwapInFailed(e, st));
       rethrow;
+    } finally {
+      await close();
     }
   }
 
@@ -108,7 +114,7 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
   }
 
-  PaymentCubit _getPaymentCubitForSwap({
+  Stream<PayState> _getPaymentCubitForSwap({
     required String invoice,
     required BitcoinAmount amount,
   }) {
@@ -133,10 +139,10 @@ class RootstockSwapInOperation extends SwapInOperation {
 
     /// Pay the invoice, though it won't complete until we reveal the preimage in the claim txn
     final payment = getIt<Payments>().pay(
-      Bolt11PaymentParameters(amount: amount, to: invoice),
+      Bolt11PayParameters(amount: amount, to: invoice),
     );
     payment.execute();
-    return payment;
+    return payment.stream;
   }
 
   ({

@@ -13,10 +13,11 @@ abstract class Config {
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 
   HostrConfig get hostrConfig => HostrConfig(
-    bootstrapRelays: relays,
+    bootstrapRelays: [...relays, hostrRelay],
     bootstrapBlossom: [hostrBlossom],
     rootstockConfig: rootstock,
     storage: SecureKeyValueStorage(),
+    logs: CustomLogger(),
   );
 }
 
@@ -25,7 +26,7 @@ class SecureKeyValueStorage implements KeyValueStorage {
 
   @override
   Future<void> write(String key, dynamic value) async {
-    await _storage.write(key: key, value: value.toString());
+    await _storage.write(key: key, value: value);
   }
 
   @override

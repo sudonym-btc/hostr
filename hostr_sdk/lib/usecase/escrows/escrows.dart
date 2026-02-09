@@ -13,6 +13,7 @@ class Escrows extends CrudUseCase<EscrowService> {
 
   Escrows({
     required super.requests,
+    required super.logger,
     required this.escrowMethods,
     required this.escrowTrusts,
   }) : super(kind: EscrowService.kinds[0]);

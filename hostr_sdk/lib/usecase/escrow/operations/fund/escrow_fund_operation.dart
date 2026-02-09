@@ -1,18 +1,13 @@
-import 'package:hostr_sdk/util/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:web3dart/web3dart.dart';
 
-import '../../../auth/auth.dart';
-import '../../../evm/chain/evm_chain.dart';
-import '../../../evm/evm.dart';
-import '../../../evm/operations/swap_in/swap_in_models.dart';
 import '../../supported_escrow_contract/supported_escrow_contract.dart';
-import 'escrow_fund_models.dart';
-import 'escrow_fund_state.dart';
 
 @injectable
-class EscrowFundOperation {
-  final CustomLogger logger = CustomLogger();
+class EscrowFundOperation extends Cubit<EscrowFundState> {
+  final CustomLogger logger;
   final Auth auth;
   final Evm evm;
   late final EvmChain chain;
@@ -20,7 +15,12 @@ class EscrowFundOperation {
   final EscrowFundParams params;
   late final ContractFundEscrowParams contractParams;
 
-  EscrowFundOperation(this.auth, this.evm, @factoryParam this.params) {
+  EscrowFundOperation(
+    this.auth,
+    this.evm,
+    this.logger,
+    @factoryParam this.params,
+  ) : super(EscrowFundInitialised()) {
     chain = evm.getChainForEscrowService(params.escrowService);
     contract = chain.getSupportedEscrowContract(params.escrowService);
     contractParams = params.toContractParams(auth.getActiveEvmKey());
@@ -43,21 +43,18 @@ class EscrowFundOperation {
     );
   }
 
-  Stream<EscrowFundState> execute() async* {
+  Future<void> execute() async {
     try {
-      await for (final swapState in _swapRequiredAmount()) {
-        yield EscrowFundSwapProgress(swapState.swapState);
-      }
-
       logger.i(
         'Creating escrow for ${params.reservationRequest.id} at ${params.escrowService.parsedContent.contractAddress}',
       );
+      await _swapRequiredAmount();
       TransactionInformation tx = await contract.deposit(contractParams);
-      yield EscrowFundCompleted(transactionInformation: tx);
+      emit(EscrowFundCompleted(transactionInformation: tx));
     } catch (error, stackTrace) {
       logger.e('Escrow failed', error: error, stackTrace: stackTrace);
       final e = EscrowFundFailed(error, stackTrace);
-      yield e;
+      emit(e);
       throw e;
     }
   }
@@ -84,19 +81,23 @@ class EscrowFundOperation {
     return BitcoinAmount.zero();
   }
 
-  Stream<EscrowFundSwapProgress> _swapRequiredAmount() async* {
+  Future<void> _swapRequiredAmount() async {
     final requiredAmountInBtc = await _doesEscrowRequireSwap();
     if (requiredAmountInBtc > BitcoinAmount.zero()) {
-      await for (final swapState
-          in chain
-              .swapIn(
-                SwapInParams(
-                  evmKey: auth.getActiveEvmKey(),
-                  amount: requiredAmountInBtc,
-                ),
-              )
-              .execute()) {
-        yield EscrowFundSwapProgress(swapState);
+      SwapInOperation swap = chain.swapIn(
+        SwapInParams(
+          evmKey: auth.getActiveEvmKey(),
+          amount: requiredAmountInBtc,
+        ),
+      );
+      final sub = swap.stream.listen((state) {
+        emit(EscrowFundSwapProgress(state));
+      });
+
+      try {
+        await swap.execute();
+      } finally {
+        await sub.cancel();
       }
     }
   }
