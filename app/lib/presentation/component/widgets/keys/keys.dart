@@ -3,11 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/main.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:web3dart/web3dart.dart';
 
 class KeysWidget extends StatefulWidget {
@@ -18,48 +17,45 @@ class KeysWidget extends StatefulWidget {
 }
 
 class KeysWidgetState extends State<KeysWidget> {
-  KeyPair? key;
-  KeyStorage keyStorage = getIt<KeyStorage>();
-  @override
-  void initState() {
-    keyStorage.getActiveKeyPair().then((value) {
-      setState(() {
-        key = value;
-      });
-    });
-    super.initState();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return key != null
+    return getIt<Hostr>().auth.activeKeyPair != null
         ? Column(
             children: [
               ListTile(
                 title: Text(AppLocalizations.of(context)!.publicKey),
-                subtitle: Text(key!.publicKey),
+                subtitle: Text(getIt<Hostr>().auth.activeKeyPair!.publicKey),
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: key!.publicKey));
+                  Clipboard.setData(
+                    ClipboardData(
+                      text: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+                    ),
+                  );
                 },
               ),
               ListTile(
                 title: Text(AppLocalizations.of(context)!.privateKey),
-                subtitle: Text(key!.privateKey!),
+                subtitle: Text(getIt<Hostr>().auth.activeKeyPair!.privateKey!),
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: key!.privateKey!));
+                  Clipboard.setData(
+                    ClipboardData(
+                      text: getIt<Hostr>().auth.activeKeyPair!.privateKey!,
+                    ),
+                  );
                 },
               ),
               ListTile(
                 title: Text(AppLocalizations.of(context)!.evmAddress),
                 subtitle: Text(
-                  getEvmCredentials(key!.privateKey!).address.eip55With0x,
+                  getIt<Hostr>().auth.getActiveEvmKey().address.eip55With0x,
                 ),
                 onTap: () {
                   Clipboard.setData(
                     ClipboardData(
-                      text: getEvmCredentials(
-                        key!.privateKey!,
-                      ).address.eip55With0x,
+                      text: getIt<Hostr>().auth
+                          .getActiveEvmKey()
+                          .address
+                          .eip55With0x,
                     ),
                   );
                 },
@@ -67,13 +63,15 @@ class KeysWidgetState extends State<KeysWidget> {
               ListTile(
                 title: Text(AppLocalizations.of(context)!.evmPrivateKey),
                 subtitle: Text(
-                  bytesToHex((getEvmCredentials(key!.privateKey!).privateKey)),
+                  bytesToHex(
+                    (getIt<Hostr>().auth.getActiveEvmKey().privateKey),
+                  ),
                 ),
                 onTap: () {
                   Clipboard.setData(
                     ClipboardData(
                       text: bytesToHex(
-                        getEvmCredentials(key!.privateKey!).privateKey,
+                        getIt<Hostr>().auth.getActiveEvmKey().privateKey,
                         include0x: true,
                       ),
                     ),

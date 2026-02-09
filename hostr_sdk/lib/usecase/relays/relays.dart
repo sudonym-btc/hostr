@@ -29,6 +29,8 @@ class Relays {
 
   Future<void> remove(String url) async {
     logger.d('Removing relay: $url');
+    ndk.relays.closeAllTransports();
+
     List<RelayConnectivity<dynamic>> relays = ndk.relays.connectedRelays;
     for (var relay in relays) {
       if (relay.url == url) {
