@@ -4,24 +4,7 @@ import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:ndk/ndk.dart' show Ndk;
 
-import 'usecase/auth/auth.dart';
-import 'usecase/badge_awards/badge_awards.dart';
-import 'usecase/badge_definitions/badge_definitions.dart';
-import 'usecase/escrow/escrow.dart';
-import 'usecase/escrow_methods/escrows_methods.dart';
-import 'usecase/escrow_trusts/escrows_trusts.dart';
-import 'usecase/escrows/escrows.dart';
-import 'usecase/evm/evm.dart';
-import 'usecase/listings/listings.dart';
-import 'usecase/messaging/messaging.dart';
-import 'usecase/metadata/metadata.dart';
-import 'usecase/nwc/nwc.dart';
-import 'usecase/payments/payments.dart';
-import 'usecase/relays/relays.dart';
-import 'usecase/requests/requests.dart';
-import 'usecase/reservation_requests/reservation_requests.dart';
-import 'usecase/reservations/reservations.dart';
-import 'usecase/zaps/zaps.dart';
+import 'usecase/main.dart';
 import 'util/custom_logger.dart' show CustomLogger;
 
 class Hostr {

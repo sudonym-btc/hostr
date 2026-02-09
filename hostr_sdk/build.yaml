@@ -14,6 +14,13 @@ targets:
             - lib/datasources/contracts/boltz/LibVariable.abi.json
             - lib/datasources/contracts/boltz/StorageTest.abi.json
 
+      mockito|mockBuilder:
+        generate_for:
+          - lib/mocks/**.dart
+        options:
+          build_extensions:
+            '^lib/mocks/{{}}.dart': 'lib/mocks/{{}}.mocks.dart'
+
       # mockito|mockBuilder:
       #   generate_for:
       #     - lib/mocks/**.dart
@@ -28,11 +35,11 @@ targets:
       #       '^lib/mocks/{{}}.dart' : 'lib/mocks/{{}}.mocks.dart'
 
 builders:
-  # mockBuilder:
-  #   import: "package:mockito/src/builder.dart"
-  #   builder_factories: ["buildMocks"]
-  #   build_extensions: {".dart": [".mocks.dart"]}
-  #   build_to: source
-  #   auto_apply: dependents
-  #   defaults:
-  #     generate_for: ['test/**', 'lib/mocks/**']
+  mockBuilder:
+    import: "package:mockito/src/builder.dart"
+    builder_factories: ["buildMocks"]
+    build_extensions: {".dart": [".mocks.dart"]}
+    build_to: source
+    auto_apply: dependents
+    defaults:
+      generate_for: ['test/**', 'lib/mocks/**']

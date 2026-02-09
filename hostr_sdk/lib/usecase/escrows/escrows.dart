@@ -4,7 +4,7 @@ import 'package:ndk/ndk.dart' show Filter;
 
 import '../crud.usecase.dart';
 import '../escrow_methods/escrows_methods.dart';
-import '../escrow_trusts/escrows_trusts.dart';
+import '../escrow_trusts/escrow_trusts.dart';
 
 @Singleton()
 class Escrows extends CrudUseCase<EscrowService> {

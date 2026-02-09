@@ -19,16 +19,10 @@ import 'package:widgetbook_workspace/evm/evm.dart'
     as _widgetbook_workspace_evm_evm;
 import 'package:widgetbook_workspace/evm/locked_in_contract.dart'
     as _widgetbook_workspace_evm_locked_in_contract;
-import 'package:widgetbook_workspace/inbox/inbox.dart'
-    as _widgetbook_workspace_inbox_inbox;
-import 'package:widgetbook_workspace/inbox/inbox_item.dart'
-    as _widgetbook_workspace_inbox_inbox_item;
 import 'package:widgetbook_workspace/inbox/thread.dart'
     as _widgetbook_workspace_inbox_thread;
-import 'package:widgetbook_workspace/listing/edit.dart'
-    as _widgetbook_workspace_listing_edit;
-import 'package:widgetbook_workspace/listing/listing.dart'
-    as _widgetbook_workspace_listing_listing;
+import 'package:widgetbook_workspace/inbox/thread_view.dart'
+    as _widgetbook_workspace_inbox_thread_view;
 import 'package:widgetbook_workspace/listing/listing_list_item.dart'
     as _widgetbook_workspace_listing_listing_list_item;
 import 'package:widgetbook_workspace/nwc/nwc.dart'
@@ -147,13 +141,18 @@ final directories = <_widgetbook.WidgetbookNode>[
               _widgetbook.WidgetbookFolder(
                 name: 'inbox',
                 children: [
-                  _widgetbook.WidgetbookComponent(
-                    name: 'InboxItemWidget',
-                    useCases: [
-                      _widgetbook.WidgetbookUseCase(
-                        name: 'Default',
-                        builder:
-                            _widgetbook_workspace_inbox_inbox_item.inboxItem,
+                  _widgetbook.WidgetbookFolder(
+                    name: 'thread',
+                    children: [
+                      _widgetbook.WidgetbookComponent(
+                        name: 'ThreadView',
+                        useCases: [
+                          _widgetbook.WidgetbookUseCase(
+                            name: 'Scenario',
+                            builder: _widgetbook_workspace_inbox_thread_view
+                                .threadViewScenario,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -236,15 +235,6 @@ final directories = <_widgetbook.WidgetbookNode>[
               _widgetbook.WidgetbookFolder(
                 name: 'inbox',
                 children: [
-                  _widgetbook.WidgetbookComponent(
-                    name: 'InboxScreen',
-                    useCases: [
-                      _widgetbook.WidgetbookUseCase(
-                        name: 'Empty',
-                        builder: _widgetbook_workspace_inbox_inbox.inboxEmpty,
-                      ),
-                    ],
-                  ),
                   _widgetbook.WidgetbookFolder(
                     name: 'thread',
                     children: [
@@ -264,19 +254,6 @@ final directories = <_widgetbook.WidgetbookNode>[
               _widgetbook.WidgetbookFolder(
                 name: 'listing',
                 children: [
-                  _widgetbook.WidgetbookComponent(
-                    name: 'ListingScreen',
-                    useCases: [
-                      _widgetbook.WidgetbookUseCase(
-                        name: 'Default',
-                        builder: _widgetbook_workspace_listing_listing.listing,
-                      ),
-                      _widgetbook.WidgetbookUseCase(
-                        name: 'Edit',
-                        builder: _widgetbook_workspace_listing_edit.edit,
-                      ),
-                    ],
-                  ),
                   _widgetbook.WidgetbookComponent(
                     name: 'Reserve',
                     useCases: [
