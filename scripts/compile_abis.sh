@@ -1,12 +1,24 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR=$SCRIPT_DIR/../
+ROOT_DIR="$SCRIPT_DIR/../"
 
+BOLTZ_CONTRACTS_DIR="$ROOT_DIR/dependencies/boltz-core"
+BOLTZ_CONTRACTS_DIR_OUT="$ROOT_DIR/hostr_sdk/lib/datasources/contracts/boltz"
+
+RIF_RELAY_CONTRACTS_DIR="$ROOT_DIR/dependencies/rif-relay-contracts"
+RIF_RELAY_CONTRACTS_DIR_OUT="$ROOT_DIR/hostr_sdk/lib/datasources/contracts/rif_relay"
+
+ESCROW_CONTRACTS_DIR_IN="$ROOT_DIR/escrow/contracts"
+ESCROW_CONTRACTS_DIR_OUT="$ROOT_DIR/hostr_sdk/lib/datasources/contracts/escrow"
+
+rm -rf "$BOLTZ_CONTRACTS_DIR_OUT"/* &&
+rm -rf "$RIF_RELAY_CONTRACTS_DIR_OUT"/* &&
+rm -rf "$ESCROW_CONTRACTS_DIR_OUT"/* &&
 
 # First compile the boltz abis
 
 (
-    cd $ROOT_DIR/dependencies/boltz-core && npm install && \
+    cd $BOLTZ_CONTRACTS_DIR && npm install && \
     if command -v foundryup >/dev/null 2>&1; then
         echo "Foundry already installed; skipping install"
     else
@@ -14,15 +26,14 @@ ROOT_DIR=$SCRIPT_DIR/../
     fi && \
     foundryup && npm run compile:solidity
 ) &&
-rm -rf "$ROOT_DIR/app/lib/data/sources/boltz/contracts"/* &&
-find "$ROOT_DIR/dependencies/boltz-core/out" \
+find "$BOLTZ_CONTRACTS_DIR/out" \
     -type f \
     -name "*.json" \
     ! -name "*.dbg.json" \
     ! -path "*/build-info/*" \
-    -exec cp {} "$ROOT_DIR/app/lib/data/sources/boltz/contracts" \; &&
+    -exec cp {} "$BOLTZ_CONTRACTS_DIR_OUT" \; &&
 (
-    cd $ROOT_DIR/app/lib/data/sources/boltz/contracts
+    cd $BOLTZ_CONTRACTS_DIR_OUT
     for file in *.json; do
         mv -- "$file" "${file%.json}.abi.json"
     done
@@ -31,16 +42,16 @@ find "$ROOT_DIR/dependencies/boltz-core/out" \
 # Then compile RIF (Rootstock gasless transactions) abis
 
 (
-    cd $ROOT_DIR/dependencies/rif-relay-contracts && npm install
+    cd $RIF_RELAY_CONTRACTS_DIR && npm install
 ) &&
-find "$ROOT_DIR/dependencies/rif-relay-contracts/artifacts/contracts" \
+find "$RIF_RELAY_CONTRACTS_DIR/artifacts/contracts" \
     -type f \
     -name "*.json" \
     ! -name "*.dbg.json" \
     ! -path "*/build-info/*" \
-    -exec cp {} "$ROOT_DIR/app/lib/data/sources/rif_relay/contracts" \; &&
+    -exec cp {} "$RIF_RELAY_CONTRACTS_DIR_OUT" \; &&
 (
-    cd $ROOT_DIR/app/lib/data/sources/rif_relay/contracts
+    cd $RIF_RELAY_CONTRACTS_DIR_OUT
     for file in *.json; do
         mv -- "$file" "${file%.json}.abi.json"
     done
@@ -48,13 +59,11 @@ find "$ROOT_DIR/dependencies/rif-relay-contracts/artifacts/contracts" \
 
 # Lastly, compile our escrow abis
 (
-    cd $ROOT_DIR/escrow/contracts && npm install && npx hardhat compile
+    cd $ESCROW_CONTRACTS_DIR_IN && npm install && npx hardhat compile
 ) &&
-cp "$ROOT_DIR/escrow/contracts/artifacts/contracts/MultiEscrow.sol/MultiEscrow.json" \
-   "$ROOT_DIR/app/lib/data/sources/escrow/MultiEscrow.abi.json"
+cp "$ESCROW_CONTRACTS_DIR_IN/artifacts/contracts/MultiEscrow.sol/MultiEscrow.json" \
+   "$ESCROW_CONTRACTS_DIR_OUT/MultiEscrow.abi.json"
 
 # Now run build_runner to compile abis into dart interfaces
 
-(cd $ROOT_DIR/app && dart run build_runner build --delete-conflicting-outputs)
-
-# @todo: also need to compile abi directly in the escrow folder for the server to use
+(cd $ROOT_DIR/hostr_sdk && dart run build_runner build --delete-conflicting-outputs)
