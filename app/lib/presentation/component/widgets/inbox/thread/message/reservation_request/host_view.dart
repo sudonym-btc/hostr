@@ -8,30 +8,13 @@ import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'guest_view.dart';
 
 class ThreadReservationRequestHostViewWidget
-    implements ThreadReservationRequestGuestHostComponents {
-  final Message item;
-  final ProfileMetadata counterparty;
-  final ReservationRequest reservationRequest;
-  final Listing listing;
-  final List<Reservation> reservations;
-  final bool isSentByMe;
-  final ReservationRequestStatus reservationStatus;
-
+    extends ThreadReservationRequestGuestHostComponents {
   ThreadReservationRequestHostViewWidget({
-    required this.counterparty,
-    required this.item,
-    required this.listing,
-    required this.reservations,
-  }) : reservationRequest = item.child as ReservationRequest,
-       isSentByMe = item.child!.pubKey == counterparty.pubKey,
-       reservationStatus = ReservationRequest.resolveStatus(
-         request: item.child as ReservationRequest,
-         listing: listing,
-         reservations: reservations,
-         threadAnchor: (item.child as ReservationRequest).anchor!,
-         paid: false,
-         refunded: false,
-       );
+    required super.counterparty,
+    required super.item,
+    required super.listing,
+    required super.reservations,
+  });
 
   Widget acceptButton(BuildContext context) {
     return FilledButton(

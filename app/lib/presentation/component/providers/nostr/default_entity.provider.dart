@@ -4,9 +4,10 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:provider/single_child_widget.dart';
 
-abstract class DefaultEntityProvider<Type extends Event>
-    extends StatelessWidget {
+class DefaultEntityProvider<Type extends Event>
+    extends SingleChildStatelessWidget {
   final CrudUseCase<Type> crud;
 
   /// Provide the kinds that this type is propagated as
@@ -40,8 +41,6 @@ abstract class DefaultEntityProvider<Type extends Event>
     this.builder,
     this.child,
   }) {
-    /// A builder or a child must be provided
-    assert(builder != null || child != null);
     assert(builder == null || child == null);
 
     /// e and a cannot be provided at the same time
@@ -50,12 +49,15 @@ abstract class DefaultEntityProvider<Type extends Event>
   }
 
   @override
-  Widget build(BuildContext context) {
-    Widget consumer = child != null
-        ? child!
-        : BlocBuilder<EntityCubit<Type>, EntityCubitState<Type>>(
-            builder: builder!,
-          );
+  Widget buildWithChild(BuildContext context, Widget? child) {
+    final Widget? consumer =
+        child ??
+        this.child ??
+        (builder != null
+            ? BlocBuilder<EntityCubit<Type>, EntityCubitState<Type>>(
+                builder: builder!,
+              )
+            : null);
 
     return BlocProvider<EntityCubit<Type>>(
       create: (context) =>

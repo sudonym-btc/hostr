@@ -17,10 +17,7 @@ import 'package:hostr/config/env/mock.config.dart' as _i331;
 import 'package:hostr/config/env/production.config.dart' as _i1071;
 import 'package:hostr/config/env/test.config.dart' as _i292;
 import 'package:hostr/data/sources/api/google_maps.dart' as _i575;
-import 'package:hostr/data/sources/local/key_storage.dart' as _i946;
 import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
-import 'package:hostr/data/sources/local/nwc_storage.dart' as _i303;
-import 'package:hostr/data/sources/local/relay_storage.dart' as _i315;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
 import 'package:hostr/injection.dart' as _i490;
 import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
@@ -41,8 +38,6 @@ extension GetItInjectableX on _i174.GetIt {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final dioModule = _$DioModule();
     gh.factory<_i640.ModeStorage>(() => _i640.ModeStorage());
-    gh.factory<_i315.RelayStorage>(() => _i315.RelayStorage());
-    gh.singleton<_i946.KeyStorage>(() => _i946.KeyStorage());
     gh.lazySingleton<_i361.Dio>(() => dioModule.dio());
     gh.factory<_i467.Config>(() => _i292.TestConfig(), registerFor: {_test});
     gh.factory<_i467.Config>(() => _i331.MockConfig(), registerFor: {_mock});
@@ -72,9 +67,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
       registerFor: {_dev, _mock, _staging, _prod},
-    );
-    gh.singleton<_i303.NwcStorage>(
-      () => _i303.NwcStorage(gh<_i311.SecureStorage>()),
     );
     return this;
   }

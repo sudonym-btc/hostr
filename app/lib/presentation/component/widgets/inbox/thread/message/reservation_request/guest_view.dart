@@ -7,38 +7,43 @@ import 'package:models/main.dart';
 import 'payment_status_cubit.dart';
 
 abstract class ThreadReservationRequestGuestHostComponents {
+  final Message item;
+  final ProfileMetadata counterparty;
+  final Listing listing;
+  final List<Reservation> reservations;
+
+  ReservationRequestStatus get reservationStatus =>
+      ReservationRequest.resolveStatus(
+        request: reservationRequest,
+        listing: listing,
+        reservations: reservations,
+        threadAnchor: reservationRequest.anchor!,
+        paid: false,
+        refunded: false,
+      );
+
+  ReservationRequest get reservationRequest => item.child as ReservationRequest;
+  bool get isSentByMe => reservationRequest.pubKey == counterparty.pubKey;
+
+  const ThreadReservationRequestGuestHostComponents({
+    required this.counterparty,
+    required this.item,
+    required this.listing,
+    required this.reservations,
+  });
+
   Widget actionButton(BuildContext context);
   Widget statusText(BuildContext context);
 }
 
 class ThreadReservationRequestGuestViewWidget
-    implements ThreadReservationRequestGuestHostComponents {
-  final Message item;
-  final ProfileMetadata counterparty;
-  final ReservationRequest reservationRequest;
-  final Listing listing;
-  final List<Reservation> reservations;
-  final bool isSentByMe;
-  final ReservationRequestStatus reservationStatus;
-
-  ThreadReservationRequestGuestViewWidget({
-    required this.counterparty,
-    required this.item,
-    required this.listing,
-    required this.reservations,
-  }) : reservationRequest = item.child as ReservationRequest,
-       isSentByMe = !ReservationRequest.wasSentByHost(
-         request: item.child as ReservationRequest,
-         listing: listing,
-       ),
-       reservationStatus = ReservationRequest.resolveStatus(
-         request: item.child as ReservationRequest,
-         listing: listing,
-         reservations: reservations,
-         threadAnchor: (item.child as ReservationRequest).anchor!,
-         paid: false,
-         refunded: false,
-       );
+    extends ThreadReservationRequestGuestHostComponents {
+  const ThreadReservationRequestGuestViewWidget({
+    required super.counterparty,
+    required super.item,
+    required super.listing,
+    required super.reservations,
+  });
 
   Future<void> pay(BuildContext context) async {
     showModalBottomSheet(
