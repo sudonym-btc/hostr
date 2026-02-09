@@ -11,7 +11,6 @@ class ThreadScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('Building ThreadScreen with tag: $anchor');
     return ThreadProvider(threadId: anchor, child: ThreadView());
   }
 }

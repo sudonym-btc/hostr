@@ -22,7 +22,7 @@ import 'package:hostr_sdk/usecase/escrow/escrow.dart' as _i376;
 import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_operation.dart'
     as _i832;
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i445;
-import 'package:hostr_sdk/usecase/escrow_trusts/escrows_trusts.dart' as _i1026;
+import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i943;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i303;
 import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_in/swap_in_operation.dart'
     as _i62;
@@ -167,8 +167,8 @@ extension GetItInjectableX on _i174.GetIt {
           _i124.Bolt11PayOperation(params: params, nwc: gh<_i474.Nwc>()),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.singleton<_i1026.EscrowTrusts>(
-      () => _i1026.EscrowTrusts(
+    gh.singleton<_i943.EscrowTrusts>(
+      () => _i943.EscrowTrusts(
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
@@ -223,6 +223,14 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
+    gh.singleton<_i303.Escrows>(
+      () => _i303.Escrows(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        escrowMethods: gh<_i445.EscrowMethods>(),
+        escrowTrusts: gh<_i943.EscrowTrusts>(),
+      ),
+    );
     gh.singleton<_i588.Nwc>(
       () => _i588.MockNwc(
         gh<_i218.NwcStorage>(),
@@ -236,6 +244,15 @@ extension GetItInjectableX on _i174.GetIt {
           _i363.LnurlPayOperation(params: params, nwc: gh<_i474.Nwc>()),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.singleton<_i376.EscrowUseCase>(
+      () => _i376.EscrowUseCase(
+        logger: gh<_i372.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
+        escrows: gh<_i303.Escrows>(),
+        escrowTrusts: gh<_i943.EscrowTrusts>(),
+        evm: gh<_i305.Evm>(),
+      ),
+    );
     gh.singleton<_i1045.Zaps>(
       () => _i1045.MockZaps(nwc: gh<_i588.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
@@ -248,28 +265,11 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
       ),
     );
-    gh.singleton<_i303.Escrows>(
-      () => _i303.Escrows(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        escrowMethods: gh<_i445.EscrowMethods>(),
-        escrowTrusts: gh<_i1026.EscrowTrusts>(),
-      ),
-    );
     gh.singleton<_i226.Payments>(
       () => _i226.Payments(
         zaps: gh<_i1045.Zaps>(),
         nwc: gh<_i588.Nwc>(),
         logger: gh<_i331.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i376.EscrowUseCase>(
-      () => _i376.EscrowUseCase(
-        logger: gh<_i372.CustomLogger>(),
-        auth: gh<_i1000.Auth>(),
-        escrows: gh<_i303.Escrows>(),
-        escrowTrusts: gh<_i1026.EscrowTrusts>(),
-        evm: gh<_i305.Evm>(),
       ),
     );
     return this;

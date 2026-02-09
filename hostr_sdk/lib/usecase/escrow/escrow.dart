@@ -5,7 +5,7 @@ import 'package:ndk/ndk.dart';
 
 import '../../util/main.dart';
 import '../auth/auth.dart';
-import '../escrow_trusts/escrows_trusts.dart';
+import '../escrow_trusts/escrow_trusts.dart';
 import '../escrows/escrows.dart';
 import '../evm/evm.dart';
 import 'operations/fund/escrow_fund_models.dart';

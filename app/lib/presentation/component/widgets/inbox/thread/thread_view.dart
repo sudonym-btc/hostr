@@ -21,21 +21,21 @@ class ThreadView extends StatelessWidget {
       builder: (context, reservationsSnapshot) {
         return Builder(
           builder: (context) {
-            final profileState = context
+            final counterpartyState = context
                 .select<ProfileCubit, ProfileCubitState>(
+                  (cubit) => cubit.state,
+                );
+            final listingState = context
+                .select<EntityCubit<Listing>, EntityCubitState<Listing>>(
                   (cubit) => cubit.state,
                 );
             final _ = context.select<ThreadCubit, ThreadCubitState>(
               (cubit) => cubit.state,
             );
-            final listingState = context
-                .select<EntityCubit<Listing>, EntityCubitState<Listing>>(
-                  (cubit) => cubit.state,
-                );
 
             final isLoading =
-                profileState.active ||
-                profileState.data == null ||
+                counterpartyState.active ||
+                counterpartyState.data == null ||
                 reservationsSnapshot.data is! StreamStatusLive ||
                 listingState.active ||
                 listingState.data == null;
@@ -53,42 +53,56 @@ class ThreadView extends StatelessWidget {
             }
 
             // When loaded successfully
-            return Scaffold(
-              appBar: AppBar(
-                title: ThreadHeaderWidget(
-                  metadata: profileState.data!.metadata,
-                ),
-              ),
-              body: Column(
-                children: [
-                  StreamBuilder<List<Reservation>>(
-                    stream: context.read<StreamWithStatus<Reservation>>().list,
-                    builder: (context, snapshot) {
-                      return ReservationStatusWidget(
-                        reservation: Reservation.getSeniorReservation(
-                          reservations: snapshot.data ?? [],
-                          listing: listingState.data!,
-                        ),
-                        listing: listingState.data!,
-                      );
-                    },
-                  ),
-                  Expanded(
-                    child: ThreadContent(
-                      counterparty: profileState.data!,
-                      listing: listingState.data!,
-                    ),
-                  ),
-                  SafeArea(
-                    top: false,
-                    child: CustomPadding(child: ThreadReplyWidget()),
-                  ),
-                ],
-              ),
+            return ThreadReadyWidget(
+              listing: listingState.data!,
+              counterparty: counterpartyState.data!,
             );
           },
         );
       },
+    );
+  }
+}
+
+class ThreadReadyWidget extends StatelessWidget {
+  final Listing listing;
+  final ProfileMetadata counterparty;
+
+  const ThreadReadyWidget({
+    super.key,
+    required this.listing,
+    required this.counterparty,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: ThreadHeaderWidget(metadata: counterparty.metadata),
+      ),
+      body: Column(
+        children: [
+          StreamBuilder<List<Reservation>>(
+            stream: context.read<StreamWithStatus<Reservation>>().list,
+            builder: (context, snapshot) {
+              return ReservationStatusWidget(
+                reservation: Reservation.getSeniorReservation(
+                  reservations: snapshot.data ?? [],
+                  listing: listing,
+                ),
+                listing: listing,
+              );
+            },
+          ),
+          Expanded(
+            child: ThreadContent(counterparty: counterparty, listing: listing),
+          ),
+          SafeArea(
+            top: false,
+            child: CustomPadding(child: ThreadReplyWidget()),
+          ),
+        ],
+      ),
     );
   }
 }
