@@ -21,7 +21,9 @@ This repo contains
 ```bash
 .
 ├── app                 # Client app deployed to store
+├── hostr_sdk           # Code to interact with relays and hostr-specific models
 ├── escrow              # Server side daemon to arbitrate txns
+├── models              # Custom Nostr Event types and their validations
 ├── infrastructure      # Infrastructure-as-as code required to run the project
 └── README.md
 ```
