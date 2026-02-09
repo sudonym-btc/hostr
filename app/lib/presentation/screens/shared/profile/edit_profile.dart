@@ -5,6 +5,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/screens/shared/listing/image_picker.dart';
 import 'package:hostr/presentation/screens/shared/profile/edit_profile.controller.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 @RoutePage()
 class EditProfileScreen extends StatelessWidget {

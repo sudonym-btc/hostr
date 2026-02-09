@@ -1,11 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/core/main.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/operations/swap_in/swap_in_models.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:web3dart/web3dart.dart';
-
-import '../../../../../../../data/sources/nostr/nostr/usecase/evm/chain/evm_chain.dart';
-import '../../../../../../../data/sources/nostr/nostr/usecase/evm/operations/swap_in/swap_in_state.dart';
 
 class SwapInCubitParams<T extends EvmChain> {
   final EthPrivateKey ethKey;

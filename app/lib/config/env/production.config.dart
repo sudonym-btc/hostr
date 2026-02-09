@@ -1,4 +1,5 @@
 import 'package:hostr/injection.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 
 import 'base.config.dart';
@@ -8,11 +9,11 @@ class ProductionConfig extends Config {
   @override
   List<String> relays = ['wss://relay.damus.io'];
   @override
-  List<String> blossom = ['https://blossom.hostr.network'];
+  String get hostrBlossom => 'https://blossom.hostr.network';
+  @override
+  String get hostrRelay => 'wss://relay.hostr.network';
   @override
   RootstockConfig rootstock = ProductionRootstockConfig();
-  @override
-  String boltzUrl = 'https://api.boltz.exchange/v2';
 }
 
 class ProductionRootstockConfig extends RootstockConfig {

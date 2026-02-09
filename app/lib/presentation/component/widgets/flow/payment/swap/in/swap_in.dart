@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/operations/swap_in/swap_in_state.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in_cubit.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../../modal_bottom_sheet.dart';
 

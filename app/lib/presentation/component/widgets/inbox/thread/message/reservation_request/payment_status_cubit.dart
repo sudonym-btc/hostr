@@ -2,9 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/data/sources/nostr/nostr/hostr.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class PaymentStatusCubit extends Cubit<PaymentStatusCubitState> {

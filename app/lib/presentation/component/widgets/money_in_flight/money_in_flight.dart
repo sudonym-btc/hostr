@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/amount.dart';
 
 class MoneyInFlightWidget extends StatefulWidget {

@@ -19,7 +19,6 @@ import 'package:hostr/config/env/test.config.dart' as _i292;
 import 'package:hostr/config/main.dart' as _i800;
 import 'package:hostr/data/main.dart' as _i165;
 import 'package:hostr/data/sources/api/google_maps.dart' as _i575;
-import 'package:hostr/data/sources/boltz/boltz.dart' as _i428;
 import 'package:hostr/data/sources/local/key_storage.dart' as _i946;
 import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
 import 'package:hostr/data/sources/local/nwc_storage.dart' as _i303;
@@ -84,6 +83,8 @@ import 'package:hostr/main.dart' as _i15;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:ndk/ndk.dart' as _i857;
 import 'package:web3dart/web3dart.dart' as _i641;
+
+import '../../hostr_sdk/lib/datasources/boltz/boltz.dart' as _i428;
 
 const String _test = 'test';
 const String _mock = 'mock';

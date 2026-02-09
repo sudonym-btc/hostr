@@ -1,0 +1,9 @@
+import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
+
+import '../crud.usecase.dart';
+
+@Singleton()
+class BadgeAwards extends CrudUseCase<BadgeAward> {
+  BadgeAwards({required super.requests}) : super(kind: BadgeAward.kinds[0]);
+}

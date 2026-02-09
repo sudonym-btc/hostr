@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/main.dart';
-import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 import 'connection.dart';
 

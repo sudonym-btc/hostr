@@ -1,9 +1,9 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/thread.dart';
 import 'package:hostr/logic/main.dart' show EntityCubitStateError;
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class InboxItem extends StatelessWidget {

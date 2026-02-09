@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:hostr/core/util/main.dart';
-import 'package:hostr/data/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';

@@ -1,9 +1,7 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 class AuthGuard extends AutoRouteGuard {
   CustomLogger logger = CustomLogger();

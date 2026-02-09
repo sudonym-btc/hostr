@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/core/util/main.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:ndk/ndk.dart';
 
 class ListWidget<T extends Nip01Event> extends StatefulWidget {

@@ -1,30 +1,40 @@
 import 'dart:math';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
+
 abstract class Config {
-  List<String> get relays;
-  List<String> get blossom;
-  String get hostrRelay => 'wss://relay.hostr.network';
+  List<String> get relays => [];
+  String get hostrBlossom;
+  String get hostrRelay;
   RootstockConfig get rootstock;
   String get googleMapsApiKey => 'AIzaSyBjcePUwkKwD-iMmHpjXVDV0MaiYH1dnGo';
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
+
+  HostrConfig get hostrConfig => HostrConfig(
+    bootstrapRelays: relays,
+    bootstrapBlossom: [hostrBlossom],
+    rootstockConfig: rootstock,
+    storage: SecureKeyValueStorage(),
+  );
 }
 
-abstract class EvmConfig {
-  int get chainId;
-  String get rpcUrl;
-}
+class SecureKeyValueStorage implements KeyValueStorage {
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-abstract class RootstockConfig extends EvmConfig {
-  BoltzConfig get boltz;
-}
+  @override
+  Future<void> write(String key, dynamic value) async {
+    await _storage.write(key: key, value: value.toString());
+  }
 
-abstract class BoltzConfig {
-  String get apiUrl;
-  String get wsUrl => '${apiUrl.replaceFirst('http', 'ws')}/ws';
+  @override
+  Future<dynamic> read(String key) async {
+    return await _storage.read(key: key);
+  }
 
-  String get rifRelayUrl;
-  String get rifRelayCallVerifier;
-  String get rifRelayDeployVerifier;
-  String get rifSmartWalletFactoryAddress;
+  @override
+  Future<void> delete(String key) async {
+    await _storage.delete(key: key);
+  }
 }

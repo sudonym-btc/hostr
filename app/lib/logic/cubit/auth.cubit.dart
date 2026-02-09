@@ -1,8 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 /// Cubit managing authentication state.
 /// Business processes (signup/signin flows) delegated to AuthWorkflow.

@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
@@ -12,6 +10,7 @@ import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wa
 import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 import 'mode_toggle.dart';
@@ -244,7 +243,7 @@ class ProfileScreen extends StatelessWidget {
                         FilledButton(
                           child: Text(AppLocalizations.of(context)!.zapUs),
                           onPressed: () {
-                            final params = LnUrlPaymentParameters(
+                            final params = LnurlPayParameters(
                               to: 'tips@lnbits1.hostr.development',
                               amount: BitcoinAmount.fromInt(
                                 BitcoinUnit.sat,

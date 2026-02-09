@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/core/main.dart';
-import 'package:hostr/data/main.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 /// Wrapper that shows a global syncing indicator until initial data is ready.
 class LoadingPage extends StatelessWidget {
