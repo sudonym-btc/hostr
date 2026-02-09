@@ -76,7 +76,7 @@ class NostrWalletConnectConnectionWidget extends StatelessWidget {
                       style: TextStyle(overflow: TextOverflow.ellipsis),
                     ),
                     subtitle: Text(
-                      'Error',
+                      state.e.toString(),
                       style: TextStyle(
                         overflow: TextOverflow.ellipsis,
                         color: Theme.of(context).colorScheme.error,

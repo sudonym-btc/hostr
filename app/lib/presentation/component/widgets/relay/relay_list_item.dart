@@ -49,12 +49,17 @@ class RelayListItemWidgetState extends State<RelayListItemWidget> {
             ? Image.network(widget.relay!.icon).image
             : null,
       ),
-      trailing: IconButton(
-        icon: Icon(Icons.close),
-        onPressed: () async {
-          await getIt<Hostr>().relays.remove(widget.connectivity.url);
-        },
-      ),
+      trailing:
+          getIt<Hostr>().config.bootstrapRelays.contains(
+            widget.connectivity.url,
+          )
+          ? null
+          : IconButton(
+              icon: Icon(Icons.close),
+              onPressed: () async {
+                await getIt<Hostr>().relays.remove(widget.connectivity.url);
+              },
+            ),
       //         Container(
       //   width: 10,
       //   height: 10,

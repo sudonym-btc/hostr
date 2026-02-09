@@ -5,6 +5,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
 import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
@@ -116,12 +117,11 @@ class ProfileScreen extends StatelessWidget {
                       context: context,
                       isScrollControlled: true,
                       builder: (BuildContext modalContext) {
-                        return Text('To do');
-                        // return RelayFlowWidget(
-                        //   onClose: () {
-                        //     Navigator.of(modalContext).pop();
-                        //   },
-                        // );
+                        return RelayFlowWidget(
+                          onClose: () {
+                            Navigator.of(modalContext).pop();
+                          },
+                        );
                       },
                     );
                   },
