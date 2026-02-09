@@ -18,13 +18,30 @@ class ThreadView extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder(
       stream: context.read<StreamWithStatus<Reservation>>().status,
-      builder: (context, snapshot) {
-        return BlocBuilder<ProfileCubit, ProfileCubitState>(
-          builder: (context, profileState) {
-            // When to display loading
-            if (profileState.active ||
+      builder: (context, reservationsSnapshot) {
+        return Builder(
+          builder: (context) {
+            final profileState = context
+                .select<ProfileCubit, ProfileCubitState>(
+                  (cubit) => cubit.state,
+                );
+            final _ = context.select<ThreadCubit, ThreadCubitState>(
+              (cubit) => cubit.state,
+            );
+            final listingState = context
+                .select<EntityCubit<Listing>, EntityCubitState<Listing>>(
+                  (cubit) => cubit.state,
+                );
+
+            final isLoading =
+                profileState.active ||
                 profileState.data == null ||
-                snapshot.data is! StreamStatusLive) {
+                reservationsSnapshot.data is! StreamStatusLive ||
+                listingState.active ||
+                listingState.data == null;
+
+            // When to display loading
+            if (isLoading) {
               return Scaffold(
                 appBar: AppBar(
                   title: Text(AppLocalizations.of(context)!.loading),
@@ -34,55 +51,40 @@ class ThreadView extends StatelessWidget {
                 ),
               );
             }
+
             // When loaded successfully
-            return BlocBuilder<ThreadCubit, ThreadCubitState>(
-              builder: (context, state) {
-                return Scaffold(
-                  appBar: AppBar(
-                    title: ThreadHeaderWidget(
-                      metadata: profileState.data!.metadata,
+            return Scaffold(
+              appBar: AppBar(
+                title: ThreadHeaderWidget(
+                  metadata: profileState.data!.metadata,
+                ),
+              ),
+              body: Column(
+                children: [
+                  StreamBuilder<List<Reservation>>(
+                    stream: context.read<StreamWithStatus<Reservation>>().list,
+                    builder: (context, snapshot) {
+                      return ReservationStatusWidget(
+                        reservation: Reservation.getSeniorReservation(
+                          reservations: snapshot.data ?? [],
+                          listing: listingState.data!,
+                        ),
+                        listing: listingState.data!,
+                      );
+                    },
+                  ),
+                  Expanded(
+                    child: ThreadContent(
+                      counterparty: profileState.data!,
+                      listing: listingState.data!,
                     ),
                   ),
-                  body:
-                      BlocBuilder<
-                        EntityCubit<Listing>,
-                        EntityCubitState<Listing>
-                      >(
-                        builder: (context, listingState) {
-                          if (listingState.active ||
-                              listingState.data == null) {
-                            return Center(child: CircularProgressIndicator());
-                          }
-                          return Column(
-                            children: [
-                              StreamBuilder<List<Reservation>>(
-                                stream: context
-                                    .read<StreamWithStatus<Reservation>>()
-                                    .list,
-                                builder: (context, snapshot) {
-                                  return ReservationStatusWidget(
-                                    reservation:
-                                        Reservation.getSeniorReservation(
-                                          reservations: snapshot.data ?? [],
-                                          listing: listingState.data!,
-                                        ),
-                                    listing: listingState.data!,
-                                  );
-                                },
-                              ),
-                              Expanded(child: ThreadContent()),
-                              SafeArea(
-                                top: false,
-                                child: CustomPadding(
-                                  child: ThreadReplyWidget(),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                );
-              },
+                  SafeArea(
+                    top: false,
+                    child: CustomPadding(child: ThreadReplyWidget()),
+                  ),
+                ],
+              ),
             );
           },
         );

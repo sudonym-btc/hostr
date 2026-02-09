@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/entity/entity.cubit.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -86,12 +86,7 @@ class _ThreadProviderState extends State<ThreadProvider> {
               thread: thread,
             ),
           ),
-          BlocProvider<EntityCubit<Listing>>(
-            create: (_) => EntityCubit<Listing>(
-              crud: getIt<Hostr>().listings,
-              filter: Filter(dTags: [getDTagFromAnchor(listingAnchor)]),
-            )..get(),
-          ),
+          ListingProvider(a: listingAnchor),
           BlocProvider<ProfileCubit>(
             create: (_) =>
                 ProfileCubit(metadataUseCase: getIt<Hostr>().metadata)

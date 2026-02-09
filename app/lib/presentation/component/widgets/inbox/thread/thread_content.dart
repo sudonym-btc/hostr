@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/logic/cubit/entity/entity.cubit.dart';
-import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -9,7 +7,13 @@ import 'package:models/main.dart';
 import 'message/reservation_request/reservation_request.dart';
 
 class ThreadContent extends StatelessWidget {
-  const ThreadContent({super.key});
+  final ProfileMetadata counterparty;
+  final Listing listing;
+  const ThreadContent({
+    super.key,
+    required this.counterparty,
+    required this.listing,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -46,19 +50,13 @@ class ThreadContent extends StatelessWidget {
     Message message,
     List<Reservation> reservations,
   ) {
-    final profile = context.read<ProfileCubit>();
-    final listing = context.read<EntityCubit<Listing>>();
-
     if (message.child == null) {
-      return ThreadMessageWidget(
-        counterpartyPubkey: thread.counterpartyPubkey(),
-        item: message,
-      );
+      return ThreadMessageWidget(counterparty: counterparty, item: message);
     } else if (message.child is ReservationRequest) {
       return ThreadReservationRequestWidget(
-        counterparty: profile.state.data!,
+        counterparty: counterparty,
         item: message,
-        listing: listing.state.data!,
+        listing: listing,
         reservations: reservations,
       );
     }

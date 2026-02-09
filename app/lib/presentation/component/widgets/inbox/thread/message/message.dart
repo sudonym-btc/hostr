@@ -3,19 +3,19 @@ import 'package:hostr/presentation/component/main.dart';
 import 'package:models/main.dart';
 
 class ThreadMessageWidget extends StatelessWidget {
-  final String counterpartyPubkey;
+  final ProfileMetadata counterparty;
   final Message item;
+
+  bool get isSentByMe => item.pubKey == counterparty.pubKey;
 
   const ThreadMessageWidget({
     super.key,
-    required this.counterpartyPubkey,
+    required this.counterparty,
     required this.item,
   });
 
   @override
   Widget build(BuildContext context) {
-    bool isSentByMe = item.pubKey != counterpartyPubkey;
-
     return Align(
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
       child: CustomPadding(
