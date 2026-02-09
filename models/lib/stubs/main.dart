@@ -20,6 +20,8 @@ export 'escrow_trust.dart';
 export 'gift_wrap.dart';
 export 'keypairs.dart';
 export 'listing.dart';
+export 'mocks/reservations/reservation_scenario.dart';
+export 'mocks/reservations/reservation_scenarios.dart';
 export 'mocks/threads/thread_scenario.dart';
 export 'mocks/threads/thread_scenarios.dart';
 export 'profile.dart';
