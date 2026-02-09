@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/inbox/thread/message/reservation_request/payment_status_cubit.dart';
 import 'package:hostr/presentation/component/widgets/listing/price.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -68,10 +69,10 @@ class _ThreadReservationRequestWidgetState
             smallImage: true,
           ),
           BlocProvider(
-            create: (context) => getIt<Hostr>().paymentStatus.check(
+            create: (context) => PaymentStatusCubit(
               widget.listing,
-              reservationRequest,
-            ),
+              widget.item.child as ReservationRequest,
+            )..sync(),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,

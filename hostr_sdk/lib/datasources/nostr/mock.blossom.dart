@@ -27,8 +27,10 @@ class MockBlossomServer {
       if (!_blobs.containsKey(sha256)) {
         return Response.notFound('Blob not found');
       }
-      return Response.ok(_blobs[sha256]!.data,
-          headers: {'Content-Type': _blobs[sha256]!.contentType});
+      return Response.ok(
+        _blobs[sha256]!.data,
+        headers: {'Content-Type': _blobs[sha256]!.contentType},
+      );
     });
 
     // HEAD /<sha256> - Has Blob
@@ -36,10 +38,13 @@ class MockBlossomServer {
       if (!_blobs.containsKey(sha256)) {
         return Response.notFound('Blob not found');
       }
-      return Response(200, headers: {
-        'Content-Length': _blobs[sha256]!.data.length.toString(),
-        'Content-Type': _blobs[sha256]!.contentType,
-      });
+      return Response(
+        200,
+        headers: {
+          'Content-Length': _blobs[sha256]!.data.length.toString(),
+          'Content-Type': _blobs[sha256]!.contentType,
+        },
+      );
     });
 
     // PUT /upload - Upload Blob
@@ -52,8 +57,9 @@ class MockBlossomServer {
       }
 
       try {
-        final authEvent =
-            json.decode(utf8.decode(base64Decode(authHeader.split(' ')[1])));
+        final authEvent = json.decode(
+          utf8.decode(base64Decode(authHeader.split(' ')[1])),
+        );
         if (!_verifyAuthEvent(authEvent, 'upload')) {
           return Response.forbidden('Invalid authorization event');
         }
@@ -102,14 +108,15 @@ class MockBlossomServer {
             if (until != null && timestamp > until) return false;
             return true;
           })
-          .map((entry) => {
-                'url': 'http://localhost:$port/${entry.key}',
-                'sha256': entry.key,
-                'size': entry.value.data.length,
-                'type': entry.value.contentType,
-                'uploaded':
-                    entry.value.uploadedAt.millisecondsSinceEpoch ~/ 1000,
-              })
+          .map(
+            (entry) => {
+              'url': 'http://localhost:$port/${entry.key}',
+              'sha256': entry.key,
+              'size': entry.value.data.length,
+              'type': entry.value.contentType,
+              'uploaded': entry.value.uploadedAt.millisecondsSinceEpoch ~/ 1000,
+            },
+          )
           .toList();
 
       return Response.ok(
@@ -126,8 +133,9 @@ class MockBlossomServer {
       }
 
       try {
-        final authEvent =
-            json.decode(utf8.decode(base64Decode(authHeader.split(' ')[1])));
+        final authEvent = json.decode(
+          utf8.decode(base64Decode(authHeader.split(' ')[1])),
+        );
 
         if (!_verifyAuthEvent(authEvent, 'delete')) {
           return Response.forbidden('Invalid authorization event');
@@ -153,8 +161,9 @@ class MockBlossomServer {
       }
 
       try {
-        final authEvent =
-            json.decode(utf8.decode(base64Decode(authHeader.split(' ')[1])));
+        final authEvent = json.decode(
+          utf8.decode(base64Decode(authHeader.split(' ')[1])),
+        );
         if (!_verifyAuthEvent(authEvent, 'upload')) {
           return Response.forbidden('Invalid authorization event');
         }
@@ -169,7 +178,8 @@ class MockBlossomServer {
         requestData = json.decode(body);
         if (!requestData.containsKey('url')) {
           return Response.badRequest(
-              body: 'Request body must contain a "url" field');
+            body: 'Request body must contain a "url" field',
+          );
         }
       } catch (e) {
         return Response.badRequest(body: 'Invalid JSON body');
@@ -186,8 +196,8 @@ class MockBlossomServer {
           await response.drain();
           httpClient.close();
           return Response.internalServerError(
-              body:
-                  'Failed to download from source URL: ${response.statusCode}');
+            body: 'Failed to download from source URL: ${response.statusCode}',
+          );
         }
 
         // Read the response data
@@ -201,7 +211,8 @@ class MockBlossomServer {
         // Store the blob
         _blobs[computedSha256] = _BlobEntry(
           data: data,
-          contentType: response.headers.contentType?.toString() ??
+          contentType:
+              response.headers.contentType?.toString() ??
               'application/octet-stream',
           uploader: 'test_pubkey',
           uploadedAt: DateTime.now(),
@@ -221,7 +232,8 @@ class MockBlossomServer {
         );
       } catch (e) {
         return Response.internalServerError(
-            body: 'Failed to mirror blob: ${e.toString()}');
+          body: 'Failed to mirror blob: ${e.toString()}',
+        );
       }
     });
 
@@ -236,8 +248,10 @@ class MockBlossomServer {
       if (requestData['kind'] != kReport) {
         return Response.badRequest(body: 'Invalid kind');
       }
-      return Response.ok('{"status": "ok"}',
-          headers: {'Content-Type': 'application/json'});
+      return Response.ok(
+        '{"status": "ok"}',
+        headers: {'Content-Type': 'application/json'},
+      );
     });
 
     return router;
@@ -267,8 +281,9 @@ class MockBlossomServer {
     if (event['kind'] != 24242) return false;
 
     final tags = List<List<dynamic>>.from(event['tags']);
-    final hasTypeTag =
-        tags.any((tag) => tag.length >= 2 && tag[0] == 't' && tag[1] == type);
+    final hasTypeTag = tags.any(
+      (tag) => tag.length >= 2 && tag[0] == 't' && tag[1] == type,
+    );
 
     return hasTypeTag;
   }

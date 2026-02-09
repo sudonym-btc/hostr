@@ -13,7 +13,7 @@ class DevelopmentConfig extends Config {
   String get hostrBlossom => 'http://blossom.hostr.development';
 
   @override
-  String get hostrRelay => 'wss://relay.hostr.network';
+  String get hostrRelay => 'wss://relay.hostr.development';
 }
 
 class DevelopmentRootstockConfig extends RootstockConfig {

@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:models/main.dart';
 
 class PaymentStatusCubit extends Cubit<PaymentStatusCubitState> {
@@ -11,24 +11,31 @@ class PaymentStatusCubit extends Cubit<PaymentStatusCubitState> {
   final Listing listing;
   final ReservationRequest reservationRequest;
   StreamSubscription<FundedEvent>? _escrowSubscription;
-  StreamWithStatus<FundedEvent>? _escrowStatus;
+  StreamSubscription<StreamStatus>? _escrowStatusSubscription;
+  StreamWithStatus<FundedEvent>? _escrowPaymentStatus;
   PaymentStatusCubit(this.listing, this.reservationRequest)
     : super(PaymentStatusCubitState());
 
   sync() {
-    emit(PaymentStatusCubitDone());
+    _escrowStatusSubscription?.cancel();
     _escrowSubscription?.cancel();
-    _escrowStatus?.close();
-    _escrowStatus = getIt<Hostr>().escrow.checkEscrowStatus(
+    _escrowPaymentStatus?.close();
+    _escrowPaymentStatus = getIt<Hostr>().escrow.checkEscrowStatus(
       reservationRequest.id,
       listing.pubKey,
     );
-    _escrowSubscription = _escrowStatus!.stream.listen((escrowStatus) {
+    _escrowSubscription = _escrowPaymentStatus!.stream.listen((escrowStatus) {
       emit(PaymentStatusCubitPaid());
       // Handle escrow status updates here
       logger.i(
         'Escrow status for reservation ${reservationRequest.id}: ${escrowStatus.transactionHash}',
       );
+    });
+
+    _escrowStatusSubscription = _escrowPaymentStatus!.status.listen((status) {
+      if (status is StreamStatusLive) {
+        emit(PaymentStatusCubitDone());
+      }
     });
     // return zaps.ndk.zaps
     //     .subscribeToZapReceipts(
@@ -40,8 +47,9 @@ class PaymentStatusCubit extends Cubit<PaymentStatusCubitState> {
 
   @override
   Future<void> close() {
+    _escrowStatusSubscription?.cancel();
     _escrowSubscription?.cancel();
-    _escrowStatus?.close();
+    _escrowPaymentStatus?.close();
     return super.close();
   }
 }

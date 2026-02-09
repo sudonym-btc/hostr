@@ -1,3 +1,5 @@
+import 'package:hostr_sdk/config.dart';
+import 'package:hostr_sdk/datasources/main.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/domain_layer/entities/nip_01_utils.dart';
@@ -5,7 +7,6 @@ import 'package:ndk/entities.dart' show Nip65, ReadWriteMarker;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter;
 import 'package:rxdart/rxdart.dart';
 
-import '../../mock.relay.dart';
 import 'requests.dart';
 
 class _Subscription<T extends Nip01Event> {
@@ -39,7 +40,10 @@ class MockRequests extends Requests {
           privateKey: MockKeys.guest.privateKey!,
           event: Nip65(
             pubKey: MockKeys.guest.publicKey,
-            relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+            relays: {
+              getIt<HostrConfig>().bootstrapRelays[0]:
+                  ReadWriteMarker.readWrite,
+            },
             createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
           ).toEvent(),
         ),
@@ -47,7 +51,10 @@ class MockRequests extends Requests {
           privateKey: MockKeys.hoster.privateKey!,
           event: Nip65(
             pubKey: MockKeys.hoster.publicKey,
-            relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+            relays: {
+              getIt<HostrConfig>().bootstrapRelays[0]:
+                  ReadWriteMarker.readWrite,
+            },
             createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
           ).toEvent(),
         ),
@@ -55,7 +62,10 @@ class MockRequests extends Requests {
           privateKey: MockKeys.escrow.privateKey!,
           event: Nip65(
             pubKey: MockKeys.escrow.publicKey,
-            relays: {getIt<Config>().hostrRelay: ReadWriteMarker.readWrite},
+            relays: {
+              getIt<HostrConfig>().bootstrapRelays[0]:
+                  ReadWriteMarker.readWrite,
+            },
             createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
           ).toEvent(),
         ),

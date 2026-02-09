@@ -1,3 +1,4 @@
+import 'package:bloc/bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../util/main.dart';
@@ -5,13 +6,17 @@ import '../../../auth/auth.dart';
 import 'swap_in_models.dart';
 import 'swap_in_state.dart';
 
-abstract class SwapInOperation {
-  final CustomLogger logger = CustomLogger();
+abstract class SwapInOperation extends Cubit<SwapInState> {
+  final CustomLogger logger;
   final Auth auth;
   final SwapInParams params;
 
-  SwapInOperation({required this.auth, @factoryParam required this.params});
+  SwapInOperation({
+    required this.auth,
+    required this.logger,
+    @factoryParam required this.params,
+  }) : super(SwapInInitialised());
 
   Future<BitcoinAmount> estimateFees();
-  Stream<SwapInState> execute();
+  Future<void> execute();
 }

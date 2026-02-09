@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/main.dart';
+import 'package:hostr/injection.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 enum ReservationCubitStatus { initial, loading, success, error }
@@ -24,11 +25,9 @@ class ReservationCubitState {
 /// Cubit managing reservation request state.
 /// This cubit only manages state transitions and UI decisions.
 class ReservationCubit extends Cubit<ReservationCubitState> {
-  final Hostr _nostrService;
-
-  ReservationCubit({required Hostr nostrService})
-    : _nostrService = nostrService,
-      super(ReservationCubitState(status: ReservationCubitStatus.initial));
+  final Hostr hostr = getIt<Hostr>();
+  ReservationCubit()
+    : super(ReservationCubitState(status: ReservationCubitStatus.initial));
 
   Future<ReservationRequest?> createReservationRequest({
     required Listing listing,
@@ -39,14 +38,13 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
     emit(ReservationCubitState(status: ReservationCubitStatus.loading));
 
     try {
-      final result = await _nostrService.reservationRequests
-          .createReservationRequest(
-            listing: listing,
-            startDate: startDate,
-            endDate: endDate,
-            recipientPubkey: listing.pubKey,
-          );
-      await _nostrService.messaging.broadcastEventAndWait(
+      final result = await hostr.reservationRequests.createReservationRequest(
+        listing: listing,
+        startDate: startDate,
+        endDate: endDate,
+        recipientPubkey: listing.pubKey,
+      );
+      await hostr.messaging.broadcastEventAndWait(
         event: result,
         tags: [
           [kThreadRefTag, result.anchor!],

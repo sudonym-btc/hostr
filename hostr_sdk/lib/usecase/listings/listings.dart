@@ -5,5 +5,6 @@ import '../crud.usecase.dart';
 
 @Singleton()
 class Listings extends CrudUseCase<Listing> {
-  Listings({required super.requests}) : super(kind: Listing.kinds[0]);
+  Listings({required super.requests, required super.logger})
+    : super(kind: Listing.kinds[0]);
 }

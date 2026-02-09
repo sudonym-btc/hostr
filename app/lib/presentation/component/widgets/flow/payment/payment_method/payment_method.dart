@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund_cubit.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -65,9 +65,9 @@ class PaymentMethodWidget extends StatelessWidget {
                             showModalBottomSheet(
                               context: context,
                               builder: (BuildContext context) {
-                                return BlocProvider<EscrowFundCubit>(
+                                return BlocProvider<EscrowFundOperation>(
                                   create: (BuildContext context) =>
-                                      EscrowFundCubit(
+                                      getIt<Hostr>().escrow.fund(
                                         EscrowFundParams(
                                           reservationRequest:
                                               reservationRequest,
@@ -81,7 +81,8 @@ class PaymentMethodWidget extends StatelessWidget {
                                   child: Builder(
                                     builder: (context) {
                                       return EscrowFundWidget(
-                                        cubit: context.read<EscrowFundCubit>(),
+                                        cubit: context
+                                            .read<EscrowFundOperation>(),
                                       );
                                     },
                                   ),

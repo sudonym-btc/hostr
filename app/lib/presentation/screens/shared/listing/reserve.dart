@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/router.dart';
@@ -22,7 +21,7 @@ class ReserveState extends State<Reserve> {
   Widget build(BuildContext context) {
     return BlocBuilder<DateRangeCubit, DateRangeState>(
       builder: (context, dateState) => BlocProvider<ReservationCubit>(
-        create: (context) => ReservationCubit(nostrService: getIt()),
+        create: (context) => ReservationCubit(),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

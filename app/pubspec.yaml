@@ -69,7 +69,6 @@ dev_dependencies:
   bloc_test: ^10.0.0
   flutter_lints: ^6.0.0
   json_serializable: ^6.11.2
-  swagger_dart_code_generator: ^4.0.0
   integration_test:
     sdk: flutter
   shelf: ^1.4.2

@@ -3,7 +3,6 @@ import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/usecase/main.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
-import 'package:web3dart/web3dart.dart' hide params;
 
 import 'pay_models.dart';
 import 'pay_operation.dart';
@@ -37,21 +36,17 @@ class Bolt11PayOperation
   }
 
   @override
-  Future<LightningCallbackDetails> callback() async {
+  Future<LightningCallbackDetails> finalizer() async {
     return LightningCallbackDetails(invoice: Bolt11PaymentRequest(params.to));
   }
 
   @override
-  Future<LightningCompletedDetails> complete() async {
-    try {
-      PayInvoiceResponse response = await nwc.payInvoice(
-        nwc.connections[0].connection!,
-        state.callbackDetails!.invoice.paymentRequest,
-      );
-      return LightningCompletedDetails(preimage: response.preimage!);
-    } catch (e, stackTrace) {
-      logger.e('Error paying invoice: $e $stackTrace');
-      rethrow;
-    }
+  Future<LightningCompletedDetails> completer() async {
+    print(callbackDetails);
+    PayInvoiceResponse response = await nwc.payInvoice(
+      nwc.connections[0].connection!,
+      callbackDetails!.invoice.paymentRequest,
+    );
+    return LightningCompletedDetails(preimage: response.preimage!);
   }
 }

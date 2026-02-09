@@ -16,75 +16,15 @@ import 'package:hostr/config/env/development.config.dart' as _i598;
 import 'package:hostr/config/env/mock.config.dart' as _i331;
 import 'package:hostr/config/env/production.config.dart' as _i1071;
 import 'package:hostr/config/env/test.config.dart' as _i292;
-import 'package:hostr/config/main.dart' as _i800;
-import 'package:hostr/data/main.dart' as _i165;
 import 'package:hostr/data/sources/api/google_maps.dart' as _i575;
 import 'package:hostr/data/sources/local/key_storage.dart' as _i946;
 import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
 import 'package:hostr/data/sources/local/nwc_storage.dart' as _i303;
 import 'package:hostr/data/sources/local/relay_storage.dart' as _i315;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
-import 'package:hostr/data/sources/nostr/ndk.dart' as _i396;
-import 'package:hostr/data/sources/nostr/nostr/hostr.dart' as _i552;
-import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart' as _i34;
-import 'package:hostr/data/sources/nostr/nostr/usecase/badge_awards/badge_awards.dart'
-    as _i232;
-import 'package:hostr/data/sources/nostr/nostr/usecase/badge_definitions/badge_definitions.dart'
-    as _i558;
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/escrow.dart'
-    as _i722;
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/operations/fund/escrow_fund_models.dart'
-    as _i368;
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/operations/fund/escrow_fund_operation.dart'
-    as _i580;
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_methods/escrows_methods.dart'
-    as _i291;
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow_trusts/escrows_trusts.dart'
-    as _i445;
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrows/escrows.dart'
-    as _i42;
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/chain/rootstock/operations/swap_in/swap_in_operation.dart'
-    as _i921;
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart'
-    as _i825;
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/chain/rootstock/rootstock.dart'
-    as _i87;
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/evm.dart' as _i961;
-import 'package:hostr/data/sources/nostr/nostr/usecase/evm/operations/swap_in/swap_in_models.dart'
-    as _i997;
-import 'package:hostr/data/sources/nostr/nostr/usecase/listings/listings.dart'
-    as _i456;
-import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/messaging.dart'
-    as _i463;
-import 'package:hostr/data/sources/nostr/nostr/usecase/metadata/metadata.dart'
-    as _i249;
-import 'package:hostr/data/sources/nostr/nostr/usecase/nwc/nwc.dart' as _i909;
-import 'package:hostr/data/sources/nostr/nostr/usecase/payment_status/payment_status.dart'
-    as _i662;
-import 'package:hostr/data/sources/nostr/nostr/usecase/payments/payments.dart'
-    as _i244;
-import 'package:hostr/data/sources/nostr/nostr/usecase/relays/relays.dart'
-    as _i886;
-import 'package:hostr/data/sources/nostr/nostr/usecase/requests/requests.dart'
-    as _i100;
-import 'package:hostr/data/sources/nostr/nostr/usecase/requests/test.requests.dart'
-    as _i805;
-import 'package:hostr/data/sources/nostr/nostr/usecase/reservation_requests/reservation_requests.dart'
-    as _i525;
-import 'package:hostr/data/sources/nostr/nostr/usecase/reservations/reservations.dart'
-    as _i489;
-import 'package:hostr/data/sources/nostr/nostr/usecase/zaps/zaps.dart' as _i735;
-import 'package:hostr/export.dart' as _i1012;
 import 'package:hostr/injection.dart' as _i490;
 import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
-import 'package:hostr/logic/cubit/payment/bolt11_payment.cubit.dart' as _i993;
-import 'package:hostr/logic/cubit/payment/lnurl_payment.cubit.dart' as _i99;
-import 'package:hostr/main.dart' as _i15;
 import 'package:injectable/injectable.dart' as _i526;
-import 'package:ndk/ndk.dart' as _i857;
-import 'package:web3dart/web3dart.dart' as _i641;
-
-import '../../hostr_sdk/lib/datasources/boltz/boltz.dart' as _i428;
 
 const String _test = 'test';
 const String _mock = 'mock';
@@ -126,169 +66,15 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i1071.ProductionConfig(),
       registerFor: {_prod},
     );
-    gh.factory<_i428.BoltzClient>(() => _i428.BoltzClient(gh<_i800.Config>()));
     gh.factory<_i237.ModeCubit>(
       () => _i237.ModeCubit(modeStorage: gh<_i640.ModeStorage>()),
-    );
-    gh.singleton<_i857.Ndk>(() => _i396.NostrNdk(gh<_i800.Config>()));
-    gh.singleton<_i87.Rootstock>(
-      () => _i87.Rootstock(config: gh<_i800.Config>()),
     );
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
       registerFor: {_dev, _mock, _staging, _prod},
     );
-    gh.factoryParam<_i825.RifRelay, _i641.Web3Client, dynamic>(
-      (client, _) => _i825.RifRelay(gh<_i800.Config>(), client),
-    );
-    gh.singleton<_i100.Requests>(
-      () => _i100.Requests(ndk: gh<_i857.Ndk>()),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i552.Hostr>(() => _i552.ProdHostr(gh<_i857.Ndk>()));
-    gh.singleton<_i100.Requests>(
-      () => _i805.TestRequests(ndk: gh<_i857.Ndk>()),
-      registerFor: {_test, _mock},
-    );
-    gh.singleton<_i34.Auth>(
-      () => _i34.Auth(
-        ndk: gh<_i857.Ndk>(),
-        keyStorage: gh<_i1012.KeyStorage>(),
-        secureStorage: gh<_i1012.SecureStorage>(),
-      ),
-    );
-    gh.singleton<_i463.Messaging>(
-      () => _i463.Messaging(gh<_i857.Ndk>(), gh<_i100.Requests>()),
-    );
     gh.singleton<_i303.NwcStorage>(
       () => _i303.NwcStorage(gh<_i311.SecureStorage>()),
-    );
-    gh.factoryParam<
-      _i921.RootstockSwapInOperation,
-      _i997.SwapInParams,
-      dynamic
-    >(
-      (params, _) => _i921.RootstockSwapInOperation(
-        rootstock: gh<_i87.Rootstock>(),
-        auth: gh<_i34.Auth>(),
-        params: params,
-      ),
-    );
-    gh.singleton<_i232.BadgeAwards>(
-      () => _i232.BadgeAwards(requests: gh<_i100.Requests>()),
-    );
-    gh.singleton<_i558.BadgeDefinitions>(
-      () => _i558.BadgeDefinitions(requests: gh<_i100.Requests>()),
-    );
-    gh.singleton<_i291.EscrowMethods>(
-      () => _i291.EscrowMethods(requests: gh<_i100.Requests>()),
-    );
-    gh.singleton<_i456.Listings>(
-      () => _i456.Listings(requests: gh<_i100.Requests>()),
-    );
-    gh.singleton<_i886.Relays>(
-      () => _i886.MockRelays(
-        ndk: gh<_i857.Ndk>(),
-        relayStorage: gh<_i15.RelayStorage>(),
-      ),
-      registerFor: {_test, _mock},
-    );
-    gh.singleton<_i445.EscrowTrusts>(
-      () => _i445.EscrowTrusts(
-        requests: gh<_i100.Requests>(),
-        auth: gh<_i34.Auth>(),
-      ),
-    );
-    gh.singleton<_i886.Relays>(
-      () => _i886.Relays(
-        ndk: gh<_i857.Ndk>(),
-        relayStorage: gh<_i15.RelayStorage>(),
-      ),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i42.Escrows>(
-      () => _i42.Escrows(
-        requests: gh<_i100.Requests>(),
-        escrowMethods: gh<_i291.EscrowMethods>(),
-        escrowTrusts: gh<_i445.EscrowTrusts>(),
-      ),
-    );
-    gh.singleton<_i489.Reservations>(
-      () => _i489.Reservations(
-        requests: gh<_i100.Requests>(),
-        messaging: gh<_i463.Messaging>(),
-        auth: gh<_i34.Auth>(),
-      ),
-    );
-    gh.singleton<_i909.Nwc>(
-      () => _i909.Nwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.factoryParam<
-      _i993.Bolt11PaymentCubit,
-      _i993.Bolt11PaymentParameters,
-      dynamic
-    >(
-      (params, _) =>
-          _i993.Bolt11PaymentCubit(params: params, nwc: gh<_i909.Nwc>()),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i249.MetadataUseCase>(
-      () => _i249.MetadataUseCase(
-        auth: gh<_i34.Auth>(),
-        requests: gh<_i100.Requests>(),
-      ),
-    );
-    gh.factoryParam<
-      _i99.LnUrlPaymentCubit,
-      _i99.LnUrlPaymentParameters,
-      dynamic
-    >(
-      (params, _) =>
-          _i99.LnUrlPaymentCubit(params: params, nwc: gh<_i909.Nwc>()),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i909.Nwc>(
-      () => _i909.MockNwc(gh<_i165.NwcStorage>(), gh<_i857.Ndk>()),
-      registerFor: {_test, _mock},
-    );
-    gh.singleton<_i525.ReservationRequests>(
-      () => _i525.ReservationRequests(
-        requests: gh<_i100.Requests>(),
-        ndk: gh<_i857.Ndk>(),
-      ),
-    );
-    gh.singleton<_i961.Evm>(
-      () => _i961.Evm(auth: gh<_i34.Auth>(), rootstock: gh<_i87.Rootstock>()),
-    );
-    gh.singleton<_i735.Zaps>(
-      () => _i735.MockZaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
-      registerFor: {_test, _mock},
-    );
-    gh.singleton<_i735.Zaps>(
-      () => _i735.Zaps(nwc: gh<_i909.Nwc>(), ndk: gh<_i857.Ndk>()),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.factoryParam<_i580.EscrowFundOperation, _i368.EscrowFundParams, dynamic>(
-      (params, _) =>
-          _i580.EscrowFundOperation(gh<_i34.Auth>(), gh<_i961.Evm>(), params),
-    );
-    gh.singleton<_i722.EscrowUseCase>(
-      () => _i722.EscrowUseCase(
-        auth: gh<_i34.Auth>(),
-        escrows: gh<_i42.Escrows>(),
-        escrowTrusts: gh<_i445.EscrowTrusts>(),
-        evm: gh<_i961.Evm>(),
-      ),
-    );
-    gh.singleton<_i244.Payments>(
-      () => _i244.Payments(zaps: gh<_i735.Zaps>(), nwc: gh<_i909.Nwc>()),
-    );
-    gh.singleton<_i662.PaymentStatus>(
-      () => _i662.PaymentStatus(
-        escrow: gh<_i722.EscrowUseCase>(),
-        zaps: gh<_i735.Zaps>(),
-      ),
     );
     return this;
   }

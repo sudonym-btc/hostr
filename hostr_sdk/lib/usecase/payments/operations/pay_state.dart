@@ -1,24 +1,54 @@
-class PayState {}
+import 'pay_models.dart';
 
-class PayInitialised extends PayState {}
+class PayState {
+  final PayParameters params;
+  final ResolvedDetails? resolvedDetails;
+  final CallbackDetails? callbackDetails;
+  PayState({required this.params, this.resolvedDetails, this.callbackDetails});
+}
 
-class PayResolveInitiated extends PayState {}
+class PayInitialised extends PayState {
+  PayInitialised({required super.params});
+}
 
-class PayResolved extends PayState {}
+class PayResolveInitiated extends PayState {
+  PayResolveInitiated({required super.params});
+}
 
-class PayCallbackInitiated extends PayState {}
+class PayResolved<T extends ResolvedDetails> extends PayState {
+  final T details;
+  PayResolved({required super.params, required this.details})
+    : super(resolvedDetails: details);
+}
 
-class PayCallbackComplete extends PayState {}
+class PayCallbackInitiated extends PayState {
+  PayCallbackInitiated({required super.params});
+}
 
-class PayInFlight extends PayState {}
+class PayCallbackComplete<T extends CallbackDetails> extends PayState {
+  final T details;
+  PayCallbackComplete({required super.params, required this.details})
+    : super(callbackDetails: details);
+}
 
-class PayCancelled extends PayState {}
+class PayInFlight extends PayState {
+  PayInFlight({required super.params});
+}
 
-class PayExpired extends PayState {}
+class PayCancelled extends PayState {
+  PayCancelled({required super.params});
+}
 
-class PayCompleted extends PayState {}
+class PayExpired extends PayState {
+  PayExpired({required super.params});
+}
+
+class PayCompleted<T extends CompletedDetails> extends PayState {
+  final T details;
+  PayCompleted({required super.params, required this.details});
+}
 
 class PayFailed extends PayState {
   final String error;
-  PayFailed(this.error);
+  PayFailed(this.error, {required super.params});
 }

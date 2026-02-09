@@ -11,10 +11,10 @@ import 'swagger_generated/boltz.swagger.dart';
 
 @injectable
 class BoltzClient {
-  CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   late Boltz gBoltzCli;
   final HostrConfig config;
-  BoltzClient(this.config)
+  BoltzClient(this.config, this.logger)
     : gBoltzCli = Boltz.create(
         baseUrl: Uri.parse(config.rootstockConfig.boltz.apiUrl),
       );

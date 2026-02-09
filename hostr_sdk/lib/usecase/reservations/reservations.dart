@@ -18,6 +18,7 @@ class Reservations extends CrudUseCase<Reservation> {
   StreamSubscription<Reservation>? _myReservationsSubscription;
   Reservations({
     required super.requests,
+    required super.logger,
     required this.messaging,
     required this.auth,
   }) : super(kind: Reservation.kinds[0]);

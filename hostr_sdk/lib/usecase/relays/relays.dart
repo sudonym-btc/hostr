@@ -8,10 +8,10 @@ import '../storage/storage.dart';
 
 @Singleton(env: Env.allButTestAndMock)
 class Relays {
-  final CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   final Ndk ndk;
   final RelayStorage relayStorage;
-  Relays({required this.ndk, required this.relayStorage});
+  Relays({required this.ndk, required this.relayStorage, required this.logger});
 
   Future<void> add(String url) {
     logger.d('Adding relay: $url');
@@ -49,5 +49,9 @@ class Relays {
 
 @Singleton(as: Relays, env: [Env.test, Env.mock])
 class MockRelays extends Relays {
-  MockRelays({required super.ndk, required super.relayStorage});
+  MockRelays({
+    required super.ndk,
+    required super.relayStorage,
+    required super.logger,
+  });
 }

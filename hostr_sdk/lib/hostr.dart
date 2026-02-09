@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/injection.dart';
-import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart' show Ndk;
 
 import 'usecase/auth/auth.dart';
@@ -17,7 +16,6 @@ import 'usecase/listings/listings.dart';
 import 'usecase/messaging/messaging.dart';
 import 'usecase/metadata/metadata.dart';
 import 'usecase/nwc/nwc.dart';
-import 'usecase/payment_status/payment_status.dart';
 import 'usecase/payments/payments.dart';
 import 'usecase/relays/relays.dart';
 import 'usecase/requests/requests.dart';
@@ -26,13 +24,13 @@ import 'usecase/reservations/reservations.dart';
 import 'usecase/zaps/zaps.dart';
 import 'util/custom_logger.dart' show CustomLogger;
 
-abstract class Hostr {
+class Hostr {
   final HostrConfig config;
-  Hostr({required this.config, String environment = Env.prod}) {
+  final CustomLogger logger;
+  Hostr({required this.config, String environment = Env.prod})
+    : logger = config.logger {
     configureInjection(environment, config: config);
   }
-
-  CustomLogger logger = CustomLogger();
   Auth get auth => getIt<Auth>();
   Requests get requests => getIt<Requests>();
   MetadataUseCase get metadata => getIt<MetadataUseCase>();
@@ -49,7 +47,6 @@ abstract class Hostr {
   Messaging get messaging => getIt<Messaging>();
   ReservationRequests get reservationRequests => getIt<ReservationRequests>();
   Payments get payments => getIt<Payments>();
-  PaymentStatus get paymentStatus => getIt<PaymentStatus>();
   Evm get evm => getIt<Evm>();
   Relays get relays => getIt<Relays>();
 
@@ -105,9 +102,4 @@ abstract class Hostr {
     evm.dispose();
     auth.dispose();
   }
-}
-
-@Singleton(as: Hostr)
-class ProdHostr extends Hostr {
-  ProdHostr(HostrConfig config) : super(config: config);
 }

@@ -38,17 +38,36 @@ class ZapPayOperation
           LightningCompletedDetails
         > {
   final Zaps zaps;
+  final Nwc nwc;
 
-  ZapPayOperation({required super.params, required this.zaps});
+  ZapPayOperation({
+    required super.params,
+    required this.zaps,
+    required this.nwc,
+  });
 
   @override
-  Future<LightningCompletedDetails> complete() async {
-    ZapResponse response = await zaps.zap(
-      lnurl: state.params.to,
-      amountSats: state.params.amount!.getInSats.toInt(),
-    );
-    return LightningCompletedDetails(
-      preimage: response.payInvoiceResponse!.preimage!,
-    );
+  Future<LightningCompletedDetails> completer() async {
+    throw UnimplementedError('Zap completer not implemented yet');
+    // ZapResponse response = await zaps.zap(
+    //   nwcConnection: nwc.connections[0].connection!,
+    //   lnurl: state.params.to,
+    //   amountSats: state.params.amount!.getInSats.toInt(),
+    // );
+    // return LightningCompletedDetails(
+    //   preimage: response.payInvoiceResponse!.preimage!,
+    // );
+  }
+
+  @override
+  Future<LightningCallbackDetails> finalizer() {
+    // TODO: implement finalizer
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<LnUrlResolvedDetails> resolver() {
+    // TODO: implement resolver
+    throw UnimplementedError();
   }
 }

@@ -9,8 +9,11 @@ import '../crud.usecase.dart';
 @Singleton()
 class ReservationRequests extends CrudUseCase {
   final Ndk ndk;
-  ReservationRequests({required super.requests, required this.ndk})
-    : super(kind: ReservationRequest.kinds[0]);
+  ReservationRequests({
+    required super.requests,
+    required super.logger,
+    required this.ndk,
+  }) : super(kind: ReservationRequest.kinds[0]);
 
   static String getReservationRequestId({
     required Listing listing,

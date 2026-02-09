@@ -8,7 +8,11 @@ import '../crud.usecase.dart';
 @Singleton()
 class EscrowTrusts extends CrudUseCase<EscrowTrust> {
   final Auth auth;
-  EscrowTrusts({required super.requests, required this.auth})
+  EscrowTrusts({
+    required super.requests,
+    required super.logger,
+    required this.auth,
+  })
     : super(kind: EscrowTrust.kinds[0]);
 
   Future<EscrowTrust?> trusted(String pubkey) async {

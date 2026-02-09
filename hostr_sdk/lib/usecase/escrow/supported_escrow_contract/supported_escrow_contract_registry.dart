@@ -1,6 +1,8 @@
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
+import '../../../injection.dart';
+import '../../../util/custom_logger.dart';
 import 'multi_escrow.dart';
 import 'supported_escrow_contract.dart';
 
@@ -10,8 +12,11 @@ class SupportedEscrowContractRegistry {
     SupportedEscrowContract Function(Web3Client client, EthereumAddress address)
   >
   _registry = {
-    'MultiEscrow': (client, address) =>
-        MultiEscrowWrapper(client: client, address: address),
+    'MultiEscrow': (client, address) => MultiEscrowWrapper(
+      client: client,
+      address: address,
+      logger: getIt<CustomLogger>(),
+    ),
   };
 
   static SupportedEscrowContract? getSupportedContract(

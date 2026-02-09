@@ -6,12 +6,17 @@ import '../util/main.dart';
 import 'requests/requests.dart';
 
 class CrudUseCase<T extends Nip01Event> {
-  final CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   final Requests requests;
   final int kind;
   final int? draftKind;
 
-  CrudUseCase({required this.requests, required this.kind, this.draftKind});
+  CrudUseCase({
+    required this.requests,
+    required this.kind,
+    this.draftKind,
+    required this.logger,
+  });
 
   Future<List<RelayBroadcastResponse>> create(T event) {
     return requests.broadcast(event: event);

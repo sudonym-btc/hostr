@@ -11,14 +11,14 @@ import 'nwc.cubit.dart';
 
 @Singleton(env: Env.allButTestAndMock)
 class Nwc {
-  CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   NwcStorage nwcStorage;
   Ndk ndk;
   List<NwcCubit> connections = [];
   final _connectionsSubject = BehaviorSubject<List<NwcCubit>>.seeded([]);
   Stream<List<NwcCubit>> get connectionsStream => _connectionsSubject.stream;
 
-  Nwc(this.nwcStorage, this.ndk);
+  Nwc(this.nwcStorage, this.ndk, this.logger);
 
   /// User pasted/scanned a NWC from their wallet
   /// nostr+walletconnect://b889ff5b1513b641e2a139f661a661364979c5beee91842f8f0ef42ab558e9d4?relay=wss%3A%2F%2Frelay.damus.io&secret=71a8c14c1407c113601079c4302dab36460f0ccd0ad506f1f2dc73b5100e4f3c
@@ -94,7 +94,7 @@ class Nwc {
     nwcStorage.get().then((urls) async {
       for (var url in urls) {
         try {
-          final reactive = NwcCubit(url: url, nwc: this);
+          final reactive = NwcCubit(url: url, nwc: this, logger: logger);
           connections.add(reactive);
           _connectionsSubject.add(connections);
           // Fetch info asynchronously and update the reactive connection
@@ -110,7 +110,7 @@ class Nwc {
 
 @Singleton(as: Nwc, env: [Env.test, Env.mock])
 class MockNwc extends Nwc {
-  MockNwc(super.nwcStorage, super.ndk);
+  MockNwc(super.nwcStorage, super.ndk, super.logger);
 
   @override
   Future<NwcConnection> connect(String url) async {

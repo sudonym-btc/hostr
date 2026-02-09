@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 abstract class Storage<T> {
   Future<void> save(T value);
   Future<T?> read();
@@ -86,7 +88,7 @@ class _KeyedStringListStorage implements Storage<List<String>> {
 
   @override
   Future<void> save(List<String> value) async {
-    await _storage.write(_key, value);
+    await _storage.write(_key, jsonEncode(value));
   }
 
   @override
@@ -94,6 +96,17 @@ class _KeyedStringListStorage implements Storage<List<String>> {
     final raw = await _storage.read(_key);
     if (raw == null) {
       return null;
+    }
+    if (raw is String) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          return decoded.map((e) => e.toString()).toList();
+        }
+      } catch (error) {
+        print(error);
+        return null;
+      }
     }
     if (raw is List) {
       return raw.map((e) => e.toString()).toList();

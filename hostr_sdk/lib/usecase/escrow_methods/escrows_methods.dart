@@ -5,5 +5,6 @@ import '../crud.usecase.dart';
 
 @Singleton()
 class EscrowMethods extends CrudUseCase<EscrowMethod> {
-  EscrowMethods({required super.requests}) : super(kind: EscrowMethod.kinds[0]);
+  EscrowMethods({required super.requests, required super.logger})
+    : super(kind: EscrowMethod.kinds[0]);
 }

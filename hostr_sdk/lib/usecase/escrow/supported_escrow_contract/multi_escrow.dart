@@ -9,11 +9,14 @@ import '../../payments/constants.dart';
 import 'supported_escrow_contract.dart';
 
 class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
-  CustomLogger logger = CustomLogger();
-  MultiEscrowWrapper({required super.client, required super.address})
-    : super(
-        contract: MultiEscrow(address: address, client: client),
-      );
+  final CustomLogger logger;
+  MultiEscrowWrapper({
+    required super.client,
+    required super.address,
+    required this.logger,
+  }) : super(
+         contract: MultiEscrow(address: address, client: client),
+       );
 
   @override
   Future<TransactionInformation> deposit(
