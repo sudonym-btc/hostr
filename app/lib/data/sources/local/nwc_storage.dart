@@ -1,4 +1,4 @@
-import 'package:hostr/core/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 

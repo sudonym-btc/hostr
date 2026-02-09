@@ -1,9 +1,9 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 @RoutePage()
 class InboxScreen extends StatelessWidget {

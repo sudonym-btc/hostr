@@ -50,6 +50,10 @@ dependencies:
   image_picker: ^1.1.2
   models:
     path: ../models
+  hostr_sdk:
+    path: ../hostr_sdk
+
+    # @TODO: Remove this dependency and use hostr_sdk instead
   ndk:
     git:
       url: https://github.com/relaystr/ndk.git 
@@ -64,7 +68,6 @@ dev_dependencies:
     sdk: flutter
   bloc_test: ^10.0.0
   flutter_lints: ^6.0.0
-  chopper_generator: ^8.0.0
   json_serializable: ^6.11.2
   swagger_dart_code_generator: ^4.0.0
   integration_test:
@@ -74,14 +77,7 @@ dev_dependencies:
   flutter_driver:
     sdk: flutter
   mocktail_image_network: ^1.2.0
-  web3dart_builders: ^3.0.1
 
-dependency_overrides:
-  # Keep other overrides
-  web3dart_builders: 
-    git:
-      url: https://github.com/PatrickGeyer/web3dart_builders.git
-      ref: feat/upgrade-deps
 
 flutter:
   uses-material-design: true

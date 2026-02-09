@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../injection.dart';
@@ -6,11 +7,13 @@ import 'base.config.dart';
 @Injectable(as: Config, env: [Env.dev])
 class DevelopmentConfig extends Config {
   @override
-  List<String> relays = ['ws://relay.hostr.development'];
-  @override
-  List<String> blossom = ['http://blossom.hostr.development'];
-  @override
   RootstockConfig rootstock = DevelopmentRootstockConfig();
+
+  @override
+  String get hostrBlossom => 'http://blossom.hostr.development';
+
+  @override
+  String get hostrRelay => 'wss://relay.hostr.network';
 }
 
 class DevelopmentRootstockConfig extends RootstockConfig {

@@ -1,9 +1,8 @@
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/core/util/main.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 

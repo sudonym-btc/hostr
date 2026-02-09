@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 import 'qr_scanner.dart';
 

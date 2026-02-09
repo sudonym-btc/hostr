@@ -1,5 +1,5 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:hostr/core/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 class GuestGuard extends AutoRouteGuard {
   CustomLogger logger = CustomLogger();

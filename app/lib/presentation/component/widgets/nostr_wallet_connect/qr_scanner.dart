@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:hostr/core/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class NwcQrScannerWidget extends StatefulWidget {
@@ -15,8 +15,8 @@ class NwcQrScannerWidgetState extends State<NwcQrScannerWidget>
     with WidgetsBindingObserver {
   CustomLogger logger = CustomLogger();
   final MobileScannerController controller = MobileScannerController(
-      // required options for the scanner
-      );
+    // required options for the scanner
+  );
 
   StreamSubscription<Object?>? _subscription;
 
@@ -41,11 +41,14 @@ class NwcQrScannerWidgetState extends State<NwcQrScannerWidget>
   @override
   Widget build(BuildContext context) {
     return Center(
-        child: SizedBox(
-            width: 300, // Set a fixed width for the container
-            child: AspectRatio(
-                aspectRatio: 1.0, // Set the aspect ratio to 1:1 (square)
-                child: MobileScanner(controller: controller))));
+      child: SizedBox(
+        width: 300, // Set a fixed width for the container
+        child: AspectRatio(
+          aspectRatio: 1.0, // Set the aspect ratio to 1:1 (square)
+          child: MobileScanner(controller: controller),
+        ),
+      ),
+    );
   }
 
   @override

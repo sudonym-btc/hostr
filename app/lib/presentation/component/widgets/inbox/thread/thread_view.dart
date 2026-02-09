@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/core/main.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_content.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_reply.dart';
 import 'package:hostr/presentation/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 import 'reservation_status.dart';

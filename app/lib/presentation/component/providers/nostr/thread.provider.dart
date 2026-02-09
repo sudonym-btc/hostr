@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/core/util/stream_status.dart';
-import 'package:hostr/data/main.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/thread.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/messaging_listings/messaging_listings.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/entity/entity.cubit.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 

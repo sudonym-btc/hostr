@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/escrow/operations/fund/escrow_fund_state.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund_cubit.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../../modal_bottom_sheet.dart';
 

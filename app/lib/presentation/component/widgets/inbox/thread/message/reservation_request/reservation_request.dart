@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/listing/price.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 import 'guest_view.dart';

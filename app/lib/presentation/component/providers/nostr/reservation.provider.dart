@@ -1,6 +1,6 @@
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/providers/nostr/default_entity.provider.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class ReservationProvider extends DefaultEntityProvider<Reservation> {

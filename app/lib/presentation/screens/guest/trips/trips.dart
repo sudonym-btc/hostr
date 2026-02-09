@@ -1,9 +1,9 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/reservation/reservation_list_item.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 @RoutePage()

@@ -1,5 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/messaging/thread.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 enum ThreadReplyStatus { initial, loading, success, error }
 

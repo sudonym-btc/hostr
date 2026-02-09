@@ -2,10 +2,10 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/data/sources/nostr/nostr/usecase/auth/auth.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 import 'signup.dart';
 

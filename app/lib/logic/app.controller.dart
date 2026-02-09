@@ -1,5 +1,5 @@
-import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 class AppController {
   CustomLogger logger = CustomLogger();
