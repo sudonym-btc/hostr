@@ -51,7 +51,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     postResultFilterSubscription = postResultFilterCubit?.stream.listen((
       postResultFilterState,
     ) {
-      emit(applyPostResultFilter(state, postResultFilterState));
+      emit(applyPostResultFilter(state, postResultFilterState.filter));
     });
   }
 
@@ -103,7 +103,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   void addItem(T item) {
     if (isClosed || itemStream.isClosed) return;
     if (postResultFilterCubit?.state == null ||
-        postResultFilterCubit!.state(item)) {
+        postResultFilterCubit!.state.filter(item)) {
       itemStream.add(item);
     }
     emit(

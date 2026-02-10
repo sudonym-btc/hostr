@@ -1,9 +1,14 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class PostResultFilterCubit<T> extends Cubit<bool Function<T>(T x)> {
-  PostResultFilterCubit() : super(<T>(T x) => true);
+class PostResultFilter<T> {
+  final bool Function(T) filter;
+  const PostResultFilter(this.filter);
+}
 
-  void updateFilter(bool Function<T>(T x) newFilter) {
-    emit(newFilter);
+class PostResultFilterCubit<T> extends Cubit<PostResultFilter<T>> {
+  PostResultFilterCubit() : super(PostResultFilter((_) => true));
+
+  void updateFilter(bool Function(T) newFilter) {
+    emit(PostResultFilter(newFilter));
   }
 }

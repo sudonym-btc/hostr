@@ -29,52 +29,81 @@ class SearchViewState extends State<SearchView> {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-      final totalHeight = constraints.maxHeight;
-      final listingStartHeight = totalHeight / 2;
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final totalHeight = constraints.maxHeight;
+        final listingStartHeight = totalHeight / 2;
 
-      return MultiBlocProvider(
+        return MultiBlocProvider(
           providers: [
             BlocProvider.value(value: BlocProvider.of<DateRangeCubit>(context)),
             BlocProvider.value(value: BlocProvider.of<FilterCubit>(context)),
             BlocProvider.value(
-                value: BlocProvider.of<PostResultFilterCubit>(context)),
+              value: BlocProvider.of<PostResultFilterCubit>(context),
+            ),
           ],
           child: BlocProvider(
-              create: (context) => MapViewCubit(),
-              child: Scaffold(
-                  body: Column(children: [
-                Stack(children: [
-                  SizedBox(
-                      height: listingStartHeight, child: SearchMapWidget()),
-                  SafeArea(
-                      child: InkWell(
-                    child: CustomPadding(top: 0.5, child: SearchBoxWidget()),
-                    onTap: () {
-                      showModalBottomSheet(
-                          context: context,
-                          builder: (x) => BlocProvider.value(
-                              value: BlocProvider.of<DateRangeCubit>(context),
-                              child: FiltersScreen()));
-                      // Navigator.of(context).push(
-                      //   MaterialPageRoute(
-                      //     builder: (BuildContext context) {
-                      //       return const FiltersScreen();
-                      //     },
-                      //     fullscreenDialog: true,
-                      //   ),
-                      // );
-                    },
-                  )),
-                ]),
-                SlidingUpPanel(
-                  controller: panelController,
-                  body: Container(),
-                  minHeight: listingStartHeight,
-                  snapPoint: 0.5,
+            create: (context) => MapViewCubit(),
+            child: Scaffold(
+              body: Column(
+                children: [
+                  Stack(
+                    children: [
+                      SizedBox(
+                        height: listingStartHeight,
+                        child: SearchMapWidget(),
+                      ),
+                      SafeArea(
+                        child: InkWell(
+                          child: CustomPadding(
+                            top: 0.5,
+                            child: SearchBoxWidget(),
+                          ),
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              builder: (x) => MultiBlocProvider(
+                                providers: [
+                                  BlocProvider.value(
+                                    value: BlocProvider.of<DateRangeCubit>(
+                                      context,
+                                    ),
+                                  ),
+                                  BlocProvider.value(
+                                    value: BlocProvider.of<FilterCubit>(
+                                      context,
+                                    ),
+                                  ),
+                                  BlocProvider.value(
+                                    value:
+                                        BlocProvider.of<PostResultFilterCubit>(
+                                          context,
+                                        ),
+                                  ),
+                                ],
+                                child: const FiltersScreen(),
+                              ),
+                            );
+                            // Navigator.of(context).push(
+                            //   MaterialPageRoute(
+                            //     builder: (BuildContext context) {
+                            //       return const FiltersScreen();
+                            //     },
+                            //     fullscreenDialog: true,
+                            //   ),
+                            // );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  SlidingUpPanel(
+                    controller: panelController,
+                    body: Container(),
+                    minHeight: listingStartHeight,
+                    snapPoint: 0.5,
 
-                  /// todo being clipped at top so not showing
-                  panel: Container(
+                    /// todo being clipped at top so not showing
+                    panel: Container(
                       decoration: BoxDecoration(
                         color: Theme.of(context).scaffoldBackgroundColor,
                         boxShadow: [
@@ -83,13 +112,21 @@ class SearchViewState extends State<SearchView> {
                             spreadRadius: 2,
                             blurRadius: 10,
                             offset: Offset(
-                                0, -3), // Shadow position (going upwards)
+                              0,
+                              -3,
+                            ), // Shadow position (going upwards)
                           ),
                         ],
                       ),
-                      child: ListingsWidget(panelController: panelController)),
-                )
-              ]))));
-    });
+                      child: ListingsWidget(panelController: panelController),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

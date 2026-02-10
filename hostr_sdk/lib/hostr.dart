@@ -20,6 +20,7 @@ class Hostr {
   Nwc get nwc => getIt<Nwc>();
   Zaps get zaps => getIt<Zaps>();
   Listings get listings => getIt<Listings>();
+  Location get location => getIt<Location>();
   Reservations get reservations => getIt<Reservations>();
   EscrowUseCase get escrow => getIt<EscrowUseCase>();
   Escrows get escrows => getIt<Escrows>();

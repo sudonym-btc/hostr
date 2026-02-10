@@ -1794,14 +1794,18 @@ class MockMessaging extends _i1.Mock implements _i11.Messaging {
   _i24.Future<_i2.Nip01Event> getRumour(
     String? content,
     List<List<String>>? tags,
-    String? recipientPubkey,
+    List<String>? recipientPubkeys,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#getRumour, [content, tags, recipientPubkey]),
+            Invocation.method(#getRumour, [content, tags, recipientPubkeys]),
             returnValue: _i24.Future<_i2.Nip01Event>.value(
               _FakeNip01Event_30(
                 this,
-                Invocation.method(#getRumour, [content, tags, recipientPubkey]),
+                Invocation.method(#getRumour, [
+                  content,
+                  tags,
+                  recipientPubkeys,
+                ]),
               ),
             ),
           )
@@ -1811,13 +1815,13 @@ class MockMessaging extends _i1.Mock implements _i11.Messaging {
   _i24.Future<_i10.Message<_i10.Event>> broadcastTextAndAwait({
     required String? content,
     required List<List<String>>? tags,
-    required String? recipientPubkey,
+    required List<String>? recipientPubkeys,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#broadcastTextAndAwait, [], {
               #content: content,
               #tags: tags,
-              #recipientPubkey: recipientPubkey,
+              #recipientPubkeys: recipientPubkeys,
             }),
             returnValue: _i24.Future<_i10.Message<_i10.Event>>.value(
               _FakeMessage_31<_i10.Event>(
@@ -1825,7 +1829,7 @@ class MockMessaging extends _i1.Mock implements _i11.Messaging {
                 Invocation.method(#broadcastTextAndAwait, [], {
                   #content: content,
                   #tags: tags,
-                  #recipientPubkey: recipientPubkey,
+                  #recipientPubkeys: recipientPubkeys,
                 }),
               ),
             ),
@@ -1837,13 +1841,13 @@ class MockMessaging extends _i1.Mock implements _i11.Messaging {
   broadcastText({
     required String? content,
     required List<List<String>>? tags,
-    required String? recipientPubkey,
+    required List<String>? recipientPubkeys,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#broadcastText, [], {
               #content: content,
               #tags: tags,
-              #recipientPubkey: recipientPubkey,
+              #recipientPubkeys: recipientPubkeys,
             }),
             returnValue:
                 _i24.Future<
@@ -1856,13 +1860,13 @@ class MockMessaging extends _i1.Mock implements _i11.Messaging {
   _i24.Future<_i10.Message<_i10.Event>> broadcastEventAndWait({
     required _i2.Nip01Event? event,
     required List<List<String>>? tags,
-    required String? recipientPubkey,
+    required List<String>? recipientPubkeys,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#broadcastEventAndWait, [], {
               #event: event,
               #tags: tags,
-              #recipientPubkey: recipientPubkey,
+              #recipientPubkeys: recipientPubkeys,
             }),
             returnValue: _i24.Future<_i10.Message<_i10.Event>>.value(
               _FakeMessage_31<_i10.Event>(
@@ -1870,7 +1874,7 @@ class MockMessaging extends _i1.Mock implements _i11.Messaging {
                 Invocation.method(#broadcastEventAndWait, [], {
                   #event: event,
                   #tags: tags,
-                  #recipientPubkey: recipientPubkey,
+                  #recipientPubkeys: recipientPubkeys,
                 }),
               ),
             ),
@@ -1882,13 +1886,13 @@ class MockMessaging extends _i1.Mock implements _i11.Messaging {
   broadcastEvent({
     required _i2.Nip01Event? event,
     required List<List<String>>? tags,
-    required String? recipientPubkey,
+    required List<String>? recipientPubkeys,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#broadcastEvent, [], {
               #event: event,
               #tags: tags,
-              #recipientPubkey: recipientPubkey,
+              #recipientPubkeys: recipientPubkeys,
             }),
             returnValue:
                 _i24.Future<

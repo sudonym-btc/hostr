@@ -21,10 +21,17 @@ class Thread {
     _messagesStreamController.add(List<Message>.unmodifiable(messages));
   }
 
-  String counterpartyPubkey() {
-    return messages[0].pubKey == accounts.getPublicKey()
-        ? messages[0].pTags.first
-        : messages[0].pubKey;
+  List<String> counterpartyPubkeys() {
+    final pubkeys = <String>{};
+    for (final msg in messages) {
+      pubkeys.add(msg.pubKey);
+      if (msg.pTags != null) {
+        pubkeys.addAll(msg.pTags);
+      }
+    }
+    return pubkeys
+        .where((pubkey) => pubkey != accounts.getPublicKey())
+        .toList();
   }
 
   Message? getLatestMessage() {
@@ -43,7 +50,7 @@ class Thread {
       tags: [
         [kThreadRefTag, anchor],
       ],
-      recipientPubkey: counterpartyPubkey(),
+      recipientPubkeys: counterpartyPubkeys(),
     );
   }
 
@@ -56,7 +63,7 @@ class Thread {
         [kThreadRefTag, anchor],
         ...tags,
       ],
-      recipientPubkey: counterpartyPubkey(),
+      recipientPubkeys: counterpartyPubkeys(),
     );
   }
 

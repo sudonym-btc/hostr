@@ -31,6 +31,7 @@ import 'package:hostr_sdk/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart'
 import 'package:hostr_sdk/usecase/evm/chain/rootstock/rootstock.dart' as _i158;
 import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
+import 'package:hostr_sdk/usecase/location/location.dart' as _i56;
 import 'package:hostr_sdk/usecase/main.dart' as _i474;
 import 'package:hostr_sdk/usecase/messaging/messaging.dart' as _i1019;
 import 'package:hostr_sdk/usecase/metadata/metadata.dart' as _i149;
@@ -86,6 +87,9 @@ extension GetItInjectableX on _i174.GetIt {
         client,
         gh<_i331.CustomLogger>(),
       ),
+    );
+    gh.singleton<_i56.Location>(
+      () => _i56.Location(logger: gh<_i331.CustomLogger>()),
     );
     gh.singleton<_i857.Ndk>(() => hostrSdkModule.ndk(gh<_i910.HostrConfig>()));
     gh.singleton<_i218.AuthStorage>(

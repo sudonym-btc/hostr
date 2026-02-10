@@ -1,13 +1,14 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/injection.dart' show Env;
+import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:web3dart/web3dart.dart';
-
-import 'contracts/MultiEscrow.g.dart';
 
 void main(List<String> arguments) async {
   final String relayUrl =
@@ -18,8 +19,46 @@ void main(List<String> arguments) async {
       Platform.environment['RPC_URL'] ?? 'http://localhost:8545';
   final String contractAddress = Platform.environment['CONTRACT_ADDR'] ??
       '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F';
-  Web3Client _web3client = Web3Client(rpcUrl, http.Client());
-  MultiEscrow multiEscrow = MultiEscrow(
+    final String blossomUrl =
+      Platform.environment['HOSTR_BLOSSOM'] ?? 'http://blossom.hostr.development';
+    final String hostrEnv = Platform.environment['HOSTR_ENV'] ?? Env.dev;
+    final int chainId =
+      int.tryParse(Platform.environment['CHAIN_ID'] ?? '') ?? 33;
+    final String boltzApiUrl =
+      Platform.environment['BOLTZ_API_URL'] ?? 'http://localhost:9001/v2';
+    final String rifRelayUrl =
+      Platform.environment['RIF_RELAY_URL'] ?? 'http://localhost:8090';
+    final String rifRelayCallVerifier =
+      Platform.environment['RIF_RELAY_CALL_VERIFIER'] ??
+      '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
+    final String rifRelayDeployVerifier =
+      Platform.environment['RIF_RELAY_DEPLOY_VERIFIER'] ??
+      '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+    final String rifSmartWalletFactoryAddress =
+      Platform.environment['RIF_SMART_WALLET_FACTORY_ADDRESS'] ??
+      '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE';
+
+    final HostrConfig hostrConfig = HostrConfig(
+    bootstrapRelays: [relayUrl],
+    bootstrapBlossom: [blossomUrl],
+    rootstockConfig: CliRootstockConfig(
+      chainId: chainId,
+      rpcUrl: rpcUrl,
+      boltz: CliBoltzConfig(
+      apiUrl: boltzApiUrl,
+      rifRelayUrl: rifRelayUrl,
+      rifRelayCallVerifier: rifRelayCallVerifier,
+      rifRelayDeployVerifier: rifRelayDeployVerifier,
+      rifSmartWalletFactoryAddress: rifSmartWalletFactoryAddress,
+      ),
+    ),
+    );
+
+    final Hostr hostrSdk = Hostr(config: hostrConfig, environment: hostrEnv);
+    await _printSupportedEvmChains(hostrSdk);
+
+    Web3Client _web3client = Web3Client(rpcUrl, http.Client());
+    MultiEscrow multiEscrow = MultiEscrow(
       address: EthereumAddress.fromHex(contractAddress), client: _web3client);
 
   Ndk ndk = Ndk(NdkConfig(
@@ -84,4 +123,53 @@ void main(List<String> arguments) async {
     default:
       print('Unknown command');
   }
+}
+
+Future<void> _printSupportedEvmChains(Hostr hostrSdk) async {
+  final supportedContracts =
+      SupportedEscrowContractRegistry.supportedContractNames;
+  print('Supported EVM chains and escrow wrappers:');
+  for (final chain in hostrSdk.evm.supportedEvmChains) {
+    final chainId = (await chain.getChainId()).toInt();
+    final wrappers = supportedContracts.isEmpty
+        ? 'none'
+        : supportedContracts.join(', ');
+    print('- ${chain.runtimeType} (chainId: $chainId): $wrappers');
+  }
+}
+
+class CliRootstockConfig extends RootstockConfig {
+  @override
+  final int chainId;
+  @override
+  final String rpcUrl;
+  @override
+  final BoltzConfig boltz;
+
+  CliRootstockConfig({
+    required this.chainId,
+    required this.rpcUrl,
+    required this.boltz,
+  });
+}
+
+class CliBoltzConfig extends BoltzConfig {
+  @override
+  final String apiUrl;
+  @override
+  final String rifRelayUrl;
+  @override
+  final String rifRelayCallVerifier;
+  @override
+  final String rifRelayDeployVerifier;
+  @override
+  final String rifSmartWalletFactoryAddress;
+
+  CliBoltzConfig({
+    required this.apiUrl,
+    required this.rifRelayUrl,
+    required this.rifRelayCallVerifier,
+    required this.rifRelayDeployVerifier,
+    required this.rifSmartWalletFactoryAddress,
+  });
 }

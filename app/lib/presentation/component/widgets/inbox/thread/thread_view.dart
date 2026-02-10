@@ -4,6 +4,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/providers/nostr/thread.provider.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_content.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_reply.dart';
 import 'package:hostr/presentation/main.dart';
@@ -21,10 +22,24 @@ class ThreadView extends StatelessWidget {
       builder: (context, reservationsSnapshot) {
         return Builder(
           builder: (context) {
-            final counterpartyState = context
-                .select<ProfileCubit, ProfileCubitState>(
-                  (cubit) => cubit.state,
-                );
+            final profileCubits = context
+                .read<
+                  ProfilesProvider
+                >(); // get your list of ProfileCubits from Provider or MultiProvider
+
+            // Collect all profile states using context.select
+            final profileStates = profileCubits.profiles
+                .map(
+                  (cubit) => context.select<ProfileCubit, ProfileCubitState>(
+                    (_) => cubit.state,
+                  ),
+                )
+                .toList();
+
+            final profilesReady = profileStates.every(
+              (profileState) =>
+                  profileState.active || profileState.data == null,
+            );
             final listingState = context
                 .select<EntityCubit<Listing>, EntityCubitState<Listing>>(
                   (cubit) => cubit.state,
@@ -34,8 +49,7 @@ class ThreadView extends StatelessWidget {
             );
 
             final isLoading =
-                counterpartyState.active ||
-                counterpartyState.data == null ||
+                !profilesReady ||
                 reservationsSnapshot.data is! StreamStatusLive ||
                 listingState.active ||
                 listingState.data == null;
@@ -55,7 +69,7 @@ class ThreadView extends StatelessWidget {
             // When loaded successfully
             return ThreadReadyWidget(
               listing: listingState.data!,
-              counterparty: counterpartyState.data!,
+              counterparties: profileStates.map((e) => e.data!).toList(),
             );
           },
         );
@@ -66,20 +80,18 @@ class ThreadView extends StatelessWidget {
 
 class ThreadReadyWidget extends StatelessWidget {
   final Listing listing;
-  final ProfileMetadata counterparty;
+  final List<ProfileMetadata> counterparties;
 
   const ThreadReadyWidget({
     super.key,
     required this.listing,
-    required this.counterparty,
+    required this.counterparties,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: ThreadHeaderWidget(metadata: counterparty.metadata),
-      ),
+      appBar: AppBar(title: ThreadHeaderWidget(counterparties: counterparties)),
       body: Column(
         children: [
           StreamBuilder<List<Reservation>>(
@@ -95,7 +107,10 @@ class ThreadReadyWidget extends StatelessWidget {
             },
           ),
           Expanded(
-            child: ThreadContent(counterparty: counterparty, listing: listing),
+            child: ThreadContent(
+              counterparties: counterparties,
+              listing: listing,
+            ),
           ),
           SafeArea(
             top: false,

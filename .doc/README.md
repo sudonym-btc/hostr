@@ -59,10 +59,11 @@ Quickstart: see the client app guide at `app/README.md` for run targets by envir
 P1
 
 - [ ] Background worker: https://docs.page/fluttercommunity/flutter_workmanager/quickstart
+  - [ ] Must show notifications for items not already in thread messaege sync hydrated cubit
 - [ ] Rif-relay mocking
 - [ ] Event validation - async?
 - [ ] Startup loading page
-  - [ ] Sync giftwraps
+  - [x] Sync giftwraps
   - [ ] Broadcast preferred user blossom servers if not found
   - [ ] Broadcast preferred user relays if not found
   - [ ] Broadcast preferred user escrows if not found

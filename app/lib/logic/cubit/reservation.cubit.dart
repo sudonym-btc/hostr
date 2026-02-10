@@ -49,7 +49,7 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
         tags: [
           [kThreadRefTag, result.anchor!],
         ],
-        recipientPubkey: listing.pubKey,
+        recipientPubkeys: [listing.pubKey],
       );
       // Business decision: emit success state
       emit(ReservationCubitState(status: ReservationCubitStatus.success));

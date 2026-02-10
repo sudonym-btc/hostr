@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:hostr/data/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/search/map_style.dart';
@@ -54,34 +53,54 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     for (var item in state.results) {
       if (!_fetchedIds.contains(item.id)) {
         _fetchedIds.add(item.id);
-        var res = await getIt<GoogleMaps>().getCoordinatesFromAddress(
-          item.parsedContent.location,
+        final geohashTag = item.tags
+            .where((tag) => tag.isNotEmpty && tag.first == 'g')
+            .map((tag) => tag.length > 1 ? tag[1] : '')
+            .where((value) => value.isNotEmpty)
+            .fold<String>('', (longest, current) {
+              return current.length > longest.length ? current : longest;
+            });
+
+        if (geohashTag.isEmpty) {
+          widget.logger.w('Missing geohash tag for listing ${item.id}');
+          continue;
+        }
+
+        final decoded = getIt<Hostr>().location.getLocationFromGeohash(
+          geohashTag,
+        );
+        final position = LatLng(
+          decoded.center.latitude,
+          decoded.center.longitude,
         );
 
-        if (res != null) {
-          setState(() {
-            _markers[item.id] = Marker(
-              markerId: MarkerId(item.id),
-              position: res,
-            );
-          });
-        }
+        setState(() {
+          _markers[item.id] = Marker(
+            markerId: MarkerId(item.id),
+            position: position,
+          );
+        });
       }
     }
 
     // Collect markers to be removed
-    _markers.values.where((marker) {
-      final shouldRemove = !state.results.any(
-        (loc) => loc.id == marker.markerId.value,
-      );
-      if (shouldRemove) {
-        setState(() {
-          _fetchedIds.remove(marker.markerId.value);
-          _markers.remove(marker.markerId.value);
-        });
-      }
-      return shouldRemove;
-    }).toList();
+
+    final keysToRemove = _markers.values
+        .where(
+          (marker) =>
+              !state.results.any((loc) => loc.id == marker.markerId.value),
+        )
+        .map((marker) => marker.markerId.value)
+        .toList();
+
+    if (keysToRemove.isNotEmpty) {
+      setState(() {
+        for (final key in keysToRemove) {
+          _fetchedIds.remove(key);
+          _markers.remove(key);
+        }
+      });
+    }
 
     _moveCameraToFitAllMarkers();
   }
@@ -120,20 +139,21 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     double maxLng = _markers.values
         .map((p) => p.position.longitude)
         .reduce((a, b) => a > b ? a : b);
-    // widget.logger.i(
-    //   "Calculated bounds: minLat=$minLat, minLng=$minLng, maxLat=$maxLat, maxLng=$maxLng",
-    // );
 
-    // Add padding by expanding bounds by 10%
-    double latPadding = 0; //(maxLat - minLat) * 0.1 + 0.1;
-    double lngPadding = 0; //(maxLng - minLng) * 0.1 + 0.1;
+    // Minimum padding in degrees (about a city block)
+    const double minPadding = 0.005;
 
-    // widget.logger.d("latPadding $latPadding");
-    // widget.logger.d("lngPadding $lngPadding");
+    // If all markers are at the same point, expand bounds by minPadding
+    if ((maxLat - minLat).abs() < 1e-6 && (maxLng - minLng).abs() < 1e-6) {
+      minLat -= minPadding;
+      maxLat += minPadding;
+      minLng -= minPadding;
+      maxLng += minPadding;
+    }
 
     return LatLngBounds(
-      northeast: LatLng(maxLat + latPadding, maxLng + lngPadding),
-      southwest: LatLng(minLat - latPadding, minLng - lngPadding),
+      northeast: LatLng(maxLat, maxLng),
+      southwest: LatLng(minLat, minLng),
     );
   }
 
