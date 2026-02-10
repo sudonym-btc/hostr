@@ -18,14 +18,14 @@ class Messaging {
   Future<Nip01Event> getRumour(
     String content,
     List<List<String>> tags,
-    String recipientPubkey,
+    List<String> recipientPubkeys,
   ) {
     return ndk.giftWrap.createRumor(
       content: content,
       kind: kNostrKindDM,
       tags: [
         ...tags,
-        ['p', recipientPubkey],
+        ['p', ...recipientPubkeys],
       ],
     );
   }
@@ -33,44 +33,46 @@ class Messaging {
   Future<Message> broadcastTextAndAwait({
     required String content,
     required List<List<String>> tags,
-    required String recipientPubkey,
+    required List<String> recipientPubkeys,
   }) async {
     return broadcastEventAndWait(
-      event: await getRumour(content, tags, recipientPubkey),
+      event: await getRumour(content, tags, recipientPubkeys),
       tags: tags,
-      recipientPubkey: recipientPubkey,
+      recipientPubkeys: recipientPubkeys,
     );
   }
 
   Future<List<Future<List<RelayBroadcastResponse>>>> broadcastText({
     required String content,
     required List<List<String>> tags,
-    required String recipientPubkey,
+    required List<String> recipientPubkeys,
   }) async {
-    final rumor = await getRumour(content, tags, recipientPubkey);
-    return [
-      requests.broadcast(
-        event: await ndk.giftWrap.toGiftWrap(
-          rumor: rumor,
-          recipientPubkey: recipientPubkey,
-        ),
-      ),
-      requests.broadcast(
-        event: await ndk.giftWrap.toGiftWrap(
-          rumor: rumor,
-          recipientPubkey: ndk.accounts.getPublicKey()!,
-        ),
-      ),
-    ];
+    final rumor = await getRumour(content, tags, recipientPubkeys);
+
+    final broadcasts = [...recipientPubkeys, ndk.accounts.getPublicKey()!]
+        .map(
+          (pubkey) async => requests.broadcast(
+            event: await ndk.giftWrap.toGiftWrap(
+              rumor: rumor,
+              recipientPubkey: pubkey,
+            ),
+          ),
+        )
+        .toList();
+    return broadcasts;
   }
 
   Future<Message> broadcastEventAndWait({
     required Nip01Event event,
     required List<List<String>> tags,
-    required String recipientPubkey,
+    required List<String> recipientPubkeys,
   }) async {
-    final rumor = await getRumour(event.toString(), tags, recipientPubkey);
-    broadcastEvent(event: event, tags: tags, recipientPubkey: recipientPubkey);
+    final rumor = await getRumour(event.toString(), tags, recipientPubkeys);
+    broadcastEvent(
+      event: event,
+      tags: tags,
+      recipientPubkeys: recipientPubkeys,
+    );
 
     // Need to get the wrapped event here
     return threads.awaitMessageId(rumor.id);
@@ -79,12 +81,12 @@ class Messaging {
   Future<List<Future<List<RelayBroadcastResponse>>>> broadcastEvent({
     required Nip01Event event,
     required List<List<String>> tags,
-    required String recipientPubkey,
+    required List<String> recipientPubkeys,
   }) {
     return broadcastText(
       content: event.toString(),
       tags: tags,
-      recipientPubkey: recipientPubkey,
+      recipientPubkeys: recipientPubkeys,
     );
   }
 }

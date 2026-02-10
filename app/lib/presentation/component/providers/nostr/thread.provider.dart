@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
-import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -64,11 +63,19 @@ class _ThreadProviderState extends State<ThreadProvider> {
     }
     final listingAnchor = MessagingListings.getThreadListing(thread: thread);
 
+    final profiles = thread
+        .counterpartyPubkeys()
+        .map((pubkey) => ProfileProvider(pubkey: pubkey))
+        .toList();
+
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<Thread>.value(value: thread),
         RepositoryProvider<StreamWithStatus<Reservation>>.value(
           value: _reservationsResponse!,
+        ),
+        RepositoryProvider<ProfilesProvider>.value(
+          value: ProfilesProvider(profiles: profiles),
         ),
       ],
       child: MultiBlocProvider(
@@ -81,11 +88,6 @@ class _ThreadProviderState extends State<ThreadProvider> {
             ),
           ),
           ListingProvider(a: listingAnchor),
-          BlocProvider<ProfileCubit>(
-            create: (_) =>
-                ProfileCubit(metadataUseCase: getIt<Hostr>().metadata)
-                  ..load(thread.counterpartyPubkey()),
-          ),
         ],
         child: widget.child,
       ),
@@ -97,4 +99,10 @@ class _ThreadProviderState extends State<ThreadProvider> {
     _reservationsResponse?.close();
     super.dispose();
   }
+}
+
+class ProfilesProvider {
+  final List<ProfileProvider> profiles;
+
+  ProfilesProvider({required this.profiles});
 }

@@ -23,7 +23,8 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
           minStay: Duration(days: 2), // 2 days min stay
           checkIn: TimeOfDay(hour: 14, minute: 0),
           checkOut: TimeOfDay(hour: 11, minute: 0),
-          location: '123 Forest Lane, Woodland',
+          location:
+              'Torre Alta 510, Calle el Guayabo, San Salvador, El Salvador', // @todo should be encrypted with the key of owner
           quantity: 1,
           images: [
             'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/2eecc731-6e8e-49c4-963a-2c9284c11900.jpeg?im_w=1200&im_format=avif',
@@ -37,6 +38,11 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
           requiresEscrow: true),
       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
       tags: [
+        ['g', 'd42w0'],
+        ['g', 'd42w'],
+        ['g', 'd42'],
+        ['g', 'd4'],
+        ['g', 'd'],
         ['d', '1'],
       ]).signAs(MockKeys.hoster, Listing.fromNostrEvent),
 
@@ -62,7 +68,7 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
           minStay: Duration(days: 2), // 2 days min stay
           checkIn: TimeOfDay(hour: 14, minute: 0),
           checkOut: TimeOfDay(hour: 11, minute: 0),
-          location: '123 City Street, England',
+          location: '123 City Road, Finsbury, London',
           quantity: 1,
           images: [
             'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/2eecc731-6e8e-49c4-963a-2c9284c11900.jpeg?im_w=1200&im_format=avif',
@@ -76,6 +82,14 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
           requiresEscrow: true),
       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
       tags: [
+        ['g', 'gcpvnh02'],
+        ['g', 'gcpvnh0'],
+        ['g', 'gcpvnh'],
+        ['g', 'gcpvn'],
+        ['g', 'gcpv'],
+        ['g', 'gcp'],
+        ['g', 'gc'],
+        ['g', 'g'],
         ['d', '2'],
       ]).signAs(MockKeys.hoster, Listing.fromNostrEvent),
 //   Listing.fromNostrEvent(NostrEvent.fromPartialData(

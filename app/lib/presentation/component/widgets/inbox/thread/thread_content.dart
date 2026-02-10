@@ -7,11 +7,11 @@ import 'package:models/main.dart';
 import 'message/reservation_request/reservation_request.dart';
 
 class ThreadContent extends StatelessWidget {
-  final ProfileMetadata counterparty;
+  final List<ProfileMetadata> counterparties;
   final Listing listing;
   const ThreadContent({
     super.key,
-    required this.counterparty,
+    required this.counterparties,
     required this.listing,
   });
 
@@ -50,6 +50,10 @@ class ThreadContent extends StatelessWidget {
     Message message,
     List<Reservation> reservations,
   ) {
+    final counterparty = counterparties.firstWhere(
+      (counterparty) => counterparty.pubKey == message.pubKey,
+    );
+
     if (message.child == null) {
       return ThreadMessageWidget(counterparty: counterparty, item: message);
     } else if (message.child is ReservationRequest) {

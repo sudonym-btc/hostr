@@ -73,6 +73,10 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     );
   }
 
+  // StreamWithStatus<Arbitrated> arbitradedEvents(String tradeId) {}
+
+  // StreamWithStatus<ReleasedToCounterparty> releasedEvents(String tradeId) {}
+
   @override
   StreamWithStatus<FundedEvent> fundedEvents(String tradeId) {
     final tradeCreatedEvent = contract.self.events.firstWhere(

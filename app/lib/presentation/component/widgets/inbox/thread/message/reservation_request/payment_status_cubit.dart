@@ -21,7 +21,7 @@ class PaymentStatusCubit extends Cubit<PaymentStatusCubitState> {
     _escrowSubscription?.cancel();
     _escrowPaymentStatus?.close();
     _escrowPaymentStatus = getIt<Hostr>().escrow.checkEscrowStatus(
-      reservationRequest.id,
+      reservationRequest.getDtag()!,
       listing.pubKey,
     );
     _escrowSubscription = _escrowPaymentStatus!.stream.listen((escrowStatus) {

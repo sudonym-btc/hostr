@@ -15,6 +15,7 @@ contract MultiEscrow {
     event TradeCreated(bytes32 indexed tradeId, address buyer, address seller, address arbiter, uint256 timelock, uint256 escrowFee );
     event Arbitrated(bytes32 indexed tradeId, address seller, address buyer, uint256 amount, uint256 fractionForwarded);
     event Claimed(bytes32 indexed tradeId, address seller, address buyer, uint256 amount);
+    event ReleasedToCounterparty(bytes32 indexed tradeId, address from, address to, uint256 amount);
 
     modifier onlyBuyer(bytes32 tradeId) {
         require(msg.sender == trades[tradeId].buyer, "Only buyer can call this function");
@@ -37,11 +38,31 @@ contract MultiEscrow {
             buyer: _buyer,
             seller: _seller,
             arbiter: _arbiter,
-            amount: 0,
+            amount: msg.value,
             timelock: block.timestamp + _timelock,
             escrowFee: _escrowFee
         });
         emit TradeCreated(tradeId, _buyer, _seller, _arbiter, _timelock, _escrowFee);
+    }
+
+    function releaseToCounterparty(bytes32 tradeId) external {
+        Trade storage trade = trades[tradeId];
+        require(trade.amount > 0, "No funds to release");
+
+        address recipient;
+        if (msg.sender == trade.seller) {
+            recipient = trade.buyer;
+        } else if (msg.sender == trade.buyer) {
+            recipient = trade.seller;
+        } else {
+            revert("Only buyer or seller can release funds");
+        }
+
+        uint256 amount = trade.amount;
+        trade.amount = 0;
+        payable(recipient).transfer(amount);
+        emit ReleasedToCounterparty(tradeId, msg.sender, recipient, amount);
+        delete trades[tradeId];
     }
 
     function arbitrate(bytes32 tradeId, uint256 factor) external onlyArbiter(tradeId) {
