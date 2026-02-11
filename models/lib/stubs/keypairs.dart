@@ -1,4 +1,4 @@
-import 'package:models/bip340.dart';
+import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class MockKeys {
@@ -15,6 +15,10 @@ class MockKeys {
   static final KeyPair reviewer = Bip340.fromPrivateKey(
       '5d12e1c259280034770db6dfe14609fca9c10b97c7ce79f0a32cd80b118ce9c3');
 }
+
+final List<KeyPair> mockKeys = List.generate(100, (int) {
+  return Bip340.fromPrivateKey(faker.crypto.privateKey());
+});
 
 void main() {
   KeyPair keys = Bip340.generatePrivateKey();

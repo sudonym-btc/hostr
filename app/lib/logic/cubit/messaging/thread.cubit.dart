@@ -5,7 +5,6 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/main.dart';
-import 'package:hostr/presentation/component/widgets/inbox/thread/message/reservation_request/payment_status_cubit.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -15,14 +14,14 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   final Thread thread;
   final Map<String, ProfileCubit> participantCubits;
   late final Map<String, ProfileCubit> counterpartyCubits;
-  final PaymentStatusCubit paymentStatus;
+  // final PaymentStatusCubit paymentStatus;
   final EntityCubit<Listing> listingCubit;
   final StreamWithStatus<Reservation> reservations;
   final List<StreamSubscription> _subscriptions = [];
 
   ThreadCubit({required this.thread})
-    : paymentStatus = PaymentStatusCubit(listing, reservationRequest)..sync(),
-      participantCubits = Map.fromEntries(
+    // : paymentStatus = PaymentStatusCubit(MessagingListings.getThreadListing(thread: thread), reservationRequest)..sync(),
+    : participantCubits = Map.fromEntries(
         thread
             .participantPubkeys()
             .map(

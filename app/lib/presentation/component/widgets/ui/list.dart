@@ -34,10 +34,10 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
   void _onScroll() {
     if (_scrollController.position.userScrollDirection ==
         ScrollDirection.forward) {
-      logger.d('Scrolling up');
+      // logger.d('Scrolling up');
     } else if (_scrollController.position.userScrollDirection ==
         ScrollDirection.reverse) {
-      logger.d('Scrolling down');
+      // logger.d('Scrolling down');
     }
   }
 

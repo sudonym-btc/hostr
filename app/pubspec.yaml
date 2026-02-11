@@ -87,3 +87,6 @@ flutter:
   generate: true
   assets:
     - assets/images/
+
+dependency_overrides:
+  intl: ^0.20.2

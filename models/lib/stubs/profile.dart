@@ -1,7 +1,6 @@
+import 'package:models/stubs/main.dart';
 import 'package:models/util/main.dart';
 import 'package:ndk/ndk.dart';
-
-import 'keypairs.dart';
 
 var MOCK_PROFILES = [
   () {
@@ -85,3 +84,24 @@ var MOCK_PROFILES = [
         privateKey: MockKeys.escrow.privateKey!, event: event);
   }(),
 ].toList();
+
+final FAKED_PROFILES = List.generate(10, (count) {
+  final key = mockKeys[count];
+  final metadata = Metadata(
+    pubKey: key.publicKey,
+    displayName: faker.internet.username(),
+    name: faker.person.firstName(),
+    about: faker.person.bio(),
+  ).toEvent();
+  final tags = List<List<String>>.from(metadata.tags);
+
+  final event = Nip01Event(
+    pubKey: metadata.pubKey,
+    kind: metadata.kind,
+    tags: tags,
+    content: metadata.content,
+    createdAt: metadata.createdAt,
+  );
+  return Nip01Utils.signWithPrivateKey(
+      privateKey: key.privateKey!, event: event);
+});

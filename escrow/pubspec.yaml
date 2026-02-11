@@ -8,7 +8,7 @@ environment:
 
 dependencies:
   args: ^2.0.0
-  get_it: ^8.0.3
+  get_it: ^9.2.0
   injectable: ^2.1.1
   http: ^1.2.0 
   web3dart: ^3.0.1

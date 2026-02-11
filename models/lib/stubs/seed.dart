@@ -30,6 +30,7 @@ seed(String relayUrl, {String? contractAddress}) async {
 }
 
 void main(List<String> arguments) async {
+  // print(FAKED_RESERVATIONS);
   if (arguments.isEmpty) {
     print('Please provide a relay URL.');
     return;
