@@ -92,6 +92,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
                       ),
                     child: Row(
                       children: [
+                        SizedBox(width: kDefaultFontSize),
                         BlocProvider(
                           create: (context) => CountCubit(
                             kinds: Review.kinds,
@@ -101,12 +102,20 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
                           child: BlocBuilder<CountCubit, CountCubitState>(
                             builder: (context, state) {
                               if (state is CountCubitStateLoading) {
-                                return CircularProgressIndicator();
+                                return SizedBox(
+                                  width: 10,
+                                  height: 10,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.0,
+                                  ),
+                                );
                               }
-                              return Text(" · ${state.count} reviews");
+                              return Text("· ${state.count} reviews");
                             },
                           ),
                         ),
+                        SizedBox(width: kDefaultFontSize),
+
                         BlocProvider(
                           create: (context) => CountCubit(
                             kinds: Reservation.kinds,
@@ -116,9 +125,15 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
                           child: BlocBuilder<CountCubit, CountCubitState>(
                             builder: (context, state) {
                               if (state is CountCubitStateLoading) {
-                                return CircularProgressIndicator();
+                                return SizedBox(
+                                  width: 10,
+                                  height: 10,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.0,
+                                  ),
+                                );
                               }
-                              return Text(" · ${state.count} stays");
+                              return Text("· ${state.count} stays");
                             },
                           ),
                         ),

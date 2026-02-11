@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:models/main.dart';
 
 var MOCK_LISTINGS = [
@@ -252,3 +254,37 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
 //         ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:6']
 //       ]))
 ].toList();
+
+final FAKED_LISTINGS = List.generate(10, (count) {
+  final key = mockKeys[count];
+  final geohash = List.generate(
+          9, (_) => '0123456789bcdefghjkmnpqrstuvwxyz'[Random().nextInt(32)])
+      .join();
+  final tags = List<List<String>>.generate(
+      geohash.length, (i) => ['g', geohash.substring(0, i + 1)]);
+  tags.add(['d', count.toString()]);
+  return Listing(
+          pubKey: key.publicKey,
+          content: ListingContent(
+              title: faker.lorem.words(count: 3),
+              description: faker.commerce.productDescription(),
+              price: [
+                Price(
+                    amount: Amount(
+                        value: BigInt.from(120000), currency: Currency.BTC),
+                    frequency: Frequency.daily)
+              ], // 0.002 per day
+              minStay: Duration(days: 2), // 2 days min stay
+              checkIn: TimeOfDay(hour: 14, minute: 0),
+              checkOut: TimeOfDay(hour: 11, minute: 0),
+              location: faker.location.fullAddress(),
+              quantity: 1,
+              images: [faker.image.abstract()],
+              type: ListingType.hostel,
+              amenities:
+                  Amenities.fromJSON({'wireless_internet': true, 'bbq': true}),
+              requiresEscrow: true),
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+          tags: tags)
+      .signAs(key, Listing.fromNostrEvent);
+});

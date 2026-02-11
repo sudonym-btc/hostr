@@ -40,6 +40,20 @@ class Reservations extends CrudUseCase<Reservation> {
     });
   }
 
+  static Reservation? seniorReservations(
+    List<Reservation> reservations,
+    Listing listing,
+  ) {
+    return Reservation.getSeniorReservation(
+      reservations: reservations,
+      listing: listing,
+    );
+  }
+
+  static List<Reservation> filterCancelled(List<Reservation> reservations) {
+    return reservations.where((e) => !e.parsedContent.cancelled).toList();
+  }
+
   StreamWithStatus<Reservation> subscribeToMyReservations() {
     if (_myReservations != null) {
       return _myReservations!;

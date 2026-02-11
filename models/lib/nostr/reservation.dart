@@ -75,10 +75,6 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
       if (reservation.parsedContent.proof == null) {
         return 'Must include a payment proof if self-publishing reservation event';
       }
-      if (reservation
-          .parsedContent.proof!.listing.parsedContent.requiresEscrow) {
-        return 'Listing requires escrow for guest reservations';
-      }
       if (reservation.parsedContent.proof!.zapProof != null) {
         // Validate zap proof
         ZapProof proof = reservation.parsedContent.proof!.zapProof!;
