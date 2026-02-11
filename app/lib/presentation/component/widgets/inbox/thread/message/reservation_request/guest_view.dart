@@ -55,23 +55,6 @@ class ThreadReservationRequestGuestViewWidget
         );
       },
     );
-
-    // getIt<Hostr>().reservations.createSelfSigned(
-    //   threadId: item.threadAnchor,
-    //   reservationRequest: reservationRequest,
-    //   listing: listing,
-    //   hoster: counterparty,
-    //   zapProof: null,
-    //   escrowProof: EscrowProof(
-    //     method: 'EVM',
-    //     chainId: (await chain.client.getChainId()).toString(),
-    //     txHash: escrowCompleted.txHash,
-    //     hostsTrustedEscrows: escrows.hostTrust,
-    //     hostsEscrowMethods: escrows.hostMethod,
-    //   ),
-    // );
-
-    // @Todo: ideally would create a transaction listener on all chains we can handle and then automatically trigger self-signed. Don't want to rely on escrow call completing as app might go into background.
   }
 
   @override

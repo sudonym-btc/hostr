@@ -1,13 +1,11 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/logic/cubit/profile.cubit.dart';
+import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:timeago/timeago.dart' as timeago;
-
-import '../../providers/nostr/thread.provider.dart';
 
 class InboxItem extends StatelessWidget {
   final Thread thread;
@@ -19,39 +17,24 @@ class InboxItem extends StatelessWidget {
     final lastDateTime = thread.getLastDateTime();
     final subtitle = Text(thread.isLastMessageOurs() ? 'Sent' : 'Received');
 
-    return MultiRepositoryProvider(
-      providers: [
-        RepositoryProvider<ProfilesProvider>.value(
-          value: ProfilesProvider(
-            profiles: thread
-                .counterpartyPubkeys()
-                .map((pubkey) => ProfileProvider(pubkey: pubkey))
-                .toList(),
-          ),
-        ),
-      ],
-      child: Builder(
-        builder: (BuildContext context) {
-          // Collect all profile states using context.select
-          final profileStates = context
-              .read<ProfilesProvider>()
-              .profiles
-              .map(
-                (cubit) => context.select<ProfileCubit, ProfileCubitState>(
-                  (_) => cubit.state,
-                ),
-              )
-              .toList();
+    return BlocProvider(
+      create: (_) => ThreadCubit(thread: thread),
+      child: BlocBuilder<ThreadCubit, ThreadCubitState>(
+        builder: (context, state) {
           return ListTile(
             leading: ProfileAvatars(
-              profiles: context
-                  .read<ProfilesProvider>()
-                  .profiles
-                  .where((c) => c.state.data != null)
-                  .map((c) => c.state.data!)
+              profiles: state.counterpartyStates
+                  .where((c) => c.data != null)
+                  .map((c) => c.data!)
                   .toList(),
             ),
-            title: Text('profiles'),
+            title: Text(
+              state.counterpartyStates
+                  .where((c) => c.data != null)
+                  .map((c) => c.data!.metadata.getName())
+                  .toList()
+                  .join(','),
+            ),
 
             subtitle: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

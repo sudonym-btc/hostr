@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
-import 'package:hostr/logic/cubit/profile.cubit.dart';
-import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/component/providers/nostr/thread.provider.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_content.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_reply.dart';
 import 'package:hostr/presentation/main.dart';
@@ -18,35 +15,18 @@ class ThreadView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: context.read<StreamWithStatus<Reservation>>().status,
+      stream: context.read<ThreadCubit>().reservations.status,
       builder: (context, reservationsSnapshot) {
         return Builder(
           builder: (context) {
-            final profileCubits = context
-                .read<
-                  ProfilesProvider
-                >(); // get your list of ProfileCubits from Provider or MultiProvider
-
-            // Collect all profile states using context.select
-            final profileStates = profileCubits.profiles
-                .map(
-                  (cubit) => context.select<ProfileCubit, ProfileCubitState>(
-                    (_) => cubit.state,
-                  ),
-                )
+            final threadCubit = context.read<ThreadCubit>();
+            final participants = threadCubit.participantCubits.values.toList();
+            final counterparties = threadCubit.counterpartyCubits.values
                 .toList();
-
-            final profilesReady = profileStates.every(
-              (profileState) =>
-                  profileState.active || profileState.data == null,
+            final profilesReady = participants.every(
+              (profileCubit) => profileCubit.state.data != null,
             );
-            final listingState = context
-                .select<EntityCubit<Listing>, EntityCubitState<Listing>>(
-                  (cubit) => cubit.state,
-                );
-            final _ = context.select<ThreadCubit, ThreadCubitState>(
-              (cubit) => cubit.state,
-            );
+            final listingState = context.read<ThreadCubit>().listingCubit.state;
 
             final isLoading =
                 !profilesReady ||
@@ -69,7 +49,9 @@ class ThreadView extends StatelessWidget {
             // When loaded successfully
             return ThreadReadyWidget(
               listing: listingState.data!,
-              counterparties: profileStates.map((e) => e.data!).toList(),
+              participants: participants.map((e) => e.state.data!).toList(),
+              counterparties: counterparties.map((e) => e.state.data!).toList(),
+              reservationsListStream: threadCubit.reservations.list,
             );
           },
         );
@@ -80,12 +62,16 @@ class ThreadView extends StatelessWidget {
 
 class ThreadReadyWidget extends StatelessWidget {
   final Listing listing;
+  final List<ProfileMetadata> participants;
   final List<ProfileMetadata> counterparties;
+  final Stream<List<Reservation>> reservationsListStream;
 
   const ThreadReadyWidget({
     super.key,
     required this.listing,
+    required this.participants,
     required this.counterparties,
+    required this.reservationsListStream,
   });
 
   @override
@@ -95,7 +81,7 @@ class ThreadReadyWidget extends StatelessWidget {
       body: Column(
         children: [
           StreamBuilder<List<Reservation>>(
-            stream: context.read<StreamWithStatus<Reservation>>().list,
+            stream: reservationsListStream,
             builder: (context, snapshot) {
               return ReservationStatusWidget(
                 reservation: Reservation.getSeniorReservation(
@@ -107,10 +93,7 @@ class ThreadReadyWidget extends StatelessWidget {
             },
           ),
           Expanded(
-            child: ThreadContent(
-              counterparties: counterparties,
-              listing: listing,
-            ),
+            child: ThreadContent(participants: participants, listing: listing),
           ),
           SafeArea(
             top: false,
