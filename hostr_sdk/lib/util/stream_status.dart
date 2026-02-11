@@ -233,16 +233,16 @@ class StreamWithStatus<T> {
     }
   }
 
-  void close() {
-    controller.close();
-    status.close();
-    _listSubject.close();
+  Future<void> close() async {
+    await controller.close();
+    await status.close();
+    await _listSubject.close();
     for (final sub in _subscriptions) {
-      sub.cancel();
+      await sub.cancel();
     }
-    _replaySubscription.cancel();
-    _replaySubject.close();
-    onClose?.call();
+    await _replaySubscription.cancel();
+    await _replaySubject.close();
+    await onClose?.call();
   }
 
   Map<String, dynamic> toJson() {

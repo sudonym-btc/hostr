@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -7,18 +8,18 @@ import 'package:models/main.dart';
 import 'message/reservation_request/reservation_request.dart';
 
 class ThreadContent extends StatelessWidget {
-  final List<ProfileMetadata> counterparties;
+  final List<ProfileMetadata> participants;
   final Listing listing;
   const ThreadContent({
     super.key,
-    required this.counterparties,
+    required this.participants,
     required this.listing,
   });
 
   @override
   Widget build(BuildContext context) {
-    final thread = context.read<Thread>();
-    final reservationsResponse = context.read<StreamWithStatus<Reservation>>();
+    final thread = context.read<ThreadCubit>().thread;
+    final reservationsResponse = context.read<ThreadCubit>().reservations;
 
     return StreamBuilder<List<Reservation>>(
       stream: reservationsResponse.list,
@@ -50,7 +51,7 @@ class ThreadContent extends StatelessWidget {
     Message message,
     List<Reservation> reservations,
   ) {
-    final counterparty = counterparties.firstWhere(
+    final counterparty = participants.firstWhere(
       (counterparty) => counterparty.pubKey == message.pubKey,
     );
 

@@ -46,10 +46,25 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
       return null;
     }
 
-    return validReservations.firstWhere(
-      (reservation) => reservation.pubKey == listing.pubKey,
-      orElse: () => validReservations.first,
-    );
+    // Sort to prefer (in order): host then guest, cancelled then non-cancelled reservations
+    validReservations.sort((a, b) {
+      int score(Reservation r) {
+        final isHost = r.pubKey == listing.pubKey;
+        final isCancelled = r.parsedContent.cancelled;
+        return [isCancelled, isHost].where((a) => a).length;
+      }
+
+      final sa = score(a);
+      final sb = score(b);
+      if (sa != sb) return sa - sb;
+
+      // If same score, prefer the most recent event
+      final at = DateTime.fromMillisecondsSinceEpoch(a.createdAt * 1000);
+      final bt = DateTime.fromMillisecondsSinceEpoch(b.createdAt * 1000);
+      return bt.compareTo(at);
+    });
+
+    return validReservations.first;
   }
 
   static validate(Reservation reservation, Listing listing) {
@@ -111,11 +126,13 @@ class ReservationContent extends EventContent {
   /// Only the guest knows the salt, allowing them to prove participation by revealing it.
   /// Each reservation has a unique random salt, preventing linking across reservations.
   final String guestCommitmentHash;
+  final bool cancelled;
 
   ReservationContent({
     required this.start,
     required this.end,
     required this.guestCommitmentHash,
+    this.cancelled = false,
     this.proof,
   });
 
@@ -126,18 +143,19 @@ class ReservationContent extends EventContent {
       "end": end.toIso8601String(),
       "guestCommitmentHash": guestCommitmentHash,
       "proof": proof?.toJson(),
+      "cancelled": cancelled
     };
   }
 
   static ReservationContent fromJson(Map<String, dynamic> json) {
     return ReservationContent(
-      start: DateTime.parse(json["start"]),
-      end: DateTime.parse(json["end"]),
-      guestCommitmentHash: json["guestCommitmentHash"] ?? '',
-      proof: json["proof"] != null
-          ? SelfSignedProof.fromJson(json["proof"])
-          : null,
-    );
+        start: DateTime.parse(json["start"]),
+        end: DateTime.parse(json["end"]),
+        guestCommitmentHash: json["guestCommitmentHash"] ?? '',
+        proof: json["proof"] != null
+            ? SelfSignedProof.fromJson(json["proof"])
+            : null,
+        cancelled: json["cancelled"]);
   }
 }
 
@@ -177,26 +195,23 @@ class SelfSignedProof {
 }
 
 class EscrowProof {
-  String method;
-  String chainId;
-  String txHash;
+  final String txHash;
 
+  final EscrowService service;
   // Signed list of trusted escrows by hoster
-  EscrowTrust hostsTrustedEscrows;
-  EscrowMethod hostsEscrowMethods;
+  final EscrowTrust hostsTrustedEscrows;
+  final EscrowMethod hostsEscrowMethods;
 
   EscrowProof(
-      {required this.method,
-      required this.chainId,
-      required this.txHash,
+      {required this.txHash,
       required this.hostsTrustedEscrows,
-      required this.hostsEscrowMethods});
+      required this.hostsEscrowMethods,
+      required this.service});
 
   toJson() {
     return {
-      "method": method,
-      "chainId": chainId,
       "txHash": txHash,
+      "escrowService": service,
       "hostsEscrowMethods": hostsEscrowMethods.toString(),
       "hostsTrustedEscrows": hostsTrustedEscrows.toString(),
     };
@@ -245,8 +260,8 @@ class EscrowProof {
 
   static fromJson(Map<String, dynamic> json) {
     return EscrowProof(
-      method: json["method"],
-      chainId: json["chainId"],
+      service: EscrowService.fromNostrEvent(
+          Nip01EventModel.fromJson(jsonDecode(json["service"]))),
       txHash: json['txHash'],
       hostsEscrowMethods: EscrowMethod.fromNostrEvent(
           Nip01EventModel.fromJson(jsonDecode(json["hostsEscrowMethods"]))),
@@ -257,8 +272,7 @@ class EscrowProof {
 }
 
 class ZapProof {
-  ZapReceipt receipt;
-
+  final ZapReceipt receipt;
   ZapProof({required this.receipt});
 
   toJson() {
@@ -269,7 +283,7 @@ class ZapProof {
 
   static fromJson(Map<String, dynamic> json) {
     return ZapProof(
-      receipt: ZapReceipt.fromEvent(Nip01EventModel.fromJson(json["receipt"])),
-    );
+        receipt:
+            ZapReceipt.fromEvent(Nip01EventModel.fromJson(json["receipt"])));
   }
 }

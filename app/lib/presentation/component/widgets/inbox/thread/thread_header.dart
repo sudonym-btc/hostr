@@ -46,7 +46,6 @@ class ProfileAvatars extends StatelessWidget {
   const ProfileAvatars({super.key, required this.profiles});
   @override
   Widget build(BuildContext context) {
-    print(profiles);
     return SizedBox(
       height: 40, // Adjust as needed for avatar size
       width: 40,

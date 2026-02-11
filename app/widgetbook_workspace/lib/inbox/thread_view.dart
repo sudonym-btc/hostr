@@ -44,29 +44,8 @@ Widget threadViewScenario(BuildContext context) {
   final profileCubit = ProfileCubit(metadataUseCase: getIt<Hostr>().metadata)
     ..emit(ProfileCubitState(data: counterpartyMetadata, active: false));
 
-  return MultiRepositoryProvider(
-    providers: [
-      RepositoryProvider<Thread>.value(value: thread),
-      RepositoryProvider<StreamWithStatus<Reservation>>.value(
-        value: reservationsStream,
-      ),
-    ],
-    child: MultiBlocProvider(
-      providers: [
-        BlocProvider<ThreadCubit>(
-          create: (_) => ThreadCubit(
-            ThreadCubitState(
-              id: scenario.threadAnchor,
-              messages: thread.messages,
-            ),
-            nostrService: getIt<Hostr>(),
-            thread: thread,
-          ),
-        ),
-        BlocProvider<EntityCubit<Listing>>.value(value: listingCubit),
-        BlocProvider<ProfileCubit>.value(value: profileCubit),
-      ],
-      child: const ThreadView(),
-    ),
+  return BlocProvider<ThreadCubit>(
+    create: (_) => ThreadCubit(thread: thread),
+    child: const ThreadView(),
   );
 }

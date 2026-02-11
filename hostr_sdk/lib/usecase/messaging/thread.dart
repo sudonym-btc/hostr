@@ -21,7 +21,7 @@ class Thread {
     _messagesStreamController.add(List<Message>.unmodifiable(messages));
   }
 
-  List<String> counterpartyPubkeys() {
+  List<String> participantPubkeys() {
     final pubkeys = <String>{};
     for (final msg in messages) {
       pubkeys.add(msg.pubKey);
@@ -29,7 +29,11 @@ class Thread {
         pubkeys.addAll(msg.pTags);
       }
     }
-    return pubkeys
+    return pubkeys.toList();
+  }
+
+  List<String> counterpartyPubkeys() {
+    return participantPubkeys()
         .where((pubkey) => pubkey != accounts.getPublicKey())
         .toList();
   }
