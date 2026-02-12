@@ -1,16 +1,17 @@
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' hide Requests;
 
-import '../auth/auth.dart';
-import '../requests/requests.dart';
-
 @Singleton()
-class MetadataUseCase {
-  Requests requests;
+class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   Auth auth;
-  MetadataUseCase({required this.auth, required this.requests});
+  MetadataUseCase({
+    required this.auth,
+    required super.requests,
+    required super.logger,
+  }) : super(kind: Metadata.kKind);
 
   Future<ProfileMetadata?> loadMetadata(String pubkey) async {
     List<Nip01Event> metadatas = await requests

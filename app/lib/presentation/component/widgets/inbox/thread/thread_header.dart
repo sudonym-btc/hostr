@@ -55,7 +55,7 @@ class ProfileAvatars extends StatelessWidget {
               (counterparty) => Positioned(
                 left:
                     profiles.indexOf(counterparty) *
-                    8.0, // 8 pixels offset for each
+                    12.0, // 8 pixels offset for each
                 child: CircleAvatar(
                   radius: 20,
                   backgroundImage: counterparty.metadata.picture != null

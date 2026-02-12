@@ -11,38 +11,7 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    return
-    // MultiBlocListener(
-    //   listeners: [
-    // BlocListener<PaymentsManager, PaymentsState>(
-    //   listener: (c, state) {
-    //     if (state.payments.isEmpty) return;
-    //     final latest = state.payments.reduce(
-    //       (a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b,
-    //     );
-    //     final cubit = context.read<PaymentsManager>().cubitFor(latest.id);
-    //     if (cubit == null) return;
-    //     showModalBottomSheet(
-    //       context: context,
-    //       builder: (c) {
-    //         return SafeArea(child: PaymentWidget(paymentCubit: cubit));
-    //       },
-    //     );
-    //   },
-    // ),
-    // BlocListener<SwapManager, SwapState>(
-    //   listener: (context, state) {
-    //     // Handle SwapManager state changes
-    //   },
-    // ),
-    // BlocListener<EscrowDepositManager, EscrowDepositState>(
-    //   listener: (context, state) {
-    //     // Handle EscrowDepositManager state changes
-    //   },
-    // ),
-    // ],
-    // child:
-    BlocBuilder<ModeCubit, ModeCubitState>(
+    return BlocBuilder<ModeCubit, ModeCubitState>(
       builder: (context, state) {
         if (state is HostMode) {
           const hostTabs = [

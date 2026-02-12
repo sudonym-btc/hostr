@@ -123,14 +123,8 @@ class Reservations extends CrudUseCase<Reservation> {
   Future<Reservation> createSelfSigned({
     required String threadId,
     required ReservationRequest reservationRequest,
-    required Listing listing,
-    required ProfileMetadata hoster,
-    ZapProof? zapProof,
-    EscrowProof? escrowProof,
+    required SelfSignedProof proof,
   }) async {
-    if (zapProof == null && escrowProof == null) {
-      throw Exception('Must provide payment proof');
-    }
     String commitment = GuestParticipationProof.computeCommitmentHash(
       auth.activeKeyPair!.publicKey,
       reservationRequest.parsedContent.salt,
@@ -143,21 +137,17 @@ class Reservations extends CrudUseCase<Reservation> {
         start: reservationRequest.parsedContent.start,
         end: reservationRequest.parsedContent.end,
         guestCommitmentHash: commitment,
-        proof: SelfSignedProof(
-          hoster: hoster,
-          listing: listing,
-          zapProof: zapProof,
-          escrowProof: escrowProof,
-        ),
+        proof: proof,
       ),
       pubKey: randomKeyPair.publicKey,
       tags: [
-        [kListingRefTag, listing.anchor!],
+        [kListingRefTag, proof.listing.anchor!],
         [kThreadRefTag, threadId],
+        [kCommitmentHashTag, commitment],
       ],
-    )..commitmentHash = commitment;
-    reservation.signAs(randomKeyPair, Reservation.fromNostrEvent);
-    await create(reservation);
+    );
+
+    await create(reservation.signAs(randomKeyPair, Reservation.fromNostrEvent));
     logger.d(reservation);
     return reservation;
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
+import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -25,12 +26,12 @@ class ThreadContent extends StatelessWidget {
       stream: reservationsResponse.list,
       builder: (context, reservationsSnapshot) {
         return StreamBuilder<List<Message>>(
-          stream: thread.outputStream,
+          stream: thread.messages.list,
           builder: (context, s) {
             return ListView.builder(
-              itemCount: thread.messages.length,
+              itemCount: thread.messages.list.value.length,
               itemBuilder: (listContext, index) {
-                final message = thread.messages[index];
+                final message = thread.messages.list.value[index];
                 return _buildMessage(
                   context,
                   thread,
@@ -57,6 +58,8 @@ class ThreadContent extends StatelessWidget {
 
     if (message.child == null) {
       return ThreadMessageWidget(counterparty: counterparty, item: message);
+    } else if (message.child is EscrowServiceSelected) {
+      return CustomPadding(child: Text('User selected an escrow'));
     } else if (message.child is ReservationRequest) {
       return ThreadReservationRequestWidget(
         counterparty: counterparty,

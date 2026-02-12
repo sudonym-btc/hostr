@@ -18,6 +18,12 @@ class CrudUseCase<T extends Nip01Event> {
     required this.logger,
   });
 
+  StreamWithStatus<T> subscribe(Filter f) {
+    return requests.subscribe(
+      filter: getCombinedFilter(f, Filter(kinds: [kind])),
+    );
+  }
+
   Future<List<RelayBroadcastResponse>> create(T event) {
     return requests.broadcast(event: event);
   }
@@ -40,6 +46,10 @@ class CrudUseCase<T extends Nip01Event> {
     return requests
         .query<T>(filter: getCombinedFilter(f, Filter(kinds: [kind], limit: 1)))
         .first;
+  }
+
+  Future<T?> getOneByDTag(String d) {
+    return getOne(Filter(dTags: [d]));
   }
 
   Future<T> getById(String id) {

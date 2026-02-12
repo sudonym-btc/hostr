@@ -43,12 +43,6 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
         children: [
-          ListingListItemWidget(
-            listing: listing,
-            showPrice: false,
-            showFeedback: false,
-            smallImage: true,
-          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,

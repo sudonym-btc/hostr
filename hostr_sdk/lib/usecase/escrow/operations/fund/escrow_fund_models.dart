@@ -19,7 +19,7 @@ class EscrowFundParams {
 
   ContractFundEscrowParams toContractParams(EthPrivateKey ethKey) {
     return ContractFundEscrowParams(
-      tradeId: reservationRequest.id,
+      tradeId: reservationRequest.getDtag()!,
       amount: BitcoinAmount.fromAmount(amount),
       sellerEvmAddress: sellerProfile.evmAddress!,
       arbiterEvmAddress: escrowService.parsedContent.evmAddress,

@@ -93,11 +93,15 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
     List<FilterEvent> logStore = [];
 
+    print('Setting up funded events stream with filter: ${eventFilter.topics}');
+
     return StreamWithStatus<FundedEvent>(
       queryFn: () => contract.client
           .getLogs(eventFilter)
           .then((logs) {
             logStore = logs;
+            print("TRADED EVENTS");
+            print(logs);
             return logs;
           })
           .asStream()
