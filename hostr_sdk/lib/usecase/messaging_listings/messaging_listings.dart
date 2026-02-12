@@ -7,7 +7,7 @@ class MessagingListings {
 
   static String getThreadListing({required Thread thread}) {
     ReservationRequest? r =
-        (thread.messages.firstWhere((element) {
+        (thread.messages.list.value.firstWhere((element) {
               return element.child is ReservationRequest;
             }).child
             as ReservationRequest);

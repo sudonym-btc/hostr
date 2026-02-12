@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
@@ -12,7 +13,7 @@ class Messaging {
   final Ndk ndk;
   final Requests requests;
   final CustomLogger logger;
-  late final Threads threads = Threads(this, requests, ndk, logger);
+  Threads get threads => getIt<Threads>();
   Messaging(this.ndk, this.requests, this.logger);
 
   Future<Nip01Event> getRumour(

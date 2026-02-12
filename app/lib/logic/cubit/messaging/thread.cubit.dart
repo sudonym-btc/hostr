@@ -14,16 +14,14 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   final Thread thread;
   final Map<String, ProfileCubit> participantCubits;
   late final Map<String, ProfileCubit> counterpartyCubits;
-  // final PaymentStatusCubit paymentStatus;
   final EntityCubit<Listing> listingCubit;
-  final StreamWithStatus<Reservation> reservations;
+  StreamWithStatus<Reservation> get reservations => thread.reservationStream;
+  StreamWithStatus<SelfSignedProof> get paymentStatus => thread.paymentStream;
   final List<StreamSubscription> _subscriptions = [];
 
   ThreadCubit({required this.thread})
-    // : paymentStatus = PaymentStatusCubit(MessagingListings.getThreadListing(thread: thread), reservationRequest)..sync(),
     : participantCubits = Map.fromEntries(
-        thread
-            .participantPubkeys()
+        thread.participantPubkeys
             .map(
               (pubkey) => MapEntry(
                 pubkey,
@@ -32,17 +30,6 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
               ),
             )
             .toList(),
-      ),
-      reservations = getIt<Hostr>().requests.subscribe<Reservation>(
-        filter: Filter(
-          kinds: Reservation.kinds,
-          tags: {
-            kListingRefTag: [
-              MessagingListings.getThreadListing(thread: thread),
-            ],
-            kThreadRefTag: [thread.anchor],
-          },
-        ),
       ),
       listingCubit = EntityCubit<Listing>(
         crud: getIt<Hostr>().listings,
@@ -55,7 +42,13 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
           ],
         ),
       )..get(),
-      super(ThreadCubitState(counterpartyStates: [], reservations: [])) {
+      super(
+        ThreadCubitState(
+          counterpartyStates: [],
+          participantStates: [],
+          reservations: [],
+        ),
+      ) {
     // Build counterparty cubits from participantCubits but ignore our own key
     final ourPubkey = getIt<Hostr>().auth.activeKeyPair?.publicKey;
     counterpartyCubits = Map<String, ProfileCubit>.from(participantCubits);
@@ -73,19 +66,20 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
     _subscriptions.add(
       reservations.list.listen((rs) => _emitNewState(reservations: rs)),
     );
-
-    print(thread.counterpartyPubkeys());
-    print("COUNTERPARTIES: ${counterpartyCubits.keys}");
   }
 
   // emit helper
   void _emitNewState({List<Reservation>? reservations}) {
     print('emitting new state');
-    final states = counterpartyCubits.values.map((c) => c.state).toList();
     emit(
       ThreadCubitState(
         reservations: reservations ?? state.reservations,
-        counterpartyStates: states,
+        participantStates: participantCubits.values
+            .map((c) => c.state)
+            .toList(),
+        counterpartyStates: counterpartyCubits.values
+            .map((c) => c.state)
+            .toList(),
       ),
     );
   }
@@ -101,15 +95,18 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
     for (final s in _subscriptions) {
       await s.cancel();
     }
+    await paymentStatus?.close();
   }
 }
 
 class ThreadCubitState {
   final List<Reservation> reservations;
+  final List<ProfileCubitState> participantStates;
   final List<ProfileCubitState> counterpartyStates;
 
   ThreadCubitState({
     required this.reservations,
+    required this.participantStates,
     required this.counterpartyStates,
   });
 }

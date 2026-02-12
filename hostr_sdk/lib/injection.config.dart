@@ -34,6 +34,8 @@ import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
 import 'package:hostr_sdk/usecase/location/location.dart' as _i56;
 import 'package:hostr_sdk/usecase/main.dart' as _i474;
 import 'package:hostr_sdk/usecase/messaging/messaging.dart' as _i1019;
+import 'package:hostr_sdk/usecase/messaging/thread.dart' as _i470;
+import 'package:hostr_sdk/usecase/messaging/threads.dart' as _i768;
 import 'package:hostr_sdk/usecase/metadata/metadata.dart' as _i149;
 import 'package:hostr_sdk/usecase/nwc/nwc.dart' as _i588;
 import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart'
@@ -171,6 +173,13 @@ extension GetItInjectableX on _i174.GetIt {
           _i124.Bolt11PayOperation(params: params, nwc: gh<_i474.Nwc>()),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.singleton<_i149.MetadataUseCase>(
+      () => _i149.MetadataUseCase(
+        auth: gh<_i520.Auth>(),
+        requests: gh<_i520.Requests>(),
+        logger: gh<_i520.CustomLogger>(),
+      ),
+    );
     gh.singleton<_i943.EscrowTrusts>(
       () => _i943.EscrowTrusts(
         requests: gh<_i1014.Requests>(),
@@ -186,7 +195,7 @@ extension GetItInjectableX on _i174.GetIt {
       ),
     );
     gh.singleton<_i1045.Zaps>(
-      () => _i1045.Zaps(nwc: gh<_i588.Nwc>(), ndk: gh<_i857.Ndk>()),
+      () => _i1045.Zaps(nwc: gh<_i520.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i883.Relays>(
@@ -196,12 +205,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
       registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i149.MetadataUseCase>(
-      () => _i149.MetadataUseCase(
-        auth: gh<_i1000.Auth>(),
-        requests: gh<_i1014.Requests>(),
-      ),
     );
     gh.singleton<_i92.BadgeAwards>(
       () => _i92.BadgeAwards(
@@ -258,7 +261,7 @@ extension GetItInjectableX on _i174.GetIt {
       ),
     );
     gh.singleton<_i1045.Zaps>(
-      () => _i1045.MockZaps(nwc: gh<_i588.Nwc>(), ndk: gh<_i857.Ndk>()),
+      () => _i1045.MockZaps(nwc: gh<_i520.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
     );
     gh.singleton<_i326.Reservations>(
@@ -271,9 +274,31 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i226.Payments>(
       () => _i226.Payments(
-        zaps: gh<_i1045.Zaps>(),
-        nwc: gh<_i588.Nwc>(),
-        logger: gh<_i331.CustomLogger>(),
+        zaps: gh<_i520.Zaps>(),
+        nwc: gh<_i520.Nwc>(),
+        logger: gh<_i520.CustomLogger>(),
+        escrow: gh<_i520.EscrowUseCase>(),
+      ),
+    );
+    gh.factoryParam<_i470.Thread, String, dynamic>(
+      (anchor, _) => _i470.Thread(
+        anchor,
+        auth: gh<_i520.Auth>(),
+        messaging: gh<_i520.Messaging>(),
+        zaps: gh<_i520.Zaps>(),
+        reservations: gh<_i520.Reservations>(),
+        listings: gh<_i520.Listings>(),
+        metadata: gh<_i520.MetadataUseCase>(),
+        escrow: gh<_i520.EscrowUseCase>(),
+      ),
+    );
+    gh.singleton<_i768.Threads>(
+      () => _i768.Threads(
+        messaging: gh<_i1019.Messaging>(),
+        requests: gh<_i1014.Requests>(),
+        auth: gh<_i1000.Auth>(),
+        logger: gh<_i372.CustomLogger>(),
+        payments: gh<_i226.Payments>(),
       ),
     );
     return this;

@@ -1,15 +1,16 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/escrows/escrows.dart';
 import 'package:models/main.dart';
 
 class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
-  ReservationRequest reservationRequest;
-  ProfileMetadata counterparty;
+  final ReservationRequest reservationRequest;
+  final ProfileMetadata counterparty;
+  final Function(EscrowService) onDone;
   EscrowSelectorCubit({
     required this.reservationRequest,
     required this.counterparty,
+    required this.onDone,
   }) : super(EscrowSelectorLoading());
 
   void load() async {
@@ -35,6 +36,28 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
     } catch (e, stackTrace) {
       print(stackTrace);
       emit(EscrowSelectorError('Failed to load escrows: $e'));
+    }
+  }
+
+  Future<void> select() async {
+    if (state is EscrowSelectorLoaded) {
+      final loadedState = state as EscrowSelectorLoaded;
+      await getIt<Hostr>()
+          .messaging
+          .threads
+          .threads[reservationRequest.anchor!]!
+          .replyEvent(
+            EscrowServiceSelected(
+              pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+              tags: [],
+              content: EscrowServiceSelectedContent(
+                service: loadedState.selectedEscrow,
+                sellerTrusts: loadedState.result.hostTrust,
+                sellerMethods: loadedState.result.hostMethod,
+              ),
+            ),
+          );
+      onDone(loadedState.selectedEscrow);
     }
   }
 }

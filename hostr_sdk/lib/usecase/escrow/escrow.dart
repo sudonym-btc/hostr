@@ -1,7 +1,6 @@
 import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 import '../../util/main.dart';
 import '../auth/auth.dart';
@@ -33,66 +32,35 @@ class EscrowUseCase {
   }
 
   StreamWithStatus<FundedEvent> checkEscrowStatus(
+    EscrowServiceSelected selectedEscrow,
     String tradeId,
-    String counterpartyPubkey,
   ) {
     logger.i('Checking escrow status for reservation: $tradeId');
 
-    Future<List<String>> getBothTrustedEscrows() async {
-      EscrowTrust? myTrustedEscrows = await escrowTrusts.trusted(
-        auth.activeKeyPair!.publicKey,
+    try {
+      final contract = evm
+          .getChainForEscrowService(selectedEscrow.parsedContent.service)
+          .getSupportedEscrowContract(selectedEscrow.parsedContent.service);
+      return contract.fundedEvents(tradeId);
+    } catch (e) {
+      logger.e(
+        'Error getting supported escrow contract for ${selectedEscrow.parsedContent.service}',
+        error: e,
       );
-      EscrowTrust? theirTrustedEscrows = await escrowTrusts.trusted(
-        counterpartyPubkey,
-      );
-
-      final myTrustedList = myTrustedEscrows == null
-          ? null
-          : await myTrustedEscrows.toNip51List();
-      final theirTrustedList = theirTrustedEscrows == null
-          ? null
-          : await theirTrustedEscrows.toNip51List();
-
-      final trustedEscrowPubkeys = <String>{
-        ...(myTrustedList?.elements ?? []).map((e) => e.value),
-        ...(theirTrustedList?.elements ?? []).map((e) => e.value),
-      }.toList();
-
-      if (trustedEscrowPubkeys.isEmpty) {
-        logger.w('No trusted escrows for either party.');
-      }
-      return trustedEscrowPubkeys;
+      rethrow;
     }
+  }
 
-    Future<List<SupportedEscrowContract>> getSubscribableContracts() async {
-      final supportedContracts = <String, SupportedEscrowContract>{};
-      List<String> escrowPubkeys = await getBothTrustedEscrows();
-      for (String item in escrowPubkeys) {
-        List<EscrowService> escrowServices = await escrows.list(
-          Filter(authors: [item]),
-        );
-        for (var escrow in escrowServices) {
-          try {
-            final contract = evm
-                .getChainForEscrowService(escrow)
-                .getSupportedEscrowContract(escrow);
-            supportedContracts[contract.address.toString()] = contract;
-          } catch (e) {
-            logger.e(
-              'Error getting supported escrow contract for ${escrow.id}',
-              error: e,
-            );
-          }
-        }
-      }
-      return supportedContracts.values.toList();
-    }
-
-    return StreamWithStatus.combineAsync(
-      getSubscribableContracts().then(
-        (contracts) => contracts
-            .map((contract) => contract.fundedEvents(tradeId))
-            .toList(),
+  StreamWithStatus<EscrowProof> getEscrowProof(
+    EscrowServiceSelected selectedEscrow,
+    String tradeId,
+  ) {
+    return checkEscrowStatus(selectedEscrow, tradeId).map(
+      (fundedEvent) => EscrowProof(
+        txHash: fundedEvent.transactionHash,
+        hostsTrustedEscrows: selectedEscrow.parsedContent.sellerTrusts,
+        hostsEscrowMethods: selectedEscrow.parsedContent.sellerMethods,
+        escrowService: selectedEscrow.parsedContent.service,
       ),
     );
   }

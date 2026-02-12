@@ -1,20 +1,26 @@
 import 'dart:async';
 
+import 'package:hostr_sdk/injection.dart';
+import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Ndk, Filter, GiftWrap, Nip01EventModel;
+import 'package:ndk/ndk.dart' show Filter, GiftWrap, Nip01EventModel;
 import 'package:rxdart/rxdart.dart';
 
 import '../../util/main.dart';
+import '../payments/payments.dart';
 import '../requests/requests.dart';
 import 'messaging.dart';
 import 'thread.dart';
 
+@Singleton()
 class Threads extends HydratedCubit<List<Message>> {
   final CustomLogger logger;
   final Messaging messaging;
   final Requests requests;
-  final Ndk ndk;
+  final Payments payments;
+  final Auth auth;
 
   final StreamController<Thread> threadController = StreamController<Thread>();
   Stream<Thread> get threadStream => threadController.stream;
@@ -29,13 +35,19 @@ class Threads extends HydratedCubit<List<Message>> {
   StreamSubscription<StreamStatus>? _statusSubscription;
   StreamSubscription<Message>? _messageSubscription;
 
-  Threads(this.messaging, this.requests, this.ndk, this.logger) : super([]);
+  Threads({
+    required this.messaging,
+    required this.requests,
+    required this.auth,
+    required this.logger,
+    required this.payments,
+  }) : super([]);
 
   void sync() {
     _closeSubscription();
     _rebuildThreadsFromMessages(state);
 
-    final myPubkey = ndk.accounts.getPublicKey();
+    final myPubkey = auth.activeKeyPair?.publicKey;
     if (myPubkey == null) {
       throw Exception('No active account found for subscribing to gift-wraps.');
     }
@@ -90,10 +102,10 @@ class Threads extends HydratedCubit<List<Message>> {
     String? id = message.threadAnchor;
 
     if (threads[id] == null) {
-      threads[id] = Thread(id, messaging: messaging, accounts: ndk.accounts);
+      threads[id] = getIt<Thread>(param1: id);
       threadController.add(threads[id]!);
     }
-    threads[id]!.addMessage(message);
+    threads[id]!.messages.add(message);
     emit([...state, message]);
   }
 

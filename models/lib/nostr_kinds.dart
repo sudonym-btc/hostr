@@ -5,6 +5,7 @@ const kNostrKindReview = 32124;
 const kNostrKindEscrowService = 40021;
 const kNostrKindEscrowTrust = 30300;
 const kNostrKindEscrowMethod = 30301;
+const kNostrKindEscrowServiceSelected = 30302;
 
 const kNostrKindProfile = 0;
 const kNostrKindDM = 14;
@@ -37,3 +38,4 @@ const kNostrKindProfileBadges = 30008;
 const kReservationRefTag = "r";
 const kThreadRefTag = "t";
 const kListingRefTag = "l";
+const kCommitmentHashTag = "h";

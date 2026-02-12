@@ -14,8 +14,8 @@ class InboxItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastDateTime = thread.getLastDateTime();
-    final subtitle = Text(thread.isLastMessageOurs() ? 'Sent' : 'Received');
+    final lastDateTime = thread.getLastDateTime;
+    final subtitle = Text(thread.isLastMessageOurs ? 'Sent' : 'Received');
 
     return BlocProvider(
       create: (_) => ThreadCubit(thread: thread),
@@ -33,7 +33,7 @@ class InboxItem extends StatelessWidget {
                   .where((c) => c.data != null)
                   .map((c) => c.data!.metadata.getName())
                   .toList()
-                  .join(','),
+                  .join(', '),
             ),
 
             subtitle: Row(

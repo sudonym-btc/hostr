@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 import '../../modal_bottom_sheet.dart';
+import '../escrow/fund/escrow_fund.dart';
 import 'escrow_selector/escrow_selector.cubit.dart';
 import 'escrow_selector/escrow_selector.dart';
 import 'payment_method.cubit.dart';
@@ -29,6 +29,32 @@ class PaymentMethodWidget extends StatelessWidget {
             create: (context) => EscrowSelectorCubit(
               counterparty: counterparty,
               reservationRequest: reservationRequest,
+              onDone: (selectedEscrow) {
+                Navigator.of(context).pop();
+                showModalBottomSheet(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return BlocProvider<EscrowFundOperation>(
+                      create: (BuildContext context) =>
+                          getIt<Hostr>().escrow.fund(
+                            EscrowFundParams(
+                              reservationRequest: reservationRequest,
+                              amount: reservationRequest.parsedContent.amount,
+                              sellerProfile: counterparty,
+                              escrowService: selectedEscrow,
+                            ),
+                          ),
+                      child: Builder(
+                        builder: (context) {
+                          return EscrowFundWidget(
+                            cubit: context.read<EscrowFundOperation>(),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
             )..load(),
           ),
           BlocProvider<PaymentMethodCubit>(
@@ -60,36 +86,8 @@ class PaymentMethodWidget extends StatelessWidget {
                         return Text(state.message);
                       case EscrowSelectorLoaded():
                         return FilledButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            showModalBottomSheet(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return BlocProvider<EscrowFundOperation>(
-                                  create: (BuildContext context) =>
-                                      getIt<Hostr>().escrow.fund(
-                                        EscrowFundParams(
-                                          reservationRequest:
-                                              reservationRequest,
-                                          amount: reservationRequest
-                                              .parsedContent
-                                              .amount,
-                                          sellerProfile: counterparty,
-                                          escrowService: state.selectedEscrow,
-                                        ),
-                                      ),
-                                  child: Builder(
-                                    builder: (context) {
-                                      return EscrowFundWidget(
-                                        cubit: context
-                                            .read<EscrowFundOperation>(),
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
-                            );
-                          },
+                          onPressed: () =>
+                              context.read<EscrowSelectorCubit>().select(),
                           child: const Text('Use Escrow'),
                         );
                       default:

@@ -54,142 +54,19 @@ class StreamWithStatus<T> {
     Stream<T> Function()? queryFn,
     Stream<T> Function()? liveFn,
   }) {
-    _replaySubscription = controller.stream.listen(
-      _replaySubject.add,
-      onError: _replaySubject.addError,
-      onDone: _replaySubject.close,
-    );
+    _setupReplay();
 
     if (queryFn != null || liveFn != null) {
       _init(queryFn: queryFn, liveFn: liveFn);
     }
   }
 
-  static StreamWithStatus<T> combineAll<T>(
-    Iterable<StreamWithStatus<T>> streams, {
-    bool closeInner = true,
-  }) {
-    final combined = StreamWithStatus<T>();
-    final streamList = streams.toList();
-
-    if (streamList.isEmpty) {
-      combined.addStatus(StreamStatusLive());
-      return combined;
-    }
-
-    final statusMap = List<StreamStatus>.generate(
-      streamList.length,
-      (index) => streamList[index].status.value,
+  void _setupReplay() {
+    _replaySubscription = controller.stream.listen(
+      _replaySubject.add,
+      onError: _replaySubject.addError,
+      onDone: _replaySubject.close,
     );
-
-    void recomputeStatus() {
-      StreamStatusError? errorStatus;
-      for (final status in statusMap) {
-        if (status is StreamStatusError) {
-          errorStatus = status;
-          break;
-        }
-      }
-      if (errorStatus != null) {
-        combined.addStatus(
-          StreamStatusError(errorStatus.error, errorStatus.stackTrace),
-        );
-        return;
-      }
-      if (statusMap.any((s) => s is StreamStatusQuerying)) {
-        combined.addStatus(StreamStatusQuerying());
-        return;
-      }
-      if (statusMap.any((s) => s is StreamStatusLive)) {
-        combined.addStatus(StreamStatusLive());
-        return;
-      }
-      if (statusMap.any((s) => s is StreamStatusQueryComplete)) {
-        combined.addStatus(StreamStatusQueryComplete());
-        return;
-      }
-      combined.addStatus(StreamStatusIdle());
-    }
-
-    final streamSubscriptions = <StreamSubscription>[],
-        statusSubscriptions = <StreamSubscription>[];
-
-    for (var i = 0; i < streamList.length; i++) {
-      final current = streamList[i];
-      streamSubscriptions.add(
-        current.stream.listen(combined.add, onError: combined.addError),
-      );
-      statusSubscriptions.add(
-        current.status.listen((status) {
-          statusMap[i] = status;
-          recomputeStatus();
-        }, onError: combined.addError),
-      );
-    }
-
-    recomputeStatus();
-
-    combined.onClose = () {
-      for (final sub in streamSubscriptions) {
-        sub.cancel();
-      }
-      for (final sub in statusSubscriptions) {
-        sub.cancel();
-      }
-      if (closeInner) {
-        for (final stream in streamList) {
-          stream.close();
-        }
-      }
-    };
-
-    return combined;
-  }
-
-  static StreamWithStatus<T> combineAsync<T>(
-    Future<Iterable<StreamWithStatus<T>>> streamsFuture, {
-    bool closeInner = true,
-  }) {
-    final combined = StreamWithStatus<T>();
-    combined.addStatus(StreamStatusQuerying());
-
-    StreamWithStatus<T>? innerCombined;
-    StreamSubscription<T>? innerStreamSub;
-    StreamSubscription<StreamStatus>? innerStatusSub;
-
-    streamsFuture
-        .then((streams) {
-          innerCombined = StreamWithStatus.combineAll(
-            streams,
-            closeInner: closeInner,
-          );
-          innerStreamSub = innerCombined!.stream.listen(
-            combined.add,
-            onError: combined.addError,
-          );
-          innerStatusSub = innerCombined!.status.listen(
-            combined.addStatus,
-            onError: combined.addError,
-          );
-        })
-        .catchError((error, stackTrace) {
-          combined.addError(error, stackTrace);
-        });
-
-    combined.onClose = () {
-      innerStreamSub?.cancel();
-      innerStatusSub?.cancel();
-      innerCombined?.close();
-    };
-
-    return combined;
-  }
-
-  StreamWithStatus<T> combineWith(
-    StreamWithStatus<T> other, {
-    bool closeInner = true,
-  }) {
-    return StreamWithStatus.combineAll([this, other], closeInner: closeInner);
   }
 
   void _init({Stream<T> Function()? queryFn, Stream<T> Function()? liveFn}) {
@@ -233,6 +110,67 @@ class StreamWithStatus<T> {
     }
   }
 
+  StreamWithStatus<R> map<R>(
+    R Function(T item) mapper, {
+    bool closeInner = false,
+  }) {
+    final mapped = StreamWithStatus<R>();
+
+    StreamSubscription<T>? dataSub;
+    StreamSubscription<StreamStatus>? statusSub;
+
+    dataSub = stream.listen((item) {
+      try {
+        mapped.add(mapper(item));
+      } catch (error, stackTrace) {
+        mapped.addError(error, stackTrace);
+      }
+    }, onError: (error, stackTrace) => mapped.addError(error, stackTrace));
+    statusSub = status.listen(
+      mapped.addStatus,
+      onError: (error, stackTrace) => mapped.addError(error, stackTrace),
+    );
+
+    mapped.onClose = () async {
+      await dataSub?.cancel();
+      await statusSub?.cancel();
+      if (closeInner) {
+        await close();
+      }
+    };
+
+    return mapped;
+  }
+
+  // @todo: suspect a status update would emit before the async mapper completes. Could be problem if trying to get stream result when listening to status changes
+  StreamWithStatus<R> asyncMap<R>(
+    Future<R> Function(T item) mapper, {
+    bool closeInner = false,
+  }) {
+    final mapped = StreamWithStatus<R>();
+
+    StreamSubscription<R>? dataSub;
+    StreamSubscription<StreamStatus>? statusSub;
+
+    dataSub = stream
+        .asyncMap(mapper)
+        .listen(mapped.add, onError: mapped.addError);
+    statusSub = status.listen(
+      mapped.addStatus,
+      onError: (error, stackTrace) => mapped.addError(error, stackTrace),
+    );
+
+    mapped.onClose = () async {
+      await dataSub?.cancel();
+      await statusSub?.cancel();
+      if (closeInner) {
+        await close();
+      }
+    };
+
+    return mapped;
+  }
+
   Future<void> close() async {
     await controller.close();
     await status.close();
@@ -255,4 +193,100 @@ class StreamWithStatus<T> {
   //   final response = SubscriptionResponse(json["requestId"]);
   //   response.addAll(jsonDecode(json["items"]).map((el)));
   // }
+}
+
+class DynamicCombinedStreamWithStatus<T> extends StreamWithStatus<T> {
+  final bool closeInner;
+
+  final List<StreamWithStatus<T>> _streams = [];
+  final List<StreamSubscription<T>> _streamSubscriptions = [];
+  final List<StreamSubscription<StreamStatus>> _statusSubscriptions = [];
+  final List<StreamStatus> _statusMap = [];
+
+  DynamicCombinedStreamWithStatus({
+    Iterable<StreamWithStatus<T>> streams = const [],
+    this.closeInner = true,
+  }) {
+    for (final stream in streams) {
+      combine(stream);
+    }
+
+    if (_streams.isEmpty) {
+      addStatus(StreamStatusLive());
+    }
+
+    onClose = () {
+      for (final sub in _streamSubscriptions) {
+        sub.cancel();
+      }
+      for (final sub in _statusSubscriptions) {
+        sub.cancel();
+      }
+      if (closeInner) {
+        for (final stream in _streams) {
+          stream.close();
+        }
+      }
+    };
+  }
+
+  void combine(StreamWithStatus<T> stream) {
+    _streams.add(stream);
+    _statusMap.add(stream.status.value);
+
+    _streamSubscriptions.add(stream.stream.listen(add, onError: addError));
+    _statusSubscriptions.add(
+      stream.status.listen((status) {
+        final index = _streams.indexOf(stream);
+        if (index != -1) {
+          _statusMap[index] = status;
+          _recomputeStatus();
+        }
+      }, onError: addError),
+    );
+
+    _recomputeStatus();
+  }
+
+  void _recomputeStatus() {
+    StreamStatusError? errorStatus;
+    for (final status in _statusMap) {
+      if (status is StreamStatusError) {
+        errorStatus = status;
+        break;
+      }
+    }
+    if (errorStatus != null) {
+      addStatus(StreamStatusError(errorStatus.error, errorStatus.stackTrace));
+      return;
+    }
+    if (_statusMap.any((s) => s is StreamStatusQuerying)) {
+      addStatus(StreamStatusQuerying());
+      return;
+    }
+    if (_statusMap.any((s) => s is StreamStatusLive)) {
+      addStatus(StreamStatusLive());
+      return;
+    }
+    if (_statusMap.any((s) => s is StreamStatusQueryComplete)) {
+      addStatus(StreamStatusQueryComplete());
+      return;
+    }
+    addStatus(StreamStatusIdle());
+  }
+}
+
+/// Emits StreamStatusLive only when both streams are live
+Stream<StreamStatus> combineStatuses(StreamWithStatus s1, StreamWithStatus s2) {
+  return Rx.combineLatest2<StreamStatus, StreamStatus, StreamStatus>(
+    s1.status,
+    s2.status,
+    (a, b) {
+      if (a is StreamStatusLive && b is StreamStatusLive) {
+        return StreamStatusLive();
+      }
+      // Optionally, emit other statuses or null
+      return StreamStatusIdle();
+    },
+  ).distinct();
 }

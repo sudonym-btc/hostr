@@ -1,8 +1,7 @@
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
-
-import '../nwc/nwc.dart';
 
 @Singleton(env: Env.allButTestAndMock)
 class Zaps {
@@ -28,6 +27,32 @@ class Zaps {
       lud16Link: lud16Link,
       amountSats: amountSats,
       zapRequest: zapRequest,
+    );
+  }
+
+  StreamWithStatus<Nip01Event> subscribeZapReceipts({
+    required String pubkey,
+    String? eventId,
+    String? addressableId,
+  }) {
+    // var logs = [];
+    return StreamWithStatus<Nip01Event>(
+      // queryFn: () {
+      //   return ndk.zaps.fetchZappedReceipts(
+      //     pubKey: pubkey,
+      //     eventId: eventId,
+      //     addressableId: addressableId,
+      //   );
+      // },
+      liveFn: () => ndk.zaps
+          .subscribeToZapReceipts(
+            pubKey: pubkey,
+            eventId: eventId,
+            addressableId: addressableId,
+          )
+          .stream,
+
+      /// @TODO: cannot add since
     );
   }
 }

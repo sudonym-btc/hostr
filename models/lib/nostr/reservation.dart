@@ -10,7 +10,7 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
   static const List<int> kinds = [kNostrKindReservation];
   static const requiredTags = [
     [kThreadRefTag],
-    [kListingRefTag]
+    [kListingRefTag],
   ];
 
   Reservation(
@@ -24,12 +24,7 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
         super(kind: kNostrKindReservation);
 
   String? get commitmentHash {
-    return getFirstTag('guestCommitmentHash');
-  }
-
-  set commitmentHash(String? value) {
-    if (value == null) return;
-    tags.add(['guestCommitmentHash', value]);
+    return getFirstTag(kCommitmentHashTag);
   }
 
   Reservation.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
@@ -77,10 +72,10 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
       }
       if (reservation.parsedContent.proof!.zapProof != null) {
         // Validate zap proof
-        ZapProof proof = reservation.parsedContent.proof!.zapProof!;
-
+        final proof = reservation.parsedContent.proof!.zapProof!;
+        final receipt = ZapReceipt.fromEvent(proof.receipt);
         // Check that zap amount is correct
-        if (proof.receipt.amountSats! <
+        if (receipt.amountSats! <
             reservation.parsedContent.proof!.listing
                 .cost(reservation.parsedContent.start,
                     reservation.parsedContent.end)
@@ -89,7 +84,7 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
           return 'Amount insufficient';
         }
         // Check that the receipt commits to the correct reservation request
-        if (proof.receipt.recipient != listing.pubKey) {
+        if (receipt.recipient != listing.pubKey) {
           return 'Receipt recipient does not match listing pubKey';
         }
 
@@ -100,7 +95,7 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
 
         // Check that the zap receipt is from the users lud16 provider
 
-        if (proof.receipt.lnurl !=
+        if (receipt.lnurl !=
             Metadata.fromEvent(reservation.parsedContent.proof!.hoster).lud16) {
           return 'Zap receipt LNURL does not match hoster lud16';
         }
@@ -193,7 +188,7 @@ class SelfSignedProof {
 class EscrowProof {
   final String txHash;
 
-  final EscrowService service;
+  final EscrowService escrowService;
   // Signed list of trusted escrows by hoster
   final EscrowTrust hostsTrustedEscrows;
   final EscrowMethod hostsEscrowMethods;
@@ -202,12 +197,12 @@ class EscrowProof {
       {required this.txHash,
       required this.hostsTrustedEscrows,
       required this.hostsEscrowMethods,
-      required this.service});
+      required this.escrowService});
 
   toJson() {
     return {
       "txHash": txHash,
-      "escrowService": service,
+      "escrowService": escrowService.toString(),
       "hostsEscrowMethods": hostsEscrowMethods.toString(),
       "hostsTrustedEscrows": hostsTrustedEscrows.toString(),
     };
@@ -256,8 +251,8 @@ class EscrowProof {
 
   static fromJson(Map<String, dynamic> json) {
     return EscrowProof(
-      service: EscrowService.fromNostrEvent(
-          Nip01EventModel.fromJson(jsonDecode(json["service"]))),
+      escrowService: EscrowService.fromNostrEvent(
+          Nip01EventModel.fromJson(jsonDecode(json["escrowService"]))),
       txHash: json['txHash'],
       hostsEscrowMethods: EscrowMethod.fromNostrEvent(
           Nip01EventModel.fromJson(jsonDecode(json["hostsEscrowMethods"]))),
@@ -268,18 +263,17 @@ class EscrowProof {
 }
 
 class ZapProof {
-  final ZapReceipt receipt;
+  final Nip01EventModel receipt;
   ZapProof({required this.receipt});
 
   toJson() {
     return {
-      "receipt": receipt.toString(),
+      "receipt": receipt.toJsonString(),
     };
   }
 
   static fromJson(Map<String, dynamic> json) {
     return ZapProof(
-        receipt:
-            ZapReceipt.fromEvent(Nip01EventModel.fromJson(json["receipt"])));
+        receipt: Nip01EventModel.fromJson(jsonDecode(json["receipt"])));
   }
 }

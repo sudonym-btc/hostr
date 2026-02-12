@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment_method/payment_method.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-
-import 'payment_status_cubit.dart';
 
 abstract class ThreadReservationRequestGuestHostComponents {
   final Message item;
@@ -92,18 +92,28 @@ class ThreadReservationRequestGuestViewWidget
   }
 
   Widget payButton(BuildContext context) {
-    return BlocBuilder<PaymentStatusCubit, PaymentStatusCubitState>(
+    return StreamBuilder(
+      stream: context.read<ThreadCubit>().paymentStatus.status,
       builder: (context, state) {
-        switch (state) {
-          case PaymentStatusCubitDone():
-            // todo check payment status here too
-            return FilledButton(
-              key: ValueKey('pay'),
-              onPressed: () => pay(context),
-              child: Text(AppLocalizations.of(context)!.pay),
+        print("Payment status state: ${state.data}");
+        switch (state.data) {
+          case StreamStatusError():
+            return Text((state.data as StreamStatusError).error.toString());
+          case StreamStatusLive():
+            return StreamBuilder(
+              stream: context.read<ThreadCubit>().paymentStatus.replay,
+              builder: (context, completedPaymentState) {
+                print('Completed payment state: ${completedPaymentState.data}');
+                if (!completedPaymentState.hasData) {
+                  return FilledButton(
+                    key: ValueKey('pay'),
+                    onPressed: () => pay(context),
+                    child: Text(AppLocalizations.of(context)!.pay),
+                  );
+                }
+                return Container();
+              },
             );
-          case PaymentStatusCubitPaid():
-            return Text('Paid');
           default:
             return CircularProgressIndicator();
         }
