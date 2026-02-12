@@ -73,44 +73,87 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     );
   }
 
-  // StreamWithStatus<Arbitrated> arbitradedEvents(String tradeId) {}
-
-  // StreamWithStatus<ReleasedToCounterparty> releasedEvents(String tradeId) {}
-
   @override
-  StreamWithStatus<FundedEvent> fundedEvents(String tradeId) {
-    final tradeCreatedEvent = contract.self.events.firstWhere(
-      (x) => x.name == 'TradeCreated',
-    );
-    final eventFilter = FilterOptions.events(
-      contract: contract.self,
-      event: tradeCreatedEvent,
+  StreamWithStatus<EscrowEvent> allEvents(String tradeId) {
+    logger.d('Subscribing to events for tradeId: $tradeId');
+    final List<String> eventNames = [
+      'TradeCreated',
+      'Arbitrated',
+      'Claimed',
+      'ReleasedToCounterparty',
+    ];
+    final Map<String, String> eventToSignature = {};
+    for (final e in eventNames) {
+      final event = contract.self.events.firstWhere((x) => x.name == e);
+      eventToSignature[e] = bytesToHex(
+        event.signature,
+        padToEvenLength: true,
+        include0x: true,
+      );
+    }
+    final eventFilter = FilterOptions(
+      address: contract.self.address,
+      topics: [
+        [...eventToSignature.values],
+        [
+          bytesToHex(
+            getBytes32(tradeId),
+            padToEvenLength: true,
+            include0x: true,
+          ),
+        ],
+      ],
       fromBlock: BlockNum.genesis(),
     );
-    eventFilter.topics!.add([
-      bytesToHex(getBytes32(tradeId), padToEvenLength: true, include0x: true),
-    ]);
 
     List<FilterEvent> logStore = [];
+    Future<EscrowEvent> mapper(FilterEvent log) async {
+      final receipt = await contract.client.getTransactionByHash(
+        log.transactionHash!,
+      );
+      if (log.topics![0] == eventToSignature['TradeCreated']) {
+        // final decoded = contract.self.events
+        //     .firstWhere((e) => e.name == 'TradeCreated')
+        //     .decodeResults(log.topics!, log.data!);
+        // logger.d('allEvents decoded log: $decoded');
 
-    print('Setting up funded events stream with filter: ${eventFilter.topics}');
+        return FundedEvent(
+          transactionHash: log.transactionHash!,
+          amount: BitcoinAmount.fromBigInt(
+            BitcoinUnit.wei,
+            receipt!.value.getInWei,
+          ),
+        ); // @todo: return TradeCreatedEvent with decoded params
+      } else if (log.topics![0] == eventToSignature['Arbitrated']) {
+        return ArbitratedEvent(
+          transactionHash: log.transactionHash!,
+          forwarded: 0,
+        );
+      } else if (log.topics![0] == eventToSignature['ReleasedToCounterparty']) {
+        return ReleasedEvent(transactionHash: log.transactionHash!);
+      } else if (log.topics![0] == eventToSignature['Claimed']) {
+        return ClaimedEvent(transactionHash: log.transactionHash!);
+      } else {
+        logger.w('Unknown event found in allEvents stream: ${log.topics![0]}');
+        return EscrowEvent();
+      }
+    }
 
-    return StreamWithStatus<FundedEvent>(
+    return StreamWithStatus<EscrowEvent>(
       queryFn: () => contract.client
           .getLogs(eventFilter)
           .then((logs) {
-            logStore = logs;
-            print("TRADED EVENTS");
-            print(logs);
+            logStore.addAll(logs);
             return logs;
           })
           .asStream()
           .asyncExpand((logs) => Stream.fromIterable(logs))
           .where((log) => log.transactionHash != null)
-          .map((log) => FundedEvent(transactionHash: log.transactionHash!)),
+          .asyncMap(mapper),
       liveFn: () => contract.client
           .events(
             FilterOptions(
+              address: eventFilter.address,
               topics: eventFilter.topics,
               fromBlock: logStore.isEmpty
                   ? BlockNum.current()
@@ -124,16 +167,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
             ),
           )
           .where((log) => log.transactionHash != null)
-          .map((log) => FundedEvent(transactionHash: log.transactionHash!)),
+          .asyncMap(mapper),
     );
-
-    // To map a log into the relevant event:
-    // .map((FilterEvent result) {
-    // final decoded = tradeCreatedEvent.decodeResults(
-    //   result.topics!,
-    //   result.data!,
-    // );
-    // return TradeCreated(decoded, result);
-    // });
   }
 }

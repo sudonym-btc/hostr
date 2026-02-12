@@ -51,6 +51,8 @@ class ThreadReservationRequestHostViewWidget
   @override
   Widget statusText(BuildContext context) {
     switch (reservationStatus) {
+      case ReservationRequestStatus.unpaid:
+        return Text('Guest has not paid yet');
       case ReservationRequestStatus.unconfirmed:
         return Text(
           isSentByMe

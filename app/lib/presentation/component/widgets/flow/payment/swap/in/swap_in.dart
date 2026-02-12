@@ -29,7 +29,6 @@ class SwapInViewWidget extends StatelessWidget {
 
   @override
   build(BuildContext context) {
-    print(state);
     switch (state) {
       case SwapInInitialised():
         return SwapInConfirmWidget(onConfirm: onConfirm ?? () {});

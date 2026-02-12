@@ -198,6 +198,8 @@ class SelfSignedProof {
   Listing listing;
   ZapProof? zapProof;
   EscrowProof? escrowProof;
+  // Include the signed seller reservation request if buyer offering sub-marketprice for this reservation so can be seen that hoster accepted the offer by signing the reservation request
+  ReservationRequest? sellerReservationRequest;
 
   SelfSignedProof(
       {required this.hoster,

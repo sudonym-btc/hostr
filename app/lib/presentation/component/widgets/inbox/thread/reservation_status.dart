@@ -4,17 +4,17 @@ import 'package:hostr/presentation/component/widgets/reservation/reservation_lis
 import 'package:models/main.dart';
 
 class ReservationStatusWidget extends StatelessWidget {
-  final Reservation? reservation;
+  final List<Reservation> reservations;
   final Listing listing;
   const ReservationStatusWidget({
     super.key,
-    this.reservation,
+    required this.reservations,
     required this.listing,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (reservation == null) {
+    if (reservations.isEmpty) {
       return ListingListItemWidget(
         listing: listing,
         showPrice: false,
@@ -22,6 +22,6 @@ class ReservationStatusWidget extends StatelessWidget {
         smallImage: true,
       );
     }
-    return ReservationListItem(reservation: reservation!);
+    return ReservationListItem(reservations: reservations);
   }
 }

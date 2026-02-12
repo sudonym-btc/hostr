@@ -16,45 +16,31 @@ class ThreadView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ThreadCubit, ThreadCubitState>(
       builder: (context, state) {
-        return Builder(
-          builder: (context) {
-            final threadCubit = context.read<ThreadCubit>();
-            final participants = threadCubit.participantCubits.values.toList();
-            final counterparties = threadCubit.counterpartyCubits.values
-                .toList();
+        final profilesReady = state.participantStates.every(
+          (profileCubit) => profileCubit.data != null,
+        );
+        // print(
+        //   'profiles ready: $profilesReady, listing: ${state.listing != null}, reservations status: ${state.reservationsStreamStatus is StreamStatusLive}',
+        // );
+        final isReady =
+            profilesReady &&
+            state.reservationsStreamStatus is StreamStatusLive &&
+            state.listing != null;
 
-            final profilesReady = participants.every(
-              (profileCubit) => profileCubit.state.data != null,
-            );
-            final listing = context.read<ThreadCubit>().state.listing;
-            print(
-              'profiles ready: $profilesReady, listing: ${listing != null}, reservations status: ${threadCubit.reservations.status.value is StreamStatusLive}',
-            );
-            final isReady =
-                profilesReady &&
-                threadCubit.reservations.status.value is StreamStatusLive &&
-                listing != null;
+        // When to display loading
+        if (!isReady) {
+          return Scaffold(
+            appBar: AppBar(title: Text(AppLocalizations.of(context)!.loading)),
+            body: SafeArea(child: Center(child: CircularProgressIndicator())),
+          );
+        }
 
-            // When to display loading
-            if (!isReady) {
-              return Scaffold(
-                appBar: AppBar(
-                  title: Text(AppLocalizations.of(context)!.loading),
-                ),
-                body: SafeArea(
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              );
-            }
-
-            // When loaded successfully
-            return ThreadReadyWidget(
-              listing: listing,
-              participants: participants.map((e) => e.state.data!).toList(),
-              counterparties: counterparties.map((e) => e.state.data!).toList(),
-              reservationsListStream: threadCubit.reservations.list,
-            );
-          },
+        // When loaded successfully
+        return ThreadReadyWidget(
+          listing: state.listing!,
+          participants: state.participantStates.map((e) => e.data!).toList(),
+          counterparties: state.counterpartyStates.map((e) => e.data!).toList(),
+          reservationsList: state.reservations,
         );
       },
     );
@@ -65,14 +51,14 @@ class ThreadReadyWidget extends StatelessWidget {
   final Listing listing;
   final List<ProfileMetadata> participants;
   final List<ProfileMetadata> counterparties;
-  final Stream<List<Reservation>> reservationsListStream;
+  final List<Reservation> reservationsList;
 
   const ThreadReadyWidget({
     super.key,
     required this.listing,
     required this.participants,
     required this.counterparties,
-    required this.reservationsListStream,
+    required this.reservationsList,
   });
 
   @override
@@ -81,17 +67,9 @@ class ThreadReadyWidget extends StatelessWidget {
       appBar: AppBar(title: ThreadHeaderWidget(counterparties: counterparties)),
       body: Column(
         children: [
-          StreamBuilder<List<Reservation>>(
-            stream: reservationsListStream,
-            builder: (context, snapshot) {
-              return ReservationStatusWidget(
-                reservation: Reservation.getSeniorReservation(
-                  reservations: snapshot.data ?? [],
-                  listing: listing,
-                ),
-                listing: listing,
-              );
-            },
+          ReservationStatusWidget(
+            reservations: reservationsList,
+            listing: listing,
           ),
           Expanded(
             child: ThreadContent(participants: participants, listing: listing),

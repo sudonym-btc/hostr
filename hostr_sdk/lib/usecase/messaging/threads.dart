@@ -154,7 +154,7 @@ class Threads extends HydratedCubit<List<Message>> {
     // @todo are the right close methods called here?
     stop();
     for (final thread in threads.values) {
-      await thread.dispose();
+      await thread.close();
     }
     threads.clear();
     await threadController.close();

@@ -35,6 +35,7 @@ import 'package:hostr_sdk/usecase/location/location.dart' as _i56;
 import 'package:hostr_sdk/usecase/main.dart' as _i474;
 import 'package:hostr_sdk/usecase/messaging/messaging.dart' as _i1019;
 import 'package:hostr_sdk/usecase/messaging/thread.dart' as _i470;
+import 'package:hostr_sdk/usecase/messaging/thread_watcher.dart' as _i755;
 import 'package:hostr_sdk/usecase/messaging/threads.dart' as _i768;
 import 'package:hostr_sdk/usecase/metadata/metadata.dart' as _i149;
 import 'package:hostr_sdk/usecase/nwc/nwc.dart' as _i588;
@@ -104,10 +105,10 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.factoryParam<_i62.RootstockSwapInOperation, _i474.SwapInParams, dynamic>(
+    gh.factoryParam<_i62.RootstockSwapInOperation, _i520.SwapInParams, dynamic>(
       (params, _) => _i62.RootstockSwapInOperation(
         rootstock: gh<_i158.Rootstock>(),
-        auth: gh<_i474.Auth>(),
+        auth: gh<_i520.Auth>(),
         logger: gh<_i372.CustomLogger>(),
         params: params,
       ),
@@ -170,7 +171,7 @@ extension GetItInjectableX on _i174.GetIt {
       dynamic
     >(
       (params, _) =>
-          _i124.Bolt11PayOperation(params: params, nwc: gh<_i474.Nwc>()),
+          _i124.Bolt11PayOperation(params: params, nwc: gh<_i588.Nwc>()),
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i149.MetadataUseCase>(
@@ -248,7 +249,7 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factoryParam<_i363.LnurlPayOperation, _i363.LnurlPayParameters, dynamic>(
       (params, _) =>
-          _i363.LnurlPayOperation(params: params, nwc: gh<_i474.Nwc>()),
+          _i363.LnurlPayOperation(params: params, nwc: gh<_i588.Nwc>()),
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i376.EscrowUseCase>(
@@ -258,6 +259,14 @@ extension GetItInjectableX on _i174.GetIt {
         escrows: gh<_i303.Escrows>(),
         escrowTrusts: gh<_i943.EscrowTrusts>(),
         evm: gh<_i305.Evm>(),
+      ),
+    );
+    gh.factoryParam<_i470.Thread, String, dynamic>(
+      (anchor, _) => _i470.Thread(
+        anchor,
+        logger: gh<_i520.CustomLogger>(),
+        auth: gh<_i520.Auth>(),
+        messaging: gh<_i520.Messaging>(),
       ),
     );
     gh.singleton<_i1045.Zaps>(
@@ -272,25 +281,23 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
       ),
     );
-    gh.factoryParam<_i470.Thread, String, dynamic>(
-      (anchor, _) => _i470.Thread(
-        anchor,
-        logger: gh<_i520.CustomLogger>(),
-        auth: gh<_i520.Auth>(),
-        messaging: gh<_i520.Messaging>(),
-        zaps: gh<_i520.Zaps>(),
-        reservations: gh<_i520.Reservations>(),
-        listings: gh<_i520.Listings>(),
-        metadata: gh<_i520.MetadataUseCase>(),
-        escrow: gh<_i520.EscrowUseCase>(),
-      ),
-    );
     gh.singleton<_i226.Payments>(
       () => _i226.Payments(
         zaps: gh<_i520.Zaps>(),
         nwc: gh<_i520.Nwc>(),
         logger: gh<_i520.CustomLogger>(),
         escrow: gh<_i520.EscrowUseCase>(),
+      ),
+    );
+    gh.factoryParam<_i755.ThreadWatcher, _i474.Thread, dynamic>(
+      (thread, _) => _i755.ThreadWatcher(
+        thread,
+        logger: gh<_i372.CustomLogger>(),
+        reservations: gh<_i474.Reservations>(),
+        listings: gh<_i474.Listings>(),
+        metadata: gh<_i474.MetadataUseCase>(),
+        escrow: gh<_i474.EscrowUseCase>(),
+        zaps: gh<_i474.Zaps>(),
       ),
     );
     gh.singleton<_i768.Threads>(

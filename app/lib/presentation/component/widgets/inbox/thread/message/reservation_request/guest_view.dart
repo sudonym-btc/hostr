@@ -73,11 +73,16 @@ class ThreadReservationRequestGuestViewWidget
   @override
   Widget statusText(BuildContext context) {
     switch (reservationStatus) {
-      case ReservationRequestStatus.unconfirmed:
+      case ReservationRequestStatus.unpaid:
         return Text(
           isSentByMe
               ? AppLocalizations.of(context)!.youSentReservationRequest
               : AppLocalizations.of(context)!.receivedReservationRequest,
+          style: Theme.of(context).textTheme.bodyMedium!,
+        );
+      case ReservationRequestStatus.unconfirmed:
+        return Text(
+          'Waiting for host to confirm',
           style: Theme.of(context).textTheme.bodyMedium!,
         );
       case ReservationRequestStatus.pendingPublish:
@@ -92,28 +97,25 @@ class ThreadReservationRequestGuestViewWidget
   }
 
   Widget payButton(BuildContext context) {
-    return StreamBuilder(
-      stream: context.read<ThreadCubit>().paymentStatus.status,
+    return BlocBuilder<ThreadCubit, ThreadCubitState>(
       builder: (context, state) {
-        print("Payment status state: ${state.data}");
-        switch (state.data) {
+        // print(
+        //   "Payment status state: ${state.paymentProofsStreamStatus} ${state.paymentProofs}",
+        // );
+        switch (state.paymentProofsStreamStatus) {
           case StreamStatusError():
-            return Text((state.data as StreamStatusError).error.toString());
+            return Text(
+              (state.paymentProofsStreamStatus as StreamStatusError).error
+                  .toString(),
+            );
           case StreamStatusLive():
-            return StreamBuilder(
-              stream: context.read<ThreadCubit>().paymentStatus.replay,
-              builder: (context, completedPaymentState) {
-                print('Completed payment state: ${completedPaymentState.data}');
-                if (!completedPaymentState.hasData) {
-                  return FilledButton(
+            return state.paymentProofs.isEmpty
+                ? FilledButton(
                     key: ValueKey('pay'),
                     onPressed: () => pay(context),
                     child: Text(AppLocalizations.of(context)!.pay),
-                  );
-                }
-                return Container();
-              },
-            );
+                  )
+                : Container();
           default:
             return CircularProgressIndicator();
         }

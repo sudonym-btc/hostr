@@ -31,7 +31,7 @@ class EscrowUseCase {
     return getIt<EscrowFundOperation>(param1: params);
   }
 
-  StreamWithStatus<FundedEvent> checkEscrowStatus(
+  StreamWithStatus<EscrowEvent> checkEscrowStatus(
     EscrowServiceSelected selectedEscrow,
     String tradeId,
   ) {
@@ -41,7 +41,8 @@ class EscrowUseCase {
       final contract = evm
           .getChainForEscrowService(selectedEscrow.parsedContent.service)
           .getSupportedEscrowContract(selectedEscrow.parsedContent.service);
-      return contract.fundedEvents(tradeId);
+
+      return contract.allEvents(tradeId);
     } catch (e) {
       logger.e(
         'Error getting supported escrow contract for ${selectedEscrow.parsedContent.service}',
@@ -49,19 +50,5 @@ class EscrowUseCase {
       );
       rethrow;
     }
-  }
-
-  StreamWithStatus<EscrowProof> getEscrowProof(
-    EscrowServiceSelected selectedEscrow,
-    String tradeId,
-  ) {
-    return checkEscrowStatus(selectedEscrow, tradeId).map(
-      (fundedEvent) => EscrowProof(
-        txHash: fundedEvent.transactionHash,
-        hostsTrustedEscrows: selectedEscrow.parsedContent.sellerTrusts,
-        hostsEscrowMethods: selectedEscrow.parsedContent.sellerMethods,
-        escrowService: selectedEscrow.parsedContent.service,
-      ),
-    );
   }
 }
