@@ -14,11 +14,7 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   final Thread thread;
   final Map<String, ProfileCubit> participantCubits;
   late final Map<String, ProfileCubit> counterpartyCubits;
-  StreamWithStatus<Reservation> get reservations => thread.reservationStream;
-  StreamWithStatus<SelfSignedProof> get paymentStatus => thread.paymentStream;
   final List<StreamSubscription> _subscriptions = [];
-  Listing? _listing;
-  ProfileMetadata? _listingProfile;
 
   ThreadCubit({required this.thread})
     : participantCubits = Map.fromEntries(
@@ -33,11 +29,15 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
       ),
       super(
         ThreadCubitState(
+          reservationsStreamStatus: StreamStatusIdle(),
           listing: null,
           listingProfile: null,
           counterpartyStates: [],
           participantStates: [],
           reservations: [],
+          paymentProofs: [],
+          paymentProofsStreamStatus: StreamStatusIdle(),
+          messages: [],
         ),
       ) {
     // Build counterparty cubits from participantCubits but ignore our own key
@@ -49,68 +49,73 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 
     // Subscribe to counterparty cubit streams
     for (final cubit in participantCubits.values) {
-      _subscriptions.add(cubit.stream.listen((_) => _emitNewState()));
+      _subscriptions.add(
+        cubit.stream.listen(
+          (_) => emit(
+            state.copyWith(
+              participantStates: participantCubits.values
+                  .map((element) => element.state)
+                  .toList(),
+              counterpartyStates: counterpartyCubits.values
+                  .map((element) => element.state)
+                  .toList(),
+            ),
+          ),
+        ),
+      );
     }
 
     for (final entry in participantCubits.entries) {
       entry.value.load(entry.key);
     }
+  }
 
-    _emitNewState();
+  void watch() {
+    thread.watcher.watch();
+    thread.watcher
+        .getListing()
+        .then((listing) {
+          emit(state.copyWith(listing: listing));
+        })
+        .catchError((e) {
+          logger.e('Failed to watch listing for thread', error: e);
+        });
 
-    _loadListing();
-    _loadListingProfile();
+    thread.watcher
+        .getListingProfile()
+        .then((listingProfile) {
+          emit(state.copyWith(listingProfile: listingProfile));
+        })
+        .catchError((e) {
+          logger.e('Failed to watch listing profile for thread', error: e);
+        });
 
-    // Subscribe to reservations status + list and emit on any change
-    final reservationsUpdates = Rx.merge<void>([
-      reservations.status.map((_) => null),
-      reservations.list.map((_) => null),
-    ]);
     _subscriptions.add(
-      reservationsUpdates.listen(
-        (_) => _emitNewState(reservations: reservations.list.value),
-      ),
-    );
-  }
-
-  Future<void> _loadListing() async {
-    try {
-      _listing = await thread.getListing();
-      _emitNewState();
-    } catch (e) {
-      logger.e('Failed to load listing for thread', error: e);
-    }
-  }
-
-  Future<void> _loadListingProfile() async {
-    try {
-      _listingProfile = await thread.getListingProfile();
-      _emitNewState();
-    } catch (e) {
-      logger.e('Failed to load listing profile for thread', error: e);
-    }
-  }
-
-  // emit helper
-  void _emitNewState({List<Reservation>? reservations}) {
-    emit(
-      ThreadCubitState(
-        listing: _listing,
-        listingProfile: _listingProfile,
-        reservations: reservations ?? state.reservations,
-        participantStates: participantCubits.values
-            .map((c) => c.state)
-            .toList(),
-        counterpartyStates: counterpartyCubits.values
-            .map((c) => c.state)
-            .toList(),
-      ),
+      Rx.merge([
+        thread.messages.stream.map((event) => null),
+        thread.watcher.paymentStream.status.map((event) => null),
+        thread.watcher.paymentStream.stream.map((event) => null),
+        thread.watcher.reservationStream.status.map((event) => null),
+        thread.watcher.reservationStream.stream.map((event) => null),
+      ]).listen((_) {
+        emit(
+          state.copyWith(
+            messages: thread.sortedMessages,
+            paymentProofs: thread.watcher.paymentStream.list.value,
+            paymentProofsStreamStatus:
+                thread.watcher.paymentStream.status.value,
+            reservations: thread.watcher.reservationStream.list.value,
+            reservationsStreamStatus:
+                thread.watcher.reservationStream.status.value,
+          ),
+        );
+      }),
     );
   }
 
   @override
   close() async {
-    await thread.removeSubscriptions();
+    await thread.watcher.removeSubscriptions();
     for (final c in participantCubits.values) {
       await c.close();
     }
@@ -122,11 +127,16 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 }
 
 class ThreadCubitState {
+  final List<Message> messages;
+  final StreamStatus reservationsStreamStatus;
   final List<Reservation> reservations;
   final Listing? listing;
   final ProfileMetadata? listingProfile;
   final List<EntityCubitState<ProfileMetadata>> participantStates;
   final List<EntityCubitState<ProfileMetadata>> counterpartyStates;
+
+  final List<SelfSignedProof> paymentProofs;
+  final StreamStatus paymentProofsStreamStatus;
 
   ThreadCubitState({
     required this.reservations,
@@ -134,5 +144,35 @@ class ThreadCubitState {
     required this.listingProfile,
     required this.participantStates,
     required this.counterpartyStates,
+    required this.reservationsStreamStatus,
+    required this.paymentProofs,
+    required this.paymentProofsStreamStatus,
+    required this.messages,
   });
+
+  ThreadCubitState copyWith({
+    List<Message>? messages,
+    StreamStatus? reservationsStreamStatus,
+    List<Reservation>? reservations,
+    Listing? listing,
+    ProfileMetadata? listingProfile,
+    List<EntityCubitState<ProfileMetadata>>? participantStates,
+    List<EntityCubitState<ProfileMetadata>>? counterpartyStates,
+    List<SelfSignedProof>? paymentProofs,
+    StreamStatus? paymentProofsStreamStatus,
+  }) {
+    return ThreadCubitState(
+      reservations: reservations ?? this.reservations,
+      listing: listing ?? this.listing,
+      listingProfile: listingProfile ?? this.listingProfile,
+      participantStates: participantStates ?? this.participantStates,
+      counterpartyStates: counterpartyStates ?? this.counterpartyStates,
+      reservationsStreamStatus:
+          reservationsStreamStatus ?? this.reservationsStreamStatus,
+      paymentProofs: paymentProofs ?? this.paymentProofs,
+      paymentProofsStreamStatus:
+          paymentProofsStreamStatus ?? this.paymentProofsStreamStatus,
+      messages: messages ?? this.messages,
+    );
+  }
 }

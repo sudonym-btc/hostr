@@ -4,6 +4,7 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class ProfileCubit extends Cubit<EntityCubitState<ProfileMetadata>> {
+  final CustomLogger logger = CustomLogger();
   final MetadataUseCase metadataUseCase;
 
   ProfileCubit({required this.metadataUseCase})
@@ -16,6 +17,7 @@ class ProfileCubit extends Cubit<EntityCubitState<ProfileMetadata>> {
       emit(EntityCubitState(data: metadata, active: false));
       return metadata;
     } catch (e) {
+      logger.e("Error loading profile metadata for $pubkey: $e");
       emit(EntityCubitStateError(data: state.data, error: e));
       return null;
     }

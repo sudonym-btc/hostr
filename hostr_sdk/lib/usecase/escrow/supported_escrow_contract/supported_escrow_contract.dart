@@ -21,7 +21,7 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   Future<TransactionInformation> deposit(ContractFundEscrowParams params);
   // Future<TransactionInformation> refund(ContractFundEscrowParams params);
 
-  StreamWithStatus<FundedEvent> fundedEvents(String tradeId);
+  StreamWithStatus<EscrowEvent> allEvents(String tradeId);
 }
 
 class SupportedEscrowContractFactory {
@@ -52,8 +52,28 @@ class ContractFundEscrowParams {
   });
 }
 
-class FundedEvent {
+class EscrowEvent {}
+
+class FundedEvent extends EscrowEvent {
+  final String transactionHash;
+  final BitcoinAmount amount;
+
+  FundedEvent({required this.transactionHash, required this.amount});
+}
+
+class ReleasedEvent extends EscrowEvent {
   final String transactionHash;
 
-  FundedEvent({required this.transactionHash});
+  ReleasedEvent({required this.transactionHash});
+}
+
+class ArbitratedEvent extends EscrowEvent {
+  final String transactionHash;
+  final double forwarded;
+  ArbitratedEvent({required this.transactionHash, required this.forwarded});
+}
+
+class ClaimedEvent extends EscrowEvent {
+  final String transactionHash;
+  ClaimedEvent({required this.transactionHash});
 }

@@ -72,11 +72,6 @@ class ReservationRequest
         listing.pubKey == ourKey.publicKey;
   }
 
-  static bool isReservationValid(Reservation reservation, Listing listing) {
-    final result = Reservation.validate(reservation, listing);
-    return result == true;
-  }
-
   static bool hasHostReservationForThread({
     required List<Reservation> reservations,
     required Listing listing,
@@ -86,7 +81,7 @@ class ReservationRequest
       (reservation) =>
           reservation.pubKey == listing.pubKey &&
           reservation.threadAnchor == threadAnchor &&
-          isReservationValid(reservation, listing),
+          Reservation.validate(reservation, listing).isValid,
     );
   }
 
@@ -95,10 +90,14 @@ class ReservationRequest
     required Listing listing,
     required String threadAnchor,
   }) {
+    // print(reservations);
+    // print(threadAnchor);
+    // print(reservations
+    //     .any((reservation) => reservation.threadAnchor == threadAnchor));
     return reservations.any(
       (reservation) =>
           reservation.threadAnchor == threadAnchor &&
-          isReservationValid(reservation, listing),
+          Reservation.validate(reservation, listing).isValid,
     );
   }
 
@@ -115,10 +114,18 @@ class ReservationRequest
       listing: listing,
       threadAnchor: threadAnchor,
     );
+    final hasSelfSignedReservationForThread = hasAnyReservationForThread(
+      reservations: reservations,
+      listing: listing,
+      threadAnchor: threadAnchor,
+    );
     final available = isAvailableForReservation(
       reservationRequest: request,
       reservations: reservations,
     );
+
+    // print('Resolving status with: paid=$paid, refunded=$refunded, '
+    //     'hostReservationExists=$hostReservationExists, available=$available, hasSelfSignedReservationForThread=$hasSelfSignedReservationForThread');
 
     if (refunded) {
       return ReservationRequestStatus.refunded;
@@ -128,7 +135,7 @@ class ReservationRequest
       return ReservationRequestStatus.confirmed;
     }
 
-    if (paid && !hostReservationExists) {
+    if ((paid || hasSelfSignedReservationForThread) && !hostReservationExists) {
       return ReservationRequestStatus.unconfirmed;
     }
 
@@ -136,7 +143,7 @@ class ReservationRequest
       return ReservationRequestStatus.unavailable;
     }
 
-    return ReservationRequestStatus.unconfirmed;
+    return ReservationRequestStatus.unpaid;
   }
 
   static ReservationRequestHostAction resolveHostAction({
@@ -158,7 +165,7 @@ class ReservationRequest
     required ReservationRequestStatus status,
   }) {
     switch (status) {
-      case ReservationRequestStatus.unconfirmed:
+      case ReservationRequestStatus.unpaid:
         return ReservationRequestGuestAction.pay;
       case ReservationRequestStatus.pendingPublish:
         return ReservationRequestGuestAction.publish;
@@ -214,6 +221,7 @@ enum ReservationStatus {
 }
 
 enum ReservationRequestStatus {
+  unpaid,
   unconfirmed,
   pendingPublish,
   refunded,

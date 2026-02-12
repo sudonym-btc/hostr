@@ -47,14 +47,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
   }
 
   Widget getImage() {
-    return SizedBox(
-      height: 200,
-      width: double.infinity,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8.0),
-        child: ListingCarousel(listing: widget.listing),
-      ),
-    );
+    return SmallListingCarousel(height: 200, listing: widget.listing);
   }
 
   Widget getDetails(BuildContext context) {

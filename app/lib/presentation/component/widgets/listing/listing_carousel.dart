@@ -36,3 +36,27 @@ class ListingCarousel extends StatelessWidget {
     );
   }
 }
+
+class SmallListingCarousel extends StatelessWidget {
+  final Listing listing;
+  final double width;
+  final double height;
+
+  const SmallListingCarousel({
+    required this.listing,
+    this.width = double.infinity,
+    this.height = 100,
+    super.key,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      width: width,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8.0),
+        child: ListingCarousel(listing: listing),
+      ),
+    );
+  }
+}

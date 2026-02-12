@@ -15,9 +15,9 @@ class ThreadScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ThreadCubit>(
-      create: (_) => ThreadCubit(
-        thread: getIt<Hostr>().messaging.threads.threads[anchor]!,
-      ),
+      create: (_) =>
+          ThreadCubit(thread: getIt<Hostr>().messaging.threads.threads[anchor]!)
+            ..watch(),
       child: ThreadView(),
     );
   }

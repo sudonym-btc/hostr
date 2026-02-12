@@ -147,10 +147,36 @@ class StreamWithStatus<T> {
     return mapped;
   }
 
+  StreamWithStatus<R> whereType<R extends Object>({bool closeInner = true}) {
+    final filtered = StreamWithStatus<R>();
+
+    StreamSubscription<R>? dataSub;
+    StreamSubscription<StreamStatus>? statusSub;
+
+    dataSub = stream
+        .where((item) => item is R)
+        .cast<R>()
+        .listen(filtered.add, onError: filtered.addError);
+    statusSub = status.listen(
+      filtered.addStatus,
+      onError: (error, stackTrace) => filtered.addError(error, stackTrace),
+    );
+
+    filtered.onClose = () async {
+      await dataSub?.cancel();
+      await statusSub?.cancel();
+      if (closeInner) {
+        await close();
+      }
+    };
+
+    return filtered;
+  }
+
   // @todo: suspect a status update would emit before the async mapper completes. Could be problem if trying to get stream result when listening to status changes
   StreamWithStatus<R> asyncMap<R>(
     Future<R> Function(T item) mapper, {
-    bool closeInner = false,
+    bool closeInner = true,
   }) {
     final mapped = StreamWithStatus<R>();
 
