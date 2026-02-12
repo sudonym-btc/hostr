@@ -14,28 +14,29 @@ class ThreadView extends StatelessWidget {
   const ThreadView({super.key});
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: context.read<ThreadCubit>().reservations.status,
-      builder: (context, reservationsSnapshot) {
+    return BlocBuilder<ThreadCubit, ThreadCubitState>(
+      builder: (context, state) {
         return Builder(
           builder: (context) {
             final threadCubit = context.read<ThreadCubit>();
             final participants = threadCubit.participantCubits.values.toList();
             final counterparties = threadCubit.counterpartyCubits.values
                 .toList();
+
             final profilesReady = participants.every(
               (profileCubit) => profileCubit.state.data != null,
             );
-            final listingState = context.read<ThreadCubit>().listingCubit.state;
-
-            final isLoading =
-                !profilesReady ||
-                reservationsSnapshot.data is! StreamStatusLive ||
-                listingState.active ||
-                listingState.data == null;
+            final listing = context.read<ThreadCubit>().state.listing;
+            print(
+              'profiles ready: $profilesReady, listing: ${listing != null}, reservations status: ${threadCubit.reservations.status.value is StreamStatusLive}',
+            );
+            final isReady =
+                profilesReady &&
+                threadCubit.reservations.status.value is StreamStatusLive &&
+                listing != null;
 
             // When to display loading
-            if (isLoading) {
+            if (!isReady) {
               return Scaffold(
                 appBar: AppBar(
                   title: Text(AppLocalizations.of(context)!.loading),
@@ -48,7 +49,7 @@ class ThreadView extends StatelessWidget {
 
             // When loaded successfully
             return ThreadReadyWidget(
-              listing: listingState.data!,
+              listing: listing,
               participants: participants.map((e) => e.state.data!).toList(),
               counterparties: counterparties.map((e) => e.state.data!).toList(),
               reservationsListStream: threadCubit.reservations.list,

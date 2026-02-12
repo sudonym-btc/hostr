@@ -1,5 +1,4 @@
 import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/usecase/main.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -24,9 +23,7 @@ class LnurlPayOperation
           LightningCallbackDetails,
           LightningCompletedDetails
         > {
-  final Nwc nwc;
-
-  LnurlPayOperation({@factoryParam required super.params, required this.nwc});
+  LnurlPayOperation({@factoryParam required super.params, required super.nwc});
 
   /// Converts Lightning Address (email format) to LNURL.
   String emailToLnUrl(String email) {

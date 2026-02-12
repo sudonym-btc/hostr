@@ -35,19 +35,18 @@ final faker = SmartFaker(seed: 1);
 
 Future<List<Nip01Event>> MOCK_EVENTS(
     {String? contractAddress, String? byteCodeHash}) async {
-  print(MOCK_LISTINGS[0].getDtag());
   return [
     ...await MOCK_ESCROW_TRUSTS(),
     ...MOCK_ESCROWS(
         contractAddress: contractAddress, byteCodeHash: byteCodeHash),
     ...await MOCK_ESCROW_METHODS(),
     ...MOCK_LISTINGS,
-    ...FAKED_LISTINGS,
+    // ...FAKED_LISTINGS,
     ...MOCK_RESERVATIONS,
-    ...FAKED_RESERVATIONS,
+    // ...FAKED_RESERVATIONS,
     ...await MOCK_GIFT_WRAPS(),
     ...MOCK_PROFILES,
-    ...FAKED_PROFILES,
+    // ...FAKED_PROFILES,
     ...MOCK_REVIEWS,
     ...MOCK_ZAP_RECEIPTS,
     ...MOCK_BLOSSOM_SERVER_LISTS,

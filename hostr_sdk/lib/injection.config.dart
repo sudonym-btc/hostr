@@ -272,23 +272,24 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
       ),
     );
-    gh.singleton<_i226.Payments>(
-      () => _i226.Payments(
-        zaps: gh<_i520.Zaps>(),
-        nwc: gh<_i520.Nwc>(),
-        logger: gh<_i520.CustomLogger>(),
-        escrow: gh<_i520.EscrowUseCase>(),
-      ),
-    );
     gh.factoryParam<_i470.Thread, String, dynamic>(
       (anchor, _) => _i470.Thread(
         anchor,
+        logger: gh<_i520.CustomLogger>(),
         auth: gh<_i520.Auth>(),
         messaging: gh<_i520.Messaging>(),
         zaps: gh<_i520.Zaps>(),
         reservations: gh<_i520.Reservations>(),
         listings: gh<_i520.Listings>(),
         metadata: gh<_i520.MetadataUseCase>(),
+        escrow: gh<_i520.EscrowUseCase>(),
+      ),
+    );
+    gh.singleton<_i226.Payments>(
+      () => _i226.Payments(
+        zaps: gh<_i520.Zaps>(),
+        nwc: gh<_i520.Nwc>(),
+        logger: gh<_i520.CustomLogger>(),
         escrow: gh<_i520.EscrowUseCase>(),
       ),
     );

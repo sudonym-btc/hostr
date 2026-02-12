@@ -3,21 +3,22 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
-import 'package:hostr/logic/main.dart';
-import 'package:hostr/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
+import 'package:rxdart/rxdart.dart';
+
+import '../entity/entity.cubit.dart';
 
 class ThreadCubit extends Cubit<ThreadCubitState> {
   CustomLogger logger = CustomLogger();
   final Thread thread;
   final Map<String, ProfileCubit> participantCubits;
   late final Map<String, ProfileCubit> counterpartyCubits;
-  final EntityCubit<Listing> listingCubit;
   StreamWithStatus<Reservation> get reservations => thread.reservationStream;
   StreamWithStatus<SelfSignedProof> get paymentStatus => thread.paymentStream;
   final List<StreamSubscription> _subscriptions = [];
+  Listing? _listing;
+  ProfileMetadata? _listingProfile;
 
   ThreadCubit({required this.thread})
     : participantCubits = Map.fromEntries(
@@ -25,25 +26,15 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
             .map(
               (pubkey) => MapEntry(
                 pubkey,
-                ProfileCubit(metadataUseCase: getIt<Hostr>().metadata)
-                  ..load(pubkey),
+                ProfileCubit(metadataUseCase: getIt<Hostr>().metadata),
               ),
             )
             .toList(),
       ),
-      listingCubit = EntityCubit<Listing>(
-        crud: getIt<Hostr>().listings,
-        filter: Filter(
-          kinds: [Listing.kinds[0]],
-          dTags: [
-            getDTagFromAnchor(
-              MessagingListings.getThreadListing(thread: thread),
-            ),
-          ],
-        ),
-      )..get(),
       super(
         ThreadCubitState(
+          listing: null,
+          listingProfile: null,
           counterpartyStates: [],
           participantStates: [],
           reservations: [],
@@ -61,18 +52,51 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
       _subscriptions.add(cubit.stream.listen((_) => _emitNewState()));
     }
 
-    // Subscribe to listing and reservations
-    _subscriptions.add(listingCubit.stream.listen((_) => _emitNewState()));
+    for (final entry in participantCubits.entries) {
+      entry.value.load(entry.key);
+    }
+
+    _emitNewState();
+
+    _loadListing();
+    _loadListingProfile();
+
+    // Subscribe to reservations status + list and emit on any change
+    final reservationsUpdates = Rx.merge<void>([
+      reservations.status.map((_) => null),
+      reservations.list.map((_) => null),
+    ]);
     _subscriptions.add(
-      reservations.list.listen((rs) => _emitNewState(reservations: rs)),
+      reservationsUpdates.listen(
+        (_) => _emitNewState(reservations: reservations.list.value),
+      ),
     );
+  }
+
+  Future<void> _loadListing() async {
+    try {
+      _listing = await thread.getListing();
+      _emitNewState();
+    } catch (e) {
+      logger.e('Failed to load listing for thread', error: e);
+    }
+  }
+
+  Future<void> _loadListingProfile() async {
+    try {
+      _listingProfile = await thread.getListingProfile();
+      _emitNewState();
+    } catch (e) {
+      logger.e('Failed to load listing profile for thread', error: e);
+    }
   }
 
   // emit helper
   void _emitNewState({List<Reservation>? reservations}) {
-    print('emitting new state');
     emit(
       ThreadCubitState(
+        listing: _listing,
+        listingProfile: _listingProfile,
         reservations: reservations ?? state.reservations,
         participantStates: participantCubits.values
             .map((c) => c.state)
@@ -86,26 +110,28 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 
   @override
   close() async {
-    super.close();
-    await reservations.close();
-    await listingCubit.close();
+    await thread.removeSubscriptions();
     for (final c in participantCubits.values) {
       await c.close();
     }
     for (final s in _subscriptions) {
       await s.cancel();
     }
-    await paymentStatus?.close();
+    await super.close();
   }
 }
 
 class ThreadCubitState {
   final List<Reservation> reservations;
-  final List<ProfileCubitState> participantStates;
-  final List<ProfileCubitState> counterpartyStates;
+  final Listing? listing;
+  final ProfileMetadata? listingProfile;
+  final List<EntityCubitState<ProfileMetadata>> participantStates;
+  final List<EntityCubitState<ProfileMetadata>> counterpartyStates;
 
   ThreadCubitState({
     required this.reservations,
+    required this.listing,
+    required this.listingProfile,
     required this.participantStates,
     required this.counterpartyStates,
   });

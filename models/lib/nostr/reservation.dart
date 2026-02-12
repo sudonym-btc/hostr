@@ -34,7 +34,8 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
   static Reservation? getSeniorReservation(
       {required List<Reservation> reservations, required Listing listing}) {
     final validReservations = reservations
-        .where((reservation) => Reservation.validate(reservation, listing))
+        .where(
+            (reservation) => Reservation.validate(reservation, listing).isValid)
         .toList();
 
     if (validReservations.isEmpty) {
@@ -62,49 +63,85 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
     return validReservations.first;
   }
 
-  static validate(Reservation reservation, Listing listing) {
+  static ValidationResult validate(Reservation reservation, Listing listing) {
+    final fieldResults = <String, FieldValidation>{};
+
+    void setField(String key, bool ok, [String? message]) {
+      fieldResults[key] = FieldValidation(ok: ok, message: message);
+    }
+
     // Any reservation published by the listing owner is valid
     if (reservation.pubKey == listing.pubKey) {
-      return true;
-    } else {
-      if (reservation.parsedContent.proof == null) {
-        return 'Must include a payment proof if self-publishing reservation event';
-      }
-      if (reservation.parsedContent.proof!.zapProof != null) {
-        // Validate zap proof
-        final proof = reservation.parsedContent.proof!.zapProof!;
-        final receipt = ZapReceipt.fromEvent(proof.receipt);
-        // Check that zap amount is correct
-        if (receipt.amountSats! <
-            reservation.parsedContent.proof!.listing
-                .cost(reservation.parsedContent.start,
-                    reservation.parsedContent.end)
-                .value
-                .toInt()) {
-          return 'Amount insufficient';
-        }
-        // Check that the receipt commits to the correct reservation request
-        if (receipt.recipient != listing.pubKey) {
-          return 'Receipt recipient does not match listing pubKey';
-        }
-
-        // Check that the listing pubkey matches the proof's attached profile
-        if (reservation.parsedContent.proof!.hoster.pubKey != listing.pubKey) {
-          return 'Attached profile does not match listing pubkey';
-        }
-
-        // Check that the zap receipt is from the users lud16 provider
-
-        if (receipt.lnurl !=
-            Metadata.fromEvent(reservation.parsedContent.proof!.hoster).lud16) {
-          return 'Zap receipt LNURL does not match hoster lud16';
-        }
-      } else if (reservation.parsedContent.proof!.escrowProof != null) {
-        // Validate escrow proof
-        // TODO: Implement escrow proof validation
-      }
+      setField('publisher', true);
+      return ValidationResult(
+        isValid: true,
+        fields: fieldResults,
+      );
     }
-    return false;
+
+    if (reservation.parsedContent.proof == null) {
+      setField(
+        'proof',
+        false,
+        'Must include a payment proof if self-publishing reservation event',
+      );
+      return ValidationResult(
+        isValid: false,
+        fields: fieldResults,
+      );
+    }
+
+    final proof = reservation.parsedContent.proof!;
+
+    if (proof.zapProof != null) {
+      final zapProof = proof.zapProof!;
+      final receipt = ZapReceipt.fromEvent(zapProof.receipt);
+
+      final expected = proof.listing
+          .cost(reservation.parsedContent.start, reservation.parsedContent.end)
+          .value
+          .toInt();
+      final amountOk =
+          receipt.amountSats != null && receipt.amountSats! >= expected;
+      setField(
+        'zapAmount',
+        amountOk,
+        amountOk ? null : 'Amount insufficient',
+      );
+
+      final recipientOk = receipt.recipient == listing.pubKey;
+      setField(
+        'zapRecipient',
+        recipientOk,
+        recipientOk ? null : 'Receipt recipient does not match listing pubKey',
+      );
+
+      final hosterOk = proof.hoster.pubKey == listing.pubKey;
+      setField(
+        'hosterProfile',
+        hosterOk,
+        hosterOk ? null : 'Attached profile does not match listing pubkey',
+      );
+
+      final lnurlOk = receipt.lnurl == Metadata.fromEvent(proof.hoster).lud16;
+      setField(
+        'zapLnurl',
+        lnurlOk,
+        lnurlOk ? null : 'Zap receipt LNURL does not match hoster lud16',
+      );
+    } else if (proof.escrowProof != null) {
+      setField('escrowProof', true);
+      // TODO: Implement escrow proof validation and update field results
+    } else {
+      setField(
+        'proofType',
+        false,
+        'Unsupported or missing payment proof type',
+      );
+    }
+
+    final isValid = fieldResults.values.every((field) => field.ok);
+    return ValidationResult(isValid: isValid, fields: fieldResults);
   }
 }
 
@@ -134,11 +171,17 @@ class ReservationContent extends EventContent {
       "end": end.toIso8601String(),
       "guestCommitmentHash": guestCommitmentHash,
       "proof": proof?.toJson(),
-      "cancelled": cancelled
+      "cancelled": cancelled,
     };
   }
 
   static ReservationContent fromJson(Map<String, dynamic> json) {
+    final cancelledValue = json["cancelled"];
+    final cancelled = cancelledValue is bool
+        ? cancelledValue
+        : (cancelledValue is String
+            ? cancelledValue.toLowerCase() == 'true'
+            : false);
     return ReservationContent(
         start: DateTime.parse(json["start"]),
         end: DateTime.parse(json["end"]),
@@ -146,7 +189,7 @@ class ReservationContent extends EventContent {
         proof: json["proof"] != null
             ? SelfSignedProof.fromJson(json["proof"])
             : null,
-        cancelled: json["cancelled"]);
+        cancelled: cancelled);
   }
 }
 

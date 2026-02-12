@@ -38,12 +38,11 @@ class ZapPayOperation
           LightningCompletedDetails
         > {
   final Zaps zaps;
-  final Nwc nwc;
 
   ZapPayOperation({
     required super.params,
     required this.zaps,
-    required this.nwc,
+    required super.nwc,
   });
 
   @override

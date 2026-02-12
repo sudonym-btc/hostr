@@ -1,10 +1,15 @@
+import 'package:date_count_down/date_count_down.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:models/main.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../modal_bottom_sheet.dart';
 
@@ -37,6 +42,8 @@ class PaymentViewWidget extends StatelessWidget {
         return PaymentFailureWidget(state as PayFailed);
       case PayInFlight():
         return PaymentProgressWidget(state);
+      case PayExternalRequired():
+        return PaymentExternalRequiredWidget(state);
       case PayCompleted():
         return PaymentSuccessWidget(state);
       case PayResolved():
@@ -127,6 +134,125 @@ class PaymentProgressWidget extends StatelessWidget {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
       content: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class PaymentExternalRequiredWidget extends StatelessWidget {
+  final PayState state;
+  const PaymentExternalRequiredWidget(this.state, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ModalBottomSheet(
+      type: ModalBottomSheetType.normal,
+      title: 'Pay Invoice',
+      subtitle: 'Pay this lightning invoice to continue',
+      content: Builder(
+        builder: (context) {
+          switch (state.callbackDetails) {
+            case LightningCallbackDetails():
+              final invoice =
+                  (state.callbackDetails! as LightningCallbackDetails).invoice;
+              final pr = invoice.paymentRequest;
+              final unixUntilExpired =
+                  invoice.timestamp.toInt() +
+                  invoice.tags.where((e) => e.type == 'expiry').first.data;
+              final uri = Uri.parse('lightning:$pr');
+              return Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // CustomPadding(top: 1, bottom: 0),
+                    CountDownText(
+                      due: DateTime.fromMillisecondsSinceEpoch(
+                        (unixUntilExpired * 1000).toInt(),
+                      ),
+                      finishedText: "Expired",
+                      showLabel: false,
+                      longDateName: true,
+                      style: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.error.withAlpha(150),
+                      ),
+                    ),
+                    CustomPadding(top: 0.2, bottom: 0),
+
+                    Expanded(
+                      child: QrImageView(
+                        backgroundColor: Colors.transparent,
+                        dataModuleStyle: QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.circle,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        eyeStyle: QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        data: pr,
+                      ),
+                    ),
+
+                    CustomPadding(top: 1, bottom: 0),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        FilledButton(
+                          onPressed: () async {
+                            await Clipboard.setData(
+                              ClipboardData(
+                                text:
+                                    (state.callbackDetails!
+                                            as LightningCallbackDetails)
+                                        .invoice
+                                        .paymentRequest,
+                              ),
+                            );
+                          },
+                          child: Text('Copy'),
+                        ),
+                        FutureBuilder(
+                          future: canLaunchUrl(uri),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData && snapshot.data == true) {
+                              return Row(
+                                children: [
+                                  SizedBox(width: 12),
+                                  FilledButton(
+                                    onPressed: () async {
+                                      if (await canLaunchUrl(uri)) {
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      } else {
+                                        // Optionally show a message or fallback
+                                      }
+                                    },
+                                    child: Text('Open wallet'),
+                                  ),
+                                ],
+                              );
+                            }
+                            return Container();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            default:
+              return Text(
+                'Please complete the payment in your connected wallet',
+              );
+          }
+        },
+      ),
     );
   }
 }

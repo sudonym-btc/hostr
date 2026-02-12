@@ -18,16 +18,16 @@ ThemeData getTheme(bool isDark) {
             unselectedItemColor: Colors.grey,
             type: BottomNavigationBarType.fixed,
           ),
-          iconButtonTheme: IconButtonThemeData(
-            style: ButtonStyle(
-              backgroundColor: MaterialStateProperty.all(
-                Colors.white.withOpacity(0.5),
-              ),
-              foregroundColor: MaterialStateProperty.all(Colors.black),
-              padding: MaterialStateProperty.all(const EdgeInsets.all(12)),
-              shape: MaterialStateProperty.all(const CircleBorder()),
-            ),
-          ),
+          // iconButtonTheme: IconButtonThemeData(
+          //   style: ButtonStyle(
+          //     backgroundColor: MaterialStateProperty.all(
+          //       Colors.white.withOpacity(0.5),
+          //     ),
+          //     foregroundColor: MaterialStateProperty.all(Colors.black),
+          //     padding: MaterialStateProperty.all(const EdgeInsets.all(12)),
+          //     shape: MaterialStateProperty.all(const CircleBorder()),
+          //   ),
+          // ),
           splashColor: Colors.white, // Set splash color to match theme
         )
       : ThemeData.light().copyWith(
@@ -39,16 +39,16 @@ ThemeData getTheme(bool isDark) {
             unselectedItemColor: Colors.black54,
             type: BottomNavigationBarType.fixed,
           ),
-          iconButtonTheme: IconButtonThemeData(
-            style: ButtonStyle(
-              backgroundColor: MaterialStateProperty.all(
-                Colors.white.withOpacity(0.5),
-              ),
-              foregroundColor: MaterialStateProperty.all(Colors.black87),
-              padding: MaterialStateProperty.all(const EdgeInsets.all(12)),
-              shape: MaterialStateProperty.all(const CircleBorder()),
-            ),
-          ),
+          // iconButtonTheme: IconButtonThemeData(
+          //   style: ButtonStyle(
+          //     backgroundColor: MaterialStateProperty.all(
+          //       Colors.white.withOpacity(0.5),
+          //     ),
+          //     foregroundColor: MaterialStateProperty.all(Colors.black87),
+          //     padding: MaterialStateProperty.all(const EdgeInsets.all(12)),
+          //     shape: MaterialStateProperty.all(const CircleBorder()),
+          //   ),
+          // ),
           splashColor: Colors.deepPurple, // Set splash color to match theme
         );
 }
