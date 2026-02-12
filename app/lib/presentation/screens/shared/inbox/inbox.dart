@@ -16,8 +16,10 @@ class InboxScreen extends StatelessWidget {
       body: StreamBuilder(
         stream: getIt<Hostr>().messaging.threads.threadStream,
         builder: (context, snapshot) {
-          final threads = getIt<Hostr>().messaging.threads.threads.values
-              .toList();
+          final threads =
+              getIt<Hostr>().messaging.threads.threads.values.toList()..sort(
+                (a, b) => b.getLastDateTime.compareTo(a.getLastDateTime),
+              );
           return ListView.builder(
             itemCount: threads.length,
             itemBuilder: (context, index) {

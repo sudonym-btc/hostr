@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/component/widgets/reservation/reservation_list_item.dart';
 import 'package:models/main.dart';
 
 class ReservationStatusWidget extends StatelessWidget {
@@ -21,6 +22,6 @@ class ReservationStatusWidget extends StatelessWidget {
         smallImage: true,
       );
     }
-    return const SizedBox.shrink();
+    return ReservationListItem(reservation: reservation!);
   }
 }

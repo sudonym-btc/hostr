@@ -1,6 +1,5 @@
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/usecase/main.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
 
@@ -20,9 +19,7 @@ class Bolt11PayOperation
           LightningCallbackDetails,
           LightningCompletedDetails
         > {
-  final Nwc nwc;
-
-  Bolt11PayOperation({@factoryParam required super.params, required this.nwc});
+  Bolt11PayOperation({@factoryParam required super.params, required super.nwc});
 
   @override
   Future<ResolvedDetails> resolver() async {
@@ -42,7 +39,6 @@ class Bolt11PayOperation
 
   @override
   Future<LightningCompletedDetails> completer() async {
-    print(callbackDetails);
     PayInvoiceResponse response = await nwc.payInvoice(
       nwc.connections[0].connection!,
       callbackDetails!.invoice.paymentRequest,

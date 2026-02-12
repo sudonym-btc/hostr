@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
 import 'package:hostr/setup.dart';
-import 'package:hostr_sdk/hostr.dart';
-import 'package:hostr_sdk/injection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -43,11 +41,7 @@ void callbackDispatcher() {
       print('callbackDispatcher: $task, inputData: $inputData');
       final env = await readPersistedEnvironment();
       await setupBackground(env);
-      await getIt<Hostr>().auth.init();
-      print(
-        'Hostr auth initialized in background task ${getIt<Hostr>().auth.activeKeyPair?.privateKey ?? ''}',
-      );
-      await setupNotifications();
+
       await FlutterLocalNotificationsPlugin().show(
         id: 1,
         title: 'Background Task',

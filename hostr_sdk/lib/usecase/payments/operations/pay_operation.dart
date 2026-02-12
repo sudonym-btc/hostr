@@ -1,6 +1,7 @@
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../nwc/nwc.dart';
 import 'pay_models.dart';
 import 'pay_state.dart';
 
@@ -11,11 +12,13 @@ abstract class PayOperation<
   CmpD extends CompletedDetails
 >
     extends Cubit<PayState> {
+  final Nwc nwc;
+
   T params;
   RD? resolvedDetails;
   CD? callbackDetails;
   CmpD? completedDetails;
-  PayOperation({@factoryParam required this.params})
+  PayOperation({@factoryParam required this.params, required this.nwc})
     : super(PayInitialised(params: params));
   Future<RD> resolver();
   Future<CD> finalizer();
@@ -56,6 +59,16 @@ abstract class PayOperation<
   Future<void> complete() async {
     emit(PayInFlight(params: params));
     try {
+      if (nwc.connections.isEmpty) {
+        print('No NWC connections available');
+        emit(
+          PayExternalRequired(
+            params: params,
+            callbackDetails: callbackDetails!,
+          ),
+        );
+        return;
+      }
       completedDetails = await completer();
       emit(PayCompleted(params: params, details: completedDetails!));
     } catch (e) {

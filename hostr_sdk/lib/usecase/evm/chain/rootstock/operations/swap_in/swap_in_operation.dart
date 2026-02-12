@@ -56,16 +56,18 @@ class RootstockSwapInOperation extends SwapInOperation {
       );
 
       Future<SwapStatus> swapStatus = _waitForSwapOnChain(swap.id);
+      emit(SwapInAwaitingOnChain());
 
       // @todo: should not await completion, but should throw if payment can't even be initiated
-      await for (final paymentState in p.whereType<PayFailed>().takeUntil(
-        swapStatus.asStream(),
-      )) {
-        logger.e('Payment failed with state: $paymentState');
+      await for (final paymentState
+          in p
+              .where(
+                (state) => state is PayFailed || state is PayExternalRequired,
+              )
+              .takeUntil(swapStatus.asStream())) {
+        logger.e('Payment emitted with state: $paymentState');
         emit(SwapInPaymentProgress(paymentState: paymentState));
       }
-
-      emit(SwapInAwaitingOnChain());
 
       TransactionInformation lockupTx = await rootstock.awaitTransaction(
         (await swapStatus).transaction!.id!,

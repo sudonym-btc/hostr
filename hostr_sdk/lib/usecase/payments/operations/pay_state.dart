@@ -35,6 +35,10 @@ class PayInFlight extends PayState {
   PayInFlight({required super.params});
 }
 
+class PayExternalRequired<T extends CallbackDetails> extends PayState {
+  PayExternalRequired({required super.params, required super.callbackDetails});
+}
+
 class PayCancelled extends PayState {
   PayCancelled({required super.params});
 }

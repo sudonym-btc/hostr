@@ -106,7 +106,10 @@ class Threads extends HydratedCubit<List<Message>> {
       threadController.add(threads[id]!);
     }
     threads[id]!.messages.add(message);
-    emit([...state, message]);
+    emit(
+      [...state, message].toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
+    );
   }
 
   /// Get the most recent timestamp from all cached threads.

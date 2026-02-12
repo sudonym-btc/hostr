@@ -5,6 +5,7 @@ import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class InboxItem extends StatelessWidget {
@@ -14,13 +15,22 @@ class InboxItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastDateTime = thread.getLastDateTime;
-    final subtitle = Text(thread.isLastMessageOurs ? 'Sent' : 'Received');
-
     return BlocProvider(
       create: (_) => ThreadCubit(thread: thread),
       child: BlocBuilder<ThreadCubit, ThreadCubitState>(
         builder: (context, state) {
+          final lastDateTime = thread.getLastDateTime;
+          final lastMessage = thread.getLatestMessage;
+          final subtitle = Text(
+            (lastMessage != null &&
+                        lastMessage.pubKey ==
+                            thread.auth.activeKeyPair!.publicKey
+                    ? 'Sent: '
+                    : 'Received: ') +
+                (lastMessage?.child is ReservationRequest
+                    ? 'Reservation Request'
+                    : lastMessage?.content ?? ''),
+          );
           return ListTile(
             leading: ProfileAvatars(
               profiles: state.counterpartyStates
@@ -36,13 +46,8 @@ class InboxItem extends StatelessWidget {
                   .join(', '),
             ),
 
-            subtitle: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                subtitle,
-                Text(timeago.format(lastDateTime, locale: 'en_short')),
-              ],
-            ),
+            subtitle: subtitle,
+            trailing: Text(timeago.format(lastDateTime, locale: 'en_short')),
             onTap: () {
               AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
             },
