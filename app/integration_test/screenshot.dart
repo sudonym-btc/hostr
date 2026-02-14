@@ -7,7 +7,7 @@ import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail_image_network/mocktail_image_network.dart';
-import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
 
 MaterialApp appWrapper(Widget child) {
   return MaterialApp(

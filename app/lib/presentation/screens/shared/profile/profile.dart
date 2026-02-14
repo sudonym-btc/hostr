@@ -8,7 +8,6 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
-import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
 import 'package:hostr/router.dart';
@@ -256,10 +255,10 @@ class ProfileScreen extends StatelessWidget {
                             getIt<Hostr>().payments.pay(params).resolve();
                           },
                         ),
-                        ZapListWidget(
-                          pubkey: MockKeys.hoster.publicKey,
-                          builder: (p0) => Text(p0.pubKey!),
-                        ),
+                        // ZapListWidget(
+                        //   pubkey: MockKeys.hoster.publicKey,
+                        //   builder: (p0) => Text(p0.pubKey!),
+                        // ),
                       ],
                     ),
                   ],

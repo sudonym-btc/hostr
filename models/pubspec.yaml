@@ -15,5 +15,8 @@ dependencies:
       path: packages/ndk 
   smart_faker: ^0.4.0
 
+dependency_overrides:
+  web_socket_channel: ^3.0.3
+
 dev_dependencies:
   test: ^1.25.6

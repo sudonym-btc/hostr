@@ -1,0 +1,1 @@
+export 'stubs/main.dart';

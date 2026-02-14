@@ -7,6 +7,7 @@ import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_esc
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
 

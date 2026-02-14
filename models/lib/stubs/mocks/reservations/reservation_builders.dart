@@ -1,4 +1,5 @@
 import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 ReservationRequest buildReservationRequestForScenario({

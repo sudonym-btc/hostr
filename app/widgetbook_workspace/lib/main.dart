@@ -5,7 +5,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/hostr.dart';
-import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
 import 'package:widgetbook/widgetbook.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
