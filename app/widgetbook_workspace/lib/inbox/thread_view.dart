@@ -21,9 +21,10 @@ Widget threadViewScenario(BuildContext context) {
   final thread = Thread(
     scenario.threadAnchor,
     messaging: getIt<Hostr>().messaging,
-    accounts: getIt<Hostr>().messaging.ndk.accounts,
+    logger: CustomLogger(),
+    auth: getIt<Hostr>().auth,
   );
-  thread.addMessage(scenario.requestMessage);
+  thread.messages.add(scenario.requestMessage);
 
   final reservationsStream = StreamWithStatus<Reservation>();
   for (final reservation in scenario.reservations) {
@@ -42,7 +43,12 @@ Widget threadViewScenario(BuildContext context) {
         : MOCK_PROFILES[1],
   );
   final profileCubit = ProfileCubit(metadataUseCase: getIt<Hostr>().metadata)
-    ..emit(ProfileCubitState(data: counterpartyMetadata, active: false));
+    ..emit(
+      EntityCubitState<ProfileMetadata>(
+        data: counterpartyMetadata,
+        active: false,
+      ),
+    );
 
   return BlocProvider<ThreadCubit>(
     create: (_) => ThreadCubit(thread: thread),

@@ -1071,6 +1071,31 @@ class MockReservations extends _i1.Mock implements _i7.Reservations {
           as _i12.Future<List<_i8.Reservation>>);
 
   @override
+  Map<
+    String,
+    ({_i8.Reservation? buyerReservation, _i8.Reservation? sellerReservation})
+  >
+  groupByThread(List<_i8.Reservation>? reservations) =>
+      (super.noSuchMethod(
+            Invocation.method(#groupByThread, [reservations]),
+            returnValue:
+                <
+                  String,
+                  ({
+                    _i8.Reservation? buyerReservation,
+                    _i8.Reservation? sellerReservation,
+                  })
+                >{},
+          )
+          as Map<
+            String,
+            ({
+              _i8.Reservation? buyerReservation,
+              _i8.Reservation? sellerReservation,
+            })
+          >);
+
+  @override
   _i6.StreamWithStatus<_i8.Reservation> subscribeToMyReservations() =>
       (super.noSuchMethod(
             Invocation.method(#subscribeToMyReservations, []),
@@ -1281,32 +1306,18 @@ class MockEscrowUseCase extends _i1.Mock implements _i7.EscrowUseCase {
           as _i7.EscrowFundOperation);
 
   @override
-  _i6.StreamWithStatus<_i15.FundedEvent> checkEscrowStatus(
+  _i6.StreamWithStatus<_i15.EscrowEvent> checkEscrowStatus(
     _i8.EscrowServiceSelected? selectedEscrow,
     String? tradeId,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#checkEscrowStatus, [selectedEscrow, tradeId]),
-            returnValue: _FakeStreamWithStatus_4<_i15.FundedEvent>(
+            returnValue: _FakeStreamWithStatus_4<_i15.EscrowEvent>(
               this,
               Invocation.method(#checkEscrowStatus, [selectedEscrow, tradeId]),
             ),
           )
-          as _i6.StreamWithStatus<_i15.FundedEvent>);
-
-  @override
-  _i6.StreamWithStatus<_i8.EscrowProof> getEscrowProof(
-    _i8.EscrowServiceSelected? selectedEscrow,
-    String? tradeId,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#getEscrowProof, [selectedEscrow, tradeId]),
-            returnValue: _FakeStreamWithStatus_4<_i8.EscrowProof>(
-              this,
-              Invocation.method(#getEscrowProof, [selectedEscrow, tradeId]),
-            ),
-          )
-          as _i6.StreamWithStatus<_i8.EscrowProof>);
+          as _i6.StreamWithStatus<_i15.EscrowEvent>);
 }
 
 /// A class which mocks [Escrows].

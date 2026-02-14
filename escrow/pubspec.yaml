@@ -11,11 +11,14 @@ dependencies:
   get_it: ^9.2.0
   injectable: ^2.1.1
   http: ^1.2.0 
-  web3dart: ^3.0.1
   models:
     path: ../models
   hostr_sdk:
     path: ../hostr_sdk
+  ndk:
+    git:
+      url: https://github.com/relaystr/ndk.git 
+      path: packages/ndk 
 
 dev_dependencies:
   test: ^1.16.0

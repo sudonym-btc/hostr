@@ -30,7 +30,4 @@ class SupportedEscrowContractRegistry {
     }
     return null;
   }
-
-  static List<String> get supportedContractNames =>
-      _registry.keys.toList(growable: false);
 }

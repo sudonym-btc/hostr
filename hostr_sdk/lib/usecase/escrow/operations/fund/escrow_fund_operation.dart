@@ -28,18 +28,23 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
 
   Future<EscrowFees> estimateFees() async {
     final requiredSwapAmount = await _doesEscrowRequireSwap();
+    final swapFees = requiredSwapAmount > BitcoinAmount.zero()
+        ? await chain
+              .swapIn(
+                SwapInParams(
+                  evmKey: auth.getActiveEvmKey(),
+                  amount: requiredSwapAmount,
+                ),
+              )
+              .estimateFees()
+        : SwapInFees(
+            estimatedGasFees: BitcoinAmount.zero(),
+            estimatedSwapFees: BitcoinAmount.zero(),
+            estimatedRelayFees: BitcoinAmount.zero(),
+          );
     return EscrowFees(
       estimatedGasFees: await contract.estimateDespositFee(contractParams),
-      estimatedSwapFees: requiredSwapAmount > BitcoinAmount.zero()
-          ? await chain
-                .swapIn(
-                  SwapInParams(
-                    evmKey: auth.getActiveEvmKey(),
-                    amount: requiredSwapAmount,
-                  ),
-                )
-                .estimateFees()
-          : BitcoinAmount.zero(),
+      estimatedSwapFees: swapFees,
     );
   }
 
@@ -84,10 +89,19 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   Future<void> _swapRequiredAmount() async {
     final requiredAmountInBtc = await _doesEscrowRequireSwap();
     if (requiredAmountInBtc > BitcoinAmount.zero()) {
-      SwapInOperation swap = chain.swapIn(
+      SwapInOperation swapEstimation = chain.swapIn(
         SwapInParams(
           evmKey: auth.getActiveEvmKey(),
           amount: requiredAmountInBtc,
+        ),
+      );
+      final swapFees = await swapEstimation.estimateFees();
+      SwapInOperation swap = chain.swapIn(
+        SwapInParams(
+          evmKey: auth.getActiveEvmKey(),
+          amount: (requiredAmountInBtc + swapFees.totalFees).roundUp(
+            BitcoinUnit.sat,
+          ),
         ),
       );
       final sub = swap.stream.listen((state) {

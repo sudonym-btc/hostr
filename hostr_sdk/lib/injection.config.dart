@@ -74,15 +74,26 @@ extension GetItInjectableX on _i174.GetIt {
     final hostrSdkModule = _$HostrSdkModule();
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
     gh.singleton<_i331.CustomLogger>(() => hostrSdkModule.logger);
-    gh.factory<_i350.BoltzClient>(
-      () =>
-          _i350.BoltzClient(gh<_i910.HostrConfig>(), gh<_i372.CustomLogger>()),
+    gh.singleton<_i857.Ndk>(() => hostrSdkModule.ndk(gh<_i910.HostrConfig>()));
+    gh.singleton<_i218.AuthStorage>(
+      () => _i218.AuthStorage(gh<_i910.HostrConfig>()),
+    );
+    gh.singleton<_i1014.Requests>(
+      () => _i1014.Requests(ndk: gh<_i857.Ndk>()),
+      registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i158.Rootstock>(
       () => _i158.Rootstock(
         config: gh<_i910.HostrConfig>(),
         logger: gh<_i331.CustomLogger>(),
       ),
+    );
+    gh.singleton<_i56.Location>(
+      () => _i56.Location(logger: gh<_i331.CustomLogger>()),
+    );
+    gh.singleton<_i1014.Requests>(
+      () => _i200.TestRequests(ndk: gh<_i857.Ndk>()),
+      registerFor: {_test, _mock},
     );
     gh.factoryParam<_i514.RifRelay, _i641.Web3Client, dynamic>(
       (client, _) => _i514.RifRelay(
@@ -91,12 +102,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i331.CustomLogger>(),
       ),
     );
-    gh.singleton<_i56.Location>(
-      () => _i56.Location(logger: gh<_i331.CustomLogger>()),
-    );
-    gh.singleton<_i857.Ndk>(() => hostrSdkModule.ndk(gh<_i910.HostrConfig>()));
-    gh.singleton<_i218.AuthStorage>(
-      () => _i218.AuthStorage(gh<_i910.HostrConfig>()),
+    gh.factory<_i350.BoltzClient>(
+      () =>
+          _i350.BoltzClient(gh<_i910.HostrConfig>(), gh<_i372.CustomLogger>()),
     );
     gh.singleton<_i1000.Auth>(
       () => _i1000.Auth(
@@ -105,107 +113,12 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.factoryParam<_i62.RootstockSwapInOperation, _i520.SwapInParams, dynamic>(
-      (params, _) => _i62.RootstockSwapInOperation(
-        rootstock: gh<_i158.Rootstock>(),
-        auth: gh<_i520.Auth>(),
-        logger: gh<_i372.CustomLogger>(),
-        params: params,
-      ),
-    );
-    gh.singleton<_i1014.Requests>(
-      () => _i1014.Requests(ndk: gh<_i857.Ndk>()),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i305.Evm>(
-      () => _i305.Evm(
-        auth: gh<_i1000.Auth>(),
-        rootstock: gh<_i158.Rootstock>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i218.RelayStorage>(
-      () => _i218.RelayStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
-    );
-    gh.singleton<_i218.NwcStorage>(
-      () => _i218.NwcStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
-    );
-    gh.singleton<_i1014.Requests>(
-      () => _i200.TestRequests(ndk: gh<_i857.Ndk>()),
-      registerFor: {_test, _mock},
-    );
-    gh.singleton<_i588.Nwc>(
-      () => _i588.Nwc(
-        gh<_i218.NwcStorage>(),
-        gh<_i857.Ndk>(),
-        gh<_i331.CustomLogger>(),
-      ),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i49.ReservationRequests>(
-      () => _i49.ReservationRequests(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        ndk: gh<_i857.Ndk>(),
-      ),
-    );
-    gh.singleton<_i883.Relays>(
-      () => _i883.MockRelays(
-        ndk: gh<_i857.Ndk>(),
-        relayStorage: gh<_i218.RelayStorage>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-      registerFor: {_test, _mock},
-    );
-    gh.factoryParam<_i832.EscrowFundOperation, _i520.EscrowFundParams, dynamic>(
-      (params, _) => _i832.EscrowFundOperation(
-        gh<_i520.Auth>(),
-        gh<_i520.Evm>(),
-        gh<_i520.CustomLogger>(),
-        params,
-      ),
-    );
-    gh.factoryParam<
-      _i124.Bolt11PayOperation,
-      _i124.Bolt11PayParameters,
-      dynamic
-    >(
-      (params, _) =>
-          _i124.Bolt11PayOperation(params: params, nwc: gh<_i588.Nwc>()),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i149.MetadataUseCase>(
-      () => _i149.MetadataUseCase(
-        auth: gh<_i520.Auth>(),
-        requests: gh<_i520.Requests>(),
-        logger: gh<_i520.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i943.EscrowTrusts>(
-      () => _i943.EscrowTrusts(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        auth: gh<_i1000.Auth>(),
-      ),
-    );
     gh.singleton<_i1019.Messaging>(
       () => _i1019.Messaging(
         gh<_i857.Ndk>(),
         gh<_i1014.Requests>(),
         gh<_i331.CustomLogger>(),
       ),
-    );
-    gh.singleton<_i1045.Zaps>(
-      () => _i1045.Zaps(nwc: gh<_i520.Nwc>(), ndk: gh<_i857.Ndk>()),
-      registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i883.Relays>(
-      () => _i883.Relays(
-        ndk: gh<_i857.Ndk>(),
-        relayStorage: gh<_i218.RelayStorage>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-      registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i92.BadgeAwards>(
       () => _i92.BadgeAwards(
@@ -231,12 +144,40 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.singleton<_i303.Escrows>(
-      () => _i303.Escrows(
+    gh.singleton<_i218.RelayStorage>(
+      () => _i218.RelayStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
+    );
+    gh.singleton<_i218.NwcStorage>(
+      () => _i218.NwcStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
+    );
+    gh.singleton<_i883.Relays>(
+      () => _i883.Relays(
+        ndk: gh<_i857.Ndk>(),
+        relayStorage: gh<_i218.RelayStorage>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+      registerFor: {_dev, _staging, _prod},
+    );
+    gh.factoryParam<_i62.RootstockSwapInOperation, _i520.SwapInParams, dynamic>(
+      (params, _) => _i62.RootstockSwapInOperation(
+        rootstock: gh<_i158.Rootstock>(),
+        auth: gh<_i520.Auth>(),
+        logger: gh<_i372.CustomLogger>(),
+        params: params,
+      ),
+    );
+    gh.singleton<_i49.ReservationRequests>(
+      () => _i49.ReservationRequests(
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
-        escrowMethods: gh<_i445.EscrowMethods>(),
-        escrowTrusts: gh<_i943.EscrowTrusts>(),
+        ndk: gh<_i857.Ndk>(),
+      ),
+    );
+    gh.singleton<_i943.EscrowTrusts>(
+      () => _i943.EscrowTrusts(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
       ),
     );
     gh.singleton<_i588.Nwc>(
@@ -246,6 +187,85 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i331.CustomLogger>(),
       ),
       registerFor: {_test, _mock},
+    );
+    gh.singleton<_i305.Evm>(
+      () => _i305.Evm(
+        auth: gh<_i1000.Auth>(),
+        rootstock: gh<_i158.Rootstock>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i588.Nwc>(
+      () => _i588.Nwc(
+        gh<_i218.NwcStorage>(),
+        gh<_i857.Ndk>(),
+        gh<_i331.CustomLogger>(),
+      ),
+      registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i883.Relays>(
+      () => _i883.MockRelays(
+        ndk: gh<_i857.Ndk>(),
+        relayStorage: gh<_i218.RelayStorage>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+      registerFor: {_test, _mock},
+    );
+    gh.factoryParam<_i470.Thread, String, dynamic>(
+      (anchor, _) => _i470.Thread(
+        anchor,
+        logger: gh<_i520.CustomLogger>(),
+        auth: gh<_i520.Auth>(),
+        messaging: gh<_i520.Messaging>(),
+      ),
+    );
+    gh.factoryParam<_i832.EscrowFundOperation, _i520.EscrowFundParams, dynamic>(
+      (params, _) => _i832.EscrowFundOperation(
+        gh<_i520.Auth>(),
+        gh<_i520.Evm>(),
+        gh<_i520.CustomLogger>(),
+        params,
+      ),
+    );
+    gh.factoryParam<
+      _i124.Bolt11PayOperation,
+      _i124.Bolt11PayParameters,
+      dynamic
+    >(
+      (params, _) =>
+          _i124.Bolt11PayOperation(params: params, nwc: gh<_i588.Nwc>()),
+      registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i1045.Zaps>(
+      () => _i1045.MockZaps(nwc: gh<_i520.Nwc>(), ndk: gh<_i857.Ndk>()),
+      registerFor: {_test, _mock},
+    );
+    gh.singleton<_i326.Reservations>(
+      () => _i326.Reservations(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        messaging: gh<_i1019.Messaging>(),
+        auth: gh<_i1000.Auth>(),
+      ),
+    );
+    gh.singleton<_i149.MetadataUseCase>(
+      () => _i149.MetadataUseCase(
+        auth: gh<_i520.Auth>(),
+        requests: gh<_i520.Requests>(),
+        logger: gh<_i520.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i1045.Zaps>(
+      () => _i1045.Zaps(nwc: gh<_i520.Nwc>(), ndk: gh<_i857.Ndk>()),
+      registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i303.Escrows>(
+      () => _i303.Escrows(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        escrowMethods: gh<_i445.EscrowMethods>(),
+        escrowTrusts: gh<_i943.EscrowTrusts>(),
+      ),
     );
     gh.factoryParam<_i363.LnurlPayOperation, _i363.LnurlPayParameters, dynamic>(
       (params, _) =>
@@ -259,26 +279,6 @@ extension GetItInjectableX on _i174.GetIt {
         escrows: gh<_i303.Escrows>(),
         escrowTrusts: gh<_i943.EscrowTrusts>(),
         evm: gh<_i305.Evm>(),
-      ),
-    );
-    gh.factoryParam<_i470.Thread, String, dynamic>(
-      (anchor, _) => _i470.Thread(
-        anchor,
-        logger: gh<_i520.CustomLogger>(),
-        auth: gh<_i520.Auth>(),
-        messaging: gh<_i520.Messaging>(),
-      ),
-    );
-    gh.singleton<_i1045.Zaps>(
-      () => _i1045.MockZaps(nwc: gh<_i520.Nwc>(), ndk: gh<_i857.Ndk>()),
-      registerFor: {_test, _mock},
-    );
-    gh.singleton<_i326.Reservations>(
-      () => _i326.Reservations(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        messaging: gh<_i1019.Messaging>(),
-        auth: gh<_i1000.Auth>(),
       ),
     );
     gh.singleton<_i226.Payments>(

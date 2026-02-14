@@ -1,4 +1,4 @@
-import 'package:hostr_sdk/util/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -32,7 +32,7 @@ class EscrowFundParams {
 
 class EscrowFees {
   final BitcoinAmount estimatedGasFees;
-  final BitcoinAmount estimatedSwapFees;
+  final SwapInFees estimatedSwapFees;
 
   EscrowFees({required this.estimatedGasFees, required this.estimatedSwapFees});
 }

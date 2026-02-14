@@ -11,6 +11,7 @@ import '../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../../datasources/contracts/rif_relay/BaseSmartWallet.g.dart';
 import '../../../../../datasources/contracts/rif_relay/IForwarder.g.dart';
 import '../../../../../datasources/contracts/rif_relay/SmartWalletFactory.g.dart';
+import '../../../../../util/bitcoin_amount.dart';
 import '../../../../../util/custom_logger.dart';
 
 // THIS FILE SHOULD MIRROR JS IMPLEMENTATION: https://github.com/BoltzExchange/boltz-web-app/tree/162ecc350f61460d6f8b888cd873bd5d90e02e29/src/rif
@@ -143,6 +144,9 @@ class RifRelay {
 
     if (response.statusCode == 200) {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
+      if (body.containsKey('error')) {
+        throw StateError('Relay estimate error: ${body['error']}');
+      }
       final estimation = _stringFrom(body, 'estimation');
       final requiredTokenAmount = _stringFrom(body, 'requiredTokenAmount');
       final requiredNativeAmount = _stringFrom(body, 'requiredNativeAmount');
@@ -283,6 +287,124 @@ class RifRelay {
 
     final relayRes = await relay(envelopingRequest, metadata);
     return relayRes.txHash;
+  }
+
+  Future<BitcoinAmount> estimateClaimRelayFees({
+    required EthPrivateKey signer,
+    required EtherSwap etherSwap,
+    required Uint8List preimage,
+    required BigInt amountWei,
+    required EthereumAddress refundAddress,
+    required BigInt timeoutBlockHeight,
+  }) async {
+    final callData = _encodeClaimCalldata(
+      etherSwap: etherSwap,
+      preimage: preimage,
+      amountWei: amountWei,
+      refundAddress: refundAddress,
+      timeoutBlockHeight: timeoutBlockHeight,
+    );
+
+    final chainInfo = await getChainInfo();
+    final smartWalletInfo = await getSmartWalletAddress(signer);
+    final gasPrice = await client.getGasPrice();
+
+    final signerAddress = signer.address;
+    final etherSwapAddress = etherSwap.self.address;
+
+    final smartWalletExists = await _isContractDeployed(
+      smartWalletInfo.address,
+    );
+
+    final envelopingRequest = EnvelopingRequest()
+      ..request = {
+        'value': '0',
+        'data': callData,
+        'tokenAmount': '0',
+        'tokenGas': '20000',
+        'from': signerAddress.eip55With0x,
+        'to': etherSwapAddress.eip55With0x,
+        'tokenContract': _zeroAddress,
+        'relayHub': chainInfo.relayHubAddress,
+        'validUntilTime': _validUntilTime(),
+      }
+      ..relayData = {
+        'feesReceiver': chainInfo.feesReceiver,
+        'gasPrice': _calculateGasPrice(
+          gasPrice,
+          chainInfo.minGasPrice,
+        ).toString(),
+      };
+
+    if (!smartWalletExists) {
+      if (config.rootstockConfig.boltz.rifRelayDeployVerifier.isEmpty) {
+        throw StateError('Missing rifRelayDeployVerifier in Config.');
+      }
+      if (config.rootstockConfig.boltz.rifSmartWalletFactoryAddress.isEmpty) {
+        throw StateError(
+          'Missing rifSmartWalletFactoryAddress in Config for relay deploy.',
+        );
+      }
+      envelopingRequest.relayData['callVerifier'] =
+          config.rootstockConfig.boltz.rifRelayDeployVerifier;
+      envelopingRequest.request['recoverer'] = _zeroAddress;
+      envelopingRequest.request['index'] = smartWalletInfo.nonce.toInt();
+      envelopingRequest.request['nonce'] =
+          (await _getSmartWalletFactory().nonce((
+            from: signerAddress,
+          ))).toString();
+      envelopingRequest.relayData['callForwarder'] =
+          config.rootstockConfig.boltz.rifSmartWalletFactoryAddress;
+    } else {
+      envelopingRequest.relayData['callVerifier'] =
+          config.rootstockConfig.boltz.rifRelayCallVerifier;
+      envelopingRequest.request['gas'] = _defaultGasNeededToClaim;
+      envelopingRequest.request['nonce'] = (await getForwarder(
+        smartWalletInfo.address,
+      ).nonce()).toString();
+      envelopingRequest.relayData['callForwarder'] =
+          smartWalletInfo.address.eip55With0x;
+    }
+
+    final relayWorkerAddress = EthereumAddress.fromHex(
+      chainInfo.relayWorkerAddress,
+    );
+    final metadata = RifMetadata(
+      relayHubAddress: chainInfo.relayHubAddress,
+      relayMaxNonce:
+          (await client.getTransactionCount(relayWorkerAddress)) +
+          _maxRelayNonceGap,
+    );
+
+    // Use a real signature for estimate requests to satisfy stricter relay validators.
+    metadata.signature = await signRelayRequest(signer, envelopingRequest);
+
+    try {
+      final estimateRes = await estimate(envelopingRequest, metadata);
+      final requiredNativeWei = BigInt.tryParse(
+        estimateRes.requiredNativeAmount,
+      );
+      if (requiredNativeWei == null) {
+        throw StateError(
+          'Invalid requiredNativeAmount from relay estimate: ${estimateRes.requiredNativeAmount}',
+        );
+      }
+      return BitcoinAmount.inWei(requiredNativeWei);
+    } catch (e) {
+      // Estimate can fail with nonce-mismatch / unpredictable-gas even when relay tx can be sent.
+      // Fall back to a conservative native-fee estimate.
+      logger.w('RIF relay estimate failed, using fallback fee estimate: $e');
+      final effectiveGasPrice = _calculateGasPrice(
+        gasPrice,
+        chainInfo.minGasPrice,
+      );
+      final fallbackWei =
+          (BigInt.from(_defaultGasNeededToClaim) *
+              effectiveGasPrice *
+              BigInt.from(12)) ~/
+          BigInt.from(10);
+      return BitcoinAmount.inWei(fallbackWei);
+    }
   }
 
   Future<SmartWalletAddressInfo> getSmartWalletAddress(

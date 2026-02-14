@@ -60,6 +60,14 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
     final isLoading = _status == _ThreadReplyStatus.loading;
     final isEmpty = _replyController.text.trim().isEmpty;
 
+    String sendText = AppLocalizations.of(context)!.send;
+    final counterpartyCubits = context.read<ThreadCubit>().counterpartyCubits;
+
+    if (counterpartyCubits.length > 1) {
+      sendText =
+          "Sending to ${counterpartyCubits.values.map((e) => e.state.data?.metadata.getName() ?? 'Loading').join(', ')}";
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -74,7 +82,7 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
             minLines: 1,
             autofocus: true,
             decoration: InputDecoration(
-              labelText: AppLocalizations.of(context)!.send,
+              labelText: sendText,
               errorText: _status == _ThreadReplyStatus.error ? _error : null,
             ),
           ),

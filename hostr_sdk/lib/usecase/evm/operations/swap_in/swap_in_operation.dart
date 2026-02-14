@@ -17,6 +17,6 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
     @factoryParam required this.params,
   }) : super(SwapInInitialised());
 
-  Future<BitcoinAmount> estimateFees();
+  Future<SwapInFees> estimateFees();
   Future<void> execute();
 }

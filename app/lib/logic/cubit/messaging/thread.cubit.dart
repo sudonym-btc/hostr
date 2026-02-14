@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -35,9 +36,11 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
           counterpartyStates: [],
           participantStates: [],
           reservations: [],
-          paymentProofs: [],
-          paymentProofsStreamStatus: StreamStatusIdle(),
+          paymentEvents: [],
+          paymentEventsStreamStatus: StreamStatusIdle(),
           messages: [],
+          isCancellingReservation: false,
+          reservationActionError: null,
         ),
       ) {
     // Build counterparty cubits from participantCubits but ignore our own key
@@ -70,6 +73,100 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
     }
   }
 
+  void addParticipant(String pubkey) {
+    final cubit = ProfileCubit(metadataUseCase: getIt<Hostr>().metadata)
+      ..load(pubkey);
+    participantCubits.putIfAbsent(pubkey, () => cubit);
+    counterpartyCubits.putIfAbsent(pubkey, () => cubit);
+    thread.addedParticipants.add(pubkey);
+    _subscriptions.add(
+      cubit.stream.listen(
+        (_) => emit(
+          state.copyWith(
+            participantStates: participantCubits.values
+                .map((element) => element.state)
+                .toList(),
+            counterpartyStates: counterpartyCubits.values
+                .map((element) => element.state)
+                .toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> cancelMyReservation() async {
+    print('Attempting to cancel reservation for thread ${thread}');
+    final hostr = getIt<Hostr>();
+    final activePubkey = hostr.auth.activeKeyPair?.publicKey;
+
+    if (activePubkey == null) {
+      emit(
+        state.copyWith(
+          reservationActionError: 'No active key found',
+          isCancellingReservation: false,
+        ),
+      );
+      return;
+    }
+
+    // @todo: emitting a new reservation with copied self-signed proof is data-heavy, just reveal that I know the salt
+    final mine =
+        state.reservations
+            .where((reservation) => reservation.pubKey != state.listing!.pubKey)
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (mine.isEmpty) {
+      emit(
+        state.copyWith(
+          reservationActionError: 'No reservation found to cancel',
+          isCancellingReservation: false,
+        ),
+      );
+      return;
+    }
+
+    final latest = mine.first;
+    if (latest.parsedContent.cancelled) {
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        isCancellingReservation: true,
+        clearReservationActionError: true,
+      ),
+    );
+
+    try {
+      final tempKeyPair = Bip340.generatePrivateKey();
+      final cancelledReservation = latest
+          .copyWithContent(cancelled: true)
+          .copyWith(
+            pubKey: tempKeyPair.publicKey,
+            createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+            id: null,
+            validSig: false,
+            sig: null,
+          );
+
+      final signed = cancelledReservation.signAs(
+        tempKeyPair,
+        Reservation.fromNostrEvent,
+      );
+      await hostr.reservations.create(signed);
+      emit(state.copyWith(isCancellingReservation: false));
+    } catch (e) {
+      emit(
+        state.copyWith(
+          isCancellingReservation: false,
+          reservationActionError: e.toString(),
+        ),
+      );
+    }
+  }
+
   void watch() {
     thread.watcher.watch();
     thread.watcher
@@ -93,17 +190,17 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
     _subscriptions.add(
       Rx.merge([
         thread.messages.stream.map((event) => null),
-        thread.watcher.paymentStream.status.map((event) => null),
-        thread.watcher.paymentStream.stream.map((event) => null),
+        thread.watcher.paymentEvents!.status.map((event) => null),
+        thread.watcher.paymentEvents!.stream.map((event) => null),
         thread.watcher.reservationStream.status.map((event) => null),
         thread.watcher.reservationStream.stream.map((event) => null),
       ]).listen((_) {
         emit(
           state.copyWith(
             messages: thread.sortedMessages,
-            paymentProofs: thread.watcher.paymentStream.list.value,
-            paymentProofsStreamStatus:
-                thread.watcher.paymentStream.status.value,
+            paymentEvents: thread.watcher.paymentEvents!.list.value,
+            paymentEventsStreamStatus:
+                thread.watcher.paymentEvents!.status.value,
             reservations: thread.watcher.reservationStream.list.value,
             reservationsStreamStatus:
                 thread.watcher.reservationStream.status.value,
@@ -135,8 +232,10 @@ class ThreadCubitState {
   final List<EntityCubitState<ProfileMetadata>> participantStates;
   final List<EntityCubitState<ProfileMetadata>> counterpartyStates;
 
-  final List<SelfSignedProof> paymentProofs;
-  final StreamStatus paymentProofsStreamStatus;
+  final List<PaymentEvent> paymentEvents;
+  final StreamStatus paymentEventsStreamStatus;
+  final bool isCancellingReservation;
+  final String? reservationActionError;
 
   ThreadCubitState({
     required this.reservations,
@@ -145,9 +244,11 @@ class ThreadCubitState {
     required this.participantStates,
     required this.counterpartyStates,
     required this.reservationsStreamStatus,
-    required this.paymentProofs,
-    required this.paymentProofsStreamStatus,
+    required this.paymentEvents,
+    required this.paymentEventsStreamStatus,
     required this.messages,
+    required this.isCancellingReservation,
+    required this.reservationActionError,
   });
 
   ThreadCubitState copyWith({
@@ -158,8 +259,11 @@ class ThreadCubitState {
     ProfileMetadata? listingProfile,
     List<EntityCubitState<ProfileMetadata>>? participantStates,
     List<EntityCubitState<ProfileMetadata>>? counterpartyStates,
-    List<SelfSignedProof>? paymentProofs,
-    StreamStatus? paymentProofsStreamStatus,
+    List<PaymentEvent>? paymentEvents,
+    StreamStatus? paymentEventsStreamStatus,
+    bool? isCancellingReservation,
+    String? reservationActionError,
+    bool clearReservationActionError = false,
   }) {
     return ThreadCubitState(
       reservations: reservations ?? this.reservations,
@@ -169,10 +273,15 @@ class ThreadCubitState {
       counterpartyStates: counterpartyStates ?? this.counterpartyStates,
       reservationsStreamStatus:
           reservationsStreamStatus ?? this.reservationsStreamStatus,
-      paymentProofs: paymentProofs ?? this.paymentProofs,
-      paymentProofsStreamStatus:
-          paymentProofsStreamStatus ?? this.paymentProofsStreamStatus,
+      paymentEvents: paymentEvents ?? this.paymentEvents,
+      paymentEventsStreamStatus:
+          paymentEventsStreamStatus ?? this.paymentEventsStreamStatus,
       messages: messages ?? this.messages,
+      isCancellingReservation:
+          isCancellingReservation ?? this.isCancellingReservation,
+      reservationActionError: clearReservationActionError
+          ? null
+          : (reservationActionError ?? this.reservationActionError),
     );
   }
 }

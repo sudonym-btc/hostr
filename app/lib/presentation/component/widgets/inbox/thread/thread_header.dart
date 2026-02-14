@@ -1,42 +1,86 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:models/main.dart';
 
 class ThreadHeaderWidget extends StatelessWidget {
   final List<ProfileMetadata> counterparties;
   final Widget? trailing;
+  final ValueChanged<ProfileMetadata>? onCounterpartyTap;
   const ThreadHeaderWidget({
     super.key,
     required this.counterparties,
     this.trailing,
+    this.onCounterpartyTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle = Theme.of(context).textTheme.titleMedium;
+    final subtitleStyle = Theme.of(context).textTheme.bodyMedium;
+
     return ListTile(
       leading: ProfileAvatars(profiles: counterparties),
-      title: Row(
-        children: counterparties
-            .map(
-              (counterparty) => Text(counterparty.metadata.name ?? 'Unknown'),
-            )
-            .toList(),
+      title: RichText(
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        text: TextSpan(
+          style: titleStyle,
+          children: _buildCounterpartySpans(
+            counterparties: counterparties,
+            valueOf: (counterparty) => counterparty.metadata.getName(),
+            baseStyle: titleStyle,
+          ),
+        ),
       ),
-      subtitle: Row(
-        children: counterparties
-            .map(
-              (counterparty) => Text(
+      subtitle: RichText(
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        text: TextSpan(
+          style: subtitleStyle,
+          children: _buildCounterpartySpans(
+            counterparties: counterparties,
+            valueOf: (counterparty) =>
                 counterparty.metadata.cleanNip05 ??
-                    counterparty.metadata.lud06 ??
-                    counterparty.metadata.lud16 ??
-                    counterparty.metadata.pubKey,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            )
-            .toList(),
+                counterparty.metadata.lud06 ??
+                counterparty.metadata.lud16 ??
+                counterparty.metadata.pubKey,
+            baseStyle: subtitleStyle,
+          ),
+        ),
       ),
       trailing: trailing,
     );
+  }
+
+  List<InlineSpan> _buildCounterpartySpans({
+    required List<ProfileMetadata> counterparties,
+    required String Function(ProfileMetadata) valueOf,
+    TextStyle? baseStyle,
+  }) {
+    final linkStyle = baseStyle;
+
+    final spans = <InlineSpan>[];
+
+    for (var i = 0; i < counterparties.length; i++) {
+      final counterparty = counterparties[i];
+
+      if (i > 0) {
+        spans.add(TextSpan(text: ', ', style: baseStyle));
+      }
+
+      spans.add(
+        TextSpan(
+          text: valueOf(counterparty),
+          style: linkStyle,
+          recognizer: onCounterpartyTap == null
+              ? null
+              : (TapGestureRecognizer()
+                  ..onTap = () => onCounterpartyTap!(counterparty)),
+        ),
+      );
+    }
+
+    return spans;
   }
 }
 

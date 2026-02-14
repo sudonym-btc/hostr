@@ -58,6 +58,8 @@ class Thread {
     return pubkeys.toList();
   }
 
+  List<String> addedParticipants = [];
+
   List<String> get counterpartyPubkeys {
     return participantPubkeys
         .where((pubkey) => pubkey != auth.activeKeyPair!.publicKey)
@@ -91,11 +93,11 @@ class Thread {
 
   Future<List<Future<List<RelayBroadcastResponse>>>> replyText(String content) {
     return messaging.broadcastText(
-      content: content,
+      content: content.trim(),
       tags: [
         [kThreadRefTag, anchor],
       ],
-      recipientPubkeys: counterpartyPubkeys,
+      recipientPubkeys: [...counterpartyPubkeys, ...addedParticipants],
     );
   }
 
@@ -108,7 +110,7 @@ class Thread {
         [kThreadRefTag, anchor],
         ...tags,
       ],
-      recipientPubkeys: counterpartyPubkeys,
+      recipientPubkeys: [...counterpartyPubkeys, ...addedParticipants],
     );
   }
 

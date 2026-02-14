@@ -22,6 +22,6 @@ class ReservationStatusWidget extends StatelessWidget {
         smallImage: true,
       );
     }
-    return ReservationListItem(reservations: reservations);
+    return ReservationListItem();
   }
 }

@@ -8,12 +8,14 @@ class AmountWidget extends StatelessWidget {
   final String? toPubkey;
   final Amount amount;
   final Function onConfirm;
+  final Widget? feeWidget;
   const AmountWidget({
     super.key,
     this.to,
     this.toPubkey,
     required this.amount,
     required this.onConfirm,
+    this.feeWidget,
   });
 
   @override
@@ -37,29 +39,7 @@ class AmountWidget extends StatelessWidget {
           ).textTheme.displayMedium!.copyWith(fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
-        Builder(
-          builder: (context) {
-            final baseStyle = Theme.of(context).textTheme.bodySmall!;
-            final subtleStyle = baseStyle.copyWith(
-              fontWeight: FontWeight.w400,
-              color: baseStyle.color?.withValues(alpha: 0.6),
-            );
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "+ ${formatAmount(Amount(currency: Currency.BTC, value: BigInt.from(10000)))} in gas",
-                  style: subtleStyle,
-                ),
-                Text(
-                  "+ ${formatAmount(Amount(currency: Currency.BTC, value: BigInt.from(1200)))} in fees",
-                  style: subtleStyle,
-                ),
-              ],
-            );
-          },
-        ),
+        feeWidget != null ? feeWidget! : SizedBox.shrink(),
         SizedBox(height: 8),
 
         Row(

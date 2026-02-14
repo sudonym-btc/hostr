@@ -397,7 +397,7 @@ packages:
     source: path
     version: "1.0.0"
   ndk:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "packages/ndk"
       ref: HEAD
@@ -707,7 +707,7 @@ packages:
     source: hosted
     version: "1.1.1"
   web3dart:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: web3dart
       sha256: b7401f8c57833fbde08aaaa8c56e020c5cbdef6bab7f946f69bcc342c9c492b2

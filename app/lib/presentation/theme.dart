@@ -28,7 +28,7 @@ ThemeData getTheme(bool isDark) {
           //     shape: MaterialStateProperty.all(const CircleBorder()),
           //   ),
           // ),
-          splashColor: Colors.white, // Set splash color to match theme
+          splashColor: Colors.black, // Set splash color to match theme
         )
       : ThemeData.light().copyWith(
           brightness: Brightness.light,

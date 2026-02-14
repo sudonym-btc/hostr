@@ -18,6 +18,7 @@ class ThreadWatcher {
   final EscrowUseCase escrow;
   final MetadataUseCase metadata;
   final PublishSubject<void> _dispose$ = PublishSubject<void>();
+  bool _isWatching = false;
 
   Completer<Listing?>? _listingCompleter;
   Completer<ProfileMetadata?>? _listingProfileCompleter;
@@ -39,8 +40,8 @@ class ThreadWatcher {
         ),
       );
 
-  DynamicCombinedStreamWithStatus<SelfSignedProof>? _paymentStream;
-  StreamWithStatus<SelfSignedProof> get paymentStream => _paymentStream!;
+  StreamWithStatus<PaymentEvent>? paymentEvents =
+      StreamWithStatus<PaymentEvent>();
 
   ThreadWatcher(
     @factoryParam this.thread, {
@@ -53,7 +54,12 @@ class ThreadWatcher {
   });
 
   void watch() {
-    _paymentStream = DynamicCombinedStreamWithStatus<SelfSignedProof>();
+    if (_isWatching) {
+      logger.e('Already watching thread ${thread.anchor}, skipping');
+      return;
+    }
+    _isWatching = true;
+    paymentEvents = getPaymentEvents();
     listenForPaymentProofAfterReservations();
   }
 
@@ -66,11 +72,33 @@ class ThreadWatcher {
           .takeUntil(_dispose$)
           .first;
       if (reservationStream.list.value.isEmpty) {
-        _paymentStream!.combine(getPaymentProof());
+        final proof = await paymentEvents!.stream
+            .whereType<PaymentFundedEvent>()
+            .takeUntil(_dispose$)
+            .asyncMap((event) async {
+              return SelfSignedProof(
+                listing: (await getListing())!,
+                hoster: (await getListingProfile())!,
+                zapProof: event is ZapFundedEvent
+                    ? ZapProof(receipt: Nip01EventModel.fromEntity(event.event))
+                    : null,
+                escrowProof: event is EscrowFundedEvent
+                    ? EscrowProof(
+                        txHash: event.transactionHash,
+                        hostsTrustedEscrows:
+                            event.escrowService!.parsedContent.sellerTrusts,
+                        hostsEscrowMethods:
+                            event.escrowService!.parsedContent.sellerMethods,
+                        escrowService:
+                            event.escrowService!.parsedContent.service,
+                      )
+                    : null,
+              );
+            })
+            .first;
         logger.d(
           'No reservations yet, creating self-signed reservation on payment proof when payment is seen',
         );
-        final proof = await paymentStream.replay.takeUntil(_dispose$).first;
         logger.d(
           'Payment completed, creating reservation on thread ${proof.escrowProof}, proof: ${proof.zapProof}',
         );
@@ -118,44 +146,41 @@ class ThreadWatcher {
     return _listingProfileCompleter!.future;
   }
 
-  StreamWithStatus<SelfSignedProof> getPaymentProof() {
-    final response = DynamicCombinedStreamWithStatus<SelfSignedProof>();
+  StreamWithStatus<PaymentEvent> getPaymentEvents() {
+    final response = DynamicCombinedStreamWithStatus<PaymentEvent>();
+    final subscribedEscrowKeys = <String>{};
 
-    StreamWithStatus<SelfSignedProof> selfSignedProofForService(
+    StreamWithStatus<EscrowEvent> getSelectedEscrowStream(
       EscrowServiceSelected selectedEscrow,
     ) {
-      return escrow
-          .checkEscrowStatus(selectedEscrow, thread.tradeId)
-          .whereType<FundedEvent>()
-          .map(
-            (fundedEvent) => EscrowProof(
-              txHash: fundedEvent.transactionHash,
-              hostsTrustedEscrows: selectedEscrow.parsedContent.sellerTrusts,
-              hostsEscrowMethods: selectedEscrow.parsedContent.sellerMethods,
-              escrowService: selectedEscrow.parsedContent.service,
-            ),
-          )
-          .asyncMap(
-            (proof) async => SelfSignedProof(
-              listing: (await getListing())!,
-              hoster: (await getListingProfile())!,
-              escrowProof: proof,
-              zapProof: null,
-            ),
-          );
+      return escrow.checkEscrowStatus(selectedEscrow, thread.tradeId);
+    }
+
+    String escrowKey(EscrowServiceSelected selectedEscrow) {
+      final service = selectedEscrow.parsedContent.service;
+      return service.id;
+    }
+
+    void combineIfNew(EscrowServiceSelected selectedEscrow) {
+      final key = escrowKey(selectedEscrow);
+      if (!subscribedEscrowKeys.add(key)) {
+        logger.d('Skipping duplicate selected escrow subscription: $key');
+        return;
+      }
+      response.combine(getSelectedEscrowStream(selectedEscrow));
     }
 
     // Set to live in case there are no selected escrows or zaps, so that the stream doesn't get stuck on loading status without emitting anything
     // response.addStatus(StreamStatusLive());
     for (final escrowService in thread.selectedEscrows) {
-      response.combine(selfSignedProofForService(escrowService));
+      combineIfNew(escrowService);
     }
     thread.messages.stream
         .where((message) => message.child is EscrowServiceSelected)
         .takeUntil(_dispose$)
         .listen((message) {
           final escrowService = (message.child as EscrowServiceSelected);
-          response.combine(selfSignedProofForService(escrowService));
+          combineIfNew(escrowService);
         });
 
     response.combine(
@@ -165,31 +190,32 @@ class ThreadWatcher {
             addressableId: thread.anchor,
           )
           .map(
-            (receipt) => ZapProof(receipt: Nip01EventModel.fromEntity(receipt)),
-          )
-          .asyncMap(
-            (proof) async => SelfSignedProof(
-              listing: (await listing)!,
-              hoster: (await listingProfile)!,
-              zapProof: proof,
-              escrowProof: null,
+            (event) => ZapFundedEvent(
+              event: Nip01EventModel.fromEntity(event),
+              zapReceipt: ZapReceipt.fromEvent(event),
+              amount: BitcoinAmount.fromInt(
+                BitcoinUnit.sat,
+                ZapReceipt.fromEvent(event).amountSats!,
+              ),
             ),
           ),
     );
-
     return response;
   }
 
   Future<void> removeSubscriptions() async {
-    await _paymentStream?.close();
-    _paymentStream = null;
+    // Cancel all takeUntil(_dispose$) listeners created during watch().
+    _dispose$.add(null);
+
     await _reservationStream?.close();
     _reservationStream = null;
+    await paymentEvents?.close();
+    paymentEvents = null;
+    _isWatching = false;
   }
 
   Future<void> close() async {
     await removeSubscriptions();
-    _dispose$.add(null);
     await _dispose$.close();
   }
 }

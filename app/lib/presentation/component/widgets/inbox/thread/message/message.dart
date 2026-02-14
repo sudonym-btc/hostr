@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class ThreadMessageWidget extends StatelessWidget {
   final ProfileMetadata counterparty;
   final Message item;
 
-  bool get isSentByMe => item.pubKey == counterparty.pubKey;
+  bool get isSentByMe => item.pubKey == getIt<Auth>().activeKeyPair!.publicKey;
 
   const ThreadMessageWidget({
     super.key,
@@ -22,16 +25,20 @@ class ThreadMessageWidget extends StatelessWidget {
         top: 0.2,
         bottom: 0.2,
         child: Container(
-          padding: EdgeInsets.all(10),
+          padding: EdgeInsets.all(kDefaultPadding / 3),
           decoration: BoxDecoration(
             color: isSentByMe
-                ? Theme.of(context).primaryColorDark
-                : Colors.grey[300],
-            borderRadius: BorderRadius.circular(10),
+                ? Theme.of(context).colorScheme.primaryContainer
+                : Theme.of(context).colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(kDefaultPadding / 3),
           ),
           child: Text(
             item.content,
-            style: TextStyle(color: isSentByMe ? Colors.white : Colors.black),
+            style: TextStyle(
+              color: isSentByMe
+                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                  : Theme.of(context).colorScheme.onSecondaryContainer,
+            ),
           ),
         ),
       ),

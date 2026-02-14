@@ -48,8 +48,6 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CustomPadding(
-                right: 0,
-                top: 0,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -70,10 +68,7 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
                   ],
                 ),
               ),
-              CustomPadding(
-                top: 0,
-                child: viewComponents.actionButton(context),
-              ),
+              CustomPadding(child: viewComponents.actionButton(context)),
             ],
           ),
         ],
