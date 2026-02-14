@@ -21,12 +21,15 @@ class Messaging {
     List<List<String>> tags,
     List<String> recipientPubkeys,
   ) {
+    logger.d(
+      'Creating rumor with content: $content, tags: $tags, recipientPubkeys: $recipientPubkeys',
+    );
     return ndk.giftWrap.createRumor(
       content: content,
       kind: kNostrKindDM,
       tags: [
         ...tags,
-        ['p', ...recipientPubkeys],
+        ...recipientPubkeys.map((pubkey) => ['p', pubkey]),
       ],
     );
   }
@@ -48,6 +51,9 @@ class Messaging {
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
   }) async {
+    logger.d(
+      'Broadcasting text: $content to $recipientPubkeys with tags: $tags',
+    );
     final rumor = await getRumour(content, tags, recipientPubkeys);
 
     final broadcasts = [...recipientPubkeys, ndk.accounts.getPublicKey()!]

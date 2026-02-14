@@ -37,18 +37,13 @@ class EscrowUseCase {
   ) {
     logger.i('Checking escrow status for reservation: $tradeId');
 
-    try {
-      final contract = evm
-          .getChainForEscrowService(selectedEscrow.parsedContent.service)
-          .getSupportedEscrowContract(selectedEscrow.parsedContent.service);
+    final contract = evm
+        .getChainForEscrowService(selectedEscrow.parsedContent.service)
+        .getSupportedEscrowContract(selectedEscrow.parsedContent.service);
 
-      return contract.allEvents(tradeId);
-    } catch (e) {
-      logger.e(
-        'Error getting supported escrow contract for ${selectedEscrow.parsedContent.service}',
-        error: e,
-      );
-      rethrow;
-    }
+    return contract.allEvents(
+      ContractEventsParams(tradeId: tradeId),
+      selectedEscrow,
+    );
   }
 }

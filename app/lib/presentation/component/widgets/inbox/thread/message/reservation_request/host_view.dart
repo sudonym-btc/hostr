@@ -60,14 +60,16 @@ class ThreadReservationRequestHostViewWidget
               : AppLocalizations.of(context)!.receivedReservationRequest,
           style: Theme.of(context).textTheme.bodyMedium!,
         );
-      case ReservationRequestStatus.pendingPublish:
-        return Text('Waiting for host to confirm your booking');
-      case ReservationRequestStatus.confirmed:
-        return Text('Confirmed by host');
-      case ReservationRequestStatus.refunded:
-        return Text('Refunded by host');
-      case ReservationRequestStatus.unavailable:
-        return Text('This booking is no longer available');
+      // case ReservationRequestStatus.pendingPublish:
+      //   return Text('Waiting for host to confirm your booking');
+      // case ReservationRequestStatus.confirmed:
+      //   return Text('Confirmed by host');
+      // case ReservationRequestStatus.refunded:
+      //   return Text('Refunded by host');
+      // case ReservationRequestStatus.unavailable:
+      //   return Text('This booking is no longer available');
+      default:
+        return Container();
     }
   }
 

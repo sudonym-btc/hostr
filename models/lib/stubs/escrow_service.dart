@@ -5,7 +5,7 @@ List<EscrowService> MOCK_ESCROWS(
     [
       EscrowService(
           pubKey: MockKeys.escrow.publicKey,
-          content: EscrowContent(
+          content: EscrowServiceContent(
               chainId: ChainIds.RootstockRegtest.value,
               pubkey: MockKeys.escrow.publicKey,
 //               Verifiable build metadata: the exact Solidity compiler version, optimizer flag + runs, and metadata settings used to compile. These determine the runtime bytecode.

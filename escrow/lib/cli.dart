@@ -1,14 +1,14 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:escrow/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/injection.dart' show Env;
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
-import 'package:http/http.dart' as http;
+import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
+import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
-import 'package:ndk/shared/nips/nip01/key_pair.dart';
-import 'package:web3dart/web3dart.dart';
+import 'package:rxdart/rxdart.dart';
 
 void main(List<String> arguments) async {
   final String relayUrl =
@@ -17,63 +17,55 @@ void main(List<String> arguments) async {
       Platform.environment['PRIVATE_KEY'] ?? MockKeys.escrow.privateKey!;
   final String rpcUrl =
       Platform.environment['RPC_URL'] ?? 'http://localhost:8545';
+  final String blossomUrl =
+      Platform.environment['BLOSSOM_URL'] ?? 'http://blossom.hostr.development';
+  final String environment = Platform.environment['ENV'] ?? 'dev';
   final String contractAddress = Platform.environment['CONTRACT_ADDR'] ??
       '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F';
-    final String blossomUrl =
-      Platform.environment['HOSTR_BLOSSOM'] ?? 'http://blossom.hostr.development';
-    final String hostrEnv = Platform.environment['HOSTR_ENV'] ?? Env.dev;
-    final int chainId =
-      int.tryParse(Platform.environment['CHAIN_ID'] ?? '') ?? 33;
-    final String boltzApiUrl =
-      Platform.environment['BOLTZ_API_URL'] ?? 'http://localhost:9001/v2';
-    final String rifRelayUrl =
-      Platform.environment['RIF_RELAY_URL'] ?? 'http://localhost:8090';
-    final String rifRelayCallVerifier =
-      Platform.environment['RIF_RELAY_CALL_VERIFIER'] ??
-      '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
-    final String rifRelayDeployVerifier =
-      Platform.environment['RIF_RELAY_DEPLOY_VERIFIER'] ??
-      '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
-    final String rifSmartWalletFactoryAddress =
-      Platform.environment['RIF_SMART_WALLET_FACTORY_ADDRESS'] ??
-      '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE';
 
-    final HostrConfig hostrConfig = HostrConfig(
-    bootstrapRelays: [relayUrl],
-    bootstrapBlossom: [blossomUrl],
-    rootstockConfig: CliRootstockConfig(
-      chainId: chainId,
-      rpcUrl: rpcUrl,
-      boltz: CliBoltzConfig(
-      apiUrl: boltzApiUrl,
-      rifRelayUrl: rifRelayUrl,
-      rifRelayCallVerifier: rifRelayCallVerifier,
-      rifRelayDeployVerifier: rifRelayDeployVerifier,
-      rifSmartWalletFactoryAddress: rifSmartWalletFactoryAddress,
-      ),
-    ),
-    );
+  await setupInjection(
+    relayUrl: relayUrl,
+    rpcUrl: rpcUrl,
+    blossomUrl: blossomUrl,
+    environment: environment,
+  );
+  final hostr = getIt<Hostr>();
 
-    final Hostr hostrSdk = Hostr(config: hostrConfig, environment: hostrEnv);
-    await _printSupportedEvmChains(hostrSdk);
+  await hostr.auth.signin(privateKey);
 
-    Web3Client _web3client = Web3Client(rpcUrl, http.Client());
-    MultiEscrow multiEscrow = MultiEscrow(
-      address: EthereumAddress.fromHex(contractAddress), client: _web3client);
+  final ourProfile = await hostr.metadata
+      .getOne(Filter(authors: [hostr.auth.activeKeyPair!.publicKey]));
 
-  Ndk ndk = Ndk(NdkConfig(
-      eventVerifier: Bip340EventVerifier(),
-      cache: MemCacheManager(),
-      engine: NdkEngine.JIT,
-      defaultQueryTimeout: Duration(seconds: 10),
-      bootstrapRelays: [relayUrl]));
+  final ourEscrowService = EscrowService(
+      pubKey: hostr.auth.activeKeyPair!.publicKey,
+      tags: [],
+      content: EscrowServiceContent(
+          pubkey: hostr.auth.activeKeyPair!.publicKey,
+          evmAddress: hostr.auth.getActiveEvmKey().address.eip55With0x,
+          contractAddress: contractAddress,
+          contractBytecodeHash: 'MockBytecodeHash',
+          chainId: (await hostr.evm.supportedEvmChains[0].client.getChainId())
+              .toInt(),
+          maxDuration: Duration(days: 365),
+          type: EscrowType.EVM));
 
-  KeyPair keyPair = Bip340.fromPrivateKey(privateKey);
+  print(ourProfile);
 
   final parser = ArgParser()
     ..addCommand('start')
-    ..addCommand('list-pending')
-    ..addCommand('take-action');
+    ..addCommand('list-pending');
+
+  final fundCmd = parser.addCommand('fund');
+  fundCmd
+    ..addOption('amount', help: 'Amount to fund the escrow', mandatory: true);
+
+  final arbitrateCmd = parser.addCommand('arbitrate');
+  arbitrateCmd
+    ..addOption('tradeId',
+        help: 'Trade ID string to arbitrate', mandatory: true)
+    ..addOption('forward',
+        help: 'Forward ratio as double, strictly between 0 and 1',
+        mandatory: true);
 
   final argResults = parser.parse(arguments);
 
@@ -83,30 +75,72 @@ void main(List<String> arguments) async {
       print({
         'privateKey': privateKey,
         'relayUrl': relayUrl,
+        'blossomUrl': blossomUrl,
         'rpcUrl': rpcUrl,
-        'contractAddress': contractAddress
+        'contractAddress': contractAddress,
+        'environment': environment,
+        'bootstrapRelays': hostr.config.bootstrapRelays,
       });
-      await ndk.broadcast.broadcast(
-          nostrEvent: Nip01Event(
-              pubKey: keyPair.publicKey,
-              kind: kNostrKindEscrowService,
-              tags: [],
-              content: EscrowContent(
-                      pubkey: keyPair.publicKey,
-                      contractAddress: contractAddress,
-                      chainId: (await _web3client.getChainId()).toInt(),
-                      type: EscrowType.ROOTSTOCK,
-                      maxDuration: Duration(days: 365 * 2))
-                  .toString())
-            ..sign(privateKey));
-      print('Broadcast escrow event');
+
+      // await getIt<Hostr>();
+
+      // await ndk.broadcast.broadcast(
+      //     nostrEvent: Nip01Event(
+      //         pubKey: keyPair.publicKey,
+      //         kind: kNostrKindEscrowService,
+      //         tags: [],
+      //         content: EscrowContent(
+      //                 pubkey: keyPair.publicKey,
+      //                 contractAddress: contractAddress,
+      //                 chainId: (await _web3client.getChainId()).toInt(),
+      //                 type: EscrowType.ROOTSTOCK,
+      //                 maxDuration: Duration(days: 365 * 2))
+      //             .toString())
+      //       ..sign(privateKey));
+      // print('Broadcast escrow event');
       // multiEscrow
       //     .tradeCreatedEvents(fromBlock: BlockNum.current())
       //     .listen((event) {
       //   print('Trade created: ${event}');
       // });
       break;
+
+    case 'fund':
+      print('Funding escrow');
+      print(argResults.arguments);
+      final cmd = argResults.command;
+      final amount = cmd?['amount'] as String?;
+      final swapOp = hostr.evm.supportedEvmChains[0].swapIn(SwapInParams(
+          evmKey: hostr.auth.getActiveEvmKey(),
+          amount: BitcoinAmount.fromInt(BitcoinUnit.sat, int.parse(amount!))));
+      print(amount);
+      swapOp.execute();
+      print('swapping');
+      swapOp.stream
+          .doOnData(print)
+          .whereType<SwapInPaymentProgress>()
+          .map((e) => e.paymentState)
+          .whereType<PayExternalRequired>()
+          .listen((event) {
+        print(
+            'Swap event: ${(event.callbackDetails as LightningCallbackDetails).invoice.paymentRequest}');
+      });
+      break;
     case 'list-pending':
+      print(
+        'Hostr SDK is initialised. Relay bootstrap: ${hostr.config.bootstrapRelays}',
+      );
+      final contract = hostr.evm
+          .getChainForEscrowService(ourEscrowService)
+          .getSupportedEscrowContract(ourEscrowService);
+
+      final streamer = contract.allEvents(
+          ContractEventsParams(
+              arbiterEvmAddress: hostr.auth.getActiveEvmKey().address),
+          null);
+
+      streamer.stream.listen(
+          (data) => print('Received event: ${(data as dynamic).tradeId}'));
       break;
     case 'list-active':
       break;
@@ -118,58 +152,37 @@ void main(List<String> arguments) async {
       break;
     case 'delete-service':
       break;
-    case 'resolve':
+    case 'arbitrate':
+      final cmd = argResults.command;
+      final tradeId = cmd?['tradeId'] as String?;
+      final forwardRaw = cmd?['forward'] as String?;
+      if (tradeId == null || tradeId.isEmpty || forwardRaw == null) {
+        exitCode = 64;
+        return;
+      }
+
+      final forward = double.tryParse(forwardRaw);
+      if (forward == null || forward <= 0 || forward >= 1) {
+        print(
+            'Invalid forward value. Must be a number strictly between 0 and 1.');
+        exitCode = 64;
+        return;
+      }
+
+      final contract = hostr.evm
+          .getChainForEscrowService(ourEscrowService)
+          .getSupportedEscrowContract(ourEscrowService);
+
+      final txHash = await contract.arbitrate(
+        ContractArbitrateParams(
+          tradeId: tradeId,
+          forward: forward,
+          ethKey: hostr.auth.getActiveEvmKey(),
+        ),
+      );
+      print('Arbitrate tx: $txHash');
       break;
     default:
       print('Unknown command');
   }
-}
-
-Future<void> _printSupportedEvmChains(Hostr hostrSdk) async {
-  final supportedContracts =
-      SupportedEscrowContractRegistry.supportedContractNames;
-  print('Supported EVM chains and escrow wrappers:');
-  for (final chain in hostrSdk.evm.supportedEvmChains) {
-    final chainId = (await chain.getChainId()).toInt();
-    final wrappers = supportedContracts.isEmpty
-        ? 'none'
-        : supportedContracts.join(', ');
-    print('- ${chain.runtimeType} (chainId: $chainId): $wrappers');
-  }
-}
-
-class CliRootstockConfig extends RootstockConfig {
-  @override
-  final int chainId;
-  @override
-  final String rpcUrl;
-  @override
-  final BoltzConfig boltz;
-
-  CliRootstockConfig({
-    required this.chainId,
-    required this.rpcUrl,
-    required this.boltz,
-  });
-}
-
-class CliBoltzConfig extends BoltzConfig {
-  @override
-  final String apiUrl;
-  @override
-  final String rifRelayUrl;
-  @override
-  final String rifRelayCallVerifier;
-  @override
-  final String rifRelayDeployVerifier;
-  @override
-  final String rifSmartWalletFactoryAddress;
-
-  CliBoltzConfig({
-    required this.apiUrl,
-    required this.rifRelayUrl,
-    required this.rifRelayCallVerifier,
-    required this.rifRelayDeployVerifier,
-    required this.rifSmartWalletFactoryAddress,
-  });
 }

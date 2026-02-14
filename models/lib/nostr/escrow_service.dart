@@ -7,7 +7,7 @@ import 'package:ndk/ndk.dart';
 import '../nostr_kinds.dart';
 import 'type_json_content.dart';
 
-class EscrowService extends JsonContentNostrEvent<EscrowContent> {
+class EscrowService extends JsonContentNostrEvent<EscrowServiceContent> {
   static const List<int> kinds = [kNostrKindEscrowService];
 
   static const List<List<String>> requiredTags = [];
@@ -23,11 +23,11 @@ class EscrowService extends JsonContentNostrEvent<EscrowContent> {
         super(kind: kNostrKindEscrowService);
 
   EscrowService.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
-    parsedContent = EscrowContent.fromJson(json.decode(content));
+    parsedContent = EscrowServiceContent.fromJson(json.decode(content));
   }
 }
 
-class EscrowContent extends EventContent {
+class EscrowServiceContent extends EventContent {
   final String pubkey;
   final String evmAddress;
   final String contractAddress;
@@ -36,7 +36,7 @@ class EscrowContent extends EventContent {
   final Duration maxDuration;
   final EscrowType type;
 
-  EscrowContent(
+  EscrowServiceContent(
       {required this.pubkey,
       required this.evmAddress,
       required this.contractAddress,
@@ -58,8 +58,8 @@ class EscrowContent extends EventContent {
     };
   }
 
-  static EscrowContent fromJson(Map<String, dynamic> json) {
-    return EscrowContent(
+  static EscrowServiceContent fromJson(Map<String, dynamic> json) {
+    return EscrowServiceContent(
       pubkey: json["pubkey"],
       evmAddress: json["evmAddress"],
       contractAddress: json["contractAddress"],

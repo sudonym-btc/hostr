@@ -54,6 +54,42 @@ class Reservations extends CrudUseCase<Reservation> {
     return reservations.where((e) => !e.parsedContent.cancelled).toList();
   }
 
+  Map<String, ({Reservation? sellerReservation, Reservation? buyerReservation})>
+  groupByThread(List<Reservation> reservations) {
+    final temp =
+        <
+          String,
+          ({Reservation? sellerReservation, Reservation? buyerReservation})
+        >{};
+
+    for (final reservation in reservations) {
+      final threadAnchor = reservation.threadAnchor;
+      final thread = messaging.threads.threads[threadAnchor];
+      if (thread == null) continue;
+
+      final sellerPubKey = getPubKeyFromAnchor(
+        thread.lastReservationRequest.listingAnchor,
+      );
+
+      final current =
+          temp[threadAnchor] ??
+          (sellerReservation: null, buyerReservation: null);
+
+      if (reservation.pubKey == sellerPubKey) {
+        temp[threadAnchor] = (
+          sellerReservation: reservation,
+          buyerReservation: current.buyerReservation,
+        );
+      } else {
+        temp[threadAnchor] = (
+          sellerReservation: current.sellerReservation,
+          buyerReservation: reservation,
+        );
+      }
+    }
+    return temp;
+  }
+
   StreamWithStatus<Reservation> subscribeToMyReservations() {
     if (_myReservations != null) {
       return _myReservations!;

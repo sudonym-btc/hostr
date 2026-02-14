@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hostr_sdk/injection.dart';
+import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart';
 import 'package:hostr_sdk/usecase/payments/payments.dart';
 import 'package:injectable/injectable.dart';
@@ -98,9 +99,29 @@ class RootstockSwapInOperation extends SwapInOperation {
   }
 
   @override
-  Future<BitcoinAmount> estimateFees() {
-    // @todo: For simplicity, we return a fixed fee here. In a real implementation, you would call the Boltz API to get the current fees.
-    return Future.value(BitcoinAmount.fromInt(BitcoinUnit.sat, 1000));
+  Future<SwapInFees> estimateFees() async {
+    final boltzFees = await getIt<BoltzClient>().estimateReverseSwapFees(
+      invoiceAmount: params.amount,
+      from: 'BTC',
+      to: 'RBTC',
+    );
+
+    final etherSwap = await rootstock.getEtherSwapContract();
+    final relayFees = await rifRelay.estimateClaimRelayFees(
+      signer: params.evmKey,
+      etherSwap: etherSwap,
+      preimage: Uint8List(32),
+      amountWei: params.amount.getInWei,
+      refundAddress: params.evmKey.address,
+      timeoutBlockHeight: BigInt.zero,
+    );
+    logger.d('Estimated relay fees ${relayFees.getInSats} sats');
+
+    return SwapInFees(
+      estimatedGasFees: BitcoinAmount.zero(),
+      estimatedSwapFees: boltzFees,
+      estimatedRelayFees: relayFees,
+    );
   }
 
   Future<ReverseResponse> _generateSwapRequest() async {
@@ -125,9 +146,8 @@ class RootstockSwapInOperation extends SwapInOperation {
       BitcoinUnit.bitcoin,
       pr.amount.toString(),
     );
-    print('Invoice amount: ${pr.amount}, ${pr.amount.toString()}');
     logger.i(
-      'Invoice to pay: ${invoiceAmount.getInWei} against ${amount.getInWei} planned, hash: ${pr.tags.firstWhere((t) => t.type == 'payment_hash').data} against planned ${preimage.hash}',
+      'Invoice to pay: ${invoiceAmount.getInSats} against ${amount.getInSats} planned, hash: ${pr.tags.firstWhere((t) => t.type == 'payment_hash').data} against planned ${preimage.hash}',
     );
 
     /// Before paying, check that the invoice swapper generated is for the correct amount

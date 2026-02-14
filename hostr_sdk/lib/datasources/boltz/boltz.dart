@@ -77,6 +77,63 @@ class BoltzClient {
     return await gBoltzCli.swapReverseGet();
   }
 
+  Future<BitcoinAmount> estimateReverseSwapFees({
+    required BitcoinAmount invoiceAmount,
+    String from = 'BTC',
+    String to = 'RBTC',
+  }) async {
+    final response = await getSwapReserve();
+    if (!response.isSuccessful || response.body == null) {
+      throw Exception('Failed to fetch reverse swap pairs from Boltz');
+    }
+
+    final body = response.body;
+    if (body is! Map) {
+      throw Exception('Unexpected Boltz reverse pairs response shape');
+    }
+
+    final fromMap = body[from];
+    if (fromMap is! Map) {
+      throw Exception('Boltz reverse pair source currency not found: $from');
+    }
+    final pair = fromMap[to];
+    if (pair is! Map) {
+      throw Exception('Boltz reverse pair not found: $from->$to');
+    }
+
+    final fees = pair['fees'];
+    if (fees is! Map) {
+      throw Exception('Boltz reverse pair fees missing for: $from->$to');
+    }
+
+    final percentageRaw = fees['percentage'];
+    final minerFees = fees['minerFees'];
+    if (percentageRaw is! num || minerFees is! Map) {
+      throw Exception('Boltz reverse pair fee fields invalid for: $from->$to');
+    }
+
+    final lockupRaw = minerFees['lockup'];
+    final claimRaw = minerFees['claim'];
+    if (lockupRaw is! num || claimRaw is! num) {
+      throw Exception('Boltz reverse miner fees invalid for: $from->$to');
+    }
+
+    final invoiceSats = invoiceAmount.getInSats.toDouble();
+    final percentageFeeSats = invoiceSats * (percentageRaw.toDouble() / 100.0);
+    final totalFeeSats =
+        percentageFeeSats + lockupRaw.toDouble() + claimRaw.toDouble();
+
+    final estimated = BitcoinAmount.fromInt(
+      BitcoinUnit.sat,
+      totalFeeSats.ceil(),
+    );
+    logger.i(
+      'Estimated reverse swap fees from Boltz for $from->$to '
+      '(invoice: ${invoiceAmount.getInSats} sats): ${estimated.getInSats} sats',
+    );
+    return estimated;
+  }
+
   Future<Response> getSwapSubmarine() async {
     return await gBoltzCli.swapSubmarineGet();
   }

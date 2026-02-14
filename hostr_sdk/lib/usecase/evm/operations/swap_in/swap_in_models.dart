@@ -12,6 +12,14 @@ class SwapInParams {
 class SwapInFees {
   final BitcoinAmount estimatedGasFees;
   final BitcoinAmount estimatedSwapFees;
+  final BitcoinAmount estimatedRelayFees;
 
-  SwapInFees({required this.estimatedGasFees, required this.estimatedSwapFees});
+  BitcoinAmount get totalFees =>
+      estimatedGasFees + estimatedSwapFees + estimatedRelayFees;
+
+  SwapInFees({
+    required this.estimatedGasFees,
+    required this.estimatedSwapFees,
+    required this.estimatedRelayFees,
+  });
 }

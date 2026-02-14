@@ -65,10 +65,11 @@ class Requests extends RequestsModel {
             final maxCreatedAt = response.list.value.isEmpty
                 ? null
                 : response.list.value.map((e) => e.createdAt).reduce(max);
+            final nextSince = maxCreatedAt == null ? null : maxCreatedAt + 1;
             liveFilter.since = maxCreatedAt == null
                 ? liveFilter.since
-                : (liveFilter.since == null || maxCreatedAt > liveFilter.since!
-                      ? maxCreatedAt
+                : (liveFilter.since == null || nextSince! > liveFilter.since!
+                      ? nextSince
                       : liveFilter.since);
             response.addStatus(StreamStatusLive());
 

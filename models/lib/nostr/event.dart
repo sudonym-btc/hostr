@@ -54,6 +54,10 @@ getDTagFromAnchor(String anchor) {
   return anchor.split(':')[2];
 }
 
+getPubKeyFromAnchor(String anchor) {
+  return anchor.split(':')[1];
+}
+
 bool hasRequiredTags(
   List<List<String>> tags,
   List<List<String>> required,

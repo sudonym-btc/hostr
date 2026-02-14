@@ -10,6 +10,16 @@ String formatDate(DateTime date) {
   }
 }
 
+String formatDateLong(DateTime date) {
+  final localDate = date.toLocal();
+  final now = DateTime.now();
+  if (localDate.year == now.year) {
+    return DateFormat('MMM d, HH:mm').format(localDate);
+  } else {
+    return DateFormat('MMM d, yyyy, HH:mm').format(localDate);
+  }
+}
+
 String formatDateShort(DateTime date, Locale locale) {
   final now = DateTime.now();
   final dayDateFormat = DateFormat('MMM d', locale.toString());

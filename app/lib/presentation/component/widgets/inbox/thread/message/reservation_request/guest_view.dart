@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment_method/payment_method.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -23,7 +24,8 @@ abstract class ThreadReservationRequestGuestHostComponents {
       );
 
   ReservationRequest get reservationRequest => item.child as ReservationRequest;
-  bool get isSentByMe => reservationRequest.pubKey == counterparty.pubKey;
+  bool get isSentByMe =>
+      reservationRequest.pubKey == getIt<Hostr>().auth.activeKeyPair?.publicKey;
 
   const ThreadReservationRequestGuestHostComponents({
     required this.counterparty,
@@ -73,43 +75,43 @@ class ThreadReservationRequestGuestViewWidget
   @override
   Widget statusText(BuildContext context) {
     switch (reservationStatus) {
+      case ReservationRequestStatus.unavailable:
+        return Text('This booking is no longer available');
       case ReservationRequestStatus.unpaid:
+      default:
         return Text(
           isSentByMe
               ? AppLocalizations.of(context)!.youSentReservationRequest
               : AppLocalizations.of(context)!.receivedReservationRequest,
           style: Theme.of(context).textTheme.bodyMedium!,
         );
-      case ReservationRequestStatus.unconfirmed:
-        return Text(
-          'Waiting for host to confirm',
-          style: Theme.of(context).textTheme.bodyMedium!,
-        );
-      case ReservationRequestStatus.pendingPublish:
-        return Text('Waiting for host to confirm your booking');
-      case ReservationRequestStatus.confirmed:
-        return Text('Confirmed by host');
-      case ReservationRequestStatus.refunded:
-        return Text('Refunded by host');
-      case ReservationRequestStatus.unavailable:
-        return Text('This booking is no longer available');
+      // case ReservationRequestStatus.unconfirmed:
+      //   return Text(
+      //     'Waiting for host to confirm',
+      //     style: Theme.of(context).textTheme.bodyMedium!,
+      //   );
+      // case ReservationRequestStatus.pendingPublish:
+      //   return Text('Waiting for host to confirm your booking');
+      // case ReservationRequestStatus.confirmed:
+      //   return Text('Confirmed by host');
+      // case ReservationRequestStatus.refunded:
+      //   return Text('Refunded by host');
+      // default:
+      //   return Container();
     }
   }
 
   Widget payButton(BuildContext context) {
     return BlocBuilder<ThreadCubit, ThreadCubitState>(
       builder: (context, state) {
-        // print(
-        //   "Payment status state: ${state.paymentProofsStreamStatus} ${state.paymentProofs}",
-        // );
-        switch (state.paymentProofsStreamStatus) {
+        switch (state.paymentEventsStreamStatus) {
           case StreamStatusError():
             return Text(
-              (state.paymentProofsStreamStatus as StreamStatusError).error
+              (state.paymentEventsStreamStatus as StreamStatusError).error
                   .toString(),
             );
           case StreamStatusLive():
-            return state.paymentProofs.isEmpty
+            return state.paymentEvents.isEmpty
                 ? FilledButton(
                     key: ValueKey('pay'),
                     onPressed: () => pay(context),

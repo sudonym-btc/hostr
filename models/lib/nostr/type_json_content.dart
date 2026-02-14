@@ -18,7 +18,8 @@ abstract class JsonContentNostrEvent<ContentType extends EventContent>
       super.sig,
       super.id,
       super.createdAt})
-      : super(content: content.toString());
+      : parsedContent = content,
+        super(content: content.toString());
 
   JsonContentNostrEvent.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e);
 }

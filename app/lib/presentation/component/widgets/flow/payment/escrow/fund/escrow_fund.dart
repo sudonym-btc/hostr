@@ -4,6 +4,7 @@ import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
+import '../../../../amount/amount_input.dart';
 import '../../../modal_bottom_sheet.dart';
 
 class EscrowFundWidget extends StatelessWidget {
@@ -48,6 +49,30 @@ class EscrowFundConfirmWidget extends StatelessWidget {
             .escrowService
             .pubKey,
         amount: context.read<EscrowFundOperation>().params.amount,
+        feeWidget: FutureBuilder(
+          future: context.read<EscrowFundOperation>().estimateFees(),
+          builder: (context, snapshot) {
+            final baseStyle = Theme.of(context).textTheme.bodySmall!;
+            final subtleStyle = baseStyle.copyWith(
+              fontWeight: FontWeight.w400,
+              color: baseStyle.color?.withValues(alpha: 0.6),
+            );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "+ ${formatAmount(snapshot.data!.estimatedGasFees.toAmount())} in gas",
+                  style: subtleStyle,
+                ),
+                Text(
+                  "+ ${formatAmount(snapshot.data!.estimatedSwapFees.totalFees.toAmount())} in swap fees",
+                  style: subtleStyle,
+                ),
+              ],
+            );
+          },
+        ),
         onConfirm: onConfirm,
       ),
     );

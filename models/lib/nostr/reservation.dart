@@ -7,6 +7,8 @@ import 'package:web3dart/web3dart.dart';
 
 class Reservation extends JsonContentNostrEvent<ReservationContent>
     with ReferencesListing<Reservation>, ReferencesThread<Reservation> {
+  static const Object _unset = Object();
+
   static const List<int> kinds = [kNostrKindReservation];
   static const requiredTags = [
     [kThreadRefTag],
@@ -29,6 +31,55 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
 
   Reservation.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
     parsedContent = ReservationContent.fromJson(json.decode(content));
+  }
+
+  Reservation copyWith({
+    String? content,
+    int? createdAt,
+    Object? id = _unset,
+    int? kind,
+    String? pubKey,
+    String? sig,
+    List<String>? sources,
+    List<List<String>>? tags,
+    bool? validSig,
+  }) {
+    return Reservation.fromNostrEvent(
+      Nip01Event(
+        id: identical(id, _unset) ? this.id : id as String?,
+        pubKey: pubKey ?? this.pubKey,
+        createdAt: createdAt ?? this.createdAt,
+        kind: kind ?? this.kind,
+        tags: tags ?? this.tags,
+        content: content ?? this.content,
+        sig: sig ?? this.sig,
+        validSig: validSig ?? this.validSig,
+        sources: sources ?? this.sources,
+      ),
+    );
+  }
+
+  Reservation copyWithContent({
+    DateTime? start,
+    DateTime? end,
+    SelfSignedProof? proof,
+    String? guestCommitmentHash,
+    bool? cancelled,
+  }) {
+    return Reservation(
+      pubKey: pubKey,
+      tags: tags.map((tag) => [...tag]).toList(),
+      createdAt: createdAt,
+      sig: sig,
+      content: ReservationContent(
+        start: start ?? parsedContent.start,
+        end: end ?? parsedContent.end,
+        proof: proof ?? parsedContent.proof,
+        guestCommitmentHash:
+            guestCommitmentHash ?? parsedContent.guestCommitmentHash,
+        cancelled: cancelled ?? parsedContent.cancelled,
+      ),
+    );
   }
 
   static Reservation? getSeniorReservation(

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -30,6 +31,14 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     return (await client.getTransactionByHash(
       transactionHash,
     ))!; // @todo awaitTransaction should really be added to web3dart client directly, instead of EvmChain class
+  }
+
+  @override
+  arbitrate(ContractArbitrateParams params) async {
+    return await contract.arbitrate(
+      arbitrateArgs(params),
+      credentials: params.ethKey,
+    );
   }
 
   @override
@@ -74,8 +83,17 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   }
 
   @override
-  StreamWithStatus<EscrowEvent> allEvents(String tradeId) {
-    logger.d('Subscribing to events for tradeId: $tradeId');
+  arbitrateArgs(ContractArbitrateParams params) {
+    final scaledForward = BigInt.from((params.forward * 1000).round());
+    return (tradeId: getBytes32(params.tradeId), factor: scaledForward);
+  }
+
+  @override
+  StreamWithStatus<EscrowEvent> allEvents(
+    ContractEventsParams params,
+    EscrowServiceSelected? selectedEscrow,
+  ) {
+    logger.d('Subscribing to events for : $params');
     final List<String> eventNames = [
       'TradeCreated',
       'Arbitrated',
@@ -91,18 +109,34 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         include0x: true,
       );
     }
+
+    String indexedAddressTopic(EthereumAddress address) {
+      return '0x${address.without0x.padLeft(64, '0')}';
+    }
+
+    final List<List<String?>> topics = [
+      [...eventToSignature.values],
+    ];
+    if (params.tradeId != null) {
+      topics.add([
+        bytesToHex(
+          getBytes32(params.tradeId!),
+          padToEvenLength: true,
+          include0x: true,
+        ),
+      ]);
+    }
+    if (params.arbiterEvmAddress != null) {
+      if (params.tradeId == null) {
+        // Wildcard topic1 so topic2 can match arbiter.
+        topics.add([]);
+      }
+      topics.add([indexedAddressTopic(params.arbiterEvmAddress!)]);
+    }
+
     final eventFilter = FilterOptions(
       address: contract.self.address,
-      topics: [
-        [...eventToSignature.values],
-        [
-          bytesToHex(
-            getBytes32(tradeId),
-            padToEvenLength: true,
-            include0x: true,
-          ),
-        ],
-      ],
+      topics: topics,
       fromBlock: BlockNum.genesis(),
     );
 
@@ -111,13 +145,18 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       final receipt = await contract.client.getTransactionByHash(
         log.transactionHash!,
       );
+      final block = await contract.client.getBlockInformation(
+        blockNumber: receipt!.blockNumber.toString(),
+      );
       if (log.topics![0] == eventToSignature['TradeCreated']) {
-        // final decoded = contract.self.events
-        //     .firstWhere((e) => e.name == 'TradeCreated')
-        //     .decodeResults(log.topics!, log.data!);
-        // logger.d('allEvents decoded log: $decoded');
+        final decoded = contract.self.events
+            .firstWhere((e) => e.name == 'TradeCreated')
+            .decodeResults(log.topics!, log.data!);
 
-        return FundedEvent(
+        return EscrowFundedEvent(
+          tradeId: bytesToHex(TradeCreated(decoded, log).tradeId),
+          block: block,
+          escrowService: selectedEscrow,
           transactionHash: log.transactionHash!,
           amount: BitcoinAmount.fromBigInt(
             BitcoinUnit.wei,
@@ -125,17 +164,30 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           ),
         ); // @todo: return TradeCreatedEvent with decoded params
       } else if (log.topics![0] == eventToSignature['Arbitrated']) {
-        return ArbitratedEvent(
+        final decoded = contract.self.events
+            .firstWhere((e) => e.name == 'Arbitrated')
+            .decodeResults(log.topics!, log.data!);
+        return EscrowArbitratedEvent(
+          block: block,
+          escrowService: selectedEscrow,
           transactionHash: log.transactionHash!,
-          forwarded: 0,
+          forwarded: Arbitrated(decoded, log).fractionForwarded.toInt() / 1000,
         );
       } else if (log.topics![0] == eventToSignature['ReleasedToCounterparty']) {
-        return ReleasedEvent(transactionHash: log.transactionHash!);
+        return EscrowReleasedEvent(
+          block: block,
+          escrowService: selectedEscrow,
+          transactionHash: log.transactionHash!,
+        );
       } else if (log.topics![0] == eventToSignature['Claimed']) {
-        return ClaimedEvent(transactionHash: log.transactionHash!);
+        return EscrowClaimedEvent(
+          block: block,
+          escrowService: selectedEscrow,
+          transactionHash: log.transactionHash!,
+        );
       } else {
         logger.w('Unknown event found in allEvents stream: ${log.topics![0]}');
-        return EscrowEvent();
+        return UnknownEscrowEvent(block: block, escrowService: selectedEscrow);
       }
     }
 
@@ -169,5 +221,11 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           .where((log) => log.transactionHash != null)
           .asyncMap(mapper),
     );
+  }
+
+  @override
+  listTrades(ContractListTradesParams params) {
+    // TODO: implement listTrades
+    throw UnimplementedError();
   }
 }

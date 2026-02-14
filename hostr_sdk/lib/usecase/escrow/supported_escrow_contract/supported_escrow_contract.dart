@@ -1,3 +1,5 @@
+import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -21,7 +23,14 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   Future<TransactionInformation> deposit(ContractFundEscrowParams params);
   // Future<TransactionInformation> refund(ContractFundEscrowParams params);
 
-  StreamWithStatus<EscrowEvent> allEvents(String tradeId);
+  StreamWithStatus<EscrowEvent> allEvents(
+    ContractEventsParams params,
+    EscrowServiceSelected? selectedEscrow,
+  );
+
+  arbitrateArgs(ContractArbitrateParams params);
+  arbitrate(ContractArbitrateParams params);
+  listTrades(ContractListTradesParams params);
 }
 
 class SupportedEscrowContractFactory {
@@ -30,6 +39,44 @@ class SupportedEscrowContractFactory {
   }) {
     return null;
   }
+}
+
+class ContractEventsParams {
+  final String? tradeId;
+  final EthereumAddress? buyerEvmAddress;
+  final EthereumAddress? sellerEvmAddress;
+  final EthereumAddress? arbiterEvmAddress;
+
+  ContractEventsParams({
+    this.tradeId,
+    this.buyerEvmAddress,
+    this.sellerEvmAddress,
+    this.arbiterEvmAddress,
+  });
+}
+
+class ContractArbitrateParams {
+  final String tradeId;
+  final double forward;
+  final EthPrivateKey ethKey;
+
+  ContractArbitrateParams({
+    required this.tradeId,
+    required this.forward,
+    required this.ethKey,
+  });
+}
+
+class ContractListTradesParams {
+  final String? buyerEvmAddress;
+  final String? sellerEvmAddress;
+  final String? arbiterEvmAddress;
+
+  ContractListTradesParams({
+    this.buyerEvmAddress,
+    this.sellerEvmAddress,
+    this.arbiterEvmAddress,
+  });
 }
 
 class ContractFundEscrowParams {
@@ -52,28 +99,92 @@ class ContractFundEscrowParams {
   });
 }
 
-class EscrowEvent {}
+abstract class PaymentEvent {}
 
-class FundedEvent extends EscrowEvent {
+class PaymentFundedEvent extends PaymentEvent {
+  final BitcoinAmount amount;
+  PaymentFundedEvent({required this.amount});
+}
+
+class PaymentReleasedEvent extends PaymentEvent {}
+
+class PaymentArbitratedEvent extends PaymentEvent {}
+
+class PaymentClaimedEvent extends PaymentEvent {}
+
+/// Zap payment types
+abstract interface class ZapEvent implements PaymentEvent {}
+
+class ZapFundedEvent extends PaymentFundedEvent implements ZapEvent {
+  final Nip01EventModel event;
+  final ZapReceipt zapReceipt;
+
+  ZapFundedEvent({
+    required this.zapReceipt,
+    required super.amount,
+    required this.event,
+  });
+}
+
+class ZapReleasedEvent extends PaymentReleasedEvent implements ZapEvent {
+  final ZapReceipt zapReceipt;
+  final BitcoinAmount amount;
+  ZapReleasedEvent({required this.zapReceipt, required this.amount});
+}
+
+/// Escrow payment types
+abstract class EscrowEvent extends PaymentEvent {
+  final EscrowServiceSelected? escrowService;
+  final BlockInformation block;
+  EscrowEvent({required this.block, this.escrowService});
+}
+
+class UnknownEscrowEvent extends EscrowEvent {
+  UnknownEscrowEvent({required super.block, super.escrowService});
+}
+
+class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
+  final String tradeId;
   final String transactionHash;
+  @override
   final BitcoinAmount amount;
 
-  FundedEvent({required this.transactionHash, required this.amount});
+  EscrowFundedEvent({
+    required this.tradeId,
+    required super.block,
+    super.escrowService,
+    required this.transactionHash,
+    required this.amount,
+  });
 }
 
-class ReleasedEvent extends EscrowEvent {
+class EscrowReleasedEvent extends EscrowEvent implements PaymentReleasedEvent {
   final String transactionHash;
 
-  ReleasedEvent({required this.transactionHash});
+  EscrowReleasedEvent({
+    required super.block,
+    super.escrowService,
+    required this.transactionHash,
+  });
 }
 
-class ArbitratedEvent extends EscrowEvent {
+class EscrowArbitratedEvent extends EscrowEvent
+    implements PaymentArbitratedEvent {
   final String transactionHash;
   final double forwarded;
-  ArbitratedEvent({required this.transactionHash, required this.forwarded});
+  EscrowArbitratedEvent({
+    required super.block,
+    super.escrowService,
+    required this.transactionHash,
+    required this.forwarded,
+  });
 }
 
-class ClaimedEvent extends EscrowEvent {
+class EscrowClaimedEvent extends EscrowEvent implements PaymentClaimedEvent {
   final String transactionHash;
-  ClaimedEvent({required this.transactionHash});
+  EscrowClaimedEvent({
+    required super.block,
+    super.escrowService,
+    required this.transactionHash,
+  });
 }
