@@ -2,11 +2,12 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
+import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-class EditListingController {
+class EditListingController extends UpsertFormController {
   CustomLogger logger = CustomLogger();
   Listing? l;
   final ImagePickerCubit imageController = ImagePickerCubit(maxImages: 12);
@@ -17,6 +18,8 @@ class EditListingController {
   Amenities amenities = Amenities();
   Set<String> selectedAmenityKeys = {};
   Currency priceCurrency = Currency.BTC;
+  String? _geohash;
+  String? _locationError;
 
   static List<String> amenityKeys() {
     final map = Amenities().toMap();
@@ -109,12 +112,31 @@ class EditListingController {
     }
   }
 
-  Future<void> save() async {
+  @override
+  Future<void> preValidate() async {
+    _locationError = null;
+    _geohash = null;
+    final location = locationController.text.trim();
+    if (location.isEmpty) {
+      _locationError = 'Address is required';
+      return;
+    }
+
+    try {
+      final result = await getIt<Hostr>().location.geohash(location);
+      _geohash = result.geohash;
+    } catch (_) {
+      _locationError = 'Unable to resolve address';
+    }
+  }
+
+  @override
+  Future<void> upsert() async {
     await uploadImagesToBlossom();
 
-    final title = titleController.text;
-    final description = descriptionController.text;
-    final location = locationController.text;
+    final title = titleController.text.trim();
+    final description = descriptionController.text.trim();
+    final location = locationController.text.trim();
 
     if (l == null) {
       throw Exception('Listing not loaded');
@@ -142,23 +164,84 @@ class EditListingController {
       requiresEscrow: current.requiresEscrow,
     );
 
-    final signed = await getIt<Ndk>().accounts.sign(
-      Nip01Event(
-        kind: Listing.kinds.first,
-        tags: l!.tags.map((tag) => List<String>.from(tag)).toList(),
-        content: updatedContent.toString(),
-        pubKey: getIt<Ndk>().accounts.getPublicKey()!,
-      ),
+    final geohash = _geohash;
+    final updatedTags = geohash == null
+        ? l!.tags.map((tag) => List<String>.from(tag)).toList()
+        : _applyGeohashTags(l!.tags, geohash);
+
+    // final signed = await getIt<Ndk>().accounts.sign(
+    //   Nip01Event(
+    //     kind: Listing.kinds.first,
+    //     tags: updatedTags,
+    //     content: updatedContent.toString(),
+    //     pubKey: getIt<Ndk>().accounts.getPublicKey()!,
+    //   ),
+    // );
+    final updatedListing = Listing(
+      pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+      tags: updatedTags,
+      content: updatedContent,
     );
 
-    final updatedListing = Listing.fromNostrEvent(signed);
+    print('Updated listing content: ${updatedListing}');
+
     await getIt<Hostr>().listings.update(updatedListing);
     l = updatedListing;
   }
 
+  List<List<String>> _applyGeohashTags(
+    List<List<String>> tags,
+    String geohash,
+  ) {
+    final filtered = tags
+        .where((tag) => tag.isEmpty || tag.first != 'g')
+        .map((tag) => List<String>.from(tag))
+        .toList();
+
+    for (var i = 1; i <= geohash.length; i++) {
+      filtered.add(['g', geohash.substring(0, i)]);
+    }
+
+    return filtered;
+  }
+
+  String? validateTitle(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Title is required';
+    }
+    return null;
+  }
+
+  String? validateLocation(String? value) {
+    if (_locationError != null) {
+      final error = _locationError;
+      _locationError = null;
+      return error;
+    }
+    if (value == null || value.trim().isEmpty) {
+      return 'Address is required';
+    }
+    return null;
+  }
+
+  String? validatePrice(String? value) {
+    final amount = _amountFromSatsInput(value ?? '');
+    if (amount.value <= BigInt.zero) {
+      return 'Enter a valid price';
+    }
+    return null;
+  }
+
+  String? validateDescription(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Description is required';
+    }
+    return null;
+  }
+
   List<Price> _buildUpdatedPrices(List<Price> currentPrices) {
     final updatedAmount = _amountFromSatsInput(priceController.text);
-
+    print('Updated amount: ${updatedAmount.value}');
     if (currentPrices.isEmpty) {
       return [Price(amount: updatedAmount, frequency: Frequency.daily)];
     }
@@ -175,6 +258,10 @@ class EditListingController {
     if (!replaced) {
       updated.add(Price(amount: updatedAmount, frequency: Frequency.daily));
     }
+
+    print(
+      'Updated prices: ${updated.first.amount.value} ${updated.first.frequency}',
+    );
 
     return updated;
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/core/main.dart';
 
 class DateRangeButtons extends StatelessWidget {
@@ -13,45 +14,55 @@ class DateRangeButtons extends StatelessWidget {
       multiSelectionEnabled: true,
       segments: [
         ButtonSegment(
-            value: 'in',
-            label: GestureDetector(
-                onTap: () => {if (onTap != null) onTap!()},
-                child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium!
-                                  .copyWith(fontWeight: FontWeight.bold),
-                              'Check in'),
-                          if (selectedDateRange != null)
-                            Text(
-                                style: Theme.of(context).textTheme.bodySmall,
-                                formatDate(selectedDateRange!.start))
-                        ])))),
+          value: 'in',
+          label: GestureDetector(
+            onTap: () => {if (onTap != null) onTap!()},
+            child: Padding(
+              padding: EdgeInsets.all(kDefaultPadding.toDouble() / 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    'Check in',
+                  ),
+                  if (selectedDateRange != null)
+                    Text(
+                      style: Theme.of(context).textTheme.bodySmall,
+                      formatDate(selectedDateRange!.start),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
         ButtonSegment(
-            value: 'out',
-            label: GestureDetector(
-                onTap: () => {if (onTap != null) onTap!()},
-                child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium!
-                                  .copyWith(fontWeight: FontWeight.bold),
-                              'Check out'),
-                          if (selectedDateRange != null)
-                            Text(
-                                style: Theme.of(context).textTheme.bodySmall,
-                                formatDate(selectedDateRange!.end))
-                        ])))),
+          value: 'out',
+          label: GestureDetector(
+            onTap: () => {if (onTap != null) onTap!()},
+            child: Padding(
+              padding: EdgeInsets.all(kDefaultPadding.toDouble() / 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    'Check out',
+                  ),
+                  if (selectedDateRange != null)
+                    Text(
+                      style: Theme.of(context).textTheme.bodySmall,
+                      formatDate(selectedDateRange!.end),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
       selected: <dynamic>{},
     );

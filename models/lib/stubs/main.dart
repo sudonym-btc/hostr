@@ -7,9 +7,9 @@ import 'package:models/stubs/listing.dart';
 import 'package:models/stubs/profile.dart';
 import 'package:models/stubs/reservation.dart';
 import 'package:models/stubs/review.dart';
+import 'package:models/stubs/stub_faker.dart';
 import 'package:models/stubs/zap_receipt.dart';
 import 'package:ndk/ndk.dart';
-import 'package:smart_faker/smart_faker.dart';
 
 import 'escrow_trust.dart';
 
@@ -31,7 +31,7 @@ export 'reservation_request.dart';
 export 'review.dart';
 export 'zap_receipt.dart';
 
-final faker = SmartFaker(seed: 1);
+final faker = StubFaker(seed: 1);
 
 Future<List<Nip01Event>> MOCK_EVENTS(
     {String? contractAddress, String? byteCodeHash}) async {

@@ -1,47 +1,47 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/config/main.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 
 class ImageUpload extends StatelessWidget {
   final ImagePickerCubit controller;
   final String pubkey;
+  final Widget? placeholder;
 
   const ImageUpload({
     super.key,
     required this.controller,
     required this.pubkey,
+    this.placeholder,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget buildButtons(BuildContext context) {
-      return Row(
-        children: [
-          Expanded(
-            child: FilledButton.tonal(
-              onPressed: () {
-                context.read<ImagePickerCubit>().pickMultipleImages();
-              },
-              child: Text("Gallery"),
-            ),
-          ),
-          SizedBox(width: kDefaultPadding.toDouble()),
-          Expanded(
-            child: FilledButton.tonal(
-              onPressed: () {
-                context.read<ImagePickerCubit>().captureImageWithCamera();
-              },
-              child: Text("Camera"),
-            ),
-          ),
-        ],
-      );
-    }
+    // Widget buildButtons(BuildContext context) {
+    //   return Row(
+    //     children: [
+    //       Expanded(
+    //         child: FilledButton.tonal(
+    //           onPressed: () {
+    //             context.read<ImagePickerCubit>().pickMultipleImages();
+    //           },
+    //           child: Text("Gallery"),
+    //         ),
+    //       ),
+    //       SizedBox(width: kDefaultPadding.toDouble()),
+    //       Expanded(
+    //         child: FilledButton.tonal(
+    //           onPressed: () {
+    //             context.read<ImagePickerCubit>().captureImageWithCamera();
+    //           },
+    //           child: Text("Camera"),
+    //         ),
+    //       ),
+    //     ],
+    //   );
+    // }
 
     return BlocProvider.value(
       value: controller,
@@ -51,80 +51,114 @@ class ImageUpload extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }
         },
         builder: (context, state) {
+          final images = controller.images;
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Expanded(
-                  child: controller.images.isNotEmpty
-                      ? GridView.builder(
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: min(
-                                  3,
-                                  controller.maxImages ?? 3,
+                  child: PageView.builder(
+                    controller: PageController(viewportFraction: 0.9),
+                    pageSnapping: true,
+                    itemCount: images.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index >= images.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Material(
+                              color: Theme.of(context).colorScheme.surface,
+                              child: InkWell(
+                                onTap: () => context
+                                    .read<ImagePickerCubit>()
+                                    .pickMultipleImages(),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  child:
+                                      placeholder ??
+                                      _defaultPlaceholder(context),
                                 ),
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
                               ),
-                          itemCount: controller.images.length,
-                          itemBuilder: (context, index) {
-                            final image = controller.images[index];
-                            return Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: image.path != null
-                                      ? BlossomImage(
-                                          image: image.path!,
-                                          pubkey: pubkey,
-                                        )
-                                      : Image.file(
-                                          File(image.file!.path),
-                                          fit: BoxFit.cover,
-                                        ),
-                                ),
-                                Positioned(
-                                  top: 7,
-                                  right: 4,
-                                  child: GestureDetector(
-                                    onTap: () => context
-                                        .read<ImagePickerCubit>()
-                                        .removeImage(index),
-                                    child: CircleAvatar(
-                                      radius: 16,
-                                      backgroundColor: Colors.red,
-                                      child: Icon(
-                                        Icons.close,
-                                        size: 16,
-                                        color: Colors.white,
-                                      ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      final image = images[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: image.path != null
+                                  ? BlossomImage(
+                                      image: image.path!,
+                                      pubkey: pubkey,
+                                    )
+                                  : Image.file(
+                                      File(image.file!.path),
+                                      fit: BoxFit.cover,
                                     ),
+                            ),
+                            Positioned(
+                              top: 7,
+                              right: 4,
+                              child: GestureDetector(
+                                onTap: () => context
+                                    .read<ImagePickerCubit>()
+                                    .removeImage(index),
+                                child: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surface,
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                 ),
-                              ],
-                            );
-                          },
-                        )
-                      : Text(
-                          "No images selected yet",
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                              ),
+                            ),
+                          ],
                         ),
+                      );
+                    },
+                  ),
                 ),
-                SizedBox(height: kDefaultPadding.toDouble()),
-                buildButtons(context),
+                // SizedBox(height: kDefaultPadding.toDouble()),
+                // buildButtons(context),
               ],
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _defaultPlaceholder(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.add_photo_alternate_outlined,
+          color: Theme.of(context).colorScheme.onSurface,
+          size: 32,
+        ),
+        const SizedBox(height: 8),
+        Text('Add Image', style: Theme.of(context).textTheme.bodyMedium),
+      ],
     );
   }
 }

@@ -1,8 +1,21 @@
 import 'package:flutter/material.dart';
 
 ThemeData getTheme(bool isDark) {
+  final base = isDark ? ThemeData.dark() : ThemeData.light();
+  final baseGeneric = base.copyWith(
+    inputDecorationTheme: InputDecorationTheme(
+      enabledBorder: UnderlineInputBorder(
+        borderSide: BorderSide(
+          color: base.colorScheme.surfaceContainer.withAlpha(0),
+        ),
+      ),
+      focusedBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: base.colorScheme.surfaceContainer),
+      ),
+    ),
+  );
   return isDark
-      ? ThemeData.dark().copyWith(
+      ? baseGeneric.copyWith(
           brightness: Brightness.dark,
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.white,
@@ -18,19 +31,9 @@ ThemeData getTheme(bool isDark) {
             unselectedItemColor: Colors.grey,
             type: BottomNavigationBarType.fixed,
           ),
-          // iconButtonTheme: IconButtonThemeData(
-          //   style: ButtonStyle(
-          //     backgroundColor: MaterialStateProperty.all(
-          //       Colors.white.withOpacity(0.5),
-          //     ),
-          //     foregroundColor: MaterialStateProperty.all(Colors.black),
-          //     padding: MaterialStateProperty.all(const EdgeInsets.all(12)),
-          //     shape: MaterialStateProperty.all(const CircleBorder()),
-          //   ),
-          // ),
           splashColor: Colors.black, // Set splash color to match theme
         )
-      : ThemeData.light().copyWith(
+      : baseGeneric.copyWith(
           brightness: Brightness.light,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           bottomNavigationBarTheme: const BottomNavigationBarThemeData(
@@ -39,16 +42,6 @@ ThemeData getTheme(bool isDark) {
             unselectedItemColor: Colors.black54,
             type: BottomNavigationBarType.fixed,
           ),
-          // iconButtonTheme: IconButtonThemeData(
-          //   style: ButtonStyle(
-          //     backgroundColor: MaterialStateProperty.all(
-          //       Colors.white.withOpacity(0.5),
-          //     ),
-          //     foregroundColor: MaterialStateProperty.all(Colors.black87),
-          //     padding: MaterialStateProperty.all(const EdgeInsets.all(12)),
-          //     shape: MaterialStateProperty.all(const CircleBorder()),
-          //   ),
-          // ),
           splashColor: Colors.deepPurple, // Set splash color to match theme
         );
 }

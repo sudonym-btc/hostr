@@ -1,12 +1,9 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/router.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 import 'price_tag.dart';
 
@@ -60,7 +57,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.titleLarge,
         ),
-        const SizedBox(height: 8.0),
+        const SizedBox(height: kDefaultPadding / 6),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -69,70 +66,21 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            Row(
-              children: [
-                if (widget.showPrice)
-                  PriceTagWidget(price: widget.listing.parsedContent.price[0]),
-                if (widget.showFeedback)
-                  BlocProvider(
-                    create: (context) => FilterCubit()
-                      ..updateFilter(
-                        Filter(
-                          tags: {
-                            kListingRefTag: [widget.listing.anchor!],
-                          },
-                        ),
-                      ),
-                    child: Row(
-                      children: [
-                        SizedBox(width: kDefaultFontSize),
-                        BlocProvider(
-                          create: (context) => CountCubit(
-                            kinds: Review.kinds,
-                            nostrService: getIt(),
-                            filterCubit: context.read<FilterCubit>(),
-                          )..count(),
-                          child: BlocBuilder<CountCubit, CountCubitState>(
-                            builder: (context, state) {
-                              if (state is CountCubitStateLoading) {
-                                return SizedBox(
-                                  width: 10,
-                                  height: 10,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.0,
-                                  ),
-                                );
-                              }
-                              return Text("· ${state.count} reviews");
-                            },
-                          ),
-                        ),
-                        SizedBox(width: kDefaultFontSize),
+            const SizedBox(height: kDefaultPadding / 6),
 
-                        BlocProvider(
-                          create: (context) => CountCubit(
-                            kinds: Reservation.kinds,
-                            nostrService: getIt(),
-                            filterCubit: context.read<FilterCubit>(),
-                          )..count(),
-                          child: BlocBuilder<CountCubit, CountCubitState>(
-                            builder: (context, state) {
-                              if (state is CountCubitStateLoading) {
-                                return SizedBox(
-                                  width: 10,
-                                  height: 10,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.0,
-                                  ),
-                                );
-                              }
-                              return Text("· ${state.count} stays");
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                if (widget.showPrice) ...[
+                  PriceTagWidget(price: widget.listing.parsedContent.price[0]),
+                  Text(' / day ', style: Theme.of(context).textTheme.bodySmall),
+                ],
+                if (widget.showFeedback) ...[
+                  const Spacer(),
+                  if (widget.showPrice) SizedBox(width: kDefaultFontSize),
+                  ReviewsReservationsWidget(listing: widget.listing),
+                ],
               ],
             ),
             if (widget.bottom != null) widget.bottom!(context),
