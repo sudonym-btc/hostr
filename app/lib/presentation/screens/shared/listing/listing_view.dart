@@ -50,6 +50,19 @@ class ListingView extends StatelessWidget {
                     slivers: [
                       SliverAppBar(
                         stretch: true,
+                        iconTheme: IconThemeData(
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              blurRadius: kDefaultPadding.toDouble(),
+                              color: Colors.black,
+                            ),
+                            Shadow(
+                              blurRadius: kDefaultPadding.toDouble() * 2,
+                              color: Colors.black,
+                            ),
+                          ],
+                        ),
                         actions: [
                           if (state.data!.pubKey ==
                               getIt<Hostr>().auth.activeKeyPair?.publicKey)

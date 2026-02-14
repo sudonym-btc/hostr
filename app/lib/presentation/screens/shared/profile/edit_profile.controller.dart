@@ -2,10 +2,11 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
+import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-class EditProfileController {
+class EditProfileController extends UpsertFormController {
   final ImagePickerCubit imageController = ImagePickerCubit(maxImages: 1);
   final TextEditingController nameController = TextEditingController();
   final TextEditingController aboutMeController = TextEditingController();
@@ -25,7 +26,8 @@ class EditProfileController {
     lightningAddressController.text = profile?.metadata.lud16 ?? '';
   }
 
-  Future<void> save() async {
+  @override
+  Future<void> upsert() async {
     var image = imageController.images.isNotEmpty
         ? imageController.images.first.path
         : null;
@@ -50,5 +52,23 @@ class EditProfileController {
         picture: image,
       ),
     );
+  }
+
+  String? validateNip05(String? value) {
+    return _validateEmailLike(value, label: 'NIP 05');
+  }
+
+  String? validateLightningAddress(String? value) {
+    return _validateEmailLike(value, label: 'Lightning address');
+  }
+
+  String? _validateEmailLike(String? value, {required String label}) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    final valid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
+    if (!valid) {
+      return '$label must look like name@example.com';
+    }
+    return null;
   }
 }

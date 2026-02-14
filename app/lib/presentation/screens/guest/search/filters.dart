@@ -4,14 +4,24 @@ import 'package:hostr/presentation/forms/main.dart';
 
 @RoutePage()
 class FiltersScreen extends StatelessWidget {
-  const FiltersScreen({super.key});
+  final bool asBottomSheet;
+
+  const FiltersScreen({super.key, this.asBottomSheet = false});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: SafeArea(child: SearchForm(
-      onSubmit: (state) {
-        Navigator.pop(context);
-      },
-    )));
+    final content = SafeArea(
+      child: SearchForm(
+        onSubmit: (state) {
+          Navigator.pop(context);
+        },
+      ),
+    );
+
+    if (asBottomSheet) {
+      return content;
+    }
+
+    return Scaffold(body: content);
   }
 }

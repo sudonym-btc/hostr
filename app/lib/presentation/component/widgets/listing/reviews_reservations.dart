@@ -21,6 +21,7 @@ class ReviewsReservationsWidget extends StatelessWidget {
           ),
         ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           BlocProvider(
             create: (context) => CountCubit(
@@ -30,10 +31,15 @@ class ReviewsReservationsWidget extends StatelessWidget {
             )..count(),
             child: BlocBuilder<CountCubit, CountCubitState>(
               builder: (context, state) {
-                return Text("${state.count} reviews");
+                return _CountSegment(
+                  noun: 'reviews',
+                  count: state.count ?? 0,
+                  loading: state is CountCubitStateLoading,
+                );
               },
             ),
           ),
+          const Text(' · '),
           BlocProvider(
             create: (context) => CountCubit(
               kinds: Reservation.kinds,
@@ -42,12 +48,55 @@ class ReviewsReservationsWidget extends StatelessWidget {
             )..count(),
             child: BlocBuilder<CountCubit, CountCubitState>(
               builder: (context, state) {
-                return Text(" · ${state.count} stays");
+                return _CountSegment(
+                  noun: 'stays',
+                  count: state.count ?? 0,
+                  loading: state is CountCubitStateLoading,
+                );
               },
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CountSegment extends StatelessWidget {
+  final String noun;
+  final int count;
+  final bool loading;
+
+  const _CountSegment({
+    required this.noun,
+    required this.count,
+    required this.loading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      child: loading
+          ? Row(
+              key: ValueKey('loading-$noun'),
+              children: [
+                const SizedBox(
+                  width: 10,
+                  height: 10,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 6),
+                Flexible(child: Text(noun)),
+              ],
+            )
+          : Text(
+              '$count $noun',
+              key: ValueKey('loaded-$noun-$count'),
+              overflow: TextOverflow.ellipsis,
+            ),
     );
   }
 }

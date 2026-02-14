@@ -57,17 +57,77 @@ class Location {
   Future<List<LocationSuggestion>> suggestions(
     String input, {
     int limit = 5,
+    bool preferBroadResults = true,
+    Set<String>? featureTypes,
   }) async {
     final query = input.trim();
     if (query.isEmpty) return [];
 
-    final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+    final normalizedFeatureTypes =
+        (featureTypes == null || featureTypes.isEmpty)
+        ? const <String>[]
+        : featureTypes
+              .map((type) => type.toLowerCase().trim())
+              .map(_toNominatimFeatureType)
+              .whereType<String>()
+              .toSet()
+              .toList();
+
+    final rawResults = <Map<String, dynamic>>[];
+
+    if (normalizedFeatureTypes.isEmpty) {
+      rawResults.addAll(await _fetchSuggestionBatch(query, limit));
+    } else {
+      final batchLimit = limit;
+      for (final featureType in normalizedFeatureTypes) {
+        rawResults.addAll(
+          await _fetchSuggestionBatch(
+            query,
+            batchLimit,
+            featureType: featureType,
+          ),
+        );
+      }
+    }
+
+    // Intentionally no post-filtering/ranking/deduplication here.
+    // Results are constrained by request-side `featuretype` parameters.
+    final mapped = rawResults
+        .map(
+          (result) => LocationSuggestion(
+            displayName: (result['display_name'] ?? '').toString(),
+            placeId: result['place_id']?.toString(),
+            osmClass: result['class']?.toString(),
+            osmType: result['type']?.toString(),
+            addressType: result['addresstype']?.toString(),
+            placeRank: _parseInt(result['place_rank']),
+          ),
+        )
+        .toList();
+
+    if (preferBroadResults) {
+      // preserved for backward compatibility; no-op by design.
+    }
+
+    return mapped.length > limit ? mapped.take(limit).toList() : mapped;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchSuggestionBatch(
+    String query,
+    int limit, {
+    String? featureType,
+  }) async {
+    final params = <String, String>{
       'q': query,
       'format': 'json',
       'limit': limit.toString(),
-      'addressdetails': '0',
-    });
+      'addressdetails': '1',
+    };
+    if (featureType != null) {
+      params['featuretype'] = featureType;
+    }
 
+    final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
     final response = await _client.get(
       uri,
       headers: const {'User-Agent': 'hostr-sdk/1.0 (+https://hostr.network)'},
@@ -81,18 +141,32 @@ class Location {
     }
 
     final decoded = json.decode(response.body);
-    if (decoded is! List) return [];
+    if (decoded is! List) return const [];
+    return decoded.whereType<Map<String, dynamic>>().toList();
+  }
 
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(
-          (result) => LocationSuggestion(
-            displayName: (result['display_name'] ?? '').toString(),
-            placeId: result['place_id']?.toString(),
-          ),
-        )
-        .where((suggestion) => suggestion.displayName.isNotEmpty)
-        .toList();
+  static String? _toNominatimFeatureType(String type) {
+    switch (type) {
+      case 'country':
+        return 'country';
+      case 'state':
+      case 'region':
+      case 'province':
+        return 'state';
+      case 'city':
+        return 'city';
+      case 'town':
+      case 'village':
+      case 'settlement':
+        return 'settlement';
+      default:
+        return null;
+    }
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    return int.tryParse(value.toString());
   }
 
   Future<GeocodedLocation> _geocode(String location) async {
@@ -200,8 +274,19 @@ class LocationFromGeohashResult {
 class LocationSuggestion {
   final String displayName;
   final String? placeId;
+  final String? osmClass;
+  final String? osmType;
+  final String? addressType;
+  final int? placeRank;
 
-  const LocationSuggestion({required this.displayName, this.placeId});
+  const LocationSuggestion({
+    required this.displayName,
+    this.placeId,
+    this.osmClass,
+    this.osmType,
+    this.addressType,
+    this.placeRank,
+  });
 }
 
 class GeoPoint {

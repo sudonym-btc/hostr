@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
+import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -45,39 +47,48 @@ class _SearchFormState extends State<SearchForm> {
     return Form(
       key: _formKey,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  CustomPadding(
-                    child: LocationField(
-                      value: _formState.location,
-                      onChanged: _onLocationChanged,
+          CustomPadding(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FormLabel(label: 'Where are you going?'),
+                SizedBox(height: kDefaultPadding.toDouble() / 2),
+                LocationField(
+                  value: _formState.location,
+                  onChanged: _onLocationChanged,
+                ),
+                SizedBox(height: kDefaultPadding.toDouble()),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    _formState.geohash.isEmpty
+                        ? 'geohash'
+                        : 'geohash: ${_formState.geohash}',
+                    style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w200,
                     ),
                   ),
-                  CustomPadding(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _formState.geohash.isEmpty
-                            ? 'Geohash: (none)'
-                            : 'Geohash: ${_formState.geohash}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
+                ),
+                SizedBox(height: kDefaultPadding.toDouble()),
+                FormLabel(label: 'When?'),
+                SizedBox(height: kDefaultPadding.toDouble()),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: DateRangeButtons(
+                    onTap: showDatePicker,
+                    selectedDateRange: _formState.availabilityRange,
                   ),
-                  CustomPadding(
-                    child: DateRangeButtons(
-                      onTap: showDatePicker,
-                      selectedDateRange: _formState.availabilityRange,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           CustomPadding(
+            top: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [

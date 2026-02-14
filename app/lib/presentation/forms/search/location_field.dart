@@ -6,11 +6,13 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 
 class LocationField extends StatefulWidget {
   final String value;
+  final String hintText;
   final ValueChanged<String> onChanged;
 
   const LocationField({
     super.key,
     required this.value,
+    this.hintText = 'Enter a location',
     required this.onChanged,
   });
 
@@ -25,6 +27,7 @@ class LocationFieldState extends State<LocationField> {
   List<LocationSuggestion> _placeList = [];
   Timer? _debounce;
   int _suggestionRequestId = 0;
+  bool _isLoadingSuggestions = false;
 
   @override
   void initState() {
@@ -44,19 +47,35 @@ class LocationFieldState extends State<LocationField> {
     if (trimmed.length < 3) {
       _debounce?.cancel();
       setState(() {
+        _isLoadingSuggestions = false;
         _placeList = [];
       });
       return;
     }
 
     _debounce?.cancel();
+    setState(() {
+      _isLoadingSuggestions = true;
+    });
     _debounce = Timer(const Duration(milliseconds: 1000), () async {
       final requestId = ++_suggestionRequestId;
-      final res = await getIt<Hostr>().location.suggestions(trimmed);
-      if (!mounted || requestId != _suggestionRequestId) return;
-      setState(() {
-        _placeList = res;
-      });
+      try {
+        final res = await getIt<Hostr>().location.suggestions(
+          trimmed,
+          featureTypes: const {'country', 'city', 'region', 'town'},
+        );
+        if (!mounted || requestId != _suggestionRequestId) return;
+        setState(() {
+          _isLoadingSuggestions = false;
+          _placeList = res;
+        });
+      } catch (_) {
+        if (!mounted || requestId != _suggestionRequestId) return;
+        setState(() {
+          _isLoadingSuggestions = false;
+          _placeList = [];
+        });
+      }
     });
   }
 
@@ -66,14 +85,14 @@ class LocationFieldState extends State<LocationField> {
       children: [
         TextFormField(
           decoration: InputDecoration(
-            hintText: "Where are you going?",
-            labelText: 'Location',
+            hintText: widget.hintText,
             // prefixIcon: Icon(Icons.location_on),
             suffixIcon: IconButton(
               icon: Icon(Icons.cancel),
               onPressed: () {
                 _controller.clear();
                 setState(() {
+                  _isLoadingSuggestions = false;
                   _placeList = [];
                 });
               },
@@ -81,7 +100,6 @@ class LocationFieldState extends State<LocationField> {
           ),
           controller: _controller,
           onChanged: (value) {
-            widget.onChanged(value);
             _fetchSuggestions(value);
           },
           validator: (value) {
@@ -91,14 +109,27 @@ class LocationFieldState extends State<LocationField> {
             return null;
           },
         ),
-        if (_placeList.isNotEmpty)
+        if (_isLoadingSuggestions)
+          const ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8),
+            leading: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            title: Text('Searching locations...'),
+          )
+        else if (_placeList.isNotEmpty)
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 220),
             child: ListView.builder(
+              shrinkWrap: true,
               physics: const ClampingScrollPhysics(),
               itemCount: _placeList.length,
               itemBuilder: (context, index) {
                 return ListTile(
+                  dense: true,
                   title: Text(_placeList[index].displayName),
                   onTap: () {
                     _controller.text = _placeList[index].displayName;

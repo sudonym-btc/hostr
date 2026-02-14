@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/router.dart';
@@ -51,10 +52,27 @@ class SignInScreenState extends State<SignInScreen> {
                           onPressed: () async {
                             var router = AutoRouter.of(context);
                             await context.read<AuthCubit>().signin(_private);
-                            router.replaceAll([HomeRoute()]);
+                            final pubkey =
+                                getIt<Hostr>().auth.activeKeyPair?.publicKey;
+                            final metadata = pubkey == null
+                                ? null
+                                : await getIt<Hostr>().metadata.loadMetadata(
+                                    pubkey,
+                                  );
+
+                            if (metadata == null) {
+                              router.replaceAll([
+                                HomeRoute(children: [ProfileRoute()]),
+                              ]);
+                              return;
+                            }
+
                             if (widget.onSuccess != null) {
                               widget.onSuccess!();
+                              return;
                             }
+
+                            router.replaceAll([HomeRoute()]);
                           },
                           child: Text(AppLocalizations.of(context)!.signIn),
                         ),

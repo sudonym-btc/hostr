@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 
@@ -13,7 +14,8 @@ class DevelopmentConfig extends Config {
   String get hostrBlossom => 'http://blossom.hostr.development';
 
   @override
-  String get hostrRelay => 'wss://relay.hostr.development';
+  String get hostrRelay =>
+      kIsWeb ? 'ws://relay.hostr.development' : 'wss://relay.hostr.development';
 }
 
 class DevelopmentRootstockConfig extends RootstockConfig {

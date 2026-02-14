@@ -25,7 +25,6 @@ class EditProfileView extends StatefulWidget {
 }
 
 class EditProfileViewState extends State<EditProfileView> {
-  GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final EditProfileController controller = EditProfileController();
   bool loading = false;
 
@@ -53,6 +52,7 @@ class EditProfileViewState extends State<EditProfileView> {
       ),
       TextFormField(
         controller: controller.nip05Controller,
+        validator: controller.validateNip05,
         decoration: const InputDecoration(
           labelText: 'NIP 05',
           hintText: 'NIP 05',
@@ -60,6 +60,7 @@ class EditProfileViewState extends State<EditProfileView> {
       ),
       TextFormField(
         controller: controller.lightningAddressController,
+        validator: controller.validateLightningAddress,
         decoration: const InputDecoration(
           labelText: 'Lightning address',
           hintText: 'Lightning address',
@@ -71,7 +72,7 @@ class EditProfileViewState extends State<EditProfileView> {
   @override
   Widget build(BuildContext context) {
     return Form(
-      key: formKey,
+      key: controller.formKey,
       child: Scaffold(
         appBar: AppBar(title: Text(AppLocalizations.of(context)!.editProfile)),
         body: ProfileProvider(
@@ -97,8 +98,10 @@ class EditProfileViewState extends State<EditProfileView> {
                   ? null
                   : () async {
                       setState(() => loading = true);
-                      await controller.save();
-                      context.router.back();
+                      final saved = await controller.save();
+                      if (saved) {
+                        context.router.back();
+                      }
                       setState(() => loading = false);
                     },
               child: Text(AppLocalizations.of(context)!.save),

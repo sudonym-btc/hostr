@@ -61,6 +61,8 @@ class SearchViewState extends State<SearchView> {
                           onTap: () {
                             showModalBottomSheet(
                               context: context,
+                              isScrollControlled: true,
+                              useSafeArea: true,
                               builder: (x) => MultiBlocProvider(
                                 providers: [
                                   BlocProvider.value(
@@ -80,7 +82,7 @@ class SearchViewState extends State<SearchView> {
                                         ),
                                   ),
                                 ],
-                                child: const FiltersScreen(),
+                                child: const FiltersScreen(asBottomSheet: true),
                               ),
                             );
                             // Navigator.of(context).push(

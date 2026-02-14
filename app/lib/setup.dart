@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hostr/main.dart';
@@ -21,7 +22,9 @@ import 'setup/hydrated_storage.dart';
 /// - Connects to relays through the injected `RelayConnector`
 Future<void> setup(String env) async {
   await setupBackgroundAndMainCommon(env);
-  setupWorkmanager();
+  if (!kIsWeb) {
+    setupWorkmanager();
+  }
 }
 
 Future<void> setupBackgroundAndMainCommon(String env) async {
@@ -30,7 +33,7 @@ Future<void> setupBackgroundAndMainCommon(String env) async {
 
   HydratedBloc.storage = await buildHydratedStorage();
   // Allow self-signed certificates for development/test.
-  if ([Env.mock, Env.dev, Env.test].contains(env)) {
+  if ([Env.mock, Env.dev, Env.test].contains(env) && !kIsWeb) {
     HttpOverrides.global = MyHttpOverrides();
   }
 
