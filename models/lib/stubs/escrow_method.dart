@@ -1,6 +1,8 @@
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
+import 'keypairs.dart';
+
 var MOCK_ESCROW_METHODS = () async {
   return [
     EscrowMethod.fromNostrEvent(Nip01Utils.signWithPrivateKey(

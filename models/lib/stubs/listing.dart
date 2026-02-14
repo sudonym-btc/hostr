@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:models/main.dart';
 
+import 'main.dart';
+
 var MOCK_LISTINGS = [
   Listing(
       pubKey: MockKeys.hoster.publicKey,

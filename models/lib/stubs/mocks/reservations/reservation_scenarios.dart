@@ -1,4 +1,4 @@
-import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
 
 import 'reservation_builders.dart';
 

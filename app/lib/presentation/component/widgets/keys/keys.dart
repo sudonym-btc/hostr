@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
 import 'package:web3dart/web3dart.dart';
 
 class KeysWidget extends StatefulWidget {
@@ -93,34 +90,6 @@ class KeysWidgetState extends State<KeysWidget> {
               ListTile(
                 title: Text('Rootstock'),
                 subtitle: Text(getIt<Config>().rootstock.rpcUrl),
-              ),
-              Row(
-                children: [
-                  FilledButton(
-                    onPressed: () async {
-                      await Future.wait(
-                        [
-                              context.read<ModeCubit>().setHost(),
-                              context.read<AuthCubit>().signin(
-                                MockKeys.hoster.privateKey!,
-                              ),
-                            ]
-                            as Iterable<Future>,
-                      );
-                    },
-                    child: Text('Log in host'),
-                  ),
-                  FilledButton(
-                    onPressed: () async {
-                      await context.read<AuthCubit>().logout();
-                      await context.read<ModeCubit>().setGuest();
-                      await context.read<AuthCubit>().signin(
-                        MockKeys.guest.privateKey!,
-                      );
-                    },
-                    child: Text('Log in guest'),
-                  ),
-                ],
               ),
             ],
           )

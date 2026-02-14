@@ -1,7 +1,8 @@
 import 'dart:io';
 
-import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+
+import 'main.dart';
 
 seed(String relayUrl, {String? contractAddress}) async {
   print("Seeding $relayUrl...");

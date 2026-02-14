@@ -1,5 +1,6 @@
-import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+
+import 'keypairs.dart';
 
 var MOCK_BLOSSOM_SERVER_LISTS = [
   Nip01Utils.signWithPrivateKey(

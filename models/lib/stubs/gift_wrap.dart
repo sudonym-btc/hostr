@@ -2,6 +2,9 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
+import 'keypairs.dart';
+import 'reservation_request.dart';
+
 /// Helper to create mock gift wraps for testing
 /// Since NDK's GiftWrap usecase requires async operations and cryptography,
 /// these must be generated at runtime in seed.dart using the NDK instance

@@ -1,4 +1,5 @@
 import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
 import 'package:test/test.dart';
 
 void main() {

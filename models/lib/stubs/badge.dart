@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
+import 'keypairs.dart';
+import 'listing.dart';
+
 /// Mock badge definitions for testing
 final MOCK_BADGE_DEFINITIONS = [
   BadgeDefinition.fromNostrEvent(Nip01Utils.signWithPrivateKey(

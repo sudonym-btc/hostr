@@ -1,4 +1,5 @@
 import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
 
 var MOCK_REVIEWS = [
   Review(
