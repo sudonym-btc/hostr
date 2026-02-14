@@ -14,10 +14,13 @@ class ProfileCubit extends Cubit<EntityCubitState<ProfileMetadata>> {
     emit(state.copyWith(active: true));
     try {
       final metadata = await metadataUseCase.loadMetadata(pubkey);
+      if (metadata == null) {
+        logger.w('Profile metadata missing for $pubkey');
+      }
       emit(EntityCubitState(data: metadata, active: false));
       return metadata;
-    } catch (e) {
-      logger.e("Error loading profile metadata for $pubkey: $e");
+    } catch (e, stackTrace) {
+      logger.e("Error loading profile metadata for $pubkey: $e $stackTrace");
       emit(EntityCubitStateError(data: state.data, error: e));
       return null;
     }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -25,8 +27,8 @@ class InboxItem extends StatelessWidget {
             (lastMessage != null &&
                         lastMessage.pubKey ==
                             thread.auth.activeKeyPair!.publicKey
-                    ? 'Sent: '
-                    : 'Received: ') +
+                    ? 'You: '
+                    : '') +
                 (lastMessage?.child is ReservationRequest
                     ? 'Reservation Request'
                     : lastMessage?.content ?? ''),
@@ -47,7 +49,7 @@ class InboxItem extends StatelessWidget {
             ),
 
             subtitle: subtitle,
-            trailing: Text(timeago.format(lastDateTime, locale: 'en_short')),
+            trailing: _RelativeTimeText(dateTime: lastDateTime),
             onTap: () {
               AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
             },
@@ -55,5 +57,39 @@ class InboxItem extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+class _RelativeTimeText extends StatefulWidget {
+  final DateTime dateTime;
+
+  const _RelativeTimeText({required this.dateTime});
+
+  @override
+  State<_RelativeTimeText> createState() => _RelativeTimeTextState();
+}
+
+class _RelativeTimeTextState extends State<_RelativeTimeText> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(timeago.format(widget.dateTime, locale: 'en_short'));
   }
 }

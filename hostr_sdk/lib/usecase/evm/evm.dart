@@ -24,6 +24,37 @@ class Evm {
     supportedEvmChains = [rootstock];
   }
 
+  void _ensureBalanceSubscription() {
+    if (_balanceSubscription != null) return;
+
+    final streams = supportedEvmChains
+        .map(
+          (chain) => chain.subscribeBalance(
+            getEvmCredentials(auth.activeKeyPair!.privateKey!).address,
+          ),
+        )
+        .toList();
+
+    final combined = Rx.combineLatestList<BitcoinAmount>(streams).map(
+      (balances) => balances.fold<BitcoinAmount>(
+        BitcoinAmount.zero(),
+        (sum, value) => sum + value,
+      ),
+    );
+
+    _balanceSubscription = combined.distinct().listen(
+      (total) => _balanceSubject?.add(total),
+      onError: (error) => logger.w('Balance subscription error: $error'),
+    );
+  }
+
+  Future<void> _cancelBalanceSubscriptionIfUnused() async {
+    if (_balanceSubject?.hasListener ?? false) return;
+
+    await _balanceSubscription?.cancel();
+    _balanceSubscription = null;
+  }
+
   Future<BitcoinAmount> getBalance() async {
     // Get current user's Ethereum address
     final keyPair = auth.activeKeyPair!;
@@ -60,29 +91,10 @@ class Evm {
   }
 
   ValueStream<BitcoinAmount> subscribeBalance() {
-    _balanceSubject ??= BehaviorSubject<BitcoinAmount>();
-
-    if (_balanceSubscription == null) {
-      final streams = supportedEvmChains
-          .map(
-            (chain) => chain.subscribeBalance(
-              getEvmCredentials(auth.activeKeyPair!.privateKey!).address,
-            ),
-          )
-          .toList();
-
-      final combined = Rx.combineLatestList<BitcoinAmount>(streams).map(
-        (balances) => balances.fold<BitcoinAmount>(
-          BitcoinAmount.zero(),
-          (sum, value) => sum + value,
-        ),
-      );
-
-      _balanceSubscription = combined.distinct().listen(
-        (total) => _balanceSubject!.add(total),
-        onError: (error) => logger.w('Balance subscription error: $error'),
-      );
-    }
+    _balanceSubject ??= BehaviorSubject<BitcoinAmount>(
+      onListen: _ensureBalanceSubscription,
+      onCancel: _cancelBalanceSubscriptionIfUnused,
+    );
 
     return _balanceSubject!.stream;
   }

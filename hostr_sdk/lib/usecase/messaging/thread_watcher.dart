@@ -19,6 +19,7 @@ class ThreadWatcher {
   final MetadataUseCase metadata;
   final PublishSubject<void> _dispose$ = PublishSubject<void>();
   bool _isWatching = false;
+  Future<void>? _closing;
 
   Completer<Listing?>? _listingCompleter;
   Completer<ProfileMetadata?>? _listingProfileCompleter;
@@ -53,10 +54,14 @@ class ThreadWatcher {
     required this.zaps,
   });
 
-  void watch() {
+  Future<void> watch() async {
     if (_isWatching) {
-      logger.e('Already watching thread ${thread.anchor}, skipping');
-      return;
+      if (_closing != null) {
+        await _closing;
+      } else {
+        logger.e('Already watching thread ${thread.anchor}, skipping');
+        return;
+      }
     }
     _isWatching = true;
     paymentEvents = getPaymentEvents();
@@ -67,12 +72,19 @@ class ThreadWatcher {
   // If no reservations exist, listens for the next payment proof and creates a self-signed reservation
   void listenForPaymentProofAfterReservations() async {
     try {
-      await reservationStream.status
+      final liveStatuses = await reservationStream.status
           .whereType<StreamStatusLive>()
           .takeUntil(_dispose$)
-          .first;
+          .take(1)
+          .toList();
+      if (liveStatuses.isEmpty) {
+        return;
+      }
       if (reservationStream.list.value.isEmpty) {
-        final proof = await paymentEvents!.stream
+        logger.d(
+          'No reservations yet, creating self-signed reservation on payment proof when payment is seen',
+        );
+        final proofs = await paymentEvents!.stream
             .whereType<PaymentFundedEvent>()
             .takeUntil(_dispose$)
             .asyncMap((event) async {
@@ -95,10 +107,13 @@ class ThreadWatcher {
                     : null,
               );
             })
-            .first;
-        logger.d(
-          'No reservations yet, creating self-signed reservation on payment proof when payment is seen',
-        );
+            .take(1)
+            .toList();
+        if (proofs.isEmpty) {
+          return;
+        }
+        final proof = proofs.first;
+
         logger.d(
           'Payment completed, creating reservation on thread ${proof.escrowProof}, proof: ${proof.zapProof}',
         );
@@ -139,7 +154,7 @@ class ThreadWatcher {
     getListing()
         .then((listing) async {
           if (listing == null) return null;
-          return metadata.getOne(Filter(authors: [listing.pubKey]));
+          return metadata.loadMetadata(listing.pubKey);
         })
         .then(_listingProfileCompleter!.complete)
         .catchError(_listingProfileCompleter!.completeError);
@@ -204,6 +219,17 @@ class ThreadWatcher {
   }
 
   Future<void> removeSubscriptions() async {
+    if (_closing != null) {
+      return _closing!;
+    }
+    _isWatching = false;
+    _closing = _doRemoveSubscriptions();
+    await _closing;
+    _closing = null;
+  }
+
+  Future<void> _doRemoveSubscriptions() async {
+    print('THREAD WATCHER DISPOSE');
     // Cancel all takeUntil(_dispose$) listeners created during watch().
     _dispose$.add(null);
 
@@ -211,7 +237,6 @@ class ThreadWatcher {
     _reservationStream = null;
     await paymentEvents?.close();
     paymentEvents = null;
-    _isWatching = false;
   }
 
   Future<void> close() async {

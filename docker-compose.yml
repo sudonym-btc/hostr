@@ -81,6 +81,8 @@ services:
       - VIRTUAL_PORT=80
       - ENABLE_WEBSOCKETS=true
       - HTTPS_METHOD=noredirect
+      - RUST_LOG=debug
+      - nostr_rs_relay=debug
     ports:
       - "${RELAY_PORT}:80"
     volumes:

@@ -20,7 +20,7 @@ class ThreadView extends StatelessWidget {
           (profileCubit) => profileCubit.data != null,
         );
         // print(
-        //   'profiles ready: $profilesReady, listing: ${state.listing != null}, reservations status: ${state.reservationsStreamStatus is StreamStatusLive}',
+        //   'profiles ready: (${state.participantStates.length}) ${state.participantStates.map((e) => e.data != null).toList()}, listing: ${state.listing != null}, reservations status: ${state.reservationsStreamStatus is StreamStatusLive}',
         // );
         final isReady =
             profilesReady &&

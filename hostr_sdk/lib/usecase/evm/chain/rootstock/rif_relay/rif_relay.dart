@@ -309,6 +309,20 @@ class RifRelay {
     final smartWalletInfo = await getSmartWalletAddress(signer);
     final gasPrice = await client.getGasPrice();
 
+    // During pre-swap funding estimation we don't have a real lock yet.
+    // Simulating claim gas against EtherSwap will revert ("swap has no Ether locked").
+    // In that case, skip simulation and return a conservative estimate directly.
+    if (timeoutBlockHeight == BigInt.zero) {
+      final fallback = _fallbackClaimRelayFee(
+        gasPrice: gasPrice,
+        minGasPrice: chainInfo.minGasPrice,
+      );
+      logger.d(
+        'Skipping RIF relay simulation for pre-swap estimate, fallback fee: ${fallback.getInSats} sats',
+      );
+      return fallback;
+    }
+
     final signerAddress = signer.address;
     final etherSwapAddress = etherSwap.self.address;
 
@@ -394,17 +408,24 @@ class RifRelay {
       // Estimate can fail with nonce-mismatch / unpredictable-gas even when relay tx can be sent.
       // Fall back to a conservative native-fee estimate.
       logger.w('RIF relay estimate failed, using fallback fee estimate: $e');
-      final effectiveGasPrice = _calculateGasPrice(
-        gasPrice,
-        chainInfo.minGasPrice,
+      return _fallbackClaimRelayFee(
+        gasPrice: gasPrice,
+        minGasPrice: chainInfo.minGasPrice,
       );
-      final fallbackWei =
-          (BigInt.from(_defaultGasNeededToClaim) *
-              effectiveGasPrice *
-              BigInt.from(12)) ~/
-          BigInt.from(10);
-      return BitcoinAmount.inWei(fallbackWei);
     }
+  }
+
+  BitcoinAmount _fallbackClaimRelayFee({
+    required EtherAmount gasPrice,
+    required String minGasPrice,
+  }) {
+    final effectiveGasPrice = _calculateGasPrice(gasPrice, minGasPrice);
+    final fallbackWei =
+        (BigInt.from(_defaultGasNeededToClaim) *
+            effectiveGasPrice *
+            BigInt.from(12)) ~/
+        BigInt.from(10);
+    return BitcoinAmount.inWei(fallbackWei);
   }
 
   Future<SmartWalletAddressInfo> getSmartWalletAddress(

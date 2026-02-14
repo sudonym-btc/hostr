@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
@@ -6,6 +8,8 @@ import 'package:ndk/ndk.dart' hide Requests;
 
 @Singleton()
 class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
+  static const Duration metadataLoadTimeout = Duration(seconds: 40);
+
   Auth auth;
   MetadataUseCase({
     required this.auth,
@@ -14,9 +18,11 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   }) : super(kind: Metadata.kKind);
 
   Future<ProfileMetadata?> loadMetadata(String pubkey) async {
+    // We can't use NDK metadata use case, since it does not return custom fields/tags
     List<Nip01Event> metadatas = await requests
         .query(
           filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 1),
+          timeout: metadataLoadTimeout,
         )
         .toList();
     if (metadatas.isNotEmpty) {

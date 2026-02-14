@@ -44,8 +44,8 @@ class PaymentMethodWidget extends StatelessWidget {
                               escrowService: selectedEscrow,
                             ),
                           ),
-                      child: Builder(
-                        builder: (context) {
+                      child: BlocBuilder<EscrowFundOperation, EscrowFundState>(
+                        builder: (context, state) {
                           return EscrowFundWidget(
                             cubit: context.read<EscrowFundOperation>(),
                           );
