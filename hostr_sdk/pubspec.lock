@@ -109,10 +109,10 @@ packages:
     dependency: "direct dev"
     description:
       name: build_runner
-      sha256: ac78098de97893812b7aff1154f29008fa2464cad9e8e7044d39bc905dad4fbc
+      sha256: "39ad4ca8a2876779737c60e4228b4bcd35d4352ef7e14e47514093edc012c734"
       url: "https://pub.dev"
     source: hosted
-    version: "2.11.0"
+    version: "2.11.1"
   built_collection:
     dependency: transitive
     description:
@@ -133,10 +133,10 @@ packages:
     dependency: transitive
     description:
       name: characters
-      sha256: f71061c654a3380576a52b451dd5532377954cf9dbd272a78fc8479606670803
+      sha256: faf38497bda5ead2a8c7615f4f7939df04333478bf32e4173fcb06d428b5716b
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.0"
+    version: "1.4.1"
   checked_yaml:
     dependency: transitive
     description:
@@ -277,10 +277,10 @@ packages:
     dependency: transitive
     description:
       name: ffi
-      sha256: d07d37192dbf97461359c1518788f203b0c9102cfd2c35a716b823741219542c
+      sha256: "6d7fd89431262d8f3125e81b50d3847a091d846eafcd4fdb88dd06f36d705a45"
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.5"
+    version: "2.2.0"
   file:
     dependency: transitive
     description:
@@ -498,10 +498,10 @@ packages:
     dependency: transitive
     description:
       name: material_color_utilities
-      sha256: f7142bb1154231d7ea5f96bc7bde4bda2a0945d2806bb11670e30b850d56bdec
+      sha256: "9c337007e82b1889149c82ed242ed1cb24a66044e30979c44912381e9be4c48b"
       url: "https://pub.dev"
     source: hosted
-    version: "0.11.1"
+    version: "0.13.0"
   meta:
     dependency: transitive
     description:
@@ -538,10 +538,10 @@ packages:
     description:
       path: "packages/ndk"
       ref: HEAD
-      resolved-ref: f0f4646008eedc1a4ef9a10605eda5c0653e55ea
+      resolved-ref: "702e5ddcca1c41d1de259cd52732c1fea63dceec"
       url: "https://github.com/relaystr/ndk.git"
     source: git
-    version: "0.7.1-dev.10"
+    version: "0.7.1-dev.12"
   node_preamble:
     dependency: transitive
     description:
@@ -602,10 +602,10 @@ packages:
     dependency: transitive
     description:
       name: qs_dart
-      sha256: "65ef8d4321cf0183b2789aa73a78cbe1d6073120a0b73745752e3796951c90d4"
+      sha256: "0e46bec269e1c32befc20c6e7b809186f7463c98b16e685b11dc5a98bc14b8c8"
       url: "https://pub.dev"
     source: hosted
-    version: "1.6.1"
+    version: "1.7.0"
   rational:
     dependency: transitive
     description:

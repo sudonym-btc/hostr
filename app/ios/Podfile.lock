@@ -78,7 +78,7 @@ SPEC CHECKSUMS:
   flutter_local_notifications: a5a732f069baa862e728d839dd2ebb904737effb
   flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
   Google-Maps-iOS-Utils: 0a484b05ed21d88c9f9ebbacb007956edd508a96
-  google_maps_flutter_ios: 17552876e72723da1d41accc22f03b5f7afbde69
+  google_maps_flutter_ios: 0cf046caf50b00d95071f79e8031fcd5ef902beb
   GoogleMaps: 0608099d4870cac8754bdba9b6953db543432438
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
