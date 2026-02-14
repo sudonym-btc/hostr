@@ -25,11 +25,38 @@ class Listing extends JsonContentNostrEvent<ListingContent> {
     parsedContent = ListingContent.fromJson(json.decode(content));
   }
 
-  static isAvailable(
-      DateTime start, DateTime end, List<Reservation> reservations) {
-    for (Reservation r in reservations) {
-      if (start.isBefore(r.parsedContent.end) &&
-          end.isAfter(r.parsedContent.start)) {
+  static bool isAvailable(
+    DateTime start,
+    DateTime end,
+    List<Reservation> reservations,
+  ) {
+    DateTime normalize(DateTime value) {
+      return DateTime(value.year, value.month, value.day);
+    }
+
+    var normalizedStart = normalize(start);
+    var normalizedEnd = normalize(end);
+
+    if (normalizedEnd.isBefore(normalizedStart)) {
+      final temp = normalizedStart;
+      normalizedStart = normalizedEnd;
+      normalizedEnd = temp;
+    }
+
+    final effectiveEnd = normalizedEnd.isAtSameMomentAs(normalizedStart)
+        ? normalizedEnd.add(Duration(days: 1))
+        : normalizedEnd;
+
+    for (final reservation in reservations) {
+      if (reservation.parsedContent.cancelled) {
+        continue;
+      }
+      final reservationStart = normalize(reservation.parsedContent.start);
+      final reservationEnd = normalize(reservation.parsedContent.end);
+
+      final overlaps = normalizedStart.isBefore(reservationEnd) &&
+          effectiveEnd.isAfter(reservationStart);
+      if (overlaps) {
         return false;
       }
     }

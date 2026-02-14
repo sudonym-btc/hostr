@@ -95,6 +95,9 @@ class StreamWithStatus<T> {
   }
 
   void addError(Object error, StackTrace? stackTrace) {
+    print('-----ERROR----');
+    print(error.toString());
+    print(stackTrace.toString());
     status.add(StreamStatusError(error, stackTrace));
     controller.addError(error, stackTrace);
   }
@@ -115,9 +118,13 @@ class StreamWithStatus<T> {
     }
   }
 
+  void addSubscription(StreamSubscription<T> subscription) {
+    _subscriptions.add(subscription);
+  }
+
   StreamWithStatus<R> map<R>(
     R Function(T item) mapper, {
-    bool closeInner = false,
+    bool closeInner = true,
   }) {
     final mapped = StreamWithStatus<R>();
 
@@ -203,15 +210,15 @@ class StreamWithStatus<T> {
   }
 
   Future<void> close() async {
-    await controller.close();
-    await status.close();
-    await _listSubject.close();
     for (final sub in _subscriptions) {
       await sub.cancel();
     }
     await _replaySubscription.cancel();
     await _replaySubject.close();
     await onClose?.call();
+    await controller.close();
+    await status.close();
+    await _listSubject.close();
   }
 
   Map<String, dynamic> toJson() {

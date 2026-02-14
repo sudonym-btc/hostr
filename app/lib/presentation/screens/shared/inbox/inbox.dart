@@ -14,7 +14,7 @@ class InboxScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.inbox)),
       body: StreamBuilder(
-        stream: getIt<Hostr>().messaging.threads.threadStream,
+        stream: getIt<Hostr>().messaging.threads.stream,
         builder: (context, snapshot) {
           final threads =
               getIt<Hostr>().messaging.threads.threads.values.toList()..sort(
@@ -23,7 +23,10 @@ class InboxScreen extends StatelessWidget {
           return ListView.builder(
             itemCount: threads.length,
             itemBuilder: (context, index) {
-              return InboxItem(thread: threads[index]);
+              return InboxItem(
+                key: ValueKey(threads[index].anchor),
+                thread: threads[index],
+              );
             },
           );
         },

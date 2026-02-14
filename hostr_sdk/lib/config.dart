@@ -26,6 +26,7 @@ class HostrConfig {
            NdkConfig(
              eventVerifier: Bip340EventVerifier(),
              cache: MemCacheManager(),
+             fetchedRangesEnabled: true,
              engine: NdkEngine.JIT,
              defaultQueryTimeout: Duration(seconds: 10),
              bootstrapRelays: bootstrapRelays,

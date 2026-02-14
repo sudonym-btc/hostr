@@ -18,20 +18,20 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
   ThreadReservationRequestGuestHostComponents get viewComponents =>
       listing.pubKey != getIt<Hostr>().auth.activeKeyPair!.publicKey
       ? ThreadReservationRequestGuestViewWidget(
-          counterparty: counterparty,
+          counterparty: sender,
           item: item,
           listing: listing,
           reservations: reservations,
         )
       : ThreadReservationRequestHostViewWidget(
-          counterparty: counterparty,
+          counterparty: sender,
           item: item,
           listing: listing,
           reservations: reservations,
         );
   const ThreadReservationRequestWidget({
     super.key,
-    required super.counterparty,
+    required super.sender,
     required super.item,
     required this.listing,
     required this.reservations,

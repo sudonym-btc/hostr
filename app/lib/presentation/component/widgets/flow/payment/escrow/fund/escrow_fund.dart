@@ -58,6 +58,10 @@ class EscrowFundConfirmWidget extends StatelessWidget {
               color: baseStyle.color?.withValues(alpha: 0.6),
             );
 
+            if (snapshot.connectionState != ConnectionState.done) {
+              return Text('Estimating fees...', style: subtleStyle);
+            }
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

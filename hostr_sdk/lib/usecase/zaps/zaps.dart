@@ -35,8 +35,17 @@ class Zaps {
     String? eventId,
     String? addressableId,
   }) {
+    NdkResponse zapResponse = ndk.zaps.subscribeToZapReceipts(
+      pubKey: pubkey,
+      eventId: eventId,
+      addressableId: addressableId,
+    );
     // var logs = [];
     return StreamWithStatus<Nip01Event>(
+      onClose: () {
+        print('Closing zap receipt subscription');
+        ndk.requests.closeSubscription(zapResponse.requestId);
+      },
       // queryFn: () {
       //   return ndk.zaps.fetchZappedReceipts(
       //     pubKey: pubkey,
@@ -44,13 +53,7 @@ class Zaps {
       //     addressableId: addressableId,
       //   );
       // },
-      liveFn: () => ndk.zaps
-          .subscribeToZapReceipts(
-            pubKey: pubkey,
-            eventId: eventId,
-            addressableId: addressableId,
-          )
-          .stream,
+      liveFn: () => zapResponse.stream,
 
       /// @TODO: cannot add since
     );

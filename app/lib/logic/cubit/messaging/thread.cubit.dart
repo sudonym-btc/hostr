@@ -13,22 +13,12 @@ import '../entity/entity.cubit.dart';
 class ThreadCubit extends Cubit<ThreadCubitState> {
   CustomLogger logger = CustomLogger();
   final Thread thread;
-  final Map<String, ProfileCubit> participantCubits;
-  late final Map<String, ProfileCubit> counterpartyCubits;
+  final Map<String, ProfileCubit> participantCubits = {};
+  final Map<String, ProfileCubit> counterpartyCubits = {};
   final List<StreamSubscription> _subscriptions = [];
 
   ThreadCubit({required this.thread})
-    : participantCubits = Map.fromEntries(
-        thread.participantPubkeys
-            .map(
-              (pubkey) => MapEntry(
-                pubkey,
-                ProfileCubit(metadataUseCase: getIt<Hostr>().metadata),
-              ),
-            )
-            .toList(),
-      ),
-      super(
+    : super(
         ThreadCubitState(
           reservationsStreamStatus: StreamStatusIdle(),
           listing: null,
@@ -44,55 +34,55 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
         ),
       ) {
     // Build counterparty cubits from participantCubits but ignore our own key
-    final ourPubkey = getIt<Hostr>().auth.activeKeyPair?.publicKey;
-    counterpartyCubits = Map<String, ProfileCubit>.from(participantCubits);
-    if (ourPubkey != null) {
-      counterpartyCubits.remove(ourPubkey);
+    for (final pubkey in thread.participantPubkeys) {
+      addParticipant(pubkey);
     }
+    _emitParticipantStates();
 
-    // Subscribe to counterparty cubit streams
-    for (final cubit in participantCubits.values) {
-      _subscriptions.add(
-        cubit.stream.listen(
-          (_) => emit(
-            state.copyWith(
-              participantStates: participantCubits.values
-                  .map((element) => element.state)
-                  .toList(),
-              counterpartyStates: counterpartyCubits.values
-                  .map((element) => element.state)
-                  .toList(),
-            ),
-          ),
-        ),
-      );
-    }
+    // Add a new participant cubit for the message and it's recipients if not already added
+    _subscriptions.add(
+      thread.messages.stream.listen((message) {
+        emit(state.copyWith(messages: thread.sortedMessages));
+        addParticipant(message.pubKey);
+        for (final pubKey in message.pTags) {
+          addParticipant(pubKey);
+        }
+      }),
+    );
+  }
 
-    for (final entry in participantCubits.entries) {
-      entry.value.load(entry.key);
-    }
+  String? get _ourPubkey => getIt<Hostr>().auth.activeKeyPair?.publicKey;
+
+  void _emitParticipantStates() {
+    emit(
+      state.copyWith(
+        participantStates: participantCubits.values
+            .map((element) => element.state)
+            .toList(),
+        counterpartyStates: counterpartyCubits.values
+            .map((element) => element.state)
+            .toList(),
+      ),
+    );
   }
 
   void addParticipant(String pubkey) {
-    final cubit = ProfileCubit(metadataUseCase: getIt<Hostr>().metadata)
-      ..load(pubkey);
-    participantCubits.putIfAbsent(pubkey, () => cubit);
-    counterpartyCubits.putIfAbsent(pubkey, () => cubit);
-    thread.addedParticipants.add(pubkey);
-    _subscriptions.add(
-      cubit.stream.listen(
-        (_) => emit(
-          state.copyWith(
-            participantStates: participantCubits.values
-                .map((element) => element.state)
-                .toList(),
-            counterpartyStates: counterpartyCubits.values
-                .map((element) => element.state)
-                .toList(),
-          ),
-        ),
-      ),
-    );
+    if (participantCubits.containsKey(pubkey)) {
+      return;
+    }
+    if (!thread.addedParticipants.contains(pubkey)) {
+      thread.addedParticipants.add(pubkey);
+    }
+
+    // Load should come before adding the emitParticipantState, so that we miss the original "loading" sate
+    final cubit = ProfileCubit(metadataUseCase: getIt<Hostr>().metadata);
+    cubit.load(pubkey);
+    _subscriptions.add(cubit.stream.listen((_) => _emitParticipantStates()));
+    participantCubits[pubkey] = cubit;
+
+    if (pubkey != _ourPubkey) {
+      counterpartyCubits[pubkey] = cubit;
+    }
   }
 
   Future<void> cancelMyReservation() async {
@@ -189,7 +179,6 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 
     _subscriptions.add(
       Rx.merge([
-        thread.messages.stream.map((event) => null),
         thread.watcher.paymentEvents!.status.map((event) => null),
         thread.watcher.paymentEvents!.stream.map((event) => null),
         thread.watcher.reservationStream.status.map((event) => null),

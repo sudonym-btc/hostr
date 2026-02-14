@@ -39,17 +39,17 @@ class ThreadContent extends StatelessWidget {
     required Message message,
     required List<Reservation> reservations,
   }) {
-    final counterparty = participants.firstWhere(
-      (counterparty) => counterparty.pubKey == message.pubKey,
+    final sender = participants.firstWhere(
+      (participant) => participant.pubKey == message.pubKey,
     );
 
     if (message.child == null) {
-      return ThreadMessageWidget(counterparty: counterparty, item: message);
+      return ThreadMessageWidget(sender: sender, item: message);
     } else if (message.child is EscrowServiceSelected) {
       return Container();
     } else if (message.child is ReservationRequest) {
       return ThreadReservationRequestWidget(
-        counterparty: counterparty,
+        sender: sender,
         item: message,
         listing: listing,
         reservations: reservations,

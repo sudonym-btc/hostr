@@ -37,6 +37,7 @@ abstract class RequestsModel {
 @Singleton(env: Env.allButTestAndMock)
 class Requests extends RequestsModel {
   final Ndk ndk;
+  final bool useCache = false;
   Requests({required this.ndk});
 
   // NDK does not let us subscribe to fetch old events, complete, and keep streaming, so we have to implement our own version
@@ -48,15 +49,16 @@ class Requests extends RequestsModel {
     final ndkSubName = "sub-${Helpers.getRandomString(10)}";
 
     final response = StreamWithStatus<T>(
-      onClose: () {
-        ndk.requests.closeSubscription(ndkSubName);
+      onClose: () async {
+        await ndk.requests.closeSubscription(ndkSubName);
       },
     );
 
     response.addStatus(StreamStatusQuerying());
 
-    ndk.requests
-        .query(filter: cleanTags(filter), cacheRead: false, cacheWrite: false)
+    // @todo: should i be using queryFn, liveFn, which automatically cancels subscriptions, rather than adding the subscription manually here.
+    final subscription = ndk.requests
+        .query(filter: cleanTags(filter), cacheRead: true, cacheWrite: true)
         .stream
         .doOnDone(() => response.addStatus(StreamStatusQueryComplete()))
         .concatWith([
@@ -77,14 +79,15 @@ class Requests extends RequestsModel {
                 .subscription(
                   id: ndkSubName,
                   filter: cleanTags(liveFilter),
-                  cacheRead: false,
-                  cacheWrite: false,
+                  cacheRead: useCache,
+                  cacheWrite: true,
                 )
                 .stream;
           }),
         ])
         .asyncMap((event) async => parserWithGiftWrap<T>(event, ndk))
         .listen(response.add, onError: response.addError);
+    response.addSubscription(subscription);
 
     return response;
   }
@@ -98,8 +101,8 @@ class Requests extends RequestsModel {
     return ndk.requests
         .query(
           filter: cleanTags(filter),
-          cacheRead: false,
-          cacheWrite: false,
+          cacheRead: useCache,
+          cacheWrite: true,
           timeout: timeout,
         )
         .stream

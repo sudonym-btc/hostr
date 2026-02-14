@@ -50,7 +50,7 @@ class PaymentTimelineItem extends StatelessWidget {
     if (event is Reservation) {
       return escrowEvent(
         title:
-            'Reservation ${event.id} ${event.parsedContent.cancelled ? "cancelled" : "updated"} by ${event.pubKey == listing.pubKey ? 'host' : 'guest'}',
+            'Reservation ${event.parsedContent.cancelled ? "cancelled" : "updated"} by ${event.pubKey == listing.pubKey ? 'host' : 'guest'}',
         timestamp: DateTime.fromMillisecondsSinceEpoch(event.createdAt * 1000),
       );
     }
