@@ -17,7 +17,6 @@ class EditListingView extends StatefulWidget {
 }
 
 class EditListingViewState extends State<EditListingView> {
-  bool loading = false;
   final EditListingController controller = EditListingController();
 
   Scaffold buildListing(BuildContext context, Listing l) {
@@ -36,19 +35,24 @@ class EditListingViewState extends State<EditListingView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              FilledButton(
-                onPressed: loading == false
-                    ? () async {
-                        setState(() {
-                          loading = true;
-                        });
-                        await controller.save();
-                        setState(() {
-                          loading = false;
-                        });
-                      }
-                    : null,
-                child: Text(AppLocalizations.of(context)!.save),
+              ListenableBuilder(
+                listenable: controller.submitListenable,
+                builder: (context, _) {
+                  return FilledButton(
+                    onPressed: controller.canSubmit
+                        ? () async {
+                            await controller.save();
+                          }
+                        : null,
+                    child: controller.isSaving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(AppLocalizations.of(context)!.save),
+                  );
+                },
               ),
             ],
           ),
@@ -82,14 +86,16 @@ class EditListingViewState extends State<EditListingView> {
                         SizedBox(height: kDefaultPadding.toDouble()),
                         FormLabel(label: 'Address'),
                         LocationField(
-                          value: controller.locationController.text,
                           controller: controller.locationController,
                           hintText: '123 City Road, London',
-                          validator: controller.validateLocation,
-                          onChanged: controller.onLocationChanged,
-                          onSelected: controller.onLocationSelected,
+                          validator: (value) =>
+                              controller.locationController.validateText(
+                                value,
+                                emptyMessage: 'Address is required',
+                              ),
                           // null => request broad + address-level results (house numbers included)
                           featureTypes: null,
+                          h3Mode: LocationFieldH3Mode.addressHierarchy,
                           debounceDuration: const Duration(milliseconds: 400),
                           minQueryLength: 3,
                         ),

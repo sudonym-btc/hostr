@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/presentation/forms/search/search.dart';
+import 'package:hostr/presentation/forms/search/search_form_state.dart';
 
 class DateRangeCubit extends Cubit<DateRangeState> {
   DateRangeCubit() : super(DateRangeState());
