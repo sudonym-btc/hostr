@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
+import 'package:hostr/logic/location/h3_polygon_cover.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -18,8 +19,9 @@ class EditListingController extends UpsertFormController {
   Amenities amenities = Amenities();
   Set<String> selectedAmenityKeys = {};
   Currency priceCurrency = Currency.BTC;
-  String? _geohash;
+  List<String> _h3Tags = const [];
   String? _locationError;
+  LocationSuggestion? _selectedLocationSuggestion;
 
   static List<String> amenityKeys() {
     final map = Amenities().toMap();
@@ -41,6 +43,7 @@ class EditListingController extends UpsertFormController {
     titleController.text = data?.parsedContent.title ?? '';
     descriptionController.text = data?.parsedContent.description ?? '';
     locationController.text = data?.parsedContent.location ?? '';
+    _selectedLocationSuggestion = null;
     amenities = data?.parsedContent.amenities ?? Amenities();
     selectedAmenityKeys = _selectedKeysFromAmenities(amenities);
 
@@ -57,6 +60,26 @@ class EditListingController extends UpsertFormController {
     priceCurrency = Currency.BTC;
     final bitcoinAmount = BitcoinAmount.fromAmount(nightly.amount);
     priceController.text = bitcoinAmount.getInSats.toString();
+  }
+
+  void onLocationSelected(LocationSuggestion suggestion) {
+    print('Location selected: ${suggestion.displayName}');
+    locationController.text = suggestion.displayName;
+    _selectedLocationSuggestion = suggestion;
+    _locationError = null;
+  }
+
+  void onLocationChanged(String value) {
+    print('Location changed: $value');
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      _selectedLocationSuggestion = null;
+      return;
+    }
+
+    if (_selectedLocationSuggestion?.displayName != trimmed) {
+      _selectedLocationSuggestion = null;
+    }
   }
 
   void updateSelectedAmenities(Set<String> keys) {
@@ -115,7 +138,7 @@ class EditListingController extends UpsertFormController {
   @override
   Future<void> preValidate() async {
     _locationError = null;
-    _geohash = null;
+    _h3Tags = const [];
     final location = locationController.text.trim();
     if (location.isEmpty) {
       _locationError = 'Address is required';
@@ -123,10 +146,34 @@ class EditListingController extends UpsertFormController {
     }
 
     try {
-      final result = await getIt<Hostr>().location.geohash(location);
-      _geohash = result.geohash;
-    } catch (_) {
-      _locationError = 'Unable to resolve address';
+      final selected = _selectedLocationSuggestion;
+      final selectedMatchesInput =
+          selected != null && selected.displayName.trim() == location;
+
+      final point =
+          selectedMatchesInput &&
+              selected.latitude != null &&
+              selected.longitude != null
+          ? GeoPoint(
+              latitude: selected.latitude!,
+              longitude: selected.longitude!,
+            )
+          : await getIt<Hostr>().location.point(location);
+
+      _h3Tags = H3PolygonCover.hierarchyForPoint(
+        latitude: point.latitude,
+        longitude: point.longitude,
+        finestResolution: 15,
+        maxTags: 16,
+      );
+      print(
+        'Computed H3 tags for location $location $selected ${point.latitude}, ${point.longitude}: $_h3Tags',
+      );
+      if (_h3Tags.isEmpty) {
+        _locationError = 'Unable to compute H3 tags for address';
+      }
+    } catch (e) {
+      _locationError = 'Unable to resolve address: $e';
     }
   }
 
@@ -164,10 +211,10 @@ class EditListingController extends UpsertFormController {
       requiresEscrow: current.requiresEscrow,
     );
 
-    final geohash = _geohash;
-    final updatedTags = geohash == null
+    final h3Tags = _h3Tags;
+    final updatedTags = h3Tags.isEmpty
         ? l!.tags.map((tag) => List<String>.from(tag)).toList()
-        : _applyGeohashTags(l!.tags, geohash);
+        : _applyH3Tags(l!.tags, h3Tags);
 
     // final signed = await getIt<Ndk>().accounts.sign(
     //   Nip01Event(
@@ -189,17 +236,20 @@ class EditListingController extends UpsertFormController {
     l = updatedListing;
   }
 
-  List<List<String>> _applyGeohashTags(
+  List<List<String>> _applyH3Tags(
     List<List<String>> tags,
-    String geohash,
+    List<String> h3Tags,
   ) {
     final filtered = tags
         .where((tag) => tag.isEmpty || tag.first != 'g')
         .map((tag) => List<String>.from(tag))
         .toList();
 
-    for (var i = 1; i <= geohash.length; i++) {
-      filtered.add(['g', geohash.substring(0, i)]);
+    final seen = <String>{};
+    for (final tag in h3Tags) {
+      if (seen.add(tag)) {
+        filtered.add(['g', tag]);
+      }
     }
 
     return filtered;

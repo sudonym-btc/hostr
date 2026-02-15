@@ -82,6 +82,7 @@ class _CountSegment extends StatelessWidget {
       child: loading
           ? Row(
               key: ValueKey('loading-$noun'),
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(
                   width: 10,
@@ -89,7 +90,7 @@ class _CountSegment extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 const SizedBox(width: 6),
-                Flexible(child: Text(noun)),
+                Text(noun),
               ],
             )
           : Text(

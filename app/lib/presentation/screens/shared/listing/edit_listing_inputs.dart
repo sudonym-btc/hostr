@@ -45,21 +45,6 @@ class TitleInput extends StatelessWidget {
   }
 }
 
-class LocationInput extends StatelessWidget {
-  final EditListingController controller;
-
-  const LocationInput({super.key, required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller.locationController,
-      validator: controller.validateLocation,
-      decoration: const InputDecoration(hintText: '123 City Road, London'),
-    );
-  }
-}
-
 class PriceInput extends StatelessWidget {
   final EditListingController controller;
 

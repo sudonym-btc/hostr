@@ -8,51 +8,9 @@ import 'package:injectable/injectable.dart';
 class Location {
   final CustomLogger logger;
   final http.Client _client = http.Client();
+  final Map<String, LocationPolygonResult> _polygonCache = {};
 
   Location({required this.logger});
-
-  /// Returns a geohash derived from the bounding box for [location].
-  ///
-  /// The geohash precision is chosen so that the geohash cell fully contains
-  /// the bounding box. Larger bounding boxes yield shorter geohashes.
-  Future<LocationGeohashResult> geohash(
-    String location, {
-    int minPrecision = 3,
-    int maxPrecision = 8,
-  }) async {
-    final geocode = await _geocode(location);
-    final precision = GeoHashPrecision.pickForBoundingBox(
-      geocode.boundingBox,
-      minPrecision: minPrecision,
-      maxPrecision: maxPrecision,
-    );
-    final hash = GeoHash.encode(
-      geocode.center.latitude,
-      geocode.center.longitude,
-      precision,
-    );
-
-    return LocationGeohashResult(
-      geohash: hash,
-      precision: precision,
-      boundingBox: geocode.boundingBox,
-      center: geocode.center,
-      displayName: geocode.displayName,
-    );
-  }
-
-  LocationFromGeohashResult getLocationFromGeohash(String geohash) {
-    if (geohash.trim().isEmpty) {
-      throw ArgumentError('Geohash must not be empty');
-    }
-    final decoded = GeoHash.decode(geohash.trim());
-    return LocationFromGeohashResult(
-      geohash: geohash.trim(),
-      boundingBox: decoded.boundingBox,
-      center: decoded.center,
-      precision: geohash.trim().length,
-    );
-  }
 
   Future<List<LocationSuggestion>> suggestions(
     String input, {
@@ -101,6 +59,8 @@ class Location {
             osmType: result['type']?.toString(),
             addressType: result['addresstype']?.toString(),
             placeRank: _parseInt(result['place_rank']),
+            latitude: _parseDouble(result['lat']),
+            longitude: _parseDouble(result['lon']),
           ),
         )
         .toList();
@@ -112,10 +72,143 @@ class Location {
     return mapped.length > limit ? mapped.take(limit).toList() : mapped;
   }
 
+  Future<LocationPolygonResult> polygon(
+    String location, {
+    Set<String>? featureTypes,
+  }) async {
+    final query = location.trim();
+    if (query.isEmpty) {
+      throw ArgumentError('Location must not be empty');
+    }
+
+    final normalizedFeatureTypes =
+        (featureTypes == null || featureTypes.isEmpty)
+        ? const <String>[]
+        : featureTypes
+              .map((type) => type.toLowerCase().trim())
+              .map(_toNominatimFeatureType)
+              .whereType<String>()
+              .toSet()
+              .toList();
+
+    final cacheKey =
+        '${query.toLowerCase()}|${normalizedFeatureTypes.join(',')}';
+    final cached = _polygonCache[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
+
+    final rawResults = <Map<String, dynamic>>[];
+    if (normalizedFeatureTypes.isEmpty) {
+      rawResults.addAll(
+        await _fetchSuggestionBatch(query, 1, includePolygon: true),
+      );
+    } else {
+      for (final featureType in normalizedFeatureTypes) {
+        rawResults.addAll(
+          await _fetchSuggestionBatch(
+            query,
+            1,
+            featureType: featureType,
+            includePolygon: true,
+          ),
+        );
+        if (rawResults.isNotEmpty) {
+          break;
+        }
+      }
+    }
+
+    if (rawResults.isEmpty) {
+      logger.w(
+        'No polygon results for query="$query" with featureTypes=$normalizedFeatureTypes',
+      );
+      throw Exception('No polygon results for location');
+    }
+
+    final firstWithGeometry = rawResults.firstWhere(
+      (result) => result['geojson'] is Map,
+      orElse: () => rawResults.first,
+    );
+
+    final displayName = (firstWithGeometry['display_name'] ?? '').toString();
+    logger.i(
+      'Polygon result query="$query": '
+      'type=${firstWithGeometry['geojson'] is Map ? (firstWithGeometry['geojson'] as Map)['type'] : 'bbox-fallback'}, '
+      'display="$displayName"',
+    );
+    final geoJson = firstWithGeometry['geojson'] is Map<String, dynamic>
+        ? (firstWithGeometry['geojson'] as Map<String, dynamic>)
+        : _geoJsonFromBoundingBox(firstWithGeometry['boundingbox']);
+
+    if (geoJson == null) {
+      throw Exception('Location result has no polygon geometry');
+    }
+
+    final result = LocationPolygonResult(
+      displayName: displayName,
+      geoJson: geoJson,
+      placeId: firstWithGeometry['place_id']?.toString(),
+    );
+
+    _polygonCache[cacheKey] = result;
+    return result;
+  }
+
+  Future<GeoPoint> point(String location) async {
+    final query = location.trim();
+    if (query.isEmpty) {
+      throw ArgumentError('Location must not be empty');
+    }
+
+    try {
+      final geocode = await _geocode(query);
+      return geocode.center;
+    } catch (e) {
+      logger.w('Primary geocode failed for "$query": $e');
+
+      final fallbackResults = await _fetchSuggestionBatch(query, 1);
+      if (fallbackResults.isNotEmpty) {
+        final point = _pointFromRawResult(fallbackResults.first);
+        if (point != null) {
+          logger.i('Point resolved via suggestion fallback for "$query"');
+          return point;
+        }
+      }
+
+      rethrow;
+    }
+  }
+
+  GeoPoint? _pointFromRawResult(Map<String, dynamic> result) {
+    final lat = _parseDouble(result['lat']);
+    final lon = _parseDouble(result['lon']);
+    if (lat != null && lon != null) {
+      return GeoPoint(latitude: lat, longitude: lon);
+    }
+
+    final bbox = result['boundingbox'];
+    if (bbox is List && bbox.length == 4) {
+      final south = _parseDouble(bbox[0]);
+      final north = _parseDouble(bbox[1]);
+      final west = _parseDouble(bbox[2]);
+      final east = _parseDouble(bbox[3]);
+      if (south != null && north != null && west != null && east != null) {
+        return GeoPoint(
+          latitude: (south + north) / 2,
+          longitude: (west + east) / 2,
+        );
+      }
+    }
+
+    return null;
+  }
+
   Future<List<Map<String, dynamic>>> _fetchSuggestionBatch(
     String query,
     int limit, {
     String? featureType,
+    bool includePolygon = false,
   }) async {
     final params = <String, String>{
       'q': query,
@@ -125,6 +218,9 @@ class Location {
     };
     if (featureType != null) {
       params['featuretype'] = featureType;
+    }
+    if (includePolygon) {
+      params['polygon_geojson'] = '1';
     }
 
     final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
@@ -169,6 +265,38 @@ class Location {
     return int.tryParse(value.toString());
   }
 
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    return double.tryParse(value.toString());
+  }
+
+  static Map<String, dynamic>? _geoJsonFromBoundingBox(dynamic rawBoundingBox) {
+    if (rawBoundingBox is! List || rawBoundingBox.length != 4) {
+      return null;
+    }
+
+    final south = double.tryParse(rawBoundingBox[0].toString());
+    final north = double.tryParse(rawBoundingBox[1].toString());
+    final west = double.tryParse(rawBoundingBox[2].toString());
+    final east = double.tryParse(rawBoundingBox[3].toString());
+    if (south == null || north == null || west == null || east == null) {
+      return null;
+    }
+
+    return {
+      'type': 'Polygon',
+      'coordinates': [
+        [
+          [west, south],
+          [east, south],
+          [east, north],
+          [west, north],
+          [west, south],
+        ],
+      ],
+    };
+  }
+
   Future<GeocodedLocation> _geocode(String location) async {
     if (location.trim().isEmpty) {
       throw ArgumentError('Location must not be empty');
@@ -199,27 +327,42 @@ class Location {
     }
 
     final result = decoded.first as Map<String, dynamic>;
-    final boundingBoxList = result['boundingbox'] as List<dynamic>;
-    if (boundingBoxList.length != 4) {
-      throw Exception('Invalid bounding box returned from geocoder');
+
+    final lat = _parseDouble(result['lat']);
+    final lon = _parseDouble(result['lon']);
+    final boundingBoxList = result['boundingbox'];
+
+    BoundingBox? boundingBox;
+    if (boundingBoxList is List && boundingBoxList.length == 4) {
+      final south = _parseDouble(boundingBoxList[0]);
+      final north = _parseDouble(boundingBoxList[1]);
+      final west = _parseDouble(boundingBoxList[2]);
+      final east = _parseDouble(boundingBoxList[3]);
+
+      if (south != null && north != null && west != null && east != null) {
+        boundingBox = BoundingBox(
+          south: south,
+          north: north,
+          west: west,
+          east: east,
+        );
+      }
     }
 
-    final south = double.parse(boundingBoxList[0].toString());
-    final north = double.parse(boundingBoxList[1].toString());
-    final west = double.parse(boundingBoxList[2].toString());
-    final east = double.parse(boundingBoxList[3].toString());
+    if (boundingBox == null && lat != null && lon != null) {
+      boundingBox = BoundingBox(south: lat, north: lat, west: lon, east: lon);
+    }
 
-    final boundingBox = BoundingBox(
-      south: south,
-      north: north,
-      west: west,
-      east: east,
-    );
+    if (boundingBox == null) {
+      throw Exception('Geocoder result missing usable coordinates');
+    }
 
-    final center = GeoPoint(
-      latitude: (south + north) / 2,
-      longitude: (west + east) / 2,
-    );
+    final center = (lat != null && lon != null)
+        ? GeoPoint(latitude: lat, longitude: lon)
+        : GeoPoint(
+            latitude: (boundingBox.south + boundingBox.north) / 2,
+            longitude: (boundingBox.west + boundingBox.east) / 2,
+          );
 
     return GeocodedLocation(
       boundingBox: boundingBox,
@@ -278,6 +421,8 @@ class LocationSuggestion {
   final String? osmType;
   final String? addressType;
   final int? placeRank;
+  final double? latitude;
+  final double? longitude;
 
   const LocationSuggestion({
     required this.displayName,
@@ -286,6 +431,20 @@ class LocationSuggestion {
     this.osmType,
     this.addressType,
     this.placeRank,
+    this.latitude,
+    this.longitude,
+  });
+}
+
+class LocationPolygonResult {
+  final String displayName;
+  final Map<String, dynamic> geoJson;
+  final String? placeId;
+
+  const LocationPolygonResult({
+    required this.displayName,
+    required this.geoJson,
+    this.placeId,
   });
 }
 
@@ -311,155 +470,4 @@ class BoundingBox {
 
   double get latSpan => (north - south).abs();
   double get lonSpan => (east - west).abs();
-}
-
-class GeoHashPrecision {
-  static const Map<int, GeoHashCellSize> _cellSizes = {
-    1: GeoHashCellSize(latHeight: 45.0, lonWidth: 45.0),
-    2: GeoHashCellSize(latHeight: 11.25, lonWidth: 5.625),
-    3: GeoHashCellSize(latHeight: 1.40625, lonWidth: 1.40625),
-    4: GeoHashCellSize(latHeight: 0.3515625, lonWidth: 0.17578125),
-    5: GeoHashCellSize(latHeight: 0.0439453125, lonWidth: 0.0439453125),
-    6: GeoHashCellSize(latHeight: 0.010986328125, lonWidth: 0.0054931640625),
-    7: GeoHashCellSize(
-      latHeight: 0.001373291015625,
-      lonWidth: 0.001373291015625,
-    ),
-    8: GeoHashCellSize(
-      latHeight: 0.00034332275390625,
-      lonWidth: 0.000171661376953125,
-    ),
-    9: GeoHashCellSize(
-      latHeight: 0.00004291534423828125,
-      lonWidth: 0.00004291534423828125,
-    ),
-    10: GeoHashCellSize(
-      latHeight: 0.000010728836059570312,
-      lonWidth: 0.000005364418029785156,
-    ),
-  };
-
-  static int pickForBoundingBox(
-    BoundingBox boundingBox, {
-    int minPrecision = 3,
-    int maxPrecision = 8,
-  }) {
-    final latSpan = boundingBox.latSpan;
-    final lonSpan = boundingBox.lonSpan;
-
-    for (int precision = maxPrecision; precision >= minPrecision; precision--) {
-      final cell = _cellSizes[precision];
-      if (cell == null) continue;
-      if (cell.latHeight >= latSpan && cell.lonWidth >= lonSpan) {
-        return precision;
-      }
-    }
-
-    return minPrecision;
-  }
-}
-
-class GeoHashCellSize {
-  final double latHeight;
-  final double lonWidth;
-
-  const GeoHashCellSize({required this.latHeight, required this.lonWidth});
-}
-
-class GeoHash {
-  static const _base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
-
-  static String encode(double latitude, double longitude, int precision) {
-    var latRange = [-90.0, 90.0];
-    var lonRange = [-180.0, 180.0];
-    var hash = StringBuffer();
-    var isEven = true;
-    var bit = 0;
-    var ch = 0;
-
-    while (hash.length < precision) {
-      if (isEven) {
-        final mid = (lonRange[0] + lonRange[1]) / 2;
-        if (longitude >= mid) {
-          ch |= 1 << (4 - bit);
-          lonRange[0] = mid;
-        } else {
-          lonRange[1] = mid;
-        }
-      } else {
-        final mid = (latRange[0] + latRange[1]) / 2;
-        if (latitude >= mid) {
-          ch |= 1 << (4 - bit);
-          latRange[0] = mid;
-        } else {
-          latRange[1] = mid;
-        }
-      }
-
-      isEven = !isEven;
-
-      if (bit < 4) {
-        bit++;
-      } else {
-        hash.write(_base32[ch]);
-        bit = 0;
-        ch = 0;
-      }
-    }
-
-    return hash.toString();
-  }
-
-  static GeoHashDecoded decode(String geohash) {
-    var latRange = [-90.0, 90.0];
-    var lonRange = [-180.0, 180.0];
-    var isEven = true;
-
-    for (final char in geohash.toLowerCase().split('')) {
-      final charIndex = _base32.indexOf(char);
-      if (charIndex == -1) {
-        throw ArgumentError('Invalid geohash character: $char');
-      }
-
-      for (var mask = 16; mask != 0; mask >>= 1) {
-        if (isEven) {
-          final mid = (lonRange[0] + lonRange[1]) / 2;
-          if ((charIndex & mask) != 0) {
-            lonRange[0] = mid;
-          } else {
-            lonRange[1] = mid;
-          }
-        } else {
-          final mid = (latRange[0] + latRange[1]) / 2;
-          if ((charIndex & mask) != 0) {
-            latRange[0] = mid;
-          } else {
-            latRange[1] = mid;
-          }
-        }
-        isEven = !isEven;
-      }
-    }
-
-    final boundingBox = BoundingBox(
-      south: latRange[0],
-      north: latRange[1],
-      west: lonRange[0],
-      east: lonRange[1],
-    );
-
-    final center = GeoPoint(
-      latitude: (latRange[0] + latRange[1]) / 2,
-      longitude: (lonRange[0] + lonRange[1]) / 2,
-    );
-
-    return GeoHashDecoded(boundingBox: boundingBox, center: center);
-  }
-}
-
-class GeoHashDecoded {
-  final BoundingBox boundingBox;
-  final GeoPoint center;
-
-  GeoHashDecoded({required this.boundingBox, required this.center});
 }

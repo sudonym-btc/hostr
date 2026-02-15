@@ -62,6 +62,7 @@ dependencies:
   flutter_local_notifications: ^20.1.0
   date_count_down: ^4.0.0
   timelines_plus: ^1.0.8
+  h3_flutter: ^0.7.1
     
 dev_dependencies:
   mockito: ^5.6.3

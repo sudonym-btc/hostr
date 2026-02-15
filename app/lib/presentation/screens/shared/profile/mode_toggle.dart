@@ -9,35 +9,43 @@ class ModeToggleWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ModeCubit, ModeCubitState>(builder: (context, state) {
-      return CustomPadding(
-        child: Center(
-          child: ToggleButtons(
-            fillColor: Theme.of(context).canvasColor,
-            borderRadius: BorderRadius.circular(50.0),
-            isSelected: [state is HostMode, state is GuestMode],
-            onPressed: (int index) {
-              if (index == 0) {
-                BlocProvider.of<ModeCubit>(context).setHost();
-              } else {
-                BlocProvider.of<ModeCubit>(context).setGuest();
-              }
-            },
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text(AppLocalizations.of(context)!.hostMode,
-                    textAlign: TextAlign.center),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text(AppLocalizations.of(context)!.guestMode,
-                    textAlign: TextAlign.center),
-              ),
-            ],
+    return BlocBuilder<ModeCubit, ModeCubitState>(
+      builder: (context, state) {
+        return CustomPadding(
+          child: Center(
+            child: ToggleButtons(
+              fillColor: Theme.of(context).colorScheme.tertiary,
+              selectedBorderColor: Theme.of(context).colorScheme.tertiary,
+              selectedColor: Theme.of(context).colorScheme.onTertiary,
+              borderRadius: BorderRadius.circular(50.0),
+              isSelected: [state is HostMode, state is GuestMode],
+              onPressed: (int index) {
+                if (index == 0) {
+                  BlocProvider.of<ModeCubit>(context).setHost();
+                } else {
+                  BlocProvider.of<ModeCubit>(context).setGuest();
+                }
+              },
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    AppLocalizations.of(context)!.hostMode,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    AppLocalizations.of(context)!.guestMode,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }

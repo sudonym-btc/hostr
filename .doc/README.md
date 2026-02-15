@@ -73,6 +73,8 @@ P1
   - [ ] Blossom server infrastructure
 - [ ] State management
   - [ ] Update Nip01Events in EntityCubit / ListCubits if they are updated
+  - [ ] Form Location Input
+  - [ ] Form Image Input
 - [ ] Settings
   - [ ] Update relays
   - [ ] Update trusted escrows
@@ -83,7 +85,7 @@ P1
   - [ ] User trust escrow event broadcast
 - [ ] Payment status
   - [ ] Check if can NWC allows fetching invoice with description
-  - [ ] Combine rootstock status check and NWC status check into one PaymentStatus
+  - [x] Combine rootstock status check and NWC status check into one PaymentStatus
   - [ ] Mock NWC should record "paid" invoices and respond to list invoice request appropriately
   - [ ] Mock lightning payments should 'resolve' accurate invoices and amounts
 - [ ] NIP 05 verification
@@ -92,9 +94,11 @@ P1
 
 P2
 
-- [ ] Payment flow in one "snackbar" instead of repeated popups
+- [x] Payment flow in one "snackbar" instead of repeated popups
 - [ ] Scan for NWC https://github.com/benthecarman/nips/blob/nostr-wallet-connect-connect/67.md
 
 ### Escrow
 
 - [ ] Update escrow advertisement on launch
+- [ ] Listen for cancelled events and arbitrate accordingly
+- [ ] Must be able to read conversation once escrow is included
