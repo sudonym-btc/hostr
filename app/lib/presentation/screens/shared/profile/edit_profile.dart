@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'package:hostr/presentation/screens/shared/listing/image_picker.dart';
 import 'package:hostr/presentation/screens/shared/profile/edit_profile.controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -38,33 +39,29 @@ class EditProfileViewState extends State<EditProfileView> {
           ),
         ),
       ),
+      FormLabel(label: 'Name'),
       TextFormField(
         controller: controller.nameController,
-        decoration: const InputDecoration(labelText: 'Name', hintText: 'Name'),
+        decoration: const InputDecoration(hintText: 'Name'),
       ),
+      FormLabel(label: 'About me'),
       TextFormField(
         controller: controller.aboutMeController,
         maxLines: 3,
-        decoration: const InputDecoration(
-          labelText: 'About me',
-          hintText: 'About me',
-        ),
+        minLines: 1,
+        decoration: const InputDecoration(hintText: 'About me'),
       ),
+      FormLabel(label: 'Nip 05'),
       TextFormField(
         controller: controller.nip05Controller,
         validator: controller.validateNip05,
-        decoration: const InputDecoration(
-          labelText: 'NIP 05',
-          hintText: 'NIP 05',
-        ),
+        decoration: const InputDecoration(hintText: 'Nip 05'),
       ),
+      FormLabel(label: 'Lightning address'),
       TextFormField(
         controller: controller.lightningAddressController,
         validator: controller.validateLightningAddress,
-        decoration: const InputDecoration(
-          labelText: 'Lightning address',
-          hintText: 'Lightning address',
-        ),
+        decoration: const InputDecoration(hintText: 'Lightning address'),
       ),
     ];
   }
@@ -83,7 +80,12 @@ class EditProfileViewState extends State<EditProfileView> {
               return CircularProgressIndicator();
             }
             if (snapshot.connectionState == ConnectionState.done) {
-              return CustomPadding(child: Column(children: buildFormFields()));
+              return CustomPadding(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: buildFormFields(),
+                ),
+              );
             }
             return const Text('Error');
           },
@@ -93,18 +95,23 @@ class EditProfileViewState extends State<EditProfileView> {
           child: CustomPadding(
             top: 0,
             bottom: 0,
-            child: FilledButton(
-              onPressed: loading
-                  ? null
-                  : () async {
-                      setState(() => loading = true);
-                      final saved = await controller.save();
-                      if (saved) {
-                        context.router.back();
-                      }
-                      setState(() => loading = false);
-                    },
-              child: Text(AppLocalizations.of(context)!.save),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FilledButton(
+                  onPressed: loading
+                      ? null
+                      : () async {
+                          setState(() => loading = true);
+                          final saved = await controller.save();
+                          if (saved) {
+                            context.router.back();
+                          }
+                          setState(() => loading = false);
+                        },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
             ),
           ),
         ),

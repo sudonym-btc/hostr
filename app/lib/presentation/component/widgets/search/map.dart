@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:hostr/injection.dart';
+import 'package:hostr/logic/location/h3_polygon_cover.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/search/map_style.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -53,26 +53,24 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
     for (var item in state.results) {
       if (!_fetchedIds.contains(item.id)) {
         _fetchedIds.add(item.id);
-        final geohashTag = item.tags
+        final h3Tag = item.tags
             .where((tag) => tag.isNotEmpty && tag.first == 'g')
             .map((tag) => tag.length > 1 ? tag[1] : '')
             .where((value) => value.isNotEmpty)
-            .fold<String>('', (longest, current) {
-              return current.length > longest.length ? current : longest;
-            });
+            .firstOrNull;
 
-        if (geohashTag.isEmpty) {
-          widget.logger.w('Missing geohash tag for listing ${item.id}');
+        if (h3Tag == null) {
+          widget.logger.w('Missing H3 tag for listing ${item.id}');
           continue;
         }
 
-        final decoded = getIt<Hostr>().location.getLocationFromGeohash(
-          geohashTag,
-        );
-        final position = LatLng(
-          decoded.center.latitude,
-          decoded.center.longitude,
-        );
+        final center = H3PolygonCover.centerForTag(h3Tag);
+        if (center == null) {
+          widget.logger.w('Invalid H3 tag for listing ${item.id}: $h3Tag');
+          continue;
+        }
+
+        final position = LatLng(center.latitude, center.longitude);
 
         setState(() {
           _markers[item.id] = Marker(
