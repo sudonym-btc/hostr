@@ -1,37 +1,52 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/data/sources/api/google_maps.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/location/h3_polygon_cover.dart';
+import 'package:hostr/logic/location/h3_tag.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
+import 'location_controller.dart';
+
+enum LocationFieldH3Mode { none, addressHierarchy, polygonCover }
+
 class LocationField extends StatefulWidget {
-  final String value;
+  final LocationController controller;
   final String hintText;
-  final TextEditingController? controller;
   final FormFieldValidator<String>? validator;
-  final ValueChanged<String>? onChanged;
+  final ValueChanged<LocationSuggestion>? onSelected;
   final Set<String>? featureTypes;
+  final Set<String>? polygonFeatureTypes;
   final int minQueryLength;
   final int limit;
   final Duration debounceDuration;
   final bool clearable;
-  final ValueChanged<LocationSuggestion> onSelected;
+  final bool showH3Output;
+  final LocationFieldH3Mode h3Mode;
+  final int addressFinestResolution;
+  final int addressMaxTags;
+  final int polygonMaxTags;
 
   const LocationField({
     super.key,
-    required this.value,
+    required this.controller,
     this.hintText = 'Enter a location',
-    this.controller,
     this.validator,
-    this.onChanged,
+    this.onSelected,
     this.featureTypes,
+    this.polygonFeatureTypes,
     this.minQueryLength = 3,
     this.limit = 5,
     this.debounceDuration = const Duration(milliseconds: 1000),
     this.clearable = true,
-    required this.onSelected,
+    this.showH3Output = false,
+    this.h3Mode = LocationFieldH3Mode.none,
+    this.addressFinestResolution = 15,
+    this.addressMaxTags = 16,
+    this.polygonMaxTags = 40,
   });
 
   @override
@@ -41,21 +56,21 @@ class LocationField extends StatefulWidget {
 }
 
 class LocationFieldState extends State<LocationField> {
-  late TextEditingController _controller;
-  bool _ownsController = false;
   List<LocationSuggestion> _placeList = [];
   String _sessionToken = '';
   Timer? _debounce;
   int _suggestionRequestId = 0;
+  int _h3RequestId = 0;
   bool _isLoadingSuggestions = false;
+  bool _isSelectingSuggestion = false;
 
   @override
   void initState() {
     super.initState();
-    _ownsController = widget.controller == null;
-    _controller =
-        widget.controller ?? TextEditingController(text: widget.value);
+    widget.controller.focusNode.addListener(_onFocusChanged);
+    widget.controller.addListener(_onControllerChanged);
     _sessionToken = _newSessionToken();
+    _scheduleInitialH3Resolve();
   }
 
   @override
@@ -63,27 +78,52 @@ class LocationFieldState extends State<LocationField> {
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.controller != widget.controller) {
-      if (_ownsController) {
-        _controller.dispose();
-      }
-      _ownsController = widget.controller == null;
-      _controller =
-          widget.controller ?? TextEditingController(text: widget.value);
-    } else if (widget.controller == null && oldWidget.value != widget.value) {
-      _controller.value = TextEditingValue(
-        text: widget.value,
-        selection: TextSelection.collapsed(offset: widget.value.length),
-      );
+      oldWidget.controller.focusNode.removeListener(_onFocusChanged);
+      oldWidget.controller.removeListener(_onControllerChanged);
+      widget.controller.focusNode.addListener(_onFocusChanged);
+      widget.controller.addListener(_onControllerChanged);
+      _scheduleInitialH3Resolve();
     }
+  }
+
+  void _scheduleInitialH3Resolve() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.h3Mode == LocationFieldH3Mode.none) return;
+      if (widget.controller.text.trim().isEmpty) return;
+      if (widget.controller.h3Tags.isNotEmpty) return;
+      if (widget.controller.isResolvingH3) return;
+      _resolveH3ForInput();
+    });
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    if (_ownsController) {
-      _controller.dispose();
-    }
+    widget.controller.focusNode.removeListener(_onFocusChanged);
+    widget.controller.removeListener(_onControllerChanged);
     super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _onFocusChanged() {
+    if (widget.controller.focusNode.hasFocus) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _placeList = [];
+        _isLoadingSuggestions = false;
+      });
+    }
+    if (_isSelectingSuggestion) {
+      return;
+    }
+    _resolveH3ForInput();
   }
 
   void _fetchSuggestions(String value) {
@@ -128,6 +168,18 @@ class LocationFieldState extends State<LocationField> {
 
   String _newSessionToken() =>
       '${DateTime.now().microsecondsSinceEpoch}-${hashCode.abs()}';
+
+  Future<void> _copyH3IndexesToClipboard() async {
+    final tags = widget.controller.h3Tags;
+    if (tags.isEmpty) return;
+
+    final csv = tags.map((tag) => tag.index).join(',');
+    await Clipboard.setData(ClipboardData(text: csv));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Copied ${tags.length} H3 indexes')));
+  }
 
   LocationSuggestion _toLocationSuggestion(Map<String, dynamic> prediction) {
     final text = prediction['text'];
@@ -198,6 +250,75 @@ class LocationFieldState extends State<LocationField> {
     );
   }
 
+  Future<void> _resolveH3ForInput({
+    LocationSuggestion? selectedSuggestion,
+  }) async {
+    if (widget.h3Mode == LocationFieldH3Mode.none) {
+      return;
+    }
+
+    final input = widget.controller.text.trim();
+    if (input.isEmpty) {
+      widget.controller.clearH3();
+      return;
+    }
+
+    if (!widget.controller.focusNode.hasFocus &&
+        input == widget.controller.lastResolvedText) {
+      return;
+    }
+
+    final requestId = ++_h3RequestId;
+    widget.controller.beginH3Resolving();
+
+    try {
+      List<H3Tag> tags;
+      if (widget.h3Mode == LocationFieldH3Mode.addressHierarchy) {
+        final selected =
+            selectedSuggestion ?? widget.controller.selectedSuggestion;
+        final point =
+            selected != null &&
+                selected.displayName.trim() == input &&
+                selected.latitude != null &&
+                selected.longitude != null
+            ? GeoPoint(
+                latitude: selected.latitude!,
+                longitude: selected.longitude!,
+              )
+            : await getIt<Hostr>().location.point(input);
+
+        tags = H3PolygonCover.hierarchyForPointTags(
+          latitude: point.latitude,
+          longitude: point.longitude,
+          finestResolution: widget.addressFinestResolution,
+          maxTags: widget.addressMaxTags,
+        );
+      } else {
+        final polygonResult = await getIt<Hostr>().location.polygon(
+          input,
+          featureTypes:
+              widget.polygonFeatureTypes ??
+              widget.featureTypes ??
+              const {'country', 'state', 'region', 'city', 'town'},
+        );
+
+        tags = await H3PolygonCover.fromGeoJsonTagsInBackground(
+          geoJson: polygonResult.geoJson,
+          maxH3Tags: widget.polygonMaxTags,
+        );
+      }
+
+      if (!mounted || requestId != _h3RequestId) return;
+      widget.controller.setH3Result(tags, input);
+    } catch (e) {
+      print(e.toString());
+      if (!mounted || requestId != _h3RequestId) return;
+      widget.controller.setH3Error(
+        'Could not resolve location ${e.toString()}',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -210,8 +331,7 @@ class LocationFieldState extends State<LocationField> {
                 ? IconButton(
                     icon: Icon(Icons.cancel),
                     onPressed: () {
-                      _controller.clear();
-                      widget.onChanged?.call('');
+                      widget.controller.clearAll();
                       setState(() {
                         _isLoadingSuggestions = false;
                         _placeList = [];
@@ -220,20 +340,30 @@ class LocationFieldState extends State<LocationField> {
                   )
                 : null,
           ),
-          controller: _controller,
+          controller: widget.controller.textController,
+          focusNode: widget.controller.focusNode,
+          forceErrorText: widget.controller.h3Error,
           onChanged: (value) {
-            widget.onChanged?.call(value);
+            widget.controller.updateTextFromUser(value);
             _fetchSuggestions(value);
           },
           validator:
               widget.validator ??
               (value) {
-                if (value?.isEmpty ?? true) {
-                  return 'Please enter a location';
-                }
-                return null;
+                return widget.controller.validateText(value);
               },
         ),
+        if (widget.controller.isResolvingH3)
+          const ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8),
+            leading: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            title: Text('Resolving'),
+          ),
         if (_isLoadingSuggestions)
           const ListTile(
             dense: true,
@@ -258,6 +388,7 @@ class LocationFieldState extends State<LocationField> {
                   title: Text(_placeList[index].displayName),
                   onTap: () async {
                     final selected = _placeList[index];
+                    _isSelectingSuggestion = true;
                     // Avoid context ancestor lookup after async gaps.
                     FocusManager.instance.primaryFocus?.unfocus();
                     setState(() {
@@ -268,10 +399,11 @@ class LocationFieldState extends State<LocationField> {
                       final resolved = await _resolveCoordinates(selected);
                       if (!mounted) return;
 
-                      _controller.text = resolved.displayName;
-                      widget.onChanged?.call(_controller.text);
-                      widget.onSelected(resolved);
+                      widget.controller.applySelection(resolved);
+                      widget.onSelected?.call(resolved);
+                      await _resolveH3ForInput(selectedSuggestion: resolved);
                     } finally {
+                      _isSelectingSuggestion = false;
                       if (!mounted) return;
                       setState(() {
                         _isLoadingSuggestions = false;
@@ -282,6 +414,59 @@ class LocationFieldState extends State<LocationField> {
                   },
                 );
               },
+            ),
+          ),
+        if (widget.showH3Output)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    widget.controller.h3Tags.isEmpty
+                        ? 'h3'
+                        : 'h3 tags: ${widget.controller.h3Tags.length}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (widget.controller.h3Tags.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: widget.controller.h3Tags
+                                .take(6)
+                                .map(
+                                  (tag) => Chip(
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    label: Text(
+                                      'r${tag.resolution}: ${tag.index}',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.copy, size: 16),
+                            label: const Text('Copy H3 indexes'),
+                            onPressed: _copyH3IndexesToClipboard,
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
       ],

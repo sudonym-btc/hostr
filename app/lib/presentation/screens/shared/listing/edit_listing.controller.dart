@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
-import 'package:hostr/logic/location/h3_polygon_cover.dart';
+import 'package:hostr/logic/location/h3_tag.dart';
+import 'package:hostr/presentation/forms/search/location_controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -15,13 +16,18 @@ class EditListingController extends UpsertFormController {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
-  final TextEditingController locationController = TextEditingController();
+  final LocationController locationController = LocationController();
   Amenities amenities = Amenities();
   Set<String> selectedAmenityKeys = {};
   Currency priceCurrency = Currency.BTC;
-  List<String> _h3Tags = const [];
-  String? _locationError;
-  LocationSuggestion? _selectedLocationSuggestion;
+  late final Listenable submitListenable;
+
+  EditListingController() {
+    submitListenable = Listenable.merge([this, locationController]);
+  }
+
+  @override
+  bool get canSubmit => super.canSubmit && locationController.canSubmit;
 
   static List<String> amenityKeys() {
     final map = Amenities().toMap();
@@ -42,8 +48,8 @@ class EditListingController extends UpsertFormController {
     );
     titleController.text = data?.parsedContent.title ?? '';
     descriptionController.text = data?.parsedContent.description ?? '';
-    locationController.text = data?.parsedContent.location ?? '';
-    _selectedLocationSuggestion = null;
+    locationController.updateTextFromUser(data?.parsedContent.location ?? '');
+    locationController.clearH3();
     amenities = data?.parsedContent.amenities ?? Amenities();
     selectedAmenityKeys = _selectedKeysFromAmenities(amenities);
 
@@ -60,26 +66,6 @@ class EditListingController extends UpsertFormController {
     priceCurrency = Currency.BTC;
     final bitcoinAmount = BitcoinAmount.fromAmount(nightly.amount);
     priceController.text = bitcoinAmount.getInSats.toString();
-  }
-
-  void onLocationSelected(LocationSuggestion suggestion) {
-    print('Location selected: ${suggestion.displayName}');
-    locationController.text = suggestion.displayName;
-    _selectedLocationSuggestion = suggestion;
-    _locationError = null;
-  }
-
-  void onLocationChanged(String value) {
-    print('Location changed: $value');
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      _selectedLocationSuggestion = null;
-      return;
-    }
-
-    if (_selectedLocationSuggestion?.displayName != trimmed) {
-      _selectedLocationSuggestion = null;
-    }
   }
 
   void updateSelectedAmenities(Set<String> keys) {
@@ -136,46 +122,7 @@ class EditListingController extends UpsertFormController {
   }
 
   @override
-  Future<void> preValidate() async {
-    _locationError = null;
-    _h3Tags = const [];
-    final location = locationController.text.trim();
-    if (location.isEmpty) {
-      _locationError = 'Address is required';
-      return;
-    }
-
-    try {
-      final selected = _selectedLocationSuggestion;
-      final selectedMatchesInput =
-          selected != null && selected.displayName.trim() == location;
-
-      final point =
-          selectedMatchesInput &&
-              selected.latitude != null &&
-              selected.longitude != null
-          ? GeoPoint(
-              latitude: selected.latitude!,
-              longitude: selected.longitude!,
-            )
-          : await getIt<Hostr>().location.point(location);
-
-      _h3Tags = H3PolygonCover.hierarchyForPoint(
-        latitude: point.latitude,
-        longitude: point.longitude,
-        finestResolution: 15,
-        maxTags: 16,
-      );
-      print(
-        'Computed H3 tags for location $location $selected ${point.latitude}, ${point.longitude}: $_h3Tags',
-      );
-      if (_h3Tags.isEmpty) {
-        _locationError = 'Unable to compute H3 tags for address';
-      }
-    } catch (e) {
-      _locationError = 'Unable to resolve address: $e';
-    }
-  }
+  Future<void> preValidate() async {}
 
   @override
   Future<void> upsert() async {
@@ -211,7 +158,7 @@ class EditListingController extends UpsertFormController {
       requiresEscrow: current.requiresEscrow,
     );
 
-    final h3Tags = _h3Tags;
+    final h3Tags = locationController.h3Tags;
     final updatedTags = h3Tags.isEmpty
         ? l!.tags.map((tag) => List<String>.from(tag)).toList()
         : _applyH3Tags(l!.tags, h3Tags);
@@ -236,10 +183,7 @@ class EditListingController extends UpsertFormController {
     l = updatedListing;
   }
 
-  List<List<String>> _applyH3Tags(
-    List<List<String>> tags,
-    List<String> h3Tags,
-  ) {
+  List<List<String>> _applyH3Tags(List<List<String>> tags, List<H3Tag> h3Tags) {
     final filtered = tags
         .where((tag) => tag.isEmpty || tag.first != 'g')
         .map((tag) => List<String>.from(tag))
@@ -247,8 +191,8 @@ class EditListingController extends UpsertFormController {
 
     final seen = <String>{};
     for (final tag in h3Tags) {
-      if (seen.add(tag)) {
-        filtered.add(['g', tag]);
+      if (seen.add(tag.index)) {
+        filtered.add(['g', tag.index]);
       }
     }
 
@@ -258,18 +202,6 @@ class EditListingController extends UpsertFormController {
   String? validateTitle(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Title is required';
-    }
-    return null;
-  }
-
-  String? validateLocation(String? value) {
-    if (_locationError != null) {
-      final error = _locationError;
-      _locationError = null;
-      return error;
-    }
-    if (value == null || value.trim().isEmpty) {
-      return 'Address is required';
     }
     return null;
   }
