@@ -126,6 +126,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get upcomingReservations => 'Upcoming Reservations';
 
   @override
+  String get reservationRequest => 'Reservation request';
+
+  @override
+  String get reservationOffer => 'Reservation offer';
+
+  @override
   String get youSentReservationRequest => 'You sent a reservation request';
 
   @override

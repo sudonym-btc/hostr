@@ -6,6 +6,7 @@ import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart' show Filter;
 import 'package:rxdart/rxdart.dart';
 
 import '../entity/entity.cubit.dart';
@@ -16,6 +17,8 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   final Map<String, ProfileCubit> participantCubits = {};
   final Map<String, ProfileCubit> counterpartyCubits = {};
   final List<StreamSubscription> _subscriptions = [];
+  StreamWithStatus<Reservation>? _allListingReservationsStream;
+  final List<StreamSubscription> _allListingReservationsSubscriptions = [];
 
   ThreadCubit({required this.thread})
     : super(
@@ -28,6 +31,8 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
           reservations: [],
           paymentEvents: [],
           paymentEventsStreamStatus: StreamStatusIdle(),
+          allListingReservations: [],
+          allListingReservationsStreamStatus: StreamStatusIdle(),
           messages: [],
           isCancellingReservation: false,
           reservationActionError: null,
@@ -47,6 +52,37 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
         for (final pubKey in message.pTags) {
           addParticipant(pubKey);
         }
+      }),
+    );
+  }
+
+  void _watchAllListingReservations(Listing listing) {
+    for (final subscription in _allListingReservationsSubscriptions) {
+      subscription.cancel();
+    }
+    _allListingReservationsSubscriptions.clear();
+
+    _allListingReservationsStream?.close();
+    _allListingReservationsStream = getIt<Hostr>().reservations.subscribe(
+      Filter(
+        tags: {
+          kListingRefTag: [listing.anchor!],
+        },
+      ),
+    );
+
+    _allListingReservationsSubscriptions.add(
+      Rx.merge([
+        _allListingReservationsStream!.status.map((_) => null),
+        _allListingReservationsStream!.stream.map((_) => null),
+      ]).listen((_) {
+        emit(
+          state.copyWith(
+            allListingReservations: _allListingReservationsStream!.list.value,
+            allListingReservationsStreamStatus:
+                _allListingReservationsStream!.status.value,
+          ),
+        );
       }),
     );
   }
@@ -107,6 +143,16 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
             .toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+    if (mine.any((reservation) => reservation.parsedContent.cancelled)) {
+      emit(
+        state.copyWith(
+          reservationActionError: 'Reservation is already cancelled',
+          isCancellingReservation: false,
+        ),
+      );
+      return;
+    }
+
     if (mine.isEmpty) {
       emit(
         state.copyWith(
@@ -163,6 +209,9 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
         .getListing()
         .then((listing) {
           emit(state.copyWith(listing: listing));
+          if (listing?.anchor != null) {
+            _watchAllListingReservations(listing!);
+          }
         })
         .catchError((e) {
           logger.e('Failed to watch listing for thread', error: e);
@@ -202,6 +251,10 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   @override
   close() async {
     await thread.watcher.removeSubscriptions();
+    for (final s in _allListingReservationsSubscriptions) {
+      await s.cancel();
+    }
+    await _allListingReservationsStream?.close();
     for (final c in participantCubits.values) {
       await c.close();
     }
@@ -223,6 +276,8 @@ class ThreadCubitState {
 
   final List<PaymentEvent> paymentEvents;
   final StreamStatus paymentEventsStreamStatus;
+  final List<Reservation> allListingReservations;
+  final StreamStatus allListingReservationsStreamStatus;
   final bool isCancellingReservation;
   final String? reservationActionError;
 
@@ -235,6 +290,8 @@ class ThreadCubitState {
     required this.reservationsStreamStatus,
     required this.paymentEvents,
     required this.paymentEventsStreamStatus,
+    required this.allListingReservations,
+    required this.allListingReservationsStreamStatus,
     required this.messages,
     required this.isCancellingReservation,
     required this.reservationActionError,
@@ -250,6 +307,8 @@ class ThreadCubitState {
     List<EntityCubitState<ProfileMetadata>>? counterpartyStates,
     List<PaymentEvent>? paymentEvents,
     StreamStatus? paymentEventsStreamStatus,
+    List<Reservation>? allListingReservations,
+    StreamStatus? allListingReservationsStreamStatus,
     bool? isCancellingReservation,
     String? reservationActionError,
     bool clearReservationActionError = false,
@@ -265,6 +324,11 @@ class ThreadCubitState {
       paymentEvents: paymentEvents ?? this.paymentEvents,
       paymentEventsStreamStatus:
           paymentEventsStreamStatus ?? this.paymentEventsStreamStatus,
+      allListingReservations:
+          allListingReservations ?? this.allListingReservations,
+      allListingReservationsStreamStatus:
+          allListingReservationsStreamStatus ??
+          this.allListingReservationsStreamStatus,
       messages: messages ?? this.messages,
       isCancellingReservation:
           isCancellingReservation ?? this.isCancellingReservation,

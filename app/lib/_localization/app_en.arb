@@ -38,6 +38,8 @@
   "leaveATip": "Leave a tip?",
   "reserve": "Reserve",
   "upcomingReservations": "Upcoming Reservations",
+  "reservationRequest": "Reservation request",
+  "reservationOffer": "Reservation offer",
   "youSentReservationRequest": "You sent a reservation request",
   "receivedReservationRequest": "Received reservation offer",
   "useEscrowOrNot": "Would you like to use an escrow to settle this transfer?",

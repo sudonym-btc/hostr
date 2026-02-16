@@ -102,6 +102,7 @@ class EditListingViewState extends State<EditListingView> {
                         SizedBox(height: kDefaultPadding.toDouble()),
                         FormLabel(label: 'Price'),
                         PriceInput(controller: controller),
+                        BarterInput(controller: controller),
                         SizedBox(height: kDefaultPadding.toDouble()),
                         FormLabel(label: 'Amenities'),
                         SizedBox(height: kDefaultPadding.toDouble() / 2),

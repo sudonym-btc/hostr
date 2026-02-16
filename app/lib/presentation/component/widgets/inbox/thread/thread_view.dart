@@ -6,6 +6,7 @@ import 'package:hostr/presentation/component/widgets/inbox/thread/thread_content
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_reply.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:models/main.dart';
 
 import 'reservation_status.dart';
@@ -24,6 +25,7 @@ class ThreadView extends StatelessWidget {
         // );
         final isReady =
             profilesReady &&
+            state.listingProfile != null &&
             state.reservationsStreamStatus is StreamStatusLive &&
             state.listing != null;
 
@@ -38,9 +40,17 @@ class ThreadView extends StatelessWidget {
         // When loaded successfully
         return ThreadReadyWidget(
           listing: state.listing!,
+          listingProfile: state.listingProfile!,
           participants: state.participantStates.map((e) => e.data!).toList(),
           counterparties: state.counterpartyStates.map((e) => e.data!).toList(),
           reservationsList: state.reservations,
+          reservationRequests: state.messages
+              .where((message) => message.child is ReservationRequest)
+              .map((message) => message.child as ReservationRequest)
+              .toList(),
+          allListingReservations: state.allListingReservations,
+          messages: state.messages,
+          paymentEvents: state.paymentEvents,
         );
       },
     );
@@ -49,34 +59,49 @@ class ThreadView extends StatelessWidget {
 
 class ThreadReadyWidget extends StatelessWidget {
   final Listing listing;
+  final ProfileMetadata listingProfile;
   final List<ProfileMetadata> participants;
   final List<ProfileMetadata> counterparties;
   final List<Reservation> reservationsList;
+  final List<ReservationRequest> reservationRequests;
+  final List<Reservation> allListingReservations;
+  final List<Message> messages;
+  final List<PaymentEvent> paymentEvents;
 
   const ThreadReadyWidget({
     super.key,
     required this.listing,
+    required this.listingProfile,
     required this.participants,
     required this.counterparties,
     required this.reservationsList,
+    required this.reservationRequests,
+    required this.allListingReservations,
+    required this.messages,
+    required this.paymentEvents,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: ThreadHeaderWidget(counterparties: counterparties)),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: CustomPadding(child: ThreadReplyWidget()),
+      ),
       body: Column(
         children: [
           ReservationStatusWidget(
             reservations: reservationsList,
             listing: listing,
+            listingProfile: listingProfile,
+            reservationRequests: reservationRequests,
+            allListingReservations: allListingReservations,
+            messages: messages,
+            paymentEvents: paymentEvents,
           ),
           Expanded(
             child: ThreadContent(participants: participants, listing: listing),
-          ),
-          SafeArea(
-            top: false,
-            child: CustomPadding(child: ThreadReplyWidget()),
           ),
         ],
       ),

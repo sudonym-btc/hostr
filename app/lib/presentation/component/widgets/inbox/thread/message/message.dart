@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -21,24 +20,20 @@ class ThreadMessageWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: CustomPadding(
-        top: 0.2,
-        bottom: 0.2,
-        child: Container(
-          padding: EdgeInsets.all(kDefaultPadding / 3),
-          decoration: BoxDecoration(
+      child: Container(
+        padding: EdgeInsets.all(kDefaultPadding / 3),
+        decoration: BoxDecoration(
+          color: isSentByMe
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context).colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(kDefaultPadding / 3),
+        ),
+        child: Text(
+          item.content,
+          style: TextStyle(
             color: isSentByMe
-                ? Theme.of(context).colorScheme.primaryContainer
-                : Theme.of(context).colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(kDefaultPadding / 3),
-          ),
-          child: Text(
-            item.content,
-            style: TextStyle(
-              color: isSentByMe
-                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                  : Theme.of(context).colorScheme.onSurface,
-            ),
+                ? Theme.of(context).colorScheme.onPrimaryContainer
+                : Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ),
