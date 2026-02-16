@@ -9,7 +9,40 @@ import '../../../util/main.dart';
 import '../../payments/constants.dart';
 import 'supported_escrow_contract.dart';
 
+class MultiEscrowContractException implements Exception {
+  final String selector;
+  final String errorName;
+  final String message;
+  final Object? originalError;
+
+  MultiEscrowContractException({
+    required this.selector,
+    required this.errorName,
+    required this.message,
+    this.originalError,
+  });
+
+  @override
+  String toString() =>
+      'MultiEscrowContractException($errorName, selector: $selector): $message';
+}
+
 class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
+  static const Map<String, String> _customErrorSelectors = {
+    '0x916da0d1': 'ClaimPeriodNotStarted',
+    '0x492ca43c': 'InvalidUnlockAt',
+    '0xdff46e2b': 'NoFundsToClaim',
+    '0xb95c5dfc': 'TradeNotActive',
+    '0x85d1f726': 'OnlySeller',
+    '0x39fc5e0a': 'OnlyBuyerOrSeller',
+    '0xe598e3ce': 'OnlyArbiter',
+    '0x7505eadc': 'TradeIdAlreadyExists',
+    '0xca4b8ad6': 'TradeAlreadyActive',
+    '0x29ce3ded': 'MustSendFunds',
+    '0xb7cc22bc': 'NoFundsToRelease',
+    '0x3fb86fe2': 'InvalidFactor',
+  };
+
   final CustomLogger logger;
   MultiEscrowWrapper({
     required super.client,
@@ -23,22 +56,63 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   Future<TransactionInformation> deposit(
     ContractFundEscrowParams params,
   ) async {
-    String transactionHash = await contract.createTrade(
-      depositArgs(params),
-      credentials: params.ethKey,
-      transaction: Transaction(value: params.amount.toEtherAmount()),
-    );
+    String transactionHash = await _withDecodedCustomError(() {
+      return contract.createTrade(
+        depositArgs(params),
+        credentials: params.ethKey,
+        transaction: Transaction(value: params.amount.toEtherAmount()),
+      );
+    });
     return (await client.getTransactionByHash(
       transactionHash,
     ))!; // @todo awaitTransaction should really be added to web3dart client directly, instead of EvmChain class
   }
 
   @override
-  arbitrate(ContractArbitrateParams params) async {
-    return await contract.arbitrate(
-      arbitrateArgs(params),
-      credentials: params.ethKey,
+  Future<bool> canClaim(ContractClaimEscrowParams params) async {
+    final activeTrade = await _withDecodedCustomError(() {
+      return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
+    });
+
+    print('Active trade for ${params.tradeId}: $activeTrade');
+
+    if (!activeTrade.isActive) {
+      return false;
+    }
+
+    final trade = _extractTrade(activeTrade.trade);
+    print('Decoded trade: $trade');
+    if (trade == null) {
+      logger.w('Could not decode active trade for ${params.tradeId}');
+      return false;
+    }
+
+    print(
+      'trade unlockAt: ${trade.unlockAt}, current time: ${DateTime.now().millisecondsSinceEpoch ~/ 1000}',
     );
+
+    return DateTime.now().millisecondsSinceEpoch ~/ 1000 >
+        trade.unlockAt.toInt();
+  }
+
+  @override
+  Future<TransactionInformation> claim(ContractClaimEscrowParams params) async {
+    final transactionHash = await _withDecodedCustomError(() {
+      return contract.claim((
+        tradeId: getBytes32(params.tradeId),
+      ), credentials: params.ethKey);
+    });
+    return (await client.getTransactionByHash(transactionHash))!;
+  }
+
+  @override
+  arbitrate(ContractArbitrateParams params) async {
+    return await _withDecodedCustomError(() {
+      return contract.arbitrate(
+        arbitrateArgs(params),
+        credentials: params.ethKey,
+      );
+    });
   }
 
   @override
@@ -47,15 +121,25 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   ) async {
     // We cannot estimateGas, because it'll error if the sender doesn't have enough balance.
     // final function = contract.self.function('createTrade');
-    // final (:tradeId, :buyer, :seller, :arbiter, :timelock, :escrowFee) =
+    // final (:tradeId, :buyer, :seller, :arbiter, :unlockAt, :escrowFee) =
     //     depositArgs(params);
-    // final args = [tradeId, buyer, seller, arbiter, timelock, escrowFee];
+    // final args = [tradeId, buyer, seller, arbiter, unlockAt, escrowFee];
     // final gasLimit = await contract.client.estimateGas(
     //   sender: params.ethKey.address,
     //   to: contract.self.address,
     //   data: function.encodeCall(args),
     //   value: EtherAmount.fromInt(EtherUnit.wei, 0),
     // );
+    final gasPrice = await contract.client.getGasPrice();
+    final gasLimit = BigInt.from(200000);
+    final feeWei = gasPrice.getInWei * gasLimit;
+    return BitcoinAmount.inWei(feeWei);
+  }
+
+  @override
+  Future<BitcoinAmount> estimateClaimFee(
+    ContractClaimEscrowParams params,
+  ) async {
     final gasPrice = await contract.client.getGasPrice();
     final gasLimit = BigInt.from(200000);
     final feeWei = gasPrice.getInWei * gasLimit;
@@ -76,8 +160,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       /// Arbiter public key from their nostr advertisement
       arbiter: EthereumAddress.fromHex(params.arbiterEvmAddress),
 
-      // @todo: calculate from current time and reservationRequest.end
-      timelock: BigInt.from(params.timelock),
+      unlockAt: BigInt.from(params.unlockAt),
       escrowFee: BigInt.from(params.escrowFee ?? 0),
     );
   }
@@ -160,7 +243,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           transactionHash: log.transactionHash!,
           amount: BitcoinAmount.fromBigInt(
             BitcoinUnit.wei,
-            receipt!.value.getInWei,
+            receipt.value.getInWei,
           ),
         ); // @todo: return TradeCreatedEvent with decoded params
       } else if (log.topics![0] == eventToSignature['Arbitrated']) {
@@ -227,5 +310,53 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   listTrades(ContractListTradesParams params) {
     // TODO: implement listTrades
     throw UnimplementedError();
+  }
+
+  Trades? _extractTrade(dynamic trade) {
+    if (trade is Trades) {
+      return trade;
+    }
+    if (trade is List<dynamic>) {
+      try {
+        return Trades(trade);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  Future<T> _withDecodedCustomError<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } catch (error) {
+      final decoded = _decodeCustomError(error);
+      if (decoded != null) {
+        logger.w(decoded.toString());
+        throw decoded;
+      }
+      rethrow;
+    }
+  }
+
+  MultiEscrowContractException? _decodeCustomError(Object error) {
+    final text = error.toString();
+    final match = RegExp(
+      r'custom error\s*:??\s*(0x[a-fA-F0-9]{8})',
+      caseSensitive: false,
+    ).firstMatch(text);
+
+    if (match == null) {
+      return null;
+    }
+
+    final selector = match.group(1)!.toLowerCase();
+    final errorName = _customErrorSelectors[selector] ?? 'UnknownCustomError';
+    return MultiEscrowContractException(
+      selector: selector,
+      errorName: errorName,
+      message: text,
+      originalError: error,
+    );
   }
 }

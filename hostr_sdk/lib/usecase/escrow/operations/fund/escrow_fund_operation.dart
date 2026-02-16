@@ -26,7 +26,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     contractParams = params.toContractParams(auth.getActiveEvmKey());
   }
 
-  Future<EscrowFees> estimateFees() async {
+  Future<EscrowFundFees> estimateFees() async {
     final requiredSwapAmount = await _doesEscrowRequireSwap();
     final swapFees = requiredSwapAmount > BitcoinAmount.zero()
         ? await chain
@@ -42,7 +42,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
             estimatedSwapFees: BitcoinAmount.zero(),
             estimatedRelayFees: BitcoinAmount.zero(),
           );
-    return EscrowFees(
+    return EscrowFundFees(
       estimatedGasFees: await contract.estimateDespositFee(contractParams),
       estimatedSwapFees: swapFees,
     );

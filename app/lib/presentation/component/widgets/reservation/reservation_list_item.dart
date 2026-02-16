@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart'
     show ThreadCubitState, ThreadCubit;
 import 'package:hostr/logic/thread/thread_header_resolver.dart';
@@ -78,6 +79,50 @@ class ReservationListItem extends StatelessWidget {
           break;
         case ThreadHeaderActionType.refund:
           children.add(actionButton('Refund', notImplemented));
+          break;
+        case ThreadHeaderActionType.claim:
+          final escrowService = resolution?.escrowService;
+          final tradeId = resolution?.lastReservationRequest?.getDtag();
+
+          print(
+            'building claim button for escrowService: $escrowService, tradeId: $tradeId',
+          );
+
+          if (escrowService == null || tradeId == null || tradeId.isEmpty) {
+            break;
+          }
+
+          final hostr = getIt<Hostr>();
+          final contract = hostr.evm
+              .getChainForEscrowService(escrowService)
+              .getSupportedEscrowContract(escrowService);
+
+          final claimParams = EscrowClaimParams(
+            tradeId: tradeId,
+            escrowService: escrowService,
+          );
+
+          children.add(
+            FutureBuilder<bool>(
+              future: contract.canClaim(
+                claimParams.toContractParams(hostr.auth.getActiveEvmKey()),
+              ),
+              builder: (context, snapshot) {
+                print(
+                  'canClaim snapshot: ${snapshot.data}, error: ${snapshot.error}',
+                );
+                final canClaim = snapshot.data == true;
+                final isLoading =
+                    snapshot.connectionState == ConnectionState.waiting;
+                return actionButton(
+                  isLoading ? 'Claiming…' : 'Claim',
+                  (true && !state.isClaimingEscrow)
+                      ? () => hostr.escrow.claim(claimParams).execute()
+                      : null,
+                );
+              },
+            ),
+          );
           break;
         case ThreadHeaderActionType.accept:
           final reservationRequest = resolution?.lastReservationRequest;

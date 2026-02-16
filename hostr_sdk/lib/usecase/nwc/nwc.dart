@@ -79,6 +79,28 @@ class Nwc {
     }
   }
 
+  Future<MakeInvoiceResponse> makeInvoice(
+    NwcConnection connection, {
+    required int amountSats,
+    String? description,
+    String? descriptionHash,
+    int? expiry,
+  }) async {
+    logger.i('Making invoice for $amountSats sats');
+    try {
+      return await ndk.nwc.makeInvoice(
+        connection,
+        amountSats: amountSats,
+        description: description,
+        descriptionHash: descriptionHash,
+        expiry: expiry,
+      );
+    } catch (e, stackTrace) {
+      logger.e('Error making invoice: $e $stackTrace');
+      rethrow;
+    }
+  }
+
   Future<LookupInvoiceResponse> lookupInvoice(
     NwcConnection connection, {
     String? paymentHash,

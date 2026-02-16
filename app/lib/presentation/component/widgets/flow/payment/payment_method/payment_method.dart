@@ -70,13 +70,13 @@ class PaymentMethodWidget extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // TextButton(
-                //   onPressed: () {
-                //     print('Pay directly');
-                //   },
-                //   child: const Text('Pay directly'),
-                // ),
-                // SizedBox(width: 16),
+                TextButton(
+                  onPressed: () {
+                    print('Pay directly');
+                  },
+                  child: const Text('Pay directly'),
+                ),
+                SizedBox(width: 16),
                 BlocBuilder<EscrowSelectorCubit, EscrowSelectorState>(
                   builder: (context, state) {
                     switch (state) {

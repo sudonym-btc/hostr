@@ -7,6 +7,8 @@ import '../auth/auth.dart';
 import '../escrow_trusts/escrow_trusts.dart';
 import '../escrows/escrows.dart';
 import '../evm/evm.dart';
+import 'operations/claim/escrow_claim_models.dart';
+import 'operations/claim/escrow_claim_operation.dart';
 import 'operations/fund/escrow_fund_models.dart';
 import 'operations/fund/escrow_fund_operation.dart';
 import 'supported_escrow_contract/supported_escrow_contract.dart';
@@ -29,6 +31,10 @@ class EscrowUseCase {
 
   EscrowFundOperation fund(EscrowFundParams params) {
     return getIt<EscrowFundOperation>(param1: params);
+  }
+
+  EscrowClaimOperation claim(EscrowClaimParams params) {
+    return getIt<EscrowClaimOperation>(param1: params);
   }
 
   StreamWithStatus<EscrowEvent> checkEscrowStatus(

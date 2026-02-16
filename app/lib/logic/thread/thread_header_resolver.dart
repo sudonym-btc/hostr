@@ -16,6 +16,7 @@ enum ThreadHeaderStatus {
 enum ThreadHeaderActionType {
   cancel,
   refund,
+  claim,
   messageEscrow,
   accept,
   counter,
@@ -35,6 +36,7 @@ class ThreadHeaderResolution {
   final String? blockedReason;
   final bool isEscrowAlreadyInThread;
   final String? escrowPubkey;
+  final EscrowService? escrowService;
 
   const ThreadHeaderResolution({
     required this.source,
@@ -48,6 +50,7 @@ class ThreadHeaderResolution {
     required this.blockedReason,
     required this.isEscrowAlreadyInThread,
     required this.escrowPubkey,
+    required this.escrowService,
   });
 }
 
@@ -81,6 +84,18 @@ class ThreadHeaderResolver {
         : null;
     final hasAnyReservation = latestReservation != null;
 
+    final escrowsFromProofs = sortedReservations
+        .where(
+          (reservation) => reservation.parsedContent.proof?.escrowProof != null,
+        )
+        .map(
+          (reservation) =>
+              reservation.parsedContent.proof!.escrowProof!.escrowService,
+        );
+    final escrowFromProof = escrowsFromProofs.isEmpty
+        ? null
+        : escrowsFromProofs.first;
+
     final source = hasAnyReservation
         ? ThreadHeaderSource.reservation
         : (lastRequest != null
@@ -106,19 +121,20 @@ class ThreadHeaderResolver {
         isBlocked: true,
         blockedReason: overlapLock.reason,
         isEscrowAlreadyInThread: false,
-        escrowPubkey: null,
+        escrowPubkey: escrowFromProof?.pubKey,
+        escrowService: escrowFromProof,
       );
     }
 
     final actions = <ThreadHeaderActionType>[];
     ThreadHeaderStatus status = ThreadHeaderStatus.none;
 
-    final hasReservation = activeReservation != null;
+    final hasActiveReservation = activeReservation != null;
     final isSelfSigned = activeReservation != null
         ? activeReservation.pubKey != listing.pubKey
         : false;
-    final hasEscrow =
-        activeReservation?.parsedContent.proof?.escrowProof != null;
+
+    final hasEscrow = escrowFromProof != null;
 
     final now = DateTime.now();
     final reservationEnd = activeReservation?.parsedContent.end;
@@ -134,26 +150,14 @@ class ThreadHeaderResolver {
           event is PaymentReleasedEvent,
     );
     final canShowCancel =
-        hasReservation &&
+        hasActiveReservation &&
         !hasReservationEnded &&
         !hasTerminalPaymentState &&
         !hasAnyCancelledReservation;
-    final canShowRefund = hasReservation && !hasTerminalPaymentState;
+    final canShowRefund = hasActiveReservation && !hasTerminalPaymentState;
 
-    String? escrowPubkey;
-    for (final reservation in reservations) {
-      final pubkey = reservation
-          .parsedContent
-          .proof
-          ?.escrowProof
-          ?.escrowService
-          .parsedContent
-          .pubkey;
-      if (pubkey != null) {
-        escrowPubkey = pubkey;
-        break;
-      }
-    }
+    final escrowPubkey = escrowFromProof?.parsedContent.pubkey;
+
     final isEscrowAlreadyInThread =
         escrowPubkey != null &&
         messages.any(
@@ -164,7 +168,13 @@ class ThreadHeaderResolver {
     final canShowMessageEscrow =
         escrowPubkey != null && !isEscrowAlreadyInThread;
 
-    if (hasReservation) {
+    if (role == ThreadPartyRole.host) {
+      if (!hasTerminalPaymentState && hasEscrow) {
+        actions.add(ThreadHeaderActionType.claim);
+      }
+    }
+
+    if (hasActiveReservation) {
       if (role == ThreadPartyRole.host) {
         if (canShowCancel) {
           actions.add(ThreadHeaderActionType.cancel);
@@ -232,6 +242,7 @@ class ThreadHeaderResolver {
       blockedReason: null,
       isEscrowAlreadyInThread: isEscrowAlreadyInThread,
       escrowPubkey: escrowPubkey,
+      escrowService: escrowFromProof,
     );
   }
 
@@ -274,7 +285,7 @@ class ThreadHeaderResolver {
         return false;
       }
 
-      return reservation.parsedContent.guestCommitmentHash != ourCommitment;
+      return reservation.parsedContent.commitmentHash != ourCommitment;
     });
 
     if (!overlapsOtherCommitment) {

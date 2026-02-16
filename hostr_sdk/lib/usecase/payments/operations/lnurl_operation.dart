@@ -7,13 +7,6 @@ import 'package:ndk/ndk.dart' hide Nwc;
 
 import 'pay_state.dart';
 
-class LnurlPayParameters extends PayParameters {
-  LnurlPayParameters({super.amount, super.comment, required super.to});
-}
-
-// LnUrlResolvedDetails, LightningCallbackDetails, LightningCompletedDetails
-// are now in lnurl_workflow.dart
-
 @Injectable(env: Env.allButTestAndMock)
 class LnurlPayOperation
     extends

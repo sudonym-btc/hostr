@@ -19,6 +19,8 @@ import 'package:hostr_sdk/usecase/badge_awards/badge_awards.dart' as _i92;
 import 'package:hostr_sdk/usecase/badge_definitions/badge_definitions.dart'
     as _i978;
 import 'package:hostr_sdk/usecase/escrow/escrow.dart' as _i376;
+import 'package:hostr_sdk/usecase/escrow/operations/claim/escrow_claim_operation.dart'
+    as _i654;
 import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_operation.dart'
     as _i832;
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i445;
@@ -26,10 +28,13 @@ import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i943;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i303;
 import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_in/swap_in_operation.dart'
     as _i62;
+import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_out/swap_out_operation.dart'
+    as _i458;
 import 'package:hostr_sdk/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart'
     as _i514;
 import 'package:hostr_sdk/usecase/evm/chain/rootstock/rootstock.dart' as _i158;
 import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
+import 'package:hostr_sdk/usecase/evm/main.dart' as _i785;
 import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart'
     as _i677;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
@@ -45,6 +50,7 @@ import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart'
     as _i124;
 import 'package:hostr_sdk/usecase/payments/operations/lnurl_operation.dart'
     as _i363;
+import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart' as _i24;
 import 'package:hostr_sdk/usecase/payments/payments.dart' as _i226;
 import 'package:hostr_sdk/usecase/relays/relays.dart' as _i883;
 import 'package:hostr_sdk/usecase/requests/requests.dart' as _i1014;
@@ -212,6 +218,11 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.factoryParam<_i363.LnurlPayOperation, _i24.LnurlPayParameters, dynamic>(
+      (params, _) =>
+          _i363.LnurlPayOperation(params: params, nwc: gh<_i588.Nwc>()),
+      registerFor: {_dev, _staging, _prod},
+    );
     gh.singleton<_i883.Relays>(
       () => _i883.MockRelays(
         ndk: gh<_i857.Ndk>(),
@@ -236,15 +247,6 @@ extension GetItInjectableX on _i174.GetIt {
         params,
       ),
     );
-    gh.factoryParam<
-      _i124.Bolt11PayOperation,
-      _i124.Bolt11PayParameters,
-      dynamic
-    >(
-      (params, _) =>
-          _i124.Bolt11PayOperation(params: params, nwc: gh<_i588.Nwc>()),
-      registerFor: {_dev, _staging, _prod},
-    );
     gh.singleton<_i1045.Zaps>(
       () => _i1045.MockZaps(nwc: gh<_i520.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
@@ -255,6 +257,19 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
         messaging: gh<_i1019.Messaging>(),
         auth: gh<_i1000.Auth>(),
+      ),
+    );
+    gh.factoryParam<
+      _i458.RootstockSwapOutOperation,
+      _i785.SwapOutParams,
+      dynamic
+    >(
+      (params, _) => _i458.RootstockSwapOutOperation(
+        rootstock: gh<_i785.Rootstock>(),
+        auth: gh<_i1000.Auth>(),
+        logger: gh<_i372.CustomLogger>(),
+        nwc: gh<_i588.Nwc>(),
+        params: params,
       ),
     );
     gh.singleton<_i149.MetadataUseCase>(
@@ -276,9 +291,26 @@ extension GetItInjectableX on _i174.GetIt {
         escrowTrusts: gh<_i943.EscrowTrusts>(),
       ),
     );
-    gh.factoryParam<_i363.LnurlPayOperation, _i363.LnurlPayParameters, dynamic>(
+    gh.factoryParam<
+      _i654.EscrowClaimOperation,
+      _i520.EscrowClaimParams,
+      dynamic
+    >(
+      (params, _) => _i654.EscrowClaimOperation(
+        gh<_i520.Auth>(),
+        gh<_i520.Evm>(),
+        gh<_i520.CustomLogger>(),
+        gh<_i520.Rootstock>(),
+        params,
+      ),
+    );
+    gh.factoryParam<
+      _i124.Bolt11PayOperation,
+      _i24.Bolt11PayParameters,
+      dynamic
+    >(
       (params, _) =>
-          _i363.LnurlPayOperation(params: params, nwc: gh<_i588.Nwc>()),
+          _i124.Bolt11PayOperation(params: params, nwc: gh<_i588.Nwc>()),
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i376.EscrowUseCase>(

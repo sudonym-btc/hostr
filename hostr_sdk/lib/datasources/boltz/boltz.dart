@@ -31,7 +31,29 @@ class BoltzClient {
       body: r,
     );
     logger.i("Response: ${res.body}");
-    if (res.isSuccessful) return res.body!;
+    if (res.isSuccessful) {
+      final body = res.body;
+      if (body == null) {
+        throw StateError('Boltz submarine response body was empty');
+      }
+
+      // Boltz API v2 may return `claimAddress` for EVM submarine swaps while
+      // older generated models only expose `claimPublicKey`.
+      final raw = _tryParseMessage(res.bodyString);
+      final claimAddressFromRaw = _asString(raw?['claimAddress']);
+      final claimPublicKeyFromRaw = _asString(raw?['claimPublicKey']);
+      final normalizedClaimAddress =
+          body.claimPublicKey ?? claimAddressFromRaw ?? claimPublicKeyFromRaw;
+
+      if (normalizedClaimAddress == null || normalizedClaimAddress.isEmpty) {
+        logger.w(
+          'Submarine response missing claim address field. Raw keys: ${raw?.keys.toList()}',
+        );
+        return body;
+      }
+
+      return body.copyWith(claimPublicKey: normalizedClaimAddress);
+    }
     throw res.error!;
   }
 
@@ -206,5 +228,9 @@ class BoltzClient {
     } catch (_) {
       return null;
     }
+  }
+
+  String? _asString(dynamic value) {
+    return value is String && value.isNotEmpty ? value : null;
   }
 }

@@ -5,7 +5,7 @@ import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart';
-import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart';
+import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/payments.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
@@ -107,7 +107,7 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
 
     final etherSwap = await rootstock.getEtherSwapContract();
-    final relayFees = await rifRelay.estimateClaimRelayFees(
+    final relayFees = await rifRelay.estimateSwapInClaimRelayFees(
       signer: params.evmKey,
       etherSwap: etherSwap,
       preimage: Uint8List(32),

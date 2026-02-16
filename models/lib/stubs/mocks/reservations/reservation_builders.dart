@@ -57,7 +57,7 @@ Reservation buildReservationForScenario({
     content: ReservationContent(
       start: request.parsedContent.start,
       end: request.parsedContent.end,
-      guestCommitmentHash: commitment,
+      commitmentHash: commitment,
       proof: proof,
     ),
     createdAt:

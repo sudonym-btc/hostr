@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:models/main.dart';
-import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -13,6 +12,7 @@ import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../operations/swap_in/swap_in_models.dart';
 import '../operations/swap_in/swap_in_operation.dart';
+import '../operations/swap_out/swap_out_operation.dart';
 
 abstract class EvmChain {
   final Web3Client client;
@@ -99,7 +99,7 @@ abstract class EvmChain {
 
   SwapInOperation swapIn(SwapInParams params);
 
-  swapOutAll({required KeyPair key});
+  SwapOutOperation swapOutAll();
 
   Future<List<dynamic>> call(
     ContractAbi abi,

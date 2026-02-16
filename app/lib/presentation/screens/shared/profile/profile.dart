@@ -5,6 +5,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
@@ -13,7 +14,7 @@ import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart'
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart';
-import 'package:hostr_sdk/usecase/payments/operations/lnurl_operation.dart';
+import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:models/main.dart';
 
 import 'mode_toggle.dart';
@@ -245,14 +246,22 @@ class ProfileScreen extends StatelessWidget {
                         FilledButton(
                           child: Text(AppLocalizations.of(context)!.zapUs),
                           onPressed: () {
-                            final params = LnurlPayParameters(
+                            final params = ZapPayParameters(
                               to: 'tips@lnbits1.hostr.development',
                               amount: BitcoinAmount.fromInt(
                                 BitcoinUnit.sat,
                                 10000,
                               ),
                             );
-                            getIt<Hostr>().payments.pay(params).resolve();
+                            showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return PaymentFlowWidget(
+                                  cubit: getIt<Hostr>().payments.pay(params)
+                                    ..resolve(),
+                                );
+                              },
+                            );
                           },
                         ),
                         // ZapListWidget(

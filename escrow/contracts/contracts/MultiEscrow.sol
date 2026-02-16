@@ -9,7 +9,7 @@ contract MultiEscrow {
     error TradeNotActive();
     error TradeIdAlreadyExists();
     error MustSendFunds();
-    error InvalidTimelock();
+    error InvalidUnlockAt();
     error NoFundsToRelease();
     error OnlyBuyerOrSeller();
     error InvalidFactor();
@@ -22,7 +22,7 @@ contract MultiEscrow {
         address seller;
         address arbiter;
         uint256 amount;
-        uint256 timelock;
+        uint256 unlockAt;
         uint256 escrowFee;
     }
 
@@ -30,7 +30,7 @@ contract MultiEscrow {
     bytes32[] private _activeTradeIds;
     mapping(bytes32 => uint256) private _activeTradeIndexPlusOne;
 
-    event TradeCreated(bytes32 indexed tradeId, address seller, address buyer, address indexed arbiter, uint256 timelock, uint256 escrowFee );
+    event TradeCreated(bytes32 indexed tradeId, address seller, address buyer, address indexed arbiter, uint256 unlockAt, uint256 escrowFee );
     event Arbitrated(bytes32 indexed tradeId, address seller, address buyer, uint256 amount, uint256 fractionForwarded);
     event Claimed(bytes32 indexed tradeId, address seller, address buyer, uint256 amount);
     event ReleasedToCounterparty(bytes32 indexed tradeId, address from, address to, uint256 amount);
@@ -93,21 +93,21 @@ contract MultiEscrow {
         }
     }
 
-    function createTrade(bytes32 tradeId, address _buyer, address _seller, address _arbiter,  uint256 _timelock, uint256 _escrowFee) external payable {
+    function createTrade(bytes32 tradeId, address _buyer, address _seller, address _arbiter,  uint256 _unlockAt, uint256 _escrowFee) external payable {
         if (trades[tradeId].buyer != address(0)) revert TradeIdAlreadyExists();
         if (msg.value == 0) revert MustSendFunds();
-        if (_timelock == 0) revert InvalidTimelock();
+        if (_unlockAt <= block.timestamp) revert InvalidUnlockAt();
 
         trades[tradeId] = Trade({
             buyer: _buyer,
             seller: _seller,
             arbiter: _arbiter,
             amount: msg.value,
-            timelock: block.timestamp + _timelock,
+            unlockAt: _unlockAt,
             escrowFee: _escrowFee
         });
         _addActiveTrade(tradeId);
-        emit TradeCreated(tradeId, _seller, _buyer, _arbiter, _timelock, _escrowFee);
+        emit TradeCreated(tradeId, _seller, _buyer, _arbiter, _unlockAt, _escrowFee);
     }
 
     function releaseToCounterparty(bytes32 tradeId) external {
@@ -158,8 +158,7 @@ contract MultiEscrow {
 
     function claim(bytes32 tradeId) external {
         Trade storage trade = trades[tradeId];
-        if (msg.sender != trade.seller) revert OnlySeller();
-        if (block.timestamp <= trade.timelock + 2 weeks) revert ClaimPeriodNotStarted();
+        if (block.timestamp <= trade.unlockAt) revert ClaimPeriodNotStarted();
         if (trade.amount == 0) revert NoFundsToClaim();
 
         uint256 amount = trade.amount;

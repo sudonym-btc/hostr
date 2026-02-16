@@ -7,7 +7,7 @@ var MOCK_RESERVATIONS = [
       content: ReservationContent(
         start: DateTime(2025, 1, 1),
         end: DateTime(2025, 5, 1),
-        guestCommitmentHash: ParticipationProof.computeCommitmentHash(
+        commitmentHash: ParticipationProof.computeCommitmentHash(
           MockKeys.guest.publicKey,
           hostInvitesGuestReservationRequest.parsedContent.salt,
         ),
@@ -30,7 +30,7 @@ var MOCK_RESERVATIONS = [
       content: ReservationContent(
         start: DateTime(2026, 1, 1),
         end: DateTime(2026, 5, 1),
-        guestCommitmentHash: ParticipationProof.computeCommitmentHash(
+        commitmentHash: ParticipationProof.computeCommitmentHash(
           MockKeys.guest.publicKey,
           guestInvitesHostReservationRequest.parsedContent.salt,
         ),
@@ -56,7 +56,7 @@ final FAKED_RESERVATIONS = List.generate(10, (count) {
       content: ReservationContent(
         start: DateTime(2025, 1, 1),
         end: DateTime(2025, 5, 1),
-        guestCommitmentHash: ParticipationProof.computeCommitmentHash(
+        commitmentHash: ParticipationProof.computeCommitmentHash(
           MockKeys.guest.publicKey,
           guestInvitesHostReservationRequest.parsedContent.salt,
         ),

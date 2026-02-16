@@ -41,7 +41,7 @@ class Review extends JsonContentNostrEvent<ReviewContent>
     ParticipationProof proof,
   ) {
     return proof.verify(
-        reviewerPubKey, reservation.parsedContent.guestCommitmentHash);
+        reviewerPubKey, reservation.parsedContent.commitmentHash);
   }
 }
 

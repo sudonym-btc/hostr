@@ -17,10 +17,13 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   });
 
   Future<BitcoinAmount> estimateDespositFee(ContractFundEscrowParams params);
+  Future<BitcoinAmount> estimateClaimFee(ContractClaimEscrowParams params);
   // Future<BigInt> estimateRefundFee(EscrowParams params);
 
   depositArgs(ContractFundEscrowParams params);
   Future<TransactionInformation> deposit(ContractFundEscrowParams params);
+  Future<bool> canClaim(ContractClaimEscrowParams params);
+  Future<TransactionInformation> claim(ContractClaimEscrowParams params);
   // Future<TransactionInformation> refund(ContractFundEscrowParams params);
 
   StreamWithStatus<EscrowEvent> allEvents(
@@ -85,7 +88,7 @@ class ContractFundEscrowParams {
   final String sellerEvmAddress;
   final String arbiterEvmAddress;
   final EthPrivateKey ethKey;
-  final int timelock;
+  final int unlockAt;
   final int? escrowFee;
 
   ContractFundEscrowParams({
@@ -94,9 +97,16 @@ class ContractFundEscrowParams {
     required this.sellerEvmAddress,
     required this.arbiterEvmAddress,
     required this.ethKey,
-    required this.timelock,
+    required this.unlockAt,
     this.escrowFee,
   });
+}
+
+class ContractClaimEscrowParams {
+  final String tradeId;
+  final EthPrivateKey ethKey;
+
+  ContractClaimEscrowParams({required this.tradeId, required this.ethKey});
 }
 
 abstract class PaymentEvent {}

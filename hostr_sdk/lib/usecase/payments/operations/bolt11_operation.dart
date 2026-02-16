@@ -6,10 +6,6 @@ import 'package:ndk/ndk.dart' hide Nwc;
 import 'pay_models.dart';
 import 'pay_operation.dart';
 
-class Bolt11PayParameters extends PayParameters {
-  Bolt11PayParameters({super.amount, super.comment, required super.to});
-}
-
 @Injectable(env: Env.allButTestAndMock)
 class Bolt11PayOperation
     extends
