@@ -20,6 +20,7 @@ class EditListingController extends UpsertFormController {
   Amenities amenities = Amenities();
   Set<String> selectedAmenityKeys = {};
   Currency priceCurrency = Currency.BTC;
+  bool allowBarter = false;
   late final Listenable submitListenable;
 
   EditListingController() {
@@ -52,6 +53,7 @@ class EditListingController extends UpsertFormController {
     locationController.clearH3();
     amenities = data?.parsedContent.amenities ?? Amenities();
     selectedAmenityKeys = _selectedKeysFromAmenities(amenities);
+    allowBarter = data?.parsedContent.allowBarter ?? false;
 
     final prices = data?.parsedContent.price ?? [];
     final nightly = prices.firstWhere(
@@ -71,6 +73,14 @@ class EditListingController extends UpsertFormController {
   void updateSelectedAmenities(Set<String> keys) {
     selectedAmenityKeys = keys;
     amenities = _amenitiesFromKeys(amenities, keys);
+  }
+
+  void setAllowBarter(bool value) {
+    if (allowBarter == value) {
+      return;
+    }
+    allowBarter = value;
+    notifyListeners();
   }
 
   Set<String> _selectedKeysFromAmenities(Amenities value) {
@@ -146,7 +156,7 @@ class EditListingController extends UpsertFormController {
       title: title,
       description: description,
       price: _buildUpdatedPrices(current.price),
-      allowBarter: current.allowBarter,
+      allowBarter: allowBarter,
       minStay: current.minStay,
       checkIn: current.checkIn,
       checkOut: current.checkOut,

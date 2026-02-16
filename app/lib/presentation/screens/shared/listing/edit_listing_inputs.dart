@@ -66,6 +66,27 @@ class PriceInput extends StatelessWidget {
   }
 }
 
+class BarterInput extends StatelessWidget {
+  final EditListingController controller;
+
+  const BarterInput({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        return SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Allow Barter'),
+          value: controller.allowBarter,
+          onChanged: controller.setAllowBarter,
+        );
+      },
+    );
+  }
+}
+
 class DescriptionInput extends StatelessWidget {
   final EditListingController controller;
 

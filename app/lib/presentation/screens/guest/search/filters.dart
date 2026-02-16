@@ -12,7 +12,8 @@ import 'package:ndk/ndk.dart';
 class FiltersScreen extends StatefulWidget {
   final bool asBottomSheet;
 
-  const FiltersScreen({super.key, this.asBottomSheet = false});
+  // ignore: use_key_in_widget_constructors
+  const FiltersScreen({this.asBottomSheet = false});
 
   @override
   State<FiltersScreen> createState() => _FiltersScreenState();

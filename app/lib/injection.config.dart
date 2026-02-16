@@ -45,6 +45,9 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i598.DevelopmentConfig(),
       registerFor: {_dev},
     );
+    gh.factory<_i237.ModeCubit>(
+      () => _i237.ModeCubit(modeStorage: gh<_i640.ModeStorage>()),
+    );
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsMock(),
       registerFor: {_test, _mock},
@@ -60,9 +63,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i467.Config>(
       () => _i1071.ProductionConfig(),
       registerFor: {_prod},
-    );
-    gh.factory<_i237.ModeCubit>(
-      () => _i237.ModeCubit(modeStorage: gh<_i640.ModeStorage>()),
     );
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
