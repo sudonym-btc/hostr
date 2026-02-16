@@ -35,6 +35,7 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
           allListingReservationsStreamStatus: StreamStatusIdle(),
           messages: [],
           isCancellingReservation: false,
+          isClaimingEscrow: false,
           reservationActionError: null,
         ),
       ) {
@@ -203,6 +204,48 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
     }
   }
 
+  Future<void> claimEscrow({
+    required String tradeId,
+    required EscrowService escrowService,
+  }) async {
+    emit(
+      state.copyWith(isClaimingEscrow: true, clearReservationActionError: true),
+    );
+
+    try {
+      final hostr = getIt<Hostr>();
+      final contract = hostr.evm
+          .getChainForEscrowService(escrowService)
+          .getSupportedEscrowContract(escrowService);
+      final claimParams = ContractClaimEscrowParams(
+        tradeId: tradeId,
+        ethKey: hostr.auth.getActiveEvmKey(),
+      );
+
+      final canClaim = await contract.canClaim(claimParams);
+      if (!canClaim) {
+        emit(
+          state.copyWith(
+            isClaimingEscrow: false,
+            reservationActionError:
+                'Claim is not available yet (timelock may not have passed).',
+          ),
+        );
+        return;
+      }
+
+      await contract.claim(claimParams);
+      emit(state.copyWith(isClaimingEscrow: false));
+    } catch (e) {
+      emit(
+        state.copyWith(
+          isClaimingEscrow: false,
+          reservationActionError: e.toString(),
+        ),
+      );
+    }
+  }
+
   void watch() {
     thread.watcher.watch();
     thread.watcher
@@ -279,6 +322,7 @@ class ThreadCubitState {
   final List<Reservation> allListingReservations;
   final StreamStatus allListingReservationsStreamStatus;
   final bool isCancellingReservation;
+  final bool isClaimingEscrow;
   final String? reservationActionError;
 
   ThreadCubitState({
@@ -294,6 +338,7 @@ class ThreadCubitState {
     required this.allListingReservationsStreamStatus,
     required this.messages,
     required this.isCancellingReservation,
+    required this.isClaimingEscrow,
     required this.reservationActionError,
   });
 
@@ -310,6 +355,7 @@ class ThreadCubitState {
     List<Reservation>? allListingReservations,
     StreamStatus? allListingReservationsStreamStatus,
     bool? isCancellingReservation,
+    bool? isClaimingEscrow,
     String? reservationActionError,
     bool clearReservationActionError = false,
   }) {
@@ -332,6 +378,7 @@ class ThreadCubitState {
       messages: messages ?? this.messages,
       isCancellingReservation:
           isCancellingReservation ?? this.isCancellingReservation,
+      isClaimingEscrow: isClaimingEscrow ?? this.isClaimingEscrow,
       reservationActionError: clearReservationActionError
           ? null
           : (reservationActionError ?? this.reservationActionError),

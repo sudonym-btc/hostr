@@ -57,7 +57,7 @@ class SwapInConfirmWidget extends StatelessWidget {
       type: ModalBottomSheetType.normal,
       content: Column(
         children: [
-          Text('Please confirm to proceed with the escrow.'),
+          Text('Please confirm to proceed with the swap.'),
           ElevatedButton(onPressed: onConfirm, child: Text('Confirm')),
         ],
       ),

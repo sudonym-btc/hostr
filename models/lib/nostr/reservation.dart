@@ -63,7 +63,7 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
     DateTime? start,
     DateTime? end,
     SelfSignedProof? proof,
-    String? guestCommitmentHash,
+    String? commitmentHash,
     bool? cancelled,
   }) {
     return Reservation(
@@ -75,8 +75,7 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
         start: start ?? parsedContent.start,
         end: end ?? parsedContent.end,
         proof: proof ?? parsedContent.proof,
-        guestCommitmentHash:
-            guestCommitmentHash ?? parsedContent.guestCommitmentHash,
+        commitmentHash: commitmentHash ?? parsedContent.commitmentHash,
         cancelled: cancelled ?? parsedContent.cancelled,
       ),
     );
@@ -202,15 +201,15 @@ class ReservationContent extends EventContent {
   final SelfSignedProof? proof;
 
   /// Blinded guest identifier: SHA256(guest_pubkey + random_salt)
-  /// Only the guest knows the salt, allowing them to prove participation by revealing it.
+  /// Only the guest/host knows the salt, allowing them to prove participation by revealing it.
   /// Each reservation has a unique random salt, preventing linking across reservations.
-  final String guestCommitmentHash;
+  final String commitmentHash;
   final bool cancelled;
 
   ReservationContent({
     required this.start,
     required this.end,
-    required this.guestCommitmentHash,
+    required this.commitmentHash,
     this.cancelled = false,
     this.proof,
   });
@@ -220,7 +219,7 @@ class ReservationContent extends EventContent {
     return {
       "start": start.toIso8601String(),
       "end": end.toIso8601String(),
-      "guestCommitmentHash": guestCommitmentHash,
+      "guestCommitmentHash": commitmentHash,
       "proof": proof?.toJson(),
       "cancelled": cancelled,
     };
@@ -236,7 +235,7 @@ class ReservationContent extends EventContent {
     return ReservationContent(
         start: DateTime.parse(json["start"]),
         end: DateTime.parse(json["end"]),
-        guestCommitmentHash: json["guestCommitmentHash"] ?? '',
+        commitmentHash: json["guestCommitmentHash"] ?? '',
         proof: json["proof"] != null
             ? SelfSignedProof.fromJson(json["proof"])
             : null,

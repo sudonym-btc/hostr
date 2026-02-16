@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -12,6 +13,7 @@ abstract class PayOperation<
   CmpD extends CompletedDetails
 >
     extends Cubit<PayState> {
+  final CustomLogger logger = CustomLogger();
   final Nwc nwc;
 
   T params;

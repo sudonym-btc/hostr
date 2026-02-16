@@ -18,21 +18,26 @@ class EscrowFundParams {
   });
 
   ContractFundEscrowParams toContractParams(EthPrivateKey ethKey) {
+    final unlockAt =
+        reservationRequest.parsedContent.end.millisecondsSinceEpoch ~/ 1000;
     return ContractFundEscrowParams(
       tradeId: reservationRequest.getDtag()!,
       amount: BitcoinAmount.fromAmount(amount),
       sellerEvmAddress: sellerProfile.evmAddress!,
       arbiterEvmAddress: escrowService.parsedContent.evmAddress,
       ethKey: ethKey,
-      timelock: 100,
+      unlockAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000) + 5,
       // escrowFee: escrowService.parsedContent.fee,
     );
   }
 }
 
-class EscrowFees {
+class EscrowFundFees {
   final BitcoinAmount estimatedGasFees;
   final SwapInFees estimatedSwapFees;
 
-  EscrowFees({required this.estimatedGasFees, required this.estimatedSwapFees});
+  EscrowFundFees({
+    required this.estimatedGasFees,
+    required this.estimatedSwapFees,
+  });
 }

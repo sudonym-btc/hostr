@@ -4,3 +4,6 @@ export 'evm.dart';
 export 'operations/swap_in/swap_in_models.dart';
 export 'operations/swap_in/swap_in_operation.dart';
 export 'operations/swap_in/swap_in_state.dart';
+export 'operations/swap_out/swap_out_models.dart';
+export 'operations/swap_out/swap_out_operation.dart';
+export 'operations/swap_out/swap_out_state.dart';

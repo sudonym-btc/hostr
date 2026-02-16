@@ -145,7 +145,7 @@ class Reservations extends CrudUseCase<Reservation> {
       content: ReservationContent(
         start: request.parsedContent.start,
         end: request.parsedContent.end,
-        guestCommitmentHash: ParticipationProof.computeCommitmentHash(
+        commitmentHash: ParticipationProof.computeCommitmentHash(
           guestPubkey,
           request.parsedContent.salt,
         ),
@@ -172,7 +172,7 @@ class Reservations extends CrudUseCase<Reservation> {
       content: ReservationContent(
         start: reservationRequest.parsedContent.start,
         end: reservationRequest.parsedContent.end,
-        guestCommitmentHash: commitment,
+        commitmentHash: commitment,
         proof: proof,
       ),
       pubKey: randomKeyPair.publicKey,

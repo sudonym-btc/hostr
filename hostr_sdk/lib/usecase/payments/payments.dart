@@ -5,6 +5,7 @@ import 'package:injectable/injectable.dart';
 import 'operations/bolt11_operation.dart';
 import 'operations/lnurl_operation.dart';
 import 'operations/pay_operation.dart';
+import 'operations/zap_operation.dart';
 
 @Singleton()
 class Payments {
@@ -21,10 +22,13 @@ class Payments {
   });
 
   PayOperation pay(PayParameters params) {
+    print(params.runtimeType);
     if (params is Bolt11PayParameters) {
       return Bolt11PayOperation(params: params, nwc: nwc);
     } else if (params is LnurlPayParameters) {
       return LnurlPayOperation(params: params, nwc: nwc);
+    } else if (params is ZapPayParameters) {
+      return ZapPayOperation(params: params, nwc: nwc, zaps: zaps);
     } else {
       throw Exception('Unsupported payment type');
     }
