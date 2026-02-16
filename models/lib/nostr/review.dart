@@ -38,7 +38,7 @@ class Review extends JsonContentNostrEvent<ReviewContent>
   static bool validateProof(
     Reservation reservation,
     String reviewerPubKey,
-    GuestParticipationProof proof,
+    ParticipationProof proof,
   ) {
     return proof.verify(
         reviewerPubKey, reservation.parsedContent.guestCommitmentHash);
@@ -56,16 +56,12 @@ class ReviewContent extends EventContent {
   /// Proof that the reviewer (guest) was a participant in the reservation
   /// When revealed here, only this specific reservation can be linked to the reviewer
   /// since the salt is unique per reservation
-  final GuestParticipationProof proof;
-
-  /// The ID (e-tag) of the reservation being reviewed
-  final String reservationId;
+  final ParticipationProof proof;
 
   ReviewContent({
     required this.rating,
     required this.content,
     required this.proof,
-    required this.reservationId,
   }) : assert(rating >= 1 && rating <= 5, 'Rating must be between 1 and 5');
 
   Map<String, dynamic> toJson() {
@@ -73,7 +69,6 @@ class ReviewContent extends EventContent {
       "rating": rating,
       "content": content,
       "proof": proof.toJson(),
-      "reservationId": reservationId,
     };
   }
 
@@ -81,8 +76,7 @@ class ReviewContent extends EventContent {
     return ReviewContent(
       rating: json["rating"],
       content: json["content"],
-      proof: GuestParticipationProof.fromJson(json["proof"]),
-      reservationId: json["reservationId"],
+      proof: ParticipationProof.fromJson(json["proof"]),
     );
   }
 

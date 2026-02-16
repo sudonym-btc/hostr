@@ -13,12 +13,12 @@ import 'package:crypto/crypto.dart' as crypto;
 /// - Revealing a proof for one reservation doesn't reveal other reservations
 ///   (each has a unique random salt)
 /// - No host proof needed; host publishes the reservation directly
-class GuestParticipationProof {
+class ParticipationProof {
   /// Random salt unique to this reservation
   /// When revealed in a review, combined with guest pubkey to verify participation
   final String salt;
 
-  GuestParticipationProof({
+  ParticipationProof({
     required this.salt,
   });
 
@@ -42,8 +42,8 @@ class GuestParticipationProof {
     };
   }
 
-  static GuestParticipationProof fromJson(Map<String, dynamic> json) {
-    return GuestParticipationProof(
+  static ParticipationProof fromJson(Map<String, dynamic> json) {
+    return ParticipationProof(
       salt: json["salt"],
     );
   }

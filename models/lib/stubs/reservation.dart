@@ -7,7 +7,7 @@ var MOCK_RESERVATIONS = [
       content: ReservationContent(
         start: DateTime(2025, 1, 1),
         end: DateTime(2025, 5, 1),
-        guestCommitmentHash: GuestParticipationProof.computeCommitmentHash(
+        guestCommitmentHash: ParticipationProof.computeCommitmentHash(
           MockKeys.guest.publicKey,
           hostInvitesGuestReservationRequest.parsedContent.salt,
         ),
@@ -19,7 +19,7 @@ var MOCK_RESERVATIONS = [
         ['d', '1'],
         [
           'guestCommitmentHash',
-          GuestParticipationProof.computeCommitmentHash(
+          ParticipationProof.computeCommitmentHash(
             MockKeys.guest.publicKey,
             hostInvitesGuestReservationRequest.parsedContent.salt,
           )
@@ -30,7 +30,7 @@ var MOCK_RESERVATIONS = [
       content: ReservationContent(
         start: DateTime(2026, 1, 1),
         end: DateTime(2026, 5, 1),
-        guestCommitmentHash: GuestParticipationProof.computeCommitmentHash(
+        guestCommitmentHash: ParticipationProof.computeCommitmentHash(
           MockKeys.guest.publicKey,
           guestInvitesHostReservationRequest.parsedContent.salt,
         ),
@@ -42,7 +42,7 @@ var MOCK_RESERVATIONS = [
         ['d', '2'],
         [
           'guestCommitmentHash',
-          GuestParticipationProof.computeCommitmentHash(
+          ParticipationProof.computeCommitmentHash(
             MockKeys.guest.publicKey,
             guestInvitesHostReservationRequest.parsedContent.salt,
           )
@@ -56,7 +56,7 @@ final FAKED_RESERVATIONS = List.generate(10, (count) {
       content: ReservationContent(
         start: DateTime(2025, 1, 1),
         end: DateTime(2025, 5, 1),
-        guestCommitmentHash: GuestParticipationProof.computeCommitmentHash(
+        guestCommitmentHash: ParticipationProof.computeCommitmentHash(
           MockKeys.guest.publicKey,
           guestInvitesHostReservationRequest.parsedContent.salt,
         ),
@@ -68,7 +68,7 @@ final FAKED_RESERVATIONS = List.generate(10, (count) {
         ['d', count.toString()],
         [
           'guestCommitmentHash',
-          GuestParticipationProof.computeCommitmentHash(
+          ParticipationProof.computeCommitmentHash(
             MockKeys.guest.publicKey,
             guestInvitesHostReservationRequest.parsedContent.salt,
           )

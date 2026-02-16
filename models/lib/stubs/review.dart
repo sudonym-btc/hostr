@@ -7,10 +7,9 @@ var MOCK_REVIEWS = [
     content: ReviewContent(
       rating: 5,
       content: 'I had a great time staying here!',
-      proof: GuestParticipationProof(
+      proof: ParticipationProof(
         salt: guestInvitesHostReservationRequest.parsedContent.salt,
       ),
-      reservationId: MOCK_RESERVATIONS[0].id,
     ),
     tags: [
       [kListingRefTag, MOCK_LISTINGS[0].anchor!],

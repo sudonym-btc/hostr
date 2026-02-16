@@ -44,6 +44,15 @@ class Nwc {
     await save();
   }
 
+  NwcConnection? getActiveConnection() {
+    for (final cubit in connections) {
+      if (cubit.state is Success) {
+        return cubit.connection;
+      }
+    }
+    return null;
+  }
+
   /// Create a reactive connection from a URL and add it to the list
   Future<NwcConnection> connect(String url) async {
     return ndk.nwc.connect(url);

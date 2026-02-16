@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
 import 'package:hostr/setup.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -42,15 +44,17 @@ void callbackDispatcher() {
       final env = await readPersistedEnvironment();
       await setupBackground(env);
 
-      await FlutterLocalNotificationsPlugin().show(
-        id: 1,
-        title: 'Background Task',
-        body: 'Task $task executed with inputData: $inputData',
-      );
       SharedPreferences prefs = await SharedPreferences.getInstance();
       prefs.setString(iOSBackgroundAppRefresh, 'done');
       prefs.setString(iOSBackgroundProcessingTask, 'done');
 
+      final messages = await getIt<Hostr>().messaging.threads.refresh();
+      print('Synced messages: ${messages.length}');
+      await FlutterLocalNotificationsPlugin().show(
+        id: 2,
+        title: 'Hostr',
+        body: 'You have ${messages.length} new messages',
+      );
       // switch (task) {
       //   case "sync":
       //     print('here we are');

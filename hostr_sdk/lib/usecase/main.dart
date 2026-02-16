@@ -18,4 +18,5 @@ export 'relays/relays.dart';
 export 'requests/requests.dart';
 export 'reservation_requests/reservation_requests.dart';
 export 'reservations/reservations.dart';
+export 'reviews/reviews.dart';
 export 'zaps/zaps.dart';

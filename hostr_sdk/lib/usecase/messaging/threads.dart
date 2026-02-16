@@ -72,6 +72,15 @@ class Threads extends HydratedCubit<List<Message>> {
     _messageSubscription = subscription!.stream.listen(processMessage);
   }
 
+  Future<List<Message>> refresh() async {
+    sync();
+    List<Message> newMessages = await subscription!.stream
+        .takeUntil(subscription!.status.whereType<StreamStatusQueryComplete>())
+        .toList();
+    stop();
+    return newMessages;
+  }
+
   void stop() {
     _closeSubscription();
   }

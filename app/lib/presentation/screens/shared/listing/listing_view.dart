@@ -131,9 +131,17 @@ class ListingView extends StatelessWidget {
                                     )..next(),
                                     child: ListWidget<Review>(
                                       builder: (el) {
-                                        return ReviewListItem(
-                                          review: el,
-                                          // dateRange: searchController.state.dateRange,
+                                        return Column(
+                                          children: [
+                                            SizedBox(
+                                              height: kDefaultPadding
+                                                  .toDouble(),
+                                            ),
+                                            ReviewListItem(
+                                              review: el,
+                                              // dateRange: searchController.state.dateRange,
+                                            ),
+                                          ],
                                         );
                                       },
                                     ),
