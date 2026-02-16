@@ -394,6 +394,11 @@ class MockRequests extends _i1.Mock implements _i7.Requests {
           as _i2.Ndk);
 
   @override
+  bool get useCache =>
+      (super.noSuchMethod(Invocation.getter(#useCache), returnValue: false)
+          as bool);
+
+  @override
   _i6.StreamWithStatus<T> subscribe<T extends _i2.Nip01Event>({
     required _i2.Filter? filter,
     List<String>? relays,

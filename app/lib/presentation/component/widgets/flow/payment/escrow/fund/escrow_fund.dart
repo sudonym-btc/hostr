@@ -114,7 +114,7 @@ class EscrowFundSuccessWidget extends StatelessWidget {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
       title: 'Deposit Success',
-      subtitle: 'Transaction ID: ${state.transactionInformation.hash}',
+      subtitle: 'Funds have been deposited into the escrow.',
       content: Container(),
     );
   }

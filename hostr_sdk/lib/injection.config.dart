@@ -30,6 +30,8 @@ import 'package:hostr_sdk/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart'
     as _i514;
 import 'package:hostr_sdk/usecase/evm/chain/rootstock/rootstock.dart' as _i158;
 import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
+import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart'
+    as _i677;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
 import 'package:hostr_sdk/usecase/location/location.dart' as _i56;
 import 'package:hostr_sdk/usecase/main.dart' as _i474;
@@ -50,6 +52,7 @@ import 'package:hostr_sdk/usecase/requests/test.requests.dart' as _i200;
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart'
     as _i49;
 import 'package:hostr_sdk/usecase/reservations/reservations.dart' as _i326;
+import 'package:hostr_sdk/usecase/reviews/reviews.dart' as _i660;
 import 'package:hostr_sdk/usecase/storage/storage.dart' as _i218;
 import 'package:hostr_sdk/usecase/zaps/zaps.dart' as _i1045;
 import 'package:hostr_sdk/util/custom_logger.dart' as _i331;
@@ -144,6 +147,12 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
+    gh.singleton<_i660.Reviews>(
+      () => _i660.Reviews(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+    );
     gh.singleton<_i218.RelayStorage>(
       () => _i218.RelayStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
     );
@@ -158,7 +167,7 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.factoryParam<_i62.RootstockSwapInOperation, _i520.SwapInParams, dynamic>(
+    gh.factoryParam<_i62.RootstockSwapInOperation, _i677.SwapInParams, dynamic>(
       (params, _) => _i62.RootstockSwapInOperation(
         rootstock: gh<_i158.Rootstock>(),
         auth: gh<_i520.Auth>(),

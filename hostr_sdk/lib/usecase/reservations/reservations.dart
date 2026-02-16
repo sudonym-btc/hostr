@@ -114,7 +114,7 @@ class Reservations extends CrudUseCase<Reservation> {
           return reservations.firstWhere(
             (reservation) =>
                 reservation.commitmentHash ==
-                GuestParticipationProof.computeCommitmentHash(
+                ParticipationProof.computeCommitmentHash(
                   auth.activeKeyPair!.publicKey,
                   reservationRequest.parsedContent.salt,
                 ),
@@ -145,7 +145,7 @@ class Reservations extends CrudUseCase<Reservation> {
       content: ReservationContent(
         start: request.parsedContent.start,
         end: request.parsedContent.end,
-        guestCommitmentHash: GuestParticipationProof.computeCommitmentHash(
+        guestCommitmentHash: ParticipationProof.computeCommitmentHash(
           guestPubkey,
           request.parsedContent.salt,
         ),
@@ -161,7 +161,7 @@ class Reservations extends CrudUseCase<Reservation> {
     required ReservationRequest reservationRequest,
     required SelfSignedProof proof,
   }) async {
-    String commitment = GuestParticipationProof.computeCommitmentHash(
+    String commitment = ParticipationProof.computeCommitmentHash(
       auth.activeKeyPair!.publicKey,
       reservationRequest.parsedContent.salt,
     );

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
+import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
-import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:models/main.dart';
 
 import 'message/reservation_request/reservation_request.dart';
@@ -20,25 +19,52 @@ class ThreadContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPadding(
-      child: BlocBuilder<ThreadCubit, ThreadCubitState>(
-        builder: (context, state) {
-          return ListView.builder(
-            itemCount: state.messages.length,
-            itemBuilder: (listContext, index) {
-              final message = state.messages[index];
-              return Column(
-                children: [
-                  if (index != 0) SizedBox(height: kDefaultPadding / 2),
-                  _buildMessage(
-                    context,
-                    message: message,
-                    reservations: state.reservations,
-                  ),
-                ],
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          Expanded(
+            child: BlocBuilder<ThreadCubit, ThreadCubitState>(
+              builder: (context, state) {
+                return ListView.builder(
+                  itemCount: state.messages.length,
+                  itemBuilder: (listContext, index) {
+                    final message = state.messages[index];
+                    return Column(
+                      children: [
+                        if (index != 0) SizedBox(height: kDefaultPadding / 2),
+                        _buildMessage(
+                          context,
+                          message: message,
+                          reservations: state.reservations,
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+
+          FilledButton(
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                builder: (context) {
+                  return SafeArea(
+                    child: CustomPadding(
+                      child: EditReview(
+                        listing: listing,
+                        salt: 'thread_salt',
+                        // reservation: thread.reservation,
+                      ),
+                    ),
+                  );
+                },
               );
             },
-          );
-        },
+            child: Text('Review your stay'),
+          ),
+        ],
       ),
     );
   }

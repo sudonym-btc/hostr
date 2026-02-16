@@ -31,6 +31,7 @@ class Hostr {
   Messaging get messaging => getIt<Messaging>();
   ReservationRequests get reservationRequests => getIt<ReservationRequests>();
   Payments get payments => getIt<Payments>();
+  Reviews get reviews => getIt<Reviews>();
   Evm get evm => getIt<Evm>();
   Relays get relays => getIt<Relays>();
 

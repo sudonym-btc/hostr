@@ -247,7 +247,7 @@ class ThreadHeaderResolver {
     }
 
     final threadAnchor = request.anchor;
-    final ourCommitment = GuestParticipationProof.computeCommitmentHash(
+    final ourCommitment = ParticipationProof.computeCommitmentHash(
       ourPubkey,
       request.parsedContent.salt,
     );

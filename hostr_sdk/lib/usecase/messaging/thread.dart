@@ -23,6 +23,13 @@ class Thread {
 
   final String anchor;
   String get tradeId => getDTagFromAnchor(anchor);
+  String? get salt => messages.list.value
+      .map((message) => message.child)
+      .whereType<ReservationRequest>()
+      .firstOrNull
+      ?.parsedContent
+      .salt;
+
   ThreadWatcher get watcher => _watcher ??= getIt<ThreadWatcher>(param1: this);
   final StreamWithStatus<Message> messages = StreamWithStatus<Message>();
 

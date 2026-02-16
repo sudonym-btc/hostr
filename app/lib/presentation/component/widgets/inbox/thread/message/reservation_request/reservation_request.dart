@@ -22,14 +22,8 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
 
     return Align(
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        padding: EdgeInsets.all(kDefaultPadding / 3),
-        decoration: BoxDecoration(
-          color: isSentByMe
-              ? Theme.of(context).colorScheme.primaryContainer
-              : Theme.of(context).colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(kDefaultPadding / 3),
-        ),
+      child: MessageContainer(
+        isSentByMe: isSentByMe,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

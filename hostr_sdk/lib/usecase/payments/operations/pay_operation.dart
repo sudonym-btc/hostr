@@ -59,7 +59,7 @@ abstract class PayOperation<
   Future<void> complete() async {
     emit(PayInFlight(params: params));
     try {
-      if (nwc.connections.isEmpty) {
+      if (nwc.getActiveConnection() == null) {
         print('No NWC connections available');
         emit(
           PayExternalRequired(

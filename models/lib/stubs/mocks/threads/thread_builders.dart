@@ -66,7 +66,7 @@ Reservation buildReservation({
   String? status,
   DateTime? createdAt,
 }) {
-  final commitment = GuestParticipationProof.computeCommitmentHash(
+  final commitment = ParticipationProof.computeCommitmentHash(
     request.pubKey,
     request.parsedContent.salt,
   );
