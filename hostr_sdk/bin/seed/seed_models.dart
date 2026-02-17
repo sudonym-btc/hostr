@@ -1,0 +1,186 @@
+class DeterministicSeedConfig {
+  final String? relayUrl;
+  final String rpcUrl;
+  final bool fundProfiles;
+  final BigInt? fundAmountWei;
+  final int seed;
+  final int userCount;
+  final double hostRatio;
+  final double hostHasEvmRatio;
+  final double paidViaEscrowRatio;
+  final double paidViaEscrowArbitrateRatio;
+  final double paidViaEscrowClaimedRatio;
+  final double listingsPerHostAvg;
+  final int reservationRequestsPerGuest;
+  final int messagesPerThreadAvg;
+  final double reviewRatio;
+
+  const DeterministicSeedConfig({
+    this.relayUrl,
+    this.rpcUrl = 'http://localhost:8545',
+    this.fundProfiles = true,
+    this.fundAmountWei,
+    this.seed = 1,
+    this.userCount = 40,
+    this.hostRatio = 0.35,
+    this.hostHasEvmRatio = 0.8,
+    this.paidViaEscrowRatio = 0.55,
+    this.paidViaEscrowArbitrateRatio = 0.15,
+    this.paidViaEscrowClaimedRatio = 0.7,
+    this.listingsPerHostAvg = 1.6,
+    this.reservationRequestsPerGuest = 2,
+    this.messagesPerThreadAvg = 3,
+    this.reviewRatio = 0.55,
+  });
+
+  factory DeterministicSeedConfig.fromJson(Map<String, dynamic> json) {
+    return DeterministicSeedConfig(
+      relayUrl:
+          _asStringOrNull(json['relayUrl']) ?? 'ws://relay.hostr.development',
+      rpcUrl: _asStringOrNull(json['rpcUrl']) ?? 'http://localhost:8545',
+      fundProfiles: _asBool(json['fundProfiles'], fallback: true),
+      fundAmountWei: _asBigIntOrNull(json['fundAmountWei']),
+      seed: _asInt(json['seed'], fallback: 1),
+      userCount: _asInt(json['userCount'], fallback: 40),
+      hostRatio: _asDouble(json['hostRatio'], fallback: 0.35),
+      hostHasEvmRatio: _asDouble(json['hostHasEvmRatio'], fallback: 0.8),
+      paidViaEscrowRatio: _asDouble(json['paidViaEscrowRatio'], fallback: 0.55),
+      paidViaEscrowArbitrateRatio: _asDouble(
+        json['paidViaEscrowArbitrateRatio'],
+        fallback: 0.15,
+      ),
+      paidViaEscrowClaimedRatio: _asDouble(
+        json['paidViaEscrowClaimedRatio'],
+        fallback: 0.7,
+      ),
+      listingsPerHostAvg: _asDouble(json['listingsPerHostAvg'], fallback: 1.6),
+      reservationRequestsPerGuest: _asInt(
+        json['reservationRequestsPerGuest'],
+        fallback: 2,
+      ),
+      messagesPerThreadAvg: _asInt(json['messagesPerThreadAvg'], fallback: 3),
+      reviewRatio: _asDouble(json['reviewRatio'], fallback: 0.55),
+    ).validated();
+  }
+
+  DeterministicSeedConfig validated() {
+    return DeterministicSeedConfig(
+      relayUrl: relayUrl,
+      rpcUrl: rpcUrl,
+      fundProfiles: fundProfiles,
+      fundAmountWei: fundAmountWei,
+      seed: seed,
+      userCount: userCount < 2 ? 2 : userCount,
+      hostRatio: _clamp01(hostRatio),
+      hostHasEvmRatio: _clamp01(hostHasEvmRatio),
+      paidViaEscrowRatio: _clamp01(paidViaEscrowRatio),
+      paidViaEscrowArbitrateRatio: _clamp01(paidViaEscrowArbitrateRatio),
+      paidViaEscrowClaimedRatio: _clamp01(paidViaEscrowClaimedRatio),
+      listingsPerHostAvg: listingsPerHostAvg < 0 ? 0 : listingsPerHostAvg,
+      reservationRequestsPerGuest: reservationRequestsPerGuest < 0
+          ? 0
+          : reservationRequestsPerGuest,
+      messagesPerThreadAvg: messagesPerThreadAvg < 0 ? 0 : messagesPerThreadAvg,
+      reviewRatio: _clamp01(reviewRatio),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'relayUrl': relayUrl,
+      'rpcUrl': rpcUrl,
+      'fundProfiles': fundProfiles,
+      'fundAmountWei': fundAmountWei?.toString(),
+      'seed': seed,
+      'userCount': userCount,
+      'hostRatio': hostRatio,
+      'hostHasEvmRatio': hostHasEvmRatio,
+      'paidViaEscrowRatio': paidViaEscrowRatio,
+      'paidViaEscrowArbitrateRatio': paidViaEscrowArbitrateRatio,
+      'paidViaEscrowClaimedRatio': paidViaEscrowClaimedRatio,
+      'listingsPerHostAvg': listingsPerHostAvg,
+      'reservationRequestsPerGuest': reservationRequestsPerGuest,
+      'messagesPerThreadAvg': messagesPerThreadAvg,
+      'reviewRatio': reviewRatio,
+    };
+  }
+}
+
+class SeedSummary {
+  final int users;
+  final int hosts;
+  final int guests;
+  final int profiles;
+  final int listings;
+  final int reservationRequests;
+  final int messages;
+  final int reservations;
+  final int zapReceipts;
+  final int reviews;
+  final int escrowServices;
+  final int escrowTrusts;
+  final int escrowMethods;
+
+  const SeedSummary({
+    required this.users,
+    required this.hosts,
+    required this.guests,
+    required this.profiles,
+    required this.listings,
+    required this.reservationRequests,
+    required this.messages,
+    required this.reservations,
+    required this.zapReceipts,
+    required this.reviews,
+    required this.escrowServices,
+    required this.escrowTrusts,
+    required this.escrowMethods,
+  });
+}
+
+int _asInt(dynamic value, {required int fallback}) {
+  if (value == null) return fallback;
+  if (value is int) return value;
+  if (value is num) return value.round();
+  if (value is String) return int.tryParse(value) ?? fallback;
+  return fallback;
+}
+
+double _asDouble(dynamic value, {required double fallback}) {
+  if (value == null) return fallback;
+  if (value is double) return value;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value) ?? fallback;
+  return fallback;
+}
+
+String? _asStringOrNull(dynamic value) {
+  if (value == null) return null;
+  if (value is String && value.isNotEmpty) return value;
+  return null;
+}
+
+bool _asBool(dynamic value, {required bool fallback}) {
+  if (value == null) return fallback;
+  if (value is bool) return value;
+  if (value is String) {
+    final normalized = value.toLowerCase();
+    if (normalized == 'true') return true;
+    if (normalized == 'false') return false;
+  }
+  return fallback;
+}
+
+BigInt? _asBigIntOrNull(dynamic value) {
+  if (value == null) return null;
+  if (value is BigInt) return value;
+  if (value is int) return BigInt.from(value);
+  if (value is String) return BigInt.tryParse(value);
+  return null;
+}
+
+double _clamp01(double value) {
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}

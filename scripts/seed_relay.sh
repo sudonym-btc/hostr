@@ -1,12 +1,40 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+reset_relay() {
+    echo "Resetting relay container and state..."
+
+    # Stop and remove only the relay container.
+    (cd "$REPO_ROOT" && docker-compose stop relay >/dev/null 2>&1 || true)
+    (cd "$REPO_ROOT" && docker-compose rm -f relay >/dev/null 2>&1 || true)
+
+    # Remove relay DB state.
+    rm -rf "$REPO_ROOT/docker/data/relay"
+    mkdir -p "$REPO_ROOT/docker/data/relay"
+
+    # Start a fresh relay container.
+    (cd "$REPO_ROOT" && docker-compose up -d relay)
+
+    # Small startup buffer before broadcast calls.
+    sleep 2
+}
+
 # Seed the relay with mock data
 seed_relay() {
-    local contract_addr="${1:-}"
-    local relay_url="${2:-ws://relay.hostr.development}"
+    for arg in "$@"; do
+        if [[ "$arg" != --* ]]; then
+            echo "Error: positional args are not supported. Put relayUrl in --config-json/--config-file."
+            return 64
+        fi
+    done
+
+    local extra_args=("$@")
     
-    echo "Seeding relay at $relay_url with contract address: $contract_addr"
-    (cd models && dart run lib/stubs/seed.dart "$relay_url" "$contract_addr")
+    reset_relay
+
+    (cd "$REPO_ROOT/hostr_sdk" && dart run bin/seed.dart "${extra_args[@]}")
 }
 
 # If script is run directly (not sourced), execute the function

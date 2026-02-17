@@ -56,27 +56,69 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   }
 
   /// Nostr treats separate NostrFilters as OR, so we need to combine them
-  Filter getFilter() {
+  ///
+  /// For pagination we move backwards in time with `until`.
+  Filter getPaginationFilter() {
+    final oldestTimestamp = state.results.isNotEmpty
+        ? state.results.map((e) => e.createdAt).reduce((a, b) => a < b ? a : b)
+        : null;
+    return getCombinedFilter(
+      getCombinedFilter(
+        Filter(
+          kinds: kinds,
+          until: oldestTimestamp == null ? null : oldestTimestamp - 1,
+          limit: limit,
+        ),
+        filter,
+      ),
+      filterCubit?.state.filter,
+    );
+  }
+
+  /// Filter for live sync/new events subscription.
+  Filter getSyncFilter() {
     final newestTimestamp = state.results.isNotEmpty
         ? state.results.map((e) => e.createdAt).reduce((a, b) => a > b ? a : b)
         : null;
     return getCombinedFilter(
-      getCombinedFilter(Filter(kinds: kinds, since: newestTimestamp), filter),
+      getCombinedFilter(
+        Filter(kinds: kinds, since: newestTimestamp, limit: limit),
+        filter,
+      ),
       filterCubit?.state.filter,
     );
   }
 
   Future<void> next() async {
+    if (state.fetching || state.hasMore == false) return;
+    emit(state.copyWith(fetching: true));
+
     logger.i("next");
-    Filter finalFilter = getFilter();
+    Filter finalFilter = getPaginationFilter();
     logger.t('listFilter: $finalFilter');
-    await requestSubscription?.cancel();
-    requestSubscription = nostrService.requests
-        .query<T>(filter: finalFilter)
-        .listen((event) {
-          addItem(event);
-        });
-    await requestSubscription?.asFuture();
+    var fetchedCount = 0;
+    try {
+      await requestSubscription?.cancel();
+      requestSubscription = nostrService.requests
+          .query<T>(filter: finalFilter)
+          .listen((event) {
+            fetchedCount++;
+            if (state.results.map((e) => e.id).contains(event.id)) {
+              return;
+            }
+            addItem(event);
+          });
+      await requestSubscription?.asFuture();
+    } finally {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            fetching: false,
+            hasMore: limit == null ? state.hasMore : fetchedCount >= limit!,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> sync() async {
@@ -85,10 +127,10 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     _nostrResponse = null;
     emit(state.copyWith(synching: true));
     logger.i("sync");
-    Filter finalFilter = getFilter();
-    logger.t('listFilter: $finalFilter');
     await next();
     emit(state.copyWith(synching: false));
+    Filter finalFilter = getSyncFilter();
+    logger.t('listFilter: $finalFilter');
     _nostrResponse = nostrService.requests.subscribe<T>(filter: finalFilter);
     nostrSubscription = _nostrResponse!.stream.listen((event) {
       addItem(event);

@@ -85,7 +85,7 @@ var MOCK_PROFILES = [
   }(),
 ].toList();
 
-final FAKED_PROFILES = List.generate(10, (count) {
+final FAKED_HOSTERS = List.generate(10, (count) {
   final key = mockKeys[count];
   final metadata = Metadata(
     pubKey: key.publicKey,
@@ -94,7 +94,11 @@ final FAKED_PROFILES = List.generate(10, (count) {
     about: faker.lorem.sentences(3).join('\n\n'),
   ).toEvent();
   final tags = List<List<String>>.from(metadata.tags);
-
+  tags.add([
+    'i',
+    'evm:address',
+    getEvmCredentials(key.privateKey!).address.eip55With0x
+  ]);
   final event = Nip01Event(
     pubKey: metadata.pubKey,
     kind: metadata.kind,
@@ -105,3 +109,30 @@ final FAKED_PROFILES = List.generate(10, (count) {
   return Nip01Utils.signWithPrivateKey(
       privateKey: key.privateKey!, event: event);
 });
+
+final FAKED_GUESTS = List.generate(10, (count) {
+  final key = mockKeys[count + 10];
+  final metadata = Metadata(
+    pubKey: key.publicKey,
+    displayName: faker.internet.userName(),
+    name: faker.person.firstName(),
+    about: faker.lorem.sentences(3).join('\n\n'),
+  ).toEvent();
+  final tags = List<List<String>>.from(metadata.tags);
+  tags.add([
+    'i',
+    'evm:address',
+    getEvmCredentials(key.privateKey!).address.eip55With0x
+  ]);
+  final event = Nip01Event(
+    pubKey: metadata.pubKey,
+    kind: metadata.kind,
+    tags: tags,
+    content: metadata.content,
+    createdAt: metadata.createdAt,
+  );
+  return Nip01Utils.signWithPrivateKey(
+      privateKey: key.privateKey!, event: event);
+});
+
+final FAKED_PROFILES = [...FAKED_GUESTS, ...FAKED_HOSTERS];

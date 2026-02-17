@@ -3,6 +3,64 @@ import 'package:models/main.dart';
 
 import 'main.dart';
 
+const List<({double latitude, double longitude})> _landSeedPoints = [
+  (latitude: 40.7128, longitude: -74.0060), // New York
+  (latitude: 34.0522, longitude: -118.2437), // Los Angeles
+  (latitude: 19.4326, longitude: -99.1332), // Mexico City
+  (latitude: -23.5505, longitude: -46.6333), // São Paulo
+  (latitude: -34.6037, longitude: -58.3816), // Buenos Aires
+  (latitude: 51.5074, longitude: -0.1278), // London
+  (latitude: 48.8566, longitude: 2.3522), // Paris
+  (latitude: 52.5200, longitude: 13.4050), // Berlin
+  (latitude: 41.9028, longitude: 12.4964), // Rome
+  (latitude: 30.0444, longitude: 31.2357), // Cairo
+  (latitude: 6.5244, longitude: 3.3792), // Lagos
+  (latitude: -1.2921, longitude: 36.8219), // Nairobi
+  (latitude: 25.2048, longitude: 55.2708), // Dubai
+  (latitude: 28.6139, longitude: 77.2090), // Delhi
+  (latitude: 13.7563, longitude: 100.5018), // Bangkok
+  (latitude: 1.3521, longitude: 103.8198), // Singapore
+  (latitude: 35.6895, longitude: 139.6917), // Tokyo
+  (latitude: 37.5665, longitude: 126.9780), // Seoul
+  (latitude: 31.2304, longitude: 121.4737), // Shanghai
+  (latitude: -33.8688, longitude: 151.2093), // Sydney
+  (latitude: -37.8136, longitude: 144.9631), // Melbourne
+  (latitude: -36.8485, longitude: 174.7633), // Auckland
+];
+
+double _unitRandom(Faker faker) =>
+    faker.randomGenerator.integer(1000000) / 1000000;
+
+({double latitude, double longitude}) _landPointForIndex(
+  Faker faker,
+  int index,
+) {
+  final base = _landSeedPoints[index % _landSeedPoints.length];
+  final latJitter = (_unitRandom(faker) - 0.5) * 0.5;
+  final lonJitter = (_unitRandom(faker) - 0.5) * 0.5;
+
+  final latitude = (base.latitude + latJitter).clamp(-85.0, 85.0).toDouble();
+  var longitude = base.longitude + lonJitter;
+  if (longitude > 180) longitude -= 360;
+  if (longitude < -180) longitude += 360;
+
+  return (latitude: latitude, longitude: longitude);
+}
+
+final h3TagsLondon = H3Engine.bundled()
+    .hierarchy
+    .hierarchyForPoint(latitude: 51.5074, longitude: -0.1278);
+
+final tagsLondon = List<List<String>>.generate(
+    h3TagsLondon.length, (i) => ['g', h3TagsLondon[i]]);
+
+final h3TagsMexicoCity = H3Engine.bundled()
+    .hierarchy
+    .hierarchyForPoint(latitude: 19.4326, longitude: -99.1332);
+
+final tagsMexicoCity = List<List<String>>.generate(
+    h3TagsMexicoCity.length, (i) => ['g', h3TagsMexicoCity[i]]);
+
 var MOCK_LISTINGS = [
   Listing(
       pubKey: MockKeys.hoster.publicKey,
@@ -41,14 +99,9 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
           requiresEscrow: true),
       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
       tags: [
-        ['g', 'd42w0'],
-        ['g', 'd42w'],
-        ['g', 'd42'],
-        ['g', 'd4'],
-        ['g', 'd'],
+        ...tagsMexicoCity,
         ['d', '1'],
       ]).signAs(MockKeys.hoster, Listing.fromNostrEvent),
-
   Listing(
       pubKey: MockKeys.hoster.publicKey,
       content: ListingContent(
@@ -85,184 +138,17 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
           requiresEscrow: true),
       createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
       tags: [
-        ['g', 'gcpvnh02'],
-        ['g', 'gcpvnh0'],
-        ['g', 'gcpvnh'],
-        ['g', 'gcpvn'],
-        ['g', 'gcpv'],
-        ['g', 'gcp'],
-        ['g', 'gc'],
-        ['g', 'g'],
+        ...tagsLondon,
         ['d', '2'],
       ]).signAs(MockKeys.hoster, Listing.fromNostrEvent),
-//   Listing.fromNostrEvent(NostrEvent.fromPartialData(
-//       keyPairs: MockKeys.hoster,
-//       content: json.encode(ListingContent(
-//               title: 'Modern City Apartment',
-//               description: """
-// A modern apartment in the heart of the city. Perfect for business travelers and tourists. Close to public transport and local attractions.
-// The space
-// Stylish apartment with a fully equipped kitchen, comfortable living area, and a balcony with city views. Ideal for relaxing after a day of exploring.
-// Guest access
-// Guests have access to the entire apartment.
-// Other things to note
-// The apartment is not suitable for pets.
-// """,
-//               price: [
-//                 Price(
-//                     amount: Amount(value: 0.0015, currency: Currency.BTC),
-//                     frequency: Frequency.daily)
-//               ], // 0.0015 per day
-//               minStay: Duration(days: 1), // 1 day min stay
-//               checkIn: TimeOfDay(hour: 15, minute: 0),
-//               checkOut: TimeOfDay(hour: 11, minute: 0),
-//               location: '456 City Road, Metropolis',
-//               quantity: 1,
-//               images: [
-//                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/2eecc731-6e8e-49c4-963a-2c9284c11900.jpeg?im_w=1200&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/3319ee8d-7f5f-4976-a936-cc74a7feb0c9.jpeg?im_w=720&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/ab1a5cdf-698f-4670-9088-1f2d08065f36.jpeg?im_w=720&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/24c2d7ed-bf13-4050-aa3c-8dffd24b07e5.jpg?im_w=720&im_format=avif'
-//               ],
-//               type: ListingType.apartment,
-//               amenities:
-//                   Amenities.fromJSON({'wireless_internet': true, 'gym': true}))
-//           .toJson()),
-//       createdAt: DateTime(2025),
-//       kind: NOSTR_KIND_LISTING,
-//       tags: [
-//         ['d', '3'],
-//         ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:3']
-//       ])),
-//   Listing.fromNostrEvent(NostrEvent.fromPartialData(
-//       keyPairs: MockKeys.hoster,
-//       content: json.encode(ListingContent(
-//               title: 'Charming Bed and Breakfast',
-//               description: """
-// A charming bed and breakfast in a quiet neighborhood. Perfect for a relaxing getaway. Close to local shops and restaurants.
-// The space
-// Cozy rooms with comfortable beds and a delicious breakfast served daily. Ideal for a peaceful retreat.
-// Guest access
-// Guests have access to their private rooms and common areas.
-// Other things to note
-// The bed and breakfast is family-friendly.
-// """,
-//               price: [
-//                 Price(
-//                     amount: Amount(value: 0.001, currency: Currency.BTC),
-//                     frequency: Frequency.daily)
-//               ], // 0.001 per day
-//               minStay: Duration(days: 1), // 1 day min stay
-//               checkIn: TimeOfDay(hour: 13, minute: 0),
-//               checkOut: TimeOfDay(hour: 10, minute: 0),
-//               location: '789 Suburb Street, Quiet Town',
-//               quantity: 1,
-//               images: [
-//                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/2eecc731-6e8e-49c4-963a-2c9284c11900.jpeg?im_w=1200&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/3319ee8d-7f5f-4976-a936-cc74a7feb0c9.jpeg?im_w=720&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/ab1a5cdf-698f-4670-9088-1f2d08065f36.jpeg?im_w=720&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/24c2d7ed-bf13-4050-aa3c-8dffd24b07e5.jpg?im_w=720&im_format=avif'
-//               ],
-//               type: ListingType.apartment,
-//               amenities:
-//                   Amenities.fromJSON({'wireless_internet': true, 'bbq': true}))
-//           .toJson()),
-//       createdAt: DateTime(2025),
-//       kind: NOSTR_KIND_LISTING,
-//       tags: [
-//         ['d', '4'],
-//         ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:4']
-//       ])),
-//   Listing.fromNostrEvent(NostrEvent.fromPartialData(
-//       keyPairs: MockKeys.hoster,
-//       content: json.encode(ListingContent(
-//               title: 'Luxurious Villa with Ocean Views',
-//               description: """
-// A luxurious villa with stunning ocean views. Perfect for a lavish vacation. Close to the beach and local attractions.
-// The space
-// Spacious villa with a private pool, fully equipped kitchen, and elegant living areas. Ideal for a luxurious stay.
-// Guest access
-// Guests have access to the entire villa and private pool.
-// Other things to note
-// The villa is not suitable for children under 12.
-// """,
-//               price: [
-//                 Price(
-//                     amount: Amount(value: 0.005, currency: Currency.BTC),
-//                     frequency: Frequency.daily)
-//               ], // 0.005 per day
-//               allowBarter: false,
-//               minStay: Duration(days: 3), // 3 days min stay
-//               checkIn: TimeOfDay(hour: 16, minute: 0),
-//               checkOut: TimeOfDay(hour: 11, minute: 0),
-//               location: '101 Ocean Drive, Beach City',
-//               quantity: 1,
-//               images: [
-//                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/2eecc731-6e8e-49c4-963a-2c9284c11900.jpeg?im_w=1200&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/3319ee8d-7f5f-4976-a936-cc74a7feb0c9.jpeg?im_w=720&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/miso/Hosting-618573800623079625/original/ab1a5cdf-698f-4670-9088-1f2d08065f36.jpeg?im_w=720&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/24c2d7ed-bf13-4050-aa3c-8dffd24b07e5.jpg?im_w=720&im_format=avif'
-//               ],
-//               type: ListingType.villa,
-//               amenities:
-//                   Amenities.fromJSON({'wireless_internet': true, 'bbq': true}))
-//           .toJson()),
-//       createdAt: DateTime(2025),
-//       kind: NOSTR_KIND_LISTING,
-//       tags: [
-//         ['d', '5'],
-//         ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:5']
-//       ])),
-//   Listing.fromNostrEvent(NostrEvent.fromPartialData(
-//       keyPairs: MockKeys.hoster,
-//       content: json.encode(ListingContent(
-//               title: 'Rustic Cabin in the Woods',
-//               description: """
-// A rustic old cabin in the heart of the High Weald. Wonderful outdoor living. Beautiful gardens in Area of Outstanding Natural Beauty in the High Weald. Lovely walks from the door and on Ashdown Forest. Tunbridge Wells and Glyndebourne nearby, 1 hour to London by train, station 1 mile away. Gym, 100MBps Wi-Fi, work space, outdoor living, very private, valley view to Harrisons Rocks.
-// The space
-// Canadian log cabin with wonderful views out over garden and across valley. Light, airy, modern, warm, spacious, cozy. Very well equipped kitchen. Lovely outdoor spaces for eating and relaxing.
-// Guest access
-// You have the whole house to yourself.
-// Other things to note
-// Children are welcome, however the garden's have some unavoidable natural hazards - small rock cliffs, ponds, steep banks. The deep pond is fenced off and is not easily accessible to children. If you come with children they need to be supervised for their outside.
-
-// The house contains old furniture and rugs and the contents need to be treated with respect by young and old alike.
-// """,
-//               price: [
-//                 Price(
-//                     amount: Amount(value: 0.0015, currency: Currency.BTC),
-//                     frequency: Frequency.weekly)
-//               ], // 0.01 per week
-//               minStay: Duration(days: 1), // 1 day min stay
-//               checkIn: TimeOfDay(hour: 10, minute: 0),
-//               checkOut: TimeOfDay(hour: 9, minute: 0),
-//               location: 'The Spa Hotel, Tunbridge Wells',
-//               quantity: 1,
-//               images: [
-//                 'https://a0.muscache.com/im/pictures/hosting/Hosting-969005556773045175/original/c5f9c3ca-3288-43fa-bca4-4eb68982f64b.jpeg?im_w=1200&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTY5MDA1NTU2NzczMDQ1MTc1/original/8ddca066-7ed4-4676-94d9-b15b503ce105.jpeg?im_w=720&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTY5MDA1NTU2NzczMDQ1MTc1/original/8c48449e-da3e-4e54-a04e-aad055f4223c.jpeg?im_w=720&im_format=avif',
-//                 'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTY5MDA1NTU2NzczMDQ1MTc1/original/3a4bd781-df98-48ee-b644-a22096e2a77e.jpeg?im_w=720&im_format=avif'
-//               ],
-//               type: ListingType.hotel,
-//               amenities:
-//                   Amenities.fromJSON({'wireless_internet': true, 'bbq': true}))
-//           .toJson()),
-//       createdAt: DateTime(2025),
-//       kind: NOSTR_KIND_LISTING,
-//       tags: [
-//         ['d', '6'],
-//         ['a', '$NOSTR_KIND_LISTING:${MockKeys.hoster.public}:6']
-//       ]))
 ].toList();
 
 final FAKED_LISTINGS = List.generate(100, (count) {
   final faker = Faker(seed: count);
   final key = mockKeys[count];
-  print(count);
-  final latitude = faker.geo.latitude();
-  final longitude = faker.geo.longitude();
-  print('lat: $latitude, long: $longitude');
+  final point = _landPointForIndex(faker, count);
+  final latitude = point.latitude;
+  final longitude = point.longitude;
   final h3Tags = H3Engine.bundled()
       .hierarchy
       .hierarchyForPoint(latitude: latitude, longitude: longitude);
