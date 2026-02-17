@@ -15,8 +15,8 @@ dependencies:
       path: packages/ndk 
   faker: ^2.2.0
   crypto: ^3.0.7
-  h3_flutter: ^0.7.1
   logger: ^2.6.2
+  h3_dart: ^0.7.0
 
 dependency_overrides:
   web_socket_channel: ^3.0.3

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/search/map_style.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -63,7 +64,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
           continue;
         }
 
-        final center = H3PolygonCover.centerForTag(h3Tag);
+        final center = getIt<H3Engine>().polygonCover.centerForTag(h3Tag);
         if (center == null) {
           widget.logger.w('Invalid H3 tag for listing ${item.id}: $h3Tag');
           continue;

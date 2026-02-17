@@ -687,6 +687,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.0"
+  h3_dart:
+    dependency: transitive
+    description:
+      name: h3_dart
+      sha256: b2a7aee93003c2236f33c0c603a41db85689c1a7698b06c783da1e174537a5d9
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.0"
   h3_ffi:
     dependency: transitive
     description:

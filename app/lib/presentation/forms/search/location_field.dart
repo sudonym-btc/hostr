@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -286,7 +287,7 @@ class LocationFieldState extends State<LocationField> {
               )
             : await getIt<Hostr>().location.point(input);
 
-        tags = H3PolygonCover.hierarchyForPointTags(
+        tags = getIt<H3Engine>().hierarchy.hierarchyForPointTags(
           latitude: point.latitude,
           longitude: point.longitude,
           finestResolution: widget.addressFinestResolution,
@@ -301,16 +302,16 @@ class LocationFieldState extends State<LocationField> {
               const {'country', 'state', 'region', 'city', 'town'},
         );
 
-        tags = await H3PolygonCover.fromGeoJsonTagsInBackground(
+        tags = await getIt<H3Engine>().polygonCover.fromGeoJsonTagsInBackground(
           geoJson: polygonResult.geoJson,
           maxH3Tags: widget.polygonMaxTags,
+          kIsWeb: kIsWeb,
         );
       }
 
       if (!mounted || requestId != _h3RequestId) return;
       widget.controller.setH3Result(tags, input);
     } catch (e) {
-      print(e.toString());
       if (!mounted || requestId != _h3RequestId) return;
       widget.controller.setH3Error(
         'Could not resolve location ${e.toString()}',

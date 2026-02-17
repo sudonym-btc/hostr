@@ -1,71 +1,30 @@
 import 'dart:isolate';
 import 'dart:math' as math;
 
-import 'package:h3_flutter/h3_flutter.dart';
+import 'package:h3_dart/h3_dart.dart';
 import 'package:logger/logger.dart';
 
 import 'h3_tag.dart';
 
 class H3PolygonCover {
-  static final H3 _h3 = const H3Factory().load();
+  final H3 _h3;
+  H3PolygonCover(this._h3);
 
-  static final Logger _logger = Logger();
-  static const int _minH3Resolution = 0;
-  static const int _maxH3Resolution = 15;
-  static const int _refinementProgressLogEvery = 100;
-  static const int _maxRefinementIterations = 50000;
-  static const double _initialProbeSlack = 6.0;
+  final Logger _logger = Logger();
+  int _minH3Resolution = 0;
+  int _maxH3Resolution = 15;
+  int _refinementProgressLogEvery = 100;
+  int _maxRefinementIterations = 50000;
+  double _initialProbeSlack = 6.0;
 
-  static List<String> hierarchyForPoint({
-    required double latitude,
-    required double longitude,
-    int finestResolution = 15,
-    int? maxTags,
-  }) {
-    return hierarchyForPointTags(
-      latitude: latitude,
-      longitude: longitude,
-      finestResolution: finestResolution,
-      maxTags: maxTags,
-    ).map((tag) => tag.index).toList();
-  }
-
-  static List<H3Tag> hierarchyForPointTags({
-    required double latitude,
-    required double longitude,
-    int finestResolution = 15,
-    int? maxTags,
-  }) {
-    final boundedResolution = finestResolution.clamp(0, _maxH3Resolution);
-    final finest = _h3.geoToCell(
-      GeoCoord(lat: latitude, lon: longitude),
-      boundedResolution,
-    );
-
-    final tags = <H3Tag>[];
-    final seen = <BigInt>{};
-    for (var res = boundedResolution; res >= 0; res--) {
-      final index =
-          res == boundedResolution ? finest : _h3.cellToParent(finest, res);
-      if (seen.add(index)) {
-        tags.add(H3Tag(index: index.toString(), resolution: res));
-        if (maxTags != null && tags.length >= maxTags) {
-          break;
-        }
-      }
-    }
-
-    return tags;
-  }
-
-  static ({double latitude, double longitude})? centerForTag(String h3Tag) {
+  ({double latitude, double longitude})? centerForTag(String h3Tag) {
     final index = BigInt.tryParse(h3Tag);
     if (index == null) return null;
     final geo = _h3.cellToGeo(index);
     return (latitude: geo.lat, longitude: geo.lon);
   }
 
-  static List<String> fromGeoJson({
+  List<String> fromGeoJson({
     required Map<String, dynamic> geoJson,
     int maxH3Tags = 30,
   }) {
@@ -75,7 +34,7 @@ class H3PolygonCover {
     ).map((tag) => tag.index).toList();
   }
 
-  static List<H3Tag> fromGeoJsonTags({
+  List<H3Tag> fromGeoJsonTags({
     required Map<String, dynamic> geoJson,
     int maxH3Tags = 30,
   }) {
@@ -207,7 +166,7 @@ class H3PolygonCover {
     return tags;
   }
 
-  static Future<List<H3Tag>> fromGeoJsonTagsInBackground({
+  Future<List<H3Tag>> fromGeoJsonTagsInBackground({
     required Map<String, dynamic> geoJson,
     int maxH3Tags = 30,
     bool kIsWeb = false,
@@ -242,7 +201,7 @@ class H3PolygonCover {
     }
   }
 
-  static List<Map<String, Object>> _fromGeoJsonTagsSerializablePayload(
+  List<Map<String, Object>> _fromGeoJsonTagsSerializablePayload(
     Map<String, dynamic> payload,
   ) {
     final geoJson = (payload['geoJson'] as Map).cast<String, dynamic>();
@@ -259,7 +218,7 @@ class H3PolygonCover {
         .toList(growable: false);
   }
 
-  static dynamic _toSerializableJson(dynamic value) {
+  dynamic _toSerializableJson(dynamic value) {
     if (value is Map) {
       return value.map<String, dynamic>(
         (key, val) => MapEntry(key.toString(), _toSerializableJson(val)),
@@ -271,7 +230,7 @@ class H3PolygonCover {
     return value;
   }
 
-  static List<H3Tag> _toSortedTags(Set<BigInt> cells) {
+  List<H3Tag> _toSortedTags(Set<BigInt> cells) {
     final ordered = cells.toList()
       ..sort((a, b) {
         final resCompare = _h3.getResolution(a).compareTo(_h3.getResolution(b));
@@ -286,7 +245,7 @@ class H3PolygonCover {
         .toList();
   }
 
-  static List<_PolygonInput> _extractPolygons({
+  List<_PolygonInput> _extractPolygons({
     required String type,
     required List<dynamic> coordinates,
   }) {
@@ -307,7 +266,7 @@ class H3PolygonCover {
     }
   }
 
-  static _PolygonInput? _toPolygonInput(List<dynamic> polygonCoords) {
+  _PolygonInput? _toPolygonInput(List<dynamic> polygonCoords) {
     if (polygonCoords.isEmpty || polygonCoords.first is! List) {
       return null;
     }
@@ -327,7 +286,7 @@ class H3PolygonCover {
     return _PolygonInput(outer: outer, holes: holes);
   }
 
-  static BigInt? _pointToCell(List<dynamic> point, int resolution) {
+  BigInt? _pointToCell(List<dynamic> point, int resolution) {
     if (point.length < 2) return null;
     final lon = double.tryParse(point[0].toString());
     final lat = double.tryParse(point[1].toString());
@@ -335,7 +294,7 @@ class H3PolygonCover {
     return _h3.geoToCell(GeoCoord(lat: lat, lon: lon), resolution);
   }
 
-  static Set<BigInt> _coverPolygon(
+  Set<BigInt> _coverPolygon(
     _PolygonInput polygon,
     int maxH3Cells, {
     String? label,
@@ -479,7 +438,7 @@ class H3PolygonCover {
     return cells;
   }
 
-  static int _selectInitialProbeResolution({
+  int _selectInitialProbeResolution({
     required _PolygonInput polygon,
     required int maxH3Cells,
   }) {
@@ -509,7 +468,7 @@ class H3PolygonCover {
     return _minH3Resolution;
   }
 
-  static Set<BigInt> _polygonToCellsAtResolution(
+  Set<BigInt> _polygonToCellsAtResolution(
     _PolygonInput polygon,
     int resolution,
   ) {
@@ -549,7 +508,7 @@ class H3PolygonCover {
     }
   }
 
-  static double _wasteScore(
+  double _wasteScore(
     BigInt cell,
     _PolygonInput polygon, {
     _CoverStats? stats,
@@ -565,7 +524,7 @@ class H3PolygonCover {
     return math.max(0.0, cellArea - intersectionArea);
   }
 
-  static double _approxIntersectionArea(
+  double _approxIntersectionArea(
     BigInt cell,
     _PolygonInput polygon,
     double cellArea, {
@@ -594,7 +553,7 @@ class H3PolygonCover {
     return cellArea * ratio.clamp(0.0, 1.0);
   }
 
-  static bool _cellTouchesBoundary(
+  bool _cellTouchesBoundary(
     BigInt cell,
     _PolygonInput polygon, {
     _CoverStats? stats,
@@ -638,7 +597,7 @@ class H3PolygonCover {
     return false;
   }
 
-  static bool _ringIntersectsPolygon(
+  bool _ringIntersectsPolygon(
     List<GeoCoord> ring,
     _PolygonInput polygon, {
     _CoverStats? stats,
@@ -650,7 +609,7 @@ class H3PolygonCover {
     return false;
   }
 
-  static bool _ringsIntersect(
+  bool _ringsIntersect(
     List<GeoCoord> a,
     List<GeoCoord> b, {
     _CoverStats? stats,
@@ -673,7 +632,7 @@ class H3PolygonCover {
     return false;
   }
 
-  static bool _segmentsIntersect(
+  bool _segmentsIntersect(
     GeoCoord p1,
     GeoCoord p2,
     GeoCoord q1,
@@ -696,21 +655,21 @@ class H3PolygonCover {
     return false;
   }
 
-  static int _orientation(GeoCoord a, GeoCoord b, GeoCoord c) {
+  int _orientation(GeoCoord a, GeoCoord b, GeoCoord c) {
     final value = ((b.lon - a.lon) * (c.lat - b.lat)) -
         ((b.lat - a.lat) * (c.lon - b.lon));
     if (value.abs() < 1e-12) return 0;
     return value > 0 ? 1 : 2;
   }
 
-  static bool _onSegment(GeoCoord a, GeoCoord b, GeoCoord c) {
+  bool _onSegment(GeoCoord a, GeoCoord b, GeoCoord c) {
     return b.lon <= math.max(a.lon, c.lon) + 1e-12 &&
         b.lon + 1e-12 >= math.min(a.lon, c.lon) &&
         b.lat <= math.max(a.lat, c.lat) + 1e-12 &&
         b.lat + 1e-12 >= math.min(a.lat, c.lat);
   }
 
-  static bool _pointInPolygon(GeoCoord point, _PolygonInput polygon) {
+  bool _pointInPolygon(GeoCoord point, _PolygonInput polygon) {
     if (!_pointInRing(point, polygon.outer)) {
       return false;
     }
@@ -724,7 +683,7 @@ class H3PolygonCover {
     return true;
   }
 
-  static bool _pointInRing(GeoCoord point, List<GeoCoord> ring) {
+  bool _pointInRing(GeoCoord point, List<GeoCoord> ring) {
     if (ring.length < 4) return false;
 
     var inside = false;
@@ -746,7 +705,7 @@ class H3PolygonCover {
     return inside;
   }
 
-  static double _polygonAreaKm2(List<GeoCoord> ring) {
+  double _polygonAreaKm2(List<GeoCoord> ring) {
     if (ring.length < 3) return 0;
 
     final meanLat =
@@ -769,7 +728,7 @@ class H3PolygonCover {
     return area2.abs() / 2;
   }
 
-  static List<GeoCoord> _toClosedGeoRing(List<GeoCoord> ring) {
+  List<GeoCoord> _toClosedGeoRing(List<GeoCoord> ring) {
     if (ring.isEmpty) return const <GeoCoord>[];
     final closed = List<GeoCoord>.from(ring);
     final first = closed.first;
@@ -780,7 +739,7 @@ class H3PolygonCover {
     return closed;
   }
 
-  static List<GeoCoord> _toGeoCoordsClosed(List<dynamic> ring) {
+  List<GeoCoord> _toGeoCoordsClosed(List<dynamic> ring) {
     final coords = <GeoCoord>[];
     for (final point in ring) {
       if (point is! List || point.length < 2) continue;
