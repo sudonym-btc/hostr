@@ -64,58 +64,57 @@ class PaymentConfirmWidget extends StatelessWidget {
       type: ModalBottomSheetType.normal,
       content: Builder(
         builder: (context) {
-          Widget nwcInfo = CustomPadding(
-            child: NostrWalletConnectConnectionWidget(),
-          );
+          Widget nwcInfo = NostrWalletConnectConnectionWidget();
 
           return Column(
             mainAxisAlignment: MainAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
               nwcInfo,
-              CustomPadding(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            state.params.to,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+              SizedBox(height: kDefaultPadding.toDouble() / 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          state.params.to,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        // todo: calc amount from invoice
+                        Text(
+                          formatAmount(
+                            state.params.amount?.toAmount() ??
+                                Amount(
+                                  currency: Currency.BTC,
+                                  value: BigInt.from(0),
+                                ),
                           ),
-                          // todo: calc amount from invoice
-                          Text(
-                            formatAmount(
-                              state.params.amount?.toAmount() ??
-                                  Amount(
-                                    currency: Currency.BTC,
-                                    value: BigInt.from(0),
-                                  ),
-                            ),
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        ],
-                      ),
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ],
                     ),
-                    state is PayResolved
-                        ? FilledButton(
-                            child: Text(AppLocalizations.of(context)!.ok),
-                            onPressed: () {
-                              context.read<PayOperation>().finalize();
-                            },
-                          )
-                        : FilledButton(
-                            child: Text(AppLocalizations.of(context)!.pay),
-                            onPressed: () {
-                              context.read<PayOperation>().complete();
-                            },
-                          ),
-                  ],
-                ),
+                  ),
+                  state is PayResolved
+                      ? FilledButton(
+                          child: Text(AppLocalizations.of(context)!.ok),
+                          onPressed: () {
+                            context.read<PayOperation>().finalize();
+                          },
+                        )
+                      : (state is PayCallbackComplete
+                            ? FilledButton(
+                                child: Text(AppLocalizations.of(context)!.pay),
+                                onPressed: () {
+                                  context.read<PayOperation>().complete();
+                                },
+                              )
+                            : SizedBox.shrink()),
+                ],
               ),
             ],
           );

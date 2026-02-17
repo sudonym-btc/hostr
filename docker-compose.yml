@@ -201,7 +201,7 @@ services:
       - "12220:8081"
 
   lnbits1:
-    image: lnbits/lnbits:v1.0.0-rc8
+    image: lnbits/lnbits:v1.4.2
     depends_on:
       lnd1:
         condition: service_healthy
@@ -212,9 +212,9 @@ services:
       - VIRTUAL_PORT=5000
       - LNBITS_ADMIN_UI=true
       - LNBITS_BACKEND_WALLET_CLASS=LndRestWallet
-      - LND_REST_ENDPOINT=https://lnd1:8081
+      - LND_REST_ENDPOINT=https://lnd1:${LIGHTNING_REST_PORT}
       - LND_REST_CERT=/app/lnd/tls.cert
-      - LND_REST_MACAROON=/app/lnd/admin.macaroon
+      - LND_REST_MACAROON=/app${LND_ADMIN_MACAROON_PATH}
       - LNBITS_ADMIN_EXTENSIONS="lnurlp"
       - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp"
       - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp"
@@ -226,7 +226,7 @@ services:
       - default
 
   lnbits2:
-    image: lnbits/lnbits:v1.0.0-rc8
+    image: lnbits/lnbits:v1.4.2
     depends_on:
       lnd2:
         condition: service_healthy
@@ -237,9 +237,9 @@ services:
       - VIRTUAL_PORT=5000
       - LNBITS_ADMIN_UI=true
       - LNBITS_BACKEND_WALLET_CLASS=LndRestWallet
-      - LND_REST_ENDPOINT=https://lnd2:8081
+      - LND_REST_ENDPOINT=https://lnd2:${LIGHTNING_REST_PORT}
       - LND_REST_CERT=/app/lnd/tls.cert
-      - LND_REST_MACAROON=/app/lnd/admin.macaroon
+      - LND_REST_MACAROON=/app${LND_ADMIN_MACAROON_PATH}
       - LNBITS_ADMIN_EXTENSIONS="lnurlp"
       - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp"
       - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp"

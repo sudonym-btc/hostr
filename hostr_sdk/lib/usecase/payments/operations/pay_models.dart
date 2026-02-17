@@ -82,3 +82,17 @@ class LightningCompletedDetails extends CompletedDetails {
   final String preimage;
   LightningCompletedDetails({required this.preimage});
 }
+
+class ZapCompletedDetails extends CompletedDetails {
+  final String? preimage;
+  final String? zapReceiptEventId;
+  final String? zapReceiptId;
+  final bool confirmedByZapReceipt;
+
+  ZapCompletedDetails({
+    this.preimage,
+    this.zapReceiptEventId,
+    this.zapReceiptId,
+    required this.confirmedByZapReceipt,
+  });
+}
