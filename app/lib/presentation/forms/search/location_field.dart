@@ -5,9 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/data/sources/api/google_maps.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/location/h3_polygon_cover.dart';
-import 'package:hostr/logic/location/h3_tag.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 import 'location_controller.dart';
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/logic/location/h3_tag.dart';
+import 'package:models/main.dart';
 
 DateTimeRange? ensureStartDateIsBeforeEndDate(DateTimeRange? picked) {
   if (picked != null && picked.start.isAfter(picked.end)) {

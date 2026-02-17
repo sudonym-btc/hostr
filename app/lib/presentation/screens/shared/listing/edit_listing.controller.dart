@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
-import 'package:hostr/logic/location/h3_tag.dart';
 import 'package:hostr/presentation/forms/search/location_controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';

@@ -1,5 +1,4 @@
-import 'dart:math';
-
+import 'package:faker/faker.dart' hide Currency;
 import 'package:models/main.dart';
 
 import 'main.dart';
@@ -257,31 +256,46 @@ The cabin is pet-friendly, but please keep an eye on your pets as the area is ho
 //       ]))
 ].toList();
 
-final FAKED_LISTINGS = List.generate(10, (count) {
+final FAKED_LISTINGS = List.generate(100, (count) {
+  final faker = Faker(seed: count);
   final key = mockKeys[count];
-  final geohash = List.generate(
-          9, (_) => '0123456789bcdefghjkmnpqrstuvwxyz'[Random().nextInt(32)])
-      .join();
-  final tags = List<List<String>>.generate(
-      geohash.length, (i) => ['g', geohash.substring(0, i + 1)]);
+  print(count);
+  final latitude = faker.geo.latitude();
+  final longitude = faker.geo.longitude();
+  print('lat: $latitude, long: $longitude');
+  final h3Tags = H3PolygonCover.hierarchyForPoint(
+      latitude: latitude, longitude: longitude);
+
+  final tags =
+      List<List<String>>.generate(h3Tags.length, (i) => ['g', h3Tags[i]]);
   tags.add(['d', count.toString()]);
   return Listing(
           pubKey: key.publicKey,
           content: ListingContent(
-              title: faker.lorem.words(count: 3),
-              description: faker.commerce.productDescription(),
+              title: faker.lorem.sentence(),
+              description: faker.lorem.sentences(3).join('\n\n'),
               price: [
                 Price(
                     amount: Amount(
-                        value: BigInt.from(120000), currency: Currency.BTC),
+                        value: BigInt.from(
+                            faker.randomGenerator.integer(1000000, min: 10000)),
+                        currency: Currency.BTC),
                     frequency: Frequency.daily)
               ], // 0.002 per day
               minStay: Duration(days: 2), // 2 days min stay
               checkIn: TimeOfDay(hour: 14, minute: 0),
               checkOut: TimeOfDay(hour: 11, minute: 0),
-              location: faker.location.fullAddress(),
+              location: faker.address.streetAddress() +
+                  ', ' +
+                  faker.address.city() +
+                  ', ' +
+                  faker.address.country(),
               quantity: 1,
-              images: [faker.image.abstract()],
+              images: [
+                faker.image.loremPicsum(width: 1920, height: 1080),
+                faker.image.loremPicsum(width: 1920, height: 1080),
+                faker.image.loremPicsum(width: 1920, height: 1080)
+              ],
               type: ListingType.hostel,
               amenities:
                   Amenities.fromJSON({'wireless_internet': true, 'bbq': true}),

@@ -89,9 +89,9 @@ final FAKED_PROFILES = List.generate(10, (count) {
   final key = mockKeys[count];
   final metadata = Metadata(
     pubKey: key.publicKey,
-    displayName: faker.internet.username(),
+    displayName: faker.internet.userName(),
     name: faker.person.firstName(),
-    about: faker.person.bio(),
+    about: faker.lorem.sentences(3).join('\n\n'),
   ).toEvent();
   final tags = List<List<String>>.from(metadata.tags);
 

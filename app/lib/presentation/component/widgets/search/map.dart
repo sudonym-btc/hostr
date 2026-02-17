@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:hostr/logic/location/h3_polygon_cover.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/search/map_style.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';

@@ -157,9 +157,6 @@ class ReservationListItem extends StatelessWidget {
             }),
           );
           break;
-        case ThreadHeaderActionType.counterOffer:
-          children.add(actionButton('Counter Offer', notImplemented));
-          break;
       }
     }
 

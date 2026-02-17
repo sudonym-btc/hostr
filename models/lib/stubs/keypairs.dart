@@ -1,5 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class MockKeys {
@@ -17,9 +19,28 @@ class MockKeys {
       '5d12e1c259280034770db6dfe14609fca9c10b97c7ce79f0a32cd80b118ce9c3');
 }
 
-final List<KeyPair> mockKeys = List.generate(100, (int) {
-  return Bip340.fromPrivateKey(faker.crypto.privateKey());
-});
+String _derivePrivateKeyHex(int index) {
+  var nonce = 0;
+  while (true) {
+    final digest = crypto.sha256.convert(utf8.encode(':$index:$nonce'));
+    final hex =
+        digest.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+    try {
+      // Validate secp256k1 private key constraints.
+      Bip340.fromPrivateKey(hex);
+      return hex;
+    } catch (_) {
+      nonce++;
+    }
+  }
+}
+
+final List<KeyPair> mockKeys = List.generate(
+  100,
+  (i) => Bip340.fromPrivateKey(_derivePrivateKeyHex(i)),
+  growable: false,
+);
 
 void main() {
   KeyPair keys = Bip340.generatePrivateKey();

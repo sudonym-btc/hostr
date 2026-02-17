@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/logic/thread/thread_header_resolver.dart';
 import 'package:hostr/presentation/component/widgets/reservation/reservation_list_item.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -28,15 +30,11 @@ class ReservationStatusWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ourPubkey = getIt<Hostr>().auth.activeKeyPair?.publicKey;
+    final threadCubitState = context.read<ThreadCubit>().state;
     final resolution = ThreadHeaderResolver.resolve(
-      listing: listing,
-      ourPubkey: ourPubkey,
-      listingProfile: listingProfile,
-      reservationRequests: reservationRequests,
-      reservations: reservations,
-      allListingReservations: allListingReservations,
-      messages: messages,
-      paymentEvents: paymentEvents,
+      threadCubitState: threadCubitState,
+      hostPubkey: threadCubitState.listingProfile!.pubKey,
+      ourPubkey: ourPubkey!,
     );
 
     return ReservationListItem(
