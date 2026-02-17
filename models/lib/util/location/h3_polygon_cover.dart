@@ -1,16 +1,15 @@
 import 'dart:isolate';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:h3_flutter/h3_flutter.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:logger/logger.dart';
 
 import 'h3_tag.dart';
 
 class H3PolygonCover {
   static final H3 _h3 = const H3Factory().load();
 
-  static final CustomLogger _logger = CustomLogger();
+  static final Logger _logger = Logger();
   static const int _minH3Resolution = 0;
   static const int _maxH3Resolution = 15;
   static const int _refinementProgressLogEvery = 100;
@@ -46,9 +45,8 @@ class H3PolygonCover {
     final tags = <H3Tag>[];
     final seen = <BigInt>{};
     for (var res = boundedResolution; res >= 0; res--) {
-      final index = res == boundedResolution
-          ? finest
-          : _h3.cellToParent(finest, res);
+      final index =
+          res == boundedResolution ? finest : _h3.cellToParent(finest, res);
       if (seen.add(index)) {
         tags.add(H3Tag(index: index.toString(), resolution: res));
         if (maxTags != null && tags.length >= maxTags) {
@@ -212,6 +210,7 @@ class H3PolygonCover {
   static Future<List<H3Tag>> fromGeoJsonTagsInBackground({
     required Map<String, dynamic> geoJson,
     int maxH3Tags = 30,
+    bool kIsWeb = false,
   }) async {
     if (kIsWeb) {
       // Web doesn't benefit from Isolate.run in the same way.
@@ -363,11 +362,9 @@ class H3PolygonCover {
       '(instead of $_maxH3Resolution for safety)',
     );
 
-    for (
-      var resolution = initialProbeResolution;
-      resolution >= _minH3Resolution;
-      resolution--
-    ) {
+    for (var resolution = initialProbeResolution;
+        resolution >= _minH3Resolution;
+        resolution--) {
       cells = _polygonToCellsAtResolution(polygon, resolution);
       selectedResolution = resolution;
       _logger.i('H3 $name: probe res=$resolution -> cells=${cells.length}');
@@ -497,11 +494,9 @@ class H3PolygonCover {
 
     final targetUpperBound = math.max(1.0, maxH3Cells * _initialProbeSlack);
 
-    for (
-      var resolution = _maxH3Resolution;
-      resolution >= _minH3Resolution;
-      resolution--
-    ) {
+    for (var resolution = _maxH3Resolution;
+        resolution >= _minH3Resolution;
+        resolution--) {
       final avgHexAreaKm2 = _h3.getHexagonAreaAvg(resolution, H3MetricUnits.km);
       if (avgHexAreaKm2 <= 0) continue;
 
@@ -702,8 +697,7 @@ class H3PolygonCover {
   }
 
   static int _orientation(GeoCoord a, GeoCoord b, GeoCoord c) {
-    final value =
-        ((b.lon - a.lon) * (c.lat - b.lat)) -
+    final value = ((b.lon - a.lon) * (c.lat - b.lat)) -
         ((b.lat - a.lat) * (c.lon - b.lon));
     if (value.abs() < 1e-12) return 0;
     return value > 0 ? 1 : 2;
@@ -740,8 +734,7 @@ class H3PolygonCover {
       final xj = ring[j].lon;
       final yj = ring[j].lat;
 
-      final intersects =
-          ((yi > point.lat) != (yj > point.lat)) &&
+      final intersects = ((yi > point.lat) != (yj > point.lat)) &&
           (point.lon <
               ((xj - xi) * (point.lat - yi)) / ((yj - yi) + 1e-20) + xi);
 
@@ -758,7 +751,7 @@ class H3PolygonCover {
 
     final meanLat =
         ring.map((p) => p.lat).fold<double>(0, (sum, v) => sum + v) /
-        ring.length;
+            ring.length;
     final kmPerDegLat = 110.574;
     final kmPerDegLon = 111.320 * math.cos(_h3.degsToRads(meanLat));
 

@@ -1,3 +1,4 @@
+import 'package:faker/faker.dart';
 import 'package:models/stubs/badge.dart';
 import 'package:models/stubs/blossom.dart';
 import 'package:models/stubs/escrow_method.dart';
@@ -7,7 +8,6 @@ import 'package:models/stubs/listing.dart';
 import 'package:models/stubs/profile.dart';
 import 'package:models/stubs/reservation.dart';
 import 'package:models/stubs/review.dart';
-import 'package:models/stubs/stub_faker.dart';
 import 'package:models/stubs/zap_receipt.dart';
 import 'package:ndk/ndk.dart';
 
@@ -31,7 +31,7 @@ export 'reservation_request.dart';
 export 'review.dart';
 export 'zap_receipt.dart';
 
-final faker = StubFaker(seed: 1);
+final faker = Faker(seed: 1);
 
 Future<List<Nip01Event>> MOCK_EVENTS(
     {String? contractAddress, String? byteCodeHash}) async {
@@ -41,12 +41,12 @@ Future<List<Nip01Event>> MOCK_EVENTS(
         contractAddress: contractAddress, byteCodeHash: byteCodeHash),
     ...await MOCK_ESCROW_METHODS(),
     ...MOCK_LISTINGS,
-    // ...FAKED_LISTINGS,
+    ...FAKED_LISTINGS,
     ...MOCK_RESERVATIONS,
-    // ...FAKED_RESERVATIONS,
+    ...FAKED_RESERVATIONS,
     ...await MOCK_GIFT_WRAPS(),
     ...MOCK_PROFILES,
-    // ...FAKED_PROFILES,
+    ...FAKED_PROFILES,
     ...MOCK_REVIEWS,
     ...MOCK_ZAP_RECEIPTS,
     ...MOCK_BLOSSOM_SERVER_LISTS,

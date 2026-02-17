@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/logic/location/h3_tag.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 class LocationController extends ChangeNotifier {
   final TextEditingController textController;
