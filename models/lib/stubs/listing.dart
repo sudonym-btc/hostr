@@ -263,8 +263,9 @@ final FAKED_LISTINGS = List.generate(100, (count) {
   final latitude = faker.geo.latitude();
   final longitude = faker.geo.longitude();
   print('lat: $latitude, long: $longitude');
-  final h3Tags = H3PolygonCover.hierarchyForPoint(
-      latitude: latitude, longitude: longitude);
+  final h3Tags = H3Engine.bundled()
+      .hierarchy
+      .hierarchyForPoint(latitude: latitude, longitude: longitude);
 
   final tags =
       List<List<String>>.generate(h3Tags.length, (i) => ['g', h3Tags[i]]);
