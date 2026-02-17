@@ -39,10 +39,8 @@ import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart'
     as _i677;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
 import 'package:hostr_sdk/usecase/location/location.dart' as _i56;
-import 'package:hostr_sdk/usecase/main.dart' as _i474;
 import 'package:hostr_sdk/usecase/messaging/messaging.dart' as _i1019;
-import 'package:hostr_sdk/usecase/messaging/thread.dart' as _i470;
-import 'package:hostr_sdk/usecase/messaging/thread_watcher.dart' as _i755;
+import 'package:hostr_sdk/usecase/messaging/thread/thread.dart' as _i378;
 import 'package:hostr_sdk/usecase/messaging/threads.dart' as _i768;
 import 'package:hostr_sdk/usecase/metadata/metadata.dart' as _i149;
 import 'package:hostr_sdk/usecase/nwc/nwc.dart' as _i588;
@@ -231,8 +229,8 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
-    gh.factoryParam<_i470.Thread, String, dynamic>(
-      (anchor, _) => _i470.Thread(
+    gh.factoryParam<_i378.Thread, String, dynamic>(
+      (anchor, _) => _i378.Thread(
         anchor,
         logger: gh<_i520.CustomLogger>(),
         auth: gh<_i520.Auth>(),
@@ -328,17 +326,6 @@ extension GetItInjectableX on _i174.GetIt {
         nwc: gh<_i520.Nwc>(),
         logger: gh<_i520.CustomLogger>(),
         escrow: gh<_i520.EscrowUseCase>(),
-      ),
-    );
-    gh.factoryParam<_i755.ThreadWatcher, _i474.Thread, dynamic>(
-      (thread, _) => _i755.ThreadWatcher(
-        thread,
-        logger: gh<_i372.CustomLogger>(),
-        reservations: gh<_i474.Reservations>(),
-        listings: gh<_i474.Listings>(),
-        metadata: gh<_i474.MetadataUseCase>(),
-        escrow: gh<_i474.EscrowUseCase>(),
-        zaps: gh<_i474.Zaps>(),
       ),
     );
     gh.singleton<_i768.Threads>(

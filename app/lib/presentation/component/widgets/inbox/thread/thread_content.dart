@@ -26,16 +26,17 @@ class ThreadContent extends StatelessWidget {
             child: BlocBuilder<ThreadCubit, ThreadCubitState>(
               builder: (context, state) {
                 return ListView.builder(
-                  itemCount: state.messages.length,
+                  itemCount: state.threadState.sortedMessages.length,
                   itemBuilder: (listContext, index) {
-                    final message = state.messages[index];
+                    final message = state.threadState.sortedMessages[index];
                     return Column(
                       children: [
                         if (index != 0) SizedBox(height: kDefaultPadding / 2),
                         _buildMessage(
                           context,
                           message: message,
-                          reservations: state.reservations,
+                          reservations:
+                              state.threadState.subscriptions.reservations,
                         ),
                       ],
                     );

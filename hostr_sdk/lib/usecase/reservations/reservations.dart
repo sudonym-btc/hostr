@@ -68,7 +68,7 @@ class Reservations extends CrudUseCase<Reservation> {
       if (thread == null) continue;
 
       final sellerPubKey = getPubKeyFromAnchor(
-        thread.lastReservationRequest.listingAnchor,
+        thread.state.value.lastReservationRequest.listingAnchor,
       );
 
       final current =
