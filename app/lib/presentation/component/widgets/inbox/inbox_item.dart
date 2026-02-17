@@ -21,8 +21,8 @@ class InboxItem extends StatelessWidget {
       create: (_) => ThreadCubit(thread: thread),
       child: BlocBuilder<ThreadCubit, ThreadCubitState>(
         builder: (context, state) {
-          final lastDateTime = thread.getLastDateTime;
-          final lastMessage = thread.getLatestMessage;
+          final lastDateTime = state.threadState.getLastDateTime;
+          final lastMessage = state.threadState.getLatestMessage;
           final subtitle = Text(
             (lastMessage != null &&
                         lastMessage.pubKey ==

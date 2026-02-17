@@ -26,7 +26,7 @@ class EscrowFundParams {
       sellerEvmAddress: sellerProfile.evmAddress!,
       arbiterEvmAddress: escrowService.parsedContent.evmAddress,
       ethKey: ethKey,
-      unlockAt: (DateTime.now().millisecondsSinceEpoch ~/ 1000) + 5,
+      unlockAt: unlockAt,
       // escrowFee: escrowService.parsedContent.fee,
     );
   }

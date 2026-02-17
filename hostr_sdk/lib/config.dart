@@ -30,7 +30,7 @@ class HostrConfig {
              engine: NdkEngine.JIT,
              defaultQueryTimeout: Duration(seconds: 10),
              bootstrapRelays: bootstrapRelays,
-             logLevel: LogLevel.all,
+             //  logLevel: LogLevel.all,
            ),
        logger = logs ?? CustomLogger();
 }

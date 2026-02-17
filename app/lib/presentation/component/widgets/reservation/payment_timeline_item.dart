@@ -8,12 +8,12 @@ import '../amount/amount_input.dart';
 class PaymentTimelineItem extends StatelessWidget {
   // Can be either a Reservation or a PaymentEvent, both have different display info
   final dynamic event;
-  final Listing listing;
+  final String hostPubkey;
 
   const PaymentTimelineItem({
     super.key,
     required this.event,
-    required this.listing,
+    required this.hostPubkey,
   });
   @override
   Widget build(BuildContext context) {
@@ -50,7 +50,7 @@ class PaymentTimelineItem extends StatelessWidget {
     if (event is Reservation) {
       return escrowEvent(
         title:
-            'Reservation ${event.parsedContent.cancelled ? "cancelled" : "updated"} by ${event.pubKey == listing.pubKey ? 'host' : 'guest'}',
+            'Reservation ${event.parsedContent.cancelled ? "cancelled" : "updated"} by ${event.pubKey == hostPubkey ? 'host' : 'guest'}',
         timestamp: DateTime.fromMillisecondsSinceEpoch(event.createdAt * 1000),
       );
     }

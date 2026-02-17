@@ -26,8 +26,15 @@ class ThreadView extends StatelessWidget {
         final isReady =
             profilesReady &&
             state.listingProfile != null &&
-            state.reservationsStreamStatus is StreamStatusLive &&
+            state.threadState.subscriptions.reservationStreamStatus
+                is StreamStatusLive &&
+            state.threadState.subscriptions.paymentStreamStatus
+                is StreamStatusLive &&
             state.listing != null;
+
+        print(
+          'ThreadView build: isReady: $isReady, profilesReady: $profilesReady, listingProfile: ${state.listingProfile != null}, reservationStreamStatus: ${state.threadState.subscriptions.reservationStreamStatus}, paymentStreamStatus: ${state.threadState.subscriptions.paymentStreamStatus}, listing: ${state.listing != null}',
+        );
 
         // When to display loading
         if (!isReady) {
@@ -43,14 +50,14 @@ class ThreadView extends StatelessWidget {
           listingProfile: state.listingProfile!,
           participants: state.participantStates.map((e) => e.data!).toList(),
           counterparties: state.counterpartyStates.map((e) => e.data!).toList(),
-          reservationsList: state.reservations,
-          reservationRequests: state.messages
-              .where((message) => message.child is ReservationRequest)
-              .map((message) => message.child as ReservationRequest)
+          reservationsList: state.threadState.subscriptions.reservations,
+          reservationRequests: state.threadState.reservationRequests
+              .map((e) => e.child as ReservationRequest)
               .toList(),
-          allListingReservations: state.allListingReservations,
-          messages: state.messages,
-          paymentEvents: state.paymentEvents,
+          allListingReservations:
+              state.threadState.subscriptions.allListingReservations,
+          messages: state.threadState.sortedMessages,
+          paymentEvents: state.threadState.subscriptions.paymentEvents,
         );
       },
     );

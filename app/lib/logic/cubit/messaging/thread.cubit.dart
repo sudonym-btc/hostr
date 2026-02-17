@@ -6,8 +6,6 @@ import 'package:hostr/logic/cubit/profile.cubit.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Filter;
-import 'package:rxdart/rxdart.dart';
 
 import '../entity/entity.cubit.dart';
 
@@ -17,78 +15,38 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   final Map<String, ProfileCubit> participantCubits = {};
   final Map<String, ProfileCubit> counterpartyCubits = {};
   final List<StreamSubscription> _subscriptions = [];
-  StreamWithStatus<Reservation>? _allListingReservationsStream;
-  final List<StreamSubscription> _allListingReservationsSubscriptions = [];
 
   ThreadCubit({required this.thread})
     : super(
         ThreadCubitState(
-          reservationsStreamStatus: StreamStatusIdle(),
           listing: null,
           listingProfile: null,
           counterpartyStates: [],
           participantStates: [],
-          reservations: [],
-          paymentEvents: [],
-          paymentEventsStreamStatus: StreamStatusIdle(),
-          allListingReservations: [],
-          allListingReservationsStreamStatus: StreamStatusIdle(),
-          messages: [],
+          threadState: thread.state.value,
           isCancellingReservation: false,
           isClaimingEscrow: false,
           reservationActionError: null,
         ),
       ) {
     // Build counterparty cubits from participantCubits but ignore our own key
-    for (final pubkey in thread.participantPubkeys) {
+    for (final pubkey in thread.state.value.participantPubkeys) {
       addParticipant(pubkey);
     }
     _emitParticipantStates();
 
-    // Add a new participant cubit for the message and it's recipients if not already added
     _subscriptions.add(
-      thread.messages.stream.listen((message) {
-        emit(state.copyWith(messages: thread.sortedMessages));
-        addParticipant(message.pubKey);
-        for (final pubKey in message.pTags) {
-          addParticipant(pubKey);
+      thread.state.listen((threadState) {
+        for (final message in threadState.messages) {
+          addParticipant(message.pubKey);
+          for (final pubKey in message.pTags) {
+            addParticipant(pubKey);
+          }
         }
+        emit(state.copyWith(threadState: threadState));
       }),
     );
   }
-
-  void _watchAllListingReservations(Listing listing) {
-    for (final subscription in _allListingReservationsSubscriptions) {
-      subscription.cancel();
-    }
-    _allListingReservationsSubscriptions.clear();
-
-    _allListingReservationsStream?.close();
-    _allListingReservationsStream = getIt<Hostr>().reservations.subscribe(
-      Filter(
-        tags: {
-          kListingRefTag: [listing.anchor!],
-        },
-      ),
-    );
-
-    _allListingReservationsSubscriptions.add(
-      Rx.merge([
-        _allListingReservationsStream!.status.map((_) => null),
-        _allListingReservationsStream!.stream.map((_) => null),
-      ]).listen((_) {
-        emit(
-          state.copyWith(
-            allListingReservations: _allListingReservationsStream!.list.value,
-            allListingReservationsStreamStatus:
-                _allListingReservationsStream!.status.value,
-          ),
-        );
-      }),
-    );
-  }
-
-  String? get _ourPubkey => getIt<Hostr>().auth.activeKeyPair?.publicKey;
 
   void _emitParticipantStates() {
     emit(
@@ -117,7 +75,7 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
     _subscriptions.add(cubit.stream.listen((_) => _emitParticipantStates()));
     participantCubits[pubkey] = cubit;
 
-    if (pubkey != _ourPubkey) {
+    if (pubkey != getIt<Hostr>().auth.activeKeyPair?.publicKey) {
       counterpartyCubits[pubkey] = cubit;
     }
   }
@@ -139,7 +97,7 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 
     // @todo: emitting a new reservation with copied self-signed proof is data-heavy, just reveal that I know the salt
     final mine =
-        state.reservations
+        state.threadState.subscriptions.reservations
             .where((reservation) => reservation.pubKey != state.listing!.pubKey)
             .toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -247,20 +205,17 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   }
 
   void watch() {
-    thread.watcher.watch();
-    thread.watcher
+    thread.watch();
+    thread
         .getListing()
         .then((listing) {
           emit(state.copyWith(listing: listing));
-          if (listing?.anchor != null) {
-            _watchAllListingReservations(listing!);
-          }
         })
         .catchError((e) {
           logger.e('Failed to watch listing for thread', error: e);
         });
 
-    thread.watcher
+    thread
         .getListingProfile()
         .then((listingProfile) {
           emit(state.copyWith(listingProfile: listingProfile));
@@ -268,36 +223,11 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
         .catchError((e) {
           logger.e('Failed to watch listing profile for thread', error: e);
         });
-
-    _subscriptions.add(
-      Rx.merge([
-        thread.watcher.paymentEvents!.status.map((event) => null),
-        thread.watcher.paymentEvents!.stream.map((event) => null),
-        thread.watcher.reservationStream.status.map((event) => null),
-        thread.watcher.reservationStream.stream.map((event) => null),
-      ]).listen((_) {
-        emit(
-          state.copyWith(
-            messages: thread.sortedMessages,
-            paymentEvents: thread.watcher.paymentEvents!.list.value,
-            paymentEventsStreamStatus:
-                thread.watcher.paymentEvents!.status.value,
-            reservations: thread.watcher.reservationStream.list.value,
-            reservationsStreamStatus:
-                thread.watcher.reservationStream.status.value,
-          ),
-        );
-      }),
-    );
   }
 
   @override
   close() async {
-    await thread.watcher.removeSubscriptions();
-    for (final s in _allListingReservationsSubscriptions) {
-      await s.cancel();
-    }
-    await _allListingReservationsStream?.close();
+    await thread.unwatch();
     for (final c in participantCubits.values) {
       await c.close();
     }
@@ -309,73 +239,45 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 }
 
 class ThreadCubitState {
-  final List<Message> messages;
-  final StreamStatus reservationsStreamStatus;
-  final List<Reservation> reservations;
   final Listing? listing;
   final ProfileMetadata? listingProfile;
   final List<EntityCubitState<ProfileMetadata>> participantStates;
   final List<EntityCubitState<ProfileMetadata>> counterpartyStates;
 
-  final List<PaymentEvent> paymentEvents;
-  final StreamStatus paymentEventsStreamStatus;
-  final List<Reservation> allListingReservations;
-  final StreamStatus allListingReservationsStreamStatus;
+  final ThreadState threadState;
+
   final bool isCancellingReservation;
   final bool isClaimingEscrow;
   final String? reservationActionError;
 
   ThreadCubitState({
-    required this.reservations,
     required this.listing,
     required this.listingProfile,
     required this.participantStates,
     required this.counterpartyStates,
-    required this.reservationsStreamStatus,
-    required this.paymentEvents,
-    required this.paymentEventsStreamStatus,
-    required this.allListingReservations,
-    required this.allListingReservationsStreamStatus,
-    required this.messages,
+    required this.threadState,
     required this.isCancellingReservation,
     required this.isClaimingEscrow,
     required this.reservationActionError,
   });
 
   ThreadCubitState copyWith({
-    List<Message>? messages,
-    StreamStatus? reservationsStreamStatus,
-    List<Reservation>? reservations,
     Listing? listing,
     ProfileMetadata? listingProfile,
     List<EntityCubitState<ProfileMetadata>>? participantStates,
     List<EntityCubitState<ProfileMetadata>>? counterpartyStates,
-    List<PaymentEvent>? paymentEvents,
-    StreamStatus? paymentEventsStreamStatus,
-    List<Reservation>? allListingReservations,
-    StreamStatus? allListingReservationsStreamStatus,
+    ThreadState? threadState,
     bool? isCancellingReservation,
     bool? isClaimingEscrow,
     String? reservationActionError,
     bool clearReservationActionError = false,
   }) {
     return ThreadCubitState(
-      reservations: reservations ?? this.reservations,
       listing: listing ?? this.listing,
       listingProfile: listingProfile ?? this.listingProfile,
       participantStates: participantStates ?? this.participantStates,
       counterpartyStates: counterpartyStates ?? this.counterpartyStates,
-      reservationsStreamStatus:
-          reservationsStreamStatus ?? this.reservationsStreamStatus,
-      paymentEvents: paymentEvents ?? this.paymentEvents,
-      paymentEventsStreamStatus:
-          paymentEventsStreamStatus ?? this.paymentEventsStreamStatus,
-      allListingReservations:
-          allListingReservations ?? this.allListingReservations,
-      allListingReservationsStreamStatus:
-          allListingReservationsStreamStatus ??
-          this.allListingReservationsStreamStatus,
-      messages: messages ?? this.messages,
+      threadState: threadState ?? this.threadState,
       isCancellingReservation:
           isCancellingReservation ?? this.isCancellingReservation,
       isClaimingEscrow: isClaimingEscrow ?? this.isClaimingEscrow,
