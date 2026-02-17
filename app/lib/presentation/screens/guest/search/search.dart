@@ -25,6 +25,7 @@ class SearchScreen extends StatelessWidget {
         BlocProvider(
           create: (context) => ListCubit<Listing>(
             kinds: Listing.kinds,
+            limit: 100,
             nostrService: getIt(),
             sortCubit: context.read<SortCubit<Listing>>(),
             postResultFilterCubit: context.read<PostResultFilterCubit>(),

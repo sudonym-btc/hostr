@@ -98,15 +98,7 @@ class ThreadReadyWidget extends StatelessWidget {
       ),
       body: Column(
         children: [
-          ReservationStatusWidget(
-            reservations: reservationsList,
-            listing: listing,
-            listingProfile: listingProfile,
-            reservationRequests: reservationRequests,
-            allListingReservations: allListingReservations,
-            messages: messages,
-            paymentEvents: paymentEvents,
-          ),
+          ReservationStatusWidget(),
           Expanded(
             child: ThreadContent(participants: participants, listing: listing),
           ),

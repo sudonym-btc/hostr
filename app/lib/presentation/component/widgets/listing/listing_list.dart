@@ -11,11 +11,15 @@ class ListingsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListWidget<Listing>(builder: (el) {
-      return ListingListItemWidget(
-        listing: el,
-        // dateRange: searchController.state.dateRange,
-      );
-    });
+    return ListWidget<Listing>(
+      loadNextOnBottom: true,
+      reserveBottomNavigationBarSpace: true,
+      builder: (el) {
+        return ListingListItemWidget(
+          listing: el,
+          // dateRange: searchController.state.dateRange,
+        );
+      },
+    );
   }
 }

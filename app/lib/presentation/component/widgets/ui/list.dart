@@ -8,7 +8,17 @@ import 'package:ndk/ndk.dart';
 
 class ListWidget<T extends Nip01Event> extends StatefulWidget {
   final Widget Function(dynamic) builder;
-  const ListWidget({super.key, required this.builder});
+  final bool loadNextOnBottom;
+  final double loadNextThreshold;
+  final bool reserveBottomNavigationBarSpace;
+
+  const ListWidget({
+    super.key,
+    required this.builder,
+    this.loadNextOnBottom = false,
+    this.loadNextThreshold = 200,
+    this.reserveBottomNavigationBarSpace = false,
+  });
 
   @override
   ListWidgetState createState() => ListWidgetState<T>();
@@ -17,6 +27,7 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
 class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
   final ScrollController _scrollController = ScrollController();
   final CustomLogger logger = CustomLogger();
+  bool _loadingNextPage = false;
 
   @override
   void initState() {
@@ -32,12 +43,37 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
   }
 
   void _onScroll() {
+    if (widget.loadNextOnBottom &&
+        _scrollController.hasClients &&
+        _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent -
+                widget.loadNextThreshold) {
+      _loadNext();
+    }
+
     if (_scrollController.position.userScrollDirection ==
         ScrollDirection.forward) {
       // logger.d('Scrolling up');
     } else if (_scrollController.position.userScrollDirection ==
         ScrollDirection.reverse) {
       // logger.d('Scrolling down');
+    }
+  }
+
+  Future<void> _loadNext() async {
+    if (_loadingNextPage || !mounted) return;
+
+    final cubit = context.read<ListCubit<T>>();
+    final state = cubit.state;
+    if (state.fetching || state.synching || state.hasMore == false) {
+      return;
+    }
+
+    _loadingNextPage = true;
+    try {
+      await cubit.next();
+    } finally {
+      _loadingNextPage = false;
     }
   }
 
@@ -56,9 +92,14 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
 
         final isLoading = state.synching || state.fetching;
         final itemCount = state.results.length + (isLoading ? 1 : 0);
+        final bottomInset = widget.reserveBottomNavigationBarSpace
+            ? MediaQuery.paddingOf(context).bottom + kBottomNavigationBarHeight
+            : 0.0;
 
         return ListView.builder(
-          padding: EdgeInsets.only(bottom: kDefaultPadding.toDouble()),
+          padding: EdgeInsets.only(
+            bottom: kDefaultPadding.toDouble() + bottomInset,
+          ),
           controller: _scrollController,
           itemCount: itemCount,
           itemBuilder: (context, index) {
