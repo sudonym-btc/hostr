@@ -21,6 +21,7 @@ setup_lnbits() {
     local ADMIN_EMAIL="${LNBITS_ADMIN_EMAIL}"
     local ADMIN_PASSWORD="${LNBITS_ADMIN_PASSWORD}"
     local EXTENSION_NAME="${LNBITS_EXTENSION_NAME}"
+    local LNBITS_NOSTR_PRIVATE_KEY="${LNBITS_NOSTR_PRIVATE_KEY}"
     local admin_token=""
     local first_wallet_id=""
     local first_wallet_key=""
@@ -53,9 +54,9 @@ setup_lnbits() {
             -H "Content-Type: application/json" \
             -d '{
                 "ext_id": "'"$EXTENSION_NAME"'",
-                "archive": "https://github.com/lnbits/lnurlp/archive/refs/tags/v1.0.1.zip",
+                "archive": "https://github.com/lnbits/lnurlp/archive/refs/tags/v1.3.0.zip",
                 "source_repo": "https://raw.githubusercontent.com/lnbits/lnbits-extensions/main/extensions.json",
-                "version": "1.0.1",
+                "version": "1.3.0",
                 "cost_sats": null,
                 "payment_hash": null
             }')
@@ -90,6 +91,36 @@ setup_lnbits() {
             exit 1
         fi
         echo $first_wallet_id
+    }
+
+    # Function to configure lnurlp settings (optional)
+    configure_lnurlp_settings() {
+        if [ -z "$LNBITS_NOSTR_PRIVATE_KEY" ]; then
+            echo "LNBITS_NOSTR_PRIVATE_KEY not set. lnurlp will use its auto-generated Nostr key for zap receipts."
+            return
+        fi
+
+        settings_response=$(curl -s -L -X GET "$LNBITS_URL/lnurlp/api/v1/settings" \
+            -H "Authorization: Bearer $admin_token" \
+            -H "Content-Type: application/json")
+
+        if [ "$(echo "$settings_response" | jq -r '.detail // empty')" != "" ]; then
+            echo "Failed to read lnurlp settings: $settings_response"
+            exit 1
+        fi
+
+        payload=$(echo "$settings_response" | jq --arg key "$LNBITS_NOSTR_PRIVATE_KEY" '.nostr_private_key = $key')
+        update_response=$(curl -s -L -X PUT "$LNBITS_URL/lnurlp/api/v1/settings" \
+            -H "Authorization: Bearer $admin_token" \
+            -H "Content-Type: application/json" \
+            -d "$payload")
+
+        if [ "$(echo "$update_response" | jq -r '.nostr_private_key // empty')" = "" ]; then
+            echo "Failed to update lnurlp Nostr private key: $update_response"
+            exit 1
+        fi
+
+        echo "Configured lnurlp Nostr private key for zap receipt signing"
     }
 
     # Function to post data to the link
@@ -153,6 +184,7 @@ setup_lnbits() {
     # Main script execution
     login_admin
     enable_extension
+    configure_lnurlp_settings
     get_first_wallet_id
     post_data
 }

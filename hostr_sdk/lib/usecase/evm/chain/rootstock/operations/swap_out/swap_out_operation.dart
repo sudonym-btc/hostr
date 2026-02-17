@@ -70,8 +70,6 @@ class RootstockSwapOutOperation extends SwapOutOperation {
             emit(SwapOutCompleted());
           });
 
-      //
-
       logger.i('Submarine swap created: ${swap.toString()}');
 
       final expectedLockAmount = BitcoinAmount.fromInt(
@@ -123,120 +121,6 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     } finally {
       await close();
     }
-    // /** @todo: determine how much amount is available to be swapped out */
-    // // Calculate the total amount of funds that can be swapped out.
-    // // This might involve fetching the balance from a wallet or another source.
-
-    // /** @todo: fetch invoice of current user of total amount - fees */
-    // // Generate or fetch an invoice for the user.
-    // // The invoice should be for the total amount minus any applicable fees.
-
-    // EthPrivateKey ethKey = getEvmCredentials(key.privateKey!);
-
-    // final balance = await getBalance(ethKey.address);
-    // if (balance == BitcoinAmount.zero()) {
-    //   logger.i('No balance to swap out');
-    //   return;
-    // }
-
-    // // NwcMethodResponse? response = await getIt<NwcService>().makeInvoice(
-    // //     NwcMethodMakeInvoiceParams(
-    // //         amount: (balance.toInt() / satoshiWeiFactor.toDouble()).toInt()));
-
-    // // Example invoice for demonstration purposes
-    // // final invoice = payments.nwc.getInvoice(amount: balance - fees);
-    // final invoice = "";
-    // String invoicePreimageHash = Bolt11PaymentRequest(invoice).paymentRequest;
-
-    // // Convert invoice amount to satoshis (not used in current flow)
-    // // final int invoiceAmount =
-    // //     (Bolt11PaymentRequest(invoice).amount.toDouble() * pow(10, 8)) as int;
-
-    // try {
-    //   // Initialize Boltz library
-    //   // final fees = await boltz.Fees(boltzUrl: config.boltzUrl).chain();
-    //   // Uncomment and use the above line to fetch the fees from the Boltz API.
-
-    //   // Create a submarine swap
-    //   final swap = await getIt<BoltzClient>().submarine(invoice: invoice);
-    //   // swap."expectedAmount" is set
-
-    //   // Create the args record for the lock function
-    //   final lockArgs = (
-    //     claimAddress: EthereumAddress.fromHex(swap.claimPublicKey!),
-    //     preimageHash: Uint8List.fromList(invoicePreimageHash.codeUnits),
-    //     timelock: BigInt.from(swap.timeoutBlockHeight),
-    //   );
-
-    //   EtherSwap swapContract = await getEtherSwapContract();
-
-    //   // Lock the funds in the EtherSwap contract
-    //   String tx = await swapContract.lock(lockArgs, credentials: ethKey);
-    //   // String refundTx = await swapContract.refund(args, credentials: credentials)
-    //   logger.i('Sent RBTC in: $tx');
-    // } catch (e) {
-    //   // Handle errors and print the error message
-    //   logger.e('\n\nERRRR: $e\n\n');
-    // }
-
-    // try {
-    //   final preimageData = _newPreimage();
-    //   logger.i(
-    //     "Preimage: ${preimageData.hash}, ${preimageData.preimage.length}",
-    //   );
-
-    //   /// Create a reverse submarine swap
-    //   final swap = await _generateSwapRequest();
-    //   emit(SwapInRequestCreated());
-
-    //   logger.d('Swap ${swap.toString()}');
-
-    //   // Need to ignore timeout errors here, since the invoice only completes after the swap is done
-    //   final p = _getPaymentCubitForSwap(
-    //     invoice: swap.invoice,
-    //     amount: params.amount,
-    //   );
-
-    //   Future<SwapStatus> swapStatus = _waitForSwapOnChain(swap.id);
-    //   emit(SwapInAwaitingOnChain());
-
-    //   // @todo: should not await completion, but should throw if payment can't even be initiated
-    //   await for (final paymentState
-    //       in p
-    //           .where(
-    //             (state) => state is PayFailed || state is PayExternalRequired,
-    //           )
-    //           .takeUntil(swapStatus.asStream())) {
-    //     logger.e('Payment emitted with state: $paymentState');
-    //     emit(SwapInPaymentProgress(paymentState: paymentState));
-    //   }
-
-    //   TransactionInformation lockupTx = await rootstock.awaitTransaction(
-    //     (await swapStatus).transaction!.id!,
-    //   );
-    //   emit(SwapInFunded());
-
-    //   /// Create the args record for the claim function
-    //   final claimArgs = _generateClaimArgs(lockupTx: lockupTx, swap: swap);
-
-    //   logger.i('Claim can be unlocked with arguments: $claimArgs');
-
-    //   /// Withdraw the funds to our own address, providing swapper with preimage to settle lightning
-    //   /// Must send via RIF if no previous balance exists
-    //   String tx = await _claim(claimArgs: claimArgs);
-    //   emit(SwapInClaimed());
-    //   final receipt = await rootstock.awaitReceipt(tx);
-    //   logger.i('Claim receipt: $receipt');
-    //   emit(SwapInCompleted());
-    //   logger.i('Sent RBTC in: $tx');
-    // } catch (e, st) {
-    //   logger.e('Error during swap in operation: $e');
-    //   emit(SwapInFailed(e, st));
-    //   addError(SwapInFailed(e, st));
-    //   rethrow;
-    // } finally {
-    //   await close();
-    // }
   }
 
   @override
