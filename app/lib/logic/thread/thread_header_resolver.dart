@@ -1,4 +1,6 @@
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
+import 'package:hostr_sdk/hostr_sdk.dart'
+    show StreamStatusLive, StreamStatusQueryComplete;
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:models/main.dart';
 
@@ -59,167 +61,60 @@ class ThreadHeaderResolver {
     required String hostPubkey,
     required String ourPubkey,
   }) {
-    // Compute variables from state
-    final role = threadCubitState.listing!.pubKey == ourPubkey
-        ? ThreadPartyRole.host
-        : ThreadPartyRole.guest;
-
-    final lastRequest = threadCubitState.threadState.lastReservationRequest;
-
-    final sortedReservations =
-        threadCubitState.threadState.subscriptions.reservations
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final cancelledReservations = sortedReservations
-        .where((reservation) => reservation.parsedContent.cancelled)
-        .toList();
-
-    final reservationWasCancelled = cancelledReservations.isEmpty
-        ? null
-        : (cancelledReservations.first.pubKey == hostPubkey
-              ? ThreadPartyRole.host
-              : ThreadPartyRole.guest);
-
-    final hasAnyReservation = sortedReservations.isNotEmpty;
-
-    final escrowsFromProofs = sortedReservations
-        .where(
-          (reservation) => reservation.parsedContent.proof?.escrowProof != null,
-        )
-        .map(
-          (reservation) =>
-              reservation.parsedContent.proof!.escrowProof!.escrowService,
-        );
-
-    final escrowFromProof = escrowsFromProofs.isEmpty
-        ? null
-        : escrowsFromProofs.first;
-
-    final source = hasAnyReservation
-        ? ThreadHeaderSource.reservation
-        : (lastRequest != null
-              ? ThreadHeaderSource.reservationRequest
-              : ThreadHeaderSource.listing);
-
-    // Compute overlap
-    final startDate =
-        sortedReservations.firstOrNull?.parsedContent.start ??
-        lastRequest.parsedContent.start;
-    final endDate =
-        sortedReservations.firstOrNull?.parsedContent.end ??
-        lastRequest.parsedContent.end;
-
-    final overlapLock = resolveOverlapLock(
+    final facts = _ThreadHeaderFacts.from(
+      threadCubitState: threadCubitState,
+      hostPubkey: hostPubkey,
       ourPubkey: ourPubkey,
-      allListingReservations:
-          threadCubitState.threadState.subscriptions.reservations,
-      startDate: startDate,
-      endDate: endDate,
-      salt: threadCubitState.threadState.salt!,
     );
 
     final actions = <ThreadHeaderActionType>[];
-    ThreadHeaderStatus status = ThreadHeaderStatus.none;
+    var status = ThreadHeaderStatus.none;
 
-    final hasActiveReservation = sortedReservations.isNotEmpty;
-    final isSelfSigned = !sortedReservations.any(
-      (reservation) => reservation.pubKey == threadCubitState.listing!.pubKey,
-    );
-
-    final hasEscrow = escrowFromProof != null;
-
-    final now = DateTime.now();
-    final hasReservationEnded = endDate.isBefore(now);
-    final hasAnyCancelledReservation = cancelledReservations.isNotEmpty;
-    final hasTerminalPaymentState = threadCubitState
-        .threadState
-        .subscriptions
-        .paymentEvents
-        .any(
-          (event) =>
-              event is PaymentClaimedEvent ||
-              event is PaymentArbitratedEvent ||
-              event is PaymentReleasedEvent,
-        );
-    final canShowCancel =
-        hasActiveReservation &&
-        !hasReservationEnded &&
-        !hasTerminalPaymentState &&
-        !hasAnyCancelledReservation;
-    final canShowRefund = hasActiveReservation && !hasTerminalPaymentState;
-
-    final escrowPubkey = escrowFromProof?.parsedContent.pubkey;
-
-    final isEscrowAlreadyInThread =
-        escrowPubkey != null &&
-        threadCubitState.threadState.messages.any(
-          (message) =>
-              message.pubKey == escrowPubkey ||
-              message.pTags.contains(escrowPubkey),
-        );
-    final canShowMessageEscrow =
-        escrowPubkey != null && !isEscrowAlreadyInThread;
-
-    // Compute actions and status
-
-    if (role == ThreadPartyRole.host) {
-      if (!hasTerminalPaymentState && hasEscrow) {
-        actions.add(ThreadHeaderActionType.claim);
-      }
-    }
-
-    if (hasActiveReservation) {
-      if (role == ThreadPartyRole.host) {
-        if (canShowCancel) {
+    if (facts.source == ThreadHeaderSource.reservation) {
+      if (facts.role == ThreadPartyRole.host) {
+        if (facts.hasEscrow &&
+            facts.paymentStateFresh &&
+            !facts.hasTerminalPaymentState) {
+          actions.add(ThreadHeaderActionType.claim);
+        }
+        if (facts.cancelAllowedInReservationPhase) {
           actions.add(ThreadHeaderActionType.cancel);
         }
-        if (canShowRefund) {
+        if (facts.refundAllowedInReservationPhase) {
           actions.add(ThreadHeaderActionType.refund);
         }
-        if (hasEscrow && canShowMessageEscrow) {
+        if (facts.messageEscrowAllowedInReservationPhase) {
           actions.add(ThreadHeaderActionType.messageEscrow);
         }
       } else {
-        if (canShowCancel) {
+        if (facts.cancelAllowedInReservationPhase) {
           actions.add(ThreadHeaderActionType.cancel);
         }
-        if (hasEscrow && canShowMessageEscrow) {
+        if (facts.messageEscrowAllowedInReservationPhase) {
           actions.add(ThreadHeaderActionType.messageEscrow);
         }
       }
 
-      status = role == ThreadPartyRole.guest && isSelfSigned
+      status = facts.role == ThreadPartyRole.guest && facts.isSelfSigned
           ? ThreadHeaderStatus.pendingConfirmation
           : ThreadHeaderStatus.confirmed;
-    } else if (!hasAnyReservation && lastRequest != null) {
-      final lastSentByUs = lastRequest.pubKey == ourPubkey;
-      final listedAmount = threadCubitState.listing!.cost(
-        lastRequest.parsedContent.start,
-        lastRequest.parsedContent.end,
-      );
-      final requestAmount = lastRequest.parsedContent.amount;
-      final sameCurrency = listedAmount.currency == requestAmount.currency;
-      final underListedPrice =
-          sameCurrency && requestAmount.value < listedAmount.value;
-
-      if (role == ThreadPartyRole.host) {
-        if (!lastSentByUs) {
+    } else if (facts.source == ThreadHeaderSource.reservationRequest &&
+        facts.lastRequest != null) {
+      if (facts.role == ThreadPartyRole.host) {
+        if (!facts.lastSentByUs) {
           actions.add(ThreadHeaderActionType.accept);
-          if (threadCubitState.listing!.parsedContent.allowBarter &&
-              underListedPrice) {
+          if (facts.allowBarter && facts.underListedPrice) {
             actions.add(ThreadHeaderActionType.counter);
           }
         }
       } else {
-        final isAtOrAboveListedPrice =
-            sameCurrency && requestAmount.value >= listedAmount.value;
         final canPayByEvmAndPrice =
-            threadCubitState.listingProfile!.evmAddress != null &&
-            isAtOrAboveListedPrice;
-        if (!lastSentByUs || canPayByEvmAndPrice) {
+            threadCubitState.listingProfile?.evmAddress != null &&
+            facts.isAtOrAboveListedPrice;
+        if (!facts.lastSentByUs || canPayByEvmAndPrice) {
           actions.add(ThreadHeaderActionType.pay);
         }
-        if (!lastSentByUs &&
-            threadCubitState.listing!.parsedContent.allowBarter) {
+        if (!facts.lastSentByUs && facts.allowBarter) {
           actions.add(ThreadHeaderActionType.counter);
         }
       }
@@ -227,16 +122,210 @@ class ThreadHeaderResolver {
     }
 
     return ThreadHeaderResolution(
+      source: facts.source,
+      role: facts.role,
+      status: status,
+      reservation: facts.latestReservation,
+      lastReservationRequest: facts.lastRequest,
+      actions: actions,
+      isBlocked: facts.isBlocked,
+      blockedReason: facts.blockedReason,
+      isEscrowAlreadyInThread: facts.isEscrowAlreadyInThread,
+      escrowPubkey: facts.escrowPubkey,
+      escrowService: facts.escrowFromProof,
+    );
+  }
+}
+
+class _ThreadHeaderFacts {
+  final ThreadHeaderSource source;
+  final ThreadPartyRole role;
+  final ReservationRequest? lastRequest;
+  final Reservation? latestReservation;
+  final EscrowService? escrowFromProof;
+  final String? escrowPubkey;
+  final bool isSelfSigned;
+  final bool hasEscrow;
+  final bool paymentStateFresh;
+  final bool hasTerminalPaymentState;
+  final bool hasReservationEnded;
+  final bool hasAnyCancelledReservation;
+  final bool cancelAllowedInReservationPhase;
+  final bool refundAllowedInReservationPhase;
+  final bool isEscrowAlreadyInThread;
+  final bool messageEscrowAllowedInReservationPhase;
+  final bool isBlocked;
+  final String? blockedReason;
+  final bool lastSentByUs;
+  final bool allowBarter;
+  final bool underListedPrice;
+  final bool isAtOrAboveListedPrice;
+
+  const _ThreadHeaderFacts({
+    required this.source,
+    required this.role,
+    required this.lastRequest,
+    required this.latestReservation,
+    required this.escrowFromProof,
+    required this.escrowPubkey,
+    required this.isSelfSigned,
+    required this.hasEscrow,
+    required this.paymentStateFresh,
+    required this.hasTerminalPaymentState,
+    required this.hasReservationEnded,
+    required this.hasAnyCancelledReservation,
+    required this.cancelAllowedInReservationPhase,
+    required this.refundAllowedInReservationPhase,
+    required this.isEscrowAlreadyInThread,
+    required this.messageEscrowAllowedInReservationPhase,
+    required this.isBlocked,
+    required this.blockedReason,
+    required this.lastSentByUs,
+    required this.allowBarter,
+    required this.underListedPrice,
+    required this.isAtOrAboveListedPrice,
+  });
+
+  factory _ThreadHeaderFacts.from({
+    required ThreadCubitState threadCubitState,
+    required String hostPubkey,
+    required String ourPubkey,
+  }) {
+    final listing = threadCubitState.listing;
+    final threadState = threadCubitState.threadState;
+    final role = listing != null && listing.pubKey == ourPubkey
+        ? ThreadPartyRole.host
+        : ThreadPartyRole.guest;
+
+    final lastRequest = threadState.reservationRequests
+        .map((message) => message.child)
+        .whereType<ReservationRequest>()
+        .lastOrNull;
+
+    final sortedReservations = [...threadState.subscriptions.reservations]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final latestReservation = sortedReservations.firstOrNull;
+    final cancelledReservations = sortedReservations
+        .where((reservation) => reservation.parsedContent.cancelled)
+        .toList();
+
+    final escrowFromProof = sortedReservations
+        .where(
+          (reservation) => reservation.parsedContent.proof?.escrowProof != null,
+        )
+        .map(
+          (reservation) =>
+              reservation.parsedContent.proof!.escrowProof!.escrowService,
+        )
+        .firstOrNull;
+
+    final source = sortedReservations.isNotEmpty
+        ? ThreadHeaderSource.reservation
+        : (lastRequest != null
+              ? ThreadHeaderSource.reservationRequest
+              : ThreadHeaderSource.listing);
+
+    final startDate =
+        latestReservation?.parsedContent.start ??
+        lastRequest?.parsedContent.start;
+    final endDate =
+        latestReservation?.parsedContent.end ?? lastRequest?.parsedContent.end;
+
+    final overlapLock =
+        startDate != null && endDate != null && threadState.salt != null
+        ? resolveOverlapLock(
+            ourPubkey: ourPubkey,
+            allListingReservations: threadState.subscriptions.reservations,
+            startDate: startDate,
+            endDate: endDate,
+            salt: threadState.salt!,
+          )
+        : (isBlocked: false, reason: null);
+
+    final paymentState = threadState.subscriptions.paymentStreamStatus;
+    final paymentStateFresh =
+        paymentState is StreamStatusLive ||
+        paymentState is StreamStatusQueryComplete;
+    final hasTerminalPaymentState =
+        paymentStateFresh &&
+        threadState.subscriptions.paymentEvents.any(
+          (event) =>
+              event is PaymentClaimedEvent ||
+              event is PaymentArbitratedEvent ||
+              event is PaymentReleasedEvent,
+        );
+
+    final hasReservationEnded = endDate != null
+        ? endDate.isBefore(DateTime.now())
+        : false;
+    final hasAnyCancelledReservation = cancelledReservations.isNotEmpty;
+
+    final isSelfSigned = listing != null
+        ? !sortedReservations.any(
+            (reservation) => reservation.pubKey == listing.pubKey,
+          )
+        : false;
+
+    final hasEscrow = escrowFromProof != null;
+    final escrowPubkey = escrowFromProof?.parsedContent.pubkey;
+    final isEscrowAlreadyInThread =
+        escrowPubkey != null &&
+        threadState.messages.any(
+          (message) =>
+              message.pubKey == escrowPubkey ||
+              message.pTags.contains(escrowPubkey),
+        );
+    final messageEscrowAllowedInReservationPhase =
+        escrowPubkey != null && !isEscrowAlreadyInThread;
+
+    final cancelAllowedInReservationPhase =
+        paymentStateFresh &&
+        !hasReservationEnded &&
+        !hasTerminalPaymentState &&
+        !hasAnyCancelledReservation;
+    final refundAllowedInReservationPhase =
+        paymentStateFresh && !hasTerminalPaymentState;
+
+    final listedAmount = lastRequest != null && listing != null
+        ? listing.cost(
+            lastRequest.parsedContent.start,
+            lastRequest.parsedContent.end,
+          )
+        : null;
+    final requestAmount = lastRequest?.parsedContent.amount;
+    final sameCurrency =
+        listedAmount != null &&
+        requestAmount != null &&
+        listedAmount.currency == requestAmount.currency;
+    final underListedPrice =
+        sameCurrency && requestAmount.value < listedAmount.value;
+    final isAtOrAboveListedPrice =
+        sameCurrency && requestAmount.value >= listedAmount.value;
+
+    return _ThreadHeaderFacts(
       source: source,
       role: role,
-      status: status,
-      lastReservationRequest: lastRequest,
-      actions: actions,
-      isBlocked: false,
-      blockedReason: null,
-      isEscrowAlreadyInThread: isEscrowAlreadyInThread,
+      lastRequest: lastRequest,
+      latestReservation: latestReservation,
+      escrowFromProof: escrowFromProof,
       escrowPubkey: escrowPubkey,
-      escrowService: escrowFromProof,
+      isSelfSigned: isSelfSigned,
+      hasEscrow: hasEscrow,
+      paymentStateFresh: paymentStateFresh,
+      hasTerminalPaymentState: hasTerminalPaymentState,
+      hasReservationEnded: hasReservationEnded,
+      hasAnyCancelledReservation: hasAnyCancelledReservation,
+      cancelAllowedInReservationPhase: cancelAllowedInReservationPhase,
+      refundAllowedInReservationPhase: refundAllowedInReservationPhase,
+      isEscrowAlreadyInThread: isEscrowAlreadyInThread,
+      messageEscrowAllowedInReservationPhase:
+          messageEscrowAllowedInReservationPhase,
+      isBlocked: overlapLock.isBlocked,
+      blockedReason: overlapLock.reason,
+      lastSentByUs: lastRequest?.pubKey == ourPubkey,
+      allowBarter: listing?.parsedContent.allowBarter ?? false,
+      underListedPrice: underListedPrice,
+      isAtOrAboveListedPrice: isAtOrAboveListedPrice,
     );
   }
 }
