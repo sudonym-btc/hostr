@@ -1,17 +1,27 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:crypto/crypto.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:web3dart/web3dart.dart';
 
-class Reservation extends JsonContentNostrEvent<ReservationContent>
-    with ReferencesListing<Reservation>, ReferencesThread<Reservation> {
+class ReservationTags extends EventTags
+    with ReferencesListing<ReservationTags>, CommitmentTag<ReservationTags> {
+  ReservationTags(super.tags);
+}
+
+class Reservation
+    extends JsonContentNostrEvent<ReservationContent, ReservationTags> {
   static const Object _unset = Object();
 
   static const List<int> kinds = [kNostrKindReservation];
+  static final EventTagsParser<ReservationTags> _tagParser =
+      ReservationTags.new;
+  static final EventContentParser<ReservationContent> _contentParser =
+      ReservationContent.fromJson;
   static const requiredTags = [
-    [kThreadRefTag],
     [kListingRefTag],
   ];
 
@@ -22,62 +32,33 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
       super.createdAt,
       super.id,
       super.sig})
-      : assert(hasRequiredTags(tags, Reservation.requiredTags)),
-        super(kind: kNostrKindReservation);
+      : super(
+            kind: kNostrKindReservation,
+            tagParser: _tagParser,
+            contentParser: _contentParser);
 
-  String? get commitmentHash {
-    return getFirstTag(kCommitmentHashTag);
-  }
+  Reservation.fromNostrEvent(Nip01Event e)
+      : super.fromNostrEvent(
+          e,
+          tagParser: _tagParser,
+          contentParser: _contentParser,
+        );
 
-  Reservation.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
-    parsedContent = ReservationContent.fromJson(json.decode(content));
-  }
-
-  Reservation copyWith({
-    String? content,
+  Reservation copy({
     int? createdAt,
     Object? id = _unset,
     int? kind,
     String? pubKey,
-    String? sig,
-    List<String>? sources,
-    List<List<String>>? tags,
-    bool? validSig,
-  }) {
-    return Reservation.fromNostrEvent(
-      Nip01Event(
-        id: identical(id, _unset) ? this.id : id as String?,
-        pubKey: pubKey ?? this.pubKey,
-        createdAt: createdAt ?? this.createdAt,
-        kind: kind ?? this.kind,
-        tags: tags ?? this.tags,
-        content: content ?? this.content,
-        sig: sig ?? this.sig,
-        validSig: validSig ?? this.validSig,
-        sources: sources ?? this.sources,
-      ),
-    );
-  }
-
-  Reservation copyWithContent({
-    DateTime? start,
-    DateTime? end,
-    SelfSignedProof? proof,
-    String? commitmentHash,
-    bool? cancelled,
+    ReservationContent? content,
+    ReservationTags? tags,
   }) {
     return Reservation(
-      pubKey: pubKey,
-      tags: tags.map((tag) => [...tag]).toList(),
-      createdAt: createdAt,
-      sig: sig,
-      content: ReservationContent(
-        start: start ?? parsedContent.start,
-        end: end ?? parsedContent.end,
-        proof: proof ?? parsedContent.proof,
-        commitmentHash: commitmentHash ?? parsedContent.commitmentHash,
-        cancelled: cancelled ?? parsedContent.cancelled,
-      ),
+      id: identical(id, _unset) ? this.id : id as String?,
+      pubKey: pubKey ?? this.pubKey,
+      createdAt: createdAt ?? this.createdAt,
+      tags: tags ?? this.parsedTags,
+      content: content ?? this.parsedContent,
+      sig: sig ?? this.sig,
     );
   }
 
@@ -193,23 +174,36 @@ class Reservation extends JsonContentNostrEvent<ReservationContent>
     final isValid = fieldResults.values.every((field) => field.ok);
     return ValidationResult(isValid: isValid, fields: fieldResults);
   }
+
+  bool isBlockedDate(KeyPair hostKey) {
+    final salt = Reservation.getSaltForBlockedReservation(
+        start: parsedContent.start, end: parsedContent.end, hostKey: hostKey);
+
+    return parsedTags.commitmentHash ==
+        ParticipationProof.computeCommitmentHash(hostKey.publicKey, salt);
+  }
+
+  static getSaltForBlockedReservation(
+      {required DateTime start,
+      required DateTime end,
+      required KeyPair hostKey}) {
+    return sha256
+        .convert(utf8.encode(start.toIso8601String() +
+            end.toIso8601String() +
+            hostKey.privateKey!))
+        .toString();
+  }
 }
 
 class ReservationContent extends EventContent {
   final DateTime start;
   final DateTime end;
-  final SelfSignedProof? proof;
-
-  /// Blinded guest identifier: SHA256(guest_pubkey + random_salt)
-  /// Only the guest/host knows the salt, allowing them to prove participation by revealing it.
-  /// Each reservation has a unique random salt, preventing linking across reservations.
-  final String commitmentHash;
   final bool cancelled;
+  final SelfSignedProof? proof;
 
   ReservationContent({
     required this.start,
     required this.end,
-    required this.commitmentHash,
     this.cancelled = false,
     this.proof,
   });
@@ -219,10 +213,23 @@ class ReservationContent extends EventContent {
     return {
       "start": start.toIso8601String(),
       "end": end.toIso8601String(),
-      "guestCommitmentHash": commitmentHash,
       "proof": proof?.toJson(),
       "cancelled": cancelled,
     };
+  }
+
+  ReservationContent copyWith({
+    DateTime? start,
+    DateTime? end,
+    bool? cancelled,
+    SelfSignedProof? proof,
+  }) {
+    return ReservationContent(
+      start: start ?? this.start,
+      end: end ?? this.end,
+      cancelled: cancelled ?? this.cancelled,
+      proof: proof ?? this.proof,
+    );
   }
 
   static ReservationContent fromJson(Map<String, dynamic> json) {
@@ -235,7 +242,6 @@ class ReservationContent extends EventContent {
     return ReservationContent(
         start: DateTime.parse(json["start"]),
         end: DateTime.parse(json["end"]),
-        commitmentHash: json["guestCommitmentHash"] ?? '',
         proof: json["proof"] != null
             ? SelfSignedProof.fromJson(json["proof"])
             : null,

@@ -85,10 +85,10 @@ class EditReviewController extends UpsertFormController {
           content: reviewController.text,
           proof: ParticipationProof(salt: salt!),
         ),
-        tags: [
+        tags: ReviewTags([
           [kListingRefTag, listing.anchor!],
           [kReservationRefTag, '1234'],
-        ],
+        ]),
       ),
     );
   }

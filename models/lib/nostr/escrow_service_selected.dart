@@ -4,10 +4,18 @@ import 'dart:core';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-class EscrowServiceSelected
-    extends JsonContentNostrEvent<EscrowServiceSelectedContent>
-    with ReferencesListing<ReservationRequest> {
+class EscrowServiceSelectedTags extends EventTags
+    with ReferencesListing<EscrowServiceSelectedTags> {
+  EscrowServiceSelectedTags(super.tags);
+}
+
+class EscrowServiceSelected extends JsonContentNostrEvent<
+    EscrowServiceSelectedContent, EscrowServiceSelectedTags> {
   static const List<int> kinds = [kNostrKindEscrowServiceSelected];
+  static final EventTagsParser<EscrowServiceSelectedTags> _tagParser =
+      EscrowServiceSelectedTags.new;
+  static final EventContentParser<EscrowServiceSelectedContent> _contentParser =
+      EscrowServiceSelectedContent.fromJson;
   static const requiredTags = [];
   EscrowServiceSelected(
       {required super.pubKey,
@@ -16,11 +24,17 @@ class EscrowServiceSelected
       super.createdAt,
       super.id,
       super.sig})
-      : super(kind: kNostrKindEscrowServiceSelected);
+      : super(
+            kind: kNostrKindEscrowServiceSelected,
+            tagParser: _tagParser,
+            contentParser: _contentParser);
 
-  EscrowServiceSelected.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
-    parsedContent = EscrowServiceSelectedContent.fromJson(json.decode(content));
-  }
+  EscrowServiceSelected.fromNostrEvent(Nip01Event e)
+      : super.fromNostrEvent(
+          e,
+          tagParser: _tagParser,
+          contentParser: _contentParser,
+        );
 }
 
 class EscrowServiceSelectedContent extends EventContent {

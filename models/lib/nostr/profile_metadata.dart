@@ -4,8 +4,10 @@ import 'event.dart';
 
 class ProfileMetadata extends Event {
   static const List<int> kinds = [Metadata.kKind];
+  static final EventTagsParser<EventTags> _tagParser = EventTags.new;
 
-  ProfileMetadata.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e);
+  ProfileMetadata.fromNostrEvent(Nip01Event e)
+      : super.fromNostrEvent(e, tagParser: _tagParser);
 
   Metadata get metadata => Metadata.fromEvent(this);
 

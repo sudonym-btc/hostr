@@ -1,16 +1,13 @@
-import 'dart:convert';
 import 'dart:core';
 
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-import '../amount.dart';
-import '../nostr_kinds.dart';
-import '../price.dart';
-import 'reservation.dart';
-import 'type_json_content.dart';
-
-class Listing extends JsonContentNostrEvent<ListingContent> {
+class Listing extends JsonContentNostrEvent<ListingContent, EventTags> {
   static const List<int> kinds = [kNostrKindListing];
+  static final EventTagsParser<EventTags> _tagParser = EventTags.new;
+  static final EventContentParser<ListingContent> _contentParser =
+      ListingContent.fromJson;
 
   Listing(
       {required super.pubKey,
@@ -19,11 +16,17 @@ class Listing extends JsonContentNostrEvent<ListingContent> {
       super.createdAt,
       super.id,
       super.sig})
-      : super(kind: kNostrKindListing);
+      : super(
+            kind: kNostrKindListing,
+            tagParser: _tagParser,
+            contentParser: _contentParser);
 
-  Listing.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
-    parsedContent = ListingContent.fromJson(json.decode(content));
-  }
+  Listing.fromNostrEvent(Nip01Event e)
+      : super.fromNostrEvent(
+          e,
+          tagParser: _tagParser,
+          contentParser: _contentParser,
+        );
 
   static bool isAvailable(
     DateTime start,

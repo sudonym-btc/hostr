@@ -36,9 +36,7 @@ class ThreadSubscriptions {
       _allListingReservationsStream ??= reservations.subscribe(
         Filter(
           tags: {
-            kListingRefTag: [
-              MessagingListings.getThreadListing(thread: thread),
-            ],
+            kListingRefTag: [thread.getListingAnchor()],
           },
         ),
       );
@@ -47,10 +45,8 @@ class ThreadSubscriptions {
       _reservationStream ??= reservations.subscribe(
         Filter(
           tags: {
-            kListingRefTag: [
-              MessagingListings.getThreadListing(thread: thread),
-            ],
-            kThreadRefTag: [thread.anchor],
+            kListingRefTag: [thread.getListingAnchor()],
+            kCommitmentHashTag: [thread.anchor],
           },
         ),
       );

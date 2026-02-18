@@ -11,8 +11,10 @@ import 'event.dart';
 /// Awards are immutable and non-transferable per NIP-58
 class BadgeAward extends Event {
   static const List<int> kinds = [kNostrKindBadgeAward];
+  static final EventTagsParser<EventTags> _tagParser = EventTags.new;
 
-  BadgeAward.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e);
+  BadgeAward.fromNostrEvent(Nip01Event e)
+      : super.fromNostrEvent(e, tagParser: _tagParser);
 
   /// Get the badge definition anchor (kind:pubkey:d)
   String? get badgeDefinitionAnchor => getFirstTag('a');

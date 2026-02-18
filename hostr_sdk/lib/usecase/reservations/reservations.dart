@@ -63,25 +63,25 @@ class Reservations extends CrudUseCase<Reservation> {
         >{};
 
     for (final reservation in reservations) {
-      final threadAnchor = reservation.threadAnchor;
-      final thread = messaging.threads.threads[threadAnchor];
+      final thread =
+          messaging.threads.threads[reservation.parsedTags.commitmentHash];
       if (thread == null) continue;
 
       final sellerPubKey = getPubKeyFromAnchor(
-        thread.state.value.lastReservationRequest.listingAnchor,
+        thread.state.value.lastReservationRequest.parsedTags.listingAnchor,
       );
 
       final current =
-          temp[threadAnchor] ??
+          temp[reservation.parsedTags.commitmentHash] ??
           (sellerReservation: null, buyerReservation: null);
 
       if (reservation.pubKey == sellerPubKey) {
-        temp[threadAnchor] = (
+        temp[reservation.parsedTags.commitmentHash] = (
           sellerReservation: reservation,
           buyerReservation: current.buyerReservation,
         );
       } else {
-        temp[threadAnchor] = (
+        temp[reservation.parsedTags.commitmentHash] = (
           sellerReservation: current.sellerReservation,
           buyerReservation: reservation,
         );
@@ -108,12 +108,12 @@ class Reservations extends CrudUseCase<Reservation> {
             'Processing reservation request: $reservationRequest, ${reservationRequest.getFirstTag('a')}',
           );
           final reservations = await getListingReservations(
-            listingAnchor: reservationRequest.listingAnchor,
+            listingAnchor: reservationRequest.parsedTags.listingAnchor,
           );
           logger.d('Found reservations: $reservations');
           return reservations.firstWhere(
             (reservation) =>
-                reservation.commitmentHash ==
+                reservation.parsedTags.commitmentHash ==
                 ParticipationProof.computeCommitmentHash(
                   auth.activeKeyPair!.publicKey,
                   reservationRequest.parsedContent.salt,
@@ -138,17 +138,20 @@ class Reservations extends CrudUseCase<Reservation> {
     String guestPubkey,
   ) {
     final reservation = Reservation(
-      tags: [
-        ['a', request.listingAnchor],
-        ['a', message.threadAnchor],
-      ],
+      tags: ReservationTags([
+        [kListingRefTag, request.parsedTags.listingAnchor],
+        [kThreadRefTag, message.parsedTags.threadAnchor],
+        [
+          kCommitmentHashTag,
+          ParticipationProof.computeCommitmentHash(
+            guestPubkey,
+            request.parsedContent.salt,
+          ),
+        ],
+      ]),
       content: ReservationContent(
         start: request.parsedContent.start,
         end: request.parsedContent.end,
-        commitmentHash: ParticipationProof.computeCommitmentHash(
-          guestPubkey,
-          request.parsedContent.salt,
-        ),
       ),
       pubKey: auth.activeKeyPair!.publicKey,
     );
@@ -157,7 +160,6 @@ class Reservations extends CrudUseCase<Reservation> {
   }
 
   Future<Reservation> createSelfSigned({
-    required String threadId,
     required ReservationRequest reservationRequest,
     required SelfSignedProof proof,
   }) async {
@@ -172,19 +174,61 @@ class Reservations extends CrudUseCase<Reservation> {
       content: ReservationContent(
         start: reservationRequest.parsedContent.start,
         end: reservationRequest.parsedContent.end,
-        commitmentHash: commitment,
         proof: proof,
       ),
       pubKey: randomKeyPair.publicKey,
-      tags: [
+      tags: ReservationTags([
         [kListingRefTag, proof.listing.anchor!],
-        [kThreadRefTag, threadId],
         [kCommitmentHashTag, commitment],
-      ],
+      ]),
     );
 
     await create(reservation.signAs(randomKeyPair, Reservation.fromNostrEvent));
     logger.d(reservation);
+    return reservation;
+  }
+
+  Future<Reservation> cancel(Reservation reservation) async {
+    if (reservation.parsedContent.cancelled) {
+      throw Exception('Reservation is already cancelled');
+    }
+    final updated = reservation.copy(
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      id: null,
+      content: reservation.parsedContent.copyWith(cancelled: true),
+      pubKey: null,
+    );
+    logger.d('Cancelling reservation: $updated');
+    await update(updated);
+    return updated;
+  }
+
+  Future<Reservation> createBlocked({
+    required String listingAnchor,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final reservation = Reservation(
+      content: ReservationContent(start: start, end: end),
+      pubKey: auth.activeKeyPair!.publicKey,
+      tags: ReservationTags([
+        [kListingRefTag, listingAnchor],
+        [
+          kCommitmentHashTag,
+          ParticipationProof.computeCommitmentHash(
+            auth.activeKeyPair!.publicKey,
+            Reservation.getSaltForBlockedReservation(
+              start: start,
+              end: end,
+              hostKey: auth.activeKeyPair!,
+            ),
+          ),
+        ],
+      ]),
+    );
+
+    await create(reservation);
+    logger.d('Created blocked reservation: $reservation');
     return reservation;
   }
 

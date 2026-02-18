@@ -136,15 +136,11 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 
     try {
       final tempKeyPair = Bip340.generatePrivateKey();
-      final cancelledReservation = latest
-          .copyWithContent(cancelled: true)
-          .copyWith(
-            pubKey: tempKeyPair.publicKey,
-            createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-            id: null,
-            validSig: false,
-            sig: null,
-          );
+      final cancelledReservation = latest.copy(
+        pubKey: tempKeyPair.publicKey,
+        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        content: latest.parsedContent.copyWith(cancelled: true),
+      );
 
       final signed = cancelledReservation.signAs(
         tempKeyPair,

@@ -64,7 +64,9 @@ class DefaultEntityProvider<Type extends Event>
           EntityCubit<Type>(
               filter: Filter(
                 kinds: kinds,
-                authors: pubkey != null ? [pubkey!] : null,
+                authors: pubkey != null
+                    ? [pubkey!]
+                    : (a != null ? [getPubKeyFromAnchor(a!)] : null),
                 dTags: a != null ? [getDTagFromAnchor(a!)] : null,
                 eTags: e != null ? [e!] : null,
               ),

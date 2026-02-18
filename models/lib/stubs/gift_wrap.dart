@@ -80,28 +80,28 @@ Future<List<Nip01Event>> createMockGiftWraps(
 /// Legacy mock events for reservation requests
 
 Message hostInvitesGuest = Message(
-        pubKey: MockKeys.hoster.publicKey,
-        tags: [
-          [
-            'p',
-            MockKeys.guest.publicKey,
-          ]
-        ],
-        createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-        child: hostInvitesGuestReservationRequest)
-    .setThreadAnchor(hostInvitesGuestReservationRequest.anchor);
+    pubKey: MockKeys.hoster.publicKey,
+    tags: MessageTags([
+      [
+        'p',
+        MockKeys.guest.publicKey,
+      ],
+      [kThreadRefTag, hostInvitesGuestReservationRequest.anchor!],
+    ]),
+    createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
+    child: hostInvitesGuestReservationRequest);
 
 Message guestRequest = Message(
-        pubKey: MockKeys.guest.publicKey,
-        tags: [
-          [
-            'p',
-            MockKeys.hoster.publicKey,
-          ]
-        ],
-        createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
-        child: guestInvitesHostReservationRequest)
-    .setThreadAnchor(guestInvitesHostReservationRequest.anchor);
+    pubKey: MockKeys.guest.publicKey,
+    tags: MessageTags([
+      [
+        'p',
+        MockKeys.hoster.publicKey,
+      ],
+      [kThreadRefTag, guestInvitesHostReservationRequest.anchor!],
+    ]),
+    createdAt: DateTime(2026).millisecondsSinceEpoch ~/ 1000,
+    child: guestInvitesHostReservationRequest);
 
 Future<List<Nip01Event>> MOCK_GIFT_WRAPS() async => [
       ...(await createMockGiftWraps(

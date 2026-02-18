@@ -45,11 +45,11 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
       await getIt<Hostr>()
           .messaging
           .threads
-          .threads[reservationRequest.anchor!]!
+          .threads[reservationRequest.getDtag()!]!
           .replyEvent(
             EscrowServiceSelected(
               pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-              tags: [],
+              tags: EscrowServiceSelectedTags([]),
               content: EscrowServiceSelectedContent(
                 service: loadedState.selectedEscrow,
                 sellerTrusts: loadedState.result.hostTrust,

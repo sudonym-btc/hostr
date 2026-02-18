@@ -8,8 +8,10 @@ import '../stubs/keypairs.dart';
 
 class EscrowMethod extends Event {
   static const List<int> kinds = [kNostrKindEscrowMethod];
+  static final EventTagsParser<EventTags> _tagParser = EventTags.new;
 
-  EscrowMethod.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e);
+  EscrowMethod.fromNostrEvent(Nip01Event e)
+      : super.fromNostrEvent(e, tagParser: _tagParser);
 
   Future<Nip51List> toNip51List() async {
     return Nip51List.fromEvent(

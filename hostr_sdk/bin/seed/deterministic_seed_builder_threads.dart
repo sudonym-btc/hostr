@@ -36,10 +36,10 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
 
         final request = ReservationRequest(
           pubKey: guest.keyPair.publicKey,
-          tags: [
+          tags: ReservationRequestTags([
             [kListingRefTag, listing.anchor!],
             ['d', 'seed-rr-$threadIndex'],
-          ],
+          ]),
           createdAt: _timestampDaysAfter(30 + threadIndex),
           content: ReservationRequestContent(
             start: start,
@@ -108,20 +108,15 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
 
         final reservation = Reservation(
           pubKey: guest.keyPair.publicKey,
-          tags: [
+          tags: ReservationTags([
             [kListingRefTag, listing.anchor!],
             [kThreadRefTag, request.anchor!],
             ['d', 'seed-rsv-$threadIndex'],
-            ['guestCommitmentHash', commitmentHash],
+            [kCommitmentHashTag, commitmentHash],
             if (escrowOutcome != null) ['escrowOutcome', escrowOutcome.name],
-          ],
+          ]),
           createdAt: _timestampDaysAfter(31 + threadIndex),
-          content: ReservationContent(
-            start: start,
-            end: end,
-            commitmentHash: commitmentHash,
-            proof: proof,
-          ),
+          content: ReservationContent(start: start, end: end, proof: proof),
         ).signAs(guest.keyPair, Reservation.fromNostrEvent);
 
         threads.add(
@@ -297,11 +292,11 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
 
       final review = Review(
         pubKey: thread.guest.keyPair.publicKey,
-        tags: [
+        tags: ReviewTags([
           [kReservationRefTag, thread.reservation.anchor!],
           [kListingRefTag, thread.listing.anchor!],
           ['d', 'seed-review-${i + 1}'],
-        ],
+        ]),
         createdAt: _timestampDaysAfter(90 + i),
         content: ReviewContent(
           rating: 3 + _random.nextInt(3),

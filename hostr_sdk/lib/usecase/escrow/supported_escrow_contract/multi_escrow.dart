@@ -56,6 +56,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   Future<TransactionInformation> deposit(
     ContractFundEscrowParams params,
   ) async {
+    await _ensureContractDeployed();
     String transactionHash = await _withDecodedCustomError(() {
       return contract.createTrade(
         depositArgs(params),
@@ -70,6 +71,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   @override
   Future<bool> canClaim(ContractClaimEscrowParams params) async {
+    await _ensureContractDeployed();
     final activeTrade = await _withDecodedCustomError(() {
       return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
     });
@@ -97,6 +99,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   @override
   Future<TransactionInformation> claim(ContractClaimEscrowParams params) async {
+    await _ensureContractDeployed();
     final transactionHash = await _withDecodedCustomError(() {
       return contract.claim((
         tradeId: getBytes32(params.tradeId),
@@ -107,6 +110,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   @override
   arbitrate(ContractArbitrateParams params) async {
+    await _ensureContractDeployed();
     return await _withDecodedCustomError(() {
       return contract.arbitrate(
         arbitrateArgs(params),
@@ -176,7 +180,9 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     ContractEventsParams params,
     EscrowServiceSelected? selectedEscrow,
   ) {
-    logger.d('Subscribing to events for : $params');
+    logger.d(
+      'Subscribing to events for trade id at address: ${params.tradeId}, ${contract.self.address}',
+    );
     final List<String> eventNames = [
       'TradeCreated',
       'Arbitrated',
@@ -184,6 +190,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       'ReleasedToCounterparty',
     ];
     final Map<String, String> eventToSignature = {};
+
     for (final e in eventNames) {
       final event = contract.self.events.firstWhere((x) => x.name == e);
       eventToSignature[e] = bytesToHex(
@@ -275,35 +282,50 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     }
 
     return StreamWithStatus<EscrowEvent>(
-      queryFn: () => contract.client
-          .getLogs(eventFilter)
-          .then((logs) {
+      queryFn: () => _ensureContractDeployed()
+          .then((_) => contract.client.getLogs(eventFilter))
+          .asStream()
+          .map((logs) {
+            print('Fetched ${logs.length} logs for filter: $eventFilter');
             logStore.addAll(logs);
             return logs;
           })
-          .asStream()
           .asyncExpand((logs) => Stream.fromIterable(logs))
           .where((log) => log.transactionHash != null)
           .asyncMap(mapper),
-      liveFn: () => contract.client
-          .events(
-            FilterOptions(
-              address: eventFilter.address,
-              topics: eventFilter.topics,
-              fromBlock: logStore.isEmpty
-                  ? BlockNum.current()
-                  : BlockNum.exact(
-                      logStore
-                              .where((e) => e.blockNum != null)
-                              .map((e) => e.blockNum!.toInt())
-                              .reduce(max) +
-                          1,
-                    ),
+      liveFn: () => _ensureContractDeployed()
+          .asStream()
+          .asyncExpand(
+            (_) => contract.client.events(
+              FilterOptions(
+                address: eventFilter.address,
+                topics: eventFilter.topics,
+                fromBlock: logStore.isEmpty
+                    ? BlockNum.current()
+                    : BlockNum.exact(
+                        logStore
+                                .where((e) => e.blockNum != null)
+                                .map((e) => e.blockNum!.toInt())
+                                .reduce(max) +
+                            1,
+                      ),
+              ),
             ),
           )
           .where((log) => log.transactionHash != null)
           .asyncMap(mapper),
     );
+  }
+
+  Future<void> _ensureContractDeployed() async {
+    final code = await contract.client.getCode(contract.self.address);
+    if (code.isEmpty) {
+      throw StateError(
+        'Escrow contract not deployed at ${contract.self.address}. '
+        'This address appears to be an EOA or empty address. '
+        'Funding can succeed with no logs in that case because no contract code executes.',
+      );
+    }
   }
 
   @override

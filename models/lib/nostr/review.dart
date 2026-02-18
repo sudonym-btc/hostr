@@ -4,13 +4,16 @@ import 'dart:core';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/nip_01_event.dart';
 
-class Review extends JsonContentNostrEvent<ReviewContent>
-    with ReferencesListing<Review>, ReferencesReservation<Review> {
+class ReviewTags extends EventTags
+    with ReferencesListing<ReviewTags>, ReferencesReservation<ReviewTags> {
+  ReviewTags(super.tags);
+}
+
+class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
   static const List<int> kinds = [kNostrKindReview];
-  static const requiredTags = [
-    [kReservationRefTag],
-    [kListingRefTag]
-  ];
+  static final EventTagsParser<ReviewTags> _tagParser = ReviewTags.new;
+  static final EventContentParser<ReviewContent> _contentParser =
+      ReviewContent.fromJson;
 
   Review(
       {required super.pubKey,
@@ -19,13 +22,17 @@ class Review extends JsonContentNostrEvent<ReviewContent>
       super.createdAt,
       super.id,
       super.sig})
-      : super(kind: kNostrKindReview);
+      : super(
+            kind: kNostrKindReview,
+            tagParser: _tagParser,
+            contentParser: _contentParser);
 
   Review.fromNostrEvent(Nip01Event e)
-      : assert(hasRequiredTags(e.tags, Review.requiredTags)),
-        super.fromNostrEvent(e) {
-    parsedContent = ReviewContent.fromJson(json.decode(content));
-  }
+      : super.fromNostrEvent(
+          e,
+          tagParser: _tagParser,
+          contentParser: _contentParser,
+        );
 
   /// Validate that a review's proof matches the reservation's guest commitment
   ///
@@ -40,8 +47,7 @@ class Review extends JsonContentNostrEvent<ReviewContent>
     String reviewerPubKey,
     ParticipationProof proof,
   ) {
-    return proof.verify(
-        reviewerPubKey, reservation.parsedContent.commitmentHash);
+    return proof.verify(reviewerPubKey, reservation.parsedTags.commitmentHash);
   }
 }
 

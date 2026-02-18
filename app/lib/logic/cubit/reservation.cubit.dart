@@ -47,7 +47,7 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
       await hostr.messaging.broadcastEventAndWait(
         event: result,
         tags: [
-          [kThreadRefTag, result.anchor!],
+          [kThreadRefTag, result.getDtag()!],
         ],
         recipientPubkeys: [listing.pubKey],
       );

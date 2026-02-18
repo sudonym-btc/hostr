@@ -11,10 +11,10 @@ var MOCK_REVIEWS = [
         salt: guestInvitesHostReservationRequest.parsedContent.salt,
       ),
     ),
-    tags: [
+    tags: ReviewTags([
       [kListingRefTag, MOCK_LISTINGS[0].anchor!],
       [kReservationRefTag, MOCK_RESERVATIONS[0].anchor!],
-    ],
+    ]),
     createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
   ).signAs(MockKeys.guest, Review.fromNostrEvent)
 ].toList();

@@ -19,13 +19,7 @@ class RelaySeeder {
   }) async {
     print('Seeding $relayUrl...');
     final contractAddress = await _resolveDeployedMultiEscrowAddress();
-    if (contractAddress != null && contractAddress.isNotEmpty) {
-      print('Using contract address: $contractAddress');
-    } else {
-      print(
-        'No MultiEscrow deployment found in ignition artifacts. Falling back to default mock contract address.',
-      );
-    }
+    print('Using contract address: $contractAddress');
 
     if (fundProfiles) {
       await _fundMockProfiles(
@@ -42,11 +36,7 @@ class RelaySeeder {
         bootstrapRelays: [relayUrl],
       ),
     );
-    final mocked = await MOCK_EVENTS(
-      contractAddress: contractAddress != null && contractAddress.isNotEmpty
-          ? contractAddress
-          : null,
-    );
+    final mocked = await MOCK_EVENTS(contractAddress: contractAddress);
     final events = deterministicConfig == null
         ? mocked
         : [
@@ -106,7 +96,7 @@ class RelaySeeder {
     ).build();
   }
 
-  Future<String?> _resolveDeployedMultiEscrowAddress() async {
+  Future<String> _resolveDeployedMultiEscrowAddress() async {
     final deploymentFiles = _candidateDeploymentFiles();
 
     final addressRegex = RegExp(r'^0x[a-fA-F0-9]{40}$');
@@ -146,7 +136,9 @@ class RelaySeeder {
       }
     }
 
-    return null;
+    throw Exception(
+      'No deployed multi-escrow contract address found in candidate files: ${deploymentFiles.map((f) => f.path).join(', ')}',
+    );
   }
 
   List<File> _candidateDeploymentFiles() {
@@ -222,6 +214,7 @@ class RelaySeeder {
     if (deterministicConfig != null) {
       final deterministicUsers = DeterministicSeedBuilder(
         config: deterministicConfig.validated(),
+        contractAddress: await _resolveDeployedMultiEscrowAddress(),
       ).deriveUsers();
 
       privateKeys.addAll(

@@ -218,7 +218,7 @@ class _FakeNip01Event_33 extends _i1.SmartFake implements _i2.Nip01Event {
     : super(parent, parentInvocation);
 }
 
-class _FakeMessage_34<T extends _i8.Event> extends _i1.SmartFake
+class _FakeMessage_34<T extends _i8.Event<_i8.EventTags>> extends _i1.SmartFake
     implements _i8.Message<T> {
   _FakeMessage_34(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
@@ -617,9 +617,9 @@ class MockMetadataUseCase extends _i1.Mock implements _i7.MetadataUseCase {
           as _i12.Future<_i8.ProfileMetadata?>);
 
   @override
-  _i12.Future<_i8.ProfileMetadata?> getOneByDTag(String? d) =>
+  _i12.Future<_i8.ProfileMetadata?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
-            Invocation.method(#getOneByDTag, [d]),
+            Invocation.method(#getOneByAnchor, [anchor]),
             returnValue: _i12.Future<_i8.ProfileMetadata?>.value(),
           )
           as _i12.Future<_i8.ProfileMetadata?>);
@@ -1040,9 +1040,9 @@ class MockListings extends _i1.Mock implements _i7.Listings {
           as _i12.Future<_i8.Listing?>);
 
   @override
-  _i12.Future<_i8.Listing?> getOneByDTag(String? d) =>
+  _i12.Future<_i8.Listing?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
-            Invocation.method(#getOneByDTag, [d]),
+            Invocation.method(#getOneByAnchor, [anchor]),
             returnValue: _i12.Future<_i8.Listing?>.value(),
           )
           as _i12.Future<_i8.Listing?>);
@@ -1162,7 +1162,7 @@ class MockReservations extends _i1.Mock implements _i7.Reservations {
 
   @override
   _i12.Future<List<_i13.RelayBroadcastResponse>> accept(
-    _i8.Message<_i8.Event>? message,
+    _i8.Message<_i8.Event<_i8.EventTags>>? message,
     _i8.ReservationRequest? request,
     String? guestPubkey,
   ) =>
@@ -1193,6 +1193,44 @@ class MockReservations extends _i1.Mock implements _i7.Reservations {
                   #threadId: threadId,
                   #reservationRequest: reservationRequest,
                   #proof: proof,
+                }),
+              ),
+            ),
+          )
+          as _i12.Future<_i8.Reservation>);
+
+  @override
+  _i12.Future<_i8.Reservation> cancel(_i8.Reservation? reservation) =>
+      (super.noSuchMethod(
+            Invocation.method(#cancel, [reservation]),
+            returnValue: _i12.Future<_i8.Reservation>.value(
+              _FakeReservation_19(
+                this,
+                Invocation.method(#cancel, [reservation]),
+              ),
+            ),
+          )
+          as _i12.Future<_i8.Reservation>);
+
+  @override
+  _i12.Future<_i8.Reservation> createBlocked({
+    required String? listingAnchor,
+    required DateTime? start,
+    required DateTime? end,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createBlocked, [], {
+              #listingAnchor: listingAnchor,
+              #start: start,
+              #end: end,
+            }),
+            returnValue: _i12.Future<_i8.Reservation>.value(
+              _FakeReservation_19(
+                this,
+                Invocation.method(#createBlocked, [], {
+                  #listingAnchor: listingAnchor,
+                  #start: start,
+                  #end: end,
                 }),
               ),
             ),
@@ -1271,9 +1309,9 @@ class MockReservations extends _i1.Mock implements _i7.Reservations {
           as _i12.Future<_i8.Reservation?>);
 
   @override
-  _i12.Future<_i8.Reservation?> getOneByDTag(String? d) =>
+  _i12.Future<_i8.Reservation?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
-            Invocation.method(#getOneByDTag, [d]),
+            Invocation.method(#getOneByAnchor, [anchor]),
             returnValue: _i12.Future<_i8.Reservation?>.value(),
           )
           as _i12.Future<_i8.Reservation?>);
@@ -1529,9 +1567,9 @@ class MockEscrows extends _i1.Mock implements _i7.Escrows {
           as _i12.Future<_i8.EscrowService?>);
 
   @override
-  _i12.Future<_i8.EscrowService?> getOneByDTag(String? d) =>
+  _i12.Future<_i8.EscrowService?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
-            Invocation.method(#getOneByDTag, [d]),
+            Invocation.method(#getOneByAnchor, [anchor]),
             returnValue: _i12.Future<_i8.EscrowService?>.value(),
           )
           as _i12.Future<_i8.EscrowService?>);
@@ -1673,9 +1711,9 @@ class MockEscrowTrusts extends _i1.Mock implements _i7.EscrowTrusts {
           as _i12.Future<_i8.EscrowTrust?>);
 
   @override
-  _i12.Future<_i8.EscrowTrust?> getOneByDTag(String? d) =>
+  _i12.Future<_i8.EscrowTrust?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
-            Invocation.method(#getOneByDTag, [d]),
+            Invocation.method(#getOneByAnchor, [anchor]),
             returnValue: _i12.Future<_i8.EscrowTrust?>.value(),
           )
           as _i12.Future<_i8.EscrowTrust?>);
@@ -1793,9 +1831,9 @@ class MockEscrowMethods extends _i1.Mock implements _i7.EscrowMethods {
           as _i12.Future<_i8.EscrowMethod?>);
 
   @override
-  _i12.Future<_i8.EscrowMethod?> getOneByDTag(String? d) =>
+  _i12.Future<_i8.EscrowMethod?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
-            Invocation.method(#getOneByDTag, [d]),
+            Invocation.method(#getOneByAnchor, [anchor]),
             returnValue: _i12.Future<_i8.EscrowMethod?>.value(),
           )
           as _i12.Future<_i8.EscrowMethod?>);
@@ -1913,9 +1951,9 @@ class MockBadgeDefinitions extends _i1.Mock implements _i7.BadgeDefinitions {
           as _i12.Future<_i8.BadgeDefinition?>);
 
   @override
-  _i12.Future<_i8.BadgeDefinition?> getOneByDTag(String? d) =>
+  _i12.Future<_i8.BadgeDefinition?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
-            Invocation.method(#getOneByDTag, [d]),
+            Invocation.method(#getOneByAnchor, [anchor]),
             returnValue: _i12.Future<_i8.BadgeDefinition?>.value(),
           )
           as _i12.Future<_i8.BadgeDefinition?>);
@@ -2033,9 +2071,9 @@ class MockBadgeAwards extends _i1.Mock implements _i7.BadgeAwards {
           as _i12.Future<_i8.BadgeAward?>);
 
   @override
-  _i12.Future<_i8.BadgeAward?> getOneByDTag(String? d) =>
+  _i12.Future<_i8.BadgeAward?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
-            Invocation.method(#getOneByDTag, [d]),
+            Invocation.method(#getOneByAnchor, [anchor]),
             returnValue: _i12.Future<_i8.BadgeAward?>.value(),
           )
           as _i12.Future<_i8.BadgeAward?>);
@@ -2121,7 +2159,7 @@ class MockMessaging extends _i1.Mock implements _i7.Messaging {
           as _i12.Future<_i2.Nip01Event>);
 
   @override
-  _i12.Future<_i8.Message<_i8.Event>> broadcastTextAndAwait({
+  _i12.Future<_i8.Message<_i8.Event<_i8.EventTags>>> broadcastTextAndAwait({
     required String? content,
     required List<List<String>>? tags,
     required List<String>? recipientPubkeys,
@@ -2132,18 +2170,19 @@ class MockMessaging extends _i1.Mock implements _i7.Messaging {
               #tags: tags,
               #recipientPubkeys: recipientPubkeys,
             }),
-            returnValue: _i12.Future<_i8.Message<_i8.Event>>.value(
-              _FakeMessage_34<_i8.Event>(
-                this,
-                Invocation.method(#broadcastTextAndAwait, [], {
-                  #content: content,
-                  #tags: tags,
-                  #recipientPubkeys: recipientPubkeys,
-                }),
-              ),
-            ),
+            returnValue:
+                _i12.Future<_i8.Message<_i8.Event<_i8.EventTags>>>.value(
+                  _FakeMessage_34<_i8.Event<_i8.EventTags>>(
+                    this,
+                    Invocation.method(#broadcastTextAndAwait, [], {
+                      #content: content,
+                      #tags: tags,
+                      #recipientPubkeys: recipientPubkeys,
+                    }),
+                  ),
+                ),
           )
-          as _i12.Future<_i8.Message<_i8.Event>>);
+          as _i12.Future<_i8.Message<_i8.Event<_i8.EventTags>>>);
 
   @override
   _i12.Future<List<_i12.Future<List<_i13.RelayBroadcastResponse>>>>
@@ -2166,7 +2205,7 @@ class MockMessaging extends _i1.Mock implements _i7.Messaging {
           as _i12.Future<List<_i12.Future<List<_i13.RelayBroadcastResponse>>>>);
 
   @override
-  _i12.Future<_i8.Message<_i8.Event>> broadcastEventAndWait({
+  _i12.Future<_i8.Message<_i8.Event<_i8.EventTags>>> broadcastEventAndWait({
     required _i2.Nip01Event? event,
     required List<List<String>>? tags,
     required List<String>? recipientPubkeys,
@@ -2177,18 +2216,19 @@ class MockMessaging extends _i1.Mock implements _i7.Messaging {
               #tags: tags,
               #recipientPubkeys: recipientPubkeys,
             }),
-            returnValue: _i12.Future<_i8.Message<_i8.Event>>.value(
-              _FakeMessage_34<_i8.Event>(
-                this,
-                Invocation.method(#broadcastEventAndWait, [], {
-                  #event: event,
-                  #tags: tags,
-                  #recipientPubkeys: recipientPubkeys,
-                }),
-              ),
-            ),
+            returnValue:
+                _i12.Future<_i8.Message<_i8.Event<_i8.EventTags>>>.value(
+                  _FakeMessage_34<_i8.Event<_i8.EventTags>>(
+                    this,
+                    Invocation.method(#broadcastEventAndWait, [], {
+                      #event: event,
+                      #tags: tags,
+                      #recipientPubkeys: recipientPubkeys,
+                    }),
+                  ),
+                ),
           )
-          as _i12.Future<_i8.Message<_i8.Event>>);
+          as _i12.Future<_i8.Message<_i8.Event<_i8.EventTags>>>);
 
   @override
   _i12.Future<List<_i12.Future<List<_i13.RelayBroadcastResponse>>>>
@@ -2227,6 +2267,14 @@ class MockReservationRequests extends _i1.Mock
             returnValue: _FakeNdk_0(this, Invocation.getter(#ndk)),
           )
           as _i2.Ndk);
+
+  @override
+  _i7.Auth get auth =>
+      (super.noSuchMethod(
+            Invocation.getter(#auth),
+            returnValue: _FakeAuth_5(this, Invocation.getter(#auth)),
+          )
+          as _i7.Auth);
 
   @override
   _i6.CustomLogger get logger =>
@@ -2342,9 +2390,9 @@ class MockReservationRequests extends _i1.Mock
           as _i12.Future<_i2.Nip01Event?>);
 
   @override
-  _i12.Future<_i2.Nip01Event?> getOneByDTag(String? d) =>
+  _i12.Future<_i2.Nip01Event?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
-            Invocation.method(#getOneByDTag, [d]),
+            Invocation.method(#getOneByAnchor, [anchor]),
             returnValue: _i12.Future<_i2.Nip01Event?>.value(),
           )
           as _i12.Future<_i2.Nip01Event?>);

@@ -8,12 +8,13 @@ import '../nostr_parser.dart';
 import 'event.dart';
 import 'type_parent.dart';
 
-class Message<T extends Event> extends ParentTypeNostrEvent
-    with ReferencesThread<Message<T>> {
+class MessageTags extends EventTags with ReferencesThread<MessageTags> {
+  MessageTags(super.tags);
+}
+
+class Message<T extends Event> extends ParentTypeNostrEvent<T, MessageTags> {
   static const List<int> kinds = [kNostrKindDM];
-  static const requiredTags = [
-    [kThreadRefTag],
-  ];
+  static final EventTagsParser<MessageTags> _tagParser = MessageTags.new;
 
   Message(
       {required super.pubKey,
@@ -25,12 +26,13 @@ class Message<T extends Event> extends ParentTypeNostrEvent
       super.sig})
       : super(
           kind: kNostrKindDM,
+          tagParser: _tagParser,
         );
 
   Message.fromNostrEvent(Nip01Event e, T? child)
-      : assert(hasRequiredTags(e.tags, Message.requiredTags)),
-        super.fromNostrEvent(
+      : super.fromNostrEvent(
           e,
+          tagParser: _tagParser,
           child: child,
         );
 

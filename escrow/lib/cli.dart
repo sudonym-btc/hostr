@@ -39,7 +39,7 @@ void main(List<String> arguments) async {
 
   final ourEscrowService = EscrowService(
       pubKey: hostr.auth.activeKeyPair!.publicKey,
-      tags: [],
+      tags: EventTags([]),
       content: EscrowServiceContent(
           pubkey: hostr.auth.activeKeyPair!.publicKey,
           evmAddress: hostr.auth.getActiveEvmKey().address.eip55With0x,

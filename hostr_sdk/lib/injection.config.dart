@@ -179,13 +179,6 @@ extension GetItInjectableX on _i174.GetIt {
         params: params,
       ),
     );
-    gh.singleton<_i49.ReservationRequests>(
-      () => _i49.ReservationRequests(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        ndk: gh<_i857.Ndk>(),
-      ),
-    );
     gh.singleton<_i943.EscrowTrusts>(
       () => _i943.EscrowTrusts(
         requests: gh<_i1014.Requests>(),
@@ -228,6 +221,14 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
       registerFor: {_test, _mock},
+    );
+    gh.singleton<_i49.ReservationRequests>(
+      () => _i49.ReservationRequests(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        ndk: gh<_i857.Ndk>(),
+        auth: gh<_i1000.Auth>(),
+      ),
     );
     gh.factoryParam<_i378.Thread, String, dynamic>(
       (anchor, _) => _i378.Thread(

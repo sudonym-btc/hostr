@@ -2,6 +2,7 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01EventModel;
+import 'package:rxdart/rxdart.dart';
 
 class ThreadPaymentProofOrchestrator {
   final Thread thread;
@@ -18,31 +19,20 @@ class ThreadPaymentProofOrchestrator {
     required this.logger,
   });
 
-  bool _readyStatus(StreamStatus status) {
-    return status is StreamStatusLive || status is StreamStatusQueryComplete;
-  }
-
   Future<void> syncAndPublishProofs() async {
-    await subscriptions.state.firstWhere((state) {
-      return _readyStatus(state.paymentStreamStatus) &&
-          _readyStatus(state.reservationStreamStatus);
-    });
+    await subscriptions.reservationStream.status
+        .whereType<StreamStatusLive>()
+        .first;
 
     if (subscriptions.state.value.reservations.isNotEmpty) {
+      logger.d(
+        'Thread ${thread.anchor} already has reservations, skipping proof publication',
+      );
       return;
     }
 
-    PaymentFundedEvent? funded;
-    for (final event in subscriptions.state.value.paymentEvents) {
-      if (event is PaymentFundedEvent) {
-        funded = event;
-        break;
-      }
-    }
-
-    funded ??= await subscriptions.paymentEvents.stream
+    final funded = await subscriptions.paymentEvents.replay
         .where((event) => event is PaymentFundedEvent)
-        .cast<PaymentFundedEvent>()
         .first;
 
     final listing = await context.getListing();
@@ -73,7 +63,6 @@ class ThreadPaymentProofOrchestrator {
     );
 
     final reservation = await reservations.createSelfSigned(
-      threadId: thread.anchor,
       reservationRequest: thread.state.value.lastReservationRequest,
       proof: proof,
     );

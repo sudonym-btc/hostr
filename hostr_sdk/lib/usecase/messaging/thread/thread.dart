@@ -23,13 +23,22 @@ class Thread {
 
   final String anchor;
   final StreamWithStatus<Message> messages = StreamWithStatus<Message>();
-  String get tradeId => getDTagFromAnchor(anchor);
+  String get tradeId => anchor;
   String? get salt => messages.list.value
       .map((message) => message.child)
       .whereType<ReservationRequest>()
       .firstOrNull
       ?.parsedContent
       .salt;
+
+  String getListingAnchor() {
+    ReservationRequest? r =
+        (messages.list.value.firstWhere((element) {
+              return element.child is ReservationRequest;
+            }).child
+            as ReservationRequest);
+    return r.parsedTags.listingAnchor;
+  }
 
   Thread(
     @factoryParam this.anchor, {
@@ -40,7 +49,7 @@ class Thread {
          ThreadState.initial(
            ourPubkey: auth.activeKeyPair!.publicKey,
            anchor: anchor,
-           tradeId: getDTagFromAnchor(anchor),
+           tradeId: anchor,
          ),
        ) {
     context = ThreadContext(

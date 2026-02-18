@@ -10,7 +10,9 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-class ListingView extends StatelessWidget {
+import 'block_dates.dart';
+
+class ListingView extends StatefulWidget {
   final String a;
   final DateTimeRange? dateRange;
 
@@ -27,133 +29,253 @@ class ListingView extends StatelessWidget {
            : null;
 
   @override
+  State<ListingView> createState() => _ListingViewState();
+}
+
+class _ListingViewState extends State<ListingView> {
+  StreamWithStatus<Reservation>? _listingReservationsStream;
+
+  initState() {
+    print("LISTING ANCHOR: ${widget.a}");
+    _listingReservationsStream = getIt<Hostr>().reservations.subscribe(
+      Filter(
+        tags: {
+          kListingRefTag: [widget.a],
+        },
+      ),
+    );
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _listingReservationsStream?.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocProvider<DateRangeCubit>(
-      create: (context) => DateRangeCubit()..updateDateRange(dateRange),
+      create: (context) => DateRangeCubit()..updateDateRange(widget.dateRange),
       child: ListingProvider(
-        a: a,
+        a: widget.a,
         builder: (context, state) {
           if (state.data == null) {
             return Scaffold(body: Center(child: CircularProgressIndicator()));
           }
-          return Scaffold(
-            bottomNavigationBar: BottomAppBar(
-              child: CustomPadding(
-                top: 0,
-                bottom: 0,
-                child: Reserve(listing: state.data!),
+
+          final isOwner =
+              state.data!.pubKey ==
+              getIt<Hostr>().auth.activeKeyPair?.publicKey;
+          return RepositoryProvider<StreamWithStatus<Reservation>?>.value(
+            value: _listingReservationsStream,
+            child: Scaffold(
+              bottomNavigationBar: BottomAppBar(
+                child: CustomPadding(
+                  top: 0,
+                  bottom: 0,
+                  child: Reserve(listing: state.data!),
+                ),
               ),
-            ),
-            body: (state.data == null)
-                ? Center(child: CircularProgressIndicator())
-                : CustomScrollView(
-                    slivers: [
-                      SliverAppBar(
-                        stretch: true,
-                        iconTheme: IconThemeData(
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              blurRadius: kDefaultPadding.toDouble(),
-                              color: Colors.black,
-                            ),
-                            Shadow(
-                              blurRadius: kDefaultPadding.toDouble() * 2,
-                              color: Colors.black,
-                            ),
+              body: (state.data == null)
+                  ? Center(child: CircularProgressIndicator())
+                  : CustomScrollView(
+                      slivers: [
+                        SliverAppBar(
+                          stretch: true,
+                          iconTheme: IconThemeData(
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                blurRadius: kDefaultPadding.toDouble(),
+                                color: Colors.black,
+                              ),
+                              Shadow(
+                                blurRadius: kDefaultPadding.toDouble() * 2,
+                                color: Colors.black,
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            if (isOwner)
+                              IconButton(
+                                icon: Icon(Icons.edit),
+                                onPressed: () {
+                                  context.router.navigate(
+                                    EditListingRoute(a: widget.a),
+                                  );
+                                },
+                              ),
                           ],
+                          expandedHeight:
+                              MediaQuery.of(context).size.height / 4,
+                          flexibleSpace: FlexibleSpaceBar(
+                            background: ListingCarousel(listing: state.data!),
+                          ),
                         ),
-                        actions: [
-                          if (state.data!.pubKey ==
-                              getIt<Hostr>().auth.activeKeyPair?.publicKey)
-                            IconButton(
-                              icon: Icon(Icons.edit),
-                              onPressed: () {
-                                context.router.navigate(EditListingRoute(a: a));
-                              },
-                            ),
-                        ],
-                        expandedHeight: MediaQuery.of(context).size.height / 4,
-                        flexibleSpace: FlexibleSpaceBar(
-                          background: ListingCarousel(listing: state.data!),
-                        ),
-                      ),
-                      SliverList(
-                        delegate: SliverChildListDelegate([
-                          CustomPadding(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  state.data!.parsedContent.title,
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                const SizedBox(height: 2.0),
-                                Row(
-                                  children: [
-                                    Text(
-                                      AppLocalizations.of(context)!.hostedBy,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Flexible(
-                                      child: ProfileChipWidget(
-                                        id: state.data!.pubKey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8.0),
-                                ReviewsReservationsWidget(listing: state.data!),
-                                const SizedBox(height: 8),
-                                AmenityTagsWidget(
-                                  amenities:
-                                      state.data!.parsedContent.amenities,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  state.data!.parsedContent.description,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                                Container(
-                                  constraints: BoxConstraints(
-                                    maxHeight:
-                                        300.0, // Set your desired max height here
+                        SliverList(
+                          delegate: SliverChildListDelegate([
+                            CustomPadding(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    state.data!.parsedContent.title,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge,
                                   ),
-                                  child: BlocProvider<ListCubit<Review>>(
-                                    create: (context) => ListCubit<Review>(
-                                      kinds: Review.kinds,
-                                      nostrService: getIt(),
-                                      filter: Filter(
-                                        tags: {
-                                          kListingRefTag: [state.data!.anchor!],
-                                        },
+                                  const SizedBox(height: 2.0),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        AppLocalizations.of(context)!.hostedBy,
                                       ),
-                                    )..next(),
-                                    child: ListWidget<Review>(
-                                      builder: (el) {
-                                        return Column(
-                                          children: [
-                                            SizedBox(
-                                              height: kDefaultPadding
-                                                  .toDouble(),
-                                            ),
-                                            ReviewListItem(
-                                              review: el,
-                                              // dateRange: searchController.state.dateRange,
-                                            ),
-                                          ],
+                                      SizedBox(width: 8),
+                                      Flexible(
+                                        child: ProfileChipWidget(
+                                          id: state.data!.pubKey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8.0),
+                                  ReviewsReservationsWidget(
+                                    listing: state.data!,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  AmenityTagsWidget(
+                                    amenities:
+                                        state.data!.parsedContent.amenities,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    state.data!.parsedContent.description,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                  if (isOwner) ...[
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Blocked Dates',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
+                                    ),
+                                    StreamBuilder(
+                                      stream: _listingReservationsStream!.list,
+                                      builder: (context, snapshot) {
+                                        final filteredReservations =
+                                            snapshot.data
+                                                ?.where(
+                                                  (r) => r.isBlockedDate(
+                                                    getIt<Hostr>()
+                                                        .auth
+                                                        .activeKeyPair!,
+                                                  ),
+                                                )
+                                                .toList() ??
+                                            [];
+                                        if (filteredReservations.isEmpty) {
+                                          return Text('No blocked dates.');
+                                        }
+                                        return ListView.builder(
+                                          itemCount:
+                                              filteredReservations.length,
+                                          itemBuilder: (context, index) {
+                                            final reservation =
+                                                filteredReservations[index];
+                                            return ListTile(
+                                              title: Text(
+                                                formatDateRangeShort(
+                                                  DateTimeRange(
+                                                    start: reservation
+                                                        .parsedContent
+                                                        .start,
+                                                    end: reservation
+                                                        .parsedContent
+                                                        .end,
+                                                  ),
+                                                  Localizations.localeOf(
+                                                    context,
+                                                  ),
+                                                ),
+                                              ),
+                                              trailing: IconButton(
+                                                icon: Icon(Icons.cancel),
+                                                onPressed: () async {
+                                                  await getIt<Hostr>()
+                                                      .reservations
+                                                      .cancel(reservation);
+                                                },
+                                              ),
+                                            );
+                                          },
+                                          shrinkWrap: true,
+                                          physics:
+                                              NeverScrollableScrollPhysics(),
                                         );
                                       },
                                     ),
+                                    FilledButton(
+                                      onPressed: () {
+                                        showModalBottomSheet(
+                                          context: context,
+                                          builder: (context) {
+                                            return BlockDatesWidget(
+                                              listingAnchor:
+                                                  state.data!.anchor!,
+                                            );
+                                          },
+                                        );
+                                      },
+                                      child: Text('Block Dates'),
+                                    ),
+                                  ],
+                                  Container(
+                                    constraints: BoxConstraints(
+                                      maxHeight:
+                                          300.0, // Set your desired max height here
+                                    ),
+                                    child: BlocProvider<ListCubit<Review>>(
+                                      create: (context) => ListCubit<Review>(
+                                        kinds: Review.kinds,
+                                        nostrService: getIt(),
+                                        filter: Filter(
+                                          tags: {
+                                            kListingRefTag: [
+                                              state.data!.anchor!,
+                                            ],
+                                          },
+                                        ),
+                                      )..next(),
+                                      child: ListWidget<Review>(
+                                        builder: (el) {
+                                          return Column(
+                                            children: [
+                                              SizedBox(
+                                                height: kDefaultPadding
+                                                    .toDouble(),
+                                              ),
+                                              ReviewListItem(
+                                                review: el,
+                                                // dateRange: searchController.state.dateRange,
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ]),
-                      ),
-                    ],
-                  ),
+                          ]),
+                        ),
+                      ],
+                    ),
+            ),
           );
         },
       ),
