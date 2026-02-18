@@ -120,7 +120,7 @@ class DeterministicSeedData {
 
 class DeterministicSeedBuilder {
   final DeterministicSeedConfig config;
-  final String? contractAddress;
+  final String contractAddress;
   final String rpcUrl;
   final Random _random;
   final DateTime _baseDate;
@@ -130,7 +130,7 @@ class DeterministicSeedBuilder {
 
   DeterministicSeedBuilder({
     required this.config,
-    this.contractAddress,
+    required this.contractAddress,
     this.rpcUrl = 'http://localhost:8545',
   }) : _random = Random(config.seed),
        _baseDate = _computePastBaseDate(config);

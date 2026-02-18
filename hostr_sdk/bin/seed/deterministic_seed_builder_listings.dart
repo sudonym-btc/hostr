@@ -154,10 +154,10 @@ extension _DeterministicSeedListings on DeterministicSeedBuilder {
         );
         final listing = Listing(
           pubKey: host.keyPair.publicKey,
-          tags: [
+          tags: EventTags([
             ...tags,
             ['d', 'seed-listing-$listingIndex'],
-          ],
+          ]),
           createdAt: _timestampDaysAfter(listingIndex),
           content: ListingContent(
             title: 'Seed Listing #$listingIndex',
@@ -188,42 +188,6 @@ extension _DeterministicSeedListings on DeterministicSeedBuilder {
         listings.add(listing);
       }
     }
-
-    if (listings.isEmpty && hosts.isNotEmpty) {
-      final host = hosts.first;
-      listings.add(
-        Listing(
-          pubKey: host.keyPair.publicKey,
-          tags: const [
-            ['d', 'seed-listing-fallback'],
-          ],
-          createdAt: _timestampDaysAfter(1),
-          content: ListingContent(
-            title: 'Seed Listing Fallback',
-            description: 'Fallback deterministic listing.',
-            price: [
-              Price(
-                amount: Amount(
-                  currency: Currency.BTC,
-                  value: BigInt.from(100000),
-                ),
-                frequency: Frequency.daily,
-              ),
-            ],
-            minStay: const Duration(days: 1),
-            checkIn: TimeOfDay(hour: 15, minute: 0),
-            checkOut: TimeOfDay(hour: 11, minute: 0),
-            location: 'seed-location-fallback',
-            quantity: 1,
-            type: ListingType.room,
-            images: const [],
-            amenities: Amenities(),
-            requiresEscrow: host.hasEvm,
-          ),
-        ).signAs(host.keyPair, Listing.fromNostrEvent),
-      );
-    }
-
     return listings;
   }
 }

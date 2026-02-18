@@ -1,28 +1,24 @@
-import 'dart:convert';
 import 'dart:core';
 
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
-
-import '../nostr_kinds.dart';
-import 'type_json_content.dart';
 
 /// NIP-58 Badge Definition (kind 30009)
 /// Defines a badge with metadata (replaceable by 'd' tag)
 /// Can be updated by re-publishing with same 'd' tag
-class BadgeDefinition extends JsonContentNostrEvent<BadgeDefinitionContent> {
+class BadgeDefinition
+    extends JsonContentNostrEvent<BadgeDefinitionContent, EventTags> {
   static const List<int> kinds = [kNostrKindBadgeDefinition];
+  static final EventTagsParser<EventTags> _tagParser = EventTags.new;
+  static final EventContentParser<BadgeDefinitionContent> _contentParser =
+      BadgeDefinitionContent.fromJson;
 
-  BadgeDefinition.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
-    try {
-      parsedContent =
-          BadgeDefinitionContent.fromJson(json.decode(this.content));
-    } catch (e) {
-      // Fallback to minimal content if parsing fails
-      parsedContent = BadgeDefinitionContent(
-        name: getFirstTag('d') ?? 'Unknown Badge',
-      );
-    }
-  }
+  BadgeDefinition.fromNostrEvent(Nip01Event e)
+      : super.fromNostrEvent(
+          e,
+          tagParser: _tagParser,
+          contentParser: _contentParser,
+        );
 
   /// Get the badge identifier from 'd' tag
   String? get identifier => getFirstTag('d');

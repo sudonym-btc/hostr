@@ -35,7 +35,9 @@ class TestRequests extends Requests implements RequestsModel {
 
   @override
   mock() async {
-    for (Nip01Event e in await MOCK_EVENTS()) {
+    for (Nip01Event e in await MOCK_EVENTS(
+      contractAddress: '0xMOCKCONTRACTADDRESS',
+    )) {
       addEvent(e);
     }
   }

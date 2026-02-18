@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:core';
 
 import 'package:models/main.dart';
@@ -6,13 +5,19 @@ import 'package:ndk/domain_layer/usecases/lnurl/lnurl_response.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
-class ReservationRequest
-    extends JsonContentNostrEvent<ReservationRequestContent>
-    with ReferencesListing<ReservationRequest> {
+class ReservationRequestTags extends EventTags
+    with ReferencesListing<ReservationRequestTags> {
+  ReservationRequestTags(super.tags);
+}
+
+class ReservationRequest extends JsonContentNostrEvent<
+    ReservationRequestContent, ReservationRequestTags> {
   static const List<int> kinds = [kNostrKindReservationRequest];
-  static const requiredTags = [
-    [kListingRefTag]
-  ];
+  static final EventTagsParser<ReservationRequestTags> _tagParser =
+      ReservationRequestTags.new;
+  static final EventContentParser<ReservationRequestContent> _contentParser =
+      ReservationRequestContent.fromJson;
+
   ReservationRequest(
       {required super.pubKey,
       required super.tags,
@@ -20,13 +25,17 @@ class ReservationRequest
       super.createdAt,
       super.id,
       super.sig})
-      : super(kind: kNostrKindReservationRequest);
+      : super(
+            kind: kNostrKindReservationRequest,
+            tagParser: _tagParser,
+            contentParser: _contentParser);
 
   ReservationRequest.fromNostrEvent(Nip01Event e)
-      : assert(hasRequiredTags(e.tags, ReservationRequest.requiredTags)),
-        super.fromNostrEvent(e) {
-    parsedContent = ReservationRequestContent.fromJson(json.decode(content));
-  }
+      : super.fromNostrEvent(
+          e,
+          tagParser: _tagParser,
+          contentParser: _contentParser,
+        );
 
   static bool canAttemptPay(
       {required ReservationRequest request,
@@ -72,31 +81,27 @@ class ReservationRequest
         listing.pubKey == ourKey.publicKey;
   }
 
-  static bool hasHostReservationForThread({
+  static bool hasHostReservationForCommitment({
     required List<Reservation> reservations,
     required Listing listing,
-    required String threadAnchor,
+    required String commitmentHash,
   }) {
     return reservations.any(
       (reservation) =>
           reservation.pubKey == listing.pubKey &&
-          reservation.threadAnchor == threadAnchor &&
+          reservation.parsedTags.commitmentHash == commitmentHash &&
           Reservation.validate(reservation, listing).isValid,
     );
   }
 
-  static bool hasAnyReservationForThread({
+  static bool hasAnyReservationForCommitment({
     required List<Reservation> reservations,
     required Listing listing,
-    required String threadAnchor,
+    required String commitmentHash,
   }) {
-    // print(reservations);
-    // print(threadAnchor);
-    // print(reservations
-    //     .any((reservation) => reservation.threadAnchor == threadAnchor));
     return reservations.any(
       (reservation) =>
-          reservation.threadAnchor == threadAnchor &&
+          reservation.parsedTags.commitmentHash == commitmentHash &&
           Reservation.validate(reservation, listing).isValid,
     );
   }
@@ -105,19 +110,19 @@ class ReservationRequest
     required ReservationRequest request,
     required Listing listing,
     required List<Reservation> reservations,
-    required String threadAnchor,
+    required String commitmentHash,
     required bool paid,
     required bool refunded,
   }) {
-    final hostReservationExists = hasHostReservationForThread(
+    final hostReservationExists = hasHostReservationForCommitment(
       reservations: reservations,
       listing: listing,
-      threadAnchor: threadAnchor,
+      commitmentHash: commitmentHash,
     );
-    final hasSelfSignedReservationForThread = hasAnyReservationForThread(
+    final hasSelfSignedReservationForThread = hasAnyReservationForCommitment(
       reservations: reservations,
       listing: listing,
-      threadAnchor: threadAnchor,
+      commitmentHash: commitmentHash,
     );
     final available = isAvailableForReservation(
       reservationRequest: request,

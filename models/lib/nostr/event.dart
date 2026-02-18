@@ -4,11 +4,19 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
-abstract class Event extends Nip01Event {
-  static List<int> kinds = [];
+typedef EventTagsParser<TagsType extends EventTags> = TagsType Function(
+    List<List<String>> tags);
 
-  Event.fromNostrEvent(Nip01Event e)
-      : super(
+abstract class Event<TagsType extends EventTags> extends Nip01Event {
+  static List<int> kinds = [];
+  late TagsType parsedTags;
+  final EventTagsParser<TagsType> tagParser;
+
+  Event.fromNostrEvent(Nip01Event e, {EventTagsParser<TagsType>? tagParser})
+      : tagParser = tagParser ?? ((tags) => EventTags(tags) as TagsType),
+        parsedTags =
+            (tagParser ?? ((tags) => EventTags(tags) as TagsType))(e.tags),
+        super(
             id: e.id,
             pubKey: e.pubKey,
             kind: e.kind,
@@ -21,13 +29,15 @@ abstract class Event extends Nip01Event {
   Event({
     required super.pubKey,
     required super.kind,
-    required super.tags,
+    required TagsType tags,
+    required this.tagParser,
     required super.content,
     super.sig,
     super.validSig,
     super.id,
     super.createdAt,
-  });
+  })  : parsedTags = tags,
+        super(tags: tags.tags);
 
   @override
   String toString() {
@@ -67,7 +77,17 @@ bool hasRequiredTags(
   return requiredKeys.every(presentKeys.contains);
 }
 
-mixin ReferencesListing<T extends ReferencesListing<T>> on Event {
+class EventTags {
+  final List<List<String>> tags;
+
+  EventTags(this.tags);
+
+  List<String> getTags(String key) {
+    return tags.where((t) => t.first == key).map((t) => t[1]).toList();
+  }
+}
+
+mixin ReferencesListing<T extends ReferencesListing<T>> on EventTags {
   String get listingAnchor {
     return getTags(kListingRefTag).first;
   }
@@ -80,7 +100,7 @@ mixin ReferencesListing<T extends ReferencesListing<T>> on Event {
   }
 }
 
-mixin ReferencesReservation<T extends ReferencesReservation<T>> on Event {
+mixin ReferencesReservation<T extends ReferencesReservation<T>> on EventTags {
   String get reservationAnchor {
     return getTags(kReservationRefTag).first;
   }
@@ -93,7 +113,7 @@ mixin ReferencesReservation<T extends ReferencesReservation<T>> on Event {
   }
 }
 
-mixin ReferencesThread<T extends ReferencesThread<T>> on Event {
+mixin ReferencesThread<T extends ReferencesThread<T>> on EventTags {
   String get threadAnchor {
     return getTags(kThreadRefTag).first;
   }
@@ -101,6 +121,19 @@ mixin ReferencesThread<T extends ReferencesThread<T>> on Event {
   T setThreadAnchor(String? anchor) {
     if (anchor != null) {
       tags.add([kThreadRefTag, anchor]);
+    }
+    return this as T;
+  }
+}
+
+mixin CommitmentTag<T extends CommitmentTag<T>> on EventTags {
+  String get commitmentHash {
+    return getTags(kCommitmentHashTag).first;
+  }
+
+  T setCommitmentHash(String? hash) {
+    if (hash != null) {
+      tags.add([kCommitmentHashTag, hash]);
     }
     return this as T;
   }

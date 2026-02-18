@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
@@ -102,13 +104,26 @@ class Threads extends HydratedCubit<List<Message>> {
     );
   }
 
+  // If DM'ing has nothing to do with reservation or a specific thread, we still want to keep it compatible with the same thread structure.
+  // So we generate a thread ID based on the participants if no thread anchor is provided.
+  static String threadIdentifierForMessage(Message message) {
+    final sortedParticipants = <String>{
+      ...message.pTags,
+      message.pubKey,
+    }.toList()..sort();
+    return message.parsedTags.threadAnchor ??
+        crypto.sha256
+            .convert(utf8.encode(sortedParticipants.join(':')))
+            .toString();
+  }
+
   void processMessage(Message message) {
     logger.d('Received message with id ${message.id} $message');
     if (state.any((existing) => existing.id == message.id)) {
       return;
     }
 
-    String? id = message.threadAnchor;
+    String? id = threadIdentifierForMessage(message);
 
     if (threads[id] == null) {
       threads[id] = getIt<Thread>(param1: id);

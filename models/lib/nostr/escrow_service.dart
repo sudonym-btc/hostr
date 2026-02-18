@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:core';
 
 import 'package:models/nostr/event.dart';
@@ -7,8 +6,12 @@ import 'package:ndk/ndk.dart';
 import '../nostr_kinds.dart';
 import 'type_json_content.dart';
 
-class EscrowService extends JsonContentNostrEvent<EscrowServiceContent> {
+class EscrowService
+    extends JsonContentNostrEvent<EscrowServiceContent, EventTags> {
   static const List<int> kinds = [kNostrKindEscrowService];
+  static final EventTagsParser<EventTags> _tagParser = EventTags.new;
+  static final EventContentParser<EscrowServiceContent> _contentParser =
+      EscrowServiceContent.fromJson;
 
   static const List<List<String>> requiredTags = [];
 
@@ -19,12 +22,17 @@ class EscrowService extends JsonContentNostrEvent<EscrowServiceContent> {
       super.createdAt,
       super.id,
       super.sig})
-      : assert(hasRequiredTags(tags, EscrowService.requiredTags)),
-        super(kind: kNostrKindEscrowService);
+      : super(
+            kind: kNostrKindEscrowService,
+            tagParser: _tagParser,
+            contentParser: _contentParser);
 
-  EscrowService.fromNostrEvent(Nip01Event e) : super.fromNostrEvent(e) {
-    parsedContent = EscrowServiceContent.fromJson(json.decode(content));
-  }
+  EscrowService.fromNostrEvent(Nip01Event e)
+      : super.fromNostrEvent(
+          e,
+          tagParser: _tagParser,
+          contentParser: _contentParser,
+        );
 }
 
 class EscrowServiceContent extends EventContent {

@@ -33,7 +33,7 @@ class MockRequests extends Requests {
       name: "Mock Relay",
       explicitPort: 5432,
       events: [
-        ...await MOCK_EVENTS(),
+        ...await MOCK_EVENTS(contractAddress: '0xMOCKCONTRACTADDRESS'),
 
         /// Preferred relay lists
         Nip01Utils.signWithPrivateKey(

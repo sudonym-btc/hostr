@@ -10,7 +10,6 @@ export 'evm/main.dart';
 export 'listings/listings.dart';
 export 'location/location.dart';
 export 'messaging/main.dart';
-export 'messaging_listings/messaging_listings.dart';
 export 'metadata/metadata.dart';
 export 'nwc/nwc.dart';
 export 'payments/payments.dart';

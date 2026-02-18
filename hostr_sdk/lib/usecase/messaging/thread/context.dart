@@ -28,9 +28,7 @@ class ThreadContext {
 
     _listingCompleter = Completer<Listing?>();
     listings
-        .getOneByDTag(
-          getDTagFromAnchor(MessagingListings.getThreadListing(thread: thread)),
-        )
+        .getOneByAnchor(thread.getListingAnchor())
         .then(_listingCompleter!.complete)
         .catchError(_listingCompleter!.completeError);
     return _listingCompleter!.future;

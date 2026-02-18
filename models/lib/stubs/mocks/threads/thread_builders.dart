@@ -20,10 +20,10 @@ ReservationRequest buildReservationRequest({
   );
 
   return ReservationRequest(
-    tags: [
+    tags: ReservationRequestTags([
       [kListingRefTag, listing.anchor!],
       ['d', dTag],
-    ],
+    ]),
     createdAt: DateTime(createdAtYear).millisecondsSinceEpoch ~/ 1000,
     content: content,
     pubKey: sender.publicKey,
@@ -38,12 +38,13 @@ Message<ReservationRequest> buildReservationRequestMessage({
 }) {
   return Message<ReservationRequest>(
     pubKey: sender.publicKey,
-    tags: [
+    tags: MessageTags([
       ['p', recipientPubkey],
-    ],
+      [kThreadRefTag, request.anchor!],
+    ]),
     createdAt: (createdAt ?? DateTime(2026)).millisecondsSinceEpoch ~/ 1000,
     child: request,
-  ).setThreadAnchor(request.anchor);
+  );
 }
 
 SelfSignedProof buildSelfSignedZapProof({
@@ -70,25 +71,23 @@ Reservation buildReservation({
     request.pubKey,
     request.parsedContent.salt,
   );
-  final tags = [
-    [kListingRefTag, listing.anchor!],
-    [kThreadRefTag, request.anchor!],
-    ['d', dTag],
-    ['guestCommitmentHash', commitment],
-    if (status != null) ['status', status],
-  ];
 
   return Reservation(
     pubKey: signer.publicKey,
     content: ReservationContent(
       start: request.parsedContent.start,
       end: request.parsedContent.end,
-      commitmentHash: commitment,
       proof: proof,
     ),
     createdAt:
         (createdAt ?? DateTime(2026, 1, 11)).millisecondsSinceEpoch ~/ 1000,
-    tags: tags,
+    tags: ReservationTags([
+      [kListingRefTag, listing.anchor!],
+      [kThreadRefTag, request.anchor!],
+      ['d', dTag],
+      [kCommitmentHashTag, commitment],
+      if (status != null) ['status', status],
+    ]),
   ).signAs(signer, Reservation.fromNostrEvent);
 }
 

@@ -24,7 +24,7 @@ start() {
         setup_albyhub https://alby1.hostr.development test "$ALBYHUB_PASSWORD" &&
         setup_albyhub https://alby2.hostr.development test "$ALBYHUB_PASSWORD" &&
         CONTRACT_ADDR=$(setup_evm) &&
-        seed_relay "$CONTRACT_ADDR"
+        seed_relay
 }
 
 # If script is executed directly (not sourced), run the function

@@ -355,7 +355,7 @@ class _ThreadHeaderFacts {
       return false;
     }
 
-    return reservation.parsedContent.commitmentHash != ourCommitment;
+    return reservation.parsedTags.commitmentHash != ourCommitment;
   });
 
   if (!overlapsOtherCommitment) {

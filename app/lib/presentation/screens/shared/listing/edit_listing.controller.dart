@@ -182,7 +182,7 @@ class EditListingController extends UpsertFormController {
     // );
     final updatedListing = Listing(
       pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-      tags: updatedTags,
+      tags: EventTags(updatedTags),
       content: updatedContent,
     );
 

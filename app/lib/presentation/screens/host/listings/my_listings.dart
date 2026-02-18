@@ -34,7 +34,7 @@ class MyListingsScreen extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.add),
               onPressed: () {
-                AutoRouter.of(context).pushPath('edit-listing/234');
+                AutoRouter.of(context).pushPath('edit-listing/new');
               },
             ),
           ],
@@ -44,25 +44,7 @@ class MyListingsScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: ListWidget<Listing>(
-                  builder: (el) => ListingListItemWidget(
-                    listing: el,
-                    bottom: (BuildContext context) =>
-                        BlocProvider<ListCubit<Reservation>>(
-                          create: (context) => ListCubit<Reservation>(
-                            kinds: Reservation.kinds,
-                            nostrService: getIt(),
-                            filter: Filter(
-                              authors: [
-                                getIt<Hostr>().auth.activeKeyPair!.publicKey,
-                              ],
-                              tags: {
-                                kListingRefTag: [el.anchor!],
-                              },
-                            ),
-                          )..next(),
-                          child: Text('Reservations placeholder'),
-                        ),
-                  ),
+                  builder: (el) => ListingListItemWidget(listing: el),
                 ),
               ),
             ],

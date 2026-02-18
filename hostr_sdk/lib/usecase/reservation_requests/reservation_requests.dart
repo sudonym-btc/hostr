@@ -4,15 +4,18 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Ndk, Nip01Event;
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
+import '../auth/auth.dart';
 import '../crud.usecase.dart';
 
 @Singleton()
 class ReservationRequests extends CrudUseCase {
   final Ndk ndk;
+  final Auth auth;
   ReservationRequests({
     required super.requests,
     required super.logger,
     required this.ndk,
+    required this.auth,
   }) : super(kind: ReservationRequest.kinds[0]);
 
   static String getReservationRequestId({
@@ -31,8 +34,10 @@ class ReservationRequests extends CrudUseCase {
   }) async {
     // Generate random salt for this reservation request
     final salt = Helpers.getSecureRandomHex(32);
-    final threadId = Helpers.getSecureRandomHex(32);
-
+    final commitmentHash = ParticipationProof.computeCommitmentHash(
+      auth.activeKeyPair!.publicKey,
+      salt,
+    );
     logger.d('Creating new reservation request with salt $salt');
     // @todo, switch to hostr.auth.sign
     return ReservationRequest.fromNostrEvent(
@@ -41,8 +46,7 @@ class ReservationRequests extends CrudUseCase {
           kind: kNostrKindReservationRequest,
           tags: [
             [kListingRefTag, listing.anchor!],
-            [kThreadRefTag, threadId],
-            ['d', threadId],
+            ['d', commitmentHash],
           ],
           content: ReservationRequestContent(
             start: startDate,

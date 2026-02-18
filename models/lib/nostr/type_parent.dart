@@ -2,12 +2,14 @@ import 'package:ndk/ndk.dart';
 
 import 'event.dart';
 
-abstract class ParentTypeNostrEvent<ChildType extends Event> extends Event {
+abstract class ParentTypeNostrEvent<ChildType extends Event,
+    TagsType extends EventTags> extends Event<TagsType> {
   final ChildType? child;
 
   ParentTypeNostrEvent(
       {required super.pubKey,
       required super.kind,
+      required super.tagParser,
       this.child,
       String? content,
       required super.tags,
@@ -18,6 +20,7 @@ abstract class ParentTypeNostrEvent<ChildType extends Event> extends Event {
 
   ParentTypeNostrEvent.fromNostrEvent(
     Nip01Event e, {
+    required super.tagParser,
     this.child,
   }) : super.fromNostrEvent(e);
 }

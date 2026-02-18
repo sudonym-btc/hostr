@@ -1,3 +1,4 @@
+import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter;
@@ -48,8 +49,14 @@ class CrudUseCase<T extends Nip01Event> {
         .first;
   }
 
-  Future<T?> getOneByDTag(String d) {
-    return getOne(Filter(dTags: [d]));
+  // @TODO: Can't just be d tag as multiple pubkeys might have same. Pass A tag and get pubkey + dTag to filter correctly
+  Future<T?> getOneByAnchor(String anchor) {
+    return getOne(
+      Filter(
+        authors: [getPubKeyFromAnchor(anchor)],
+        dTags: [getDTagFromAnchor(anchor)],
+      ),
+    );
   }
 
   Future<T> getById(String id) {

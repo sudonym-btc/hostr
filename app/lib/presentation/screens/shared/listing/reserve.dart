@@ -97,7 +97,7 @@ class ReserveState extends State<Reserve> {
                                       AutoRouter.of(context).push(
                                         ThreadRoute(
                                           // If reservationRequest keeps thread anchor tag, retain. Otherwise parse it from the d tag
-                                          anchor: reservationRequest.anchor!,
+                                          anchor: reservationRequest.getDtag()!,
                                         ),
                                       );
                                     },
