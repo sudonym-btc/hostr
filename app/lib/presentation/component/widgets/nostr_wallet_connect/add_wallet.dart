@@ -41,11 +41,11 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                 builder: (context, state) {
                   if (state is Loading) {
                     return CircularProgressIndicator();
-                  } else if (state is Success) {
+                  } else if (state is NwcSuccess) {
                     return Text(
-                      '${AppLocalizations.of(context)!.connectedTo} ${state.content.alias}',
+                      '${AppLocalizations.of(context)!.connectedTo} ${state.data.alias}',
                     );
-                  } else if (state is Error) {
+                  } else if (state is NwcFailure) {
                     return Text(
                       'Could not connect to NWC provider: ${state.e}',
                     );

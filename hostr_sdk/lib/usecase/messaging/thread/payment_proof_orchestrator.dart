@@ -1,50 +1,62 @@
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01EventModel;
 import 'package:rxdart/rxdart.dart';
 
+@injectable
 class ThreadPaymentProofOrchestrator {
-  final Thread thread;
-  final ThreadSubscriptions subscriptions;
-  final ThreadContext context;
+  final ThreadTrade trade;
+  final TradeSubscriptions subscriptions;
+  final Auth auth;
   final Reservations reservations;
   final CustomLogger logger;
 
   ThreadPaymentProofOrchestrator({
-    required this.thread,
-    required this.subscriptions,
-    required this.context,
+    @factoryParam required this.trade,
+    @factoryParam required this.subscriptions,
+    required this.auth,
     required this.reservations,
     required this.logger,
   });
 
-  Future<void> syncAndPublishProofs() async {
-    await subscriptions.reservationStream.status
+  Future<void> start() async {
+    logger.d(
+      'Starting payment proof orchestrator for thread ${trade.thread.anchor}',
+    );
+    await subscriptions.reservationStream!.status
         .whereType<StreamStatusLive>()
         .first;
 
-    if (subscriptions.state.value.reservations.isNotEmpty) {
+    if (subscriptions.reservationStream!.list.value.isNotEmpty) {
       logger.d(
-        'Thread ${thread.anchor} already has reservations, skipping proof publication',
+        'Thread ${trade.thread.anchor} already has reservations, skipping proof publication',
       );
       return;
     }
 
-    final funded = await subscriptions.paymentEvents.replay
+    final funded = await subscriptions.paymentEvents!.replay
         .where((event) => event is PaymentFundedEvent)
         .first;
 
-    final listing = await context.getListing();
-    final hoster = await context.getListingProfile();
+    final listing = await trade.getListing();
+    final hoster = await trade.getListingProfile();
+
     if (listing == null || hoster == null) {
       logger.w(
-        'Cannot publish proof for thread ${thread.anchor}: context missing',
+        'Cannot publish proof for thread ${trade.thread.anchor}: context missing',
+      );
+      return;
+    }
+    if (listing.pubKey == auth.getActiveKey().publicKey) {
+      logger.d(
+        'We are the host for thread ${trade.thread.anchor}, skipping proof publication',
       );
       return;
     }
 
-    final proof = SelfSignedProof(
+    final proof = PaymentProof(
       listing: listing,
       hoster: hoster,
       zapProof: funded is ZapFundedEvent
@@ -63,7 +75,8 @@ class ThreadPaymentProofOrchestrator {
     );
 
     final reservation = await reservations.createSelfSigned(
-      reservationRequest: thread.state.value.lastReservationRequest,
+      activeKeyPair: await trade.activeKeyPair(),
+      reservationRequest: trade.thread.state.value.lastReservationRequest,
       proof: proof,
     );
     logger.d('Created self-signed reservation: ${reservation.id}');

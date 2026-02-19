@@ -52,13 +52,10 @@ class SignInScreenState extends State<SignInScreen> {
                           onPressed: () async {
                             var router = AutoRouter.of(context);
                             await context.read<AuthCubit>().signin(_private);
-                            final pubkey =
-                                getIt<Hostr>().auth.activeKeyPair?.publicKey;
-                            final metadata = pubkey == null
-                                ? null
-                                : await getIt<Hostr>().metadata.loadMetadata(
-                                    pubkey,
-                                  );
+                            final metadata = await getIt<Hostr>().metadata
+                                .loadMetadata(
+                                  getIt<Hostr>().auth.getActiveKey().publicKey,
+                                );
 
                             if (metadata == null) {
                               router.replaceAll([

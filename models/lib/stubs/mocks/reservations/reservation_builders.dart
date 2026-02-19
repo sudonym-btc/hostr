@@ -35,7 +35,7 @@ Reservation buildReservationForScenario({
   required ReservationRequest request,
   required KeyPair signer,
   required String dTag,
-  SelfSignedProof? proof,
+  PaymentProof? proof,
   String? status,
   DateTime? createdAt,
 }) {
@@ -63,12 +63,12 @@ Reservation buildReservationForScenario({
   ).signAs(signer, Reservation.fromNostrEvent);
 }
 
-SelfSignedProof buildSelfSignedProof({
+PaymentProof buildSelfSignedProof({
   required Listing listing,
   ZapProof? zapProof,
   EscrowProof? escrowProof,
 }) {
-  return SelfSignedProof(
+  return PaymentProof(
     hoster: MOCK_PROFILES.first,
     listing: listing,
     zapProof: zapProof,

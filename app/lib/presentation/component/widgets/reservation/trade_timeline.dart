@@ -1,41 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:models/main.dart';
 import 'package:timelines_plus/timelines_plus.dart';
 
 import 'payment_timeline_item.dart';
 
-class ReservationTimeline extends StatelessWidget {
-  final ThreadState state;
+class TradeTimeline extends StatelessWidget {
+  final List<Reservation> reservations;
+  final List<PaymentEvent> paymentEvents;
   final String hostPubKey;
-  const ReservationTimeline({
+  const TradeTimeline({
     super.key,
-    required this.state,
+    required this.reservations,
+    required this.paymentEvents,
     required this.hostPubKey,
   });
 
   @override
   Widget build(BuildContext context) {
-    final List<dynamic> events =
-        [
-          ...state.subscriptions.reservations,
-          ...state.subscriptions.paymentEvents,
-        ]..sort((a, b) {
-          final timestampA = a is Reservation
-              ? DateTime.fromMillisecondsSinceEpoch(a.createdAt * 1000)
-              : (a is EscrowEvent
-                    ? a.block.timestamp
-                    : DateTime.fromMillisecondsSinceEpoch(0));
+    final List<dynamic> events = [...reservations, ...paymentEvents]
+      ..sort((a, b) {
+        final timestampA = a is Reservation
+            ? DateTime.fromMillisecondsSinceEpoch(a.createdAt * 1000)
+            : (a is EscrowEvent
+                  ? a.block.timestamp
+                  : DateTime.fromMillisecondsSinceEpoch(0));
 
-          final timestampB = b is Reservation
-              ? DateTime.fromMillisecondsSinceEpoch(b.createdAt * 1000)
-              : (b is EscrowEvent
-                    ? b.block.timestamp
-                    : DateTime.fromMillisecondsSinceEpoch(0));
-          return timestampA.compareTo(timestampB);
-        });
+        final timestampB = b is Reservation
+            ? DateTime.fromMillisecondsSinceEpoch(b.createdAt * 1000)
+            : (b is EscrowEvent
+                  ? b.block.timestamp
+                  : DateTime.fromMillisecondsSinceEpoch(0));
+        return timestampA.compareTo(timestampB);
+      });
     if (events.isEmpty) return const SizedBox.shrink();
 
     const maxHistoryHeight = 320.0;

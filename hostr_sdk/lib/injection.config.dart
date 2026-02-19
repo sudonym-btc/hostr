@@ -40,7 +40,20 @@ import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart'
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
 import 'package:hostr_sdk/usecase/location/location.dart' as _i56;
 import 'package:hostr_sdk/usecase/messaging/messaging.dart' as _i1019;
+import 'package:hostr_sdk/usecase/messaging/thread/actions/payment.dart'
+    as _i374;
+import 'package:hostr_sdk/usecase/messaging/thread/actions/reservation.dart'
+    as _i455;
+import 'package:hostr_sdk/usecase/messaging/thread/actions/reservation_request.dart'
+    as _i799;
+import 'package:hostr_sdk/usecase/messaging/thread/actions/review.dart'
+    as _i914;
+import 'package:hostr_sdk/usecase/messaging/thread/payment_proof_orchestrator.dart'
+    as _i636;
 import 'package:hostr_sdk/usecase/messaging/thread/thread.dart' as _i378;
+import 'package:hostr_sdk/usecase/messaging/thread/trade.dart' as _i475;
+import 'package:hostr_sdk/usecase/messaging/thread/trade_subscriptions.dart'
+    as _i802;
 import 'package:hostr_sdk/usecase/messaging/threads.dart' as _i768;
 import 'package:hostr_sdk/usecase/metadata/metadata.dart' as _i149;
 import 'package:hostr_sdk/usecase/nwc/nwc.dart' as _i588;
@@ -282,6 +295,19 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i1045.Zaps(nwc: gh<_i520.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.factoryParam<
+      _i636.ThreadPaymentProofOrchestrator,
+      _i520.ThreadTrade,
+      _i520.TradeSubscriptions
+    >(
+      (trade, subscriptions) => _i636.ThreadPaymentProofOrchestrator(
+        trade: trade,
+        subscriptions: subscriptions,
+        auth: gh<_i520.Auth>(),
+        reservations: gh<_i520.Reservations>(),
+        logger: gh<_i520.CustomLogger>(),
+      ),
+    );
     gh.singleton<_i303.Escrows>(
       () => _i303.Escrows(
         requests: gh<_i1014.Requests>(),
@@ -319,6 +345,40 @@ extension GetItInjectableX on _i174.GetIt {
         escrows: gh<_i303.Escrows>(),
         escrowTrusts: gh<_i943.EscrowTrusts>(),
         evm: gh<_i305.Evm>(),
+      ),
+    );
+    gh.factoryParam<_i475.ThreadTrade, _i378.Thread, dynamic>(
+      (thread, _) => _i475.ThreadTrade(
+        thread: thread,
+        logger: gh<_i331.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+      ),
+    );
+    gh.factory<_i374.PaymentActions>(
+      () => _i374.PaymentActions(trade: gh<_i520.ThreadTrade>()),
+    );
+    gh.factory<_i799.ReservationRequestActions>(
+      () => _i799.ReservationRequestActions(trade: gh<_i520.ThreadTrade>()),
+    );
+    gh.factory<_i914.ReviewActions>(
+      () => _i914.ReviewActions(trade: gh<_i520.ThreadTrade>()),
+    );
+    gh.factoryParam<_i802.TradeSubscriptions, _i520.Thread, dynamic>(
+      (thread, _) => _i802.TradeSubscriptions(
+        thread: thread,
+        logger: gh<_i520.CustomLogger>(),
+        reservations: gh<_i520.Reservations>(),
+        zaps: gh<_i520.Zaps>(),
+        escrow: gh<_i520.EscrowUseCase>(),
+        reviews: gh<_i520.Reviews>(),
+      ),
+    );
+    gh.factory<_i455.ReservationActions>(
+      () => _i455.ReservationActions(
+        trade: gh<_i520.ThreadTrade>(),
+        reservations: gh<_i520.Reservations>(),
       ),
     );
     gh.singleton<_i226.Payments>(

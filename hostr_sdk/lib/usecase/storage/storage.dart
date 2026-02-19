@@ -15,7 +15,7 @@ abstract class StringListStorage {
     required this.auth,
   });
 
-  String? _currentUserKey() => auth.activeKeyPair?.publicKey;
+  String? _currentUserKey() => auth.getActiveKey().publicKey;
 
   String _prefix(String pubkey) => '$pubkey:';
 

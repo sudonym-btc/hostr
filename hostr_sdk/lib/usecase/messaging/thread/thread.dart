@@ -13,32 +13,17 @@ class Thread {
   final CustomLogger logger;
   final Messaging messaging;
   final Auth auth;
-  late final ThreadContext context;
-  late final ThreadSubscriptions subscriptions;
-  late final ThreadPaymentProofOrchestrator paymentProofOrchestrator;
+  ThreadTrade? trade;
   final BehaviorSubject<ThreadState> state;
   final List<StreamSubscription> _stateSubscriptions = [];
-  Future<void>? _inFlightWatch;
-  bool _watching = false;
 
   final String anchor;
   final StreamWithStatus<Message> messages = StreamWithStatus<Message>();
-  String get tradeId => anchor;
-  String? get salt => messages.list.value
-      .map((message) => message.child)
-      .whereType<ReservationRequest>()
-      .firstOrNull
-      ?.parsedContent
-      .salt;
 
-  String getListingAnchor() {
-    ReservationRequest? r =
-        (messages.list.value.firstWhere((element) {
-              return element.child is ReservationRequest;
-            }).child
-            as ReservationRequest);
-    return r.parsedTags.listingAnchor;
-  }
+  bool _isTradeCandidate(ThreadState current) => current.messages.any(
+    (message) => message.child is ReservationRequest,
+    // || message.child is EscrowServiceSelected,
+  );
 
   Thread(
     @factoryParam this.anchor, {
@@ -49,74 +34,36 @@ class Thread {
          ThreadState.initial(
            ourPubkey: auth.activeKeyPair!.publicKey,
            anchor: anchor,
-           tradeId: anchor,
          ),
        ) {
-    context = ThreadContext(
-      thread: this,
-      listings: getIt<Listings>(),
-      metadata: getIt<MetadataUseCase>(),
-    );
-    subscriptions = ThreadSubscriptions(
-      thread: this,
-      logger: logger,
-      reservations: getIt<Reservations>(),
-      zaps: getIt<Zaps>(),
-      escrow: getIt<EscrowUseCase>(),
-    );
-    paymentProofOrchestrator = ThreadPaymentProofOrchestrator(
-      thread: this,
-      subscriptions: subscriptions,
-      context: context,
-      reservations: getIt<Reservations>(),
-      logger: logger,
+    _stateSubscriptions.add(
+      messages.stream.listen((_) {
+        _emitState();
+      }),
     );
 
-    _stateSubscriptions.add(messages.stream.listen((_) => _emitState()));
-    _stateSubscriptions.add(subscriptions.state.listen((_) => _emitState()));
-  }
-
-  Future<Listing?> getListing() => context.getListing();
-  Future<ProfileMetadata?> getListingProfile() => context.getListingProfile();
-
-  Future<void> watch() {
-    if (_inFlightWatch != null) {
-      return _inFlightWatch!;
-    }
-
-    _inFlightWatch = _doWatch();
-    return _inFlightWatch!.whenComplete(() {
-      _inFlightWatch = null;
-    });
-  }
-
-  Future<void> _doWatch() async {
-    if (_watching) {
-      return;
-    }
-    _watching = true;
-    await context.load();
-    await subscriptions.sync();
-    await paymentProofOrchestrator.syncAndPublishProofs();
-    _emitState();
-  }
-
-  Future<void> unwatch() async {
-    if (!_watching) {
-      return;
-    }
-    _watching = false;
-    await subscriptions.unwatch();
-    _emitState();
+    _stateSubscriptions.add(
+      state.stream
+          .where(
+            (current) =>
+                trade == null &&
+                _isTradeCandidate(current) &&
+                current.reservationRequests.isNotEmpty,
+          )
+          .take(1)
+          .listen((_) {
+            print('Thread $anchor is a trade candidate, initializing trade...');
+            trade = getIt<ThreadTrade>(param1: this);
+            _stateSubscriptions.add(trade!.state.listen((_) => _emitState()));
+          }),
+    );
   }
 
   void _emitState() {
     if (state.isClosed) return;
     state.add(
       state.value.copyWith(
-        salt: salt,
         messages: messages.list.value,
-        subscriptions: subscriptions.state.value,
         counterpartyPubkeys: state.value.participantPubkeys
             .where((pubkey) => pubkey != auth.activeKeyPair!.publicKey)
             .toList(),
@@ -156,7 +103,7 @@ class Thread {
   }
 
   Future<void> close() async {
-    await unwatch();
+    await trade?.close();
     for (final s in _stateSubscriptions) {
       await s.cancel();
     }
