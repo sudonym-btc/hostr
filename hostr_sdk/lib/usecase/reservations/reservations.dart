@@ -41,6 +41,211 @@ class Reservations extends CrudUseCase<Reservation> {
     });
   }
 
+  groupByCommitment(List<Reservation> reservations, Listing listing) {
+    final Map<String, List<Reservation>> grouped = {};
+    for (final reservation in reservations) {
+      final commitmentHash = reservation.parsedTags.commitmentHash;
+      grouped.putIfAbsent(commitmentHash, () => []).add(reservation);
+    }
+    // Remove non-host reservation if a host reservation exists for same commitment hash
+    for (final entry in grouped.entries) {
+      final commitmentHash = entry.key;
+      final group = entry.value;
+      final hostReservations = group
+          .where((reservation) => reservation.pubKey == listing.pubKey)
+          .toList();
+      if (hostReservations.isNotEmpty) {
+        grouped[commitmentHash] = hostReservations;
+      }
+    }
+    return grouped;
+  }
+
+  ValidatedStreamWithStatus<Reservation> subscribeValidatedForListing({
+    required Listing listing,
+    Duration debounce = const Duration(milliseconds: 350),
+  }) {
+    final source = subscribe(
+      Filter(
+        tags: {
+          kListingRefTag: [listing.anchor!],
+        },
+      ),
+    );
+
+    return validateStream(
+      source: source,
+      debounce: debounce,
+      closeSourceOnClose: true,
+      validator: (snapshot) =>
+          _validateListingSnapshot(listing: listing, reservations: snapshot),
+    );
+  }
+
+  ValidatedStreamWithStatus<Reservation> subscribeUncancelledReservations({
+    required Listing listing,
+    Duration debounce = const Duration(milliseconds: 350),
+  }) {
+    final source = subscribe(
+      Filter(
+        tags: {
+          kListingRefTag: [listing.anchor!],
+        },
+      ),
+    );
+
+    return validateStream(
+      source: source,
+      debounce: debounce,
+      closeSourceOnClose: true,
+      validator: (snapshot) {
+        final trimmed = _trimCommitmentsWithCancellation(snapshot);
+        return _validateListingSnapshot(
+          listing: listing,
+          reservations: trimmed,
+        );
+      },
+    );
+  }
+
+  List<Reservation> _trimCommitmentsWithCancellation(
+    List<Reservation> reservations,
+  ) {
+    final cancelledCommitments = reservations
+        .where((reservation) => reservation.parsedContent.cancelled)
+        .map((reservation) => reservation.parsedTags.commitmentHash)
+        .toSet();
+
+    if (cancelledCommitments.isEmpty) {
+      return reservations;
+    }
+
+    return reservations
+        .where(
+          (reservation) => !cancelledCommitments.contains(
+            reservation.parsedTags.commitmentHash,
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<Validation<Reservation>>> _validateListingSnapshot({
+    required Listing listing,
+    required List<Reservation> reservations,
+  }) async {
+    final grouped = <String, List<Reservation>>{};
+    for (final reservation in reservations) {
+      grouped
+          .putIfAbsent(reservation.parsedTags.commitmentHash, () => [])
+          .add(reservation);
+    }
+
+    final results = <Validation<Reservation>>[];
+    final latestGuestsNeedingValidation = <String, Reservation>{};
+
+    for (final entry in grouped.entries) {
+      final group = [...entry.value]
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final hostReservations = group
+          .where((reservation) => reservation.pubKey == listing.pubKey)
+          .toList();
+
+      if (hostReservations.isNotEmpty) {
+        // Host confirmation exists for this commitment hash.
+        // Per product rules, skip guest proof validation and mark all valid.
+        for (final reservation in group) {
+          results.add(Valid(reservation));
+        }
+        continue;
+      }
+
+      final guestReservations = group
+          .where((reservation) => reservation.pubKey != listing.pubKey)
+          .toList();
+
+      if (guestReservations.isEmpty) {
+        for (final reservation in group) {
+          results.add(
+            Invalid(
+              reservation,
+              'No host confirmation and no guest reservation found for commitment hash',
+            ),
+          );
+        }
+        continue;
+      }
+
+      latestGuestsNeedingValidation[entry.key] = guestReservations.last;
+    }
+
+    // Batch point for RPC-based proof validation.
+    // Today we use Reservation.validate(...), but this can be replaced with
+    // batched EVM RPC checks keyed by commitment hash.
+    final latestGuestValidation = <String, ValidationResult>{};
+    for (final entry in latestGuestsNeedingValidation.entries) {
+      latestGuestValidation[entry.key] = Reservation.validate(
+        entry.value,
+        listing,
+      );
+    }
+
+    for (final entry in grouped.entries) {
+      final commitmentHash = entry.key;
+      final group = [...entry.value]
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      final hostExists = group.any(
+        (reservation) => reservation.pubKey == listing.pubKey,
+      );
+      if (hostExists) {
+        continue; // already appended above
+      }
+
+      final latestGuest = latestGuestsNeedingValidation[commitmentHash];
+      if (latestGuest == null) {
+        continue;
+      }
+
+      final validation = latestGuestValidation[commitmentHash];
+      final reason = _validationReason(validation);
+
+      for (final reservation in group) {
+        if (reservation.id == latestGuest.id) {
+          if (validation?.isValid == true) {
+            results.add(Valid(reservation));
+          } else {
+            results.add(
+              Invalid(reservation, reason ?? 'Reservation proof is invalid'),
+            );
+          }
+        } else {
+          results.add(
+            Invalid(
+              reservation,
+              'Superseded by latest guest reservation for commitment hash',
+            ),
+          );
+        }
+      }
+    }
+
+    return results;
+  }
+
+  String? _validationReason(ValidationResult? result) {
+    if (result == null || result.isValid) {
+      return null;
+    }
+
+    for (final field in result.fields.values) {
+      if (!field.ok) {
+        return field.message;
+      }
+    }
+
+    return 'Validation failed';
+  }
+
   static Reservation? seniorReservations(
     List<Reservation> reservations,
     Listing listing,
