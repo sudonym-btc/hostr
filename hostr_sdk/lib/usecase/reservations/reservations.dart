@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../../util/main.dart';
 import '../auth/auth.dart';
@@ -133,14 +134,16 @@ class Reservations extends CrudUseCase<Reservation> {
   }
 
   Future<List<RelayBroadcastResponse>> accept(
-    Message message,
+    String anchor,
     ReservationRequest request,
     String guestPubkey,
+    String saltedPubkey,
   ) {
     final reservation = Reservation(
       tags: ReservationTags([
+        ['p', saltedPubkey],
         [kListingRefTag, request.parsedTags.listingAnchor],
-        [kThreadRefTag, message.parsedTags.threadAnchor],
+        [kThreadRefTag, anchor],
         [
           kCommitmentHashTag,
           ParticipationProof.computeCommitmentHash(
@@ -160,15 +163,14 @@ class Reservations extends CrudUseCase<Reservation> {
   }
 
   Future<Reservation> createSelfSigned({
+    required KeyPair activeKeyPair,
     required ReservationRequest reservationRequest,
-    required SelfSignedProof proof,
+    required PaymentProof proof,
   }) async {
     String commitment = ParticipationProof.computeCommitmentHash(
       auth.activeKeyPair!.publicKey,
       reservationRequest.parsedContent.salt,
     );
-
-    final randomKeyPair = Bip340.generatePrivateKey();
 
     Reservation reservation = Reservation(
       content: ReservationContent(
@@ -176,15 +178,15 @@ class Reservations extends CrudUseCase<Reservation> {
         end: reservationRequest.parsedContent.end,
         proof: proof,
       ),
-      pubKey: randomKeyPair.publicKey,
+      pubKey: activeKeyPair.publicKey,
       tags: ReservationTags([
         [kListingRefTag, proof.listing.anchor!],
         [kCommitmentHashTag, commitment],
       ]),
     );
 
-    await create(reservation.signAs(randomKeyPair, Reservation.fromNostrEvent));
-    logger.d(reservation);
+    await create(reservation.signAs(activeKeyPair, Reservation.fromNostrEvent));
+    logger.d('Created self-signed reservation: $reservation');
     return reservation;
   }
 

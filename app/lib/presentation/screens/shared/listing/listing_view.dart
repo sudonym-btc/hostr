@@ -35,8 +35,8 @@ class ListingView extends StatefulWidget {
 class _ListingViewState extends State<ListingView> {
   StreamWithStatus<Reservation>? _listingReservationsStream;
 
+  @override
   initState() {
-    print("LISTING ANCHOR: ${widget.a}");
     _listingReservationsStream = getIt<Hostr>().reservations.subscribe(
       Filter(
         tags: {
@@ -66,7 +66,7 @@ class _ListingViewState extends State<ListingView> {
 
           final isOwner =
               state.data!.pubKey ==
-              getIt<Hostr>().auth.activeKeyPair?.publicKey;
+              getIt<Hostr>().auth.getActiveKey().publicKey;
           return RepositoryProvider<StreamWithStatus<Reservation>?>.value(
             value: _listingReservationsStream,
             child: Scaffold(

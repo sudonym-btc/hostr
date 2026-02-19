@@ -32,12 +32,7 @@ class ThreadContent extends StatelessWidget {
                     return Column(
                       children: [
                         if (index != 0) SizedBox(height: kDefaultPadding / 2),
-                        _buildMessage(
-                          context,
-                          message: message,
-                          reservations:
-                              state.threadState.subscriptions.reservations,
-                        ),
+                        _buildMessage(context, message: message),
                       ],
                     );
                   },
@@ -45,36 +40,12 @@ class ThreadContent extends StatelessWidget {
               },
             ),
           ),
-
-          FilledButton(
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                builder: (context) {
-                  return SafeArea(
-                    child: CustomPadding(
-                      child: EditReview(
-                        listing: listing,
-                        salt: 'thread_salt',
-                        // reservation: thread.reservation,
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-            child: Text('Review your stay'),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildMessage(
-    BuildContext context, {
-    required Message message,
-    required List<Reservation> reservations,
-  }) {
+  Widget _buildMessage(BuildContext context, {required Message message}) {
     final sender = participants.firstWhere(
       (participant) => participant.pubKey == message.pubKey,
     );

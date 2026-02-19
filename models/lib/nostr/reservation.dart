@@ -62,6 +62,10 @@ class Reservation
     );
   }
 
+  // Returns the most senior valid reservation for a listing, or null if no valid reservations exist. Seniority is determined by the following rules (in order of precedence):
+  // 1. Reservations published by the listing owner are more senior than those published by others
+  // 2. Cancelled reservations are more senior than non-cancelled reservations
+  // 3. For reservations with the same publisher and cancellation status, the most recent reservation
   static Reservation? getSeniorReservation(
       {required List<Reservation> reservations, required Listing listing}) {
     final validReservations = reservations
@@ -92,6 +96,40 @@ class Reservation
     });
 
     return validReservations.first;
+  }
+
+  // Pass in reservations for same commitment hash and returns a status for the thread
+  static ReservationStatus getReservationStatus(
+      {required List<Reservation> reservations, required Listing listing}) {
+    final validReservations = reservations
+        .where(
+            (reservation) => Reservation.validate(reservation, listing).isValid)
+        .toList();
+    final hostReservations = validReservations
+        .where((reservation) => reservation.pubKey == listing.pubKey)
+        .toList();
+    final cancelledReservations = validReservations
+        .where((reservation) => reservation.parsedContent.cancelled)
+        .toList();
+
+    if (validReservations.isEmpty) {
+      return ReservationStatus.invalid;
+    }
+
+    if (cancelledReservations.isNotEmpty) {
+      return ReservationStatus.cancelled;
+    }
+
+    final hasReservationEnded =
+        validReservations.first.parsedContent.end.isBefore(DateTime.now());
+    if (hasReservationEnded) {
+      return ReservationStatus.completed;
+    }
+    if (hostReservations.isNotEmpty) {
+      return ReservationStatus.confirmed;
+    }
+
+    return ReservationStatus.valid;
   }
 
   static ValidationResult validate(Reservation reservation, Listing listing) {
@@ -199,7 +237,7 @@ class ReservationContent extends EventContent {
   final DateTime start;
   final DateTime end;
   final bool cancelled;
-  final SelfSignedProof? proof;
+  final PaymentProof? proof;
 
   ReservationContent({
     required this.start,
@@ -222,7 +260,7 @@ class ReservationContent extends EventContent {
     DateTime? start,
     DateTime? end,
     bool? cancelled,
-    SelfSignedProof? proof,
+    PaymentProof? proof,
   }) {
     return ReservationContent(
       start: start ?? this.start,
@@ -242,14 +280,13 @@ class ReservationContent extends EventContent {
     return ReservationContent(
         start: DateTime.parse(json["start"]),
         end: DateTime.parse(json["end"]),
-        proof: json["proof"] != null
-            ? SelfSignedProof.fromJson(json["proof"])
-            : null,
+        proof:
+            json["proof"] != null ? PaymentProof.fromJson(json["proof"]) : null,
         cancelled: cancelled);
   }
 }
 
-class SelfSignedProof {
+class PaymentProof {
   Nip01Event hoster;
   Listing listing;
   ZapProof? zapProof;
@@ -257,7 +294,7 @@ class SelfSignedProof {
   // Include the signed seller reservation request if buyer offering sub-marketprice for this reservation so can be seen that hoster accepted the offer by signing the reservation request
   ReservationRequest? sellerReservationRequest;
 
-  SelfSignedProof(
+  PaymentProof(
       {required this.hoster,
       required this.listing,
       required this.zapProof,
@@ -272,8 +309,8 @@ class SelfSignedProof {
     };
   }
 
-  static SelfSignedProof fromJson(Map<String, dynamic> json) {
-    return SelfSignedProof(
+  static PaymentProof fromJson(Map<String, dynamic> json) {
+    return PaymentProof(
       listing:
           Listing.fromNostrEvent(Nip01EventModel.fromJson(json["listing"])),
       zapProof:
@@ -377,4 +414,12 @@ class ZapProof {
     return ZapProof(
         receipt: Nip01EventModel.fromJson(jsonDecode(json["receipt"])));
   }
+}
+
+enum ReservationStatus {
+  valid,
+  confirmed,
+  invalid,
+  cancelled,
+  completed,
 }

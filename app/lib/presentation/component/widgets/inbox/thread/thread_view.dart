@@ -5,8 +5,6 @@ import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_content.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_reply.dart';
 import 'package:hostr/presentation/main.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:models/main.dart';
 
 import 'reservation_status.dart';
@@ -26,15 +24,15 @@ class ThreadView extends StatelessWidget {
         final isReady =
             profilesReady &&
             state.listingProfile != null &&
-            state.threadState.subscriptions.reservationStreamStatus
-                is StreamStatusLive &&
-            state.threadState.subscriptions.paymentStreamStatus
-                is StreamStatusLive &&
+            // state.threadState.subscriptions.reservationStreamStatus
+            //     is StreamStatusLive &&
+            // state.threadState.subscriptions.paymentStreamStatus
+            //     is StreamStatusLive &&
             state.listing != null;
 
-        print(
-          'ThreadView build: isReady: $isReady, profilesReady: $profilesReady, listingProfile: ${state.listingProfile != null}, reservationStreamStatus: ${state.threadState.subscriptions.reservationStreamStatus}, paymentStreamStatus: ${state.threadState.subscriptions.paymentStreamStatus}, listing: ${state.listing != null}',
-        );
+        // print(
+        //   'ThreadView build: isReady: $isReady, profilesReady: $profilesReady, listingProfile: ${state.listingProfile != null}, reservationStreamStatus: ${state.threadState.subscriptions.reservationStreamStatus}, paymentStreamStatus: ${state.threadState.subscriptions.paymentStreamStatus}, listing: ${state.listing != null}, ${state.threadState.subscriptions.paymentStreamStatus}',
+        // );
 
         // When to display loading
         if (!isReady) {
@@ -50,14 +48,7 @@ class ThreadView extends StatelessWidget {
           listingProfile: state.listingProfile!,
           participants: state.participantStates.map((e) => e.data!).toList(),
           counterparties: state.counterpartyStates.map((e) => e.data!).toList(),
-          reservationsList: state.threadState.subscriptions.reservations,
-          reservationRequests: state.threadState.reservationRequests
-              .map((e) => e.child as ReservationRequest)
-              .toList(),
-          allListingReservations:
-              state.threadState.subscriptions.allListingReservations,
           messages: state.threadState.sortedMessages,
-          paymentEvents: state.threadState.subscriptions.paymentEvents,
         );
       },
     );
@@ -69,11 +60,8 @@ class ThreadReadyWidget extends StatelessWidget {
   final ProfileMetadata listingProfile;
   final List<ProfileMetadata> participants;
   final List<ProfileMetadata> counterparties;
-  final List<Reservation> reservationsList;
-  final List<ReservationRequest> reservationRequests;
-  final List<Reservation> allListingReservations;
+
   final List<Message> messages;
-  final List<PaymentEvent> paymentEvents;
 
   const ThreadReadyWidget({
     super.key,
@@ -81,11 +69,7 @@ class ThreadReadyWidget extends StatelessWidget {
     required this.listingProfile,
     required this.participants,
     required this.counterparties,
-    required this.reservationsList,
-    required this.reservationRequests,
-    required this.allListingReservations,
     required this.messages,
-    required this.paymentEvents,
   });
 
   @override

@@ -49,10 +49,7 @@ class Threads extends HydratedCubit<List<Message>> {
     _closeSubscription();
     _rebuildThreadsFromMessages(state);
 
-    final myPubkey = auth.activeKeyPair?.publicKey;
-    if (myPubkey == null) {
-      throw Exception('No active account found for subscribing to gift-wraps.');
-    }
+    final myPubkey = auth.getActiveKey().publicKey;
     final filter = Filter(
       kinds: [GiftWrap.kGiftWrapEventkind],
       pTags: [myPubkey],

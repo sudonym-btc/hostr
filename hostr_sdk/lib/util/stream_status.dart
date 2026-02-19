@@ -107,9 +107,9 @@ class StreamWithStatus<T> {
   }
 
   void add(T item) {
-    controller.add(item);
     final current = _listSubject.value;
     _listSubject.add(List.unmodifiable([...current, item]));
+    controller.add(item);
   }
 
   void addAll(List<T> items) {

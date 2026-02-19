@@ -47,10 +47,10 @@ Message<ReservationRequest> buildReservationRequestMessage({
   );
 }
 
-SelfSignedProof buildSelfSignedZapProof({
+PaymentProof buildSelfSignedZapProof({
   required Listing listing,
 }) {
-  return SelfSignedProof(
+  return PaymentProof(
     hoster: MOCK_PROFILES.first,
     listing: listing,
     zapProof: null,
@@ -63,7 +63,7 @@ Reservation buildReservation({
   required ReservationRequest request,
   required KeyPair signer,
   required String dTag,
-  SelfSignedProof? proof,
+  PaymentProof? proof,
   String? status,
   DateTime? createdAt,
 }) {

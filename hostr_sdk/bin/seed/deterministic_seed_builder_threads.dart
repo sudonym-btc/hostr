@@ -60,7 +60,7 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
 
         Nip01Event? zapReceipt;
         EscrowOutcome? escrowOutcome;
-        SelfSignedProof? proof;
+        PaymentProof? proof;
 
         if (shouldUseEscrow) {
           final outcome = _pickEscrowOutcome();
@@ -80,7 +80,7 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
               method: method,
             );
 
-            proof = SelfSignedProof(
+            proof = PaymentProof(
               hoster: hostProfile ?? MOCK_PROFILES.first,
               listing: listing,
               zapProof: null,
@@ -98,7 +98,7 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
             hostProfile: hostProfile,
           );
 
-          proof = SelfSignedProof(
+          proof = PaymentProof(
             hoster: hostProfile ?? MOCK_PROFILES.first,
             listing: listing,
             zapProof: ZapProof(receipt: Nip01EventModel.fromEntity(zapReceipt)),

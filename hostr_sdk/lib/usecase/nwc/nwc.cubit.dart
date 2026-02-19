@@ -1,4 +1,3 @@
-import 'package:equatable/equatable.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
@@ -8,54 +7,68 @@ class NwcCubit extends Cubit<NwcCubitState> {
   final Nwc nwc;
   String? url;
   NwcConnection? connection;
-  NwcCubit({required this.nwc, required this.logger, this.url}) : super(Idle());
+  NwcCubit({required this.nwc, required this.logger, this.url})
+    : super(NwcIdle());
 
   Future connect(String? url) async {
-    emit(Loading());
+    emit(NwcLoading());
     try {
       connection = await nwc.connect((url ?? this.url)!);
       this.url = url ?? this.url;
       await checkInfo();
     } catch (e) {
       logger.e(e);
-      emit(Error(e: e));
+      emit(NwcFailure(e));
     }
   }
 
   Future checkInfo() async {
-    emit(Loading());
+    emit(NwcLoading());
     return nwc
         .getInfo(connection!)
         .then((value) {
-          emit(Success(content: value));
+          emit(NwcSuccess(value));
         })
         .catchError((e) {
           logger.e(e);
-          emit(Error(e: e));
+          emit(NwcFailure(e));
         });
   }
 }
 
-class NwcCubitState extends Equatable {
-  const NwcCubitState();
+class AsyncState<T, E> {}
 
-  @override
-  List<Object?> get props => [];
+abstract class NwcCubitState implements AsyncState<GetInfoResponse, dynamic> {}
+
+class Idle<T, E> extends AsyncState<T, E> {}
+
+class Loading<T, E> extends AsyncState<T, E> {}
+
+class Success<T, E> extends AsyncState<T, E> {
+  final T data;
+  Success(this.data);
+
+  T get content => data;
 }
 
-class Idle extends NwcCubitState {}
+class Failure<T, E> extends AsyncState<T, E> {
+  final E error;
+  Failure(this.error);
 
-class Loading extends NwcCubitState {
-  const Loading();
+  E get e => error;
 }
 
-class Success extends NwcCubitState {
-  final GetInfoResponse content;
+class NwcIdle extends Idle<GetInfoResponse, dynamic> implements NwcCubitState {}
 
-  const Success({required this.content});
+class NwcLoading extends Loading<GetInfoResponse, dynamic>
+    implements NwcCubitState {}
+
+class NwcSuccess extends Success<GetInfoResponse, dynamic>
+    implements NwcCubitState {
+  NwcSuccess(super.data);
 }
 
-class Error extends NwcCubitState {
-  final dynamic e;
-  const Error({this.e});
+class NwcFailure extends Failure<GetInfoResponse, dynamic>
+    implements NwcCubitState {
+  NwcFailure(super.error);
 }

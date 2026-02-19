@@ -40,14 +40,14 @@ class NostrWalletConnectConnectionWidget extends StatelessWidget {
                   );
                 }
 
-                if (state is Success) {
+                if (state is NwcSuccess) {
                   return ListTile(
                     contentPadding: EdgeInsets.all(0),
                     leading: CircleAvatar(
-                      backgroundColor: state.content.color != null
+                      backgroundColor: state.data.color != null
                           ? Color(
                               int.parse(
-                                    state.content.color!.substring(1, 7),
+                                    state.data.color!.substring(1, 7),
                                     radix: 16,
                                   ) +
                                   0xFF000000,
@@ -55,7 +55,7 @@ class NostrWalletConnectConnectionWidget extends StatelessWidget {
                           : Colors.orange,
                     ),
                     trailing: canClose ? closeButton : null,
-                    title: Text(state.content.alias),
+                    title: Text(state.data.alias),
                     subtitle: Text(
                       AppLocalizations.of(context)!.connected,
                       maxLines: 1,
@@ -64,7 +64,7 @@ class NostrWalletConnectConnectionWidget extends StatelessWidget {
                   );
                 }
 
-                if (state is Error) {
+                if (state is NwcFailure) {
                   return ListTile(
                     leading: Icon(Icons.error),
                     trailing: canClose ? closeButton : null,

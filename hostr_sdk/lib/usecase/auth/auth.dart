@@ -93,11 +93,15 @@ class Auth {
         : Bip340.fromPrivateKey(privateKey[0]);
   }
 
-  EthPrivateKey getActiveEvmKey() {
+  KeyPair getActiveKey() {
     if (activeKeyPair == null) {
       throw Exception('No active key pair');
     }
-    return EthPrivateKey.fromHex(activeKeyPair!.privateKey!);
+    return activeKeyPair!;
+  }
+
+  EthPrivateKey getActiveEvmKey() {
+    return EthPrivateKey.fromHex(getActiveKey().privateKey!);
   }
 
   void _syncAuthState() {

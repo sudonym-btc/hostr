@@ -105,79 +105,6 @@ class ReservationRequest extends JsonContentNostrEvent<
           Reservation.validate(reservation, listing).isValid,
     );
   }
-
-  static ReservationRequestStatus resolveStatus({
-    required ReservationRequest request,
-    required Listing listing,
-    required List<Reservation> reservations,
-    required String commitmentHash,
-    required bool paid,
-    required bool refunded,
-  }) {
-    final hostReservationExists = hasHostReservationForCommitment(
-      reservations: reservations,
-      listing: listing,
-      commitmentHash: commitmentHash,
-    );
-    final hasSelfSignedReservationForThread = hasAnyReservationForCommitment(
-      reservations: reservations,
-      listing: listing,
-      commitmentHash: commitmentHash,
-    );
-    final available = isAvailableForReservation(
-      reservationRequest: request,
-      reservations: reservations,
-    );
-
-    // print('Resolving status with: paid=$paid, refunded=$refunded, '
-    //     'hostReservationExists=$hostReservationExists, available=$available, hasSelfSignedReservationForThread=$hasSelfSignedReservationForThread');
-
-    if (refunded) {
-      return ReservationRequestStatus.refunded;
-    }
-
-    if (hostReservationExists) {
-      return ReservationRequestStatus.confirmed;
-    }
-
-    if ((paid || hasSelfSignedReservationForThread) && !hostReservationExists) {
-      return ReservationRequestStatus.unconfirmed;
-    }
-
-    if (!available) {
-      return ReservationRequestStatus.unavailable;
-    }
-
-    return ReservationRequestStatus.unpaid;
-  }
-
-  static ReservationRequestHostAction resolveHostAction({
-    required ReservationRequestStatus status,
-  }) {
-    switch (status) {
-      case ReservationRequestStatus.unconfirmed:
-        return ReservationRequestHostAction.accept;
-      case ReservationRequestStatus.pendingPublish:
-        return ReservationRequestHostAction.publish;
-      case ReservationRequestStatus.confirmed:
-        return ReservationRequestHostAction.refund;
-      default:
-        return ReservationRequestHostAction.none;
-    }
-  }
-
-  static ReservationRequestGuestAction resolveGuestAction({
-    required ReservationRequestStatus status,
-  }) {
-    switch (status) {
-      case ReservationRequestStatus.unpaid:
-        return ReservationRequestGuestAction.pay;
-      case ReservationRequestStatus.pendingPublish:
-        return ReservationRequestGuestAction.publish;
-      default:
-        return ReservationRequestGuestAction.none;
-    }
-  }
 }
 
 class ReservationRequestContent extends EventContent {
@@ -215,25 +142,3 @@ class ReservationRequestContent extends EventContent {
     );
   }
 }
-
-enum ReservationStatus {
-  pending,
-  accepted,
-  cancelled,
-  completed,
-  paid,
-  refunded
-}
-
-enum ReservationRequestStatus {
-  unpaid,
-  unconfirmed,
-  pendingPublish,
-  refunded,
-  unavailable,
-  confirmed
-}
-
-enum ReservationRequestHostAction { accept, publish, refund, none }
-
-enum ReservationRequestGuestAction { pay, publish, none }
