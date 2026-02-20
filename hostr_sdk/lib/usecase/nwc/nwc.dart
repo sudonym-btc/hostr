@@ -20,14 +20,29 @@ class Nwc {
 
   Nwc(this.nwcStorage, this.ndk, this.logger);
 
+  String? _connectionUrl(NwcCubit cubit) =>
+      cubit.url ?? cubit.connection?.uri.toString();
+
   /// User pasted/scanned a NWC from their wallet
   /// nostr+walletconnect://b889ff5b1513b641e2a139f661a661364979c5beee91842f8f0ef42ab558e9d4?relay=wss%3A%2F%2Frelay.damus.io&secret=71a8c14c1407c113601079c4302dab36460f0ccd0ad506f1f2dc73b5100e4f3c
   Future<void> save() async {
     // Parse the NWC string, check protocol, secret, relay
-    await nwcStorage.set(connections.map((c) => c.url!).toList());
+    await nwcStorage.set(
+      connections.map(_connectionUrl).whereType<String>().toSet().toList(),
+    );
   }
 
   Future<void> add(NwcCubit reactiveConnection) async {
+    final incomingUrl = _connectionUrl(reactiveConnection);
+    if (incomingUrl != null &&
+        connections.any(
+          (existing) => _connectionUrl(existing) == incomingUrl,
+        )) {
+      logger.i('Skipping duplicate nwc connection $incomingUrl');
+      await reactiveConnection.close();
+      return;
+    }
+
     logger.i(
       'Adding nwc connection ${reactiveConnection.connection!.uri.toString()}',
     );
@@ -51,6 +66,13 @@ class Nwc {
       }
     }
     return null;
+  }
+
+  Future<NwcCubit> initiateAndAdd(String url) async {
+    final reactive = NwcCubit(nwc: this, logger: logger);
+    await reactive.connect(url);
+    add(reactive);
+    return reactive;
   }
 
   /// Create a reactive connection from a URL and add it to the list
@@ -123,7 +145,11 @@ class Nwc {
 
   void start() {
     nwcStorage.get().then((urls) async {
+      final seen = <String>{};
       for (var url in urls) {
+        if (!seen.add(url)) {
+          continue;
+        }
         try {
           final reactive = NwcCubit(url: url, nwc: this, logger: logger);
           connections.add(reactive);

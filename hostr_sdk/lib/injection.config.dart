@@ -56,6 +56,7 @@ import 'package:hostr_sdk/usecase/messaging/thread/trade_subscriptions.dart'
     as _i802;
 import 'package:hostr_sdk/usecase/messaging/threads.dart' as _i768;
 import 'package:hostr_sdk/usecase/metadata/metadata.dart' as _i149;
+import 'package:hostr_sdk/usecase/nwc/nwc.cubit.dart' as _i613;
 import 'package:hostr_sdk/usecase/nwc/nwc.dart' as _i588;
 import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart'
     as _i124;
@@ -101,12 +102,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i1014.Requests>(
       () => _i1014.Requests(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i158.Rootstock>(
-      () => _i158.Rootstock(
-        config: gh<_i910.HostrConfig>(),
-        logger: gh<_i331.CustomLogger>(),
-      ),
     );
     gh.singleton<_i56.Location>(
       () => _i56.Location(logger: gh<_i331.CustomLogger>()),
@@ -184,14 +179,6 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.factoryParam<_i62.RootstockSwapInOperation, _i677.SwapInParams, dynamic>(
-      (params, _) => _i62.RootstockSwapInOperation(
-        rootstock: gh<_i158.Rootstock>(),
-        auth: gh<_i520.Auth>(),
-        logger: gh<_i372.CustomLogger>(),
-        params: params,
-      ),
-    );
     gh.singleton<_i943.EscrowTrusts>(
       () => _i943.EscrowTrusts(
         requests: gh<_i1014.Requests>(),
@@ -207,11 +194,11 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i305.Evm>(
-      () => _i305.Evm(
+    gh.singleton<_i158.Rootstock>(
+      () => _i158.Rootstock(
+        config: gh<_i910.HostrConfig>(),
         auth: gh<_i1000.Auth>(),
-        rootstock: gh<_i158.Rootstock>(),
-        logger: gh<_i372.CustomLogger>(),
+        logger: gh<_i331.CustomLogger>(),
       ),
     );
     gh.singleton<_i588.Nwc>(
@@ -221,6 +208,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i331.CustomLogger>(),
       ),
       registerFor: {_dev, _staging, _prod},
+    );
+    gh.factory<_i613.NwcCubit>(
+      () => _i613.NwcCubit(
+        nwc: gh<_i520.Nwc>(),
+        logger: gh<_i520.CustomLogger>(),
+        url: gh<String>(),
+      ),
     );
     gh.factoryParam<_i363.LnurlPayOperation, _i24.LnurlPayParameters, dynamic>(
       (params, _) =>
@@ -249,14 +243,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i520.CustomLogger>(),
         auth: gh<_i520.Auth>(),
         messaging: gh<_i520.Messaging>(),
-      ),
-    );
-    gh.factoryParam<_i832.EscrowFundOperation, _i520.EscrowFundParams, dynamic>(
-      (params, _) => _i832.EscrowFundOperation(
-        gh<_i520.Auth>(),
-        gh<_i520.Evm>(),
-        gh<_i520.CustomLogger>(),
-        params,
       ),
     );
     gh.singleton<_i1045.Zaps>(
@@ -308,6 +294,14 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i520.CustomLogger>(),
       ),
     );
+    gh.factoryParam<_i62.RootstockSwapInOperation, _i677.SwapInParams, dynamic>(
+      (params, _) => _i62.RootstockSwapInOperation(
+        rootstock: gh<_i158.Rootstock>(),
+        auth: gh<_i520.Auth>(),
+        logger: gh<_i372.CustomLogger>(),
+        params: params,
+      ),
+    );
     gh.singleton<_i303.Escrows>(
       () => _i303.Escrows(
         requests: gh<_i1014.Requests>(),
@@ -316,17 +310,11 @@ extension GetItInjectableX on _i174.GetIt {
         escrowTrusts: gh<_i943.EscrowTrusts>(),
       ),
     );
-    gh.factoryParam<
-      _i654.EscrowClaimOperation,
-      _i520.EscrowClaimParams,
-      dynamic
-    >(
-      (params, _) => _i654.EscrowClaimOperation(
-        gh<_i520.Auth>(),
-        gh<_i520.Evm>(),
-        gh<_i520.CustomLogger>(),
-        gh<_i520.Rootstock>(),
-        params,
+    gh.singleton<_i305.Evm>(
+      () => _i305.Evm(
+        auth: gh<_i1000.Auth>(),
+        rootstock: gh<_i158.Rootstock>(),
+        logger: gh<_i372.CustomLogger>(),
       ),
     );
     gh.factoryParam<
@@ -356,6 +344,14 @@ extension GetItInjectableX on _i174.GetIt {
         metadata: gh<_i149.MetadataUseCase>(),
       ),
     );
+    gh.factoryParam<_i832.EscrowFundOperation, _i520.EscrowFundParams, dynamic>(
+      (params, _) => _i832.EscrowFundOperation(
+        gh<_i520.Auth>(),
+        gh<_i520.Evm>(),
+        gh<_i520.CustomLogger>(),
+        params,
+      ),
+    );
     gh.factory<_i374.PaymentActions>(
       () => _i374.PaymentActions(trade: gh<_i520.ThreadTrade>()),
     );
@@ -379,6 +375,19 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i455.ReservationActions(
         trade: gh<_i520.ThreadTrade>(),
         reservations: gh<_i520.Reservations>(),
+      ),
+    );
+    gh.factoryParam<
+      _i654.EscrowClaimOperation,
+      _i520.EscrowClaimParams,
+      dynamic
+    >(
+      (params, _) => _i654.EscrowClaimOperation(
+        gh<_i520.Auth>(),
+        gh<_i520.Evm>(),
+        gh<_i520.CustomLogger>(),
+        gh<_i520.Rootstock>(),
+        params,
       ),
     );
     gh.singleton<_i226.Payments>(

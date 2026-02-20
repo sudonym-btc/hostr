@@ -73,50 +73,22 @@ void main(List<String> arguments) async {
   switch (argResults.command?.name) {
     case 'start':
       print('Starting escrow service');
-      print({
-        'privateKey': privateKey,
-        'relayUrl': relayUrl,
-        'blossomUrl': blossomUrl,
-        'rpcUrl': rpcUrl,
-        'contractAddress': contractAddress,
-        'environment': environment,
-        'bootstrapRelays': hostr.config.bootstrapRelays,
-      });
 
-      // await getIt<Hostr>();
+      final contract = hostr.evm.supportedEvmChains[0]
+          .getSupportedEscrowContract(ourEscrowService);
+      await contract.ensureDeployed();
 
-      // await ndk.broadcast.broadcast(
-      //     nostrEvent: Nip01Event(
-      //         pubKey: keyPair.publicKey,
-      //         kind: kNostrKindEscrowService,
-      //         tags: [],
-      //         content: EscrowContent(
-      //                 pubkey: keyPair.publicKey,
-      //                 contractAddress: contractAddress,
-      //                 chainId: (await _web3client.getChainId()).toInt(),
-      //                 type: EscrowType.ROOTSTOCK,
-      //                 maxDuration: Duration(days: 365 * 2))
-      //             .toString())
-      //       ..sign(privateKey));
-      // print('Broadcast escrow event');
-      // multiEscrow
-      //     .tradeCreatedEvents(fromBlock: BlockNum.current())
-      //     .listen((event) {
-      //   print('Trade created: ${event}');
-      // });
+      await getIt<Hostr>().escrows.create(ourEscrowService);
+
       break;
 
     case 'fund':
-      print('Funding escrow');
-      print(argResults.arguments);
       final cmd = argResults.command;
       final amount = cmd?['amount'] as String?;
       final swapOp = hostr.evm.supportedEvmChains[0].swapIn(SwapInParams(
           evmKey: hostr.auth.getActiveEvmKey(),
           amount: BitcoinAmount.fromInt(BitcoinUnit.sat, int.parse(amount!))));
-      print(amount);
       swapOp.execute();
-      print('swapping');
       swapOp.stream
           .doOnData(print)
           .whereType<SwapInPaymentProgress>()
@@ -128,9 +100,6 @@ void main(List<String> arguments) async {
       });
       break;
     case 'list-pending':
-      print(
-        'Hostr SDK is initialised. Relay bootstrap: ${hostr.config.bootstrapRelays}',
-      );
       final contract = hostr.evm
           .getChainForEscrowService(ourEscrowService)
           .getSupportedEscrowContract(ourEscrowService);

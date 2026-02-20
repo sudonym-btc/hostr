@@ -1,7 +1,9 @@
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
 
+@injectable
 class NwcCubit extends Cubit<NwcCubitState> {
   final CustomLogger logger;
   final Nwc nwc;

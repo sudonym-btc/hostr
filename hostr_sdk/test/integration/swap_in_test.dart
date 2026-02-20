@@ -1,18 +1,21 @@
 import 'dart:io';
 
-import 'package:hostr_sdk/datasources/alby/alby.dart';
+import 'package:hostr_sdk/datasources/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/usecase/nwc/nwc.cubit.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:logger/logger.dart';
 import 'package:models/stubs/main.dart';
 import 'package:test/test.dart';
 
 void main() {
   late Hostr hostr;
-
+  late AnvilClient anvil;
+  late AlbyHubClient albyHub;
   setUpAll(() async {
+    CustomLogger.configure(level: Level.debug);
+
     final storageDir = Directory(
       '${Directory.systemTemp.path}/hostr_swap_in_it',
     );
@@ -23,6 +26,30 @@ void main() {
     HydratedBloc.storage = await HydratedStorage.build(
       storageDirectory: HydratedStorageDirectory(storageDir.path),
     );
+    hostr = Hostr(
+      environment: Env.dev,
+      config: HostrConfig(
+        logs: CustomLogger(),
+        bootstrapRelays: ['ws://relay.hostr.development'],
+        bootstrapBlossom: ['http://blossom.hostr.development'],
+        rootstockConfig: _DevelopmentRootstockConfig(),
+      ),
+    );
+    anvil = AnvilClient(rpcUri: Uri.parse('http://localhost:8545'));
+    albyHub = AlbyHubClient(
+      baseUri: Uri.parse('https://alby1.hostr.development'),
+      unlockPassword: Platform.environment['ALBYHUB_PASSWORD'] ?? 'Testing123!',
+    );
+    await hostr.auth.signin(MockKeys.guest.privateKey!);
+    final pairingUrl = await albyHub.getConnectionForPubkey(
+      MockKeys.guest.publicKey,
+      appName: 'escrow-fund-it-${DateTime.now().millisecondsSinceEpoch}',
+    );
+    await hostr.nwc.initiateAndAdd(pairingUrl!);
+  });
+
+  tearDownAll(() {
+    CustomLogger.configure(level: Level.trace);
   });
 
   tearDown(() async {
@@ -33,37 +60,14 @@ void main() {
   test(
     'swap in emits expected state flow when NWC is connected',
     () async {
-      final albyHub = AlbyHubClient(
-        baseUri: Uri.parse('https://alby1.hostr.development'),
-        unlockPassword:
-            Platform.environment['ALBYHUB_PASSWORD'] ?? 'Testing123!',
-      );
-
       try {
-        hostr = Hostr(
-          environment: Env.dev,
-          config: HostrConfig(
-            logs: CustomLogger(),
-            bootstrapRelays: ['ws://relay.hostr.development'],
-            bootstrapBlossom: ['http://blossom.hostr.development'],
-            rootstockConfig: _DevelopmentRootstockConfig(),
-          ),
-        );
-
-        hostr.start();
         await hostr.auth.signin(MockKeys.guest.privateKey!);
 
         final pairingUrl = await albyHub.getConnectionForUser(
           MockKeys.guest,
           appName: 'swap-in-it-${DateTime.now().millisecondsSinceEpoch}',
         );
-        expect(pairingUrl, isNotNull);
-
-        final nwc = getIt<Nwc>();
-        final nwcCubit = NwcCubit(nwc: nwc, logger: CustomLogger());
-        await nwcCubit.connect(pairingUrl!);
-        await nwc.add(nwcCubit);
-        expect(nwc.getActiveConnection(), isNotNull);
+        await hostr.nwc.initiateAndAdd(pairingUrl!);
 
         final evm = getIt<Evm>();
         final minimumSwapIn = await evm.rootstock.getMinimumSwapIn();

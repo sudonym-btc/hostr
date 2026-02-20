@@ -25,7 +25,9 @@ abstract class HostrSdkModule {
 
   @singleton
   Ndk ndk(HostrConfig config) {
-    print("Configuring NDK with bootstrap relays: ${config.bootstrapRelays}");
+    _hostrConfig.logger.d(
+      "Configuring NDK with bootstrap relays: ${config.bootstrapRelays}",
+    );
     return Ndk(config.ndkConfig);
   }
 }

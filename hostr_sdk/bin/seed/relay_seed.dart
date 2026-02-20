@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:hostr_sdk/datasources/anvil/anvil.dart';
 import 'package:hostr_sdk/datasources/lnbits/lnbits.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
@@ -32,16 +33,14 @@ class RelaySeeder {
       ),
     );
     final mocked = await MOCK_EVENTS(contractAddress: contractAddress);
-    final events = config == null
-        ? mocked
-        : [
-            ...(await DeterministicSeedBuilder(
-              config: config.validated(),
-              contractAddress: contractAddress,
-              rpcUrl: config.rpcUrl,
-            ).build()).allEvents,
-            ...mocked,
-          ];
+    final events = [
+      ...(await DeterministicSeedBuilder(
+        config: config.validated(),
+        contractAddress: contractAddress,
+        rpcUrl: config.rpcUrl,
+      ).build()).allEvents,
+      ...mocked,
+    ];
 
     if (config.setupLnbits) {
       await _setupLnbitsForProfiles(
@@ -232,49 +231,28 @@ class RelaySeeder {
 
     print('Funding ${addresses.length} mock EVM addresses via $rpcUrl...');
 
-    for (final address in addresses) {
-      final funded =
-          await _setBalance(rpcUrl, 'anvil_setBalance', address, amountWei) ||
-          await _setBalance(rpcUrl, 'hardhat_setBalance', address, amountWei);
+    final anvilClient = AnvilClient(rpcUri: Uri.parse(rpcUrl));
 
-      if (!funded) {
-        throw Exception(
-          'Could not fund $address on $rpcUrl. Neither anvil_setBalance nor hardhat_setBalance is supported.',
+    try {
+      for (final address in addresses) {
+        final funded = await anvilClient.setBalance(
+          address: address,
+          amountWei: amountWei,
         );
+
+        if (!funded) {
+          throw Exception(
+            'Could not fund $address on $rpcUrl. Neither anvil_setBalance nor hardhat_setBalance is supported.',
+          );
+        }
       }
+    } finally {
+      anvilClient.close();
     }
 
     print(
       'Funded ${addresses.length} mock addresses with $amountWei wei each.',
     );
-  }
-
-  Future<bool> _setBalance(
-    String rpcUrl,
-    String method,
-    String address,
-    BigInt amountWei,
-  ) async {
-    final uri = Uri.parse(rpcUrl);
-    final request = await HttpClient().postUrl(uri);
-    request.headers.contentType = ContentType.json;
-    request.write(
-      jsonEncode({
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': method,
-        'params': [address, '0x${amountWei.toRadixString(16)}'],
-      }),
-    );
-
-    final response = await request.close();
-    final body = await utf8.decodeStream(response);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      return false;
-    }
-
-    final decoded = jsonDecode(body) as Map<String, dynamic>;
-    return decoded['error'] == null;
   }
 
   Future<void> _setupLnbitsForProfiles({

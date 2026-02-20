@@ -16,6 +16,17 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     required this.address,
   });
 
+  Future<void> ensureDeployed() async {
+    final code = await contract.client.getCode(contract.self.address);
+    if (code.isEmpty) {
+      throw StateError(
+        'Escrow contract not deployed at ${contract.self.address}. '
+        'This address appears to be an EOA or empty address. '
+        'Funding can succeed with no logs in that case because no contract code executes.',
+      );
+    }
+  }
+
   Future<BitcoinAmount> estimateDespositFee(ContractFundEscrowParams params);
   Future<BitcoinAmount> estimateClaimFee(ContractClaimEscrowParams params);
   // Future<BigInt> estimateRefundFee(EscrowParams params);

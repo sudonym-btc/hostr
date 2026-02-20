@@ -1,9 +1,13 @@
 FROM dart:stable
 
-WORKDIR /app
+WORKDIR /workspace
 
-COPY . .
+COPY escrow /workspace/escrow
+COPY hostr_sdk /workspace/hostr_sdk
+COPY models /workspace/models
+
+WORKDIR /workspace/escrow
 
 RUN dart pub get
 
-CMD ["dart", "bin/cli.dart"]
+CMD ["dart", "run", "lib/cli.dart", "start"]
