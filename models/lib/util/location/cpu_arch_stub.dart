@@ -1,3 +1,3 @@
-enum CpuArch { x64, arm64, unknown }
+import 'cpu_arch.dart';
 
 CpuArch currentCpuArch() => CpuArch.unknown;
