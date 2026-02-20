@@ -40,6 +40,10 @@ restart_hostr() {
         "$REPO_ROOT/docker/data/blossom" \
         "$REPO_ROOT/docker/data/escrow"
 
+    # nostr-rs-relay runs as a non-root user in its container and needs write
+    # access to the mounted sqlite path.
+    chmod 0777 "$REPO_ROOT/docker/data/relay"
+
     (cd "$REPO_ROOT/dependencies/boltz-regtest" && git clean -fdx data/) || true
 
     "$SCRIPT_DIR/start.sh" "$ENVIRONMENT"
