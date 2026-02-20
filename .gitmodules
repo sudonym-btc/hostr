@@ -3,7 +3,7 @@
 	url = git@github.com:BoltzExchange/boltz-core.git
 [submodule "dependencies/boltz-regtest"]
 	path = dependencies/boltz-regtest
-	url = git@github.com:BoltzExchange/regtest.git
+	url = git@github.com:sudonym-btc/regtest.git
 [submodule "dependencies/blossom"]
 	path = dependencies/blossom
 	url = git@github.com:hzrd149/blossom-server.git
