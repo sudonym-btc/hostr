@@ -19,9 +19,19 @@ Source references:
 - `linux/libh3.so`
 - `windows/h3.dll`
 
+Optional architecture-specific variants are also supported:
+
+- `macos/arm64/libh3.dylib`
+- `macos/x86_64/libh3.dylib`
+- `linux/arm64/libh3.so`
+- `linux/x86_64/libh3.so`
+- `windows/x86_64/h3.dll`
+
 ## Runtime resolution
 
 `H3Engine.bundled()` resolves package root and loads the platform file above.
+If an architecture-specific file exists, it is preferred. If not, it falls back
+to the legacy platform path (for example `linux/libh3.so`).
 
 Override path explicitly with env var:
 
