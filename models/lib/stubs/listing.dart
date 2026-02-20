@@ -2,16 +2,27 @@ import 'package:models/main.dart';
 
 import 'main.dart';
 
-final h3TagsLondon = H3Engine.bundled()
-    .hierarchy
-    .hierarchyForPoint(latitude: 51.5074, longitude: -0.1278);
+List<String> _safeH3TagsForPoint({
+    required double latitude,
+    required double longitude,
+}) {
+    try {
+        return H3Engine.bundled()
+                .hierarchy
+                .hierarchyForPoint(latitude: latitude, longitude: longitude);
+    } catch (_) {
+        return const <String>[];
+    }
+}
+
+final h3TagsLondon =
+        _safeH3TagsForPoint(latitude: 51.5074, longitude: -0.1278);
 
 final tagsLondon = List<List<String>>.generate(
     h3TagsLondon.length, (i) => ['g', h3TagsLondon[i]]);
 
-final h3TagsMexicoCity = H3Engine.bundled()
-    .hierarchy
-    .hierarchyForPoint(latitude: 19.4326, longitude: -99.1332);
+final h3TagsMexicoCity =
+    _safeH3TagsForPoint(latitude: 19.4326, longitude: -99.1332);
 
 final tagsMexicoCity = List<List<String>>.generate(
     h3TagsMexicoCity.length, (i) => ['g', h3TagsMexicoCity[i]]);
