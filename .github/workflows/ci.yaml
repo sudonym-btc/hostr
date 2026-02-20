@@ -37,6 +37,13 @@ jobs:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: ./scripts/restart.sh test
 
+      - name: Debug stack startup failure
+        if: failure()
+        run: |
+          docker compose ps -a || true
+          docker compose logs --no-color hostrbitcoind lnd1 lnd2 bootstrap escrow-contract-deploy || true
+          docker compose logs --no-color bitcoind-init lnd-1 lnd-2 regtest-start boltz-backend || true
+
       - name: Run tests
         run: dart test --coverage
         working-directory: hostr_sdk
