@@ -122,7 +122,7 @@ services:
       
   # Escrow client which watches nostr & chain to facilitate escrow transactions
   escrow-contract-deploy:
-    image: node:20-alpine
+    image: node:22-alpine
     depends_on:
       bootstrap:
         condition: service_completed_successfully
@@ -138,7 +138,7 @@ services:
       [
         "sh",
         "-lc",
-        "set -euo pipefail && printf 'y\n' | npx hardhat ignition deploy ignition/modules/Escrow.ts --network localhost && ADDRESS=$$(node -e \"const fs=require('fs');const p='ignition/deployments/chain-33/deployed_addresses.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const k=Object.keys(j).find((x)=>x.toLowerCase().includes('multiescrow'));if(!k){process.exit(2)};process.stdout.write(String(j[k]||''));\") && test -n \"$$ADDRESS\" && echo \"$$ADDRESS\" > /data/contract_addr && echo \"Escrow contract deployed at $$ADDRESS\"",
+        "set -euo pipefail && npm ci --no-audit --no-fund && printf 'y\n' | npm exec -- hardhat ignition deploy ignition/modules/Escrow.ts --network localhost && ADDRESS=$$(node -e \"const fs=require('fs');const p='ignition/deployments/chain-33/deployed_addresses.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const k=Object.keys(j).find((x)=>x.toLowerCase().includes('multiescrow'));if(!k){process.exit(2)};process.stdout.write(String(j[k]||''));\") && test -n \"$$ADDRESS\" && echo \"$$ADDRESS\" > /data/contract_addr && echo \"Escrow contract deployed at $$ADDRESS\"",
       ]
     restart: "no"
     profiles:
