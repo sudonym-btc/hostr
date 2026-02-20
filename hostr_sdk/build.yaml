@@ -4,8 +4,8 @@ targets:
       swagger_dart_code_generator:
         options:
           include_if_null: false
-          input_folder: lib/datasources/boltz/swagger
-          output_folder: lib/datasources/boltz/swagger_generated
+          input_folder: lib/datasources/swagger
+          output_folder: lib/datasources/swagger_generated
 
       web3dart_builders:abi_generator:
         generate_for:

@@ -1,17 +1,46 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/stop.sh"
-source "$SCRIPT_DIR/start.sh"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENVIRONMENT="${1:-local}"
+
+case "$ENVIRONMENT" in
+    local|test|staging|prod) ;;
+    *)
+        echo "Usage: $0 [local|test|staging|prod]"
+        exit 64
+        ;;
+esac
 
 restart_hostr() {
-    stop_hostr &&
-        rm -rf docker/data &&
-        rm -rf escrow/contracts/ignition/deployments &&
-        (cd "$SCRIPT_DIR/../dependencies/boltz-regtest" && git clean -fdx data/) &&
-        start
+    (cd "$REPO_ROOT/dependencies/boltz-regtest" && ./stop.sh) || true
+    (cd "$REPO_ROOT" && docker compose down --volumes) || true
+
+    rm -rf \
+        "$REPO_ROOT/docker/data/lightning_data" \
+        "$REPO_ROOT/docker/data/bitcoin" \
+        "$REPO_ROOT/docker/data/lnbits" \
+        "$REPO_ROOT/docker/data/albyhub" \
+        "$REPO_ROOT/docker/data/relay" \
+        "$REPO_ROOT/docker/data/blossom" \
+        "$REPO_ROOT/escrow/contracts/ignition/deployments"
+
+    mkdir -p \
+        "$REPO_ROOT/docker/data/lightning_data/1" \
+        "$REPO_ROOT/docker/data/lightning_data/2" \
+        "$REPO_ROOT/docker/data/bitcoin" \
+        "$REPO_ROOT/docker/data/lnbits/1" \
+        "$REPO_ROOT/docker/data/lnbits/2" \
+        "$REPO_ROOT/docker/data/albyhub" \
+        "$REPO_ROOT/docker/data/relay" \
+        "$REPO_ROOT/docker/data/blossom"
+
+    (cd "$REPO_ROOT/dependencies/boltz-regtest" && git clean -fdx data/) || true
+
+    "$SCRIPT_DIR/start.sh" "$ENVIRONMENT"
 }
 
-# If script is executed directly (not sourced), run the function
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     restart_hostr "$@"
 fi

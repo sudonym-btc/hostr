@@ -5,10 +5,6 @@ import 'seed/relay_seed.dart';
 import 'seed/seed_models.dart';
 
 Future<void> main(List<String> arguments) async {
-  String? relayUrl;
-  String? rpcUrl;
-  bool? fundProfiles;
-  BigInt? fundAmountWei;
   DeterministicSeedConfig? deterministicConfig;
 
   final positionalArgs = arguments
@@ -27,20 +23,12 @@ Future<void> main(List<String> arguments) async {
       final json = jsonDecode(arg.substring('--config-json='.length));
       final map = Map<String, dynamic>.from(json as Map);
       deterministicConfig = DeterministicSeedConfig.fromJson(map);
-      relayUrl = deterministicConfig.relayUrl;
-      rpcUrl = deterministicConfig.rpcUrl;
-      fundProfiles = deterministicConfig.fundProfiles;
-      fundAmountWei = deterministicConfig.fundAmountWei;
     } else if (arg.startsWith('--config-file=')) {
       final path = arg.substring('--config-file='.length);
       final raw = await File(path).readAsString();
       final json = jsonDecode(raw);
       final map = Map<String, dynamic>.from(json as Map);
       deterministicConfig = DeterministicSeedConfig.fromJson(map);
-      relayUrl = deterministicConfig.relayUrl;
-      rpcUrl = deterministicConfig.rpcUrl;
-      fundProfiles = deterministicConfig.fundProfiles;
-      fundAmountWei = deterministicConfig.fundAmountWei;
     } else if (arg.startsWith('--')) {
       print(
         'Unsupported flag: $arg. relayUrl/rpcUrl/fundProfiles must be provided in config JSON/file.',
@@ -50,24 +38,13 @@ Future<void> main(List<String> arguments) async {
     }
   }
 
-  if (relayUrl == null || relayUrl.isEmpty) {
-    print('Please provide relayUrl in --config-json or --config-file.');
-    exitCode = 64;
-    return;
-  }
-
-  if (rpcUrl == null || rpcUrl.isEmpty) {
-    print('Please provide rpcUrl in --config-json or --config-file.');
-    exitCode = 64;
-    return;
+  if (deterministicConfig == null) {
+    print(
+      'No config provided. Using defaults. relayUrl/rpcUrl/fundProfiles must be provided in config JSON/file.',
+    );
+    deterministicConfig = const DeterministicSeedConfig();
   }
 
   final seeder = RelaySeeder();
-  await seeder.run(
-    relayUrl: relayUrl,
-    fundProfiles: fundProfiles ?? false,
-    rpcUrl: rpcUrl,
-    fundAmountWei: fundAmountWei,
-    deterministicConfig: deterministicConfig,
-  );
+  await seeder.run(config: deterministicConfig);
 }

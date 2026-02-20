@@ -17,11 +17,12 @@ setup_lnbits() {
     fi
 
     # Define variables
-    local LNBITS_URL="http://localhost:$PORT"
+    local LNBITS_HOST="${LNBITS_HOST:-localhost}"
+    local LNBITS_URL="http://$LNBITS_HOST:$PORT"
     local ADMIN_EMAIL="${LNBITS_ADMIN_EMAIL}"
     local ADMIN_PASSWORD="${LNBITS_ADMIN_PASSWORD}"
     local EXTENSION_NAME="${LNBITS_EXTENSION_NAME}"
-    local LNBITS_NOSTR_PRIVATE_KEY="${LNBITS_NOSTR_PRIVATE_KEY}"
+    local LNBITS_NOSTR_PRIVATE_KEY="${LNBITS_NOSTR_PRIVATE_KEY:-}"
     local admin_token=""
     local first_wallet_id=""
     local first_wallet_key=""
