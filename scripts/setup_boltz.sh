@@ -10,6 +10,20 @@ setup_boltz() {
     # Source aliases here, after containers are running
     source "$SCRIPT_DIR/aliases.sh"
 
+    # Override boltz-regtest helper commands for non-interactive execution.
+    # The upstream aliases use `docker exec -it`, which fails inside bootstrap.
+    run_in_boltz_scripts() {
+        docker exec boltz-scripts bash -lc "source /etc/profile.d/utils.sh && $(printf '%q ' "$@")"
+    }
+
+    lncli-sim() {
+        run_in_boltz_scripts lncli-sim "$@"
+    }
+
+    lightning-cli-sim() {
+        run_in_boltz_scripts lightning-cli-sim "$@"
+    }
+
     ensure_node_online "lncli-sim 1" 
     ensure_node_online "lncli-sim 2" 
     ensure_node_online "lightning-cli-sim 1"
@@ -61,7 +75,7 @@ setup_boltz() {
 
     lncli-sim 1 openchannel ${LND1_PUB} ${CHANNEL_SIZE} >/dev/null
     lncli-sim 1 openchannel ${LND2_PUB} ${CHANNEL_SIZE} >/dev/null
-    BTC generatetoaddress ${CHANNEL_BLOCK_CONFIRMATIONS} $LND1_NEW_ADDR >/dev/null
+    BTC generatetoaddress ${CHANNEL_BLOCK_CONFIRMATIONS} ${LND1_NEW_ADDR:-$LND1_ADDR} >/dev/null
     wait_for_channel "lncli-sim 1" "${LND1_PUB}"
     wait_for_channel "lncli-sim 1" "${LND2_PUB}"
     

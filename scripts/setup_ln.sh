@@ -11,18 +11,15 @@ ensure_bitcoind_blockheights_match() {
 
     echo "Ensuring bitcoind block heights match between hostr and boltz..."
 
-    # Source boltz-regtest aliases for bitcoin-cli-sim-client
-    local BOLTZ_ALIASES="$SCRIPT_DIR/../dependencies/boltz-regtest/aliases.sh"
-    if [ ! -f "$BOLTZ_ALIASES" ]; then
-        echo "Boltz aliases not found at $BOLTZ_ALIASES"
-        return 1
-    fi
+    get_boltz_height() {
+        docker exec boltz-scripts bash -lc "source /etc/profile.d/utils.sh && bitcoin-cli-sim-client getblockcount" 2>/dev/null | tr -d '[:space:]'
+    }
 
     while [ $attempt -lt $max_attempts ]; do
         # Hostr bitcoind height
 
         local hostr_height=$(BTC getblockcount 2>/dev/null | tr -d '[:space:]')
-        local boltz_height=$(source "$BOLTZ_ALIASES"; run_in_container bitcoin-cli-sim-client getblockcount 2>/dev/null | tr -d '[:space:]')
+        local boltz_height=$(get_boltz_height)
 
         # Only proceed if both heights are integers
         if [[ "$hostr_height" =~ ^[0-9]+$ ]] && [[ "$boltz_height" =~ ^[0-9]+$ ]] && [ "$hostr_height" -eq "$boltz_height" ] && [ "$hostr_height" -ne 0 ]; then
@@ -48,8 +45,11 @@ ensure_node_online() {
     echo "Ensuring $cmd_name is online..."
 
     while [ $attempt -lt $max_attempts ]; do
-        output=$($cmd_name getinfo 2>&1)
-        status=$?
+        if output=$($cmd_name getinfo 2>&1); then
+            status=0
+        else
+            status=$?
+        fi
         # echo "$output"
         if [ $status -eq 0 ]; then
             echo "$cmd_name is online"

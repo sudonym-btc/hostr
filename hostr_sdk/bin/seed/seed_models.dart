@@ -2,7 +2,14 @@ class DeterministicSeedConfig {
   final String? relayUrl;
   final String rpcUrl;
   final bool fundProfiles;
+  final bool setupLnbits;
   final BigInt? fundAmountWei;
+  final String lnbits1BaseUrl;
+  final String lnbits2BaseUrl;
+  final String lnbitsAdminEmail;
+  final String lnbitsAdminPassword;
+  final String lnbitsExtensionName;
+  final String? lnbitsNostrPrivateKey;
   final int seed;
   final int userCount;
   final double hostRatio;
@@ -19,7 +26,14 @@ class DeterministicSeedConfig {
     this.relayUrl,
     this.rpcUrl = 'http://localhost:8545',
     this.fundProfiles = true,
+    this.setupLnbits = false,
     this.fundAmountWei,
+    this.lnbits1BaseUrl = 'http://localhost:5055',
+    this.lnbits2BaseUrl = 'http://localhost:5056',
+    this.lnbitsAdminEmail = 'admin@example.com',
+    this.lnbitsAdminPassword = 'adminpassword',
+    this.lnbitsExtensionName = 'lnurlp',
+    this.lnbitsNostrPrivateKey,
     this.seed = 1,
     this.userCount = 40,
     this.hostRatio = 0.35,
@@ -39,7 +53,19 @@ class DeterministicSeedConfig {
           _asStringOrNull(json['relayUrl']) ?? 'ws://relay.hostr.development',
       rpcUrl: _asStringOrNull(json['rpcUrl']) ?? 'http://localhost:8545',
       fundProfiles: _asBool(json['fundProfiles'], fallback: true),
+      setupLnbits: _asBool(json['setupLnbits'], fallback: false),
       fundAmountWei: _asBigIntOrNull(json['fundAmountWei']),
+      lnbits1BaseUrl:
+          _asStringOrNull(json['lnbits1BaseUrl']) ?? 'http://localhost:5055',
+      lnbits2BaseUrl:
+          _asStringOrNull(json['lnbits2BaseUrl']) ?? 'http://localhost:5056',
+      lnbitsAdminEmail:
+          _asStringOrNull(json['lnbitsAdminEmail']) ?? 'admin@example.com',
+      lnbitsAdminPassword:
+          _asStringOrNull(json['lnbitsAdminPassword']) ?? 'adminpassword',
+      lnbitsExtensionName:
+          _asStringOrNull(json['lnbitsExtensionName']) ?? 'lnurlp',
+      lnbitsNostrPrivateKey: _asStringOrNull(json['lnbitsNostrPrivateKey']),
       seed: _asInt(json['seed'], fallback: 1),
       userCount: _asInt(json['userCount'], fallback: 40),
       hostRatio: _asDouble(json['hostRatio'], fallback: 0.35),
@@ -68,7 +94,14 @@ class DeterministicSeedConfig {
       relayUrl: relayUrl,
       rpcUrl: rpcUrl,
       fundProfiles: fundProfiles,
+      setupLnbits: setupLnbits,
       fundAmountWei: fundAmountWei,
+      lnbits1BaseUrl: lnbits1BaseUrl,
+      lnbits2BaseUrl: lnbits2BaseUrl,
+      lnbitsAdminEmail: lnbitsAdminEmail,
+      lnbitsAdminPassword: lnbitsAdminPassword,
+      lnbitsExtensionName: lnbitsExtensionName,
+      lnbitsNostrPrivateKey: lnbitsNostrPrivateKey,
       seed: seed,
       userCount: userCount < 2 ? 2 : userCount,
       hostRatio: _clamp01(hostRatio),
@@ -90,7 +123,14 @@ class DeterministicSeedConfig {
       'relayUrl': relayUrl,
       'rpcUrl': rpcUrl,
       'fundProfiles': fundProfiles,
+      'setupLnbits': setupLnbits,
       'fundAmountWei': fundAmountWei?.toString(),
+      'lnbits1BaseUrl': lnbits1BaseUrl,
+      'lnbits2BaseUrl': lnbits2BaseUrl,
+      'lnbitsAdminEmail': lnbitsAdminEmail,
+      'lnbitsAdminPassword': lnbitsAdminPassword,
+      'lnbitsExtensionName': lnbitsExtensionName,
+      'lnbitsNostrPrivateKey': lnbitsNostrPrivateKey,
       'seed': seed,
       'userCount': userCount,
       'hostRatio': hostRatio,

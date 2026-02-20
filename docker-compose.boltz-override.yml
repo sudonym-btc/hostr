@@ -1,0 +1,3 @@
+services:
+  cleanup:
+    entrypoint: ['/bin/bash', '-c', 'echo "cleanup disabled by hostr override"; exit 0']

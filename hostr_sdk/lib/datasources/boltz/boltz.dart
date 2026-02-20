@@ -7,7 +7,7 @@ import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:injectable/injectable.dart';
 
-import 'swagger_generated/boltz.swagger.dart';
+import '../swagger_generated/boltz.swagger.dart';
 
 @injectable
 class BoltzClient {

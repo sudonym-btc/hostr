@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'albyhub_client.dart';
+import 'package:hostr_sdk/datasources/alby/alby.dart';
 
 Future<void> main(List<String> args) async {
   final parsed = _parseArgs(args);

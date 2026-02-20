@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:hostr_sdk/datasources/lnbits/lnbits.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
@@ -10,22 +11,16 @@ import 'deterministic_seed_builder.dart';
 import 'seed_models.dart';
 
 class RelaySeeder {
-  Future<int> run({
-    required String relayUrl,
-    bool fundProfiles = false,
-    String rpcUrl = 'http://localhost:8545',
-    BigInt? fundAmountWei,
-    DeterministicSeedConfig? deterministicConfig,
-  }) async {
-    print('Seeding $relayUrl...');
+  Future<int> run({required DeterministicSeedConfig config}) async {
+    print('Seeding ${config.relayUrl}...');
     final contractAddress = await _resolveDeployedMultiEscrowAddress();
     print('Using contract address: $contractAddress');
 
-    if (fundProfiles) {
+    if (config.fundProfiles) {
       await _fundMockProfiles(
-        rpcUrl: rpcUrl,
-        amountWei: fundAmountWei ?? BigInt.parse('10000000000000000000'),
-        deterministicConfig: deterministicConfig,
+        rpcUrl: config.rpcUrl,
+        amountWei: config.fundAmountWei ?? BigInt.parse('10000000000000000000'),
+        deterministicConfig: config,
       );
     }
 
@@ -33,20 +28,28 @@ class RelaySeeder {
       NdkConfig(
         eventVerifier: Bip340EventVerifier(),
         cache: MemCacheManager(),
-        bootstrapRelays: [relayUrl],
+        bootstrapRelays: [config.relayUrl!],
       ),
     );
     final mocked = await MOCK_EVENTS(contractAddress: contractAddress);
-    final events = deterministicConfig == null
+    final events = config == null
         ? mocked
         : [
             ...(await DeterministicSeedBuilder(
-              config: deterministicConfig.validated(),
+              config: config.validated(),
               contractAddress: contractAddress,
-              rpcUrl: rpcUrl,
+              rpcUrl: config.rpcUrl,
             ).build()).allEvents,
             ...mocked,
           ];
+
+    if (config.setupLnbits) {
+      await _setupLnbitsForProfiles(
+        events: events,
+        deterministicConfig: config,
+      );
+    }
+
     for (var i = 0; i < events.length; i++) {
       final event = events[i];
       var success = false;
@@ -272,5 +275,47 @@ class RelaySeeder {
 
     final decoded = jsonDecode(body) as Map<String, dynamic>;
     return decoded['error'] == null;
+  }
+
+  Future<void> _setupLnbitsForProfiles({
+    required List<Nip01Event> events,
+    DeterministicSeedConfig? deterministicConfig,
+  }) async {
+    final usernamesByDomain = <String, Set<String>>{};
+
+    for (final profile in events.whereType<ProfileMetadata>()) {
+      final lud16 = profile.metadata.lud16;
+      if (lud16 == null) {
+        continue;
+      }
+
+      final split = lud16.split('@');
+      if (split.length != 2 || split[0].isEmpty || split[1].isEmpty) {
+        continue;
+      }
+
+      usernamesByDomain
+          .putIfAbsent(split[1].toLowerCase(), () => <String>{})
+          .add(split[0]);
+    }
+
+    if (usernamesByDomain.isEmpty) {
+      print('No profile lud16 usernames found. Skipping LNbits setup.');
+      return;
+    }
+
+    final config = LnbitsSetupConfig.fromEnvironment(
+      lnbits1BaseUrl: deterministicConfig?.lnbits1BaseUrl,
+      lnbits2BaseUrl: deterministicConfig?.lnbits2BaseUrl,
+      lnbitsAdminEmail: deterministicConfig?.lnbitsAdminEmail,
+      lnbitsAdminPassword: deterministicConfig?.lnbitsAdminPassword,
+      lnbitsExtensionName: deterministicConfig?.lnbitsExtensionName,
+      lnbitsNostrPrivateKey: deterministicConfig?.lnbitsNostrPrivateKey,
+    );
+
+    await LnbitsDatasource().setupUsernamesByDomain(
+      usernamesByDomain: usernamesByDomain,
+      config: config,
+    );
   }
 }

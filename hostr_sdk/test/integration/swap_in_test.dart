@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:hostr_sdk/datasources/alby/alby.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/usecase/nwc/nwc.cubit.dart';
@@ -7,8 +8,6 @@ import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:models/stubs/main.dart';
 import 'package:test/test.dart';
-
-import 'tools/albyhub_client.dart';
 
 void main() {
   late Hostr hostr;

@@ -1,14 +1,15 @@
-export 'albyhub_client_fixed.dart';
+import 'dart:convert';
+import 'dart:io';
 
-/*
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class AlbyHubClient {
   final Uri baseUri;
   final String unlockPassword;
   final HttpClient _httpClient;
-  String? _lastAuthToken;
   final Map<String, Cookie> _cookieJar = <String, Cookie>{};
   String? _lastAuthToken;
+
   AlbyHubClient({
     required this.baseUri,
     required this.unlockPassword,
@@ -26,12 +27,11 @@ class AlbyHubClient {
       body: {'unlockPassword': unlockPassword},
       throwOnHttpError: false,
     );
-      final Map<String, Cookie> _cookieJar = <String, Cookie>{};
 
     final error = response.map['error']?.toString();
     if (error != null &&
         error.isNotEmpty &&
-        !error.contains('already set up')) {
+        !error.toLowerCase().contains('already set up')) {
       throw StateError('Failed to setup AlbyHub: $error');
     }
   }
@@ -44,103 +44,121 @@ class AlbyHubClient {
       throwOnHttpError: false,
     );
 
-    _lastAuthToken = _extractToken(response.map) ?? _lastAuthToken;
+    _lastAuthToken =
+        _extractToken(response.map) ??
+        _extractTokenFromCookies(response) ??
+        _lastAuthToken;
 
     final error = response.map['error']?.toString();
     if (error != null &&
         error.isNotEmpty &&
-        !error.contains('already started')) {
+        !error.toLowerCase().contains('already started')) {
       throw StateError('Failed to start AlbyHub: $error');
     }
   }
 
   Future<String> unlock({String permission = 'full'}) async {
-    final response = await _request(
-      method: 'POST',
-      path: '/api/unlock',
-      body: {'permission': permission, 'unlockPassword': unlockPassword},
-      throwOnHttpError: false,
-    );
+    for (var attempt = 0; attempt < 5; attempt++) {
+      final response = await _request(
+        method: 'POST',
+        path: '/api/unlock',
+        body: {'permission': permission, 'unlockPassword': unlockPassword},
+        throwOnHttpError: false,
+      );
 
-    final token = _extractToken(response.map);
-    if (token != null && token.isNotEmpty) {
-      _lastAuthToken = token;
-      return token;
-    }
-
-    final error = response.map['error']?.toString();
-    if (error != null && error.isNotEmpty) {
-      throw StateError('Failed to unlock AlbyHub: $error');
-    }
-
-    final message = response.map['message']?.toString().toLowerCase() ?? '';
-    if (message.contains('already unlocked')) {
-      if (_lastAuthToken != null && _lastAuthToken!.isNotEmpty) {
-        return _lastAuthToken!;
+      final token =
+          _extractToken(response.map) ??
+          _extractTokenFromCookies(response) ??
+          _lastAuthToken;
+      if (token != null && token.isNotEmpty) {
+        _lastAuthToken = token;
+        return token;
       }
 
-      // Retry start, some versions only emit token there.
-        final token = _extractToken(response.map) ?? _extractTokenFromCookies(response);
+      final error = response.map['error']?.toString();
+      if (error != null && error.isNotEmpty) {
+        throw StateError('Failed to unlock AlbyHub: $error');
+      }
+
+      final message = (response.map['message']?.toString() ?? '').toLowerCase();
+      if (message.contains('invalid password')) {
+        throw StateError('Failed to unlock AlbyHub: $message');
+      }
+
+      if (message.contains('rate limit') ||
+          message.contains('too many requests')) {
+        if (attempt == 4) {
+          throw StateError('Failed to unlock AlbyHub: $message');
+        }
+        await Future<void>.delayed(Duration(seconds: attempt + 1));
+        continue;
+      }
+
+      final startResponse = await _request(
         method: 'POST',
         path: '/api/start',
         body: {'unlockPassword': unlockPassword},
         throwOnHttpError: false,
       );
-      final startToken = _extractToken(startResponse.map);
+      final startToken =
+          _extractToken(startResponse.map) ??
+          _extractTokenFromCookies(startResponse);
       if (startToken != null && startToken.isNotEmpty) {
         _lastAuthToken = startToken;
         return startToken;
       }
 
-      // Retry unlock once in case state changed between calls.
       final retryResponse = await _request(
         method: 'POST',
         path: '/api/unlock',
         body: {'permission': permission, 'unlockPassword': unlockPassword},
         throwOnHttpError: false,
       );
-      final retryToken = _extractToken(retryResponse.map);
+      final retryToken =
+          _extractToken(retryResponse.map) ??
+          _extractTokenFromCookies(retryResponse);
       if (retryToken != null && retryToken.isNotEmpty) {
         _lastAuthToken = retryToken;
         return retryToken;
       }
-          final startToken =
-              _extractToken(startResponse.map) ??
-              _extractTokenFromCookies(startResponse);
 
-    throw StateError('Unlock succeeded but no token was returned.');
+      if (attempt < 4) {
+        await Future<void>.delayed(Duration(seconds: attempt + 1));
+      }
+    }
+
+    return _lastAuthToken ?? '';
   }
 
   Future<CreateAppResponse> createApp({
-    required String token,
+    String? token,
     required String appName,
     required String userPubkey,
     int maxAmount = 0,
     String budgetRenewal = 'yearly',
     List<String> scopes = const [
       'pay_invoice',
-          final retryToken =
-              _extractToken(retryResponse.map) ??
-              _extractTokenFromCookies(retryResponse);
+      'get_info',
       'get_balance',
       'make_invoice',
       'lookup_invoice',
       'list_transactions',
       'notifications',
     ],
-        return _lastAuthToken ?? '';
+    bool isolated = false,
     Map<String, dynamic> metadata = const {},
     String returnTo = '',
     Map<String, dynamic> otherSettings = const {},
-        String? token,
+  }) async {
     final payload = <String, dynamic>{
       'name': appName,
-      'pubkey': userPubkey,
       'budgetRenewal': budgetRenewal,
       'maxAmount': maxAmount,
       'metadata': metadata,
       'returnTo': returnTo,
       'scopes': scopes,
+      'permissions': scopes,
+      'methods': scopes,
       'isolated': isolated,
       'unlockPassword': unlockPassword,
       ...otherSettings,
@@ -151,9 +169,19 @@ class AlbyHubClient {
       path: '/api/apps',
       body: payload,
       bearerToken: token,
+      throwOnHttpError: false,
     );
 
-    return CreateAppResponse.fromJson(response.map);
+    final model = CreateAppResponse.fromJson(response.map);
+    if (response.statusCode >= 400) {
+      final msg =
+          model.message ??
+          model.error ??
+          'HTTP ${response.statusCode} while creating app';
+      throw StateError(msg);
+    }
+
+    return model;
   }
 
   Future<String?> getConnectionForUser(
@@ -168,7 +196,7 @@ class AlbyHubClient {
       keyPair.publicKey,
       appName: appName,
       limit: limit,
-          bearerToken: token,
+      budgetRenewal: budgetRenewal,
       scopes: scopes,
       otherSettings: otherSettings,
     );
@@ -186,27 +214,44 @@ class AlbyHubClient {
     await start();
     final token = await unlock();
 
-    final appResponse = await createApp(
-      token: token,
-      appName: appName,
-      userPubkey: userPubkey,
-      maxAmount: limit,
-      budgetRenewal: budgetRenewal,
-      scopes:
-          scopes ??
-          const [
-            'pay_invoice',
-            'get_info',
-            'get_balance',
-            'make_invoice',
-            'lookup_invoice',
-            'list_transactions',
-            'notifications',
-          ],
-      otherSettings: otherSettings,
-        var appResponse = await createApp(
-          token: token.isEmpty ? null : token,
-    return appResponse.pairingUri;
+    final resolvedScopes =
+        scopes ??
+        const [
+          'pay_invoice',
+          'get_info',
+          'get_balance',
+          'make_invoice',
+          'lookup_invoice',
+          'list_transactions',
+          'notifications',
+        ];
+    try {
+      final appResponse = await createApp(
+        token: token.isEmpty ? null : token,
+        appName: appName,
+        userPubkey: userPubkey,
+        maxAmount: limit,
+        budgetRenewal: budgetRenewal,
+        scopes: resolvedScopes,
+        otherSettings: otherSettings,
+      );
+      return appResponse.pairingUri;
+    } on StateError catch (e) {
+      if (!_looksLikeAuthError(e.toString())) rethrow;
+
+      await start();
+      final retryToken = await unlock();
+      final appResponse = await createApp(
+        token: retryToken.isEmpty ? null : retryToken,
+        appName: appName,
+        userPubkey: userPubkey,
+        maxAmount: limit,
+        budgetRenewal: budgetRenewal,
+        scopes: resolvedScopes,
+        otherSettings: otherSettings,
+      );
+      return appResponse.pairingUri;
+    }
   }
 
   Future<HealthResponse> health() async {
@@ -223,30 +268,6 @@ class AlbyHubClient {
     return SwapInfoResponse.fromJson(response.map);
   }
 
-
-        if ((appResponse.pairingUri == null || appResponse.pairingUri!.isEmpty) &&
-            _looksLikeAuthError(appResponse)) {
-          final retryToken = await unlock();
-          appResponse = await createApp(
-            token: retryToken.isEmpty ? null : retryToken,
-            appName: appName,
-            userPubkey: userPubkey,
-            maxAmount: limit,
-            budgetRenewal: budgetRenewal,
-            scopes:
-                scopes ??
-                const [
-                  'pay_invoice',
-                  'get_info',
-                  'get_balance',
-                  'make_invoice',
-                  'lookup_invoice',
-                  'list_transactions',
-                  'notifications',
-                ],
-            otherSettings: otherSettings,
-          );
-        }
   Future<SwapResponse> initiateSwapIn({
     required String token,
     required int swapAmount,
@@ -301,15 +322,20 @@ class AlbyHubClient {
     };
 
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-    if (body != null) {
-      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-      request.write(jsonEncode(body));
+    if (_cookieJar.isNotEmpty) {
+      request.cookies.addAll(_cookieJar.values);
     }
+
     if (bearerToken != null && bearerToken.isNotEmpty) {
       request.headers.set(
         HttpHeaders.authorizationHeader,
         'Bearer $bearerToken',
       );
+    }
+
+    if (body != null) {
+      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+      request.write(jsonEncode(body));
     }
 
     final response = await request.close();
@@ -327,9 +353,6 @@ class AlbyHubClient {
       }
     }
 
-        if (_cookieJar.isNotEmpty) {
-          request.cookies.addAll(_cookieJar.values);
-        }
     if (throwOnHttpError && response.statusCode >= 400) {
       final message =
           decodedMap['message']?.toString() ??
@@ -338,29 +361,60 @@ class AlbyHubClient {
       throw StateError('AlbyHub request failed: $message');
     }
 
-    return _HttpResponseJson(statusCode: response.statusCode, map: decodedMap);
+    return _HttpResponseJson(
+      statusCode: response.statusCode,
+      map: decodedMap,
+      cookies: response.cookies,
+    );
+  }
+
+  String? _extractToken(Map<String, dynamic> map) {
+    final data = map['data'];
+    final auth = map['auth'];
+    final candidates = [
+      map['token'],
+      map['accessToken'],
+      map['access_token'],
+      map['jwt'],
+      map['bearer'],
+      data is Map ? data['token'] : null,
+      data is Map ? data['accessToken'] : null,
+      data is Map ? data['access_token'] : null,
+      auth is Map ? auth['token'] : null,
+      auth is Map ? auth['accessToken'] : null,
+      auth is Map ? auth['access_token'] : null,
+    ];
+
+    for (final candidate in candidates) {
+      final value = candidate?.toString();
+      if (value != null && value.isNotEmpty) return value;
+    }
+
+    return null;
+  }
+
+  String? _extractTokenFromCookies(_HttpResponseJson response) {
+    const names = {'token', 'access_token', 'accesstoken', 'jwt'};
+    for (final c in response.cookies) {
+      if (names.contains(c.name.toLowerCase()) && c.value.isNotEmpty) {
+        return c.value;
+      }
+    }
+    return null;
+  }
+
+  bool _looksLikeAuthError(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('unauthorized') ||
+        lower.contains('forbidden') ||
+        lower.contains('token') ||
+        lower.contains('jwt');
   }
 
   void close() {
     _httpClient.close(force: true);
   }
-
-  String? _extractToken(Map<String, dynamic> map) {
-    final candidates = [map['token'], map['accessToken'], map['jwt']];
-
-    for (final candidate in candidates) {
-      final value = candidate?.toString();
-      if (value != null && value.isNotEmpty) {
-        return value;
-      }
-    }
-    return null;
-  }
-        return _HttpResponseJson(
-          statusCode: response.statusCode,
-          map: decodedMap,
-          cookies: response.cookies,
-        );
+}
 
 class CreateAppResponse {
   final String? pairingUri;
@@ -368,16 +422,7 @@ class CreateAppResponse {
   final String? message;
 
   const CreateAppResponse({this.pairingUri, this.error, this.message});
-        final candidates = [
-          map['token'],
-          map['accessToken'],
-          map['access_token'],
-          map['jwt'],
-          map['bearer'],
-          (map['data'] is Map ? (map['data'] as Map)['token'] : null),
-          (map['data'] is Map ? (map['data'] as Map)['accessToken'] : null),
-          (map['data'] is Map ? (map['data'] as Map)['access_token'] : null),
-        ];
+
   factory CreateAppResponse.fromJson(Map<String, dynamic> json) {
     return CreateAppResponse(
       pairingUri: json['pairingUri']?.toString(),
@@ -388,45 +433,13 @@ class CreateAppResponse {
 }
 
 class HealthResponse {
-
-      String? _extractTokenFromCookies(_HttpResponseJson response) {
-        final cookie = response.cookies.firstWhere(
-          (c) =>
-              c.name.toLowerCase() == 'token' ||
-              c.name.toLowerCase() == 'access_token' ||
-              c.name.toLowerCase() == 'jwt',
-          orElse: () => Cookie('', ''),
-        );
-
-        if (cookie.name.isEmpty || cookie.value.isEmpty) {
-          return null;
-        }
-
-        return cookie.value;
-      }
-
-      bool _looksLikeAuthError(CreateAppResponse response) {
-        final error = (response.error ?? '').toLowerCase();
-        final message = (response.message ?? '').toLowerCase();
-        return error.contains('unauthorized') ||
-            error.contains('token') ||
-            error.contains('forbidden') ||
-            message.contains('unauthorized') ||
-            message.contains('token') ||
-            message.contains('forbidden');
-      }
   final List<dynamic> alarms;
 
   const HealthResponse({required this.alarms});
 
   factory HealthResponse.fromJson(Map<String, dynamic> json) {
-      final List<Cookie> cookies;
     return HealthResponse(alarms: (json['alarms'] as List?) ?? const []);
-      const _HttpResponseJson({
-        required this.statusCode,
-        required this.map,
-        required this.cookies,
-      });
+  }
 }
 
 class SwapInfoResponse {
@@ -490,8 +503,11 @@ class ListSwapsResponse {
 class _HttpResponseJson {
   final int statusCode;
   final Map<String, dynamic> map;
+  final List<Cookie> cookies;
 
-  const _HttpResponseJson({required this.statusCode, required this.map});
+  const _HttpResponseJson({
+    required this.statusCode,
+    required this.map,
+    required this.cookies,
+  });
 }
-
-*/
