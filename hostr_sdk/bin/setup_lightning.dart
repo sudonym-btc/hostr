@@ -1,8 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:hostr_sdk/datasources/alby/alby.dart';
-import 'package:hostr_sdk/datasources/swagger_generated/lnbits.swagger.dart';
+import 'package:hostr_sdk/datasources/lnbits/lnbits.dart';
 
 Future<void> main() async {
   final env = Platform.environment;
@@ -35,14 +34,28 @@ Future<void> main() async {
       );
   final lnbitsAdminEmail = env['LNBITS_ADMIN_EMAIL'] ?? 'admin@example.com';
   final lnbitsAdminPassword = env['LNBITS_ADMIN_PASSWORD'] ?? 'adminpassword';
+  final lnbitsExtensionName = env['LNBITS_EXTENSION_NAME'] ?? 'lnurlp';
+  final lnbitsNostrPrivateKey = env['LNBITS_NOSTR_PRIVATE_KEY'];
 
   print('Unlocking AlbyHub instances...');
   await _unlockAlby(alby1Url, albyPassword);
   await _unlockAlby(alby2Url, albyPassword);
 
   print('Unlocking LNbits instances...');
-  await _unlockLnbits(lnbits1Url, lnbitsAdminEmail, lnbitsAdminPassword);
-  await _unlockLnbits(lnbits2Url, lnbitsAdminEmail, lnbitsAdminPassword);
+  await _unlockLnbits(
+    lnbits1Url,
+    lnbitsAdminEmail,
+    lnbitsAdminPassword,
+    lnbitsExtensionName,
+    lnbitsNostrPrivateKey,
+  );
+  await _unlockLnbits(
+    lnbits2Url,
+    lnbitsAdminEmail,
+    lnbitsAdminPassword,
+    lnbitsExtensionName,
+    lnbitsNostrPrivateKey,
+  );
 
   print('Lightning services unlocked.');
 }
@@ -60,65 +73,30 @@ Future<void> _unlockAlby(String url, String password) async {
     if (token.isEmpty) {
       throw StateError('AlbyHub unlock did not return a token.');
     }
-    print('AlbyHub unlocked: $url');
   } finally {
     client.close();
   }
+
+  print('AlbyHub unlocked: $url');
 }
 
 Future<void> _unlockLnbits(
   String baseUrl,
   String adminEmail,
   String adminPassword,
+  String extensionName,
+  String? nostrPrivateKey,
 ) async {
-  final api = Lnbits.create(baseUrl: Uri.parse(baseUrl));
-  try {
-    await api.apiV1AuthFirstInstallPut(
-      body: UpdateSuperuserPassword(
-        username: adminEmail,
-        password: adminPassword,
-        passwordRepeat: adminPassword,
-      ),
-    );
+  final datasource = LnbitsDatasource();
+  await datasource.setupServer(
+    baseUrl: baseUrl,
+    adminEmail: adminEmail,
+    adminPassword: adminPassword,
+    extensionName: extensionName,
+    nostrPrivateKey: nostrPrivateKey,
+  );
 
-    final login = await api.apiV1AuthPost(
-      body: LoginUsernamePassword(
-        username: adminEmail,
-        password: adminPassword,
-      ),
-    );
-    final token = _extractAccessToken(login.body);
-
-    if (token == null || token.isEmpty) {
-      throw StateError(
-        'LNbits unlock/login failed for $baseUrl: ${login.body}',
-      );
-    }
-
-    print('LNbits unlocked: $baseUrl');
-  } finally {
-    api.client.dispose();
-  }
-}
-
-String? _extractAccessToken(dynamic body) {
-  if (body is Map<String, dynamic>) {
-    return body['access_token']?.toString();
-  }
-  if (body is Map) {
-    return body['access_token']?.toString();
-  }
-  if (body is String && body.isNotEmpty) {
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map) {
-        return decoded['access_token']?.toString();
-      }
-    } catch (_) {
-      return null;
-    }
-  }
-  return null;
+  print('LNbits unlocked: $baseUrl');
 }
 
 String _buildHttpUrl({required String host, required String port}) {

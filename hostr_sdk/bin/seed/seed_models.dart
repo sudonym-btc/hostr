@@ -23,7 +23,7 @@ class DeterministicSeedConfig {
   final double reviewRatio;
 
   const DeterministicSeedConfig({
-    this.relayUrl,
+    this.relayUrl = 'ws://relay.hostr.development',
     this.rpcUrl = 'http://localhost:8545',
     this.fundProfiles = true,
     this.setupLnbits = false,

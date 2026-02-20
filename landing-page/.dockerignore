@@ -1,0 +1,8 @@
+node_modules
+_site
+assets
+.bundle
+.git
+.DS_Store
+npm-debug.log*
+yarn-error.log*
