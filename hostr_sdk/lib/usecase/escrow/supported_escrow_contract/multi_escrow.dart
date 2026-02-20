@@ -56,7 +56,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   Future<TransactionInformation> deposit(
     ContractFundEscrowParams params,
   ) async {
-    await _ensureContractDeployed();
+    await ensureDeployed();
     String transactionHash = await _withDecodedCustomError(() {
       return contract.createTrade(
         depositArgs(params),
@@ -71,7 +71,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   @override
   Future<bool> canClaim(ContractClaimEscrowParams params) async {
-    await _ensureContractDeployed();
+    await ensureDeployed();
     final activeTrade = await _withDecodedCustomError(() {
       return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
     });
@@ -99,7 +99,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   @override
   Future<TransactionInformation> claim(ContractClaimEscrowParams params) async {
-    await _ensureContractDeployed();
+    await ensureDeployed();
     final transactionHash = await _withDecodedCustomError(() {
       return contract.claim((
         tradeId: getBytes32(params.tradeId),
@@ -110,7 +110,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   @override
   arbitrate(ContractArbitrateParams params) async {
-    await _ensureContractDeployed();
+    await ensureDeployed();
     return await _withDecodedCustomError(() {
       return contract.arbitrate(
         arbitrateArgs(params),
@@ -282,7 +282,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     }
 
     return StreamWithStatus<EscrowEvent>(
-      queryFn: () => _ensureContractDeployed()
+      queryFn: () => ensureDeployed()
           .then((_) => contract.client.getLogs(eventFilter))
           .asStream()
           .map((logs) {
@@ -293,7 +293,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           .asyncExpand((logs) => Stream.fromIterable(logs))
           .where((log) => log.transactionHash != null)
           .asyncMap(mapper),
-      liveFn: () => _ensureContractDeployed()
+      liveFn: () => ensureDeployed()
           .asStream()
           .asyncExpand(
             (_) => contract.client.events(
@@ -315,17 +315,6 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           .where((log) => log.transactionHash != null)
           .asyncMap(mapper),
     );
-  }
-
-  Future<void> _ensureContractDeployed() async {
-    final code = await contract.client.getCode(contract.self.address);
-    if (code.isEmpty) {
-      throw StateError(
-        'Escrow contract not deployed at ${contract.self.address}. '
-        'This address appears to be an EOA or empty address. '
-        'Funding can succeed with no logs in that case because no contract code executes.',
-      );
-    }
   }
 
   @override

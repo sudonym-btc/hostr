@@ -1,5 +1,4 @@
 import 'package:hostr_sdk/config.dart';
-import 'package:hostr_sdk/hostr.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_out/swap_out_operation.dart';
 import 'package:hostr_sdk/usecase/evm/main.dart';
@@ -11,17 +10,13 @@ import 'package:web3dart/web3dart.dart';
 import '../../../../datasources/boltz/boltz.dart';
 import '../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../util/bitcoin_amount.dart';
-import '../../../../util/custom_logger.dart';
 import 'operations/swap_in/swap_in_operation.dart';
 
 @Singleton()
 class Rootstock extends EvmChain {
   final HostrConfig config;
-  Rootstock({required this.config, required CustomLogger logger})
-    : super(
-        client: Web3Client(config.rootstockConfig.rpcUrl, http.Client()),
-        logger: logger,
-      );
+  Rootstock({required this.config, required super.auth, required super.logger})
+    : super(client: Web3Client(config.rootstockConfig.rpcUrl, http.Client()));
 
   @override
   Future<BitcoinAmount> getMinimumSwapIn() async {
@@ -60,9 +55,6 @@ class Rootstock extends EvmChain {
 
   @override
   RootstockSwapOutOperation swapOutAll() => getIt<RootstockSwapOutOperation>(
-    param1: SwapOutParams(
-      evmKey: getIt<Hostr>().auth.getActiveEvmKey(),
-      amount: null,
-    ),
+    param1: SwapOutParams(evmKey: auth.getActiveEvmKey(), amount: null),
   );
 }

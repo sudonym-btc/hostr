@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    
-source "$SCRIPT_DIR/setup_lnbits.sh"
-source "$SCRIPT_DIR/setup_albyhub.sh"
 
 ensure_bitcoind_blockheights_match() {
     local max_attempts=30

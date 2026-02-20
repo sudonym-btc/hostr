@@ -6,6 +6,7 @@ import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../datasources/contracts/boltz/EtherSwap.g.dart';
+import '../../../usecase/auth/auth.dart';
 import '../../../util/bitcoin_amount.dart';
 import '../../../util/custom_logger.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
@@ -17,7 +18,8 @@ import '../operations/swap_out/swap_out_operation.dart';
 abstract class EvmChain {
   final Web3Client client;
   final CustomLogger logger;
-  EvmChain({required this.client, required this.logger});
+  final Auth auth;
+  EvmChain({required this.client, required this.auth, required this.logger});
 
   SupportedEscrowContract getSupportedEscrowContract(
     EscrowService escrowService,

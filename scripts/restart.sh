@@ -24,6 +24,9 @@ restart_hostr() {
         "$REPO_ROOT/docker/data/albyhub" \
         "$REPO_ROOT/docker/data/relay" \
         "$REPO_ROOT/docker/data/blossom" \
+        "$REPO_ROOT/docker/data/escrow" \
+        "$REPO_ROOT/escrow/contracts/ignition/deployments/chain-33" \
+        "$REPO_ROOT/escrow/contracts/ignition/deployments/chain-31337" \
         "$REPO_ROOT/escrow/contracts/ignition/deployments"
 
     mkdir -p \
@@ -34,7 +37,8 @@ restart_hostr() {
         "$REPO_ROOT/docker/data/lnbits/2" \
         "$REPO_ROOT/docker/data/albyhub" \
         "$REPO_ROOT/docker/data/relay" \
-        "$REPO_ROOT/docker/data/blossom"
+        "$REPO_ROOT/docker/data/blossom" \
+        "$REPO_ROOT/docker/data/escrow"
 
     (cd "$REPO_ROOT/dependencies/boltz-regtest" && git clean -fdx data/) || true
 

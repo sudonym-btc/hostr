@@ -122,20 +122,56 @@ services:
       - test
       
   # Escrow client which watches nostr & chain to facilitate escrow transactions
+  escrow-contract-deploy:
+    image: node:20-alpine
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      anvil:
+        condition: service_healthy
+    working_dir: /workspace/escrow/contracts
+    volumes:
+      - ./:/workspace
+      - ./docker/data/escrow:/data
+    environment:
+      - RPC_URL=http://anvil:8545
+    command:
+      [
+        "sh",
+        "-lc",
+        "set -euo pipefail && printf 'y\n' | npx hardhat ignition deploy ignition/modules/Escrow.ts --network localhost && ADDRESS=$$(node -e \"const fs=require('fs');const p='ignition/deployments/chain-33/deployed_addresses.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const k=Object.keys(j).find((x)=>x.toLowerCase().includes('multiescrow'));if(!k){process.exit(2)};process.stdout.write(String(j[k]||''));\") && test -n \"$$ADDRESS\" && echo \"$$ADDRESS\" > /data/contract_addr && echo \"Escrow contract deployed at $$ADDRESS\"",
+      ]
+    restart: "no"
+    profiles:
+      - test
+      - local
+
   escrow:
     build:
-      context: ./escrow
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: escrow/Dockerfile
+    depends_on:
+      escrow-contract-deploy:
+        condition: service_completed_successfully
+      anvil:
+        condition: service_healthy
     environment:
       - NOSTR_RELAY=ws://relay.${DOMAIN}
       - PRIVATE_KEY=a9cbe715ebaeb852bf7cc3d35f4a81b9a58f16705e4bb8434aa453093e612206
-      - RPC_URL=http://localhost:8545
-      - CONTRACT_ADDR
+      - RPC_URL=http://anvil:8545
+    volumes:
+      - ./docker/data/escrow:/data:ro
+    command:
+      [
+        "sh",
+        "-lc",
+        "set -euo pipefail && export CONTRACT_ADDR=$$(cat /data/contract_addr) && exec dart run lib/cli.dart start",
+      ]
     networks:
       - default
       - shared_network
     profiles:
-      # - test
+      - test
       - local
 
   # Shared bitcoin node

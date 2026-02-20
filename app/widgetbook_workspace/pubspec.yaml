@@ -11,16 +11,6 @@ dependencies:
     sdk: flutter
   widgetbook: ^3.21.0
   widgetbook_annotation: ^3.10.0
-  flutter_bloc: ^9.1.1
-  chopper: ^8.5.0
-  ndk:
-    git:
-      url: https://github.com/relaystr/ndk.git 
-      path: packages/ndk 
-  models: 
-    path: ../../models
-  hostr_sdk: 
-    path: ../../hostr_sdk
   hostr:
     path: ../
 

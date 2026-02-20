@@ -22,7 +22,6 @@ class Payments {
   });
 
   PayOperation pay(PayParameters params) {
-    print(params.runtimeType);
     if (params is Bolt11PayParameters) {
       return Bolt11PayOperation(params: params, nwc: nwc);
     } else if (params is LnurlPayParameters) {

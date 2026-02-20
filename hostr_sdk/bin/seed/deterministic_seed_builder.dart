@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:hostr_sdk/datasources/anvil/anvil.dart';
 import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:http/http.dart' as http;
@@ -126,6 +127,7 @@ class DeterministicSeedBuilder {
   final DateTime _baseDate;
   http.Client? _httpClient;
   Web3Client? _web3Client;
+  AnvilClient? _anvilClient;
   final Map<String, MultiEscrow> _escrowContracts = {};
 
   DeterministicSeedBuilder({

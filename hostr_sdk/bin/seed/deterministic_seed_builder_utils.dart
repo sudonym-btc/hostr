@@ -36,39 +36,21 @@ extension _DeterministicSeedUtils on DeterministicSeedBuilder {
   }
 
   Future<void> _advanceChainTime({required int seconds}) async {
-    final increased = await _rpcCall('evm_increaseTime', [seconds]);
-    if (!increased) {
-      await _rpcCall('anvil_setBlockTimestampInterval', [seconds]);
-    }
-    await _rpcCall('evm_mine', []);
+    await _anvil().advanceChainTime(seconds: seconds);
   }
 
-  Future<bool> _rpcCall(String method, List<dynamic> params) async {
-    _httpClient ??= http.Client();
-    final response = await _httpClient!.post(
-      Uri.parse(rpcUrl),
-      headers: {'content-type': 'application/json'},
-      body: jsonEncode({
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': method,
-        'params': params,
-      }),
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      return false;
-    }
-
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    return decoded['error'] == null;
+  AnvilClient _anvil() {
+    _anvilClient ??= AnvilClient(rpcUri: Uri.parse(rpcUrl));
+    return _anvilClient!;
   }
 
   void _disposeWeb3Client() {
     _web3Client?.dispose();
     _httpClient?.close();
+    _anvilClient?.close();
     _web3Client = null;
     _httpClient = null;
+    _anvilClient = null;
     _escrowContracts.clear();
   }
 }

@@ -1,19 +1,23 @@
 import 'dart:io';
 
+import 'package:hostr_sdk/datasources/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:logger/logger.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:test/test.dart';
 import 'package:web3dart/web3dart.dart';
 
-import 'tools/fund_anvil.dart';
-
 void main() {
   late Hostr hostr;
+  late AnvilClient anvil;
+  late AlbyHubClient albyHub;
 
   setUpAll(() async {
+    CustomLogger.configure(level: Level.warning);
+
     final storageDir = Directory(
       '${Directory.systemTemp.path}/hostr_escrow_fund_it',
     );
@@ -24,6 +28,30 @@ void main() {
     HydratedBloc.storage = await HydratedStorage.build(
       storageDirectory: HydratedStorageDirectory(storageDir.path),
     );
+    hostr = Hostr(
+      environment: Env.dev,
+      config: HostrConfig(
+        logs: CustomLogger(),
+        bootstrapRelays: ['ws://relay.hostr.development'],
+        bootstrapBlossom: ['http://blossom.hostr.development'],
+        rootstockConfig: _DevelopmentRootstockConfig(),
+      ),
+    );
+    anvil = AnvilClient(rpcUri: Uri.parse('http://localhost:8545'));
+    albyHub = AlbyHubClient(
+      baseUri: Uri.parse('https://alby1.hostr.development'),
+      unlockPassword: Platform.environment['ALBYHUB_PASSWORD'] ?? 'Testing123!',
+    );
+    await hostr.auth.signin(MockKeys.guest.privateKey!);
+    final pairingUrl = await albyHub.getConnectionForPubkey(
+      MockKeys.guest.publicKey,
+      appName: 'escrow-fund-it-${DateTime.now().millisecondsSinceEpoch}',
+    );
+    await hostr.nwc.initiateAndAdd(pairingUrl!);
+  });
+
+  tearDownAll(() {
+    CustomLogger.configure(level: Level.trace);
   });
 
   tearDown(() async {
@@ -34,22 +62,11 @@ void main() {
   test(
     'escrow fund emits expected state flow and confirms transaction',
     () async {
-      hostr = Hostr(
-        environment: Env.dev,
-        config: HostrConfig(
-          logs: CustomLogger(),
-          bootstrapRelays: ['ws://relay.hostr.development'],
-          bootstrapBlossom: ['http://blossom.hostr.development'],
-          rootstockConfig: _DevelopmentRootstockConfig(),
-        ),
-      );
-
-      hostr.start();
       await hostr.auth.signin(MockKeys.guest.privateKey!);
 
-      await fundAnvilAddress(
-        hostr.auth.getActiveEvmKey().address.eip55With0x,
-        balanceWei: BigInt.parse('2000000000000000000'),
+      await anvil.setBalance(
+        address: hostr.auth.getActiveEvmKey().address.eip55With0x,
+        amountWei: BigInt.parse('2000000000000000000'),
       );
 
       final contractAddress =

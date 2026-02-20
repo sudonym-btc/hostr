@@ -65,7 +65,8 @@ jobs:
           path: |
             ~/.pub-cache
             app/.dart_tool
-          key: ${{ runner.os }}-flutter-${{ hashFiles('app/pubspec.yaml') }}
+            app/widgetbook_workspace/.dart_tool
+          key: ${{ runner.os }}-flutter-${{ hashFiles('app/pubspec.yaml', 'app/widgetbook_workspace/pubspec.yaml') }}
           restore-keys: |
             ${{ runner.os }}-flutter-
 
@@ -74,7 +75,9 @@ jobs:
         working-directory: app
 
       - name: Build Widgetbook
-        run: flutter build web
+        run: |
+          flutter pub get
+          flutter build web --no-wasm-dry-run
         working-directory: app/widgetbook_workspace
 
       - name: Run tests

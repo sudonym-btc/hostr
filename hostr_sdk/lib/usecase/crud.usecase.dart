@@ -45,10 +45,13 @@ class CrudUseCase<T extends Nip01Event> {
         .toList();
   }
 
-  Future<T?> getOne(Filter f) {
-    return requests
-        .query<T>(filter: getCombinedFilter(f, Filter(kinds: [kind], limit: 1)))
-        .first;
+  Future<T?> getOne(Filter f) async {
+    await for (final event in requests.query<T>(
+      filter: getCombinedFilter(f, Filter(kinds: [kind], limit: 1)),
+    )) {
+      return event;
+    }
+    return null;
   }
 
   // @TODO: Can't just be d tag as multiple pubkeys might have same. Pass A tag and get pubkey + dTag to filter correctly
