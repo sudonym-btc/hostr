@@ -119,7 +119,6 @@ services:
       - default
     profiles:
       - local
-      - test
       
   # Escrow client which watches nostr & chain to facilitate escrow transactions
   escrow-contract-deploy:
