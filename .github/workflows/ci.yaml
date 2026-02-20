@@ -3,7 +3,48 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  build:
+  sdk: 
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.10.8'
+
+      - run: dart --version
+
+      - name: Cache Dart dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            app/.dart_tool
+          key: ${{ runner.os }}-dart-${{ hashFiles('app/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-dart-
+      - name: Install dependencies
+        run: dart pub get
+        working-directory: hostr_sdk
+
+      - name: Start test stack
+        run: ./scripts/start.sh test
+
+      - name: Run tests
+        run: dart test --coverage
+        working-directory: hostr_sdk
+      # test_coverage package outdated
+      # - name: Check coverage
+      #   run: |
+      #     COVERAGE=$(dart pub run test_coverage)   
+
+      - name: Stop test stack
+        if: always()
+        run: docker compose down --remove-orphans --volumes
+  app:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,6 +80,7 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
         working-directory: app
+
         # test_coverage package outdated
       # - name: Check coverage
       #   run: |

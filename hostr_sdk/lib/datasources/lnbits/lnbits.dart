@@ -52,6 +52,28 @@ class LnbitsSetupConfig {
 }
 
 class LnbitsDatasource {
+  Future<void> setupServer({
+    required String baseUrl,
+    required String adminEmail,
+    required String adminPassword,
+    required String extensionName,
+    String? nostrPrivateKey,
+    List<String> usernames = const [],
+    bool ensureTipsLink = false,
+  }) async {
+    await _setupLnbitsServer(
+      cfg: _LnbitsServerConfig(
+        baseUrl: baseUrl,
+        adminEmail: adminEmail,
+        adminPassword: adminPassword,
+        extensionName: extensionName,
+        nostrPrivateKey: nostrPrivateKey,
+      ),
+      usernames: usernames,
+      ensureTipsLink: ensureTipsLink,
+    );
+  }
+
   Future<void> setupUsernamesByDomain({
     required Map<String, Set<String>> usernamesByDomain,
     required LnbitsSetupConfig config,
@@ -97,14 +119,9 @@ class LnbitsDatasource {
   Future<void> _setupLnbitsServer({
     required _LnbitsServerConfig cfg,
     required List<String> usernames,
+    bool ensureTipsLink = true,
   }) async {
-    if (usernames.isEmpty) {
-      return;
-    }
-
-    print(
-      'Setting up LNbits on ${cfg.baseUrl} for ${usernames.length} users...',
-    );
+    print('Setting up LNbits on ${cfg.baseUrl}...');
 
     final unauth = _createLnbitsClient(baseUrl: cfg.baseUrl);
     try {
@@ -167,14 +184,16 @@ class LnbitsDatasource {
           );
         }
 
-        await _ensureLnurlpLink(
-          baseUrl: cfg.baseUrl,
-          bearerToken: token,
-          walletApiKey: wallet.adminkey,
-          walletId: wallet.id,
-          username: 'tips',
-          description: 'tips',
-        );
+        if (ensureTipsLink) {
+          await _ensureLnurlpLink(
+            baseUrl: cfg.baseUrl,
+            bearerToken: token,
+            walletApiKey: wallet.adminkey,
+            walletId: wallet.id,
+            username: 'tips',
+            description: 'tips',
+          );
+        }
       } finally {
         authed.client.dispose();
       }

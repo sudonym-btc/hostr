@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:crypto/crypto.dart';
+import 'package:hostr_sdk/datasources/swagger_generated/boltz.swagger.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
@@ -13,7 +14,6 @@ import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart' show TransactionInformation;
 
 import '../../../../../../datasources/boltz/boltz.dart';
-import '../../../../../../datasources/boltz/swagger_generated/boltz.swagger.dart';
 import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../../../util/main.dart';
 import '../../../../../payments/operations/pay_state.dart';

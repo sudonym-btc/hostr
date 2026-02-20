@@ -53,8 +53,6 @@ services:
       - ENABLE_WEBSOCKETS=true
     networks:
       - default
-    profiles:
-      - local
 
   # NOSTR Relay
   relay:
@@ -105,19 +103,24 @@ services:
       - test
       - staging
       - prod
-    
-  # Run EVM when don't want to run boltz but still want RPC client @TODO: add profile
-  # evm:
-  #   build:
-  #     context: ./escrow/contracts
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8545:8545"
-  #   volumes:
-  #     - ./escrow/contracts:/usr/src/app
-  #     - /usr/src/app/node_modules
-  #   command: ["npm", "exec", "hardhat", "--", "node"]
 
+  landing-page:
+    platform: linux/amd64
+    build:
+      context: ./landing-page
+      dockerfile: Dockerfile
+    environment:
+      - VIRTUAL_HOST=landing.${DOMAIN}
+      - VIRTUAL_PORT=80
+      - VIRTUAL_HOST=${DOMAIN}
+    ports:
+      - "${LANDING_PAGE_PORT:-8091}:80"
+    networks:
+      - default
+    profiles:
+      - local
+      - test
+      
   # Escrow client which watches nostr & chain to facilitate escrow transactions
   escrow:
     build:
@@ -132,7 +135,8 @@ services:
       - default
       - shared_network
     profiles:
-      - escrow
+      # - test
+      - local
 
   # Shared bitcoin node
   hostrbitcoind:
@@ -226,6 +230,12 @@ services:
     volumes:
       - ./docker/data/lightning_data/1:/app/lnd
       - ./docker/data/lnbits/1:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/5000'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
     networks:
       - default
     profiles:
@@ -254,6 +264,12 @@ services:
     volumes:
       - ./docker/data/lightning_data/2:/app/lnd
       - ./docker/data/lnbits/2:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/5000'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
     networks:
       - default
     profiles:
@@ -280,6 +296,12 @@ services:
       - WORK_DIR=data/1
     ports:
       - "${ALBYHUB_1_PORT}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/8080'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
     profiles:
       - local
       - test
@@ -303,6 +325,12 @@ services:
       - WORK_DIR=data/2
     ports:
       - "${ALBYHUB_2_PORT}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/8080'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
     profiles:
       - local
       - test
@@ -338,12 +366,16 @@ services:
   unlock-alby-lnbits:
     image: dart:3.10.8
     depends_on:
-      - lnbits1
-      - lnbits2
-      - albyhub1
-      - albyhub2
+      lnbits1:
+        condition: service_healthy
+      lnbits2:
+        condition: service_healthy
+      albyhub1:
+        condition: service_healthy
+      albyhub2:
+        condition: service_healthy
     volumes:
-      - ./:/workspace
+      - ./:/workspace:ro
     working_dir: /workspace/hostr_sdk
     environment:
       - LNBITS_1_URL=http://lnbits1:5000
@@ -352,12 +384,14 @@ services:
       - ALBYHUB_2_URL=http://albyhub2:8080
       - LNBITS_ADMIN_EMAIL=${LNBITS_ADMIN_EMAIL}
       - LNBITS_ADMIN_PASSWORD=${LNBITS_ADMIN_PASSWORD}
+      - LNBITS_EXTENSION_NAME=${LNBITS_EXTENSION_NAME}
+      - LNBITS_NOSTR_PRIVATE_KEY=${LNBITS_NOSTR_PRIVATE_KEY}
       - ALBYHUB_PASSWORD=${ALBYHUB_PASSWORD}
     command:
       [
         "sh",
         "-lc",
-        "/usr/lib/dart/bin/dart --version && /usr/lib/dart/bin/dart pub get && /usr/lib/dart/bin/dart run bin/setup_lightning.dart",
+        "/usr/lib/dart/bin/dart --version && rm -rf /tmp/workspace && cp -a /workspace /tmp/workspace && cd /tmp/workspace/hostr_sdk && /usr/lib/dart/bin/dart pub get && /usr/lib/dart/bin/dart run bin/setup_lightning.dart",
       ]
     restart: "no"
     profiles:
