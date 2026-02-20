@@ -10,6 +10,10 @@ boltz-dart
 *.o
 *.so
 
+# Commit the h3 libs
+!models/native/linux/libh3.so
+!models/native/windows/h3.dll
+!models/native/macos/libh3.dylib
 # Packages #
 ############
 # it's better to unpack these files and commit the raw source
