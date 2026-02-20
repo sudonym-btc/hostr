@@ -48,6 +48,28 @@ jobs:
         run: |
           echo "127.0.0.1 relay.hostr.development blossom.hostr.development alby1.hostr.development alby2.hostr.development lnbits1.hostr.development lnbits2.hostr.development" | sudo tee -a /etc/hosts
 
+      - name: Wait for relay and API endpoints
+        run: |
+          set -euo pipefail
+          wait_http() {
+            local url="$1"
+            local name="$2"
+            for i in $(seq 1 90); do
+              code=$(curl -sS -o /dev/null -m 2 -w "%{http_code}" "$url" || true)
+              if [ "$code" != "000" ]; then
+                echo "$name reachable (HTTP $code)"
+                return 0
+              fi
+              sleep 2
+            done
+            echo "Timed out waiting for $name at $url"
+            return 1
+          }
+
+          wait_http "http://relay.hostr.development" "relay"
+          wait_http "http://alby1.hostr.development" "alby1"
+          wait_http "http://lnbits1.hostr.development" "lnbits1"
+
       - name: Run tests
         run: dart test
         working-directory: hostr_sdk
