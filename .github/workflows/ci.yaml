@@ -51,12 +51,12 @@ jobs:
       - name: Wait for relay and API endpoints
         run: |
           set -euo pipefail
-          wait_http() {
+          wait_http_via_proxy() {
             local url="$1"
             local name="$2"
             for i in $(seq 1 90); do
               code=$(curl -sS -o /dev/null -m 2 -w "%{http_code}" "$url" || true)
-              if [ "$code" != "000" ]; then
+              if [ "$code" != "000" ] && [ "$code" != "502" ] && [ "$code" != "503" ] && [ "$code" != "504" ]; then
                 echo "$name reachable (HTTP $code)"
                 return 0
               fi
@@ -66,9 +66,28 @@ jobs:
             return 1
           }
 
-          wait_http "http://relay.hostr.development" "relay"
-          wait_http "http://alby1.hostr.development" "alby1"
-          wait_http "http://lnbits1.hostr.development" "lnbits1"
+          wait_relay_ws_upgrade() {
+            for i in $(seq 1 90); do
+              code=$(curl -sS -o /dev/null -m 2 -w "%{http_code}" \
+                -H "Connection: Upgrade" \
+                -H "Upgrade: websocket" \
+                -H "Sec-WebSocket-Version: 13" \
+                -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+                http://relay.hostr.development/ || true)
+              if [ "$code" = "101" ]; then
+                echo "relay websocket upgrade ready (HTTP 101)"
+                return 0
+              fi
+              sleep 2
+            done
+            echo "Timed out waiting for relay websocket upgrade"
+            return 1
+          }
+
+          wait_http_via_proxy "http://relay.hostr.development" "relay"
+          wait_http_via_proxy "http://alby1.hostr.development" "alby1"
+          wait_http_via_proxy "http://lnbits1.hostr.development" "lnbits1"
+          wait_relay_ws_upgrade
 
       - name: Run tests
         run: dart test
