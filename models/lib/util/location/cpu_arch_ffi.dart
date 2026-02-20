@@ -1,6 +1,6 @@
 import 'dart:ffi' show Abi;
 
-import 'cpu_arch_stub.dart';
+import 'cpu_arch.dart';
 
 CpuArch currentCpuArch() {
   switch (Abi.current()) {
