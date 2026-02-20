@@ -43,3 +43,6 @@ node_modules
 docker/data
 data
 redis
+
+# Test coverage output
+coverage/
