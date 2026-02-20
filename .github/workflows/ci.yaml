@@ -35,7 +35,7 @@ jobs:
       - name: Start test stack
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
-        run: ./scripts/start.sh test
+        run: ./scripts/restart.sh test
 
       - name: Run tests
         run: dart test --coverage
