@@ -25,6 +25,7 @@ source "$ENV_FILE"
 if [[ "${COMPOSE_FILE:-}" == *"dependencies/boltz-regtest/docker-compose.yml"* ]] && [ -f "$REPO_ROOT/dependencies/boltz-regtest/.env" ]; then
     selected_compose_file="${COMPOSE_FILE:-}"
     selected_compose_profiles="${COMPOSE_PROFILES:-}"
+    selected_docker_default_platform="${DOCKER_DEFAULT_PLATFORM:-}"
     source "$REPO_ROOT/dependencies/boltz-regtest/.env"
     COMPOSE_FILE="$selected_compose_file"
 
@@ -40,6 +41,12 @@ if [[ "${COMPOSE_FILE:-}" == *"dependencies/boltz-regtest/docker-compose.yml"* ]
         *,ci,*) ;;
         *) COMPOSE_PROFILES="$COMPOSE_PROFILES,ci" ;;
     esac
+
+    # Keep Boltz LND platform consistent with the explicitly requested Docker platform.
+    # This prevents pulling amd64 images while compose still requests arm64 (or vice versa).
+    if [ -n "$selected_docker_default_platform" ]; then
+        LND_PLATFORM="$selected_docker_default_platform"
+    fi
 fi
 set +a
 
