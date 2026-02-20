@@ -44,6 +44,10 @@ jobs:
           docker compose logs --no-color hostrbitcoind lnd1 lnd2 bootstrap escrow-contract-deploy || true
           docker compose logs --no-color bitcoind-init lnd-1 lnd-2 regtest-start boltz-backend || true
 
+      - name: Add local host aliases for integration tests
+        run: |
+          echo "127.0.0.1 relay.hostr.development blossom.hostr.development alby1.hostr.development alby2.hostr.development lnbits1.hostr.development lnbits2.hostr.development" | sudo tee -a /etc/hosts
+
       - name: Run tests
         run: dart test
         working-directory: hostr_sdk
