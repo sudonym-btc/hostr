@@ -122,6 +122,13 @@ jobs:
           wait_http_via_proxy "http://lnbits1.hostr.development" "lnbits1"
           wait_relay_ws_upgrade
 
+      - name: Verify bundled Linux H3 library
+        run: |
+          set -euo pipefail
+          test -f models/native/linux/libh3.so
+          file models/native/linux/libh3.so
+          file models/native/linux/libh3.so | grep -qi 'x86-64'
+
       - name: Run tests
         run: dart test
         working-directory: hostr_sdk
