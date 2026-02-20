@@ -27,7 +27,19 @@ if [[ "${COMPOSE_FILE:-}" == *"dependencies/boltz-regtest/docker-compose.yml"* ]
     selected_compose_profiles="${COMPOSE_PROFILES:-}"
     source "$REPO_ROOT/dependencies/boltz-regtest/.env"
     COMPOSE_FILE="$selected_compose_file"
-    COMPOSE_PROFILES="$selected_compose_profiles"
+
+    # Always run Boltz in CI profile when its compose file is included.
+    # Keep existing hostr profiles (e.g. local/test/seed), but force-add ci.
+    if [ -n "$selected_compose_profiles" ]; then
+        COMPOSE_PROFILES="$selected_compose_profiles"
+    else
+        COMPOSE_PROFILES="$ENVIRONMENT"
+    fi
+
+    case ",$COMPOSE_PROFILES," in
+        *,ci,*) ;;
+        *) COMPOSE_PROFILES="$COMPOSE_PROFILES,ci" ;;
+    esac
 fi
 set +a
 
