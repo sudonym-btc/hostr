@@ -33,6 +33,8 @@ jobs:
         working-directory: hostr_sdk
 
       - name: Start test stack
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
         run: ./scripts/start.sh test
 
       - name: Run tests
