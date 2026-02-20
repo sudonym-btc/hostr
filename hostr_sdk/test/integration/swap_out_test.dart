@@ -28,6 +28,14 @@ void main() {
       storageDirectory: HydratedStorageDirectory(storageDir.path),
     );
 
+    anvil = AnvilClient(rpcUri: Uri.parse('http://localhost:8545'));
+    albyHub = AlbyHubClient(
+      baseUri: Uri.parse('https://alby1.hostr.development'),
+      unlockPassword: Platform.environment['ALBYHUB_PASSWORD'] ?? 'Testing123!',
+    );
+  });
+
+  setUp(() {
     hostr = Hostr(
       environment: Env.dev,
       config: HostrConfig(
@@ -37,14 +45,10 @@ void main() {
         rootstockConfig: _DevelopmentRootstockConfig(),
       ),
     );
-    anvil = AnvilClient(rpcUri: Uri.parse('http://localhost:8545'));
-    albyHub = AlbyHubClient(
-      baseUri: Uri.parse('https://alby1.hostr.development'),
-      unlockPassword: Platform.environment['ALBYHUB_PASSWORD'] ?? 'Testing123!',
-    );
   });
 
   tearDownAll(() {
+    albyHub.close();
     CustomLogger.configure(level: Level.trace);
   });
 
@@ -56,39 +60,34 @@ void main() {
   test(
     'swap out emits expected state flow when NWC is connected',
     () async {
-      try {
-        await hostr.auth.signin(MockKeys.guest.privateKey!);
+      await hostr.auth.signin(MockKeys.guest.privateKey!);
 
-        final pairingUrl = await albyHub.getConnectionForUser(
-          MockKeys.guest,
-          appName: 'swap-out-it-${DateTime.now().millisecondsSinceEpoch}',
-        );
-        await hostr.nwc.initiateAndAdd(pairingUrl!);
+      final pairingUrl = await albyHub.getConnectionForUser(
+        MockKeys.guest,
+        appName: 'swap-out-it-${DateTime.now().millisecondsSinceEpoch}',
+      );
+      await hostr.nwc.initiateAndAdd(pairingUrl!);
 
-        await anvil.setBalance(
-          address: hostr.auth.getActiveEvmKey().address.eip55With0x,
-          amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
-        );
+      await anvil.setBalance(
+        address: hostr.auth.getActiveEvmKey().address.eip55With0x,
+        amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
+      );
 
-        final evm = getIt<Evm>();
-        final swapOut = evm.rootstock.swapOutAll();
+      final swapOut = hostr.evm.rootstock.swapOutAll();
 
-        final emittedStates = <SwapOutState>[swapOut.state];
-        final sub = swapOut.stream.listen(emittedStates.add);
+      final emittedStates = <SwapOutState>[swapOut.state];
+      final sub = swapOut.stream.listen(emittedStates.add);
 
-        await swapOut.execute();
-        await sub.cancel();
+      await swapOut.execute();
+      await sub.cancel();
 
-        expect(emittedStates.first, isA<SwapOutInitialised>());
-        expect(
-          emittedStates.any((state) => state is SwapOutAwaitingOnChain),
-          isTrue,
-        );
-        expect(emittedStates.any((state) => state is SwapOutFunded), isTrue);
-        expect(emittedStates.last, isA<SwapOutCompleted>());
-      } finally {
-        albyHub.close();
-      }
+      expect(emittedStates.first, isA<SwapOutInitialised>());
+      expect(
+        emittedStates.any((state) => state is SwapOutAwaitingOnChain),
+        isTrue,
+      );
+      expect(emittedStates.any((state) => state is SwapOutFunded), isTrue);
+      expect(emittedStates.last, isA<SwapOutCompleted>());
     },
     timeout: const Timeout(Duration(seconds: 25)),
   );
@@ -96,20 +95,6 @@ void main() {
   test(
     'swap out fails with expected state flow when NWC is not connected',
     () async {
-      hostr = Hostr(
-        environment: Env.dev,
-        config: HostrConfig(
-          logs: CustomLogger(),
-          bootstrapRelays: ['ws://relay.hostr.development'],
-          bootstrapBlossom: ['http://blossom.hostr.development'],
-          rootstockConfig: _DevelopmentRootstockConfig(),
-        ),
-      );
-      if (!getIt.isRegistered<Hostr>()) {
-        getIt.registerSingleton<Hostr>(hostr);
-      }
-
-      hostr.start();
       await hostr.auth.signin(MockKeys.guest.privateKey!);
 
       await anvil.setBalance(
@@ -117,8 +102,7 @@ void main() {
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
       );
 
-      final evm = getIt<Evm>();
-      final swapOut = evm.rootstock.swapOutAll();
+      final swapOut = hostr.evm.rootstock.swapOutAll();
 
       final emittedStates = <SwapOutState>[swapOut.state];
       final sub = swapOut.stream.listen(emittedStates.add);

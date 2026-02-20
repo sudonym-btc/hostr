@@ -45,7 +45,7 @@ jobs:
           docker compose logs --no-color bitcoind-init lnd-1 lnd-2 regtest-start boltz-backend || true
 
       - name: Run tests
-        run: dart test --coverage
+        run: dart test
         working-directory: hostr_sdk
       # test_coverage package outdated
       # - name: Check coverage
