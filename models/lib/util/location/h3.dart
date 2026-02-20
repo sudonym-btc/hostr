@@ -1,9 +1,10 @@
-import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:isolate';
 
 import 'package:h3_dart/h3_dart.dart';
 import 'package:models/util/main.dart';
+
+import 'cpu_arch_stub.dart' if (dart.library.ffi) 'cpu_arch_ffi.dart';
 
 class H3Engine {
   final H3Hierarchy hierarchy;
@@ -32,28 +33,29 @@ class H3Engine {
 
     final libDir = File.fromUri(packageUri).parent.path;
     final packageRoot = Directory(libDir).parent.path;
+    final arch = currentCpuArch();
 
     if (Platform.isMacOS) {
       return _firstExistingPath([
-        if (Abi.current() == Abi.macosArm64)
+        if (arch == CpuArch.arm64)
           '$packageRoot/native/macos/arm64/libh3.dylib',
-        if (Abi.current() == Abi.macosX64)
+        if (arch == CpuArch.x64)
           '$packageRoot/native/macos/x86_64/libh3.dylib',
         '$packageRoot/native/macos/libh3.dylib',
       ]);
     }
     if (Platform.isLinux) {
       return _firstExistingPath([
-        if (Abi.current() == Abi.linuxArm64)
+        if (arch == CpuArch.arm64)
           '$packageRoot/native/linux/arm64/libh3.so',
-        if (Abi.current() == Abi.linuxX64)
+        if (arch == CpuArch.x64)
           '$packageRoot/native/linux/x86_64/libh3.so',
         '$packageRoot/native/linux/libh3.so',
       ]);
     }
     if (Platform.isWindows) {
       return _firstExistingPath([
-        if (Abi.current() == Abi.windowsX64)
+        if (arch == CpuArch.x64)
           '$packageRoot/native/windows/x86_64/h3.dll',
         '$packageRoot/native/windows/h3.dll',
       ]);
