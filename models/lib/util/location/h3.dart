@@ -1,3 +1,4 @@
+import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:isolate';
 
@@ -33,16 +34,39 @@ class H3Engine {
     final packageRoot = Directory(libDir).parent.path;
 
     if (Platform.isMacOS) {
-      return '$packageRoot/native/macos/libh3.dylib';
+      return _firstExistingPath([
+        if (Abi.current() == Abi.macosArm64)
+          '$packageRoot/native/macos/arm64/libh3.dylib',
+        if (Abi.current() == Abi.macosX64)
+          '$packageRoot/native/macos/x86_64/libh3.dylib',
+        '$packageRoot/native/macos/libh3.dylib',
+      ]);
     }
     if (Platform.isLinux) {
-      return '$packageRoot/native/linux/libh3.so';
+      return _firstExistingPath([
+        if (Abi.current() == Abi.linuxArm64)
+          '$packageRoot/native/linux/arm64/libh3.so',
+        if (Abi.current() == Abi.linuxX64)
+          '$packageRoot/native/linux/x86_64/libh3.so',
+        '$packageRoot/native/linux/libh3.so',
+      ]);
     }
     if (Platform.isWindows) {
-      return '$packageRoot/native/windows/h3.dll';
+      return _firstExistingPath([
+        if (Abi.current() == Abi.windowsX64)
+          '$packageRoot/native/windows/x86_64/h3.dll',
+        '$packageRoot/native/windows/h3.dll',
+      ]);
     }
 
     throw UnsupportedError(
         'No bundled H3 binary configured for this platform.');
+  }
+
+  static String _firstExistingPath(List<String> candidates) {
+    for (final path in candidates) {
+      if (File(path).existsSync()) return path;
+    }
+    return candidates.last;
   }
 }
