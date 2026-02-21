@@ -90,10 +90,7 @@ class NostrWalletConnectConnectionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (connections.isEmpty) {
-      return const NostrWalletConnectConnectionTileView(
-        state: NostrWalletConnectConnectionUiState.loading,
-        canClose: false,
-      );
+      return const Text('No wallet connected');
     }
 
     return Column(

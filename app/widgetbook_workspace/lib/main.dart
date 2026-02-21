@@ -40,9 +40,7 @@ class WidgetbookApp extends StatelessWidget {
               return child;
             }
 
-            return Center(
-              child: Padding(padding: const EdgeInsets.all(16), child: child),
-            );
+            return Padding(padding: const EdgeInsets.all(16), child: child);
           },
         ),
         MaterialThemeAddon(

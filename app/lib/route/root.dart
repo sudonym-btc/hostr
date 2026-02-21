@@ -10,6 +10,10 @@ class RootScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlobalProviderWidget(child: LoadingPage(child: AutoRouter()));
+    return GlobalProviderWidget(
+      child: RelayConnectivityBanner(
+        child: NwcConnectivityBanner(child: LoadingPage(child: AutoRouter())),
+      ),
+    );
   }
 }

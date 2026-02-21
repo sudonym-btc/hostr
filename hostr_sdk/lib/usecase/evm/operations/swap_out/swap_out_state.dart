@@ -1,3 +1,5 @@
+import 'package:hostr_sdk/util/main.dart';
+
 import '../../../payments/operations/pay_state.dart';
 
 sealed class SwapOutState {
@@ -10,6 +12,16 @@ final class SwapOutInitialised extends SwapOutState {
 
 final class SwapOutRequestCreated extends SwapOutState {
   const SwapOutRequestCreated();
+}
+
+final class SwapOutExternalInvoiceRequired extends SwapOutState {
+  final BitcoinAmount invoiceAmount;
+  const SwapOutExternalInvoiceRequired(this.invoiceAmount);
+}
+
+final class SwapOutInvoiceCreated extends SwapOutState {
+  final String invoice;
+  const SwapOutInvoiceCreated(this.invoice);
 }
 
 final class SwapOutPaymentProgress extends SwapOutState {

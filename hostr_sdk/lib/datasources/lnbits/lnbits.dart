@@ -282,30 +282,34 @@ class LnbitsDatasource {
     required String username,
     required String description,
   }) async {
-    final response = await _jsonRequest(
-      method: 'POST',
-      uri: Uri.parse('$baseUrl/lnurlp/api/v1/links'),
-      headers: {
-        'Authorization': 'Bearer $bearerToken',
-        'X-Api-Key': walletApiKey,
-      },
-      body: {
-        'comment_chars': 0,
-        'description': description,
-        'max': 10000000,
-        'min': 1,
-        'username': username,
-        'wallet': walletId,
-        'zaps': true,
-      },
-    );
+    try {
+      final response = await _jsonRequest(
+        method: 'POST',
+        uri: Uri.parse('$baseUrl/lnurlp/api/v1/links'),
+        headers: {
+          'Authorization': 'Bearer $bearerToken',
+          'X-Api-Key': walletApiKey,
+        },
+        body: {
+          'comment_chars': 0,
+          'description': description,
+          'max': 10000000,
+          'min': 1,
+          'username': username,
+          'wallet': walletId,
+          'zaps': true,
+        },
+      );
 
-    final detail = response['detail']?.toString();
-    if (detail != null && detail.isNotEmpty) {
-      if (detail.toLowerCase().contains('username already taken')) {
+      final detail = response['detail']?.toString();
+      if (detail != null && detail.isNotEmpty) {
+        throw Exception('Failed creating lnurlp link for $username: $response');
+      }
+    } on HttpException catch (e) {
+      if (e.message.contains('Username already taken')) {
         return;
       }
-      throw Exception('Failed creating lnurlp link for $username: $response');
+      rethrow;
     }
   }
 

@@ -4,11 +4,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-
-import 'signup.dart';
+import 'package:models/main.dart';
 
 @RoutePage()
 class SignInScreen extends StatefulWidget {
@@ -22,6 +22,38 @@ class SignInScreen extends StatefulWidget {
 
 class SignInScreenState extends State<SignInScreen> {
   String _private = '';
+
+  Future<void> _handleSignup() async {
+    // Generate key pair first, show backup modal, THEN sign in.
+    // This avoids emitting LoggedIn (which unmounts this screen via
+    // LoadingPage's StreamBuilder) before the modal is shown.
+    final keyPair = Bip340.generatePrivateKey();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => BackupKeyWidget(
+        publicKeyHex: keyPair.publicKey,
+        privateKeyHex: keyPair.privateKey!,
+      ),
+    );
+    if (!mounted) return;
+    final router = AutoRouter.of(context);
+    try {
+      await context.read<AuthCubit>().signin(keyPair.privateKey!);
+    } catch (_) {
+      return;
+    }
+    if (widget.onSuccess != null) {
+      widget.onSuccess!();
+    } else {
+      router.replaceAll([
+        HomeRoute(children: [ProfileRoute()]),
+      ]);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,19 +109,7 @@ class SignInScreenState extends State<SignInScreen> {
                       SizedBox(width: 10), // Spacing between the buttons
                       Expanded(
                         child: FilledButton(
-                          onPressed: _private.isEmpty
-                              ? () async {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return SignUpWidget();
-                                    },
-                                  );
-                                  if (widget.onSuccess != null) {
-                                    widget.onSuccess!();
-                                  }
-                                }
-                              : null,
+                          onPressed: _private.isEmpty ? _handleSignup : null,
                           child: Text(AppLocalizations.of(context)!.signUp),
                         ),
                       ),

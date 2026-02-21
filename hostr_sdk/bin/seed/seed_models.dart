@@ -27,7 +27,7 @@ class DeterministicSeedConfig {
     this.relayUrl = 'ws://relay.hostr.development',
     this.rpcUrl = 'http://localhost:8545',
     this.fundProfiles = true,
-    this.setupLnbits = false,
+    this.setupLnbits = true,
     this.fundAmountWei,
     this.lnbits1BaseUrl = 'http://localhost:5055',
     this.lnbits2BaseUrl = 'http://localhost:5056',

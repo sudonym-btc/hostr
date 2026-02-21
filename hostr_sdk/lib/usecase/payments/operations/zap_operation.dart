@@ -149,9 +149,13 @@ class ZapPayOperation
 
     logger.i('Resolved LNURL params: ${lnurlParams}');
     // lnurlParams.
-    if (lnurlParams == null) {
-      throw Exception('Failed to resolve LNURL params');
+    if (lnurlParams == null || lnurlParams.callback == null) {
+      throw Exception('Failed to resolve LNURL parameters');
     }
+
+    logger.i(
+      'Resolved LNURL params: minSendable ${lnurlParams.minSendable}, maxSendable ${lnurlParams.maxSendable}, commentAllowed ${lnurlParams.commentAllowed}, nostrPubkey ${lnurlParams.nostrPubkey}, metadata ${lnurlParams.metadata}, callback ${lnurlParams.callback}',
+    );
 
     return ZapResolvedDetails(
       response: lnurlParams,

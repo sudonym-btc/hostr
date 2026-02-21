@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
@@ -5,8 +6,13 @@ import 'package:convert/convert.dart';
 import 'package:hostr_sdk/datasources/swagger_generated/boltz.swagger.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/usecase/evm/main.dart';
+import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/nwc/nwc.dart';
+import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+import 'package:ndk/data_layer/data_sources/http_request.dart';
+import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
+import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart' hide params;
@@ -36,23 +42,41 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     try {
       final quote = await _buildSwapOutQuote();
 
+      final String invoice;
       if (nwc.getActiveConnection() == null) {
-        throw 'No active NWC connection';
-      }
+        // No NWC wallet connected – try LUD16 from user metadata first
+        final lud16Invoice = await _tryCreateInvoiceFromLud16(
+          quote.invoiceAmount.getInSats.toInt(),
+        );
 
-      final makeInvoice = await nwc.makeInvoice(
-        nwc.getActiveConnection()!,
-        amountSats: quote.invoiceAmount.getInSats.toInt(),
-        description: 'Hostr swap out',
-      );
-      logger.i('Invoice created: ${makeInvoice.invoice}');
+        if (lud16Invoice != null) {
+          invoice = lud16Invoice;
+          logger.i('Created invoice via LUD16 lightning address');
+        } else {
+          // No LUD16 either – ask the user to provide an invoice manually
+          emit(SwapOutExternalInvoiceRequired(quote.invoiceAmount));
+          logger.i(
+            'No NWC or LUD16 available, emitted SwapOutExternalInvoiceRequired '
+            'with amount ${quote.invoiceAmount.getInSats} sats',
+          );
+          externalInvoiceCompleter = Completer<String>();
+          invoice = await externalInvoiceCompleter!.future;
+        }
+      } else {
+        final makeInvoice = await nwc.makeInvoice(
+          nwc.getActiveConnection()!,
+          amountSats: quote.invoiceAmount.getInSats.toInt(),
+          description: 'Hostr swap out',
+        );
+        invoice = makeInvoice.invoice;
+      }
+      emit(SwapOutInvoiceCreated(invoice));
+      logger.i('Invoice created: $invoice');
       final invoicePreimageHash = Bolt11PaymentRequest(
-        makeInvoice.invoice,
+        invoice,
       ).tags.where((tag) => tag.type == 'payment_hash').first.data;
       final preimageHash = _decodePaymentHash(invoicePreimageHash);
-      final swap = await getIt<BoltzClient>().submarine(
-        invoice: makeInvoice.invoice,
-      );
+      final swap = await getIt<BoltzClient>().submarine(invoice: invoice);
       emit(SwapOutAwaitingOnChain());
       final swapStatus = _waitForSwapOnChain(swap.id);
       swapStatus
@@ -299,5 +323,52 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     return getIt<BoltzClient>().subscribeToSwap(id: id).doOnData((swapStatus) {
       logger.i('Swap status update: ${swapStatus.status}, $swapStatus');
     });
+  }
+
+  /// Attempts to create an invoice from the current user's LUD16 lightning
+  /// address. Returns the bolt11 invoice string on success, or `null` if the
+  /// user has no LUD16 set or the LNURL flow fails.
+  Future<String?> _tryCreateInvoiceFromLud16(int amountSats) async {
+    try {
+      final pubkey = auth.activeKeyPair?.publicKey;
+      if (pubkey == null) return null;
+
+      final profile = await getIt<MetadataUseCase>().loadMetadata(pubkey);
+      final lud16 = profile?.metadata.lud16;
+      if (lud16 == null || lud16.isEmpty) {
+        logger.d('No LUD16 set on user metadata');
+        return null;
+      }
+
+      final lud16Link = Lnurl.getLud16LinkFromLud16(lud16);
+      if (lud16Link == null) {
+        logger.w('Failed to parse LUD16 address: $lud16');
+        return null;
+      }
+
+      final lnurl = Lnurl(
+        transport: LnurlTransportHttpImpl(HttpRequestDS(http.Client())),
+      );
+      final lnurlResponse = await lnurl.getLnurlResponse(lud16Link);
+      if (lnurlResponse == null || lnurlResponse.callback == null) {
+        logger.w('LNURL response invalid for $lud16');
+        return null;
+      }
+
+      final invoiceResponse = await lnurl.fetchInvoice(
+        lnurlResponse: lnurlResponse,
+        amountSats: amountSats,
+      );
+      if (invoiceResponse == null || invoiceResponse.invoice.isEmpty) {
+        logger.w('Failed to fetch invoice from LUD16 $lud16');
+        return null;
+      }
+
+      logger.i('Successfully created invoice via LUD16 ($lud16)');
+      return invoiceResponse.invoice;
+    } catch (e) {
+      logger.w('Error creating invoice from LUD16: $e');
+      return null;
+    }
   }
 }

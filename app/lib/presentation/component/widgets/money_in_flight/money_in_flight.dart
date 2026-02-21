@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/amount.dart';
@@ -46,48 +45,40 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
               if (!snapshot.hasData) {
                 return CircularProgressIndicator();
               }
-              return Text(
-                formatAmount(
-                  Amount(
-                    value: snapshot.data!.getInSats,
-                    currency: Currency.BTC,
-                  ),
-                  exact: false,
-                ),
-              );
-            },
-          ),
-          FilledButton(
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                builder: (context) {
-                  return SwapInFlowWidget(
-                    cubit: getIt<Hostr>().evm.supportedEvmChains[0].swapIn(
-                      SwapInParams(
-                        amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 1000000),
-                        evmKey: getIt<Hostr>().auth.getActiveEvmKey(),
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Text(
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    formatAmount(
+                      Amount(
+                        value: snapshot.data!.getInSats,
+                        currency: Currency.BTC,
                       ),
-                    )..estimateFees(),
-                  );
-                },
+                      exact: false,
+                    ),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (context) {
+                          return SwapOutFlowWidget(
+                            cubit:
+                                getIt<Hostr>().evm.supportedEvmChains[0]
+                                    .swapOutAll()
+                                  ..execute(),
+                          );
+                        },
+                      );
+                    },
+                    child: Text('Withdraw'),
+                  ),
+                ],
               );
             },
-            child: Text('Swap in'),
-          ),
-          FilledButton(
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                builder: (context) {
-                  return SwapOutFlowWidget(
-                    cubit: getIt<Hostr>().evm.supportedEvmChains[0].swapOutAll()
-                      ..execute(),
-                  );
-                },
-              );
-            },
-            child: Text('Swap out'),
           ),
         ],
       ),
