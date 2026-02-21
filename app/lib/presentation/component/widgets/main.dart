@@ -1,5 +1,6 @@
 export 'amount/amount_input.dart';
 export 'escrow/escrow_list_item.dart';
+export 'escrow/trusted_escrow_list_item.dart';
 export 'inbox/inbox_item.dart';
 export 'inbox/thread/thread_header.dart';
 export 'keys/keys.dart';
@@ -14,6 +15,7 @@ export 'nostr_wallet_connect/connection.dart';
 export 'nostr_wallet_connect/nostr_wallet_auth.dart';
 export 'nostr_wallet_connect/nostr_wallet_connect.dart';
 export 'profile/profile_chip.dart';
+export 'profile/profile_header.dart';
 export 'relay/relay_list.dart';
 export 'search/map.dart';
 export 'search/search_box.dart';

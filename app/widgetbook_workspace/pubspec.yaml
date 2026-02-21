@@ -13,6 +13,10 @@ dependencies:
   widgetbook_annotation: ^3.10.0
   hostr:
     path: ../
+  hostr_sdk:
+    path: ../../hostr_sdk
+  models:
+    path: ../../models
 
 dev_dependencies:
   flutter_test:

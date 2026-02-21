@@ -677,7 +677,7 @@ packages:
     source: path
     version: "0.0.1"
   hostr_sdk:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../../hostr_sdk"
       relative: true
@@ -964,7 +964,7 @@ packages:
     source: hosted
     version: "5.6.3"
   models:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../../models"
       relative: true

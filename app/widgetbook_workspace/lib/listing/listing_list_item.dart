@@ -13,3 +13,32 @@ Widget listing(BuildContext context) {
     ),
   );
 }
+
+@widgetbook.UseCase(name: 'Pure - date selected', type: ListingListItemView)
+Widget listingPureDateSelected(BuildContext context) {
+  return ListingListItemView(
+    listing: MOCK_LISTINGS[0],
+    showPrice: true,
+    showFeedback: true,
+    smallImage: false,
+    showAvailability: true,
+    availabilityWidget: Text(
+      'Availability: Available',
+      style: Theme.of(context).textTheme.bodySmall,
+    ),
+    onTap: () {},
+  );
+}
+
+@widgetbook.UseCase(name: 'Pure - no date selected', type: ListingListItemView)
+Widget listingPureNoDateSelected(BuildContext context) {
+  return ListingListItemView(
+    listing: MOCK_LISTINGS[0],
+    showPrice: true,
+    showFeedback: true,
+    smallImage: false,
+    showAvailability: false,
+    availabilityWidget: null,
+    onTap: () {},
+  );
+}
