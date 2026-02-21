@@ -14,6 +14,7 @@ import 'seed_models.dart';
 class RelaySeeder {
   Future<int> run({required DeterministicSeedConfig config}) async {
     print('Seeding ${config.relayUrl}...');
+    print(config.toJson());
     final contractAddress = await _resolveDeployedMultiEscrowAddress();
     print('Using contract address: $contractAddress');
 
@@ -25,65 +26,216 @@ class RelaySeeder {
       );
     }
 
-    final ndk = Ndk(
-      NdkConfig(
-        eventVerifier: Bip340EventVerifier(),
-        cache: MemCacheManager(),
-        bootstrapRelays: [config.relayUrl!],
-      ),
-    );
-    final mocked = await MOCK_EVENTS(contractAddress: contractAddress);
-    final events = [
-      ...(await DeterministicSeedBuilder(
+    Ndk? ndk;
+    try {
+      final deterministicData = await DeterministicSeedBuilder(
         config: config.validated(),
         contractAddress: contractAddress,
         rpcUrl: config.rpcUrl,
-      ).build()).allEvents,
-      ...mocked,
-    ];
-
-    if (config.setupLnbits) {
-      await _setupLnbitsForProfiles(
-        events: events,
-        deterministicConfig: config,
+      ).build();
+      print(
+        'Built ${deterministicData.allEvents.length} deterministic events.',
       );
+      // final mocked = await MOCK_EVENTS(contractAddress: contractAddress);
+      final events = [
+        ...deterministicData.allEvents,
+        // ...mocked,
+      ];
+
+      print(
+        events
+            .map((e) => Nip01EventModel.fromEntity(e).toJsonString())
+            .toList(),
+      );
+
+      if (config.setupLnbits) {
+        await _setupLnbitsForProfiles(
+          events: events,
+          deterministicConfig: config,
+        );
+        print('LNbits setup completed for profiles with lud16 usernames.');
+      }
+
+      ndk = Ndk(
+        NdkConfig(
+          eventVerifier: Bip340EventVerifier(),
+          cache: MemCacheManager(),
+          bootstrapRelays: [config.relayUrl!],
+        ),
+      );
+      print('Waiting for relay connectivity...');
+      await ndk.relays.seedRelaysConnected.timeout(const Duration(seconds: 20));
+
+      await _broadcastEventsInBatches(ndk: ndk, events: events);
+
+      print('Seeded ${events.length} events.');
+      _printDeterministicUsersByRole(deterministicData);
+      return events.length;
+    } finally {
+      if (ndk != null) {
+        await ndk.destroy();
+      }
+    }
+  }
+
+  static const int _broadcastBatchSize = 100;
+  static const int _broadcastMaxAttempts = 3;
+
+  Future<void> _broadcastEventsInBatches({
+    required Ndk ndk,
+    required List<Nip01Event> events,
+  }) async {
+    for (var start = 0; start < events.length; start += _broadcastBatchSize) {
+      final end = (start + _broadcastBatchSize) > events.length
+          ? events.length
+          : (start + _broadcastBatchSize);
+
+      final futures = <Future<void>>[];
+      for (var i = start; i < end; i++) {
+        futures.add(_broadcastEventWithRetry(ndk: ndk, event: events[i], i: i));
+      }
+
+      await Future.wait(futures);
+      print('Broadcasted $end/${events.length} events...');
+
+      // Mild pacing between batches to avoid relay congestion.
+      // await Future.delayed(const Duration(milliseconds: 40));
+    }
+  }
+
+  Future<void> _broadcastEventWithRetry({
+    required Ndk ndk,
+    required Nip01Event event,
+    required int i,
+  }) async {
+    String? lastMsg;
+
+    for (var attempt = 1; attempt <= _broadcastMaxAttempts; attempt++) {
+      final broadcastResult = await ndk.broadcast
+          .broadcast(nostrEvent: event)
+          .broadcastDoneFuture;
+
+      if (broadcastResult.isEmpty) {
+        // Relay may have dropped the socket; wait for reconnection and retry.
+        await ndk.relays.seedRelaysConnected.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () async {},
+        );
+        await Future.delayed(Duration(milliseconds: 120 * attempt));
+        continue;
+      }
+
+      final successful = broadcastResult.any((r) => r.broadcastSuccessful);
+      if (successful) {
+        return;
+      }
+
+      lastMsg = broadcastResult.isNotEmpty ? broadcastResult.first.msg : null;
+
+      // Backoff for congested relay / transient websocket failures.
+      await Future.delayed(Duration(milliseconds: 120 * attempt));
     }
 
-    for (var i = 0; i < events.length; i++) {
-      final event = events[i];
-      var success = false;
-      String? lastMsg;
+    throw Exception(
+      'Failed to broadcast event index=$i: ${lastMsg ?? ''}, ${event.toString()}',
+    );
+  }
 
-      for (var attempt = 1; attempt <= 3; attempt++) {
-        final broadcastResult = await ndk.broadcast
-            .broadcast(nostrEvent: event)
-            .broadcastDoneFuture;
+  void _printDeterministicUsersByRole(DeterministicSeedData data) {
+    final users = data.users;
+    final userByPubkey = {for (final u in users) u.keyPair.publicKey: u};
 
-        if (broadcastResult.first.broadcastSuccessful) {
-          success = true;
-          break;
+    Map<String, dynamic> userSummary(SeedUser user) {
+      final privateKey = user.keyPair.privateKey;
+      final evmAddress = user.hasEvm && privateKey != null
+          ? getEvmCredentials(privateKey).address.eip55With0x
+          : null;
+
+      return {
+        'hasEvm': user.hasEvm,
+        'evmAddress': evmAddress,
+        'reservations': {'escrow': <String>[], 'zap': <String>[]},
+      };
+    }
+
+    final grouped = {
+      'guest': {
+        for (final u in users.where((u) => !u.isHost))
+          if (u.keyPair.privateKey != null)
+            u.keyPair.privateKey!: userSummary(u),
+      },
+      'host': {
+        for (final u in users.where((u) => u.isHost))
+          if (u.keyPair.privateKey != null)
+            u.keyPair.privateKey!: userSummary(u),
+      },
+    };
+
+    for (final reservation in data.reservations) {
+      final commitmentHash = reservation.parsedTags.commitmentHash;
+      final proof = reservation.parsedContent.proof;
+      if (proof == null) {
+        continue;
+      }
+
+      final usesEscrow = proof.escrowProof != null;
+      final usesZap = proof.zapProof != null;
+
+      final guest = userByPubkey[reservation.pubKey];
+      final host = userByPubkey[proof.listing.pubKey];
+
+      if (usesEscrow || usesZap) {
+        if (guest != null && guest.keyPair.privateKey != null) {
+          final guestRole = grouped['guest'] as Map<String, dynamic>;
+          final guestInfo =
+              guestRole[guest.keyPair.privateKey!] as Map<String, dynamic>;
+          final guestReservations =
+              guestInfo['reservations'] as Map<String, dynamic>;
+          if (usesEscrow) {
+            (guestReservations['escrow'] as List<String>).add(commitmentHash);
+          }
+          if (usesZap) {
+            (guestReservations['zap'] as List<String>).add(commitmentHash);
+          }
         }
 
-        lastMsg = broadcastResult.first.msg;
-
-        // Backoff for congested relay / transient websocket failures.
-        await Future.delayed(Duration(milliseconds: 120 * attempt));
-      }
-
-      if (!success) {
-        throw Exception(
-          'Failed to broadcast event index=$i/${events.length - 1}: ${lastMsg ?? ''}, ${event.toString()}',
-        );
-      }
-
-      // Lightweight pacing so large seed sets don't overwhelm relay IO.
-      if (i % 10 == 0) {
-        await Future.delayed(const Duration(milliseconds: 25));
+        if (host != null && host.keyPair.privateKey != null) {
+          final hostRole = grouped['host'] as Map<String, dynamic>;
+          final hostInfo =
+              hostRole[host.keyPair.privateKey!] as Map<String, dynamic>;
+          final hostReservations =
+              hostInfo['reservations'] as Map<String, dynamic>;
+          if (usesEscrow) {
+            (hostReservations['escrow'] as List<String>).add(commitmentHash);
+          }
+          if (usesZap) {
+            (hostReservations['zap'] as List<String>).add(commitmentHash);
+          }
+        }
       }
     }
 
-    print('Seeded ${events.length} events.');
-    return events.length;
+    for (final role in ['guest', 'host']) {
+      final roleMap = grouped[role] as Map<String, dynamic>;
+      for (final info in roleMap.values) {
+        final reservations =
+            (info as Map<String, dynamic>)['reservations']
+                as Map<String, dynamic>;
+
+        final escrowList =
+            (reservations['escrow'] as List<String>).toSet().toList()..sort();
+        final zapList = (reservations['zap'] as List<String>).toSet().toList()
+          ..sort();
+
+        reservations['escrow'] = escrowList;
+        reservations['zap'] = zapList;
+      }
+    }
+
+    print(
+      'Seed users private keys by role with EVM + reservation proof usage:',
+    );
+    print(const JsonEncoder.withIndent('  ').convert(grouped));
   }
 
   Future<DeterministicSeedData> buildDeterministicEvents({

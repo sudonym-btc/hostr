@@ -18,12 +18,15 @@ class EscrowSelectorWidget extends StatelessWidget {
           case EscrowSelectorError():
             return const Text('Error loading escrows');
           case EscrowSelectorLoaded():
+            if (state.result.compatibleServices.isEmpty) {
+              return const Text('No compatible escrows found');
+            }
             return DropdownButton<dynamic>(
               value: state.selectedEscrow,
               isExpanded: true,
               underline: Container(),
               selectedItemBuilder: (BuildContext context) {
-                return [ProfileChipWidget(id: state.selectedEscrow.pubKey)];
+                return [ProfileChipWidget(id: state.selectedEscrow!.pubKey)];
               },
               items: state.result.compatibleServices
                   .map<DropdownMenuItem<dynamic>>((EscrowService escrow) {

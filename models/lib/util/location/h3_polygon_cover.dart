@@ -4,7 +4,35 @@ import 'dart:math' as math;
 import 'package:h3_dart/h3_dart.dart';
 import 'package:logger/logger.dart';
 
+import 'h3_library_path_stub.dart'
+    if (dart.library.io) 'h3_library_path_io.dart';
 import 'h3_tag.dart';
+
+List<Map<String, Object>> _fromGeoJsonTagsSerializablePayload(
+  Map<String, dynamic> payload,
+) {
+  final geoJson = (payload['geoJson'] as Map).cast<String, dynamic>();
+  final maxH3Tags = payload['maxH3Tags'] as int;
+  final h3InitMode = payload['h3InitMode'] as String;
+  final h3LibraryPath = payload['h3LibraryPath'] as String?;
+
+  final h3 = switch (h3InitMode) {
+    'process' => H3Factory().process(),
+    'path' => H3Factory().byPath(h3LibraryPath!),
+    _ => throw UnsupportedError('Unsupported H3 init mode: $h3InitMode'),
+  };
+  final cover = H3PolygonCover(h3);
+  final tags = cover.fromGeoJsonTags(geoJson: geoJson, maxH3Tags: maxH3Tags);
+
+  return tags
+      .map<Map<String, Object>>(
+        (tag) => <String, Object>{
+          'index': tag.index,
+          'resolution': tag.resolution,
+        },
+      )
+      .toList(growable: false);
+}
 
 class H3PolygonCover {
   final H3 _h3;
@@ -172,19 +200,29 @@ class H3PolygonCover {
     bool kIsWeb = false,
   }) async {
     if (kIsWeb) {
-      // Web doesn't benefit from Isolate.run in the same way.
-      return fromGeoJsonTags(geoJson: geoJson, maxH3Tags: maxH3Tags);
+      throw UnsupportedError(
+        'fromGeoJsonTagsInBackground requires isolates and is not supported on web.',
+      );
+    }
+
+    final useProcess = shouldUseProcessH3Library();
+
+    String? h3LibraryPath;
+    if (!useProcess) {
+      h3LibraryPath = resolvePlatformDefaultH3LibraryPath();
+      h3LibraryPath ??= resolveBundledH3LibraryPath();
     }
 
     final payload = <String, dynamic>{
       'geoJson': _toSerializableJson(geoJson),
       'maxH3Tags': maxH3Tags,
+      'h3InitMode': useProcess ? 'process' : 'path',
+      'h3LibraryPath': h3LibraryPath,
     };
 
     try {
-      final raw = await Isolate.run(
-        () => _fromGeoJsonTagsSerializablePayload(payload),
-      );
+      final raw =
+          await Isolate.run(() => _fromGeoJsonTagsSerializablePayload(payload));
 
       return raw
           .map(
@@ -195,27 +233,11 @@ class H3PolygonCover {
           )
           .toList(growable: false);
     } catch (e, st) {
-      _logger.w('H3 background cover failed; falling back to main isolate');
-      _logger.e('H3 background cover error', error: e, stackTrace: st);
-      return fromGeoJsonTags(geoJson: geoJson, maxH3Tags: maxH3Tags);
+      _logger.e('H3 background cover failed', error: e, stackTrace: st);
+      throw StateError(
+        'H3 background cover failed to run in isolate: ${e.toString()}',
+      );
     }
-  }
-
-  List<Map<String, Object>> _fromGeoJsonTagsSerializablePayload(
-    Map<String, dynamic> payload,
-  ) {
-    final geoJson = (payload['geoJson'] as Map).cast<String, dynamic>();
-    final maxH3Tags = payload['maxH3Tags'] as int;
-    final tags = fromGeoJsonTags(geoJson: geoJson, maxH3Tags: maxH3Tags);
-
-    return tags
-        .map<Map<String, Object>>(
-          (tag) => <String, Object>{
-            'index': tag.index,
-            'resolution': tag.resolution,
-          },
-        )
-        .toList(growable: false);
   }
 
   dynamic _toSerializableJson(dynamic value) {

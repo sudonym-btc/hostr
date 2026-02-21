@@ -40,7 +40,7 @@ class SeedThread {
   final SeedUser guest;
   final Listing listing;
   final ReservationRequest request;
-  final Reservation reservation;
+  final Reservation? reservation;
   final Nip01Event? zapReceipt;
   final bool paidViaEscrow;
   final EscrowOutcome? escrowOutcome;
@@ -146,7 +146,14 @@ class DeterministicSeedBuilder {
     final safetyDays = 30;
     final totalBackDays = 90 + maxThreads + safetyDays;
 
-    return now.subtract(Duration(days: totalBackDays));
+    // Some relays reject events that are too far in the past.
+    // Keep historical timestamps recent enough while preserving ordering.
+    const maxBackfillDays = 120;
+    final boundedBackDays = totalBackDays > maxBackfillDays
+        ? maxBackfillDays
+        : totalBackDays;
+
+    return now.subtract(Duration(days: boundedBackDays));
   }
 
   Future<DeterministicSeedData> build() async {
@@ -184,14 +191,15 @@ class DeterministicSeedBuilder {
           .map((thread) => thread.request)
           .toList(growable: false);
       final reservations = threads
-          .map((thread) => thread.reservation)
+          .where((thread) => thread.reservation != null)
+          .map((thread) => thread.reservation!)
           .toList(growable: false);
       final zapReceipts = threads
           .map((thread) => thread.zapReceipt)
           .whereType<Nip01Event>()
           .toList(growable: false);
 
-      final threadMessages = buildThreadMessages(threads: threads);
+      final threadMessages = await buildThreadMessages(threads: threads);
       final reviews = buildReviews(threads: threads);
 
       return DeterministicSeedData(

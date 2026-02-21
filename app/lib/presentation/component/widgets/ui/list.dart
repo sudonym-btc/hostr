@@ -11,6 +11,7 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
   final bool loadNextOnBottom;
   final double loadNextThreshold;
   final bool reserveBottomNavigationBarSpace;
+  final ScrollController? scrollController;
 
   const ListWidget({
     super.key,
@@ -18,6 +19,7 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
     this.loadNextOnBottom = false,
     this.loadNextThreshold = 200,
     this.reserveBottomNavigationBarSpace = false,
+    this.scrollController,
   });
 
   @override
@@ -25,21 +27,43 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
 }
 
 class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
-  final ScrollController _scrollController = ScrollController();
+  late ScrollController _scrollController;
+  late bool _ownsScrollController;
   final CustomLogger logger = CustomLogger();
   bool _loadingNextPage = false;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _attachScrollController(widget.scrollController);
+  }
+
+  @override
+  void didUpdateWidget(covariant ListWidget<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      _detachScrollController();
+      _attachScrollController(widget.scrollController);
+    }
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _detachScrollController();
     super.dispose();
+  }
+
+  void _attachScrollController(ScrollController? externalController) {
+    _ownsScrollController = externalController == null;
+    _scrollController = externalController ?? ScrollController();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _detachScrollController() {
+    _scrollController.removeListener(_onScroll);
+    if (_ownsScrollController) {
+      _scrollController.dispose();
+    }
   }
 
   void _onScroll() {

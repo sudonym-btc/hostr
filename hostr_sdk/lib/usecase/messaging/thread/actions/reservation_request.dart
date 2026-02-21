@@ -30,9 +30,6 @@ class ReservationRequestActions {
                   .value <=
               lastRequest.parsedContent.amount.value
         : false;
-    print(
-      'Resolving reservation request actions with lastRequest: $lastRequest, lastRequestSentByUs: $lastRequestSentByUs, enoughPrice: $enoughPrice',
-    );
     if (role == ThreadPartyRole.guest) {
       actions.addAll([
         if (!lastRequestSentByUs || enoughPrice) TradeAction.pay,

@@ -11,6 +11,10 @@ class FilterCubit extends Cubit<FilterState> {
   void updateLocation(String location) {
     emit(state.copyWith(location: location));
   }
+
+  void clear() {
+    emit(FilterState());
+  }
 }
 
 class FilterState {

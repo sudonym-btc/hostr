@@ -35,12 +35,13 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
       );
     } catch (e, stackTrace) {
       print(stackTrace);
-      emit(EscrowSelectorError('Failed to load escrows: $e'));
+      emit(EscrowSelectorError('Failed to load escrows'));
     }
   }
 
   Future<void> select() async {
-    if (state is EscrowSelectorLoaded) {
+    if (state is EscrowSelectorLoaded &&
+        (state as EscrowSelectorLoaded).selectedEscrow != null) {
       final loadedState = state as EscrowSelectorLoaded;
       await getIt<Hostr>()
           .messaging
@@ -51,13 +52,13 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
               pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
               tags: EscrowServiceSelectedTags([]),
               content: EscrowServiceSelectedContent(
-                service: loadedState.selectedEscrow,
-                sellerTrusts: loadedState.result.hostTrust,
-                sellerMethods: loadedState.result.hostMethod,
+                service: loadedState.selectedEscrow!,
+                sellerTrusts: loadedState.result.hostTrust!,
+                sellerMethods: loadedState.result.hostMethod!,
               ),
             ),
           );
-      onDone(loadedState.selectedEscrow);
+      onDone(loadedState.selectedEscrow!);
     }
   }
 }
@@ -67,7 +68,7 @@ class EscrowSelectorState {}
 class EscrowSelectorLoading extends EscrowSelectorState {}
 
 class EscrowSelectorLoaded extends EscrowSelectorState {
-  EscrowService selectedEscrow;
+  EscrowService? selectedEscrow;
   MutualEscrowResult result;
   EscrowSelectorLoaded({required this.selectedEscrow, required this.result});
 }

@@ -27,21 +27,19 @@ extension _DeterministicSeedUsers on DeterministicSeedBuilder {
   List<ProfileMetadata> buildProfiles(List<SeedUser> users) {
     return users
         .map((user) {
+          final identity = _identityForUser(user);
           final metadata = Metadata(
             pubKey: user.keyPair.publicKey,
-            name: 'Seed User ${user.index + 1}',
-            displayName: user.isHost
-                ? 'Host ${user.index + 1}'
-                : 'Guest ${user.index + 1}',
+            name: identity.fullName,
+            displayName: identity.displayName,
             about: user.isHost
-                ? 'Welcoming guests since ${2015 + (user.index % 9)}!'
-                : 'Guest traveler profile #${user.index + 1}',
+                ? '${identity.displayName} hosts thoughtfully designed stays and has welcomed guests since ${2015 + (user.index % 9)}.'
+                : '${identity.displayName} is an avid traveler who loves local neighborhoods, great coffee, and easy check-ins.',
             lud16: user.isHost
                 ? 'host${user.index + 1}@lnbits1.hostr.development'
                 : 'guest${user.index + 1}@lnbits2.hostr.development',
             nip05: 'seed${user.index + 1}@hostr.development',
-            picture:
-                'https://picsum.photos/seed/hostr-seed-${config.seed}-${user.index}/400/400',
+            picture: identity.pictureUrl,
           ).toEvent();
 
           final tags = List<List<String>>.from(metadata.tags);
@@ -168,4 +166,137 @@ extension _DeterministicSeedUsers on DeterministicSeedBuilder {
   bool _pickByRatio(double ratio) {
     return _random.nextDouble() < ratio;
   }
+
+  static const List<String> _seedFirstNames = [
+    'Alex',
+    'Taylor',
+    'Jordan',
+    'Morgan',
+    'Casey',
+    'Riley',
+    'Avery',
+    'Jamie',
+    'Cameron',
+    'Skyler',
+    'Quinn',
+    'Parker',
+    'Drew',
+    'Reese',
+    'Blake',
+    'Kendall',
+    'Rowan',
+    'Logan',
+    'Finley',
+    'Sage',
+    'Elliot',
+    'Harper',
+    'Emerson',
+    'Dakota',
+    'Sydney',
+    'Charlie',
+    'Phoenix',
+    'Remy',
+    'Micah',
+    'Noel',
+    'Robin',
+    'Jules',
+    'River',
+    'Arden',
+    'Lane',
+    'Kai',
+    'Marlowe',
+    'Shawn',
+    'Ari',
+    'Mika',
+    'Briar',
+    'Rory',
+    'Toby',
+    'Nico',
+    'Jesse',
+    'Alden',
+    'Shiloh',
+    'Ainsley',
+  ];
+
+  static const List<String> _seedLastNames = [
+    'Carter',
+    'Brooks',
+    'Hayes',
+    'Morgan',
+    'Parker',
+    'Reed',
+    'Bennett',
+    'Foster',
+    'Sullivan',
+    'Ward',
+    'Ellis',
+    'Baker',
+    'Turner',
+    'Morris',
+    'Price',
+    'Coleman',
+    'Bailey',
+    'Griffin',
+    'Hayden',
+    'Wallace',
+    'Bryant',
+    'Stone',
+    'West',
+    'Keller',
+    'Watson',
+    'Hughes',
+    'Palmer',
+    'Wells',
+    'Riley',
+    'Bishop',
+    'Warren',
+    'Woods',
+    'Jensen',
+    'Porter',
+    'Shaw',
+    'Bates',
+    'Flynn',
+    'Sawyer',
+    'Meyer',
+    'Cross',
+    'Brennan',
+    'Nolan',
+    'Holland',
+    'Cruz',
+    'Harper',
+    'Vaughn',
+    'Monroe',
+    'Sloan',
+  ];
+
+  _SeedIdentity _identityForUser(SeedUser user) {
+    final firstName = _seedFirstNames[user.index % _seedFirstNames.length];
+    final lastName =
+        _seedLastNames[(user.index * 7 + config.seed) % _seedLastNames.length];
+    final fullName = '$firstName $lastName';
+
+    final photoIndex = ((config.seed + user.index * 11) % 99) + 1;
+    final useWomenPortrait = (user.index + config.seed).isEven;
+    final bucket = useWomenPortrait ? 'women' : 'men';
+    final pictureUrl =
+        'https://randomuser.me/api/portraits/$bucket/$photoIndex.jpg';
+
+    return _SeedIdentity(
+      fullName: fullName,
+      displayName: firstName,
+      pictureUrl: pictureUrl,
+    );
+  }
+}
+
+class _SeedIdentity {
+  final String fullName;
+  final String displayName;
+  final String pictureUrl;
+
+  const _SeedIdentity({
+    required this.fullName,
+    required this.displayName,
+    required this.pictureUrl,
+  });
 }

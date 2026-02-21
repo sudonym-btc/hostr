@@ -19,6 +19,7 @@ class DeterministicSeedConfig {
   final double paidViaEscrowClaimedRatio;
   final double listingsPerHostAvg;
   final int reservationRequestsPerGuest;
+  final double completedRatio;
   final int messagesPerThreadAvg;
   final double reviewRatio;
 
@@ -35,16 +36,17 @@ class DeterministicSeedConfig {
     this.lnbitsExtensionName = 'lnurlp',
     this.lnbitsNostrPrivateKey,
     this.seed = 1,
-    this.userCount = 40,
-    this.hostRatio = 0.35,
+    this.userCount = 50,
+    this.hostRatio = 0.25,
     this.hostHasEvmRatio = 0.8,
-    this.paidViaEscrowRatio = 0.55,
+    this.paidViaEscrowRatio = 1,
     this.paidViaEscrowArbitrateRatio = 0.15,
     this.paidViaEscrowClaimedRatio = 0.7,
     this.listingsPerHostAvg = 1.6,
-    this.reservationRequestsPerGuest = 2,
+    this.reservationRequestsPerGuest = 10,
+    this.completedRatio = 0.5,
     this.messagesPerThreadAvg = 3,
-    this.reviewRatio = 0.55,
+    this.reviewRatio = 0.5,
   });
 
   factory DeterministicSeedConfig.fromJson(Map<String, dynamic> json) {
@@ -84,6 +86,7 @@ class DeterministicSeedConfig {
         json['reservationRequestsPerGuest'],
         fallback: 2,
       ),
+      completedRatio: _asDouble(json['completedRatio'], fallback: 0.55),
       messagesPerThreadAvg: _asInt(json['messagesPerThreadAvg'], fallback: 3),
       reviewRatio: _asDouble(json['reviewRatio'], fallback: 0.55),
     ).validated();
@@ -113,6 +116,7 @@ class DeterministicSeedConfig {
       reservationRequestsPerGuest: reservationRequestsPerGuest < 0
           ? 0
           : reservationRequestsPerGuest,
+      completedRatio: _clamp01(completedRatio),
       messagesPerThreadAvg: messagesPerThreadAvg < 0 ? 0 : messagesPerThreadAvg,
       reviewRatio: _clamp01(reviewRatio),
     );
@@ -140,6 +144,7 @@ class DeterministicSeedConfig {
       'paidViaEscrowClaimedRatio': paidViaEscrowClaimedRatio,
       'listingsPerHostAvg': listingsPerHostAvg,
       'reservationRequestsPerGuest': reservationRequestsPerGuest,
+      'completedRatio': completedRatio,
       'messagesPerThreadAvg': messagesPerThreadAvg,
       'reviewRatio': reviewRatio,
     };

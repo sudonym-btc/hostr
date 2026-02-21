@@ -5,6 +5,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/presentation/forms/main.dart';
+import 'package:hostr/presentation/forms/search/location_controller.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -25,7 +26,13 @@ class _FiltersScreenState extends State<FiltersScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = SearchFormController();
+    final initialLocation = context.read<FilterCubit>().state.location;
+    final initialDateRange = context.read<DateRangeCubit>().state.dateRange;
+
+    _controller = SearchFormController(
+      locationController: LocationController(initialText: initialLocation),
+    );
+    _controller.updateAvailabilityRange(initialDateRange);
     _controller.addListener(_onControllerChanged);
   }
 

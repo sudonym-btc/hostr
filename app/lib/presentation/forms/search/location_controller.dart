@@ -78,6 +78,7 @@ class LocationController extends ChangeNotifier {
   void setH3Error(String message) {
     _h3Tags = const [];
     _h3Error = message;
+    print('H3 resolution error: $message');
     _isResolvingH3 = false;
     notifyListeners();
   }

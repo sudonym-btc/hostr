@@ -38,7 +38,9 @@ class TradeSubscriptions {
     if (_started) return;
     _started = true;
 
-    logger.d('Starting trade subscriptions for thread ${thread.anchor}');
+    logger.d(
+      'Starting trade subscriptions for thread ${thread.trade!.state.value.tradeId}',
+    );
 
     // Explicit initialization so callers can control lifecycle clearly.
     allReservationsStream = reservations.subscribe(
@@ -53,7 +55,7 @@ class TradeSubscriptions {
       Filter(
         tags: {
           kListingRefTag: [thread.trade!.getListingAnchor()],
-          kCommitmentHashTag: [thread.anchor],
+          kCommitmentHashTag: [thread.trade!.state.value.tradeId],
         },
       ),
     );
@@ -61,12 +63,13 @@ class TradeSubscriptions {
       Filter(
         tags: {
           kListingRefTag: [thread.trade!.getListingAnchor()],
-          kCommitmentHashTag: [thread.anchor],
+          kCommitmentHashTag: [thread.trade!.state.value.tradeId],
         },
       ),
     );
     ;
-    paymentEvents = _buildPaymentEvents();
+    final listing = await thread.trade!.getListing();
+    paymentEvents = await _buildPaymentEvents(listing: listing);
   }
 
   Future<void> stop() async {
@@ -92,7 +95,9 @@ class TradeSubscriptions {
     paymentEvents = null;
   }
 
-  StreamWithStatus<PaymentEvent> _buildPaymentEvents() {
+  Future<StreamWithStatus<PaymentEvent>> _buildPaymentEvents({
+    required Listing? listing,
+  }) async {
     final response = DynamicCombinedStreamWithStatus<PaymentEvent>();
     final subscribedEscrowKeys = <String>{};
 
@@ -120,32 +125,75 @@ class TradeSubscriptions {
       combineIfNew(escrowService);
     }
     _subscriptions.add(
-      thread.messages.stream
-          .where((message) => message.child is EscrowServiceSelected)
-          .takeUntil(_dispose$)
-          .listen((message) {
-            final escrowService = (message.child as EscrowServiceSelected);
-            combineIfNew(escrowService);
-          }),
+      Rx.merge([
+        reservationStream!.replay
+            .where(
+              (reservation) =>
+                  reservation.parsedContent.proof?.escrowProof != null,
+            )
+            .doOnData((reservation) {
+              logger.d(
+                'Found reservation with escrow proof, adding escrow subscription for thread ${thread.anchor}',
+              );
+            })
+            .map((reservation) => reservation.parsedContent.proof!.escrowProof!)
+            .map(
+              (proof) => EscrowServiceSelected(
+                content: EscrowServiceSelectedContent(
+                  service: proof.escrowService,
+                  sellerTrusts: proof.hostsTrustedEscrows,
+                  sellerMethods: proof.hostsEscrowMethods,
+                ),
+                pubKey: '',
+                tags: EscrowServiceSelectedTags([]),
+              ),
+            ),
+        thread.messages.stream
+            .where((message) => message.child is EscrowServiceSelected)
+            .takeUntil(_dispose$)
+            .map((event) => event.child as EscrowServiceSelected),
+      ]).listen(combineIfNew),
     );
 
-    if (thread.state.value.counterpartyPubkeys.isNotEmpty) {
+    final sellerPubkey = listing?.pubKey;
+    if (sellerPubkey != null && sellerPubkey.isNotEmpty) {
+      logger.d(
+        'Subscribing to zap receipts for thread ${thread.anchor} and seller $sellerPubkey',
+      );
       response.combine(
         zaps
             .subscribeZapReceipts(
-              pubkey: thread.state.value.counterpartyPubkeys.first,
-              addressableId: thread.anchor,
+              pubkey: sellerPubkey,
+              eventId: thread.trade!.state.value.tradeId,
             )
-            .map(
-              (event) => ZapFundedEvent(
-                event: Nip01EventModel.fromEntity(event),
-                zapReceipt: ZapReceipt.fromEvent(event),
-                amount: BitcoinAmount.fromInt(
-                  BitcoinUnit.sat,
-                  ZapReceipt.fromEvent(event).amountSats!,
-                ),
-              ),
-            ),
+            .asyncMap((event) async {
+              try {
+                final receipt = ZapReceipt.fromEvent(event);
+                final amountSats = receipt.amountSats;
+                if (amountSats == null) {
+                  logger.w(
+                    'Skipping zap receipt without parsable amount for thread ${thread.anchor}: ${event.id}',
+                  );
+                  return null;
+                }
+
+                return ZapFundedEvent(
+                  event: Nip01EventModel.fromEntity(event),
+                  zapReceipt: receipt,
+                  amount: BitcoinAmount.fromInt(BitcoinUnit.sat, amountSats),
+                );
+              } catch (e) {
+                logger.w(
+                  'Skipping invalid zap receipt for thread ${thread.anchor}: ${event.id}, error: $e',
+                );
+                return null;
+              }
+            })
+            .whereType<PaymentEvent>(),
+      );
+    } else {
+      logger.w(
+        'Skipping zap receipt subscription for thread ${thread.anchor}: listing/seller pubkey unavailable',
       );
     }
     return response;
