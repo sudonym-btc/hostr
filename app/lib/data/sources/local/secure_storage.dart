@@ -10,7 +10,7 @@ abstract class SecureStorage {
   Future wipe();
 }
 
-@Singleton(as: SecureStorage, env: Env.allButTest)
+@Singleton(as: SecureStorage, env: Env.allButTestAndMock)
 class ImplSecureStorage implements SecureStorage {
   final storage = const FlutterSecureStorage();
 
@@ -41,7 +41,7 @@ class ImplSecureStorage implements SecureStorage {
   }
 }
 
-@Singleton(as: SecureStorage, env: [Env.test])
+@Singleton(as: SecureStorage, env: [Env.test, Env.mock])
 class MockSecureStorage implements SecureStorage {
   dynamic state = {};
 

@@ -35,22 +35,39 @@ extension _DeterministicSeedUtils on DeterministicSeedBuilder {
     });
   }
 
-  Future<void> _advanceChainTime({required int seconds}) async {
-    await _anvil().advanceChainTime(seconds: seconds);
-  }
+  Future<void> _waitForChainTimePast({
+    required int targetEpochSeconds,
+    Duration pollInterval = const Duration(milliseconds: 300),
+    Duration maxWait = const Duration(seconds: 15),
+  }) async {
+    final deadline = DateTime.now().add(maxWait);
 
-  AnvilClient _anvil() {
-    _anvilClient ??= AnvilClient(rpcUri: Uri.parse(rpcUrl));
-    return _anvilClient!;
+    while (true) {
+      final nowSeconds =
+          (await _chainClient().getBlockInformation()).timestamp
+              .toUtc()
+              .millisecondsSinceEpoch ~/
+          1000;
+
+      if (nowSeconds > targetEpochSeconds) {
+        return;
+      }
+
+      if (DateTime.now().isAfter(deadline)) {
+        throw Exception(
+          'Timed out waiting for chain timestamp to pass $targetEpochSeconds; latest=$nowSeconds',
+        );
+      }
+
+      await Future<void>.delayed(pollInterval);
+    }
   }
 
   void _disposeWeb3Client() {
     _web3Client?.dispose();
     _httpClient?.close();
-    _anvilClient?.close();
     _web3Client = null;
     _httpClient = null;
-    _anvilClient = null;
     _escrowContracts.clear();
   }
 }

@@ -8,6 +8,7 @@ abstract class Config {
   String get hostrBlossom;
   String get hostrRelay;
   RootstockConfig get rootstock;
+  bool get useSecureKeyValueStorage => true;
   String get googleMapsApiKey => 'AIzaSyBjcePUwkKwD-iMmHpjXVDV0MaiYH1dnGo';
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
@@ -16,9 +17,30 @@ abstract class Config {
     bootstrapRelays: [...relays, hostrRelay],
     bootstrapBlossom: [hostrBlossom],
     rootstockConfig: rootstock,
-    storage: SecureKeyValueStorage(),
+    storage: useSecureKeyValueStorage
+        ? SecureKeyValueStorage()
+        : InMemoryKeyValueStorage(),
     logs: CustomLogger(),
   );
+}
+
+class InMemoryKeyValueStorage implements KeyValueStorage {
+  final Map<String, dynamic> _state = {};
+
+  @override
+  Future<void> write(String key, dynamic value) async {
+    _state[key] = value;
+  }
+
+  @override
+  Future<dynamic> read(String key) async {
+    return _state[key];
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    _state.remove(key);
+  }
 }
 
 class SecureKeyValueStorage implements KeyValueStorage {

@@ -7,6 +7,9 @@ import 'base.config.dart';
 @Injectable(as: Config, env: [Env.mock])
 class MockConfig extends Config {
   @override
+  bool get useSecureKeyValueStorage => false;
+
+  @override
   String hostrRelay = 'ws://localhost:5432';
 
   @override

@@ -13,8 +13,6 @@
 import 'package:widgetbook/widgetbook.dart' as _widgetbook;
 import 'package:widgetbook_workspace/component/filled_button.dart'
     as _widgetbook_workspace_component_filled_button;
-import 'package:widgetbook_workspace/component/floating_action_button.dart'
-    as _widgetbook_workspace_component_floating_action_button;
 import 'package:widgetbook_workspace/evm/evm.dart'
     as _widgetbook_workspace_evm_evm;
 import 'package:widgetbook_workspace/evm/locked_in_contract.dart'
@@ -31,14 +29,14 @@ import 'package:widgetbook_workspace/payment/amount_input.dart'
     as _widgetbook_workspace_payment_amount_input;
 import 'package:widgetbook_workspace/payment/modal_payment_requested.dart'
     as _widgetbook_workspace_payment_modal_payment_requested;
-import 'package:widgetbook_workspace/profile/profile.dart'
-    as _widgetbook_workspace_profile_profile;
 import 'package:widgetbook_workspace/profile/profile_chip.dart'
     as _widgetbook_workspace_profile_profile_chip;
 import 'package:widgetbook_workspace/reserve.dart'
     as _widgetbook_workspace_reserve;
 import 'package:widgetbook_workspace/search/check_in_check_out.dart'
     as _widgetbook_workspace_search_check_in_check_out;
+import 'package:widgetbook_workspace/search/search_box.dart'
+    as _widgetbook_workspace_search_search_box;
 
 final directories = <_widgetbook.WidgetbookNode>[
   _widgetbook.WidgetbookFolder(
@@ -84,21 +82,6 @@ final directories = <_widgetbook.WidgetbookNode>[
             name: 'defaultUseCase',
             builder:
                 _widgetbook_workspace_evm_locked_in_contract.lockedInContract,
-          ),
-        ],
-      ),
-      _widgetbook.WidgetbookComponent(
-        name: 'FloatingActionButton',
-        useCases: [
-          _widgetbook.WidgetbookUseCase(
-            name: 'Default',
-            builder: _widgetbook_workspace_component_floating_action_button
-                .floatingActionButton,
-          ),
-          _widgetbook.WidgetbookUseCase(
-            name: 'Icon',
-            builder: _widgetbook_workspace_component_floating_action_button
-                .floatingActionButtonIcon,
           ),
         ],
       ),
@@ -202,6 +185,21 @@ final directories = <_widgetbook.WidgetbookNode>[
                   ),
                 ],
               ),
+              _widgetbook.WidgetbookFolder(
+                name: 'search',
+                children: [
+                  _widgetbook.WidgetbookComponent(
+                    name: 'SearchBoxWidget',
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Default',
+                        builder: _widgetbook_workspace_search_search_box
+                            .defaultUseCase,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
         ],
@@ -260,21 +258,6 @@ final directories = <_widgetbook.WidgetbookNode>[
                       _widgetbook.WidgetbookUseCase(
                         name: 'Default',
                         builder: _widgetbook_workspace_reserve.reserve,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              _widgetbook.WidgetbookFolder(
-                name: 'profile',
-                children: [
-                  _widgetbook.WidgetbookComponent(
-                    name: 'ProfileScreen',
-                    useCases: [
-                      _widgetbook.WidgetbookUseCase(
-                        name: 'Default',
-                        builder: _widgetbook_workspace_profile_profile
-                            .defaultUseCase,
                       ),
                     ],
                   ),

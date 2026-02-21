@@ -9,7 +9,6 @@ contract MultiEscrow {
     error TradeNotActive();
     error TradeIdAlreadyExists();
     error MustSendFunds();
-    error InvalidUnlockAt();
     error NoFundsToRelease();
     error OnlyBuyerOrSeller();
     error InvalidFactor();
@@ -96,8 +95,6 @@ contract MultiEscrow {
     function createTrade(bytes32 tradeId, address _buyer, address _seller, address _arbiter,  uint256 _unlockAt, uint256 _escrowFee) external payable {
         if (trades[tradeId].buyer != address(0)) revert TradeIdAlreadyExists();
         if (msg.value == 0) revert MustSendFunds();
-        if (_unlockAt <= block.timestamp) revert InvalidUnlockAt();
-
         trades[tradeId] = Trade({
             buyer: _buyer,
             seller: _seller,
