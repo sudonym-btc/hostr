@@ -56,7 +56,32 @@ class SearchBoxWidget extends StatelessWidget {
                           ),
                         ),
                 ),
-                trailing: Icon(Icons.filter_list),
+                trailing: BlocBuilder<FilterCubit, FilterState>(
+                  builder: (context, filterState) {
+                    return BlocBuilder<DateRangeCubit, DateRangeState>(
+                      builder: (context, dateState) {
+                        final hasActiveFilter =
+                            filterState.filter != null ||
+                            filterState.location.trim().isNotEmpty;
+                        final hasDateRange = dateState.dateRange != null;
+
+                        if (hasActiveFilter || hasDateRange) {
+                          return IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () {
+                              context.read<DateRangeCubit>().updateDateRange(
+                                null,
+                              );
+                              context.read<FilterCubit>().clear();
+                            },
+                          );
+                        }
+
+                        return const Icon(Icons.filter_list);
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ),

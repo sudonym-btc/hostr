@@ -31,10 +31,19 @@ seed_relay() {
     done
 
     local extra_args=("$@")
+    local log_dir="$REPO_ROOT/logs"
+    local log_file="$log_dir/seed_relay_$(date +%Y%m%d_%H%M%S).log"
+
+    mkdir -p "$log_dir"
+    echo "Writing seed logs to: $log_file"
     
     reset_relay
 
-    (cd "$REPO_ROOT/hostr_sdk" && dart run bin/seed.dart "${extra_args[@]}")
+    (
+        set -o pipefail
+        cd "$REPO_ROOT/hostr_sdk" && \
+        dart run bin/seed.dart "${extra_args[@]}" 2>&1 | tee "$log_file"
+    )
 }
 
 # If script is run directly (not sourced), execute the function

@@ -95,23 +95,41 @@ class PaymentMethodWidget extends StatelessWidget {
                   child: const Text('Pay directly'),
                 ),
                 SizedBox(width: 16),
-                BlocBuilder<EscrowSelectorCubit, EscrowSelectorState>(
-                  builder: (context, state) {
-                    switch (state) {
-                      case EscrowSelectorLoading():
-                        return const CircularProgressIndicator();
-                      case EscrowSelectorError():
-                        return Text(state.message);
-                      case EscrowSelectorLoaded():
-                        return FilledButton(
-                          onPressed: () =>
-                              context.read<EscrowSelectorCubit>().select(),
-                          child: const Text('Use Escrow'),
-                        );
-                      default:
-                        throw UnimplementedError();
-                    }
-                  },
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child:
+                        BlocBuilder<EscrowSelectorCubit, EscrowSelectorState>(
+                          builder: (context, state) {
+                            switch (state) {
+                              case EscrowSelectorLoading():
+                                return const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                );
+                              case EscrowSelectorError():
+                                return Text(
+                                  state.message,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.end,
+                                );
+                              case EscrowSelectorLoaded():
+                                return FilledButton(
+                                  onPressed: () => context
+                                      .read<EscrowSelectorCubit>()
+                                      .select(),
+                                  child: const Text('Use Escrow'),
+                                );
+                              default:
+                                throw UnimplementedError();
+                            }
+                          },
+                        ),
+                  ),
                 ),
               ],
             ),

@@ -327,7 +327,8 @@ class LocationFieldState extends State<LocationField> {
           decoration: InputDecoration(
             hintText: widget.hintText,
             // prefixIcon: Icon(Icons.location_on),
-            suffixIcon: widget.clearable
+            suffixIcon:
+                widget.clearable && widget.controller.text.trim().isNotEmpty
                 ? IconButton(
                     icon: Icon(Icons.cancel),
                     onPressed: () {

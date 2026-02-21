@@ -34,10 +34,23 @@ class Escrows extends CrudUseCase<EscrowService> {
       ),
     ]);
 
-    final trust1 = results[0] as EscrowTrust;
-    final trust2 = results[1] as EscrowTrust;
-    final methods1 = results[2] as EscrowMethod;
-    final methods2 = results[3] as EscrowMethod;
+    final trust1 = results[0] as EscrowTrust?;
+    final trust2 = results[1] as EscrowTrust?;
+    final methods1 = results[2] as EscrowMethod?;
+    final methods2 = results[3] as EscrowMethod?;
+
+    if (trust1 == null) {
+      throw Exception('Host escrow trust list is missing');
+    }
+    if (trust2 == null) {
+      throw Exception('Guest escrow trust list is missing');
+    }
+    if (methods1 == null) {
+      throw Exception('Host escrow methods are missing');
+    }
+    if (methods2 == null) {
+      throw Exception('Guest escrow methods are missing');
+    }
 
     final result = MutualEscrowResult(
       hostTrust: trust1,
@@ -47,12 +60,16 @@ class Escrows extends CrudUseCase<EscrowService> {
     );
 
     // Extract trusted pubkeys from each user's trust list
-    final trustedPubkeys1 = (await result.hostTrust.toNip51List()).elements
-        .map((e) => e.value)
-        .toSet();
-    final trustedPubkeys2 = (await result.guestTrust.toNip51List()).elements
-        .map((e) => e.value)
-        .toSet();
+    final trustedPubkeys1 = result.hostTrust != null
+        ? (await result.hostTrust!.toNip51List()).elements
+              .map((e) => e.value)
+              .toSet()
+        : <String>{};
+    final trustedPubkeys2 = result.guestTrust != null
+        ? (await result.guestTrust!.toNip51List()).elements
+              .map((e) => e.value)
+              .toSet()
+        : <String>{};
 
     logger.d('Trusted escrow pubkeys: $trustedPubkeys2 $trustedPubkeys2');
 
@@ -68,12 +85,16 @@ class Escrows extends CrudUseCase<EscrowService> {
     }
 
     // Extract escrow types from each user's method list
-    final types1 = (await result.hostMethod.toNip51List()).elements
-        .map((e) => e.value)
-        .toSet();
-    final types2 = (await result.guestMethod.toNip51List()).elements
-        .map((e) => e.value)
-        .toSet();
+    final types1 = result.hostMethod != null
+        ? (await result.hostMethod!.toNip51List()).elements
+              .map((e) => e.value)
+              .toSet()
+        : <String>{};
+    final types2 = result.guestMethod != null
+        ? (await result.guestMethod!.toNip51List()).elements
+              .map((e) => e.value)
+              .toSet()
+        : <String>{};
 
     logger.d('Trusted escrow methods: $types1 $types2');
 
@@ -106,10 +127,10 @@ class Escrows extends CrudUseCase<EscrowService> {
 }
 
 class MutualEscrowResult {
-  EscrowTrust hostTrust;
-  EscrowTrust guestTrust;
-  EscrowMethod hostMethod;
-  EscrowMethod guestMethod;
+  EscrowTrust? hostTrust;
+  EscrowTrust? guestTrust;
+  EscrowMethod? hostMethod;
+  EscrowMethod? guestMethod;
   late List<EscrowService> compatibleServices;
 
   MutualEscrowResult({

@@ -16,9 +16,6 @@ class PaymentActions {
     ThreadPartyRole role,
     bool isBlocked,
   ) {
-    print(
-      'Resolving payment actions with events: $paymentEvents, $paymentStreamStatus',
-    );
     final paymentStateFresh =
         paymentStreamStatus is StreamStatusLive ||
         paymentStreamStatus is StreamStatusQueryComplete;

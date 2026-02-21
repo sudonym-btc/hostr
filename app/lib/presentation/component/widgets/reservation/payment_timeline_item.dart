@@ -24,7 +24,7 @@ class PaymentTimelineItem extends StatelessWidget {
           .replaceFirst(RegExp(r'\.$'), '');
     }
 
-    Widget escrowEvent({
+    Widget paymentEvent({
       required String title,
       String? description,
       IconData? icon,
@@ -48,36 +48,45 @@ class PaymentTimelineItem extends StatelessWidget {
     }
 
     if (event is Reservation) {
-      return escrowEvent(
+      return paymentEvent(
         title:
             'Reservation ${event.parsedContent.cancelled ? "cancelled" : "updated"} by ${event.pubKey == hostPubkey ? 'host' : 'guest'}',
         timestamp: DateTime.fromMillisecondsSinceEpoch(event.createdAt * 1000),
       );
     }
     if (event is EscrowFundedEvent) {
-      return escrowEvent(
+      return paymentEvent(
         title: 'Escrow funded',
         description: '${formatAmount(event.amount.toAmount())}',
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowReleasedEvent) {
-      return escrowEvent(
+      return paymentEvent(
         title: 'Funds released',
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowArbitratedEvent) {
-      return escrowEvent(
+      return paymentEvent(
         title: 'Escrow arbitrated',
         description:
             'Forwarded ${formatPercent(event.forwarded * 100)}% to host',
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowClaimedEvent) {
-      return escrowEvent(
+      return paymentEvent(
         title: 'Escrow funds claimed',
         timestamp: event.block.timestamp,
       );
+    } else if (event is ZapFundedEvent) {
+      return paymentEvent(
+        title: 'Funded via zap',
+        description: '${formatAmount(event.amount.toAmount())}',
+        timestamp: DateTime.fromMillisecondsSinceEpoch(
+          event.event.createdAt * 1000,
+        ),
+      );
     }
+
     return Text('Timeline Event ${event.runtimeType}');
   }
 }

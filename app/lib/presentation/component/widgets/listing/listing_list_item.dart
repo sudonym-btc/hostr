@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
 
 import 'price_tag.dart';
 
@@ -31,9 +37,26 @@ class ListingListItemWidget extends StatefulWidget {
 class ListingListItemWidgetState extends State<ListingListItemWidget> {
   ListingListItemWidgetState();
 
+  StreamWithStatus<Reservation>? _reservationsStream;
+  StreamSubscription<List<Reservation>>? _reservationsSubscription;
+  AvailabilityCubit? _availabilityCubit;
+  DateRangeCubit? _localDateRangeCubit;
+  List<Reservation> _latestReservations = const [];
+
   @override
   initState() {
     super.initState();
+    _reservationsStream = getIt<Hostr>().reservations.subscribe(
+      Filter(
+        tags: {
+          kListingRefTag: [widget.listing.anchor!],
+        },
+      ),
+    );
+    _reservationsSubscription = _reservationsStream!.list.listen((items) {
+      _latestReservations = items;
+      _availabilityCubit?.updateReservations(items);
+    });
     // Preload images
     // WidgetsBinding.instance.addPostFrameCallback((_) {
     //   if (!mounted) return; // Check if the widget is still mounted
@@ -41,6 +64,74 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     //     precacheImage(NetworkImage(imageUrl), context);
     //   }
     // });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_availabilityCubit != null) return;
+
+    DateRangeCubit? dateRangeCubit;
+    try {
+      dateRangeCubit = BlocProvider.of<DateRangeCubit>(context);
+    } catch (_) {
+      dateRangeCubit = null;
+    }
+
+    _localDateRangeCubit ??= DateRangeCubit();
+    _availabilityCubit = AvailabilityCubit(
+      dateRangeCubit: dateRangeCubit ?? _localDateRangeCubit!,
+      reservations: _latestReservations,
+    );
+  }
+
+  @override
+  void dispose() {
+    _reservationsSubscription?.cancel();
+    _reservationsStream?.close();
+    _availabilityCubit?.close();
+    _localDateRangeCubit?.close();
+    super.dispose();
+  }
+
+  Widget _buildAvailabilityText(BuildContext context) {
+    final cubit = _availabilityCubit;
+    if (cubit == null) {
+      return const SizedBox.shrink();
+    }
+
+    return BlocBuilder<AvailabilityCubit, AvailabilityCubitState>(
+      bloc: cubit,
+      builder: (context, state) {
+        final hasSelectedRange = cubit.dateRangeCubit.state.dateRange != null;
+        if (!hasSelectedRange) {
+          return const SizedBox.shrink();
+        }
+
+        if (state is AvailabilityLoading) {
+          return Text(
+            'Availability: Loading',
+            style: Theme.of(context).textTheme.bodySmall,
+          );
+        }
+
+        if (state is AvailabilityAvailable) {
+          return Text(
+            'Availability: Available',
+            style: Theme.of(context).textTheme.bodySmall,
+          );
+        }
+
+        if (state is AvailabilityUnavailable) {
+          return Text(
+            'Availability: Unavailable',
+            style: Theme.of(context).textTheme.bodySmall,
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
+    );
   }
 
   Widget getImage() {
@@ -67,6 +158,10 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: kDefaultPadding / 6),
+            if (_availabilityCubit?.dateRangeCubit.state.dateRange != null)
+              _buildAvailabilityText(context),
+            if (_availabilityCubit?.dateRangeCubit.state.dateRange != null)
+              const SizedBox(height: kDefaultPadding / 6),
 
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,

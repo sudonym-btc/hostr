@@ -14,28 +14,33 @@ ThemeData getTheme(bool isDark) {
       ),
     ),
   );
+  final darkColorScheme = ColorScheme.fromSeed(
+    seedColor: Colors.white,
+    brightness: Brightness.dark,
+    primary: Colors.white,
+    onPrimary: Colors.black,
+    surface: Colors.black,
+    onSurface: Colors.white,
+  );
+  final lightColorScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple);
+
   return isDark
       ? baseGeneric.copyWith(
           brightness: Brightness.dark,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.white,
-            brightness: Brightness.dark,
-            primary: Colors.white,
-            onPrimary: Colors.black,
-            surface: Colors.black,
-            onSurface: Colors.white,
-          ),
+          colorScheme: darkColorScheme,
           bottomNavigationBarTheme: BottomNavigationBarThemeData(
-            backgroundColor: Colors.black,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.grey,
-            type: BottomNavigationBarType.fixed,
+            selectedItemColor: darkColorScheme.onSurface,
+            elevation: 0,
+            unselectedItemColor: darkColorScheme.onSurface.withAlpha(
+              153,
+            ), // 0.6 * 255 = 153
+            type: BottomNavigationBarType.shifting,
           ),
           splashColor: Colors.black, // Set splash color to match theme
         )
       : baseGeneric.copyWith(
           brightness: Brightness.light,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          colorScheme: lightColorScheme,
           bottomNavigationBarTheme: const BottomNavigationBarThemeData(
             backgroundColor: Colors.white,
             selectedItemColor: Colors.deepPurple,
