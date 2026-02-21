@@ -61,7 +61,24 @@ class SearchViewState extends State<SearchView> {
                                 child: InkWell(
                                   child: CustomPadding(
                                     top: 0.5,
-                                    child: SearchBoxWidget(),
+                                    child:
+                                        BlocBuilder<FilterCubit, FilterState>(
+                                          builder: (context, filterState) {
+                                            return BlocBuilder<
+                                              DateRangeCubit,
+                                              DateRangeState
+                                            >(
+                                              builder:
+                                                  (context, dateRangeState) {
+                                                    return SearchBoxWidget(
+                                                      filterState: filterState,
+                                                      dateRangeState:
+                                                          dateRangeState,
+                                                    );
+                                                  },
+                                            );
+                                          },
+                                        ),
                                   ),
                                   onTap: () async {
                                     await showModalBottomSheet(

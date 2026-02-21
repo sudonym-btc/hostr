@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:math';
 
-import 'package:hostr_sdk/datasources/anvil/anvil.dart';
 import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:http/http.dart' as http;
@@ -127,7 +125,6 @@ class DeterministicSeedBuilder {
   final DateTime _baseDate;
   http.Client? _httpClient;
   Web3Client? _web3Client;
-  AnvilClient? _anvilClient;
   final Map<String, MultiEscrow> _escrowContracts = {};
 
   DeterministicSeedBuilder({
@@ -162,12 +159,12 @@ class DeterministicSeedBuilder {
       final hosts = users.where((u) => u.isHost).toList(growable: false);
       final guests = users.where((u) => !u.isHost).toList(growable: false);
 
-      final profiles = buildProfiles(users);
+      final profiles = [...buildProfiles(users), buildEscrowProfile()];
       final profileByPubkey = {for (final p in profiles) p.pubKey: p};
 
       final escrowServices = buildEscrowServices();
-      final escrowTrusts = await buildEscrowTrusts(hosts);
-      final escrowMethods = await buildEscrowMethods(hosts);
+      final escrowTrusts = await buildEscrowTrusts(users);
+      final escrowMethods = await buildEscrowMethods(users);
       final hostTrustByPubkey = {
         for (final trust in escrowTrusts) trust.pubKey: trust,
       };

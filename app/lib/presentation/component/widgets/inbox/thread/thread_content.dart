@@ -7,7 +7,7 @@ import 'package:models/main.dart';
 
 import 'message/reservation_request/reservation_request.dart';
 
-class ThreadContent extends StatelessWidget {
+class ThreadContent extends StatefulWidget {
   final List<ProfileMetadata> participants;
   final Listing listing;
   const ThreadContent({
@@ -17,15 +17,61 @@ class ThreadContent extends StatelessWidget {
   });
 
   @override
+  State<ThreadContent> createState() => _ThreadContentState();
+}
+
+class _ThreadContentState extends State<ThreadContent> {
+  final ScrollController _scrollController = ScrollController();
+
+  void _scrollToBottom({bool animated = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+
+      final offset = _scrollController.position.maxScrollExtent;
+      if (animated) {
+        _scrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollController.jumpTo(offset);
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollToBottom(animated: false);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return CustomPadding(
       child: Column(
         mainAxisSize: MainAxisSize.max,
         children: [
           Expanded(
-            child: BlocBuilder<ThreadCubit, ThreadCubitState>(
+            child: BlocConsumer<ThreadCubit, ThreadCubitState>(
+              listenWhen: (previous, current) {
+                return current.threadState.sortedMessages.length >
+                    previous.threadState.sortedMessages.length;
+              },
+              listener: (context, state) {
+                _scrollToBottom();
+              },
               builder: (context, state) {
                 return ListView.builder(
+                  controller: _scrollController,
                   itemCount: state.threadState.sortedMessages.length,
                   itemBuilder: (listContext, index) {
                     final message = state.threadState.sortedMessages[index];
@@ -46,7 +92,7 @@ class ThreadContent extends StatelessWidget {
   }
 
   Widget _buildMessage(BuildContext context, {required Message message}) {
-    final sender = participants.firstWhere(
+    final sender = widget.participants.firstWhere(
       (participant) => participant.pubKey == message.pubKey,
     );
 

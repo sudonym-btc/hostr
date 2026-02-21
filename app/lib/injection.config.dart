@@ -44,6 +44,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i467.Config>(() => _i292.TestConfig(), registerFor: {_test});
     gh.factory<_i467.Config>(() => _i331.MockConfig(), registerFor: {_mock});
     gh.singleton<_i854.H3Engine>(() => _i175.H3EngineIml());
+    gh.singleton<_i311.SecureStorage>(
+      () => _i311.ImplSecureStorage(),
+      registerFor: {_dev, _staging, _prod},
+    );
     gh.factory<_i467.Config>(
       () => _i598.DevelopmentConfig(),
       registerFor: {_dev},
@@ -57,7 +61,7 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i311.SecureStorage>(
       () => _i311.MockSecureStorage(),
-      registerFor: {_test},
+      registerFor: {_test, _mock},
     );
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsImpl(),
@@ -66,10 +70,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i467.Config>(
       () => _i1071.ProductionConfig(),
       registerFor: {_prod},
-    );
-    gh.singleton<_i311.SecureStorage>(
-      () => _i311.ImplSecureStorage(),
-      registerFor: {_dev, _mock, _staging, _prod},
     );
     return this;
   }

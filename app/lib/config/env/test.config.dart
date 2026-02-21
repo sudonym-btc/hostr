@@ -8,6 +8,9 @@ import 'development.config.dart';
 @Injectable(as: Config, env: [Env.test])
 class TestConfig extends Config {
   @override
+  bool get useSecureKeyValueStorage => false;
+
+  @override
   String get hostrRelay => 'ws://localhost:5432';
 
   @override

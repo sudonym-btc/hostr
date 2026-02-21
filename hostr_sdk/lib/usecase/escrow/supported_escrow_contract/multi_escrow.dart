@@ -30,7 +30,6 @@ class MultiEscrowContractException implements Exception {
 class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   static const Map<String, String> _customErrorSelectors = {
     '0x916da0d1': 'ClaimPeriodNotStarted',
-    '0x492ca43c': 'InvalidUnlockAt',
     '0xdff46e2b': 'NoFundsToClaim',
     '0xb95c5dfc': 'TradeNotActive',
     '0x85d1f726': 'OnlySeller',

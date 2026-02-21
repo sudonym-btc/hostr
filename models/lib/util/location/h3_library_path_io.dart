@@ -14,10 +14,50 @@ String? resolvePlatformDefaultH3LibraryPath() {
   if (Platform.isAndroid || Platform.isLinux) {
     return 'libh3.so';
   }
+  if (Platform.isMacOS && !_supportsPackageUriResolution()) {
+    // Some Flutter runtimes (for example widgetbook on macOS) do not support
+    // Isolate.resolvePackageUriSync. Try resolving an absolute repository path
+    // first, then fall back to default dynamic loader search paths.
+    return _resolveMacOsLibraryPathFromWorkspace() ?? 'libh3.dylib';
+  }
   if (Platform.isWindows) {
     return 'h3.dll';
   }
   return null;
+}
+
+String? _resolveMacOsLibraryPathFromWorkspace() {
+  final arch = currentCpuArch();
+  final cwd = Directory.current.path;
+
+  final relativeRoots = <String>['.', '..', '../..', '../../..'];
+  final archRelative = arch == CpuArch.x64
+      ? 'models/native/macos/x86_64/libh3.dylib'
+      : 'models/native/macos/arm64/libh3.dylib';
+
+  for (final root in relativeRoots) {
+    final archPath = File('$cwd/$root/$archRelative').absolute.path;
+    if (File(archPath).existsSync()) {
+      return archPath;
+    }
+
+    final genericPath =
+        File('$cwd/$root/models/native/macos/libh3.dylib').absolute.path;
+    if (File(genericPath).existsSync()) {
+      return genericPath;
+    }
+  }
+
+  return null;
+}
+
+bool _supportsPackageUriResolution() {
+  try {
+    Isolate.resolvePackageUriSync(Uri.parse('package:models/main.dart'));
+    return true;
+  } on UnsupportedError {
+    return false;
+  }
 }
 
 String resolveBundledH3LibraryPath() {

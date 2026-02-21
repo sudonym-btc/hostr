@@ -13,7 +13,6 @@ import 'package:hostr/presentation/main.dart';
 import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:models/main.dart';
 

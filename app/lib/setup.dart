@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hostr/data/sources/h3_engine.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -29,6 +30,7 @@ Future<void> setup(String env) async {
 
 Future<void> setupBackgroundAndMainCommon(String env) async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureFlutterH3Runtime();
   await persistEnvironment(env);
 
   HydratedBloc.storage = await buildHydratedStorage();

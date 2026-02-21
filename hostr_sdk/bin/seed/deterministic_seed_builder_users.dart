@@ -69,21 +69,51 @@ extension _DeterministicSeedUsers on DeterministicSeedBuilder {
         .toList(growable: false);
   }
 
+  ProfileMetadata buildEscrowProfile() {
+    final metadata = Metadata(
+      pubKey: MockKeys.escrow.publicKey,
+      name: 'Hostr Escrow',
+      displayName: 'Hostr Escrow',
+      about: 'Provides cheap escrow services for nostr',
+      nip05: 'escrow@hostr.development',
+      picture:
+          'https://wp.decrypt.co/wp-content/uploads/2019/03/bitcoin-logo-bitboy.png',
+    ).toEvent();
+
+    final tags = List<List<String>>.from(metadata.tags)
+      ..add([
+        'i',
+        'evm:address',
+        getEvmCredentials(MockKeys.escrow.privateKey!).address.eip55With0x,
+      ]);
+
+    final event = Nip01Event(
+      pubKey: metadata.pubKey,
+      kind: metadata.kind,
+      tags: tags,
+      content: metadata.content,
+      createdAt: _baseDate.millisecondsSinceEpoch ~/ 1000,
+    );
+
+    final signed = Nip01Utils.signWithPrivateKey(
+      privateKey: MockKeys.escrow.privateKey!,
+      event: event,
+    );
+
+    return ProfileMetadata.fromNostrEvent(signed);
+  }
+
   List<EscrowService> buildEscrowServices() {
     return MOCK_ESCROWS(
       contractAddress: contractAddress,
     ).toList(growable: false);
   }
 
-  Future<List<EscrowTrust>> buildEscrowTrusts(List<SeedUser> hosts) async {
+  Future<List<EscrowTrust>> buildEscrowTrusts(List<SeedUser> users) async {
     final trusts = <EscrowTrust>[];
-    for (final host in hosts) {
-      if (!host.hasEvm) {
-        continue;
-      }
-
+    for (final user in users) {
       final list = Nip51List(
-        pubKey: host.keyPair.publicKey,
+        pubKey: user.keyPair.publicKey,
         createdAt: _baseDate.millisecondsSinceEpoch ~/ 1000,
         kind: kNostrKindEscrowTrust,
         elements: [],
@@ -91,13 +121,13 @@ extension _DeterministicSeedUsers on DeterministicSeedBuilder {
 
       final listEvent = await list.toEvent(
         Bip340EventSigner(
-          privateKey: host.keyPair.privateKey,
-          publicKey: host.keyPair.publicKey,
+          privateKey: user.keyPair.privateKey,
+          publicKey: user.keyPair.publicKey,
         ),
       );
 
       final signed = Nip01Utils.signWithPrivateKey(
-        privateKey: host.keyPair.privateKey!,
+        privateKey: user.keyPair.privateKey!,
         event: listEvent,
       );
       trusts.add(EscrowTrust.fromNostrEvent(signed));
@@ -106,17 +136,13 @@ extension _DeterministicSeedUsers on DeterministicSeedBuilder {
     return trusts;
   }
 
-  Future<List<EscrowMethod>> buildEscrowMethods(List<SeedUser> hosts) async {
+  Future<List<EscrowMethod>> buildEscrowMethods(List<SeedUser> users) async {
     final methods = <EscrowMethod>[];
 
-    for (final host in hosts) {
-      if (!host.hasEvm) {
-        continue;
-      }
-
+    for (final user in users) {
       final list =
           Nip51List(
-              pubKey: host.keyPair.publicKey,
+              pubKey: user.keyPair.publicKey,
               createdAt: _baseDate.millisecondsSinceEpoch ~/ 1000,
               kind: kNostrKindEscrowMethod,
               elements: [],
@@ -126,13 +152,13 @@ extension _DeterministicSeedUsers on DeterministicSeedBuilder {
 
       final listEvent = await list.toEvent(
         Bip340EventSigner(
-          privateKey: host.keyPair.privateKey,
-          publicKey: host.keyPair.publicKey,
+          privateKey: user.keyPair.privateKey,
+          publicKey: user.keyPair.publicKey,
         ),
       );
 
       final signed = Nip01Utils.signWithPrivateKey(
-        privateKey: host.keyPair.privateKey!,
+        privateKey: user.keyPair.privateKey!,
         event: listEvent,
       );
       methods.add(EscrowMethod.fromNostrEvent(signed));

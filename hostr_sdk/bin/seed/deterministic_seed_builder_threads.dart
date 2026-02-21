@@ -69,14 +69,11 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
 
         Reservation? reservation;
 
-        final escrowEligible = end.isAfter(
-          chainNow.add(const Duration(seconds: 30)),
-        );
+        final reservationEndedInPast = !end.isAfter(chainNow);
 
         final isCompleted = _pickByRatio(config.completedRatio);
         final shouldUseEscrow =
             isCompleted &&
-            escrowEligible &&
             host.hasEvm &&
             _pickByRatio(config.paidViaEscrowRatio);
 
@@ -85,7 +82,9 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
         PaymentProof? proof;
 
         if (isCompleted && shouldUseEscrow) {
-          final outcome = _pickEscrowOutcome();
+          final outcome = _pickEscrowOutcome(
+            allowClaimedByHost: reservationEndedInPast,
+          );
           escrowOutcome = outcome;
           final trust = hostTrustByPubkey[host.keyPair.publicKey];
           final method = hostMethodByPubkey[host.keyPair.publicKey];
@@ -191,9 +190,10 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
     final seller = getEvmCredentials(host.keyPair.privateKey!).address;
     final arbiter = getEvmCredentials(MockKeys.escrow.privateKey!).address;
 
-    final unlockAt = BigInt.from(
-      request.parsedContent.end.toUtc().millisecondsSinceEpoch ~/ 1000,
-    );
+    final requestedUnlockAtSeconds =
+        request.parsedContent.end.toUtc().millisecondsSinceEpoch ~/ 1000;
+    final unlockAtSeconds = requestedUnlockAtSeconds;
+    final unlockAt = BigInt.from(unlockAtSeconds);
 
     final createTxHash = await contract.createTrade(
       (
@@ -213,8 +213,9 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
 
     print(
       '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex outcome=${outcome.name} '
-      'fundTx=$createTxHash amountWei=$amountWei buyer=${buyer.eip55With0x} '
-      'seller=${seller.eip55With0x} arbiter=${arbiter.eip55With0x}',
+      'fundTx=$createTxHash amountWei=$amountWei unlockAt=$unlockAtSeconds '
+      'buyer=${buyer.eip55With0x} seller=${seller.eip55With0x} '
+      'arbiter=${arbiter.eip55With0x}',
     );
     await _assertTxSucceeded(
       txHash: createTxHash,
@@ -239,15 +240,7 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
         tradeIdHex: tradeIdHex,
       );
     } else if (outcome == EscrowOutcome.claimedByHost) {
-      final nowSeconds =
-          (await _chainClient().getBlockInformation()).timestamp
-              .toUtc()
-              .millisecondsSinceEpoch ~/
-          1000;
-      final unlockAtSeconds = unlockAt.toInt();
-      if (unlockAtSeconds >= nowSeconds) {
-        await _advanceChainTime(seconds: (unlockAtSeconds - nowSeconds) + 1);
-      }
+      await _waitForChainTimePast(targetEpochSeconds: unlockAtSeconds);
       final claimTxHash = await contract.claim(
         (tradeId: tradeId),
         credentials: hostCredentials,
@@ -644,10 +637,14 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
     return null;
   }
 
-  EscrowOutcome _pickEscrowOutcome() {
+  EscrowOutcome _pickEscrowOutcome({required bool allowClaimedByHost}) {
     final value = _random.nextDouble();
     if (value < config.paidViaEscrowArbitrateRatio) {
       return EscrowOutcome.arbitrated;
+    }
+
+    if (!allowClaimedByHost) {
+      return EscrowOutcome.releaseToCounterparty;
     }
 
     if (value <
@@ -656,11 +653,5 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
     }
 
     return EscrowOutcome.releaseToCounterparty;
-  }
-
-  String _tradeIdHexForThread(int threadIndex) {
-    final random = Random(config.seed * 1000000 + threadIndex);
-    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
-    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 }
