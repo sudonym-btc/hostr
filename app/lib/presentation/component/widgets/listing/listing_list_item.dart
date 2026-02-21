@@ -13,6 +13,104 @@ import 'package:ndk/ndk.dart';
 
 import 'price_tag.dart';
 
+class ListingListItemView extends StatelessWidget {
+  final Listing listing;
+  final bool showPrice;
+  final bool showFeedback;
+  final bool smallImage;
+  final WidgetBuilder? bottom;
+  final bool showAvailability;
+  final Widget? availabilityWidget;
+  final VoidCallback? onTap;
+
+  const ListingListItemView({
+    super.key,
+    required this.listing,
+    required this.showPrice,
+    required this.showFeedback,
+    required this.smallImage,
+    this.bottom,
+    required this.showAvailability,
+    this.availabilityWidget,
+    this.onTap,
+  });
+
+  Widget _buildImage() {
+    return SmallListingCarousel(height: 200, listing: listing);
+  }
+
+  Widget _buildDetails(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          listing.parsedContent.title.toString(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: kDefaultPadding / 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              listing.parsedContent.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: kDefaultPadding / 6),
+            if (showAvailability && availabilityWidget != null)
+              availabilityWidget!,
+            if (showAvailability && availabilityWidget != null)
+              const SizedBox(height: kDefaultPadding / 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                if (showPrice) ...[
+                  PriceTagWidget(price: listing.parsedContent.price[0]),
+                  Text(' / day ', style: Theme.of(context).textTheme.bodySmall),
+                ],
+                if (showFeedback) ...[
+                  const Spacer(),
+                  if (showPrice) SizedBox(width: kDefaultFontSize),
+                  ReviewsReservationsWidget(listing: listing),
+                ],
+              ],
+            ),
+            if (bottom != null) bottom!(context),
+          ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: CustomPadding(
+        child: smallImage
+            ? Row(
+                children: [
+                  SizedBox(height: 100, width: 100, child: _buildImage()),
+                  SizedBox(width: kDefaultPadding.toDouble()),
+                  Expanded(child: _buildDetails(context)),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildImage(),
+                  const SizedBox(height: 8.0),
+                  _buildDetails(context),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
 class ListingListItemWidget extends StatefulWidget {
   final Listing listing;
   final DateTimeRange? dateRange;
@@ -134,60 +232,21 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     );
   }
 
-  Widget getImage() {
-    return SmallListingCarousel(height: 200, listing: widget.listing);
-  }
-
-  Widget getDetails(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.listing.parsedContent.title.toString(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: kDefaultPadding / 6),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.listing.parsedContent.description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: kDefaultPadding / 6),
-            if (_availabilityCubit?.dateRangeCubit.state.dateRange != null)
-              _buildAvailabilityText(context),
-            if (_availabilityCubit?.dateRangeCubit.state.dateRange != null)
-              const SizedBox(height: kDefaultPadding / 6),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                if (widget.showPrice) ...[
-                  PriceTagWidget(price: widget.listing.parsedContent.price[0]),
-                  Text(' / day ', style: Theme.of(context).textTheme.bodySmall),
-                ],
-                if (widget.showFeedback) ...[
-                  const Spacer(),
-                  if (widget.showPrice) SizedBox(width: kDefaultFontSize),
-                  ReviewsReservationsWidget(listing: widget.listing),
-                ],
-              ],
-            ),
-            if (widget.bottom != null) widget.bottom!(context),
-          ],
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    final showAvailability =
+        _availabilityCubit?.dateRangeCubit.state.dateRange != null;
+
+    return ListingListItemView(
+      listing: widget.listing,
+      showPrice: widget.showPrice,
+      showFeedback: widget.showFeedback,
+      smallImage: widget.smallImage,
+      bottom: widget.bottom,
+      showAvailability: showAvailability,
+      availabilityWidget: showAvailability
+          ? _buildAvailabilityText(context)
+          : null,
       onTap: () {
         AutoRouter.of(context).push(
           ListingRoute(
@@ -201,24 +260,6 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
           ),
         );
       },
-      child: CustomPadding(
-        child: widget.smallImage
-            ? Row(
-                children: [
-                  SizedBox(height: 100, width: 100, child: getImage()),
-                  SizedBox(width: kDefaultPadding.toDouble()),
-                  Expanded(child: getDetails(context)),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  getImage(),
-                  const SizedBox(height: 8.0),
-                  getDetails(context),
-                ],
-              ),
-      ),
     );
   }
 }

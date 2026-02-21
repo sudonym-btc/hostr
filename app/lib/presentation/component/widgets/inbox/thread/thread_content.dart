@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 import 'message/reservation_request/reservation_request.dart';
@@ -95,13 +97,23 @@ class _ThreadContentState extends State<ThreadContent> {
     final sender = widget.participants.firstWhere(
       (participant) => participant.pubKey == message.pubKey,
     );
+    final activePubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
+    final isSentByMe = message.pubKey == activePubKey;
 
     if (message.child == null) {
-      return ThreadMessageWidget(sender: sender, item: message);
+      return ThreadMessageWidget(
+        sender: sender,
+        item: message,
+        isSentByMe: isSentByMe,
+      );
     } else if (message.child is EscrowServiceSelected) {
       return Container();
     } else if (message.child is ReservationRequest) {
-      return ThreadReservationRequestWidget(sender: sender, item: message);
+      return ThreadReservationRequestWidget(
+        sender: sender,
+        item: message,
+        isSentByMe: isSentByMe,
+      );
     }
     return Text('Unknown message type');
   }

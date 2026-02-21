@@ -6,11 +6,123 @@ import 'package:hostr/presentation/component/widgets/listing/listing_carousel.da
 import 'package:hostr/presentation/component/widgets/reservation/actions/claim.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_timeline.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/actions/trade_action_resolver.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/trade_state.dart';
 import 'package:models/main.dart';
 
 import '../flow/payment/payment_method/payment_method.dart';
 import 'payment_status_chip.dart';
+
+class TradeHeaderView extends StatelessWidget {
+  final Listing listing;
+  final DateTime start;
+  final DateTime end;
+  final Amount amount;
+  final bool isBlocked;
+  final String? blockedReason;
+  final bool isReservationRequestOnly;
+  final Widget paymentStatusWidget;
+  final Widget actionsRightWidget;
+  final Widget actionsWidget;
+  final Widget timelineWidget;
+
+  const TradeHeaderView({
+    super.key,
+    required this.listing,
+    required this.start,
+    required this.end,
+    required this.amount,
+    required this.isBlocked,
+    required this.blockedReason,
+    required this.isReservationRequestOnly,
+    required this.paymentStatusWidget,
+    required this.actionsRightWidget,
+    required this.actionsWidget,
+    required this.timelineWidget,
+  });
+
+  Widget _buildDescription(BuildContext context) {
+    return Row(
+      children: [
+        SmallListingCarousel(width: 100, height: 100, listing: listing),
+        Expanded(
+          child: CustomPadding(
+            left: 1,
+            right: 0,
+            bottom: 0,
+            top: 0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  listing.parsedContent.title.toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 4.0),
+                Text(
+                  formatDateRangeShort(
+                    DateTimeRange(start: start, end: end),
+                    Localizations.localeOf(context),
+                  ),
+                ),
+                const CustomPadding(top: 0.2, bottom: 0),
+                Text(
+                  formatAmount(amount),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const CustomPadding(top: 0.2, bottom: 0),
+                paymentStatusWidget,
+                if (isBlocked) ...[
+                  const CustomPadding(top: 0.2, bottom: 0),
+                  Text(
+                    blockedReason ?? 'This reservation is not available.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isReservationRequestOnly) {
+      return Container(
+        color: Theme.of(context).colorScheme.surface,
+        child: CustomPadding(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: _buildDescription(context)),
+              const SizedBox(width: 12),
+              actionsRightWidget,
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      color: Theme.of(context).colorScheme.surface,
+      child: ExpansionTile(
+        splashColor: Colors.transparent,
+        tilePadding: EdgeInsets.all(kDefaultPadding.toDouble()),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        title: _buildDescription(context),
+        children: [
+          CustomPadding(top: 0, bottom: 0, child: timelineWidget),
+          CustomPadding(child: actionsWidget),
+        ],
+      ),
+    );
+  }
+}
 
 class TradeHeader extends StatelessWidget {
   final List<TradeAction> actions;
@@ -26,11 +138,11 @@ class TradeHeader extends StatelessWidget {
     FilledButton actionButton(String label, VoidCallback? onPressed) {
       return FilledButton.tonal(
         onPressed: onPressed,
-        child: Text(label),
         style: FilledButton.styleFrom(
           visualDensity: VisualDensity.comfortable,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
+        child: Text(label),
       );
     }
 
@@ -140,6 +252,7 @@ class TradeHeader extends StatelessWidget {
       stream: context.read<ThreadCubit>().thread.trade!.state,
       builder: (context, state) {
         if (!state.hasData) return const SizedBox.shrink();
+        final tradeState = state.data!;
         final isReservationRequestOnly = context
             .read<ThreadCubit>()
             .thread
@@ -150,125 +263,48 @@ class TradeHeader extends StatelessWidget {
             .value
             .isEmpty;
 
-        if (isReservationRequestOnly) {
-          return Container(
-            color: Theme.of(context).colorScheme.surface,
-            child: CustomPadding(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(child: buildDescription(context, state.data!)),
-                  const SizedBox(width: 12),
-                  buildActionsRight(context),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return Container(
-          color: Theme.of(context).colorScheme.surface,
-          child: ExpansionTile(
-            splashColor: Colors.transparent,
-            tilePadding: EdgeInsets.all(kDefaultPadding.toDouble()),
-            shape: const Border(),
-            collapsedShape: const Border(),
-            title: buildDescription(context, state.data!),
-            children: [
-              CustomPadding(
-                top: 0,
-                bottom: 0,
-                child: TradeTimeline(
-                  reservations: context
-                      .read<ThreadCubit>()
-                      .thread
-                      .trade!
-                      .subscriptions
-                      .reservationStream!
-                      .list
-                      .value,
-                  paymentEvents: context
-                      .read<ThreadCubit>()
-                      .thread
-                      .trade!
-                      .subscriptions
-                      .paymentEvents!
-                      .list
-                      .value,
-                  hostPubKey: listingProfile.pubKey,
-                ),
-              ),
-              CustomPadding(child: buildActions(context)),
-            ],
+        return TradeHeaderView(
+          listing: tradeState.listing!,
+          start: tradeState.start,
+          end: tradeState.end,
+          amount: tradeState.amount,
+          isBlocked: tradeState.isBlocked == true,
+          blockedReason: tradeState.blockedReason,
+          isReservationRequestOnly: isReservationRequestOnly,
+          paymentStatusWidget: PaymentStatusChip(
+            state: context
+                .read<ThreadCubit>()
+                .thread
+                .trade!
+                .subscriptions
+                .paymentEvents!
+                .list
+                .value
+                .lastOrNull,
+          ),
+          actionsRightWidget: buildActionsRight(context),
+          actionsWidget: buildActions(context),
+          timelineWidget: TradeTimeline(
+            reservations: context
+                .read<ThreadCubit>()
+                .thread
+                .trade!
+                .subscriptions
+                .reservationStream!
+                .list
+                .value,
+            paymentEvents: context
+                .read<ThreadCubit>()
+                .thread
+                .trade!
+                .subscriptions
+                .paymentEvents!
+                .list
+                .value,
+            hostPubKey: listingProfile.pubKey,
           ),
         );
       },
-    );
-  }
-
-  Widget buildDescription(BuildContext context, TradeState state) {
-    return Row(
-      children: [
-        SmallListingCarousel(width: 100, height: 100, listing: state.listing!),
-
-        Expanded(
-          child: CustomPadding(
-            left: 1,
-            right: 0,
-            bottom: 0,
-            top: 0,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  state.listing!.parsedContent.title.toString(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 4.0),
-                Text(
-                  formatDateRangeShort(
-                    DateTimeRange(start: state.start, end: state.end),
-                    Localizations.localeOf(context),
-                  ),
-                ),
-                const CustomPadding(top: 0.2, bottom: 0),
-
-                Text(
-                  formatAmount(state.amount),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const CustomPadding(top: 0.2, bottom: 0),
-
-                PaymentStatusChip(
-                  state: context
-                      .read<ThreadCubit>()
-                      .thread
-                      .trade!
-                      .subscriptions
-                      .paymentEvents!
-                      .list
-                      .value
-                      .lastOrNull,
-                ),
-
-                if (state.isBlocked == true) ...[
-                  const CustomPadding(top: 0.2, bottom: 0),
-                  Text(
-                    state.blockedReason ?? 'This reservation is not available.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
-
-                // const CustomPadding(top: 0.2, bottom: 0),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 

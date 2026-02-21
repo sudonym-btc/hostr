@@ -12,6 +12,7 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
     super.key,
     required super.sender,
     required super.item,
+    required super.isSentByMe,
   });
 
   @override

@@ -36,47 +36,10 @@ class ProfileScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(8.0),
                   child: ProfileProvider(
                     pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-                    builder: (context, snapshot) => snapshot.data == null
-                        ? Center(child: CircularProgressIndicator())
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircleAvatar(
-                                radius: 40,
-                                backgroundImage:
-                                    snapshot.data!.metadata.picture != null
-                                    ? NetworkImage(
-                                        snapshot.data!.metadata.picture!,
-                                      )
-                                    : null, // Replace with actual profile photo URL
-                              ),
-                              SizedBox(height: 16), // Increased padding
-                              Text(
-                                snapshot.data!.metadata.name ??
-                                    snapshot.data!.metadata.displayName ??
-                                    'Username', // Replace with actual username
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 8), // Added padding
-                              Text(
-                                snapshot.data!.metadata.nip05 ??
-                                    'nip05_address@example.com', // Replace with actual nip05 address
-                                style: TextStyle(fontSize: 14),
-                              ),
-                              SizedBox(height: 4), // Added padding
-                              Text(
-                                snapshot.data!.metadata.about ??
-                                    '', // Replace with actual about section text
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
+                    builder: (context, snapshot) => ProfileHeaderWidget(
+                      profile: snapshot.data,
+                      isLoading: snapshot.data == null,
+                    ),
                   ),
                 ),
               ),
@@ -107,7 +70,7 @@ class ProfileScreen extends StatelessWidget {
                   },
                   child: Text(AppLocalizations.of(context)!.connect),
                 ),
-                body: NostrWalletConnectWidget(),
+                body: NostrWalletConnectContainerWidget(),
               ),
               Section(
                 title: "Relays",
@@ -162,41 +125,8 @@ class ProfileScreen extends StatelessWidget {
                                       return ProfileProvider(
                                         pubkey: el[1],
                                         builder: (context, profileSnapshot) {
-                                          return ListTile(
-                                            contentPadding: EdgeInsets.all(0),
-                                            leading: CircleAvatar(
-                                              backgroundImage:
-                                                  profileSnapshot
-                                                          .data
-                                                          ?.metadata
-                                                          .picture !=
-                                                      null
-                                                  ? NetworkImage(
-                                                      profileSnapshot
-                                                          .data!
-                                                          .metadata
-                                                          .picture!,
-                                                    )
-                                                  : null,
-                                            ),
-                                            title: Text(
-                                              profileSnapshot
-                                                      .data
-                                                      ?.metadata
-                                                      .name ??
-                                                  profileSnapshot
-                                                      .data
-                                                      ?.metadata
-                                                      .displayName ??
-                                                  'Username',
-                                            ),
-                                            subtitle: Text(
-                                              profileSnapshot
-                                                      .data
-                                                      ?.metadata
-                                                      .nip05 ??
-                                                  '',
-                                            ),
+                                          return TrustedEscrowListItemWidget(
+                                            profile: profileSnapshot.data,
                                           );
                                         },
                                       );
@@ -286,9 +216,7 @@ class ProfileScreen extends StatelessWidget {
                           final params = Bolt11PayParameters(
                             to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
                           );
-                          final paymentCubit = getIt<Hostr>().payments
-                              .pay(params)
-                              .resolve();
+                          getIt<Hostr>().payments.pay(params).resolve();
                         },
                       ),
                     ),

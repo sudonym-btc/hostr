@@ -10,6 +10,34 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+class InboxItemView extends StatelessWidget {
+  final List<ProfileMetadata> counterparties;
+  final String title;
+  final String subtitle;
+  final DateTime lastDateTime;
+  final VoidCallback? onTap;
+
+  const InboxItemView({
+    super.key,
+    required this.counterparties,
+    required this.title,
+    required this.subtitle,
+    required this.lastDateTime,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: ProfileAvatars(profiles: counterparties),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: _RelativeTimeText(dateTime: lastDateTime),
+      onTap: onTap,
+    );
+  }
+}
+
 class InboxItem extends StatelessWidget {
   final Thread thread;
 
@@ -23,33 +51,29 @@ class InboxItem extends StatelessWidget {
         builder: (context, state) {
           final lastDateTime = state.threadState.getLastDateTime;
           final lastMessage = state.threadState.getLatestMessage;
-          final subtitle = Text(
-            (lastMessage != null &&
-                        lastMessage.pubKey ==
-                            thread.auth.activeKeyPair!.publicKey
-                    ? 'You: '
-                    : '') +
-                (lastMessage?.child is ReservationRequest
-                    ? 'Reservation Request'
-                    : lastMessage?.content ?? ''),
-          );
-          return ListTile(
-            leading: ProfileAvatars(
-              profiles: state.counterpartyStates
-                  .where((c) => c.data != null)
-                  .map((c) => c.data!)
-                  .toList(),
-            ),
-            title: Text(
-              state.counterpartyStates
-                  .where((c) => c.data != null)
-                  .map((c) => c.data!.metadata.getName())
-                  .toList()
-                  .join(', '),
-            ),
+          final counterparties = state.counterpartyStates
+              .where((c) => c.data != null)
+              .map((c) => c.data!)
+              .toList();
 
+          final title = counterparties.isEmpty
+              ? 'Unknown user'
+              : counterparties.map((c) => c.metadata.getName()).join(', ');
+
+          final subtitle =
+              (lastMessage != null &&
+                      lastMessage.pubKey == thread.auth.activeKeyPair!.publicKey
+                  ? 'You: '
+                  : '') +
+              (lastMessage?.child is ReservationRequest
+                  ? 'Reservation Request'
+                  : lastMessage?.content ?? '');
+
+          return InboxItemView(
+            counterparties: counterparties,
+            title: title,
             subtitle: subtitle,
-            trailing: _RelativeTimeText(dateTime: lastDateTime),
+            lastDateTime: lastDateTime,
             onTap: () {
               AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
             },

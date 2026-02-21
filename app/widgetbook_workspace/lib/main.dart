@@ -30,6 +30,21 @@ class WidgetbookApp extends StatelessWidget {
           devices: [Devices.ios.iPhone12, Devices.ios.iPhone13],
           initialDevice: Devices.ios.iPhone13,
         ),
+        BuilderAddon(
+          name: 'Use case layout',
+          builder: (context, child) {
+            final path =
+                WidgetbookState.maybeOf(context)?.path?.toLowerCase() ?? '';
+            final isScreenUseCase = path.contains('/screens/');
+            if (isScreenUseCase) {
+              return child;
+            }
+
+            return Center(
+              child: Padding(padding: const EdgeInsets.all(16), child: child),
+            );
+          },
+        ),
         MaterialThemeAddon(
           themes: [
             WidgetbookTheme(name: 'Light', data: getTheme(false)),
@@ -43,7 +58,7 @@ class WidgetbookApp extends StatelessWidget {
         ),
       ],
       appBuilder: (context, child) {
-        final authValue = context.knobs.list(
+        final authValue = context.knobs.object.dropdown<String>(
           label: 'Auth',
           options: ['Guest', 'Host', 'Anon'],
         );
@@ -58,7 +73,7 @@ class WidgetbookApp extends StatelessWidget {
             child: GlobalProviderWidget(
               child: AuthLoader(
                 mode: mode,
-                child: Scaffold(body: Center(child: child)),
+                child: Scaffold(body: child),
               ),
             ),
           ),

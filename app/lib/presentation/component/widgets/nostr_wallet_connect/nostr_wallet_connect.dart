@@ -1,28 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/main.dart';
-import 'package:hostr/injection.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 
 import 'connection.dart';
 
-class NostrWalletConnectWidget extends StatefulWidget {
-  final CustomLogger logger = CustomLogger();
+class NostrWalletConnectWidget extends StatelessWidget {
+  final Widget connectionList;
 
-  NostrWalletConnectWidget({super.key});
-
-  @override
-  State<StatefulWidget> createState() {
-    return _NostrWalletConnectWidgetState();
-  }
-}
-
-class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
-  Config config = getIt<Config>();
-
-  @override
-  initState() {
-    super.initState();
-  }
+  const NostrWalletConnectWidget({super.key, required this.connectionList});
 
   @override
   Widget build(BuildContext context) {
@@ -32,10 +16,21 @@ class _NostrWalletConnectWidgetState extends State<NostrWalletConnectWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: kDefaultPadding.toDouble() / 2),
-            NostrWalletConnectConnectionWidget(canClose: true),
+            connectionList,
           ],
         ),
       ],
+    );
+  }
+}
+
+class NostrWalletConnectContainerWidget extends StatelessWidget {
+  const NostrWalletConnectContainerWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const NostrWalletConnectWidget(
+      connectionList: NostrWalletConnectConnectionWidget(canClose: true),
     );
   }
 }
