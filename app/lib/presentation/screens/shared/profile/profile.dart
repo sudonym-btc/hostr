@@ -7,14 +7,17 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
+import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
+import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
-import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
+import 'package:hostr/presentation/screens/shared/profile/dev.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:models/main.dart';
+import 'package:models/stubs/keypairs.dart';
 
 import 'mode_toggle.dart';
 
@@ -46,6 +49,21 @@ class ProfileScreen extends StatelessWidget {
             ),
             title: Text(AppLocalizations.of(context)!.profile),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.key),
+                tooltip: 'Back up keys',
+                onPressed: () {
+                  final keyPair = getIt<Hostr>().auth.activeKeyPair!;
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => BackupKeyWidget(
+                      publicKeyHex: keyPair.publicKey,
+                      privateKeyHex: keyPair.privateKey!,
+                    ),
+                  );
+                },
+              ),
               IconButton(
                 icon: Icon(Icons.edit),
                 onPressed: () {
@@ -142,7 +160,7 @@ class ProfileScreen extends StatelessWidget {
                       },
                 ),
               ),
-              Section(title: 'Money in flight', body: MoneyInFlightWidget()),
+              Section(title: 'Balance', body: MoneyInFlightWidget()),
 
               Section(
                 body: Column(
@@ -193,10 +211,10 @@ class ProfileScreen extends StatelessWidget {
                             );
                           },
                         ),
-                        // ZapListWidget(
-                        //   pubkey: MockKeys.hoster.publicKey,
-                        //   builder: (p0) => Text(p0.pubKey!),
-                        // ),
+                        ZapListWidget(
+                          pubkey: MockKeys.hoster.publicKey,
+                          builder: (p0) => Text(p0.pubKey!),
+                        ),
                       ],
                     ),
                   ],
@@ -204,90 +222,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               // Info section as an expandable list item
               if (const bool.fromEnvironment('dart.vm.product') == false)
-                ExpansionTile(
-                  title: Text('Dev'),
-                  children: [
-                    BackgroundTasks(),
-                    Section(
-                      title: 'bolt11',
-                      body: FilledButton(
-                        child: Text('Bolt11'),
-                        onPressed: () {
-                          final params = Bolt11PayParameters(
-                            to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
-                          );
-                          getIt<Hostr>().payments.pay(params).resolve();
-                        },
-                      ),
-                    ),
-                    Section(
-                      title: 'Swap',
-                      body: Column(
-                        children: [
-                          // FilledButton(
-                          //   child: Text('Swap in'),
-                          //   onPressed: () {
-                          //     getIt<Hostr>().evm.supportedEvmChains.first
-                          //         .swapIn(
-                          //           key: key,
-                          //           amount: Amount(
-                          //             currency: Currency.BTC,
-                          //             value: 0.0001,
-                          //           ),
-                          //         );
-                          //   },
-                          // ),
-                          FilledButton(
-                            child: Text('Escrow'),
-                            onPressed: () async {
-                              // getIt<Hostr>().escrow.escrow(
-                              //   EscrowCubitParams(
-                              //     evmChain:
-                              //         getIt<Hostr>().evm.supportedEvmChains[0],
-                              //     amount: Amount(
-                              //       currency: Currency.BTC,
-                              //       value: 0.001,
-                              //     ),
-                              //     eventId: Helpers.getSecureRandomHex(32),
-                              //     timelock: 200,
-                              //     escrowContractAddress:
-                              //         (await getIt<Hostr>().escrows.list(
-                              //           Filter(),
-                              //         )).first.parsedContent.contractAddress,
-
-                              //     ///Host
-                              //     sellerEvmAddress:
-                              //         ProfileMetadata.fromNostrEvent(
-                              //           MOCK_PROFILES[0],
-                              //         ).evmAddress!,
-
-                              //     /// Escrow profile
-                              //     escrowEvmAddress:
-                              //         ProfileMetadata.fromNostrEvent(
-                              //           MOCK_PROFILES[2],
-                              //         ).evmAddress!, // @TO);)
-                              //   ),
-                              // );
-                            },
-                          ),
-                          // FilledButton(
-                          //   child: Text('ListEvents'),
-                          //   onPressed: () {
-                          //     context.read<SwapManager>().listEvents();
-                          //   },
-                          // ),
-                          // FilledButton(
-                          //   child: Text('Swap out'),
-                          //   onPressed: () {
-                          //     context.read<SwapManager>().swapOutAll();
-                          //   },
-                          // ),
-                        ],
-                      ),
-                    ),
-                    KeysWidget(),
-                  ],
-                ),
+                DevWidget(),
             ]),
           ),
         ],

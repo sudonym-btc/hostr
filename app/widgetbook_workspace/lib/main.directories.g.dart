@@ -37,8 +37,12 @@ import 'package:widgetbook_workspace/listing/listing_view.dart'
     as _widgetbook_workspace_listing_listing_view;
 import 'package:widgetbook_workspace/nwc/nwc.dart'
     as _widgetbook_workspace_nwc_nwc;
+import 'package:widgetbook_workspace/nwc/nwc_connectivity_banner.dart'
+    as _widgetbook_workspace_nwc_nwc_connectivity_banner;
 import 'package:widgetbook_workspace/payment/amount_input.dart'
     as _widgetbook_workspace_payment_amount_input;
+import 'package:widgetbook_workspace/payment/animated_flow.dart'
+    as _widgetbook_workspace_payment_animated_flow;
 import 'package:widgetbook_workspace/payment/escrow_fund_flow.dart'
     as _widgetbook_workspace_payment_escrow_fund_flow;
 import 'package:widgetbook_workspace/payment/modal_payment_requested.dart'
@@ -51,6 +55,8 @@ import 'package:widgetbook_workspace/profile/profile_chip.dart'
     as _widgetbook_workspace_profile_profile_chip;
 import 'package:widgetbook_workspace/profile/profile_header.dart'
     as _widgetbook_workspace_profile_profile_header;
+import 'package:widgetbook_workspace/relay/relay_connectivity_banner.dart'
+    as _widgetbook_workspace_relay_relay_connectivity_banner;
 import 'package:widgetbook_workspace/relay/relay_list_item.dart'
     as _widgetbook_workspace_relay_relay_list_item;
 import 'package:widgetbook_workspace/reserve.dart'
@@ -221,6 +227,16 @@ final directories = <_widgetbook.WidgetbookNode>[
                           ),
                         ],
                       ),
+                      _widgetbook.WidgetbookComponent(
+                        name: 'PaymentViewWidget',
+                        useCases: [
+                          _widgetbook.WidgetbookUseCase(
+                            name: 'Animated flow',
+                            builder: _widgetbook_workspace_payment_animated_flow
+                                .paymentAnimatedFlow,
+                          ),
+                        ],
+                      ),
                       _widgetbook.WidgetbookFolder(
                         name: 'escrow',
                         children: [
@@ -241,6 +257,12 @@ final directories = <_widgetbook.WidgetbookNode>[
                               _widgetbook.WidgetbookComponent(
                                 name: 'EscrowFundProgressWidget',
                                 useCases: [
+                                  _widgetbook.WidgetbookUseCase(
+                                    name: 'Animated flow',
+                                    builder:
+                                        _widgetbook_workspace_payment_animated_flow
+                                            .escrowFundAnimatedFlow,
+                                  ),
                                   _widgetbook.WidgetbookUseCase(
                                     name: 'On-chain in progress',
                                     builder:
@@ -331,6 +353,17 @@ final directories = <_widgetbook.WidgetbookNode>[
                                   ),
                                 ],
                               ),
+                              _widgetbook.WidgetbookComponent(
+                                name: 'SwapInViewWidget',
+                                useCases: [
+                                  _widgetbook.WidgetbookUseCase(
+                                    name: 'Animated flow',
+                                    builder:
+                                        _widgetbook_workspace_payment_animated_flow
+                                            .swapInAnimatedFlow,
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                           _widgetbook.WidgetbookFolder(
@@ -388,6 +421,17 @@ final directories = <_widgetbook.WidgetbookNode>[
                                     builder:
                                         _widgetbook_workspace_payment_swap_flow
                                             .swapOutSuccess,
+                                  ),
+                                ],
+                              ),
+                              _widgetbook.WidgetbookComponent(
+                                name: 'SwapOutViewWidget',
+                                useCases: [
+                                  _widgetbook.WidgetbookUseCase(
+                                    name: 'Animated flow',
+                                    builder:
+                                        _widgetbook_workspace_payment_animated_flow
+                                            .swapOutAnimatedFlow,
                                   ),
                                 ],
                               ),
@@ -560,6 +604,23 @@ final directories = <_widgetbook.WidgetbookNode>[
                       ),
                     ],
                   ),
+                  _widgetbook.WidgetbookComponent(
+                    name: 'NwcConnectivityBannerView',
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'All wallets failed (0/1)',
+                        builder:
+                            _widgetbook_workspace_nwc_nwc_connectivity_banner
+                                .allFailed,
+                      ),
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Multiple wallets failed (0/3)',
+                        builder:
+                            _widgetbook_workspace_nwc_nwc_connectivity_banner
+                                .multipleFailed,
+                      ),
+                    ],
+                  ),
                 ],
               ),
               _widgetbook.WidgetbookFolder(
@@ -600,6 +661,29 @@ final directories = <_widgetbook.WidgetbookNode>[
               _widgetbook.WidgetbookFolder(
                 name: 'relay',
                 children: [
+                  _widgetbook.WidgetbookComponent(
+                    name: 'RelayConnectivityBannerView',
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'All disconnected (0/3)',
+                        builder:
+                            _widgetbook_workspace_relay_relay_connectivity_banner
+                                .allDisconnected,
+                      ),
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Majority disconnected (1/4)',
+                        builder:
+                            _widgetbook_workspace_relay_relay_connectivity_banner
+                                .majorityDisconnected,
+                      ),
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'One remaining (1/5)',
+                        builder:
+                            _widgetbook_workspace_relay_relay_connectivity_banner
+                                .oneRemaining,
+                      ),
+                    ],
+                  ),
                   _widgetbook.WidgetbookComponent(
                     name: 'RelayListItemView',
                     useCases: [

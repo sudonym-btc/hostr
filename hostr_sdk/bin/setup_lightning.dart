@@ -94,6 +94,7 @@ Future<void> _unlockLnbits(
     adminPassword: adminPassword,
     extensionName: extensionName,
     nostrPrivateKey: nostrPrivateKey,
+    ensureTipsLink: true,
   );
 
   print('LNbits unlocked: $baseUrl');

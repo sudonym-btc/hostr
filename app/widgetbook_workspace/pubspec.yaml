@@ -17,6 +17,7 @@ dependencies:
     path: ../../hostr_sdk
   models:
     path: ../../models
+  web3dart: ^3.0.2
 
 dev_dependencies:
   flutter_test:

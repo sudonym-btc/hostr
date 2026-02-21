@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/app.controller.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 class GlobalProviderWidget extends StatefulWidget {
   final Widget child;
@@ -35,6 +36,12 @@ class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
         BlocProvider<AuthCubit>.value(value: AuthCubit()),
         BlocProvider<ModeCubit>(
           create: (context) => ModeCubit(modeStorage: getIt())..get(),
+        ),
+        BlocProvider<RelayConnectivityCubit>(
+          create: (context) => RelayConnectivityCubit(hostr: getIt<Hostr>()),
+        ),
+        BlocProvider<NwcConnectivityCubit>(
+          create: (context) => NwcConnectivityCubit(hostr: getIt<Hostr>()),
         ),
       ],
       child: widget.child,

@@ -5,4 +5,6 @@ export 'entity/entity.cubit.dart';
 export 'image_picker.cubit.dart';
 export 'list/main.dart';
 export 'mode.cubit.dart';
+export 'nwc_connectivity.cubit.dart';
+export 'relay_connectivity.cubit.dart';
 export 'reservation.cubit.dart';
