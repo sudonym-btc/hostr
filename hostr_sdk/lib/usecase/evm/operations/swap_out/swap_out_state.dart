@@ -45,6 +45,17 @@ final class SwapOutCompleted extends SwapOutState {
   const SwapOutCompleted();
 }
 
+/// A refund transaction has been broadcast but not yet confirmed.
+final class SwapOutRefunding extends SwapOutState {
+  final String refundTxHash;
+  const SwapOutRefunding(this.refundTxHash);
+}
+
+/// The refund transaction has been confirmed — funds recovered.
+final class SwapOutRefunded extends SwapOutState {
+  const SwapOutRefunded();
+}
+
 final class SwapOutFailed extends SwapOutState {
   const SwapOutFailed(this.error, [this.stackTrace]);
   final Object error;

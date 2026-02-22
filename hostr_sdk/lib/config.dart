@@ -10,6 +10,7 @@ class HostrConfig {
   final RootstockConfig rootstockConfig;
   final NdkConfig ndkConfig;
   final HostrSDKStorage storage;
+  final KeyValueStorage keyValueStorage;
   final CustomLogger logger;
 
   HostrConfig({
@@ -20,7 +21,8 @@ class HostrConfig {
     KeyValueStorage? storage,
     NdkConfig? ndk,
     CustomLogger? logs,
-  }) : storage = HostrSDKStorage.fromKeyValue(
+  }) : keyValueStorage = storage ?? InMemoryKeyValueStorage(),
+       storage = HostrSDKStorage.fromKeyValue(
          storage ?? InMemoryKeyValueStorage(),
        ),
        ndkConfig =

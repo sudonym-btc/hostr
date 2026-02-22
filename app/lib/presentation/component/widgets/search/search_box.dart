@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
@@ -9,10 +7,12 @@ import 'package:hostr/logic/main.dart';
 class SearchBoxWidget extends StatelessWidget {
   final FilterState filterState;
   final DateRangeState dateRangeState;
+  final VoidCallback? onTap;
   const SearchBoxWidget({
     super.key,
     required this.filterState,
     required this.dateRangeState,
+    this.onTap,
   });
 
   @override
@@ -29,51 +29,36 @@ class SearchBoxWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(
           50,
         ), // Perfectly round border radius
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(
-            50,
-          ), // Perfectly round border radius
-          clipBehavior: Clip.hardEdge,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0), // Blur effect
-            child: InkWell(
-              borderRadius: BorderRadius.circular(50),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor.withAlpha(0),
-                ),
-                child: ListTile(
-                  leading: Icon(Icons.search),
-                  title: Text(
-                    filterState.location.isEmpty
-                        ? AppLocalizations.of(context)!.where
-                        : filterState.location,
-                    style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  subtitle: Text(
-                    dateRangeState.dateRange == null
-                        ? AppLocalizations.of(context)!.when
-                        : formatDateRangeShort(
-                            dateRangeState.dateRange!,
-                            Localizations.localeOf(context),
-                          ),
-                  ),
-                  trailing: (hasActiveFilter || hasDateRange)
-                      ? IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            context.read<DateRangeCubit>().updateDateRange(
-                              null,
-                            );
-                            context.read<FilterCubit>().clear();
-                          },
-                        )
-                      : const Icon(Icons.filter_list),
-                ),
-              ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(50),
+          child: ListTile(
+            leading: Icon(Icons.search),
+            title: Text(
+              filterState.location.isEmpty
+                  ? AppLocalizations.of(context)!.where
+                  : filterState.location,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge!.copyWith(fontWeight: FontWeight.bold),
             ),
+            subtitle: Text(
+              dateRangeState.dateRange == null
+                  ? AppLocalizations.of(context)!.when
+                  : formatDateRangeShort(
+                      dateRangeState.dateRange!,
+                      Localizations.localeOf(context),
+                    ),
+            ),
+            trailing: (hasActiveFilter || hasDateRange)
+                ? IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      context.read<DateRangeCubit>().updateDateRange(null);
+                      context.read<FilterCubit>().clear();
+                    },
+                  )
+                : const Icon(Icons.filter_list),
           ),
         ),
       ),

@@ -2,34 +2,23 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import '../seed_context.dart';
-import '../seed_pipeline_config.dart';
 import '../seed_pipeline_models.dart';
 
 /// Stage 6: Build NIP-17 gift-wrapped DM messages for threads.
 ///
 /// Each thread gets:
 ///   1. The reservation request message
-///   2. If escrow path with completed outcome: an escrow-selected message
-///   3. N filler messages based on [ThreadStageSpec.textMessageCount]
+///   2. N filler messages based on [ThreadStageSpec.textMessageCount]
+///
+/// Escrow-selected messages (which depend on outcome data) are built
+/// separately via [buildEscrowSelectedMessages].
 Future<List<Nip01Event>> buildMessages({
   required SeedContext ctx,
-  required SeedPipelineConfig config,
   required List<SeedThread> threads,
 }) async {
   final messages = <Nip01Event>[];
 
-  final giftWrapNdk = Ndk(
-    NdkConfig(
-      eventVerifier: Bip340EventVerifier(),
-      cache: MemCacheManager(),
-      engine: NdkEngine.JIT,
-      defaultQueryTimeout: const Duration(seconds: 10),
-      bootstrapRelays: [
-        if (config.relayUrl != null && config.relayUrl!.isNotEmpty)
-          config.relayUrl!,
-      ],
-    ),
-  );
+  final giftWrapNdk = _createGiftWrapNdk();
 
   try {
     for (var i = 0; i < threads.length; i++) {
@@ -50,43 +39,7 @@ Future<List<Nip01Event>> buildMessages({
       );
       messages.addAll(requestMessageWraps);
 
-      // 2. Escrow-selected message (if applicable).
-      if (thread.paidViaEscrow && thread.reservation != null) {
-        final escrowProof =
-            thread.reservation!.parsedContent.proof?.escrowProof;
-        if (escrowProof != null) {
-          final selectedEscrow = EscrowServiceSelected(
-            pubKey: thread.guest.keyPair.publicKey,
-            tags: EscrowServiceSelectedTags([
-              [kListingRefTag, thread.listing.anchor!],
-              [kThreadRefTag, threadAnchor],
-              ['p', thread.host.keyPair.publicKey],
-              ['d', 'seed-escrow-selected-${i + 1}'],
-            ]),
-            createdAt: ctx.timestampDaysAfter(40 + i),
-            content: EscrowServiceSelectedContent(
-              service: escrowProof.escrowService,
-              sellerTrusts: escrowProof.hostsTrustedEscrows,
-              sellerMethods: escrowProof.hostsEscrowMethods,
-            ),
-          ).signAs(thread.guest.keyPair, EscrowServiceSelected.fromNostrEvent);
-
-          final selectedEscrowWraps = await _giftWrapDmForParticipants(
-            ndk: giftWrapNdk,
-            sender: thread.guest,
-            recipient: thread.host,
-            tags: [
-              [kThreadRefTag, threadAnchor],
-              ['p', thread.host.keyPair.publicKey],
-            ],
-            createdAt: ctx.timestampDaysAfter(41 + i),
-            content: selectedEscrow.toString(),
-          );
-          messages.addAll(selectedEscrowWraps);
-        }
-      }
-
-      // 3. Filler text messages.
+      // 2. Filler text messages.
       final msgCount = thread.stageSpec.textMessageCount;
       for (var m = 0; m < msgCount; m++) {
         final fromGuest = m.isEven;
@@ -102,10 +55,17 @@ Future<List<Nip01Event>> buildMessages({
             ['p', recipient.keyPair.publicKey],
           ],
           createdAt: ctx.timestampDaysAfter(41 + i + m),
-          content:
-              'Seed message ${m + 1} for thread ${i + 1} (${thread.paidViaEscrow ? "escrow" : "zap"})',
+          content: 'Seed message ${m + 1} for thread ${i + 1}',
         );
         messages.addAll(wraps);
+      }
+
+      // Yield to the event loop every 10 threads so that concurrent
+      // async work (e.g. chain HTTP calls in buildOutcomes) can make
+      // progress. Gift-wrapping is CPU-heavy and would otherwise
+      // starve the single-threaded Dart event loop.
+      if (i % 10 == 9) {
+        await Future<void>.delayed(Duration.zero);
       }
     }
 
@@ -114,6 +74,73 @@ Future<List<Nip01Event>> buildMessages({
     await giftWrapNdk.destroy();
   }
 }
+
+/// Build escrow-selected DM messages for threads that completed via escrow.
+///
+/// Must run **after** [buildOutcomes] so that [SeedThread.paidViaEscrow]
+/// and [SeedThread.reservation] are populated.
+Future<List<Nip01Event>> buildEscrowSelectedMessages({
+  required SeedContext ctx,
+  required List<SeedThread> threads,
+}) async {
+  final messages = <Nip01Event>[];
+
+  final giftWrapNdk = _createGiftWrapNdk();
+
+  try {
+    for (var i = 0; i < threads.length; i++) {
+      final thread = threads[i];
+      if (!thread.paidViaEscrow || thread.reservation == null) continue;
+
+      final escrowProof = thread.reservation!.parsedContent.proof?.escrowProof;
+      if (escrowProof == null) continue;
+
+      final threadAnchor = thread.request.getDtag()!;
+
+      final selectedEscrow = EscrowServiceSelected(
+        pubKey: thread.guest.keyPair.publicKey,
+        tags: EscrowServiceSelectedTags([
+          [kListingRefTag, thread.listing.anchor!],
+          [kThreadRefTag, threadAnchor],
+          ['p', thread.host.keyPair.publicKey],
+          ['d', 'seed-escrow-selected-${i + 1}'],
+        ]),
+        createdAt: ctx.timestampDaysAfter(40 + i),
+        content: EscrowServiceSelectedContent(
+          service: escrowProof.escrowService,
+          sellerTrusts: escrowProof.hostsTrustedEscrows,
+          sellerMethods: escrowProof.hostsEscrowMethods,
+        ),
+      ).signAs(thread.guest.keyPair, EscrowServiceSelected.fromNostrEvent);
+
+      final wraps = await _giftWrapDmForParticipants(
+        ndk: giftWrapNdk,
+        sender: thread.guest,
+        recipient: thread.host,
+        tags: [
+          [kThreadRefTag, threadAnchor],
+          ['p', thread.host.keyPair.publicKey],
+        ],
+        createdAt: ctx.timestampDaysAfter(41 + i),
+        content: selectedEscrow.toString(),
+      );
+      messages.addAll(wraps);
+    }
+
+    return messages;
+  } finally {
+    await giftWrapNdk.destroy();
+  }
+}
+
+Ndk _createGiftWrapNdk() => Ndk(
+  NdkConfig(
+    eventVerifier: Bip340EventVerifier(),
+    cache: MemCacheManager(),
+    engine: NdkEngine.JIT,
+    bootstrapRelays: [], // No relay needed — gift-wrapping is local crypto.
+  ),
+);
 
 // ─── Gift-wrap helpers ──────────────────────────────────────────────────────
 

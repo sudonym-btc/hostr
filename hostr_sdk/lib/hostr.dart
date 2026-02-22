@@ -76,6 +76,9 @@ class Hostr {
 
         // Ensure the user's escrow method list includes EVM.
         escrowMethods.ensureEscrowMethod();
+
+        // Recover any stale swaps (claims/refunds) from previous sessions.
+        evm.recoverStaleSwaps();
       } else {
         logger.i('User logged out');
         messaging.threads.stop();

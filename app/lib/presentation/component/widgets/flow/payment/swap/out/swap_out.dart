@@ -66,7 +66,10 @@ class SwapOutViewWidget extends StatelessWidget {
       case SwapOutAwaitingOnChain():
       case SwapOutFunded():
       case SwapOutClaimed():
+      case SwapOutRefunding():
         return SwapOutProgressWidget(state);
+      case SwapOutRefunded():
+        return SwapOutRefundedWidget();
     }
   }
 }
@@ -180,6 +183,18 @@ class SwapOutSuccessWidget extends StatelessWidget {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
       content: Text('Swap completed!'),
+    );
+  }
+}
+
+class SwapOutRefundedWidget extends StatelessWidget {
+  const SwapOutRefundedWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ModalBottomSheet(
+      type: ModalBottomSheetType.success,
+      content: Text('Swap refunded successfully.'),
     );
   }
 }

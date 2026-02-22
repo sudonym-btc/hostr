@@ -1,8 +1,70 @@
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:rxdart/rxdart.dart';
 
 import 'seed_pipeline_config.dart';
+
+// ─── Reactive streams ───────────────────────────────────────────────────────
+
+/// A typed record for EVM funding events.
+typedef UserFunded = ({SeedUser user, BigInt amountWei, String address});
+
+/// A typed record for on-chain escrow transactions.
+typedef ChainTransaction = ({SeedThread thread, String txHash, String action});
+
+/// A typed record for NIP-05 identity creation.
+typedef Nip05Created = ({String username, String domain});
+
+/// Reactive streams emitted by [SeedPipeline.run].
+///
+/// All subjects are [ReplaySubject]s — late subscribers receive every
+/// previously emitted value, so consumers can attach after the pipeline
+/// has already started producing.
+///
+/// ```dart
+/// final streams = pipeline.run();
+///
+/// // Broadcast events as they arrive:
+/// streams.events
+///     .bufferCount(50)
+///     .asyncMap((batch) => broadcastBatch(ndk, batch))
+///     .listen((_) {});
+///
+/// // React to funding:
+/// streams.userFunded.listen((r) =>
+///     print('Funded ${r.address} with ${r.amountWei} wei'));
+///
+/// // Accumulate summary at the end:
+/// final data = await streams.done.first;
+/// print(data.summary.toJson());
+/// ```
+class SeedStreams {
+  /// Every Nostr event ready for relay broadcast, emitted as each
+  /// pipeline stage completes.
+  final events = ReplaySubject<Nip01Event>();
+
+  /// EVM address funded via `anvil_setBalance`.
+  final userFunded = ReplaySubject<UserFunded>();
+
+  /// On-chain escrow transaction confirmed (createTrade / settle / etc).
+  final chainTx = ReplaySubject<ChainTransaction>();
+
+  /// NIP-05 identity entry created via LNbits nostrnip5 extension.
+  final nip05Created = ReplaySubject<Nip05Created>();
+
+  /// Terminal signal — carries the full aggregate [SeedPipelineData].
+  final done = ReplaySubject<SeedPipelineData>();
+
+  /// Closes all subjects.  Safe to call multiple times.
+  void dispose() {
+    events.close();
+    userFunded.close();
+    chainTx.close();
+    nip05Created.close();
+    done.close();
+  }
+}
 
 // ─── Core models ────────────────────────────────────────────────────────────
 

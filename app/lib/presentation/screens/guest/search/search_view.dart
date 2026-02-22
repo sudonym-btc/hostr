@@ -69,59 +69,55 @@ class SearchViewState extends State<SearchView> {
                                 },
                               ),
                               SafeArea(
-                                child: InkWell(
-                                  child: CustomPadding(
-                                    top: 0.5,
-                                    child:
-                                        BlocBuilder<FilterCubit, FilterState>(
-                                          builder: (context, filterState) {
-                                            return BlocBuilder<
-                                              DateRangeCubit,
-                                              DateRangeState
-                                            >(
-                                              builder:
-                                                  (context, dateRangeState) {
-                                                    return SearchBoxWidget(
-                                                      filterState: filterState,
-                                                      dateRangeState:
-                                                          dateRangeState,
-                                                    );
-                                                  },
-                                            );
-                                          },
-                                        ),
-                                  ),
-                                  onTap: () async {
-                                    await showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      useSafeArea: true,
-                                      builder: (x) => MultiBlocProvider(
-                                        providers: [
-                                          BlocProvider.value(
-                                            value:
-                                                BlocProvider.of<DateRangeCubit>(
-                                                  context,
+                                child: CustomPadding(
+                                  top: 0.5,
+                                  child: BlocBuilder<FilterCubit, FilterState>(
+                                    builder: (context, filterState) {
+                                      return BlocBuilder<
+                                        DateRangeCubit,
+                                        DateRangeState
+                                      >(
+                                        builder: (context, dateRangeState) {
+                                          return SearchBoxWidget(
+                                            filterState: filterState,
+                                            dateRangeState: dateRangeState,
+                                            onTap: () async {
+                                              await showModalBottomSheet(
+                                                context: context,
+                                                isScrollControlled: true,
+                                                useSafeArea: true,
+                                                builder: (x) => MultiBlocProvider(
+                                                  providers: [
+                                                    BlocProvider.value(
+                                                      value:
+                                                          BlocProvider.of<
+                                                            DateRangeCubit
+                                                          >(context),
+                                                    ),
+                                                    BlocProvider.value(
+                                                      value:
+                                                          BlocProvider.of<
+                                                            FilterCubit
+                                                          >(context),
+                                                    ),
+                                                    BlocProvider.value(
+                                                      value:
+                                                          BlocProvider.of<
+                                                            PostResultFilterCubit
+                                                          >(context),
+                                                    ),
+                                                  ],
+                                                  child: const FiltersScreen(
+                                                    asBottomSheet: true,
+                                                  ),
                                                 ),
-                                          ),
-                                          BlocProvider.value(
-                                            value: BlocProvider.of<FilterCubit>(
-                                              context,
-                                            ),
-                                          ),
-                                          BlocProvider.value(
-                                            value:
-                                                BlocProvider.of<
-                                                  PostResultFilterCubit
-                                                >(context),
-                                          ),
-                                        ],
-                                        child: const FiltersScreen(
-                                          asBottomSheet: true,
-                                        ),
-                                      ),
-                                    );
-                                  },
+                                              );
+                                            },
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
                             ],
