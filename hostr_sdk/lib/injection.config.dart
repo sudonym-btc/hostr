@@ -72,6 +72,7 @@ import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart
 import 'package:hostr_sdk/usecase/reservations/reservations.dart' as _i326;
 import 'package:hostr_sdk/usecase/reviews/reviews.dart' as _i660;
 import 'package:hostr_sdk/usecase/storage/storage.dart' as _i218;
+import 'package:hostr_sdk/usecase/verification/verification.dart' as _i301;
 import 'package:hostr_sdk/usecase/zaps/zaps.dart' as _i1045;
 import 'package:hostr_sdk/util/custom_logger.dart' as _i331;
 import 'package:hostr_sdk/util/main.dart' as _i372;
@@ -79,11 +80,11 @@ import 'package:injectable/injectable.dart' as _i526;
 import 'package:ndk/ndk.dart' as _i857;
 import 'package:web3dart/web3dart.dart' as _i641;
 
+const String _test = 'test';
+const String _mock = 'mock';
 const String _dev = 'dev';
 const String _staging = 'staging';
 const String _prod = 'prod';
-const String _test = 'test';
-const String _mock = 'mock';
 
 extension GetItInjectableX on _i174.GetIt {
   // initializes the registration of main-scope dependencies inside of GetIt
@@ -99,8 +100,16 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i218.AuthStorage>(
       () => _i218.AuthStorage(gh<_i910.HostrConfig>()),
     );
+    gh.singleton<_i301.Verification>(
+      () => _i301.MockVerification(ndk: gh<_i857.Ndk>()),
+      registerFor: {_test, _mock},
+    );
     gh.singleton<_i1014.Requests>(
       () => _i1014.Requests(ndk: gh<_i857.Ndk>()),
+      registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i301.Verification>(
+      () => _i301.Verification(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i56.Location>(
@@ -197,7 +206,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i158.Rootstock>(
       () => _i158.Rootstock(
         config: gh<_i910.HostrConfig>(),
-        auth: gh<_i1000.Auth>(),
+        auth: gh<_i520.Auth>(),
         logger: gh<_i331.CustomLogger>(),
       ),
     );
@@ -264,7 +273,7 @@ extension GetItInjectableX on _i174.GetIt {
     >(
       (params, _) => _i458.RootstockSwapOutOperation(
         rootstock: gh<_i785.Rootstock>(),
-        auth: gh<_i1000.Auth>(),
+        auth: gh<_i520.Auth>(),
         logger: gh<_i372.CustomLogger>(),
         nwc: gh<_i588.Nwc>(),
         params: params,

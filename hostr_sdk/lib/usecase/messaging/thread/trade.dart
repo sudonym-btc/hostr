@@ -133,7 +133,12 @@ class ThreadTrade {
     });
   }
 
+  bool _runtimeStarted = false;
+
   Future<void> _doEnsureRuntime() async {
+    if (_runtimeStarted) return;
+    _runtimeStarted = true;
+
     await subscriptions.start();
     unawaited(_paymentProofOrchestrator.start());
 
@@ -167,6 +172,7 @@ class ThreadTrade {
     _runtimeSubscriptions.clear();
 
     await subscriptions.stop();
+    _runtimeStarted = false;
     // _paymentProofOrchestrator.close() ;
 
     _emitState();

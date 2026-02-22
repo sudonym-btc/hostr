@@ -6,7 +6,6 @@ import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'date_range_buttons.dart';
 import 'location_field.dart';
 import 'search_form_controller.dart';
-import 'search_form_state.dart';
 
 class SearchForm extends StatefulWidget {
   final SearchFormController controller;
@@ -65,9 +64,7 @@ class _SearchFormState extends State<SearchForm> {
                 SizedBox(
                   width: double.infinity,
                   child: DateRangeButtons(
-                    onTap: showDatePicker,
-                    selectedDateRange:
-                        widget.controller.state.availabilityRange,
+                    controller: widget.controller.dateRangeController,
                   ),
                 ),
               ],
@@ -75,23 +72,6 @@ class _SearchFormState extends State<SearchForm> {
           ),
         ],
       ),
-    );
-  }
-
-  Future<void> showDatePicker() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(Duration(days: 365)),
-
-      /// Testing blocked days
-      selectableDayPredicate:
-          (day, DateTime? selectedStartDay, DateTime? selectedEndDay) =>
-              day.isAfter(DateTime.now()),
-      initialDateRange: widget.controller.state.availabilityRange,
-    );
-    widget.controller.updateAvailabilityRange(
-      ensureStartDateIsBeforeEndDate(picked),
     );
   }
 

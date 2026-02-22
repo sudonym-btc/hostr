@@ -45,7 +45,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
         );
 
     if (metadataEvent.evmAddress == null) {
-      metadataEvent.setEvmAddress(
+      metadataEvent = metadataEvent.withEvmAddress(
         getEvmCredentials(auth.activeKeyPair!.privateKey!).address.eip55With0x,
       );
     }

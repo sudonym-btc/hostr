@@ -555,6 +555,14 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
+  _i13.Stream<_i9.ProfileMetadata> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: _i13.Stream<_i9.ProfileMetadata>.empty(),
+          )
+          as _i13.Stream<_i9.ProfileMetadata>);
+
+  @override
   _i13.Future<_i9.ProfileMetadata?> loadMetadata(String? pubkey) =>
       (super.noSuchMethod(
             Invocation.method(#loadMetadata, [pubkey]),
@@ -577,6 +585,12 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
                 ),
           )
           as _i13.Future<_i13.Future<List<_i14.RelayBroadcastResponse>>>);
+
+  @override
+  void notifyUpdate(_i9.ProfileMetadata? event) => super.noSuchMethod(
+    Invocation.method(#notifyUpdate, [event]),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i7.StreamWithStatus<_i9.ProfileMetadata> subscribe(_i2.Filter? f) =>
@@ -1020,6 +1034,20 @@ class MockListings extends _i1.Mock implements _i8.Listings {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
+  _i13.Stream<_i9.Listing> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: _i13.Stream<_i9.Listing>.empty(),
+          )
+          as _i13.Stream<_i9.Listing>);
+
+  @override
+  void notifyUpdate(_i9.Listing? event) => super.noSuchMethod(
+    Invocation.method(#notifyUpdate, [event]),
+    returnValueForMissingStub: null,
+  );
+
+  @override
   _i7.StreamWithStatus<_i9.Listing> subscribe(_i2.Filter? f) =>
       (super.noSuchMethod(
             Invocation.method(#subscribe, [f]),
@@ -1146,6 +1174,14 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
   @override
   int get kind =>
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
+
+  @override
+  _i13.Stream<_i9.Reservation> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: _i13.Stream<_i9.Reservation>.empty(),
+          )
+          as _i13.Stream<_i9.Reservation>);
 
   @override
   _i13.Future<List<_i9.Reservation>> getListingReservations({
@@ -1332,6 +1368,12 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
   @override
   void dispose() => super.noSuchMethod(
     Invocation.method(#dispose, []),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  void notifyUpdate(_i9.Reservation? event) => super.noSuchMethod(
+    Invocation.method(#notifyUpdate, [event]),
     returnValueForMissingStub: null,
   );
 
@@ -1578,6 +1620,14 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
+  _i13.Stream<_i9.EscrowService> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: _i13.Stream<_i9.EscrowService>.empty(),
+          )
+          as _i13.Stream<_i9.EscrowService>);
+
+  @override
   _i13.Future<_i8.MutualEscrowResult> determineMutualEscrow(
     String? pubkey1,
     String? pubkey2,
@@ -1592,6 +1642,12 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
             ),
           )
           as _i13.Future<_i8.MutualEscrowResult>);
+
+  @override
+  void notifyUpdate(_i9.EscrowService? event) => super.noSuchMethod(
+    Invocation.method(#notifyUpdate, [event]),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i7.StreamWithStatus<_i9.EscrowService> subscribe(_i2.Filter? f) =>
@@ -1722,6 +1778,14 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
+  _i13.Stream<_i9.EscrowTrust> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: _i13.Stream<_i9.EscrowTrust>.empty(),
+          )
+          as _i13.Stream<_i9.EscrowTrust>);
+
+  @override
   _i13.Future<_i9.EscrowTrust?> trusted(String? pubkey) =>
       (super.noSuchMethod(
             Invocation.method(#trusted, [pubkey]),
@@ -1736,6 +1800,12 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
             returnValue: _i13.Future<_i9.EscrowTrust?>.value(),
           )
           as _i13.Future<_i9.EscrowTrust?>);
+
+  @override
+  void notifyUpdate(_i9.EscrowTrust? event) => super.noSuchMethod(
+    Invocation.method(#notifyUpdate, [event]),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i7.StreamWithStatus<_i9.EscrowTrust> subscribe(_i2.Filter? f) =>
@@ -1858,6 +1928,20 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
+  _i13.Stream<_i9.EscrowMethod> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: _i13.Stream<_i9.EscrowMethod>.empty(),
+          )
+          as _i13.Stream<_i9.EscrowMethod>);
+
+  @override
+  void notifyUpdate(_i9.EscrowMethod? event) => super.noSuchMethod(
+    Invocation.method(#notifyUpdate, [event]),
+    returnValueForMissingStub: null,
+  );
+
+  @override
   _i7.StreamWithStatus<_i9.EscrowMethod> subscribe(_i2.Filter? f) =>
       (super.noSuchMethod(
             Invocation.method(#subscribe, [f]),
@@ -1978,6 +2062,20 @@ class MockBadgeDefinitions extends _i1.Mock implements _i8.BadgeDefinitions {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
+  _i13.Stream<_i9.BadgeDefinition> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: _i13.Stream<_i9.BadgeDefinition>.empty(),
+          )
+          as _i13.Stream<_i9.BadgeDefinition>);
+
+  @override
+  void notifyUpdate(_i9.BadgeDefinition? event) => super.noSuchMethod(
+    Invocation.method(#notifyUpdate, [event]),
+    returnValueForMissingStub: null,
+  );
+
+  @override
   _i7.StreamWithStatus<_i9.BadgeDefinition> subscribe(_i2.Filter? f) =>
       (super.noSuchMethod(
             Invocation.method(#subscribe, [f]),
@@ -2096,6 +2194,20 @@ class MockBadgeAwards extends _i1.Mock implements _i8.BadgeAwards {
   @override
   int get kind =>
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
+
+  @override
+  _i13.Stream<_i9.BadgeAward> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: _i13.Stream<_i9.BadgeAward>.empty(),
+          )
+          as _i13.Stream<_i9.BadgeAward>);
+
+  @override
+  void notifyUpdate(_i9.BadgeAward? event) => super.noSuchMethod(
+    Invocation.method(#notifyUpdate, [event]),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i7.StreamWithStatus<_i9.BadgeAward> subscribe(_i2.Filter? f) =>
@@ -2389,6 +2501,14 @@ class MockReservationRequests extends _i1.Mock
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
+  _i13.Stream<_i2.Nip01Event> get updates =>
+      (super.noSuchMethod(
+            Invocation.getter(#updates),
+            returnValue: _i13.Stream<_i2.Nip01Event>.empty(),
+          )
+          as _i13.Stream<_i2.Nip01Event>);
+
+  @override
   _i13.Future<_i9.ReservationRequest> createReservationRequest({
     required _i9.Listing? listing,
     required DateTime? startDate,
@@ -2415,6 +2535,12 @@ class MockReservationRequests extends _i1.Mock
             ),
           )
           as _i13.Future<_i9.ReservationRequest>);
+
+  @override
+  void notifyUpdate(_i2.Nip01Event? event) => super.noSuchMethod(
+    Invocation.method(#notifyUpdate, [event]),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i7.StreamWithStatus<_i2.Nip01Event> subscribe(_i2.Filter? f) =>
@@ -2762,4 +2888,22 @@ class MockRelays extends _i1.Mock implements _i8.Relays {
                 >.empty(),
           )
           as _i13.Stream<Map<String, _i14.RelayConnectivity<dynamic>>>);
+
+  @override
+  _i13.Future<void> syncNip65(String? pubkey) =>
+      (super.noSuchMethod(
+            Invocation.method(#syncNip65, [pubkey]),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
+          )
+          as _i13.Future<void>);
+
+  @override
+  _i13.Future<void> publishNip65({required String? hostrRelay}) =>
+      (super.noSuchMethod(
+            Invocation.method(#publishNip65, [], {#hostrRelay: hostrRelay}),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
+          )
+          as _i13.Future<void>);
 }

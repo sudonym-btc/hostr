@@ -21,6 +21,6 @@ class ListingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListingView(a: a);
+    return ListingView(a: a, dateRange: dateRange);
   }
 }

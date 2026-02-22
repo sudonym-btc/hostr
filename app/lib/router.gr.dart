@@ -259,6 +259,55 @@ class MyListingsRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [OnboardingScreen]
+class OnboardingRoute extends PageRouteInfo<OnboardingRouteArgs> {
+  OnboardingRoute({
+    Key? key,
+    bool popOnComplete = false,
+    List<PageRouteInfo>? children,
+  }) : super(
+         OnboardingRoute.name,
+         args: OnboardingRouteArgs(key: key, popOnComplete: popOnComplete),
+         initialChildren: children,
+       );
+
+  static const String name = 'OnboardingRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<OnboardingRouteArgs>(
+        orElse: () => const OnboardingRouteArgs(),
+      );
+      return OnboardingScreen(key: args.key, popOnComplete: args.popOnComplete);
+    },
+  );
+}
+
+class OnboardingRouteArgs {
+  const OnboardingRouteArgs({this.key, this.popOnComplete = false});
+
+  final Key? key;
+
+  final bool popOnComplete;
+
+  @override
+  String toString() {
+    return 'OnboardingRouteArgs{key: $key, popOnComplete: $popOnComplete}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! OnboardingRouteArgs) return false;
+    return key == other.key && popOnComplete == other.popOnComplete;
+  }
+
+  @override
+  int get hashCode => key.hashCode ^ popOnComplete.hashCode;
+}
+
+/// generated route for
 /// [ProfileScreen]
 class ProfileRoute extends PageRouteInfo<void> {
   const ProfileRoute({List<PageRouteInfo>? children})

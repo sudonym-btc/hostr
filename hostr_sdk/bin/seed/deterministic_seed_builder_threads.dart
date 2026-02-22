@@ -195,80 +195,130 @@ extension _DeterministicSeedThreads on DeterministicSeedBuilder {
     final unlockAtSeconds = requestedUnlockAtSeconds;
     final unlockAt = BigInt.from(unlockAtSeconds);
 
-    final createTxHash = await contract.createTrade(
-      (
-        tradeId: tradeId,
-        buyer: buyer,
-        seller: seller,
-        arbiter: arbiter,
-        unlockAt: unlockAt,
-        escrowFee: BigInt.zero,
-      ),
-      credentials: guestCredentials,
-      transaction: Transaction(
-        value: EtherAmount.inWei(amountWei),
-        maxGas: 450000,
-      ),
+    // ── Idempotency: check if trade already exists on-chain ──
+    final zeroAddress = EthereumAddress.fromHex(
+      '0x0000000000000000000000000000000000000000',
     );
+    final existingTrade = await contract.trades(($param13: tradeId));
+    final tradeAlreadyExists = existingTrade.buyer != zeroAddress;
 
-    print(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex outcome=${outcome.name} '
-      'fundTx=$createTxHash amountWei=$amountWei unlockAt=$unlockAtSeconds '
-      'buyer=${buyer.eip55With0x} seller=${seller.eip55With0x} '
-      'arbiter=${arbiter.eip55With0x}',
-    );
-    await _assertTxSucceeded(
-      txHash: createTxHash,
-      threadIndex: threadIndex,
-      stage: 'createTrade',
-      tradeIdHex: tradeIdHex,
-    );
-
-    if (outcome == EscrowOutcome.arbitrated) {
-      final arbitrateTxHash = await contract.arbitrate(
-        (tradeId: tradeId, factor: BigInt.from(700)),
-        credentials: arbiterCredentials,
-        transaction: Transaction(maxGas: 250000),
-      );
+    String createTxHash;
+    if (tradeAlreadyExists) {
+      // Trade already on-chain from a previous seed run — recover tx hash.
+      try {
+        final event = contract.self.event('TradeCreated');
+        final filter = FilterOptions.events(
+          contract: contract.self,
+          event: event,
+          fromBlock: const BlockNum.genesis(),
+        );
+        final logs = await _chainClient().getLogs(filter);
+        createTxHash = '0x${'0' * 64}';
+        for (final log in logs) {
+          final decoded = event.decodeResults(log.topics!, log.data!);
+          final logTradeId = decoded[0] as Uint8List;
+          if (logTradeId.length == tradeId.length &&
+              List.generate(
+                logTradeId.length,
+                (i) => logTradeId[i] == tradeId[i],
+              ).every((eq) => eq) &&
+              log.transactionHash != null) {
+            createTxHash = log.transactionHash!;
+            break;
+          }
+        }
+      } catch (_) {
+        createTxHash = '0x${'0' * 64}';
+      }
       print(
-        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex arbitrateTx=$arbitrateTxHash factor=700',
-      );
-      await _assertTxSucceeded(
-        txHash: arbitrateTxHash,
-        threadIndex: threadIndex,
-        stage: 'arbitrate',
-        tradeIdHex: tradeIdHex,
-      );
-    } else if (outcome == EscrowOutcome.claimedByHost) {
-      await _waitForChainTimePast(targetEpochSeconds: unlockAtSeconds);
-      final claimTxHash = await contract.claim(
-        (tradeId: tradeId),
-        credentials: hostCredentials,
-        transaction: Transaction(maxGas: 250000),
-      );
-      print(
-        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex claimTx=$claimTxHash',
-      );
-      await _assertTxSucceeded(
-        txHash: claimTxHash,
-        threadIndex: threadIndex,
-        stage: 'claim',
-        tradeIdHex: tradeIdHex,
+        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex SKIPPED createTrade '
+        '(already exists, recovered fundTx=$createTxHash)',
       );
     } else {
-      final releaseTxHash = await contract.releaseToCounterparty(
-        (tradeId: tradeId),
-        credentials: hostCredentials,
-        transaction: Transaction(maxGas: 250000),
+      createTxHash = await contract.createTrade(
+        (
+          tradeId: tradeId,
+          buyer: buyer,
+          seller: seller,
+          arbiter: arbiter,
+          unlockAt: unlockAt,
+          escrowFee: BigInt.zero,
+        ),
+        credentials: guestCredentials,
+        transaction: Transaction(
+          value: EtherAmount.inWei(amountWei),
+          maxGas: 450000,
+        ),
       );
+
       print(
-        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex releaseTx=$releaseTxHash',
+        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex outcome=${outcome.name} '
+        'fundTx=$createTxHash amountWei=$amountWei unlockAt=$unlockAtSeconds '
+        'buyer=${buyer.eip55With0x} seller=${seller.eip55With0x} '
+        'arbiter=${arbiter.eip55With0x}',
       );
       await _assertTxSucceeded(
-        txHash: releaseTxHash,
+        txHash: createTxHash,
         threadIndex: threadIndex,
-        stage: 'releaseToCounterparty',
+        stage: 'createTrade',
         tradeIdHex: tradeIdHex,
+      );
+    }
+
+    // ── Only settle if the trade is still active ──
+    final activeCheck = await contract.activeTrade((tradeId: tradeId));
+    if (activeCheck.isActive) {
+      if (outcome == EscrowOutcome.arbitrated) {
+        final arbitrateTxHash = await contract.arbitrate(
+          (tradeId: tradeId, factor: BigInt.from(700)),
+          credentials: arbiterCredentials,
+          transaction: Transaction(maxGas: 250000),
+        );
+        print(
+          '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex arbitrateTx=$arbitrateTxHash factor=700',
+        );
+        await _assertTxSucceeded(
+          txHash: arbitrateTxHash,
+          threadIndex: threadIndex,
+          stage: 'arbitrate',
+          tradeIdHex: tradeIdHex,
+        );
+      } else if (outcome == EscrowOutcome.claimedByHost) {
+        await _waitForChainTimePast(targetEpochSeconds: unlockAtSeconds);
+        final claimTxHash = await contract.claim(
+          (tradeId: tradeId),
+          credentials: hostCredentials,
+          transaction: Transaction(maxGas: 250000),
+        );
+        print(
+          '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex claimTx=$claimTxHash',
+        );
+        await _assertTxSucceeded(
+          txHash: claimTxHash,
+          threadIndex: threadIndex,
+          stage: 'claim',
+          tradeIdHex: tradeIdHex,
+        );
+      } else {
+        final releaseTxHash = await contract.releaseToCounterparty(
+          (tradeId: tradeId),
+          credentials: hostCredentials,
+          transaction: Transaction(maxGas: 250000),
+        );
+        print(
+          '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex releaseTx=$releaseTxHash',
+        );
+        await _assertTxSucceeded(
+          txHash: releaseTxHash,
+          threadIndex: threadIndex,
+          stage: 'releaseToCounterparty',
+          tradeIdHex: tradeIdHex,
+        );
+      }
+    } else if (tradeAlreadyExists) {
+      print(
+        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex SKIPPED settlement '
+        '(trade already settled)',
       );
     }
 

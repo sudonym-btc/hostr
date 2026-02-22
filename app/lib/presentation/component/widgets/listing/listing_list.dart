@@ -7,7 +7,10 @@ import 'listing_list_item.dart';
 class ListingsWidget extends StatelessWidget {
   final ScrollController? scrollController;
 
-  const ListingsWidget({super.key, this.scrollController});
+  /// When a new id is emitted the list scrolls the matching item into view.
+  final ValueNotifier<String?>? scrollToId;
+
+  const ListingsWidget({super.key, this.scrollController, this.scrollToId});
 
   @override
   Widget build(BuildContext context) {
@@ -15,6 +18,7 @@ class ListingsWidget extends StatelessWidget {
       loadNextOnBottom: true,
       reserveBottomNavigationBarSpace: true,
       scrollController: scrollController,
+      scrollToId: scrollToId,
       builder: (el) {
         return ListingListItemWidget(
           listing: el,

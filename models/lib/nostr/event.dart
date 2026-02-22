@@ -58,6 +58,31 @@ abstract class Event<TagsType extends EventTags> extends Nip01Event {
   Nip01EventModel get model => Nip01EventModel.fromEntity(this);
 
   String? get anchor => getDtag() == null ? null : '$kind:$pubKey:${getDtag()}';
+
+  /// Encode this event as an `naddr` bech32 string (NIP-19).
+  /// Only valid for addressable/replaceable events (kinds 30000-39999).
+  /// Returns null if the event has no d-tag.
+  String? naddr({List<String>? relays}) {
+    final dTag = getDtag();
+    if (dTag == null) return null;
+    return Nip19.encodeNaddr(
+      kind: kind,
+      pubkey: pubKey,
+      identifier: dTag,
+      relays: relays,
+    );
+  }
+
+  /// Encode this event as a `nostr:naddr1...` URI (NIP-21).
+  /// Returns null if the event has no d-tag.
+  String? nostrUri({List<String>? relays}) {
+    final encoded = naddr(relays: relays);
+    return encoded != null ? 'nostr:$encoded' : null;
+  }
+}
+
+getKindFromAnchor(String anchor) {
+  return int.parse(anchor.split(':')[0]);
 }
 
 getDTagFromAnchor(String anchor) {
@@ -66,6 +91,24 @@ getDTagFromAnchor(String anchor) {
 
 getPubKeyFromAnchor(String anchor) {
   return anchor.split(':')[1];
+}
+
+/// Converts an anchor string (kind:pubkey:d-tag) to an naddr bech32 string.
+/// Optionally includes relay hints for better discoverability.
+String anchorToNaddr(String anchor, {List<String>? relays}) {
+  final parts = anchor.split(':');
+  return Nip19.encodeNaddr(
+    kind: int.parse(parts[0]),
+    pubkey: parts[1],
+    identifier: parts[2],
+    relays: relays,
+  );
+}
+
+/// Converts an naddr bech32 string back to an anchor string (kind:pubkey:d-tag).
+String naddrToAnchor(String naddrStr) {
+  final naddr = Nip19.decodeNaddr(naddrStr);
+  return '${naddr.kind}:${naddr.pubkey}:${naddr.identifier}';
 }
 
 bool hasRequiredTags(

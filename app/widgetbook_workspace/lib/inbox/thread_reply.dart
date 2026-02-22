@@ -15,12 +15,10 @@ Widget threadReplyInitial(BuildContext context) {
       controller: controller,
       isLoading: false,
       errorText: null,
-      sendLabel: context.knobs.string(
-        label: 'Send label',
-        initialValue: 'Send',
-      ),
+      hintText: context.knobs.string(label: 'Send label', initialValue: 'Send'),
       onChanged: (_) {},
       onSend: () {},
+      label: 'Reply to thread',
     ),
   );
 }
@@ -37,12 +35,13 @@ Widget threadReplyLoading(BuildContext context) {
       controller: controller,
       isLoading: true,
       errorText: null,
-      sendLabel: context.knobs.string(
+      hintText: context.knobs.string(
         label: 'Send label',
         initialValue: 'Sending to Alice, Bob',
       ),
       onChanged: (_) {},
       onSend: () {},
+      label: '',
     ),
   );
 }
@@ -65,12 +64,10 @@ Widget threadReplyError(BuildContext context) {
         label: 'Error text',
         initialValue: 'Failed to send message',
       ),
-      sendLabel: context.knobs.string(
-        label: 'Send label',
-        initialValue: 'Send',
-      ),
+      hintText: context.knobs.string(label: 'Send label', initialValue: 'Send'),
       onChanged: (_) {},
       onSend: () {},
+      label: '',
     ),
   );
 }

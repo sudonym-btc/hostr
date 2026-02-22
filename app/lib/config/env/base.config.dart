@@ -16,6 +16,7 @@ abstract class Config {
   HostrConfig get hostrConfig => HostrConfig(
     bootstrapRelays: [...relays, hostrRelay],
     bootstrapBlossom: [hostrBlossom],
+    hostrRelay: hostrRelay,
     rootstockConfig: rootstock,
     storage: useSecureKeyValueStorage
         ? SecureKeyValueStorage()

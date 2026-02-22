@@ -26,6 +26,7 @@ Future<void> setupInjection({
         logs: CustomLogger(),
         bootstrapRelays: [relayUrl],
         bootstrapBlossom: [blossomUrl],
+        hostrRelay: relayUrl,
         rootstockConfig: _EscrowRootstockConfig(rpcUrl: rpcUrl),
       ),
     ),

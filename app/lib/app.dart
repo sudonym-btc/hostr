@@ -3,14 +3,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/main.dart';
+import 'package:hostr/route/nostr_link_handler.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 /// The Widget that configures your application.
-class MyApp extends StatelessWidget {
-  final AppRouter _appRouter;
-  MyApp({super.key, AppRouter? appRouter})
-    : _appRouter = appRouter ?? AppRouter();
+class MyApp extends StatefulWidget {
+  final AppRouter? appRouter;
+  const MyApp({super.key, this.appRouter});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final AppRouter _appRouter;
+  late final NostrLinkHandler _nostrLinkHandler;
+
+  @override
+  void initState() {
+    super.initState();
+    _appRouter = widget.appRouter ?? AppRouter();
+    _nostrLinkHandler = NostrLinkHandler(router: _appRouter);
+    _nostrLinkHandler.init();
+  }
+
+  @override
+  void dispose() {
+    _nostrLinkHandler.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:bip39_mnemonic/bip39_mnemonic.dart';
+import 'package:convert/convert.dart' as convert;
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/bip340.dart';
 import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:web3dart/web3dart.dart';
@@ -119,20 +122,44 @@ class Auth {
   }
 
   /// Validates and returns a private key hex string.
+  ///
+  /// Accepts:
+  /// - 64-char hex private key
+  /// - nsec1… bech32-encoded private key
+  /// - 12 or 24 word BIP-39 mnemonic
   String _parseAndValidateKey(String input) {
     final trimmed = input.trim();
+
+    // Raw hex
     if (trimmed.length == 64 && _isHex(trimmed)) {
       return trimmed;
     }
 
-    // Mnemonic support can be added here when available.
+    // nsec bech32
+    if (trimmed.startsWith('nsec1')) {
+      final decoded = Helpers.decodeBech32(trimmed);
+      final hex = decoded[0];
+      if (hex.isNotEmpty && hex.length == 64 && _isHex(hex)) {
+        return hex;
+      }
+      throw Exception('Invalid nsec key');
+    }
+
+    // Mnemonic (12 or 24 words)
     final words = trimmed.split(RegExp(r'\s+'));
     if (words.length == 12 || words.length == 24) {
-      throw UnimplementedError('Mnemonic import not yet implemented');
+      try {
+        final mnemonic = Mnemonic.fromSentence(trimmed, Language.english);
+        final hex = convert.hex.encode(mnemonic.entropy);
+        if (hex.length == 64 && _isHex(hex)) {
+          return hex;
+        }
+      } catch (_) {}
+      throw Exception('Invalid mnemonic phrase');
     }
 
     throw Exception(
-      'Invalid key format. Expected 64-char hex or 12/24-word mnemonic',
+      'Invalid key format. Expected nsec, 64-char hex, or 12/24-word mnemonic',
     );
   }
 

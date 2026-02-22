@@ -47,6 +47,55 @@ class Relays {
   Stream<Map<String, RelayConnectivity<dynamic>>> connectivity() {
     return ndk.relays.relayConnectivityChanges;
   }
+
+  /// Fetches the user's NIP-65 relay list and connects to any relays
+  /// not already connected. This populates NDK's cache so the outbox/inbox
+  /// model works automatically for broadcasts and queries.
+  Future<void> syncNip65(String pubkey) async {
+    logger.i('Syncing NIP-65 relay list for $pubkey');
+    try {
+      final relayList = await ndk.userRelayLists.getSingleUserRelayList(
+        pubkey,
+        forceRefresh: true,
+      );
+      if (relayList == null || relayList.urls.isEmpty) {
+        logger.i('No NIP-65 relay list found for $pubkey');
+        return;
+      }
+      logger.i('Found ${relayList.urls.length} relays in NIP-65 list');
+
+      final connectedUrls = ndk.relays.connectedRelays
+          .map((r) => r.url)
+          .toSet();
+
+      await Future.wait(
+        relayList.urls
+            .where((url) => !connectedUrls.contains(url))
+            .map(
+              (url) => add(url).catchError((e) {
+                logger.w('Failed to connect to NIP-65 relay $url: $e');
+              }),
+            ),
+      );
+    } catch (e) {
+      logger.e('Error syncing NIP-65 relay list: $e');
+    }
+  }
+
+  /// Publishes the user's NIP-65 relay list, ensuring the given
+  /// [hostrRelay] is included with read+write markers.
+  Future<void> publishNip65({required String hostrRelay}) async {
+    logger.i('Publishing NIP-65 relay list with hostr relay: $hostrRelay');
+    try {
+      await ndk.userRelayLists.broadcastAddNip65Relay(
+        relayUrl: hostrRelay,
+        marker: ReadWriteMarker.readWrite,
+        broadcastRelays: ndk.relays.connectedRelays.map((r) => r.url),
+      );
+    } catch (e) {
+      logger.e('Error publishing NIP-65 relay list: $e');
+    }
+  }
 }
 
 @Singleton(as: Relays, env: [Env.test, Env.mock])

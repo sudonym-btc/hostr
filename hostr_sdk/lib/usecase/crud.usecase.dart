@@ -14,12 +14,23 @@ class CrudUseCase<T extends Nip01Event> {
   final int kind;
   final int? draftKind;
 
+  /// Broadcast stream that emits whenever an entity is created, updated,
+  /// or deleted through this use case. Consumers can listen to this to
+  /// refresh their UI when mutations happen elsewhere.
+  final StreamController<T> _updates = StreamController<T>.broadcast();
+  Stream<T> get updates => _updates.stream;
+
   CrudUseCase({
     required this.requests,
     required this.kind,
     this.draftKind,
     required this.logger,
   });
+
+  /// Notify listeners that an entity was mutated. Call this from external
+  /// code (e.g. controllers that bypass [create]/[update]/[delete]) to
+  /// trigger refresh in consuming widgets.
+  void notifyUpdate(T event) => _updates.add(event);
 
   StreamWithStatus<T> subscribe(Filter f) {
     return requests.subscribe(
@@ -28,15 +39,24 @@ class CrudUseCase<T extends Nip01Event> {
   }
 
   Future<List<RelayBroadcastResponse>> create(T event) {
-    return requests.broadcast(event: event);
+    return requests.broadcast(event: event).then((r) {
+      _updates.add(event);
+      return r;
+    });
   }
 
   Future<List<RelayBroadcastResponse>> update(T event) {
-    return requests.broadcast(event: event);
+    return requests.broadcast(event: event).then((r) {
+      _updates.add(event);
+      return r;
+    });
   }
 
   Future<List<RelayBroadcastResponse>> delete(T event) {
-    return requests.broadcast(event: event);
+    return requests.broadcast(event: event).then((r) {
+      _updates.add(event);
+      return r;
+    });
   }
 
   Future<List<T>> list(Filter f) {

@@ -49,6 +49,11 @@ class Threads extends HydratedCubit<List<Message>> {
     _closeSubscription();
     _rebuildThreadsFromMessages(state);
 
+    if (auth.activeKeyPair == null) {
+      logger.d('Skipping thread sync — no active key pair');
+      return;
+    }
+
     final myPubkey = auth.getActiveKey().publicKey;
     final filter = Filter(
       kinds: [GiftWrap.kGiftWrapEventkind],
@@ -73,6 +78,7 @@ class Threads extends HydratedCubit<List<Message>> {
 
   Future<List<Message>> refresh() async {
     sync();
+    if (subscription == null) return [];
     List<Message> newMessages = await subscription!.stream
         .takeUntil(subscription!.status.whereType<StreamStatusQueryComplete>())
         .toList();
@@ -82,6 +88,10 @@ class Threads extends HydratedCubit<List<Message>> {
 
   void stop() {
     _closeSubscription();
+    for (final thread in threads.values) {
+      thread.close();
+    }
+    threads.clear();
   }
 
   void _closeSubscription() {

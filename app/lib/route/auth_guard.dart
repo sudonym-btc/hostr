@@ -17,9 +17,9 @@ class AuthGuard extends AutoRouteGuard {
     router.push(
       SignInRoute(
         onSuccess: () {
-          logger.d('AuthGuard forwarding to ${resolver.route.name}');
-          resolver.next(true);
-          router.removeLast();
+          logger.d('AuthGuard: sign-in complete, routing through onboarding');
+          // Replace with onboarding which will navigate to HomeRoute when done.
+          router.replaceAll([OnboardingRoute()]);
         },
       ),
     );

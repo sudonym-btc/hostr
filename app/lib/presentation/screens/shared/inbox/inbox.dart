@@ -22,6 +22,11 @@ class InboxScreen extends StatelessWidget {
                   a.state.value.getLastDateTime,
                 ),
               );
+          if (threads.isEmpty) {
+            return Center(
+              child: Text(AppLocalizations.of(context)!.noMessagesYet),
+            );
+          }
           return ListView.builder(
             itemCount: threads.length,
             itemBuilder: (context, index) {

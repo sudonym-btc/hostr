@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:models/main.dart';
@@ -76,9 +77,9 @@ class _CountSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
+      duration: kAnimationDuration,
+      switchInCurve: kAnimationCurve,
+      switchOutCurve: kAnimationCurve,
       child: loading
           ? Row(
               key: ValueKey('loading-$noun'),

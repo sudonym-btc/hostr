@@ -111,6 +111,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get send => 'Send';
 
   @override
+  String get typeAMessage => 'Type a message...';
+
+  @override
   String get wallet => 'Wallet';
 
   @override
@@ -172,6 +175,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tip => 'Tip';
 
   @override
+  String get available => 'Available';
+
+  @override
+  String get unavailable => 'Unavailable';
+
+  @override
   String get zap => 'Zap';
 
   @override
@@ -185,6 +194,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noTripsYet => 'No trips yet';
+
+  @override
+  String get noMessagesYet => 'No messages yet';
 
   @override
   String get pay => 'Pay';

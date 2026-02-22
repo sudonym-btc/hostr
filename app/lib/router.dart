@@ -1,4 +1,5 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/route/main.dart';
 
@@ -14,6 +15,7 @@ class AppRouter extends RootStackRouter {
       initial: true,
       children: [
         AutoRoute(page: SignInRoute.page, path: 'signin'),
+        AutoRoute(page: OnboardingRoute.page, path: 'onboarding'),
         AutoRoute(page: ListingRoute.page, path: 'listing/:a'),
         AutoRoute(
           page: ThreadRoute.page,
@@ -22,7 +24,6 @@ class AppRouter extends RootStackRouter {
         ),
         AutoRoute(
           page: HomeRoute.page,
-          guards: [AuthGuard()],
           initial: true,
           children: [
             /// Public routes
@@ -32,6 +33,7 @@ class AppRouter extends RootStackRouter {
               path: 'search',
               children: [AutoRoute(page: FiltersRoute.page, path: 'filters')],
             ),
+            AutoRoute(page: SignInRoute.page, path: 'signin'),
 
             /// Signed in routes
             AutoRoute(

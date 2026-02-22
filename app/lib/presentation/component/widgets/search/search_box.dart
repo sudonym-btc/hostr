@@ -36,37 +36,42 @@ class SearchBoxWidget extends StatelessWidget {
           clipBehavior: Clip.hardEdge,
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0), // Blur effect
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor.withAlpha(0),
-              ),
-              child: ListTile(
-                leading: Icon(Icons.search),
-                title: Text(
-                  filterState.location.isEmpty
-                      ? AppLocalizations.of(context)!.where
-                      : filterState.location,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge!.copyWith(fontWeight: FontWeight.bold),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(50),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor.withAlpha(0),
                 ),
-                subtitle: Text(
-                  dateRangeState.dateRange == null
-                      ? AppLocalizations.of(context)!.when
-                      : formatDateRangeShort(
-                          dateRangeState.dateRange!,
-                          Localizations.localeOf(context),
-                        ),
+                child: ListTile(
+                  leading: Icon(Icons.search),
+                  title: Text(
+                    filterState.location.isEmpty
+                        ? AppLocalizations.of(context)!.where
+                        : filterState.location,
+                    style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Text(
+                    dateRangeState.dateRange == null
+                        ? AppLocalizations.of(context)!.when
+                        : formatDateRangeShort(
+                            dateRangeState.dateRange!,
+                            Localizations.localeOf(context),
+                          ),
+                  ),
+                  trailing: (hasActiveFilter || hasDateRange)
+                      ? IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            context.read<DateRangeCubit>().updateDateRange(
+                              null,
+                            );
+                            context.read<FilterCubit>().clear();
+                          },
+                        )
+                      : const Icon(Icons.filter_list),
                 ),
-                trailing: (hasActiveFilter || hasDateRange)
-                    ? IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          context.read<DateRangeCubit>().updateDateRange(null);
-                          context.read<FilterCubit>().clear();
-                        },
-                      )
-                    : const Icon(Icons.filter_list),
               ),
             ),
           ),

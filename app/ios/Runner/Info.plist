@@ -84,5 +84,24 @@
 		<string>com.sudonym.hostr.sync.ios.fetch</string>
 		<string>com.sudonym.hostr.sync.ios.processing</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>lightning</string>
+		<string>bitcoin</string>
+		<string>nostr</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>nostr</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>nostr</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

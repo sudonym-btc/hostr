@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/relay_connectivity.cubit.dart';
 
 /// A banner that slides up from the bottom of the screen when more than 50%
@@ -24,11 +25,11 @@ class RelayConnectivityBanner extends StatelessWidget {
                 offset: state.majorityDisconnected
                     ? Offset.zero
                     : const Offset(0, 1),
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
+                duration: kAnimationDuration,
+                curve: kAnimationCurve,
                 child: AnimatedOpacity(
                   opacity: state.majorityDisconnected ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
+                  duration: kAnimationDuration,
                   child: SafeArea(
                     top: false,
                     child: RelayConnectivityBannerView(

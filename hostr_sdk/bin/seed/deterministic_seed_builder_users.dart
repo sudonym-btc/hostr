@@ -38,7 +38,9 @@ extension _DeterministicSeedUsers on DeterministicSeedBuilder {
             lud16: user.isHost
                 ? 'host${user.index + 1}@lnbits1.hostr.development'
                 : 'guest${user.index + 1}@lnbits2.hostr.development',
-            nip05: 'seed${user.index + 1}@hostr.development',
+            nip05: user.isHost
+                ? 'host${user.index + 1}@lnbits1.hostr.development'
+                : 'guest${user.index + 1}@lnbits2.hostr.development',
             picture: identity.pictureUrl,
           ).toEvent();
 
