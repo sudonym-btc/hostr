@@ -1908,6 +1908,14 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
   }
 
   @override
+  _i8.Auth get auth =>
+      (super.noSuchMethod(
+            Invocation.getter(#auth),
+            returnValue: _FakeAuth_6(this, Invocation.getter(#auth)),
+          )
+          as _i8.Auth);
+
+  @override
   _i7.CustomLogger get logger =>
       (super.noSuchMethod(
             Invocation.getter(#logger),
@@ -1934,6 +1942,15 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
             returnValue: _i13.Stream<_i9.EscrowMethod>.empty(),
           )
           as _i13.Stream<_i9.EscrowMethod>);
+
+  @override
+  _i13.Future<void> ensureEscrowMethod() =>
+      (super.noSuchMethod(
+            Invocation.method(#ensureEscrowMethod, []),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
+          )
+          as _i13.Future<void>);
 
   @override
   void notifyUpdate(_i9.EscrowMethod? event) => super.noSuchMethod(

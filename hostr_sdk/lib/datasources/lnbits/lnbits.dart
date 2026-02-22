@@ -418,6 +418,15 @@ class LnbitsDatasource {
           domain: domain,
         );
 
+        // The activate endpoint calls update_ln_address() which requires
+        // NIP-05 settings (lnaddress_api_endpoint + admin key). Create them
+        // once so every subsequent activate call succeeds.
+        await _ensureNostrnip5Settings(
+          baseUrl: cfg.baseUrl,
+          bearerToken: token,
+          walletApiKey: wallet.adminkey,
+        );
+
         final sorted = entries.entries.toList()
           ..sort((a, b) => a.key.compareTo(b.key));
         for (final entry in sorted) {
@@ -442,6 +451,41 @@ class LnbitsDatasource {
       }
     } finally {
       unauth.client.dispose();
+    }
+  }
+
+  /// Ensures the nostrnip5 NIP-05 settings exist so that `activate_address`
+  /// (which internally calls `update_ln_address`) can create lnurlp pay links.
+  ///
+  /// The GET /settings endpoint returns a default object with
+  /// `lnaddress_api_endpoint: "https://nostr.com"` even when nothing is
+  /// persisted, so we always PUT to guarantee settings are stored.
+  Future<void> _ensureNostrnip5Settings({
+    required String baseUrl,
+    required String bearerToken,
+    required String walletApiKey,
+  }) async {
+    final headers = {
+      'Authorization': 'Bearer $bearerToken',
+      'X-Api-Key': walletApiKey,
+    };
+
+    try {
+      await _jsonRequest(
+        method: 'PUT',
+        uri: Uri.parse('$baseUrl/nostrnip5/api/v1/settings'),
+        headers: headers,
+        body: {
+          'lnaddress_api_endpoint': baseUrl,
+          'lnaddress_api_admin_key': walletApiKey,
+        },
+      );
+      print(
+        '[lnbits][nip05] NIP-05 settings saved '
+        '(lnaddress endpoint → $baseUrl)',
+      );
+    } catch (e) {
+      print('[lnbits][nip05] Warning: failed to save NIP-05 settings: $e');
     }
   }
 
@@ -497,7 +541,10 @@ class LnbitsDatasource {
       body: {
         'wallet': walletId,
         'currency': 'sats',
-        'cost': 0,
+        // nostrnip5 treats cost=0 as "cannot compute price" (0 is falsy in
+        // Python). Use 1 sat so the price check passes; no invoice is created
+        // because addresses are activated directly by the admin.
+        'cost': 1,
         'domain': domain,
       },
     );
@@ -541,17 +588,32 @@ class LnbitsDatasource {
       final addressId = response['id']?.toString();
       if (addressId != null && addressId.isNotEmpty) {
         // Activate the address so it appears in nostr.json lookups.
-        await _jsonRequest(
-          method: 'PUT',
-          uri: Uri.parse(
-            '$baseUrl/nostrnip5/api/v1/domain/$domainId/address/$addressId/activate',
-          ),
-          headers: headers,
-        );
-        print(
-          '[lnbits][nip05] Created & activated address '
-          '$localPart (id=$addressId, pubkey=${pubkey.substring(0, 8)}...)',
-        );
+        // The activate endpoint also calls update_ln_address(), which tries
+        // to create a lnurlp pay link. If that link was already created by
+        // setupUsernamesByDomain the call will 500 — but the address is
+        // already marked active in the DB before that step, so we treat
+        // the error as non-fatal.
+        try {
+          await _jsonRequest(
+            method: 'PUT',
+            uri: Uri.parse(
+              '$baseUrl/nostrnip5/api/v1/domain/$domainId/address/$addressId/activate',
+            ),
+            headers: headers,
+          );
+          print(
+            '[lnbits][nip05] Created & activated address '
+            '$localPart (id=$addressId, pubkey=${pubkey.substring(0, 8)}...)',
+          );
+        } catch (e) {
+          // activate_address() persists active=true before update_ln_address()
+          // runs, so the NIP-05 lookup will still work even if the lnurlp
+          // link creation fails (e.g. duplicate username).
+          print(
+            '[lnbits][nip05] Created address $localPart (id=$addressId). '
+            'Activate returned an error (non-fatal): $e',
+          );
+        }
       } else {
         print(
           '[lnbits][nip05] Warning: address creation for $localPart '
@@ -559,7 +621,9 @@ class LnbitsDatasource {
         );
       }
     } on HttpException catch (e) {
-      if (e.message.contains('already') || e.message.contains('exists')) {
+      if (e.message.contains('already') ||
+          e.message.contains('exists') ||
+          e.message.contains('not available')) {
         print('[lnbits][nip05] Address $localPart already exists. Skipping.');
         return;
       }

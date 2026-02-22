@@ -39,34 +39,34 @@ class Escrows extends CrudUseCase<EscrowService> {
     final methods1 = results[2] as EscrowMethod?;
     final methods2 = results[3] as EscrowMethod?;
 
-    if (trust1 == null) {
-      throw Exception('Host escrow trust list is missing');
-    }
-    if (trust2 == null) {
-      throw Exception('Guest escrow trust list is missing');
-    }
-    if (methods1 == null) {
-      throw Exception('Host escrow methods are missing');
-    }
-    if (methods2 == null) {
-      throw Exception('Guest escrow methods are missing');
-    }
+    // if (trust1 == null) {
+    //   throw Exception('Host escrow trust list is missing');
+    // }
+    // if (trust2 == null) {
+    //   throw Exception('Guest escrow trust list is missing');
+    // }
+    // if (methods1 == null) {
+    //   throw Exception('Host escrow methods are missing');
+    // }
+    // if (methods2 == null) {
+    //   throw Exception('Guest escrow methods are missing');
+    // }
 
     final result = MutualEscrowResult(
-      hostTrust: trust1,
-      guestTrust: trust2,
-      hostMethod: methods1,
-      guestMethod: methods2,
+      sellerTrust: trust1,
+      buyerTrust: trust2,
+      sellerMethod: methods1,
+      buyerMethod: methods2,
     );
 
     // Extract trusted pubkeys from each user's trust list
-    final trustedPubkeys1 = result.hostTrust != null
-        ? (await result.hostTrust!.toNip51List()).elements
+    final trustedPubkeys1 = result.sellerTrust != null
+        ? (await result.sellerTrust!.toNip51List()).elements
               .map((e) => e.value)
               .toSet()
         : <String>{};
-    final trustedPubkeys2 = result.guestTrust != null
-        ? (await result.guestTrust!.toNip51List()).elements
+    final trustedPubkeys2 = result.buyerTrust != null
+        ? (await result.buyerTrust!.toNip51List()).elements
               .map((e) => e.value)
               .toSet()
         : <String>{};
@@ -78,20 +78,20 @@ class Escrows extends CrudUseCase<EscrowService> {
       trustedPubkeys2,
     );
 
-    if (mutuallyTrustedPubkeys.isEmpty) {
-      throw Exception(
-        'No mutually trusted escrow pubkeys found between $pubkey1 and $pubkey2',
-      );
-    }
+    // if (mutuallyTrustedPubkeys.isEmpty) {
+    //   throw Exception(
+    //     'No mutually trusted escrow pubkeys found between $pubkey1 and $pubkey2',
+    //   );
+    // }
 
     // Extract escrow types from each user's method list
-    final types1 = result.hostMethod != null
-        ? (await result.hostMethod!.toNip51List()).elements
+    final types1 = result.sellerMethod != null
+        ? (await result.sellerMethod!.toNip51List()).elements
               .map((e) => e.value)
               .toSet()
         : <String>{};
-    final types2 = result.guestMethod != null
-        ? (await result.guestMethod!.toNip51List()).elements
+    final types2 = result.buyerMethod != null
+        ? (await result.buyerMethod!.toNip51List()).elements
               .map((e) => e.value)
               .toSet()
         : <String>{};
@@ -102,41 +102,65 @@ class Escrows extends CrudUseCase<EscrowService> {
     final overlappingTypes = types1.intersection(types2);
 
     if (overlappingTypes.isEmpty) {
-      throw Exception(
-        'No overlapping escrow methods found between $pubkey1 and $pubkey2',
-      );
+      result.compatibleServices = [];
+      return result;
     }
 
-    // Query escrows from mutually trusted pubkeys with overlapping types
-    final escrowServices = await list(
-      Filter(
-        kinds: EscrowService.kinds,
-        authors: mutuallyTrustedPubkeys.toList(),
-      ),
-    );
+    // Try mutually trusted escrow providers first
+    if (mutuallyTrustedPubkeys.isNotEmpty) {
+      final escrowServices = await list(
+        Filter(
+          kinds: EscrowService.kinds,
+          authors: mutuallyTrustedPubkeys.toList(),
+        ),
+      );
 
-    final escrowServicesFiltered = escrowServices
-        .where(
-          (escrow) => overlappingTypes.contains(escrow.parsedContent.type.name),
-        )
-        .toList();
+      final escrowServicesFiltered = escrowServices
+          .where(
+            (escrow) =>
+                overlappingTypes.contains(escrow.parsedContent.type.name),
+          )
+          .toList();
 
-    result.compatibleServices = escrowServicesFiltered;
+      if (escrowServicesFiltered.isNotEmpty) {
+        result.compatibleServices = escrowServicesFiltered;
+        return result;
+      }
+    }
+
+    // Fall back to the host's trusted escrows with a compatible method
+    if (trustedPubkeys2.isNotEmpty) {
+      final hostEscrowServices = await list(
+        Filter(kinds: EscrowService.kinds, authors: trustedPubkeys2.toList()),
+      );
+
+      final hostEscrowServicesFiltered = hostEscrowServices
+          .where(
+            (escrow) =>
+                overlappingTypes.contains(escrow.parsedContent.type.name),
+          )
+          .toList();
+
+      result.compatibleServices = hostEscrowServicesFiltered;
+      return result;
+    }
+
+    result.compatibleServices = [];
     return result;
   }
 }
 
 class MutualEscrowResult {
-  EscrowTrust? hostTrust;
-  EscrowTrust? guestTrust;
-  EscrowMethod? hostMethod;
-  EscrowMethod? guestMethod;
+  EscrowTrust? sellerTrust;
+  EscrowTrust? buyerTrust;
+  EscrowMethod? sellerMethod;
+  EscrowMethod? buyerMethod;
   late List<EscrowService> compatibleServices;
 
   MutualEscrowResult({
-    required this.hostTrust,
-    required this.guestTrust,
-    required this.hostMethod,
-    required this.guestMethod,
+    required this.sellerTrust,
+    required this.buyerTrust,
+    required this.sellerMethod,
+    required this.buyerMethod,
   });
 }

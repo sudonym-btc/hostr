@@ -11,13 +11,8 @@ import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:path/path.dart' as p;
 
-import 'deterministic_seed_builder.dart' as legacy;
-import 'seed_models.dart';
-
 class RelaySeeder {
-  /// Run using the new [SeedPipeline]. Accepts either the new
-  /// [SeedPipelineConfig] or falls back to converting a legacy
-  /// [DeterministicSeedConfig].
+  /// Run the seed pipeline with the given [SeedPipelineConfig].
   Future<int> runPipeline({required SeedPipelineConfig config}) async {
     print('Seeding ${config.relayUrl} (pipeline)...');
     print(const JsonEncoder.withIndent('  ').convert(config.toJson()));
@@ -72,12 +67,6 @@ class RelaySeeder {
         await ndk.destroy();
       }
     }
-  }
-
-  /// Legacy entry point — delegates to [runPipeline] via config conversion.
-  Future<int> run({required DeterministicSeedConfig config}) async {
-    final pipelineConfig = SeedPipelineConfig.fromLegacy(config.toJson());
-    return runPipeline(config: pipelineConfig);
   }
 
   static const int _broadcastBatchSize = 100;
@@ -141,115 +130,6 @@ class RelaySeeder {
     throw Exception(
       'Failed to broadcast event index=$i: ${lastMsg ?? ''}, ${event.toString()}',
     );
-  }
-
-  void _printDeterministicUsersByRole(legacy.DeterministicSeedData data) {
-    final users = data.users;
-    final userByPubkey = {for (final u in users) u.keyPair.publicKey: u};
-
-    Map<String, dynamic> userSummary(legacy.SeedUser user) {
-      final privateKey = user.keyPair.privateKey;
-      final evmAddress = user.hasEvm && privateKey != null
-          ? getEvmCredentials(privateKey).address.eip55With0x
-          : null;
-
-      return {
-        'hasEvm': user.hasEvm,
-        'evmAddress': evmAddress,
-        'reservations': {'escrow': <String>[], 'zap': <String>[]},
-      };
-    }
-
-    final grouped = {
-      'guest': {
-        for (final u in users.where((u) => !u.isHost))
-          if (u.keyPair.privateKey != null)
-            u.keyPair.privateKey!: userSummary(u),
-      },
-      'host': {
-        for (final u in users.where((u) => u.isHost))
-          if (u.keyPair.privateKey != null)
-            u.keyPair.privateKey!: userSummary(u),
-      },
-    };
-
-    for (final reservation in data.reservations) {
-      final commitmentHash = reservation.parsedTags.commitmentHash;
-      final proof = reservation.parsedContent.proof;
-      if (proof == null) {
-        continue;
-      }
-
-      final usesEscrow = proof.escrowProof != null;
-      final usesZap = proof.zapProof != null;
-
-      final guest = userByPubkey[reservation.pubKey];
-      final host = userByPubkey[proof.listing.pubKey];
-
-      if (usesEscrow || usesZap) {
-        if (guest != null && guest.keyPair.privateKey != null) {
-          final guestRole = grouped['guest'] as Map<String, dynamic>;
-          final guestInfo =
-              guestRole[guest.keyPair.privateKey!] as Map<String, dynamic>;
-          final guestReservations =
-              guestInfo['reservations'] as Map<String, dynamic>;
-          if (usesEscrow) {
-            (guestReservations['escrow'] as List<String>).add(commitmentHash);
-          }
-          if (usesZap) {
-            (guestReservations['zap'] as List<String>).add(commitmentHash);
-          }
-        }
-
-        if (host != null && host.keyPair.privateKey != null) {
-          final hostRole = grouped['host'] as Map<String, dynamic>;
-          final hostInfo =
-              hostRole[host.keyPair.privateKey!] as Map<String, dynamic>;
-          final hostReservations =
-              hostInfo['reservations'] as Map<String, dynamic>;
-          if (usesEscrow) {
-            (hostReservations['escrow'] as List<String>).add(commitmentHash);
-          }
-          if (usesZap) {
-            (hostReservations['zap'] as List<String>).add(commitmentHash);
-          }
-        }
-      }
-    }
-
-    for (final role in ['guest', 'host']) {
-      final roleMap = grouped[role] as Map<String, dynamic>;
-      for (final info in roleMap.values) {
-        final reservations =
-            (info as Map<String, dynamic>)['reservations']
-                as Map<String, dynamic>;
-
-        final escrowList =
-            (reservations['escrow'] as List<String>).toSet().toList()..sort();
-        final zapList = (reservations['zap'] as List<String>).toSet().toList()
-          ..sort();
-
-        reservations['escrow'] = escrowList;
-        reservations['zap'] = zapList;
-      }
-    }
-
-    print(
-      'Seed users private keys by role with EVM + reservation proof usage:',
-    );
-    print(const JsonEncoder.withIndent('  ').convert(grouped));
-  }
-
-  Future<legacy.DeterministicSeedData> buildDeterministicEvents({
-    required DeterministicSeedConfig config,
-    String rpcUrl = 'http://localhost:8545',
-  }) async {
-    final contractAddress = await _resolveDeployedMultiEscrowAddress();
-    return legacy.DeterministicSeedBuilder(
-      config: config.validated(),
-      contractAddress: contractAddress,
-      rpcUrl: rpcUrl,
-    ).build();
   }
 
   Future<String> _resolveDeployedMultiEscrowAddress() async {
@@ -355,64 +235,9 @@ class RelaySeeder {
     return files;
   }
 
-  Future<void> _fundMockProfiles({
-    required String rpcUrl,
-    required BigInt amountWei,
-    DeterministicSeedConfig? deterministicConfig,
-  }) async {
-    final privateKeys = <String>{
-      if (MockKeys.hoster.privateKey != null) MockKeys.hoster.privateKey!,
-      if (MockKeys.guest.privateKey != null) MockKeys.guest.privateKey!,
-      if (MockKeys.escrow.privateKey != null) MockKeys.escrow.privateKey!,
-      ...mockKeys.map((k) => k.privateKey).whereType<String>(),
-    };
-
-    if (deterministicConfig != null) {
-      final deterministicUsers = legacy.DeterministicSeedBuilder(
-        config: deterministicConfig.validated(),
-        contractAddress: await _resolveDeployedMultiEscrowAddress(),
-      ).deriveUsers();
-
-      privateKeys.addAll(
-        deterministicUsers.map((u) => u.keyPair.privateKey).whereType<String>(),
-      );
-    }
-
-    final addresses = privateKeys
-        .map((pk) => getEvmCredentials(pk).address.eip55With0x)
-        .toSet()
-        .toList(growable: false);
-
-    print('Funding ${addresses.length} mock EVM addresses via $rpcUrl...');
-
-    final anvilClient = AnvilClient(rpcUri: Uri.parse(rpcUrl));
-
-    try {
-      for (final address in addresses) {
-        final funded = await anvilClient.setBalance(
-          address: address,
-          amountWei: amountWei,
-        );
-
-        if (!funded) {
-          throw Exception(
-            'Could not fund $address on $rpcUrl. Neither anvil_setBalance nor hardhat_setBalance is supported.',
-          );
-        }
-      }
-    } finally {
-      anvilClient.close();
-    }
-
-    print(
-      'Funded ${addresses.length} mock addresses with $amountWei wei each.',
-    );
-  }
-
   Future<void> _setupLnbitsForProfiles({
     required List<Nip01Event> events,
-    DeterministicSeedConfig? deterministicConfig,
-    SeedPipelineConfig? pipelineConfig,
+    required SeedPipelineConfig pipelineConfig,
   }) async {
     final usernamesByDomain = <String, Set<String>>{};
     final nip05ByDomain = <String, Map<String, String>>{};
@@ -453,22 +278,12 @@ class RelaySeeder {
     }
 
     final config = LnbitsSetupConfig.fromEnvironment(
-      lnbits1BaseUrl:
-          pipelineConfig?.lnbits1BaseUrl ?? deterministicConfig?.lnbits1BaseUrl,
-      lnbits2BaseUrl:
-          pipelineConfig?.lnbits2BaseUrl ?? deterministicConfig?.lnbits2BaseUrl,
-      lnbitsAdminEmail:
-          pipelineConfig?.lnbitsAdminEmail ??
-          deterministicConfig?.lnbitsAdminEmail,
-      lnbitsAdminPassword:
-          pipelineConfig?.lnbitsAdminPassword ??
-          deterministicConfig?.lnbitsAdminPassword,
-      lnbitsExtensionName:
-          pipelineConfig?.lnbitsExtensionName ??
-          deterministicConfig?.lnbitsExtensionName,
-      lnbitsNostrPrivateKey:
-          pipelineConfig?.lnbitsNostrPrivateKey ??
-          deterministicConfig?.lnbitsNostrPrivateKey,
+      lnbits1BaseUrl: pipelineConfig.lnbits1BaseUrl,
+      lnbits2BaseUrl: pipelineConfig.lnbits2BaseUrl,
+      lnbitsAdminEmail: pipelineConfig.lnbitsAdminEmail,
+      lnbitsAdminPassword: pipelineConfig.lnbitsAdminPassword,
+      lnbitsExtensionName: pipelineConfig.lnbitsExtensionName,
+      lnbitsNostrPrivateKey: pipelineConfig.lnbitsNostrPrivateKey,
     );
 
     final datasource = LnbitsDatasource();

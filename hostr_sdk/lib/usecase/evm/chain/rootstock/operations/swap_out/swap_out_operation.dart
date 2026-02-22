@@ -40,6 +40,7 @@ class RootstockSwapOutOperation extends SwapOutOperation {
   @override
   Future<void> execute() async {
     try {
+      emit(SwapOutRequestCreated());
       final quote = await _buildSwapOutQuote();
 
       final String invoice;
@@ -154,6 +155,8 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     return SwapOutFees(
       estimatedGasFees: quote.estimatedGasFee,
       estimatedSwapFees: quote.estimatedSwapFee,
+      balance: quote.balance,
+      invoiceAmount: quote.invoiceAmount,
     );
   }
 

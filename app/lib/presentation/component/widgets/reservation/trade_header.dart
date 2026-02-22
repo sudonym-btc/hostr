@@ -11,7 +11,7 @@ import 'package:hostr/router.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/actions/trade_action_resolver.dart';
 import 'package:models/main.dart';
 
-import '../flow/payment/payment_method/payment_method.dart';
+import '../flow/payment/escrow/fund/escrow_fund.dart';
 import 'payment_status_chip.dart';
 
 class TradeHeaderView extends StatelessWidget {
@@ -26,6 +26,7 @@ class TradeHeaderView extends StatelessWidget {
   final Widget actionsRightWidget;
   final Widget actionsWidget;
   final Widget timelineWidget;
+  final bool runtimeReady;
 
   const TradeHeaderView({
     super.key,
@@ -40,6 +41,7 @@ class TradeHeaderView extends StatelessWidget {
     required this.actionsRightWidget,
     required this.actionsWidget,
     required this.timelineWidget,
+    this.runtimeReady = true,
   });
 
   void _navigateToListing(BuildContext context) {
@@ -128,8 +130,8 @@ class TradeHeaderView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isReservationRequestOnly) {
-      return Container(
-        color: Theme.of(context).colorScheme.surface,
+      return _ShimmerSurface(
+        loading: !runtimeReady,
         child: CustomPadding(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -143,8 +145,8 @@ class TradeHeaderView extends StatelessWidget {
       );
     }
 
-    return Container(
-      color: Theme.of(context).colorScheme.surface,
+    return _ShimmerSurface(
+      loading: !runtimeReady,
       child: ExpansionTile(
         splashColor: Colors.transparent,
         onExpansionChanged: (_) => FocusScope.of(context).unfocus(),
@@ -160,6 +162,79 @@ class TradeHeaderView extends StatelessWidget {
           CustomPadding(child: actionsWidget),
         ],
       ),
+    );
+  }
+}
+
+class _ShimmerSurface extends StatefulWidget {
+  final bool loading;
+  final Widget child;
+
+  const _ShimmerSurface({required this.loading, required this.child});
+
+  @override
+  State<_ShimmerSurface> createState() => _ShimmerSurfaceState();
+}
+
+class _ShimmerSurfaceState extends State<_ShimmerSurface>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    if (widget.loading) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ShimmerSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.loading && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.loading && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    if (!widget.loading) {
+      return Container(color: surface, child: widget.child);
+    }
+
+    final highlight = Color.lerp(
+      surface,
+      Theme.of(context).colorScheme.surfaceContainerHigh,
+      0.4,
+    )!;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = _controller.value * 2 - 0.5;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(t - 0.6, -1),
+              end: Alignment(t + 0.6, 1),
+              colors: [surface, highlight, surface],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }
@@ -253,7 +328,7 @@ class TradeHeader extends StatelessWidget {
               showModalBottomSheet(
                 context: context,
                 builder: (context) {
-                  return PaymentMethodWidget(
+                  return EscrowFundWidget(
                     counterparty: listingProfile,
                     reservationRequest: lastReservationRequest,
                   );
@@ -309,6 +384,7 @@ class TradeHeader extends StatelessWidget {
           isBlocked: tradeState.isBlocked == true,
           blockedReason: tradeState.blockedReason,
           isReservationRequestOnly: reservations.isEmpty,
+          runtimeReady: tradeState.runtimeReady,
           paymentStatusWidget: PaymentStatusChip(
             state: paymentEvents.lastOrNull,
           ),

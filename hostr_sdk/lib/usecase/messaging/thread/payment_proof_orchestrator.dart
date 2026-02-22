@@ -25,9 +25,15 @@ class ThreadPaymentProofOrchestrator {
     logger.d(
       'Starting payment proof orchestrator for thread ${trade.thread.anchor}',
     );
-    await subscriptions.reservationStream!.status
-        .whereType<StreamStatusLive>()
-        .first;
+
+    try {
+      await subscriptions.reservationStream!.status
+          .whereType<StreamStatusLive>()
+          .first;
+    } catch (_) {
+      // Stream was closed (trade deactivated) before going live.
+      return;
+    }
 
     if (subscriptions.reservationStream!.list.value.isNotEmpty) {
       logger.d(
@@ -36,9 +42,15 @@ class ThreadPaymentProofOrchestrator {
       return;
     }
 
-    final funded = await subscriptions.paymentEvents!.replay
-        .where((event) => event is PaymentFundedEvent)
-        .first;
+    final PaymentEvent funded;
+    try {
+      funded = await subscriptions.paymentEvents!.replay
+          .where((event) => event is PaymentFundedEvent)
+          .first;
+    } catch (_) {
+      // Stream was closed (trade deactivated) before a funded event arrived.
+      return;
+    }
 
     final listing = await trade.getListing();
     final hoster = await trade.getListingProfile();

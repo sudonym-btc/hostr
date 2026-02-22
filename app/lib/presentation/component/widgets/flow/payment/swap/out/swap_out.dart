@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
+import '../../../../amount/amount_input.dart';
 import '../../../modal_bottom_sheet.dart';
 
 class SwapOutFlowWidget extends StatelessWidget {
@@ -43,6 +45,11 @@ class SwapOutViewWidget extends StatelessWidget {
     switch (state) {
       case SwapOutInitialised():
         return SwapOutConfirmWidget(onConfirm: onConfirm ?? () {});
+      case SwapOutRequestCreated():
+        return SwapOutConfirmWidget(
+          onConfirm: onConfirm ?? () {},
+          loading: true,
+        );
       case SwapOutExternalInvoiceRequired(:final invoiceAmount):
         return SwapOutExternalInvoiceWidget(
           invoiceAmount: invoiceAmount,
@@ -59,25 +66,83 @@ class SwapOutViewWidget extends StatelessWidget {
       case SwapOutAwaitingOnChain():
       case SwapOutFunded():
       case SwapOutClaimed():
-      case SwapOutRequestCreated():
         return SwapOutProgressWidget(state);
     }
   }
 }
 
-class SwapOutConfirmWidget extends StatelessWidget {
+class SwapOutConfirmWidget extends StatefulWidget {
   final VoidCallback onConfirm;
-  const SwapOutConfirmWidget({required this.onConfirm, super.key});
+  final bool loading;
+  const SwapOutConfirmWidget({
+    required this.onConfirm,
+    this.loading = false,
+    super.key,
+  });
+
+  @override
+  State<SwapOutConfirmWidget> createState() => _SwapOutConfirmWidgetState();
+}
+
+class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
+  late final Future<SwapOutFees> _feesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _feesFuture = context.read<SwapOutOperation>().estimateFees();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      content: Column(
-        children: [
-          Text('Please confirm to proceed with the swap.'),
-          ElevatedButton(onPressed: onConfirm, child: Text('Confirm')),
-        ],
+      title: 'Withdraw Funds',
+      content: FutureBuilder<SwapOutFees>(
+        future: _feesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Failed to estimate fees: ${snapshot.error}',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            );
+          }
+
+          final fees = snapshot.data!;
+          final baseStyle = Theme.of(context).textTheme.bodySmall!;
+          final subtleStyle = baseStyle.copyWith(
+            fontWeight: FontWeight.w400,
+            color: baseStyle.color?.withValues(alpha: 0.6),
+          );
+
+          return AmountWidget(
+            amount: fees.invoiceAmount.toAmount(),
+            feeWidget: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "+ ${formatAmount(fees.estimatedGasFees.toAmount())} in gas",
+                  style: subtleStyle,
+                ),
+                Text(
+                  "+ ${formatAmount(fees.estimatedSwapFees.toAmount())} in swap fees",
+                  style: subtleStyle,
+                ),
+              ],
+            ),
+            loading: widget.loading,
+            onConfirm: widget.onConfirm,
+          );
+        },
       ),
     );
   }

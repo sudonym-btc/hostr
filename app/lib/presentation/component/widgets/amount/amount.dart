@@ -9,6 +9,8 @@ class AmountWidget extends StatelessWidget {
   final Amount amount;
   final Function onConfirm;
   final Widget? feeWidget;
+  final VoidCallback? onAmountTap;
+  final bool loading;
   const AmountWidget({
     super.key,
     this.to,
@@ -16,6 +18,8 @@ class AmountWidget extends StatelessWidget {
     required this.amount,
     required this.onConfirm,
     this.feeWidget,
+    this.onAmountTap,
+    this.loading = false,
   });
 
   @override
@@ -24,19 +28,32 @@ class AmountWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        toPubkey != null
-            ? ProfileProvider(
-                pubkey: toPubkey!,
-                builder: (context, profile) =>
-                    Text("${profile.data?.metadata.getName() ?? ''}"),
-              )
-            : Text(to!, maxLines: 1, overflow: TextOverflow.ellipsis),
-        SizedBox(height: 8),
-        Text(
-          formatAmount(amount),
-          style: Theme.of(
-            context,
-          ).textTheme.displayMedium!.copyWith(fontWeight: FontWeight.bold),
+        if (toPubkey != null)
+          ProfileProvider(
+            pubkey: toPubkey!,
+            builder: (context, profile) =>
+                Text("${profile.data?.metadata.getName() ?? ''}"),
+          )
+        else if (to != null)
+          Text(to!, maxLines: 1, overflow: TextOverflow.ellipsis),
+        if (toPubkey != null || to != null) SizedBox(height: 8),
+        GestureDetector(
+          onTap: onAmountTap,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                formatAmount(amount),
+                style: Theme.of(context).textTheme.displayMedium!.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (onAmountTap != null) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.edit, size: 16),
+              ],
+            ],
+          ),
         ),
         SizedBox(height: 8),
         feeWidget != null ? feeWidget! : SizedBox.shrink(),
@@ -46,8 +63,17 @@ class AmountWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             FilledButton(
-              onPressed: () => onConfirm(),
-              child: Text(AppLocalizations.of(context)!.ok),
+              onPressed: loading ? null : () => onConfirm(),
+              child: loading
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    )
+                  : Text(AppLocalizations.of(context)!.ok),
             ),
           ],
         ),

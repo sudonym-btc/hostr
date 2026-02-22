@@ -29,7 +29,6 @@ class TradeSubscriptions {
   final List<StreamSubscription> _subscriptions = [];
   bool _started = false;
   StreamWithStatus<Reservation>? reservationStream;
-  StreamWithStatus<PaymentEvent>? paymentEventsStream;
   StreamWithStatus<Reservation>? allReservationsStream;
   StreamWithStatus<Review>? myReviewsStream;
   StreamWithStatus<PaymentEvent>? paymentEvents;
@@ -67,7 +66,6 @@ class TradeSubscriptions {
         },
       ),
     );
-    ;
     final listing = await thread.trade!.getListing();
     paymentEvents = await _buildPaymentEvents(listing: listing);
   }
@@ -75,6 +73,10 @@ class TradeSubscriptions {
   Future<void> stop() async {
     if (!_started) return;
     _started = false;
+
+    logger.d(
+      'Stopping trade subscriptions for thread ${thread.trade!.state.value.tradeId}',
+    );
 
     if (!_dispose$.isClosed) {
       _dispose$.add(null);

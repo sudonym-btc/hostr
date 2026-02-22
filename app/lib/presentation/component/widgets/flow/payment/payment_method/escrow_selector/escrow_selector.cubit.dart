@@ -6,11 +6,9 @@ import 'package:models/main.dart';
 class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
   final ReservationRequest reservationRequest;
   final ProfileMetadata counterparty;
-  final Function(EscrowService) onDone;
   EscrowSelectorCubit({
     required this.reservationRequest,
     required this.counterparty,
-    required this.onDone,
   }) : super(EscrowSelectorLoading());
 
   void load() async {
@@ -39,6 +37,13 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
     }
   }
 
+  void changeSelection(EscrowService escrow) {
+    if (state is EscrowSelectorLoaded) {
+      final loaded = state as EscrowSelectorLoaded;
+      emit(EscrowSelectorLoaded(selectedEscrow: escrow, result: loaded.result));
+    }
+  }
+
   Future<void> select() async {
     if (state is EscrowSelectorLoaded &&
         (state as EscrowSelectorLoaded).selectedEscrow != null) {
@@ -53,12 +58,11 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
               tags: EscrowServiceSelectedTags([]),
               content: EscrowServiceSelectedContent(
                 service: loadedState.selectedEscrow!,
-                sellerTrusts: loadedState.result.hostTrust!,
-                sellerMethods: loadedState.result.hostMethod!,
+                sellerTrusts: loadedState.result.sellerTrust!,
+                sellerMethods: loadedState.result.sellerMethod!,
               ),
             ),
           );
-      onDone(loadedState.selectedEscrow!);
     }
   }
 }
