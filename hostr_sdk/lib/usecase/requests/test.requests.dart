@@ -75,6 +75,7 @@ class TestRequests extends Requests implements RequestsModel {
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
+    String? name,
   }) {
     final subId = 'sub_${_subCounter++}';
     late final _Subscription<T> subscription;
@@ -118,6 +119,7 @@ class TestRequests extends Requests implements RequestsModel {
     required Filter filter,
     List<String>? relays,
     Duration? timeout,
+    String? name,
   }) async* {
     // Return matching events then close
     for (var event in _events) {

@@ -33,11 +33,8 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 
     _subscriptions.add(
       thread.state.listen((threadState) {
-        for (final message in threadState.messages) {
-          addParticipant(message.pubKey);
-          for (final pubKey in message.pTags) {
-            addParticipant(pubKey);
-          }
+        for (final pubkey in threadState.participantPubkeys) {
+          addParticipant(pubkey);
         }
         emit(state.copyWith(threadState: threadState));
       }),

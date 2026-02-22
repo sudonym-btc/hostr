@@ -11,6 +11,11 @@ class EscrowFundSwapProgress extends EscrowFundState {
   EscrowFundSwapProgress(this.swapState);
 }
 
+class EscrowFundDepositing extends EscrowFundState {
+  final String? txHash;
+  EscrowFundDepositing({this.txHash});
+}
+
 class EscrowFundCompleted extends EscrowFundState {
   TransactionInformation transactionInformation;
   EscrowFundCompleted({required this.transactionInformation});

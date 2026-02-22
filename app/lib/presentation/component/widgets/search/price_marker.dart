@@ -31,9 +31,10 @@ class PriceMarkerBuilder {
     TextStyle? textStyle,
     bool showArrow = true,
     double devicePixelRatio = 2.0,
+    double borderWidth = 1.5,
   }) async {
     final cacheKey =
-        '$priceText-${fillColor.value}-${textColor.value}-$showArrow';
+        '$priceText-${fillColor.value}-${textColor.value}-$showArrow-$borderWidth';
     if (_cache.containsKey(cacheKey)) {
       return _cache[cacheKey]!;
     }
@@ -45,6 +46,7 @@ class PriceMarkerBuilder {
       textStyle: textStyle,
       showArrow: showArrow,
       devicePixelRatio: devicePixelRatio,
+      borderWidth: borderWidth,
     );
     _cache[cacheKey] = descriptor;
     return descriptor;
@@ -60,6 +62,7 @@ class PriceMarkerBuilder {
     TextStyle? textStyle,
     required bool showArrow,
     required double devicePixelRatio,
+    required double borderWidth,
   }) async {
     // Render at high resolution for crisp edges on all densities.
     final double renderScale = devicePixelRatio;
@@ -83,15 +86,18 @@ class PriceMarkerBuilder {
     )..layout();
 
     // ── Size the pill ─────────────────────────────────────────────────
-    final borderWidth = 0.6 * renderScale;
+    final scaledBorderWidth = borderWidth * renderScale;
+    // The stroke is painted centered on the path, so half extends outward.
+    final halfBorder = scaledBorderWidth / 2;
     final paddingH = 9.0 * renderScale;
     final paddingV = 5.5 * renderScale;
     final arrowHeight = showArrow ? 5.0 * renderScale : 0.0;
     final arrowHalfWidth = 5.0 * renderScale;
     final pillWidth = textPainter.width + paddingH * 2;
     final pillHeight = textPainter.height + paddingV * 2;
-    final totalWidth = pillWidth;
-    final totalHeight = pillHeight + arrowHeight;
+    // Expand the canvas by the full border width (half on each side).
+    final totalWidth = pillWidth + scaledBorderWidth;
+    final totalHeight = pillHeight + arrowHeight + scaledBorderWidth;
     final radius = pillHeight / 2;
 
     // ── Paint ─────────────────────────────────────────────────────────
@@ -102,11 +108,11 @@ class PriceMarkerBuilder {
       ..color = fillColor
       ..isAntiAlias = true;
 
-    // Build the pill (stadium shape with guaranteed circular ends).
+    // Offset the pill inward by halfBorder so the stroke stays within bounds.
     final pillPath = Path()
       ..addRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(0, 0, pillWidth, pillHeight),
+          Rect.fromLTWH(halfBorder, halfBorder, pillWidth, pillHeight),
           Radius.circular(radius),
         ),
       );
@@ -114,11 +120,13 @@ class PriceMarkerBuilder {
     // Optionally add a small arrow triangle below the pill.
     final Path shape;
     if (showArrow) {
-      final cx = pillWidth / 2;
+      final cx = halfBorder + pillWidth / 2;
+      final arrowTop = halfBorder + pillHeight - 1;
+      final arrowBottom = halfBorder + pillHeight + arrowHeight;
       final arrowPath = Path()
-        ..moveTo(cx - arrowHalfWidth, pillHeight - 1)
-        ..lineTo(cx, totalHeight)
-        ..lineTo(cx + arrowHalfWidth, pillHeight - 1)
+        ..moveTo(cx - arrowHalfWidth, arrowTop)
+        ..lineTo(cx, arrowBottom)
+        ..lineTo(cx + arrowHalfWidth, arrowTop)
         ..close();
       shape = Path.combine(PathOperation.union, pillPath, arrowPath);
     } else {
@@ -131,13 +139,16 @@ class PriceMarkerBuilder {
     final borderPaint = Paint()
       ..color = textColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = borderWidth
+      ..strokeWidth = scaledBorderWidth
       ..strokeJoin = StrokeJoin.round
       ..isAntiAlias = true;
     canvas.drawPath(shape, borderPaint);
 
-    // Text
-    textPainter.paint(canvas, Offset(paddingH, paddingV));
+    // Text — offset by halfBorder so it stays centered inside the pill.
+    textPainter.paint(
+      canvas,
+      Offset(halfBorder + paddingH, halfBorder + paddingV),
+    );
 
     // ── Convert to image bytes ────────────────────────────────────────
     final picture = recorder.endRecording();

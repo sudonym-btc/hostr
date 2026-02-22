@@ -30,6 +30,7 @@ class _ListingViewState extends State<ListingView> {
   @override
   initState() {
     _listingReservationsStream = getIt<Hostr>().reservations.subscribe(
+      name: 'ListingView-reservations',
       Filter(
         tags: {
           kListingRefTag: [widget.a],

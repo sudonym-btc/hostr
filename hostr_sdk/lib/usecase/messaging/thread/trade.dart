@@ -204,17 +204,13 @@ class ThreadTrade {
   void _emitState() {
     if (state.isClosed) return;
 
-    state.add(
-      state.value.copyWith(runtimeReady: false, availableActions: const []),
-    );
-
-    if (state.value.listing == null) {
-      return;
-    }
-
-    if (subscriptions.allReservationsStream == null ||
+    if (state.value.listing == null ||
+        subscriptions.allReservationsStream == null ||
         subscriptions.reservationStream == null ||
         subscriptions.paymentEvents == null) {
+      state.add(
+        state.value.copyWith(runtimeReady: false, availableActions: const []),
+      );
       return;
     }
 

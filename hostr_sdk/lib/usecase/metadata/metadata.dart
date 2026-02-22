@@ -23,6 +23,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
         .query(
           filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 1),
           timeout: metadataLoadTimeout,
+          name: 'Metadata-load-$pubkey',
         )
         .toList();
     if (metadatas.isNotEmpty) {

@@ -6,6 +6,12 @@ class ThreadState {
   final List<Message> messages;
   final List<String> counterpartyPubkeys;
 
+  /// Cached sorted copy of [messages], recomputed only when messages change.
+  final List<Message> sortedMessages;
+
+  /// Cached set of all pubkeys that appear in messages, recomputed only when messages change.
+  final List<String> participantPubkeys;
+
   List<EscrowServiceSelected> get selectedEscrows {
     final items = messages
         .map((message) => message.child)
@@ -33,7 +39,7 @@ class ThreadState {
   List<Message> get textMessages =>
       messages.where((message) => message.child == null).toList();
 
-  List<String> get participantPubkeys {
+  static List<String> _computeParticipantPubkeys(List<Message> messages) {
     final pubkeys = <String>{};
     for (final msg in messages) {
       pubkeys.add(msg.pubKey);
@@ -63,7 +69,7 @@ class ThreadState {
     throw Exception('No messages or reservation requests found in thread');
   }
 
-  List<Message> get sortedMessages {
+  static List<Message> _computeSortedMessages(List<Message> messages) {
     final msgs = [...messages];
     msgs.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return msgs;
@@ -86,12 +92,16 @@ class ThreadState {
     return latest?.pubKey == ourPubkey;
   }
 
-  const ThreadState({
+  ThreadState({
     required this.ourPubkey,
     required this.anchor,
     required this.messages,
     required this.counterpartyPubkeys,
-  });
+    List<Message>? sortedMessages,
+    List<String>? participantPubkeys,
+  }) : sortedMessages = sortedMessages ?? _computeSortedMessages(messages),
+       participantPubkeys =
+           participantPubkeys ?? _computeParticipantPubkeys(messages);
 
   factory ThreadState.initial({
     required String ourPubkey,
@@ -102,6 +112,8 @@ class ThreadState {
       anchor: anchor,
       messages: const [],
       counterpartyPubkeys: [],
+      sortedMessages: const [],
+      participantPubkeys: const [],
     );
   }
 
@@ -116,11 +128,15 @@ class ThreadState {
     List<Message>? messages,
     List<String>? counterpartyPubkeys,
   }) {
+    final newMessages = messages ?? this.messages;
+    final messagesChanged = !identical(newMessages, this.messages);
     return ThreadState(
       ourPubkey: ourPubkey,
       anchor: anchor,
-      messages: messages ?? this.messages,
+      messages: newMessages,
       counterpartyPubkeys: counterpartyPubkeys ?? this.counterpartyPubkeys,
+      sortedMessages: messagesChanged ? null : sortedMessages,
+      participantPubkeys: messagesChanged ? null : participantPubkeys,
     );
   }
 }

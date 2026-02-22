@@ -84,14 +84,33 @@ class Relays {
 
   /// Publishes the user's NIP-65 relay list, ensuring the given
   /// [hostrRelay] is included with read+write markers.
-  Future<void> publishNip65({required String hostrRelay}) async {
+  Future<void> publishNip65({
+    required String hostrRelay,
+    required String pubkey,
+  }) async {
     logger.i('Publishing NIP-65 relay list with hostr relay: $hostrRelay');
     try {
+      final before = await ndk.userRelayLists.getSingleUserRelayList(pubkey);
+      if (before != null) {
+        logger.d(
+          'NIP-65 before publish: ${before.relays.entries.map((e) => '${e.key} → ${e.value}').join(', ')}',
+        );
+      } else {
+        logger.d('NIP-65 before publish: no existing list');
+      }
+
       await ndk.userRelayLists.broadcastAddNip65Relay(
         relayUrl: hostrRelay,
         marker: ReadWriteMarker.readWrite,
         broadcastRelays: ndk.relays.connectedRelays.map((r) => r.url),
       );
+
+      final after = await ndk.userRelayLists.getSingleUserRelayList(pubkey);
+      if (after != null) {
+        logger.d(
+          'NIP-65 after publish: ${after.relays.entries.map((e) => '${e.key} → ${e.value}').join(', ')}',
+        );
+      }
     } catch (e) {
       logger.e('Error publishing NIP-65 relay list: $e');
     }

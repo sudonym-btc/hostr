@@ -54,16 +54,19 @@ Future<void> setupBackgroundAndMainCommon(String env) async {
   // This must happen regardless of auth state so the app can read
   // public data (listings, profiles, etc.) before the user logs in.
   unawaited(
-    getIt<Hostr>().relays.connect().catchError((e) {
-      getIt<Hostr>().logger.w('Initial relay connection failed: $e');
-      // Retry once after a short delay — cold start over wireless debug
-      // can fail the first attempt if the network stack isn't fully ready.
-      return Future.delayed(const Duration(seconds: 3), () {
-        return getIt<Hostr>().relays.connect();
-      });
-    }).catchError((e) {
-      getIt<Hostr>().logger.e('Relay connection retry also failed: $e');
-    }),
+    getIt<Hostr>().relays
+        .connect()
+        .catchError((e) {
+          getIt<Hostr>().logger.w('Initial relay connection failed: $e');
+          // Retry once after a short delay — cold start over wireless debug
+          // can fail the first attempt if the network stack isn't fully ready.
+          return Future.delayed(const Duration(seconds: 3), () {
+            return getIt<Hostr>().relays.connect();
+          });
+        })
+        .catchError((e) {
+          getIt<Hostr>().logger.e('Relay connection retry also failed: $e');
+        }),
   );
 }
 

@@ -146,6 +146,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
   initState() {
     super.initState();
     _reservationsStream = getIt<Hostr>().reservations.subscribe(
+      name: 'ListingListItem-${widget.listing.anchor}-reservations',
       Filter(
         tags: {
           kListingRefTag: [widget.listing.anchor!],
