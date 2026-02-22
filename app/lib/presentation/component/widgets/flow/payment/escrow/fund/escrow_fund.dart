@@ -109,6 +109,8 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
                             _fundOperation!.execute();
                           },
                         );
+                      case EscrowFundDepositing():
+                        return EscrowFundDepositingWidget(fundState);
                       case EscrowFundSwapProgress():
                         return EscrowFundProgressWidget(fundState);
                       case EscrowFundCompleted():
@@ -128,9 +130,27 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
   }
 }
 
-class EscrowFundConfirmWidget extends StatelessWidget {
-  final VoidCallback onConfirm;
+class EscrowFundConfirmWidget extends StatefulWidget {
+  final Future<void> Function() onConfirm;
   const EscrowFundConfirmWidget({required this.onConfirm, super.key});
+
+  @override
+  State<EscrowFundConfirmWidget> createState() =>
+      _EscrowFundConfirmWidgetState();
+}
+
+class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
+  bool _loading = false;
+
+  Future<void> _handleConfirm() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onConfirm();
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +164,7 @@ class EscrowFundConfirmWidget extends StatelessWidget {
           SizedBox(height: 16),
           AmountWidget(
             amount: context.read<EscrowFundOperation>().params.amount,
+            loading: _loading,
             feeWidget: FutureBuilder(
               future: context.read<EscrowFundOperation>().estimateFees(),
               builder: (context, snapshot) {
@@ -172,7 +193,7 @@ class EscrowFundConfirmWidget extends StatelessWidget {
                 );
               },
             ),
-            onConfirm: onConfirm,
+            onConfirm: _handleConfirm,
           ),
         ],
       ),
@@ -187,6 +208,35 @@ class EscrowFundProgressWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SwapInViewWidget(progress.swapState);
+  }
+}
+
+class EscrowFundDepositingWidget extends StatelessWidget {
+  final EscrowFundDepositing state;
+  const EscrowFundDepositingWidget(this.state, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ModalBottomSheet(
+      type: ModalBottomSheetType.normal,
+      title: 'Depositing Funds',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 16),
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text(
+            state.txHash != null
+                ? 'Waiting for on-chain confirmation...'
+                : 'Submitting deposit transaction...',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 16),
+        ],
+      ),
+    );
   }
 }
 

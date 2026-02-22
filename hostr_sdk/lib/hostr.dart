@@ -44,8 +44,9 @@ class Hostr {
     auth.init();
 
     _authStateSubscription = auth.authState.listen((state) async {
+      logger.d('Auth state changed: $state');
       if (state is LoggedIn) {
-        final pubkey = auth.activeKeyPair!.publicKey;
+        final pubkey = auth.getActiveKey().publicKey;
 
         // Fetch the user's NIP-65 relay list and connect to those relays.
         // This also populates NDK's cache so the outbox/inbox model works
@@ -53,7 +54,10 @@ class Hostr {
         await relays.syncNip65(pubkey);
 
         // Ensure the hostr relay is in the user's published NIP-65 list.
-        await relays.publishNip65(hostrRelay: config.hostrRelay);
+        await relays.publishNip65(
+          hostrRelay: config.hostrRelay,
+          pubkey: pubkey,
+        );
 
         messaging.threads.sync();
 

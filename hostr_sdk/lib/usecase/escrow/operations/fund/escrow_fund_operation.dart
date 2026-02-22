@@ -60,9 +60,11 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
         'Creating escrow for tradeId ${params.toContractParams(auth.getActiveEvmKey()).tradeId} at ${params.escrowService.parsedContent.contractAddress}',
       );
       await _swapRequiredAmount();
+      emit(EscrowFundDepositing());
       TransactionInformation tx = await contract.deposit(contractParams);
       final txHash = _extractTxHash(tx);
       if (txHash != null) {
+        emit(EscrowFundDepositing(txHash: txHash));
         final receipt = await chain.awaitReceipt(txHash);
         if (!_isReceiptSuccessful(receipt)) {
           throw StateError(

@@ -16,16 +16,24 @@ var compactFormat = (bool fiat) => NumberFormat.compact(locale: "en_US");
 
 final _commaFormat = NumberFormat('#,##0', 'en_US');
 
-String formatAmount(Amount amount, {exact = false}) {
+String formatAmount(Amount amount, {bool exact = true}) {
   String prefix = '${amount.currency.prefix} ';
 
   if (amount.currency == Currency.BTC) {
-    final value = _commaFormat.format(amount.value.toInt());
+    final sats = amount.value.toInt();
+    final value = exact
+        ? _commaFormat.format(sats)
+        : compactFormat(false).format(sats);
     return '$prefix$value${amount.currency.suffix}';
   }
 
   var amountAsDouble =
       amount.value / BigInt.from(10).pow(amount.currency.decimals);
+
+  if (!exact) {
+    final value = compactFormat(true).format(amountAsDouble);
+    return '$prefix$value${amount.currency.suffix}';
+  }
 
   final value = trimTrailingZeros(
     format(amount.currency == Currency.USD).format(amountAsDouble),

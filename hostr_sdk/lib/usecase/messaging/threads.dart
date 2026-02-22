@@ -63,7 +63,10 @@ class Threads extends HydratedCubit<List<Message>> {
     logger.d(
       'Subscribing to message gift-wraps with filter: $filter since ${getMostRecentTimestamp()}',
     );
-    subscription = requests.subscribe<Message>(filter: filter);
+    subscription = requests.subscribe<Message>(
+      name: 'Threads-subscription',
+      filter: filter,
+    );
     _statusSubscription?.cancel();
     _statusSubscription = subscription!.status.listen((status) {
       _statusSubject.add(status);

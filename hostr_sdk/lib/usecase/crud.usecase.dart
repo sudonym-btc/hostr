@@ -32,9 +32,10 @@ class CrudUseCase<T extends Nip01Event> {
   /// trigger refresh in consuming widgets.
   void notifyUpdate(T event) => _updates.add(event);
 
-  StreamWithStatus<T> subscribe(Filter f) {
+  StreamWithStatus<T> subscribe(Filter f, {String? name}) {
     return requests.subscribe(
       filter: getCombinedFilter(f, Filter(kinds: [kind])),
+      name: name != null ? '$T-$name' : '$T',
     );
   }
 
@@ -59,15 +60,19 @@ class CrudUseCase<T extends Nip01Event> {
     });
   }
 
-  Future<List<T>> list(Filter f) {
+  Future<List<T>> list(Filter f, {String? name}) {
     return requests
-        .query<T>(filter: getCombinedFilter(f, Filter(kinds: [kind])))
+        .query<T>(
+          filter: getCombinedFilter(f, Filter(kinds: [kind])),
+          name: '$T-list${name != null ? '-$name' : ''}',
+        )
         .toList();
   }
 
   Future<T?> getOne(Filter f) async {
     await for (final event in requests.query<T>(
       filter: getCombinedFilter(f, Filter(kinds: [kind], limit: 1)),
+      name: '$T-getOne',
     )) {
       return event;
     }
@@ -88,6 +93,7 @@ class CrudUseCase<T extends Nip01Event> {
     return requests
         .query<T>(
           filter: Filter(kinds: [kind], ids: [id], limit: 1),
+          name: '$T-getById',
         )
         .first;
   }

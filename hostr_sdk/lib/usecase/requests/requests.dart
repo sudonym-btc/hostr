@@ -15,10 +15,12 @@ abstract class RequestsModel {
     required Filter filter,
     Duration? timeout,
     List<String>? relays,
+    String? name,
   });
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
+    String? name,
   });
   Future<int> count({
     required Filter filter,
@@ -45,9 +47,16 @@ class Requests extends RequestsModel {
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
+    String? name,
   }) {
-    final ndkSubName = "sub-${Helpers.getRandomString(10)}";
-
+    final ndkSubName = name != null
+        ? "$name-${Helpers.getRandomString(5)}"
+        : "sub-${Helpers.getRandomString(10)}";
+    if (name == null) {
+      throw ArgumentError(
+        'Name is required for subscribe to ensure proper cleanup of subscriptions. Please provide a name like "MyEntity-sub"',
+      );
+    }
     final response = StreamWithStatus<T>(
       onClose: () async {
         await ndk.requests.closeSubscription(ndkSubName);
@@ -58,7 +67,12 @@ class Requests extends RequestsModel {
 
     // @todo: should i be using queryFn, liveFn, which automatically cancels subscriptions, rather than adding the subscription manually here.
     final subscription = ndk.requests
-        .query(filter: cleanTags(filter), cacheRead: true, cacheWrite: true)
+        .query(
+          name: name != null ? '$name-q' : 'q-${Helpers.getRandomString(5)}',
+          filter: cleanTags(filter),
+          cacheRead: true,
+          cacheWrite: true,
+        )
         .stream
         .doOnDone(() => response.addStatus(StreamStatusQueryComplete()))
         .concatWith([
@@ -97,9 +111,11 @@ class Requests extends RequestsModel {
     required Filter filter,
     List<String>? relays,
     Duration? timeout,
+    String? name,
   }) {
     return ndk.requests
         .query(
+          name: name ?? "query-${Helpers.getRandomString(5)}",
           filter: cleanTags(filter),
           cacheRead: useCache,
           cacheWrite: true,

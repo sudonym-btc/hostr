@@ -441,17 +441,20 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
   _i7.StreamWithStatus<T> subscribe<T extends _i2.Nip01Event>({
     required _i2.Filter? filter,
     List<String>? relays,
+    String? name,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#subscribe, [], {
               #filter: filter,
               #relays: relays,
+              #name: name,
             }),
             returnValue: _FakeStreamWithStatus_5<T>(
               this,
               Invocation.method(#subscribe, [], {
                 #filter: filter,
                 #relays: relays,
+                #name: name,
               }),
             ),
           )
@@ -462,12 +465,14 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
     required _i2.Filter? filter,
     List<String>? relays,
     Duration? timeout,
+    String? name,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#query, [], {
               #filter: filter,
               #relays: relays,
               #timeout: timeout,
+              #name: name,
             }),
             returnValue: _i13.Stream<T>.empty(),
           )
@@ -593,12 +598,15 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
   );
 
   @override
-  _i7.StreamWithStatus<_i9.ProfileMetadata> subscribe(_i2.Filter? f) =>
+  _i7.StreamWithStatus<_i9.ProfileMetadata> subscribe(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#subscribe, [f]),
+            Invocation.method(#subscribe, [f], {#name: name}),
             returnValue: _FakeStreamWithStatus_5<_i9.ProfileMetadata>(
               this,
-              Invocation.method(#subscribe, [f]),
+              Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.ProfileMetadata>);
@@ -640,9 +648,9 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i9.ProfileMetadata>> list(_i2.Filter? f) =>
+  _i13.Future<List<_i9.ProfileMetadata>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#list, [f]),
+            Invocation.method(#list, [f], {#name: name}),
             returnValue: _i13.Future<List<_i9.ProfileMetadata>>.value(
               <_i9.ProfileMetadata>[],
             ),
@@ -1048,12 +1056,12 @@ class MockListings extends _i1.Mock implements _i8.Listings {
   );
 
   @override
-  _i7.StreamWithStatus<_i9.Listing> subscribe(_i2.Filter? f) =>
+  _i7.StreamWithStatus<_i9.Listing> subscribe(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#subscribe, [f]),
+            Invocation.method(#subscribe, [f], {#name: name}),
             returnValue: _FakeStreamWithStatus_5<_i9.Listing>(
               this,
-              Invocation.method(#subscribe, [f]),
+              Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.Listing>);
@@ -1089,9 +1097,9 @@ class MockListings extends _i1.Mock implements _i8.Listings {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i9.Listing>> list(_i2.Filter? f) =>
+  _i13.Future<List<_i9.Listing>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#list, [f]),
+            Invocation.method(#list, [f], {#name: name}),
             returnValue: _i13.Future<List<_i9.Listing>>.value(<_i9.Listing>[]),
           )
           as _i13.Future<List<_i9.Listing>>);
@@ -1378,12 +1386,15 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
   );
 
   @override
-  _i7.StreamWithStatus<_i9.Reservation> subscribe(_i2.Filter? f) =>
+  _i7.StreamWithStatus<_i9.Reservation> subscribe(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#subscribe, [f]),
+            Invocation.method(#subscribe, [f], {#name: name}),
             returnValue: _FakeStreamWithStatus_5<_i9.Reservation>(
               this,
-              Invocation.method(#subscribe, [f]),
+              Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.Reservation>);
@@ -1425,9 +1436,9 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i9.Reservation>> list(_i2.Filter? f) =>
+  _i13.Future<List<_i9.Reservation>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#list, [f]),
+            Invocation.method(#list, [f], {#name: name}),
             returnValue: _i13.Future<List<_i9.Reservation>>.value(
               <_i9.Reservation>[],
             ),
@@ -1650,12 +1661,15 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
   );
 
   @override
-  _i7.StreamWithStatus<_i9.EscrowService> subscribe(_i2.Filter? f) =>
+  _i7.StreamWithStatus<_i9.EscrowService> subscribe(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#subscribe, [f]),
+            Invocation.method(#subscribe, [f], {#name: name}),
             returnValue: _FakeStreamWithStatus_5<_i9.EscrowService>(
               this,
-              Invocation.method(#subscribe, [f]),
+              Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.EscrowService>);
@@ -1697,9 +1711,9 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i9.EscrowService>> list(_i2.Filter? f) =>
+  _i13.Future<List<_i9.EscrowService>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#list, [f]),
+            Invocation.method(#list, [f], {#name: name}),
             returnValue: _i13.Future<List<_i9.EscrowService>>.value(
               <_i9.EscrowService>[],
             ),
@@ -1808,12 +1822,15 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
   );
 
   @override
-  _i7.StreamWithStatus<_i9.EscrowTrust> subscribe(_i2.Filter? f) =>
+  _i7.StreamWithStatus<_i9.EscrowTrust> subscribe(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#subscribe, [f]),
+            Invocation.method(#subscribe, [f], {#name: name}),
             returnValue: _FakeStreamWithStatus_5<_i9.EscrowTrust>(
               this,
-              Invocation.method(#subscribe, [f]),
+              Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.EscrowTrust>);
@@ -1855,9 +1872,9 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i9.EscrowTrust>> list(_i2.Filter? f) =>
+  _i13.Future<List<_i9.EscrowTrust>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#list, [f]),
+            Invocation.method(#list, [f], {#name: name}),
             returnValue: _i13.Future<List<_i9.EscrowTrust>>.value(
               <_i9.EscrowTrust>[],
             ),
@@ -1959,12 +1976,15 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
   );
 
   @override
-  _i7.StreamWithStatus<_i9.EscrowMethod> subscribe(_i2.Filter? f) =>
+  _i7.StreamWithStatus<_i9.EscrowMethod> subscribe(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#subscribe, [f]),
+            Invocation.method(#subscribe, [f], {#name: name}),
             returnValue: _FakeStreamWithStatus_5<_i9.EscrowMethod>(
               this,
-              Invocation.method(#subscribe, [f]),
+              Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.EscrowMethod>);
@@ -2006,9 +2026,9 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i9.EscrowMethod>> list(_i2.Filter? f) =>
+  _i13.Future<List<_i9.EscrowMethod>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#list, [f]),
+            Invocation.method(#list, [f], {#name: name}),
             returnValue: _i13.Future<List<_i9.EscrowMethod>>.value(
               <_i9.EscrowMethod>[],
             ),
@@ -2093,12 +2113,15 @@ class MockBadgeDefinitions extends _i1.Mock implements _i8.BadgeDefinitions {
   );
 
   @override
-  _i7.StreamWithStatus<_i9.BadgeDefinition> subscribe(_i2.Filter? f) =>
+  _i7.StreamWithStatus<_i9.BadgeDefinition> subscribe(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#subscribe, [f]),
+            Invocation.method(#subscribe, [f], {#name: name}),
             returnValue: _FakeStreamWithStatus_5<_i9.BadgeDefinition>(
               this,
-              Invocation.method(#subscribe, [f]),
+              Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.BadgeDefinition>);
@@ -2140,9 +2163,9 @@ class MockBadgeDefinitions extends _i1.Mock implements _i8.BadgeDefinitions {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i9.BadgeDefinition>> list(_i2.Filter? f) =>
+  _i13.Future<List<_i9.BadgeDefinition>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#list, [f]),
+            Invocation.method(#list, [f], {#name: name}),
             returnValue: _i13.Future<List<_i9.BadgeDefinition>>.value(
               <_i9.BadgeDefinition>[],
             ),
@@ -2227,12 +2250,15 @@ class MockBadgeAwards extends _i1.Mock implements _i8.BadgeAwards {
   );
 
   @override
-  _i7.StreamWithStatus<_i9.BadgeAward> subscribe(_i2.Filter? f) =>
+  _i7.StreamWithStatus<_i9.BadgeAward> subscribe(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#subscribe, [f]),
+            Invocation.method(#subscribe, [f], {#name: name}),
             returnValue: _FakeStreamWithStatus_5<_i9.BadgeAward>(
               this,
-              Invocation.method(#subscribe, [f]),
+              Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.BadgeAward>);
@@ -2274,9 +2300,9 @@ class MockBadgeAwards extends _i1.Mock implements _i8.BadgeAwards {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i9.BadgeAward>> list(_i2.Filter? f) =>
+  _i13.Future<List<_i9.BadgeAward>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#list, [f]),
+            Invocation.method(#list, [f], {#name: name}),
             returnValue: _i13.Future<List<_i9.BadgeAward>>.value(
               <_i9.BadgeAward>[],
             ),
@@ -2560,12 +2586,15 @@ class MockReservationRequests extends _i1.Mock
   );
 
   @override
-  _i7.StreamWithStatus<_i2.Nip01Event> subscribe(_i2.Filter? f) =>
+  _i7.StreamWithStatus<_i2.Nip01Event> subscribe(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#subscribe, [f]),
+            Invocation.method(#subscribe, [f], {#name: name}),
             returnValue: _FakeStreamWithStatus_5<_i2.Nip01Event>(
               this,
-              Invocation.method(#subscribe, [f]),
+              Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i2.Nip01Event>);
@@ -2607,9 +2636,9 @@ class MockReservationRequests extends _i1.Mock
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i2.Nip01Event>> list(_i2.Filter? f) =>
+  _i13.Future<List<_i2.Nip01Event>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#list, [f]),
+            Invocation.method(#list, [f], {#name: name}),
             returnValue: _i13.Future<List<_i2.Nip01Event>>.value(
               <_i2.Nip01Event>[],
             ),
@@ -2924,9 +2953,15 @@ class MockRelays extends _i1.Mock implements _i8.Relays {
           as _i13.Future<void>);
 
   @override
-  _i13.Future<void> publishNip65({required String? hostrRelay}) =>
+  _i13.Future<void> publishNip65({
+    required String? hostrRelay,
+    required String? pubkey,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#publishNip65, [], {#hostrRelay: hostrRelay}),
+            Invocation.method(#publishNip65, [], {
+              #hostrRelay: hostrRelay,
+              #pubkey: pubkey,
+            }),
             returnValue: _i13.Future<void>.value(),
             returnValueForMissingStub: _i13.Future<void>.value(),
           )

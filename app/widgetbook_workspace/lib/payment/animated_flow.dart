@@ -245,7 +245,9 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
     builder: (context, state) {
       switch (state) {
         case EscrowFundInitialised():
-          return EscrowFundConfirmWidget(onConfirm: () {});
+          return EscrowFundConfirmWidget(onConfirm: () async {});
+        case EscrowFundDepositing():
+          return EscrowFundDepositingWidget(state);
         case EscrowFundSwapProgress():
           return EscrowFundProgressWidget(state);
         case EscrowFundCompleted():

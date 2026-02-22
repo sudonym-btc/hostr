@@ -43,6 +43,7 @@ class TradeSubscriptions {
 
     // Explicit initialization so callers can control lifecycle clearly.
     allReservationsStream = reservations.subscribe(
+      name: 'trade-sub-${thread.trade!.state.value.tradeId}-all-reservations',
       Filter(
         tags: {
           kListingRefTag: [thread.trade!.getListingAnchor()],
@@ -51,6 +52,7 @@ class TradeSubscriptions {
     );
     // @todo, just filter all reservations for the listing above
     reservationStream = reservations.subscribe(
+      name: 'trade-sub-${thread.trade!.state.value.tradeId}-reservations',
       Filter(
         tags: {
           kListingRefTag: [thread.trade!.getListingAnchor()],
@@ -59,6 +61,7 @@ class TradeSubscriptions {
       ),
     );
     myReviewsStream = reviews.subscribe(
+      name: 'trade-sub-${thread.trade!.state.value.tradeId}-reviews',
       Filter(
         tags: {
           kListingRefTag: [thread.trade!.getListingAnchor()],
