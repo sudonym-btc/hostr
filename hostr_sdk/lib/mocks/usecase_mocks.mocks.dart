@@ -2831,6 +2831,14 @@ class MockEvm extends _i1.Mock implements _i8.Evm {
             ),
           )
           as _i13.Future<_i8.EvmChain>);
+
+  @override
+  _i13.Future<int> recoverStaleSwaps() =>
+      (super.noSuchMethod(
+            Invocation.method(#recoverStaleSwaps, []),
+            returnValue: _i13.Future<int>.value(0),
+          )
+          as _i13.Future<int>);
 }
 
 /// A class which mocks [Relays].

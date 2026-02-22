@@ -12,6 +12,7 @@
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:hostr_sdk/config.dart' as _i910;
 import 'package:hostr_sdk/datasources/boltz/boltz.dart' as _i350;
+import 'package:hostr_sdk/datasources/storage.dart' as _i111;
 import 'package:hostr_sdk/hostr_sdk.dart' as _i520;
 import 'package:hostr_sdk/injection.dart' as _i231;
 import 'package:hostr_sdk/usecase/auth/auth.dart' as _i1000;
@@ -37,6 +38,9 @@ import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
 import 'package:hostr_sdk/usecase/evm/main.dart' as _i785;
 import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart'
     as _i677;
+import 'package:hostr_sdk/usecase/evm/operations/swap_recovery_service.dart'
+    as _i71;
+import 'package:hostr_sdk/usecase/evm/operations/swap_store.dart' as _i82;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
 import 'package:hostr_sdk/usecase/location/location.dart' as _i56;
 import 'package:hostr_sdk/usecase/messaging/messaging.dart' as _i1019;
@@ -95,6 +99,7 @@ extension GetItInjectableX on _i174.GetIt {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final hostrSdkModule = _$HostrSdkModule();
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
+    gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
     gh.singleton<_i331.CustomLogger>(() => hostrSdkModule.logger);
     gh.singleton<_i857.Ndk>(() => hostrSdkModule.ndk(gh<_i910.HostrConfig>()));
     gh.singleton<_i218.AuthStorage>(
@@ -114,6 +119,10 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i56.Location>(
       () => _i56.Location(logger: gh<_i331.CustomLogger>()),
+    );
+    gh.singleton<_i82.SwapStore>(
+      () =>
+          _i82.SwapStore(gh<_i111.KeyValueStorage>(), gh<_i331.CustomLogger>()),
     );
     gh.singleton<_i1014.Requests>(
       () => _i200.TestRequests(ndk: gh<_i857.Ndk>()),
@@ -181,6 +190,13 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
       registerFor: {_dev, _staging, _prod},
+    );
+    gh.factory<_i71.SwapRecoveryService>(
+      () => _i71.SwapRecoveryService(
+        gh<_i82.SwapStore>(),
+        gh<_i350.BoltzClient>(),
+        gh<_i372.CustomLogger>(),
+      ),
     );
     gh.singleton<_i445.EscrowMethods>(
       () => _i445.EscrowMethods(

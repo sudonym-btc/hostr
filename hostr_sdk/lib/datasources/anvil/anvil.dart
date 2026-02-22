@@ -41,6 +41,16 @@ class AnvilClient {
     await rpcCall(method: 'evm_mine', params: const []);
   }
 
+  /// Enable or disable auto-mining (a block per transaction).
+  Future<bool> setAutomine(bool enabled) =>
+      rpcCall(method: 'evm_setAutomine', params: [enabled]);
+
+  /// Mine a new block every [seconds] seconds.
+  ///
+  /// Setting [seconds] to `0` disables interval mining.
+  Future<bool> setIntervalMining(int seconds) =>
+      rpcCall(method: 'evm_setIntervalMining', params: [seconds]);
+
   Future<bool> rpcCall({
     required String method,
     List<dynamic> params = const [],

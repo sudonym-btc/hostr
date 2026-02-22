@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -49,7 +50,21 @@ Future<void> setupBackgroundAndMainCommon(String env) async {
 
   // Restore NDK session from stored keys before connecting relays.
   await getIt<Hostr>().auth.init();
-  await getIt<Hostr>().relays.connect();
+  // Connect to bootstrap relays without blocking app startup.
+  // This must happen regardless of auth state so the app can read
+  // public data (listings, profiles, etc.) before the user logs in.
+  unawaited(
+    getIt<Hostr>().relays.connect().catchError((e) {
+      getIt<Hostr>().logger.w('Initial relay connection failed: $e');
+      // Retry once after a short delay — cold start over wireless debug
+      // can fail the first attempt if the network stack isn't fully ready.
+      return Future.delayed(const Duration(seconds: 3), () {
+        return getIt<Hostr>().relays.connect();
+      });
+    }).catchError((e) {
+      getIt<Hostr>().logger.e('Relay connection retry also failed: $e');
+    }),
+  );
 }
 
 const String _environmentPrefsKey = 'hostr.env';
@@ -69,9 +84,15 @@ Future<void> setupBackground(String env) async {
 }
 
 void setupWorkmanager() {
-  Workmanager().initialize(callbackDispatcher);
-  Workmanager().registerOneOffTask(iOSBackgroundAppRefresh, "simpleTask");
-  Workmanager().registerPeriodicTask(iOSBackgroundAppRefresh, 'sync');
+  Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+  // Only register periodic/processing tasks — don't register a one-off task
+  // every launch, as that triggers an immediate background execution.
+  // Use ExistingWorkPolicy.keep to avoid re-registering on every cold start.
+  Workmanager().registerPeriodicTask(
+    iOSBackgroundAppRefresh,
+    'sync',
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+  );
   Workmanager().registerProcessingTask(iOSBackgroundProcessingTask, 'sync');
 }
 

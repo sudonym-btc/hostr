@@ -23,6 +23,10 @@ Future<List<SeedThread>> buildThreads({
   final threads = <SeedThread>[];
   var threadIndex = 0;
 
+  // Fetch chain time once — no blocks are mined during this stage.
+  final chainNow = (await ctx.chainClient().getBlockInformation()).timestamp
+      .toUtc();
+
   for (final guest in guests) {
     final threadCount =
         guest.spec?.threadCount ?? config.reservationRequestsPerGuest;
@@ -45,8 +49,6 @@ Future<List<SeedThread>> buildThreads({
         continue;
       }
 
-      final chainNow = (await ctx.chainClient().getBlockInformation()).timestamp
-          .toUtc();
       final isFutureReservation = ctx.pickByRatio(0.5);
       final stayDays = 1 + ctx.random.nextInt(6);
       late final DateTime start;

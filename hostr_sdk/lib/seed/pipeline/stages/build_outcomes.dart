@@ -31,13 +31,21 @@ Future<void> buildOutcomes({
   required EscrowService escrowService,
   required Map<String, EscrowTrust> trustByPubkey,
   required Map<String, EscrowMethod> methodByPubkey,
+  DateTime? chainNow,
 }) async {
+  final sw = Stopwatch()..start();
+
+  // Use provided chainNow or fetch from chain.
+  chainNow ??= (await ctx.chainClient().getBlockInformation()).timestamp
+      .toUtc();
+
+  // ── Phase 0: Decide outcomes deterministically (preserves Random
+  //    call sequence so seed data stays stable).
+  final plans = <_ThreadPlan>[];
   for (var i = 0; i < threads.length; i++) {
     final thread = threads[i];
     final spec = thread.stageSpec;
 
-    final chainNow = (await ctx.chainClient().getBlockInformation()).timestamp
-        .toUtc();
     final reservationEndedInPast = !thread.end.isAfter(chainNow);
 
     final isCompleted = ctx.pickByRatio(spec.completedRatio);
@@ -46,81 +54,164 @@ Future<void> buildOutcomes({
     final shouldUseEscrow =
         thread.host.hasEvm && ctx.pickByRatio(spec.paidViaEscrowRatio);
 
-    final hostProfile = profileByPubkey[thread.host.keyPair.publicKey];
-    PaymentProof? proof;
     EscrowOutcome? escrowOutcome;
-
     if (shouldUseEscrow) {
-      final outcome = _pickEscrowOutcome(
+      escrowOutcome = _pickEscrowOutcome(
         ctx: ctx,
         spec: spec,
         allowClaimedByHost: reservationEndedInPast,
       );
-      escrowOutcome = outcome;
+    }
 
-      final trust = trustByPubkey[thread.host.keyPair.publicKey];
-      final method = methodByPubkey[thread.host.keyPair.publicKey];
+    final isSelfSigned = ctx.pickByRatio(spec.selfSignedReservationRatio);
 
-      if (trust != null && method != null) {
-        final escrowProof = await _createEscrowProof(
-          ctx: ctx,
-          threadIndex: i + 1,
-          request: thread.request,
-          host: thread.host,
-          guest: thread.guest,
-          outcome: outcome,
-          escrowService: escrowService,
-          trust: trust,
-          method: method,
-        );
+    plans.add(
+      _ThreadPlan(
+        index: i,
+        thread: thread,
+        useEscrow: shouldUseEscrow,
+        escrowOutcome: escrowOutcome,
+        selfSigned: isSelfSigned,
+        trust: shouldUseEscrow
+            ? trustByPubkey[thread.host.keyPair.publicKey]
+            : null,
+        method: shouldUseEscrow
+            ? methodByPubkey[thread.host.keyPair.publicKey]
+            : null,
+      ),
+    );
+  }
 
-        proof = PaymentProof(
-          hoster: hostProfile ?? MOCK_PROFILES.first,
-          listing: thread.listing,
-          zapProof: null,
-          escrowProof: escrowProof,
-        );
+  // ── Phase 1: Zap paths (no RPC, pure event construction) ──
+  for (final plan in plans.where((p) => !p.useEscrow)) {
+    final hostProfile = profileByPubkey[plan.thread.host.keyPair.publicKey];
+    plan.thread.zapReceipt = _buildZapReceipt(
+      ctx: ctx,
+      threadIndex: plan.index + 1,
+      commitmentHash: plan.thread.commitmentHash,
+      request: plan.thread.request,
+      listing: plan.thread.listing,
+      host: plan.thread.host,
+      guest: plan.thread.guest,
+      hostProfile: hostProfile,
+    );
+  }
+
+  // ── Phase 2: Create escrow trades — parallel by guest (nonce-safe) ──
+  final escrowPlans = plans
+      .where((p) => p.useEscrow && p.trust != null && p.method != null)
+      .toList();
+
+  print(
+    '[seed][escrow] Phase 0+1 (decisions + zaps): '
+    '${sw.elapsedMilliseconds} ms',
+  );
+
+  if (escrowPlans.isNotEmpty) {
+    final byGuest = <String, List<_ThreadPlan>>{};
+    for (final plan in escrowPlans) {
+      byGuest
+          .putIfAbsent(plan.thread.guest.keyPair.privateKey!, () => [])
+          .add(plan);
+    }
+
+    print(
+      '[seed][escrow] Creating ${escrowPlans.length} trades across '
+      '${byGuest.length} guest(s) in parallel...',
+    );
+
+    await Future.wait(
+      byGuest.values.map((group) async {
+        for (final plan in group) {
+          await _createTradeForPlan(
+            ctx: ctx,
+            plan: plan,
+            escrowService: escrowService,
+          );
+        }
+      }),
+    );
+
+    // ── Phase 3: Settle trades — parallel by settlement sender ──
+    final toSettle = escrowPlans.where((p) => p.needsSettlement).toList();
+
+    if (toSettle.isNotEmpty) {
+      final bySettler = <String, List<_ThreadPlan>>{};
+      for (final plan in toSettle) {
+        final settlerKey = plan.escrowOutcome == EscrowOutcome.arbitrated
+            ? MockKeys.escrow.privateKey!
+            : plan.thread.host.keyPair.privateKey!;
+        bySettler.putIfAbsent(settlerKey, () => []).add(plan);
       }
 
-      thread.paidViaEscrow = true;
-      thread.escrowOutcome = escrowOutcome;
-    } else {
-      // Zap path.
-      final zapReceipt = _buildZapReceipt(
-        ctx: ctx,
-        threadIndex: i + 1,
-        commitmentHash: thread.commitmentHash,
-        request: thread.request,
-        listing: thread.listing,
-        host: thread.host,
-        guest: thread.guest,
-        hostProfile: hostProfile,
+      print(
+        '[seed][escrow] Settling ${toSettle.length} trades across '
+        '${bySettler.length} sender(s) in parallel...',
       );
-      thread.zapReceipt = zapReceipt;
 
+      await Future.wait(
+        bySettler.values.map((group) async {
+          for (final plan in group) {
+            await _settleForPlan(
+              ctx: ctx,
+              plan: plan,
+              escrowService: escrowService,
+            );
+          }
+        }),
+      );
+    }
+  }
+
+  // Mark escrow-path threads.
+  for (final plan in plans.where((p) => p.useEscrow)) {
+    plan.thread.paidViaEscrow = true;
+    plan.thread.escrowOutcome = plan.escrowOutcome;
+  }
+
+  // ── Phase 4: Build reservation events (no RPC) ──
+  for (final plan in plans) {
+    final thread = plan.thread;
+    final hostProfile = profileByPubkey[thread.host.keyPair.publicKey];
+    PaymentProof? proof;
+
+    if (plan.useEscrow && plan.createTxHash != null) {
       proof = PaymentProof(
         hoster: hostProfile ?? MOCK_PROFILES.first,
         listing: thread.listing,
-        zapProof: ZapProof(receipt: Nip01EventModel.fromEntity(zapReceipt)),
+        zapProof: null,
+        escrowProof: EscrowProof(
+          txHash: plan.createTxHash!,
+          escrowService: escrowService,
+          hostsTrustedEscrows: plan.trust!,
+          hostsEscrowMethods: plan.method!,
+        ),
+      );
+    } else if (!plan.useEscrow) {
+      proof = PaymentProof(
+        hoster: hostProfile ?? MOCK_PROFILES.first,
+        listing: thread.listing,
+        zapProof: thread.zapReceipt != null
+            ? ZapProof(receipt: Nip01EventModel.fromEntity(thread.zapReceipt!))
+            : null,
         escrowProof: null,
       );
     }
 
-    // Check self-signed ratio.
-    final isSelfSigned = ctx.pickByRatio(spec.selfSignedReservationRatio);
-    thread.selfSigned = isSelfSigned;
+    thread.selfSigned = plan.selfSigned;
 
     final reservation = Reservation(
       pubKey: thread.guest.keyPair.publicKey,
       tags: ReservationTags([
         [kListingRefTag, thread.listing.anchor!],
         [kThreadRefTag, thread.request.getDtag()!],
-        ['d', 'seed-rsv-${i + 1}'],
+        ['d', 'seed-rsv-${plan.index + 1}'],
         [kCommitmentHashTag, thread.commitmentHash],
-        if (escrowOutcome != null) ['escrowOutcome', escrowOutcome.name],
-        if (isSelfSigned) ['selfSigned', 'true'],
+        if (plan.escrowOutcome != null)
+          ['escrowOutcome', plan.escrowOutcome!.name],
+        if (plan.selfSigned) ['selfSigned', 'true'],
       ]),
-      createdAt: ctx.timestampDaysAfter(31 + i + 1),
+      createdAt: ctx.timestampDaysAfter(31 + plan.index + 1),
       content: ReservationContent(
         start: thread.start,
         end: thread.end,
@@ -132,31 +223,53 @@ Future<void> buildOutcomes({
   }
 }
 
-// ─── Escrow proof creation ──────────────────────────────────────────────────
+// ─── Plan model ─────────────────────────────────────────────────────────────
 
-Future<EscrowProof> _createEscrowProof({
+class _ThreadPlan {
+  final int index;
+  final SeedThread thread;
+  final bool useEscrow;
+  final EscrowOutcome? escrowOutcome;
+  final bool selfSigned;
+  final EscrowTrust? trust;
+  final EscrowMethod? method;
+
+  String? createTxHash;
+  bool tradeAlreadyExisted = false;
+  bool needsSettlement = false;
+
+  _ThreadPlan({
+    required this.index,
+    required this.thread,
+    required this.useEscrow,
+    this.escrowOutcome,
+    required this.selfSigned,
+    this.trust,
+    this.method,
+  });
+}
+
+// ─── Escrow trade creation (phase 2) ────────────────────────────────────────
+
+Future<void> _createTradeForPlan({
   required SeedContext ctx,
-  required int threadIndex,
-  required ReservationRequest request,
-  required SeedUser host,
-  required SeedUser guest,
-  required EscrowOutcome outcome,
+  required _ThreadPlan plan,
   required EscrowService escrowService,
-  required EscrowTrust trust,
-  required EscrowMethod method,
 }) async {
   final contract = ctx.multiEscrowContract(
     escrowService.parsedContent.contractAddress,
   );
+  final request = plan.thread.request;
+  final guest = plan.thread.guest;
+  final host = plan.thread.host;
+  final threadIndex = plan.index + 1;
+
   final tradeIdHex = request.getDtag() ?? '';
   final tradeId = getBytes32(tradeIdHex);
   final amountWei =
       request.parsedContent.amount.value * BigInt.from(10).pow(10);
 
   final guestCredentials = EthPrivateKey.fromHex(guest.keyPair.privateKey!);
-  final hostCredentials = EthPrivateKey.fromHex(host.keyPair.privateKey!);
-  final arbiterCredentials = EthPrivateKey.fromHex(MockKeys.escrow.privateKey!);
-
   final buyer = getEvmCredentials(guest.keyPair.privateKey!).address;
   final seller = getEvmCredentials(host.keyPair.privateKey!).address;
   final arbiter = getEvmCredentials(MockKeys.escrow.privateKey!).address;
@@ -172,17 +285,20 @@ Future<EscrowProof> _createEscrowProof({
   final existingTrade = await contract.trades(($param13: tradeId));
   final tradeAlreadyExists = existingTrade.buyer != zeroAddress;
 
-  String createTxHash;
   if (tradeAlreadyExists) {
-    // Trade already on-chain from a previous seed run.
-    // Recover the original creation tx hash from TradeCreated events.
-    createTxHash = await _recoverCreateTxHash(ctx, contract, tradeId);
+    plan.createTxHash = await _recoverCreateTxHash(ctx, contract, tradeId);
+    plan.tradeAlreadyExisted = true;
+
+    // Check if already settled.
+    final activeCheck = await contract.activeTrade((tradeId: tradeId));
+    plan.needsSettlement = activeCheck.isActive;
+
     print(
       '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex SKIPPED createTrade '
-      '(already exists, recovered fundTx=$createTxHash)',
+      '(already exists, recovered fundTx=${plan.createTxHash})',
     );
   } else {
-    createTxHash = await contract.createTrade(
+    plan.createTxHash = await contract.createTrade(
       (
         tradeId: tradeId,
         buyer: buyer,
@@ -199,86 +315,101 @@ Future<EscrowProof> _createEscrowProof({
     );
 
     print(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex outcome=${outcome.name} '
-      'fundTx=$createTxHash amountWei=$amountWei unlockAt=$unlockAtSeconds '
+      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
+      'outcome=${plan.escrowOutcome!.name} '
+      'fundTx=${plan.createTxHash} amountWei=$amountWei '
+      'unlockAt=$unlockAtSeconds '
       'buyer=${buyer.eip55With0x} seller=${seller.eip55With0x} '
       'arbiter=${arbiter.eip55With0x}',
     );
     await _assertTxSucceeded(
       ctx,
-      createTxHash,
+      plan.createTxHash!,
       threadIndex,
       'createTrade',
       tradeIdHex,
     );
+    // Freshly created trades are always active.
+    plan.needsSettlement = true;
   }
+}
 
-  // ── Only settle if the trade is still active ──
+// ─── Escrow settlement (phase 3) ────────────────────────────────────────────
+
+Future<void> _settleForPlan({
+  required SeedContext ctx,
+  required _ThreadPlan plan,
+  required EscrowService escrowService,
+}) async {
+  final contract = ctx.multiEscrowContract(
+    escrowService.parsedContent.contractAddress,
+  );
+  final request = plan.thread.request;
+  final host = plan.thread.host;
+  final threadIndex = plan.index + 1;
+
+  final tradeIdHex = request.getDtag() ?? '';
+  final tradeId = getBytes32(tradeIdHex);
+
+  final hostCredentials = EthPrivateKey.fromHex(host.keyPair.privateKey!);
+  final arbiterCredentials = EthPrivateKey.fromHex(MockKeys.escrow.privateKey!);
+
+  final unlockAtSeconds =
+      request.parsedContent.end.toUtc().millisecondsSinceEpoch ~/ 1000;
+
+  // Re-check active status (may have been settled by a parallel plan
+  // sharing the same trade, though unlikely with unique trade IDs).
   final activeCheck = await contract.activeTrade((tradeId: tradeId));
-  if (activeCheck.isActive) {
-    if (outcome == EscrowOutcome.arbitrated) {
-      final arbitrateTxHash = await contract.arbitrate(
-        (tradeId: tradeId, factor: BigInt.from(700)),
-        credentials: arbiterCredentials,
-        transaction: Transaction(maxGas: 250000),
-      );
+  if (!activeCheck.isActive) {
+    if (plan.tradeAlreadyExisted) {
       print(
-        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex arbitrateTx=$arbitrateTxHash factor=700',
-      );
-      await _assertTxSucceeded(
-        ctx,
-        arbitrateTxHash,
-        threadIndex,
-        'arbitrate',
-        tradeIdHex,
-      );
-    } else if (outcome == EscrowOutcome.claimedByHost) {
-      await ctx.waitForChainTimePast(targetEpochSeconds: unlockAtSeconds);
-      final claimTxHash = await contract.claim(
-        (tradeId: tradeId),
-        credentials: hostCredentials,
-        transaction: Transaction(maxGas: 250000),
-      );
-      print(
-        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex claimTx=$claimTxHash',
-      );
-      await _assertTxSucceeded(
-        ctx,
-        claimTxHash,
-        threadIndex,
-        'claim',
-        tradeIdHex,
-      );
-    } else {
-      final releaseTxHash = await contract.releaseToCounterparty(
-        (tradeId: tradeId),
-        credentials: hostCredentials,
-        transaction: Transaction(maxGas: 250000),
-      );
-      print(
-        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex releaseTx=$releaseTxHash',
-      );
-      await _assertTxSucceeded(
-        ctx,
-        releaseTxHash,
-        threadIndex,
-        'releaseToCounterparty',
-        tradeIdHex,
+        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex SKIPPED settlement '
+        '(trade already settled)',
       );
     }
-  } else if (tradeAlreadyExists) {
-    print(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex SKIPPED settlement '
-      '(trade already settled)',
-    );
+    return;
   }
 
-  return EscrowProof(
-    txHash: createTxHash,
-    escrowService: escrowService,
-    hostsTrustedEscrows: trust,
-    hostsEscrowMethods: method,
-  );
+  if (plan.escrowOutcome == EscrowOutcome.arbitrated) {
+    final txHash = await contract.arbitrate(
+      (tradeId: tradeId, factor: BigInt.from(700)),
+      credentials: arbiterCredentials,
+      transaction: Transaction(maxGas: 250000),
+    );
+    print(
+      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
+      'arbitrateTx=$txHash factor=700',
+    );
+    await _assertTxSucceeded(ctx, txHash, threadIndex, 'arbitrate', tradeIdHex);
+  } else if (plan.escrowOutcome == EscrowOutcome.claimedByHost) {
+    await ctx.waitForChainTimePast(targetEpochSeconds: unlockAtSeconds);
+    final txHash = await contract.claim(
+      (tradeId: tradeId),
+      credentials: hostCredentials,
+      transaction: Transaction(maxGas: 250000),
+    );
+    print(
+      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex claimTx=$txHash',
+    );
+    await _assertTxSucceeded(ctx, txHash, threadIndex, 'claim', tradeIdHex);
+  } else {
+    final txHash = await contract.releaseToCounterparty(
+      (tradeId: tradeId),
+      credentials: hostCredentials,
+      transaction: Transaction(maxGas: 250000),
+    );
+    print(
+      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
+      'releaseTx=$txHash',
+    );
+    await _assertTxSucceeded(
+      ctx,
+      txHash,
+      threadIndex,
+      'releaseToCounterparty',
+      tradeIdHex,
+    );
+  }
 }
 
 Future<void> _assertTxSucceeded(

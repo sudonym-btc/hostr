@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'package:hostr_sdk/config.dart';
+import 'package:hostr_sdk/datasources/storage.dart';
 import 'package:hostr_sdk/injection.config.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:injectable/injectable.dart';
@@ -19,6 +20,9 @@ void configureInjection(String environment, {required HostrConfig config}) {
 abstract class HostrSdkModule {
   @singleton
   HostrConfig get hostrConfig => _hostrConfig;
+
+  @singleton
+  KeyValueStorage get keyValueStorage => _hostrConfig.keyValueStorage;
 
   @singleton
   CustomLogger get logger => _hostrConfig.logger;

@@ -5,10 +5,12 @@ import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:web3dart/web3dart.dart';
 
+import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import 'chain/evm_chain.dart';
 import 'chain/rootstock/rootstock.dart';
+import 'operations/swap_recovery_service.dart';
 
 @Singleton()
 class Evm {
@@ -113,5 +115,26 @@ class Evm {
       }
     }
     throw Exception('EVM chain with ID $chainId not supported.');
+  }
+
+  /// Recover stale swaps whose on-chain funds may be at risk.
+  ///
+  /// Iterates persisted [SwapRecord]s, resolves the matching [EvmChain] by
+  /// `chainId`, and delegates claim / refund logic to [SwapRecoveryService].
+  ///
+  /// Safe to call repeatedly — idempotent and non-destructive.
+  /// Returns the number of swaps that were successfully resolved.
+  Future<int> recoverStaleSwaps() async {
+    try {
+      final recoveryService = getIt<SwapRecoveryService>();
+      final evmKey = auth.getActiveEvmKey();
+      return await recoveryService.recoverPendingSwaps(
+        evmKey: evmKey,
+        chainResolver: getClientForChainId,
+      );
+    } catch (e) {
+      logger.e('Evm.recoverStaleSwaps failed: $e');
+      return 0;
+    }
   }
 }

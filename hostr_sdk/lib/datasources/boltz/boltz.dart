@@ -64,6 +64,30 @@ class BoltzClient {
     throw res.error!;
   }
 
+  /// Request a cooperative refund EIP-712 signature from Boltz for a failed
+  /// submarine swap. Returns `null` if Boltz refuses (e.g. swap not in a
+  /// failed state yet). Throws on network errors.
+  Future<SwapSubmarineIdRefundGet$Response?> getCooperativeRefundSignature({
+    required String id,
+  }) async {
+    logger.i('Requesting cooperative refund signature for swap $id');
+    try {
+      final res = await gBoltzCli.swapSubmarineIdRefundGet(id: id);
+      if (res.isSuccessful && res.body != null) {
+        logger.i('Got cooperative refund signature for $id');
+        return res.body;
+      }
+      logger.w(
+        'Cooperative refund signature not available for $id: '
+        '${res.statusCode} ${res.error}',
+      );
+      return null;
+    } catch (e) {
+      logger.w('Failed to get cooperative refund signature for $id: $e');
+      return null;
+    }
+  }
+
   Future<ReverseResponse> reverseSubmarine({
     required double invoiceAmount,
     required String preimageHash,
@@ -160,10 +184,15 @@ class BoltzClient {
     return await gBoltzCli.swapSubmarineGet();
   }
 
-  Stream<SwapStatus> subscribeToSwap({required String id}) {
+  Stream<SwapStatus> subscribeToSwap({
+    required String id,
+    int maxReconnectAttempts = 5,
+  }) {
     final controller = StreamController<SwapStatus>.broadcast();
     WebSocket? socket;
     StreamSubscription<dynamic>? socketSub;
+    int reconnectAttempts = 0;
+    bool intentionallyClosed = false;
 
     Future<void> closeSocket() async {
       await socketSub?.cancel();
@@ -172,46 +201,118 @@ class BoltzClient {
       socket = null;
     }
 
-    controller
-      ..onListen = () async {
-        try {
-          final wsUrl = config.rootstockConfig.boltz.wsUrl;
-          socket = await WebSocket.connect(wsUrl);
-          socket!.add(
-            jsonEncode({
-              'op': 'subscribe',
-              'channel': 'swap.update',
-              'args': [id],
-            }),
-          );
+    Future<void> connect() async {
+      try {
+        final wsUrl = config.rootstockConfig.boltz.wsUrl;
+        logger.d('Connecting to Boltz WS for swap $id (attempt ${reconnectAttempts + 1})');
+        socket = await WebSocket.connect(wsUrl);
+        reconnectAttempts = 0; // Reset on successful connect
+        socket!.add(
+          jsonEncode({
+            'op': 'subscribe',
+            'channel': 'swap.update',
+            'args': [id],
+          }),
+        );
 
-          socketSub = socket!.listen(
-            (data) {
-              final msg = _tryParseMessage(data);
-              if (msg == null || msg['event'] != 'update') return;
+        socketSub = socket!.listen(
+          (data) {
+            final msg = _tryParseMessage(data);
+            if (msg == null || msg['event'] != 'update') return;
 
-              final args = msg['args'];
-              if (args is List && args.isNotEmpty && args.first is Map) {
-                final payload = Map<String, dynamic>.from(args.first as Map);
-                controller.add(SwapStatus.fromJson(payload));
-              }
-            },
-            onError: controller.addError,
-            onDone: () {
-              if (!controller.isClosed) controller.close();
-            },
+            final args = msg['args'];
+            if (args is List && args.isNotEmpty && args.first is Map) {
+              final payload = Map<String, dynamic>.from(args.first as Map);
+              controller.add(SwapStatus.fromJson(payload));
+            }
+          },
+          onError: (e, st) {
+            logger.w('Boltz WS error for swap $id: $e');
+            if (!intentionallyClosed) {
+              _scheduleReconnect(
+                id, controller, reconnectAttempts, maxReconnectAttempts,
+                connect, closeSocket,
+              );
+            }
+          },
+          onDone: () {
+            logger.d('Boltz WS closed for swap $id');
+            if (!intentionallyClosed && !controller.isClosed) {
+              _scheduleReconnect(
+                id, controller, reconnectAttempts, maxReconnectAttempts,
+                connect, closeSocket,
+              );
+            }
+          },
+        );
+      } catch (e, st) {
+        logger.w('Failed to connect Boltz WS for swap $id: $e');
+        if (!intentionallyClosed) {
+          _scheduleReconnect(
+            id, controller, reconnectAttempts, maxReconnectAttempts,
+            connect, closeSocket,
           );
-        } catch (e, st) {
+        } else {
           controller.addError(e, st);
-          if (!controller.isClosed) await controller.close();
+          if (!controller.isClosed) controller.close();
         }
       }
-      ..onCancel = () async {
-        await closeSocket();
-        if (!controller.isClosed) await controller.close();
-      };
+    }
+
+    controller.onListen = () { connect(); };
+    controller.onCancel = () async {
+      intentionallyClosed = true;
+      await closeSocket();
+      if (!controller.isClosed) await controller.close();
+    };
 
     return controller.stream;
+  }
+
+  void _scheduleReconnect(
+    String id,
+    StreamController<SwapStatus> controller,
+    int currentAttempts,
+    int maxAttempts,
+    Future<void> Function() connect,
+    Future<void> Function() closeSocket,
+  ) {
+    if (controller.isClosed) return;
+    if (currentAttempts >= maxAttempts) {
+      logger.e(
+        'Boltz WS: max reconnect attempts ($maxAttempts) reached for swap $id. '
+        'Falling back to polling.',
+      );
+      // Fall back to a single HTTP poll so the caller still gets a status
+      _pollSwapStatus(id, controller);
+      return;
+    }
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+    final delay = Duration(seconds: 1 << currentAttempts);
+    logger.d('Boltz WS: reconnecting for swap $id in ${delay.inSeconds}s');
+    Future.delayed(delay, () async {
+      if (controller.isClosed) return;
+      await closeSocket();
+      await connect();
+    });
+  }
+
+  /// One-shot HTTP poll fallback when WebSocket reconnection is exhausted.
+  Future<void> _pollSwapStatus(
+    String id,
+    StreamController<SwapStatus> controller,
+  ) async {
+    try {
+      final status = await getSwap(id: id);
+      if (!controller.isClosed) {
+        controller.add(status);
+      }
+    } catch (e) {
+      logger.e('Boltz HTTP poll fallback failed for swap $id: $e');
+      if (!controller.isClosed) {
+        controller.addError(e);
+      }
+    }
   }
 
   Map<String, dynamic>? _tryParseMessage(dynamic data) {
