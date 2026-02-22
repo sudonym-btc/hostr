@@ -5,16 +5,29 @@ import 'package:ndk/domain_layer/usecases/lnurl/lnurl_response.dart';
 import 'package:wallet/wallet.dart';
 
 class PayParameters {
-  final BitcoinAmount? amount;
+  BitcoinAmount? amount;
   final String to;
   final String? comment;
+  final int? minSendable;
+  final int? maxSendable;
 
-  PayParameters({required this.to, this.amount, this.comment});
+  PayParameters({
+    required this.to,
+    this.amount,
+    this.comment,
+    this.minSendable,
+    this.maxSendable,
+  });
 }
 
 class EvmPayParameters extends PayParameters {
   late EthereumAddress parsedTo;
-  EvmPayParameters({required super.to, super.amount}) {
+  EvmPayParameters({
+    required super.to,
+    super.amount,
+    super.minSendable,
+    super.maxSendable,
+  }) {
     parsedTo = EthereumAddress.fromHex(to);
   }
 }
@@ -26,6 +39,8 @@ class ZapPayParameters extends PayParameters {
     super.comment,
     required super.to,
     this.event,
+    super.minSendable,
+    super.maxSendable,
   });
 }
 
@@ -55,11 +70,23 @@ class CallbackDetails {}
 class CompletedDetails {}
 
 class Bolt11PayParameters extends PayParameters {
-  Bolt11PayParameters({super.amount, super.comment, required super.to});
+  Bolt11PayParameters({
+    super.amount,
+    super.comment,
+    required super.to,
+    super.minSendable,
+    super.maxSendable,
+  });
 }
 
 class LnurlPayParameters extends PayParameters {
-  LnurlPayParameters({super.amount, super.comment, required super.to});
+  LnurlPayParameters({
+    super.amount,
+    super.comment,
+    required super.to,
+    super.minSendable,
+    super.maxSendable,
+  });
 }
 
 class LnUrlResolvedDetails extends ResolvedDetails {

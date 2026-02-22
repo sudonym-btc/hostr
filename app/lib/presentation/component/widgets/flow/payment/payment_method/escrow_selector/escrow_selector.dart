@@ -42,8 +42,10 @@ class EscrowSelectorWidget extends StatelessWidget {
                     );
                   })
                   .toList(),
-              onChanged: (dynamic size) {
-                // emit(EscrowSelectorLoaded(selectedEscrow: size, result: state.result));
+              onChanged: (dynamic value) {
+                context.read<EscrowSelectorCubit>().changeSelection(
+                  value as EscrowService,
+                );
               },
             );
           default:

@@ -156,12 +156,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.singleton<_i445.EscrowMethods>(
-      () => _i445.EscrowMethods(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i906.Listings>(
       () => _i906.Listings(
         requests: gh<_i1014.Requests>(),
@@ -187,6 +181,13 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
       registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i445.EscrowMethods>(
+      () => _i445.EscrowMethods(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
+      ),
     );
     gh.singleton<_i943.EscrowTrusts>(
       () => _i943.EscrowTrusts(

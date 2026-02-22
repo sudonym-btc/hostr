@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/component/widgets/amount/amount.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
@@ -49,77 +52,91 @@ class PaymentViewWidget extends StatelessWidget {
       case PayResolved():
       case PayCallbackComplete():
       default:
-        return PaymentConfirmWidget(state: state);
+        return PaymentConfirmWidget();
     }
   }
 }
 
 class PaymentConfirmWidget extends StatelessWidget {
-  final PayState state;
-  const PaymentConfirmWidget({required this.state, super.key});
+  const PaymentConfirmWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.normal,
-      content: Builder(
-        builder: (context) {
-          Widget nwcInfo = NostrWalletConnectConnectionWidget();
+    return BlocBuilder<PayOperation, PayState>(
+      builder: (context, state) {
+        final resolved = state is PayResolved ? state : null;
+        final effectiveMin = resolved?.effectiveMinAmount ?? 0;
+        final effectiveMax = resolved?.effectiveMaxAmount ?? 0;
+        final isEditable = resolved != null && effectiveMin < effectiveMax;
+        final currentAmount =
+            state.params.amount?.toAmount() ??
+            Amount(currency: Currency.BTC, value: BigInt.from(0));
 
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.end,
+        final isReady = state is PayResolved;
+        final isCallbackComplete = state is PayCallbackComplete;
+        final isLoading = state is PayCallbackInitiated || state is PayInFlight;
+
+        return ModalBottomSheet(
+          type: ModalBottomSheetType.normal,
+          title: 'Payment',
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              nwcInfo,
-              SizedBox(height: kDefaultPadding.toDouble() / 2),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          state.params.to,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        // todo: calc amount from invoice
-                        Text(
-                          formatAmount(
-                            state.params.amount?.toAmount() ??
-                                Amount(
-                                  currency: Currency.BTC,
-                                  value: BigInt.from(0),
-                                ),
-                          ),
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ],
+              StreamBuilder(
+                stream: getIt<Hostr>().nwc.connectionsStream,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: kDefaultPadding.toDouble() / 2,
                     ),
-                  ),
-                  state is PayResolved
-                      ? FilledButton(
-                          child: Text(AppLocalizations.of(context)!.ok),
-                          onPressed: () {
-                            context.read<PayOperation>().finalize();
-                          },
-                        )
-                      : (state is PayCallbackComplete
-                            ? FilledButton(
-                                child: Text(AppLocalizations.of(context)!.pay),
-                                onPressed: () {
-                                  context.read<PayOperation>().complete();
-                                },
-                              )
-                            : SizedBox.shrink()),
-                ],
+                    child: NostrWalletConnectConnectionWidget(),
+                  );
+                },
+              ),
+              AmountWidget(
+                to: state.params.to,
+                amount: currentAmount,
+                loading: isLoading,
+                onAmountTap: isEditable
+                    ? () async {
+                        final minSats = (effectiveMin + 999) ~/ 1000;
+                        final maxSats = effectiveMax ~/ 1000;
+                        final result = await AmountEditorBottomSheet.show(
+                          context,
+                          initialAmount: currentAmount,
+                          minAmount: Amount(
+                            currency: Currency.BTC,
+                            value: BigInt.from(minSats),
+                          ),
+                          maxAmount: Amount(
+                            currency: Currency.BTC,
+                            value: BigInt.from(maxSats),
+                          ),
+                        );
+                        if (result != null && context.mounted) {
+                          context.read<PayOperation>().updateAmount(
+                            BitcoinAmount.fromAmount(result),
+                          );
+                        }
+                      }
+                    : null,
+                onConfirm: () async {
+                  if (isReady) {
+                    final cubit = context.read<PayOperation>();
+                    await cubit.finalize();
+                    await cubit.complete();
+                  } else if (isCallbackComplete) {
+                    context.read<PayOperation>().complete();
+                  }
+                },
               ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

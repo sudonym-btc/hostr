@@ -194,8 +194,8 @@ class SeedPipelineConfig {
     this.userOverrides = const [],
   });
 
-  /// Convert from the legacy [DeterministicSeedConfig] format.
-  factory SeedPipelineConfig.fromLegacy(Map<String, dynamic> json) {
+  /// Construct from a JSON map (e.g. --config-json or --config-file).
+  factory SeedPipelineConfig.fromJson(Map<String, dynamic> json) {
     return SeedPipelineConfig(
       relayUrl: _str(json['relayUrl']) ?? 'ws://relay.hostr.development',
       rpcUrl: _str(json['rpcUrl']) ?? 'http://localhost:8545',

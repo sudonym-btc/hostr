@@ -173,7 +173,6 @@ class ThreadTrade {
 
     await subscriptions.stop();
     _runtimeStarted = false;
-    // _paymentProofOrchestrator.close() ;
 
     _emitState();
   }

@@ -1,31 +1,126 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 import '../../../../amount/amount_input.dart';
 import '../../../modal_bottom_sheet.dart';
+import '../../payment_method/escrow_selector/escrow_selector.cubit.dart';
+import '../../payment_method/escrow_selector/escrow_selector.dart';
 
-class EscrowFundWidget extends StatelessWidget {
-  final EscrowFundOperation cubit;
-  const EscrowFundWidget({super.key, required this.cubit});
+class EscrowFundWidget extends StatefulWidget {
+  final ProfileMetadata counterparty;
+  final ReservationRequest reservationRequest;
+
+  const EscrowFundWidget({
+    super.key,
+    required this.counterparty,
+    required this.reservationRequest,
+  });
+
+  @override
+  State<EscrowFundWidget> createState() => _EscrowFundWidgetState();
+}
+
+class _EscrowFundWidgetState extends State<EscrowFundWidget> {
+  late final EscrowSelectorCubit _selectorCubit;
+  EscrowFundOperation? _fundOperation;
+  late final StreamSubscription<EscrowSelectorState> _selectorSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectorCubit = EscrowSelectorCubit(
+      counterparty: widget.counterparty,
+      reservationRequest: widget.reservationRequest,
+    )..load();
+    _selectorSub = _selectorCubit.stream.listen(_onSelectorChanged);
+  }
+
+  void _onSelectorChanged(EscrowSelectorState state) {
+    if (state is EscrowSelectorLoaded && state.selectedEscrow != null) {
+      _createFundOperation(state.selectedEscrow!);
+    }
+  }
+
+  void _createFundOperation(EscrowService escrow) {
+    _fundOperation?.close();
+    setState(() {
+      _fundOperation = getIt<Hostr>().escrow.fund(
+        EscrowFundParams(
+          reservationRequest: widget.reservationRequest,
+          amount: widget.reservationRequest.parsedContent.amount,
+          sellerProfile: widget.counterparty,
+          escrowService: escrow,
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _selectorSub.cancel();
+    _fundOperation?.close();
+    _selectorCubit.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: cubit,
-      child: BlocBuilder<EscrowFundOperation, EscrowFundState>(
-        builder: (context, state) {
-          switch (state) {
-            case EscrowFundInitialised():
-              return EscrowFundConfirmWidget(onConfirm: () => cubit.execute());
-            case EscrowFundSwapProgress():
-              return EscrowFundProgressWidget(state);
-            case EscrowFundCompleted():
-              return EscrowFundSuccessWidget(state);
-            case EscrowFundFailed():
-              return EscrowFundFailureWidget(state);
+      value: _selectorCubit,
+      child: BlocBuilder<EscrowSelectorCubit, EscrowSelectorState>(
+        builder: (context, selectorState) {
+          switch (selectorState) {
+            case EscrowSelectorLoading():
+              return ModalBottomSheet(
+                type: ModalBottomSheetType.normal,
+                title: 'Deposit Funds',
+                content: Center(child: CircularProgressIndicator()),
+              );
+            case EscrowSelectorError():
+              return ModalBottomSheet(
+                type: ModalBottomSheetType.error,
+                title: 'Deposit Funds',
+                content: Text(selectorState.message),
+              );
+            case EscrowSelectorLoaded():
+              if (_fundOperation == null) {
+                return ModalBottomSheet(
+                  type: ModalBottomSheetType.normal,
+                  title: 'Deposit Funds',
+                  content: Center(child: CircularProgressIndicator()),
+                );
+              }
+              return BlocProvider<EscrowFundOperation>.value(
+                value: _fundOperation!,
+                child: BlocBuilder<EscrowFundOperation, EscrowFundState>(
+                  builder: (context, fundState) {
+                    switch (fundState) {
+                      case EscrowFundInitialised():
+                        return EscrowFundConfirmWidget(
+                          onConfirm: () async {
+                            await _selectorCubit.select();
+                            _fundOperation!.execute();
+                          },
+                        );
+                      case EscrowFundSwapProgress():
+                        return EscrowFundProgressWidget(fundState);
+                      case EscrowFundCompleted():
+                        return EscrowFundSuccessWidget(fundState);
+                      case EscrowFundFailed():
+                        return EscrowFundFailureWidget(fundState);
+                    }
+                  },
+                ),
+              );
+            default:
+              throw UnimplementedError();
           }
         },
       ),
@@ -42,42 +137,44 @@ class EscrowFundConfirmWidget extends StatelessWidget {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
       title: 'Deposit Funds',
-      content: AmountWidget(
-        toPubkey: context
-            .read<EscrowFundOperation>()
-            .params
-            .escrowService
-            .pubKey,
-        amount: context.read<EscrowFundOperation>().params.amount,
-        feeWidget: FutureBuilder(
-          future: context.read<EscrowFundOperation>().estimateFees(),
-          builder: (context, snapshot) {
-            final baseStyle = Theme.of(context).textTheme.bodySmall!;
-            final subtleStyle = baseStyle.copyWith(
-              fontWeight: FontWeight.w400,
-              color: baseStyle.color?.withValues(alpha: 0.6),
-            );
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          EscrowSelectorWidget(),
+          SizedBox(height: 16),
+          AmountWidget(
+            amount: context.read<EscrowFundOperation>().params.amount,
+            feeWidget: FutureBuilder(
+              future: context.read<EscrowFundOperation>().estimateFees(),
+              builder: (context, snapshot) {
+                final baseStyle = Theme.of(context).textTheme.bodySmall!;
+                final subtleStyle = baseStyle.copyWith(
+                  fontWeight: FontWeight.w400,
+                  color: baseStyle.color?.withValues(alpha: 0.6),
+                );
 
-            if (snapshot.connectionState != ConnectionState.done) {
-              return Text('Estimating fees...', style: subtleStyle);
-            }
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return Text('Estimating fees...', style: subtleStyle);
+                }
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "+ ${formatAmount(snapshot.data!.estimatedGasFees.toAmount())} in gas",
-                  style: subtleStyle,
-                ),
-                Text(
-                  "+ ${formatAmount(snapshot.data!.estimatedSwapFees.totalFees.toAmount())} in swap fees",
-                  style: subtleStyle,
-                ),
-              ],
-            );
-          },
-        ),
-        onConfirm: onConfirm,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "+ ${formatAmount(snapshot.data!.estimatedGasFees.toAmount())} in gas",
+                      style: subtleStyle,
+                    ),
+                    Text(
+                      "+ ${formatAmount(snapshot.data!.estimatedSwapFees.totalFees.toAmount())} in swap fees",
+                      style: subtleStyle,
+                    ),
+                  ],
+                );
+              },
+            ),
+            onConfirm: onConfirm,
+          ),
+        ],
       ),
     );
   }

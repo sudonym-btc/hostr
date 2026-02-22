@@ -441,6 +441,8 @@ class Reservations extends CrudUseCase<Reservation> {
 
   void dispose() {
     _myReservations?.close();
+    _myReservations = null;
     _myReservationsSubscription?.cancel();
+    _myReservationsSubscription = null;
   }
 }

@@ -16,7 +16,6 @@ import 'package:hostr/presentation/screens/shared/profile/dev.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
-import 'package:models/main.dart';
 import 'package:models/stubs/keypairs.dart';
 
 import 'mode_toggle.dart';
@@ -114,54 +113,22 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 body: RelayListWidget(),
               ),
-              Section(
-                title: "Trusted Escrows",
-                action: FilledButton.tonal(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AddWalletWidget();
-                      },
+              BlocProvider(
+                create: (_) =>
+                    TrustedEscrowsCubit(hostr: getIt<Hostr>())..load(),
+                child: BlocBuilder<TrustedEscrowsCubit, TrustedEscrowsState>(
+                  builder: (context, state) {
+                    return Section(
+                      title: "Trusted Escrows",
+                      action: FilledButton.tonal(
+                        onPressed: () {
+                          // TODO: implement add trusted escrow flow
+                        },
+                        child: Text(AppLocalizations.of(context)!.add),
+                      ),
+                      body: _buildTrustedEscrowsBody(context, state),
                     );
                   },
-                  child: Text(AppLocalizations.of(context)!.add),
-                ),
-                body: FutureBuilder(
-                  future: getIt<Hostr>().escrowTrusts.myTrusted(),
-                  builder:
-                      (
-                        BuildContext context,
-                        AsyncSnapshot<EscrowTrust?> snapshot,
-                      ) {
-                        if (snapshot.connectionState == ConnectionState.done) {
-                          if (snapshot.hasData) {
-                            return Column(
-                              children: [
-                                SizedBox(
-                                  height: kDefaultPadding.toDouble() / 2,
-                                ),
-                                ...snapshot.data!.tags
-                                    .where((el) => el[0] == 'p')
-                                    .map((el) {
-                                      return ProfileProvider(
-                                        pubkey: el[1],
-                                        builder: (context, profileSnapshot) {
-                                          return TrustedEscrowListItemWidget(
-                                            profile: profileSnapshot.data,
-                                          );
-                                        },
-                                      );
-                                    }),
-                              ],
-                            );
-                          } else {
-                            return Text("No escrows trusted yet");
-                          }
-                        } else {
-                          return CircularProgressIndicator();
-                        }
-                      },
                 ),
               ),
               Section(title: 'Balance', body: MoneyInFlightWidget()),
@@ -233,4 +200,36 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _buildTrustedEscrowsBody(
+  BuildContext context,
+  TrustedEscrowsState state,
+) {
+  if (state.loading && state.data == null) {
+    return const CircularProgressIndicator();
+  }
+  final pubkeys = state.pubkeys;
+  if (pubkeys.isEmpty) {
+    return const Text("No escrows trusted yet");
+  }
+  return Column(
+    children: [
+      SizedBox(height: kDefaultPadding.toDouble() / 2),
+      ...pubkeys.map((pubkey) {
+        return ProfileProvider(
+          pubkey: pubkey,
+          builder: (context, profileSnapshot) {
+            return TrustedEscrowListItemWidget(
+              profile: profileSnapshot.data,
+              onRemove: () {
+                // TODO: implement remove and then refresh
+                // context.read<TrustedEscrowsCubit>().refresh();
+              },
+            );
+          },
+        );
+      }),
+    ],
+  );
 }

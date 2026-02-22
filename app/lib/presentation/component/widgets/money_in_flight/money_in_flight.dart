@@ -66,10 +66,8 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                         context: context,
                         builder: (context) {
                           return SwapOutFlowWidget(
-                            cubit:
-                                getIt<Hostr>().evm.supportedEvmChains[0]
-                                    .swapOutAll()
-                                  ..execute(),
+                            cubit: getIt<Hostr>().evm.supportedEvmChains[0]
+                                .swapOutAll(),
                           );
                         },
                       );

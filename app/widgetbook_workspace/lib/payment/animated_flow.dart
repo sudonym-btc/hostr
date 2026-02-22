@@ -106,6 +106,8 @@ Widget paymentAnimatedFlow(BuildContext context) {
             maxAmount: 1000000,
             commentAllowed: 144,
           ),
+          effectiveMinAmount: 1000,
+          effectiveMaxAmount: 1000000,
         ),
       ),
       (

@@ -17,8 +17,14 @@ class PayResolveInitiated extends PayState {
 
 class PayResolved<T extends ResolvedDetails> extends PayState {
   final T details;
-  PayResolved({required super.params, required this.details})
-    : super(resolvedDetails: details);
+  final int effectiveMinAmount;
+  final int effectiveMaxAmount;
+  PayResolved({
+    required super.params,
+    required this.details,
+    required this.effectiveMinAmount,
+    required this.effectiveMaxAmount,
+  }) : super(resolvedDetails: details);
 }
 
 class PayCallbackInitiated extends PayState {

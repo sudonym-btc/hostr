@@ -73,9 +73,14 @@ class Hostr {
         print('Blossom list publish response: $broadcastResponse');
 
         nwc.start();
+
+        // Ensure the user's escrow method list includes EVM.
+        escrowMethods.ensureEscrowMethod();
       } else {
         logger.i('User logged out');
         messaging.threads.stop();
+        reservations.dispose();
+        evm.dispose();
       }
     });
   }
