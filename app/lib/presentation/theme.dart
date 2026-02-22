@@ -29,6 +29,7 @@ ThemeData getTheme(bool isDark) {
           brightness: Brightness.dark,
           colorScheme: darkColorScheme,
           bottomNavigationBarTheme: BottomNavigationBarThemeData(
+            backgroundColor: Colors.transparent,
             selectedItemColor: darkColorScheme.onSurface,
             elevation: 0,
             unselectedItemColor: darkColorScheme.onSurface.withAlpha(
@@ -42,7 +43,7 @@ ThemeData getTheme(bool isDark) {
           brightness: Brightness.light,
           colorScheme: lightColorScheme,
           bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-            backgroundColor: Colors.white,
+            backgroundColor: Colors.transparent,
             selectedItemColor: Colors.deepPurple,
             unselectedItemColor: Colors.black54,
             type: BottomNavigationBarType.fixed,

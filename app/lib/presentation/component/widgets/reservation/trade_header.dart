@@ -1,10 +1,13 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart' show ThreadCubit;
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
+import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
 import 'package:hostr/presentation/component/widgets/reservation/actions/claim.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_timeline.dart';
+import 'package:hostr/router.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/actions/trade_action_resolver.dart';
 import 'package:models/main.dart';
 
@@ -39,24 +42,52 @@ class TradeHeaderView extends StatelessWidget {
     required this.timelineWidget,
   });
 
+  void _navigateToListing(BuildContext context) {
+    if (listing.anchor != null) {
+      AutoRouter.of(context).push(
+        ListingRoute(
+          a: listing.anchor!,
+          dateRangeStart: start.toIso8601String(),
+          dateRangeEnd: end.toIso8601String(),
+        ),
+      );
+    }
+  }
+
   Widget _buildDescription(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SmallListingCarousel(width: 100, height: 100, listing: listing),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _navigateToListing(context),
+          child: PreloadListingImages(
+            listing: listing,
+            child: SmallListingCarousel(
+              width: 100,
+              height: 100,
+              listing: listing,
+            ),
+          ),
+        ),
         Expanded(
           child: CustomPadding(
-            left: 1,
+            left: 0.5,
             right: 0,
             bottom: 0,
             top: 0,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  listing.parsedContent.title.toString(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge,
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _navigateToListing(context),
+                  child: Text(
+                    listing.parsedContent.title.toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 const SizedBox(height: 4.0),
                 Text(
@@ -64,14 +95,19 @@ class TradeHeaderView extends StatelessWidget {
                     DateTimeRange(start: start, end: end),
                     Localizations.localeOf(context),
                   ),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const CustomPadding(top: 0.2, bottom: 0),
-                Text(
-                  formatAmount(amount),
-                  style: Theme.of(context).textTheme.bodyMedium,
+                Row(
+                  children: [
+                    Text(
+                      formatAmount(amount),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(width: 8),
+                    paymentStatusWidget,
+                  ],
                 ),
-                const CustomPadding(top: 0.2, bottom: 0),
-                paymentStatusWidget,
                 if (isBlocked) ...[
                   const CustomPadding(top: 0.2, bottom: 0),
                   Text(
@@ -111,7 +147,11 @@ class TradeHeaderView extends StatelessWidget {
       color: Theme.of(context).colorScheme.surface,
       child: ExpansionTile(
         splashColor: Colors.transparent,
-        tilePadding: EdgeInsets.all(kDefaultPadding.toDouble()),
+        onExpansionChanged: (_) => FocusScope.of(context).unfocus(),
+        tilePadding: EdgeInsets.symmetric(
+          horizontal: kDefaultPadding.toDouble(),
+          vertical: kDefaultPadding.toDouble() / 2,
+        ),
         shape: const Border(),
         collapsedShape: const Border(),
         title: _buildDescription(context),
@@ -253,15 +293,13 @@ class TradeHeader extends StatelessWidget {
       builder: (context, state) {
         if (!state.hasData) return const SizedBox.shrink();
         final tradeState = state.data!;
-        final isReservationRequestOnly = context
-            .read<ThreadCubit>()
-            .thread
-            .trade!
-            .subscriptions
-            .reservationStream!
-            .list
-            .value
-            .isEmpty;
+        if (tradeState.listing == null) return const SizedBox.shrink();
+
+        final trade = context.read<ThreadCubit>().thread.trade!;
+        final reservations =
+            trade.subscriptions.reservationStream?.list.value ?? const [];
+        final paymentEvents =
+            trade.subscriptions.paymentEvents?.list.value ?? const [];
 
         return TradeHeaderView(
           listing: tradeState.listing!,
@@ -270,37 +308,15 @@ class TradeHeader extends StatelessWidget {
           amount: tradeState.amount,
           isBlocked: tradeState.isBlocked == true,
           blockedReason: tradeState.blockedReason,
-          isReservationRequestOnly: isReservationRequestOnly,
+          isReservationRequestOnly: reservations.isEmpty,
           paymentStatusWidget: PaymentStatusChip(
-            state: context
-                .read<ThreadCubit>()
-                .thread
-                .trade!
-                .subscriptions
-                .paymentEvents!
-                .list
-                .value
-                .lastOrNull,
+            state: paymentEvents.lastOrNull,
           ),
           actionsRightWidget: buildActionsRight(context),
           actionsWidget: buildActions(context),
           timelineWidget: TradeTimeline(
-            reservations: context
-                .read<ThreadCubit>()
-                .thread
-                .trade!
-                .subscriptions
-                .reservationStream!
-                .list
-                .value,
-            paymentEvents: context
-                .read<ThreadCubit>()
-                .thread
-                .trade!
-                .subscriptions
-                .paymentEvents!
-                .list
-                .value,
+            reservations: reservations,
+            paymentEvents: paymentEvents,
             hostPubKey: listingProfile.pubKey,
           ),
         );

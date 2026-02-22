@@ -24,15 +24,15 @@ class DevelopmentRootstockConfig extends RootstockConfig {
   @override
   BoltzConfig get boltz => DevelopmentBoltzConfig();
   @override
-  String get rpcUrl => 'http://localhost:8545';
+  String get rpcUrl => 'http://anvil.hostr.development:8545';
 }
 
 class DevelopmentBoltzConfig extends BoltzConfig {
   @override
-  String apiUrl = 'http://localhost:9001/v2'; //'https://api.testnet.boltz.exchange/v2';
+  String apiUrl = 'http://boltz.hostr.development:9001/v2';
 
   @override
-  String get rifRelayUrl => 'http://localhost:8090';
+  String get rifRelayUrl => 'http://rifrelay.hostr.development:8090';
   @override
   String get rifRelayCallVerifier =>
       '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';

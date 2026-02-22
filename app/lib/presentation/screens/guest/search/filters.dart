@@ -31,8 +31,10 @@ class _FiltersScreenState extends State<FiltersScreen> {
 
     _controller = SearchFormController(
       locationController: LocationController(initialText: initialLocation),
+      dateRangeController: DateRangeController(
+        initialDateRange: initialDateRange,
+      ),
     );
-    _controller.updateAvailabilityRange(initialDateRange);
     _controller.addListener(_onControllerChanged);
   }
 
@@ -46,23 +48,30 @@ class _FiltersScreenState extends State<FiltersScreen> {
   @override
   Widget build(BuildContext context) {
     final content = SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SearchForm(controller: _controller),
-          CustomPadding(
-            top: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FilledButton(
-                  onPressed: _controller.canSubmit ? _submit : null,
-                  child: Text(AppLocalizations.of(context)!.search),
-                ),
-              ],
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SearchForm(controller: _controller),
+            CustomPadding(
+              top: 0,
+              child: Row(
+                children: [
+                  if (_hasActiveFilters)
+                    TextButton(onPressed: _clear, child: const Text('Clear')),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: _controller.canSubmit ? _submit : null,
+                    child: Text(AppLocalizations.of(context)!.search),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
 
@@ -93,5 +102,15 @@ class _FiltersScreenState extends State<FiltersScreen> {
   void _onControllerChanged() {
     if (!mounted) return;
     setState(() {});
+  }
+
+  bool get _hasActiveFilters =>
+      _controller.locationController.text.trim().isNotEmpty ||
+      _controller.dateRangeController.hasValue;
+
+  void _clear() {
+    _controller.clearAll();
+    context.read<DateRangeCubit>().updateDateRange(null);
+    context.read<FilterCubit>().clear();
   }
 }

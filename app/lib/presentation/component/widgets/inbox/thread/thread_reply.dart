@@ -9,7 +9,8 @@ class ThreadReplyView extends StatelessWidget {
   final TextEditingController controller;
   final bool isLoading;
   final String? errorText;
-  final String sendLabel;
+  final String? label;
+  final String hintText;
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
 
@@ -18,9 +19,10 @@ class ThreadReplyView extends StatelessWidget {
     required this.controller,
     required this.isLoading,
     required this.errorText,
-    required this.sendLabel,
+    required this.label,
     required this.onChanged,
     required this.onSend,
+    required this.hintText,
   });
 
   @override
@@ -37,9 +39,10 @@ class ThreadReplyView extends StatelessWidget {
             controller: controller,
             maxLines: 3,
             minLines: 1,
-            autofocus: true,
+            autofocus: false,
             decoration: InputDecoration(
-              labelText: sendLabel,
+              hintText: hintText,
+              label: label != null ? Text(label!) : null,
               errorText: errorText,
             ),
           ),
@@ -108,11 +111,11 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
   Widget build(BuildContext context) {
     final isLoading = _status == _ThreadReplyStatus.loading;
 
-    String sendText = AppLocalizations.of(context)!.send;
+    String? label;
     final counterpartyCubits = context.read<ThreadCubit>().counterpartyCubits;
 
     if (counterpartyCubits.length > 1) {
-      sendText =
+      label =
           "Sending to ${counterpartyCubits.values.map((e) => e.state.data?.metadata.getName() ?? 'Loading').join(', ')}";
     }
 
@@ -120,7 +123,8 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
       controller: _replyController,
       isLoading: isLoading,
       errorText: _status == _ThreadReplyStatus.error ? _error : null,
-      sendLabel: sendText,
+      label: label,
+      hintText: AppLocalizations.of(context)!.typeAMessage,
       onChanged: (_) {
         setState(() {});
       },

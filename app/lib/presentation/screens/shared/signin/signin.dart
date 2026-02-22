@@ -1,14 +1,15 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
+import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 @RoutePage()
 class SignInScreen extends StatefulWidget {
@@ -22,11 +23,62 @@ class SignInScreen extends StatefulWidget {
 
 class SignInScreenState extends State<SignInScreen> {
   String _private = '';
+  String? _error;
+
+  /// Returns true if the current input looks like a valid nsec, hex key, or mnemonic.
+  bool get _isValidInput {
+    final trimmed = _private.trim();
+    if (trimmed.isEmpty) return false;
+
+    // 64-char hex
+    if (trimmed.length == 64 && RegExp(r'^[0-9a-fA-F]+$').hasMatch(trimmed)) {
+      return true;
+    }
+
+    // nsec bech32
+    if (trimmed.startsWith('nsec1')) {
+      try {
+        final decoded = Helpers.decodeBech32(trimmed);
+        return decoded[0].isNotEmpty && decoded[0].length == 64;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    // 12 or 24-word mnemonic
+    final words = trimmed.split(RegExp(r'\s+'));
+    if (words.length == 12 || words.length == 24) {
+      try {
+        Mnemonic.fromSentence(trimmed, Language.english);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _handleSignin() async {
+    setState(() => _error = null);
+    final router = AutoRouter.of(context);
+    try {
+      await context.read<AuthCubit>().signin(_private);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+      return;
+    }
+    if (!mounted) return;
+    if (widget.onSuccess != null) {
+      widget.onSuccess!();
+    } else {
+      router.replaceAll([OnboardingRoute()]);
+    }
+  }
 
   Future<void> _handleSignup() async {
+    setState(() => _error = null);
     // Generate key pair first, show backup modal, THEN sign in.
-    // This avoids emitting LoggedIn (which unmounts this screen via
-    // LoadingPage's StreamBuilder) before the modal is shown.
     final keyPair = Bip340.generatePrivateKey();
     await showModalBottomSheet(
       context: context,
@@ -48,73 +100,80 @@ class SignInScreenState extends State<SignInScreen> {
     if (widget.onSuccess != null) {
       widget.onSuccess!();
     } else {
-      router.replaceAll([
-        HomeRoute(children: [ProfileRoute()]),
-      ]);
+      router.replaceAll([OnboardingRoute()]);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context)!.signIn)),
+      appBar: AppBar(),
       body: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
-          return Center(
+          return SafeArea(
             child: CustomPadding(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  const Spacer(flex: 2),
+                  // ── Logo ──
+                  Image.asset('assets/images/logo/logo.png', height: 80),
+                  const SizedBox(height: 40),
+                  // ── Private key field ──
                   TextFormField(
-                    key: ValueKey('key'),
+                    key: const ValueKey('key'),
                     onChanged: (value) {
                       setState(() {
                         _private = value;
+                        _error = null;
                       });
                     },
-                    maxLines: null, // Allow multiple lines
-                    decoration: InputDecoration(hintText: 'nsec...'),
+                    maxLines: null,
+                    decoration: InputDecoration(
+                      hintText: 'nsec or recovery phrase',
+                      errorText: _error,
+                      prefixIcon: const Icon(Icons.key),
+                    ),
                   ),
-                  SizedBox(height: 20), // Spacing above the buttons
+                  const SizedBox(height: 24),
+                  // ── Sign In button ──
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      key: const ValueKey('login'),
+                      onPressed: _isValidInput ? _handleSignin : null,
+                      child: Text(l10n.signIn),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // ── OR divider ──
                   Row(
                     children: [
-                      Expanded(
-                        child: FilledButton(
-                          key: ValueKey('login'),
-                          onPressed: () async {
-                            var router = AutoRouter.of(context);
-                            await context.read<AuthCubit>().signin(_private);
-                            final metadata = await getIt<Hostr>().metadata
-                                .loadMetadata(
-                                  getIt<Hostr>().auth.getActiveKey().publicKey,
-                                );
-
-                            if (metadata == null) {
-                              router.replaceAll([
-                                HomeRoute(children: [ProfileRoute()]),
-                              ]);
-                              return;
-                            }
-
-                            if (widget.onSuccess != null) {
-                              widget.onSuccess!();
-                              return;
-                            }
-
-                            router.replaceAll([HomeRoute()]);
-                          },
-                          child: Text(AppLocalizations.of(context)!.signIn),
+                      const Expanded(child: Divider()),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'OR',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                      SizedBox(width: 10), // Spacing between the buttons
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: _private.isEmpty ? _handleSignup : null,
-                          child: Text(AppLocalizations.of(context)!.signUp),
-                        ),
-                      ),
+                      const Expanded(child: Divider()),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  // ── Sign Up button ──
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _handleSignup,
+                      child: Text(l10n.signUp),
+                    ),
+                  ),
+                  const Spacer(flex: 3),
                 ],
               ),
             ),

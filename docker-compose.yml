@@ -46,8 +46,7 @@ services:
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./docker/certs:/etc/nginx/certs:ro
-      - ./docker/blossom.${DOMAIN}:/etc/nginx/vhost.d/blossom.${DOMAIN}:ro
-      - ./docker/blossom.${DOMAIN}_location:/etc/nginx/vhost.d/blossom.${DOMAIN}_location:ro
+      - ./docker/vhost.d:/etc/nginx/vhost.d
       - ./docker/nginx-proxy.conf:/etc/nginx/conf.d/zzz_upload.conf:ro
     environment:
       - ENABLE_WEBSOCKETS=true
@@ -258,9 +257,9 @@ services:
       - LND_REST_ENDPOINT=https://lnd1:${LIGHTNING_REST_PORT}
       - LND_REST_CERT=/app/lnd/tls.cert
       - LND_REST_MACAROON=/app${LND_ADMIN_MACAROON_PATH}
-      - LNBITS_ADMIN_EXTENSIONS="lnurlp"
-      - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp"
-      - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp"
+      - LNBITS_ADMIN_EXTENSIONS="lnurlp,nostrnip5"
+      - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp,nostrnip5"
+      - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp,nostrnip5"
 
     volumes:
       - ./docker/data/lightning_data/1:/app/lnd
@@ -292,9 +291,9 @@ services:
       - LND_REST_ENDPOINT=https://lnd2:${LIGHTNING_REST_PORT}
       - LND_REST_CERT=/app/lnd/tls.cert
       - LND_REST_MACAROON=/app${LND_ADMIN_MACAROON_PATH}
-      - LNBITS_ADMIN_EXTENSIONS="lnurlp"
-      - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp"
-      - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp"
+      - LNBITS_ADMIN_EXTENSIONS="lnurlp,nostrnip5"
+      - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp,nostrnip5"
+      - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp,nostrnip5"
 
     volumes:
       - ./docker/data/lightning_data/2:/app/lnd

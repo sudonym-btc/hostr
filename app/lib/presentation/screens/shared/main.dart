@@ -5,6 +5,7 @@ export 'listing/edit_listing_view.dart';
 export 'listing/listing.dart';
 export 'listing/listing_view.dart';
 export 'listing/reserve.dart';
+export 'onboarding_gate.dart';
 export 'profile/edit_profile.dart';
 export 'profile/profile.dart';
 export 'signin/signin.dart';

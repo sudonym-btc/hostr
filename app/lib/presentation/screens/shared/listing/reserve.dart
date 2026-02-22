@@ -6,6 +6,7 @@ import 'package:hostr/core/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hostr/presentation/component/main.dart';
+import 'package:hostr/route/auth_gated_action.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -86,7 +87,7 @@ class ReserveState extends State<Reserve> {
                               state.status == ReservationCubitStatus.loading ||
                               dateState.dateRange == null
                           ? null
-                          : () async {
+                          : () => authGatedAction(context, () async {
                               await context
                                   .read<ReservationCubit>()
                                   .createReservationRequest(
@@ -102,7 +103,7 @@ class ReserveState extends State<Reserve> {
                                       );
                                     },
                                   );
-                            },
+                            }),
                       child: state.status == ReservationCubitStatus.loading
                           ? CircularProgressIndicator(
                               constraints: BoxConstraints(

@@ -74,19 +74,35 @@ class ThreadReadyWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: ThreadHeaderWidget(counterparties: counterparties)),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: CustomPadding(child: ThreadReplyWidget()),
-      ),
-      body: Column(
-        children: [
-          ReservationStatusWidget(),
-          Expanded(
-            child: ThreadContent(participants: participants, listing: listing),
-          ),
-        ],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: ThreadHeaderWidget(counterparties: counterparties),
+        ),
+        body: Column(
+          children: [
+            ReservationStatusWidget(),
+            Expanded(
+              child: ThreadContent(
+                participants: participants,
+                listing: listing,
+              ),
+            ),
+            Container(
+              color: Theme.of(context).colorScheme.surfaceContainer,
+              child: SafeArea(
+                top: false,
+                child: CustomPadding(
+                  top: 0.5,
+                  bottom: 0.5,
+                  child: ThreadReplyWidget(),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

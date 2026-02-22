@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/sources/api/google_maps.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -319,11 +320,96 @@ class LocationFieldState extends State<LocationField> {
     }
   }
 
+  // ── Unified below-field area (loading / suggestions / empty) ──────────
+
+  bool get _isBusy => _isLoadingSuggestions || widget.controller.isResolvingH3;
+
+  String get _busyText {
+    if (widget.controller.isResolvingH3) return 'Resolving location…';
+    return 'Searching locations…';
+  }
+
+  Widget _buildBelowField() {
+    if (_isBusy) {
+      return Padding(
+        key: const ValueKey('loading'),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            ),
+            const SizedBox(width: 10),
+            AnimatedSwitcher(
+              duration: kAnimationDuration,
+              child: Text(
+                _busyText,
+                key: ValueKey(_busyText),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_placeList.isNotEmpty) {
+      return ConstrainedBox(
+        key: const ValueKey('suggestions'),
+        constraints: const BoxConstraints(maxHeight: 220),
+        child: ListView.builder(
+          shrinkWrap: true,
+          physics: const ClampingScrollPhysics(),
+          itemCount: _placeList.length,
+          itemBuilder: (context, index) {
+            return ListTile(
+              dense: true,
+              title: Text(_placeList[index].displayName),
+              onTap: () async {
+                final selected = _placeList[index];
+                _isSelectingSuggestion = true;
+                // Avoid context ancestor lookup after async gaps.
+                FocusManager.instance.primaryFocus?.unfocus();
+                setState(() {
+                  _isLoadingSuggestions = true;
+                  _placeList = [];
+                });
+                try {
+                  final resolved = await _resolveCoordinates(selected);
+                  if (!mounted) return;
+
+                  widget.controller.applySelection(resolved);
+                  widget.onSelected?.call(resolved);
+                  await _resolveH3ForInput(selectedSuggestion: resolved);
+                } finally {
+                  _isSelectingSuggestion = false;
+                  if (!mounted) return;
+                  setState(() {
+                    _isLoadingSuggestions = false;
+                    _placeList = [];
+                    _sessionToken = _newSessionToken();
+                  });
+                }
+              },
+            );
+          },
+        ),
+      );
+    }
+
+    return const SizedBox.shrink(key: ValueKey('empty'));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         TextFormField(
+          autocorrect: false,
+          enableSuggestions: false,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           decoration: InputDecoration(
             hintText: widget.hintText,
             // prefixIcon: Icon(Icons.location_on),
@@ -354,69 +440,20 @@ class LocationFieldState extends State<LocationField> {
                 return widget.controller.validateText(value);
               },
         ),
-        if (widget.controller.isResolvingH3)
-          const ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 8),
-            leading: SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            title: Text('Resolving'),
-          ),
-        if (_isLoadingSuggestions)
-          const ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 8),
-            leading: SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            title: Text('Searching locations...'),
-          )
-        else if (_placeList.isNotEmpty)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 220),
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const ClampingScrollPhysics(),
-              itemCount: _placeList.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  dense: true,
-                  title: Text(_placeList[index].displayName),
-                  onTap: () async {
-                    final selected = _placeList[index];
-                    _isSelectingSuggestion = true;
-                    // Avoid context ancestor lookup after async gaps.
-                    FocusManager.instance.primaryFocus?.unfocus();
-                    setState(() {
-                      _isLoadingSuggestions = true;
-                      _placeList = [];
-                    });
-                    try {
-                      final resolved = await _resolveCoordinates(selected);
-                      if (!mounted) return;
-
-                      widget.controller.applySelection(resolved);
-                      widget.onSelected?.call(resolved);
-                      await _resolveH3ForInput(selectedSuggestion: resolved);
-                    } finally {
-                      _isSelectingSuggestion = false;
-                      if (!mounted) return;
-                      setState(() {
-                        _isLoadingSuggestions = false;
-                        _placeList = [];
-                        _sessionToken = _newSessionToken();
-                      });
-                    }
-                  },
-                );
-              },
+        AnimatedSwitcher(
+          duration: kAnimationDuration,
+          switchInCurve: kAnimationCurve,
+          switchOutCurve: kAnimationCurve,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SizeTransition(
+              sizeFactor: animation,
+              axisAlignment: -1,
+              child: child,
             ),
           ),
+          child: _buildBelowField(),
+        ),
         if (widget.showH3Output)
           Padding(
             padding: const EdgeInsets.only(top: 8),

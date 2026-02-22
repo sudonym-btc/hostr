@@ -17,6 +17,13 @@ class SearchView extends StatefulWidget {
 class SearchViewState extends State<SearchView> {
   final DraggableScrollableController _panelController =
       DraggableScrollableController();
+  final ValueNotifier<String?> _scrollToListingId = ValueNotifier(null);
+
+  @override
+  void dispose() {
+    _scrollToListingId.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +63,11 @@ class SearchViewState extends State<SearchView> {
                           height: listingStartHeight,
                           child: Stack(
                             children: [
-                              SearchMapWidget(),
+                              SearchMapWidget(
+                                onMarkerTap: (id) {
+                                  _scrollToListingId.value = id;
+                                },
+                              ),
                               SafeArea(
                                 child: InkWell(
                                   child: CustomPadding(
@@ -146,6 +157,7 @@ class SearchViewState extends State<SearchView> {
                           ),
                           child: ListingsWidget(
                             scrollController: scrollController,
+                            scrollToId: _scrollToListingId,
                           ),
                         );
                       },

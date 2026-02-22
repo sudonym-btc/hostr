@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
+import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -215,15 +216,17 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
 
         if (state is AvailabilityAvailable) {
           return Text(
-            'Availability: Available',
+            'Available',
             style: Theme.of(context).textTheme.bodySmall,
           );
         }
 
         if (state is AvailabilityUnavailable) {
           return Text(
-            'Availability: Unavailable',
-            style: Theme.of(context).textTheme.bodySmall,
+            'Unavailable',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
           );
         }
 
@@ -237,29 +240,34 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     final showAvailability =
         _availabilityCubit?.dateRangeCubit.state.dateRange != null;
 
-    return ListingListItemView(
+    return PreloadListingImages(
       listing: widget.listing,
-      showPrice: widget.showPrice,
-      showFeedback: widget.showFeedback,
-      smallImage: widget.smallImage,
-      bottom: widget.bottom,
-      showAvailability: showAvailability,
-      availabilityWidget: showAvailability
-          ? _buildAvailabilityText(context)
-          : null,
-      onTap: () {
-        AutoRouter.of(context).push(
-          ListingRoute(
-            a: widget.listing.anchor!,
-            dateRangeStart: widget.dateRange?.start != null
-                ? widget.dateRange!.start.toIso8601String()
-                : null,
-            dateRangeEnd: widget.dateRange?.end != null
-                ? widget.dateRange!.end.toIso8601String()
-                : null,
-          ),
-        );
-      },
+      child: ListingListItemView(
+        listing: widget.listing,
+        showPrice: widget.showPrice,
+        showFeedback: widget.showFeedback,
+        smallImage: widget.smallImage,
+        bottom: widget.bottom,
+        showAvailability: showAvailability,
+        availabilityWidget: showAvailability
+            ? _buildAvailabilityText(context)
+            : null,
+        onTap: () {
+          DateTimeRange? dr = widget.dateRange;
+          if (dr == null) {
+            try {
+              dr = context.read<DateRangeCubit>().state.dateRange;
+            } catch (_) {}
+          }
+          AutoRouter.of(context).push(
+            ListingRoute(
+              a: widget.listing.anchor!,
+              dateRangeStart: dr?.start.toIso8601String(),
+              dateRangeEnd: dr?.end.toIso8601String(),
+            ),
+          );
+        },
+      ),
     );
   }
 }

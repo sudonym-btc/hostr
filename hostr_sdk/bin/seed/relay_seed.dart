@@ -3,56 +3,52 @@ import 'dart:io';
 
 import 'package:hostr_sdk/datasources/anvil/anvil.dart';
 import 'package:hostr_sdk/datasources/lnbits/lnbits.dart';
+import 'package:hostr_sdk/seed/pipeline/seed_pipeline.dart';
+import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
+import 'package:hostr_sdk/seed/pipeline/seed_pipeline_models.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:path/path.dart' as p;
 
-import 'deterministic_seed_builder.dart';
+import 'deterministic_seed_builder.dart' as legacy;
 import 'seed_models.dart';
 
 class RelaySeeder {
-  Future<int> run({required DeterministicSeedConfig config}) async {
-    print('Seeding ${config.relayUrl}...');
-    print(config.toJson());
+  /// Run using the new [SeedPipeline]. Accepts either the new
+  /// [SeedPipelineConfig] or falls back to converting a legacy
+  /// [DeterministicSeedConfig].
+  Future<int> runPipeline({required SeedPipelineConfig config}) async {
+    print('Seeding ${config.relayUrl} (pipeline)...');
+    print(const JsonEncoder.withIndent('  ').convert(config.toJson()));
     final contractAddress = await _resolveDeployedMultiEscrowAddress();
     print('Using contract address: $contractAddress');
 
     if (config.fundProfiles) {
-      await _fundMockProfiles(
+      await _fundMockProfilesFromPipeline(
         rpcUrl: config.rpcUrl,
         amountWei: config.fundAmountWei ?? BigInt.parse('10000000000000000000'),
-        deterministicConfig: config,
+        config: config,
+        contractAddress: contractAddress,
       );
     }
 
     Ndk? ndk;
     try {
-      final deterministicData = await DeterministicSeedBuilder(
-        config: config.validated(),
+      final pipeline = SeedPipeline(
+        config: config,
         contractAddress: contractAddress,
-        rpcUrl: config.rpcUrl,
-      ).build();
-      print(
-        'Built ${deterministicData.allEvents.length} deterministic events.',
       );
-      // final mocked = await MOCK_EVENTS(contractAddress: contractAddress);
-      final events = [
-        ...deterministicData.allEvents,
-        // ...mocked,
-      ];
+      final data = await pipeline.run();
+      print('Built ${data.allEvents.length} events.');
+      print(
+        'Summary: ${const JsonEncoder.withIndent("  ").convert(data.summary.toJson())}',
+      );
 
-      print(
-        events
-            .map((e) => Nip01EventModel.fromEntity(e).toJsonString())
-            .toList(),
-      );
+      final events = data.allEvents;
 
       if (config.setupLnbits) {
-        await _setupLnbitsForProfiles(
-          events: events,
-          deterministicConfig: config,
-        );
+        await _setupLnbitsForProfiles(events: events, pipelineConfig: config);
         print('LNbits setup completed for profiles with lud16 usernames.');
       }
 
@@ -69,13 +65,19 @@ class RelaySeeder {
       await _broadcastEventsInBatches(ndk: ndk, events: events);
 
       print('Seeded ${events.length} events.');
-      _printDeterministicUsersByRole(deterministicData);
+      _printPipelineUsersByRole(data);
       return events.length;
     } finally {
       if (ndk != null) {
         await ndk.destroy();
       }
     }
+  }
+
+  /// Legacy entry point — delegates to [runPipeline] via config conversion.
+  Future<int> run({required DeterministicSeedConfig config}) async {
+    final pipelineConfig = SeedPipelineConfig.fromLegacy(config.toJson());
+    return runPipeline(config: pipelineConfig);
   }
 
   static const int _broadcastBatchSize = 100;
@@ -141,11 +143,11 @@ class RelaySeeder {
     );
   }
 
-  void _printDeterministicUsersByRole(DeterministicSeedData data) {
+  void _printDeterministicUsersByRole(legacy.DeterministicSeedData data) {
     final users = data.users;
     final userByPubkey = {for (final u in users) u.keyPair.publicKey: u};
 
-    Map<String, dynamic> userSummary(SeedUser user) {
+    Map<String, dynamic> userSummary(legacy.SeedUser user) {
       final privateKey = user.keyPair.privateKey;
       final evmAddress = user.hasEvm && privateKey != null
           ? getEvmCredentials(privateKey).address.eip55With0x
@@ -238,12 +240,12 @@ class RelaySeeder {
     print(const JsonEncoder.withIndent('  ').convert(grouped));
   }
 
-  Future<DeterministicSeedData> buildDeterministicEvents({
+  Future<legacy.DeterministicSeedData> buildDeterministicEvents({
     required DeterministicSeedConfig config,
     String rpcUrl = 'http://localhost:8545',
   }) async {
     final contractAddress = await _resolveDeployedMultiEscrowAddress();
-    return DeterministicSeedBuilder(
+    return legacy.DeterministicSeedBuilder(
       config: config.validated(),
       contractAddress: contractAddress,
       rpcUrl: rpcUrl,
@@ -366,7 +368,7 @@ class RelaySeeder {
     };
 
     if (deterministicConfig != null) {
-      final deterministicUsers = DeterministicSeedBuilder(
+      final deterministicUsers = legacy.DeterministicSeedBuilder(
         config: deterministicConfig.validated(),
         contractAddress: await _resolveDeployedMultiEscrowAddress(),
       ).deriveUsers();
@@ -410,42 +412,264 @@ class RelaySeeder {
   Future<void> _setupLnbitsForProfiles({
     required List<Nip01Event> events,
     DeterministicSeedConfig? deterministicConfig,
+    SeedPipelineConfig? pipelineConfig,
   }) async {
     final usernamesByDomain = <String, Set<String>>{};
+    final nip05ByDomain = <String, Map<String, String>>{};
 
     for (final profile in events.whereType<ProfileMetadata>()) {
       final lud16 = profile.metadata.lud16;
-      if (lud16 == null) {
-        continue;
+      if (lud16 != null) {
+        final split = lud16.split('@');
+        if (split.length == 2 && split[0].isNotEmpty && split[1].isNotEmpty) {
+          usernamesByDomain
+              .putIfAbsent(split[1].toLowerCase(), () => <String>{})
+              .add(split[0]);
+        }
       }
 
-      final split = lud16.split('@');
-      if (split.length != 2 || split[0].isEmpty || split[1].isEmpty) {
-        continue;
+      final nip05 = profile.metadata.nip05;
+      if (nip05 != null) {
+        final split = nip05.split('@');
+        if (split.length == 2 && split[0].isNotEmpty && split[1].isNotEmpty) {
+          final domain = split[1].toLowerCase();
+          // Only set up NIP-05 entries on LNbits-served domains.
+          if (domain.startsWith('lnbits')) {
+            nip05ByDomain.putIfAbsent(
+              domain,
+              () => <String, String>{},
+            )[split[0]] = profile.pubKey;
+          }
+        }
       }
-
-      usernamesByDomain
-          .putIfAbsent(split[1].toLowerCase(), () => <String>{})
-          .add(split[0]);
     }
 
-    if (usernamesByDomain.isEmpty) {
-      print('No profile lud16 usernames found. Skipping LNbits setup.');
+    if (usernamesByDomain.isEmpty && nip05ByDomain.isEmpty) {
+      print(
+        'No profile lud16 usernames or nip05 entries found. '
+        'Skipping LNbits setup.',
+      );
       return;
     }
 
     final config = LnbitsSetupConfig.fromEnvironment(
-      lnbits1BaseUrl: deterministicConfig?.lnbits1BaseUrl,
-      lnbits2BaseUrl: deterministicConfig?.lnbits2BaseUrl,
-      lnbitsAdminEmail: deterministicConfig?.lnbitsAdminEmail,
-      lnbitsAdminPassword: deterministicConfig?.lnbitsAdminPassword,
-      lnbitsExtensionName: deterministicConfig?.lnbitsExtensionName,
-      lnbitsNostrPrivateKey: deterministicConfig?.lnbitsNostrPrivateKey,
+      lnbits1BaseUrl:
+          pipelineConfig?.lnbits1BaseUrl ?? deterministicConfig?.lnbits1BaseUrl,
+      lnbits2BaseUrl:
+          pipelineConfig?.lnbits2BaseUrl ?? deterministicConfig?.lnbits2BaseUrl,
+      lnbitsAdminEmail:
+          pipelineConfig?.lnbitsAdminEmail ??
+          deterministicConfig?.lnbitsAdminEmail,
+      lnbitsAdminPassword:
+          pipelineConfig?.lnbitsAdminPassword ??
+          deterministicConfig?.lnbitsAdminPassword,
+      lnbitsExtensionName:
+          pipelineConfig?.lnbitsExtensionName ??
+          deterministicConfig?.lnbitsExtensionName,
+      lnbitsNostrPrivateKey:
+          pipelineConfig?.lnbitsNostrPrivateKey ??
+          deterministicConfig?.lnbitsNostrPrivateKey,
     );
 
-    await LnbitsDatasource().setupUsernamesByDomain(
-      usernamesByDomain: usernamesByDomain,
+    final datasource = LnbitsDatasource();
+
+    if (usernamesByDomain.isNotEmpty) {
+      await datasource.setupUsernamesByDomain(
+        usernamesByDomain: usernamesByDomain,
+        config: config,
+      );
+    }
+
+    if (nip05ByDomain.isNotEmpty) {
+      final totalEntries = nip05ByDomain.values.fold<int>(
+        0,
+        (sum, m) => sum + m.length,
+      );
+      print(
+        '[lnbits][nip05] Setting up $totalEntries NIP-05 entries across '
+        '${nip05ByDomain.length} domain(s): ${nip05ByDomain.keys.join(', ')}',
+      );
+      for (final entry in nip05ByDomain.entries) {
+        print(
+          '[lnbits][nip05]   ${entry.key}: '
+          '${entry.value.keys.join(', ')}',
+        );
+      }
+
+      final domainIds = await datasource.setupNip05ByDomain(
+        nip05ByDomain: nip05ByDomain,
+        config: config,
+      );
+
+      print(
+        '[lnbits][nip05] Finished NIP-05 setup. '
+        'Created/verified ${domainIds.length} domain(s): $domainIds',
+      );
+
+      // Write nginx vhost location configs so that
+      // /.well-known/nostr.json is proxied to the nostrnip5 API.
+      _writeNip05NginxConfigs(domainIds);
+    } else {
+      print(
+        '[lnbits][nip05] No NIP-05 entries to set up (no lnbits* domains found).',
+      );
+    }
+  }
+
+  void _writeNip05NginxConfigs(Map<String, String> domainIds) {
+    // Resolve the project root (hostr_sdk is at <root>/hostr_sdk).
+    final sdkDir = Platform.script.resolve('../../..').toFilePath();
+    final projectRoot = Directory(sdkDir).parent.path;
+    final vhostDir = Directory('$projectRoot/docker/vhost.d');
+    if (!vhostDir.existsSync()) {
+      vhostDir.createSync(recursive: true);
+    }
+
+    for (final entry in domainIds.entries) {
+      final domain = entry.key;
+      final domainId = entry.value;
+      final file = File('${vhostDir.path}/${domain}_location');
+      file.writeAsStringSync(
+        '# Auto-generated by seed pipeline — proxies NIP-05 to nostrnip5\n'
+        'location /.well-known/nostr.json {\n'
+        '    proxy_pass http://127.0.0.1:5000'
+        '/nostrnip5/api/v1/domain/$domainId/nostr.json;\n'
+        '    proxy_set_header Host \$host;\n'
+        '    proxy_set_header X-Real-IP \$remote_addr;\n'
+        '}\n',
+      );
+      print('Wrote nginx vhost config: ${file.path}');
+    }
+  }
+
+  // ── Pipeline-aware helpers ────────────────────────────────────────────────
+
+  Future<void> _fundMockProfilesFromPipeline({
+    required String rpcUrl,
+    required BigInt amountWei,
+    required SeedPipelineConfig config,
+    required String contractAddress,
+  }) async {
+    final privateKeys = <String>{
+      if (MockKeys.hoster.privateKey != null) MockKeys.hoster.privateKey!,
+      if (MockKeys.guest.privateKey != null) MockKeys.guest.privateKey!,
+      if (MockKeys.escrow.privateKey != null) MockKeys.escrow.privateKey!,
+      ...mockKeys.map((k) => k.privateKey).whereType<String>(),
+    };
+
+    // Derive pipeline users to get their private keys for funding.
+    final pipeline = SeedPipeline(
       config: config,
+      contractAddress: contractAddress,
     );
+    final users = pipeline.buildUsers();
+    privateKeys.addAll(
+      users.map((u) => u.keyPair.privateKey).whereType<String>(),
+    );
+    pipeline.dispose();
+
+    final addresses = privateKeys
+        .map((pk) => getEvmCredentials(pk).address.eip55With0x)
+        .toSet()
+        .toList(growable: false);
+
+    print('Funding ${addresses.length} mock EVM addresses via $rpcUrl...');
+
+    final anvilClient = AnvilClient(rpcUri: Uri.parse(rpcUrl));
+    try {
+      for (final address in addresses) {
+        final funded = await anvilClient.setBalance(
+          address: address,
+          amountWei: amountWei,
+        );
+        if (!funded) {
+          throw Exception(
+            'Could not fund $address on $rpcUrl. Neither anvil_setBalance nor hardhat_setBalance is supported.',
+          );
+        }
+      }
+    } finally {
+      anvilClient.close();
+    }
+    print(
+      'Funded ${addresses.length} mock addresses with $amountWei wei each.',
+    );
+  }
+
+  void _printPipelineUsersByRole(SeedPipelineData data) {
+    final users = data.users;
+    final userByPubkey = {for (final u in users) u.keyPair.publicKey: u};
+
+    Map<String, dynamic> userSummary(SeedUser user) {
+      final privateKey = user.keyPair.privateKey;
+      final evmAddress = user.hasEvm && privateKey != null
+          ? getEvmCredentials(privateKey).address.eip55With0x
+          : null;
+
+      return {
+        'hasEvm': user.hasEvm,
+        'evmAddress': evmAddress,
+        'reservations': {'escrow': <String>[], 'zap': <String>[]},
+      };
+    }
+
+    final grouped = {
+      'guest': {
+        for (final u in users.where((u) => !u.isHost))
+          if (u.keyPair.privateKey != null)
+            u.keyPair.privateKey!: userSummary(u),
+      },
+      'host': {
+        for (final u in users.where((u) => u.isHost))
+          if (u.keyPair.privateKey != null)
+            u.keyPair.privateKey!: userSummary(u),
+      },
+    };
+
+    for (final reservation in data.reservations) {
+      final commitmentHash = reservation.parsedTags.commitmentHash;
+      final proof = reservation.parsedContent.proof;
+      if (proof == null) continue;
+
+      final usesEscrow = proof.escrowProof != null;
+      final usesZap = proof.zapProof != null;
+      final guest = userByPubkey[reservation.pubKey];
+      final host = userByPubkey[proof.listing.pubKey];
+
+      void addToRole(SeedUser? user, String role) {
+        if (user == null || user.keyPair.privateKey == null) return;
+        final roleMap = grouped[role] as Map<String, dynamic>;
+        final info = roleMap[user.keyPair.privateKey!] as Map<String, dynamic>?;
+        if (info == null) return;
+        final reservations = info['reservations'] as Map<String, dynamic>;
+        if (usesEscrow) {
+          (reservations['escrow'] as List<String>).add(commitmentHash);
+        }
+        if (usesZap) {
+          (reservations['zap'] as List<String>).add(commitmentHash);
+        }
+      }
+
+      addToRole(guest, 'guest');
+      addToRole(host, 'host');
+    }
+
+    for (final role in ['guest', 'host']) {
+      final roleMap = grouped[role] as Map<String, dynamic>;
+      for (final info in roleMap.values) {
+        final reservations =
+            (info as Map<String, dynamic>)['reservations']
+                as Map<String, dynamic>;
+        reservations['escrow'] =
+            (reservations['escrow'] as List<String>).toSet().toList()..sort();
+        reservations['zap'] =
+            (reservations['zap'] as List<String>).toSet().toList()..sort();
+      }
+    }
+
+    print(
+      'Seed users private keys by role with EVM + reservation proof usage:',
+    );
+    print(const JsonEncoder.withIndent('  ').convert(grouped));
   }
 }

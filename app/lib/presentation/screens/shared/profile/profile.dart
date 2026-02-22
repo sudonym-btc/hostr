@@ -41,7 +41,11 @@ class ProfileScreen extends StatelessWidget {
                     pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
                     builder: (context, snapshot) => ProfileHeaderWidget(
                       profile: snapshot.data,
-                      isLoading: snapshot.data == null,
+                      isLoading:
+                          snapshot.connectionState != ConnectionState.done,
+                      onEditProfile: () {
+                        AutoRouter.of(context).navigate(EditProfileRoute());
+                      },
                     ),
                   ),
                 ),

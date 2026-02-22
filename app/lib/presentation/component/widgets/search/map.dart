@@ -2,10 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/component/widgets/search/map_style.dart';
+import 'package:hostr/presentation/component/widgets/amount/amount_input.dart';
+import 'package:hostr/presentation/component/widgets/search/listing_map.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
@@ -15,7 +14,10 @@ double mapsGoogleLogoSize = 0;
 class SearchMapWidget extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
 
-  SearchMapWidget({super.key});
+  /// Called with the listing id when a price marker is tapped.
+  final ValueChanged<String>? onMarkerTap;
+
+  SearchMapWidget({super.key, this.onMarkerTap});
 
   @override
   State<StatefulWidget> createState() {
@@ -23,186 +25,59 @@ class SearchMapWidget extends StatefulWidget {
   }
 }
 
-class _SearchMapWidgetState extends State<SearchMapWidget>
-    with WidgetsBindingObserver {
-  final Completer<GoogleMapController> _controller =
-      Completer<GoogleMapController>();
-  final Map<String, Marker> _markers = {};
-  final BehaviorSubject<bool> _mapReadySubject = BehaviorSubject<bool>.seeded(
-    false,
-  );
-  final Set<String> _fetchedIds = {}; // Set to keep track of fetched IDs
+class _SearchMapWidgetState extends State<SearchMapWidget> {
+  List<ListingMarkerData> _markerData = [];
   StreamSubscription<ListCubitState<Listing>>? _listSubscription;
-
-  void _onMapCreated(GoogleMapController controller) {
-    widget.logger.i("Map created");
-    if (!_controller.isCompleted && mounted) {
-      widget.logger.i("Map completed");
-      _controller.complete(controller);
-      _mapReadySubject.add(true);
-      setState(() {});
-    }
-  }
-
-  Future<void> fetchLocationsAndMoveCamera(
-    ListCubitState<Listing> state,
-  ) async {
-    widget.logger.i("New state $state");
-
-    // Add markers for new locations
-    for (var item in state.results) {
-      if (!_fetchedIds.contains(item.id)) {
-        _fetchedIds.add(item.id);
-        final h3Tag = item.tags
-            .where((tag) => tag.isNotEmpty && tag.first == 'g')
-            .map((tag) => tag.length > 1 ? tag[1] : '')
-            .where((value) => value.isNotEmpty)
-            .firstOrNull;
-
-        if (h3Tag == null) {
-          widget.logger.w('Missing H3 tag for listing ${item.id}');
-          continue;
-        }
-
-        final center = getIt<H3Engine>().polygonCover.centerForTag(h3Tag);
-        if (center == null) {
-          widget.logger.w('Invalid H3 tag for listing ${item.id}: $h3Tag');
-          continue;
-        }
-
-        final position = LatLng(center.latitude, center.longitude);
-
-        setState(() {
-          _markers[item.id] = Marker(
-            markerId: MarkerId(item.id),
-            position: position,
-          );
-        });
-      }
-    }
-
-    // Collect markers to be removed
-
-    final keysToRemove = _markers.values
-        .where(
-          (marker) =>
-              !state.results.any((loc) => loc.id == marker.markerId.value),
-        )
-        .map((marker) => marker.markerId.value)
-        .toList();
-
-    if (keysToRemove.isNotEmpty) {
-      setState(() {
-        for (final key in keysToRemove) {
-          _fetchedIds.remove(key);
-          _markers.remove(key);
-        }
-      });
-    }
-
-    _moveCameraToFitAllMarkers();
-  }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
 
-    widget.logger.i("Init state");
-    _listSubscription = _mapReadySubject
-        /// Only emit when the map is ready
-        .where((isReady) => isReady)
-        .doOnData((boo) {
-          fetchLocationsAndMoveCamera(
-            BlocProvider.of<ListCubit<Listing>>(context).state,
-          );
-        })
-        /// Start listening to the list results
-        .flatMap((_) => BlocProvider.of<ListCubit<Listing>>(context).stream)
-        /// Debounce to avoid too many updates
-        .debounceTime(Duration(milliseconds: 1000))
-        .listen(fetchLocationsAndMoveCamera);
+    // Listen for list cubit updates and convert to marker data.
+    final cubit = BlocProvider.of<ListCubit<Listing>>(context);
+    _updateMarkerData(cubit.state);
+
+    _listSubscription = cubit.stream
+        .debounceTime(const Duration(milliseconds: 1000))
+        .listen(_updateMarkerData);
   }
 
-  LatLngBounds _calculateBounds() {
-    double minLat = _markers.values
-        .map((p) => p.position.latitude)
-        .reduce((a, b) => a < b ? a : b);
-    double maxLat = _markers.values
-        .map((p) => p.position.latitude)
-        .reduce((a, b) => a > b ? a : b);
-    double minLng = _markers.values
-        .map((p) => p.position.longitude)
-        .reduce((a, b) => a < b ? a : b);
-    double maxLng = _markers.values
-        .map((p) => p.position.longitude)
-        .reduce((a, b) => a > b ? a : b);
+  void _updateMarkerData(ListCubitState<Listing> state) {
+    final data = <ListingMarkerData>[];
+    for (final item in state.results) {
+      final h3Tag = item.tags
+          .where((tag) => tag.isNotEmpty && tag.first == 'g')
+          .map((tag) => tag.length > 1 ? tag[1] : '')
+          .where((value) => value.isNotEmpty)
+          .firstOrNull;
 
-    // Minimum padding in degrees (about a city block)
-    const double minPadding = 0.005;
+      if (h3Tag == null) continue;
 
-    // If all markers are at the same point, expand bounds by minPadding
-    if ((maxLat - minLat).abs() < 1e-6 && (maxLng - minLng).abs() < 1e-6) {
-      minLat -= minPadding;
-      maxLat += minPadding;
-      minLng -= minPadding;
-      maxLng += minPadding;
+      final priceText = item.parsedContent.price.isNotEmpty
+          ? formatAmount(item.parsedContent.price.first.amount, exact: false)
+          : null;
+
+      data.add(
+        ListingMarkerData(id: item.id, h3Tag: h3Tag, priceText: priceText),
+      );
     }
-
-    return LatLngBounds(
-      northeast: LatLng(maxLat, maxLng),
-      southwest: LatLng(minLat, minLng),
-    );
-  }
-
-  Future<void> _moveCameraToFitAllMarkers() async {
-    // widget.logger.i('Move camera to fit all markers ${_markers.length}');
-    if (_markers.isEmpty) return;
-
-    LatLngBounds bounds = _calculateBounds();
-
-    final GoogleMapController controller = await _controller.future;
-    await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 120));
+    if (mounted) setState(() => _markerData = data);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _listSubscription?.cancel();
-    _mapReadySubject.close();
-    // _controller = Completer<GoogleMapController>();
     super.dispose();
   }
 
   @override
-  void didChangePlatformBrightness() {
-    setState(() {
-      // Update the state when the platform brightness changes
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    var brightness = Theme.of(context).brightness;
-    bool isDarkMode = brightness == Brightness.dark;
     return Stack(
       children: [
-        AnimatedOpacity(
-          opacity: _controller.isCompleted ? 1 : 0,
-          duration: const Duration(milliseconds: 1000),
-          child: GoogleMap(
-            /// To set tile background, nede to use cloud style id with backgroundHint
-            style: getMapStyle(context, isDarkMode),
-            onMapCreated: _onMapCreated,
-            zoomControlsEnabled: false,
-            initialCameraPosition: CameraPosition(
-              target: LatLng(37.42796133580664, -122.085749655962),
-              zoom: 14.4746,
-            ),
-            markers: _markers.values.toSet(),
-            myLocationEnabled: false,
-            myLocationButtonEnabled: false,
-          ),
+        ListingMap(
+          listings: _markerData,
+          onMarkerTap: widget.onMarkerTap,
+          showArrows: false,
         ),
         Positioned(
           left: 0,
@@ -212,11 +87,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget>
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                stops: [
-                  0.75,
-                  1.0,
-                ], // More solid for 80%, quickly fades at the top
-
+                stops: [0.75, 1.0],
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [

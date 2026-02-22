@@ -14,7 +14,9 @@ class LocationController extends ChangeNotifier {
 
   LocationController({String initialText = ''})
     : textController = TextEditingController(text: initialText),
-      focusNode = FocusNode();
+      focusNode = FocusNode() {
+    textController.addListener(_onTextChanged);
+  }
 
   String get text => textController.text;
   List<H3Tag> get h3Tags => _h3Tags;
@@ -26,6 +28,16 @@ class LocationController extends ChangeNotifier {
   bool get isValid => !_isResolvingH3 && _h3Error == null;
   bool get canSubmit =>
       !_isResolvingH3 && _h3Error == null && _h3Tags.isNotEmpty;
+
+  /// Whenever the text diverges from the last resolved value, shed stale
+  /// H3 tags so [canSubmit] becomes false until resolution completes.
+  void _onTextChanged() {
+    if (_h3Tags.isNotEmpty && textController.text.trim() != _lastResolvedText) {
+      _h3Tags = const [];
+      _lastResolvedText = '';
+      notifyListeners();
+    }
+  }
 
   String? validateText(
     String? value, {
@@ -105,6 +117,7 @@ class LocationController extends ChangeNotifier {
 
   @override
   void dispose() {
+    textController.removeListener(_onTextChanged);
     textController.dispose();
     focusNode.dispose();
     super.dispose();

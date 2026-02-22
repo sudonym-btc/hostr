@@ -18,6 +18,7 @@ import 'package:hostr/config/env/production.config.dart' as _i1071;
 import 'package:hostr/config/env/test.config.dart' as _i292;
 import 'package:hostr/data/sources/api/google_maps.dart' as _i575;
 import 'package:hostr/data/sources/h3_engine.dart' as _i175;
+import 'package:hostr/data/sources/image_preloader.dart' as _i776;
 import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
 import 'package:hostr/injection.dart' as _i490;
@@ -40,6 +41,7 @@ extension GetItInjectableX on _i174.GetIt {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final dioModule = _$DioModule();
     gh.factory<_i640.ModeStorage>(() => _i640.ModeStorage());
+    gh.lazySingleton<_i776.ImagePreloader>(() => _i776.ImagePreloader());
     gh.lazySingleton<_i361.Dio>(() => dioModule.dio());
     gh.factory<_i467.Config>(() => _i292.TestConfig(), registerFor: {_test});
     gh.factory<_i467.Config>(() => _i331.MockConfig(), registerFor: {_mock});

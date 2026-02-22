@@ -61,11 +61,13 @@ class Thread {
 
   void _emitState() {
     if (state.isClosed) return;
+    final keyPair = auth.activeKeyPair;
+    if (keyPair == null) return;
     state.add(
       state.value.copyWith(
         messages: messages.list.value,
         counterpartyPubkeys: state.value.participantPubkeys
-            .where((pubkey) => pubkey != auth.activeKeyPair!.publicKey)
+            .where((pubkey) => pubkey != keyPair.publicKey)
             .toList(),
       ),
     );

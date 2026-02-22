@@ -95,6 +95,43 @@ class LnbitsDatasource {
     }
   }
 
+  /// Sets up NIP-05 entries on LNbits via the nostrnip5 extension.
+  ///
+  /// [nip05ByDomain] maps each domain to a map of {local_part → hex pubkey}.
+  /// Returns a map of {domain → nostrnip5 domain ID} for domains that were
+  /// successfully created.
+  Future<Map<String, String>> setupNip05ByDomain({
+    required Map<String, Map<String, String>> nip05ByDomain,
+    required LnbitsSetupConfig config,
+  }) async {
+    if (nip05ByDomain.isEmpty) {
+      return {};
+    }
+
+    final domainIds = <String, String>{};
+    final servers = _resolveLnbitsServerConfigs(config);
+    for (final entry in nip05ByDomain.entries) {
+      final domain = entry.key;
+      final server = servers[domain];
+      if (server == null) {
+        print(
+          'No LNbits server mapping for domain "$domain". Skipping NIP-05.',
+        );
+        continue;
+      }
+
+      final domainId = await _setupNostrnip5(
+        cfg: server,
+        domain: domain,
+        entries: entry.value,
+      );
+      if (domainId != null) {
+        domainIds[domain] = domainId;
+      }
+    }
+    return domainIds;
+  }
+
   Map<String, _LnbitsServerConfig> _resolveLnbitsServerConfigs(
     LnbitsSetupConfig config,
   ) {
@@ -152,7 +189,20 @@ class LnbitsDatasource {
         bearerToken: token,
       );
       try {
-        await _ensureExtensionEnabled(authed, cfg.extensionName);
+        await _ensureExtensionEnabled(
+          authed,
+          cfg.extensionName,
+          archive:
+              'https://github.com/lnbits/${cfg.extensionName}/archive/refs/tags/v1.3.0.zip',
+          version: '1.3.0',
+        );
+        await _ensureExtensionEnabled(
+          authed,
+          'nostrnip5',
+          archive:
+              'https://github.com/lnbits/nostrnip5/archive/refs/tags/v1.0.4.zip',
+          version: '1.0.4',
+        );
 
         final walletsResponse = await authed.apiV1WalletsGet();
         final wallets = walletsResponse.body;
@@ -216,15 +266,19 @@ class LnbitsDatasource {
     );
   }
 
-  Future<void> _ensureExtensionEnabled(Lnbits api, String extensionName) async {
+  Future<void> _ensureExtensionEnabled(
+    Lnbits api,
+    String extensionName, {
+    required String archive,
+    required String version,
+  }) async {
     final installResponse = await api.apiV1ExtensionPost(
       body: CreateExtension(
         extId: extensionName,
-        archive:
-            'https://github.com/lnbits/lnurlp/archive/refs/tags/v1.3.0.zip',
+        archive: archive,
         sourceRepo:
             'https://raw.githubusercontent.com/lnbits/lnbits-extensions/main/extensions.json',
-        version: '1.3.0',
+        version: version,
       ),
     );
 
@@ -313,11 +367,213 @@ class LnbitsDatasource {
     }
   }
 
-  Future<Map<String, dynamic>> _jsonRequest({
+  Future<String?> _setupNostrnip5({
+    required _LnbitsServerConfig cfg,
+    required String domain,
+    required Map<String, String> entries, // local_part → hex pubkey
+  }) async {
+    print('Setting up nostrnip5 on ${cfg.baseUrl} for domain $domain...');
+
+    final unauth = _createLnbitsClient(baseUrl: cfg.baseUrl);
+    try {
+      final loginResponse = await unauth.apiV1AuthPost(
+        body: LoginUsernamePassword(
+          username: cfg.adminEmail,
+          password: cfg.adminPassword,
+        ),
+      );
+
+      final token = _extractAccessToken(loginResponse.body);
+      if (token == null || token.isEmpty) {
+        throw Exception(
+          'Failed to retrieve LNbits access token from ${cfg.baseUrl}',
+        );
+      }
+
+      final authed = _createLnbitsClient(
+        baseUrl: cfg.baseUrl,
+        bearerToken: token,
+      );
+      try {
+        await _ensureExtensionEnabled(
+          authed,
+          'nostrnip5',
+          archive:
+              'https://github.com/lnbits/nostrnip5/archive/refs/tags/v1.0.4.zip',
+          version: '1.0.4',
+        );
+
+        final walletsResponse = await authed.apiV1WalletsGet();
+        final wallets = walletsResponse.body;
+        if (wallets == null || wallets.isEmpty) {
+          throw Exception('No wallets found at ${cfg.baseUrl}');
+        }
+        final wallet = wallets.first;
+
+        final domainId = await _ensureNostrnip5Domain(
+          baseUrl: cfg.baseUrl,
+          bearerToken: token,
+          walletApiKey: wallet.adminkey,
+          walletId: wallet.id,
+          domain: domain,
+        );
+
+        final sorted = entries.entries.toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
+        for (final entry in sorted) {
+          await _ensureNostrnip5Address(
+            baseUrl: cfg.baseUrl,
+            bearerToken: token,
+            walletApiKey: wallet.adminkey,
+            domainId: domainId,
+            localPart: entry.key,
+            pubkey: entry.value,
+          );
+        }
+
+        print(
+          'nostrnip5: created ${sorted.length} NIP-05 entries for $domain '
+          '(domainId=$domainId)',
+        );
+
+        return domainId;
+      } finally {
+        authed.client.dispose();
+      }
+    } finally {
+      unauth.client.dispose();
+    }
+  }
+
+  /// Creates a nostrnip5 domain if it doesn't exist yet. Returns the domain ID.
+  Future<String> _ensureNostrnip5Domain({
+    required String baseUrl,
+    required String bearerToken,
+    required String walletApiKey,
+    required String walletId,
+    required String domain,
+  }) async {
+    final headers = {
+      'Authorization': 'Bearer $bearerToken',
+      'X-Api-Key': walletApiKey,
+    };
+
+    // Check if domain already exists.
+    try {
+      final domains = await _jsonRequest(
+        method: 'GET',
+        uri: Uri.parse('$baseUrl/nostrnip5/api/v1/domains'),
+        headers: headers,
+        returnList: true,
+      );
+      if (domains is List) {
+        for (final d in domains) {
+          if (d is Map<String, dynamic> &&
+              d['domain']?.toString().toLowerCase() == domain.toLowerCase()) {
+            final existingId = d['id'].toString();
+            print(
+              '[lnbits][nip05] Domain "$domain" already exists '
+              '(id=$existingId). Reusing.',
+            );
+            return existingId;
+          }
+        }
+        print(
+          '[lnbits][nip05] Domain "$domain" not found among '
+          '${domains.length} existing domain(s). Creating...',
+        );
+      }
+    } catch (e) {
+      print(
+        '[lnbits][nip05] Could not list existing domains: $e. '
+        'Attempting to create "$domain"...',
+      );
+    }
+
+    final response = await _jsonRequest(
+      method: 'POST',
+      uri: Uri.parse('$baseUrl/nostrnip5/api/v1/domain'),
+      headers: headers,
+      body: {
+        'wallet': walletId,
+        'currency': 'sats',
+        'cost': 0,
+        'domain': domain,
+      },
+    );
+
+    final domainId = response['id']?.toString();
+    if (domainId == null || domainId.isEmpty) {
+      throw Exception('Failed to create nostrnip5 domain "$domain": $response');
+    }
+    print('[lnbits][nip05] Created domain "$domain" (id=$domainId)');
+    return domainId;
+  }
+
+  /// Creates and activates a NIP-05 address in a nostrnip5 domain.
+  Future<void> _ensureNostrnip5Address({
+    required String baseUrl,
+    required String bearerToken,
+    required String walletApiKey,
+    required String domainId,
+    required String localPart,
+    required String pubkey,
+  }) async {
+    final headers = {
+      'Authorization': 'Bearer $bearerToken',
+      'X-Api-Key': walletApiKey,
+    };
+
+    try {
+      final response = await _jsonRequest(
+        method: 'POST',
+        uri: Uri.parse('$baseUrl/nostrnip5/api/v1/domain/$domainId/address'),
+        headers: headers,
+        body: {
+          'domain_id': domainId,
+          'local_part': localPart,
+          'pubkey': pubkey,
+          'years': 1,
+          'create_invoice': false,
+        },
+      );
+
+      final addressId = response['id']?.toString();
+      if (addressId != null && addressId.isNotEmpty) {
+        // Activate the address so it appears in nostr.json lookups.
+        await _jsonRequest(
+          method: 'PUT',
+          uri: Uri.parse(
+            '$baseUrl/nostrnip5/api/v1/domain/$domainId/address/$addressId/activate',
+          ),
+          headers: headers,
+        );
+        print(
+          '[lnbits][nip05] Created & activated address '
+          '$localPart (id=$addressId, pubkey=${pubkey.substring(0, 8)}...)',
+        );
+      } else {
+        print(
+          '[lnbits][nip05] Warning: address creation for $localPart '
+          'returned no id: $response',
+        );
+      }
+    } on HttpException catch (e) {
+      if (e.message.contains('already') || e.message.contains('exists')) {
+        print('[lnbits][nip05] Address $localPart already exists. Skipping.');
+        return;
+      }
+      print('[lnbits][nip05] Error creating address $localPart: ${e.message}');
+      rethrow;
+    }
+  }
+
+  Future<dynamic> _jsonRequest({
     required String method,
     required Uri uri,
     Map<String, String>? headers,
     Object? body,
+    bool returnList = false,
   }) async {
     final client = HttpClient();
     try {
@@ -336,19 +592,32 @@ class LnbitsDatasource {
 
       final response = await request.close();
       final raw = await utf8.decodeStream(response);
-      final decoded = raw.isEmpty ? <String, dynamic>{} : jsonDecode(raw);
-      final map = decoded is Map<String, dynamic>
-          ? decoded
-          : Map<String, dynamic>.from(decoded as Map);
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw HttpException(
-          'HTTP ${response.statusCode} for ${uri.path}: $map',
+          'HTTP ${response.statusCode} for ${uri.path}: $raw',
           uri: uri,
         );
       }
 
-      return map;
+      if (raw.isEmpty) {
+        return returnList ? <dynamic>[] : <String, dynamic>{};
+      }
+
+      final decoded = jsonDecode(raw);
+
+      if (returnList) {
+        return decoded is List ? decoded : [decoded];
+      }
+
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+
+      return <String, dynamic>{'value': decoded};
     } finally {
       client.close(force: true);
     }

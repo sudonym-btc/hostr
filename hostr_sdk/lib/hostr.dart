@@ -34,6 +34,7 @@ class Hostr {
   Reviews get reviews => getIt<Reviews>();
   Evm get evm => getIt<Evm>();
   Relays get relays => getIt<Relays>();
+  Verification get verification => getIt<Verification>();
 
   StreamSubscription? _authStateSubscription;
 
@@ -44,19 +45,23 @@ class Hostr {
 
     _authStateSubscription = auth.authState.listen((state) async {
       if (state is LoggedIn) {
+        final pubkey = auth.activeKeyPair!.publicKey;
+
+        // Fetch the user's NIP-65 relay list and connect to those relays.
+        // This also populates NDK's cache so the outbox/inbox model works
+        // automatically for subsequent broadcasts and queries.
+        await relays.syncNip65(pubkey);
+
+        // Ensure the hostr relay is in the user's published NIP-65 list.
+        await relays.publishNip65(hostrRelay: config.hostrRelay);
+
         messaging.threads.sync();
 
         // // Update an existing profile with any missing info (e.g. evm address)
         // await metadataUseCase.upsertMetadata();
 
-        // // Ensure initial user relay list is set
-        // await ndk.userRelayLists.broadcastAddNip65Relay(
-        //   relayUrl: config.hostrRelay,
-        //   marker: ReadWriteMarker.readWrite,
-        //   broadcastRelays: [...config.relays],
-        // );
         final blossomList = await getIt<Ndk>().blossomUserServerList
-            .getUserServerList(pubkeys: [auth.activeKeyPair!.publicKey]);
+            .getUserServerList(pubkeys: [pubkey]);
         print('Blossom list: $blossomList');
         final broadcastResponse = await getIt<Ndk>().blossomUserServerList
             .publishUserServerList(

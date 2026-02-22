@@ -298,6 +298,12 @@ abstract class AppLocalizations {
   /// **'Send'**
   String get send;
 
+  /// No description provided for @typeAMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Type a message...'**
+  String get typeAMessage;
+
   /// No description provided for @wallet.
   ///
   /// In en, this message translates to:
@@ -418,6 +424,18 @@ abstract class AppLocalizations {
   /// **'Tip'**
   String get tip;
 
+  /// No description provided for @available.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get available;
+
+  /// No description provided for @unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get unavailable;
+
   /// No description provided for @zap.
   ///
   /// In en, this message translates to:
@@ -447,6 +465,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No trips yet'**
   String get noTripsYet;
+
+  /// No description provided for @noMessagesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages yet'**
+  String get noMessagesYet;
 
   /// No description provided for @pay.
   ///

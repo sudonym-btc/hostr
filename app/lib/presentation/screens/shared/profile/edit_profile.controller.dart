@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -43,15 +44,27 @@ class EditProfileController extends UpsertFormController {
       image = sha256.convert(data).toString();
     }
 
-    await getIt<Ndk>().metadata.broadcastMetadata(
-      Metadata(
-        name: name,
-        about: aboutMe,
-        nip05: nip05,
-        lud16: lightningAddress,
-        picture: image,
-      ),
+    final metadata = Metadata(
+      name: name,
+      about: aboutMe,
+      nip05: nip05,
+      lud16: lightningAddress,
+      picture: image,
     );
+    metadata.pubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
+    final profile = ProfileMetadata.fromNostrEvent(
+      metadata.toEvent(),
+    ).withEvmAddress(getIt<Hostr>().auth.getActiveEvmKey().address.eip55With0x);
+
+    await getIt<Hostr>().metadata.create(profile);
+
+    // Notify listeners (e.g. ProfileProvider) that metadata was updated.
+    final updated = await getIt<Hostr>().metadata.loadMetadata(
+      getIt<Hostr>().auth.activeKeyPair!.publicKey,
+    );
+    if (updated != null) {
+      getIt<Hostr>().metadata.notifyUpdate(updated);
+    }
   }
 
   String? validateNip05(String? value) {

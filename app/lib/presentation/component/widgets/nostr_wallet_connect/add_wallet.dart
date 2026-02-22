@@ -52,7 +52,16 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                   }
                   return Column(
                     children: [
-                      if (shouldShowQrScanner) NwcQrScannerWidget(),
+                      if (shouldShowQrScanner)
+                        NwcQrScannerWidget(
+                          onScanned: (url) async {
+                            final cubit = BlocProvider.of<NwcCubit>(context);
+                            await cubit.connect(url);
+                            if (cubit.connection != null) {
+                              await getIt<Hostr>().nwc.add(cubit);
+                            }
+                          },
+                        ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [

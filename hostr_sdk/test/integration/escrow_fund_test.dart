@@ -34,6 +34,7 @@ void main() {
         logs: CustomLogger(),
         bootstrapRelays: ['ws://relay.hostr.development'],
         bootstrapBlossom: ['http://blossom.hostr.development'],
+        hostrRelay: 'ws://relay.hostr.development',
         rootstockConfig: _DevelopmentRootstockConfig(),
       ),
     );

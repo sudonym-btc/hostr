@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
+import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
 
 class ProfileChipWidget extends StatelessWidget {
   final String id;
@@ -16,16 +17,23 @@ class ProfileChipWidget extends StatelessWidget {
           constraints: BoxConstraints(
             maxWidth: 200,
           ), // Set your desired max width here
-          child: Chip(
-            shape: StadiumBorder(),
-            avatar: snapshot.data?.metadata.picture != null
-                ? CircleAvatar(
-                    backgroundImage: NetworkImage(
-                      snapshot.data!.metadata.picture!,
-                    ),
-                  )
-                : CircleAvatar(backgroundColor: Colors.grey),
-            label: Text(name, overflow: TextOverflow.ellipsis, softWrap: false),
+          child: GestureDetector(
+            onTap: () => ProfilePopup.show(context, id),
+            child: Chip(
+              shape: StadiumBorder(),
+              avatar: snapshot.data?.metadata.picture != null
+                  ? CircleAvatar(
+                      backgroundImage: NetworkImage(
+                        snapshot.data!.metadata.picture!,
+                      ),
+                    )
+                  : CircleAvatar(backgroundColor: Colors.grey),
+              label: Text(
+                name,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+              ),
+            ),
           ),
         );
       },

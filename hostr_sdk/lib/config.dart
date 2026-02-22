@@ -6,6 +6,7 @@ import 'util/custom_logger.dart';
 class HostrConfig {
   final List<String> bootstrapRelays;
   final List<String> bootstrapBlossom;
+  final String hostrRelay;
   final RootstockConfig rootstockConfig;
   final NdkConfig ndkConfig;
   final HostrSDKStorage storage;
@@ -14,6 +15,7 @@ class HostrConfig {
   HostrConfig({
     required this.bootstrapRelays,
     required this.bootstrapBlossom,
+    required this.hostrRelay,
     required this.rootstockConfig,
     KeyValueStorage? storage,
     NdkConfig? ndk,

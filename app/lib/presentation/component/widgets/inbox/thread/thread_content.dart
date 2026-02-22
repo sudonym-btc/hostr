@@ -35,8 +35,8 @@ class _ThreadContentState extends State<ThreadContent> {
       if (animated) {
         _scrollController.animateTo(
           offset,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
+          duration: kAnimationDuration,
+          curve: kAnimationCurve,
         );
       } else {
         _scrollController.jumpTo(offset);
@@ -59,6 +59,8 @@ class _ThreadContentState extends State<ThreadContent> {
   @override
   Widget build(BuildContext context) {
     return CustomPadding(
+      bottom: 0,
+      top: 0,
       child: Column(
         mainAxisSize: MainAxisSize.max,
         children: [
@@ -74,6 +76,9 @@ class _ThreadContentState extends State<ThreadContent> {
               builder: (context, state) {
                 return ListView.builder(
                   controller: _scrollController,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.symmetric(vertical: kDefaultPadding / 2),
                   itemCount: state.threadState.sortedMessages.length,
                   itemBuilder: (listContext, index) {
                     final message = state.threadState.sortedMessages[index];
