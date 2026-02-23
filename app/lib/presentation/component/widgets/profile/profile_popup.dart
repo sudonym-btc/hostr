@@ -21,11 +21,7 @@ class ProfilePopup extends StatefulWidget {
 
   /// Show the profile popup as a modal bottom sheet.
   static Future<void> show(BuildContext context, String pubkey) {
-    return showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => ProfilePopup(pubkey: pubkey),
-    );
+    return showAppModal(context, child: ProfilePopup(pubkey: pubkey));
   }
 
   @override

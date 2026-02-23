@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/amount.dart';
@@ -68,16 +69,14 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                           if (snapshot.data!.getInSats > BigInt.zero)
                             FilledButton.tonal(
                               onPressed: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return SwapOutFlowWidget(
-                                      cubit: getIt<Hostr>()
-                                          .evm
-                                          .supportedEvmChains[0]
-                                          .swapOutAll(),
-                                    );
-                                  },
+                                showAppModal(
+                                  context,
+                                  child: SwapOutFlowWidget(
+                                    cubit: getIt<Hostr>()
+                                        .evm
+                                        .supportedEvmChains[0]
+                                        .swapOutAll(),
+                                  ),
                                 );
                               },
                               child: Text('Withdraw'),

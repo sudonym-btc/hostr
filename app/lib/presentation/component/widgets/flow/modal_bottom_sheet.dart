@@ -4,6 +4,20 @@ import 'package:hostr/presentation/component/main.dart';
 
 enum ModalBottomSheetType { error, normal, success }
 
+Future<T?> showAppModal<T>(
+  BuildContext context, {
+  required Widget child,
+  bool isScrollControlled = true,
+  bool useSafeArea = true,
+  bool isDismissible = true,
+}) => showModalBottomSheet<T>(
+  context: context,
+  isScrollControlled: isScrollControlled,
+  useSafeArea: useSafeArea,
+  isDismissible: isDismissible,
+  builder: (_) => child,
+);
+
 class ModalBottomSheet extends StatelessWidget {
   final String? title;
   final String? subtitle;

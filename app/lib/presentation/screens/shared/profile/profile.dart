@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
@@ -55,10 +56,9 @@ class ProfileScreen extends StatelessWidget {
                 tooltip: 'Back up keys',
                 onPressed: () {
                   final keyPair = getIt<Hostr>().auth.activeKeyPair!;
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (_) => BackupKeyWidget(
+                  showAppModal(
+                    context,
+                    child: BackupKeyWidget(
                       publicKeyHex: keyPair.publicKey,
                       privateKeyHex: keyPair.privateKey!,
                     ),
@@ -80,13 +80,7 @@ class ProfileScreen extends StatelessWidget {
                 title: AppLocalizations.of(context)!.wallet,
                 action: FilledButton.tonal(
                   onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (BuildContext context) {
-                        return AddWalletWidget();
-                      },
-                    );
+                    showAppModal(context, child: AddWalletWidget());
                   },
                   child: Text(AppLocalizations.of(context)!.connect),
                 ),
@@ -96,16 +90,13 @@ class ProfileScreen extends StatelessWidget {
                 title: "Relays",
                 action: FilledButton.tonal(
                   onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (BuildContext modalContext) {
-                        return RelayFlowWidget(
-                          onClose: () {
-                            Navigator.of(modalContext).pop();
-                          },
-                        );
-                      },
+                    showAppModal(
+                      context,
+                      child: RelayFlowWidget(
+                        onClose: () {
+                          Navigator.of(context).pop();
+                        },
+                      ),
                     );
                   },
                   child: Text(AppLocalizations.of(context)!.connect),
@@ -170,14 +161,12 @@ class ProfileScreen extends StatelessWidget {
                                 10000,
                               ),
                             );
-                            showModalBottomSheet(
-                              context: context,
-                              builder: (context) {
-                                return PaymentFlowWidget(
-                                  cubit: getIt<Hostr>().payments.pay(params)
-                                    ..resolve(),
-                                );
-                              },
+                            showAppModal(
+                              context,
+                              child: PaymentFlowWidget(
+                                cubit: getIt<Hostr>().payments.pay(params)
+                                  ..resolve(),
+                              ),
                             );
                           },
                         ),

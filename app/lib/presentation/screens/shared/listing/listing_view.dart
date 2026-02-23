@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
 import 'package:hostr/router.dart';
@@ -218,13 +219,11 @@ class _ListingViewState extends State<ListingView> {
                                 );
                               },
                               onBlockDates: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return BlockDatesWidget(
-                                      listingAnchor: state.data!.anchor!,
-                                    );
-                                  },
+                                showAppModal(
+                                  context,
+                                  child: BlockDatesWidget(
+                                    listingAnchor: state.data!.anchor!,
+                                  ),
                                 );
                               },
                             ),
