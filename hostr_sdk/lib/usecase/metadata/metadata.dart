@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' hide Requests;
 
 @Singleton()
@@ -32,25 +31,22 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     return null;
   }
 
-  Future<Future<List<RelayBroadcastResponse>>> upsertMetadata() async {
+  /// Ensures the current user's profile has an EVM address tag.
+  /// Only broadcasts an update if the tag is missing.
+  Future<void> ensureEvmAddress() async {
     final metadata = await loadMetadata(auth.activeKeyPair!.publicKey);
-    var metadataEvent =
-        metadata ??
-        ProfileMetadata.fromNostrEvent(
-          Nip01Event(
-            pubKey: auth.activeKeyPair!.publicKey,
-            kind: Metadata.kKind,
-            tags: [],
-            content: '',
-          ),
-        );
+    if (metadata == null) return; // No profile yet — nothing to patch.
 
-    if (metadataEvent.evmAddress == null) {
-      metadataEvent = metadataEvent.withEvmAddress(
-        getEvmCredentials(auth.activeKeyPair!.privateKey!).address.eip55With0x,
-      );
+    try {
+      if (metadata.evmAddress != null) return; // Already has it.
+    } catch (_) {
+      // evmAddress getter throws if the tag is absent.
     }
 
-    return requests.broadcast(event: metadataEvent);
+    final updated = metadata.withEvmAddress(
+      getEvmCredentials(auth.activeKeyPair!.privateKey!).address.eip55With0x,
+    );
+    await requests.broadcast(event: updated);
+    notifyUpdate(updated);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 
 class PaymentStatusChip extends StatelessWidget {
@@ -32,20 +33,28 @@ class PaymentStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget child;
     if (state is EscrowFundedEvent) {
-      return _buildChip(context, label: 'Paid', icon: Icons.check);
+      child = _buildChip(context, label: 'Paid', icon: Icons.check);
     } else if (state is EscrowReleasedEvent) {
-      return _buildChip(context, label: 'Released', icon: Icons.handshake);
+      child = _buildChip(context, label: 'Released', icon: Icons.handshake);
     } else if (state is EscrowArbitratedEvent) {
-      return _buildChip(context, label: 'Arbitrated', icon: Icons.gavel);
+      child = _buildChip(context, label: 'Arbitrated', icon: Icons.gavel);
     } else if (state is EscrowClaimedEvent) {
-      return _buildChip(
+      child = _buildChip(
         context,
         label: 'Claimed',
         icon: Icons.done_all_outlined,
       );
+    } else {
+      child = const SizedBox.shrink();
     }
 
-    return const SizedBox.shrink();
+    return AnimatedSwitcher(
+      duration: kAnimationDuration,
+      switchInCurve: kAnimationCurve,
+      switchOutCurve: kAnimationCurve,
+      child: KeyedSubtree(key: ValueKey(state.runtimeType), child: child),
+    );
   }
 }

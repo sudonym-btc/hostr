@@ -8,6 +8,7 @@ class ModalBottomSheet extends StatelessWidget {
   final String? subtitle;
   final Widget content;
   final Widget? buttons;
+  final Widget? leading;
   final ModalBottomSheetType type;
   const ModalBottomSheet({
     super.key,
@@ -16,6 +17,7 @@ class ModalBottomSheet extends StatelessWidget {
     required this.content,
     this.type = ModalBottomSheetType.normal,
     this.buttons,
+    this.leading,
   });
 
   ColorScheme _scheme(ColorScheme base) {
@@ -49,6 +51,10 @@ class ModalBottomSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (leading != null) ...[
+                    leading!,
+                    const SizedBox(height: 12),
+                  ],
                   if (title != null)
                     Text(title!, style: Theme.of(context).textTheme.titleLarge),
                   if (subtitle != null) ...[
@@ -56,7 +62,7 @@ class ModalBottomSheet extends StatelessWidget {
                     Text(
                       subtitle!,
                       style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.start,
                     ),
                   ],
                   const SizedBox(height: 16),

@@ -4,6 +4,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_content.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_reply.dart';
+import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:models/main.dart';
 
@@ -79,7 +80,11 @@ class ThreadReadyWidget extends StatelessWidget {
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         appBar: AppBar(
-          title: ThreadHeaderWidget(counterparties: counterparties),
+          title: ThreadHeaderWidget(
+            counterparties: counterparties,
+            onCounterpartyTap: (profile) =>
+                ProfilePopup.show(context, profile.pubKey),
+          ),
         ),
         body: Column(
           children: [

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
+import 'package:hostr/presentation/component/widgets/ui/asymptotic_progress_bar.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../../../amount/amount_input.dart';
@@ -165,11 +166,37 @@ class SwapOutProgressWidget extends StatelessWidget {
   final SwapOutState state;
   const SwapOutProgressWidget(this.state, {super.key});
 
+  String get _subtitle {
+    switch (state) {
+      case SwapOutInvoiceCreated():
+        return 'Invoice created, processing...';
+      case SwapOutAwaitingOnChain():
+        return 'Waiting for transaction to confirm...';
+      case SwapOutFunded():
+        return 'Swap funded, waiting for payment...';
+      case SwapOutClaimed():
+        return 'Swap claimed, finalising...';
+      case SwapOutRefunding():
+        return 'Processing refund...';
+      default:
+        return 'Processing your swap...';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      content: Center(child: CircularProgressIndicator()),
+      title: 'Swap Progress',
+      subtitle: _subtitle,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 24),
+          AsymptoticProgressBar(),
+          SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }
@@ -182,7 +209,9 @@ class SwapOutSuccessWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      content: Text('Swap completed!'),
+      title: 'Swap Complete',
+      subtitle: 'Your swap has been completed successfully.',
+      content: Container(),
     );
   }
 }
@@ -194,7 +223,9 @@ class SwapOutRefundedWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      content: Text('Swap refunded successfully.'),
+      title: 'Swap Refunded',
+      subtitle: 'Swap refunded successfully.',
+      content: Container(),
     );
   }
 }
@@ -207,7 +238,8 @@ class SwapOutFailureWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.error,
-      content: Text('Swap failed: $error'),
+      title: 'Swap Failed',
+      content: Text(error),
     );
   }
 }

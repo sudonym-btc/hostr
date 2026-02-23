@@ -61,8 +61,8 @@ class Hostr {
 
         messaging.threads.sync();
 
-        // // Update an existing profile with any missing info (e.g. evm address)
-        // await metadataUseCase.upsertMetadata();
+        // Ensure the user's profile has an EVM address tag.
+        metadata.ensureEvmAddress();
 
         final blossomList = await getIt<Ndk>().blossomUserServerList
             .getUserServerList(pubkeys: [pubkey]);
@@ -80,6 +80,14 @@ class Hostr {
 
         // Ensure the user's escrow method list includes EVM.
         escrowMethods.ensureEscrowMethod();
+
+        // Ensure the user's escrow trust list includes the bootstrap providers.
+        if (config.bootstrapEscrowPubkeys.isNotEmpty) {
+          escrowTrusts.ensureEscrowTrust(config.bootstrapEscrowPubkeys);
+        }
+
+        // Reset the EVM balance subscription for the new user's address.
+        evm.resetBalance();
 
         // Recover any stale swaps (claims/refunds) from previous sessions.
         evm.recoverStaleSwaps();

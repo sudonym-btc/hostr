@@ -43,10 +43,12 @@ class RelayListItemView extends StatelessWidget {
 class RelayListItemWidget extends StatefulWidget {
   final RelayInfo? relay;
   final RelayConnectivity connectivity;
+  final bool canRemove;
   const RelayListItemWidget({
     super.key,
     required this.relay,
     required this.connectivity,
+    this.canRemove = false,
   });
 
   @override
@@ -75,16 +77,13 @@ class RelayListItemWidgetState extends State<RelayListItemWidget> {
     Uri uri = Uri.parse(widget.connectivity.url);
     String displayHost = uri.host;
     final isConnected = widget.connectivity.relayTransport?.isOpen() == true;
-    final canRemove = !getIt<Hostr>().config.bootstrapRelays.contains(
-      widget.connectivity.url,
-    );
     return RelayListItemView(
       title: widget.relay?.name ?? displayHost,
-      subtitle: isConnected ? 'Connected' : 'Disconnected',
+      subtitle: widget.connectivity.url,
       iconUrl: widget.relay?.icon,
       isConnected: isConnected,
-      canRemove: canRemove,
-      onRemove: canRemove
+      canRemove: widget.canRemove,
+      onRemove: widget.canRemove
           ? () async {
               await getIt<Hostr>().relays.remove(widget.connectivity.url);
             }

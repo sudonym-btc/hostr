@@ -15,31 +15,52 @@ class RelayListWidget extends StatefulWidget {
 class RelayListWidgetState extends State<RelayListWidget> {
   @override
   Widget build(BuildContext context) {
+    final hostr = getIt<Hostr>();
+    final bootstrapRelays = hostr.config.bootstrapRelays;
+
     return Column(
       children: [
         SizedBox(height: kDefaultPadding.toDouble() / 2),
-        StreamBuilder(
-          stream: getIt<Hostr>().relays.connectivity(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text('Error: ${snapshot.error}'),
-              );
-            }
+        FutureBuilder<List<String>>(
+          future: hostr.relays.relayStorage.get(),
+          builder: (context, storedSnapshot) {
+            final storedRelays = storedSnapshot.data ?? [];
 
-            if (!snapshot.hasData) {
-              return const SizedBox();
-            }
+            return StreamBuilder(
+              stream: hostr.relays.connectivity(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                }
 
-            final connectivityList = snapshot.data;
-            return Column(
-              children: (connectivityList?.values ?? []).map((connectivity) {
-                return RelayListItemWidget(
-                  relay: connectivity.relayInfo,
-                  connectivity: connectivity,
+                if (!snapshot.hasData) {
+                  return const SizedBox();
+                }
+
+                // Deduplicate by URL
+                final seen = <String>{};
+                final deduplicated = snapshot.data!.values.where((c) {
+                  return seen.add(c.url);
+                }).toList();
+
+                return Column(
+                  children: deduplicated.map((connectivity) {
+                    final url = connectivity.url;
+                    final isBootstrap = bootstrapRelays.contains(url);
+                    final isStored = storedRelays.contains(url);
+                    final canRemove = isStored && !isBootstrap;
+
+                    return RelayListItemWidget(
+                      relay: connectivity.relayInfo,
+                      connectivity: connectivity,
+                      canRemove: canRemove,
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
             );
           },
         ),

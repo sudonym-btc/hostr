@@ -41,11 +41,11 @@ class NwcQrScannerWidgetState extends State<NwcQrScannerWidget>
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: SizedBox(
-        width: 300,
-        child: AspectRatio(
-          aspectRatio: 1.0,
-          child: MobileScanner(controller: controller),
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: MobileScanner(controller: controller, tapToFocus: true),
         ),
       ),
     );

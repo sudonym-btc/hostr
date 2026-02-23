@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:hostr_sdk/injection.dart';
@@ -6,7 +7,8 @@ import 'package:hostr_sdk/util/main.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
-import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
+import 'package:ndk/ndk.dart' show Filter, LogOutput, Logger, Ndk, Nip01Event;
+import 'package:ndk/shared/logger/log_event.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -40,7 +42,15 @@ abstract class RequestsModel {
 class Requests extends RequestsModel {
   final Ndk ndk;
   final bool useCache = false;
-  Requests({required this.ndk});
+
+  /// In-flight query dedup: filter key → broadcast stream.
+  /// If a query with the same filter is already running, new callers
+  /// share its broadcast stream instead of opening another relay subscription.
+  final Map<String, Stream<Nip01Event>> _inFlightQueries = {};
+
+  Requests({required this.ndk}) {
+    Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
+  }
 
   // NDK does not let us subscribe to fetch old events, complete, and keep streaming, so we have to implement our own version
   @override
@@ -106,6 +116,11 @@ class Requests extends RequestsModel {
     return response;
   }
 
+  /// Canonical key for a filter, used to dedup identical in-flight queries.
+  String _filterKey(Filter filter) {
+    return jsonEncode(cleanTags(filter)?.toMap() ?? filter.toMap());
+  }
+
   @override
   Stream<T> query<T extends Nip01Event>({
     required Filter filter,
@@ -113,18 +128,41 @@ class Requests extends RequestsModel {
     Duration? timeout,
     String? name,
   }) {
-    return ndk.requests
+    final key = _filterKey(filter);
+
+    // If there's already an in-flight query for this exact filter, share it.
+    if (_inFlightQueries.containsKey(key)) {
+      return _inFlightQueries[key]!.asyncMap(
+        (event) async => parserWithGiftWrap<T>(event, ndk),
+      );
+    }
+
+    // Create the underlying stream and make it a broadcast so multiple
+    // callers can listen. Clean up the map entry when the source completes
+    // (doOnDone) OR when all listeners cancel before completion (onCancel).
+    // Without the onCancel cleanup, consumers like .firstWhere() that cancel
+    // after the first event leave a stale entry — subsequent queries with
+    // the same filter hit the dead broadcast stream and hang forever.
+    final source = ndk.requests
         .query(
           name: name ?? "query-${Helpers.getRandomString(5)}",
           filter: cleanTags(filter),
-          cacheRead: useCache,
-          cacheWrite: true,
+          cacheRead: false,
+          cacheWrite: false,
           timeout: timeout,
         )
         .stream
-        .asyncMap((event) async {
-          return parserWithGiftWrap<T>(event, ndk);
-        });
+        .doOnDone(() => _inFlightQueries.remove(key))
+        .asBroadcastStream(
+          onCancel: (subscription) {
+            subscription.cancel();
+            _inFlightQueries.remove(key);
+          },
+        );
+
+    _inFlightQueries[key] = source;
+
+    return source.asyncMap((event) async => parserWithGiftWrap<T>(event, ndk));
   }
 
   // @TODO: There must be a better way to do this
@@ -154,5 +192,122 @@ class Requests extends RequestsModel {
   Future<void> mock() {
     // TODO: implement mock
     throw UnimplementedError();
+  }
+}
+
+/// Monitors NDK log output for relay subscription-limit NOTICE messages.
+/// When the relay reports "Maximum concurrent subscription count reached",
+/// dumps all currently in-flight requests/subscriptions with full detail
+/// so the developer can identify leaks.
+class _SubscriptionDebugOutput extends LogOutput {
+  final Ndk _ndk;
+  _SubscriptionDebugOutput(this._ndk);
+
+  @override
+  void output(LogEvent event) {
+    if (event.message.contains('Subscription error') ||
+        event.message.contains('concurrent subscription')) {
+      _dumpAllSubscriptions();
+    }
+  }
+
+  // Print line-by-line to avoid Flutter's ~1024-char print() truncation.
+  void _p(String line) {
+    // ignore: avoid_print
+    print(line);
+  }
+
+  void _dumpAllSubscriptions() {
+    final inFlight = _ndk.relays.globalState.inFlightRequests;
+
+    final subscriptions = inFlight.values
+        .where((s) => !s.request.closeOnEOSE)
+        .toList();
+    final queries = inFlight.values
+        .where((s) => s.request.closeOnEOSE)
+        .toList();
+
+    _p('');
+    _p('╔══════════════════════════════════════════════════════════════');
+    _p('║  SUBSCRIPTION LIMIT HIT — ${inFlight.length} in-flight requests');
+    _p('╠══════════════════════════════════════════════════════════════');
+    _p(
+      '║  Subscriptions (live): ${subscriptions.length}  |  Queries (one-shot): ${queries.length}',
+    );
+
+    // ── Live subscriptions (printed first — these are the persistent ones) ──
+    if (subscriptions.isNotEmpty) {
+      _p('╠══════════════════════════════════════════════════════════════');
+      _p('║  LIVE SUBSCRIPTIONS');
+      _p('╠══════════════════════════════════════════════════════════════');
+      for (final state in subscriptions) {
+        _printRequestState(state, 'SUB');
+      }
+    }
+
+    // ── One-shot queries (grouped by name to spot duplicates) ──
+    if (queries.isNotEmpty) {
+      _p('╠══════════════════════════════════════════════════════════════');
+      _p('║  QUERIES (one-shot)');
+      _p('╠══════════════════════════════════════════════════════════════');
+
+      // Group by name for a summary line first
+      final nameGroups = <String, int>{};
+      for (final q in queries) {
+        final name = q.request.name ?? 'unnamed';
+        nameGroups[name] = (nameGroups[name] ?? 0) + 1;
+      }
+      for (final entry in nameGroups.entries) {
+        _p('║    ${entry.key}: ${entry.value}x');
+      }
+      _p('║  ──────────────────────────────────────────────────────────');
+
+      for (final state in queries) {
+        _printRequestState(state, 'QUERY');
+      }
+    }
+
+    _p('║');
+    _p('╚══════════════════════════════════════════════════════════════');
+  }
+
+  void _printRequestState(dynamic state, String type) {
+    final req = state.request;
+    _p('║');
+    _p('║  [$type] ${req.name ?? "unnamed"}');
+    _p('║    id: ${state.id}');
+
+    for (var i = 0; i < req.filters.length; i++) {
+      final f = req.filters[i];
+      final parts = <String>[];
+      if (f.kinds != null) parts.add('kinds=${f.kinds}');
+      if (f.authors != null) parts.add('authors=${_truncate(f.authors)}');
+      if (f.ids != null) parts.add('ids=${_truncate(f.ids)}');
+      if (f.since != null) parts.add('since=${f.since}');
+      if (f.until != null) parts.add('until=${f.until}');
+      if (f.limit != null) parts.add('limit=${f.limit}');
+      if (f.tags != null) {
+        for (final tag in f.tags!.entries) {
+          parts.add('#${tag.key}=${_truncate(tag.value)}');
+        }
+      }
+      _p('║    filter[$i]: ${parts.isEmpty ? "(empty)" : parts.join(", ")}');
+    }
+
+    if (state.requests.isNotEmpty) {
+      for (final e in state.requests.entries) {
+        final flags = <String>[];
+        if (e.value.receivedEOSE) flags.add('EOSE');
+        if (e.value.receivedClosed) flags.add('CLOSED');
+        final suffix = flags.isEmpty ? '' : ' (${flags.join(",")})';
+        _p('║    relay: ${e.key}$suffix');
+      }
+    }
+  }
+
+  String _truncate(List<String>? list) {
+    if (list == null) return 'null';
+    if (list.length <= 3) return list.toString();
+    return '[${list.take(3).join(", ")}, ...(${list.length} total)]';
   }
 }

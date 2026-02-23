@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 class RelayFlowWidget extends StatelessWidget {
@@ -70,54 +71,51 @@ class _RelayAddStepState extends State<RelayAddStep> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16.0,
-        right: 16.0,
-        top: 16.0,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16.0,
+    return ModalBottomSheet(
+      title: 'Add Relay',
+      content: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: TextField(
+          controller: _urlController,
+          enabled: !_isConnecting,
+          decoration: InputDecoration(
+            labelText: 'Relay URL',
+            hintText: 'wss://relay.example.com',
+            errorText: _errorMessage,
+            border: const OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.url,
+          autocorrect: false,
+          onSubmitted: _isConnecting ? null : (_) => _connectRelay(),
+        ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      buttons: Row(
         children: [
-          Text(
-            'Add Relay',
-            style: Theme.of(context).textTheme.headlineSmall,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _urlController,
-            enabled: !_isConnecting,
-            decoration: InputDecoration(
-              labelText: 'Relay URL',
-              hintText: 'wss://relay.example.com',
-              errorText: _errorMessage,
-              border: const OutlineInputBorder(),
+          Expanded(
+            child: FilledButton(
+              onPressed: _isConnecting ? null : _connectRelay,
+              child: _isConnecting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Connect'),
             ),
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            onSubmitted: _isConnecting ? null : (_) => _connectRelay(),
           ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: _isConnecting ? null : _connectRelay,
-            child: _isConnecting
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('Connect'),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: _isConnecting ? null : () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextButton(
+              onPressed: _isConnecting
+                  ? null
+                  : () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
           ),
         ],
       ),

@@ -41,6 +41,7 @@ class TradeActionResolver {
     required TradeState tradeState,
     required TradeSubscriptions subscriptions,
     required String ourPubkey,
+    List<String> addedParticipants = const [],
   }) {
     final listing = tradeState.listing;
     if (listing == null) {
@@ -77,10 +78,7 @@ class TradeActionResolver {
         subscriptions.reservationStream!.list.value,
         subscriptions.reservationStream!.status.value,
         listing,
-        [
-          ...threadState.participantPubkeys,
-          // ...threadState.addedParticipants,
-        ],
+        [...threadState.participantPubkeys, ...addedParticipants],
         role,
       ),
     );
@@ -145,10 +143,7 @@ ThreadPartyRole getRole({
     return (isBlocked: false, reason: null);
   }
 
-  return (
-    isBlocked: true,
-    reason: 'Dates overlap with a reservation for a different guest.',
-  );
+  return (isBlocked: true, reason: 'Unavailable');
 }
 
 bool _overlapsRange({

@@ -19,7 +19,10 @@ class ThreadHeaderWidget extends StatelessWidget {
     final subtitleStyle = Theme.of(context).textTheme.bodyMedium;
 
     return ListTile(
-      leading: ProfileAvatars(profiles: counterparties),
+      leading: ProfileAvatars(
+        profiles: counterparties,
+        onProfileTap: onCounterpartyTap,
+      ),
       title: RichText(
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -86,8 +89,9 @@ class ThreadHeaderWidget extends StatelessWidget {
 
 class ProfileAvatars extends StatelessWidget {
   final List<ProfileMetadata> profiles;
+  final ValueChanged<ProfileMetadata>? onProfileTap;
 
-  const ProfileAvatars({super.key, required this.profiles});
+  const ProfileAvatars({super.key, required this.profiles, this.onProfileTap});
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -100,14 +104,19 @@ class ProfileAvatars extends StatelessWidget {
                 left:
                     profiles.indexOf(counterparty) *
                     12.0, // 8 pixels offset for each
-                child: CircleAvatar(
-                  radius: 20,
-                  backgroundImage: counterparty.metadata.picture != null
-                      ? NetworkImage(counterparty.metadata.picture!)
+                child: GestureDetector(
+                  onTap: onProfileTap != null
+                      ? () => onProfileTap!(counterparty)
                       : null,
-                  child: counterparty.metadata.picture == null
-                      ? Text(counterparty.metadata.name?[0] ?? '')
-                      : null,
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundImage: counterparty.metadata.picture != null
+                        ? NetworkImage(counterparty.metadata.picture!)
+                        : null,
+                    child: counterparty.metadata.picture == null
+                        ? Text(counterparty.metadata.name?[0] ?? '')
+                        : null,
+                  ),
                 ),
               ),
             )

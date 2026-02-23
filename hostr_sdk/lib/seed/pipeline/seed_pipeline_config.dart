@@ -173,7 +173,7 @@ class SeedPipelineConfig {
   final List<SeedUserSpec> userOverrides;
 
   const SeedPipelineConfig({
-    this.relayUrl = 'ws://relay.hostr.development',
+    this.relayUrl = 'wss://relay.hostr.development',
     this.rpcUrl = 'http://localhost:8545',
     this.fundProfiles = true,
     this.setupLnbits = true,
@@ -197,7 +197,7 @@ class SeedPipelineConfig {
   /// Construct from a JSON map (e.g. --config-json or --config-file).
   factory SeedPipelineConfig.fromJson(Map<String, dynamic> json) {
     return SeedPipelineConfig(
-      relayUrl: _str(json['relayUrl']) ?? 'ws://relay.hostr.development',
+      relayUrl: _str(json['relayUrl']) ?? 'wss://relay.hostr.development',
       rpcUrl: _str(json['rpcUrl']) ?? 'http://localhost:8545',
       fundProfiles: _bool(json['fundProfiles'], true),
       setupLnbits: _bool(json['setupLnbits'], false),

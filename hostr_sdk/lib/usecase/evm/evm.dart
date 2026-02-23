@@ -101,6 +101,17 @@ class Evm {
     return _balanceSubject!.stream;
   }
 
+  /// Tears down the current balance subscription and restarts it for
+  /// the current authenticated user. Call this when the active key changes.
+  void resetBalance() {
+    _balanceSubscription?.cancel();
+    _balanceSubscription = null;
+    // If there are active listeners, restart immediately for the new user.
+    if (_balanceSubject?.hasListener ?? false) {
+      _ensureBalanceSubscription();
+    }
+  }
+
   Future<void> dispose() async {
     await _balanceSubscription?.cancel();
     _balanceSubscription = null;
