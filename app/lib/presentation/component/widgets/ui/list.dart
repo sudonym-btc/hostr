@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/animated_list_item.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:ndk/ndk.dart';
@@ -176,7 +177,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
       builder: (context, state) {
         // Only show centered loading if we have no results yet
         if ((state.synching || state.fetching) && state.results.isEmpty) {
-          return const Center(child: CircularProgressIndicator.adaptive());
+          return const Center(child: AppLoadingIndicator.large());
         }
 
         if (state.results.isEmpty) {
@@ -199,7 +200,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
             // Show loading indicator at the bottom
             if (index == state.results.length) {
               return CustomPadding.md(
-                child: Center(child: CircularProgressIndicator.adaptive()),
+                child: Center(child: AppLoadingIndicator.medium()),
               );
             }
 

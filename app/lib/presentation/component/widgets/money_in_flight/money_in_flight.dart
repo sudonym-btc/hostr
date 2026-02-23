@@ -48,7 +48,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                 switchInCurve: kAnimationCurve,
                 switchOutCurve: kAnimationCurve,
                 child: !snapshot.hasData
-                    ? const CircularProgressIndicator(key: ValueKey('loading'))
+                    ? const AppLoadingIndicator.medium(key: ValueKey('loading'))
                     : Row(
                         key: const ValueKey('ready'),
                         crossAxisAlignment: CrossAxisAlignment.center,

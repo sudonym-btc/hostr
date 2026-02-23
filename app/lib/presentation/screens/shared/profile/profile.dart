@@ -195,7 +195,7 @@ Widget _buildTrustedEscrowsBody(
   TrustedEscrowsState state,
 ) {
   if (state.loading && state.data == null) {
-    return const CircularProgressIndicator();
+    return const AppLoadingIndicator.large();
   }
   final pubkeys = state.pubkeys;
   if (pubkeys.isEmpty) {

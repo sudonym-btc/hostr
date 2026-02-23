@@ -39,7 +39,7 @@ class ThreadView extends StatelessWidget {
         if (!isReady) {
           return Scaffold(
             appBar: AppBar(title: Text(AppLocalizations.of(context)!.loading)),
-            body: SafeArea(child: Center(child: CircularProgressIndicator())),
+            body: SafeArea(child: Center(child: AppLoadingIndicator.large())),
           );
         }
 

@@ -37,11 +37,7 @@ class ListingBadgesWidget extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                  const AppLoadingIndicator.small(),
                   Gap.horizontal.sm(),
                   Text(
                     'Loading badges...',

@@ -340,11 +340,7 @@ class LocationFieldState extends State<LocationField> {
         bottom: kSpace3,
         child: Row(
           children: [
-            const SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(strokeWidth: 1.5),
-            ),
+            const AppLoadingIndicator.small(),
             Gap.horizontal.custom(kSpace3),
             AnimatedSwitcher(
               duration: kAnimationDuration,

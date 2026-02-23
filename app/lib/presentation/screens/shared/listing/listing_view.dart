@@ -103,7 +103,7 @@ class _ListingViewState extends State<ListingView> {
           }
 
           if (state.data == null) {
-            return Scaffold(body: Center(child: CircularProgressIndicator()));
+            return Scaffold(body: Center(child: AppLoadingIndicator.large()));
           }
 
           final activeKeyPair = getIt<Hostr>().auth.activeKeyPair;
@@ -119,7 +119,7 @@ class _ListingViewState extends State<ListingView> {
               final items = snapshot.data ?? [];
               if (items.isEmpty) {
                 return snapshot.connectionState == ConnectionState.waiting
-                    ? const Center(child: CircularProgressIndicator.adaptive())
+                    ? const Center(child: AppLoadingIndicator.large())
                     : const SizedBox.shrink();
               }
               return Column(

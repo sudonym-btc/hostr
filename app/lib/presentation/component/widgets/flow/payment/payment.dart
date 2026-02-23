@@ -153,7 +153,7 @@ class PaymentProgressWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Gap.vertical.md(),
-          const CircularProgressIndicator(),
+          const AppLoadingIndicator.large(),
           Gap.vertical.md(),
         ],
       ),

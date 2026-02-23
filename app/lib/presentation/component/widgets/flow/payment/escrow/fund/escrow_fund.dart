@@ -83,7 +83,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
               return ModalBottomSheet(
                 type: ModalBottomSheetType.normal,
                 title: 'Deposit Funds',
-                content: Center(child: CircularProgressIndicator()),
+                content: Center(child: AppLoadingIndicator.large()),
               );
             case EscrowSelectorError():
               return ModalBottomSheet(
@@ -96,7 +96,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
                 return ModalBottomSheet(
                   type: ModalBottomSheetType.normal,
                   title: 'Deposit Funds',
-                  content: Center(child: CircularProgressIndicator()),
+                  content: Center(child: AppLoadingIndicator.large()),
                 );
               }
               return BlocProvider<EscrowFundOperation>.value(
@@ -250,7 +250,7 @@ class EscrowFundTradeProgressWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Gap.vertical.md(),
-          const CircularProgressIndicator(),
+          const AppLoadingIndicator.large(),
           Gap.vertical.md(),
         ],
       ),

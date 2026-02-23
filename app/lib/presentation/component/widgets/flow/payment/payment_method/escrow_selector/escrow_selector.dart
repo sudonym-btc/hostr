@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:models/main.dart';
 
 import 'escrow_selector.cubit.dart';
@@ -14,7 +15,7 @@ class EscrowSelectorWidget extends StatelessWidget {
       builder: (context, state) {
         switch (state) {
           case EscrowSelectorLoading():
-            return const CircularProgressIndicator();
+            return const AppLoadingIndicator.medium();
           case EscrowSelectorError():
             return const Text('Error loading escrows');
           case EscrowSelectorLoaded():

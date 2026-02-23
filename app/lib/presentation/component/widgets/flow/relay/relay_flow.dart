@@ -97,14 +97,7 @@ class _RelayAddStepState extends State<RelayAddStep> {
             child: FilledButton(
               onPressed: _isConnecting ? null : _connectRelay,
               child: _isConnecting
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
+                  ? const AppLoadingIndicator.small(color: Colors.white)
                   : const Text('Connect'),
             ),
           ),
