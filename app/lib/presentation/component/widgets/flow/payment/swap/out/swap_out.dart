@@ -317,7 +317,7 @@ class _SwapOutExternalInvoiceWidgetState
             maxLines: 3,
           ),
           Gap.vertical.md(),
-          ElevatedButton(onPressed: _submit, child: const Text('Continue')),
+          FilledButton(onPressed: _submit, child: const Text('Continue')),
         ],
       ),
     );
