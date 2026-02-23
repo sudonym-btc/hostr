@@ -97,7 +97,7 @@ class ReservationListItem extends StatelessWidget {
     };
 
     return Chip(
-      label: Text(label, style: TextStyle(fontSize: 12)),
+      label: Text(label, style: Theme.of(context).textTheme.bodySmall),
       backgroundColor: color?.withValues(alpha: 0.15),
       side: BorderSide.none,
       visualDensity: VisualDensity.compact,

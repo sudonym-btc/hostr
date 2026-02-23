@@ -34,8 +34,7 @@ class EscrowSelectorWidget extends StatelessWidget {
                       value: escrow,
                       child: Text(
                         escrow.pubKey,
-                        style: TextStyle(
-                          fontSize: 20,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),

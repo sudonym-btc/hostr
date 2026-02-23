@@ -92,7 +92,9 @@ class AmountInputWidget extends FormField<Amount> {
                         top: kSpace1,
                         child: Text(
                           '${amountInput.min != null ? formatAmount(amountInput.min!) : '0'} — ${amountInput.max != null ? formatAmount(amountInput.max!) : '∞'}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          style: Theme.of(
+                            field.context,
+                          ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                         ),
                       ),
                   ],
@@ -116,7 +118,8 @@ class AmountInputWidget extends FormField<Amount> {
                         if (index < 11) {
                           buttonContent = Text(
                             buttons[index].toString(),
-                            style: TextStyle(fontSize: 24, color: Colors.white),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(color: Colors.white),
                           );
                         } else if (index == 11) {
                           buttonContent = Icon(

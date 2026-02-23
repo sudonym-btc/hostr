@@ -135,7 +135,7 @@ class _ProfilePopupState extends State<ProfilePopup> {
             child: metadata?.picture == null
                 ? Text(
                     (metadata?.name ?? '?').characters.first.toUpperCase(),
-                    style: const TextStyle(fontSize: 28),
+                    style: Theme.of(context).textTheme.headlineMedium,
                   )
                 : null,
           ),
@@ -413,8 +413,7 @@ class _StatusChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 11,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w500,
         ),
