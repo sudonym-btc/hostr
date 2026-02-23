@@ -576,20 +576,13 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
           as _i13.Future<_i9.ProfileMetadata?>);
 
   @override
-  _i13.Future<_i13.Future<List<_i14.RelayBroadcastResponse>>>
-  upsertMetadata() =>
+  _i13.Future<void> ensureEvmAddress() =>
       (super.noSuchMethod(
-            Invocation.method(#upsertMetadata, []),
-            returnValue:
-                _i13.Future<
-                  _i13.Future<List<_i14.RelayBroadcastResponse>>
-                >.value(
-                  _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-                    <_i14.RelayBroadcastResponse>[],
-                  ),
-                ),
+            Invocation.method(#ensureEvmAddress, []),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i13.Future<_i13.Future<List<_i14.RelayBroadcastResponse>>>);
+          as _i13.Future<void>);
 
   @override
   void notifyUpdate(_i9.ProfileMetadata? event) => super.noSuchMethod(
@@ -658,9 +651,12 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
           as _i13.Future<List<_i9.ProfileMetadata>>);
 
   @override
-  _i13.Future<_i9.ProfileMetadata?> getOne(_i2.Filter? f) =>
+  _i13.Future<_i9.ProfileMetadata?> getOne(
+    _i2.Filter? f, {
+    bool? batch = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f]),
+            Invocation.method(#getOne, [f], {#batch: batch}),
             returnValue: _i13.Future<_i9.ProfileMetadata?>.value(),
           )
           as _i13.Future<_i9.ProfileMetadata?>);
@@ -690,6 +686,19 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
             returnValue: _i13.Future<int>.value(0),
           )
           as _i13.Future<int>);
+
+  @override
+  _i13.Future<List<_i9.ProfileMetadata>> findByTag(
+    String? tag,
+    String? value,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#findByTag, [tag, value]),
+            returnValue: _i13.Future<List<_i9.ProfileMetadata>>.value(
+              <_i9.ProfileMetadata>[],
+            ),
+          )
+          as _i13.Future<List<_i9.ProfileMetadata>>);
 }
 
 /// A class which mocks [Nwc].
@@ -1105,9 +1114,9 @@ class MockListings extends _i1.Mock implements _i8.Listings {
           as _i13.Future<List<_i9.Listing>>);
 
   @override
-  _i13.Future<_i9.Listing?> getOne(_i2.Filter? f) =>
+  _i13.Future<_i9.Listing?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f]),
+            Invocation.method(#getOne, [f], {#batch: batch}),
             returnValue: _i13.Future<_i9.Listing?>.value(),
           )
           as _i13.Future<_i9.Listing?>);
@@ -1137,6 +1146,14 @@ class MockListings extends _i1.Mock implements _i8.Listings {
             returnValue: _i13.Future<int>.value(0),
           )
           as _i13.Future<int>);
+
+  @override
+  _i13.Future<List<_i9.Listing>> findByTag(String? tag, String? value) =>
+      (super.noSuchMethod(
+            Invocation.method(#findByTag, [tag, value]),
+            returnValue: _i13.Future<List<_i9.Listing>>.value(<_i9.Listing>[]),
+          )
+          as _i13.Future<List<_i9.Listing>>);
 }
 
 /// A class which mocks [Reservations].
@@ -1446,9 +1463,9 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
           as _i13.Future<List<_i9.Reservation>>);
 
   @override
-  _i13.Future<_i9.Reservation?> getOne(_i2.Filter? f) =>
+  _i13.Future<_i9.Reservation?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f]),
+            Invocation.method(#getOne, [f], {#batch: batch}),
             returnValue: _i13.Future<_i9.Reservation?>.value(),
           )
           as _i13.Future<_i9.Reservation?>);
@@ -1478,6 +1495,16 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
             returnValue: _i13.Future<int>.value(0),
           )
           as _i13.Future<int>);
+
+  @override
+  _i13.Future<List<_i9.Reservation>> findByTag(String? tag, String? value) =>
+      (super.noSuchMethod(
+            Invocation.method(#findByTag, [tag, value]),
+            returnValue: _i13.Future<List<_i9.Reservation>>.value(
+              <_i9.Reservation>[],
+            ),
+          )
+          as _i13.Future<List<_i9.Reservation>>);
 }
 
 /// A class which mocks [EscrowUseCase].
@@ -1640,15 +1667,21 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
 
   @override
   _i13.Future<_i8.MutualEscrowResult> determineMutualEscrow(
-    String? pubkey1,
-    String? pubkey2,
+    String? buyerPubkey,
+    String? sellerPubkey,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#determineMutualEscrow, [pubkey1, pubkey2]),
+            Invocation.method(#determineMutualEscrow, [
+              buyerPubkey,
+              sellerPubkey,
+            ]),
             returnValue: _i13.Future<_i8.MutualEscrowResult>.value(
               _FakeMutualEscrowResult_29(
                 this,
-                Invocation.method(#determineMutualEscrow, [pubkey1, pubkey2]),
+                Invocation.method(#determineMutualEscrow, [
+                  buyerPubkey,
+                  sellerPubkey,
+                ]),
               ),
             ),
           )
@@ -1721,9 +1754,9 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
           as _i13.Future<List<_i9.EscrowService>>);
 
   @override
-  _i13.Future<_i9.EscrowService?> getOne(_i2.Filter? f) =>
+  _i13.Future<_i9.EscrowService?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f]),
+            Invocation.method(#getOne, [f], {#batch: batch}),
             returnValue: _i13.Future<_i9.EscrowService?>.value(),
           )
           as _i13.Future<_i9.EscrowService?>);
@@ -1753,6 +1786,16 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
             returnValue: _i13.Future<int>.value(0),
           )
           as _i13.Future<int>);
+
+  @override
+  _i13.Future<List<_i9.EscrowService>> findByTag(String? tag, String? value) =>
+      (super.noSuchMethod(
+            Invocation.method(#findByTag, [tag, value]),
+            returnValue: _i13.Future<List<_i9.EscrowService>>.value(
+              <_i9.EscrowService>[],
+            ),
+          )
+          as _i13.Future<List<_i9.EscrowService>>);
 }
 
 /// A class which mocks [EscrowTrusts].
@@ -1814,6 +1857,15 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
             returnValue: _i13.Future<_i9.EscrowTrust?>.value(),
           )
           as _i13.Future<_i9.EscrowTrust?>);
+
+  @override
+  _i13.Future<void> ensureEscrowTrust(List<String>? escrowPubkeys) =>
+      (super.noSuchMethod(
+            Invocation.method(#ensureEscrowTrust, [escrowPubkeys]),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
+          )
+          as _i13.Future<void>);
 
   @override
   void notifyUpdate(_i9.EscrowTrust? event) => super.noSuchMethod(
@@ -1882,9 +1934,9 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
           as _i13.Future<List<_i9.EscrowTrust>>);
 
   @override
-  _i13.Future<_i9.EscrowTrust?> getOne(_i2.Filter? f) =>
+  _i13.Future<_i9.EscrowTrust?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f]),
+            Invocation.method(#getOne, [f], {#batch: batch}),
             returnValue: _i13.Future<_i9.EscrowTrust?>.value(),
           )
           as _i13.Future<_i9.EscrowTrust?>);
@@ -1914,6 +1966,16 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
             returnValue: _i13.Future<int>.value(0),
           )
           as _i13.Future<int>);
+
+  @override
+  _i13.Future<List<_i9.EscrowTrust>> findByTag(String? tag, String? value) =>
+      (super.noSuchMethod(
+            Invocation.method(#findByTag, [tag, value]),
+            returnValue: _i13.Future<List<_i9.EscrowTrust>>.value(
+              <_i9.EscrowTrust>[],
+            ),
+          )
+          as _i13.Future<List<_i9.EscrowTrust>>);
 }
 
 /// A class which mocks [EscrowMethods].
@@ -1959,6 +2021,14 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
             returnValue: _i13.Stream<_i9.EscrowMethod>.empty(),
           )
           as _i13.Stream<_i9.EscrowMethod>);
+
+  @override
+  _i13.Future<_i9.EscrowMethod?> localMethod() =>
+      (super.noSuchMethod(
+            Invocation.method(#localMethod, []),
+            returnValue: _i13.Future<_i9.EscrowMethod?>.value(),
+          )
+          as _i13.Future<_i9.EscrowMethod?>);
 
   @override
   _i13.Future<void> ensureEscrowMethod() =>
@@ -2036,9 +2106,9 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
           as _i13.Future<List<_i9.EscrowMethod>>);
 
   @override
-  _i13.Future<_i9.EscrowMethod?> getOne(_i2.Filter? f) =>
+  _i13.Future<_i9.EscrowMethod?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f]),
+            Invocation.method(#getOne, [f], {#batch: batch}),
             returnValue: _i13.Future<_i9.EscrowMethod?>.value(),
           )
           as _i13.Future<_i9.EscrowMethod?>);
@@ -2068,6 +2138,16 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
             returnValue: _i13.Future<int>.value(0),
           )
           as _i13.Future<int>);
+
+  @override
+  _i13.Future<List<_i9.EscrowMethod>> findByTag(String? tag, String? value) =>
+      (super.noSuchMethod(
+            Invocation.method(#findByTag, [tag, value]),
+            returnValue: _i13.Future<List<_i9.EscrowMethod>>.value(
+              <_i9.EscrowMethod>[],
+            ),
+          )
+          as _i13.Future<List<_i9.EscrowMethod>>);
 }
 
 /// A class which mocks [BadgeDefinitions].
@@ -2173,9 +2253,12 @@ class MockBadgeDefinitions extends _i1.Mock implements _i8.BadgeDefinitions {
           as _i13.Future<List<_i9.BadgeDefinition>>);
 
   @override
-  _i13.Future<_i9.BadgeDefinition?> getOne(_i2.Filter? f) =>
+  _i13.Future<_i9.BadgeDefinition?> getOne(
+    _i2.Filter? f, {
+    bool? batch = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f]),
+            Invocation.method(#getOne, [f], {#batch: batch}),
             returnValue: _i13.Future<_i9.BadgeDefinition?>.value(),
           )
           as _i13.Future<_i9.BadgeDefinition?>);
@@ -2205,6 +2288,19 @@ class MockBadgeDefinitions extends _i1.Mock implements _i8.BadgeDefinitions {
             returnValue: _i13.Future<int>.value(0),
           )
           as _i13.Future<int>);
+
+  @override
+  _i13.Future<List<_i9.BadgeDefinition>> findByTag(
+    String? tag,
+    String? value,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#findByTag, [tag, value]),
+            returnValue: _i13.Future<List<_i9.BadgeDefinition>>.value(
+              <_i9.BadgeDefinition>[],
+            ),
+          )
+          as _i13.Future<List<_i9.BadgeDefinition>>);
 }
 
 /// A class which mocks [BadgeAwards].
@@ -2310,9 +2406,9 @@ class MockBadgeAwards extends _i1.Mock implements _i8.BadgeAwards {
           as _i13.Future<List<_i9.BadgeAward>>);
 
   @override
-  _i13.Future<_i9.BadgeAward?> getOne(_i2.Filter? f) =>
+  _i13.Future<_i9.BadgeAward?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f]),
+            Invocation.method(#getOne, [f], {#batch: batch}),
             returnValue: _i13.Future<_i9.BadgeAward?>.value(),
           )
           as _i13.Future<_i9.BadgeAward?>);
@@ -2342,6 +2438,16 @@ class MockBadgeAwards extends _i1.Mock implements _i8.BadgeAwards {
             returnValue: _i13.Future<int>.value(0),
           )
           as _i13.Future<int>);
+
+  @override
+  _i13.Future<List<_i9.BadgeAward>> findByTag(String? tag, String? value) =>
+      (super.noSuchMethod(
+            Invocation.method(#findByTag, [tag, value]),
+            returnValue: _i13.Future<List<_i9.BadgeAward>>.value(
+              <_i9.BadgeAward>[],
+            ),
+          )
+          as _i13.Future<List<_i9.BadgeAward>>);
 }
 
 /// A class which mocks [Messaging].
@@ -2646,9 +2752,9 @@ class MockReservationRequests extends _i1.Mock
           as _i13.Future<List<_i2.Nip01Event>>);
 
   @override
-  _i13.Future<_i2.Nip01Event?> getOne(_i2.Filter? f) =>
+  _i13.Future<_i2.Nip01Event?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f]),
+            Invocation.method(#getOne, [f], {#batch: batch}),
             returnValue: _i13.Future<_i2.Nip01Event?>.value(),
           )
           as _i13.Future<_i2.Nip01Event?>);
@@ -2678,6 +2784,16 @@ class MockReservationRequests extends _i1.Mock
             returnValue: _i13.Future<int>.value(0),
           )
           as _i13.Future<int>);
+
+  @override
+  _i13.Future<List<_i2.Nip01Event>> findByTag(String? tag, String? value) =>
+      (super.noSuchMethod(
+            Invocation.method(#findByTag, [tag, value]),
+            returnValue: _i13.Future<List<_i2.Nip01Event>>.value(
+              <_i2.Nip01Event>[],
+            ),
+          )
+          as _i13.Future<List<_i2.Nip01Event>>);
 }
 
 /// A class which mocks [Payments].
@@ -2838,6 +2954,12 @@ class MockEvm extends _i1.Mock implements _i8.Evm {
             ),
           )
           as _i4.ValueStream<_i7.BitcoinAmount>);
+
+  @override
+  void resetBalance() => super.noSuchMethod(
+    Invocation.method(#resetBalance, []),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i13.Future<void> dispose() =>

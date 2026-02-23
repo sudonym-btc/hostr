@@ -112,6 +112,7 @@ class SeedThread {
   bool paidViaEscrow;
   EscrowOutcome? escrowOutcome;
   bool selfSigned;
+  String? invalidReservationReason;
 
   SeedThread({
     required this.host,
@@ -128,6 +129,7 @@ class SeedThread {
     this.paidViaEscrow = false,
     this.escrowOutcome,
     this.selfSigned = false,
+    this.invalidReservationReason,
   });
 }
 
@@ -184,6 +186,22 @@ class SeedPipelineData {
     final zapThreads = threads
         .where((t) => t.reservation != null && !t.paidViaEscrow)
         .length;
+    final invalidReservations = threads
+        .where(
+          (t) => t.invalidReservationReason != null && t.reservation != null,
+        )
+        .map((t) {
+          final reservation = t.reservation!;
+          final listingAnchor = t.listing.anchor ?? 'unknown';
+          final deterministicId =
+              _findTagValue(reservation.parsedTags, 'd') ?? reservation.id;
+          return InvalidReservationInfo(
+            listingAnchor: listingAnchor,
+            reservationId: deterministicId,
+            reason: t.invalidReservationReason!,
+          );
+        })
+        .toList(growable: false);
 
     return SeedSummary(
       users: users.length,
@@ -205,6 +223,7 @@ class SeedPipelineData {
       escrowServices: escrowServices.length,
       escrowTrusts: escrowTrusts.length,
       escrowMethods: escrowMethods.length,
+      invalidReservations: invalidReservations,
     );
   }
 }
@@ -231,6 +250,7 @@ class SeedSummary {
   final int escrowServices;
   final int escrowTrusts;
   final int escrowMethods;
+  final List<InvalidReservationInfo> invalidReservations;
 
   const SeedSummary({
     required this.users,
@@ -252,6 +272,7 @@ class SeedSummary {
     required this.escrowServices,
     required this.escrowTrusts,
     required this.escrowMethods,
+    required this.invalidReservations,
   });
 
   Map<String, dynamic> toJson() => {
@@ -274,5 +295,35 @@ class SeedSummary {
     'escrowServices': escrowServices,
     'escrowTrusts': escrowTrusts,
     'escrowMethods': escrowMethods,
+    'invalidReservations': invalidReservations
+        .map((info) => info.toJson())
+        .toList(),
   };
+}
+
+class InvalidReservationInfo {
+  final String listingAnchor;
+  final String reservationId;
+  final String reason;
+
+  const InvalidReservationInfo({
+    required this.listingAnchor,
+    required this.reservationId,
+    required this.reason,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'listingAnchor': listingAnchor,
+    'reservationId': reservationId,
+    'reason': reason,
+  };
+}
+
+String? _findTagValue(EventTags tags, String tagType) {
+  for (final tag in tags.tags) {
+    if (tag.length >= 2 && tag[0] == tagType) {
+      return tag[1];
+    }
+  }
+  return null;
 }

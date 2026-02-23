@@ -17,8 +17,19 @@ reset_relay() {
     # Start a fresh relay container.
     (cd "$REPO_ROOT" && docker-compose up -d relay)
 
-    # Small startup buffer before broadcast calls.
-    sleep 2
+    # Wait until the relay is actually accepting connections.
+    echo "Waiting for relay to become ready..."
+    local attempts=0
+    local max_attempts=30
+    while ! curl -sf -o /dev/null --max-time 2 https://relay.hostr.development --insecure 2>/dev/null; do
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge "$max_attempts" ]; then
+            echo "Warning: relay did not become ready after ${max_attempts}s, proceeding anyway."
+            break
+        fi
+        sleep 1
+    done
+    echo "Relay ready (${attempts}s)."
 }
 
 # Seed the relay with mock data

@@ -11,7 +11,19 @@ import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
 
+/// Allow self-signed certificates so the escrow daemon can connect to local
+/// relay/blossom/etc. over TLS without a trusted CA chain.
+class _PermissiveHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (_, __, ___) => true;
+    return client;
+  }
+}
+
 void main(List<String> arguments) async {
+  HttpOverrides.global = _PermissiveHttpOverrides();
   final String relayUrl =
       Platform.environment['NOSTR_RELAY'] ?? 'ws://relay.hostr.development';
   final String privateKey =

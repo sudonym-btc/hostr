@@ -33,17 +33,14 @@ class RelaySeeder {
     try {
       final sw = Stopwatch()..start();
 
-      final pipeline = SeedPipeline(
-        config: config,
-        contractAddress: contractAddress,
-      );
+      // ── Verify relay is accepting WSS connections before anything else ──
+      // NDK has a tight 4 s connect timeout which loses the race when the
+      // event loop is saturated by hundreds of parallel EVM transactions.
+      // A direct dart:io WebSocket.connect (which respects HttpOverrides)
+      // gives us a clean, isolated check with a generous timeout.
+      await _ensureRelayReachable(config.relayUrl!);
 
-      // Returns immediately — pipeline runs in a microtask.
-      // All subjects are ReplaySubjects, so nothing is lost before we
-      // subscribe.
-      final streams = pipeline.run();
-
-      // ── Relay: connect while the pipeline keeps producing ────────────
+      // ── Relay: create NDK and connect (relay is already proven up) ───
       ndk = Ndk(
         NdkConfig(
           eventVerifier: Bip340EventVerifier(),
@@ -55,6 +52,16 @@ class RelaySeeder {
       print('Waiting for relay connectivity...');
       await ndk.relays.seedRelaysConnected.timeout(const Duration(seconds: 20));
       print('Relay connected. [relay ${sw.elapsedMilliseconds} ms]');
+
+      final pipeline = SeedPipeline(
+        config: config,
+        contractAddress: contractAddress,
+      );
+
+      // Returns immediately — pipeline runs in a microtask.
+      // All subjects are ReplaySubjects, so nothing is lost before we
+      // subscribe.
+      final streams = pipeline.run();
 
       // ── Side-effect listeners (log-only) ─────────────────────────────
       streams.userFunded.listen((r) {
@@ -142,6 +149,39 @@ class RelaySeeder {
 
   static const int _broadcastBatchSize = 50;
   static const int _broadcastMaxAttempts = 6;
+
+  /// Verify the relay is accepting WSS connections before creating NDK.
+  ///
+  /// Uses a direct [WebSocket.connect] (which honours [HttpOverrides] for
+  /// self-signed certs) with a generous per-attempt timeout. This avoids
+  /// the race condition where NDK's tight 4 s bootstrap timeout loses to
+  /// hundreds of parallel EVM transactions saturating the event loop.
+  Future<void> _ensureRelayReachable(
+    String relayUrl, {
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    print('Verifying relay reachable at $relayUrl ...');
+    final sw = Stopwatch()..start();
+    while (sw.elapsed < timeout) {
+      try {
+        final ws = await WebSocket.connect(
+          relayUrl,
+        ).timeout(const Duration(seconds: 10));
+        await ws.close();
+        print('Relay verified reachable. [${sw.elapsedMilliseconds} ms]');
+        return;
+      } catch (e) {
+        print(
+          'Relay not reachable yet ($e), retrying in 2 s... '
+          '(${sw.elapsed.inSeconds}s elapsed)',
+        );
+        await Future.delayed(const Duration(seconds: 2));
+      }
+    }
+    throw Exception(
+      'Relay $relayUrl not reachable after ${timeout.inSeconds}s',
+    );
+  }
 
   Future<void> _broadcastEventWithRetry({
     required Ndk ndk,

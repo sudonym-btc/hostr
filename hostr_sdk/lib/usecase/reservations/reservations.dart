@@ -11,6 +11,12 @@ import '../auth/auth.dart';
 import '../crud.usecase.dart';
 import '../messaging/messaging.dart';
 
+class Commitment {
+  final String hash;
+
+  Commitment({required this.hash});
+}
+
 @Singleton()
 class Reservations extends CrudUseCase<Reservation> {
   final Messaging messaging;

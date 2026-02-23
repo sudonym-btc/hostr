@@ -26,6 +26,8 @@ class ListingView extends StatefulWidget {
 
 class _ListingViewState extends State<ListingView> {
   StreamWithStatus<Reservation>? _listingReservationsStream;
+  ValidatedStreamWithStatus<Review>? _verifiedReviews;
+  String? _reviewsAnchor;
 
   @override
   initState() {
@@ -40,8 +42,22 @@ class _ListingViewState extends State<ListingView> {
     super.initState();
   }
 
+  void _ensureVerifiedReviews(String anchor) {
+    if (_reviewsAnchor == anchor) return;
+    _verifiedReviews?.close();
+    _reviewsAnchor = anchor;
+    _verifiedReviews = getIt<Hostr>().reviews.subscribeVerified(
+      filter: Filter(
+        tags: {
+          kListingRefTag: [anchor],
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    _verifiedReviews?.close();
     _listingReservationsStream?.close();
     super.dispose();
   }
@@ -95,154 +111,130 @@ class _ListingViewState extends State<ListingView> {
               activeKeyPair != null &&
               state.data!.pubKey == activeKeyPair.publicKey;
 
-          final reviewsListWidget =
-              BlocBuilder<ListCubit<Review>, ListCubitState>(
-                builder: (context, reviewState) {
-                  if ((reviewState.synching || reviewState.fetching) &&
-                      reviewState.results.isEmpty) {
-                    return const Center(
-                      child: CircularProgressIndicator.adaptive(),
-                    );
-                  }
-                  if (reviewState.results.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return Column(
-                    children: [
-                      for (final review in reviewState.results) ...[
-                        SizedBox(height: kDefaultPadding.toDouble()),
-                        ReviewListItem(review: review as Review),
-                      ],
-                      if (reviewState.fetching)
-                        const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Center(
-                            child: CircularProgressIndicator.adaptive(),
+          _ensureVerifiedReviews(state.data!.anchor!);
+
+          final reviewsListWidget = StreamBuilder<List<Validation<Review>>>(
+            stream: _verifiedReviews!.list,
+            builder: (context, snapshot) {
+              final items = snapshot.data ?? [];
+              if (items.isEmpty) {
+                return snapshot.connectionState == ConnectionState.waiting
+                    ? const Center(child: CircularProgressIndicator.adaptive())
+                    : const SizedBox.shrink();
+              }
+              return Column(
+                children: [
+                  for (final item in items) ...[
+                    SizedBox(height: kDefaultPadding.toDouble()),
+                    if (item is Invalid<Review>)
+                      _InvalidReviewWrapper(
+                        reason: item.reason,
+                        child: ReviewListItem(review: item.event),
+                      )
+                    else
+                      ReviewListItem(review: item.event),
+                  ],
+                ],
+              );
+            },
+          );
+
+          return RepositoryProvider<StreamWithStatus<Reservation>?>.value(
+            value: _listingReservationsStream,
+            child: Scaffold(
+              bottomNavigationBar: BottomAppBar(
+                child: CustomPadding(
+                  top: 0,
+                  bottom: 0,
+                  child: Reserve(listing: state.data!),
+                ),
+              ),
+              body: StreamBuilder<List<Reservation>>(
+                stream: _listingReservationsStream!.list,
+                builder: (context, reservationsSnapshot) {
+                  final blockedReservations = activeKeyPair != null
+                      ? reservationsSnapshot.data
+                                ?.where((r) => r.isBlockedDate(activeKeyPair))
+                                .toList() ??
+                            const <Reservation>[]
+                      : const <Reservation>[];
+
+                  return CustomScrollView(
+                    slivers: [
+                      SliverAppBar(
+                        stretch: true,
+                        iconTheme: IconThemeData(
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              blurRadius: kDefaultPadding.toDouble(),
+                              color: Colors.black,
+                            ),
+                            Shadow(
+                              blurRadius: kDefaultPadding.toDouble() * 2,
+                              color: Colors.black,
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          if (isOwner)
+                            IconButton(
+                              icon: Icon(Icons.edit),
+                              onPressed: () {
+                                context.router.navigate(
+                                  EditListingRoute(a: widget.a),
+                                );
+                              },
+                            ),
+                        ],
+                        expandedHeight: MediaQuery.of(context).size.height / 4,
+                        flexibleSpace: FlexibleSpaceBar(
+                          background: PreloadListingImages(
+                            listing: state.data!,
+                            child: ListingCarousel(listing: state.data!),
                           ),
                         ),
+                      ),
+                      SliverList(
+                        delegate: SliverChildListDelegate([
+                          CustomPadding(
+                            child: ListingViewBody(
+                              listing: state.data!,
+                              selectedDateRange: widget.dateRange,
+                              isOwner: isOwner,
+                              hostedByText: AppLocalizations.of(
+                                context,
+                              )!.hostedBy,
+                              hostWidget: ProfileChipWidget(
+                                id: state.data!.pubKey,
+                              ),
+                              reviewsSummaryWidget: ReviewsReservationsWidget(
+                                listing: state.data!,
+                              ),
+                              reviewsListWidget: reviewsListWidget,
+                              blockedReservations: blockedReservations,
+                              onCancelBlockedReservation: (reservation) async {
+                                await getIt<Hostr>().reservations.cancel(
+                                  reservation,
+                                );
+                              },
+                              onBlockDates: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  builder: (context) {
+                                    return BlockDatesWidget(
+                                      listingAnchor: state.data!.anchor!,
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ]),
+                      ),
                     ],
                   );
                 },
-              );
-
-          return BlocProvider<ListCubit<Review>>(
-            create: (context) => ListCubit<Review>(
-              kinds: Review.kinds,
-              nostrService: getIt(),
-              filter: Filter(
-                tags: {
-                  kListingRefTag: [state.data!.anchor!],
-                },
-              ),
-            )..next(),
-            child: RepositoryProvider<StreamWithStatus<Reservation>?>.value(
-              value: _listingReservationsStream,
-              child: Scaffold(
-                bottomNavigationBar: BottomAppBar(
-                  child: CustomPadding(
-                    top: 0,
-                    bottom: 0,
-                    child: Reserve(listing: state.data!),
-                  ),
-                ),
-                body: StreamBuilder<List<Reservation>>(
-                  stream: _listingReservationsStream!.list,
-                  builder: (context, reservationsSnapshot) {
-                    final blockedReservations = activeKeyPair != null
-                        ? reservationsSnapshot.data
-                                  ?.where((r) => r.isBlockedDate(activeKeyPair))
-                                  .toList() ??
-                              const <Reservation>[]
-                        : const <Reservation>[];
-
-                    return NotificationListener<ScrollNotification>(
-                      onNotification: (notification) {
-                        if (notification.metrics.pixels >=
-                            notification.metrics.maxScrollExtent - 200) {
-                          context.read<ListCubit<Review>>().next();
-                        }
-                        return false;
-                      },
-                      child: CustomScrollView(
-                        slivers: [
-                          SliverAppBar(
-                            stretch: true,
-                            iconTheme: IconThemeData(
-                              color: Colors.white,
-                              shadows: [
-                                Shadow(
-                                  blurRadius: kDefaultPadding.toDouble(),
-                                  color: Colors.black,
-                                ),
-                                Shadow(
-                                  blurRadius: kDefaultPadding.toDouble() * 2,
-                                  color: Colors.black,
-                                ),
-                              ],
-                            ),
-                            actions: [
-                              if (isOwner)
-                                IconButton(
-                                  icon: Icon(Icons.edit),
-                                  onPressed: () {
-                                    context.router.navigate(
-                                      EditListingRoute(a: widget.a),
-                                    );
-                                  },
-                                ),
-                            ],
-                            expandedHeight:
-                                MediaQuery.of(context).size.height / 4,
-                            flexibleSpace: FlexibleSpaceBar(
-                              background: PreloadListingImages(
-                                listing: state.data!,
-                                child: ListingCarousel(listing: state.data!),
-                              ),
-                            ),
-                          ),
-                          SliverList(
-                            delegate: SliverChildListDelegate([
-                              CustomPadding(
-                                child: ListingViewBody(
-                                  listing: state.data!,
-                                  selectedDateRange: widget.dateRange,
-                                  isOwner: isOwner,
-                                  hostedByText: AppLocalizations.of(
-                                    context,
-                                  )!.hostedBy,
-                                  hostWidget: ProfileChipWidget(
-                                    id: state.data!.pubKey,
-                                  ),
-                                  reviewsSummaryWidget:
-                                      ReviewsReservationsWidget(
-                                        listing: state.data!,
-                                      ),
-                                  reviewsListWidget: reviewsListWidget,
-                                  blockedReservations: blockedReservations,
-                                  onCancelBlockedReservation:
-                                      (reservation) async {
-                                        await getIt<Hostr>().reservations
-                                            .cancel(reservation);
-                                      },
-                                  onBlockDates: () {
-                                    showModalBottomSheet(
-                                      context: context,
-                                      builder: (context) {
-                                        return BlockDatesWidget(
-                                          listingAnchor: state.data!.anchor!,
-                                        );
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                            ]),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
               ),
             ),
           );
@@ -377,6 +369,40 @@ class ListingViewBody extends StatelessWidget {
           FilledButton(onPressed: onBlockDates, child: Text('Block Dates')),
         ],
         reviewsListWidget,
+      ],
+    );
+  }
+}
+
+class _InvalidReviewWrapper extends StatelessWidget {
+  final String reason;
+  final Widget child;
+
+  const _InvalidReviewWrapper({required this.reason, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Stack(
+      children: [
+        Opacity(opacity: 0.5, child: child),
+        Positioned(
+          top: 0,
+          right: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: colors.errorContainer,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              reason,
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: colors.onErrorContainer),
+            ),
+          ),
+        ),
       ],
     );
   }

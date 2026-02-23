@@ -101,6 +101,7 @@ class SeedPipeline {
     required EscrowService escrowService,
     required Map<String, EscrowTrust> trustByPubkey,
     required Map<String, EscrowMethod> methodByPubkey,
+    double? invalidReservationRate,
     DateTime? chainNow,
   }) => stage_outcomes.buildOutcomes(
     ctx: _ctx,
@@ -109,6 +110,8 @@ class SeedPipeline {
     escrowService: escrowService,
     trustByPubkey: trustByPubkey,
     methodByPubkey: methodByPubkey,
+    invalidReservationRate:
+        invalidReservationRate ?? config.invalidReservationRate,
     chainNow: chainNow,
   );
 

@@ -31,6 +31,7 @@ Future<void> buildOutcomes({
   required EscrowService escrowService,
   required Map<String, EscrowTrust> trustByPubkey,
   required Map<String, EscrowMethod> methodByPubkey,
+  required double invalidReservationRate,
   DateTime? chainNow,
 }) async {
   final sw = Stopwatch()..start();
@@ -200,6 +201,14 @@ Future<void> buildOutcomes({
 
     thread.selfSigned = plan.selfSigned;
 
+    String? invalidReason;
+    final mutatedProof = _maybeCorruptPaymentProof(
+      ctx: ctx,
+      invalidReservationRate: invalidReservationRate,
+      proof: proof,
+      onInvalid: (reason) => invalidReason = reason,
+    );
+
     final reservation = Reservation(
       pubKey: thread.guest.keyPair.publicKey,
       tags: ReservationTags([
@@ -215,11 +224,12 @@ Future<void> buildOutcomes({
       content: ReservationContent(
         start: thread.start,
         end: thread.end,
-        proof: proof,
+        proof: mutatedProof,
       ),
     ).signAs(thread.guest.keyPair, Reservation.fromNostrEvent);
 
     thread.reservation = reservation;
+    thread.invalidReservationReason = invalidReason;
   }
 }
 
@@ -247,6 +257,78 @@ class _ThreadPlan {
     this.trust,
     this.method,
   });
+}
+
+PaymentProof? _maybeCorruptPaymentProof({
+  required SeedContext ctx,
+  required double invalidReservationRate,
+  required PaymentProof? proof,
+  void Function(String reason)? onInvalid,
+}) {
+  if (invalidReservationRate <= 0) return proof;
+  if (!ctx.pickByRatio(invalidReservationRate)) return proof;
+  if (proof == null) {
+    onInvalid?.call('missing_payment_proof');
+    return null;
+  }
+
+  final shouldDropProof = proof.escrowProof == null || ctx.random.nextBool();
+  if (shouldDropProof) {
+    onInvalid?.call('missing_payment_proof');
+    return null;
+  }
+
+  onInvalid?.call('bogus_escrow_proof');
+  return PaymentProof(
+    hoster: proof.hoster,
+    listing: proof.listing,
+    zapProof: proof.zapProof,
+    escrowProof: _buildBogusEscrowProof(ctx: ctx, original: proof.escrowProof!),
+  );
+}
+
+EscrowProof _buildBogusEscrowProof({
+  required SeedContext ctx,
+  required EscrowProof original,
+}) {
+  return EscrowProof(
+    txHash: _randomHex(ctx, 64),
+    escrowService: _buildBogusEscrowService(ctx),
+    hostsTrustedEscrows: original.hostsTrustedEscrows,
+    hostsEscrowMethods: original.hostsEscrowMethods,
+  );
+}
+
+EscrowService _buildBogusEscrowService(SeedContext ctx) {
+  final content = EscrowServiceContent(
+    pubkey: MockKeys.escrow.publicKey,
+    evmAddress: getEvmCredentials(
+      MockKeys.escrow.privateKey!,
+    ).address.eip55With0x,
+    contractAddress: _randomHex(ctx, 40),
+    contractBytecodeHash: _randomHex(ctx, 64),
+    chainId: 1000 + ctx.random.nextInt(8000),
+    maxDuration: const Duration(days: 365),
+    type: EscrowType.EVM,
+  );
+
+  final unsigned = EscrowService(
+    pubKey: MockKeys.escrow.publicKey,
+    content: content,
+    tags: EventTags([]),
+    createdAt: ctx.timestampDaysAfter(60 + ctx.random.nextInt(30)),
+  );
+
+  return unsigned.signAs(MockKeys.escrow, EscrowService.fromNostrEvent);
+}
+
+String _randomHex(SeedContext ctx, int length) {
+  const alphabet = '0123456789abcdef';
+  final buffer = StringBuffer('0x');
+  for (var i = 0; i < length; i++) {
+    buffer.write(alphabet[ctx.random.nextInt(alphabet.length)]);
+  }
+  return buffer.toString();
 }
 
 // ─── Escrow trade creation (phase 2) ────────────────────────────────────────

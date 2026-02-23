@@ -184,6 +184,88 @@ class CrudUseCase<T extends Nip01Event> {
   Future<int> count() {
     return requests.count(filter: Filter(kinds: [kind]));
   }
+
+  // ── findByTag batching ──────────────────────────────────────────────
+  // Like getOne batching but for multi-result tag queries. Each caller
+  // asks for all events matching tag=value; within the debounce window
+  // all values are merged into one query:
+  //   Filter(kinds: [kind], tags: {tag: [v1, v2, ..., vN]})
+  // Results are dispatched back by matching each event's tag value.
+  static const Duration _findByTagDebounceDuration = Duration(
+    milliseconds: 500,
+  );
+  final Map<String, List<_FindByTagRequest<T>>> _findByTagQueues = {};
+  final Map<String, Timer?> _findByTagTimers = {};
+
+  /// Find all events matching [tag]=[value]. Calls within the debounce
+  /// window are batched into a single Nostr query. Returns the list of
+  /// events whose [tag] contains [value].
+  Future<List<T>> findByTag(String tag, String value) {
+    final completer = Completer<List<T>>();
+    _findByTagQueues
+        .putIfAbsent(tag, () => [])
+        .add(_FindByTagRequest(value: value, completer: completer));
+
+    _findByTagTimers[tag]?.cancel();
+    _findByTagTimers[tag] = Timer(
+      _findByTagDebounceDuration,
+      () => _flushFindByTagQueue(tag),
+    );
+
+    return completer.future;
+  }
+
+  void _flushFindByTagQueue(String tag) {
+    final queue = _findByTagQueues.remove(tag);
+    _findByTagTimers.remove(tag);
+    if (queue == null || queue.isEmpty) return;
+
+    final batch = List<_FindByTagRequest<T>>.from(queue);
+
+    // Merge all requested values into one filter.
+    final allValues = batch.map((r) => r.value).toSet().toList();
+
+    logger.d(
+      'findByTag batch: ${batch.length} requests for tag "$tag" '
+      'combined into 1 query for $T with ${allValues.length} distinct values',
+    );
+
+    // Accumulate results per value.
+    final results = <String, List<T>>{};
+
+    requests
+        .query<T>(
+          filter: Filter(kinds: [kind], tags: {tag: allValues}),
+          name: '$T-findByTag-batch',
+        )
+        .listen(
+          (event) {
+            // Match event against each requested value.
+            for (final value in allValues) {
+              final matches = event.tags.any(
+                (t) => t.isNotEmpty && t[0] == tag && t.contains(value),
+              );
+              if (matches) {
+                results.putIfAbsent(value, () => []).add(event);
+              }
+            }
+          },
+          onDone: () {
+            for (final req in batch) {
+              if (!req.completer.isCompleted) {
+                req.completer.complete(results[req.value] ?? []);
+              }
+            }
+          },
+          onError: (Object error) {
+            for (final req in batch) {
+              if (!req.completer.isCompleted) {
+                req.completer.completeError(error);
+              }
+            }
+          },
+        );
+  }
 }
 
 /// A pending getOne request waiting to be batched.
@@ -191,4 +273,11 @@ class _GetOneRequest<T> {
   final Filter filter;
   final Completer<T?> completer;
   _GetOneRequest({required this.filter, required this.completer});
+}
+
+/// A pending findByTag request waiting to be batched.
+class _FindByTagRequest<T> {
+  final String value;
+  final Completer<List<T>> completer;
+  _FindByTagRequest({required this.value, required this.completer});
 }
