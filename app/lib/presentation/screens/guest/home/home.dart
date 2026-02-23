@@ -22,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen>
   static const _itemTopPadding = kDefaultPadding / 2;
   late final AnimationController _navController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 300),
+    duration: kAnimationDuration,
     value: 1.0, // start fully visible
   );
 
@@ -54,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen>
     return SizeTransition(
       sizeFactor: CurvedAnimation(
         parent: _navController,
-        curve: Curves.easeInOut,
+        curve: kAnimationCurve,
       ),
       axisAlignment: -1.0, // pin to top so it collapses downward
       child: ClipRRect(
