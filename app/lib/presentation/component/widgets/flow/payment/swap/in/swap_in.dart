@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
@@ -39,7 +40,7 @@ class SwapInViewWidget extends StatelessWidget {
       case SwapInCompleted():
         return SwapInSuccessWidget(state as SwapInCompleted);
       case SwapInFailed():
-        return const SwapInFailureWidget('Swap failed.');
+        return SwapInFailureWidget((state as SwapInFailed).error.toString());
       case SwapInAwaitingOnChain():
       case SwapInFunded():
       case SwapInClaimed():
@@ -57,11 +58,16 @@ class SwapInConfirmWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      title: 'Swap',
-      subtitle: 'Please confirm to proceed with the swap.',
+      title: AppLocalizations.of(context)!.swapTitle,
+      subtitle: AppLocalizations.of(context)!.swapConfirmSubtitle,
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [FilledButton(onPressed: onConfirm, child: Text('Confirm'))],
+        children: [
+          FilledButton(
+            onPressed: onConfirm,
+            child: Text(AppLocalizations.of(context)!.confirmButton),
+          ),
+        ],
       ),
     );
   }
@@ -81,18 +87,18 @@ class SwapInProgressWidget extends StatelessWidget {
   final SwapInState state;
   const SwapInProgressWidget(this.state, {super.key});
 
-  String get _subtitle {
+  String _subtitle(AppLocalizations l10n) {
     switch (state) {
       case SwapInAwaitingOnChain():
-        return 'Waiting for transaction toxc confirm...';
+        return l10n.swapStatusWaitingForTransactionConfirm;
       case SwapInFunded():
-        return 'Swap funded, claiming...';
+        return l10n.swapStatusFundedClaiming;
       case SwapInClaimed():
-        return 'Swap claimed, finalising...';
+        return l10n.swapStatusClaimedFinalising;
       case SwapInRequestCreated():
-        return 'Swap request created...';
+        return l10n.swapStatusRequestCreated;
       default:
-        return 'Processing your swap...';
+        return l10n.swapStatusProcessingYourSwap;
     }
   }
 
@@ -100,8 +106,8 @@ class SwapInProgressWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      title: 'Swap Progress',
-      subtitle: _subtitle,
+      title: AppLocalizations.of(context)!.swapProgressTitle,
+      subtitle: _subtitle(AppLocalizations.of(context)!),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -122,8 +128,8 @@ class SwapInSuccessWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      title: 'Swap Complete',
-      subtitle: 'Your swap has been completed successfully.',
+      title: AppLocalizations.of(context)!.swapCompleteTitle,
+      subtitle: AppLocalizations.of(context)!.swapCompleteSubtitle,
       content: Container(),
     );
   }
@@ -137,7 +143,7 @@ class SwapInFailureWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.error,
-      title: 'Swap Failed',
+      title: AppLocalizations.of(context)!.swapFailedTitle,
       content: Text(error),
     );
   }

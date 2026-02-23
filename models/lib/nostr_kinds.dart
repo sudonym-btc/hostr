@@ -2,7 +2,10 @@ const kNostrKindListing = 32121;
 const kNostrKindReservation = 32122;
 const kNostrKindReservationRequest = 32123;
 const kNostrKindReview = 32124;
-const kNostrKindEscrowService = 40021;
+
+/// Escrow service advertisement. Moved from 40021 (ephemeral range, not stored
+/// by relays) to 30303 (parameterized replaceable) so relays persist it.
+const kNostrKindEscrowService = 30303;
 const kNostrKindEscrowTrust = 30300;
 const kNostrKindEscrowMethod = 30301;
 const kNostrKindEscrowServiceSelected = 30302;

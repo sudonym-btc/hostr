@@ -109,7 +109,9 @@ class Requests extends RequestsModel {
                 .stream;
           }),
         ])
-        .asyncMap((event) async => parserWithGiftWrap<T>(event, ndk))
+        .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
+        .where((event) => event != null)
+        .cast<T>()
         .listen(response.add, onError: response.addError);
     response.addSubscription(subscription);
 
@@ -132,9 +134,10 @@ class Requests extends RequestsModel {
 
     // If there's already an in-flight query for this exact filter, share it.
     if (_inFlightQueries.containsKey(key)) {
-      return _inFlightQueries[key]!.asyncMap(
-        (event) async => parserWithGiftWrap<T>(event, ndk),
-      );
+      return _inFlightQueries[key]!
+          .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
+          .where((event) => event != null)
+          .cast<T>();
     }
 
     // Create the underlying stream and make it a broadcast so multiple
@@ -162,7 +165,10 @@ class Requests extends RequestsModel {
 
     _inFlightQueries[key] = source;
 
-    return source.asyncMap((event) async => parserWithGiftWrap<T>(event, ndk));
+    return source
+        .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
+        .where((event) => event != null)
+        .cast<T>();
   }
 
   // @TODO: There must be a better way to do this

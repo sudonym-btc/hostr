@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
@@ -30,7 +31,7 @@ class ProfileHeaderWidget extends StatelessWidget {
             CircleAvatar(radius: 40, child: Icon(Icons.person, size: kIconXl)),
             Gap.vertical.md(),
             Text(
-              'No profile set up yet',
+              AppLocalizations.of(context)!.noProfileSetUpYet,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             Gap.vertical.custom(kSpace3),
@@ -38,7 +39,7 @@ class ProfileHeaderWidget extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onEditProfile,
                 icon: const Icon(Icons.edit),
-                label: const Text('Edit Profile'),
+                label: Text(AppLocalizations.of(context)!.editProfile),
               ),
           ],
         ),

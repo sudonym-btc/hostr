@@ -93,7 +93,7 @@ class _ListingViewState extends State<ListingView> {
                         onPressed: () =>
                             context.read<EntityCubit<Listing>>().get(),
                         icon: const Icon(Icons.refresh),
-                        label: const Text('Retry'),
+                        label: Text(AppLocalizations.of(context)!.retryButton),
                       ),
                     ],
                   ),
@@ -337,9 +337,12 @@ class ListingViewBody extends StatelessWidget {
         ),
         if (isOwner) ...[
           Gap.vertical.md(),
-          Text('Blocked Dates', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            AppLocalizations.of(context)!.blockedDates,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           if (blockedReservations.isEmpty)
-            Text('No blocked dates.')
+            Text(AppLocalizations.of(context)!.noBlockedDates)
           else
             ListView.builder(
               itemCount: blockedReservations.length,
@@ -364,7 +367,10 @@ class ListingViewBody extends StatelessWidget {
               shrinkWrap: true,
               physics: NeverScrollableScrollPhysics(),
             ),
-          FilledButton(onPressed: onBlockDates, child: Text('Block Dates')),
+          FilledButton(
+            onPressed: onBlockDates,
+            child: Text(AppLocalizations.of(context)!.blockDates),
+          ),
         ],
         reviewsListWidget,
       ],

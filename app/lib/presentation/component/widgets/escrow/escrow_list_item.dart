@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:models/main.dart';
 
 class EscrowListItemWidget extends StatefulWidget {
@@ -17,8 +18,8 @@ class EscrowListItemWidgetState extends State<EscrowListItemWidget> {
     return ListTile(
       contentPadding: EdgeInsets.all(0),
       leading: Icon(Icons.handshake),
-      title: Text('Escrow x'),
-      subtitle: Text('Escrow description'),
+      title: Text(AppLocalizations.of(context)!.escrow),
+      subtitle: Text(AppLocalizations.of(context)!.escrow),
       trailing: Checkbox(
         value: _isChecked,
         onChanged: (bool? value) {

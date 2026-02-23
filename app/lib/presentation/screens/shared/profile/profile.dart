@@ -199,7 +199,7 @@ Widget _buildTrustedEscrowsBody(
   }
   final pubkeys = state.pubkeys;
   if (pubkeys.isEmpty) {
-    return const Text("No escrows trusted yet");
+    return Text(AppLocalizations.of(context)!.noEscrowsTrustedYet);
   }
   return Column(
     children: [

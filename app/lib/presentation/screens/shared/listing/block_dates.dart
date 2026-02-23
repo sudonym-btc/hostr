@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr_sdk/hostr.dart';
@@ -10,8 +11,13 @@ class BlockDatesWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ModalBottomSheet(
-      title: 'Block Dates',
-      content: Column(children: [Text('start'), Text('end')]),
+      title: AppLocalizations.of(context)!.blockDates,
+      content: Column(
+        children: [
+          Text(AppLocalizations.of(context)!.start),
+          Text(AppLocalizations.of(context)!.end),
+        ],
+      ),
       buttons: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -24,7 +30,7 @@ class BlockDatesWidget extends StatelessWidget {
               );
               Navigator.of(context).pop();
             },
-            child: Text('Save'),
+            child: Text(AppLocalizations.of(context)!.save),
           ),
         ],
       ),

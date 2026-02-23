@@ -172,6 +172,7 @@ class RootstockSwapInOperation extends SwapInOperation {
 
       emit(SwapInCompleted());
       logger.i('Swap-in completed: $tx');
+      await close();
     } on TimeoutException catch (e, st) {
       logger.e('Timeout during swap-in: $e');
       if (record != null) {
@@ -182,8 +183,6 @@ class RootstockSwapInOperation extends SwapInOperation {
         );
       }
       emit(SwapInFailed(e, st));
-      addError(SwapInFailed(e, st));
-      rethrow;
     } catch (e, st) {
       logger.e('Error during swap in operation: $e');
       if (record != null) {
@@ -200,10 +199,6 @@ class RootstockSwapInOperation extends SwapInOperation {
         );
       }
       emit(SwapInFailed(e, st));
-      addError(SwapInFailed(e, st));
-      rethrow;
-    } finally {
-      await close();
     }
   }
 

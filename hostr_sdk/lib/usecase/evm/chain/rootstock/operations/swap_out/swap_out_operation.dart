@@ -184,6 +184,7 @@ class RootstockSwapOutOperation extends SwapOutOperation {
         );
         emit(SwapOutCompleted());
         logger.i('Swap-out completed: invoice paid by Boltz');
+        await close();
       } else {
         // ── FAILURE: Need to refund ──
         logger.w(
@@ -215,8 +216,6 @@ class RootstockSwapOutOperation extends SwapOutOperation {
         );
       }
       emit(SwapOutFailed(e, st));
-      addError(SwapOutFailed(e, st));
-      rethrow;
     } catch (e, st) {
       logger.e('Error during swap out operation: $e');
       if (record != null) {
@@ -230,10 +229,6 @@ class RootstockSwapOutOperation extends SwapOutOperation {
         );
       }
       emit(SwapOutFailed(e, st));
-      addError(SwapOutFailed(e, st));
-      rethrow;
-    } finally {
-      await close();
     }
   }
 

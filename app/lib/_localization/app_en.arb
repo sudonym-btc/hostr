@@ -64,5 +64,169 @@
   "noMessagesYet": "No messages yet",
   "pay": "Pay",
   "inbox": "Inbox",
-  "yourListings": "Your Listings"
+  "yourListings": "Your Listings",
+  "paymentTitle": "Payment",
+  "processingPayment": "Processing payment...",
+  "payInvoiceTitle": "Pay Invoice",
+  "payInvoiceSubtitle": "Pay this lightning invoice to continue",
+  "invoiceExpired": "Expired",
+  "completePaymentInConnectedWallet": "Please complete the payment in your connected wallet",
+  "paymentCompleteTitle": "Payment Complete",
+  "paymentFailedTitle": "Payment Failed",
+  "paymentFailed": "Something went wrong with your payment. Please try again.",
+  "paymentMethodTitle": "Payment method",
+  "payDirectly": "Pay directly",
+  "openWallet": "Open wallet",
+  "swapTitle": "Swap",
+  "swapConfirmSubtitle": "Please confirm to proceed with the swap.",
+  "swapFailedMessage": "Swap failed.",
+  "confirmButton": "Confirm",
+  "swapProgressTitle": "Swap Progress",
+  "swapStatusWaitingForTransactionConfirm": "Waiting for transaction to confirm...",
+  "swapStatusFundedClaiming": "Swap funded, claiming...",
+  "swapStatusClaimedFinalising": "Swap claimed, finalising...",
+  "swapStatusRequestCreated": "Swap request created...",
+  "swapStatusInvoiceCreatedProcessing": "Invoice created, processing...",
+  "swapStatusFundedWaitingForPayment": "Swap funded, waiting for payment...",
+  "swapStatusProcessingRefund": "Processing refund...",
+  "swapStatusProcessingYourSwap": "Processing your swap...",
+  "swapCompleteTitle": "Swap Complete",
+  "swapCompleteSubtitle": "Your swap has been completed successfully.",
+  "swapFailedTitle": "Swap Failed",
+  "withdrawFundsTitle": "Withdraw Funds",
+  "continueButton": "Continue",
+  "swapRefundedTitle": "Swap Refunded",
+  "swapRefundedSubtitle": "Swap refunded successfully.",
+  "retryButton": "Retry",
+  "swapOutExternalInvoiceInstructions": "Create a Lightning invoice for exactly {sats} sats in your wallet and paste it below.",
+  "@swapOutExternalInvoiceInstructions": {
+    "description": "Instructions for providing an external Lightning invoice",
+    "placeholders": {
+      "sats": {
+        "type": "int"
+      }
+    }
+  },
+  "lightningInvoiceLabel": "Lightning Invoice",
+  "lightningInvoiceHint": "lnbc…",
+  "pasteLightningInvoiceRequired": "Please paste a Lightning invoice.",
+  "blockedDates": "Blocked Dates",
+  "noBlockedDates": "No blocked dates.",
+  "blockDates": "Block Dates",
+  "reviewMessageLabel": "Message",
+  "reviewHint": "Tell others about your stay",
+  "reviewRatingLabel": "Rating",
+  "reviewRequired": "Review is required",
+  "ratingMustBeBetween1And5": "Rating must be between 1 and 5",
+  "perDayLabel": " / day ",
+  "clear": "Clear",
+  "errorLabel": "Error",
+  "registerPeriodicBackgroundAppRefreshIos": "Register Periodic Background App Refresh (iOS)",
+  "registerBackgroundProcessingTaskIos": "Register BackgroundProcessingTask (iOS)",
+  "refreshStats": "Refresh stats",
+  "workmanagerNotInitialized": "Workmanager not initialized",
+  "workmanagerNotInitializedMessage": "Workmanager is not initialized, please initialize",
+  "noPermission": "No permission",
+  "allowBarter": "Allow Barter",
+  "start": "start",
+  "end": "end",
+  "addImage": "Add Image",
+  "dev": "Dev",
+  "swapIn": "Swap in",
+  "bolt11": "Bolt11",
+  "errorWithDetails": "Error: {details}",
+  "@errorWithDetails": {
+    "description": "Error text with details",
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "nsec": "nsec",
+  "unexpectedError": "Unexpected error",
+  "somethingWentWrong": "Something went wrong",
+  "copiedH3Indexes": "Copied {count} H3 indexes",
+  "@copiedH3Indexes": {
+    "description": "Snackbar text after copying H3 indexes",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "copyH3Indexes": "Copy H3 indexes",
+  "cancel": "Cancel",
+  "noWalletConnected": "No wallet connected",
+  "errorLoadingEscrows": "Error loading escrows",
+  "noCompatibleEscrowsFound": "No compatible escrows found",
+  "estimatingFees": "Estimating fees...",
+  "close": "Close",
+  "publicKeyCopied": "Public key copied",
+  "actionNotImplementedYet": "Action not implemented yet",
+  "couldNotConnectNwcProvider": "Could not connect to NWC provider: {details}",
+  "@couldNotConnectNwcProvider": {
+    "description": "Error shown when NWC connection fails",
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineEventType": "Timeline Event {type}",
+  "@timelineEventType": {
+    "description": "Fallback timeline label for unknown event types",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "boltz": "Boltz",
+  "rootstock": "Rootstock",
+  "connectAppToWallet": "Connect app to wallet",
+  "uriCopiedToClipboard": "URI copied to clipboard",
+  "copyWords": "Copy words",
+  "recoveryWordsCopied": "Recovery words copied",
+  "done": "Done",
+  "labelCopied": "{label} copied",
+  "@labelCopied": {
+    "description": "Copied confirmation with object label",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "withdraw": "Withdraw",
+  "noItems": "No items",
+  "unknownMessageType": "Unknown message type",
+  "noProfileSetUpYet": "No profile set up yet",
+  "youMightWantToJotThisDown": "You might want to jot this down",
+  "mnemonic": "Mnemonic",
+  "startFlutterBackgroundService": "Start the Flutter background service",
+  "frequencyLabel": "Frequency:",
+  "minutes15": "15 minutes",
+  "minutes30": "30 minutes",
+  "hour1": "1 hour",
+  "cancelAll": "Cancel All",
+  "noEscrowsTrustedYet": "No escrows trusted yet",
+  "errorGeneric": "Something went wrong: {details}",
+  "@errorGeneric": {
+    "description": "Generic user-facing error message with details",
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewCount": "{count, plural, =0{No reviews} =1{1 review} other{{count} reviews}}",
+  "@reviewCount": {
+    "description": "Review count label with plural handling",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

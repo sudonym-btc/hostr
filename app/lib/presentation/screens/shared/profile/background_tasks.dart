@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/main.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,7 +38,9 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           FilledButton(
-            child: Text("Start the Flutter background service"),
+            child: Text(
+              AppLocalizations.of(context)!.startFlutterBackgroundService,
+            ),
             onPressed: () async {
               if (Platform.isIOS) {
                 final status = await Permission.backgroundRefresh.status;
@@ -81,14 +84,23 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
           if (Platform.isAndroid) ...[
             Row(
               children: [
-                Text("Frequency: "),
+                Text(AppLocalizations.of(context)!.frequencyLabel),
                 Expanded(
                   child: DropdownButton<int>(
                     value: _selectedFrequency,
                     items: [
-                      DropdownMenuItem(value: 15, child: Text("15 minutes")),
-                      DropdownMenuItem(value: 30, child: Text("30 minutes")),
-                      DropdownMenuItem(value: 60, child: Text("1 hour")),
+                      DropdownMenuItem(
+                        value: 15,
+                        child: Text(AppLocalizations.of(context)!.minutes15),
+                      ),
+                      DropdownMenuItem(
+                        value: 30,
+                        child: Text(AppLocalizations.of(context)!.minutes30),
+                      ),
+                      DropdownMenuItem(
+                        value: 60,
+                        child: Text(AppLocalizations.of(context)!.hour1),
+                      ),
                     ],
                     onChanged: (value) {
                       setState(() {
@@ -105,7 +117,11 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
           // Currently we cannot provide frequency for iOS, hence it will be
           // minimum 15 minutes after which iOS will reschedule
           FilledButton(
-            child: Text('Register Periodic Background App Refresh (iOS)'),
+            child: Text(
+              AppLocalizations.of(
+                context,
+              )!.registerPeriodicBackgroundAppRefreshIos,
+            ),
             onPressed: Platform.isIOS
                 ? () async {
                     if (!workmanagerInitialized) {
@@ -128,7 +144,9 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
           // terminate any running background processing tasks when the
           // user starts using the device.
           FilledButton(
-            child: Text('Register BackgroundProcessingTask (iOS)'),
+            child: Text(
+              AppLocalizations.of(context)!.registerBackgroundProcessingTaskIos,
+            ),
             onPressed: Platform.isIOS
                 ? () async {
                     if (!workmanagerInitialized) {
@@ -149,14 +167,17 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           TextButton(
-            child: Text("Cancel All"),
+            child: Text(AppLocalizations.of(context)!.cancelAll),
             onPressed: () async {
               await Workmanager().cancelAll();
               print('Cancel all tasks completed');
             },
           ),
           Gap.vertical.md(),
-          FilledButton(child: Text('Refresh stats'), onPressed: _refreshStats),
+          FilledButton(
+            child: Text(AppLocalizations.of(context)!.refreshStats),
+            onPressed: _refreshStats,
+          ),
           Gap.vertical.sm(),
           SingleChildScrollView(
             child: Text(
@@ -192,11 +213,13 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Workmanager not initialized'),
-          content: Text('Workmanager is not initialized, please initialize'),
+          title: Text(AppLocalizations.of(context)!.workmanagerNotInitialized),
+          content: Text(
+            AppLocalizations.of(context)!.workmanagerNotInitializedMessage,
+          ),
           actions: <Widget>[
             TextButton(
-              child: Text('OK'),
+              child: Text(AppLocalizations.of(context)!.ok),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ],
@@ -210,14 +233,14 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('No permission'),
+          title: Text(AppLocalizations.of(context)!.noPermission),
           content: Text(
             'Background app refresh is disabled, please enable in '
             'App settings. Status ${hasPermission.name}',
           ),
           actions: <Widget>[
             TextButton(
-              child: Text('OK'),
+              child: Text(AppLocalizations.of(context)!.ok),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ],

@@ -58,7 +58,11 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
             return ModalBottomSheet(
               type: ModalBottomSheetType.error,
               title: AppLocalizations.of(context)!.connectWallet,
-              content: Text('Could not connect to NWC provider: ${state.e}'),
+              content: Text(
+                AppLocalizations.of(
+                  context,
+                )!.couldNotConnectNwcProvider(state.e.toString()),
+              ),
             );
           }
           return ModalBottomSheet(

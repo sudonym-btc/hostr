@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
@@ -169,7 +170,7 @@ class _ProfilePopupState extends State<ProfilePopup> {
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+              child: Text(AppLocalizations.of(context)!.close),
             ),
           ),
         );
@@ -303,8 +304,8 @@ class _PubkeyRow extends StatelessWidget {
         onTap: () {
           Clipboard.setData(ClipboardData(text: pubkey));
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Public key copied'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.publicKeyCopied),
               duration: Duration(seconds: 1),
             ),
           );

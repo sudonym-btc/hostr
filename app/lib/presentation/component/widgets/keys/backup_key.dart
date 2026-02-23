@@ -2,6 +2,7 @@ import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:convert/convert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
@@ -100,14 +101,18 @@ class BackupKeyWidget extends StatelessWidget {
                         alignment: Alignment.centerRight,
                         child: TextButton.icon(
                           icon: const Icon(Icons.copy, size: kIconSm),
-                          label: const Text('Copy words'),
+                          label: Text(AppLocalizations.of(context)!.copyWords),
                           onPressed: () {
                             Clipboard.setData(
                               ClipboardData(text: mnemonic.sentence),
                             );
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Recovery words copied'),
+                              SnackBar(
+                                content: Text(
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.recoveryWordsCopied,
+                                ),
                               ),
                             );
                           },
@@ -128,7 +133,7 @@ class BackupKeyWidget extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Done'),
+                    child: Text(AppLocalizations.of(context)!.done),
                   ),
                 ),
               ),
@@ -183,9 +188,13 @@ class _KeySection extends StatelessWidget {
                 icon: const Icon(Icons.copy, size: kIconSm),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: value));
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('$label copied')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        AppLocalizations.of(context)!.labelCopied(label),
+                      ),
+                    ),
+                  );
                 },
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,

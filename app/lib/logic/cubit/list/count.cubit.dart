@@ -32,14 +32,23 @@ class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
       "count ${getCombinedFilter(Filter(kinds: kinds), filterCubit?.state.filter)}",
     );
     emit(CountCubitStateLoading());
-    int count = await nostrService.requests.count(
-      filter: getCombinedFilter(
-        Filter(kinds: kinds),
-        filterCubit?.state.filter,
-      ),
-    );
+    try {
+      int count = await nostrService.requests.count(
+        filter: getCombinedFilter(
+          Filter(kinds: kinds),
+          filterCubit?.state.filter,
+        ),
+      );
 
-    emit(CountCubitState(count: count));
+      if (!isClosed) {
+        emit(CountCubitState(count: count));
+      }
+    } catch (e, st) {
+      logger.e('Error counting events: $e\n$st');
+      if (!isClosed) {
+        emit(CountCubitStateError(error: e.toString()));
+      }
+    }
   }
 
   @override

@@ -87,7 +87,7 @@ class EditProfileViewState extends State<EditProfileView> {
                 ),
               );
             }
-            return const Text('Error');
+            return Text(AppLocalizations.of(context)!.errorLabel);
           },
         ),
         bottomNavigationBar: BottomAppBar(

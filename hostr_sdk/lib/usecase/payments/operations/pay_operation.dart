@@ -47,7 +47,7 @@ abstract class PayOperation<
       resolvedDetails = await resolver();
     } catch (e) {
       emit(PayFailed(e.toString(), params: params));
-      rethrow;
+      return;
     }
 
     // Compute effective range by clamping resolved limits with pay-param limits
@@ -117,7 +117,6 @@ abstract class PayOperation<
       emit(PayCallbackComplete(params: params, details: callbackDetails!));
     } catch (e) {
       emit(PayFailed(e.toString(), params: params));
-      rethrow;
     }
   }
 
@@ -136,18 +135,18 @@ abstract class PayOperation<
       }
       completedDetails = await completer();
       emit(PayCompleted(params: params, details: completedDetails!));
+      await close();
     } catch (e) {
       emit(PayFailed(e.toString(), params: params));
-      rethrow;
-    } finally {
-      await close();
     }
   }
 
   /// Called when we want to execute this payment right away
   Future<void> execute() async {
     await resolve();
+    if (state is PayFailed) return;
     await finalize();
+    if (state is PayFailed) return;
     await complete();
   }
 }

@@ -78,7 +78,7 @@ class PaymentConfirmWidget extends StatelessWidget {
 
         return ModalBottomSheet(
           type: ModalBottomSheetType.normal,
-          title: 'Payment',
+          title: AppLocalizations.of(context)!.paymentTitle,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -147,8 +147,8 @@ class PaymentProgressWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      title: 'Payment',
-      subtitle: 'Processing payment...',
+      title: AppLocalizations.of(context)!.paymentTitle,
+      subtitle: AppLocalizations.of(context)!.processingPayment,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -169,8 +169,8 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      title: 'Pay Invoice',
-      subtitle: 'Pay this lightning invoice to continue',
+      title: AppLocalizations.of(context)!.payInvoiceTitle,
+      subtitle: AppLocalizations.of(context)!.payInvoiceSubtitle,
       content: Builder(
         builder: (context) {
           switch (state.callbackDetails) {
@@ -191,7 +191,7 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                     due: DateTime.fromMillisecondsSinceEpoch(
                       (unixUntilExpired * 1000).toInt(),
                     ),
-                    finishedText: 'Expired',
+                    finishedText: AppLocalizations.of(context)!.invoiceExpired,
                     showLabel: false,
                     longDateName: true,
                     style: TextStyle(
@@ -249,7 +249,7 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                             ),
                           );
                         },
-                        child: Text('Copy'),
+                        child: Text(AppLocalizations.of(context)!.copy),
                       ),
                       FutureBuilder(
                         future: canLaunchUrl(uri),
@@ -267,7 +267,9 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                                       );
                                     }
                                   },
-                                  child: Text('Open wallet'),
+                                  child: Text(
+                                    AppLocalizations.of(context)!.openWallet,
+                                  ),
                                 ),
                               ],
                             );
@@ -281,7 +283,7 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
               );
             default:
               return Text(
-                'Please complete the payment in your connected wallet',
+                AppLocalizations.of(context)!.completePaymentInConnectedWallet,
               );
           }
         },
@@ -298,7 +300,7 @@ class PaymentSuccessWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      title: 'Payment Complete',
+      title: AppLocalizations.of(context)!.paymentCompleteTitle,
       subtitle: AppLocalizations.of(context)!.paymentCompleted,
       content: Container(),
     );
@@ -313,8 +315,8 @@ class PaymentFailureWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.error,
-      title: 'Payment Failed',
-      content: Text(state.error.toString()),
+      title: AppLocalizations.of(context)!.paymentFailedTitle,
+      content: Text(AppLocalizations.of(context)!.paymentFailed),
     );
   }
 }

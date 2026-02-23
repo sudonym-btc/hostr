@@ -61,7 +61,10 @@ class _FiltersScreenState extends State<FiltersScreen> {
               child: Row(
                 children: [
                   if (_hasActiveFilters)
-                    TextButton(onPressed: _clear, child: const Text('Clear')),
+                    TextButton(
+                      onPressed: _clear,
+                      child: Text(AppLocalizations.of(context)!.clear),
+                    ),
                   const Spacer(),
                   FilledButton(
                     onPressed: _controller.canSubmit ? _submit : null,

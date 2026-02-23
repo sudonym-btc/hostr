@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
@@ -64,7 +65,7 @@ class SwapOutViewWidget extends StatelessWidget {
       case SwapOutCompleted():
         return SwapOutSuccessWidget(state as SwapOutCompleted);
       case SwapOutFailed():
-        return const SwapOutFailureWidget('Swap failed.');
+        return SwapOutFailureWidget((state as SwapOutFailed).error.toString());
       case SwapOutAwaitingOnChain():
       case SwapOutFunded():
       case SwapOutClaimed():
@@ -102,7 +103,7 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      title: 'Withdraw Funds',
+      title: AppLocalizations.of(context)!.withdrawFundsTitle,
       content: FutureBuilder<SwapOutFees>(
         future: _feesFuture,
         builder: (context, snapshot) {
@@ -115,7 +116,9 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Failed to estimate fees: ${snapshot.error}',
+                  AppLocalizations.of(
+                    context,
+                  )!.errorGeneric('Failed to estimate fees: ${snapshot.error}'),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -167,20 +170,20 @@ class SwapOutProgressWidget extends StatelessWidget {
   final SwapOutState state;
   const SwapOutProgressWidget(this.state, {super.key});
 
-  String get _subtitle {
+  String _subtitle(AppLocalizations l10n) {
     switch (state) {
       case SwapOutInvoiceCreated():
-        return 'Invoice created, processing...';
+        return l10n.swapStatusInvoiceCreatedProcessing;
       case SwapOutAwaitingOnChain():
-        return 'Waiting for transaction to confirm...';
+        return l10n.swapStatusWaitingForTransactionConfirm;
       case SwapOutFunded():
-        return 'Swap funded, waiting for payment...';
+        return l10n.swapStatusFundedWaitingForPayment;
       case SwapOutClaimed():
-        return 'Swap claimed, finalising...';
+        return l10n.swapStatusClaimedFinalising;
       case SwapOutRefunding():
-        return 'Processing refund...';
+        return l10n.swapStatusProcessingRefund;
       default:
-        return 'Processing your swap...';
+        return l10n.swapStatusProcessingYourSwap;
     }
   }
 
@@ -188,8 +191,8 @@ class SwapOutProgressWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      title: 'Swap Progress',
-      subtitle: _subtitle,
+      title: AppLocalizations.of(context)!.swapProgressTitle,
+      subtitle: _subtitle(AppLocalizations.of(context)!),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -210,8 +213,8 @@ class SwapOutSuccessWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      title: 'Swap Complete',
-      subtitle: 'Your swap has been completed successfully.',
+      title: AppLocalizations.of(context)!.swapCompleteTitle,
+      subtitle: AppLocalizations.of(context)!.swapCompleteSubtitle,
       content: Container(),
     );
   }
@@ -224,8 +227,8 @@ class SwapOutRefundedWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      title: 'Swap Refunded',
-      subtitle: 'Swap refunded successfully.',
+      title: AppLocalizations.of(context)!.swapRefundedTitle,
+      subtitle: AppLocalizations.of(context)!.swapRefundedSubtitle,
       content: Container(),
     );
   }
@@ -239,7 +242,7 @@ class SwapOutFailureWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.error,
-      title: 'Swap Failed',
+      title: AppLocalizations.of(context)!.swapFailedTitle,
       content: Text(error),
     );
   }
@@ -274,7 +277,11 @@ class _SwapOutExternalInvoiceWidgetState
   void _submit() {
     final invoice = _controller.text.trim();
     if (invoice.isEmpty) {
-      setState(() => _error = 'Please paste a Lightning invoice.');
+      setState(
+        () => _error = AppLocalizations.of(
+          context,
+        )!.pasteLightningInvoiceRequired,
+      );
       return;
     }
     setState(() => _error = null);
@@ -297,17 +304,17 @@ class _SwapOutExternalInvoiceWidgetState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Create a Lightning invoice for exactly '
-            '${widget.invoiceAmount.getInSats} sats '
-            'in your wallet and paste it below.',
+            AppLocalizations.of(context)!.swapOutExternalInvoiceInstructions(
+              widget.invoiceAmount.getInSats.toInt(),
+            ),
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           Gap.vertical.md(),
           TextField(
             controller: _controller,
             decoration: InputDecoration(
-              labelText: 'Lightning Invoice',
-              hintText: 'lnbc…',
+              labelText: AppLocalizations.of(context)!.lightningInvoiceLabel,
+              hintText: AppLocalizations.of(context)!.lightningInvoiceHint,
               errorText: _error,
               suffixIcon: IconButton(
                 icon: const Icon(Icons.paste),
@@ -317,7 +324,10 @@ class _SwapOutExternalInvoiceWidgetState
             maxLines: 3,
           ),
           Gap.vertical.md(),
-          FilledButton(onPressed: _submit, child: const Text('Continue')),
+          FilledButton(
+            onPressed: _submit,
+            child: Text(AppLocalizations.of(context)!.continueButton),
+          ),
         ],
       ),
     );

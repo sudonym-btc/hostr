@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -31,7 +32,11 @@ class RelayListWidgetState extends State<RelayListWidget> {
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return CustomPadding.md(
-                    child: Text('Error: ${snapshot.error}'),
+                    child: Text(
+                      AppLocalizations.of(
+                        context,
+                      )!.errorWithDetails(snapshot.error.toString()),
+                    ),
                   );
                 }
 

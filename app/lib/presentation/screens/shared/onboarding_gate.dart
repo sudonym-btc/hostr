@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
@@ -175,7 +176,10 @@ class _ErrorView extends StatelessWidget {
                 color: theme.colorScheme.error,
               ),
               Gap.vertical.md(),
-              Text('Something went wrong', style: theme.textTheme.titleMedium),
+              Text(
+                AppLocalizations.of(context)!.somethingWentWrong,
+                style: theme.textTheme.titleMedium,
+              ),
               Gap.vertical.sm(),
               Text(
                 message,
@@ -188,7 +192,7 @@ class _ErrorView extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(AppLocalizations.of(context)!.retryButton),
               ),
             ],
           ),

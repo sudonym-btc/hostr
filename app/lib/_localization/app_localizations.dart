@@ -489,6 +489,606 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your Listings'**
   String get yourListings;
+
+  /// No description provided for @paymentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment'**
+  String get paymentTitle;
+
+  /// No description provided for @processingPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing payment...'**
+  String get processingPayment;
+
+  /// No description provided for @payInvoiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay Invoice'**
+  String get payInvoiceTitle;
+
+  /// No description provided for @payInvoiceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay this lightning invoice to continue'**
+  String get payInvoiceSubtitle;
+
+  /// No description provided for @invoiceExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get invoiceExpired;
+
+  /// No description provided for @completePaymentInConnectedWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Please complete the payment in your connected wallet'**
+  String get completePaymentInConnectedWallet;
+
+  /// No description provided for @paymentCompleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Complete'**
+  String get paymentCompleteTitle;
+
+  /// No description provided for @paymentFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Failed'**
+  String get paymentFailedTitle;
+
+  /// No description provided for @paymentFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong with your payment. Please try again.'**
+  String get paymentFailed;
+
+  /// No description provided for @paymentMethodTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment method'**
+  String get paymentMethodTitle;
+
+  /// No description provided for @payDirectly.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay directly'**
+  String get payDirectly;
+
+  /// No description provided for @openWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Open wallet'**
+  String get openWallet;
+
+  /// No description provided for @swapTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap'**
+  String get swapTitle;
+
+  /// No description provided for @swapConfirmSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Please confirm to proceed with the swap.'**
+  String get swapConfirmSubtitle;
+
+  /// No description provided for @swapFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap failed.'**
+  String get swapFailedMessage;
+
+  /// No description provided for @confirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirmButton;
+
+  /// No description provided for @swapProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap Progress'**
+  String get swapProgressTitle;
+
+  /// No description provided for @swapStatusWaitingForTransactionConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for transaction to confirm...'**
+  String get swapStatusWaitingForTransactionConfirm;
+
+  /// No description provided for @swapStatusFundedClaiming.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap funded, claiming...'**
+  String get swapStatusFundedClaiming;
+
+  /// No description provided for @swapStatusClaimedFinalising.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap claimed, finalising...'**
+  String get swapStatusClaimedFinalising;
+
+  /// No description provided for @swapStatusRequestCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap request created...'**
+  String get swapStatusRequestCreated;
+
+  /// No description provided for @swapStatusInvoiceCreatedProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice created, processing...'**
+  String get swapStatusInvoiceCreatedProcessing;
+
+  /// No description provided for @swapStatusFundedWaitingForPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap funded, waiting for payment...'**
+  String get swapStatusFundedWaitingForPayment;
+
+  /// No description provided for @swapStatusProcessingRefund.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing refund...'**
+  String get swapStatusProcessingRefund;
+
+  /// No description provided for @swapStatusProcessingYourSwap.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing your swap...'**
+  String get swapStatusProcessingYourSwap;
+
+  /// No description provided for @swapCompleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap Complete'**
+  String get swapCompleteTitle;
+
+  /// No description provided for @swapCompleteSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your swap has been completed successfully.'**
+  String get swapCompleteSubtitle;
+
+  /// No description provided for @swapFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap Failed'**
+  String get swapFailedTitle;
+
+  /// No description provided for @withdrawFundsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw Funds'**
+  String get withdrawFundsTitle;
+
+  /// No description provided for @continueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueButton;
+
+  /// No description provided for @swapRefundedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap Refunded'**
+  String get swapRefundedTitle;
+
+  /// No description provided for @swapRefundedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap refunded successfully.'**
+  String get swapRefundedSubtitle;
+
+  /// No description provided for @retryButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retryButton;
+
+  /// Instructions for providing an external Lightning invoice
+  ///
+  /// In en, this message translates to:
+  /// **'Create a Lightning invoice for exactly {sats} sats in your wallet and paste it below.'**
+  String swapOutExternalInvoiceInstructions(int sats);
+
+  /// No description provided for @lightningInvoiceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Lightning Invoice'**
+  String get lightningInvoiceLabel;
+
+  /// No description provided for @lightningInvoiceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'lnbc…'**
+  String get lightningInvoiceHint;
+
+  /// No description provided for @pasteLightningInvoiceRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please paste a Lightning invoice.'**
+  String get pasteLightningInvoiceRequired;
+
+  /// No description provided for @blockedDates.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked Dates'**
+  String get blockedDates;
+
+  /// No description provided for @noBlockedDates.
+  ///
+  /// In en, this message translates to:
+  /// **'No blocked dates.'**
+  String get noBlockedDates;
+
+  /// No description provided for @blockDates.
+  ///
+  /// In en, this message translates to:
+  /// **'Block Dates'**
+  String get blockDates;
+
+  /// No description provided for @reviewMessageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get reviewMessageLabel;
+
+  /// No description provided for @reviewHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell others about your stay'**
+  String get reviewHint;
+
+  /// No description provided for @reviewRatingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating'**
+  String get reviewRatingLabel;
+
+  /// No description provided for @reviewRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Review is required'**
+  String get reviewRequired;
+
+  /// No description provided for @ratingMustBeBetween1And5.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating must be between 1 and 5'**
+  String get ratingMustBeBetween1And5;
+
+  /// No description provided for @perDayLabel.
+  ///
+  /// In en, this message translates to:
+  /// **' / day '**
+  String get perDayLabel;
+
+  /// No description provided for @clear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get clear;
+
+  /// No description provided for @errorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get errorLabel;
+
+  /// No description provided for @registerPeriodicBackgroundAppRefreshIos.
+  ///
+  /// In en, this message translates to:
+  /// **'Register Periodic Background App Refresh (iOS)'**
+  String get registerPeriodicBackgroundAppRefreshIos;
+
+  /// No description provided for @registerBackgroundProcessingTaskIos.
+  ///
+  /// In en, this message translates to:
+  /// **'Register BackgroundProcessingTask (iOS)'**
+  String get registerBackgroundProcessingTaskIos;
+
+  /// No description provided for @refreshStats.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh stats'**
+  String get refreshStats;
+
+  /// No description provided for @workmanagerNotInitialized.
+  ///
+  /// In en, this message translates to:
+  /// **'Workmanager not initialized'**
+  String get workmanagerNotInitialized;
+
+  /// No description provided for @workmanagerNotInitializedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Workmanager is not initialized, please initialize'**
+  String get workmanagerNotInitializedMessage;
+
+  /// No description provided for @noPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'No permission'**
+  String get noPermission;
+
+  /// No description provided for @allowBarter.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Barter'**
+  String get allowBarter;
+
+  /// No description provided for @start.
+  ///
+  /// In en, this message translates to:
+  /// **'start'**
+  String get start;
+
+  /// No description provided for @end.
+  ///
+  /// In en, this message translates to:
+  /// **'end'**
+  String get end;
+
+  /// No description provided for @addImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Image'**
+  String get addImage;
+
+  /// No description provided for @dev.
+  ///
+  /// In en, this message translates to:
+  /// **'Dev'**
+  String get dev;
+
+  /// No description provided for @swapIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap in'**
+  String get swapIn;
+
+  /// No description provided for @bolt11.
+  ///
+  /// In en, this message translates to:
+  /// **'Bolt11'**
+  String get bolt11;
+
+  /// Error text with details
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {details}'**
+  String errorWithDetails(String details);
+
+  /// No description provided for @nsec.
+  ///
+  /// In en, this message translates to:
+  /// **'nsec'**
+  String get nsec;
+
+  /// No description provided for @unexpectedError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unexpected error'**
+  String get unexpectedError;
+
+  /// No description provided for @somethingWentWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get somethingWentWrong;
+
+  /// Snackbar text after copying H3 indexes
+  ///
+  /// In en, this message translates to:
+  /// **'Copied {count} H3 indexes'**
+  String copiedH3Indexes(int count);
+
+  /// No description provided for @copyH3Indexes.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy H3 indexes'**
+  String get copyH3Indexes;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @noWalletConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'No wallet connected'**
+  String get noWalletConnected;
+
+  /// No description provided for @errorLoadingEscrows.
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading escrows'**
+  String get errorLoadingEscrows;
+
+  /// No description provided for @noCompatibleEscrowsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No compatible escrows found'**
+  String get noCompatibleEscrowsFound;
+
+  /// No description provided for @estimatingFees.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimating fees...'**
+  String get estimatingFees;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @publicKeyCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Public key copied'**
+  String get publicKeyCopied;
+
+  /// No description provided for @actionNotImplementedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Action not implemented yet'**
+  String get actionNotImplementedYet;
+
+  /// Error shown when NWC connection fails
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect to NWC provider: {details}'**
+  String couldNotConnectNwcProvider(String details);
+
+  /// Fallback timeline label for unknown event types
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline Event {type}'**
+  String timelineEventType(String type);
+
+  /// No description provided for @boltz.
+  ///
+  /// In en, this message translates to:
+  /// **'Boltz'**
+  String get boltz;
+
+  /// No description provided for @rootstock.
+  ///
+  /// In en, this message translates to:
+  /// **'Rootstock'**
+  String get rootstock;
+
+  /// No description provided for @connectAppToWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect app to wallet'**
+  String get connectAppToWallet;
+
+  /// No description provided for @uriCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'URI copied to clipboard'**
+  String get uriCopiedToClipboard;
+
+  /// No description provided for @copyWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy words'**
+  String get copyWords;
+
+  /// No description provided for @recoveryWordsCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery words copied'**
+  String get recoveryWordsCopied;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// Copied confirmation with object label
+  ///
+  /// In en, this message translates to:
+  /// **'{label} copied'**
+  String labelCopied(String label);
+
+  /// No description provided for @withdraw.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw'**
+  String get withdraw;
+
+  /// No description provided for @noItems.
+  ///
+  /// In en, this message translates to:
+  /// **'No items'**
+  String get noItems;
+
+  /// No description provided for @unknownMessageType.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown message type'**
+  String get unknownMessageType;
+
+  /// No description provided for @noProfileSetUpYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No profile set up yet'**
+  String get noProfileSetUpYet;
+
+  /// No description provided for @youMightWantToJotThisDown.
+  ///
+  /// In en, this message translates to:
+  /// **'You might want to jot this down'**
+  String get youMightWantToJotThisDown;
+
+  /// No description provided for @mnemonic.
+  ///
+  /// In en, this message translates to:
+  /// **'Mnemonic'**
+  String get mnemonic;
+
+  /// No description provided for @startFlutterBackgroundService.
+  ///
+  /// In en, this message translates to:
+  /// **'Start the Flutter background service'**
+  String get startFlutterBackgroundService;
+
+  /// No description provided for @frequencyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Frequency:'**
+  String get frequencyLabel;
+
+  /// No description provided for @minutes15.
+  ///
+  /// In en, this message translates to:
+  /// **'15 minutes'**
+  String get minutes15;
+
+  /// No description provided for @minutes30.
+  ///
+  /// In en, this message translates to:
+  /// **'30 minutes'**
+  String get minutes30;
+
+  /// No description provided for @hour1.
+  ///
+  /// In en, this message translates to:
+  /// **'1 hour'**
+  String get hour1;
+
+  /// No description provided for @cancelAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel All'**
+  String get cancelAll;
+
+  /// No description provided for @noEscrowsTrustedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No escrows trusted yet'**
+  String get noEscrowsTrustedYet;
+
+  /// Generic user-facing error message with details
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong: {details}'**
+  String errorGeneric(String details);
+
+  /// Review count label with plural handling
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No reviews} =1{1 review} other{{count} reviews}}'**
+  String reviewCount(int count);
 }
 
 class _AppLocalizationsDelegate

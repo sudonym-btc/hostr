@@ -71,10 +71,15 @@ class CrudUseCase<T extends Nip01Event> {
   }
 
   // ── getOne batching ───────────────────────────────────────────────────
-  // Collects individual getOne calls, debounces for [_getOneDebounceDuration],
+  // Collects individual getOne calls, debounces for an adaptive duration,
   // then fires a single combined query. Each requester's Completer is
   // resolved by matching the returned events against the original filter.
-  static const Duration _getOneDebounceDuration = Duration(milliseconds: 500);
+  //
+  // Adaptive debounce: starts at 50ms for snappy UI response, extends to
+  // 500ms when under high load (>5 pending requests) to maximize batching.
+  static const Duration _getOneDebounceMin = Duration(milliseconds: 50);
+  static const Duration _getOneDebounceMax = Duration(milliseconds: 500);
+  static const int _getOneHighLoadThreshold = 5;
   final List<_GetOneRequest<T>> _getOneQueue = [];
   Timer? _getOneTimer;
 
@@ -92,9 +97,15 @@ class CrudUseCase<T extends Nip01Event> {
     final completer = Completer<T?>();
     _getOneQueue.add(_GetOneRequest(filter: f, completer: completer));
 
+    // Adaptive debounce: use short delay when few pending requests (snappy UI),
+    // extend when many requests are queued (maximize batching).
+    final debounce = _getOneQueue.length > _getOneHighLoadThreshold
+        ? _getOneDebounceMax
+        : _getOneDebounceMin;
+
     // Reset the debounce timer on every new request.
     _getOneTimer?.cancel();
-    _getOneTimer = Timer(_getOneDebounceDuration, _flushGetOneQueue);
+    _getOneTimer = Timer(debounce, _flushGetOneQueue);
 
     return completer.future;
   }
@@ -191,9 +202,11 @@ class CrudUseCase<T extends Nip01Event> {
   // all values are merged into one query:
   //   Filter(kinds: [kind], tags: {tag: [v1, v2, ..., vN]})
   // Results are dispatched back by matching each event's tag value.
-  static const Duration _findByTagDebounceDuration = Duration(
-    milliseconds: 500,
-  );
+  //
+  // Uses the same adaptive debounce strategy as getOne.
+  static const Duration _findByTagDebounceMin = Duration(milliseconds: 50);
+  static const Duration _findByTagDebounceMax = Duration(milliseconds: 500);
+  static const int _findByTagHighLoadThreshold = 5;
   final Map<String, List<_FindByTagRequest<T>>> _findByTagQueues = {};
   final Map<String, Timer?> _findByTagTimers = {};
 
@@ -206,11 +219,14 @@ class CrudUseCase<T extends Nip01Event> {
         .putIfAbsent(tag, () => [])
         .add(_FindByTagRequest(value: value, completer: completer));
 
+    // Adaptive debounce: short delay for few requests, longer for many.
+    final queueLen = _findByTagQueues[tag]?.length ?? 0;
+    final debounce = queueLen > _findByTagHighLoadThreshold
+        ? _findByTagDebounceMax
+        : _findByTagDebounceMin;
+
     _findByTagTimers[tag]?.cancel();
-    _findByTagTimers[tag] = Timer(
-      _findByTagDebounceDuration,
-      () => _flushFindByTagQueue(tag),
-    );
+    _findByTagTimers[tag] = Timer(debounce, () => _flushFindByTagQueue(tag));
 
     return completer.future;
   }

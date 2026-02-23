@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:models/main.dart';
@@ -17,10 +18,12 @@ class EscrowSelectorWidget extends StatelessWidget {
           case EscrowSelectorLoading():
             return const AppLoadingIndicator.medium();
           case EscrowSelectorError():
-            return const Text('Error loading escrows');
+            return Text(AppLocalizations.of(context)!.errorLoadingEscrows);
           case EscrowSelectorLoaded():
             if (state.result.compatibleServices.isEmpty) {
-              return const Text('No compatible escrows found');
+              return Text(
+                AppLocalizations.of(context)!.noCompatibleEscrowsFound,
+              );
             }
             return DropdownButton<dynamic>(
               value: state.selectedEscrow,
