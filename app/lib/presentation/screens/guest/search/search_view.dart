@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/presentation/screens/guest/search/filters.dart';
 import 'package:hostr/presentation/screens/guest/search/map_view.cubit.dart';
@@ -82,11 +83,9 @@ class SearchViewState extends State<SearchView> {
                                             filterState: filterState,
                                             dateRangeState: dateRangeState,
                                             onTap: () async {
-                                              await showModalBottomSheet(
-                                                context: context,
-                                                isScrollControlled: true,
-                                                useSafeArea: true,
-                                                builder: (x) => MultiBlocProvider(
+                                              await showAppModal(
+                                                context,
+                                                child: MultiBlocProvider(
                                                   providers: [
                                                     BlocProvider.value(
                                                       value:

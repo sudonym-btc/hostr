@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/router.dart';
@@ -81,12 +82,10 @@ class SignInScreenState extends State<SignInScreen> {
     setState(() => _error = null);
     // Generate key pair first, show backup modal, THEN sign in.
     final keyPair = Bip340.generatePrivateKey();
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
+    await showAppModal(
+      context,
       isDismissible: false,
-      enableDrag: false,
-      builder: (_) => BackupKeyWidget(
+      child: BackupKeyWidget(
         publicKeyHex: keyPair.publicKey,
         privateKeyHex: keyPair.privateKey!,
       ),

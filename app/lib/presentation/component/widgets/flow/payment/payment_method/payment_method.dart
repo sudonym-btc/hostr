@@ -32,22 +32,17 @@ class PaymentMethodWidget extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return PaymentFlowWidget(
-                        cubit: getIt<Hostr>().payments.pay(
-                          ZapPayParameters(
-                            to: counterparty.metadata.lud16!,
-                            amount: BitcoinAmount.fromInt(
-                              BitcoinUnit.sat,
-                              10000,
-                            ),
-                            event: reservationRequest,
-                          ),
-                        )..resolve(),
-                      );
-                    },
+                  showAppModal(
+                    context,
+                    child: PaymentFlowWidget(
+                      cubit: getIt<Hostr>().payments.pay(
+                        ZapPayParameters(
+                          to: counterparty.metadata.lud16!,
+                          amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
+                          event: reservationRequest,
+                        ),
+                      )..resolve(),
+                    ),
                   );
                 },
                 child: const Text('Pay directly'),
@@ -56,14 +51,12 @@ class PaymentMethodWidget extends StatelessWidget {
               FilledButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  showModalBottomSheet(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return EscrowFundWidget(
-                        counterparty: counterparty,
-                        reservationRequest: reservationRequest,
-                      );
-                    },
+                  showAppModal(
+                    context,
+                    child: EscrowFundWidget(
+                      counterparty: counterparty,
+                      reservationRequest: reservationRequest,
+                    ),
                   );
                 },
                 child: const Text('Use Escrow'),

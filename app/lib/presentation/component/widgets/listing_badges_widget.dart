@@ -4,6 +4,7 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/list/list.cubit.dart';
 import 'package:hostr/presentation/component/providers/nostr/badge_definition.provider.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:models/main.dart';
@@ -185,11 +186,9 @@ class BadgeChip extends StatelessWidget {
   }
 
   void _showBadgeDetails(BuildContext context, BadgeDefinition? definition) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) =>
-          BadgeDetailsSheet(award: award, definition: definition),
+    showAppModal(
+      context,
+      child: BadgeDetailsSheet(award: award, definition: definition),
     );
   }
 }

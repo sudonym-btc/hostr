@@ -182,91 +182,102 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                   invoice.timestamp.toInt() +
                   invoice.tags.where((e) => e.type == 'expiry').first.data;
               final uri = Uri.parse('lightning:$pr');
-              return Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CountDownText(
-                      due: DateTime.fromMillisecondsSinceEpoch(
-                        (unixUntilExpired * 1000).toInt(),
-                      ),
-                      finishedText: "Expired",
-                      showLabel: false,
-                      longDateName: true,
-                      style: TextStyle(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.error.withAlpha(150),
-                      ),
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CountDownText(
+                    due: DateTime.fromMillisecondsSinceEpoch(
+                      (unixUntilExpired * 1000).toInt(),
                     ),
-                    Gap.vertical.custom(6),
-
-                    Expanded(
-                      child: QrImageView(
-                        backgroundColor: Colors.transparent,
-                        dataModuleStyle: QrDataModuleStyle(
-                          dataModuleShape: QrDataModuleShape.circle,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        eyeStyle: QrEyeStyle(
-                          eyeShape: QrEyeShape.square,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        data: pr,
-                      ),
+                    finishedText: 'Expired',
+                    showLabel: false,
+                    longDateName: true,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error.withAlpha(150),
                     ),
+                  ),
+                  Gap.vertical.custom(6),
 
-                    Gap.vertical.lg(),
+                  Center(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final maxWidth = constraints.maxWidth;
+                        final maxHeight = constraints.hasBoundedHeight
+                            ? constraints.maxHeight
+                            : maxWidth;
+                        final side = maxWidth < maxHeight
+                            ? maxWidth
+                            : maxHeight;
 
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        FilledButton(
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(
-                                text:
-                                    (state.callbackDetails!
-                                            as LightningCallbackDetails)
-                                        .invoice
-                                        .paymentRequest,
-                              ),
+                        return SizedBox.square(
+                          dimension: side,
+
+                          // @todo: QRImageView package paints outside of its boundary. Nothing we can do but ensure it has default 10px padding.
+                          child: QrImageView(
+                            backgroundColor: Colors.transparent,
+                            dataModuleStyle: QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.circle,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            eyeStyle: QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            data: pr,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  Gap.vertical.lg(),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      FilledButton(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                            ClipboardData(
+                              text:
+                                  (state.callbackDetails!
+                                          as LightningCallbackDetails)
+                                      .invoice
+                                      .paymentRequest,
+                            ),
+                          );
+                        },
+                        child: Text('Copy'),
+                      ),
+                      FutureBuilder(
+                        future: canLaunchUrl(uri),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data == true) {
+                            return Row(
+                              children: [
+                                Gap.horizontal.custom(kSpace3),
+                                FilledButton(
+                                  onPressed: () async {
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(
+                                        uri,
+                                        mode: LaunchMode.externalApplication,
+                                      );
+                                    }
+                                  },
+                                  child: Text('Open wallet'),
+                                ),
+                              ],
                             );
-                          },
-                          child: Text('Copy'),
-                        ),
-                        FutureBuilder(
-                          future: canLaunchUrl(uri),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData && snapshot.data == true) {
-                              return Row(
-                                children: [
-                                  Gap.horizontal.custom(kSpace3),
-                                  FilledButton(
-                                    onPressed: () async {
-                                      if (await canLaunchUrl(uri)) {
-                                        await launchUrl(
-                                          uri,
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      } else {
-                                        // Optionally show a message or fallback
-                                      }
-                                    },
-                                    child: Text('Open wallet'),
-                                  ),
-                                ],
-                              );
-                            }
-                            return Container();
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                          }
+                          return Container();
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               );
             default:
               return Text(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart' show ThreadCubit;
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
 import 'package:hostr/presentation/component/widgets/reservation/actions/claim.dart';
@@ -324,14 +325,12 @@ class TradeHeader extends StatelessWidget {
                   .state
                   .threadState
                   .lastReservationRequest;
-              showModalBottomSheet(
-                context: context,
-                builder: (context) {
-                  return EscrowFundWidget(
-                    counterparty: listingProfile,
-                    reservationRequest: lastReservationRequest,
-                  );
-                },
+              showAppModal(
+                context,
+                child: EscrowFundWidget(
+                  counterparty: listingProfile,
+                  reservationRequest: lastReservationRequest,
+                ),
               );
             }),
           );
@@ -405,19 +404,15 @@ class TradeHeader extends StatelessWidget {
   }
 
   void review(BuildContext context, Listing listing) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: CustomPadding(
-            child: EditReview(
-              listing: listing,
-              salt: 'thread_salt',
-              // reservation: thread.reservation,
-            ),
-          ),
-        );
-      },
+    showAppModal(
+      context,
+      child: CustomPadding(
+        child: EditReview(
+          listing: listing,
+          salt: 'thread_salt',
+          // reservation: thread.reservation,
+        ),
+      ),
     );
   }
 }
