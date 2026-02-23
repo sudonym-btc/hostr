@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
@@ -157,7 +158,10 @@ class ImageUpload extends StatelessWidget {
           size: kIconXl,
         ),
         Gap.vertical.sm(),
-        Text('Add Image', style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          AppLocalizations.of(context)!.addImage,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
       ],
     );
   }

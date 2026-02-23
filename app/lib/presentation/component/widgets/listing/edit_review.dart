@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
@@ -61,16 +62,16 @@ class EditReviewController extends UpsertFormController {
     setRating(mapped);
   }
 
-  String? validateReview(String? value) {
+  String? validateReview(String? value, {required String requiredMessage}) {
     if (value == null || value.trim().isEmpty) {
-      return 'Review is required';
+      return requiredMessage;
     }
     return null;
   }
 
-  String? validateRating(int? value) {
+  String? validateRating(int? value, {required String outOfRangeMessage}) {
     if (value == null || value < 1 || value > 5) {
-      return 'Rating must be between 1 and 5';
+      return outOfRangeMessage;
     }
     return null;
   }
@@ -166,25 +167,37 @@ class _EditReviewState extends State<EditReview> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const FormLabel(label: 'Message'),
+              FormLabel(
+                label: AppLocalizations.of(context)!.reviewMessageLabel,
+              ),
               TextFormField(
                 controller: _controller.reviewController,
-                validator: _controller.validateReview,
+                validator: (value) => _controller.validateReview(
+                  value,
+                  requiredMessage: AppLocalizations.of(context)!.reviewRequired,
+                ),
                 minLines: 3,
                 maxLines: 6,
-                decoration: const InputDecoration(
-                  hintText: 'Tell others about your stay',
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context)!.reviewHint,
                 ),
               ),
               Gap.vertical.lg(),
               FormField<int>(
                 initialValue: _controller.rating,
-                validator: _controller.validateRating,
+                validator: (value) => _controller.validateRating(
+                  value,
+                  outOfRangeMessage: AppLocalizations.of(
+                    context,
+                  )!.ratingMustBeBetween1And5,
+                ),
                 builder: (field) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const FormLabel(label: 'Rating'),
+                      FormLabel(
+                        label: AppLocalizations.of(context)!.reviewRatingLabel,
+                      ),
                       Gap.vertical.sm(),
                       Row(
                         mainAxisSize: MainAxisSize.max,
@@ -235,7 +248,7 @@ class _EditReviewState extends State<EditReview> {
                   onPressed: _controller.canSubmit ? _handleSave : null,
                   child: _controller.isSaving
                       ? const AppLoadingIndicator.small()
-                      : Text('Save'),
+                      : Text(AppLocalizations.of(context)!.save),
                 ),
               ),
             ],

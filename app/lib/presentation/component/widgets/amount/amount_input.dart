@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:intl/intl.dart';
 import 'package:models/main.dart';
@@ -322,7 +323,7 @@ class _AmountEditorBottomSheetState extends State<AmountEditorBottomSheet> {
                       Navigator.of(context).pop(amount);
                     }
                   },
-                  child: const Text('Done'),
+                  child: Text(AppLocalizations.of(context)!.done),
                 ),
               ],
             ),

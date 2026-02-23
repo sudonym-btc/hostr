@@ -4,6 +4,13 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Metadata, Nip01Event;
 
+/// Cubit responsible for loading and caching a single user's profile metadata.
+///
+/// **Ownership convention:** This cubit does not hold subscriptions and does
+/// not override [close]. It is expected to be created and closed by its owner
+/// (typically [ThreadCubit]). Do **not** create instances of this cubit
+/// without ensuring the owner will call [close] when done, otherwise the
+/// cubit will leak.
 class ProfileCubit extends Cubit<EntityCubitState<ProfileMetadata>> {
   final CustomLogger logger = CustomLogger();
   final MetadataUseCase metadataUseCase;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
@@ -15,7 +16,7 @@ class DevWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ExpansionTile(
-      title: Text('Dev'),
+      title: Text(AppLocalizations.of(context)!.dev),
       children: [
         BackgroundTasks(),
         FilledButton(
@@ -32,12 +33,12 @@ class DevWidget extends StatelessWidget {
               ),
             );
           },
-          child: Text('Swap in'),
+          child: Text(AppLocalizations.of(context)!.swapIn),
         ),
         Section(
           title: 'bolt11',
           body: FilledButton(
-            child: Text('Bolt11'),
+            child: Text(AppLocalizations.of(context)!.bolt11),
             onPressed: () {
               final params = Bolt11PayParameters(
                 to: 'lnbcrt1m1pnuh2h0sp53d22pxeg0wy5ugcaxkxqylph7xxgpur7x4yvr8ehmeljplr8mj8qpp5rjfq96tmtwwe2vdxmpltue5rl8y45ch3cnkd9rygcpr4u37tucdqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qyysgqdfhvjvfdve0jhfsjj90ta34449h5zqr8genctuc5ek09g0274gp39pa8lg2pt2dgz0pt7y3lcxh8k24tp345kv8sf2frkdc0zvp8npsqayww8f',
@@ -64,7 +65,7 @@ class DevWidget extends StatelessWidget {
               //   },
               // ),
               FilledButton(
-                child: Text('Escrow'),
+                child: Text(AppLocalizations.of(context)!.escrow),
                 onPressed: () async {
                   // getIt<Hostr>().escrow.escrow(
                   //   EscrowCubitParams(

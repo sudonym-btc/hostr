@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/sources/api/google_maps.dart';
 import 'package:hostr/injection.dart';
@@ -178,9 +179,13 @@ class LocationFieldState extends State<LocationField> {
     final csv = tags.map((tag) => tag.index).join(',');
     await Clipboard.setData(ClipboardData(text: csv));
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Copied ${tags.length} H3 indexes')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          AppLocalizations.of(context)!.copiedH3Indexes(tags.length),
+        ),
+      ),
+    );
   }
 
   LocationSuggestion _toLocationSuggestion(Map<String, dynamic> prediction) {
@@ -497,7 +502,9 @@ class LocationFieldState extends State<LocationField> {
                           Gap.vertical.sm(),
                           OutlinedButton.icon(
                             icon: const Icon(Icons.copy, size: kIconSm),
-                            label: const Text('Copy H3 indexes'),
+                            label: Text(
+                              AppLocalizations.of(context)!.copyH3Indexes,
+                            ),
                             onPressed: _copyH3IndexesToClipboard,
                           ),
                         ],

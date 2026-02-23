@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/component/widgets/zap/zap_receipt.dart';
@@ -42,7 +43,11 @@ class ZapListWidgetState extends State<ZapListWidget> {
           return ZapReceiptWidget(zap: snapshot.data!);
         } else {
           if (snapshot.hasError) {
-            return Text('Error: ${snapshot.error}');
+            return Text(
+              AppLocalizations.of(
+                context,
+              )!.errorWithDetails(snapshot.error.toString()),
+            );
           } else if (snapshot.connectionState == ConnectionState.done) {
             return Container();
           }

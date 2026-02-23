@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
@@ -23,7 +24,7 @@ class PaymentMethodWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ModalBottomSheet(
-      title: 'Payment method',
+      title: AppLocalizations.of(context)!.paymentMethodTitle,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -45,7 +46,7 @@ class PaymentMethodWidget extends StatelessWidget {
                     ),
                   );
                 },
-                child: const Text('Pay directly'),
+                child: Text(AppLocalizations.of(context)!.payDirectly),
               ),
               Gap.horizontal.md(),
               FilledButton(
@@ -59,7 +60,7 @@ class PaymentMethodWidget extends StatelessWidget {
                     ),
                   );
                 },
-                child: const Text('Use Escrow'),
+                child: Text(AppLocalizations.of(context)!.useEscrow),
               ),
             ],
           ),

@@ -91,7 +91,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
 
   Future<void> next() async {
     if (state.fetching || state.hasMore == false) return;
-    emit(state.copyWith(fetching: true));
+    emit(state.copyWith(fetching: true, clearError: true));
 
     logger.i("next");
     Filter finalFilter = getPaginationFilter();
@@ -109,6 +109,12 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
             addItem(event);
           });
       await requestSubscription?.asFuture();
+    } catch (e, st) {
+      logger.e('Error fetching next page for $runtimeType: $e\n$st');
+      if (!isClosed) {
+        emit(state.copyWith(fetching: false, error: e));
+      }
+      return;
     } finally {
       if (!isClosed) {
         emit(
@@ -132,9 +138,17 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     Filter finalFilter = getSyncFilter();
     logger.t('listFilter: $finalFilter');
     _nostrResponse = nostrService.requests.subscribe<T>(filter: finalFilter);
-    nostrSubscription = _nostrResponse!.stream.listen((event) {
-      addItem(event);
-    });
+    nostrSubscription = _nostrResponse!.stream.listen(
+      (event) {
+        addItem(event);
+      },
+      onError: (Object e, StackTrace st) {
+        logger.e('Sync stream error for $runtimeType: $e\n$st');
+        if (!isClosed) {
+          emit(state.copyWith(error: e));
+        }
+      },
+    );
   }
 
   void reset() {
@@ -246,6 +260,7 @@ class ListCubitState<T extends Nip01Event> {
   final List<T> resultsRaw;
   final List<T> results;
   final bool? hasMore;
+  final Object? error;
 
   ListCubitState({
     this.listening = false,
@@ -254,7 +269,10 @@ class ListCubitState<T extends Nip01Event> {
     this.resultsRaw = const [],
     this.results = const [],
     this.hasMore,
+    this.error,
   });
+
+  bool get hasError => error != null;
 
   ListCubitState<T> copyWith({
     bool? listening,
@@ -263,6 +281,8 @@ class ListCubitState<T extends Nip01Event> {
     List<T>? resultsRaw,
     List<T>? results,
     bool? hasMore,
+    Object? error,
+    bool clearError = false,
   }) {
     return ListCubitState(
       listening: listening ?? this.listening,
@@ -271,6 +291,7 @@ class ListCubitState<T extends Nip01Event> {
       resultsRaw: resultsRaw ?? this.resultsRaw,
       results: results ?? this.results,
       hasMore: hasMore ?? this.hasMore,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }

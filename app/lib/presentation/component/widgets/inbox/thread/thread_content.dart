@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/main.dart';
@@ -120,6 +121,6 @@ class _ThreadContentState extends State<ThreadContent> {
         isSentByMe: isSentByMe,
       );
     }
-    return Text('Unknown message type');
+    return Text(AppLocalizations.of(context)!.unknownMessageType);
   }
 }

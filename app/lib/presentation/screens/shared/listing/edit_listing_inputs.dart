@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 import 'package:models/main.dart';
@@ -78,7 +79,7 @@ class BarterInput extends StatelessWidget {
       builder: (context, _) {
         return SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Allow Barter'),
+          title: Text(AppLocalizations.of(context)!.allowBarter),
           value: controller.allowBarter,
           onChanged: controller.setAllowBarter,
         );

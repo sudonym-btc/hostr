@@ -17,7 +17,13 @@ class SignUpWidget extends StatelessWidget {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: AppLoadingIndicator.large());
             } else if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
+              return Center(
+                child: Text(
+                  AppLocalizations.of(
+                    context,
+                  )!.errorWithDetails(snapshot.error.toString()),
+                ),
+              );
             } else if (snapshot.hasData) {
               final keyPair = snapshot.data!;
               return Column(
@@ -25,7 +31,7 @@ class SignUpWidget extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'You might want to jot this down',
+                    AppLocalizations.of(context)!.youMightWantToJotThisDown,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   Gap.vertical.md(),
@@ -34,13 +40,16 @@ class SignUpWidget extends StatelessWidget {
                   // ),
                   Gap.vertical.lg(),
                   Text(
-                    'Mnemonic',
+                    AppLocalizations.of(context)!.mnemonic,
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Gap.vertical.sm(),
                   // Text(entropyToMnemonic(keyPair.privateKey!)),
                   Gap.vertical.md(),
-                  Text('nsec', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    AppLocalizations.of(context)!.nsec,
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Gap.vertical.sm(),
                   Text(keyPair.privateKey!),
                   Gap.vertical.lg(),
@@ -53,7 +62,9 @@ class SignUpWidget extends StatelessWidget {
                 ],
               );
             } else {
-              return Center(child: Text('Unexpected error'));
+              return Center(
+                child: Text(AppLocalizations.of(context)!.unexpectedError),
+              );
             }
           },
         ),

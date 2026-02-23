@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/animated_list_item.dart';
@@ -181,7 +182,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
         }
 
         if (state.results.isEmpty) {
-          return const Center(child: Text('No items'));
+          return Center(child: Text(AppLocalizations.of(context)!.noItems));
         }
 
         final isLoading = state.synching || state.fetching;

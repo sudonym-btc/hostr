@@ -2,6 +2,18 @@ import 'package:ndk/ndk.dart';
 
 import 'nostr/main.dart';
 
+/// Receives a raw Nostr event and converts it into a model.
+/// Returns null if parsing fails, allowing callers to skip malformed events
+/// instead of crashing the stream.
+T? safeParser<T extends Nip01Event>(Nip01Event event) {
+  try {
+    return parser<T>(event);
+  } catch (e) {
+    print('Skipping malformed event ${event.id} (kind ${event.kind}): $e');
+    return null;
+  }
+}
+
 /// Receives a raw Nostr event and converts it into a model
 T parser<T extends Nip01Event>(Nip01Event event) {
   int eventKind = event.kind;
@@ -36,9 +48,7 @@ T parser<T extends Nip01Event>(Nip01Event event) {
   } catch (e) {
     print(event);
     print('Error parsing event kind $eventKind: $e');
-    throw e;
-    // If parsing fails, return the raw event
-    return event as T;
+    rethrow;
   }
   return event as T;
 }
@@ -52,4 +62,17 @@ Future<T> parserWithGiftWrap<T extends Nip01Event>(
     return parser<T>(unwrappedEvent);
   }
   return parser(event) as T;
+}
+
+/// Like [parserWithGiftWrap] but returns null instead of throwing on
+/// malformed events, allowing callers to filter nulls and keep the stream
+/// alive.
+Future<T?> safeParserWithGiftWrap<T extends Nip01Event>(
+    Nip01Event event, Ndk ndk) async {
+  try {
+    return await parserWithGiftWrap<T>(event, ndk);
+  } catch (e) {
+    print('Skipping malformed event ${event.id} (kind ${event.kind}): $e');
+    return null;
+  }
 }

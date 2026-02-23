@@ -49,7 +49,7 @@ class _NostrWalletAuthWidgetState extends State<NostrWalletAuthWidget> {
     return canLaunch
         ? Column(
             children: [
-              Text('Connect app to wallet'),
+              Text(AppLocalizations.of(context)!.connectAppToWallet),
               QrImageView(
                 data: nostrWalletAuth.toString(),
                 version: QrVersions.auto,
@@ -70,7 +70,9 @@ class _NostrWalletAuthWidgetState extends State<NostrWalletAuthWidget> {
                       );
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('URI copied to clipboard'),
+                          content: Text(
+                            AppLocalizations.of(context)!.uriCopiedToClipboard,
+                          ),
                           duration: Duration(seconds: 2),
                         ),
                       );

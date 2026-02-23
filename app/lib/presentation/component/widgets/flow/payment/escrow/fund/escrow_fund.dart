@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
@@ -177,7 +178,10 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                 );
 
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return Text('Estimating fees...', style: subtleStyle);
+                  return Text(
+                    AppLocalizations.of(context)!.estimatingFees,
+                    style: subtleStyle,
+                  );
                 }
 
                 return Column(

@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart' show ThreadCubit;
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
@@ -187,7 +188,9 @@ class TradeHeader extends StatelessWidget {
 
     void notImplemented() {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Action not implemented yet')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.actionNotImplementedYet),
+        ),
       );
     }
 

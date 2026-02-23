@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
@@ -79,7 +80,9 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                                   ),
                                 );
                               },
-                              child: Text('Withdraw'),
+                              child: Text(
+                                AppLocalizations.of(context)!.withdraw,
+                              ),
                             ),
                         ],
                       ),

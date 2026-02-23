@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
@@ -98,7 +99,7 @@ class _RelayAddStepState extends State<RelayAddStep> {
               onPressed: _isConnecting ? null : _connectRelay,
               child: _isConnecting
                   ? const AppLoadingIndicator.small(color: Colors.white)
-                  : const Text('Connect'),
+                  : Text(AppLocalizations.of(context)!.connect),
             ),
           ),
           Gap.horizontal.custom(kSpace3),
@@ -107,7 +108,7 @@ class _RelayAddStepState extends State<RelayAddStep> {
               onPressed: _isConnecting
                   ? null
                   : () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
           ),
         ],
