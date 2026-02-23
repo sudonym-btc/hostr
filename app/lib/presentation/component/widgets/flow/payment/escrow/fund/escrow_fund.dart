@@ -9,6 +9,7 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 import '../../../../amount/amount_input.dart';
+import '../../../../ui/asymptotic_progress_bar.dart';
 import '../../../modal_bottom_sheet.dart';
 import '../../payment_method/escrow_selector/escrow_selector.cubit.dart';
 import '../../payment_method/escrow_selector/escrow_selector.dart';
@@ -220,19 +221,14 @@ class EscrowFundDepositingWidget extends StatelessWidget {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
       title: 'Depositing Funds',
+      subtitle: state.txHash != null
+          ? 'Waiting for on-chain confirmation...'
+          : 'Submitting deposit transaction...',
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: 16),
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
-          Text(
-            state.txHash != null
-                ? 'Waiting for on-chain confirmation...'
-                : 'Submitting deposit transaction...',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
+          SizedBox(height: 24),
+          AsymptoticProgressBar(),
           SizedBox(height: 16),
         ],
       ),
@@ -247,7 +243,16 @@ class EscrowFundTradeProgressWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      content: Text('Escrow trade in progress...'),
+      title: 'Escrow Trade',
+      subtitle: 'Escrow trade in progress...',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 16),
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }

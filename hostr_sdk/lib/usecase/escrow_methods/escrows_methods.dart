@@ -16,6 +16,41 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
     required this.auth,
   }) : super(kind: EscrowMethod.kinds[0]);
 
+  /// The set of escrow method type names this client natively supports.
+  /// Used locally to avoid querying the relay for our own advertised methods.
+  static final Set<String> supportedTypes = {EscrowType.EVM.name};
+
+  /// Returns a locally-built [EscrowMethod] event representing this client's
+  /// supported methods. Avoids a relay round-trip when we already know our own
+  /// capabilities. Returns null if no key pair is active.
+  Future<EscrowMethod?> localMethod() async {
+    final keyPair = auth.activeKeyPair;
+    if (keyPair == null) return null;
+
+    final pubkey = keyPair.publicKey;
+    final signer = Bip340EventSigner(
+      privateKey: keyPair.privateKey,
+      publicKey: pubkey,
+    );
+
+    final list = Nip51List(
+      pubKey: pubkey,
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      kind: kNostrKindEscrowMethod,
+      elements: [],
+    );
+    for (final type in supportedTypes) {
+      list.addElement('t', type, false);
+    }
+
+    final event = await list.toEvent(signer);
+    final signed = Nip01Utils.signWithPrivateKey(
+      privateKey: keyPair.privateKey!,
+      event: event,
+    );
+    return EscrowMethod.fromNostrEvent(signed);
+  }
+
   /// Ensures the current user's escrow method list contains [EscrowType.EVM].
   /// If the user has no escrow method list or it's missing EVM, publishes an
   /// updated list that includes it.

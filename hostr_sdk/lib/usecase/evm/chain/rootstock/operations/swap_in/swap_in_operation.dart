@@ -19,6 +19,7 @@ import 'package:web3dart/web3dart.dart' show TransactionInformation;
 import '../../../../../../datasources/boltz/boltz.dart';
 import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../../../util/main.dart';
+import '../../../../../payments/operations/pay_operation.dart';
 import '../../../../../payments/operations/pay_state.dart';
 import '../../../../operations/swap_in/swap_in_operation.dart';
 import '../../../../operations/swap_in/swap_in_state.dart';
@@ -67,8 +68,10 @@ class RootstockSwapInOperation extends SwapInOperation {
       emit(SwapInRequestCreated());
       logger.d('Swap ${swap.toString()}');
 
-      // Pay the Lightning invoice — it won't settle until we reveal the preimage
-      final p = _getPaymentCubitForSwap(
+      // Create the payment cubit but DON'T execute yet — we must subscribe
+      // to its broadcast stream first to avoid losing fast-emitted states
+      // (e.g. PayExternalRequired when no NWC wallet is connected).
+      final payment = _createPaymentForSwap(
         invoice: swap.invoice,
         amount: params.amount,
       );
@@ -84,16 +87,30 @@ class RootstockSwapInOperation extends SwapInOperation {
         lastBoltzStatus: 'payment.initiated',
       ))!;
 
-      // Listen for payment failures while waiting for Boltz to lock on-chain
-      await for (final paymentState
-          in p
-              .where(
-                (state) => state is PayFailed || state is PayExternalRequired,
-              )
-              .takeUntil(swapStatusFuture.asStream())) {
-        logger.e('Payment emitted with state: $paymentState');
-        emit(SwapInPaymentProgress(paymentState: paymentState));
-      }
+      // Subscribe to payment stream BEFORE executing so we never miss
+      // states on the broadcast stream (Bolt11 resolve/finalize are near-
+      // synchronous and can complete before an await-for would subscribe).
+      final paymentCompleter = Completer<void>();
+      final paySub = payment.stream
+          .where((state) => state is PayFailed || state is PayExternalRequired)
+          .takeUntil(swapStatusFuture.asStream())
+          .listen(
+            (paymentState) {
+              logger.e('Payment emitted with state: $paymentState');
+              emit(SwapInPaymentProgress(paymentState: paymentState));
+            },
+            onDone: () {
+              if (!paymentCompleter.isCompleted) paymentCompleter.complete();
+            },
+          );
+
+      // NOW execute the payment — the listener above is already active
+      payment.execute();
+
+      // Wait until the payment stream completes (either all states processed,
+      // or takeUntil fires because Boltz locked on-chain)
+      await paymentCompleter.future;
+      await paySub.cancel();
 
       // Wait for Boltz's lockup transaction with a generous timeout
       final swapStatus = await swapStatusFuture.timeout(
@@ -229,7 +246,10 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
   }
 
-  Stream<PayState> _getPaymentCubitForSwap({
+  /// Creates a payment cubit for the swap invoice but does NOT execute it.
+  /// The caller MUST subscribe to the returned cubit's stream BEFORE calling
+  /// [PayOperation.execute] to avoid losing states on the broadcast stream.
+  PayOperation _createPaymentForSwap({
     required String invoice,
     required BitcoinAmount amount,
   }) {
@@ -251,12 +271,9 @@ class RootstockSwapInOperation extends SwapInOperation {
       pr.tags.firstWhere((t) => t.type == 'payment_hash').data == preimage.hash,
     );
 
-    /// Pay the invoice, though it won't complete until we reveal the preimage in the claim txn
-    final payment = getIt<Payments>().pay(
+    return getIt<Payments>().pay(
       Bolt11PayParameters(amount: amount, to: invoice),
     );
-    payment.execute();
-    return payment.stream;
   }
 
   ({

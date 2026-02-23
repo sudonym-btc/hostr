@@ -47,22 +47,32 @@ class ReserveState extends State<Reserve> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 dateState.dateRange != null
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            formatAmount(
-                              widget.listing.cost(
-                                dateState.dateRange!.start,
-                                dateState.dateRange!.end,
+                    ? GestureDetector(
+                        onTap: availabilityReady
+                            ? () => selectDates(
+                                context,
+                                context.read<DateRangeCubit>(),
+                                reservations,
+                                enforceContiguousAvailability: true,
+                              )
+                            : null,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              formatAmount(
+                                widget.listing.cost(
+                                  dateState.dateRange!.start,
+                                  dateState.dateRange!.end,
+                                ),
                               ),
                             ),
-                          ),
-                          Text(
-                            '${formatDate(dateState.dateRange!.start)} - ${formatDate(dateState.dateRange!.end)}',
-                          ),
-                        ],
+                            Text(
+                              '${formatDate(dateState.dateRange!.start)} - ${formatDate(dateState.dateRange!.end)}',
+                            ),
+                          ],
+                        ),
                       )
                     : GestureDetector(
                         child: Text(

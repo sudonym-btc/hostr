@@ -125,7 +125,7 @@ abstract class PayOperation<
     emit(PayInFlight(params: params));
     try {
       if (nwc.getActiveConnection() == null) {
-        print('No NWC connections available');
+        logger.d('No NWC connections available');
         emit(
           PayExternalRequired(
             params: params,

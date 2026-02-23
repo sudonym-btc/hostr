@@ -32,9 +32,9 @@ void main() {
       environment: Env.dev,
       config: HostrConfig(
         logs: CustomLogger(),
-        bootstrapRelays: ['ws://relay.hostr.development'],
+        bootstrapRelays: ['wss://relay.hostr.development'],
         bootstrapBlossom: ['http://blossom.hostr.development'],
-        hostrRelay: 'ws://relay.hostr.development',
+        hostrRelay: 'wss://relay.hostr.development',
         rootstockConfig: _DevelopmentRootstockConfig(),
       ),
     );

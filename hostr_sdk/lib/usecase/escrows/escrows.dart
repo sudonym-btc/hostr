@@ -19,63 +19,56 @@ class Escrows extends CrudUseCase<EscrowService> {
   }) : super(kind: EscrowService.kinds[0]);
 
   Future<MutualEscrowResult> determineMutualEscrow(
-    String pubkey1,
-    String pubkey2,
+    String buyerPubkey,
+    String sellerPubkey,
   ) async {
-    // Get EscrowTrust and EscrowMethod for both pubkeys simultaneously
+    final myPubkey = escrowMethods.auth.activeKeyPair?.publicKey;
+    final counterpartyPubkey = buyerPubkey == myPubkey
+        ? sellerPubkey
+        : buyerPubkey;
+    // Query trust lists for both users and escrow method only for the
+    // counterparty. We already know our own supported methods locally.
     final results = await Future.wait([
-      escrowTrusts.getOne(Filter(kinds: EscrowTrust.kinds, authors: [pubkey1])),
-      escrowTrusts.getOne(Filter(kinds: EscrowTrust.kinds, authors: [pubkey2])),
-      escrowMethods.getOne(
-        Filter(kinds: EscrowMethod.kinds, authors: [pubkey1]),
+      escrowTrusts.getOne(
+        Filter(kinds: EscrowTrust.kinds, authors: [buyerPubkey]),
+      ),
+      escrowTrusts.getOne(
+        Filter(kinds: EscrowTrust.kinds, authors: [sellerPubkey]),
       ),
       escrowMethods.getOne(
-        Filter(kinds: EscrowMethod.kinds, authors: [pubkey2]),
+        Filter(kinds: EscrowMethod.kinds, authors: [counterpartyPubkey]),
       ),
     ]);
-
-    final trust1 = results[0] as EscrowTrust?;
-    final trust2 = results[1] as EscrowTrust?;
-    final methods1 = results[2] as EscrowMethod?;
-    final methods2 = results[3] as EscrowMethod?;
-
-    // if (trust1 == null) {
-    //   throw Exception('Host escrow trust list is missing');
-    // }
-    // if (trust2 == null) {
-    //   throw Exception('Guest escrow trust list is missing');
-    // }
-    // if (methods1 == null) {
-    //   throw Exception('Host escrow methods are missing');
-    // }
-    // if (methods2 == null) {
-    //   throw Exception('Guest escrow methods are missing');
-    // }
+    final buyerTrust = results[0] as EscrowTrust?;
+    final sellerTrust = results[1] as EscrowTrust?;
+    final counterpartyMethod = results[2] as EscrowMethod?;
 
     final result = MutualEscrowResult(
-      sellerTrust: trust1,
-      buyerTrust: trust2,
-      sellerMethod: methods1,
-      buyerMethod: methods2,
+      sellerTrust: sellerTrust,
+      buyerTrust: buyerTrust,
+      sellerMethod: sellerPubkey == myPubkey ? null : counterpartyMethod,
+      buyerMethod: buyerPubkey == myPubkey ? null : counterpartyMethod,
     );
 
     // Extract trusted pubkeys from each user's trust list
-    final trustedPubkeys1 = result.sellerTrust != null
-        ? (await result.sellerTrust!.toNip51List()).elements
-              .map((e) => e.value)
-              .toSet()
-        : <String>{};
-    final trustedPubkeys2 = result.buyerTrust != null
+    final trustedBuyerPubkeys = result.buyerTrust != null
         ? (await result.buyerTrust!.toNip51List()).elements
               .map((e) => e.value)
               .toSet()
         : <String>{};
+    final trustedSellerPubkeys = result.sellerTrust != null
+        ? (await result.sellerTrust!.toNip51List()).elements
+              .map((e) => e.value)
+              .toSet()
+        : <String>{};
 
-    logger.d('Trusted escrow pubkeys: $trustedPubkeys2 $trustedPubkeys2');
+    logger.d(
+      'Trusted escrow pubkeys: buyer=$trustedBuyerPubkeys seller=$trustedSellerPubkeys',
+    );
 
     // Find mutually trusted pubkeys
-    final mutuallyTrustedPubkeys = trustedPubkeys1.intersection(
-      trustedPubkeys2,
+    final mutuallyTrustedPubkeys = trustedBuyerPubkeys.intersection(
+      trustedSellerPubkeys,
     );
 
     // if (mutuallyTrustedPubkeys.isEmpty) {
@@ -84,17 +77,17 @@ class Escrows extends CrudUseCase<EscrowService> {
     //   );
     // }
 
-    // Extract escrow types from each user's method list
-    final types1 = result.sellerMethod != null
-        ? (await result.sellerMethod!.toNip51List()).elements
+    // Extract escrow types. Use the hardcoded supportedTypes for our own
+    // user and only parse the counterparty's advertised methods from the relay.
+    final myTypes = EscrowMethods.supportedTypes;
+    final counterpartyTypes = counterpartyMethod != null
+        ? (await counterpartyMethod.toNip51List()).elements
               .map((e) => e.value)
               .toSet()
         : <String>{};
-    final types2 = result.buyerMethod != null
-        ? (await result.buyerMethod!.toNip51List()).elements
-              .map((e) => e.value)
-              .toSet()
-        : <String>{};
+
+    final types1 = buyerPubkey == myPubkey ? myTypes : counterpartyTypes;
+    final types2 = sellerPubkey == myPubkey ? myTypes : counterpartyTypes;
 
     logger.d('Trusted escrow methods: $types1 $types2');
 
@@ -128,10 +121,13 @@ class Escrows extends CrudUseCase<EscrowService> {
       }
     }
 
-    // Fall back to the host's trusted escrows with a compatible method
-    if (trustedPubkeys2.isNotEmpty) {
+    // Fall back to the seller's trusted escrows with a compatible method
+    if (trustedSellerPubkeys.isNotEmpty) {
       final hostEscrowServices = await list(
-        Filter(kinds: EscrowService.kinds, authors: trustedPubkeys2.toList()),
+        Filter(
+          kinds: EscrowService.kinds,
+          authors: trustedSellerPubkeys.toList(),
+        ),
       );
 
       final hostEscrowServicesFiltered = hostEscrowServices

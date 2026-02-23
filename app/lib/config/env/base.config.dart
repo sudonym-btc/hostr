@@ -8,6 +8,7 @@ abstract class Config {
   String get hostrBlossom;
   String get hostrRelay;
   RootstockConfig get rootstock;
+  List<String> get bootstrapEscrowPubkeys => [];
   bool get useSecureKeyValueStorage => true;
   String get googleMapsApiKey => 'AIzaSyBjcePUwkKwD-iMmHpjXVDV0MaiYH1dnGo';
   int get defaultZap => 1000;
@@ -16,6 +17,7 @@ abstract class Config {
   HostrConfig get hostrConfig => HostrConfig(
     bootstrapRelays: [...relays, hostrRelay],
     bootstrapBlossom: [hostrBlossom],
+    bootstrapEscrowPubkeys: bootstrapEscrowPubkeys,
     hostrRelay: hostrRelay,
     rootstockConfig: rootstock,
     storage: useSecureKeyValueStorage

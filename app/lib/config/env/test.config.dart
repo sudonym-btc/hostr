@@ -1,5 +1,6 @@
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/stubs/keypairs.dart';
 
 import '../../../injection.dart';
 import 'base.config.dart';
@@ -9,6 +10,9 @@ import 'development.config.dart';
 class TestConfig extends Config {
   @override
   bool get useSecureKeyValueStorage => false;
+
+  @override
+  List<String> get bootstrapEscrowPubkeys => [MockKeys.escrow.publicKey];
 
   @override
   String get hostrRelay => 'ws://localhost:5432';

@@ -84,6 +84,7 @@ class ProfileScreen extends StatelessWidget {
                   onPressed: () {
                     showModalBottomSheet(
                       context: context,
+                      isScrollControlled: true,
                       builder: (BuildContext context) {
                         return AddWalletWidget();
                       },
@@ -119,7 +120,7 @@ class ProfileScreen extends StatelessWidget {
                 child: BlocBuilder<TrustedEscrowsCubit, TrustedEscrowsState>(
                   builder: (context, state) {
                     return Section(
-                      title: "Trusted Escrows",
+                      title: "Escrows",
                       action: FilledButton.tonal(
                         onPressed: () {
                           // TODO: implement add trusted escrow flow

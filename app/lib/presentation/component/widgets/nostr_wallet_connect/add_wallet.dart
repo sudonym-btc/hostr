@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/nwc/nwc.cubit.dart';
 
@@ -17,110 +18,90 @@ class AddWalletWidget extends StatefulWidget {
 }
 
 class AddWalletWidgetState extends State<AddWalletWidget> {
-  bool shouldShowQrScanner = false;
+  Future<void> _onInput(BuildContext context, String url) async {
+    final cubit = BlocProvider.of<NwcCubit>(context);
+    await cubit.connect(url);
+    if (cubit.connection != null) {
+      await getIt<Hostr>().nwc.add(cubit);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: CustomPadding(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              AppLocalizations.of(context)!.connectWallet,
-              style: Theme.of(context).textTheme.titleLarge!,
-            ),
-            NostrWalletAuthWidget(),
-            CustomPadding(),
-            BlocProvider<NwcCubit>(
-              create: (context) => NwcCubit(
-                nwc: getIt<Hostr>().nwc,
-                logger: getIt<Hostr>().logger,
+    return BlocProvider<NwcCubit>(
+      create: (context) =>
+          NwcCubit(nwc: getIt<Hostr>().nwc, logger: getIt<Hostr>().logger),
+      child: BlocBuilder<NwcCubit, NwcCubitState>(
+        builder: (context, state) {
+          if (state is Loading) {
+            return ModalBottomSheet(
+              title: AppLocalizations.of(context)!.connectWallet,
+              subtitle: 'Connecting to wallet...',
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(height: 24),
+                  AsymptoticProgressBar(),
+                  SizedBox(height: 16),
+                ],
               ),
-              child: BlocBuilder<NwcCubit, NwcCubitState>(
-                builder: (context, state) {
-                  if (state is Loading) {
-                    return CircularProgressIndicator();
-                  } else if (state is NwcSuccess) {
-                    return Text(
-                      '${AppLocalizations.of(context)!.connectedTo} ${state.data.alias}',
-                    );
-                  } else if (state is NwcFailure) {
-                    return Text(
-                      'Could not connect to NWC provider: ${state.e}',
-                    );
-                  }
-                  return Column(
-                    children: [
-                      if (shouldShowQrScanner)
-                        NwcQrScannerWidget(
-                          onScanned: (url) async {
-                            final cubit = BlocProvider.of<NwcCubit>(context);
-                            await cubit.connect(url);
-                            if (cubit.connection != null) {
-                              await getIt<Hostr>().nwc.add(cubit);
-                            }
-                          },
-                        ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: () {
-                                setState(() {
-                                  shouldShowQrScanner = !shouldShowQrScanner;
-                                });
-                              },
-                              child: Text(
-                                !shouldShowQrScanner
-                                    ? AppLocalizations.of(context)!.scan
-                                    : 'Stop',
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 10,
-                          ), // Add some spacing between buttons
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: () async {
-                                final clipboardData = await Clipboard.getData(
-                                  'text/plain',
-                                );
-                                if (clipboardData != null) {
-                                  NwcCubit x = BlocProvider.of<NwcCubit>(
-                                    context,
-                                  );
-                                  await x.connect(clipboardData.text!);
-                                  if (x.connection != null) {
-                                    await getIt<Hostr>().nwc.add(x);
-                                  }
-                                }
-                              },
-                              child: Text(AppLocalizations.of(context)!.paste),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 10,
-                          ), // Add some spacing between buttons
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: () async {
-                                // todo: open in wallet app
-                              },
-                              child: Text(AppLocalizations.of(context)!.wallet),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
+            );
+          } else if (state is NwcSuccess) {
+            return ModalBottomSheet(
+              type: ModalBottomSheetType.success,
+              title: AppLocalizations.of(context)!.connectWallet,
+              content: Text(
+                '${AppLocalizations.of(context)!.connectedTo} ${state.data.alias}',
               ),
+            );
+          } else if (state is NwcFailure) {
+            return ModalBottomSheet(
+              type: ModalBottomSheetType.error,
+              title: AppLocalizations.of(context)!.connectWallet,
+              content: Text('Could not connect to NWC provider: ${state.e}'),
+            );
+          }
+          return ModalBottomSheet(
+            title: AppLocalizations.of(context)!.connectWallet,
+            subtitle: 'Connect to your bitcoin wallet via Nostr Wallet Connect',
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NostrWalletAuthWidget(),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.4,
+                  ),
+                  child: NwcQrScannerWidget(
+                    onScanned: (url) => _onInput(context, url),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+            buttons: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FilledButton(
+                  onPressed: () async {
+                    final clipboardData = await Clipboard.getData('text/plain');
+                    if (clipboardData?.text != null) {
+                      await _onInput(context, clipboardData!.text!);
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.paste),
+                ),
+                // Expanded(
+                //   child: FilledButton(
+                //     onPressed: () async {
+                //       // todo: open in wallet app
+                //     },
+                //     child: Text(AppLocalizations.of(context)!.wallet),
+                //   ),
+                // ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

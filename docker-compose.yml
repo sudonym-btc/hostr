@@ -154,7 +154,7 @@ services:
       anvil:
         condition: service_healthy
     environment:
-      - NOSTR_RELAY=ws://relay.${DOMAIN}
+      - NOSTR_RELAY=wss://relay.${DOMAIN}
       - PRIVATE_KEY=a9cbe715ebaeb852bf7cc3d35f4a81b9a58f16705e4bb8434aa453093e612206
       - RPC_URL=http://anvil:8545
     volumes:

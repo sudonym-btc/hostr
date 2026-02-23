@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/stubs/keypairs.dart';
 
 import '../../../injection.dart';
 import 'base.config.dart';
@@ -11,11 +12,15 @@ class DevelopmentConfig extends Config {
   RootstockConfig rootstock = DevelopmentRootstockConfig();
 
   @override
+  List<String> get bootstrapEscrowPubkeys => [MockKeys.escrow.publicKey];
+
+  @override
   String get hostrBlossom => 'http://blossom.hostr.development';
 
   @override
-  String get hostrRelay =>
-      kIsWeb ? 'ws://relay.hostr.development' : 'wss://relay.hostr.development';
+  String get hostrRelay => kIsWeb
+      ? 'wss://relay.hostr.development'
+      : 'wss://relay.hostr.development';
 }
 
 class DevelopmentRootstockConfig extends RootstockConfig {

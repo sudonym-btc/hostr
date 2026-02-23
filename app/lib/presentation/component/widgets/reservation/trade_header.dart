@@ -100,16 +100,12 @@ class TradeHeaderView extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const CustomPadding(top: 0.2, bottom: 0),
-                Row(
-                  children: [
-                    Text(
-                      formatAmount(amount),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(width: 8),
-                    paymentStatusWidget,
-                  ],
+                Text(
+                  formatAmount(amount),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
+                const CustomPadding(top: 0.2, bottom: 0),
+                paymentStatusWidget,
                 if (isBlocked) ...[
                   const CustomPadding(top: 0.2, bottom: 0),
                   Text(
@@ -251,7 +247,7 @@ class TradeHeader extends StatelessWidget {
 
   List<Widget> _buildActionButtons(BuildContext context) {
     FilledButton actionButton(String label, VoidCallback? onPressed) {
-      return FilledButton.tonal(
+      return FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
           visualDensity: VisualDensity.comfortable,
@@ -283,9 +279,12 @@ class TradeHeader extends StatelessWidget {
         case TradeAction.messageEscrow:
           children.add(
             actionButton('Message Escrow', () {
-              context.read<ThreadCubit>().thread.trade!.execute(
-                TradeAction.messageEscrow,
-              );
+              final threadCubit = context.read<ThreadCubit>();
+              final escrowPubkey = threadCubit.thread.trade!.getEscrowPubkey();
+              if (escrowPubkey != null) {
+                threadCubit.addParticipant(escrowPubkey);
+                threadCubit.thread.trade!.refreshActions();
+              }
             }),
           );
           break;
@@ -349,7 +348,12 @@ class TradeHeader extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Wrap(spacing: 8, runSpacing: 8, children: children);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: children,
+    );
   }
 
   Widget buildActionsRight(BuildContext context) {
@@ -358,7 +362,7 @@ class TradeHeader extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Row(children: children);
+    return Row(mainAxisSize: MainAxisSize.min, children: children);
   }
 
   @override

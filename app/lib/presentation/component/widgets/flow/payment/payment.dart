@@ -149,7 +149,16 @@ class PaymentProgressWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      content: Center(child: CircularProgressIndicator()),
+      title: 'Payment',
+      subtitle: 'Processing payment...',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 16),
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }
@@ -281,7 +290,9 @@ class PaymentSuccessWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      content: Text(AppLocalizations.of(context)!.paymentCompleted),
+      title: 'Payment Complete',
+      subtitle: AppLocalizations.of(context)!.paymentCompleted,
+      content: Container(),
     );
   }
 }
@@ -294,7 +305,8 @@ class PaymentFailureWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.error,
-      content: Text('Payment failed: ${state.error}'),
+      title: 'Payment Failed',
+      content: Text(state.error.toString()),
     );
   }
 }

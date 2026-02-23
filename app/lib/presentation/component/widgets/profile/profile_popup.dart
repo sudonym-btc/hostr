@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
+import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -16,10 +18,11 @@ class ProfilePopup extends StatefulWidget {
 
   const ProfilePopup({super.key, required this.pubkey});
 
-  /// Show the profile popup as a dialog.
+  /// Show the profile popup as a modal bottom sheet.
   static Future<void> show(BuildContext context, String pubkey) {
-    return showDialog(
+    return showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (_) => ProfilePopup(pubkey: pubkey),
     );
   }
@@ -115,9 +118,6 @@ class _ProfilePopupState extends State<ProfilePopup> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return ProfileProvider(
       pubkey: widget.pubkey,
       onDone: _onProfileLoaded,
@@ -125,82 +125,54 @@ class _ProfilePopupState extends State<ProfilePopup> {
         final profile = snapshot.data;
         final metadata = profile?.metadata;
 
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        return ModalBottomSheet(
+          leading: CircleAvatar(
+            radius: 36,
+            backgroundImage: metadata?.picture != null
+                ? NetworkImage(metadata!.picture!)
+                : null,
+            child: metadata?.picture == null
+                ? Text(
+                    (metadata?.name ?? '?').characters.first.toUpperCase(),
+                    style: const TextStyle(fontSize: 28),
+                  )
+                : null,
           ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Avatar
-                  CircleAvatar(
-                    radius: 36,
-                    backgroundImage: metadata?.picture != null
-                        ? NetworkImage(metadata!.picture!)
-                        : null,
-                    child: metadata?.picture == null
-                        ? Text(
-                            (metadata?.name ?? '?').characters.first
-                                .toUpperCase(),
-                            style: const TextStyle(fontSize: 28),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
+          title: metadata?.name ?? metadata?.displayName ?? 'Unknown',
+          subtitle: metadata?.about,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // const Divider(height: 1),
+              const SizedBox(height: 12),
 
-                  // Display name
-                  Text(
-                    metadata?.name ?? metadata?.displayName ?? 'Unknown',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  // About
-                  if (metadata?.about != null &&
-                      metadata!.about!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      metadata.about!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-
-                  const SizedBox(height: 16),
-                  const Divider(height: 1),
-                  const SizedBox(height: 12),
-
-                  // NIP-05 verification
-                  _Nip05Row(
-                    nip05: metadata?.nip05,
-                    result: _nip05Result,
-                    loading: _nip05Loading,
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // LUD-16 verification
-                  _Lud16Row(
-                    lud16: metadata?.lud16,
-                    result: _lud16Result,
-                    loading: _lud16Loading,
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Pubkey (truncated, copyable)
-                  _PubkeyRow(pubkey: widget.pubkey),
-                ],
+              // NIP-05 verification
+              _Nip05Row(
+                nip05: metadata?.nip05,
+                result: _nip05Result,
+                loading: _nip05Loading,
               ),
+
+              const SizedBox(height: 8),
+
+              // LUD-16 verification
+              _Lud16Row(
+                lud16: metadata?.lud16,
+                result: _lud16Result,
+                loading: _lud16Loading,
+              ),
+
+              const SizedBox(height: 16),
+
+              // Pubkey (truncated, copyable)
+              _PubkeyRow(pubkey: widget.pubkey),
+            ],
+          ),
+          buttons: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
             ),
           ),
         );
@@ -288,7 +260,7 @@ class _Lud16Row extends StatelessWidget {
       return _verificationTile(
         context,
         icon: Icons.bolt,
-        iconColor: Colors.amber,
+        iconColor: Theme.of(context).colorScheme.error,
         title: lud16!,
         trailing: const SizedBox(
           width: 16,
@@ -335,35 +307,41 @@ class _PubkeyRow extends StatelessWidget {
     final truncated =
         '${pubkey.substring(0, 8)}…${pubkey.substring(pubkey.length - 8)}';
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () {
-        Clipboard.setData(ClipboardData(text: pubkey));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Public key copied'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.key, size: 14, color: theme.colorScheme.outline),
-            const SizedBox(width: 6),
-            Text(
-              truncated,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                color: theme.colorScheme.outline,
-              ),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          Clipboard.setData(ClipboardData(text: pubkey));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Public key copied'),
+              duration: Duration(seconds: 1),
             ),
-            const SizedBox(width: 4),
-            Icon(Icons.copy, size: 12, color: theme.colorScheme.outline),
-          ],
+          );
+        },
+        child: CustomPadding(
+          top: 0.25,
+          bottom: 0.25,
+          left: 0.5,
+          right: 0.5,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.key, size: 14, color: theme.colorScheme.outline),
+              const SizedBox(width: 6),
+              Text(
+                truncated,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.copy, size: 12, color: theme.colorScheme.outline),
+            ],
+          ),
         ),
       ),
     );

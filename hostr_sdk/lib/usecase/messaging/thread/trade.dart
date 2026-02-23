@@ -177,6 +177,27 @@ class ThreadTrade {
     _emitState();
   }
 
+  /// Returns the Nostr pubkey of the escrow service used in this trade,
+  /// or null if no escrow proof is present.
+  String? getEscrowPubkey() {
+    final reservations =
+        subscriptions.reservationStream?.list.value ?? const [];
+    for (final reservation in reservations) {
+      final pubkey = reservation
+          .parsedContent
+          .proof
+          ?.escrowProof
+          ?.escrowService
+          .parsedContent
+          .pubkey;
+      if (pubkey != null) return pubkey;
+    }
+    return null;
+  }
+
+  /// Re-runs the action resolver and emits updated state.
+  void refreshActions() => _emitState();
+
   Future<void> execute(TradeAction action) async {
     if (!state.value.availableActions.contains(action)) {
       throw StateError('Action not available for this trade: $action');
@@ -188,9 +209,7 @@ class ThreadTrade {
       case TradeAction.claim:
         throw UnimplementedError('Trade claim is not implemented yet.');
       case TradeAction.refund:
-        // In UI this can be treated as "redeem" for escrow-funded threads.
         throw UnimplementedError('Trade refund/redeem is not implemented yet.');
-      case TradeAction.messageEscrow:
       case TradeAction.accept:
       case TradeAction.counter:
       case TradeAction.pay:
@@ -198,6 +217,9 @@ class ThreadTrade {
         throw UnsupportedError(
           'Action not supported by trade executor: $action',
         );
+      case TradeAction.messageEscrow:
+        // Handled by the UI via addParticipant + refreshActions.
+        return;
     }
   }
 
@@ -219,6 +241,7 @@ class ThreadTrade {
       tradeState: state.value,
       subscriptions: subscriptions,
       ourPubkey: auth.getActiveKey().publicKey,
+      addedParticipants: thread.addedParticipants,
     );
 
     state.add(

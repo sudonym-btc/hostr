@@ -68,7 +68,7 @@ Filter getCombinedFilter(Filter? filter1, Filter? filter2) {
         ? [...?cleanedFilter1?.authors, ...?cleanedFilter2?.authors]
         : null,
     kinds: (cleanedFilter1?.kinds != null || cleanedFilter2?.kinds != null)
-        ? [...?cleanedFilter1?.kinds, ...?cleanedFilter2?.kinds]
+        ? {...?cleanedFilter1?.kinds, ...?cleanedFilter2?.kinds}.toList()
         : null,
     eTags: (cleanedFilter1?.eTags != null || cleanedFilter2?.eTags != null)
         ? [...?cleanedFilter1?.eTags, ...?cleanedFilter2?.eTags]

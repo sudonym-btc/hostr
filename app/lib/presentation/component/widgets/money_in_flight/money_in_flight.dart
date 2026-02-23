@@ -51,7 +51,9 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                 mainAxisSize: MainAxisSize.max,
                 children: [
                   Text(
-                    style: Theme.of(context).textTheme.bodyLarge,
+                    style: Theme.of(context).textTheme.displayMedium!.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     formatAmount(
                       Amount(
                         value: snapshot.data!.getInSats,
@@ -60,20 +62,21 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                       exact: false,
                     ),
                   ),
-                  FilledButton.tonal(
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) {
-                          return SwapOutFlowWidget(
-                            cubit: getIt<Hostr>().evm.supportedEvmChains[0]
-                                .swapOutAll(),
-                          );
-                        },
-                      );
-                    },
-                    child: Text('Withdraw'),
-                  ),
+                  if (snapshot.data!.getInSats > BigInt.zero)
+                    FilledButton.tonal(
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          builder: (context) {
+                            return SwapOutFlowWidget(
+                              cubit: getIt<Hostr>().evm.supportedEvmChains[0]
+                                  .swapOutAll(),
+                            );
+                          },
+                        );
+                      },
+                      child: Text('Withdraw'),
+                    ),
                 ],
               );
             },
