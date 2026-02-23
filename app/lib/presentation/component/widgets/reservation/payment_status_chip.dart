@@ -24,7 +24,7 @@ class PaymentStatusChip extends StatelessWidget {
       side: BorderSide.none,
       avatar: Icon(
         icon,
-        size: 14,
+        size: kIconXs,
         color: Theme.of(context).colorScheme.onPrimaryContainer,
       ),
       shape: const StadiumBorder(),

@@ -500,7 +500,7 @@ class LocationFieldState extends State<LocationField> {
                           ),
                           Gap.vertical.sm(),
                           OutlinedButton.icon(
-                            icon: const Icon(Icons.copy, size: 16),
+                            icon: const Icon(Icons.copy, size: kIconSm),
                             label: const Text('Copy H3 indexes'),
                             onPressed: _copyH3IndexesToClipboard,
                           ),

@@ -293,6 +293,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i149.MetadataUseCase>(
       () => _i149.MetadataUseCase(
         auth: gh<_i520.Auth>(),
+        ndk: gh<_i857.Ndk>(),
         requests: gh<_i520.Requests>(),
         logger: gh<_i520.CustomLogger>(),
       ),

@@ -79,7 +79,7 @@ class _ListingViewState extends State<ListingView> {
                     children: [
                       Icon(
                         Icons.error_outline,
-                        size: 48,
+                        size: kIconHero,
                         color: Theme.of(context).colorScheme.error,
                       ),
                       Gap.vertical.md(),

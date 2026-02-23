@@ -14,6 +14,15 @@ const double kSpace6 = kDefaultPadding / 1; // 32
 const double kSpace7 = kDefaultPadding * 1.5; // 48
 const double kSpace8 = kDefaultPadding * 2; // 64
 
+// ── Icon size scale ───────────────────────────────────────────────────────
+
+const double kIconXs = 14.0; // Chips, inline labels
+const double kIconSm = 16.0; // List item trailing, copy actions
+const double kIconMd = 20.0; // Standard interactive icons
+const double kIconLg = 24.0; // Navigation bar, section headers
+const double kIconXl = 32.0; // Empty states, feature icons
+const double kIconHero = 48.0; // Error/success status, onboarding
+
 const kEthPrivPath = "m/44'/60'/0'/0/0";
 
 // ── Animation ──────────────────────────────────────────────────────────────

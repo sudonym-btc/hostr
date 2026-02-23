@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
@@ -122,7 +123,7 @@ class ImageUpload extends StatelessWidget {
                                   ).colorScheme.surface,
                                   child: Icon(
                                     Icons.close,
-                                    size: 16,
+                                    size: kIconSm,
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurface,
@@ -153,7 +154,7 @@ class ImageUpload extends StatelessWidget {
         Icon(
           Icons.add_photo_alternate_outlined,
           color: Theme.of(context).colorScheme.onSurface,
-          size: 32,
+          size: kIconXl,
         ),
         Gap.vertical.sm(),
         Text('Add Image', style: Theme.of(context).textTheme.bodyMedium),

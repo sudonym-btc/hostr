@@ -27,7 +27,7 @@ class ProfileHeaderWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
+            CircleAvatar(radius: 40, child: Icon(Icons.person, size: kIconXl)),
             Gap.vertical.md(),
             Text(
               'No profile set up yet',
