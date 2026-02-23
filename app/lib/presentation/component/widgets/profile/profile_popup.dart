@@ -330,7 +330,7 @@ class _PubkeyRow extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.key, size: 14, color: theme.colorScheme.outline),
+              Icon(Icons.key, size: kIconXs, color: theme.colorScheme.outline),
               Gap.horizontal.custom(6),
               Text(
                 truncated,
@@ -340,7 +340,7 @@ class _PubkeyRow extends StatelessWidget {
                 ),
               ),
               Gap.horizontal.xs(),
-              Icon(Icons.copy, size: 12, color: theme.colorScheme.outline),
+              Icon(Icons.copy, size: kIconSm, color: theme.colorScheme.outline),
             ],
           ),
         ),
@@ -366,7 +366,7 @@ Widget _verificationTile(
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Icon(icon, color: iconColor, size: 20),
+      Icon(icon, color: iconColor, size: kIconMd),
       Gap.horizontal.sm(),
       Expanded(
         child: Column(

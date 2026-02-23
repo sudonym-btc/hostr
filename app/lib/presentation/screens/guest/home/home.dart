@@ -106,7 +106,10 @@ class _HomeScreenState extends State<HomeScreen>
               if (!isLoggedIn) {
                 // Unauthenticated: Search and Sign In
                 final tabs = [
-                  _navItem(icon: Icon(Icons.search, size: 30), label: 'Search'),
+                  _navItem(
+                    icon: Icon(Icons.search, size: kIconLg),
+                    label: 'Search',
+                  ),
                   _navItem(icon: Icon(Icons.person_outline), label: 'Sign In'),
                 ];
                 return AutoTabsScaffold(
@@ -133,7 +136,10 @@ class _HomeScreenState extends State<HomeScreen>
                 );
               }
               final otherTabs = [
-                _navItem(icon: Icon(Icons.search, size: 30), label: 'Search'),
+                _navItem(
+                  icon: Icon(Icons.search, size: kIconLg),
+                  label: 'Search',
+                ),
                 _navItem(icon: Icon(Icons.travel_explore), label: 'Trips'),
                 _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
                 _navItem(icon: Icon(Icons.person), label: 'Profile'),

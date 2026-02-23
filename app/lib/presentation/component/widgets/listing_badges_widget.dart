@@ -60,7 +60,7 @@ class ListingBadgesWidget extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.shield_outlined,
-                    size: 16,
+                    size: kIconSm,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   Gap.horizontal.sm(),
@@ -136,7 +136,7 @@ class BadgeChip extends StatelessWidget {
                       errorBuilder: (context, error, stackTrace) {
                         return Icon(
                           Icons.verified,
-                          size: 20,
+                          size: kIconMd,
                           color: Theme.of(context).colorScheme.primary,
                         );
                       },
@@ -146,7 +146,7 @@ class BadgeChip extends StatelessWidget {
                 ] else
                   Icon(
                     Icons.verified,
-                    size: 20,
+                    size: kIconMd,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 Gap.horizontal.xs(),
@@ -216,13 +216,13 @@ class BadgeDetailsSheet extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(
                       badgeImage,
-                      width: 80,
-                      height: 80,
+                      width: kIconHero,
+                      height: kIconHero,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Icon(
                           Icons.verified,
-                          size: 80,
+                          size: kIconHero,
                           color: Theme.of(context).colorScheme.primary,
                         );
                       },
@@ -278,7 +278,7 @@ class BadgeDetailsSheet extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.info_outline,
-                          size: 16,
+                          size: kIconSm,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         Gap.horizontal.sm(),

@@ -50,7 +50,7 @@ class AmountWidget extends StatelessWidget {
               ),
               if (onAmountTap != null) ...[
                 Gap.horizontal.xs(),
-                Icon(Icons.edit, size: 16),
+                Icon(Icons.edit, size: kIconSm),
               ],
             ],
           ),

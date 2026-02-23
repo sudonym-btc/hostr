@@ -99,7 +99,7 @@ class BackupKeyWidget extends StatelessWidget {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton.icon(
-                          icon: const Icon(Icons.copy, size: 16),
+                          icon: const Icon(Icons.copy, size: kIconSm),
                           label: const Text('Copy words'),
                           onPressed: () {
                             Clipboard.setData(
@@ -180,7 +180,7 @@ class _KeySection extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.copy, size: 18),
+                icon: const Icon(Icons.copy, size: kIconSm),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: value));
                   ScaffoldMessenger.of(

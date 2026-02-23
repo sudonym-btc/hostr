@@ -125,7 +125,7 @@ class _ProgressView extends StatelessWidget {
                         Icon(
                           Icons.check_circle,
                           color: theme.colorScheme.primary,
-                          size: 20,
+                          size: kIconMd,
                         )
                       else if (isCurrent)
                         SizedBox(
@@ -137,7 +137,7 @@ class _ProgressView extends StatelessWidget {
                         Icon(
                           Icons.radio_button_unchecked,
                           color: theme.colorScheme.outline,
-                          size: 20,
+                          size: kIconMd,
                         ),
                       Gap.horizontal.custom(kSpace3),
                       Text(
@@ -181,7 +181,7 @@ class _ErrorView extends StatelessWidget {
             children: [
               Icon(
                 Icons.error_outline,
-                size: 48,
+                size: kIconHero,
                 color: theme.colorScheme.error,
               ),
               Gap.vertical.md(),

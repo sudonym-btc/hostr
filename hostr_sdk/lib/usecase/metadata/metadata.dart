@@ -10,24 +10,55 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   static const Duration metadataLoadTimeout = Duration(seconds: 40);
 
   Auth auth;
+  final Ndk ndk;
   MetadataUseCase({
     required this.auth,
+    required this.ndk,
     required super.requests,
     required super.logger,
   }) : super(kind: Metadata.kKind);
 
   Future<ProfileMetadata?> loadMetadata(String pubkey) async {
     // We can't use NDK metadata use case, since it does not return custom fields/tags
-    List<Nip01Event> metadatas = await requests
+    final metadatas = await requests
         .query(
           filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 1),
           timeout: metadataLoadTimeout,
           name: 'Metadata-load-$pubkey',
         )
         .toList();
+
     if (metadatas.isNotEmpty) {
-      return ProfileMetadata.fromNostrEvent(metadatas.first);
+      return ProfileMetadata.fromNostrEvent(
+        metadatas.reduce((a, b) => a.createdAt >= b.createdAt ? a : b),
+      );
     }
+
+    // TODO: Remove this cache fallback and implement a proper metadata-loading
+    // strategy that reliably resolves the latest profile from relays.
+    // Fallback to local NDK cache when the relay query returns no results.
+    // This helps in cases where metadata exists locally but is temporarily
+    // unavailable from the current relay query path.
+    final cachedMetadatas = await ndk.requests
+        .query(
+          name: 'Metadata-load-cache-$pubkey',
+          filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 20),
+          cacheRead: true,
+          cacheWrite: true,
+          timeout: metadataLoadTimeout,
+        )
+        .stream
+        .toList();
+
+    if (cachedMetadatas.isNotEmpty) {
+      logger.w(
+        'Metadata relay query returned empty for $pubkey, using cached metadata (${cachedMetadatas.length} hit(s))',
+      );
+      return ProfileMetadata.fromNostrEvent(
+        cachedMetadatas.reduce((a, b) => a.createdAt >= b.createdAt ? a : b),
+      );
+    }
+
     return null;
   }
 
