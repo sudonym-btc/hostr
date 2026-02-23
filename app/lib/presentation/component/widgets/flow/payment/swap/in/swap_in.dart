@@ -61,9 +61,7 @@ class SwapInConfirmWidget extends StatelessWidget {
       subtitle: 'Please confirm to proceed with the swap.',
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          ElevatedButton(onPressed: onConfirm, child: Text('Confirm')),
-        ],
+        children: [FilledButton(onPressed: onConfirm, child: Text('Confirm'))],
       ),
     );
   }

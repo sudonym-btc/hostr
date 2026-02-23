@@ -36,7 +36,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
             "Plugin initialization",
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          ElevatedButton(
+          FilledButton(
             child: Text("Start the Flutter background service"),
             onPressed: () async {
               if (Platform.isIOS) {
@@ -104,7 +104,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
           Gap.vertical.md(),
           // Currently we cannot provide frequency for iOS, hence it will be
           // minimum 15 minutes after which iOS will reschedule
-          ElevatedButton(
+          FilledButton(
             child: Text('Register Periodic Background App Refresh (iOS)'),
             onPressed: Platform.isIOS
                 ? () async {
@@ -127,7 +127,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
           // Processing tasks run only when the device is idle. iOS might
           // terminate any running background processing tasks when the
           // user starts using the device.
-          ElevatedButton(
+          FilledButton(
             child: Text('Register BackgroundProcessingTask (iOS)'),
             onPressed: Platform.isIOS
                 ? () async {
@@ -148,7 +148,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
             "Task cancellation",
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          ElevatedButton(
+          TextButton(
             child: Text("Cancel All"),
             onPressed: () async {
               await Workmanager().cancelAll();
@@ -156,10 +156,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
             },
           ),
           Gap.vertical.md(),
-          ElevatedButton(
-            child: Text('Refresh stats'),
-            onPressed: _refreshStats,
-          ),
+          FilledButton(child: Text('Refresh stats'), onPressed: _refreshStats),
           Gap.vertical.sm(),
           SingleChildScrollView(
             child: Text(
