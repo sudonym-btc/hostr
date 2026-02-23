@@ -36,7 +36,7 @@ class AmountWidget extends StatelessWidget {
           )
         else if (to != null)
           Text(to!, maxLines: 1, overflow: TextOverflow.ellipsis),
-        if (toPubkey != null || to != null) SizedBox(height: 8),
+        if (toPubkey != null || to != null) Gap.vertical.sm(),
         GestureDetector(
           onTap: onAmountTap,
           child: Row(
@@ -49,15 +49,15 @@ class AmountWidget extends StatelessWidget {
                 ),
               ),
               if (onAmountTap != null) ...[
-                const SizedBox(width: 4),
+                Gap.horizontal.xs(),
                 Icon(Icons.edit, size: 16),
               ],
             ],
           ),
         ),
-        SizedBox(height: 8),
+        Gap.vertical.sm(),
         feeWidget != null ? feeWidget! : SizedBox.shrink(),
-        SizedBox(height: 8),
+        Gap.vertical.sm(),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.end,

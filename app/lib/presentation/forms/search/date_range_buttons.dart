@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/core/main.dart';
+import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 
 import 'date_range_controller.dart';
 
@@ -46,8 +46,7 @@ class DateRangeButtons extends StatelessWidget {
           segments: [
             ButtonSegment(
               value: 'in',
-              label: Padding(
-                padding: EdgeInsets.all(kDefaultPadding.toDouble() / 2),
+              label: CustomPadding.md(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -68,8 +67,7 @@ class DateRangeButtons extends StatelessWidget {
             ),
             ButtonSegment(
               value: 'out',
-              label: Padding(
-                padding: EdgeInsets.all(kDefaultPadding.toDouble() / 2),
+              label: CustomPadding.md(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [

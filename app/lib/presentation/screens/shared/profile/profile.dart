@@ -2,7 +2,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
@@ -34,8 +33,7 @@ class ProfileScreen extends StatelessWidget {
             expandedHeight: 300.0,
             flexibleSpace: FlexibleSpaceBar(
               background: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
+                child: CustomPadding.sm(
                   child: ProfileProvider(
                     pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
                     builder: (context, snapshot) => ProfileHeaderWidget(
@@ -216,7 +214,7 @@ Widget _buildTrustedEscrowsBody(
   }
   return Column(
     children: [
-      SizedBox(height: kDefaultPadding.toDouble() / 2),
+      Gap.vertical.md(),
       ...pubkeys.map((pubkey) {
         return ProfileProvider(
           pubkey: pubkey,

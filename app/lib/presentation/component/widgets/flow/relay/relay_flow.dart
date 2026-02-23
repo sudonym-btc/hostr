@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 class RelayFlowWidget extends StatelessWidget {
@@ -73,10 +75,8 @@ class _RelayAddStepState extends State<RelayAddStep> {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       title: 'Add Relay',
-      content: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
+      content: CustomPadding.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
         child: TextField(
           controller: _urlController,
           enabled: !_isConnecting,
@@ -108,7 +108,7 @@ class _RelayAddStepState extends State<RelayAddStep> {
                   : const Text('Connect'),
             ),
           ),
-          const SizedBox(width: 10),
+          Gap.horizontal.custom(kSpace3),
           Expanded(
             child: TextButton(
               onPressed: _isConnecting

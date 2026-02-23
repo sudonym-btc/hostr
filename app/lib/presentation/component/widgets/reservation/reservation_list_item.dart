@@ -1,6 +1,5 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/config/main.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
@@ -52,7 +51,7 @@ class ReservationListItem extends StatelessWidget {
                       child: SmallListingCarousel(listing: listing),
                     ),
                   ),
-                SizedBox(width: kDefaultPadding.toDouble()),
+                Gap.horizontal.lg(),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,13 +62,13 @@ class ReservationListItem extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 4),
+                      Gap.vertical.xs(),
                       Text(
                         subtitle,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       if (listing != null) ...[
-                        const SizedBox(height: 8),
+                        Gap.vertical.sm(),
                         _buildStatusChip(context, listing),
                       ],
                     ],

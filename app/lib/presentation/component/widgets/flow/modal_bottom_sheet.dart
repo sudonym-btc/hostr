@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/main.dart';
 
 enum ModalBottomSheetType { error, normal, success }
@@ -53,22 +54,22 @@ class ModalBottomSheet extends StatelessWidget {
                 children: [
                   if (leading != null) ...[
                     leading!,
-                    const SizedBox(height: 12),
+                    Gap.vertical.custom(kSpace3),
                   ],
                   if (title != null)
                     Text(title!, style: Theme.of(context).textTheme.titleLarge),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 8),
+                    Gap.vertical.sm(),
                     Text(
                       subtitle!,
                       style: Theme.of(context).textTheme.bodyMedium,
                       textAlign: TextAlign.start,
                     ),
                   ],
-                  const SizedBox(height: 16),
+                  Gap.vertical.md(),
                   content,
                   if (buttons != null) ...[
-                    const SizedBox(height: 24),
+                    Gap.vertical.custom(kSpace5),
                     buttons!,
                   ],
                 ],

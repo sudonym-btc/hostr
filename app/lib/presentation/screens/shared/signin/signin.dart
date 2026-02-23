@@ -3,9 +3,10 @@ import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
-import 'package:hostr/presentation/component/widgets/ui/padding.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -120,7 +121,7 @@ class SignInScreenState extends State<SignInScreen> {
                   const Spacer(flex: 2),
                   // ── Logo ──
                   Image.asset('assets/images/logo/logo.png', height: 80),
-                  const SizedBox(height: 40),
+                  Gap.vertical.custom(40),
                   // ── Private key field ──
                   TextFormField(
                     key: const ValueKey('key'),
@@ -137,7 +138,7 @@ class SignInScreenState extends State<SignInScreen> {
                       prefixIcon: const Icon(Icons.key),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  Gap.vertical.custom(kSpace5),
                   // ── Sign In button ──
                   SizedBox(
                     width: double.infinity,
@@ -147,13 +148,12 @@ class SignInScreenState extends State<SignInScreen> {
                       child: Text(l10n.signIn),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  Gap.vertical.md(),
                   // ── OR divider ──
                   Row(
                     children: [
                       const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      CustomPadding.horizontal.md(
                         child: Text(
                           'OR',
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -164,7 +164,7 @@ class SignInScreenState extends State<SignInScreen> {
                       const Expanded(child: Divider()),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  Gap.vertical.md(),
                   // ── Sign Up button ──
                   SizedBox(
                     width: double.infinity,

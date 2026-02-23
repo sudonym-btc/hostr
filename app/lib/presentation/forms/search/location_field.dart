@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/sources/api/google_maps.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -331,9 +332,12 @@ class LocationFieldState extends State<LocationField> {
 
   Widget _buildBelowField() {
     if (_isBusy) {
-      return Padding(
+      return CustomPadding.only(
         key: const ValueKey('loading'),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        left: kSpace2,
+        right: kSpace2,
+        top: kSpace3,
+        bottom: kSpace3,
         child: Row(
           children: [
             const SizedBox(
@@ -341,7 +345,7 @@ class LocationFieldState extends State<LocationField> {
               height: 12,
               child: CircularProgressIndicator(strokeWidth: 1.5),
             ),
-            const SizedBox(width: 10),
+            Gap.horizontal.custom(kSpace3),
             AnimatedSwitcher(
               duration: kAnimationDuration,
               child: Text(
@@ -455,8 +459,8 @@ class LocationFieldState extends State<LocationField> {
           child: _buildBelowField(),
         ),
         if (widget.showH3Output)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
+          CustomPadding.only(
+            top: kSpace2,
             child: Align(
               alignment: Alignment.centerRight,
               child: Column(
@@ -469,8 +473,8 @@ class LocationFieldState extends State<LocationField> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (widget.controller.h3Tags.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                    CustomPadding.only(
+                      top: kSpace2,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -494,7 +498,7 @@ class LocationFieldState extends State<LocationField> {
                                 )
                                 .toList(),
                           ),
-                          const SizedBox(height: 8),
+                          Gap.vertical.sm(),
                           OutlinedButton.icon(
                             icon: const Icon(Icons.copy, size: 16),
                             label: const Text('Copy H3 indexes'),

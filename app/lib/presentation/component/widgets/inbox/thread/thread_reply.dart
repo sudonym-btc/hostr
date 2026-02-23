@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
 enum _ThreadReplyStatus { initial, loading, success, error }
 
@@ -47,7 +48,7 @@ class ThreadReplyView extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        Gap.horizontal.sm(),
         FilledButton(
           onPressed: isLoading || isEmpty ? null : onSend,
           child: Text(AppLocalizations.of(context)!.send),

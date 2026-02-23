@@ -73,8 +73,7 @@ class _ListingViewState extends State<ListingView> {
             return Scaffold(
               appBar: AppBar(),
               body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: CustomPadding.horizontal.lg(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -83,12 +82,12 @@ class _ListingViewState extends State<ListingView> {
                         size: 48,
                         color: Theme.of(context).colorScheme.error,
                       ),
-                      const SizedBox(height: 16),
+                      Gap.vertical.md(),
                       Text(
                         '${state.error}',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 24),
+                      Gap.vertical.custom(kSpace5),
                       FilledButton.icon(
                         onPressed: () =>
                             context.read<EntityCubit<Listing>>().get(),
@@ -125,7 +124,7 @@ class _ListingViewState extends State<ListingView> {
               return Column(
                 children: [
                   for (final item in items) ...[
-                    SizedBox(height: kDefaultPadding.toDouble()),
+                    Gap.vertical.lg(),
                     if (item is Invalid<Review>)
                       _InvalidReviewWrapper(
                         reason: item.reason,
@@ -279,19 +278,19 @@ class ListingViewBody extends StatelessWidget {
           listing.parsedContent.title,
           style: Theme.of(context).textTheme.titleLarge,
         ),
-        const SizedBox(height: 2.0),
+        Gap.vertical.custom(kSpace1 / 2),
         Row(
           children: [
             Text(hostedByText),
-            SizedBox(width: 8),
+            Gap.horizontal.sm(),
             Flexible(child: hostWidget),
           ],
         ),
-        const SizedBox(height: 8.0),
+        Gap.vertical.sm(),
         reviewsSummaryWidget,
-        const SizedBox(height: 8),
+        Gap.vertical.sm(),
         AmenityTagsWidget(amenities: listing.parsedContent.amenities),
-        const SizedBox(height: 16),
+        Gap.vertical.md(),
         Text(
           listing.parsedContent.description,
           style: Theme.of(context).textTheme.bodyMedium,
@@ -313,8 +312,8 @@ class ListingViewBody extends StatelessWidget {
                   )
                 : null;
 
-            return Padding(
-              padding: const EdgeInsets.only(top: 16),
+            return CustomPadding.only(
+              top: kSpace4,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
@@ -338,7 +337,7 @@ class ListingViewBody extends StatelessWidget {
           },
         ),
         if (isOwner) ...[
-          const SizedBox(height: 16),
+          Gap.vertical.md(),
           Text('Blocked Dates', style: Theme.of(context).textTheme.titleMedium),
           if (blockedReservations.isEmpty)
             Text('No blocked dates.')

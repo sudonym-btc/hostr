@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -90,7 +91,7 @@ class _CountSegment extends StatelessWidget {
                   height: 10,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                const SizedBox(width: 6),
+                Gap.horizontal.custom(6),
                 Text(noun),
               ],
             )

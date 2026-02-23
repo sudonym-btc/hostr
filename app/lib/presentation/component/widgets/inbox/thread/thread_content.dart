@@ -78,13 +78,13 @@ class _ThreadContentState extends State<ThreadContent> {
                   controller: _scrollController,
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: EdgeInsets.symmetric(vertical: kDefaultPadding / 2),
+                  padding: const EdgeInsets.symmetric(vertical: kSpace4),
                   itemCount: state.threadState.sortedMessages.length,
                   itemBuilder: (listContext, index) {
                     final message = state.threadState.sortedMessages[index];
                     return Column(
                       children: [
-                        if (index != 0) SizedBox(height: kDefaultPadding / 2),
+                        if (index != 0) Gap.vertical.md(),
                         _buildMessage(context, message: message),
                       ],
                     );

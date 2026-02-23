@@ -67,8 +67,8 @@ class TradeTimeline extends StatelessWidget {
                 // child: Icon(Icons.check, size: 12, color: Colors.white),
               ),
               contentsAlign: ContentsAlign.basic,
-              contentsBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.all(24.0),
+              contentsBuilder: (context, index) => CustomPadding.custom(
+                kSpace5,
                 child: PaymentTimelineItem(
                   event: events[index],
                   hostPubkey: hostPubKey,

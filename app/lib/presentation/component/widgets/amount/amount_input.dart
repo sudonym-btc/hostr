@@ -72,7 +72,7 @@ class AmountInputWidget extends FormField<Amount> {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: kDefaultPadding * 2),
+              Gap.vertical.custom(kSpace8),
               Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -88,8 +88,8 @@ class AmountInputWidget extends FormField<Amount> {
                           ),
                     ),
                     if (amountInput.min != null || amountInput.max != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                      CustomPadding.only(
+                        top: kSpace1,
                         child: Text(
                           '${amountInput.min != null ? formatAmount(amountInput.min!) : '0'} — ${amountInput.max != null ? formatAmount(amountInput.max!) : '∞'}',
                           style: TextStyle(fontSize: 12, color: Colors.grey),
@@ -98,7 +98,7 @@ class AmountInputWidget extends FormField<Amount> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              Gap.vertical.custom(kSpace5),
               CustomPadding(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,

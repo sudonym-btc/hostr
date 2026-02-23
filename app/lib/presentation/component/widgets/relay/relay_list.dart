@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import 'relay_list_item.dart';
@@ -20,7 +20,7 @@ class RelayListWidgetState extends State<RelayListWidget> {
 
     return Column(
       children: [
-        SizedBox(height: kDefaultPadding.toDouble() / 2),
+        Gap.vertical.md(),
         FutureBuilder<List<String>>(
           future: hostr.relays.relayStorage.get(),
           builder: (context, storedSnapshot) {
@@ -30,8 +30,7 @@ class RelayListWidgetState extends State<RelayListWidget> {
               stream: hostr.relays.connectivity(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
+                  return CustomPadding.md(
                     child: Text('Error: ${snapshot.error}'),
                   );
                 }

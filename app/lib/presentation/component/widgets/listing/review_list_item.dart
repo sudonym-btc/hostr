@@ -18,16 +18,16 @@ class ReviewListItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             StarRating(rating: review.parsedContent.rating),
-            const SizedBox(width: 8),
+            Gap.horizontal.sm(),
             ProfileChipWidget(id: review.pubKey),
           ],
         ),
-        SizedBox(height: 4),
+        Gap.vertical.xs(),
         MessageContainer(
           isSentByMe: false,
           child: Text(review.parsedContent.content),
         ),
-        SizedBox(height: 4),
+        Gap.vertical.xs(),
         Text(
           formatDate(
             DateTime.fromMillisecondsSinceEpoch(review.createdAt * 1000),

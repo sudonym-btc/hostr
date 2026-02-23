@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -37,7 +36,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
       maintainState: false,
       child: Column(
         children: [
-          SizedBox(height: kDefaultPadding.toDouble() / 2),
+          Gap.vertical.md(),
 
           StreamBuilder(
             stream: _balanceStream,

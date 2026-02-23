@@ -37,10 +37,7 @@ class _HomeScreenState extends State<HomeScreen>
     required String label,
   }) {
     return BottomNavigationBarItem(
-      icon: Padding(
-        padding: const EdgeInsets.only(top: _itemTopPadding),
-        child: icon,
-      ),
+      icon: CustomPadding.only(top: _itemTopPadding, child: icon),
       label: label,
       backgroundColor: Colors.transparent,
     );

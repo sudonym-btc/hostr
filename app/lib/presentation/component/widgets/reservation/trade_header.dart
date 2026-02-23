@@ -91,7 +91,7 @@ class TradeHeaderView extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                const SizedBox(height: 4.0),
+                Gap.vertical.xs(),
                 Text(
                   formatDateRangeShort(
                     DateTimeRange(start: start, end: end),
@@ -99,15 +99,15 @@ class TradeHeaderView extends StatelessWidget {
                   ),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                const CustomPadding(top: 0.2, bottom: 0),
+                Gap.vertical.custom(6),
                 Text(
                   formatAmount(amount),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                const CustomPadding(top: 0.2, bottom: 0),
+                Gap.vertical.custom(6),
                 paymentStatusWidget,
                 if (isBlocked) ...[
-                  const CustomPadding(top: 0.2, bottom: 0),
+                  Gap.vertical.custom(6),
                   Text(
                     blockedReason ?? 'This reservation is not available.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -133,7 +133,7 @@ class TradeHeaderView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(child: _buildDescription(context)),
-              const SizedBox(width: 12),
+              Gap.horizontal.custom(kSpace3),
               actionsRightWidget,
             ],
           ),
@@ -146,15 +146,15 @@ class TradeHeaderView extends StatelessWidget {
       child: ExpansionTile(
         splashColor: Colors.transparent,
         onExpansionChanged: (_) => FocusScope.of(context).unfocus(),
-        tilePadding: EdgeInsets.symmetric(
-          horizontal: kDefaultPadding.toDouble(),
-          vertical: kDefaultPadding.toDouble() / 2,
+        tilePadding: const EdgeInsets.symmetric(
+          horizontal: kSpace6,
+          vertical: kSpace4,
         ),
         shape: const Border(),
         collapsedShape: const Border(),
         title: _buildDescription(context),
         children: [
-          CustomPadding(top: 0, bottom: 0, child: timelineWidget),
+          CustomPadding.horizontal.lg(child: timelineWidget),
           CustomPadding(child: actionsWidget),
         ],
       ),
@@ -349,8 +349,8 @@ class TradeHeader extends StatelessWidget {
     }
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: kSpace2,
+      runSpacing: kSpace2,
       alignment: WrapAlignment.end,
       children: children,
     );

@@ -40,9 +40,9 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(height: 24),
+                  Gap.vertical.custom(kSpace5),
                   AsymptoticProgressBar(),
-                  SizedBox(height: 16),
+                  Gap.vertical.md(),
                 ],
               ),
             );

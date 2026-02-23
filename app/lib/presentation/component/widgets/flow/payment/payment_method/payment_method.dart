@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:models/main.dart';
@@ -51,7 +52,7 @@ class PaymentMethodWidget extends StatelessWidget {
                 },
                 child: const Text('Pay directly'),
               ),
-              SizedBox(width: 16),
+              Gap.horizontal.md(),
               FilledButton(
                 onPressed: () {
                   Navigator.of(context).pop();

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/list/list.cubit.dart';
 import 'package:hostr/presentation/component/providers/nostr/badge_definition.provider.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -39,7 +41,7 @@ class ListingBadgesWidget extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  const SizedBox(width: 8),
+                  Gap.horizontal.sm(),
                   Text(
                     'Loading badges...',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -61,7 +63,7 @@ class ListingBadgesWidget extends StatelessWidget {
                     size: 16,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 8),
+                  Gap.horizontal.sm(),
                   Text(
                     'No badges',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -74,8 +76,8 @@ class ListingBadgesWidget extends StatelessWidget {
           }
 
           return Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: kSpace2,
+            runSpacing: kSpace2,
             children: state.results.map((award) {
               return BadgeChip(award: award);
             }).toList(),
@@ -140,14 +142,14 @@ class BadgeChip extends StatelessWidget {
                       },
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  Gap.horizontal.custom(6),
                 ] else
                   Icon(
                     Icons.verified,
                     size: 20,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                const SizedBox(width: 4),
+                Gap.horizontal.xs(),
                 Text(
                   badgeName,
                   style: Theme.of(
@@ -193,14 +195,14 @@ class BadgeDetailsSheet extends StatelessWidget {
       expand: false,
       builder: (context, scrollController) {
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(kSpace4),
           child: ListView(
             controller: scrollController,
             children: [
               Center(
                 child: Container(
                   width: 40,
-                  height: 4,
+                  height: kSpace1,
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.outlineVariant,
@@ -227,44 +229,44 @@ class BadgeDetailsSheet extends StatelessWidget {
                     ),
                   ),
                 ),
-              const SizedBox(height: 16),
+              Gap.vertical.md(),
               Text(
                 badgeName,
                 style: Theme.of(context).textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
               if (badgeDescription != null) ...[
-                const SizedBox(height: 12),
+                Gap.vertical.custom(kSpace3),
                 Text(
                   badgeDescription,
                   style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
               ],
-              const SizedBox(height: 24),
+              Gap.vertical.custom(kSpace5),
               const Divider(),
-              const SizedBox(height: 16),
+              Gap.vertical.md(),
               Text(
                 'Badge Information',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 12),
+              Gap.vertical.custom(kSpace3),
               _InfoRow(
                 label: 'Issued by',
                 child: ProfileChipWidget(id: award.pubKey),
               ),
-              const SizedBox(height: 8),
+              Gap.vertical.sm(),
               _InfoRow(label: 'Award ID', value: _truncateHash(award.id)),
               if (badgeAnchor != null) ...[
-                const SizedBox(height: 8),
+                Gap.vertical.sm(),
                 _InfoRow(
                   label: 'Badge Anchor',
                   value: _truncateAnchor(badgeAnchor),
                 ),
               ],
-              const SizedBox(height: 16),
+              Gap.vertical.md(),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(kSpace3),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
@@ -279,14 +281,14 @@ class BadgeDetailsSheet extends StatelessWidget {
                           size: 16,
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(width: 8),
+                        Gap.horizontal.sm(),
                         Text(
                           'About Badges',
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    Gap.vertical.sm(),
                     Text(
                       'Badges are immutable awards that cannot be revoked by the issuer. '
                       'The listing owner can choose to hide badges from their display, '
@@ -336,7 +338,7 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        Gap.horizontal.custom(kSpace3),
         Expanded(
           child:
               child ??

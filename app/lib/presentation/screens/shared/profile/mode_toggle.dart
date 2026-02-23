@@ -32,15 +32,13 @@ class ModeToggleWidget extends StatelessWidget {
                 context,
               ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                CustomPadding.horizontal.md(
                   child: Text(
                     AppLocalizations.of(context)!.hostMode,
                     textAlign: TextAlign.center,
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                CustomPadding.horizontal.md(
                   child: Text(
                     AppLocalizations.of(context)!.guestMode,
                     textAlign: TextAlign.center,

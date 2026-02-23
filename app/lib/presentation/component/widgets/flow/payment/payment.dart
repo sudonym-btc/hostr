@@ -88,10 +88,8 @@ class PaymentConfirmWidget extends StatelessWidget {
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return const SizedBox.shrink();
                   }
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      bottom: kDefaultPadding.toDouble() / 2,
-                    ),
+                  return CustomPadding.only(
+                    bottom: kSpace4,
                     child: NostrWalletConnectConnectionWidget(),
                   );
                 },
@@ -154,9 +152,9 @@ class PaymentProgressWidget extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: 16),
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
+          Gap.vertical.md(),
+          const CircularProgressIndicator(),
+          Gap.vertical.md(),
         ],
       ),
     );
@@ -190,7 +188,6 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // CustomPadding(top: 1, bottom: 0),
                     CountDownText(
                       due: DateTime.fromMillisecondsSinceEpoch(
                         (unixUntilExpired * 1000).toInt(),
@@ -204,7 +201,7 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                         ).colorScheme.error.withAlpha(150),
                       ),
                     ),
-                    CustomPadding(top: 0.2, bottom: 0),
+                    Gap.vertical.custom(6),
 
                     Expanded(
                       child: QrImageView(
@@ -221,7 +218,7 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                       ),
                     ),
 
-                    CustomPadding(top: 1, bottom: 0),
+                    Gap.vertical.lg(),
 
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -246,7 +243,7 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                             if (snapshot.hasData && snapshot.data == true) {
                               return Row(
                                 children: [
-                                  SizedBox(width: 12),
+                                  Gap.horizontal.custom(kSpace3),
                                   FilledButton(
                                     onPressed: () async {
                                       if (await canLaunchUrl(uri)) {
