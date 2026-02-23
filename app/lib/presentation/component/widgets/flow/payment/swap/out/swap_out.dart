@@ -107,7 +107,7 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
         future: _feesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: AppLoadingIndicator.large());
           }
 
           if (snapshot.hasError) {

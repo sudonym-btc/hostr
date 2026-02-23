@@ -234,11 +234,7 @@ class _EditReviewState extends State<EditReview> {
                 child: FilledButton(
                   onPressed: _controller.canSubmit ? _handleSave : null,
                   child: _controller.isSaving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const AppLoadingIndicator.small()
                       : Text('Save'),
                 ),
               ),

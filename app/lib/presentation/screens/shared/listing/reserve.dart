@@ -115,12 +115,7 @@ class ReserveState extends State<Reserve> {
                                   );
                             }),
                       child: state.status == ReservationCubitStatus.loading
-                          ? CircularProgressIndicator(
-                              constraints: BoxConstraints(
-                                minWidth: 5,
-                                minHeight: 5,
-                              ),
-                            )
+                          ? const AppLoadingIndicator.small()
                           : Text(AppLocalizations.of(context)!.reserve),
                     );
                   },

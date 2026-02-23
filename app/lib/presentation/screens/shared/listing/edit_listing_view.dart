@@ -45,11 +45,7 @@ class EditListingViewState extends State<EditListingView> {
                           }
                         : null,
                     child: controller.isSaving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
+                        ? const AppLoadingIndicator.small()
                         : Text(AppLocalizations.of(context)!.save),
                   );
                 },
@@ -166,8 +162,8 @@ class EditListingViewState extends State<EditListingView> {
             },
             builder: (context, state) {
               if (state.data == null) {
-                return Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
+                return const Scaffold(
+                  body: Center(child: AppLoadingIndicator.large()),
                 );
               }
               return buildListing(context, state.data!);

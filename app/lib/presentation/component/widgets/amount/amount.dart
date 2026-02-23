@@ -65,13 +65,8 @@ class AmountWidget extends StatelessWidget {
             FilledButton(
               onPressed: loading ? null : () => onConfirm(),
               child: loading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                  ? AppLoadingIndicator.small(
+                      color: Theme.of(context).colorScheme.onSurface,
                     )
                   : Text(AppLocalizations.of(context)!.ok),
             ),

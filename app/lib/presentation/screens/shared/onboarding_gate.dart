@@ -29,58 +29,51 @@ class OnboardingScreen extends StatelessWidget {
 
 class _OnboardingBody extends StatelessWidget {
   final bool popOnComplete;
-  const _OnboardingBody({this.popOnComplete = false});
+  const _OnboardingBody({required this.popOnComplete});
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<OnboardingCubit, OnboardingState>(
-      listener: (context, state) {
-        if (state is OnboardingComplete) {
-          // Switch mode based on whether the user has listings.
-          if (state.isHost) {
-            context.read<ModeCubit>().setHost();
-          } else {
-            context.read<ModeCubit>().setGuest();
-          }
+    return BlocConsumer<OnboardingCubit, OnboardingState>(
+      listener: (context, state) async {
+        if (state is! OnboardingComplete) return;
 
+        if (state.isHost) {
+          try {
+            await context.read<ModeCubit>().setHost();
+          } catch (_) {}
+        }
+
+        if (!context.mounted) return;
+
+        if (!state.hasMetadata) {
           if (popOnComplete) {
-            // Pop back to wherever the user was (e.g. listing page).
-            context.router.maybePop();
-            return;
-          }
-
-          if (!state.hasMetadata) {
-            // New user with no profile → edit profile first.
-            context.router.replaceAll([
-              HomeRoute(children: [ProfileRoute()]),
-              EditProfileRoute(),
-            ]);
+            context.router.popUntilRoot();
+            context.router.replace(EditProfileRoute());
           } else {
-            context.router.replaceAll([HomeRoute()]);
+            context.router.replace(EditProfileRoute());
           }
+          return;
+        }
+
+        if (popOnComplete) {
+          context.router.popUntilRoot();
+          context.router.replace(const HomeRoute());
+        } else {
+          context.router.replace(const HomeRoute());
         }
       },
-      child: BlocBuilder<OnboardingCubit, OnboardingState>(
-        builder: (context, state) {
-          return switch (state) {
-            OnboardingError(message: final msg) => _ErrorView(
-              message: msg,
-              onRetry: () {
-                context.read<OnboardingCubit>().reset();
-                context.read<OnboardingCubit>().run();
-              },
-            ),
-            OnboardingInProgress() => _ProgressView(state: state),
-            // Show the first-step spinner for initial / complete (brief flash
-            // before the listener navigates away).
-            _ => _ProgressView(
-              state: const OnboardingInProgress(
-                currentStep: OnboardingStep.relayList,
-              ),
-            ),
-          };
-        },
-      ),
+      builder: (context, state) {
+        return switch (state) {
+          OnboardingError(:final message) => _ErrorView(
+            message: message,
+            onRetry: () => context.read<OnboardingCubit>().run(),
+          ),
+          OnboardingInProgress() => _ProgressView(state: state),
+          _ => const _ProgressView(
+            state: OnboardingInProgress(currentStep: OnboardingStep.relayList),
+          ),
+        };
+      },
     );
   }
 }
@@ -106,8 +99,9 @@ class _ProgressView extends StatelessWidget {
               SizedBox(
                 width: 64,
                 height: 64,
-                child: CircularProgressIndicator(
+                child: AppLoadingIndicator.progress(
                   value: state.progress,
+                  size: 64,
                   strokeWidth: 4,
                 ),
               ),
@@ -128,11 +122,7 @@ class _ProgressView extends StatelessWidget {
                           size: kIconMd,
                         )
                       else if (isCurrent)
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                        const AppLoadingIndicator.small()
                       else
                         Icon(
                           Icons.radio_button_unchecked,

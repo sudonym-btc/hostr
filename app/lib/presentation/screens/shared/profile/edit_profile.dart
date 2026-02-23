@@ -77,7 +77,7 @@ class EditProfileViewState extends State<EditProfileView> {
           onDone: (metadata) => controller.setState(metadata),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return CircularProgressIndicator();
+              return const Center(child: AppLoadingIndicator.large());
             }
             if (snapshot.connectionState == ConnectionState.done) {
               return CustomPadding(

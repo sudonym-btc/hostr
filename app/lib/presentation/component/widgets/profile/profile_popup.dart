@@ -208,11 +208,7 @@ class _Nip05Row extends StatelessWidget {
         icon: Icons.badge_outlined,
         iconColor: colorScheme.outline,
         title: nip05!,
-        trailing: const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        trailing: const AppLoadingIndicator.small(),
       );
     }
 
@@ -259,11 +255,7 @@ class _Lud16Row extends StatelessWidget {
         icon: Icons.bolt,
         iconColor: Theme.of(context).colorScheme.error,
         title: lud16!,
-        trailing: const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        trailing: const AppLoadingIndicator.small(),
       );
     }
 

@@ -44,7 +44,7 @@ class _TripsScreenState extends State<TripsScreen> {
         stream: _reservationsStream.list,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: AppLoadingIndicator.large());
           }
 
           final grouped = _groupByCommitmentHash(snapshot.data!);

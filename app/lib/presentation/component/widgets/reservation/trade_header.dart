@@ -127,7 +127,7 @@ class TradeHeaderView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isReservationRequestOnly) {
-      return _ShimmerSurface(
+      return ShimmerPlaceholder(
         loading: !runtimeReady,
         child: CustomPadding(
           child: Row(
@@ -142,7 +142,7 @@ class TradeHeaderView extends StatelessWidget {
       );
     }
 
-    return _ShimmerSurface(
+    return ShimmerPlaceholder(
       loading: !runtimeReady,
       child: ExpansionTile(
         splashColor: Colors.transparent,
@@ -159,79 +159,6 @@ class TradeHeaderView extends StatelessWidget {
           CustomPadding(child: actionsWidget),
         ],
       ),
-    );
-  }
-}
-
-class _ShimmerSurface extends StatefulWidget {
-  final bool loading;
-  final Widget child;
-
-  const _ShimmerSurface({required this.loading, required this.child});
-
-  @override
-  State<_ShimmerSurface> createState() => _ShimmerSurfaceState();
-}
-
-class _ShimmerSurfaceState extends State<_ShimmerSurface>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    if (widget.loading) _controller.repeat();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ShimmerSurface oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.loading && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.loading && _controller.isAnimating) {
-      _controller.stop();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final surface = Theme.of(context).colorScheme.surface;
-    if (!widget.loading) {
-      return Container(color: surface, child: widget.child);
-    }
-
-    final highlight = Color.lerp(
-      surface,
-      Theme.of(context).colorScheme.surfaceContainerHigh,
-      0.4,
-    )!;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final t = _controller.value * 2 - 0.5;
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment(t - 0.6, -1),
-              end: Alignment(t + 0.6, 1),
-              colors: [surface, highlight, surface],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-          ),
-          child: child,
-        );
-      },
-      child: widget.child,
     );
   }
 }
