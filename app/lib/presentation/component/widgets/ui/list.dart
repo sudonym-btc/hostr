@@ -81,8 +81,8 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
     if (key?.currentContext != null) {
       Scrollable.ensureVisible(
         key!.currentContext!,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
+        duration: kAnimationDuration,
+        curve: kAnimationCurve,
         alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
       );
       return;
@@ -107,19 +107,15 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
     );
 
     _scrollController
-        .animateTo(
-          target,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOut,
-        )
+        .animateTo(target, duration: kAnimationDuration, curve: kAnimationCurve)
         .then((_) {
           // After scrolling, the item should be built — refine with ensureVisible.
           final builtKey = _itemKeys[id];
           if (builtKey?.currentContext != null) {
             Scrollable.ensureVisible(
               builtKey!.currentContext!,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
+              duration: kAnimationDuration,
+              curve: kAnimationCurve,
               alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
             );
           }

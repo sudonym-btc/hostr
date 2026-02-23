@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/sources/image_preloader.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/ui/image_load_error.dart';
+import 'package:hostr/presentation/component/widgets/ui/image_loading_shimmer.dart';
 
 class BlossomImage extends StatelessWidget {
   final String image;
@@ -33,7 +36,32 @@ class BlossomImage extends StatelessWidget {
       alignment: alignment ?? Alignment.center,
       width: width,
       height: height,
-      errorBuilder: (context, error, stackTrace) => const Placeholder(),
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        final loaded = wasSynchronouslyLoaded || frame != null;
+        return SizedBox(
+          width: width,
+          height: height,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AnimatedOpacity(
+                opacity: loaded ? 0 : 1,
+                duration: kAnimationDuration,
+                curve: kAnimationCurve,
+                child: ImageLoadingShimmer(width: width, height: height),
+              ),
+              AnimatedOpacity(
+                opacity: loaded ? 1 : 0,
+                duration: kAnimationDuration,
+                curve: kAnimationCurve,
+                child: child,
+              ),
+            ],
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) =>
+          ImageLoadError(width: width, height: height),
     );
   }
 
@@ -54,11 +82,11 @@ class BlossomImage extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done ||
               snapshot.data == null) {
-            return SizedBox(
-              width: width,
-              height: height,
-              child: const Center(child: CircularProgressIndicator()),
-            );
+            if (snapshot.connectionState == ConnectionState.done &&
+                snapshot.data == null) {
+              return ImageLoadError(width: width, height: height);
+            }
+            return ImageLoadingShimmer(width: width, height: height);
           }
           return _networkImage(snapshot.data!);
         },
@@ -66,7 +94,7 @@ class BlossomImage extends StatelessWidget {
     } else if (isNetworkPath(image)) {
       return _networkImage(image);
     } else {
-      return const Placeholder();
+      return ImageLoadError(width: width, height: height);
     }
   }
 }

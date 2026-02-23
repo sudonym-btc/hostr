@@ -133,13 +133,33 @@ class BadgeChip extends StatelessWidget {
                       width: 20,
                       height: 20,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.verified,
-                          size: kIconMd,
-                          color: Theme.of(context).colorScheme.primary,
-                        );
-                      },
+                      frameBuilder:
+                          (context, child, frame, wasSynchronouslyLoaded) {
+                            final loaded =
+                                wasSynchronouslyLoaded || frame != null;
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                AnimatedOpacity(
+                                  opacity: loaded ? 0 : 1,
+                                  duration: kAnimationDuration,
+                                  curve: kAnimationCurve,
+                                  child: const ImageLoadingShimmer(
+                                    width: 20,
+                                    height: 20,
+                                  ),
+                                ),
+                                AnimatedOpacity(
+                                  opacity: loaded ? 1 : 0,
+                                  duration: kAnimationDuration,
+                                  curve: kAnimationCurve,
+                                  child: child,
+                                ),
+                              ],
+                            );
+                          },
+                      errorBuilder: (context, error, stackTrace) =>
+                          const ImageLoadError(width: 20, height: 20),
                     ),
                   ),
                   Gap.horizontal.custom(6),
@@ -219,13 +239,36 @@ class BadgeDetailsSheet extends StatelessWidget {
                       width: kIconHero,
                       height: kIconHero,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.verified,
-                          size: kIconHero,
-                          color: Theme.of(context).colorScheme.primary,
-                        );
-                      },
+                      frameBuilder:
+                          (context, child, frame, wasSynchronouslyLoaded) {
+                            final loaded =
+                                wasSynchronouslyLoaded || frame != null;
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                AnimatedOpacity(
+                                  opacity: loaded ? 0 : 1,
+                                  duration: kAnimationDuration,
+                                  curve: kAnimationCurve,
+                                  child: const ImageLoadingShimmer(
+                                    width: kIconHero,
+                                    height: kIconHero,
+                                  ),
+                                ),
+                                AnimatedOpacity(
+                                  opacity: loaded ? 1 : 0,
+                                  duration: kAnimationDuration,
+                                  curve: kAnimationCurve,
+                                  child: child,
+                                ),
+                              ],
+                            );
+                          },
+                      errorBuilder: (context, error, stackTrace) =>
+                          const ImageLoadError(
+                            width: kIconHero,
+                            height: kIconHero,
+                          ),
                     ),
                   ),
                 ),

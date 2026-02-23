@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -41,42 +42,48 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
           StreamBuilder(
             stream: _balanceStream,
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return CircularProgressIndicator();
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Text(
-                    style: Theme.of(context).textTheme.displayMedium!.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    formatAmount(
-                      Amount(
-                        value: snapshot.data!.getInSats,
-                        currency: Currency.BTC,
+              return AnimatedSwitcher(
+                duration: kAnimationDuration,
+                switchInCurve: kAnimationCurve,
+                switchOutCurve: kAnimationCurve,
+                child: !snapshot.hasData
+                    ? const CircularProgressIndicator(key: ValueKey('loading'))
+                    : Row(
+                        key: const ValueKey('ready'),
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          Text(
+                            style: Theme.of(context).textTheme.displayMedium!
+                                .copyWith(fontWeight: FontWeight.bold),
+                            formatAmount(
+                              Amount(
+                                value: snapshot.data!.getInSats,
+                                currency: Currency.BTC,
+                              ),
+                              exact: false,
+                            ),
+                          ),
+                          if (snapshot.data!.getInSats > BigInt.zero)
+                            FilledButton.tonal(
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  builder: (context) {
+                                    return SwapOutFlowWidget(
+                                      cubit: getIt<Hostr>()
+                                          .evm
+                                          .supportedEvmChains[0]
+                                          .swapOutAll(),
+                                    );
+                                  },
+                                );
+                              },
+                              child: Text('Withdraw'),
+                            ),
+                        ],
                       ),
-                      exact: false,
-                    ),
-                  ),
-                  if (snapshot.data!.getInSats > BigInt.zero)
-                    FilledButton.tonal(
-                      onPressed: () {
-                        showModalBottomSheet(
-                          context: context,
-                          builder: (context) {
-                            return SwapOutFlowWidget(
-                              cubit: getIt<Hostr>().evm.supportedEvmChains[0]
-                                  .swapOutAll(),
-                            );
-                          },
-                        );
-                      },
-                      child: Text('Withdraw'),
-                    ),
-                ],
               );
             },
           ),
