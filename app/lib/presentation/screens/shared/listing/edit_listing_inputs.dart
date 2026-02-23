@@ -247,7 +247,7 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
                                   ).textTheme.bodyMedium!.fontSize,
                                   color: chipTheme.labelStyle?.color,
                                 ),
-                                const SizedBox(width: 6),
+                                Gap.horizontal.custom(6),
                                 IntrinsicWidth(
                                   child: ConstrainedBox(
                                     constraints: const BoxConstraints(

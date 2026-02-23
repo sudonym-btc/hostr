@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 
@@ -42,7 +41,7 @@ class _SearchFormState extends State<SearchForm> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 FormLabel(label: 'Where are you going?'),
-                SizedBox(height: kDefaultPadding.toDouble() / 2),
+                Gap.vertical.md(),
                 LocationField(
                   controller: widget.controller.locationController,
                   featureTypes: const {
@@ -57,9 +56,9 @@ class _SearchFormState extends State<SearchForm> {
                   polygonMaxTags: 1000,
                   debounceDuration: const Duration(milliseconds: 400),
                 ),
-                SizedBox(height: kDefaultPadding.toDouble()),
+                Gap.vertical.lg(),
                 FormLabel(label: 'When?'),
-                SizedBox(height: kDefaultPadding.toDouble()),
+                Gap.vertical.lg(),
 
                 SizedBox(
                   width: double.infinity,

@@ -34,7 +34,7 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
                 context,
               ).textTheme.bodyMedium?.copyWith(color: textColor),
             ),
-            const SizedBox(height: 4),
+            Gap.vertical.xs(),
             Text(
               formatDateRangeShort(
                 DateTimeRange(

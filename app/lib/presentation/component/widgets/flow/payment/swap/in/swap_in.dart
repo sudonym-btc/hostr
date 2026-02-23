@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
-import 'package:hostr/presentation/component/widgets/ui/asymptotic_progress_bar.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../../modal_bottom_sheet.dart';
@@ -85,7 +86,7 @@ class SwapInProgressWidget extends StatelessWidget {
   String get _subtitle {
     switch (state) {
       case SwapInAwaitingOnChain():
-        return 'Waiting for transaction to confirm...';
+        return 'Waiting for transaction toxc confirm...';
       case SwapInFunded():
         return 'Swap funded, claiming...';
       case SwapInClaimed():
@@ -106,9 +107,9 @@ class SwapInProgressWidget extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: 24),
+          Gap.vertical.custom(kSpace5),
           AsymptoticProgressBar(),
-          SizedBox(height: 16),
+          Gap.vertical.md(),
         ],
       ),
     );

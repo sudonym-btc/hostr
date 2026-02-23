@@ -28,22 +28,22 @@ class SignUpWidget extends StatelessWidget {
                     'You might want to jot this down',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  CustomPadding(top: 0, bottom: 0.5),
+                  Gap.vertical.md(),
                   // Text(
                   //   'Your keys allow you to log into your account. While you\ll be able to see these late, loss of these keys means loss of account information and possible loss of funds.',
                   // ),
-                  CustomPadding(top: 0),
+                  Gap.vertical.lg(),
                   Text(
                     'Mnemonic',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 8),
+                  Gap.vertical.sm(),
                   // Text(entropyToMnemonic(keyPair.privateKey!)),
-                  SizedBox(height: 16),
+                  Gap.vertical.md(),
                   Text('nsec', style: TextStyle(fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
+                  Gap.vertical.sm(),
                   Text(keyPair.privateKey!),
-                  CustomPadding(),
+                  Gap.vertical.lg(),
                   Center(
                     child: FilledButton(
                       onPressed: () => Navigator.pop(context),

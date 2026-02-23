@@ -50,7 +50,7 @@ class ListingListItemView extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.titleLarge,
         ),
-        const SizedBox(height: kDefaultPadding / 6),
+        Gap.vertical.sm(),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -59,11 +59,11 @@ class ListingListItemView extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: kDefaultPadding / 6),
+            Gap.vertical.sm(),
             if (showAvailability && availabilityWidget != null)
               availabilityWidget!,
             if (showAvailability && availabilityWidget != null)
-              const SizedBox(height: kDefaultPadding / 6),
+              Gap.vertical.sm(),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.max,
@@ -74,7 +74,7 @@ class ListingListItemView extends StatelessWidget {
                 ],
                 if (showFeedback) ...[
                   const Spacer(),
-                  if (showPrice) SizedBox(width: kDefaultFontSize),
+                  if (showPrice) Gap.horizontal.md(),
                   ReviewsReservationsWidget(listing: listing),
                 ],
               ],
@@ -95,7 +95,7 @@ class ListingListItemView extends StatelessWidget {
             ? Row(
                 children: [
                   SizedBox(height: 100, width: 100, child: _buildImage()),
-                  SizedBox(width: kDefaultPadding.toDouble()),
+                  Gap.horizontal.lg(),
                   Expanded(child: _buildDetails(context)),
                 ],
               )
@@ -103,7 +103,7 @@ class ListingListItemView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildImage(),
-                  const SizedBox(height: 8.0),
+                  Gap.vertical.sm(),
                   _buildDetails(context),
                 ],
               ),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
-import 'package:hostr/presentation/component/widgets/ui/asymptotic_progress_bar.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../../../amount/amount_input.dart';
@@ -192,9 +193,9 @@ class SwapOutProgressWidget extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: 24),
+          Gap.vertical.custom(kSpace5),
           AsymptoticProgressBar(),
-          SizedBox(height: 16),
+          Gap.vertical.md(),
         ],
       ),
     );
@@ -301,7 +302,7 @@ class _SwapOutExternalInvoiceWidgetState
             'in your wallet and paste it below.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 16),
+          Gap.vertical.md(),
           TextField(
             controller: _controller,
             decoration: InputDecoration(
@@ -315,7 +316,7 @@ class _SwapOutExternalInvoiceWidgetState
             ),
             maxLines: 3,
           ),
-          const SizedBox(height: 16),
+          Gap.vertical.md(),
           ElevatedButton(onPressed: _submit, child: const Text('Continue')),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:models/main.dart';
 
 class ThreadHeaderWidget extends StatelessWidget {
@@ -103,7 +104,7 @@ class ProfileAvatars extends StatelessWidget {
               (counterparty) => Positioned(
                 left:
                     profiles.indexOf(counterparty) *
-                    12.0, // 8 pixels offset for each
+                    kSpace3, // overlap offset for each avatar
                 child: GestureDetector(
                   onTap: onProfileTap != null
                       ? () => onProfileTap!(counterparty)

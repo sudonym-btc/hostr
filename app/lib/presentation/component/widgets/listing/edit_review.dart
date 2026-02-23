@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/config/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -176,7 +176,7 @@ class _EditReviewState extends State<EditReview> {
                   hintText: 'Tell others about your stay',
                 ),
               ),
-              SizedBox(height: kDefaultPadding.toDouble()),
+              Gap.vertical.lg(),
               FormField<int>(
                 initialValue: _controller.rating,
                 validator: _controller.validateRating,
@@ -185,7 +185,7 @@ class _EditReviewState extends State<EditReview> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const FormLabel(label: 'Rating'),
-                      SizedBox(height: kDefaultPadding.toDouble() / 4),
+                      Gap.vertical.sm(),
                       Row(
                         mainAxisSize: MainAxisSize.max,
                         children: [
@@ -215,8 +215,8 @@ class _EditReviewState extends State<EditReview> {
                       //   style: Theme.of(context).textTheme.bodySmall,
                       // ),
                       if (field.hasError)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
+                        CustomPadding.only(
+                          top: 6,
                           child: Text(
                             field.errorText!,
                             style: TextStyle(
@@ -228,7 +228,7 @@ class _EditReviewState extends State<EditReview> {
                   );
                 },
               ),
-              SizedBox(height: kDefaultPadding.toDouble()),
+              Gap.vertical.lg(),
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton(

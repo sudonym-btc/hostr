@@ -1,8 +1,10 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
@@ -96,8 +98,7 @@ class _ProgressView extends StatelessWidget {
 
     return Scaffold(
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: CustomPadding.horizontal.lg(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -110,15 +111,14 @@ class _ProgressView extends StatelessWidget {
                   strokeWidth: 4,
                 ),
               ),
-              const SizedBox(height: 32),
+              Gap.vertical.lg(),
 
               // Step checklist
               ...steps.map((step) {
                 final isDone = state.completedSteps.contains(step);
                 final isCurrent = step == state.currentStep;
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                return CustomPadding.vertical.xs(
                   child: Row(
                     children: [
                       if (isDone)
@@ -139,7 +139,7 @@ class _ProgressView extends StatelessWidget {
                           color: theme.colorScheme.outline,
                           size: 20,
                         ),
-                      const SizedBox(width: 12),
+                      Gap.horizontal.custom(kSpace3),
                       Text(
                         step.label,
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -175,8 +175,7 @@ class _ErrorView extends StatelessWidget {
     final theme = Theme.of(context);
     return Scaffold(
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: CustomPadding.horizontal.lg(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -185,9 +184,9 @@ class _ErrorView extends StatelessWidget {
                 size: 48,
                 color: theme.colorScheme.error,
               ),
-              const SizedBox(height: 16),
+              Gap.vertical.md(),
               Text('Something went wrong', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
+              Gap.vertical.sm(),
               Text(
                 message,
                 textAlign: TextAlign.center,
@@ -195,7 +194,7 @@ class _ErrorView extends StatelessWidget {
                   color: theme.colorScheme.outline,
                 ),
               ),
-              const SizedBox(height: 24),
+              Gap.vertical.custom(kSpace5),
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
-import 'package:hostr/presentation/component/widgets/ui/padding.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -144,7 +145,7 @@ class _ProfilePopupState extends State<ProfilePopup> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // const Divider(height: 1),
-              const SizedBox(height: 12),
+              Gap.vertical.custom(kSpace3),
 
               // NIP-05 verification
               _Nip05Row(
@@ -153,7 +154,7 @@ class _ProfilePopupState extends State<ProfilePopup> {
                 loading: _nip05Loading,
               ),
 
-              const SizedBox(height: 8),
+              Gap.vertical.sm(),
 
               // LUD-16 verification
               _Lud16Row(
@@ -162,7 +163,7 @@ class _ProfilePopupState extends State<ProfilePopup> {
                 loading: _lud16Loading,
               ),
 
-              const SizedBox(height: 16),
+              Gap.vertical.md(),
 
               // Pubkey (truncated, copyable)
               _PubkeyRow(pubkey: widget.pubkey),
@@ -330,7 +331,7 @@ class _PubkeyRow extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.key, size: 14, color: theme.colorScheme.outline),
-              const SizedBox(width: 6),
+              Gap.horizontal.custom(6),
               Text(
                 truncated,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -338,7 +339,7 @@ class _PubkeyRow extends StatelessWidget {
                   color: theme.colorScheme.outline,
                 ),
               ),
-              const SizedBox(width: 4),
+              Gap.horizontal.xs(),
               Icon(Icons.copy, size: 12, color: theme.colorScheme.outline),
             ],
           ),
@@ -366,7 +367,7 @@ Widget _verificationTile(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Icon(icon, color: iconColor, size: 20),
-      const SizedBox(width: 8),
+      Gap.horizontal.sm(),
       Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,8 +385,8 @@ Widget _verificationTile(
                 ),
               ),
             if (chipRow != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
+              CustomPadding.only(
+                top: kSpace1,
                 child: Wrap(spacing: 4, runSpacing: 4, children: chipRow),
               ),
           ],

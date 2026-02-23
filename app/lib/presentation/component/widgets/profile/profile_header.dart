@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
-import 'package:hostr/presentation/component/widgets/ui/padding.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:models/main.dart';
 
 class ProfileHeaderWidget extends StatelessWidget {
@@ -27,12 +28,12 @@ class ProfileHeaderWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
-            const SizedBox(height: 16),
+            Gap.vertical.md(),
             Text(
               'No profile set up yet',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 12),
+            Gap.vertical.custom(kSpace3),
             if (onEditProfile != null)
               FilledButton.icon(
                 onPressed: onEditProfile,
@@ -68,14 +69,14 @@ class ProfileHeaderWidget extends StatelessWidget {
                     )
                   : null,
             ),
-            const SizedBox(height: 16),
+            Gap.vertical.md(),
             Text(
               displayName,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            Gap.vertical.sm(),
             Text(nip05, style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 4),
+            Gap.vertical.xs(),
             Text(
               about,
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/nwc_connectivity.cubit.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
 /// A banner that slides up from the bottom of the screen when the user has
 /// a wallet saved but all NWC connections have failed.
@@ -65,11 +66,14 @@ class NwcConnectivityBannerView extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.all(kSpace3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: kSpace4,
+        vertical: kSpace3,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kSpace3),
         boxShadow: [
           BoxShadow(
             color: Colors.black26,
@@ -84,7 +88,7 @@ class NwcConnectivityBannerView extends StatelessWidget {
             Icons.account_balance_wallet_outlined,
             color: theme.colorScheme.onErrorContainer,
           ),
-          const SizedBox(width: 12),
+          Gap.horizontal.custom(kSpace3),
           Expanded(
             child: Text(
               'Wallet connection failed — '

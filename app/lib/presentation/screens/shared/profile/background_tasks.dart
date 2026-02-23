@@ -28,8 +28,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
+    return CustomPadding.sm(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -59,17 +58,17 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
               print('WorkManager already initialized');
             },
           ),
-          SizedBox(height: 8),
+          Gap.vertical.sm(),
           Text(
             "Register task",
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          SizedBox(height: 8),
+          Gap.vertical.sm(),
           Text(
             "Register periodic task (android only)",
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          SizedBox(height: 16),
+          Gap.vertical.md(),
           Text(
             "Test Periodic Task with UPDATE Policy (Android)",
             style: Theme.of(context).textTheme.headlineSmall,
@@ -78,7 +77,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
             "Demonstrates issue #622 fix - changing frequency updates the existing task",
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          SizedBox(height: 8),
+          Gap.vertical.sm(),
           if (Platform.isAndroid) ...[
             Row(
               children: [
@@ -102,7 +101,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
             ),
           ],
 
-          SizedBox(height: 16),
+          Gap.vertical.md(),
           // Currently we cannot provide frequency for iOS, hence it will be
           // minimum 15 minutes after which iOS will reschedule
           ElevatedButton(
@@ -144,7 +143,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
                   }
                 : null,
           ),
-          SizedBox(height: 8),
+          Gap.vertical.sm(),
           Text(
             "Task cancellation",
             style: Theme.of(context).textTheme.headlineSmall,
@@ -156,12 +155,12 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
               print('Cancel all tasks completed');
             },
           ),
-          SizedBox(height: 15),
+          Gap.vertical.md(),
           ElevatedButton(
             child: Text('Refresh stats'),
             onPressed: _refreshStats,
           ),
-          SizedBox(height: 10),
+          Gap.vertical.sm(),
           SingleChildScrollView(
             child: Text(
               'Task run stats:\n'

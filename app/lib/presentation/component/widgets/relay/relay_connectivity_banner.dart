@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/relay_connectivity.cubit.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
 /// A banner that slides up from the bottom of the screen when more than 50%
 /// of relays are disconnected.
@@ -65,11 +66,14 @@ class RelayConnectivityBannerView extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.all(kSpace3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: kSpace4,
+        vertical: kSpace3,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.error,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kSpace3),
         boxShadow: [
           BoxShadow(
             color: Colors.black26,
@@ -81,7 +85,7 @@ class RelayConnectivityBannerView extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.wifi_off, color: theme.colorScheme.onError),
-          const SizedBox(width: 12),
+          Gap.horizontal.custom(kSpace3),
           Expanded(
             child: Text(
               'Relay connectivity issue — '

@@ -2,6 +2,8 @@ import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:convert/convert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hostr/config/constants.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 /// A widget that displays the user's key pair (npub, nsec) and the nsec
@@ -48,9 +50,9 @@ class BackupKeyWidget extends StatelessWidget {
               // ── Drag handle ──────────────────────────────────
               Center(
                 child: Container(
-                  width: 32,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: kSpace6,
+                  height: kSpace1,
+                  margin: const EdgeInsets.only(top: kSpace3, bottom: kSpace2),
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
@@ -63,7 +65,7 @@ class BackupKeyWidget extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  padding: const EdgeInsets.fromLTRB(20, kSpace1, 20, kSpace0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -71,29 +73,29 @@ class BackupKeyWidget extends StatelessWidget {
                         'Back up your keys',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      const SizedBox(height: 4),
+                      Gap.vertical.xs(),
                       Text(
                         'Your keys are your identity. If you lose them you will lose access to your account and any funds held in escrow.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      Gap.vertical.custom(kSpace5),
                       _KeySection(label: 'Public key (npub)', value: npub),
-                      const SizedBox(height: 16),
+                      Gap.vertical.md(),
                       _KeySection(
                         label: 'Private key (nsec)',
                         value: nsec,
                         sensitive: true,
                       ),
-                      const SizedBox(height: 24),
+                      Gap.vertical.custom(kSpace5),
                       Text(
                         'Recovery words',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
+                      Gap.vertical.sm(),
                       _MnemonicGrid(words: words),
-                      const SizedBox(height: 4),
+                      Gap.vertical.xs(),
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton.icon(
@@ -111,14 +113,17 @@ class BackupKeyWidget extends StatelessWidget {
                           },
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      Gap.vertical.sm(),
                     ],
                   ),
                 ),
               ),
               // ── Pinned Done button ───────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              CustomPadding.only(
+                left: 20,
+                top: kSpace2,
+                right: 20,
+                bottom: kSpace4,
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -154,7 +159,7 @@ class _KeySection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 6),
+        Gap.vertical.custom(6),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -207,7 +212,7 @@ class _MnemonicGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (int col = 0; col < 3; col++) ...[
-          if (col > 0) const SizedBox(width: 8),
+          if (col > 0) Gap.horizontal.sm(),
           Expanded(
             child: Column(
               children: [

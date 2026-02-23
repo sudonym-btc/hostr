@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 
 class ImageUpload extends StatelessWidget {
@@ -69,8 +70,7 @@ class ImageUpload extends StatelessWidget {
                     itemCount: images.length + 1,
                     itemBuilder: (context, index) {
                       if (index >= images.length) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        return CustomPadding.horizontal.xs(
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: Material(
@@ -92,8 +92,7 @@ class ImageUpload extends StatelessWidget {
                       }
 
                       final image = images[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      return CustomPadding.horizontal.xs(
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -156,7 +155,7 @@ class ImageUpload extends StatelessWidget {
           color: Theme.of(context).colorScheme.onSurface,
           size: 32,
         ),
-        const SizedBox(height: 8),
+        Gap.vertical.sm(),
         Text('Add Image', style: Theme.of(context).textTheme.bodyMedium),
       ],
     );

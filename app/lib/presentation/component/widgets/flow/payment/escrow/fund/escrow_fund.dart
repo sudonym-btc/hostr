@@ -2,14 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 import '../../../../amount/amount_input.dart';
-import '../../../../ui/asymptotic_progress_bar.dart';
 import '../../../modal_bottom_sheet.dart';
 import '../../payment_method/escrow_selector/escrow_selector.cubit.dart';
 import '../../payment_method/escrow_selector/escrow_selector.dart';
@@ -162,7 +163,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
         mainAxisSize: MainAxisSize.min,
         children: [
           EscrowSelectorWidget(),
-          SizedBox(height: 16),
+          Gap.vertical.md(),
           AmountWidget(
             amount: context.read<EscrowFundOperation>().params.amount,
             loading: _loading,
@@ -227,9 +228,9 @@ class EscrowFundDepositingWidget extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: 24),
+          Gap.vertical.custom(kSpace5),
           AsymptoticProgressBar(),
-          SizedBox(height: 16),
+          Gap.vertical.md(),
         ],
       ),
     );
@@ -248,9 +249,9 @@ class EscrowFundTradeProgressWidget extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: 16),
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
+          Gap.vertical.md(),
+          const CircularProgressIndicator(),
+          Gap.vertical.md(),
         ],
       ),
     );
