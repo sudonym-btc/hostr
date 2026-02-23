@@ -171,12 +171,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.singleton<_i660.Reviews>(
-      () => _i660.Reviews(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i218.RelayStorage>(
       () => _i218.RelayStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
     );
@@ -318,6 +312,14 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i520.Auth>(),
         reservations: gh<_i520.Reservations>(),
         logger: gh<_i520.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i660.Reviews>(
+      () => _i660.Reviews(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        reservations: gh<_i326.Reservations>(),
+        listings: gh<_i906.Listings>(),
       ),
     );
     gh.factoryParam<_i62.RootstockSwapInOperation, _i677.SwapInParams, dynamic>(

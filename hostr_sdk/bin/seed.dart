@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,7 +6,47 @@ import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
 
 import 'seed/relay_seed.dart';
 
+/// Allow self-signed certificates so the seeder can connect to local
+/// relay/blossom/etc. over TLS without a trusted CA chain.
+class _PermissiveHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (_, __, ___) => true;
+    return client;
+  }
+}
+
 Future<void> main(List<String> arguments) async {
+  HttpOverrides.global = _PermissiveHttpOverrides();
+
+  // NDK's internal WebSocket transport can fire SocketExceptions from
+  // dart:io Timer callbacks when the relay drops the connection or during
+  // ndk.destroy(). These are uncatchable with try/catch, so we absorb
+  // them here so they don't crash the process with exit code 255.
+  await runZonedGuarded(
+    () async {
+      await _run(arguments);
+    },
+    (error, stack) {
+      // SocketExceptions from a closed relay socket are expected during
+      // teardown — log and swallow.
+      if (error is SocketException) {
+        stderr.writeln(
+          '[warn] Ignoring async SocketException during '
+          'teardown: $error',
+        );
+        return;
+      }
+      // Anything else is unexpected — print and set a non-zero exit code.
+      stderr.writeln('[error] Unhandled async error: $error');
+      stderr.writeln(stack);
+      exitCode = 1;
+    },
+  );
+}
+
+Future<void> _run(List<String> arguments) async {
   SeedPipelineConfig? config;
 
   final positionalArgs = arguments

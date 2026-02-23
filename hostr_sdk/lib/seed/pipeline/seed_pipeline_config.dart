@@ -169,6 +169,11 @@ class SeedPipelineConfig {
   // ── Thread stage defaults ──
   final ThreadStageSpec threadStages;
 
+  /// Probability that a generated reservation is intentionally corrupted.
+  /// When triggered, the reservation either omits a payment proof entirely
+  /// or references a bogus transaction hash/chain combination.
+  final double invalidReservationRate;
+
   // ── Per-user overrides (sparse) ──
   final List<SeedUserSpec> userOverrides;
 
@@ -191,6 +196,7 @@ class SeedPipelineConfig {
     this.listingsPerHostAvg = 1.6,
     this.reservationRequestsPerGuest = 10,
     this.threadStages = const ThreadStageSpec(),
+    this.invalidReservationRate = 0.2,
     this.userOverrides = const [],
   });
 
@@ -217,6 +223,7 @@ class SeedPipelineConfig {
         json['reservationRequestsPerGuest'],
         10,
       ),
+      invalidReservationRate: _dbl(json['invalidReservationRate'], 0.0),
       threadStages: ThreadStageSpec(
         textMessageCount: _int(json['messagesPerThreadAvg'], 3),
         completedRatio: _dbl(json['completedRatio'], 0.5),
@@ -249,6 +256,7 @@ class SeedPipelineConfig {
     'hostHasEvmRatio': hostHasEvmRatio,
     'listingsPerHostAvg': listingsPerHostAvg,
     'reservationRequestsPerGuest': reservationRequestsPerGuest,
+    'invalidReservationRate': invalidReservationRate,
     'threadStages': {
       'textMessageCount': threadStages.textMessageCount,
       'completedRatio': threadStages.completedRatio,
