@@ -72,14 +72,18 @@ class ProfileHeaderWidget extends StatelessWidget {
             Gap.vertical.md(),
             Text(
               displayName,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             Gap.vertical.sm(),
-            Text(nip05, style: const TextStyle(fontSize: 14)),
+            Text(nip05, style: Theme.of(context).textTheme.bodyMedium),
             Gap.vertical.xs(),
             Text(
               about,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
           ],
