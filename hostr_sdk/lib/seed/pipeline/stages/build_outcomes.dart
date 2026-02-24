@@ -178,7 +178,7 @@ Future<void> buildOutcomes({
 
     if (plan.useEscrow && plan.createTxHash != null) {
       proof = PaymentProof(
-        hoster: hostProfile ?? MOCK_PROFILES.first,
+        hoster: hostProfile!,
         listing: thread.listing,
         zapProof: null,
         escrowProof: EscrowProof(
@@ -190,7 +190,7 @@ Future<void> buildOutcomes({
       );
     } else if (!plan.useEscrow) {
       proof = PaymentProof(
-        hoster: hostProfile ?? MOCK_PROFILES.first,
+        hoster: hostProfile!,
         listing: thread.listing,
         zapProof: thread.zapReceipt != null
             ? ZapProof(receipt: Nip01EventModel.fromEntity(thread.zapReceipt!))

@@ -5,16 +5,17 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/hostr.dart';
-import 'package:models/stubs/main.dart';
 import 'package:widgetbook/widgetbook.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 // This file does not exist yet,
 // it will be generated in the next step
 import 'main.directories.g.dart';
+import 'seed_data.dart';
 
 void main() async {
   await setup(Env.mock); // Call the setup function to register dependencies
+  await initSeedData();
   runApp(const WidgetbookApp());
 }
 

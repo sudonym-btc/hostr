@@ -69,16 +69,29 @@ class ReserveState extends State<Reserve> {
                               ),
                             ),
                             Text(
-                              '${formatDate(dateState.dateRange!.start)} - ${formatDate(dateState.dateRange!.end)}',
+                              formatDateRangeShort(
+                                dateState.dateRange!,
+                                Localizations.localeOf(context),
+                              ),
                             ),
                           ],
                         ),
                       )
                     : GestureDetector(
-                        child: Text(
-                          availabilityReady
-                              ? AppLocalizations.of(context)!.selectDates
-                              : AppLocalizations.of(context)!.loading,
+                        child: TextButton(
+                          onPressed: availabilityReady
+                              ? () => selectDates(
+                                  context,
+                                  context.read<DateRangeCubit>(),
+                                  reservations,
+                                  enforceContiguousAvailability: true,
+                                )
+                              : null,
+                          child: Text(
+                            availabilityReady
+                                ? AppLocalizations.of(context)!.selectDates
+                                : AppLocalizations.of(context)!.loading,
+                          ),
                         ),
                         onTap: availabilityReady
                             ? () => selectDates(

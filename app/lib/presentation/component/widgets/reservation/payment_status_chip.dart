@@ -13,10 +13,6 @@ class PaymentStatusChip extends StatelessWidget {
   }) {
     return Chip(
       label: Text(label),
-      visualDensity: VisualDensity(horizontal: -4, vertical: -4),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: EdgeInsets.zero,
-      labelPadding: const EdgeInsets.only(right: 10),
       backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
         color: Theme.of(context).colorScheme.onPrimaryContainer,

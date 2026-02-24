@@ -1,0 +1,118 @@
+# ──────────────────────────────────────────────────────────────
+# docker-compose.prod-tls.yml — Production TLS via Let's Encrypt
+#
+# Use alongside the main docker-compose.yml:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.prod-tls.yml
+#
+# This override:
+#   1. Removes the dev tls-init service
+#   2. Adds nginxproxy/acme-companion for automatic Let's Encrypt certs
+#   3. Adds LETSENCRYPT_HOST to each service for auto-provisioning
+#
+# Prerequisites:
+#   - Services must be reachable from the internet on ports 80/443
+#   - DNS A records must point to this host for all VIRTUAL_HOSTs
+# ──────────────────────────────────────────────────────────────
+
+services:
+  # Disable the dev CA — Let's Encrypt replaces it
+  tls-init:
+    profiles:
+      - never  # effectively disables this service
+
+  # ACME companion auto-provisions Let's Encrypt certs for each
+  # service that sets LETSENCRYPT_HOST and LETSENCRYPT_EMAIL.
+  # Works with jwilder/nginx-proxy out of the box.
+  acme-companion:
+    image: nginxproxy/acme-companion
+    depends_on:
+      nginx-proxy:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/certs:/etc/nginx/certs
+      - ./docker/vhost.d:/etc/nginx/vhost.d
+      - acme-html:/usr/share/nginx/html
+    environment:
+      - DEFAULT_EMAIL=${LETSENCRYPT_EMAIL:-admin@hostr.cc}
+    restart: unless-stopped
+
+  # nginx-proxy needs the html volume for ACME challenges
+  nginx-proxy:
+    depends_on: {}  # Remove tls-init dependency
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./docker/certs:/etc/nginx/certs
+      - ./docker/vhost.d:/etc/nginx/vhost.d
+      - ./docker/nginx-proxy.conf:/etc/nginx/conf.d/zzz_upload.conf:ro
+      - acme-html:/usr/share/nginx/html
+
+  # ── Add LETSENCRYPT_HOST to each public-facing service ───────
+
+  relay:
+    environment:
+      - LETSENCRYPT_HOST=relay.${DOMAIN}
+
+  blossom:
+    environment:
+      - LETSENCRYPT_HOST=blossom.${DOMAIN}
+
+  lnbits1:
+    environment:
+      - LETSENCRYPT_HOST=lnbits1.${DOMAIN}
+
+  lnbits2:
+    environment:
+      - LETSENCRYPT_HOST=lnbits2.${DOMAIN}
+
+  albyhub1:
+    environment:
+      - LETSENCRYPT_HOST=alby1.${DOMAIN}
+    volumes:
+      - ./docker/data/lightning_data/1:/lnd
+      - ./docker/data/albyhub:/data
+      # No CA bundle needed — Let's Encrypt certs are publicly trusted
+
+  albyhub2:
+    environment:
+      - LETSENCRYPT_HOST=alby2.${DOMAIN}
+    volumes:
+      - ./docker/data/lightning_data/2:/lnd
+      - ./docker/data/albyhub:/data
+
+  landing-page:
+    environment:
+      - LETSENCRYPT_HOST=landing.${DOMAIN}
+
+  # Dart services don't need CA injection in prod — LE certs are
+  # already in system trust stores.
+  escrow:
+    volumes:
+      - ./docker/data/escrow:/data:ro
+    command:
+      [
+        "sh",
+        "-lc",
+        "set -euo pipefail && export CONTRACT_ADDR=$$(cat /data/contract_addr) && exec dart run lib/cli.dart start",
+      ]
+
+  unlock-alby-lnbits:
+    volumes:
+      - ./:/workspace:ro
+    command:
+      [
+        "sh",
+        "-lc",
+        "/usr/lib/dart/bin/dart --version && rm -rf /tmp/workspace && cp -a /workspace /tmp/workspace && cd /tmp/workspace/hostr_sdk && /usr/lib/dart/bin/dart pub get && /usr/lib/dart/bin/dart run bin/setup_lightning.dart",
+      ]
+
+  seed-relay:
+    volumes:
+      - ./:/workspace
+    command: >
+      bash -lc "dart pub get &&
+      dart run bin/seed.dart
+      --config-json='{\"relayUrl\":\"wss://relay.${DOMAIN}\",\"rpcUrl\":\"http://anvil:8545\",\"fundProfiles\":false}'"
+
+volumes:
+  acme-html:

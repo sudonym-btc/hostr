@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/export.dart';
 import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
+
+import '../seed_data.dart';
 
 @widgetbook.UseCase(name: 'Default', type: ProfileHeaderWidget)
 Widget profileHeaderDefault(BuildContext context) {

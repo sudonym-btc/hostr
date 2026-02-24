@@ -41,60 +41,37 @@ class TradeTimeline extends StatelessWidget {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: maxHistoryHeight),
-      child: Stack(
-        children: [
-          Timeline.tileBuilder(
-            shrinkWrap: true,
-            padding: EdgeInsets.only(bottom: kDefaultPadding.toDouble()),
-            theme: TimelineThemeData(
-              nodePosition: 0,
-              connectorTheme: ConnectorThemeData(
-                thickness: 2.0,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              indicatorTheme: IndicatorThemeData(
-                size: 20.0,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            builder: TimelineTileBuilder.connected(
-              connectionDirection: ConnectionDirection.before,
-              connectorBuilder: (_, index, ___) => SolidLineConnector(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              indicatorBuilder: (context, index) => DotIndicator(
-                color: Theme.of(context).colorScheme.primary,
-                // child: Icon(Icons.check, size: 12, color: Colors.white),
-              ),
-              contentsAlign: ContentsAlign.basic,
-              contentsBuilder: (context, index) => CustomPadding.custom(
-                kSpace5,
-                child: PaymentTimelineItem(
-                  event: events[index],
-                  hostPubkey: hostPubKey,
-                ),
-              ),
-              itemCount: events.length,
+      child: Timeline.tileBuilder(
+        shrinkWrap: true,
+        theme: TimelineThemeData(
+          nodePosition: 0,
+          connectorTheme: ConnectorThemeData(
+            thickness: 1.0,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          indicatorTheme: IndicatorThemeData(
+            size: kSpace2,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        builder: TimelineTileBuilder.connected(
+          connectionDirection: ConnectionDirection.before,
+          connectorBuilder: (_, index, ___) =>
+              SolidLineConnector(color: Theme.of(context).colorScheme.primary),
+          indicatorBuilder: (context, index) => DotIndicator(
+            color: Theme.of(context).colorScheme.primary,
+            // child: Icon(Icons.check, size: 12, color: Colors.white),
+          ),
+          contentsAlign: ContentsAlign.basic,
+          contentsBuilder: (context, index) => CustomPadding.custom(
+            kSpace4,
+            child: PaymentTimelineItem(
+              event: events[index],
+              hostPubkey: hostPubKey,
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              child: Container(
-                height: kDefaultPadding.toDouble(),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [surface.withValues(alpha: 0), surface],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+          itemCount: events.length,
+        ),
       ),
     );
   }

@@ -49,7 +49,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
             ),
-            title: Text(AppLocalizations.of(context)!.profile),
+            // title: Text(AppLocalizations.of(context)!.profile),
             actions: [
               IconButton(
                 icon: const Icon(Icons.key),

@@ -57,4 +57,9 @@ if [ "$ENVIRONMENT" = "test" ]; then
     docker compose down --remove-orphans --volumes || true
 fi
 
-exec docker compose up -d --remove-orphans --yes
+docker compose up -d --remove-orphans --yes
+
+# Trust the dev CA on the host so browsers show green lock
+if [ "$ENVIRONMENT" != "prod" ]; then
+    "$SCRIPT_DIR/trust-dev-ca.sh"
+fi

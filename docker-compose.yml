@@ -32,13 +32,32 @@ x-templates:
         condition: service_healthy
       relay:
         condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
     image: ghcr.io/getalby/hub:latest
     networks:
       - default
 
 services:
+  # ── TLS Certificate Authority (dev) ──────────────────────────────
+  # Generates a root CA and per-service certificates signed by it.
+  # In production, replace with Let's Encrypt via acme-companion.
+  tls-init:
+    image: alpine:3.20
+    volumes:
+      - ./docker/certs:/certs
+      - ./docker/tls/ca:/ca
+      - ./docker/tls:/scripts:ro
+    environment:
+      - DOMAIN=${DOMAIN}
+    entrypoint: ["sh", "/scripts/generate-dev-certs.sh"]
+    restart: "no"
+
   nginx-proxy:
     image: jwilder/nginx-proxy
+    depends_on:
+      tls-init:
+        condition: service_completed_successfully
     ports:
       - 80:80
       - 443:443
@@ -50,8 +69,23 @@ services:
       - ./docker/nginx-proxy.conf:/etc/nginx/conf.d/zzz_upload.conf:ro
     environment:
       - ENABLE_WEBSOCKETS=true
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t 2>/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
     networks:
-      - default
+      default:
+        aliases:
+          - relay.${DOMAIN}
+          - blossom.${DOMAIN}
+          - lnbits1.${DOMAIN}
+          - lnbits2.${DOMAIN}
+          - alby1.${DOMAIN}
+          - alby2.${DOMAIN}
+          - landing.${DOMAIN}
+          - ${DOMAIN}
 
   # NOSTR Relay
   relay:
@@ -82,9 +116,7 @@ services:
       - ./docker/relay.toml:/usr/src/app/config.toml
       - ./docker/data/relay:/usr/src/app/db
     networks:
-      default:
-        aliases:
-          - relay.${DOMAIN}
+      - default
     profiles:
       - local
       - test
@@ -105,9 +137,7 @@ services:
       - ./docker/blossom.yaml:/app/config.yml
       - ./docker/data/blossom:/app/data
     networks:
-      default:
-        aliases:
-          - blossom.${DOMAIN}
+      - default
     profiles:
       - local
       - test
@@ -164,17 +194,20 @@ services:
         condition: service_completed_successfully
       anvil:
         condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
     environment:
       - NOSTR_RELAY=wss://relay.${DOMAIN}
       - PRIVATE_KEY=a9cbe715ebaeb852bf7cc3d35f4a81b9a58f16705e4bb8434aa453093e612206
       - RPC_URL=http://anvil:8545
     volumes:
       - ./docker/data/escrow:/data:ro
+      - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
     command:
       [
         "sh",
         "-lc",
-        "set -euo pipefail && export CONTRACT_ADDR=$$(cat /data/contract_addr) && exec dart run lib/cli.dart start",
+        "cp /tls/ca.crt /usr/local/share/ca-certificates/hostr-dev-ca.crt && update-ca-certificates 2>/dev/null && set -euo pipefail && export CONTRACT_ADDR=$$(cat /data/contract_addr) && exec dart run lib/cli.dart start",
       ]
     networks:
       - default
@@ -326,13 +359,17 @@ services:
     depends_on:
       lnd1:
         condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
     volumes:
       - ./docker/data/lightning_data/1:/lnd
       - ./docker/data/albyhub:/data
+      - ./docker/tls/ca/ca-bundle.crt:/tls/ca-bundle.crt:ro
     environment:
       - VIRTUAL_HOST=alby1.${DOMAIN}
       - VIRTUAL_PORT=8080
-      - RELAY=ws://relay.${DOMAIN}
+      - RELAY=wss://relay.${DOMAIN}
+      - SSL_CERT_FILE=/tls/ca-bundle.crt
       - AUTO_UNLOCK_PASSWORD=Testing123!
       - LOG_EVENTS=true
       - LN_BACKEND_TYPE=LND
@@ -356,13 +393,17 @@ services:
     depends_on:
       lnd2:
         condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
     volumes:
       - ./docker/data/lightning_data/2:/lnd
       - ./docker/data/albyhub:/data
+      - ./docker/tls/ca/ca-bundle.crt:/tls/ca-bundle.crt:ro
     environment:
       - VIRTUAL_HOST=alby2.${DOMAIN}
       - VIRTUAL_PORT=8080
-      - RELAY=ws://relay.${DOMAIN}
+      - RELAY=wss://relay.${DOMAIN}
+      - SSL_CERT_FILE=/tls/ca-bundle.crt
       - LOG_EVENTS=true
       - LN_BACKEND_TYPE=LND
       - LND_MACAROON_FILE=${LND_ADMIN_MACAROON_PATH}
@@ -419,14 +460,17 @@ services:
         condition: service_healthy
       albyhub2:
         condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
     volumes:
       - ./:/workspace:ro
+      - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
     working_dir: /workspace/hostr_sdk
     environment:
-      - LNBITS_1_URL=http://lnbits1:5000
-      - LNBITS_2_URL=http://lnbits2:5000
-      - ALBYHUB_1_URL=http://albyhub1:8080
-      - ALBYHUB_2_URL=http://albyhub2:8080
+      - LNBITS_1_URL=https://lnbits1.${DOMAIN}
+      - LNBITS_2_URL=https://lnbits2.${DOMAIN}
+      - ALBYHUB_1_URL=https://alby1.${DOMAIN}
+      - ALBYHUB_2_URL=https://alby2.${DOMAIN}
       - LNBITS_ADMIN_EMAIL=${LNBITS_ADMIN_EMAIL}
       - LNBITS_ADMIN_PASSWORD=${LNBITS_ADMIN_PASSWORD}
       - LNBITS_EXTENSION_NAME=${LNBITS_EXTENSION_NAME}
@@ -436,7 +480,7 @@ services:
       [
         "sh",
         "-lc",
-        "/usr/lib/dart/bin/dart --version && rm -rf /tmp/workspace && cp -a /workspace /tmp/workspace && cd /tmp/workspace/hostr_sdk && /usr/lib/dart/bin/dart pub get && /usr/lib/dart/bin/dart run bin/setup_lightning.dart",
+        "cp /tls/ca.crt /usr/local/share/ca-certificates/hostr-dev-ca.crt && update-ca-certificates 2>/dev/null && /usr/lib/dart/bin/dart --version && rm -rf /tmp/workspace && cp -a /workspace /tmp/workspace && cd /tmp/workspace/hostr_sdk && /usr/lib/dart/bin/dart pub get && /usr/lib/dart/bin/dart run bin/setup_lightning.dart",
       ]
     restart: "no"
     profiles:
@@ -450,13 +494,17 @@ services:
         condition: service_healthy
       bootstrap:
         condition: service_completed_successfully
+      nginx-proxy:
+        condition: service_healthy
     volumes:
       - ./:/workspace
+      - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
     working_dir: /workspace/hostr_sdk
     command: >
-      bash -lc "dart pub get &&
+      bash -lc "cp /tls/ca.crt /usr/local/share/ca-certificates/hostr-dev-ca.crt && update-ca-certificates 2>/dev/null &&
+      dart pub get &&
       dart run bin/seed.dart
-      --config-json='{\"relayUrl\":\"ws://relay:80\",\"rpcUrl\":\"http://anvil:8545\",\"fundProfiles\":false}'"
+      --config-json='{\"relayUrl\":\"wss://relay.${DOMAIN}\",\"rpcUrl\":\"http://anvil:8545\",\"fundProfiles\":false}'"
     restart: "no"
     profiles:
       - seed

@@ -20,6 +20,7 @@ class SearchViewState extends State<SearchView> {
   final DraggableScrollableController _panelController =
       DraggableScrollableController();
   final ValueNotifier<String?> _scrollToListingId = ValueNotifier(null);
+  double? _cachedHeight;
 
   @override
   void initState() {
@@ -40,7 +41,8 @@ class SearchViewState extends State<SearchView> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final totalHeight = constraints.maxHeight;
+        _cachedHeight ??= constraints.maxHeight;
+        final totalHeight = _cachedHeight!;
         final listingStartHeight = totalHeight / 2;
         const panelStopFraction = 0.5;
         final panelMaxHeight =
@@ -66,6 +68,7 @@ class SearchViewState extends State<SearchView> {
                 }
               },
               child: Scaffold(
+                resizeToAvoidBottomInset: false,
                 body: Stack(
                   children: [
                     Column(
@@ -153,7 +156,9 @@ class SearchViewState extends State<SearchView> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withAlpha(120),
+                                color: Theme.of(
+                                  context,
+                                ).scaffoldBackgroundColor.withAlpha(120),
                                 blurRadius: 24,
                                 spreadRadius: 2,
                                 offset: const Offset(0, -6),

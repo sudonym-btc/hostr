@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_content.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_reply.dart';
@@ -38,7 +37,6 @@ class ThreadView extends StatelessWidget {
         // When to display loading
         if (!isReady) {
           return Scaffold(
-            appBar: AppBar(title: Text(AppLocalizations.of(context)!.loading)),
             body: SafeArea(child: Center(child: AppLoadingIndicator.large())),
           );
         }
@@ -79,12 +77,16 @@ class ThreadReadyWidget extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
+        backgroundColor: Theme.of(context).bottomAppBarTheme.color,
         appBar: AppBar(
           title: ThreadHeaderWidget(
             counterparties: counterparties,
             onCounterpartyTap: (profile) =>
                 ProfilePopup.show(context, profile.pubKey),
           ),
+        ),
+        bottomSheet: SafeArea(
+          child: CustomPadding(top: 1, bottom: 1, child: ThreadReplyWidget()),
         ),
         body: Column(
           children: [
@@ -93,17 +95,6 @@ class ThreadReadyWidget extends StatelessWidget {
               child: ThreadContent(
                 participants: participants,
                 listing: listing,
-              ),
-            ),
-            Container(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-              child: SafeArea(
-                top: false,
-                child: CustomPadding(
-                  top: 0.5,
-                  bottom: 0.5,
-                  child: ThreadReplyWidget(),
-                ),
               ),
             ),
           ],

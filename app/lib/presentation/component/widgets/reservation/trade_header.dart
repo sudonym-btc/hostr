@@ -5,8 +5,6 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart' show ThreadCubit;
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
-import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
-import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
 import 'package:hostr/presentation/component/widgets/reservation/actions/claim.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_timeline.dart';
 import 'package:hostr/router.dart';
@@ -58,70 +56,90 @@ class TradeHeaderView extends StatelessWidget {
     }
   }
 
-  Widget _buildDescription(BuildContext context) {
-    return Row(
+  Widget _buildSummary(BuildContext context) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => _navigateToListing(context),
-          child: PreloadListingImages(
-            listing: listing,
-            child: SmallListingCarousel(
-              width: 100,
-              height: 100,
-              listing: listing,
-            ),
+          child: Text(
+            listing.parsedContent.title.toString(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium,
           ),
         ),
-        Expanded(
-          child: CustomPadding(
-            left: 0.5,
-            right: 0,
-            bottom: 0,
-            top: 0,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _navigateToListing(context),
-                  child: Text(
-                    listing.parsedContent.title.toString(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                Gap.vertical.xs(),
-                Text(
-                  formatDateRangeShort(
-                    DateTimeRange(start: start, end: end),
-                    Localizations.localeOf(context),
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                Gap.vertical.custom(6),
-                Text(
-                  formatAmount(amount),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                Gap.vertical.custom(6),
-                paymentStatusWidget,
-                if (isBlocked) ...[
-                  Gap.vertical.custom(6),
-                  Text(
-                    blockedReason ?? 'This reservation is not available.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
-              ],
+        Gap.vertical.xs(),
+        Text(
+          formatDateRangeShort(
+            DateTimeRange(start: start, end: end),
+            Localizations.localeOf(context),
+          ),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        if (isBlocked) ...[
+          Gap.vertical.xs(),
+          Text(
+            blockedReason ?? 'This reservation is not available.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.error,
             ),
           ),
-        ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildPaymentSummary(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          formatAmount(amount),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        // Gap.vertical.xs(),
+        paymentStatusWidget,
+      ],
+    );
+  }
+
+  void _showTradeDetailsSheet(BuildContext context) {
+    final threadCubit = context.read<ThreadCubit>();
+    showAppModal(
+      context,
+      child: StreamBuilder(
+        stream: threadCubit.thread.trade!.state,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const SizedBox.shrink();
+          }
+          final trade = threadCubit.thread.trade!;
+          final reservations =
+              trade.subscriptions.reservationStream?.list.value ?? const [];
+          final paymentEvents =
+              trade.subscriptions.paymentEvents?.list.value ?? const [];
+          return ModalBottomSheet(
+            title: 'Information',
+            buttons: actionsWidget,
+            content: SingleChildScrollView(
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TradeTimeline(
+                      reservations: reservations,
+                      paymentEvents: paymentEvents,
+                      hostPubKey: threadCubit.state.listingProfile!.pubKey,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -134,7 +152,7 @@ class TradeHeaderView extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(child: _buildDescription(context)),
+              Expanded(child: _buildSummary(context)),
               Gap.horizontal.custom(kSpace3),
               actionsRightWidget,
             ],
@@ -145,20 +163,26 @@ class TradeHeaderView extends StatelessWidget {
 
     return ShimmerPlaceholder(
       loading: !runtimeReady,
-      child: ExpansionTile(
-        splashColor: Colors.transparent,
-        onExpansionChanged: (_) => FocusScope.of(context).unfocus(),
-        tilePadding: const EdgeInsets.symmetric(
-          horizontal: kSpace6,
-          vertical: kSpace4,
+      child: CustomPadding(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSummary(context),
+            Gap.vertical.lg(),
+            Row(
+              children: [
+                Expanded(child: _buildPaymentSummary(context)),
+                IconButton(
+                  icon: const Icon(Icons.expand_more),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    _showTradeDetailsSheet(context);
+                  },
+                ),
+              ],
+            ),
+          ],
         ),
-        shape: const Border(),
-        collapsedShape: const Border(),
-        title: _buildDescription(context),
-        children: [
-          CustomPadding.horizontal.lg(child: timelineWidget),
-          CustomPadding(child: actionsWidget),
-        ],
       ),
     );
   }
@@ -200,11 +224,14 @@ class TradeHeader extends StatelessWidget {
       switch (action) {
         case TradeAction.cancel:
           children.add(
-            actionButton('Cancel', () {
-              context.read<ThreadCubit>().thread.trade!.execute(
-                TradeAction.cancel,
-              );
-            }),
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                context.read<ThreadCubit>().thread.trade!.execute(
+                  TradeAction.cancel,
+                );
+              },
+            ),
           );
           break;
         case TradeAction.messageEscrow:
@@ -277,12 +304,7 @@ class TradeHeader extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Wrap(
-      spacing: kSpace2,
-      runSpacing: kSpace2,
-      alignment: WrapAlignment.end,
-      children: children,
-    );
+    return Row(mainAxisAlignment: MainAxisAlignment.end, children: children);
   }
 
   Widget buildActionsRight(BuildContext context) {

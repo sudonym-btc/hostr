@@ -221,3 +221,40 @@ In production, none of this applies:
 - Cold-start connect time will be dominated by TLS handshake (~100–200ms)
 
 The slow iOS cold start is strictly a **dev-environment constraint** caused by the Tailscale VPN tunnel lifecycle on iOS.
+
+## Diagnostic Experiments
+
+### Experiment 1: Seed script broadcast isolate
+
+**Hypothesis:** The main Dart event loop is overloaded by hundreds of parallel EVM transactions during seeding, starving NDK's WebSocket.
+
+**Setup:** Moved NDK event broadcasting into a dedicated `Isolate` with its own event loop (`broadcast_isolate.dart`). The isolate creates its own NDK instance, connects to the relay independently, and broadcasts events received via `SendPort`/`ReceivePort`.
+
+**Result:** ✅ Every event broadcast succeeded on **attempt #1** — zero retries. This proves the seed script failures were caused by event-loop starvation on the main isolate, not relay/DNS issues.
+
+**Fix:** The seed pipeline now uses `BroadcastIsolate` permanently. See `hostr_sdk/bin/seed/broadcast_isolate.dart`.
+
+### Experiment 2: App cold-start relay probe isolate
+
+**Hypothesis:** If event-loop overload causes the seed script issue, maybe the same thing explains the ~6s cold-start delay in the Flutter app on iPhone.
+
+**Setup:** Added a diagnostic isolate probe in `setup.dart` that spawns immediately after `configureInjection`. The isolate creates its own NDK instance in a completely separate event loop with zero contention — the main isolate does nothing (even `runApp` was removed, just a 100-second sleep).
+
+**Result:** ❌ The probe isolate **still took 6178ms** to connect via NDK. Even with an empty main isolate and a dedicated event loop, the delay persists. This rules out event-loop overload as the cause for the app's cold-start delay.
+
+```
+[relay-probe] 01:43:36.181 Starting relay probe for wss://relay.hostr.development
+[relay-probe] 01:43:36.214 NDK instance created in 32 ms
+[WARNING]    timed out connecting to relay wss://relay.hostr.development
+[relay-probe] 01:43:42.360 NDK relay connected in 6178 ms ✓
+[relay-probe] 01:43:42.366 Probe complete.
+```
+
+**Conclusion:** The ~6s app cold-start delay on iPhone is confirmed to be a **network-level issue** (DNS resolution via Tailscale split DNS / tunnel wake-up), not Dart event-loop contention. NDK's 4s timeout fires because the underlying WebSocket connect is blocked waiting for DNS/tunnel, regardless of how idle the event loop is.
+
+### Summary
+
+| Symptom                         | Root cause                                  | Fix                                  |
+| ------------------------------- | ------------------------------------------- | ------------------------------------ |
+| Seed script broadcast failures  | Main isolate event-loop starved by EVM txns | Broadcast isolate (permanent)        |
+| App cold-start ~6–20s on iPhone | iOS Tailscale tunnel wake-up + DNS          | Dev-only; production uses public DNS |
