@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_header.dart';
-import 'package:models/stubs/main.dart';
 import 'package:widgetbook/widgetbook.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
+
+import '../seed_data.dart';
 
 @widgetbook.UseCase(name: 'Trade header (knobs)', type: TradeHeaderView)
 Widget tradeHeaderKnobs(BuildContext context) {

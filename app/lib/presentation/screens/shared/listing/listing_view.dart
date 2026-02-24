@@ -143,9 +143,7 @@ class _ListingViewState extends State<ListingView> {
             value: _listingReservationsStream,
             child: Scaffold(
               bottomNavigationBar: BottomAppBar(
-                child: CustomPadding(
-                  top: 0,
-                  bottom: 0,
+                child: CustomPadding.horizontal.lg(
                   child: Reserve(listing: state.data!),
                 ),
               ),

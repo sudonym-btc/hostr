@@ -49,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen>
     List<BottomNavigationBarItem> items,
     Color navBg,
   ) {
-    final borderRadius = BorderRadius.circular(50);
+    final borderRadius = BorderRadius.circular(0);
 
     return SizeTransition(
       sizeFactor: CurvedAnimation(
@@ -59,10 +59,11 @@ class _HomeScreenState extends State<HomeScreen>
       axisAlignment: -1.0, // pin to top so it collapses downward
       child: ClipRRect(
         borderRadius: borderRadius,
-        child: Material(
+        child: Container(
           color: navBg,
           child: BottomNavigationBar(
             backgroundColor: Colors.transparent,
+            elevation: 0,
             currentIndex: min(items.length - 1, tabsRouter.activeIndex),
             onTap: (index) {
               _navController.forward();
@@ -97,11 +98,10 @@ class _HomeScreenState extends State<HomeScreen>
 
           return BlocBuilder<ModeCubit, ModeCubitState>(
             builder: (context, state) {
-              final bottomSheetTheme = Theme.of(context).bottomSheetTheme;
-              final navBg =
-                  bottomSheetTheme.modalBackgroundColor ??
-                  bottomSheetTheme.backgroundColor ??
-                  Theme.of(context).colorScheme.surfaceContainerLow;
+              final bottomNavigationBarTheme = Theme.of(
+                context,
+              ).bottomNavigationBarTheme;
+              final navBg = bottomNavigationBarTheme.backgroundColor!;
 
               if (!isLoggedIn) {
                 // Unauthenticated: Search and Sign In

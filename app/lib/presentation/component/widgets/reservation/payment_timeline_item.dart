@@ -34,11 +34,13 @@ class PaymentTimelineItem extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(style: Theme.of(context).textTheme.titleMedium, title),
-          description != null ? Text(description) : SizedBox.shrink(),
+          Text(style: Theme.of(context).textTheme.bodyMedium, title),
+          description != null
+              ? Text(description, style: Theme.of(context).textTheme.bodySmall)
+              : SizedBox.shrink(),
           Text(
             formatDateLong(timestamp),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
 
           // ProfileChipWidget(
@@ -75,7 +77,7 @@ class PaymentTimelineItem extends StatelessWidget {
       );
     } else if (event is EscrowClaimedEvent) {
       return paymentEvent(
-        title: 'Escrow funds claimed',
+        title: 'Funds claimed by host',
         timestamp: event.block.timestamp,
       );
     } else if (event is ZapFundedEvent) {

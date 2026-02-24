@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/reservation_request/reservation_request.dart';
 import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
+
+import '../seed_data.dart';
 
 final _hostProfile = ProfileMetadata.fromNostrEvent(MOCK_PROFILES.first);
 final _guestProfile = ProfileMetadata.fromNostrEvent(MOCK_PROFILES[1]);

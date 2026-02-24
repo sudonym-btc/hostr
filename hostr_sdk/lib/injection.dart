@@ -27,7 +27,7 @@ abstract class HostrSdkModule {
   @singleton
   CustomLogger get logger => _hostrConfig.logger;
 
-  @singleton
+  @lazySingleton
   Ndk ndk(HostrConfig config) {
     _hostrConfig.logger.d(
       "Configuring NDK with bootstrap relays: ${config.bootstrapRelays}",

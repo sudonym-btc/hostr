@@ -317,20 +317,6 @@ class ZapPayOperation
       }
 
       relays.add(url);
-
-      // In local Docker, relay.hostr.development is usually plain WS on the
-      // internal network. Add ws:// fallback so LNbits can publish zap receipts.
-      try {
-        final uri = Uri.parse(url);
-        final host = uri.host.toLowerCase();
-        final isLocalHost =
-            host == 'localhost' || host.endsWith('.development');
-        if (uri.scheme == 'wss' && isLocalHost) {
-          relays.add(uri.replace(scheme: 'ws').toString());
-        }
-      } catch (_) {
-        // ignore malformed URL here; NDK validation happens elsewhere.
-      }
     }
 
     return relays.toList();

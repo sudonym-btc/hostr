@@ -38,7 +38,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget> {
     _updateMarkerData(cubit.state);
 
     _listSubscription = cubit.stream
-        .debounceTime(const Duration(milliseconds: 1000))
+        .debounceTime(const Duration(milliseconds: 100))
         .listen(_updateMarkerData);
   }
 

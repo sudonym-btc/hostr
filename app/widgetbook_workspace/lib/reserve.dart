@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/export.dart';
-import 'package:models/stubs/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
+
+import 'seed_data.dart';
 
 @widgetbook.UseCase(name: 'Default', type: Reserve)
 Widget reserve(BuildContext context) {

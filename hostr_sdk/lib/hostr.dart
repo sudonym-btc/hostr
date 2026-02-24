@@ -99,7 +99,8 @@ class Hostr {
         evm.recoverStaleSwaps();
       } else {
         logger.i('User logged out');
-        messaging.threads.stop();
+        messaging.threads.reset();
+        nwc.dispose();
         reservations.dispose();
         evm.dispose();
       }

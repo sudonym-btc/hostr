@@ -17,7 +17,7 @@ discovery:
   nostr:
     enabled: false
     relays:
-      - ws://relay.hostr.development
+      - wss/relay.hostr.development
   # find files by asking upstream CDNs
   # NOTE: do not set this to your own server, it will create an infinite loop
   upstream:

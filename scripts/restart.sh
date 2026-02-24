@@ -25,6 +25,12 @@ restart_hostr() {
         "$REPO_ROOT/docker/data/relay" \
         "$REPO_ROOT/docker/data/blossom" \
         "$REPO_ROOT/docker/data/escrow" \
+        "$REPO_ROOT/docker/tls/ca/ca.crt" \
+        "$REPO_ROOT/docker/tls/ca/ca.key" \
+        "$REPO_ROOT/docker/tls/ca/ca.srl" \
+        "$REPO_ROOT/docker/tls/ca/ca-bundle.crt" \
+        "$REPO_ROOT/docker/certs"/*.crt \
+        "$REPO_ROOT/docker/certs"/*.key \
         "$REPO_ROOT/escrow/contracts/ignition/deployments/chain-33" \
         "$REPO_ROOT/escrow/contracts/ignition/deployments/chain-31337" \
         "$REPO_ROOT/escrow/contracts/ignition/deployments"

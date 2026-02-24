@@ -41,9 +41,13 @@ class ThreadReplyView extends StatelessWidget {
             maxLines: 3,
             minLines: 1,
             autofocus: false,
+            style: Theme.of(context).textTheme.bodySmall,
             decoration: InputDecoration(
               hintText: hintText,
-              label: label != null ? Text(label!) : null,
+              hintStyle: Theme.of(context).textTheme.bodySmall,
+              label: label != null
+                  ? Text(label!, style: Theme.of(context).textTheme.bodySmall)
+                  : null,
               errorText: errorText,
             ),
           ),
@@ -51,6 +55,7 @@ class ThreadReplyView extends StatelessWidget {
         Gap.horizontal.sm(),
         FilledButton(
           onPressed: isLoading || isEmpty ? null : onSend,
+          // icon: const Icon(Icons.send),
           child: Text(AppLocalizations.of(context)!.send),
         ),
       ],

@@ -30,7 +30,21 @@ String formatDateShort(DateTime date, Locale locale) {
 }
 
 String formatDateRangeShort(DateTimeRange<DateTime> dateRange, Locale locale) {
-  return '${formatDateShort(dateRange.start, locale)} - ${formatDateShort(dateRange.end, locale)}';
+  final localeStr = locale.toString();
+  final dayFormat = DateFormat('MMM d', localeStr);
+  final yearFormat = DateFormat('MMM d, yyyy', localeStr);
+  final now = DateTime.now();
+
+  final endStr = dateRange.end.year == now.year
+      ? dayFormat.format(dateRange.end)
+      : yearFormat.format(dateRange.end);
+
+  // Only show the year on the start date when it differs from the end date's year.
+  final startStr = dateRange.start.year != dateRange.end.year
+      ? yearFormat.format(dateRange.start)
+      : dayFormat.format(dateRange.start);
+
+  return '$startStr - $endStr';
 }
 
 String getDateRangeText(DateTime start, DateTime end) {

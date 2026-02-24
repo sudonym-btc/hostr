@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 
 ThemeData getTheme(bool isDark) {
+  var darkColorScheme = ColorScheme.fromSeed(
+    seedColor: Colors.white,
+    brightness: Brightness.dark,
+  );
+  final lightColorScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple);
+
+  final colorScheme = isDark ? darkColorScheme : lightColorScheme;
   final base = isDark ? ThemeData.dark() : ThemeData.light();
   final baseGeneric = base.copyWith(
     inputDecorationTheme: InputDecorationTheme(
@@ -14,22 +21,21 @@ ThemeData getTheme(bool isDark) {
       ),
     ),
   );
-  final darkColorScheme = ColorScheme.fromSeed(
-    seedColor: Colors.white,
-    brightness: Brightness.dark,
-    primary: Colors.white,
-    onPrimary: Colors.black,
-    surface: Colors.black,
-    onSurface: Colors.white,
+
+  final bottomAppBarTheme = BottomAppBarThemeData(
+    color: colorScheme.surface,
+    elevation: 0,
+    padding: EdgeInsets.zero,
   );
-  final lightColorScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple);
 
   return isDark
       ? baseGeneric.copyWith(
           brightness: Brightness.dark,
           colorScheme: darkColorScheme,
+          scaffoldBackgroundColor: bottomAppBarTheme.color,
+          bottomAppBarTheme: bottomAppBarTheme,
           bottomNavigationBarTheme: BottomNavigationBarThemeData(
-            backgroundColor: Colors.transparent,
+            backgroundColor: bottomAppBarTheme.color,
             selectedItemColor: darkColorScheme.onSurface,
             elevation: 0,
             unselectedItemColor: darkColorScheme.onSurface.withAlpha(
@@ -42,8 +48,10 @@ ThemeData getTheme(bool isDark) {
       : baseGeneric.copyWith(
           brightness: Brightness.light,
           colorScheme: lightColorScheme,
-          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-            backgroundColor: Colors.transparent,
+          scaffoldBackgroundColor: bottomAppBarTheme.color,
+          bottomAppBarTheme: bottomAppBarTheme,
+          bottomNavigationBarTheme: BottomNavigationBarThemeData(
+            backgroundColor: bottomAppBarTheme.color,
             selectedItemColor: Colors.deepPurple,
             unselectedItemColor: Colors.black54,
             type: BottomNavigationBarType.fixed,

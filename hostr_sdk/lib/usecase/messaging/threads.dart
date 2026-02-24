@@ -97,6 +97,15 @@ class Threads extends HydratedCubit<List<Message>> {
     threads.clear();
   }
 
+  /// Fully resets messaging state, clearing both in-memory threads and
+  /// the persisted [HydratedCubit] storage. Call on sign-out so a
+  /// subsequent login starts with a clean slate.
+  void reset() {
+    stop();
+    emit([]);
+    clear();
+  }
+
   void _closeSubscription() {
     _statusSubscription?.cancel();
     _statusSubscription = null;

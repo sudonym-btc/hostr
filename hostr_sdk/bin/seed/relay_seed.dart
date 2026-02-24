@@ -6,9 +6,9 @@ import 'package:hostr_sdk/seed/pipeline/seed_pipeline.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_models.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 import 'package:path/path.dart' as p;
-import 'package:rxdart/rxdart.dart';
+
+import 'broadcast_isolate.dart';
 
 class RelaySeeder {
   /// Run the seed pipeline with the given [SeedPipelineConfig].
@@ -29,29 +29,20 @@ class RelaySeeder {
       print('Could not enable automine (non-fatal): $e');
     }
 
-    Ndk? ndk;
+    BroadcastIsolate? broadcaster;
     try {
       final sw = Stopwatch()..start();
 
-      // ── Verify relay is accepting WSS connections before anything else ──
-      // NDK has a tight 4 s connect timeout which loses the race when the
-      // event loop is saturated by hundreds of parallel EVM transactions.
-      // A direct dart:io WebSocket.connect (which respects HttpOverrides)
-      // gives us a clean, isolated check with a generous timeout.
-      await _ensureRelayReachable(config.relayUrl!);
-
-      // ── Relay: create NDK and connect (relay is already proven up) ───
-      ndk = Ndk(
-        NdkConfig(
-          eventVerifier: Bip340EventVerifier(),
-          cache: MemCacheManager(),
-          bootstrapRelays: [config.relayUrl!],
-        ),
+      // ── Spawn broadcast isolate ──────────────────────────────────────
+      // NDK runs in a dedicated isolate with its own event loop so that
+      // heavy EVM / anvil work on the main isolate cannot starve the
+      // WebSocket and cause spurious 4 s timeouts.
+      broadcaster = await BroadcastIsolate.spawn(
+        relayUrl: config.relayUrl!,
+        maxConcurrent: _maxConcurrentBroadcasts,
+        maxAttempts: _broadcastMaxAttempts,
       );
-      sw.reset();
-      print('Waiting for relay connectivity...');
-      await ndk.relays.seedRelaysConnected.timeout(const Duration(seconds: 20));
-      print('Relay connected. [relay ${sw.elapsedMilliseconds} ms]');
+      print('Broadcast isolate ready. [${sw.elapsedMilliseconds} ms]');
 
       final pipeline = SeedPipeline(
         config: config,
@@ -76,45 +67,40 @@ class RelaySeeder {
         print('[nip05] ${r.username}@${r.domain}');
       });
 
-      // ── Broadcast: consume events with rxdart operators ──────────────
+      // ── Track broadcast results on main isolate ──────────────────────
       sw.reset();
       int broadcastCount = 0;
+      int failCount = 0;
 
-      await streams.events.bufferCount(_broadcastBatchSize).asyncMap((
-        batch,
-      ) async {
-        final futures = <Future<void>>[];
-        for (var i = 0; i < batch.length; i++) {
-          futures.add(
-            _broadcastEventWithRetry(
-              ndk: ndk!,
-              event: batch[i],
-              i: broadcastCount + i,
-              relayUrl: config.relayUrl!,
-            ),
-          );
+      broadcaster.results.listen((result) {
+        if (result is BroadcastSuccess) {
+          broadcastCount++;
+          if (broadcastCount % 50 == 0) {
+            print(
+              'Broadcasted $broadcastCount events '
+              '[${sw.elapsedMilliseconds} ms]',
+            );
+          }
+        } else if (result is BroadcastFailure) {
+          failCount++;
+          print('[broadcast-fail] ${result.message}');
         }
-        await Future.wait(futures);
-        broadcastCount += batch.length;
-        final typeCounts = <String, int>{};
-        for (final event in batch) {
-          final name = event.runtimeType.toString();
-          typeCounts[name] = (typeCounts[name] ?? 0) + 1;
-        }
-        final typeStr = typeCounts.entries
-            .map((e) => '${e.value}× ${e.key}')
-            .join(', ');
-        print(
-          'Broadcasted ${batch.length} events '
-          '($typeStr) [$broadcastCount total]',
-        );
+      });
 
-        // Mild pacing between batches to avoid relay congestion.
-        await Future.delayed(const Duration(milliseconds: 50));
-      }).drain<void>();
+      // ── Feed events to the broadcast isolate as they arrive ──────────
+      int nextIndex = 0;
+      await for (final event in streams.events) {
+        broadcaster.submit(nextIndex++, event);
+      }
+
+      // All events have been queued — tell the isolate to finish up.
+      final finished = await broadcaster.finish();
+      broadcaster = null; // already cleaned up
+      broadcastCount = finished.successCount;
+      failCount = finished.failureCount;
 
       print(
-        'Built $broadcastCount events. '
+        'Broadcast complete: $broadcastCount succeeded, $failCount failed. '
         '[pipeline+broadcast ${sw.elapsedMilliseconds} ms]',
       );
 
@@ -141,97 +127,18 @@ class RelaySeeder {
       return broadcastCount;
     } finally {
       anvilClient.close();
-      if (ndk != null) {
-        await ndk.destroy();
+      if (broadcaster != null) {
+        try {
+          await broadcaster.finish();
+        } catch (_) {
+          // Best-effort cleanup.
+        }
       }
     }
   }
 
-  static const int _broadcastBatchSize = 50;
+  static const int _maxConcurrentBroadcasts = 5;
   static const int _broadcastMaxAttempts = 6;
-
-  /// Verify the relay is accepting WSS connections before creating NDK.
-  ///
-  /// Uses a direct [WebSocket.connect] (which honours [HttpOverrides] for
-  /// self-signed certs) with a generous per-attempt timeout. This avoids
-  /// the race condition where NDK's tight 4 s bootstrap timeout loses to
-  /// hundreds of parallel EVM transactions saturating the event loop.
-  Future<void> _ensureRelayReachable(
-    String relayUrl, {
-    Duration timeout = const Duration(seconds: 60),
-  }) async {
-    print('Verifying relay reachable at $relayUrl ...');
-    final sw = Stopwatch()..start();
-    while (sw.elapsed < timeout) {
-      try {
-        final ws = await WebSocket.connect(
-          relayUrl,
-        ).timeout(const Duration(seconds: 10));
-        await ws.close();
-        print('Relay verified reachable. [${sw.elapsedMilliseconds} ms]');
-        return;
-      } catch (e) {
-        print(
-          'Relay not reachable yet ($e), retrying in 2 s... '
-          '(${sw.elapsed.inSeconds}s elapsed)',
-        );
-        await Future.delayed(const Duration(seconds: 2));
-      }
-    }
-    throw Exception(
-      'Relay $relayUrl not reachable after ${timeout.inSeconds}s',
-    );
-  }
-
-  Future<void> _broadcastEventWithRetry({
-    required Ndk ndk,
-    required Nip01Event event,
-    required int i,
-    required String relayUrl,
-  }) async {
-    String? lastMsg;
-
-    for (var attempt = 1; attempt <= _broadcastMaxAttempts; attempt++) {
-      try {
-        final broadcastResult = await ndk.broadcast
-            .broadcast(nostrEvent: event, specificRelays: [relayUrl])
-            .broadcastDoneFuture;
-
-        if (broadcastResult.isEmpty) {
-          // Relay may have dropped the socket; wait for reconnection and retry.
-          await ndk.relays.seedRelaysConnected.timeout(
-            const Duration(seconds: 15),
-            onTimeout: () async {},
-          );
-          await Future.delayed(Duration(milliseconds: 300 * attempt));
-          continue;
-        }
-
-        final successful = broadcastResult.any((r) => r.broadcastSuccessful);
-        if (successful) {
-          return;
-        }
-
-        lastMsg = broadcastResult.isNotEmpty ? broadcastResult.first.msg : null;
-      } catch (e) {
-        lastMsg = e.toString();
-        // Socket/connection error — wait for relay to reconnect.
-        await ndk.relays.seedRelaysConnected.timeout(
-          const Duration(seconds: 15),
-          onTimeout: () async {},
-        );
-      }
-
-      // Backoff for congested relay / transient websocket failures.
-      await Future.delayed(Duration(milliseconds: 300 * attempt));
-    }
-
-    throw Exception(
-      'Failed to broadcast event index=$i '
-      '(kind=${event.kind}, ${event.runtimeType}): '
-      '${lastMsg ?? 'no response from relay'}',
-    );
-  }
 
   Future<String> _resolveDeployedMultiEscrowAddress() async {
     final deploymentFiles = _candidateDeploymentFiles();

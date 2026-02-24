@@ -1,1 +1,6 @@
 data
+
+# Generated TLS certificates (created by tls-init at startup)
+certs/*.crt
+certs/*.key
+certs/*.srl
