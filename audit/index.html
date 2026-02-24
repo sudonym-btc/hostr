@@ -1,0 +1,2081 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.0.825230878687">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.0.0">
+
+    <!-- Primary Meta Tags -->
+    <title>Hostr App — Visual &amp; Logic Audit</title>
+    <meta name="title" content="Hostr App — Visual & Logic Audit">
+    <meta name="description" content="Full audit of the Hostr Flutter app, hostr_sdk, and models layer. Date: 2026-02-23. No code changes — findings and execution plan only.">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="/audit/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="/audit/">
+    <meta property="og:title" content="Hostr App — Visual & Logic Audit">
+    <meta property="og:description" content="Full audit of the Hostr Flutter app, hostr_sdk, and models layer. Date: 2026-02-23. No code changes — findings and execution plan only.">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../resources/css/retype.css?v=4.0.0.825230878687" rel="stylesheet">
+
+    <script data-cfasync="false" src="../resources/js/config.js?v=4.0.0.825230878687" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../resources/js/retype.js?v=4.0.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../resources/js/lunr.js?v=4.0.0.825230878687" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../resources/js/prism.js?v=4.0.0.825230878687" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="../" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 dark:hidden md:inline-block" src="../app/assets/images/logo/logo.svg">
+                            <img class="max-h-10 hidden dark:inline-block" src="../app/assets/images/logo/logo.svg">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../.doc/guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../.doc/guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <!-- Page content  -->
+<doc-anchor-target id="hostr-app--visual--logic-audit" class="break-words">
+    <h1>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#hostr-app--visual--logic-audit">#</doc-anchor-trigger>
+        <span>Hostr App — Visual &amp; Logic Audit</span>
+    </h1>
+</doc-anchor-target>
+<blockquote>
+<p>Full audit of the Hostr Flutter app, hostr_sdk, and models layer.
+Date: 2026-02-23. <strong>No code changes — findings and execution plan only.</strong></p>
+</blockquote>
+<hr>
+<doc-anchor-target id="table-of-contents">
+    <h1>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#table-of-contents">#</doc-anchor-trigger>
+        <span>Table of Contents</span>
+    </h1>
+</doc-anchor-target>
+<ul>
+<li><doc-anchor-trigger to="#part-a--visual">Part A — Visual</doc-anchor-trigger>
+<ul>
+<li><doc-anchor-trigger to="#v1-spacing--padding">V1. Spacing &amp; Padding</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#v2-typography--font-sizes">V2. Typography &amp; Font Sizes</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#v3-buttons--types-roles-icons">V3. Buttons — Types, Roles, Icons</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#v4-icon-sizes">V4. Icon Sizes</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#v5-animations">V5. Animations</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#v6-modals--bottom-sheets">V6. Modals &amp; Bottom Sheets</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#v7-image-loading--placeholders">V7. Image Loading &amp; Placeholders</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#v8-loading-indicators">V8. Loading Indicators</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#v9-translations--l10n">V9. Translations / l10n</doc-anchor-trigger></li>
+</ul>
+</li>
+<li><doc-anchor-trigger to="#part-b--logic">Part B — Logic</doc-anchor-trigger>
+<ul>
+<li><doc-anchor-trigger to="#l1-error-handling">L1. Error Handling</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#l2-stream--listener-lifecycle">L2. Stream &amp; Listener Lifecycle</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#l3-caching-batching--use-cases">L3. Caching, Batching &amp; Use Cases</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#l4-load--performance-hotspots">L4. Load &amp; Performance Hotspots</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#l5-nostr-protocol-future-proofing">L5. Nostr Protocol Future-Proofing</doc-anchor-trigger></li>
+<li><doc-anchor-trigger to="#l6-test-infrastructure--automation">L6. Test Infrastructure &amp; Automation</doc-anchor-trigger></li>
+</ul>
+</li>
+<li><doc-anchor-trigger to="#execution-plan">Execution Plan</doc-anchor-trigger></li>
+</ul>
+<hr>
+<doc-anchor-target id="part-a--visual">
+    <h1>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#part-a--visual">#</doc-anchor-trigger>
+        <span>Part A — Visual</span>
+    </h1>
+</doc-anchor-target>
+<doc-anchor-target id="v1-spacing--padding">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#v1-spacing--padding">#</doc-anchor-trigger>
+        <span>V1. Spacing &amp; Padding</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<p>A <code translate="no" v-pre>kDefaultPadding = 32</code> constant exists in <code translate="no" v-pre>app/lib/config/constants.dart</code>, and a <code translate="no" v-pre>CustomPadding</code> widget wraps <code translate="no" v-pre>Padding</code> with multipliers of <code translate="no" v-pre>kDefaultPadding</code>. This is a good foundation, but <strong>~75% of spacing in the app bypasses it</strong>.</p>
+<p><strong>SizedBox hardcoded values found across presentation files:</strong></p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th style="text-align: center;">Value (px)</th>
+<th style="text-align: center;">Approx. uses</th>
+<th style="text-align: center;">Equivalent <code translate="no" v-pre>kDefaultPadding</code> fraction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">~12</td>
+<td style="text-align: center;">1/8</td>
+</tr>
+<tr>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">~5</td>
+<td style="text-align: center;"><em>(non-standard — 3/16)</em></td>
+</tr>
+<tr>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">~20</td>
+<td style="text-align: center;">1/4</td>
+</tr>
+<tr>
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">~3</td>
+<td style="text-align: center;"><em>(non-standard — 5/16)</em></td>
+</tr>
+<tr>
+<td style="text-align: center;">12</td>
+<td style="text-align: center;">~8</td>
+<td style="text-align: center;">3/8</td>
+</tr>
+<tr>
+<td style="text-align: center;">15</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;"><em>(non-standard)</em></td>
+</tr>
+<tr>
+<td style="text-align: center;">16</td>
+<td style="text-align: center;">~18</td>
+<td style="text-align: center;">1/2</td>
+</tr>
+<tr>
+<td style="text-align: center;">24</td>
+<td style="text-align: center;">~9</td>
+<td style="text-align: center;">3/4</td>
+</tr>
+<tr>
+<td style="text-align: center;">32</td>
+<td style="text-align: center;">~1</td>
+<td style="text-align: center;">1×</td>
+</tr>
+<tr>
+<td style="text-align: center;">40</td>
+<td style="text-align: center;">~1</td>
+<td style="text-align: center;">5/4</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>That&#x27;s <strong>10 distinct spacing values</strong>, of which 3 (6, 10, 15) don&#x27;t align to any clean fraction of the base grid.</p>
+<p>Raw <code translate="no" v-pre>EdgeInsets</code> with hardcoded values appear ~65 times across the presentation layer, duplicating values that <code translate="no" v-pre>CustomPadding</code> already provides (e.g. <code translate="no" v-pre>EdgeInsets.symmetric(horizontal: 32)</code> literally equals <code translate="no" v-pre>kDefaultPadding</code>).</p>
+<doc-anchor-target id="recommendation">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<p>Adopt a <strong>4px base grid</strong> spacing scale (industry standard, used by Material 3):</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">kSpace0  =  0
+kSpace1  =  4   (kDefaultPadding / 8)
+kSpace2  =  8   (kDefaultPadding / 4)
+kSpace3  = 12   (kDefaultPadding * 3/8)
+kSpace4  = 16   (kDefaultPadding / 2)
+kSpace5  = 24   (kDefaultPadding * 3/4)
+kSpace6  = 32   (kDefaultPadding)
+kSpace7  = 48   (kDefaultPadding * 1.5)
+kSpace8  = 64   (kDefaultPadding * 2)</code></pre>
+</doc-codeblock></div>
+<p>Create a <code translate="no" v-pre>Spacer</code> (or <code translate="no" v-pre>Gap</code>) widget:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">class Gap extends StatelessWidget {
+  final double size;
+  const Gap(this.size, {super.key});
+  const Gap.xs({super.key}) : size = kSpace1;   //  4
+  const Gap.sm({super.key}) : size = kSpace2;   //  8
+  const Gap.md({super.key}) : size = kSpace4;   // 16
+  const Gap.lg({super.key}) : size = kSpace6;   // 32
+  const Gap.xl({super.key}) : size = kSpace7;   // 48
+
+  @override
+  Widget build(BuildContext context) =&gt; SizedBox(width: size, height: size);
+}</code></pre>
+</doc-codeblock></div>
+<p>Then replace all <code translate="no" v-pre>SizedBox(height: 16)</code> with <code translate="no" v-pre>Gap.md()</code>, etc. This eliminates magic numbers and makes spacing auditable via search.</p>
+<doc-anchor-target id="files-to-change-top-offenders">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#files-to-change-top-offenders">#</doc-anchor-trigger>
+        <span>Files to Change (top offenders)</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li><code translate="no" v-pre>presentation/component/widgets/reservation/trade_header.dart</code> — 8+ SizedBoxes</li>
+<li><code translate="no" v-pre>presentation/component/widgets/flow/payment/payment.dart</code> — 6+ SizedBoxes</li>
+<li><code translate="no" v-pre>presentation/component/widgets/inbox/thread/thread_header.dart</code> — 5+ SizedBoxes</li>
+<li><code translate="no" v-pre>presentation/component/widgets/listing/listing_list_item.dart</code> — 4 SizedBoxes</li>
+<li><code translate="no" v-pre>presentation/screens/shared/listing/listing_view.dart</code> — mixed SizedBox + EdgeInsets</li>
+<li><code translate="no" v-pre>presentation/screens/shared/profile/</code> — multiple files</li>
+</ul>
+<hr>
+<doc-anchor-target id="v2-typography--font-sizes">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#v2-typography--font-sizes">#</doc-anchor-trigger>
+        <span>V2. Typography &amp; Font Sizes</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state-1">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state-1">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<p>The app uses Flutter&#x27;s <code translate="no" v-pre>textTheme</code> tokens in <strong>most</strong> places (good), but 7 distinct hardcoded <code translate="no" v-pre>fontSize</code> values leak through:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th style="text-align: center;">Hardcoded size</th>
+<th>Files</th>
+<th>Should be</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">11</td>
+<td><code translate="no" v-pre>trade_header.dart</code></td>
+<td><code translate="no" v-pre>labelSmall</code> (11)</td>
+</tr>
+<tr>
+<td style="text-align: center;">12</td>
+<td><code translate="no" v-pre>trade_header.dart</code>, <code translate="no" v-pre>listing_list_item.dart</code>, <code translate="no" v-pre>price_tag.dart</code>, <code translate="no" v-pre>inbox_item.dart</code></td>
+<td><code translate="no" v-pre>bodySmall</code> (12)</td>
+</tr>
+<tr>
+<td style="text-align: center;">14</td>
+<td><code translate="no" v-pre>trade_header.dart</code></td>
+<td><code translate="no" v-pre>bodyMedium</code> (14)</td>
+</tr>
+<tr>
+<td style="text-align: center;">16</td>
+<td><code translate="no" v-pre>trade_header.dart</code></td>
+<td><code translate="no" v-pre>bodyLarge</code> (16) or <code translate="no" v-pre>titleSmall</code> (14)</td>
+</tr>
+<tr>
+<td style="text-align: center;">20</td>
+<td><code translate="no" v-pre>price.dart</code></td>
+<td><code translate="no" v-pre>titleLarge</code> (22)</td>
+</tr>
+<tr>
+<td style="text-align: center;">24</td>
+<td><code translate="no" v-pre>review_list_item.dart</code> (star icon context)</td>
+<td><code translate="no" v-pre>headlineSmall</code> (24)</td>
+</tr>
+<tr>
+<td style="text-align: center;">28</td>
+<td><code translate="no" v-pre>price_marker.dart</code></td>
+<td><code translate="no" v-pre>headlineMedium</code> (28)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="best-practice--type-scale">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#best-practice--type-scale">#</doc-anchor-trigger>
+        <span>Best Practice — Type Scale</span>
+    </h3>
+</doc-anchor-target>
+<p>Material 3 defines exactly 15 text styles in 5 roles × 3 sizes. For a mobile accommodation app, you realistically need <strong>5–7 distinct sizes</strong> to minimize cognitive load:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Role</th>
+<th>Token</th>
+<th style="text-align: center;">Typical size</th>
+<th>Use in Hostr</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Display</strong></td>
+<td><code translate="no" v-pre>displayMedium</code></td>
+<td style="text-align: center;">45</td>
+<td>Splash screen, hero numbers</td>
+</tr>
+<tr>
+<td><strong>Headline</strong></td>
+<td><code translate="no" v-pre>headlineSmall</code></td>
+<td style="text-align: center;">24</td>
+<td>Section headers on detail pages</td>
+</tr>
+<tr>
+<td><strong>Title</strong></td>
+<td><code translate="no" v-pre>titleLarge</code></td>
+<td style="text-align: center;">22</td>
+<td>Screen/section titles, form labels</td>
+</tr>
+<tr>
+<td><strong>Title</strong></td>
+<td><code translate="no" v-pre>titleMedium</code></td>
+<td style="text-align: center;">16</td>
+<td>Card titles, list item primary text</td>
+</tr>
+<tr>
+<td><strong>Body</strong></td>
+<td><code translate="no" v-pre>bodyMedium</code></td>
+<td style="text-align: center;">14</td>
+<td>Descriptions, message text</td>
+</tr>
+<tr>
+<td><strong>Body</strong></td>
+<td><code translate="no" v-pre>bodySmall</code></td>
+<td style="text-align: center;">12</td>
+<td>Captions, timestamps, secondary info</td>
+</tr>
+<tr>
+<td><strong>Label</strong></td>
+<td><code translate="no" v-pre>labelSmall</code></td>
+<td style="text-align: center;">11</td>
+<td>Badges, chips, minimal annotations</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Rule:</strong> Never use a raw <code translate="no" v-pre>fontSize:</code> in widget code. Always use <code translate="no" v-pre>Theme.of(context).textTheme.bodySmall</code> (with optional <code translate="no" v-pre>.copyWith(fontWeight: ...)</code> for emphasis). This keeps the scale consistent and lets theme changes propagate everywhere.</p>
+<doc-anchor-target id="files-to-change">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#files-to-change">#</doc-anchor-trigger>
+        <span>Files to Change</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li><code translate="no" v-pre>presentation/component/widgets/reservation/trade_header.dart</code> — <strong>worst offender</strong>, 5 hardcoded sizes (11, 12, 14, 16)</li>
+<li><code translate="no" v-pre>presentation/component/widgets/listing/price_tag.dart</code> — hardcoded 12</li>
+<li><code translate="no" v-pre>presentation/component/widgets/listing/price.dart</code> — hardcoded 20</li>
+<li><code translate="no" v-pre>presentation/component/widgets/search/price_marker.dart</code> — hardcoded 28</li>
+<li><code translate="no" v-pre>presentation/component/widgets/listing/listing_list_item.dart</code> — hardcoded 12</li>
+</ul>
+<hr>
+<doc-anchor-target id="v3-buttons--types-roles-icons">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#v3-buttons--types-roles-icons">#</doc-anchor-trigger>
+        <span>V3. Buttons — Types, Roles, Icons</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state-2">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state-2">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<p>Four button types are used across the app:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Type</th>
+<th style="text-align: center;">Count</th>
+<th>Primary use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>FilledButton</code> / <code translate="no" v-pre>.tonal</code> / <code translate="no" v-pre>.icon</code></td>
+<td style="text-align: center;">~32</td>
+<td>CTAs, confirmations</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>ElevatedButton</code></td>
+<td style="text-align: center;">~7</td>
+<td>Swap flows, some CTAs</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>TextButton</code></td>
+<td style="text-align: center;">~8</td>
+<td>Cancel, clear, secondary actions</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>OutlinedButton</code></td>
+<td style="text-align: center;">~2</td>
+<td>Tertiary/toggles</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>IconButton</code></td>
+<td style="text-align: center;">~10</td>
+<td>Navigation, copy, close</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Problem:</strong> <code translate="no" v-pre>ElevatedButton</code> and <code translate="no" v-pre>FilledButton</code> are used interchangeably for primary CTAs. The swap flow screens (<code translate="no" v-pre>swap_in.dart</code>, <code translate="no" v-pre>swap_out.dart</code>) and <code translate="no" v-pre>dev.dart</code> use <code translate="no" v-pre>ElevatedButton</code>, while everything else uses <code translate="no" v-pre>FilledButton</code>. This creates a visual inconsistency — <code translate="no" v-pre>ElevatedButton</code> has elevation/shadow, <code translate="no" v-pre>FilledButton</code> is flat.</p>
+<doc-anchor-target id="best-practice--button-hierarchy">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#best-practice--button-hierarchy">#</doc-anchor-trigger>
+        <span>Best Practice — Button Hierarchy</span>
+    </h3>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Role</th>
+<th>Widget</th>
+<th>When to use</th>
+<th>Icon?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Primary CTA</strong></td>
+<td><code translate="no" v-pre>FilledButton</code></td>
+<td>One per screen max. The main action (Pay, Reserve, Submit)</td>
+<td>Only if icon adds clarity (e.g. send ✈, not generic ✓)</td>
+</tr>
+<tr>
+<td><strong>Secondary</strong></td>
+<td><code translate="no" v-pre>FilledButton.tonal</code></td>
+<td>Supporting actions (Use Escrow, Edit)</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td><strong>Tertiary</strong></td>
+<td><code translate="no" v-pre>TextButton</code></td>
+<td>Cancel, Clear, Skip — low-commitment actions</td>
+<td>Rarely</td>
+</tr>
+<tr>
+<td><strong>Destructive</strong></td>
+<td><code translate="no" v-pre>FilledButton</code> + red <code translate="no" v-pre>backgroundColor</code></td>
+<td>Delete, Refund, Block</td>
+<td>Icon for emphasis (⚠)</td>
+</tr>
+<tr>
+<td><strong>Icon-only</strong></td>
+<td><code translate="no" v-pre>IconButton</code></td>
+<td>Toolbar actions, close, copy, navigation</td>
+<td>Always</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>When to use icons on buttons:</strong></p>
+<ul>
+<li><span class="docs-emoji">&#x2705;</span> When the action has a universally recognized symbol (copy <span class="docs-emoji">&#x1F4CB;</span>, send ✈, close ✕)</li>
+<li><span class="docs-emoji">&#x2705;</span> When used alongside other icon-only buttons in a row (toolbar)</li>
+<li><span class="docs-emoji">&#x274C;</span> When the button already has clear text (&quot;Pay&quot; doesn&#x27;t need a <span class="docs-emoji">&#x1F4B0;</span> icon)</li>
+<li><span class="docs-emoji">&#x274C;</span> When the icon is decorative rather than communicative</li>
+</ul>
+<doc-anchor-target id="action-items">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#action-items">#</doc-anchor-trigger>
+        <span>Action Items</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Replace all <code translate="no" v-pre>ElevatedButton</code> with <code translate="no" v-pre>FilledButton</code> across <code translate="no" v-pre>swap_in.dart</code>, <code translate="no" v-pre>swap_out.dart</code>, <code translate="no" v-pre>dev.dart</code></li>
+<li>Define button presets in theme (or a <code translate="no" v-pre>AppButton</code> wrapper) so primary/secondary/destructive styling is centralized</li>
+<li>Audit icon usage on <code translate="no" v-pre>FilledButton.icon</code> — ensure icons are communicative, not decorative</li>
+</ol>
+<hr>
+<doc-anchor-target id="v4-icon-sizes">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#v4-icon-sizes">#</doc-anchor-trigger>
+        <span>V4. Icon Sizes</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state-3">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state-3">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<p><strong>10 distinct icon sizes</strong> are hardcoded across the app:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th style="text-align: center;">Size</th>
+<th>Where</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">12</td>
+<td>Copy icon, comment</td>
+<td>Detail actions</td>
+</tr>
+<tr>
+<td style="text-align: center;">14</td>
+<td>Key icon, chips</td>
+<td>Inline indicators</td>
+</tr>
+<tr>
+<td style="text-align: center;">16</td>
+<td>6+ files</td>
+<td>Default small icons</td>
+</tr>
+<tr>
+<td style="text-align: center;">18</td>
+<td>Amount input</td>
+<td>Field icons</td>
+</tr>
+<tr>
+<td style="text-align: center;">20</td>
+<td>Multiple</td>
+<td>Standard interactive</td>
+</tr>
+<tr>
+<td style="text-align: center;">30</td>
+<td>Search nav</td>
+<td>Navigation</td>
+</tr>
+<tr>
+<td style="text-align: center;">32</td>
+<td>Detail view</td>
+<td>Section icons</td>
+</tr>
+<tr>
+<td style="text-align: center;">40</td>
+<td>CircleAvatar fallback</td>
+<td>Profile</td>
+</tr>
+<tr>
+<td style="text-align: center;">48</td>
+<td>Error icons</td>
+<td>Status</td>
+</tr>
+<tr>
+<td style="text-align: center;">80</td>
+<td>Verified badge detail</td>
+<td>Hero icon</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The same icon (<code translate="no" v-pre>Icons.copy</code>) appears at sizes 12, 16, and 18 in different files.</p>
+<doc-anchor-target id="recommendation-1">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation-1">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<p>Define an icon size scale mirroring the spacing scale:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">const kIconXs  = 14.0;  // Chips, inline labels
+const kIconSm  = 16.0;  // List item trailing, copy actions
+const kIconMd  = 20.0;  // Standard interactive icons
+const kIconLg  = 24.0;  // Navigation bar, section headers (Material default)
+const kIconXl  = 32.0;  // Empty states, feature icons
+const kIconHero = 48.0; // Error/success status, onboarding</code></pre>
+</doc-codeblock></div>
+<p>Standardize: all copy icons → <code translate="no" v-pre>kIconSm</code>, all nav icons → <code translate="no" v-pre>kIconLg</code>, etc.</p>
+<hr>
+<doc-anchor-target id="v5-animations">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#v5-animations">#</doc-anchor-trigger>
+        <span>V5. Animations</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state-4">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state-4">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<p>Animation constants are well-defined in <code translate="no" v-pre>config/constants.dart</code>:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">const kAnimationDuration = Duration(milliseconds: 300);
+const kAnimationCurve = Curves.easeInOut;
+const kStaggerDelay = Duration(milliseconds: 60);</code></pre>
+</doc-codeblock></div>
+<p>The <code translate="no" v-pre>AnimatedListItem</code> widget correctly defaults to these. Most <code translate="no" v-pre>AnimatedSwitcher</code> usages reference <code translate="no" v-pre>kAnimationDuration</code>.</p>
+<p><strong>Deviations:</strong></p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>File</th>
+<th>Duration</th>
+<th>Curve</th>
+<th>Issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>listing_carousel.dart</code></td>
+<td><code translate="no" v-pre>300ms</code> <em>(hardcoded)</em></td>
+<td><code translate="no" v-pre>Curves.easeInOut</code> <em>(hardcoded)</em></td>
+<td>Should reference constants</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>money_in_flight.dart</code></td>
+<td><code translate="no" v-pre>400ms</code></td>
+<td><code translate="no" v-pre>Curves.easeInOut</code></td>
+<td>Non-standard duration</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>trade_timeline.dart</code></td>
+<td><code translate="no" v-pre>200ms</code></td>
+<td><code translate="no" v-pre>Curves.easeOut</code></td>
+<td>Different curve</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>trade_header.dart</code> (shimmer)</td>
+<td><code translate="no" v-pre>1500ms</code></td>
+<td>—</td>
+<td>Correct for shimmer</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>search_box.dart</code></td>
+<td><code translate="no" v-pre>1000ms</code></td>
+<td>—</td>
+<td>Debounce, not animation (OK)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="recommendation-2">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation-2">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Replace hardcoded <code translate="no" v-pre>Duration(milliseconds: 300)</code> in <code translate="no" v-pre>listing_carousel.dart</code> with <code translate="no" v-pre>kAnimationDuration</code></li>
+<li>Decide: is <code translate="no" v-pre>400ms</code> intentional for <code translate="no" v-pre>money_in_flight.dart</code>? If not, use <code translate="no" v-pre>kAnimationDuration</code>. If yes, define <code translate="no" v-pre>kAnimationDurationSlow = Duration(milliseconds: 400)</code></li>
+<li>Consider adding <code translate="no" v-pre>kAnimationDurationFast = Duration(milliseconds: 150)</code> for micro-interactions (button press feedback, chip toggles)</li>
+<li>Standardize on one curve family. <code translate="no" v-pre>easeInOut</code> is correct for most transitions. <code translate="no" v-pre>easeOut</code> is appropriate for elements entering the screen (quick start, gentle stop)</li>
+</ol>
+<doc-anchor-target id="preloading--perceived-performance">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#preloading--perceived-performance">#</doc-anchor-trigger>
+        <span>Preloading &amp; Perceived Performance</span>
+    </h3>
+</doc-anchor-target>
+<p><strong>Can filter screens be preloaded?</strong> Yes — create the filter bottom sheet widget eagerly in the parent and show/hide it rather than constructing on tap. The <code translate="no" v-pre>SearchFilterCubit</code> state should already be warm. In practice, if the bottom sheet construction is &lt; 16ms (one frame), preloading isn&#x27;t necessary. Profile first with DevTools timeline.</p>
+<p><strong>Preloading images / placeholders:</strong></p>
+<ul>
+<li>Currently <code translate="no" v-pre>BlossomImage</code> shows <code translate="no" v-pre>CircularProgressIndicator</code> while loading and Flutter&#x27;s <code translate="no" v-pre>Placeholder()</code> (a colored cross) on error — both are jarring</li>
+<li>Add <code translate="no" v-pre>FadeInImage</code>-style crossfade from a shimmer/skeleton placeholder to the loaded image</li>
+<li>Consider adding <code translate="no" v-pre>precacheImage()</code> calls for above-the-fold listing images when the list screen initializes</li>
+<li>Implement <code translate="no" v-pre>CachedNetworkImage</code> (or equivalent) to avoid re-downloading on every screen revisit</li>
+</ul>
+<hr>
+<doc-anchor-target id="v6-modals--bottom-sheets">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#v6-modals--bottom-sheets">#</doc-anchor-trigger>
+        <span>V6. Modals &amp; Bottom Sheets</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state-5">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state-5">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<p>15 <code translate="no" v-pre>showModalBottomSheet</code> callsites exist. A <code translate="no" v-pre>ModalBottomSheet</code> wrapper widget provides consistent internal layout. But:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Issue</th>
+<th>Affected files</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>isScrollControlled</code> inconsistently set</td>
+<td>7 of 15 don&#x27;t set it</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>useSafeArea</code> only set in 1 of 15 callsites</td>
+<td>All except <code translate="no" v-pre>listing_view.dart</code></td>
+</tr>
+<tr>
+<td>Several callsites bypass <code translate="no" v-pre>ModalBottomSheet</code> and build custom layouts</td>
+<td><code translate="no" v-pre>listing_view.dart</code>, <code translate="no" v-pre>trade_header.dart</code>, <code translate="no" v-pre>search_box.dart</code></td>
+</tr>
+<tr>
+<td>No shared <code translate="no" v-pre>showAppModalBottomSheet()</code> helper</td>
+<td>Each callsite configures independently</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="recommendation-3">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation-3">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<p>Create a single entry point:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">Future&lt;T?&gt; showAppModal&lt;T&gt;(BuildContext context, {
+  required Widget child,
+  bool isScrollControlled = true,
+  bool useSafeArea = true,
+  bool isDismissible = true,
+}) =&gt; showModalBottomSheet&lt;T&gt;(
+  context: context,
+  isScrollControlled: isScrollControlled,
+  useSafeArea: useSafeArea,
+  isDismissible: isDismissible,
+  builder: (_) =&gt; child,
+);</code></pre>
+</doc-codeblock></div>
+<p>Then replace all 15 callsites. This ensures consistent <code translate="no" v-pre>isScrollControlled</code> and <code translate="no" v-pre>useSafeArea</code> defaults.</p>
+<hr>
+<doc-anchor-target id="v7-image-loading--placeholders">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#v7-image-loading--placeholders">#</doc-anchor-trigger>
+        <span>V7. Image Loading &amp; Placeholders</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state-6">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state-6">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li><code translate="no" v-pre>BlossomImage</code> is the standard image widget — resolves SHA-256 hashes via Blossom server, falls back to <code translate="no" v-pre>Image.network</code></li>
+<li><strong>No disk caching</strong> — no <code translate="no" v-pre>CachedNetworkImage</code> or equivalent anywhere in the codebase</li>
+<li>Error state shows Flutter&#x27;s <code translate="no" v-pre>Placeholder()</code> widget (a colored diagonal cross) — not production-ready</li>
+<li>Loading state shows a raw <code translate="no" v-pre>CircularProgressIndicator</code></li>
+<li>Some files bypass <code translate="no" v-pre>BlossomImage</code> and use raw <code translate="no" v-pre>Image.network</code> (relay favicons, badge images)</li>
+</ul>
+<doc-anchor-target id="recommendation-4">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation-4">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li><strong>Add <code translate="no" v-pre>cached_network_image</code> package</strong> — provides disk + memory caching, placeholder builders, and error builders out of the box</li>
+<li><strong>Replace <code translate="no" v-pre>Placeholder()</code> with a branded error widget</strong> — e.g. a subtle grey rectangle with a broken-image icon</li>
+<li><strong>Replace loading <code translate="no" v-pre>CircularProgressIndicator</code> with a shimmer skeleton</strong> matching the image&#x27;s aspect ratio. This prevents layout shift when images load.</li>
+<li><strong>Wrap <code translate="no" v-pre>BlossomImage</code> to use caching internally</strong> — so every <code translate="no" v-pre>BlossomImage</code> benefits without changing callsites</li>
+<li><strong>Precache hero images</strong> — call <code translate="no" v-pre>precacheImage()</code> for the first N listing images visible on the home/search screen</li>
+</ol>
+<hr>
+<doc-anchor-target id="v8-loading-indicators">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#v8-loading-indicators">#</doc-anchor-trigger>
+        <span>V8. Loading Indicators</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state-7">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state-7">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<p>27 <code translate="no" v-pre>CircularProgressIndicator</code> instances across the app with <strong>4 different <code translate="no" v-pre>strokeWidth</code> values</strong> (default ~4.0, 4, 2, 1.5). Additionally:</p>
+<ul>
+<li>Some use <code translate="no" v-pre>.adaptive()</code>, others don&#x27;t</li>
+<li>A custom <code translate="no" v-pre>AsymptoticProgressBar</code> exists (nice!) but is used in only one place</li>
+<li>A private <code translate="no" v-pre>_ShimmerSurface</code> in <code translate="no" v-pre>trade_header.dart</code> is not reusable</li>
+</ul>
+<doc-anchor-target id="recommendation-5">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation-5">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Create a shared <code translate="no" v-pre>AppLoadingIndicator</code> widget with size presets:
+<ul>
+<li><code translate="no" v-pre>.small()</code> — <code translate="no" v-pre>strokeWidth: 2</code>, 16x16, for inline/list contexts</li>
+<li><code translate="no" v-pre>.medium()</code> — <code translate="no" v-pre>strokeWidth: 3</code>, 24x24, default</li>
+<li><code translate="no" v-pre>.large()</code> — <code translate="no" v-pre>strokeWidth: 4</code>, 48x48, for full-page loading</li>
+</ul>
+</li>
+<li>Extract <code translate="no" v-pre>_ShimmerSurface</code> into a reusable <code translate="no" v-pre>ShimmerPlaceholder</code> widget</li>
+<li>Create <code translate="no" v-pre>ShimmerListItem</code>, <code translate="no" v-pre>ShimmerCard</code> skeleton widgets for list/card loading states (prevents layout shift)</li>
+<li>Use <code translate="no" v-pre>CircularProgressIndicator.adaptive()</code> everywhere for platform-native feel on iOS</li>
+</ol>
+<hr>
+<doc-anchor-target id="v9-translations--l10n">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#v9-translations--l10n">#</doc-anchor-trigger>
+        <span>V9. Translations / l10n</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state-8">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state-8">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li><strong>~51 strings</strong> use <code translate="no" v-pre>AppLocalizations.of(context)!</code> (translated)</li>
+<li><strong>~70 strings</strong> are hardcoded English <code translate="no" v-pre>Text('...')</code> literals (not translated)</li>
+<li>Only English ARB file exists (<code translate="no" v-pre>app_en.arb</code> with ~68 keys)</li>
+<li>No pluralization rules, no parameterized messages beyond simple string interpolation</li>
+</ul>
+<p><strong>Hardcoded string hotspots:</strong></p>
+<ul>
+<li><code translate="no" v-pre>dev.dart</code> (debug screen — acceptable)</li>
+<li><code translate="no" v-pre>payment.dart</code>, <code translate="no" v-pre>payment_method.dart</code> — &quot;Pay directly&quot;, &quot;Use Escrow&quot;, &quot;Copy&quot;, &quot;Open wallet&quot;</li>
+<li><code translate="no" v-pre>swap_in.dart</code>, <code translate="no" v-pre>swap_out.dart</code> — &quot;Confirm&quot;, &quot;Continue&quot;</li>
+<li><code translate="no" v-pre>listing_view.dart</code> — &quot;Blocked Dates&quot;, &quot;Block Dates&quot;, &quot;Retry&quot;</li>
+<li><code translate="no" v-pre>background_tasks.dart</code> — all debug strings (acceptable)</li>
+<li><code translate="no" v-pre>edit_review.dart</code> — &quot;Save&quot;</li>
+<li>Various error messages — &quot;Error:&quot;, &quot;Unknown message type&quot;, &quot;No wallet connected&quot;</li>
+</ul>
+<doc-anchor-target id="recommendation-6">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation-6">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li><strong>Immediate:</strong> Extract all user-facing hardcoded strings to <code translate="no" v-pre>app_en.arb</code>. Debug-only strings (dev.dart, background_tasks.dart) can stay hardcoded</li>
+<li><strong>Naming convention:</strong> Use <code translate="no" v-pre>camelCase</code> keys matching the semantic role: <code translate="no" v-pre>payDirectly</code>, <code translate="no" v-pre>useEscrow</code>, <code translate="no" v-pre>blockedDates</code>, <code translate="no" v-pre>retryButton</code>, <code translate="no" v-pre>noWalletConnected</code></li>
+<li><strong>Error messages:</strong> Create parameterized ARB entries: <code translate="no" v-pre>&quot;errorGeneric&quot;: &quot;Something went wrong: {details}&quot;</code> with <code translate="no" v-pre>@errorGeneric</code> metadata for placeholders</li>
+<li><strong>Plurals:</strong> Add plural rules for counts: <code translate="no" v-pre>&quot;reviewCount&quot;: &quot;{count, plural, =0{No reviews} =1{1 review} other{{count} reviews}}&quot;</code></li>
+<li><strong>When ready for multi-language:</strong> add <code translate="no" v-pre>app_es.arb</code>, <code translate="no" v-pre>app_fr.arb</code>, etc. The Flutter l10n tooling will generate all delegates automatically</li>
+</ol>
+<hr>
+<doc-anchor-target id="part-b--logic">
+    <h1>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#part-b--logic">#</doc-anchor-trigger>
+        <span>Part B — Logic</span>
+    </h1>
+</doc-anchor-target>
+<doc-anchor-target id="l1-error-handling">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#l1-error-handling">#</doc-anchor-trigger>
+        <span>L1. Error Handling</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state--5-inconsistent-patterns">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state--5-inconsistent-patterns">#</doc-anchor-trigger>
+        <span>Current State — 5+ Inconsistent Patterns</span>
+    </h3>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Cubits</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>EntityCubitStateError(dynamic error)</code></td>
+<td><code translate="no" v-pre>EntityCubit</code>, <code translate="no" v-pre>ProfileCubit</code></td>
+<td><span class="docs-emoji">&#x26A0;&#xFE0F;</span> <code translate="no" v-pre>dynamic</code> type</td>
+</tr>
+<tr>
+<td>Status enum + <code translate="no" v-pre>String? error</code> field</td>
+<td><code translate="no" v-pre>ReservationCubit</code>, <code translate="no" v-pre>ThreadReplyCubit</code></td>
+<td>OK</td>
+</tr>
+<tr>
+<td>Sealed class with error subclass</td>
+<td><code translate="no" v-pre>OnboardingCubit</code>, <code translate="no" v-pre>AvailabilityCubit</code></td>
+<td><span class="docs-emoji">&#x2705;</span> Best</td>
+</tr>
+<tr>
+<td>No error state at all</td>
+<td><code translate="no" v-pre>ListCubit</code>, <code translate="no" v-pre>CountCubit</code></td>
+<td><span class="docs-emoji">&#x26D4;</span> Critical</td>
+</tr>
+<tr>
+<td>SDK operations with typed failure + rethrow</td>
+<td><code translate="no" v-pre>PayOperation</code>, <code translate="no" v-pre>SwapInOperation</code>, <code translate="no" v-pre>EscrowFundOperation</code></td>
+<td><span class="docs-emoji">&#x26A0;&#xFE0F;</span> Double-report</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="critical-issues">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#critical-issues">#</doc-anchor-trigger>
+        <span>Critical Issues</span>
+    </h3>
+</doc-anchor-target>
+<doc-anchor-target id="1-listcubit-has-no-error-handling">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#1-listcubit-has-no-error-handling">#</doc-anchor-trigger>
+        <span>1. <code translate="no" v-pre>ListCubit</code> has NO error handling</span>
+    </h4>
+</doc-anchor-target>
+<p>The <code translate="no" v-pre>next()</code> method has a <code translate="no" v-pre>try/finally</code> with <strong>no <code translate="no" v-pre>catch</code></strong>. The <code translate="no" v-pre>sync()</code> subscription listener has <strong>no <code translate="no" v-pre>onError</code></strong>. This is the core data-fetching cubit — any relay failure crashes the stream silently.</p>
+<doc-anchor-target id="2-countcubitcount-has-no-trycatch">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#2-countcubitcount-has-no-trycatch">#</doc-anchor-trigger>
+        <span>2. <code translate="no" v-pre>CountCubit.count()</code> has no <code translate="no" v-pre>try/catch</code></span>
+    </h4>
+</doc-anchor-target>
+<p><code translate="no" v-pre>CountCubitStateError</code> is defined but <strong>never emitted</strong> — dead code. Exceptions from <code translate="no" v-pre>nostrService.requests.count()</code> propagate unhandled.</p>
+<doc-anchor-target id="3-payoperation-double-reports-errors">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#3-payoperation-double-reports-errors">#</doc-anchor-trigger>
+        <span>3. <code translate="no" v-pre>PayOperation</code> double-reports errors</span>
+    </h4>
+</doc-anchor-target>
+<p>Each stage (<code translate="no" v-pre>resolve</code>, <code translate="no" v-pre>finalize</code>, <code translate="no" v-pre>complete</code>) emits <code translate="no" v-pre>PayFailed</code> AND rethrows the exception. If the caller also catches, the error surfaces twice. Additionally, <code translate="no" v-pre>complete()</code> closes the cubit in a <code translate="no" v-pre>finally</code> block — so <code translate="no" v-pre>PayFailed</code> is emitted, then the cubit immediately closes, potentially causing a race condition in <code translate="no" v-pre>BlocBuilder</code>.</p>
+<doc-anchor-target id="4-swap-failures-discard-error-details">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#4-swap-failures-discard-error-details">#</doc-anchor-trigger>
+        <span>4. Swap failures discard error details</span>
+    </h4>
+</doc-anchor-target>
+<p>The UI renders <code translate="no" v-pre>SwapInFailed</code> / <code translate="no" v-pre>SwapOutFailed</code> as hardcoded <code translate="no" v-pre>&quot;Swap failed.&quot;</code> strings, ignoring the <code translate="no" v-pre>error</code> field that contains actionable information (e.g. &quot;insufficient inbound liquidity&quot;, &quot;invoice expired&quot;).</p>
+<doc-anchor-target id="5-no-global-error-boundary">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#5-no-global-error-boundary">#</doc-anchor-trigger>
+        <span>5. No global error boundary</span>
+    </h4>
+</doc-anchor-target>
+<p><code translate="no" v-pre>runZonedGuarded</code> only calls <code translate="no" v-pre>debugPrint</code>. No crash reporting (Sentry, Crashlytics). No <code translate="no" v-pre>FlutterError.onError</code>. No <code translate="no" v-pre>BlocObserver</code> for cubit error monitoring.</p>
+<doc-anchor-target id="6-raw-error-strings-shown-to-users">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#6-raw-error-strings-shown-to-users">#</doc-anchor-trigger>
+        <span>6. Raw error strings shown to users</span>
+    </h4>
+</doc-anchor-target>
+<p><code translate="no" v-pre>PayFailed</code> and auth errors show <code translate="no" v-pre>e.toString()</code> directly in the UI — exposing internal stack traces, exception class names, or cryptic relay errors to users.</p>
+<doc-anchor-target id="recommendations">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendations">#</doc-anchor-trigger>
+        <span>Recommendations</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li><p><strong>Standardize on sealed error states.</strong> Every cubit should use:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">sealed class MyState { ... }
+class MyError extends MyState { final String userMessage; final Object? cause; }</code></pre>
+</doc-codeblock></div>
+</li>
+<li><strong>Add <code translate="no" v-pre>try/catch</code> to <code translate="no" v-pre>ListCubit.next()</code></strong> — emit an error state, enable retry</li>
+<li><strong>Wire up <code translate="no" v-pre>CountCubitStateError</code></strong> — emit it in the <code translate="no" v-pre>catch</code> block</li>
+<li><strong>Remove rethrow from <code translate="no" v-pre>PayOperation</code></strong> — emit <code translate="no" v-pre>PayFailed</code> only, don&#x27;t rethrow. Let UI handle via <code translate="no" v-pre>BlocListener</code></li>
+<li><strong>Don&#x27;t close the cubit in <code translate="no" v-pre>PayOperation.complete()</code> on failure</strong> — let the UI decide when to dismiss</li>
+<li><strong>Map errors to user-friendly messages</strong> — create an <code translate="no" v-pre>ErrorMapper</code> that converts known exceptions to localized strings. Unknown errors → generic &quot;Something went wrong. Please try again.&quot;</li>
+<li><strong>Add global <code translate="no" v-pre>BlocObserver</code></strong> for logging all cubit transitions and errors</li>
+<li><strong>Add Sentry/Crashlytics</strong> in <code translate="no" v-pre>runZonedGuarded</code> and <code translate="no" v-pre>FlutterError.onError</code></li>
+<li><strong>Use <code translate="no" v-pre>BlocListener</code> for transient error toasts</strong> — complement <code translate="no" v-pre>BlocBuilder</code> error rendering with snackbar notifications for errors the user should know about but that don&#x27;t replace the screen</li>
+</ol>
+<hr>
+<doc-anchor-target id="l2-stream--listener-lifecycle">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#l2-stream--listener-lifecycle">#</doc-anchor-trigger>
+        <span>L2. Stream &amp; Listener Lifecycle</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state---generally-well-managed">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state---generally-well-managed">#</doc-anchor-trigger>
+        <span>Current State — <span class="docs-emoji">&#x2705;</span> Generally Well-Managed</span>
+    </h3>
+</doc-anchor-target>
+<p>All cubits with subscriptions properly override <code translate="no" v-pre>close()</code> and cancel subscriptions:</p>
+<ul>
+<li><code translate="no" v-pre>ThreadCubit</code> — cancels all subs, closes participant cubits, deactivates trade</li>
+<li><code translate="no" v-pre>ListCubit</code> — cancels 5 subscriptions, closes <code translate="no" v-pre>itemStream</code> and nostr response</li>
+<li><code translate="no" v-pre>NwcConnectivityCubit</code> — cancels connections subscription + per-cubit map</li>
+<li><code translate="no" v-pre>OnboardingCubit</code> — cancels threads subscription, has <code translate="no" v-pre>reset()</code></li>
+</ul>
+<p>All widgets with subscriptions cancel in <code translate="no" v-pre>dispose()</code>:</p>
+<ul>
+<li><code translate="no" v-pre>ListingListItemWidget</code> — cancels reservation subscription, closes stream and cubits</li>
+<li><code translate="no" v-pre>SearchMapWidget</code> — cancels list subscription</li>
+<li><code translate="no" v-pre>EscrowFundWidget</code> — cancels selector subscription, closes operation and cubit</li>
+</ul>
+<doc-anchor-target id="best-practice-_subscriptions-list-vs-takeuntil-vs-individual-fields">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#best-practice-_subscriptions-list-vs-takeuntil-vs-individual-fields">#</doc-anchor-trigger>
+        <span>Best Practice: <code translate="no" v-pre>_subscriptions</code> list vs <code translate="no" v-pre>takeUntil</code> vs individual fields</span>
+    </h3>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Approach</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Individual fields</strong> (<code translate="no" v-pre>_sub1</code>, <code translate="no" v-pre>_sub2</code>)</td>
+<td>When you have 1–3 named subscriptions with distinct lifecycle</td>
+</tr>
+<tr>
+<td><strong><code translate="no" v-pre>List&lt;StreamSubscription&gt; _subscriptions</code></strong></td>
+<td>When subscriptions are dynamic or numerous (e.g. <code translate="no" v-pre>ThreadCubit</code>)</td>
+</tr>
+<tr>
+<td><strong><code translate="no" v-pre>takeUntil(dispose$)</code></strong> with RxDart</td>
+<td>When using RxDart extensively and want declarative cleanup. Requires a <code translate="no" v-pre>PublishSubject&lt;void&gt; _dispose$</code> that emits in <code translate="no" v-pre>close()</code></td>
+</tr>
+<tr>
+<td><strong><code translate="no" v-pre>CompositeSubscription</code></strong> (RxDart)</td>
+<td>Alternative to list — <code translate="no" v-pre>composite.add(stream.listen(...))</code>, then <code translate="no" v-pre>composite.dispose()</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The current codebase uses approach 1 and 2, which is fine. No change required unless you adopt RxDart more heavily.</p>
+<doc-anchor-target id="one-risk-found">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#one-risk-found">#</doc-anchor-trigger>
+        <span>One Risk Found</span>
+    </h3>
+</doc-anchor-target>
+<p><code translate="no" v-pre>ProfileCubit</code> doesn&#x27;t override <code translate="no" v-pre>close()</code> and holds no subscriptions — but it&#x27;s created dynamically by <code translate="no" v-pre>ThreadCubit</code> which is responsible for closing it. This delegation pattern is correct but <strong>fragile</strong>: if any other code creates a <code translate="no" v-pre>ProfileCubit</code> without closing it, it will leak. Consider documenting this ownership convention.</p>
+<hr>
+<doc-anchor-target id="l3-caching-batching--use-cases">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#l3-caching-batching--use-cases">#</doc-anchor-trigger>
+        <span>L3. Caching, Batching &amp; Use Cases</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="crud-usecase-architecture">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#crud-usecase-architecture">#</doc-anchor-trigger>
+        <span>CRUD UseCase Architecture</span>
+    </h3>
+</doc-anchor-target>
+<p><code translate="no" v-pre>CrudUseCase&lt;T&gt;</code> is the backbone. Key behaviors:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Feature</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>In-flight query dedup</strong></td>
+<td><span class="docs-emoji">&#x2705;</span></td>
+<td><code translate="no" v-pre>_inFlightQueries</code> keyed by serialized filter — identical concurrent queries share one stream</td>
+</tr>
+<tr>
+<td><strong><code translate="no" v-pre>getOne</code> batching</strong></td>
+<td><span class="docs-emoji">&#x2705;</span></td>
+<td>500ms debounce window, combines filters, matches results back to callers</td>
+</tr>
+<tr>
+<td><strong><code translate="no" v-pre>findByTag</code> batching</strong></td>
+<td><span class="docs-emoji">&#x2705;</span></td>
+<td>500ms debounce, merges tag values into one relay query</td>
+</tr>
+<tr>
+<td><strong>NDK cache (subscribe)</strong></td>
+<td><span class="docs-emoji">&#x2705;</span></td>
+<td>Initial query uses <code translate="no" v-pre>cacheRead: true</code>, live uses <code translate="no" v-pre>cacheWrite: true</code></td>
+</tr>
+<tr>
+<td><strong>NDK cache (one-shot query)</strong></td>
+<td><span class="docs-emoji">&#x274C;</span></td>
+<td><code translate="no" v-pre>cacheRead: false</code> — every <code translate="no" v-pre>getOne</code>/<code translate="no" v-pre>list</code> hits the relay</td>
+</tr>
+<tr>
+<td><strong>Application-level cache</strong></td>
+<td><span class="docs-emoji">&#x274C;</span></td>
+<td>No in-memory or disk cache for domain objects</td>
+</tr>
+<tr>
+<td><strong>Retry on failure</strong></td>
+<td><span class="docs-emoji">&#x274C;</span></td>
+<td>No retry logic anywhere in the SDK</td>
+</tr>
+<tr>
+<td><strong><code translate="no" v-pre>count()</code> efficiency</strong></td>
+<td><span class="docs-emoji">&#x274C;</span></td>
+<td>Fetches ALL events and calls <code translate="no" v-pre>.length</code> — no relay-side COUNT support</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="caching-strategy-recommendations">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#caching-strategy-recommendations">#</doc-anchor-trigger>
+        <span>Caching Strategy Recommendations</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li><strong>Enable <code translate="no" v-pre>cacheRead: true</code> for <code translate="no" v-pre>query()</code></strong> — the NDK&#x27;s <code translate="no" v-pre>MemCacheManager</code> already supports this; flipping the flag would give free in-memory caching for repeated queries (e.g. viewing the same listing twice)</li>
+<li><strong>Add a TTL-based invalidation</strong> — cached items should expire after N minutes. Stale-while-revalidate pattern: return cached immediately, refetch in background, update if changed</li>
+<li><strong>Profile-level caching</strong> — user profiles (<code translate="no" v-pre>kind: 0</code>) are fetched repeatedly; add a <code translate="no" v-pre>ProfileCache</code> keyed by pubkey with a 5-minute TTL</li>
+<li><strong>Listing image caching</strong> — adopt <code translate="no" v-pre>cached_network_image</code> for disk-level image caching (see V7)</li>
+<li><strong>Relay-side COUNT</strong> — NIP-45 defines <code translate="no" v-pre>COUNT</code> messages. If your relays support it, implement a proper <code translate="no" v-pre>count()</code> that doesn&#x27;t download all events. The NDK may already support this — check <code translate="no" v-pre>Ndk.requests.count()</code></li>
+</ol>
+<doc-anchor-target id="batching-tuning">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#batching-tuning">#</doc-anchor-trigger>
+        <span>Batching Tuning</span>
+    </h3>
+</doc-anchor-target>
+<p>The 500ms debounce window is a trade-off:</p>
+<ul>
+<li><strong>Pro:</strong> Maximizes batching — more calls coalesce into fewer relay queries</li>
+<li><strong>Con:</strong> Adds 500ms latency to every first request in a batch window</li>
+</ul>
+<p>Consider <strong>adaptive debounce</strong>: start at 50ms, extend to 500ms only when under high load (&gt;5 pending requests). For UI-triggered fetches (user taps a listing), 50ms is imperceptible; for background syncs, 500ms is fine.</p>
+<hr>
+<doc-anchor-target id="l4-load--performance-hotspots">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#l4-load--performance-hotspots">#</doc-anchor-trigger>
+        <span>L4. Load &amp; Performance Hotspots</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="-critical">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#-critical">#</doc-anchor-trigger>
+        <span><span class="docs-emoji">&#x1F534;</span> Critical</span>
+    </h3>
+</doc-anchor-target>
+<doc-anchor-target id="1-subscription-explosion-per-active-trade">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#1-subscription-explosion-per-active-trade">#</doc-anchor-trigger>
+        <span>1. Subscription Explosion per Active Trade</span>
+    </h4>
+</doc-anchor-target>
+<p>Each <code translate="no" v-pre>ThreadTrade</code> opens <strong>3–4 concurrent Nostr subscriptions</strong> (all reservations, filtered reservations, reviews, zaps, escrow events). A user with 10 active trades = <strong>30–50 concurrent relay subscriptions</strong>. Most relays cap at 10–20 concurrent subscriptions and will start closing older ones.</p>
+<p><strong>Fix:</strong> Multiplex trade subscriptions. Instead of per-trade subscriptions, open ONE subscription per kind that covers all active trades using combined filters, then dispatch events to the appropriate trade in-memory.</p>
+<doc-anchor-target id="2-n1-query-in-subscribetomyreservations">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#2-n1-query-in-subscribetomyreservations">#</doc-anchor-trigger>
+        <span>2. N+1 Query in <code translate="no" v-pre>subscribeToMyReservations()</code></span>
+    </h4>
+</doc-anchor-target>
+<p>For each reservation request message in the thread stream, a full <code translate="no" v-pre>getListingReservations()</code> relay query fires. 20 messages = 20 queries.</p>
+<p><strong>Fix:</strong> Batch listing IDs from all messages, then fire a single <code translate="no" v-pre>findByTag</code> query covering all listings at once.</p>
+<doc-anchor-target id="3-count-downloads-everything">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#3-count-downloads-everything">#</doc-anchor-trigger>
+        <span>3. <code translate="no" v-pre>count()</code> Downloads Everything</span>
+    </h4>
+</doc-anchor-target>
+<p><code translate="no" v-pre>CrudUseCase.count()</code> fetches all matching events and calls <code translate="no" v-pre>.toList().length</code>. For listings with hundreds of reservations, this is hugely wasteful.</p>
+<p><strong>Fix:</strong> Implement NIP-45 <code translate="no" v-pre>COUNT</code> if relays support it, or cache counts locally with invalidation on new events.</p>
+<doc-anchor-target id="-moderate">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#-moderate">#</doc-anchor-trigger>
+        <span><span class="docs-emoji">&#x1F7E1;</span> Moderate</span>
+    </h3>
+</doc-anchor-target>
+<doc-anchor-target id="4-thread-rebuild-on-every-sync">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#4-thread-rebuild-on-every-sync">#</doc-anchor-trigger>
+        <span>4. Thread Rebuild on Every <code translate="no" v-pre>sync()</code></span>
+    </h4>
+</doc-anchor-target>
+<p><code translate="no" v-pre>Threads._rebuildThreadsFromMessages()</code> clears all threads and re-processes every persisted message on each login. With 500+ messages, this is O(n) on startup.</p>
+<p><strong>Fix:</strong> Incremental thread updates — only process new messages since last sync timestamp.</p>
+<doc-anchor-target id="5-gift-wrap-fan-out">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#5-gift-wrap-fan-out">#</doc-anchor-trigger>
+        <span>5. Gift-wrap Fan-out</span>
+    </h4>
+</doc-anchor-target>
+<p>Each DM creates N+1 gift-wraps (one per recipient + self). A message to 3 participants = 4 broadcasts. This is inherent to NIP-17 and can&#x27;t be avoided, but it&#x27;s worth monitoring.</p>
+<doc-anchor-target id="6-no-query-level-caching-for-query">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#6-no-query-level-caching-for-query">#</doc-anchor-trigger>
+        <span>6. No Query-level Caching for <code translate="no" v-pre>query()</code></span>
+    </h4>
+</doc-anchor-target>
+<p>Since <code translate="no" v-pre>query()</code> uses <code translate="no" v-pre>cacheRead: false</code>, the same listing/metadata is fetched repeatedly when navigating between screens.</p>
+<hr>
+<doc-anchor-target id="l5-nostr-protocol-future-proofing">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#l5-nostr-protocol-future-proofing">#</doc-anchor-trigger>
+        <span>L5. Nostr Protocol Future-Proofing</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="event-versioning--currently-none">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#event-versioning--currently-none">#</doc-anchor-trigger>
+        <span>Event Versioning — Currently None</span>
+    </h3>
+</doc-anchor-target>
+<p>There is <strong>zero versioning infrastructure</strong>:</p>
+<ul>
+<li>No <code translate="no" v-pre>version</code> field in any event content JSON</li>
+<li>No version tag on events</li>
+<li><code translate="no" v-pre>fromJson</code> methods have no fallback for missing fields</li>
+<li>Adding a required field to <code translate="no" v-pre>ListingContent</code> would crash parsing of every existing listing on relays</li>
+</ul>
+<p><strong>Impact scenario:</strong> You add <code translate="no" v-pre>cancellationPolicy</code> to <code translate="no" v-pre>ListingContent</code>. Every old listing on relays fails to parse → <code translate="no" v-pre>fromJson</code> throws → parser rethrows → stream crashes.</p>
+<doc-anchor-target id="recommendations-1">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendations-1">#</doc-anchor-trigger>
+        <span>Recommendations</span>
+    </h3>
+</doc-anchor-target>
+<doc-anchor-target id="1-add-a-content-version-field">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#1-add-a-content-version-field">#</doc-anchor-trigger>
+        <span>1. Add a Content Version Field</span>
+    </h4>
+</doc-anchor-target>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">{ &quot;v&quot;: 1, &quot;title&quot;: &quot;...&quot;, &quot;description&quot;: &quot;...&quot;, ... }</code></pre>
+</doc-codeblock></div>
+<p>Add <code translate="no" v-pre>&quot;v&quot;</code> to all custom event content. Start at <code translate="no" v-pre>1</code>. Increment on breaking changes.</p>
+<doc-anchor-target id="2-make-fromjson-tolerant">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#2-make-fromjson-tolerant">#</doc-anchor-trigger>
+        <span>2. Make <code translate="no" v-pre>fromJson</code> Tolerant</span>
+    </h4>
+</doc-anchor-target>
+<p>Use <code translate="no" v-pre>json[&quot;field&quot;] ?? defaultValue</code> for all fields. <code translate="no" v-pre>Amenities.fromJSON</code> already does this correctly — propagate the pattern to <code translate="no" v-pre>ListingContent</code>, <code translate="no" v-pre>ReservationContent</code>, <code translate="no" v-pre>ReviewContent</code>, etc.</p>
+<doc-anchor-target id="3-add-a-version-tag-to-events">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#3-add-a-version-tag-to-events">#</doc-anchor-trigger>
+        <span>3. Add a Version Tag to Events</span>
+    </h4>
+</doc-anchor-target>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">[&quot;v&quot;, &quot;1&quot;]</code></pre>
+</doc-codeblock></div>
+<p>This allows relay-side filtering by version if needed, and lets clients ignore events they can&#x27;t parse.</p>
+<doc-anchor-target id="4-implement-a-migrator">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#4-implement-a-migrator">#</doc-anchor-trigger>
+        <span>4. Implement a Migrator</span>
+    </h4>
+</doc-anchor-target>
+<p>When the app starts, query for own events with outdated versions, re-sign with updated content, and republish. Since Nostr events are immutable (signed), migration requires publishing new replaceable events (same <code translate="no" v-pre>d</code>-tag, newer <code translate="no" v-pre>created_at</code>).</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">class EventMigrator {
+  Future&lt;void&gt; migrate(List&lt;Nip01Event&gt; myEvents) async {
+    for (final event in myEvents) {
+      final version = event.getTagValue('v') ?? '0';
+      if (int.parse(version) &lt; currentVersion) {
+        final migrated = migrateContent(event, from: version, to: currentVersion);
+        await broadcast(migrated); // replaceable: same d-tag overwrites
+      }
+    }
+  }
+}</code></pre>
+</doc-codeblock></div>
+<doc-anchor-target id="5-parser-error-resilience">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#5-parser-error-resilience">#</doc-anchor-trigger>
+        <span>5. Parser Error Resilience</span>
+    </h4>
+</doc-anchor-target>
+<p>The parser currently rethrows on malformed events, crashing the entire stream. Change to:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">T? safeParser&lt;T&gt;(Nip01Event event) {
+  try {
+    return parser&lt;T&gt;(event);
+  } catch (e, st) {
+    logger.warning('Skipping malformed event ${event.id}: $e');
+    return null;  // Skip, don't crash
+  }
+}</code></pre>
+</doc-codeblock></div>
+<p>Then filter nulls from the stream. This is critical for forward-compatibility — a newer client might publish events that an older client can&#x27;t parse.</p>
+<doc-anchor-target id="6-kind-number-issue">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#6-kind-number-issue">#</doc-anchor-trigger>
+        <span>6. Kind Number Issue</span>
+    </h4>
+</doc-anchor-target>
+<p><code translate="no" v-pre>kNostrKindEscrowService = 40021</code> is in the ephemeral range (≥40000). Relays are not expected to store ephemeral events. Move to 30000–39999 range (parameterized replaceable).</p>
+<doc-anchor-target id="7-tag-collision-risk">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#7-tag-collision-risk">#</doc-anchor-trigger>
+        <span>7. Tag Collision Risk</span>
+    </h4>
+</doc-anchor-target>
+<p>Single-letter tags <code translate="no" v-pre>l</code>, <code translate="no" v-pre>r</code>, <code translate="no" v-pre>t</code>, <code translate="no" v-pre>h</code> may collide with future NIP standardizations (NIP-32 already uses <code translate="no" v-pre>l</code> for labels). Options:</p>
+<ul>
+<li>Formally propose these tag usages in a NIP</li>
+<li>Switch to multi-character tags (e.g., <code translate="no" v-pre>listing</code>, <code translate="no" v-pre>reservation</code>)</li>
+<li>Accept the collision risk and handle it in the parser by checking <code translate="no" v-pre>event.kind</code> before interpreting tags</li>
+</ul>
+<doc-anchor-target id="nostr-best-practices-for-schema-evolution">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#nostr-best-practices-for-schema-evolution">#</doc-anchor-trigger>
+        <span>Nostr Best Practices for Schema Evolution</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li><strong>Replaceable events are your friend</strong> — same <code translate="no" v-pre>pubkey + kind + d-tag</code> naturally supersedes old versions</li>
+<li><strong>Content is opaque to relays</strong> — you can change JSON structure freely; relays only index tags</li>
+<li><strong>Tags are the public API</strong> — treat tag names and semantics as stable; content JSON as internal</li>
+<li><strong>Backwards-compatible additions</strong> — new optional fields with defaults are always safe</li>
+<li><strong>Breaking changes</strong> — require a new kind number or a version tag that old clients can filter out</li>
+</ol>
+<hr>
+<doc-anchor-target id="l6-test-infrastructure--automation">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#l6-test-infrastructure--automation">#</doc-anchor-trigger>
+        <span>L6. Test Infrastructure &amp; Automation</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="current-state-9">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-state-9">#</doc-anchor-trigger>
+        <span>Current State</span>
+    </h3>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Area</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SDK unit tests</td>
+<td><span class="docs-emoji">&#x2705;</span> 11 files</td>
+<td>Good coverage of core logic</td>
+</tr>
+<tr>
+<td>SDK integration tests</td>
+<td><span class="docs-emoji">&#x2705;</span> 3 files</td>
+<td>Real Docker stack, escrow + swap flows</td>
+</tr>
+<tr>
+<td>App unit tests</td>
+<td><span class="docs-emoji">&#x274C;</span> Nearly empty</td>
+<td>Only 1 smoke test (2+3=5) and 1 cubit test</td>
+</tr>
+<tr>
+<td>App widget tests</td>
+<td><span class="docs-emoji">&#x274C;</span> Empty</td>
+<td>Directory scaffolded but no tests</td>
+</tr>
+<tr>
+<td>App integration tests</td>
+<td><span class="docs-emoji">&#x26A0;&#xFE0F;</span> Minimal</td>
+<td>1 screenshot test with 6 screens</td>
+</tr>
+<tr>
+<td>Widgetbook</td>
+<td><span class="docs-emoji">&#x2705;</span></td>
+<td>Well-structured, multi-device frames</td>
+</tr>
+<tr>
+<td>Shared test helpers</td>
+<td><span class="docs-emoji">&#x26A0;&#xFE0F;</span></td>
+<td><code translate="no" v-pre>_Fake*</code> classes duplicated across SDK test files</td>
+</tr>
+<tr>
+<td>Visual regression</td>
+<td><span class="docs-emoji">&#x274C;</span></td>
+<td>No golden test comparison</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="seed-data-architecture--two-systems">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#seed-data-architecture--two-systems">#</doc-anchor-trigger>
+        <span>Seed Data Architecture — Two Systems</span>
+    </h3>
+</doc-anchor-target>
+<p><strong>System 1: Static Stubs</strong> (<code translate="no" v-pre>models/lib/stubs/</code>) — Hardcoded mock data with 3 fixed keypairs. Used for <code translate="no" v-pre>Env.mock</code> quick startup.</p>
+<p><strong>System 2: SeedPipeline</strong> (<code translate="no" v-pre>hostr_sdk/lib/seed/</code>) — Sophisticated deterministic seed generation with configurable user count, host ratio, thread progression stages, per-user overrides. This is excellent but <strong>only used in SDK tests</strong>, not in app integration tests.</p>
+<doc-anchor-target id="whats-missing-for-desired-workflows">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#whats-missing-for-desired-workflows">#</doc-anchor-trigger>
+        <span>What&#x27;s Missing for Desired Workflows</span>
+    </h3>
+</doc-anchor-target>
+<doc-anchor-target id="flutter-drive-to-specific-pages">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#flutter-drive-to-specific-pages">#</doc-anchor-trigger>
+        <span>Flutter Drive to Specific Pages</span>
+    </h4>
+</doc-anchor-target>
+<p>The current integration test uses <code translate="no" v-pre>appRouter.navigate()</code> which works but requires full app bootstrap. For surgical page testing:</p>
+<ol>
+<li><p><strong>Create a <code translate="no" v-pre>TestScenario</code> class:</strong></p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">class TestScenario {
+  final SeedPipelineConfig seedConfig;
+  final List&lt;PageRouteInfo&gt; pages;  // auto_route page definitions
+  final String name;
+}</code></pre>
+</doc-codeblock></div>
+</li>
+<li><p><strong>Define scenarios:</strong></p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">final hostWithBookings = TestScenario(
+  name: 'host-with-bookings',
+  seedConfig: SeedPipelineConfig(
+    seed: 42,
+    userCount: 5,
+    hostRatio: 0.5,
+    threadStageSpec: ThreadStageSpec.allCompleted(),
+  ),
+  pages: [HostBookingsRoute()],
+);</code></pre>
+</doc-codeblock></div>
+</li>
+<li><p><strong>Run per-scenario:</strong> <code translate="no" v-pre>flutter test integration_test/scenarios/host_with_bookings_test.dart</code></p>
+</li>
+</ol>
+<doc-anchor-target id="app-store-screenshot-pipeline">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#app-store-screenshot-pipeline">#</doc-anchor-trigger>
+        <span>App Store Screenshot Pipeline</span>
+    </h4>
+</doc-anchor-target>
+<ol>
+<li><p><strong>Device matrix:</strong> Run against multiple simulators/emulators — define in a shell script:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">DEVICES=(&quot;iPhone 16 Pro Max&quot; &quot;iPhone SE&quot; &quot;iPad Pro 12.9&quot;)
+for device in &quot;${DEVICES[@]}&quot;; do
+  flutter test integration_test/ -d &quot;$device&quot;
+done</code></pre>
+</doc-codeblock></div>
+</li>
+<li><p><strong>Locale matrix:</strong> Before each screenshot set, switch locale:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">await tester.binding.setLocale('es', 'ES');</code></pre>
+</doc-codeblock></div>
+</li>
+<li><p><strong>Framing:</strong> Use <code translate="no" v-pre>screenshots</code> or <code translate="no" v-pre>device_frame</code> package to add device bezels, then composite with Fastlane&#x27;s <code translate="no" v-pre>frameit</code> or a custom script.</p>
+</li>
+<li><p><strong>CI integration:</strong> On tagged commits, run the screenshot pipeline and upload to an artifact store. Fastlane <code translate="no" v-pre>deliver</code> can submit to App Store Connect directly.</p>
+</li>
+</ol>
+<doc-anchor-target id="shared-test-setupteardown">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#shared-test-setupteardown">#</doc-anchor-trigger>
+        <span>Shared Test Setup/Teardown</span>
+    </h4>
+</doc-anchor-target>
+<ol>
+<li><p><strong>Extract <code translate="no" v-pre>_Fake*</code> classes</strong> from SDK test files into <code translate="no" v-pre>hostr_sdk/test/helpers/</code>:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">test/helpers/
+  fake_requests.dart
+  fake_auth.dart
+  fake_messaging.dart
+  test_fixtures.dart</code></pre>
+</doc-codeblock></div>
+</li>
+<li><p><strong>Create app-level test helpers</strong> in <code translate="no" v-pre>app/test/helpers/</code>:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">test/helpers/
+  pump_app.dart         — wraps MaterialApp + providers + router
+  scenario_runner.dart  — seeds data + navigates to page
+  mock_providers.dart   — pre-configured BlocProviders for widget tests</code></pre>
+</doc-codeblock></div>
+</li>
+<li><p><strong>Use <code translate="no" v-pre>SeedPipeline</code> in app tests</strong> — bridge the SDK&#x27;s seed system into the app&#x27;s <code translate="no" v-pre>TestRequests</code>:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">final pipeline = SeedPipeline(config);
+final events = await pipeline.build();
+final requests = TestRequests();
+requests.seedEvents(events);</code></pre>
+</doc-codeblock></div>
+</li>
+</ol>
+<doc-anchor-target id="mock-relay-vs-real-relay-strategy">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#mock-relay-vs-real-relay-strategy">#</doc-anchor-trigger>
+        <span>Mock Relay vs Real Relay Strategy</span>
+    </h4>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Test type</th>
+<th>Data source</th>
+<th>Speed</th>
+<th>Reliability</th>
+<th>Use for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unit tests</strong></td>
+<td><code translate="no" v-pre>TestRequests</code> (in-memory)</td>
+<td><span class="docs-emoji">&#x26A1;</span> Fast</td>
+<td>100% deterministic</td>
+<td>Business logic, cubits, parsers</td>
+</tr>
+<tr>
+<td><strong>Widget tests</strong></td>
+<td><code translate="no" v-pre>TestRequests</code> (in-memory)</td>
+<td><span class="docs-emoji">&#x26A1;</span> Fast</td>
+<td>100% deterministic</td>
+<td>UI rendering, interaction</td>
+</tr>
+<tr>
+<td><strong>Integration (mock)</strong></td>
+<td><code translate="no" v-pre>MockRelay</code> (local WebSocket)</td>
+<td><span class="docs-emoji">&#x1F536;</span> Medium</td>
+<td>~99% deterministic</td>
+<td>Full relay protocol, gift-wrap flow</td>
+</tr>
+<tr>
+<td><strong>Integration (real)</strong></td>
+<td>Docker stack (<code translate="no" v-pre>./scripts/start_local.sh</code>)</td>
+<td><span class="docs-emoji">&#x1F40C;</span> Slow</td>
+<td>~95% (depends on Docker)</td>
+<td>Escrow, swaps, on-chain, end-to-end</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Strategy:</strong></p>
+<ol>
+<li>Default to <code translate="no" v-pre>TestRequests</code> for all app tests (fast, deterministic)</li>
+<li>Use <code translate="no" v-pre>MockRelay</code> only when testing relay-specific behavior (subscription management, auth, reconnection)</li>
+<li>Use real Docker stack only for escrow/swap integration tests and manual QA</li>
+<li>Tag tests: <code translate="no" v-pre>@Tags(['unit'])</code>, <code translate="no" v-pre>@Tags(['integration'])</code>, <code translate="no" v-pre>@Tags(['e2e'])</code> — run subsets in CI</li>
+</ol>
+<hr>
+<doc-anchor-target id="execution-plan">
+    <h1>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#execution-plan">#</doc-anchor-trigger>
+        <span>Execution Plan</span>
+    </h1>
+</doc-anchor-target>
+<doc-anchor-target id="phase-1--foundation-week-1">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-1--foundation-week-1">#</doc-anchor-trigger>
+        <span>Phase 1 — Foundation (Week 1)</span>
+    </h2>
+</doc-anchor-target>
+<p><em>No visible UI changes, but enables everything else.</em></p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th>Task</th>
+<th style="text-align: center;">Priority</th>
+<th style="text-align: center;">Estimated Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1.1</td>
+<td>Define spacing scale constants (<code translate="no" v-pre>kSpace0</code>–<code translate="no" v-pre>kSpace8</code>) + <code translate="no" v-pre>Gap</code> widget</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F534;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">1.2</td>
+<td>Define icon size constants (<code translate="no" v-pre>kIconXs</code>–<code translate="no" v-pre>kIconHero</code>)</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F534;</span></td>
+<td style="text-align: center;">30m</td>
+</tr>
+<tr>
+<td style="text-align: center;">1.3</td>
+<td>Add <code translate="no" v-pre>kAnimationDurationFast</code> constant</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E2;</span></td>
+<td style="text-align: center;">15m</td>
+</tr>
+<tr>
+<td style="text-align: center;">1.4</td>
+<td>Create <code translate="no" v-pre>showAppModal()</code> helper with standard defaults</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">1h</td>
+</tr>
+<tr>
+<td style="text-align: center;">1.5</td>
+<td>Create <code translate="no" v-pre>AppLoadingIndicator</code> widget with <code translate="no" v-pre>.small()/.medium()/.large()</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">1h</td>
+</tr>
+<tr>
+<td style="text-align: center;">1.6</td>
+<td>Extract <code translate="no" v-pre>_ShimmerSurface</code> into reusable <code translate="no" v-pre>ShimmerPlaceholder</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">1h</td>
+</tr>
+<tr>
+<td style="text-align: center;">1.7</td>
+<td>Create <code translate="no" v-pre>AppErrorWidget</code> (replaces <code translate="no" v-pre>Placeholder()</code> for image errors)</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">30m</td>
+</tr>
+<tr>
+<td style="text-align: center;">1.8</td>
+<td>Create <code translate="no" v-pre>ErrorMapper</code> service (exceptions → user-friendly strings)</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F534;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="phase-2--visual-consistency-week-2">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-2--visual-consistency-week-2">#</doc-anchor-trigger>
+        <span>Phase 2 — Visual Consistency (Week 2)</span>
+    </h2>
+</doc-anchor-target>
+<p><em>Systematic sweep across all presentation files.</em></p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th>Task</th>
+<th style="text-align: center;">Priority</th>
+<th style="text-align: center;">Estimated Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">2.1</td>
+<td>Replace all hardcoded <code translate="no" v-pre>SizedBox</code> spacing with <code translate="no" v-pre>Gap.*</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F534;</span></td>
+<td style="text-align: center;">4h</td>
+</tr>
+<tr>
+<td style="text-align: center;">2.2</td>
+<td>Replace all hardcoded <code translate="no" v-pre>fontSize:</code> with <code translate="no" v-pre>textTheme.*</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F534;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">2.3</td>
+<td>Replace all <code translate="no" v-pre>ElevatedButton</code> with <code translate="no" v-pre>FilledButton</code> for primary CTAs</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">1h</td>
+</tr>
+<tr>
+<td style="text-align: center;">2.4</td>
+<td>Replace all hardcoded icon sizes with <code translate="no" v-pre>kIcon*</code> constants</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">2.5</td>
+<td>Replace hardcoded animation durations/curves with constants</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E2;</span></td>
+<td style="text-align: center;">30m</td>
+</tr>
+<tr>
+<td style="text-align: center;">2.6</td>
+<td>Replace all <code translate="no" v-pre>showModalBottomSheet</code> with <code translate="no" v-pre>showAppModal()</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">2.7</td>
+<td>Replace all <code translate="no" v-pre>CircularProgressIndicator</code> with <code translate="no" v-pre>AppLoadingIndicator</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">1h</td>
+</tr>
+<tr>
+<td style="text-align: center;">2.8</td>
+<td>Add <code translate="no" v-pre>cached_network_image</code>, wire into <code translate="no" v-pre>BlossomImage</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">2.9</td>
+<td>Add shimmer placeholders to image loading and list loading</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">3h</td>
+</tr>
+<tr>
+<td style="text-align: center;">2.10</td>
+<td>Extract remaining hardcoded strings to <code translate="no" v-pre>app_en.arb</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E1;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="phase-3--error-handling-week-3">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-3--error-handling-week-3">#</doc-anchor-trigger>
+        <span>Phase 3 — Error Handling (Week 3)</span>
+    </h2>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th>Task</th>
+<th style="text-align: center;">Priority</th>
+<th style="text-align: center;">Estimated Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">3.1</td>
+<td>Add <code translate="no" v-pre>try/catch</code> + error state to <code translate="no" v-pre>ListCubit</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x26D4;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">3.2</td>
+<td>Wire <code translate="no" v-pre>CountCubitStateError</code> emission</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F534;</span></td>
+<td style="text-align: center;">30m</td>
+</tr>
+<tr>
+<td style="text-align: center;">3.3</td>
+<td>Fix <code translate="no" v-pre>PayOperation</code> — remove rethrow, don&#x27;t close on failure</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F534;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">3.4</td>
+<td>Show actual error details in swap failure UI</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">1h</td>
+</tr>
+<tr>
+<td style="text-align: center;">3.5</td>
+<td>Standardize all cubit error states to sealed classes</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">4h</td>
+</tr>
+<tr>
+<td style="text-align: center;">3.6</td>
+<td>Add <code translate="no" v-pre>BlocObserver</code> for global error/transition logging</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">1h</td>
+</tr>
+<tr>
+<td style="text-align: center;">3.7</td>
+<td>Integrate Sentry/Crashlytics in <code translate="no" v-pre>runZonedGuarded</code> + <code translate="no" v-pre>FlutterError.onError</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">3.8</td>
+<td>Add <code translate="no" v-pre>BlocListener</code>-based error snackbars for transient errors</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E1;</span></td>
+<td style="text-align: center;">3h</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="phase-4--performance--protocol-week-4">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-4--performance--protocol-week-4">#</doc-anchor-trigger>
+        <span>Phase 4 — Performance &amp; Protocol (Week 4)</span>
+    </h2>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th>Task</th>
+<th style="text-align: center;">Priority</th>
+<th style="text-align: center;">Estimated Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">4.1</td>
+<td>Make parser error-resilient (skip malformed events, don&#x27;t crash stream)</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x26D4;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">4.2</td>
+<td>Add <code translate="no" v-pre>&quot;v&quot;: 1</code> to all custom event content JSON</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F534;</span></td>
+<td style="text-align: center;">3h</td>
+</tr>
+<tr>
+<td style="text-align: center;">4.3</td>
+<td>Make all <code translate="no" v-pre>fromJson</code> tolerant with <code translate="no" v-pre>?? default</code> fallbacks</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F534;</span></td>
+<td style="text-align: center;">3h</td>
+</tr>
+<tr>
+<td style="text-align: center;">4.4</td>
+<td>Enable <code translate="no" v-pre>cacheRead: true</code> for <code translate="no" v-pre>query()</code> in <code translate="no" v-pre>CrudUseCase</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">1h</td>
+</tr>
+<tr>
+<td style="text-align: center;">4.5</td>
+<td>Fix N+1 in <code translate="no" v-pre>subscribeToMyReservations()</code> — batch listing IDs</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">3h</td>
+</tr>
+<tr>
+<td style="text-align: center;">4.6</td>
+<td>Multiplex trade subscriptions to reduce subscription count</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">6h</td>
+</tr>
+<tr>
+<td style="text-align: center;">4.7</td>
+<td>Fix <code translate="no" v-pre>kNostrKindEscrowService</code> kind number (40021 → 3xxxx)</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">1h</td>
+</tr>
+<tr>
+<td style="text-align: center;">4.8</td>
+<td>Implement NIP-45 COUNT if relays support it</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E1;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="phase-5--test-infrastructure-week-5">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-5--test-infrastructure-week-5">#</doc-anchor-trigger>
+        <span>Phase 5 — Test Infrastructure (Week 5)</span>
+    </h2>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th>Task</th>
+<th style="text-align: center;">Priority</th>
+<th style="text-align: center;">Estimated Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">5.1</td>
+<td>Extract shared <code translate="no" v-pre>_Fake*</code> classes to <code translate="no" v-pre>hostr_sdk/test/helpers/</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">5.2</td>
+<td>Create <code translate="no" v-pre>app/test/helpers/pump_app.dart</code> for widget test bootstrapping</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">5.3</td>
+<td>Bridge <code translate="no" v-pre>SeedPipeline</code> into app integration tests via <code translate="no" v-pre>TestRequests</code></td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">3h</td>
+</tr>
+<tr>
+<td style="text-align: center;">5.4</td>
+<td>Create <code translate="no" v-pre>TestScenario</code> framework for page-specific flutter drive tests</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E0;</span></td>
+<td style="text-align: center;">4h</td>
+</tr>
+<tr>
+<td style="text-align: center;">5.5</td>
+<td>Implement device × locale screenshot matrix script</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E1;</span></td>
+<td style="text-align: center;">3h</td>
+</tr>
+<tr>
+<td style="text-align: center;">5.6</td>
+<td>Add golden image tests for key widgets</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E1;</span></td>
+<td style="text-align: center;">4h</td>
+</tr>
+<tr>
+<td style="text-align: center;">5.7</td>
+<td>Add test tags (<code translate="no" v-pre>unit</code>, <code translate="no" v-pre>integration</code>, <code translate="no" v-pre>e2e</code>) + CI configuration</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E1;</span></td>
+<td style="text-align: center;">2h</td>
+</tr>
+<tr>
+<td style="text-align: center;">5.8</td>
+<td>Build <code translate="no" v-pre>EventMigrator</code> for versioned event migration on app start</td>
+<td style="text-align: center;"><span class="docs-emoji">&#x1F7E1;</span></td>
+<td style="text-align: center;">4h</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+<blockquote>
+<p><strong>Total estimated effort:</strong> ~85 hours across 5 phases.
+Phases 1–2 are visual and can be done in parallel with Phase 3 (error handling).
+Phase 4 (performance/protocol) should come after Phase 3 since error resilience is a prerequisite.
+Phase 5 (testing) can begin any time but benefits from having Phases 1–4 complete.</p>
+</blockquote>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../models/native/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">Bundled H​3 native binaries</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../ux_logic_audit_readme/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">Hostr App Audit (Visual + Logic)</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+    <script data-cfasync="false">window.__DOCS__ = { "title": "Hostr App — Visual & Logic Audit", level: 1, icon: "file", hasPrism: true, hasMermaid: false, hasMath: false, tocDepth: 23 }</script>
+</body>
+</html>

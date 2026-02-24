@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.0.825230878687">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.0.0">
+
+    <!-- Primary Meta Tags -->
+    <title>Hostr App Audit (Visual + Logic)</title>
+    <meta name="title" content="Hostr App Audit (Visual + Logic)">
+    <meta name="description" content="Date: 2026-02-23 Scope: app/lib/presentation/**, key app cubits, and hostr_sdk/lib/** usecases/streams/payments/seeding.">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="/ux_logic_audit_readme/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="/ux_logic_audit_readme/">
+    <meta property="og:title" content="Hostr App Audit (Visual + Logic)">
+    <meta property="og:description" content="Date: 2026-02-23 Scope: app/lib/presentation/**, key app cubits, and hostr_sdk/lib/** usecases/streams/payments/seeding.">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../resources/css/retype.css?v=4.0.0.825230878687" rel="stylesheet">
+
+    <script data-cfasync="false" src="../resources/js/config.js?v=4.0.0.825230878687" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../resources/js/retype.js?v=4.0.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../resources/js/lunr.js?v=4.0.0.825230878687" data-turbo-eval="false" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="../" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 dark:hidden md:inline-block" src="../app/assets/images/logo/logo.svg">
+                            <img class="max-h-10 hidden dark:inline-block" src="../app/assets/images/logo/logo.svg">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../.doc/guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../.doc/guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <!-- Page content  -->
+<doc-anchor-target id="hostr-app-audit-visual--logic" class="break-words">
+    <h1>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#hostr-app-audit-visual--logic">#</doc-anchor-trigger>
+        <span>Hostr App Audit (Visual + Logic)</span>
+    </h1>
+</doc-anchor-target>
+<p>Date: 2026-02-23
+Scope: <code translate="no" v-pre>app/lib/presentation/**</code>, key app cubits, and <code translate="no" v-pre>hostr_sdk/lib/**</code> usecases/streams/payments/seeding.</p>
+<p>This document is intentionally <strong>findings-only</strong> and <strong>plan-only</strong> (no code changes yet).</p>
+<hr>
+<doc-anchor-target id="visual">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#visual">#</doc-anchor-trigger>
+        <span>Visual</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="1-spacing-system-audit">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#1-spacing-system-audit">#</doc-anchor-trigger>
+        <span>1) Spacing system audit</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Spacing primitives are inconsistent across the UI:
+<ul>
+<li><code translate="no" v-pre>SizedBox(...)</code> used heavily in presentation (many raw literals like <code translate="no" v-pre>4</code>, <code translate="no" v-pre>6</code>, <code translate="no" v-pre>8</code>, <code translate="no" v-pre>10</code>, <code translate="no" v-pre>12</code>, <code translate="no" v-pre>15</code>, <code translate="no" v-pre>16</code>, <code translate="no" v-pre>24</code>, <code translate="no" v-pre>40</code>).</li>
+<li><code translate="no" v-pre>CustomPadding</code> exists and already ties to <code translate="no" v-pre>kDefaultPadding</code>, but is not consistently used.</li>
+<li><code translate="no" v-pre>Spacer()</code> is used very little relative to manual fixed-width/fixed-height spacing.</li>
+</ul>
+</li>
+<li>Practical impact:
+<ul>
+<li>Visual rhythm changes between screens/components.</li>
+<li>Harder to refactor density for compact/large form factors.</li>
+<li>Increased cognitive noise from micro-inconsistencies.</li>
+</ul>
+</li>
+</ul>
+<doc-anchor-target id="principle-to-adopt">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#principle-to-adopt">#</doc-anchor-trigger>
+        <span>Principle to adopt</span>
+    </h3>
+</doc-anchor-target>
+<p>Use a single spacing scale derived from <code translate="no" v-pre>kDefaultPadding</code>:</p>
+<ul>
+<li>Example token map (recommended):
+<ul>
+<li><code translate="no" v-pre>spaceXs = kDefaultPadding / 8</code></li>
+<li><code translate="no" v-pre>spaceSm = kDefaultPadding / 4</code></li>
+<li><code translate="no" v-pre>spaceMd = kDefaultPadding / 2</code></li>
+<li><code translate="no" v-pre>spaceLg = kDefaultPadding</code></li>
+<li><code translate="no" v-pre>spaceXl = kDefaultPadding * 1.5</code></li>
+</ul>
+</li>
+<li>Introduce 2 reusable widgets:
+<ul>
+<li><code translate="no" v-pre>AppGap.h(multiplier)</code> / <code translate="no" v-pre>AppGap.w(multiplier)</code></li>
+<li><code translate="no" v-pre>DefaultSpacer(multiplier)</code> for flex layouts where proportional growth is desired.</li>
+</ul>
+</li>
+</ul>
+<doc-anchor-target id="priority-hotspots">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#priority-hotspots">#</doc-anchor-trigger>
+        <span>Priority hotspots</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Listing/detail and profile widgets with many literal <code translate="no" v-pre>SizedBox</code> values.</li>
+<li>Payment flows and modal content where spacing currently mixes multiple scales.</li>
+</ul>
+<hr>
+<doc-anchor-target id="2-typography-audit">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#2-typography-audit">#</doc-anchor-trigger>
+        <span>2) Typography audit</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-1">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-1">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>There are only a small number of explicit <code translate="no" v-pre>fontSize:</code> overrides, but they are not tokenized.</li>
+<li>Most text is theme-driven (good), but explicit overrides remain in profile/payment/reservation/search marker areas.</li>
+</ul>
+<doc-anchor-target id="best-principle-for-font-sizes">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#best-principle-for-font-sizes">#</doc-anchor-trigger>
+        <span>Best principle for font sizes</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Keep a <strong>small typographic set</strong> to reduce cognitive load:
+<ul>
+<li>Display (rare)</li>
+<li>Title</li>
+<li>Body</li>
+<li>Label/Caption</li>
+</ul>
+</li>
+<li>In Flutter: prefer <code translate="no" v-pre>ThemeData.textTheme</code> everywhere.</li>
+<li>Avoid ad-hoc <code translate="no" v-pre>TextStyle(fontSize: X)</code> unless the style is first registered as an app token/semantic style.</li>
+</ul>
+<doc-anchor-target id="recommended-target">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-target">#</doc-anchor-trigger>
+        <span>Recommended target</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>90%+ of app text should use <code translate="no" v-pre>textTheme</code> semantic roles.</li>
+<li>Explicit size overrides only for exceptional UI (e.g., map marker rendering internals).</li>
+</ul>
+<hr>
+<doc-anchor-target id="3-icons-icon-buttons-bitmap-pills">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#3-icons-icon-buttons-bitmap-pills">#</doc-anchor-trigger>
+        <span>3) Icons, icon buttons, bitmap pills</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-2">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-2">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Icon sizes are inconsistent (<code translate="no" v-pre>12</code>, <code translate="no" v-pre>14</code>, <code translate="no" v-pre>16</code>, <code translate="no" v-pre>18</code>, <code translate="no" v-pre>20</code>, <code translate="no" v-pre>30</code>, <code translate="no" v-pre>48</code>, etc.) and not tokenized.</li>
+<li>Icon button usage is mixed (sometimes icon-only where textual affordance would be clearer).</li>
+<li>Price marker pills are custom-rendered and generally good, but text/icon sizing should align to typography tokens.</li>
+</ul>
+<doc-anchor-target id="principles">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#principles">#</doc-anchor-trigger>
+        <span>Principles</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Tokenize icon sizes: e.g. <code translate="no" v-pre>iconSm</code>, <code translate="no" v-pre>iconMd</code>, <code translate="no" v-pre>iconLg</code>, <code translate="no" v-pre>iconXl</code>.</li>
+<li>Use icon-only buttons only when intent is universally obvious (close, copy, back, overflow).</li>
+<li>Use icon+label for actions with consequence/ambiguity (fund, swap, escrow actions).</li>
+</ul>
+<hr>
+<doc-anchor-target id="4-button-hierarchy">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#4-button-hierarchy">#</doc-anchor-trigger>
+        <span>4) Button hierarchy</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-3">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-3">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Multiple button types are used (<code translate="no" v-pre>FilledButton</code>, <code translate="no" v-pre>ElevatedButton</code>, <code translate="no" v-pre>OutlinedButton</code>, <code translate="no" v-pre>TextButton</code>, <code translate="no" v-pre>IconButton</code>) with inconsistent semantics.</li>
+<li>Some equivalent actions use different variants across screens.</li>
+</ul>
+<doc-anchor-target id="recommended-hierarchy">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-hierarchy">#</doc-anchor-trigger>
+        <span>Recommended hierarchy</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li><strong>Primary</strong>: <code translate="no" v-pre>FilledButton</code> (one per area/modal).</li>
+<li><strong>Secondary</strong>: <code translate="no" v-pre>OutlinedButton</code> or <code translate="no" v-pre>FilledButton.tonal</code>.</li>
+<li><strong>Tertiary</strong>: <code translate="no" v-pre>TextButton</code>.</li>
+<li><strong>IconButton</strong>: utility actions only.</li>
+</ul>
+<p>Define usage rules in a small design contract and enforce via component wrappers.</p>
+<hr>
+<doc-anchor-target id="5-animation-consistency">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#5-animation-consistency">#</doc-anchor-trigger>
+        <span>5) Animation consistency</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-4">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-4">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Global animation constants exist (<code translate="no" v-pre>kAnimationDuration</code>, <code translate="no" v-pre>kAnimationCurve</code>, <code translate="no" v-pre>kStaggerDelay</code>) which is excellent.</li>
+<li>Several widgets still use literal durations (<code translate="no" v-pre>200ms</code>, <code translate="no" v-pre>400ms</code>, <code translate="no" v-pre>1s</code>, <code translate="no" v-pre>1.5s</code>, <code translate="no" v-pre>2s</code>, etc.).</li>
+</ul>
+<doc-anchor-target id="principle">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#principle">#</doc-anchor-trigger>
+        <span>Principle</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>One shared motion system:
+<ul>
+<li>Enter/exit duration</li>
+<li>Emphasis duration</li>
+<li>Debounce duration tokens</li>
+<li>Shared curves</li>
+</ul>
+</li>
+<li>Any literal duration should be justified by domain behavior (polling/network timeout) not visual preference.</li>
+</ul>
+<hr>
+<doc-anchor-target id="6-modal-style-consistency">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#6-modal-style-consistency">#</doc-anchor-trigger>
+        <span>6) Modal style consistency</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-5">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-5">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>You already have a reusable <code translate="no" v-pre>ModalBottomSheet</code> component (strong foundation).</li>
+<li>Many call-sites still directly invoke bottom sheets/dialogs with varying style density.</li>
+</ul>
+<doc-anchor-target id="principle-1">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#principle-1">#</doc-anchor-trigger>
+        <span>Principle</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Route all modal content through one modal shell component.</li>
+<li>Keep title/subtitle/body/button zones identical across flows.</li>
+</ul>
+<hr>
+<doc-anchor-target id="7-perceived-performance-preload--placeholders">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#7-perceived-performance-preload--placeholders">#</doc-anchor-trigger>
+        <span>7) Perceived performance (preload + placeholders)</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-6">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-6">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>You already preload listing images (<code translate="no" v-pre>ImagePreloader</code>, <code translate="no" v-pre>PreloadListingImages</code>) — this is good.</li>
+<li>Some image states still use generic placeholders/progress indicators causing layout and perceived-jank differences.</li>
+<li>Filter screen and some bottom sheets are built only on click; this can feel delayed when dependency graph is heavy.</li>
+</ul>
+<doc-anchor-target id="good-practice-guidance">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#good-practice-guidance">#</doc-anchor-trigger>
+        <span>Good practice guidance</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Preload expensive screens only when:
+<ul>
+<li>high-open-frequency,</li>
+<li>high-build-cost,</li>
+<li>no stale-data risk.</li>
+</ul>
+</li>
+<li>Use skeleton/fixed-size placeholders to prevent resizing jumps.</li>
+<li>Keep dimensions stable during loading (especially media cards and carousels).</li>
+</ul>
+<hr>
+<doc-anchor-target id="8-translationi18n">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#8-translationi18n">#</doc-anchor-trigger>
+        <span>8) Translation/i18n</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-7">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-7">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Localization support is present and used in many places.</li>
+<li>There are still many hardcoded English strings in presentation and widget files.</li>
+</ul>
+<doc-anchor-target id="principle-2">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#principle-2">#</doc-anchor-trigger>
+        <span>Principle</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>User-visible strings must go through localization layer.</li>
+<li>Reserve inline literals for temporary debug/dev surfaces only.</li>
+</ul>
+<hr>
+<doc-anchor-target id="visual-execution-plan">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#visual-execution-plan">#</doc-anchor-trigger>
+        <span>Visual execution plan</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="phase-v1--design-tokens--wrappers">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-v1--design-tokens--wrappers">#</doc-anchor-trigger>
+        <span>Phase V1 — Design tokens + wrappers</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Add spacing/icon/typography/motion tokens in one source of truth.</li>
+<li>Add wrapper components (<code translate="no" v-pre>AppGap</code>, <code translate="no" v-pre>AppButton</code>, <code translate="no" v-pre>AppModal</code>, icon size helpers).</li>
+<li>Document usage rules (short markdown spec).</li>
+</ol>
+<doc-anchor-target id="phase-v2--bulk-refactor-safe-mechanical">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-v2--bulk-refactor-safe-mechanical">#</doc-anchor-trigger>
+        <span>Phase V2 — Bulk refactor (safe mechanical)</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Replace raw <code translate="no" v-pre>SizedBox</code> literals with spacing tokens/wrappers.</li>
+<li>Replace ad-hoc <code translate="no" v-pre>fontSize</code> with textTheme semantics.</li>
+<li>Normalize icon sizes and button variants.</li>
+</ol>
+<doc-anchor-target id="phase-v3--motion--modal-normalization">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-v3--motion--modal-normalization">#</doc-anchor-trigger>
+        <span>Phase V3 — Motion + modal normalization</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Replace visual literal durations with motion tokens.</li>
+<li>Move bottom-sheet/dialog call sites to shared modal shell.</li>
+</ol>
+<doc-anchor-target id="phase-v4--ux-polishperf">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-v4--ux-polishperf">#</doc-anchor-trigger>
+        <span>Phase V4 — UX polish/perf</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Add skeleton placeholders with fixed dimensions.</li>
+<li>Pre-warm high-frequency entry screens (filters/payment chooser) where warranted.</li>
+<li>Validate in Widgetbook + integration screenshots.</li>
+</ol>
+<doc-anchor-target id="visual-acceptance-criteria">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#visual-acceptance-criteria">#</doc-anchor-trigger>
+        <span>Visual acceptance criteria</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>No raw visual spacing literals outside approved token helpers.</li>
+<li>No ad-hoc font sizes outside tokenized typography styles.</li>
+<li>All modal flows share same shell and button hierarchy.</li>
+<li>Consistent animation timing across presentation layer.</li>
+</ul>
+<hr>
+<doc-anchor-target id="logic">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#logic">#</doc-anchor-trigger>
+        <span>Logic</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="1-high-load-hotspots-across-app--sdk">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#1-high-load-hotspots-across-app--sdk">#</doc-anchor-trigger>
+        <span>1) High-load hotspots across app + sdk</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-8">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-8">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Potential heavy fan-out from per-item subscriptions in listing-related widgets.</li>
+<li>Search map marker updates rebuild markers asynchronously and can churn under rapid list updates.</li>
+<li><code translate="no" v-pre>Requests.count()</code> currently materializes full query results and counts in memory (can be expensive).</li>
+<li>Some thread/message rebuild paths can become O(n^2)-ish for larger datasets.</li>
+</ul>
+<doc-anchor-target id="recommendation">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Move toward aggregate/list-level subscriptions instead of per-item network subscriptions.</li>
+<li>Use batched updates and incremental diffing for maps/lists.</li>
+<li>Prefer protocol/server count mechanisms where available; avoid <code translate="no" v-pre>toList().length</code> for large streams.</li>
+</ul>
+<hr>
+<doc-anchor-target id="2-stream-lifecycle--listener-cleanup">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#2-stream-lifecycle--listener-cleanup">#</doc-anchor-trigger>
+        <span>2) Stream lifecycle + listener cleanup</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-9">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-9">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Many areas correctly cancel subscriptions on <code translate="no" v-pre>dispose/close</code>.</li>
+<li>However lifecycle policy is mixed (manual lists in some modules, <code translate="no" v-pre>takeUntil</code> + dispose subject in others).</li>
+<li><code translate="no" v-pre>CrudUseCase</code> owns a broadcast <code translate="no" v-pre>_updates</code> controller but has no explicit dispose contract.</li>
+</ul>
+<doc-anchor-target id="best-practice-recommendation">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#best-practice-recommendation">#</doc-anchor-trigger>
+        <span>Best practice recommendation</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Standardize to one pattern per layer:
+<ul>
+<li>UI/cubits: maintain explicit subscription registry + deterministic <code translate="no" v-pre>close</code>/<code translate="no" v-pre>dispose</code>.</li>
+<li>Reactive pipelines: <code translate="no" v-pre>takeUntil(_dispose$)</code> for derived streams.</li>
+</ul>
+</li>
+<li>Every long-lived service with controllers/subjects should expose and be called with <code translate="no" v-pre>dispose()</code>.</li>
+<li>Add leak tests for critical long-lived services.</li>
+</ul>
+<hr>
+<doc-anchor-target id="3-usecase-correctness-crudrequest-batchingcaching">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#3-usecase-correctness-crudrequest-batchingcaching">#</doc-anchor-trigger>
+        <span>3) Usecase correctness (CRUD/request batching/caching)</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-10">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-10">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li><code translate="no" v-pre>CrudUseCase</code> batching for <code translate="no" v-pre>getOne</code> and <code translate="no" v-pre>findByTag</code> is a strong pattern.</li>
+<li>In-flight query dedup exists in <code translate="no" v-pre>Requests</code> (good).</li>
+<li>Potential correctness/perf pitfalls remain in edge cases:
+<ul>
+<li>fallback fan-out queries after unmatched batch requests,</li>
+<li>broad filters causing high relay load,</li>
+<li>non-uniform caching toggles.</li>
+</ul>
+</li>
+</ul>
+<doc-anchor-target id="recommendation-1">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation-1">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Introduce explicit query policy per usecase:
+<ul>
+<li>cache strategy,</li>
+<li>timeout strategy,</li>
+<li>retry policy,</li>
+<li>dedupe key policy.</li>
+</ul>
+</li>
+<li>Add metrics counters for batched requests, fallback rate, and duplicate subscriptions.</li>
+</ul>
+<hr>
+<doc-anchor-target id="4-error-handling-entitycubit-paymentsswaps-parser">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#4-error-handling-entitycubit-paymentsswaps-parser">#</doc-anchor-trigger>
+        <span>4) Error handling (EntityCubit, payments/swaps, parser)</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-11">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-11">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Error states exist but are mostly untyped/stringly in several paths.</li>
+<li>Payment/swap failures are surfaced but user messaging is not consistently actionable.</li>
+<li>Nostr parser currently throws on malformed event parse path; one bad event can poison a stream path if not isolated.</li>
+</ul>
+<doc-anchor-target id="recommendation-2">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation-2">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Adopt typed domain failures (network/validation/protocol/auth/retryable/non-retryable).</li>
+<li>Add user-safe mapping layer from domain failures to UX copy + recovery action.</li>
+<li>Parser strategy:
+<ul>
+<li>never crash broad stream on one malformed event,</li>
+<li>emit parse failure telemetry,</li>
+<li>quarantine invalid event and continue.</li>
+</ul>
+</li>
+</ul>
+<hr>
+<doc-anchor-target id="5-nostr-protocol-future-proofing-immutability--migrations">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#5-nostr-protocol-future-proofing-immutability--migrations">#</doc-anchor-trigger>
+        <span>5) Nostr protocol future-proofing (immutability + migrations)</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-12">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-12">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Since Nostr events are signed/immutable, schema mistakes are costly.</li>
+</ul>
+<doc-anchor-target id="best-practice-strategy">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#best-practice-strategy">#</doc-anchor-trigger>
+        <span>Best-practice strategy</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Yes: add explicit protocol versioning in tags/content for your custom kinds.</li>
+<li>Prefer additive evolution (new fields optional) before breaking changes.</li>
+<li>On breaking changes:
+<ul>
+<li>support dual read (<code translate="no" v-pre>vN</code> + <code translate="no" v-pre>vN+1</code>) for a migration window,</li>
+<li>write only latest version once app is upgraded,</li>
+<li>optionally publish newly signed migrated events when user key is available.</li>
+</ul>
+</li>
+<li>Keep parser backward compatible and tolerant to unknown fields.</li>
+</ul>
+<hr>
+<doc-anchor-target id="6-test-architecture-fake-relay-vs-real-local-stack">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#6-test-architecture-fake-relay-vs-real-local-stack">#</doc-anchor-trigger>
+        <span>6) Test architecture: fake relay vs real local stack</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="recommended-strategy">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-strategy">#</doc-anchor-trigger>
+        <span>Recommended strategy</span>
+    </h3>
+</doc-anchor-target>
+<p>Use a layered test pyramid:</p>
+<ol>
+<li><strong>Fast deterministic unit tests</strong> with fake request transport (no relay).</li>
+<li><strong>Contract/integration tests</strong> with mock relay semantics (wipable state between tests).</li>
+<li><strong>End-to-end smoke tests</strong> against real local relay + anvil.</li>
+</ol>
+<p>Each tier should share scenario fixtures and setup/teardown primitives.</p>
+<hr>
+<doc-anchor-target id="7-seed-builder-extensions-for-repeatable-scenarios">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#7-seed-builder-extensions-for-repeatable-scenarios">#</doc-anchor-trigger>
+        <span>7) Seed builder extensions for repeatable scenarios</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="findings-13">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#findings-13">#</doc-anchor-trigger>
+        <span>Findings</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Seed pipeline and <code translate="no" v-pre>TestSeedHelper</code> already provide a good foundation.</li>
+</ul>
+<doc-anchor-target id="recommended-extension-set">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-extension-set">#</doc-anchor-trigger>
+        <span>Recommended extension set</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Scenario DSL for explicit actor states:
+<ul>
+<li>user/listings/reservations/messages/payments/escrow statuses.</li>
+</ul>
+</li>
+<li>Deterministic IDs and named fixtures per scenario.</li>
+<li>Snapshot seed packs for “open this exact page in exact state”.</li>
+<li>Shared setup/teardown API used by widget tests, integration tests, and screenshot runs.</li>
+</ul>
+<hr>
+<doc-anchor-target id="8-widgetbookpage-targeting--screenshot-automation">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#8-widgetbookpage-targeting--screenshot-automation">#</doc-anchor-trigger>
+        <span>8) Widgetbook/page targeting + screenshot automation</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="for-specific-page--specific-seed-data">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#for-specific-page--specific-seed-data">#</doc-anchor-trigger>
+        <span>For specific page + specific seed data</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Yes, you can run app-level integration tests that:
+<ul>
+<li>bootstrap deterministic seed scenario,</li>
+<li>deep-link directly to target route,</li>
+<li>wait for settled state,</li>
+<li>capture screenshot.</li>
+</ul>
+</li>
+</ul>
+<doc-anchor-target id="for-app-store-screenshot-pipeline">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#for-app-store-screenshot-pipeline">#</doc-anchor-trigger>
+        <span>For app-store screenshot pipeline</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>Add dedicated screenshot scenario suite with stable mock/network assets.</li>
+<li>Generate named outputs per device/locale/theme.</li>
+<li>Make CI artifact upload + review part of PR workflow.</li>
+</ul>
+<hr>
+<doc-anchor-target id="logic-execution-plan">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#logic-execution-plan">#</doc-anchor-trigger>
+        <span>Logic execution plan</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="phase-l1--observability--contracts">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-l1--observability--contracts">#</doc-anchor-trigger>
+        <span>Phase L1 — Observability + contracts</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Define typed failure model and error mapping matrix.</li>
+<li>Add instrumentation for subscription counts, batch hit rate, fallback rate, parse failures.</li>
+<li>Add lifecycle ownership map for long-lived streams/controllers.</li>
+</ol>
+<doc-anchor-target id="phase-l2--reliability-hardening">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-l2--reliability-hardening">#</doc-anchor-trigger>
+        <span>Phase L2 — Reliability hardening</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Standardize stream disposal pattern per layer.</li>
+<li>Add malformed-event tolerance in parser pipeline.</li>
+<li>Add actionable error UX for Entity/Payment/Swap flows.</li>
+</ol>
+<doc-anchor-target id="phase-l3--performance-and-protocol-hardening">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-l3--performance-and-protocol-hardening">#</doc-anchor-trigger>
+        <span>Phase L3 — Performance and protocol hardening</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Reduce per-item subscription fan-out where possible.</li>
+<li>Optimize query/count paths and map/list churn.</li>
+<li>Introduce explicit event versioning policy + migration playbook.</li>
+</ol>
+<doc-anchor-target id="phase-l4--testing--screenshots">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-l4--testing--screenshots">#</doc-anchor-trigger>
+        <span>Phase L4 — Testing + screenshots</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>Build reusable scenario fixtures on top of seed pipeline.</li>
+<li>Split test suites by fake/mock/real tiers.</li>
+<li>Add deterministic screenshot runner + CI artifacts.</li>
+</ol>
+<doc-anchor-target id="logic-acceptance-criteria">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#logic-acceptance-criteria">#</doc-anchor-trigger>
+        <span>Logic acceptance criteria</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>No known long-lived subscription leaks in smoke lifecycle tests.</li>
+<li>Parse failures are isolated and observable, not app-fatal.</li>
+<li>Payment/swap/domain errors map to clear user recovery actions.</li>
+<li>Deterministic scenario seeds can reproduce target pages for tests/screenshots.</li>
+</ul>
+<hr>
+<doc-anchor-target id="suggested-rollout-order-combined">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#suggested-rollout-order-combined">#</doc-anchor-trigger>
+        <span>Suggested rollout order (combined)</span>
+    </h2>
+</doc-anchor-target>
+<ol>
+<li>Token foundations (visual) + failure taxonomy (logic).</li>
+<li>Mechanical UI consistency refactor + parser/lifecycle hardening.</li>
+<li>Seed scenario DSL + screenshot CI.</li>
+<li>Protocol versioning rollout + migration tooling.</li>
+</ol>
+<hr>
+<doc-anchor-target id="notes">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#notes">#</doc-anchor-trigger>
+        <span>Notes</span>
+    </h2>
+</doc-anchor-target>
+<ul>
+<li>This report intentionally avoids direct code edits.</li>
+<li>Next step can be an implementation PR plan with concrete file-by-file changes and staged commits.</li>
+</ul>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../audit/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">Hostr App — Visual & Logic Audit</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+    <script data-cfasync="false">window.__DOCS__ = { "title": "Hostr App Audit (Visual + Logic)", level: 1, icon: "file", hasPrism: false, hasMermaid: false, hasMath: false, tocDepth: 23 }</script>
+</body>
+</html>
