@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.0.825230878687">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.0.825271508790">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 4.0.0">
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../resources/css/retype.css?v=4.0.0.825230878687" rel="stylesheet">
+    <link href="../../../resources/css/retype.css?v=4.0.0.825271508790" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.0.0.825230878687" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.0.0.825271508790" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../resources/js/retype.js?v=4.0.0" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.0.0.825230878687" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.0.0.825230878687" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.0.0.825271508790" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.0.0.825271508790" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -459,6 +459,68 @@ sudo brew services restart dnsmasq</code></pre>
 <li>Cold-start connect time will be dominated by TLS handshake (~100–200ms)</li>
 </ul>
 <p>The slow iOS cold start is strictly a <strong>dev-environment constraint</strong> caused by the Tailscale VPN tunnel lifecycle on iOS.</p>
+<doc-anchor-target id="diagnostic-experiments">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#diagnostic-experiments">#</doc-anchor-trigger>
+        <span>Diagnostic Experiments</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="experiment-1-seed-script-broadcast-isolate">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#experiment-1-seed-script-broadcast-isolate">#</doc-anchor-trigger>
+        <span>Experiment 1: Seed script broadcast isolate</span>
+    </h3>
+</doc-anchor-target>
+<p><strong>Hypothesis:</strong> The main Dart event loop is overloaded by hundreds of parallel EVM transactions during seeding, starving NDK&#x27;s WebSocket.</p>
+<p><strong>Setup:</strong> Moved NDK event broadcasting into a dedicated <code translate="no" v-pre>Isolate</code> with its own event loop (<code translate="no" v-pre>broadcast_isolate.dart</code>). The isolate creates its own NDK instance, connects to the relay independently, and broadcasts events received via <code translate="no" v-pre>SendPort</code>/<code translate="no" v-pre>ReceivePort</code>.</p>
+<p><strong>Result:</strong> <span class="docs-emoji">&#x2705;</span> Every event broadcast succeeded on <strong>attempt #1</strong> — zero retries. This proves the seed script failures were caused by event-loop starvation on the main isolate, not relay/DNS issues.</p>
+<p><strong>Fix:</strong> The seed pipeline now uses <code translate="no" v-pre>BroadcastIsolate</code> permanently. See <code translate="no" v-pre>hostr_sdk/bin/seed/broadcast_isolate.dart</code>.</p>
+<doc-anchor-target id="experiment-2-app-cold-start-relay-probe-isolate">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#experiment-2-app-cold-start-relay-probe-isolate">#</doc-anchor-trigger>
+        <span>Experiment 2: App cold-start relay probe isolate</span>
+    </h3>
+</doc-anchor-target>
+<p><strong>Hypothesis:</strong> If event-loop overload causes the seed script issue, maybe the same thing explains the ~6s cold-start delay in the Flutter app on iPhone.</p>
+<p><strong>Setup:</strong> Added a diagnostic isolate probe in <code translate="no" v-pre>setup.dart</code> that spawns immediately after <code translate="no" v-pre>configureInjection</code>. The isolate creates its own NDK instance in a completely separate event loop with zero contention — the main isolate does nothing (even <code translate="no" v-pre>runApp</code> was removed, just a 100-second sleep).</p>
+<p><strong>Result:</strong> <span class="docs-emoji">&#x274C;</span> The probe isolate <strong>still took 6178ms</strong> to connect via NDK. Even with an empty main isolate and a dedicated event loop, the delay persists. This rules out event-loop overload as the cause for the app&#x27;s cold-start delay.</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">[relay-probe] 01:43:36.181 Starting relay probe for wss://relay.hostr.development
+[relay-probe] 01:43:36.214 NDK instance created in 32 ms
+[WARNING]    timed out connecting to relay wss://relay.hostr.development
+[relay-probe] 01:43:42.360 NDK relay connected in 6178 ms ✓
+[relay-probe] 01:43:42.366 Probe complete.</code></pre>
+</doc-codeblock></div>
+<p><strong>Conclusion:</strong> The ~6s app cold-start delay on iPhone is confirmed to be a <strong>network-level issue</strong> (DNS resolution via Tailscale split DNS / tunnel wake-up), not Dart event-loop contention. NDK&#x27;s 4s timeout fires because the underlying WebSocket connect is blocked waiting for DNS/tunnel, regardless of how idle the event loop is.</p>
+<doc-anchor-target id="summary">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#summary">#</doc-anchor-trigger>
+        <span>Summary</span>
+    </h3>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Root cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Seed script broadcast failures</td>
+<td>Main isolate event-loop starved by EVM txns</td>
+<td>Broadcast isolate (permanent)</td>
+</tr>
+<tr>
+<td>App cold-start ~6–20s on iPhone</td>
+<td>iOS Tailscale tunnel wake-up + DNS</td>
+<td>Dev-only; production uses public DNS</td>
+</tr>
+</tbody>
+</table>
+</div>
 
                 
                 <!-- Required only on API pages -->
