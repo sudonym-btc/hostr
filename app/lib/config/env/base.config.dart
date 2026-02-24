@@ -15,8 +15,11 @@ abstract class Config {
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 
   HostrConfig get hostrConfig => HostrConfig(
-    bootstrapRelays: [...relays, hostrRelay],
-    bootstrapBlossom: [hostrBlossom],
+    bootstrapRelays: [
+      ...relays,
+      hostrRelay,
+    ].where((r) => r.isNotEmpty).toList(),
+    bootstrapBlossom: [hostrBlossom].where((b) => b.isNotEmpty).toList(),
     bootstrapEscrowPubkeys: bootstrapEscrowPubkeys,
     hostrRelay: hostrRelay,
     rootstockConfig: rootstock,

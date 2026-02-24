@@ -7,24 +7,24 @@ import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 
 import 'seed_context.dart';
+import 'seed_factory.dart';
 import 'seed_pipeline_config.dart';
 import 'seed_pipeline_models.dart';
-import 'stages/build_listings.dart' as stage_listings;
-import 'stages/build_messages.dart' as stage_messages;
 import 'stages/build_outcomes.dart' as stage_outcomes;
-import 'stages/build_profiles.dart' as stage_profiles;
-import 'stages/build_reviews.dart' as stage_reviews;
-import 'stages/build_threads.dart' as stage_threads;
-import 'stages/build_users.dart' as stage_users;
 
-/// Composable seed pipeline.
+/// Full infrastructure-backed seed pipeline.
+///
+/// Delegates pure-data stages (users, profiles, listings, threads,
+/// messages, reviews) to [SeedFactory] and layers on top:
+///   - EVM funding via Anvil
+///   - LNbits wallet + NIP-05 setup
+///   - On-chain escrow trade creation via [buildOutcomes]
 ///
 /// Use [run] for the full CLI/seeder flow — it returns [SeedStreams]
 /// with typed [ReplaySubject]s that consumers can subscribe to
 /// independently.
 ///
-/// Individual stage methods remain available for integration tests
-/// that only need a subset of seed data.
+/// For tests that don't need infrastructure, use [SeedFactory] directly.
 ///
 /// ```dart
 /// final pipeline = SeedPipeline(config: config, contractAddress: addr);
@@ -48,6 +48,10 @@ class SeedPipeline {
   final SeedPipelineConfig config;
   final SeedContext _ctx;
 
+  /// The underlying pure-data factory.  Exposed so callers (including
+  /// [TestSeedHelper]) can access stage methods without duplicating code.
+  late final SeedFactory factory;
+
   SeedPipeline({required this.config, required String contractAddress})
     : _ctx = SeedContext(
         seed: config.seed,
@@ -55,45 +59,56 @@ class SeedPipeline {
         rpcUrl: config.rpcUrl,
         userCount: config.userCount + config.userOverrides.length,
         reservationRequestsPerGuest: config.reservationRequestsPerGuest,
-      );
+      ) {
+    factory = SeedFactory.fromContext(config: config, ctx: _ctx);
+  }
 
   /// Expose the context for advanced callers (e.g. TestSeedHelper).
   SeedContext get context => _ctx;
 
-  // ── Individual stages ─────────────────────────────────────────────────────
+  // ── Delegated pure-data stages ────────────────────────────────────────────
 
-  List<SeedUser> buildUsers() =>
-      stage_users.buildUsers(ctx: _ctx, config: config);
+  List<SeedUser> buildUsers() => factory.buildUsers();
 
   List<ProfileMetadata> buildProfiles(List<SeedUser> users) =>
-      stage_profiles.buildProfiles(ctx: _ctx, users: users);
+      factory.buildProfiles(users);
 
-  ProfileMetadata buildEscrowProfile() =>
-      stage_profiles.buildEscrowProfile(ctx: _ctx);
+  ProfileMetadata buildEscrowProfile() => factory.buildEscrowProfile();
 
-  List<EscrowService> buildEscrowServices() =>
-      stage_profiles.buildEscrowServices(contractAddress: _ctx.contractAddress);
+  List<EscrowService> buildEscrowServices() => factory.buildEscrowServices();
 
   Future<List<EscrowTrust>> buildEscrowTrusts(List<SeedUser> users) =>
-      stage_profiles.buildEscrowTrusts(ctx: _ctx, users: users);
+      factory.buildEscrowTrusts(users);
 
   Future<List<EscrowMethod>> buildEscrowMethods(List<SeedUser> users) =>
-      stage_profiles.buildEscrowMethods(ctx: _ctx, users: users);
+      factory.buildEscrowMethods(users);
 
   List<Listing> buildListings(List<SeedUser> hosts) =>
-      stage_listings.buildListings(ctx: _ctx, config: config, hosts: hosts);
+      factory.buildListings(hosts);
 
   Future<List<SeedThread>> buildThreads({
     required List<SeedUser> hosts,
     required List<SeedUser> guests,
     required List<Listing> listings,
-  }) => stage_threads.buildThreads(
-    ctx: _ctx,
-    config: config,
+    DateTime? now,
+  }) => factory.buildThreads(
     hosts: hosts,
     guests: guests,
     listings: listings,
+    now: now,
   );
+
+  Future<List<Nip01Event>> buildMessages(List<SeedThread> threads) =>
+      factory.buildMessages(threads);
+
+  Future<List<Nip01Event>> buildEscrowSelectedMessages(
+    List<SeedThread> threads,
+  ) => factory.buildEscrowSelectedMessages(threads);
+
+  List<Review> buildReviews(List<SeedThread> threads) =>
+      factory.buildReviews(threads);
+
+  // ── Infrastructure-only stage ─────────────────────────────────────────────
 
   Future<void> buildOutcomes({
     required List<SeedThread> threads,
@@ -114,16 +129,6 @@ class SeedPipeline {
         invalidReservationRate ?? config.invalidReservationRate,
     chainNow: chainNow,
   );
-
-  Future<List<Nip01Event>> buildMessages(List<SeedThread> threads) =>
-      stage_messages.buildMessages(ctx: _ctx, threads: threads);
-
-  Future<List<Nip01Event>> buildEscrowSelectedMessages(
-    List<SeedThread> threads,
-  ) => stage_messages.buildEscrowSelectedMessages(ctx: _ctx, threads: threads);
-
-  List<Review> buildReviews(List<SeedThread> threads) =>
-      stage_reviews.buildReviews(ctx: _ctx, threads: threads);
 
   // ── Full pipeline run ─────────────────────────────────────────────────────
 

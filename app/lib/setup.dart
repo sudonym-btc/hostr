@@ -15,6 +15,8 @@ import 'package:workmanager/workmanager.dart';
 import 'injection.dart';
 import 'setup/hydrated_storage.dart';
 
+final logger = CustomLogger();
+
 /// Bootstraps environment-specific services, storage, and mock servers.
 ///
 /// - Ensures Flutter bindings are initialized
@@ -23,7 +25,9 @@ import 'setup/hydrated_storage.dart';
 /// - Starts local mock services for `mock`/`test` environments
 /// - Connects to relays through the injected `RelayConnector`
 Future<void> setup(String env) async {
+  logger.d('${DateTime.now()} Setting up environment: $env');
   await setupBackgroundAndMainCommon(env);
+  logger.d('${DateTime.now()} Workmanager setup complete');
   if (!kIsWeb) {
     setupWorkmanager();
   }
@@ -32,9 +36,14 @@ Future<void> setup(String env) async {
 Future<void> setupBackgroundAndMainCommon(String env) async {
   WidgetsFlutterBinding.ensureInitialized();
   configureFlutterH3Runtime();
+  logger.d(
+    '${DateTime.now()} Flutter bindings initialized and H3 runtime configured',
+  );
   await persistEnvironment(env);
+  logger.d('${DateTime.now()} Environment persisted: $env');
 
   HydratedBloc.storage = await buildHydratedStorage();
+  logger.d('${DateTime.now()}  Hydrated storage initialized');
   // Allow self-signed certificates for development/test.
   if ([Env.mock, Env.dev, Env.test].contains(env) && !kIsWeb) {
     HttpOverrides.global = MyHttpOverrides();
@@ -42,32 +51,17 @@ Future<void> setupBackgroundAndMainCommon(String env) async {
 
   configureInjection(env);
   getIt.registerSingleton<Hostr>(Hostr(config: getIt<Config>().hostrConfig));
-  await setupNotifications();
-  // If we are testing, launch a mock relay server
-  if (env == Env.mock || env == Env.test) {
-    await getIt<Hostr>().requests.mock();
+  logger.d('${DateTime.now()} Dependency injection configured');
+
+  // Skip notification permission prompt in test — it blocks CI and
+  // screenshot automation with a system dialog that can't be pre-granted.
+  if (env != Env.test) {
+    await setupNotifications();
+    logger.d('${DateTime.now()} Notifications setup complete');
   }
 
   // Restore NDK session from stored keys before connecting relays.
   await getIt<Hostr>().auth.init();
-  // Connect to bootstrap relays without blocking app startup.
-  // This must happen regardless of auth state so the app can read
-  // public data (listings, profiles, etc.) before the user logs in.
-  unawaited(
-    getIt<Hostr>().relays
-        .connect()
-        .catchError((e) {
-          getIt<Hostr>().logger.w('Initial relay connection failed: $e');
-          // Retry once after a short delay — cold start over wireless debug
-          // can fail the first attempt if the network stack isn't fully ready.
-          return Future.delayed(const Duration(seconds: 3), () {
-            return getIt<Hostr>().relays.connect();
-          });
-        })
-        .catchError((e) {
-          getIt<Hostr>().logger.e('Relay connection retry also failed: $e');
-        }),
-  );
 }
 
 const String _environmentPrefsKey = 'hostr.env';

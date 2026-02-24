@@ -46,6 +46,12 @@ class Hostr {
     _authStateSubscription = auth.authState.listen((state) async {
       logger.d('Auth state changed: $state');
       if (state is LoggedIn) {
+        // Wait for at least one relay to be connected before issuing any
+        // queries. On a cold start over wireless/Tailscale the WebSocket
+        // handshake may lag behind the auth restore, causing the first
+        // batch of queries to silently return empty results.
+        await relays.ensureConnected();
+
         final pubkey = auth.getActiveKey().publicKey;
 
         // Fetch the user's NIP-65 relay list and connect to those relays.

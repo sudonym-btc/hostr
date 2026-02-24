@@ -25,7 +25,7 @@ class _PermissiveHttpOverrides extends HttpOverrides {
 void main(List<String> arguments) async {
   HttpOverrides.global = _PermissiveHttpOverrides();
   final String relayUrl =
-      Platform.environment['NOSTR_RELAY'] ?? 'ws://relay.hostr.development';
+      Platform.environment['NOSTR_RELAY'] ?? 'wss://relay.hostr.development';
   final String privateKey =
       Platform.environment['PRIVATE_KEY'] ?? MockKeys.escrow.privateKey!;
   final String rpcUrl =

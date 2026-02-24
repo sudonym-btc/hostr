@@ -2,43 +2,53 @@ import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import 'seed_context.dart';
-import 'seed_pipeline.dart';
+import 'seed_factory.dart';
 import 'seed_pipeline_config.dart';
 import 'seed_pipeline_models.dart';
 
-/// Convenience wrapper for integration tests.
+/// Convenience wrapper for tests.
 ///
 /// Produces individual users, listings, and threads with precise control
-/// over thread stage progression — without needing a relay or full CLI run.
+/// over thread stage progression — **without needing a relay, chain, or
+/// full CLI run**.
+///
+/// Backed by [SeedFactory] so all data generation is pure (no I/O).
 ///
 /// ```dart
 /// final helper = TestSeedHelper();
+/// final host = await helper.freshHost(listingCount: 2);
 /// final guest = await helper.freshGuest(
-///   listing: someListing,
+///   listing: host.listing,
 ///   withThread: true,
-///   withOutcome: false, // test will drive the outcome
 /// );
-/// // guest.user, guest.profile, guest.thread are all available
+/// requests.seedEvents([host.profile, ...host.listings, guest.profile]);
 /// ```
 class TestSeedHelper {
-  final SeedPipeline _pipeline;
+  final SeedFactory _factory;
   int _nextUserIndex;
 
   TestSeedHelper({
     int seed = 42,
     String contractAddress = '0x0000000000000000000000000000000000000000',
-    String rpcUrl = 'http://localhost:8545',
-  }) : _pipeline = SeedPipeline(
+  }) : _factory = SeedFactory(
          config: SeedPipelineConfig(
            seed: seed,
            userCount: 0, // no random users, all explicit
-           rpcUrl: rpcUrl,
          ),
          contractAddress: contractAddress,
        ),
        _nextUserIndex = 1000; // offset to avoid collisions with seeder
 
-  SeedContext get context => _pipeline.context;
+  /// Create from an existing [SeedFactory] (e.g. when you want to share
+  /// the same context / config as a [SeedPipeline]).
+  TestSeedHelper.fromFactory(SeedFactory factory)
+    : _factory = factory,
+      _nextUserIndex = 1000;
+
+  SeedContext get context => _factory.context;
+
+  /// The underlying factory, for direct access to stages.
+  SeedFactory get factory => _factory;
 
   /// Create a fresh guest with profile, optionally with a thread
   /// against [listing].
@@ -60,7 +70,7 @@ class TestSeedHelper {
       setupLnbits: setupLnbits,
     );
 
-    final profile = _pipeline.buildProfiles([user]).first;
+    final profile = _factory.buildProfiles([user]).first;
 
     SeedThread? thread;
     if (withThread && listing != null) {
@@ -73,7 +83,7 @@ class TestSeedHelper {
         hasEvm: true,
       );
 
-      final threads = await _pipeline.buildThreads(
+      final threads = await _factory.buildThreads(
         hosts: [hostUser],
         guests: [user],
         listings: [listing],
@@ -125,11 +135,8 @@ class TestSeedHelper {
       ),
     );
 
-    final profile = _pipeline.buildProfiles([user]).first;
-
-    // Build listings by creating a temporary pipeline config with the right
-    // listing count.
-    final listings = _pipeline.buildListings([user]);
+    final profile = _factory.buildProfiles([user]).first;
+    final listings = _factory.buildListings([user]);
 
     return TestHost(user: user, profile: profile, listings: listings);
   }
@@ -137,7 +144,7 @@ class TestSeedHelper {
   /// Create a key pair from a known private key (for testing with specific keys).
   KeyPair deriveKeyPair(int index) => context.deriveKeyPair(index);
 
-  void dispose() => _pipeline.dispose();
+  void dispose() => _factory.dispose();
 
   KeyPair _dummyKeyPairForPubkey(String pubkey) {
     // We can't reverse a pubkey to a keypair, so derive a fresh one.

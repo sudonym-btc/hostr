@@ -2,14 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hostr/app.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
 import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
-
-import 'app.dart';
 
 /// Export items from our app such that they can be used by widgetbook.
 
@@ -24,7 +23,7 @@ void mainCommon(String env) async {
   runZonedGuarded(
     () async {
       await setup(env);
-      runApp(MyApp());
+      runApp(const MyApp());
     },
     (error, stackTrace) {
       // Route all top-level errors here to avoid crashing without context.

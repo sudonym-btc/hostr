@@ -5,6 +5,7 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/presentation/screens/guest/search/filters.dart';
 import 'package:hostr/presentation/screens/guest/search/map_view.cubit.dart';
+import 'package:models/main.dart';
 
 class SearchView extends StatefulWidget {
   const SearchView({super.key});
@@ -19,6 +20,15 @@ class SearchViewState extends State<SearchView> {
   final DraggableScrollableController _panelController =
       DraggableScrollableController();
   final ValueNotifier<String?> _scrollToListingId = ValueNotifier(null);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<ListCubit<Listing>>().next();
+    });
+  }
 
   @override
   void dispose() {

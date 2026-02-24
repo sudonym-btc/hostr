@@ -50,6 +50,13 @@
         "type": "dart",
         "request": "launch",
         "program": "${workspaceFolder:root}/app/test/logic",
+        "toolArgs": [
+          "--no-start-paused"
+        ],
+        "vmAdditionalArgs": [
+          "--no-pause-isolates-on-start",
+          "--no-pause-isolates-on-exit"
+        ],
         "args": [
           "--name",
           ".*"  // This regex pattern matches all test names
@@ -59,31 +66,66 @@
         "name": "mock",
         "request": "launch",
         "type": "dart",
-        "program": "${workspaceFolder:root}/app/lib/main_mock.dart"
+        "program": "${workspaceFolder:root}/app/lib/main_mock.dart",
+        "toolArgs": [
+          "--no-start-paused"
+        ],
+        "vmAdditionalArgs": [
+          "--no-pause-isolates-on-start",
+          "--no-pause-isolates-on-exit"
+        ]
       },
       {
         "name": "widgetbook",
         "request": "launch",
         "type": "dart",
-        "program": "${workspaceFolder:root}/app/widgetbook_workspace/lib/main.dart"
+        "program": "${workspaceFolder:root}/app/widgetbook_workspace/lib/main.dart",
+        "toolArgs": [
+          "--no-start-paused"
+        ],
+        "vmAdditionalArgs": [
+          "--no-pause-isolates-on-start",
+          "--no-pause-isolates-on-exit"
+        ]
       },
       {
         "name": "development",
         "request": "launch",
         "type": "dart",
-        "program": "${workspaceFolder:root}/app/lib/main_development.dart"
+        "program": "${workspaceFolder:root}/app/lib/main_development.dart",
+        "toolArgs": [
+          "--no-start-paused"
+        ],
+        "vmAdditionalArgs": [
+          "--no-pause-isolates-on-start",
+          "--no-pause-isolates-on-exit"
+        ]
       },
       {
         "name": "staging",
         "request": "launch",
         "type": "dart",
-        "program": "${workspaceFolder:root}/app/lib/main_staging.dart"
+        "program": "${workspaceFolder:root}/app/lib/main_staging.dart",
+        "toolArgs": [
+          "--no-start-paused"
+        ],
+        "vmAdditionalArgs": [
+          "--no-pause-isolates-on-start",
+          "--no-pause-isolates-on-exit"
+        ]
       },
       {
         "name": "production",
         "request": "launch",
         "type": "dart",
-        "program": "${workspaceFolder:root}/app/lib/main_production.dart"
+        "program": "${workspaceFolder:root}/app/lib/main_production.dart",
+        "toolArgs": [
+          "--no-start-paused"
+        ],
+        "vmAdditionalArgs": [
+          "--no-pause-isolates-on-start",
+          "--no-pause-isolates-on-exit"
+        ]
       }
     ]
   }

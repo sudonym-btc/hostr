@@ -13,11 +13,15 @@ class MockConfig extends Config {
   @override
   List<String> get bootstrapEscrowPubkeys => [MockKeys.escrow.publicKey];
 
+  /// No relay — [InMemoryRequests] handles everything in-process.
   @override
-  String hostrRelay = 'ws://localhost:5432';
+  List<String> get relays => [];
 
   @override
-  String get hostrBlossom => 'http://localhost:3001';
+  String hostrRelay = '';
+
+  @override
+  String get hostrBlossom => '';
 
   @override
   RootstockConfig rootstock = MockRootstockConfig();

@@ -12,6 +12,8 @@ import 'package:ndk/shared/logger/log_event.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../relays/relays.dart';
+
 abstract class RequestsModel {
   Stream<T> query<T extends Nip01Event>({
     required Filter filter,
@@ -34,19 +36,23 @@ abstract class RequestsModel {
     required Nip01Event event,
     List<String>? relays,
   });
-
-  Future<void> mock();
 }
 
 @Singleton(env: Env.allButTestAndMock)
 class Requests extends RequestsModel {
   final Ndk ndk;
   final bool useCache = false;
+  final CustomLogger _logger = CustomLogger();
+  bool _loggedFirstQuery = false;
 
   /// In-flight query dedup: filter key → broadcast stream.
   /// If a query with the same filter is already running, new callers
   /// share its broadcast stream instead of opening another relay subscription.
   final Map<String, Stream<Nip01Event>> _inFlightQueries = {};
+
+  /// Lazily resolved relay service — avoids a circular constructor
+  /// dependency (Relays → Requests for MockRelays).
+  Relays get _relays => getIt<Relays>();
 
   Requests({required this.ndk}) {
     Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
@@ -75,44 +81,57 @@ class Requests extends RequestsModel {
 
     response.addStatus(StreamStatusQuerying());
 
+    // Wait for at least one relay to be connected before issuing queries.
+    // On a cold start the WebSocket handshake may lag behind app init,
+    // causing the first batch of queries to silently return empty results.
     // @todo: should i be using queryFn, liveFn, which automatically cancels subscriptions, rather than adding the subscription manually here.
-    final subscription = ndk.requests
-        .query(
-          name: name != null ? '$name-q' : 'q-${Helpers.getRandomString(5)}',
-          filter: cleanTags(filter),
-          cacheRead: true,
-          cacheWrite: true,
-        )
-        .stream
-        .doOnDone(() => response.addStatus(StreamStatusQueryComplete()))
-        .concatWith([
-          Rx.defer(() {
-            final liveFilter = filter.clone();
-            final maxCreatedAt = response.list.value.isEmpty
-                ? null
-                : response.list.value.map((e) => e.createdAt).reduce(max);
-            final nextSince = maxCreatedAt == null ? null : maxCreatedAt + 1;
-            liveFilter.since = maxCreatedAt == null
-                ? liveFilter.since
-                : (liveFilter.since == null || nextSince! > liveFilter.since!
-                      ? nextSince
-                      : liveFilter.since);
-            response.addStatus(StreamStatusLive());
+    final subscription =
+        Rx.defer(() {
+              return Stream.fromFuture(_relays.ensureConnected()).asyncExpand(
+                (_) => ndk.requests
+                    .query(
+                      name: name != null
+                          ? '$name-q'
+                          : 'q-${Helpers.getRandomString(5)}',
+                      filter: cleanTags(filter),
+                      cacheRead: true,
+                      cacheWrite: true,
+                    )
+                    .stream,
+              );
+            })
+            .doOnDone(() => response.addStatus(StreamStatusQueryComplete()))
+            .concatWith([
+              Rx.defer(() {
+                final liveFilter = filter.clone();
+                final maxCreatedAt = response.list.value.isEmpty
+                    ? null
+                    : response.list.value.map((e) => e.createdAt).reduce(max);
+                final nextSince = maxCreatedAt == null
+                    ? null
+                    : maxCreatedAt + 1;
+                liveFilter.since = maxCreatedAt == null
+                    ? liveFilter.since
+                    : (liveFilter.since == null ||
+                              nextSince! > liveFilter.since!
+                          ? nextSince
+                          : liveFilter.since);
+                response.addStatus(StreamStatusLive());
 
-            return ndk.requests
-                .subscription(
-                  id: ndkSubName,
-                  filter: cleanTags(liveFilter),
-                  cacheRead: useCache,
-                  cacheWrite: true,
-                )
-                .stream;
-          }),
-        ])
-        .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
-        .where((event) => event != null)
-        .cast<T>()
-        .listen(response.add, onError: response.addError);
+                return ndk.requests
+                    .subscription(
+                      id: ndkSubName,
+                      filter: cleanTags(liveFilter),
+                      cacheRead: useCache,
+                      cacheWrite: true,
+                    )
+                    .stream;
+              }),
+            ])
+            .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
+            .where((event) => event != null)
+            .cast<T>()
+            .listen(response.add, onError: response.addError);
     response.addSubscription(subscription);
 
     return response;
@@ -140,28 +159,40 @@ class Requests extends RequestsModel {
           .cast<T>();
     }
 
-    // Create the underlying stream and make it a broadcast so multiple
-    // callers can listen. Clean up the map entry when the source completes
-    // (doOnDone) OR when all listeners cancel before completion (onCancel).
+    // Wait for at least one relay to be connected before issuing the
+    // query. Wrapping with Rx.defer() keeps the Stream<T> return type.
     // Without the onCancel cleanup, consumers like .firstWhere() that cancel
     // after the first event leave a stale entry — subsequent queries with
     // the same filter hit the dead broadcast stream and hang forever.
-    final source = ndk.requests
-        .query(
-          name: name ?? "query-${Helpers.getRandomString(5)}",
-          filter: cleanTags(filter),
-          cacheRead: false,
-          cacheWrite: false,
-          timeout: timeout,
-        )
-        .stream
-        .doOnDone(() => _inFlightQueries.remove(key))
-        .asBroadcastStream(
-          onCancel: (subscription) {
-            subscription.cancel();
-            _inFlightQueries.remove(key);
-          },
-        );
+    final source =
+        Rx.defer(() {
+              final now = DateTime.now().toIso8601String();
+              final queryName = name ?? 'query';
+              if (!_loggedFirstQuery) {
+                _loggedFirstQuery = true;
+                _logger.i('first-req timestamp: $now name=$queryName');
+              }
+              _logger.d('req timestamp: $now name=$queryName filter=$filter');
+
+              return Stream.fromFuture(_relays.ensureConnected()).asyncExpand(
+                (_) => ndk.requests
+                    .query(
+                      name: name ?? "query-${Helpers.getRandomString(5)}",
+                      filter: cleanTags(filter),
+                      cacheRead: false,
+                      cacheWrite: false,
+                      timeout: timeout,
+                    )
+                    .stream,
+              );
+            })
+            .doOnDone(() => _inFlightQueries.remove(key))
+            .asBroadcastStream(
+              onCancel: (subscription) {
+                subscription.cancel();
+                _inFlightQueries.remove(key);
+              },
+            );
 
     _inFlightQueries[key] = source;
 
@@ -192,12 +223,6 @@ class Requests extends RequestsModel {
     List<String>? relays,
   }) {
     return ndk.broadcast.broadcast(nostrEvent: event).broadcastDoneFuture;
-  }
-
-  @override
-  Future<void> mock() {
-    // TODO: implement mock
-    throw UnimplementedError();
   }
 }
 

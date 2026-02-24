@@ -4,7 +4,6 @@ import 'package:hostr_sdk/datasources/nostr/mock.relay.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
-import 'package:models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter, Ndk;
 
@@ -23,26 +22,26 @@ class _Subscription<T extends Nip01Event> {
   });
 }
 
+/// Pure in-memory implementation of [Requests].
+///
+/// No relay, chain, or Docker needed.  All events live in a local list and
+/// subscriptions are notified synchronously when new events arrive.
+///
+/// Registered for [Env.test] and [Env.mock] — any scenario where you want
+/// deterministic data without I/O.
+///
+/// Seed data via [seedEvents] or [addEvent].
 @Singleton(as: Requests, env: [Env.test, Env.mock])
-class TestRequests extends Requests implements RequestsModel {
+class InMemoryRequests extends Requests implements RequestsModel {
   @override
   final Ndk ndk;
   final List<Nip01Event> _events = [];
   final List<_Subscription> _subscriptions = [];
   int _subCounter = 0;
 
-  TestRequests({required this.ndk}) : super(ndk: ndk);
+  InMemoryRequests({required this.ndk}) : super(ndk: ndk);
 
-  @override
-  mock() async {
-    for (Nip01Event e in await MOCK_EVENTS(
-      contractAddress: '0xMOCKCONTRACTADDRESS',
-    )) {
-      addEvent(e);
-    }
-  }
-
-  /// Add an event to the mock storage and notify subscriptions.
+  /// Add an event to the in-memory store and notify active subscriptions.
   void addEvent(Nip01Event event) {
     // Update existing event if it has an 'a' tag match @TODO SHOULD BE D TAG!
     List<Nip01Event> existingEvents = _events
@@ -147,7 +146,7 @@ class TestRequests extends Requests implements RequestsModel {
     addEvent(event);
     return [
       RelayBroadcastResponse(
-        relayUrl: 'mock://localhost',
+        relayUrl: 'in-memory://localhost',
         okReceived: true,
         broadcastSuccessful: true,
         msg: '',
@@ -163,7 +162,7 @@ class TestRequests extends Requests implements RequestsModel {
     _subscriptions.clear();
   }
 
-  /// Seed events for testing.
+  /// Seed events in bulk.
   void seedEvents(List<Nip01Event> events) {
     for (var event in events) {
       addEvent(event);
