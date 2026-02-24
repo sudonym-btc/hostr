@@ -30,7 +30,7 @@ class SearchScreen extends StatelessWidget {
             sortCubit: context.read<SortCubit<Listing>>(),
             postResultFilterCubit: context.read<PostResultFilterCubit>(),
             filterCubit: context.read<FilterCubit>(),
-          )..next(),
+          ),
         ),
       ],
       child: SearchView(),

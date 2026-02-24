@@ -14,11 +14,15 @@ class TestConfig extends Config {
   @override
   List<String> get bootstrapEscrowPubkeys => [MockKeys.escrow.publicKey];
 
+  /// No relay — [InMemoryRequests] handles everything in-process.
   @override
-  String get hostrRelay => 'ws://localhost:5432';
+  List<String> get relays => [];
 
   @override
-  String get hostrBlossom => 'http://localhost:3001';
+  String get hostrRelay => '';
+
+  @override
+  String get hostrBlossom => '';
 
   @override
   RootstockConfig rootstock = DevelopmentRootstockConfig();

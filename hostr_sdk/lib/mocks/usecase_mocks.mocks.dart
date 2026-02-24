@@ -506,15 +506,6 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
             ),
           )
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
-  _i13.Future<void> mock() =>
-      (super.noSuchMethod(
-            Invocation.method(#mock, []),
-            returnValue: _i13.Future<void>.value(),
-            returnValueForMissingStub: _i13.Future<void>.value(),
-          )
-          as _i13.Future<void>);
 }
 
 /// A class which mocks [MetadataUseCase].
@@ -532,6 +523,14 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
             returnValue: _FakeAuth_6(this, Invocation.getter(#auth)),
           )
           as _i8.Auth);
+
+  @override
+  _i2.Ndk get ndk =>
+      (super.noSuchMethod(
+            Invocation.getter(#ndk),
+            returnValue: _FakeNdk_0(this, Invocation.getter(#ndk)),
+          )
+          as _i2.Ndk);
 
   @override
   set auth(_i8.Auth? value) => super.noSuchMethod(

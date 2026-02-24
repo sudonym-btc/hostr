@@ -8,6 +8,9 @@ class AppController {
 
   AppController() {
     hostrService = getIt<Hostr>();
+  }
+
+  void start() {
     hostrService.start();
   }
 

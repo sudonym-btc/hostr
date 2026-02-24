@@ -15,17 +15,20 @@ class GlobalProviderWidget extends StatefulWidget {
 }
 
 class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
-  late AppController appController;
+  AppController? appController;
 
   @override
   void initState() {
     super.initState();
-    appController = AppController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      appController = AppController()..start();
+    });
   }
 
   @override
   void dispose() {
-    appController.dispose();
+    appController?.dispose();
     super.dispose();
   }
 
