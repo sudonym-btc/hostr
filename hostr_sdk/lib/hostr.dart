@@ -35,11 +35,16 @@ class Hostr {
   Relays get relays => getIt<Relays>();
   Verification get verification => getIt<Verification>();
   BlossomUseCase get blossom => getIt<BlossomUseCase>();
+  UserConfigStore get userConfig => getIt<UserConfigStore>();
+  AutoWithdrawService get autoWithdraw => getIt<AutoWithdrawService>();
 
   StreamSubscription? _authStateSubscription;
 
   void start() {
     stop();
+
+    // Ensure user config is loaded from disk before anything else.
+    userConfig.initialize();
 
     auth.init();
 
@@ -88,8 +93,12 @@ class Hostr {
 
         // Recover any stale swaps (claims/refunds) from previous sessions.
         evm.recoverStaleSwaps();
+
+        // Start auto-withdrawing EVM balances to Lightning.
+        autoWithdraw.start();
       } else {
         logger.i('User logged out');
+        autoWithdraw.stop();
         messaging.threads.reset();
         nwc.dispose();
         reservations.dispose();
@@ -104,10 +113,12 @@ class Hostr {
 
   Future<void> dispose() async {
     stop();
+    autoWithdraw.stop();
     messaging.threads.close();
     reservations.dispose();
     nwc.dispose();
     evm.dispose();
     auth.dispose();
+    userConfig.dispose();
   }
 }

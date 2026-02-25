@@ -10,6 +10,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   final CustomLogger logger;
   final Auth auth;
   final Evm evm;
+  final EscrowLockRegistry _lockRegistry;
   late final EvmChain chain;
   late final SupportedEscrowContract contract;
   final EscrowFundParams params;
@@ -20,6 +21,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     this.auth,
     this.evm,
     this.logger,
+    this._lockRegistry,
     @factoryParam this.params,
   ) : super(EscrowFundInitialised()) {
     chain = evm.getChainForEscrowService(params.escrowService);
@@ -55,6 +57,13 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
       return;
     }
     _isExecuting = true;
+
+    // Acquire a lock so the auto-withdraw service knows not to drain balance.
+    await _lockRegistry.acquire(
+      contractParams.tradeId,
+      BitcoinAmount.fromAmount(params.amount),
+    );
+
     try {
       logger.i(
         'Creating escrow for tradeId ${params.toContractParams(auth.getActiveEvmKey()).tradeId} at ${params.escrowService.parsedContent.contractAddress}',
@@ -88,6 +97,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
       emit(e);
       throw e;
     } finally {
+      await _lockRegistry.release(contractParams.tradeId);
       _isExecuting = false;
     }
   }

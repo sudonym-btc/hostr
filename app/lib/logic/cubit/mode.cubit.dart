@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/sources/local/mode_storage.dart';
-import 'package:injectable/injectable.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 /// Abstract class representing the state of authentication.
 abstract class ModeCubitState extends Equatable {
@@ -19,37 +20,54 @@ class HostMode extends ModeCubitState {}
 class GuestMode extends ModeCubitState {}
 
 /// Cubit class to manage authentication state.
-@injectable
+///
+/// Reads and writes the user's mode via [UserConfigStore] so that mode is
+/// persisted alongside all other user-level preferences in one place.
 class ModeCubit extends Cubit<ModeCubitState> {
-  final ModeStorage modeStorage;
+  final UserConfigStore _configStore;
+  StreamSubscription<HostrUserConfig>? _sub;
 
-  ModeCubit({required this.modeStorage}) : super(ModeInitial());
+  ModeCubit({required UserConfigStore configStore})
+    : _configStore = configStore,
+      super(ModeInitial());
+
+  /// Load persisted mode and start listening for external changes.
+  Future<void> load() async {
+    final config = await _configStore.state;
+    _emitMode(config.mode);
+
+    _sub = _configStore.stream.listen((config) {
+      _emitMode(config.mode);
+    });
+  }
 
   Future<void> setHost() async {
-    await modeStorage.set('host');
-    emit(HostMode());
+    final current = await _configStore.state;
+    await _configStore.update(current.copyWith(mode: AppMode.host));
   }
 
   Future<void> setGuest() async {
-    await modeStorage.set('guest');
-    emit(GuestMode());
+    final current = await _configStore.state;
+    await _configStore.update(current.copyWith(mode: AppMode.guest));
   }
 
-  Future<void> get() async {
-    String mode = await modeStorage.get();
-    if (mode == 'host') {
+  Future<void> toggle() async {
+    final current = await _configStore.state;
+    final newMode = current.mode == AppMode.host ? AppMode.guest : AppMode.host;
+    await _configStore.update(current.copyWith(mode: newMode));
+  }
+
+  void _emitMode(AppMode mode) {
+    if (mode == AppMode.host) {
       emit(HostMode());
     } else {
       emit(GuestMode());
     }
   }
 
-  void toggle() async {
-    String mode = await modeStorage.get();
-    if (mode == 'host') {
-      setGuest();
-    } else {
-      setHost();
-    }
+  @override
+  Future<void> close() {
+    _sub?.cancel();
+    return super.close();
   }
 }

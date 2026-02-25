@@ -64,7 +64,7 @@ class WidgetbookApp extends StatelessWidget {
 
         final mode = authValue.toLowerCase();
         getIt<ModeStorage>().set(mode);
-        getIt<ModeCubit>().get();
+        getIt<ModeCubit>().load();
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
