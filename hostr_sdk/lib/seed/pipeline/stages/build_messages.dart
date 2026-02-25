@@ -17,6 +17,28 @@ Future<List<Nip01Event>> buildMessages({
   required List<SeedThread> threads,
 }) async {
   final messages = <Nip01Event>[];
+  var wrapCount = 0;
+  var lastLoggedPct = -1;
+  final sw = Stopwatch()..start();
+
+  // Each thread produces 2 wraps per message (one per participant):
+  //   1 reservation-request + textMessageCount filler messages.
+  var totalExpected = 0;
+  for (final thread in threads) {
+    totalExpected += 2 * (1 + thread.stageSpec.textMessageCount);
+  }
+
+  void _logProgress({bool force = false}) {
+    final pct = totalExpected > 0 ? (wrapCount * 100 ~/ totalExpected) : 100;
+    if (force || (pct ~/ 5) > (lastLoggedPct ~/ 5)) {
+      print(
+        '[seed][giftwrap] buildMessages: $pct% '
+        '($wrapCount/$totalExpected giftwraps, '
+        '${sw.elapsedMilliseconds} ms)',
+      );
+      lastLoggedPct = pct;
+    }
+  }
 
   final giftWrapNdk = _createGiftWrapNdk();
 
@@ -38,6 +60,8 @@ Future<List<Nip01Event>> buildMessages({
         content: thread.request.toString(),
       );
       messages.addAll(requestMessageWraps);
+      wrapCount += requestMessageWraps.length;
+      _logProgress();
 
       // 2. Filler text messages.
       final msgCount = thread.stageSpec.textMessageCount;
@@ -58,6 +82,8 @@ Future<List<Nip01Event>> buildMessages({
           content: 'Seed message ${m + 1} for thread ${i + 1}',
         );
         messages.addAll(wraps);
+        wrapCount += wraps.length;
+        _logProgress();
       }
 
       // Yield to the event loop every 10 threads so that concurrent
@@ -69,6 +95,7 @@ Future<List<Nip01Event>> buildMessages({
       }
     }
 
+    _logProgress(force: true);
     return messages;
   } finally {
     await giftWrapNdk.destroy();
@@ -84,6 +111,29 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
   required List<SeedThread> threads,
 }) async {
   final messages = <Nip01Event>[];
+  var wrapCount = 0;
+  var lastLoggedPct = -1;
+  final sw = Stopwatch()..start();
+
+  // 2 wraps per qualifying escrow thread.
+  var totalExpected = 0;
+  for (final thread in threads) {
+    if (!thread.paidViaEscrow || thread.reservation == null) continue;
+    if (thread.reservation!.parsedContent.proof?.escrowProof == null) continue;
+    totalExpected += 2;
+  }
+
+  void _logProgress({bool force = false}) {
+    final pct = totalExpected > 0 ? (wrapCount * 100 ~/ totalExpected) : 100;
+    if (force || (pct ~/ 5) > (lastLoggedPct ~/ 5)) {
+      print(
+        '[seed][giftwrap] buildEscrowSelectedMessages: $pct% '
+        '($wrapCount/$totalExpected giftwraps, '
+        '${sw.elapsedMilliseconds} ms)',
+      );
+      lastLoggedPct = pct;
+    }
+  }
 
   final giftWrapNdk = _createGiftWrapNdk();
 
@@ -125,8 +175,11 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
         content: selectedEscrow.toString(),
       );
       messages.addAll(wraps);
+      wrapCount += wraps.length;
+      _logProgress();
     }
 
+    _logProgress(force: true);
     return messages;
   } finally {
     await giftWrapNdk.destroy();

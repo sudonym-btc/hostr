@@ -123,6 +123,11 @@ class ListingListItemWidget extends StatefulWidget {
   final bool showFeedback;
   final bool smallImage;
   final WidgetBuilder? bottom;
+
+  /// Optional externally-provided reservations stream.
+  /// When supplied the widget skips creating its own subscription.
+  final StreamWithStatus<Reservation>? reservationsStream;
+
   const ListingListItemWidget({
     super.key,
     required this.listing,
@@ -131,6 +136,7 @@ class ListingListItemWidget extends StatefulWidget {
     this.showFeedback = true,
     this.smallImage = false,
     this.bottom,
+    this.reservationsStream,
   });
 
   @override
@@ -140,37 +146,50 @@ class ListingListItemWidget extends StatefulWidget {
 class ListingListItemWidgetState extends State<ListingListItemWidget> {
   ListingListItemWidgetState();
 
+  static const _streamInitDelay = Duration(seconds: 2);
+
   StreamWithStatus<Reservation>? _reservationsStream;
   StreamSubscription<List<Reservation>>? _reservationsSubscription;
   AvailabilityCubit? _availabilityCubit;
   DateRangeCubit? _localDateRangeCubit;
   List<Reservation> _latestReservations = const [];
+  Timer? _initTimer;
+  bool _ownsStream = false;
 
   @override
   initState() {
     super.initState();
-    final anchor = widget.listing.anchor;
-    if (anchor != null) {
-      _reservationsStream = getIt<Hostr>().reservations.subscribe(
-        name: 'ListingListItem-$anchor-reservations',
-        Filter(
-          tags: {
-            kListingRefTag: [anchor],
-          },
-        ),
-      );
-      _reservationsSubscription = _reservationsStream!.list.listen((items) {
-        _latestReservations = items;
-        _availabilityCubit?.updateReservations(items);
-      });
+    if (widget.reservationsStream != null) {
+      _attachReservationsStream(widget.reservationsStream!);
+    } else {
+      _initTimer = Timer(_streamInitDelay, _initOwnReservationsStream);
     }
-    // Preload images
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   if (!mounted) return; // Check if the widget is still mounted
-    //   for (var imageUrl in widget.listing.parsedContent.images) {
-    //     precacheImage(NetworkImage(imageUrl), context);
-    //   }
-    // });
+  }
+
+  void _initOwnReservationsStream() {
+    if (!mounted) return;
+    final anchor = widget.listing.anchor;
+    if (anchor == null) return;
+
+    final stream = getIt<Hostr>().reservations.query(
+      name: 'ListingListItem-$anchor-reservations',
+      Filter(
+        tags: {
+          kListingRefTag: [anchor],
+        },
+      ),
+    );
+    _ownsStream = true;
+    _attachReservationsStream(stream);
+  }
+
+  void _attachReservationsStream(StreamWithStatus<Reservation> stream) {
+    _reservationsStream = stream;
+    _reservationsSubscription = stream.list.listen((items) {
+      _latestReservations = items;
+      _availabilityCubit?.updateReservations(items);
+    });
+    if (mounted) setState(() {});
   }
 
   @override
@@ -194,8 +213,9 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
 
   @override
   void dispose() {
+    _initTimer?.cancel();
     _reservationsSubscription?.cancel();
-    _reservationsStream?.close();
+    if (_ownsStream) _reservationsStream?.close();
     _availabilityCubit?.close();
     _localDateRangeCubit?.close();
     super.dispose();

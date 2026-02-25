@@ -40,6 +40,15 @@ class CrudUseCase<T extends Nip01Event> {
     );
   }
 
+  StreamWithStatus<T> query(Filter f, {String? name}) {
+    return StreamWithStatus<T>(
+      queryFn: () => requests.query(
+        filter: getCombinedFilter(f, Filter(kinds: [kind])),
+        name: name != null ? '$T-$name' : '$T',
+      ),
+    );
+  }
+
   Future<List<RelayBroadcastResponse>> upsert(T event) {
     return requests.broadcast(event: event).then((r) {
       _updates.add(event);

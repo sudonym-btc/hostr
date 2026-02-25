@@ -24,6 +24,11 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
   /// view. The value is reset to `null` after scrolling.
   final ValueNotifier<String?>? scrollToId;
 
+  /// Optional builder shown above the list displaying the result count.
+  /// [hasMore] indicates whether additional results may exist beyond the
+  /// current page.
+  final Widget Function(int resultCount, bool hasMore)? resultCountBuilder;
+
   const ListWidget({
     super.key,
     required this.builder,
@@ -33,6 +38,7 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
     this.scrollController,
     this.animateItems = true,
     this.scrollToId,
+    this.resultCountBuilder,
   });
 
   @override
@@ -196,7 +202,10 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
         }
 
         final isLoading = state.synching || state.fetching;
-        final itemCount = state.results.length + (isLoading ? 1 : 0);
+        final hasResultCountHeader = widget.resultCountBuilder != null;
+        final headerCount = hasResultCountHeader ? 1 : 0;
+        final itemCount =
+            headerCount + state.results.length + (isLoading ? 1 : 0);
         final bottomInset = widget.reserveBottomNavigationBarSpace
             ? MediaQuery.paddingOf(context).bottom + kBottomNavigationBarHeight
             : 0.0;
@@ -209,14 +218,24 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
           controller: _scrollController,
           itemCount: itemCount,
           itemBuilder: (context, index) {
+            // Result count header as first scrollable item
+            if (hasResultCountHeader && index == 0) {
+              return widget.resultCountBuilder!(
+                state.results.length,
+                state.hasMore ?? false,
+              );
+            }
+
+            final adjustedIndex = index - headerCount;
+
             // Show loading indicator at the bottom
-            if (index == state.results.length) {
+            if (adjustedIndex == state.results.length) {
               return CustomPadding.md(
                 child: Center(child: AppLoadingIndicator.medium()),
               );
             }
 
-            final item = state.results[index];
+            final item = state.results[adjustedIndex];
             final itemKey = _itemKeys.putIfAbsent(item.id, () => GlobalKey());
             return _KeepAliveItem(
               key: ValueKey(item.id),
@@ -224,7 +243,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
                 key: itemKey,
                 child: widget.animateItems
                     ? AnimatedListItem(
-                        index: index,
+                        index: adjustedIndex,
                         child: widget.builder(item),
                       )
                     : widget.builder(item),

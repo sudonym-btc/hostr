@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
@@ -109,49 +108,148 @@ Future<void> buildOutcomes({
   );
 
   if (escrowPlans.isNotEmpty) {
-    // Pre-fetch nonces per guest so all createTrade calls can run in
-    // parallel without nonce collisions (Anvil auto-mines each tx).
-    final guestNonces = <String, int>{};
-    for (final plan in escrowPlans) {
-      guestNonces.putIfAbsent(plan.thread.guest.keyPair.privateKey!, () => 0);
-    }
-    await Future.wait(
-      guestNonces.keys.map((privKey) async {
-        final addr = getEvmCredentials(privKey).address;
-        guestNonces[privKey] = await ctx.chainClient().getTransactionCount(
-          addr,
-          atBlock: const BlockNum.pending(),
-        );
-      }),
+    final contract = ctx.multiEscrowContract(
+      escrowService.parsedContent.contractAddress,
     );
-    for (final plan in escrowPlans) {
-      final key = plan.thread.guest.keyPair.privateKey!;
-      plan.assignedCreateNonce = guestNonces[key]!;
-      guestNonces[key] = guestNonces[key]! + 1;
-    }
+
+    // ── Phase 2a: Batch log scan to discover already-created and
+    //    already-settled trades. Uses immutable event logs so it
+    //    works even after the contract does `delete trades[tradeId]`.
+    final createdTrades = <String, String>{}; // tradeIdHex → txHash
+    final settledTrades = <String>{}; // tradeIdHex set
+
+    await Future.wait([
+      // Scan TradeCreated logs.
+      () async {
+        final event = contract.self.event('TradeCreated');
+        final filter = FilterOptions.events(
+          contract: contract.self,
+          event: event,
+          fromBlock: const BlockNum.genesis(),
+        );
+        final logs = await ctx.chainClient().getLogs(filter);
+        for (final log in logs) {
+          final decoded = event.decodeResults(log.topics!, log.data!);
+          final idHex = _bytesToHex(decoded[0] as Uint8List);
+          if (log.transactionHash != null) {
+            createdTrades[idHex] = log.transactionHash!;
+          }
+        }
+      }(),
+      // Scan all settlement event types in parallel.
+      for (final eventName in [
+        'Claimed',
+        'Arbitrated',
+        'ReleasedToCounterparty',
+      ])
+        () async {
+          final event = contract.self.event(eventName);
+          final filter = FilterOptions.events(
+            contract: contract.self,
+            event: event,
+            fromBlock: const BlockNum.genesis(),
+          );
+          final logs = await ctx.chainClient().getLogs(filter);
+          for (final log in logs) {
+            final decoded = event.decodeResults(log.topics!, log.data!);
+            settledTrades.add(_bytesToHex(decoded[0] as Uint8List));
+          }
+        }(),
+    ]);
 
     print(
-      '[seed][escrow] Creating ${escrowPlans.length} trades across '
-      '${guestNonces.length} guest(s) fully in parallel...',
+      '[seed][escrow] Log scan: ${createdTrades.length} created, '
+      '${settledTrades.length} settled on-chain.',
     );
 
-    await Future.wait(
-      escrowPlans.map(
-        (plan) => _createTradeForPlan(
-          ctx: ctx,
-          plan: plan,
-          escrowService: escrowService,
+    // Mark plans whose trades already exist.
+    for (final plan in escrowPlans) {
+      final tradeIdHex = plan.thread.request.getDtag() ?? '';
+      final existingTxHash = createdTrades[tradeIdHex];
+      if (existingTxHash != null) {
+        plan.tradeAlreadyExisted = true;
+        plan.createTxHash = existingTxHash;
+        // Only needs settlement if created but NOT yet settled.
+        plan.needsSettlement = !settledTrades.contains(tradeIdHex);
+        final status = plan.needsSettlement ? 'active' : 'settled';
+        print(
+          '[seed][escrow] thread=${plan.index + 1} '
+          'tradeId=$tradeIdHex SKIPPED createTrade '
+          '(already exists [$status], fundTx=$existingTxHash)',
+        );
+      }
+    }
+
+    // ── Phase 2b: Assign nonces only for plans that need a tx. ──
+    final plansToCreate = escrowPlans
+        .where((p) => !p.tradeAlreadyExisted)
+        .toList();
+
+    if (plansToCreate.isNotEmpty) {
+      final guestNonces = <String, int>{};
+      for (final plan in plansToCreate) {
+        guestNonces.putIfAbsent(plan.thread.guest.keyPair.privateKey!, () => 0);
+      }
+      await Future.wait(
+        guestNonces.keys.map((privKey) async {
+          final addr = getEvmCredentials(privKey).address;
+          guestNonces[privKey] = await ctx.chainClient().getTransactionCount(
+            addr,
+            atBlock: const BlockNum.pending(),
+          );
+        }),
+      );
+      for (final plan in plansToCreate) {
+        final key = plan.thread.guest.keyPair.privateKey!;
+        plan.assignedCreateNonce = guestNonces[key]!;
+        guestNonces[key] = guestNonces[key]! + 1;
+      }
+
+      print(
+        '[seed][escrow] Creating ${plansToCreate.length} trades across '
+        '${guestNonces.length} guest(s) fully in parallel...',
+      );
+
+      await Future.wait(
+        plansToCreate.map(
+          (plan) => _createTradeForPlan(
+            ctx: ctx,
+            plan: plan,
+            escrowService: escrowService,
+          ),
         ),
-      ),
-    );
+      );
+    }
 
-    // ── Phase 3: Settle trades — parallel by settlement sender ──
-    final toSettle = escrowPlans.where((p) => p.needsSettlement).toList();
+    // ── Phase 3: Settle trades ──
+    // Settlement status is already known from the batch log scan,
+    // so no per-trade re-verification is needed.
+    final actuallyToSettle = escrowPlans
+        .where((p) => p.needsSettlement)
+        .toList();
 
-    if (toSettle.isNotEmpty) {
-      // Pre-fetch nonces per settler for full parallelism.
+    if (actuallyToSettle.isNotEmpty) {
+      // 3b: Ensure chain time is past all claimedByHost unlock times
+      //     before dispatching (one wait covers every plan).
+      final claimedPlans = actuallyToSettle
+          .where((p) => p.escrowOutcome == EscrowOutcome.claimedByHost)
+          .toList();
+      if (claimedPlans.isNotEmpty) {
+        var maxUnlock = 0;
+        for (final plan in claimedPlans) {
+          final unlockSec =
+              plan.thread.request.parsedContent.end
+                  .toUtc()
+                  .millisecondsSinceEpoch ~/
+              1000;
+          if (unlockSec > maxUnlock) maxUnlock = unlockSec;
+        }
+        await ctx.waitForChainTimePast(targetEpochSeconds: maxUnlock);
+      }
+
+      // 3c: Assign nonces only for plans that will actually send a tx.
       final settlerNonces = <String, int>{};
-      for (final plan in toSettle) {
+      for (final plan in actuallyToSettle) {
         final settlerKey = plan.escrowOutcome == EscrowOutcome.arbitrated
             ? MockKeys.escrow.privateKey!
             : plan.thread.host.keyPair.privateKey!;
@@ -166,7 +264,7 @@ Future<void> buildOutcomes({
           );
         }),
       );
-      for (final plan in toSettle) {
+      for (final plan in actuallyToSettle) {
         final settlerKey = plan.escrowOutcome == EscrowOutcome.arbitrated
             ? MockKeys.escrow.privateKey!
             : plan.thread.host.keyPair.privateKey!;
@@ -175,12 +273,12 @@ Future<void> buildOutcomes({
       }
 
       print(
-        '[seed][escrow] Settling ${toSettle.length} trades across '
+        '[seed][escrow] Settling ${actuallyToSettle.length} trades across '
         '${settlerNonces.length} sender(s) fully in parallel...',
       );
 
       await Future.wait(
-        toSettle.map(
+        actuallyToSettle.map(
           (plan) => _settleForPlan(
             ctx: ctx,
             plan: plan,
@@ -362,6 +460,8 @@ String _randomHex(SeedContext ctx, int length) {
 
 // ─── Escrow trade creation (phase 2) ────────────────────────────────────────
 
+/// Only called for plans where the trade does NOT already exist on-chain.
+/// Existence is pre-checked in phase 2a so nonces are gap-free.
 Future<void> _createTradeForPlan({
   required SeedContext ctx,
   required _ThreadPlan plan,
@@ -389,65 +489,46 @@ Future<void> _createTradeForPlan({
       request.parsedContent.end.toUtc().millisecondsSinceEpoch ~/ 1000;
   final unlockAt = BigInt.from(unlockAtSeconds);
 
-  // ── Idempotency: check if trade already exists on-chain ──
-  final zeroAddress = EthereumAddress.fromHex(
-    '0x0000000000000000000000000000000000000000',
+  plan.createTxHash = await contract.createTrade(
+    (
+      tradeId: tradeId,
+      buyer: buyer,
+      seller: seller,
+      arbiter: arbiter,
+      unlockAt: unlockAt,
+      escrowFee: BigInt.zero,
+    ),
+    credentials: guestCredentials,
+    transaction: Transaction(
+      nonce: plan.assignedCreateNonce,
+      value: EtherAmount.inWei(amountWei),
+      maxGas: 450000,
+    ),
   );
-  final existingTrade = await contract.trades(($param13: tradeId));
-  final tradeAlreadyExists = existingTrade.buyer != zeroAddress;
 
-  if (tradeAlreadyExists) {
-    plan.createTxHash = await _recoverCreateTxHash(ctx, contract, tradeId);
-    plan.tradeAlreadyExisted = true;
-
-    // Check if already settled.
-    final activeCheck = await contract.activeTrade((tradeId: tradeId));
-    plan.needsSettlement = activeCheck.isActive;
-
-    print(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex SKIPPED createTrade '
-      '(already exists, recovered fundTx=${plan.createTxHash})',
-    );
-  } else {
-    plan.createTxHash = await contract.createTrade(
-      (
-        tradeId: tradeId,
-        buyer: buyer,
-        seller: seller,
-        arbiter: arbiter,
-        unlockAt: unlockAt,
-        escrowFee: BigInt.zero,
-      ),
-      credentials: guestCredentials,
-      transaction: Transaction(
-        nonce: plan.assignedCreateNonce,
-        value: EtherAmount.inWei(amountWei),
-        maxGas: 450000,
-      ),
-    );
-
-    print(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
-      'outcome=${plan.escrowOutcome!.name} '
-      'fundTx=${plan.createTxHash} amountWei=$amountWei '
-      'unlockAt=$unlockAtSeconds '
-      'buyer=${buyer.eip55With0x} seller=${seller.eip55With0x} '
-      'arbiter=${arbiter.eip55With0x}',
-    );
-    await _assertTxSucceeded(
-      ctx,
-      plan.createTxHash!,
-      threadIndex,
-      'createTrade',
-      tradeIdHex,
-    );
-    // Freshly created trades are always active.
-    plan.needsSettlement = true;
-  }
+  print(
+    '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
+    'outcome=${plan.escrowOutcome!.name} '
+    'fundTx=${plan.createTxHash} amountWei=$amountWei '
+    'unlockAt=$unlockAtSeconds '
+    'buyer=${buyer.eip55With0x} seller=${seller.eip55With0x} '
+    'arbiter=${arbiter.eip55With0x}',
+  );
+  await _assertTxSucceeded(
+    ctx,
+    plan.createTxHash!,
+    threadIndex,
+    'createTrade',
+    tradeIdHex,
+  );
+  // Freshly created trades are always active.
+  plan.needsSettlement = true;
 }
 
 // ─── Escrow settlement (phase 3) ────────────────────────────────────────────
 
+/// Only called for plans verified as active in phase 3a.
+/// Chain time is guaranteed past all unlock times by phase 3b.
 Future<void> _settleForPlan({
   required SeedContext ctx,
   required _ThreadPlan plan,
@@ -466,22 +547,6 @@ Future<void> _settleForPlan({
   final hostCredentials = EthPrivateKey.fromHex(host.keyPair.privateKey!);
   final arbiterCredentials = EthPrivateKey.fromHex(MockKeys.escrow.privateKey!);
 
-  final unlockAtSeconds =
-      request.parsedContent.end.toUtc().millisecondsSinceEpoch ~/ 1000;
-
-  // Re-check active status (may have been settled by a parallel plan
-  // sharing the same trade, though unlikely with unique trade IDs).
-  final activeCheck = await contract.activeTrade((tradeId: tradeId));
-  if (!activeCheck.isActive) {
-    if (plan.tradeAlreadyExisted) {
-      print(
-        '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex SKIPPED settlement '
-        '(trade already settled)',
-      );
-    }
-    return;
-  }
-
   if (plan.escrowOutcome == EscrowOutcome.arbitrated) {
     final txHash = await contract.arbitrate(
       (tradeId: tradeId, factor: BigInt.from(700)),
@@ -494,7 +559,6 @@ Future<void> _settleForPlan({
     );
     await _assertTxSucceeded(ctx, txHash, threadIndex, 'arbitrate', tradeIdHex);
   } else if (plan.escrowOutcome == EscrowOutcome.claimedByHost) {
-    await ctx.waitForChainTimePast(targetEpochSeconds: unlockAtSeconds);
     final txHash = await contract.claim(
       (tradeId: tradeId),
       credentials: hostCredentials,
@@ -556,44 +620,9 @@ Future<dynamic> _waitForReceipt(SeedContext ctx, String txHash) async {
   return null;
 }
 
-/// Recover the tx hash that originally created a trade by scanning
-/// `TradeCreated` event logs. Falls back to a synthetic placeholder if the
-/// log search fails (e.g. pruned node).
-Future<String> _recoverCreateTxHash(
-  SeedContext ctx,
-  MultiEscrow contract,
-  Uint8List tradeId,
-) async {
-  try {
-    final event = contract.self.event('TradeCreated');
-    final filter = FilterOptions.events(
-      contract: contract.self,
-      event: event,
-      fromBlock: const BlockNum.genesis(),
-    );
-    final logs = await ctx.chainClient().getLogs(filter);
-    for (final log in logs) {
-      final decoded = event.decodeResults(log.topics!, log.data!);
-      final logTradeId = decoded[0] as Uint8List;
-      if (_bytesEqual(logTradeId, tradeId) && log.transactionHash != null) {
-        return log.transactionHash!;
-      }
-    }
-  } catch (e) {
-    print('[seed][escrow] Warning: failed to recover createTx from logs: $e');
-  }
-  // Fallback: return a zero-hash placeholder. The seed data is for
-  // development only, so this is acceptable when logs aren't available.
-  return '0x${'0' * 64}';
-}
-
-bool _bytesEqual(Uint8List a, Uint8List b) {
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
-}
+/// Convert raw bytes to a hex string (no 0x prefix) for use as map keys.
+String _bytesToHex(Uint8List bytes) =>
+    bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
 
 // ─── Zap receipt ────────────────────────────────────────────────────────────
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
@@ -9,7 +11,21 @@ import 'package:ndk/ndk.dart';
 
 class ReviewsReservationsWidget extends StatelessWidget {
   final Listing listing;
-  const ReviewsReservationsWidget({super.key, required this.listing});
+
+  /// Optional externally-provided review count stream.
+  /// When supplied the widget skips creating its own [CountCubit] for reviews.
+  final Stream<int>? reviewCount;
+
+  /// Optional externally-provided reservation/stays count stream.
+  /// When supplied the widget skips creating its own [CountCubit] for stays.
+  final Stream<int>? reservationCount;
+
+  const ReviewsReservationsWidget({
+    super.key,
+    required this.listing,
+    this.reviewCount,
+    this.reservationCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,41 +41,86 @@ class ReviewsReservationsWidget extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          BlocProvider(
-            create: (context) => CountCubit(
-              kinds: Review.kinds,
-              nostrService: getIt(),
-              filterCubit: context.read<FilterCubit>(),
-            )..count(),
-            child: BlocBuilder<CountCubit, CountCubitState>(
-              builder: (context, state) {
-                return _CountSegment(
-                  noun: 'reviews',
-                  count: state.count ?? 0,
-                  loading: state is CountCubitStateLoading,
-                );
-              },
+          if (reviewCount != null)
+            _ExternalCountSegment(noun: 'reviews', countStream: reviewCount!)
+          else
+            BlocProvider(
+              create: (context) => CountCubit(
+                kinds: Review.kinds,
+                nostrService: getIt(),
+                filterCubit: context.read<FilterCubit>(),
+              )..count(),
+              child: BlocBuilder<CountCubit, CountCubitState>(
+                builder: (context, state) {
+                  return _CountSegment(
+                    noun: 'reviews',
+                    count: state.count ?? 0,
+                    loading: state is CountCubitStateLoading,
+                  );
+                },
+              ),
             ),
-          ),
           const Text(' · '),
-          BlocProvider(
-            create: (context) => CountCubit(
-              kinds: Reservation.kinds,
-              nostrService: getIt(),
-              filterCubit: context.read<FilterCubit>(),
-            )..count(),
-            child: BlocBuilder<CountCubit, CountCubitState>(
-              builder: (context, state) {
-                return _CountSegment(
-                  noun: 'stays',
-                  count: state.count ?? 0,
-                  loading: state is CountCubitStateLoading,
-                );
-              },
+          if (reservationCount != null)
+            _ExternalCountSegment(noun: 'stays', countStream: reservationCount!)
+          else
+            BlocProvider(
+              create: (context) => CountCubit(
+                kinds: Reservation.kinds,
+                nostrService: getIt(),
+                filterCubit: context.read<FilterCubit>(),
+              )..count(),
+              child: BlocBuilder<CountCubit, CountCubitState>(
+                builder: (context, state) {
+                  return _CountSegment(
+                    noun: 'stays',
+                    count: state.count ?? 0,
+                    loading: state is CountCubitStateLoading,
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
+    );
+  }
+}
+
+/// Renders a count segment driven by an externally-provided [Stream<int>].
+class _ExternalCountSegment extends StatefulWidget {
+  final String noun;
+  final Stream<int> countStream;
+
+  const _ExternalCountSegment({required this.noun, required this.countStream});
+
+  @override
+  State<_ExternalCountSegment> createState() => _ExternalCountSegmentState();
+}
+
+class _ExternalCountSegmentState extends State<_ExternalCountSegment> {
+  late final StreamSubscription<int> _sub;
+  int? _count;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = widget.countStream.listen((c) {
+      if (mounted) setState(() => _count = c);
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _CountSegment(
+      noun: widget.noun,
+      count: _count ?? 0,
+      loading: _count == null,
     );
   }
 }
