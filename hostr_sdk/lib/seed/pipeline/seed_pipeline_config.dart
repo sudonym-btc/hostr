@@ -190,7 +190,7 @@ class SeedPipelineConfig {
     this.lnbitsExtensionName = 'lnurlp',
     this.lnbitsNostrPrivateKey,
     this.seed = 1,
-    this.userCount = 50,
+    this.userCount = 500,
     this.hostRatio = 0.25,
     this.hostHasEvmRatio = 0.8,
     this.listingsPerHostAvg = 1.6,

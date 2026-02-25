@@ -37,6 +37,10 @@ import 'package:hostr_sdk/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart'
 import 'package:hostr_sdk/usecase/evm/chain/rootstock/rootstock.dart' as _i158;
 import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
 import 'package:hostr_sdk/usecase/evm/main.dart' as _i785;
+import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart'
+    as _i503;
+import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/escrow_lock_registry.dart'
+    as _i143;
 import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart'
     as _i677;
 import 'package:hostr_sdk/usecase/evm/operations/swap_recovery_service.dart'
@@ -77,6 +81,7 @@ import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart
 import 'package:hostr_sdk/usecase/reservations/reservations.dart' as _i326;
 import 'package:hostr_sdk/usecase/reviews/reviews.dart' as _i660;
 import 'package:hostr_sdk/usecase/storage/storage.dart' as _i218;
+import 'package:hostr_sdk/usecase/user_config/user_config_store.dart' as _i794;
 import 'package:hostr_sdk/usecase/verification/verification.dart' as _i301;
 import 'package:hostr_sdk/usecase/zaps/zaps.dart' as _i1045;
 import 'package:hostr_sdk/util/custom_logger.dart' as _i331;
@@ -127,9 +132,21 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i286.InMemoryRequests(ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
     );
+    gh.singleton<_i143.EscrowLockRegistry>(
+      () => _i143.EscrowLockRegistry(
+        gh<_i111.KeyValueStorage>(),
+        gh<_i331.CustomLogger>(),
+      ),
+    );
     gh.singleton<_i82.SwapStore>(
       () =>
           _i82.SwapStore(gh<_i111.KeyValueStorage>(), gh<_i331.CustomLogger>()),
+    );
+    gh.singleton<_i794.UserConfigStore>(
+      () => _i794.UserConfigStore(
+        gh<_i111.KeyValueStorage>(),
+        gh<_i331.CustomLogger>(),
+      ),
     );
     gh.singleton<_i824.BlossomUseCase>(
       () => _i824.BlossomUseCase(
@@ -398,14 +415,6 @@ extension GetItInjectableX on _i174.GetIt {
         evm: gh<_i305.Evm>(),
       ),
     );
-    gh.factoryParam<_i832.EscrowFundOperation, _i520.EscrowFundParams, dynamic>(
-      (params, _) => _i832.EscrowFundOperation(
-        gh<_i520.Auth>(),
-        gh<_i520.Evm>(),
-        gh<_i520.CustomLogger>(),
-        params,
-      ),
-    );
     gh.factoryParam<_i802.TradeSubscriptions, _i520.Thread, dynamic>(
       (thread, _) => _i802.TradeSubscriptions(
         thread: thread,
@@ -414,6 +423,15 @@ extension GetItInjectableX on _i174.GetIt {
         zaps: gh<_i520.Zaps>(),
         escrow: gh<_i520.EscrowUseCase>(),
         reviews: gh<_i520.Reviews>(),
+      ),
+    );
+    gh.singleton<_i503.AutoWithdrawService>(
+      () => _i503.AutoWithdrawService(
+        gh<_i305.Evm>(),
+        gh<_i82.SwapStore>(),
+        gh<_i143.EscrowLockRegistry>(),
+        gh<_i794.UserConfigStore>(),
+        gh<_i331.CustomLogger>(),
       ),
     );
     gh.factoryParam<
@@ -426,6 +444,15 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i520.Evm>(),
         gh<_i520.CustomLogger>(),
         gh<_i520.Rootstock>(),
+        params,
+      ),
+    );
+    gh.factoryParam<_i832.EscrowFundOperation, _i520.EscrowFundParams, dynamic>(
+      (params, _) => _i832.EscrowFundOperation(
+        gh<_i520.Auth>(),
+        gh<_i520.Evm>(),
+        gh<_i520.CustomLogger>(),
+        gh<_i520.EscrowLockRegistry>(),
         params,
       ),
     );

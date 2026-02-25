@@ -113,6 +113,33 @@ class DevWidget extends StatelessWidget {
           ),
         ),
         KeysWidget(),
+        FilledButton(
+          child: const Text('Clear Swap & Lock Stores'),
+          onPressed: () async {
+            final swapStore = getIt<SwapStore>();
+            final lockRegistry = getIt<EscrowLockRegistry>();
+
+            final swaps = await swapStore.getAll();
+            for (final swap in swaps) {
+              await swapStore.remove(swap.id);
+            }
+
+            final locks = await lockRegistry.getAll();
+            for (final lock in locks) {
+              await lockRegistry.release(lock.tradeId);
+            }
+
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Cleared ${swaps.length} swap(s) and ${locks.length} lock(s)',
+                  ),
+                ),
+              );
+            }
+          },
+        ),
       ],
     );
   }

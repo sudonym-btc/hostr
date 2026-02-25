@@ -38,7 +38,8 @@ class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
       providers: [
         BlocProvider<AuthCubit>.value(value: AuthCubit()),
         BlocProvider<ModeCubit>(
-          create: (context) => ModeCubit(modeStorage: getIt())..get(),
+          create: (context) =>
+              ModeCubit(configStore: getIt<Hostr>().userConfig)..load(),
         ),
         BlocProvider<RelayConnectivityCubit>(
           create: (context) => RelayConnectivityCubit(hostr: getIt<Hostr>()),

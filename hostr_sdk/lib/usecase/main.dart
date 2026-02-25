@@ -20,5 +20,6 @@ export 'requests/requests.dart';
 export 'reservation_requests/reservation_requests.dart';
 export 'reservations/reservations.dart';
 export 'reviews/reviews.dart';
+export 'user_config/main.dart';
 export 'verification/verification.dart';
 export 'zaps/zaps.dart';

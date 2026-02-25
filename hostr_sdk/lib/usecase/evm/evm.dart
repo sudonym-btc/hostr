@@ -50,13 +50,6 @@ class Evm {
     );
   }
 
-  Future<void> _cancelBalanceSubscriptionIfUnused() async {
-    if (_balanceSubject?.hasListener ?? false) return;
-
-    await _balanceSubscription?.cancel();
-    _balanceSubscription = null;
-  }
-
   Future<BitcoinAmount> getBalance() async {
     // Get current user's Ethereum address
     final keyPair = auth.activeKeyPair!;
@@ -95,7 +88,6 @@ class Evm {
   ValueStream<BitcoinAmount> subscribeBalance() {
     _balanceSubject ??= BehaviorSubject<BitcoinAmount>(
       onListen: _ensureBalanceSubscription,
-      onCancel: _cancelBalanceSubscriptionIfUnused,
     );
 
     return _balanceSubject!.stream;

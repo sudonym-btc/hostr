@@ -605,23 +605,11 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
           as _i7.StreamWithStatus<_i9.ProfileMetadata>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> create(
-    _i9.ProfileMetadata? event,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#create, [event]),
-            returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-              <_i14.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.ProfileMetadata? event,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [event]),
+            Invocation.method(#upsert, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
               <_i14.RelayBroadcastResponse>[],
             ),
@@ -1076,19 +1064,9 @@ class MockListings extends _i1.Mock implements _i8.Listings {
           as _i7.StreamWithStatus<_i9.Listing>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> create(_i9.Listing? event) =>
-      (super.noSuchMethod(
-            Invocation.method(#create, [event]),
-            returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-              <_i14.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(_i9.Listing? event) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [event]),
+            Invocation.method(#upsert, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
               <_i14.RelayBroadcastResponse>[],
             ),
@@ -1417,23 +1395,11 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
           as _i7.StreamWithStatus<_i9.Reservation>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> create(
-    _i9.Reservation? event,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#create, [event]),
-            returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-              <_i14.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.Reservation? event,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [event]),
+            Invocation.method(#upsert, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
               <_i14.RelayBroadcastResponse>[],
             ),
@@ -1708,23 +1674,11 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
           as _i7.StreamWithStatus<_i9.EscrowService>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> create(
-    _i9.EscrowService? event,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#create, [event]),
-            returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-              <_i14.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.EscrowService? event,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [event]),
+            Invocation.method(#upsert, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
               <_i14.RelayBroadcastResponse>[],
             ),
@@ -1888,23 +1842,11 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
           as _i7.StreamWithStatus<_i9.EscrowTrust>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> create(
-    _i9.EscrowTrust? event,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#create, [event]),
-            returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-              <_i14.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.EscrowTrust? event,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [event]),
+            Invocation.method(#upsert, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
               <_i14.RelayBroadcastResponse>[],
             ),
@@ -2060,23 +2002,11 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
           as _i7.StreamWithStatus<_i9.EscrowMethod>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> create(
-    _i9.EscrowMethod? event,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#create, [event]),
-            returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-              <_i14.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.EscrowMethod? event,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [event]),
+            Invocation.method(#upsert, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
               <_i14.RelayBroadcastResponse>[],
             ),
@@ -2207,23 +2137,11 @@ class MockBadgeDefinitions extends _i1.Mock implements _i8.BadgeDefinitions {
           as _i7.StreamWithStatus<_i9.BadgeDefinition>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> create(
-    _i9.BadgeDefinition? event,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#create, [event]),
-            returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-              <_i14.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.BadgeDefinition? event,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [event]),
+            Invocation.method(#upsert, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
               <_i14.RelayBroadcastResponse>[],
             ),
@@ -2360,23 +2278,11 @@ class MockBadgeAwards extends _i1.Mock implements _i8.BadgeAwards {
           as _i7.StreamWithStatus<_i9.BadgeAward>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> create(
-    _i9.BadgeAward? event,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#create, [event]),
-            returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-              <_i14.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.BadgeAward? event,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [event]),
+            Invocation.method(#upsert, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
               <_i14.RelayBroadcastResponse>[],
             ),
@@ -2706,23 +2612,11 @@ class MockReservationRequests extends _i1.Mock
           as _i7.StreamWithStatus<_i2.Nip01Event>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> create(
-    _i2.Nip01Event? event,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#create, [event]),
-            returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
-              <_i14.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i13.Future<List<_i14.RelayBroadcastResponse>>);
-
-  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i2.Nip01Event? event,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [event]),
+            Invocation.method(#upsert, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
               <_i14.RelayBroadcastResponse>[],
             ),

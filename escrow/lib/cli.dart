@@ -90,7 +90,7 @@ void main(List<String> arguments) async {
           .getSupportedEscrowContract(ourEscrowService);
       await contract.ensureDeployed();
 
-      await getIt<Hostr>().escrows.create(ourEscrowService);
+      await getIt<Hostr>().escrows.upsert(ourEscrowService);
 
       break;
 

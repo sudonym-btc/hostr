@@ -22,7 +22,6 @@ import 'package:hostr/data/sources/image_preloader.dart' as _i776;
 import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
 import 'package:hostr/injection.dart' as _i490;
-import 'package:hostr/logic/cubit/mode.cubit.dart' as _i237;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:models/util/location/h3.dart' as _i854;
 
@@ -53,9 +52,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i467.Config>(
       () => _i598.DevelopmentConfig(),
       registerFor: {_dev},
-    );
-    gh.factory<_i237.ModeCubit>(
-      () => _i237.ModeCubit(modeStorage: gh<_i640.ModeStorage>()),
     );
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsMock(),

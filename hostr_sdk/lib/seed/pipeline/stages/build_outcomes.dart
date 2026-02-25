@@ -109,57 +109,84 @@ Future<void> buildOutcomes({
   );
 
   if (escrowPlans.isNotEmpty) {
-    final byGuest = <String, List<_ThreadPlan>>{};
+    // Pre-fetch nonces per guest so all createTrade calls can run in
+    // parallel without nonce collisions (Anvil auto-mines each tx).
+    final guestNonces = <String, int>{};
     for (final plan in escrowPlans) {
-      byGuest
-          .putIfAbsent(plan.thread.guest.keyPair.privateKey!, () => [])
-          .add(plan);
+      guestNonces.putIfAbsent(plan.thread.guest.keyPair.privateKey!, () => 0);
+    }
+    await Future.wait(
+      guestNonces.keys.map((privKey) async {
+        final addr = getEvmCredentials(privKey).address;
+        guestNonces[privKey] = await ctx.chainClient().getTransactionCount(
+          addr,
+          atBlock: const BlockNum.pending(),
+        );
+      }),
+    );
+    for (final plan in escrowPlans) {
+      final key = plan.thread.guest.keyPair.privateKey!;
+      plan.assignedCreateNonce = guestNonces[key]!;
+      guestNonces[key] = guestNonces[key]! + 1;
     }
 
     print(
       '[seed][escrow] Creating ${escrowPlans.length} trades across '
-      '${byGuest.length} guest(s) in parallel...',
+      '${guestNonces.length} guest(s) fully in parallel...',
     );
 
     await Future.wait(
-      byGuest.values.map((group) async {
-        for (final plan in group) {
-          await _createTradeForPlan(
-            ctx: ctx,
-            plan: plan,
-            escrowService: escrowService,
-          );
-        }
-      }),
+      escrowPlans.map(
+        (plan) => _createTradeForPlan(
+          ctx: ctx,
+          plan: plan,
+          escrowService: escrowService,
+        ),
+      ),
     );
 
     // ── Phase 3: Settle trades — parallel by settlement sender ──
     final toSettle = escrowPlans.where((p) => p.needsSettlement).toList();
 
     if (toSettle.isNotEmpty) {
-      final bySettler = <String, List<_ThreadPlan>>{};
+      // Pre-fetch nonces per settler for full parallelism.
+      final settlerNonces = <String, int>{};
       for (final plan in toSettle) {
         final settlerKey = plan.escrowOutcome == EscrowOutcome.arbitrated
             ? MockKeys.escrow.privateKey!
             : plan.thread.host.keyPair.privateKey!;
-        bySettler.putIfAbsent(settlerKey, () => []).add(plan);
+        settlerNonces.putIfAbsent(settlerKey, () => 0);
+      }
+      await Future.wait(
+        settlerNonces.keys.map((privKey) async {
+          final addr = getEvmCredentials(privKey).address;
+          settlerNonces[privKey] = await ctx.chainClient().getTransactionCount(
+            addr,
+            atBlock: const BlockNum.pending(),
+          );
+        }),
+      );
+      for (final plan in toSettle) {
+        final settlerKey = plan.escrowOutcome == EscrowOutcome.arbitrated
+            ? MockKeys.escrow.privateKey!
+            : plan.thread.host.keyPair.privateKey!;
+        plan.assignedSettleNonce = settlerNonces[settlerKey]!;
+        settlerNonces[settlerKey] = settlerNonces[settlerKey]! + 1;
       }
 
       print(
         '[seed][escrow] Settling ${toSettle.length} trades across '
-        '${bySettler.length} sender(s) in parallel...',
+        '${settlerNonces.length} sender(s) fully in parallel...',
       );
 
       await Future.wait(
-        bySettler.values.map((group) async {
-          for (final plan in group) {
-            await _settleForPlan(
-              ctx: ctx,
-              plan: plan,
-              escrowService: escrowService,
-            );
-          }
-        }),
+        toSettle.map(
+          (plan) => _settleForPlan(
+            ctx: ctx,
+            plan: plan,
+            escrowService: escrowService,
+          ),
+        ),
       );
     }
   }
@@ -247,6 +274,8 @@ class _ThreadPlan {
   String? createTxHash;
   bool tradeAlreadyExisted = false;
   bool needsSettlement = false;
+  int? assignedCreateNonce;
+  int? assignedSettleNonce;
 
   _ThreadPlan({
     required this.index,
@@ -391,6 +420,7 @@ Future<void> _createTradeForPlan({
       ),
       credentials: guestCredentials,
       transaction: Transaction(
+        nonce: plan.assignedCreateNonce,
         value: EtherAmount.inWei(amountWei),
         maxGas: 450000,
       ),
@@ -456,7 +486,7 @@ Future<void> _settleForPlan({
     final txHash = await contract.arbitrate(
       (tradeId: tradeId, factor: BigInt.from(700)),
       credentials: arbiterCredentials,
-      transaction: Transaction(maxGas: 250000),
+      transaction: Transaction(nonce: plan.assignedSettleNonce, maxGas: 250000),
     );
     print(
       '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
@@ -468,7 +498,7 @@ Future<void> _settleForPlan({
     final txHash = await contract.claim(
       (tradeId: tradeId),
       credentials: hostCredentials,
-      transaction: Transaction(maxGas: 250000),
+      transaction: Transaction(nonce: plan.assignedSettleNonce, maxGas: 250000),
     );
     print(
       '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex claimTx=$txHash',
@@ -478,7 +508,7 @@ Future<void> _settleForPlan({
     final txHash = await contract.releaseToCounterparty(
       (tradeId: tradeId),
       credentials: hostCredentials,
-      transaction: Transaction(maxGas: 250000),
+      transaction: Transaction(nonce: plan.assignedSettleNonce, maxGas: 250000),
     );
     print(
       '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '

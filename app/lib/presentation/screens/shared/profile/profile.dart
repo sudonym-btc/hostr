@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/escrow/escrow_services_modal.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
@@ -115,6 +116,29 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
               Section(title: 'Balance', body: MoneyInFlightWidget()),
+              Section(
+                title: 'Auto-withdraw',
+                body: StreamBuilder<HostrUserConfig>(
+                  stream: getIt<Hostr>().userConfig.stream,
+                  builder: (context, snapshot) {
+                    final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
+                    return SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Auto-withdraw to Lightning'),
+                      subtitle: const Text(
+                        'Automatically swap EVM funds to your Lightning wallet',
+                      ),
+                      value: enabled,
+                      onChanged: (value) async {
+                        final current = await getIt<Hostr>().userConfig.state;
+                        await getIt<Hostr>().userConfig.update(
+                          current.copyWith(autoWithdrawEnabled: value),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
 
               Section(
                 body: Column(
@@ -203,6 +227,9 @@ Widget _buildTrustedEscrowsBody(
           builder: (context, profileSnapshot) {
             return TrustedEscrowListItemWidget(
               profile: profileSnapshot.data,
+              onTap: () {
+                showEscrowServicesModal(context, pubkey);
+              },
               onRemove: () {
                 // TODO: implement remove and then refresh
                 // context.read<TrustedEscrowsCubit>().refresh();
