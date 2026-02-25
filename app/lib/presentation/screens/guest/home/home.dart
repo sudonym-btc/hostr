@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/app.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/router.dart';
@@ -25,11 +27,26 @@ class _HomeScreenState extends State<HomeScreen>
     duration: kAnimationDuration,
     value: 1.0, // start fully visible
   );
+  late final StreamSubscription<AuthState> _authSub;
+  late final StreamSubscription<void> _popSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = getIt<Hostr>().auth.authState.listen((_) => _showNav());
+    _popSub = MyObserver.onPop.listen((_) => _showNav());
+  }
 
   @override
   void dispose() {
+    _popSub.cancel();
+    _authSub.cancel();
     _navController.dispose();
     super.dispose();
+  }
+
+  void _showNav() {
+    if (mounted) _navController.forward();
   }
 
   BottomNavigationBarItem _navItem({
@@ -90,75 +107,81 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     return NotificationListener<UserScrollNotification>(
       onNotification: _onScrollNotification,
-      child: StreamBuilder<AuthState>(
-        stream: getIt<Hostr>().auth.authState,
-        initialData: getIt<Hostr>().auth.authState.value,
-        builder: (context, authSnapshot) {
-          final isLoggedIn = authSnapshot.data == const LoggedIn();
+      child: BlocListener<ModeCubit, ModeCubitState>(
+        listener: (context, state) => _showNav(),
+        child: StreamBuilder<AuthState>(
+          stream: getIt<Hostr>().auth.authState,
+          initialData: getIt<Hostr>().auth.authState.value,
+          builder: (context, authSnapshot) {
+            final isLoggedIn = authSnapshot.data == const LoggedIn();
 
-          return BlocBuilder<ModeCubit, ModeCubitState>(
-            builder: (context, state) {
-              final bottomNavigationBarTheme = Theme.of(
-                context,
-              ).bottomNavigationBarTheme;
-              final navBg = bottomNavigationBarTheme.backgroundColor!;
+            return BlocBuilder<ModeCubit, ModeCubitState>(
+              builder: (context, state) {
+                final bottomNavigationBarTheme = Theme.of(
+                  context,
+                ).bottomNavigationBarTheme;
+                final navBg = bottomNavigationBarTheme.backgroundColor!;
 
-              if (!isLoggedIn) {
-                // Unauthenticated: Search and Sign In
-                final tabs = [
+                if (!isLoggedIn) {
+                  // Unauthenticated: Search and Sign In
+                  final tabs = [
+                    _navItem(
+                      icon: Icon(Icons.search, size: kIconLg),
+                      label: 'Search',
+                    ),
+                    _navItem(
+                      icon: Icon(Icons.person_outline),
+                      label: 'Sign In',
+                    ),
+                  ];
+                  return AutoTabsScaffold(
+                    key: const ValueKey('unauthTabs'),
+                    extendBody: true,
+                    routes: [SearchRoute(), SignInRoute()],
+                    bottomNavigationBuilder: (context, tabsRouter) =>
+                        _buildBottomNav(context, tabsRouter, tabs, navBg),
+                  );
+                }
+
+                if (state is HostMode) {
+                  final hostTabs = [
+                    _navItem(icon: Icon(Icons.list), label: 'My Listings'),
+                    _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
+                    _navItem(icon: Icon(Icons.person), label: 'Profile'),
+                  ];
+                  return AutoTabsScaffold(
+                    key: const ValueKey('hostTabs'),
+                    extendBody: true,
+                    routes: [MyListingsRoute(), InboxRoute(), ProfileRoute()],
+                    bottomNavigationBuilder: (context, tabsRouter) =>
+                        _buildBottomNav(context, tabsRouter, hostTabs, navBg),
+                  );
+                }
+                final otherTabs = [
                   _navItem(
                     icon: Icon(Icons.search, size: kIconLg),
                     label: 'Search',
                   ),
-                  _navItem(icon: Icon(Icons.person_outline), label: 'Sign In'),
-                ];
-                return AutoTabsScaffold(
-                  key: const ValueKey('unauthTabs'),
-                  extendBody: true,
-                  routes: [SearchRoute(), SignInRoute()],
-                  bottomNavigationBuilder: (context, tabsRouter) =>
-                      _buildBottomNav(context, tabsRouter, tabs, navBg),
-                );
-              }
-
-              if (state is HostMode) {
-                final hostTabs = [
-                  _navItem(icon: Icon(Icons.list), label: 'My Listings'),
+                  _navItem(icon: Icon(Icons.travel_explore), label: 'Trips'),
                   _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
                   _navItem(icon: Icon(Icons.person), label: 'Profile'),
                 ];
                 return AutoTabsScaffold(
-                  key: const ValueKey('hostTabs'),
+                  key: const ValueKey('guestTabs'),
                   extendBody: true,
-                  routes: [MyListingsRoute(), InboxRoute(), ProfileRoute()],
+                  routes: [
+                    SearchRoute(),
+                    TripsRoute(),
+                    InboxRoute(),
+                    ProfileRoute(),
+                  ],
                   bottomNavigationBuilder: (context, tabsRouter) =>
-                      _buildBottomNav(context, tabsRouter, hostTabs, navBg),
+                      _buildBottomNav(context, tabsRouter, otherTabs, navBg),
                 );
-              }
-              final otherTabs = [
-                _navItem(
-                  icon: Icon(Icons.search, size: kIconLg),
-                  label: 'Search',
-                ),
-                _navItem(icon: Icon(Icons.travel_explore), label: 'Trips'),
-                _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
-                _navItem(icon: Icon(Icons.person), label: 'Profile'),
-              ];
-              return AutoTabsScaffold(
-                key: const ValueKey('guestTabs'),
-                extendBody: true,
-                routes: [
-                  SearchRoute(),
-                  TripsRoute(),
-                  InboxRoute(),
-                  ProfileRoute(),
-                ],
-                bottomNavigationBuilder: (context, tabsRouter) =>
-                    _buildBottomNav(context, tabsRouter, otherTabs, navBg),
-              );
-            },
-          );
-        },
+              },
+            );
+          },
+        ),
       ),
     );
   }

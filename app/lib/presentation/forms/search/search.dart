@@ -53,12 +53,12 @@ class _SearchFormState extends State<SearchForm> {
                   },
                   h3Mode: LocationFieldH3Mode.polygonCover,
                   showH3Output: false,
-                  polygonMaxTags: 1000,
+                  polygonMaxTags: 500,
                   debounceDuration: const Duration(milliseconds: 400),
                 ),
                 Gap.vertical.lg(),
                 FormLabel(label: 'When?'),
-                Gap.vertical.lg(),
+                Gap.vertical.md(),
 
                 SizedBox(
                   width: double.infinity,

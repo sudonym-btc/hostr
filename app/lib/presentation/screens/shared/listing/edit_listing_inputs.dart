@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
@@ -17,6 +19,10 @@ class ImagesInput extends StatelessWidget {
     required this.pubkey,
   });
 
+  static const _placeholderUrl =
+      'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85'
+      '?auto=format&fit=crop&w=600&h=400&q=60';
+
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
@@ -24,7 +30,61 @@ class ImagesInput extends StatelessWidget {
       child: ImageUpload(
         controller: controller.imageController,
         pubkey: pubkey,
+        placeholder: _listingPlaceholder(context),
       ),
+    );
+  }
+
+  Widget _listingPlaceholder(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColorFiltered(
+          colorFilter: const ColorFilter.matrix(<double>[
+            0.2126,
+            0.7152,
+            0.0722,
+            0,
+            0,
+            0.2126,
+            0.7152,
+            0.0722,
+            0,
+            0,
+            0.2126,
+            0.7152,
+            0.0722,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+          ]),
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: 10,
+              sigmaY: 10,
+              tileMode: TileMode.mirror,
+            ),
+            child: Image.network(
+              _placeholderUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+            ),
+          ),
+        ),
+        Center(
+          child: FilledButton.tonalIcon(
+            onPressed: () => controller.imageController.pickMultipleImages(),
+            icon: const Icon(Icons.add_a_photo_outlined),
+            label: Text(AppLocalizations.of(context)!.addImage),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -57,9 +117,12 @@ class PriceInput extends StatelessWidget {
       controller: controller.priceController,
       validator: controller.validatePrice,
       keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        _ThousandsSeparatorFormatter(),
+      ],
       decoration: InputDecoration(
-        hintText: '10000',
+        hintText: '10,000',
         prefixText: '${controller.priceCurrency.prefix} ',
         suffixText: '/ day',
       ),
@@ -98,7 +161,9 @@ class DescriptionInput extends StatelessWidget {
     return TextFormField(
       controller: controller.descriptionController,
       validator: controller.validateDescription,
+      minLines: 2,
       maxLines: 10,
+      keyboardType: TextInputType.multiline,
       decoration: const InputDecoration(
         hintText:
             'A cozy, rustic cabin nestled in the woods. Perfect for a quiet retreat or a family vacation. Enjoy the serene surroundings and the beautiful nature trails.',
@@ -319,6 +384,46 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ThousandsSeparatorFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(',', '');
+    if (digits.isEmpty) return newValue.copyWith(text: '');
+
+    final formatted = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      final posFromEnd = digits.length - i;
+      if (i > 0 && posFromEnd % 3 == 0) formatted.write(',');
+      formatted.write(digits[i]);
+    }
+
+    final result = formatted.toString();
+
+    // Figure out how many raw digits precede the cursor in the new value.
+    final rawCursor = newValue.selection.end.clamp(0, newValue.text.length);
+    var digitsSeen = 0;
+    for (var i = 0; i < rawCursor && i < newValue.text.length; i++) {
+      if (newValue.text[i] != ',') digitsSeen++;
+    }
+
+    // Walk the formatted string to place the cursor after the same number of digits.
+    var formattedCursor = 0;
+    var counted = 0;
+    for (var i = 0; i < result.length && counted < digitsSeen; i++) {
+      formattedCursor = i + 1;
+      if (result[i] != ',') counted++;
+    }
+
+    return TextEditingValue(
+      text: result,
+      selection: TextSelection.collapsed(offset: formattedCursor),
     );
   }
 }

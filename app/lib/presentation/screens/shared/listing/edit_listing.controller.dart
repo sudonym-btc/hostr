@@ -1,4 +1,4 @@
-import 'package:crypto/crypto.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
@@ -6,11 +6,33 @@ import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr/presentation/forms/search/location_controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 class EditListingController extends UpsertFormController {
-  CustomLogger logger = CustomLogger();
+  @override
+  bool get isDirty {
+    if (l == null) return false;
+    final content = l!.parsedContent;
+    if (titleController.text != content.title) return true;
+    if (descriptionController.text != content.description) return true;
+    if (locationController.text != content.location) return true;
+    // Compare allowBarter
+    final origAllowBarter = content.allowBarter == true;
+    if (allowBarter != origAllowBarter) return true;
+    // Price check (strip commas for comparison)
+    final currentPriceSats = priceController.text.replaceAll(',', '').trim();
+    if (currentPriceSats != _originalPriceSats) return true;
+    // Images check (by path)
+    final origImages = content.images;
+    final currImages = imageController.images.map((i) => i.path).toList();
+    if (origImages.length != currImages.length ||
+        !const ListEquality<String?>().equals(origImages, currImages)) {
+      return true;
+    }
+    return false;
+  }
+
   Listing? l;
+  String _originalPriceSats = '0';
   final ImagePickerCubit imageController = ImagePickerCubit(maxImages: 12);
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
@@ -23,11 +45,18 @@ class EditListingController extends UpsertFormController {
   late final Listenable submitListenable;
 
   EditListingController() {
-    submitListenable = Listenable.merge([this, locationController]);
+    submitListenable = Listenable.merge([
+      this,
+      locationController,
+      imageController.notifier,
+    ]);
   }
 
   @override
-  bool get canSubmit => super.canSubmit && locationController.canSubmit;
+  bool get canSubmit =>
+      super.canSubmit &&
+      locationController.canSubmit &&
+      imageController.canSubmit;
 
   static List<String> amenityKeys() {
     final map = Amenities().toMap();
@@ -66,7 +95,8 @@ class EditListingController extends UpsertFormController {
     );
     priceCurrency = Currency.BTC;
     final bitcoinAmount = BitcoinAmount.fromAmount(nightly.amount);
-    priceController.text = bitcoinAmount.getInSats.toString();
+    _originalPriceSats = bitcoinAmount.getInSats.toString();
+    priceController.text = _formatWithCommas(_originalPriceSats);
   }
 
   void updateSelectedAmenities(Set<String> keys) {
@@ -102,41 +132,11 @@ class EditListingController extends UpsertFormController {
     return updated is Amenities ? updated : base;
   }
 
-  Future<void> uploadImagesToBlossom() async {
-    for (var i = 0; i < imageController.images.length; i++) {
-      final image = imageController.images[i];
-      if (image.file == null) {
-        continue;
-      }
-
-      try {
-        print('Uploading image to Blossom: ${image.file!.path}');
-        final data = await image.file!.readAsBytes();
-        final results = await getIt<Ndk>().blossom.uploadBlob(data: data);
-        for (final result in results) {
-          if (!result.success) {
-            throw result.error ??
-                Exception('Unknown error uploading to Blossom');
-          }
-          print('Blossom upload result: ${result.error}');
-        }
-        final imagePath = sha256.convert(data).toString();
-        imageController.images[i] = CustomImage.path(imagePath);
-      } catch (e, st) {
-        logger.e('Failed to upload image to Blossom', error: e, stackTrace: st);
-        // Best-effort upload; keep local image if upload fails.
-        rethrow;
-      }
-    }
-  }
-
   @override
   Future<void> preValidate() async {}
 
   @override
   Future<void> upsert() async {
-    await uploadImagesToBlossom();
-
     final title = titleController.text.trim();
     final description = descriptionController.text.trim();
     final location = locationController.text.trim();
@@ -146,10 +146,7 @@ class EditListingController extends UpsertFormController {
     }
 
     final current = l!.parsedContent;
-    final images = imageController.images
-        .map((image) => image.path)
-        .whereType<String>()
-        .toList();
+    final images = imageController.resolvedPaths;
 
     final updatedContent = ListingContent(
       title: title,
@@ -168,27 +165,26 @@ class EditListingController extends UpsertFormController {
     );
 
     final h3Tags = locationController.h3Tags;
-    final updatedTags = h3Tags.isEmpty
+    var updatedTags = h3Tags.isEmpty
         ? l!.tags.map((tag) => List<String>.from(tag)).toList()
         : _applyH3Tags(l!.tags, h3Tags);
 
-    // final signed = await getIt<Ndk>().accounts.sign(
-    //   Nip01Event(
-    //     kind: Listing.kinds.first,
-    //     tags: updatedTags,
-    //     content: updatedContent.toString(),
-    //     pubKey: getIt<Ndk>().accounts.getPublicKey()!,
-    //   ),
-    // );
+    // Ensure a d-tag exists — generate one for new listings.
+    final isNew = !updatedTags.any((t) => t.isNotEmpty && t.first == 'd');
+    if (isNew) {
+      updatedTags = [
+        ['d', DateTime.now().millisecondsSinceEpoch.toRadixString(36)],
+        ...updatedTags,
+      ];
+    }
+
     final updatedListing = Listing(
       pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
       tags: EventTags(updatedTags),
       content: updatedContent,
     );
+    await getIt<Hostr>().listings.upsert(updatedListing);
 
-    print('Updated listing content: ${updatedListing}');
-
-    await getIt<Hostr>().listings.update(updatedListing);
     l = updatedListing;
   }
 
@@ -258,7 +254,7 @@ class EditListingController extends UpsertFormController {
   }
 
   Amount _amountFromSatsInput(String input) {
-    final trimmed = input.trim();
+    final trimmed = input.replaceAll(',', '').trim();
     if (trimmed.isEmpty) {
       return Amount(value: BigInt.zero, currency: Currency.BTC);
     }
@@ -272,5 +268,15 @@ class EditListingController extends UpsertFormController {
     } on FormatException {
       return Amount(value: BigInt.zero, currency: Currency.BTC);
     }
+  }
+
+  static String _formatWithCommas(String digits) {
+    final buf = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      final posFromEnd = digits.length - i;
+      if (i > 0 && posFromEnd % 3 == 0) buf.write(',');
+      buf.write(digits[i]);
+    }
+    return buf.toString();
   }
 }

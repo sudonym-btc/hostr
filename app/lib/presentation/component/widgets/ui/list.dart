@@ -182,7 +182,17 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
         }
 
         if (state.results.isEmpty) {
-          return Center(child: Text(AppLocalizations.of(context)!.noItems));
+          return LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: constraints.maxHeight,
+                child: Center(
+                  child: Text(AppLocalizations.of(context)!.noItems),
+                ),
+              ),
+            ),
+          );
         }
 
         final isLoading = state.synching || state.fetching;
@@ -192,6 +202,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
             : 0.0;
 
         return ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.only(
             bottom: kDefaultPadding.toDouble() + bottomInset,
           ),

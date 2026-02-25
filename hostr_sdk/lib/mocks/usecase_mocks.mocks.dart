@@ -12,6 +12,7 @@ import 'package:hostr_sdk/usecase/nwc/nwc.cubit.dart' as _i10;
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart' as _i11;
 import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart'
     as _i12;
+import 'package:hostr_sdk/usecase/relays/relays.dart' as _i16;
 import 'package:hostr_sdk/usecase/storage/storage.dart' as _i3;
 import 'package:hostr_sdk/util/main.dart' as _i7;
 import 'package:mockito/mockito.dart' as _i1;
@@ -616,7 +617,7 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> update(
+  _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.ProfileMetadata? event,
   ) =>
       (super.noSuchMethod(
@@ -1085,7 +1086,7 @@ class MockListings extends _i1.Mock implements _i8.Listings {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> update(_i9.Listing? event) =>
+  _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(_i9.Listing? event) =>
       (super.noSuchMethod(
             Invocation.method(#update, [event]),
             returnValue: _i13.Future<List<_i14.RelayBroadcastResponse>>.value(
@@ -1428,7 +1429,7 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> update(
+  _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.Reservation? event,
   ) =>
       (super.noSuchMethod(
@@ -1719,7 +1720,7 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> update(
+  _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.EscrowService? event,
   ) =>
       (super.noSuchMethod(
@@ -1899,7 +1900,7 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> update(
+  _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.EscrowTrust? event,
   ) =>
       (super.noSuchMethod(
@@ -2071,7 +2072,7 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> update(
+  _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.EscrowMethod? event,
   ) =>
       (super.noSuchMethod(
@@ -2218,7 +2219,7 @@ class MockBadgeDefinitions extends _i1.Mock implements _i8.BadgeDefinitions {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> update(
+  _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.BadgeDefinition? event,
   ) =>
       (super.noSuchMethod(
@@ -2371,7 +2372,7 @@ class MockBadgeAwards extends _i1.Mock implements _i8.BadgeAwards {
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> update(
+  _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.BadgeAward? event,
   ) =>
       (super.noSuchMethod(
@@ -2717,7 +2718,7 @@ class MockReservationRequests extends _i1.Mock
           as _i13.Future<List<_i14.RelayBroadcastResponse>>);
 
   @override
-  _i13.Future<List<_i14.RelayBroadcastResponse>> update(
+  _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i2.Nip01Event? event,
   ) =>
       (super.noSuchMethod(
@@ -2994,7 +2995,7 @@ class MockEvm extends _i1.Mock implements _i8.Evm {
 /// A class which mocks [Relays].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockRelays extends _i1.Mock implements _i8.Relays {
+class MockRelays extends _i1.Mock implements _i16.Relays {
   MockRelays() {
     _i1.throwOnMissingStub(this);
   }
@@ -3048,6 +3049,15 @@ class MockRelays extends _i1.Mock implements _i8.Relays {
   _i13.Future<void> connect() =>
       (super.noSuchMethod(
             Invocation.method(#connect, []),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
+          )
+          as _i13.Future<void>);
+
+  @override
+  _i13.Future<void> ensureConnected() =>
+      (super.noSuchMethod(
+            Invocation.method(#ensureConnected, []),
             returnValue: _i13.Future<void>.value(),
             returnValueForMissingStub: _i13.Future<void>.value(),
           )

@@ -91,7 +91,7 @@ class NostrWalletConnectConnectionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (connections.isEmpty) {
-      return Text(AppLocalizations.of(context)!.noWalletConnected);
+      return HelpText(AppLocalizations.of(context)!.noWalletConnected);
     }
 
     return Column(

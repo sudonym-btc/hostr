@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/injection.dart';
-import 'package:ndk/ndk.dart' show Ndk;
 
 import 'usecase/main.dart';
 import 'util/custom_logger.dart' show CustomLogger;
@@ -35,6 +34,7 @@ class Hostr {
   Evm get evm => getIt<Evm>();
   Relays get relays => getIt<Relays>();
   Verification get verification => getIt<Verification>();
+  BlossomUseCase get blossom => getIt<BlossomUseCase>();
 
   StreamSubscription? _authStateSubscription;
 
@@ -70,17 +70,8 @@ class Hostr {
         // Ensure the user's profile has an EVM address tag.
         metadata.ensureEvmAddress();
 
-        final blossomList = await getIt<Ndk>().blossomUserServerList
-            .getUserServerList(pubkeys: [pubkey]);
-        print('Blossom list: $blossomList');
-        final broadcastResponse = await getIt<Ndk>().blossomUserServerList
-            .publishUserServerList(
-              serverUrlsOrdered: {
-                ...blossomList ?? [],
-                ...config.bootstrapBlossom,
-              }.toList(),
-            );
-        print('Blossom list publish response: $broadcastResponse');
+        // Ensure the user's blossom server list includes the bootstrap servers.
+        blossom.ensureBlossomServer(pubkey);
 
         nwc.start();
 

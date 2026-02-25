@@ -62,7 +62,7 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
         privateKey: keyPair.privateKey!,
         event: event,
       );
-      await create(EscrowTrust.fromNostrEvent(signed));
+      await upsert(EscrowTrust.fromNostrEvent(signed));
     } else {
       // No trust list exists — create one with the bootstrap escrow pubkeys
       final list = Nip51List(
@@ -80,7 +80,7 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
         privateKey: keyPair.privateKey!,
         event: event,
       );
-      await create(EscrowTrust.fromNostrEvent(signed));
+      await upsert(EscrowTrust.fromNostrEvent(signed));
     }
     logger.i(
       'Ensured escrow trust for $pubkey with ${escrowPubkeys.length} provider(s)',

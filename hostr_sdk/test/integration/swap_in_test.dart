@@ -31,7 +31,7 @@ void main() {
       config: HostrConfig(
         logs: CustomLogger(),
         bootstrapRelays: ['wss://relay.hostr.development'],
-        bootstrapBlossom: ['http://blossom.hostr.development'],
+        bootstrapBlossom: ['https://blossom.hostr.development'],
         hostrRelay: 'wss://relay.hostr.development',
         rootstockConfig: _DevelopmentRootstockConfig(),
       ),

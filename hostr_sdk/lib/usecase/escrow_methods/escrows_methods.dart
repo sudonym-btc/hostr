@@ -82,7 +82,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
         privateKey: keyPair.privateKey!,
         event: event,
       );
-      await create(EscrowMethod.fromNostrEvent(signed));
+      await upsert(EscrowMethod.fromNostrEvent(signed));
     } else {
       // No escrow method list exists – create one with EVM
       final list = Nip51List(
@@ -97,7 +97,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
         privateKey: keyPair.privateKey!,
         event: event,
       );
-      await create(EscrowMethod.fromNostrEvent(signed));
+      await upsert(EscrowMethod.fromNostrEvent(signed));
     }
     logger.i('Ensured EVM escrow method for $pubkey');
   }

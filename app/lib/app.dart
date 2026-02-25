@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -75,10 +77,23 @@ class _MyAppState extends State<MyApp> {
 }
 
 class MyObserver extends AutoRouterObserver {
+  /// Broadcast stream that fires every time a route is popped.
+  /// Screens like [HomeScreen] listen to this to restore the navbar.
+  static final StreamController<void> _onPop =
+      StreamController<void>.broadcast();
+  static Stream<void> get onPop => _onPop.stream;
+
   CustomLogger logger = CustomLogger();
+
   @override
   void didPush(Route route, Route? previousRoute) {
     logger.d('New route pushed: ${route.settings.name}');
+  }
+
+  @override
+  void didPop(Route route, Route? previousRoute) {
+    logger.d('Route popped: ${route.settings.name}');
+    _onPop.add(null);
   }
 
   // only override to observer tab routes

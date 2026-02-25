@@ -30,8 +30,8 @@ void main(List<String> arguments) async {
       Platform.environment['PRIVATE_KEY'] ?? MockKeys.escrow.privateKey!;
   final String rpcUrl =
       Platform.environment['RPC_URL'] ?? 'http://localhost:8545';
-  final String blossomUrl =
-      Platform.environment['BLOSSOM_URL'] ?? 'http://blossom.hostr.development';
+  final String blossomUrl = Platform.environment['BLOSSOM_URL'] ??
+      'https://blossom.hostr.development';
   final String environment = Platform.environment['ENV'] ?? 'dev';
   final String contractAddress = Platform.environment['CONTRACT_ADDR'] ??
       '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F';

@@ -370,7 +370,7 @@ class Reservations extends CrudUseCase<Reservation> {
       pubKey: auth.activeKeyPair!.publicKey,
     );
     logger.d('Accepting reservation request: $request');
-    return create(reservation);
+    return upsert(reservation);
   }
 
   Future<Reservation> createSelfSigned({
@@ -396,7 +396,7 @@ class Reservations extends CrudUseCase<Reservation> {
       ]),
     );
 
-    await create(reservation.signAs(activeKeyPair, Reservation.fromNostrEvent));
+    await upsert(reservation.signAs(activeKeyPair, Reservation.fromNostrEvent));
     logger.d('Created self-signed reservation: $reservation');
     return reservation;
   }
@@ -412,7 +412,7 @@ class Reservations extends CrudUseCase<Reservation> {
       pubKey: null,
     );
     logger.d('Cancelling reservation: $updated');
-    await update(updated);
+    await upsert(updated);
     return updated;
   }
 
@@ -440,7 +440,7 @@ class Reservations extends CrudUseCase<Reservation> {
       ]),
     );
 
-    await create(reservation);
+    await upsert(reservation);
     logger.d('Created blocked reservation: $reservation');
     return reservation;
   }

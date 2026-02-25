@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- frame -->
+  <rect x="4" y="4" width="112" height="72" rx="6" />
+  <!-- sun -->
+  <circle cx="88" cy="24" r="8" />
+  <!-- mountains -->
+  <polyline points="4,64 30,32 48,52 62,36 84,64" />
+  <!-- foreground hill -->
+  <polyline points="56,64 78,46 100,64" />
+</svg>

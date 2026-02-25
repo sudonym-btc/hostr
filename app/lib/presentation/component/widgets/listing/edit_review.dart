@@ -18,6 +18,15 @@ class EditReviewController extends UpsertFormController {
   final String? salt;
 
   int _rating = 5;
+  String _originalContent = '';
+  int _originalRating = 5;
+
+  @override
+  bool get isDirty {
+    if (reviewController.text != _originalContent) return true;
+    if (_rating != _originalRating) return true;
+    return false;
+  }
 
   EditReviewController({
     this.onUpsert,
@@ -38,12 +47,16 @@ class EditReviewController extends UpsertFormController {
     if (review == null) {
       reviewController.text = '';
       _rating = 5;
+      _originalContent = '';
+      _originalRating = 5;
       notifyListeners();
       return;
     }
 
     reviewController.text = review.parsedContent.content;
     _rating = review.parsedContent.rating.clamp(1, 5);
+    _originalContent = reviewController.text;
+    _originalRating = _rating;
     notifyListeners();
   }
 
@@ -78,7 +91,7 @@ class EditReviewController extends UpsertFormController {
 
   @override
   Future<void> upsert() async {
-    await getIt<Hostr>().reviews.create(
+    await getIt<Hostr>().reviews.upsert(
       Review(
         pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
         content: ReviewContent(

@@ -9,6 +9,9 @@ abstract class UpsertFormController extends ChangeNotifier {
   bool get isReady => _ready;
   bool get canSubmit => !_saving && _ready;
 
+  /// Whether the form has unsaved changes compared to its initial state.
+  bool get isDirty;
+
   @protected
   void setReady(bool value) {
     if (_ready == value) return;

@@ -29,7 +29,7 @@ class CrudUseCase<T extends Nip01Event> {
   });
 
   /// Notify listeners that an entity was mutated. Call this from external
-  /// code (e.g. controllers that bypass [create]/[update]/[delete]) to
+  /// code (e.g. controllers that bypass [create]/[upsert]/[delete]) to
   /// trigger refresh in consuming widgets.
   void notifyUpdate(T event) => _updates.add(event);
 
@@ -40,14 +40,7 @@ class CrudUseCase<T extends Nip01Event> {
     );
   }
 
-  Future<List<RelayBroadcastResponse>> create(T event) {
-    return requests.broadcast(event: event).then((r) {
-      _updates.add(event);
-      return r;
-    });
-  }
-
-  Future<List<RelayBroadcastResponse>> update(T event) {
+  Future<List<RelayBroadcastResponse>> upsert(T event) {
     return requests.broadcast(event: event).then((r) {
       _updates.add(event);
       return r;

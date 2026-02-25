@@ -31,25 +31,6 @@ class ProfileScreen extends StatelessWidget {
         slivers: [
           SliverAppBar(
             pinned: true,
-            expandedHeight: 300.0,
-            flexibleSpace: FlexibleSpaceBar(
-              background: SafeArea(
-                child: CustomPadding.sm(
-                  child: ProfileProvider(
-                    pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-                    builder: (context, snapshot) => ProfileHeaderWidget(
-                      profile: snapshot.data,
-                      isLoading:
-                          snapshot.connectionState != ConnectionState.done,
-                      onEditProfile: () {
-                        AutoRouter.of(context).navigate(EditProfileRoute());
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // title: Text(AppLocalizations.of(context)!.profile),
             actions: [
               IconButton(
                 icon: const Icon(Icons.key),
@@ -72,6 +53,18 @@ class ProfileScreen extends StatelessWidget {
                 },
               ),
             ],
+          ),
+          SliverToBoxAdapter(
+            child: ProfileProvider(
+              pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+              builder: (context, snapshot) => ProfileHeaderWidget(
+                profile: snapshot.data,
+                isLoading: snapshot.connectionState != ConnectionState.done,
+                onEditProfile: () {
+                  AutoRouter.of(context).navigate(EditProfileRoute());
+                },
+              ),
+            ),
           ),
           SliverList(
             delegate: SliverChildListDelegate([

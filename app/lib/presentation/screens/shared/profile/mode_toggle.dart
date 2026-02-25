@@ -14,11 +14,11 @@ class ModeToggleWidget extends StatelessWidget {
         return CustomPadding(
           child: Center(
             child: ToggleButtons(
-              fillColor: Theme.of(context).colorScheme.primary,
-              selectedBorderColor: Theme.of(context).colorScheme.primary,
-              borderColor: Theme.of(context).colorScheme.primary,
-              selectedColor: Theme.of(context).colorScheme.onPrimary,
-              borderWidth: 1.5,
+              fillColor: Theme.of(context).colorScheme.secondary,
+              selectedBorderColor: Theme.of(context).colorScheme.secondary,
+              borderColor: Theme.of(context).colorScheme.secondary,
+              selectedColor: Theme.of(context).colorScheme.onSecondary,
+              borderWidth: 1,
               borderRadius: BorderRadius.circular(50.0),
               isSelected: [state is HostMode, state is GuestMode],
               onPressed: (int index) {

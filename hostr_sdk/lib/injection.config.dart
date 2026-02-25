@@ -19,6 +19,7 @@ import 'package:hostr_sdk/usecase/auth/auth.dart' as _i1000;
 import 'package:hostr_sdk/usecase/badge_awards/badge_awards.dart' as _i92;
 import 'package:hostr_sdk/usecase/badge_definitions/badge_definitions.dart'
     as _i978;
+import 'package:hostr_sdk/usecase/blossom/blossom.dart' as _i824;
 import 'package:hostr_sdk/usecase/escrow/escrow.dart' as _i376;
 import 'package:hostr_sdk/usecase/escrow/operations/claim/escrow_claim_operation.dart'
     as _i654;
@@ -101,7 +102,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
     gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
     gh.singleton<_i331.CustomLogger>(() => hostrSdkModule.logger);
-    gh.singleton<_i857.Ndk>(() => hostrSdkModule.ndk(gh<_i910.HostrConfig>()));
+    gh.lazySingleton<_i857.Ndk>(
+      () => hostrSdkModule.ndk(gh<_i910.HostrConfig>()),
+    );
     gh.singleton<_i218.AuthStorage>(
       () => _i218.AuthStorage(gh<_i910.HostrConfig>()),
     );
@@ -127,6 +130,13 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i82.SwapStore>(
       () =>
           _i82.SwapStore(gh<_i111.KeyValueStorage>(), gh<_i331.CustomLogger>()),
+    );
+    gh.singleton<_i824.BlossomUseCase>(
+      () => _i824.BlossomUseCase(
+        ndk: gh<_i857.Ndk>(),
+        config: gh<_i910.HostrConfig>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
     );
     gh.factoryParam<_i514.RifRelay, _i641.Web3Client, dynamic>(
       (client, _) => _i514.RifRelay(
