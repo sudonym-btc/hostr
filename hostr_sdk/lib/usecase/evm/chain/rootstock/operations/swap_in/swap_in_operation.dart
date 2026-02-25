@@ -231,6 +231,7 @@ class RootstockSwapInOperation extends SwapInOperation {
   Future<ReverseResponse> _generateSwapRequest() async {
     final smartWalletInfo = await rifRelay.getSmartWalletAddress(params.evmKey);
     final claimAddress = smartWalletInfo.address.eip55With0x;
+    final description = params.invoiceDescription ?? 'Hostr Reservation';
     logger.i(
       'Using RIF smart wallet as claim address: $claimAddress, ${params.amount.getInSats} sats',
     );
@@ -238,6 +239,7 @@ class RootstockSwapInOperation extends SwapInOperation {
       invoiceAmount: params.amount.getInSats.toDouble(),
       claimAddress: claimAddress,
       preimageHash: preimage.hash,
+      description: description,
     );
   }
 

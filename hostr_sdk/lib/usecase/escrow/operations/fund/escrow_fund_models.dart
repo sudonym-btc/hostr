@@ -9,13 +9,23 @@ class EscrowFundParams {
   final ReservationRequest reservationRequest;
   final ProfileMetadata sellerProfile;
   final Amount amount;
+  final String? listingName;
 
   EscrowFundParams({
     required this.escrowService,
     required this.reservationRequest,
     required this.sellerProfile,
     required this.amount,
+    this.listingName,
   });
+
+  String get swapInvoiceDescription {
+    final trimmed = listingName?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return 'Hostr Reservation';
+    }
+    return 'Hostr Reservation: $trimmed';
+  }
 
   ContractFundEscrowParams toContractParams(EthPrivateKey ethKey) {
     final unlockAt =

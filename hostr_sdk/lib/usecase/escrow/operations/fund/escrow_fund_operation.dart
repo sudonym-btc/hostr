@@ -37,6 +37,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
                 SwapInParams(
                   evmKey: auth.getActiveEvmKey(),
                   amount: requiredSwapAmount,
+                  invoiceDescription: params.swapInvoiceDescription,
                 ),
               )
               .estimateFees()
@@ -154,6 +155,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
         SwapInParams(
           evmKey: auth.getActiveEvmKey(),
           amount: requiredAmountInBtc,
+          invoiceDescription: params.swapInvoiceDescription,
         ),
       );
       final swapFees = await swapEstimation.estimateFees();
@@ -163,6 +165,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
           amount: (requiredAmountInBtc + swapFees.totalFees).roundUp(
             BitcoinUnit.sat,
           ),
+          invoiceDescription: params.swapInvoiceDescription,
         ),
       );
       final sub = swap.stream.listen((state) {

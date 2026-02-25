@@ -16,6 +16,8 @@ import 'package:hostr_sdk/datasources/storage.dart' as _i111;
 import 'package:hostr_sdk/hostr_sdk.dart' as _i520;
 import 'package:hostr_sdk/injection.dart' as _i231;
 import 'package:hostr_sdk/usecase/auth/auth.dart' as _i1000;
+import 'package:hostr_sdk/usecase/background_worker/background_worker.dart'
+    as _i843;
 import 'package:hostr_sdk/usecase/badge_awards/badge_awards.dart' as _i92;
 import 'package:hostr_sdk/usecase/badge_definitions/badge_definitions.dart'
     as _i978;
@@ -132,22 +134,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i286.InMemoryRequests(ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i143.EscrowLockRegistry>(
-      () => _i143.EscrowLockRegistry(
-        gh<_i111.KeyValueStorage>(),
-        gh<_i331.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i82.SwapStore>(
-      () =>
-          _i82.SwapStore(gh<_i111.KeyValueStorage>(), gh<_i331.CustomLogger>()),
-    );
-    gh.singleton<_i794.UserConfigStore>(
-      () => _i794.UserConfigStore(
-        gh<_i111.KeyValueStorage>(),
-        gh<_i331.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i824.BlossomUseCase>(
       () => _i824.BlossomUseCase(
         ndk: gh<_i857.Ndk>(),
@@ -212,13 +198,6 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.factory<_i71.SwapRecoveryService>(
-      () => _i71.SwapRecoveryService(
-        gh<_i82.SwapStore>(),
-        gh<_i350.BoltzClient>(),
-        gh<_i372.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i445.EscrowMethods>(
       () => _i445.EscrowMethods(
         requests: gh<_i1014.Requests>(),
@@ -248,6 +227,27 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i331.CustomLogger>(),
       ),
       registerFor: {_test, _mock},
+    );
+    gh.singleton<_i143.EscrowLockRegistry>(
+      () => _i143.EscrowLockRegistry(
+        gh<_i111.KeyValueStorage>(),
+        gh<_i331.CustomLogger>(),
+        gh<_i1000.Auth>(),
+      ),
+    );
+    gh.singleton<_i82.SwapStore>(
+      () => _i82.SwapStore(
+        gh<_i111.KeyValueStorage>(),
+        gh<_i331.CustomLogger>(),
+        gh<_i1000.Auth>(),
+      ),
+    );
+    gh.singleton<_i794.UserConfigStore>(
+      () => _i794.UserConfigStore(
+        gh<_i111.KeyValueStorage>(),
+        gh<_i331.CustomLogger>(),
+        gh<_i1000.Auth>(),
+      ),
     );
     gh.singleton<_i158.Rootstock>(
       () => _i158.Rootstock(
@@ -377,7 +377,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factoryParam<_i62.RootstockSwapInOperation, _i677.SwapInParams, dynamic>(
       (params, _) => _i62.RootstockSwapInOperation(
         rootstock: gh<_i158.Rootstock>(),
-        auth: gh<_i520.Auth>(),
+        auth: gh<_i1000.Auth>(),
         logger: gh<_i372.CustomLogger>(),
         params: params,
       ),
@@ -388,6 +388,13 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
         escrowMethods: gh<_i445.EscrowMethods>(),
         escrowTrusts: gh<_i943.EscrowTrusts>(),
+      ),
+    );
+    gh.factory<_i71.SwapRecoveryService>(
+      () => _i71.SwapRecoveryService(
+        gh<_i82.SwapStore>(),
+        gh<_i350.BoltzClient>(),
+        gh<_i372.CustomLogger>(),
       ),
     );
     gh.singleton<_i305.Evm>(
@@ -471,6 +478,19 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         logger: gh<_i372.CustomLogger>(),
         payments: gh<_i226.Payments>(),
+      ),
+    );
+    gh.singleton<_i843.BackgroundWorker>(
+      () => _i843.BackgroundWorker(
+        auth: gh<_i1000.Auth>(),
+        threads: gh<_i768.Threads>(),
+        evm: gh<_i305.Evm>(),
+        autoWithdraw: gh<_i503.AutoWithdrawService>(),
+        reservations: gh<_i326.Reservations>(),
+        reviews: gh<_i660.Reviews>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+        logger: gh<_i372.CustomLogger>(),
       ),
     );
     return this;

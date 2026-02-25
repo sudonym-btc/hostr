@@ -117,16 +117,15 @@ class ProfileScreen extends StatelessWidget {
               ),
               Section(title: 'Balance', body: MoneyInFlightWidget()),
               Section(
-                title: 'Auto-withdraw',
                 body: StreamBuilder<HostrUserConfig>(
                   stream: getIt<Hostr>().userConfig.stream,
                   builder: (context, snapshot) {
                     final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
                     return SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Auto-withdraw to Lightning'),
+                      title: const Text('Auto-withdraw'),
                       subtitle: const Text(
-                        'Automatically swap EVM funds to your Lightning wallet',
+                        'Automatically sweep received funds into your Lightning wallet',
                       ),
                       value: enabled,
                       onChanged: (value) async {

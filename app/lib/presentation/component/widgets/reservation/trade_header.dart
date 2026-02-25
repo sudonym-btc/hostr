@@ -287,6 +287,12 @@ class TradeHeader extends StatelessWidget {
                 child: EscrowFundWidget(
                   counterparty: listingProfile,
                   reservationRequest: lastReservationRequest,
+                  listingName: context
+                      .read<ThreadCubit>()
+                      .state
+                      .listing
+                      ?.parsedContent
+                      .title,
                 ),
               );
             }),

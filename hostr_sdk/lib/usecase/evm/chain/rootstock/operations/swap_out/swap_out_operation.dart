@@ -70,7 +70,7 @@ class RootstockSwapOutOperation extends SwapOutOperation {
         final makeInvoice = await nwc.makeInvoice(
           nwc.getActiveConnection()!,
           amountSats: quote.invoiceAmount.getInSats.toInt(),
-          description: 'Hostr swap out',
+          description: 'Hostr payout',
         );
         invoice = makeInvoice.invoice;
       }

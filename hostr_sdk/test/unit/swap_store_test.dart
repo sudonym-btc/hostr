@@ -1,18 +1,34 @@
 import 'dart:convert';
 
 import 'package:hostr_sdk/datasources/storage.dart';
+import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
+import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/evm/operations/swap_record.dart';
 import 'package:hostr_sdk/usecase/evm/operations/swap_store.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:mockito/mockito.dart';
+import 'package:models/bip340.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 void main() {
   late InMemoryKeyValueStorage storage;
+  late Auth auth;
+  late KeyPair? activeKeyPair;
   late SwapStore store;
+
+  final userA = Bip340.fromPrivateKey('1' * 64);
+  final userB = Bip340.fromPrivateKey('2' * 64);
+
+  String keyFor(String pubkey) => 'pending_swaps:$pubkey';
 
   setUp(() {
     storage = InMemoryKeyValueStorage();
-    store = SwapStore(storage, CustomLogger());
+    activeKeyPair = userA;
+    final mockAuth = MockAuth();
+    when(mockAuth.activeKeyPair).thenAnswer((_) => activeKeyPair);
+    auth = mockAuth;
+    store = SwapStore(storage, CustomLogger(), auth);
   });
 
   SwapRecord _swapIn({
@@ -64,7 +80,10 @@ void main() {
       test('loads records from storage', () async {
         // Pre-populate storage
         final record = _swapIn(boltzId: 'preloaded');
-        await storage.write('pending_swaps', jsonEncode([record.toJson()]));
+        await storage.write(
+          keyFor(userA.publicKey),
+          jsonEncode([record.toJson()]),
+        );
 
         await store.initialize();
         final all = await store.getAll();
@@ -78,7 +97,10 @@ void main() {
 
         // Write something different directly to storage
         final other = _swapIn(boltzId: 'other');
-        await storage.write('pending_swaps', jsonEncode([other.toJson()]));
+        await storage.write(
+          keyFor(userA.publicKey),
+          jsonEncode([other.toJson()]),
+        );
 
         // Second initialize should be a no-op (cache already loaded)
         await store.initialize();
@@ -88,7 +110,7 @@ void main() {
       });
 
       test('handles corrupt storage gracefully', () async {
-        await storage.write('pending_swaps', 'not valid json}}}');
+        await storage.write(keyFor(userA.publicKey), 'not valid json}}}');
         await store.initialize();
         final all = await store.getAll();
         expect(all, isEmpty); // Should start fresh
@@ -106,7 +128,7 @@ void main() {
         expect(retrieved!.boltzId, 'swap-in-1');
 
         // Verify it's in underlying storage
-        final raw = await storage.read('pending_swaps');
+        final raw = await storage.read(keyFor(userA.publicKey));
         final list = jsonDecode(raw) as List;
         expect(list, hasLength(1));
       });
@@ -155,7 +177,7 @@ void main() {
         await store.updateStatus('swap-in-1', SwapRecordStatus.completed);
 
         // Re-create store from same storage to verify persistence
-        final store2 = SwapStore(storage, CustomLogger());
+        final store2 = SwapStore(storage, CustomLogger(), auth);
         await store2.initialize();
         final record = await store2.get('swap-in-1');
         expect(record!.status, SwapRecordStatus.completed);
@@ -285,7 +307,7 @@ void main() {
         await store.save(_swapOut(boltzId: 'persist-2'));
 
         // Create a new store instance pointing at the same storage
-        final store2 = SwapStore(storage, CustomLogger());
+        final store2 = SwapStore(storage, CustomLogger(), auth);
         await store2.initialize();
 
         final all = await store2.getAll();
@@ -297,6 +319,30 @@ void main() {
         final outRecord = all.firstWhere((r) => r.boltzId == 'persist-2');
         expect(outRecord.type, SwapType.swapOut);
       });
+
+      test(
+        'keeps data isolated per pubkey and survives auth changes',
+        () async {
+          await store.save(_swapIn(boltzId: 'user-a-swap'));
+
+          activeKeyPair = userB;
+          await store.initialize();
+          expect(await store.getAll(), isEmpty);
+
+          await store.save(_swapIn(boltzId: 'user-b-swap'));
+
+          final rawA = await storage.read(keyFor(userA.publicKey));
+          final rawB = await storage.read(keyFor(userB.publicKey));
+          expect(rawA, isNotNull);
+          expect(rawB, isNotNull);
+
+          activeKeyPair = userA;
+          await store.initialize();
+          final allA = await store.getAll();
+          expect(allA, hasLength(1));
+          expect(allA.first.boltzId, 'user-a-swap');
+        },
+      );
     });
   });
 }

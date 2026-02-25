@@ -92,6 +92,7 @@ class BoltzClient {
     required double invoiceAmount,
     required String preimageHash,
     required String claimAddress,
+    String? description,
   }) async {
     logger.i('Swapping $invoiceAmount for $claimAddress');
     ReverseRequest r = ReverseRequest(
@@ -100,6 +101,7 @@ class BoltzClient {
       invoiceAmount: invoiceAmount,
       claimAddress: claimAddress,
       preimageHash: preimageHash,
+      description: description,
     );
     logger.i("Request: $r");
 
@@ -204,7 +206,9 @@ class BoltzClient {
     Future<void> connect() async {
       try {
         final wsUrl = config.rootstockConfig.boltz.wsUrl;
-        logger.d('Connecting to Boltz WS for swap $id (attempt ${reconnectAttempts + 1})');
+        logger.d(
+          'Connecting to Boltz WS for swap $id (attempt ${reconnectAttempts + 1})',
+        );
         socket = await WebSocket.connect(wsUrl);
         reconnectAttempts = 0; // Reset on successful connect
         socket!.add(
@@ -230,8 +234,12 @@ class BoltzClient {
             logger.w('Boltz WS error for swap $id: $e');
             if (!intentionallyClosed) {
               _scheduleReconnect(
-                id, controller, reconnectAttempts, maxReconnectAttempts,
-                connect, closeSocket,
+                id,
+                controller,
+                reconnectAttempts,
+                maxReconnectAttempts,
+                connect,
+                closeSocket,
               );
             }
           },
@@ -239,8 +247,12 @@ class BoltzClient {
             logger.d('Boltz WS closed for swap $id');
             if (!intentionallyClosed && !controller.isClosed) {
               _scheduleReconnect(
-                id, controller, reconnectAttempts, maxReconnectAttempts,
-                connect, closeSocket,
+                id,
+                controller,
+                reconnectAttempts,
+                maxReconnectAttempts,
+                connect,
+                closeSocket,
               );
             }
           },
@@ -249,8 +261,12 @@ class BoltzClient {
         logger.w('Failed to connect Boltz WS for swap $id: $e');
         if (!intentionallyClosed) {
           _scheduleReconnect(
-            id, controller, reconnectAttempts, maxReconnectAttempts,
-            connect, closeSocket,
+            id,
+            controller,
+            reconnectAttempts,
+            maxReconnectAttempts,
+            connect,
+            closeSocket,
           );
         } else {
           controller.addError(e, st);
@@ -259,7 +275,9 @@ class BoltzClient {
       }
     }
 
-    controller.onListen = () { connect(); };
+    controller.onListen = () {
+      connect();
+    };
     controller.onCancel = () async {
       intentionallyClosed = true;
       await closeSocket();

@@ -605,6 +605,20 @@ class MockMetadataUseCase extends _i1.Mock implements _i8.MetadataUseCase {
           as _i7.StreamWithStatus<_i9.ProfileMetadata>);
 
   @override
+  _i7.StreamWithStatus<_i9.ProfileMetadata> query(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#query, [f], {#name: name}),
+            returnValue: _FakeStreamWithStatus_5<_i9.ProfileMetadata>(
+              this,
+              Invocation.method(#query, [f], {#name: name}),
+            ),
+          )
+          as _i7.StreamWithStatus<_i9.ProfileMetadata>);
+
+  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.ProfileMetadata? event,
   ) =>
@@ -1064,6 +1078,17 @@ class MockListings extends _i1.Mock implements _i8.Listings {
           as _i7.StreamWithStatus<_i9.Listing>);
 
   @override
+  _i7.StreamWithStatus<_i9.Listing> query(_i2.Filter? f, {String? name}) =>
+      (super.noSuchMethod(
+            Invocation.method(#query, [f], {#name: name}),
+            returnValue: _FakeStreamWithStatus_5<_i9.Listing>(
+              this,
+              Invocation.method(#query, [f], {#name: name}),
+            ),
+          )
+          as _i7.StreamWithStatus<_i9.Listing>);
+
+  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(_i9.Listing? event) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
@@ -1395,6 +1420,17 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
           as _i7.StreamWithStatus<_i9.Reservation>);
 
   @override
+  _i7.StreamWithStatus<_i9.Reservation> query(_i2.Filter? f, {String? name}) =>
+      (super.noSuchMethod(
+            Invocation.method(#query, [f], {#name: name}),
+            returnValue: _FakeStreamWithStatus_5<_i9.Reservation>(
+              this,
+              Invocation.method(#query, [f], {#name: name}),
+            ),
+          )
+          as _i7.StreamWithStatus<_i9.Reservation>);
+
+  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.Reservation? event,
   ) =>
@@ -1674,6 +1710,20 @@ class MockEscrows extends _i1.Mock implements _i8.Escrows {
           as _i7.StreamWithStatus<_i9.EscrowService>);
 
   @override
+  _i7.StreamWithStatus<_i9.EscrowService> query(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#query, [f], {#name: name}),
+            returnValue: _FakeStreamWithStatus_5<_i9.EscrowService>(
+              this,
+              Invocation.method(#query, [f], {#name: name}),
+            ),
+          )
+          as _i7.StreamWithStatus<_i9.EscrowService>);
+
+  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.EscrowService? event,
   ) =>
@@ -1842,6 +1892,17 @@ class MockEscrowTrusts extends _i1.Mock implements _i8.EscrowTrusts {
           as _i7.StreamWithStatus<_i9.EscrowTrust>);
 
   @override
+  _i7.StreamWithStatus<_i9.EscrowTrust> query(_i2.Filter? f, {String? name}) =>
+      (super.noSuchMethod(
+            Invocation.method(#query, [f], {#name: name}),
+            returnValue: _FakeStreamWithStatus_5<_i9.EscrowTrust>(
+              this,
+              Invocation.method(#query, [f], {#name: name}),
+            ),
+          )
+          as _i7.StreamWithStatus<_i9.EscrowTrust>);
+
+  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.EscrowTrust? event,
   ) =>
@@ -2002,6 +2063,17 @@ class MockEscrowMethods extends _i1.Mock implements _i8.EscrowMethods {
           as _i7.StreamWithStatus<_i9.EscrowMethod>);
 
   @override
+  _i7.StreamWithStatus<_i9.EscrowMethod> query(_i2.Filter? f, {String? name}) =>
+      (super.noSuchMethod(
+            Invocation.method(#query, [f], {#name: name}),
+            returnValue: _FakeStreamWithStatus_5<_i9.EscrowMethod>(
+              this,
+              Invocation.method(#query, [f], {#name: name}),
+            ),
+          )
+          as _i7.StreamWithStatus<_i9.EscrowMethod>);
+
+  @override
   _i13.Future<List<_i14.RelayBroadcastResponse>> upsert(
     _i9.EscrowMethod? event,
   ) =>
@@ -2132,6 +2204,20 @@ class MockBadgeDefinitions extends _i1.Mock implements _i8.BadgeDefinitions {
             returnValue: _FakeStreamWithStatus_5<_i9.BadgeDefinition>(
               this,
               Invocation.method(#subscribe, [f], {#name: name}),
+            ),
+          )
+          as _i7.StreamWithStatus<_i9.BadgeDefinition>);
+
+  @override
+  _i7.StreamWithStatus<_i9.BadgeDefinition> query(
+    _i2.Filter? f, {
+    String? name,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#query, [f], {#name: name}),
+            returnValue: _FakeStreamWithStatus_5<_i9.BadgeDefinition>(
+              this,
+              Invocation.method(#query, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.BadgeDefinition>);
@@ -2273,6 +2359,17 @@ class MockBadgeAwards extends _i1.Mock implements _i8.BadgeAwards {
             returnValue: _FakeStreamWithStatus_5<_i9.BadgeAward>(
               this,
               Invocation.method(#subscribe, [f], {#name: name}),
+            ),
+          )
+          as _i7.StreamWithStatus<_i9.BadgeAward>);
+
+  @override
+  _i7.StreamWithStatus<_i9.BadgeAward> query(_i2.Filter? f, {String? name}) =>
+      (super.noSuchMethod(
+            Invocation.method(#query, [f], {#name: name}),
+            returnValue: _FakeStreamWithStatus_5<_i9.BadgeAward>(
+              this,
+              Invocation.method(#query, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i9.BadgeAward>);
@@ -2607,6 +2704,17 @@ class MockReservationRequests extends _i1.Mock
             returnValue: _FakeStreamWithStatus_5<_i2.Nip01Event>(
               this,
               Invocation.method(#subscribe, [f], {#name: name}),
+            ),
+          )
+          as _i7.StreamWithStatus<_i2.Nip01Event>);
+
+  @override
+  _i7.StreamWithStatus<_i2.Nip01Event> query(_i2.Filter? f, {String? name}) =>
+      (super.noSuchMethod(
+            Invocation.method(#query, [f], {#name: name}),
+            returnValue: _FakeStreamWithStatus_5<_i2.Nip01Event>(
+              this,
+              Invocation.method(#query, [f], {#name: name}),
             ),
           )
           as _i7.StreamWithStatus<_i2.Nip01Event>);

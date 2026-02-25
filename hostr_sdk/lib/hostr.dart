@@ -37,6 +37,7 @@ class Hostr {
   BlossomUseCase get blossom => getIt<BlossomUseCase>();
   UserConfigStore get userConfig => getIt<UserConfigStore>();
   AutoWithdrawService get autoWithdraw => getIt<AutoWithdrawService>();
+  BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
 
   StreamSubscription? _authStateSubscription;
 
@@ -76,7 +77,9 @@ class Hostr {
         metadata.ensureEvmAddress();
 
         // Ensure the user's blossom server list includes the bootstrap servers.
-        blossom.ensureBlossomServer(pubkey);
+        // Await this during login to avoid races where media upload happens
+        // before the list is visible/available.
+        await blossom.ensureBlossomServer(pubkey);
 
         nwc.start();
 

@@ -5,8 +5,13 @@ import '../../../../util/bitcoin_amount.dart';
 class SwapInParams {
   final EthPrivateKey evmKey;
   final BitcoinAmount amount;
+  final String? invoiceDescription;
 
-  SwapInParams({required this.evmKey, required this.amount});
+  SwapInParams({
+    required this.evmKey,
+    required this.amount,
+    this.invoiceDescription,
+  });
 }
 
 class SwapInFees {

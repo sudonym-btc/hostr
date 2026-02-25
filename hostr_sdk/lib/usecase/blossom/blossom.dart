@@ -48,6 +48,9 @@ class BlossomUseCase {
     logger.d(
       'Blossom list publish response: ${broadcastResponse[0].broadcastSuccessful}',
     );
+
+    // Force refresh the server list cache in NDK after publishing
+    await _ndk.blossomUserServerList.getUserServerList(pubkeys: [pubkey]);
   }
 
   // ---------------------------------------------------------------------------
@@ -65,9 +68,16 @@ class BlossomUseCase {
     UploadStrategy strategy = UploadStrategy.mirrorAfterSuccess,
     bool serverMediaOptimisation = false,
   }) {
+    final fallbackBootstrap = _config.bootstrapBlossom
+        .where((url) => url.trim().isNotEmpty)
+        .toSet()
+        .toList();
+    final effectiveServerUrls =
+        serverUrls ?? (fallbackBootstrap.isEmpty ? null : fallbackBootstrap);
+
     return _ndk.blossom.uploadBlob(
       data: data,
-      serverUrls: serverUrls,
+      serverUrls: effectiveServerUrls,
       contentType: contentType,
       strategy: strategy,
       serverMediaOptimisation: serverMediaOptimisation,
