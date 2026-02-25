@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/data/sources/image_preloader.dart';
+import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/component/widgets/ui/list.dart';
 import 'package:models/main.dart';
-
-import 'listing_list_item.dart';
 
 class ListingsWidget extends StatefulWidget {
   final ScrollController? scrollController;
@@ -118,6 +114,20 @@ class _ListingsWidgetState extends State<ListingsWidget> {
         reserveBottomNavigationBarSpace: true,
         scrollController: _effectiveController,
         scrollToId: widget.scrollToId,
+        resultCountBuilder: (count, hasMore) => CustomPadding(
+          bottom: 0,
+          child: Row(
+            children: [
+              Text(
+                '$count${hasMore ? '+' : ''} results',
+                textAlign: TextAlign.left,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
         builder: (el) {
           return ListingListItemWidget(
             listing: el,

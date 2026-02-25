@@ -93,7 +93,7 @@ class BroadcastIsolate {
   /// the relay and is ready to accept events.
   static Future<BroadcastIsolate> spawn({
     required String relayUrl,
-    int maxConcurrent = 50,
+    int maxConcurrent = 200,
     int maxAttempts = 6,
   }) async {
     final receivePort = ReceivePort();
