@@ -149,18 +149,21 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
   @override
   initState() {
     super.initState();
-    _reservationsStream = getIt<Hostr>().reservations.subscribe(
-      name: 'ListingListItem-${widget.listing.anchor}-reservations',
-      Filter(
-        tags: {
-          kListingRefTag: [widget.listing.anchor!],
-        },
-      ),
-    );
-    _reservationsSubscription = _reservationsStream!.list.listen((items) {
-      _latestReservations = items;
-      _availabilityCubit?.updateReservations(items);
-    });
+    final anchor = widget.listing.anchor;
+    if (anchor != null) {
+      _reservationsStream = getIt<Hostr>().reservations.subscribe(
+        name: 'ListingListItem-$anchor-reservations',
+        Filter(
+          tags: {
+            kListingRefTag: [anchor],
+          },
+        ),
+      );
+      _reservationsSubscription = _reservationsStream!.list.listen((items) {
+        _latestReservations = items;
+        _availabilityCubit?.updateReservations(items);
+      });
+    }
     // Preload images
     // WidgetsBinding.instance.addPostFrameCallback((_) {
     //   if (!mounted) return; // Check if the widget is still mounted
@@ -257,21 +260,23 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
         availabilityWidget: showAvailability
             ? _buildAvailabilityText(context)
             : null,
-        onTap: () {
-          DateTimeRange? dr = widget.dateRange;
-          if (dr == null) {
-            try {
-              dr = context.read<DateRangeCubit>().state.dateRange;
-            } catch (_) {}
-          }
-          AutoRouter.of(context).push(
-            ListingRoute(
-              a: widget.listing.anchor!,
-              dateRangeStart: dr?.start.toIso8601String(),
-              dateRangeEnd: dr?.end.toIso8601String(),
-            ),
-          );
-        },
+        onTap: widget.listing.anchor != null
+            ? () {
+                DateTimeRange? dr = widget.dateRange;
+                if (dr == null) {
+                  try {
+                    dr = context.read<DateRangeCubit>().state.dateRange;
+                  } catch (_) {}
+                }
+                AutoRouter.of(context).push(
+                  ListingRoute(
+                    a: widget.listing.anchor!,
+                    dateRangeStart: dr?.start.toIso8601String(),
+                    dateRangeEnd: dr?.end.toIso8601String(),
+                  ),
+                );
+              }
+            : null,
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:hostr/data/sources/image_preloader.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/image_load_error.dart';
 import 'package:hostr/presentation/component/widgets/ui/image_loading_shimmer.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 class BlossomImage extends StatelessWidget {
   final String image;
@@ -21,6 +22,8 @@ class BlossomImage extends StatelessWidget {
     this.fit,
     this.alignment,
   });
+
+  static final _logger = CustomLogger();
 
   static final _sha256Regex = RegExp(r'^[a-fA-F0-9]{64}$');
   static final _networkRegex = RegExp(r'^(http|https):\/\/');
@@ -80,20 +83,32 @@ class BlossomImage extends StatelessWidget {
       return FutureBuilder<String?>(
         future: preloader.resolveImageRef(image, pubkey: pubkey),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            _logger.e(
+              'BlossomImage: error resolving hash=$image pubkey=$pubkey',
+              error: snapshot.error,
+            );
+            return ImageLoadError(width: width, height: height);
+          }
           if (snapshot.connectionState != ConnectionState.done ||
               snapshot.data == null) {
             if (snapshot.connectionState == ConnectionState.done &&
                 snapshot.data == null) {
+              _logger.w(
+                'BlossomImage: resolved to null for hash=$image pubkey=$pubkey — no blossom servers?',
+              );
               return ImageLoadError(width: width, height: height);
             }
             return ImageLoadingShimmer(width: width, height: height);
           }
+          _logger.d('BlossomImage: resolved hash=$image to ${snapshot.data}');
           return _networkImage(snapshot.data!);
         },
       );
     } else if (isNetworkPath(image)) {
       return _networkImage(image);
     } else {
+      _logger.w('BlossomImage: unrecognised image ref format: $image');
       return ImageLoadError(width: width, height: height);
     }
   }

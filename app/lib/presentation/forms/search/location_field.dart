@@ -382,12 +382,25 @@ class LocationFieldState extends State<LocationField> {
                   _placeList = [];
                 });
                 try {
-                  final resolved = await _resolveCoordinates(selected);
-                  if (!mounted) return;
+                  final needsCoordinates =
+                      widget.h3Mode == LocationFieldH3Mode.addressHierarchy ||
+                      widget.onSelected != null;
 
-                  widget.controller.applySelection(resolved);
-                  widget.onSelected?.call(resolved);
-                  await _resolveH3ForInput(selectedSuggestion: resolved);
+                  if (needsCoordinates) {
+                    // addressHierarchy needs lat/lng for H3; run serially.
+                    // If onSelected is set, the parent also wants coordinates.
+                    final resolved = await _resolveCoordinates(selected);
+                    if (!mounted) return;
+
+                    widget.controller.applySelection(resolved);
+                    widget.onSelected?.call(resolved);
+                    await _resolveH3ForInput(selectedSuggestion: resolved);
+                  } else {
+                    // polygonCover uses text, not coordinates — skip the
+                    // Google Places detour and start H3 immediately.
+                    widget.controller.applySelection(selected);
+                    await _resolveH3ForInput(selectedSuggestion: selected);
+                  }
                 } finally {
                   _isSelectingSuggestion = false;
                   if (!mounted) return;

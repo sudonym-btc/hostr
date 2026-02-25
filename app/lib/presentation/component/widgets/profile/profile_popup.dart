@@ -6,6 +6,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
+import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -126,15 +127,23 @@ class _ProfilePopupState extends State<ProfilePopup> {
         return ModalBottomSheet(
           leading: CircleAvatar(
             radius: 36,
-            backgroundImage: metadata?.picture != null
-                ? NetworkImage(metadata!.picture!)
-                : null,
-            child: metadata?.picture == null
-                ? Text(
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
+            child: metadata?.picture != null
+                ? ClipOval(
+                    child: BlossomImage(
+                      image: metadata!.picture!,
+                      pubkey: widget.pubkey,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : Text(
                     (metadata?.name ?? '?').characters.first.toUpperCase(),
                     style: Theme.of(context).textTheme.headlineMedium,
-                  )
-                : null,
+                  ),
           ),
           title: metadata?.name ?? metadata?.displayName ?? 'Unknown',
           subtitle: metadata?.about,

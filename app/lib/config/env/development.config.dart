@@ -15,7 +15,7 @@ class DevelopmentConfig extends Config {
   List<String> get bootstrapEscrowPubkeys => [MockKeys.escrow.publicKey];
 
   @override
-  String get hostrBlossom => 'http://blossom.hostr.development';
+  String get hostrBlossom => 'https://blossom.hostr.development';
 
   @override
   String get hostrRelay => kIsWeb

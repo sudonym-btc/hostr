@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -8,9 +10,28 @@ class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
   CustomLogger logger = CustomLogger();
   final CrudUseCase<T> crud;
   final Filter? filter;
+  StreamSubscription<T>? _updatesSub;
 
   EntityCubit({required this.filter, required this.crud})
-    : super(const EntityCubitState(data: null));
+    : super(const EntityCubitState(data: null)) {
+    _updatesSub = crud.updates.listen(_onUpdate);
+  }
+
+  /// Checks whether [event] matches this cubit's filter (same d-tag and
+  /// author) and re-emits state with the updated data when it does.
+  void _onUpdate(T event) {
+    if (isClosed) return;
+    final current = state.data;
+    if (current == null) return;
+
+    final matches =
+        current.getDtag() != null &&
+        current.getDtag() == event.getDtag() &&
+        current.pubKey == event.pubKey;
+    if (matches) {
+      emit(EntityCubitState(data: event, active: false));
+    }
+  }
 
   Future<T?> get() async {
     logger.i("getting $filter");
@@ -30,6 +51,12 @@ class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
       emit(EntityCubitStateError(data: state.data, error: e));
     }
     return null;
+  }
+
+  @override
+  Future<void> close() {
+    _updatesSub?.cancel();
+    return super.close();
   }
 }
 

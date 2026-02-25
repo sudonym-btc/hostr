@@ -1,4 +1,5 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
@@ -11,6 +12,7 @@ import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'block_dates.dart';
 
@@ -142,11 +144,13 @@ class _ListingViewState extends State<ListingView> {
           return RepositoryProvider<StreamWithStatus<Reservation>?>.value(
             value: _listingReservationsStream,
             child: Scaffold(
-              bottomNavigationBar: BottomAppBar(
-                child: CustomPadding.horizontal.lg(
-                  child: Reserve(listing: state.data!),
-                ),
-              ),
+              bottomNavigationBar: isOwner
+                  ? null
+                  : BottomAppBar(
+                      child: CustomPadding.horizontal.lg(
+                        child: Reserve(listing: state.data!),
+                      ),
+                    ),
               body: StreamBuilder<List<Reservation>>(
                 stream: _listingReservationsStream!.list,
                 builder: (context, reservationsSnapshot) {
@@ -266,6 +270,55 @@ class ListingViewBody extends StatelessWidget {
     required this.onBlockDates,
   });
 
+  void _openInMaps(BuildContext context, double lat, double lng, String title) {
+    final encodedTitle = Uri.encodeComponent(title);
+    final platform = defaultTargetPlatform;
+
+    if (platform == TargetPlatform.iOS || platform == TargetPlatform.macOS) {
+      final appleMapsUri = Uri.parse(
+        'https://maps.apple.com/?ll=$lat,$lng&q=$encodedTitle',
+      );
+      final googleMapsUri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+      );
+      showModalBottomSheet(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.map),
+                title: const Text('Apple Maps'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  launchUrl(appleMapsUri, mode: LaunchMode.externalApplication);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.map_outlined),
+                title: const Text('Google Maps'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  launchUrl(
+                    googleMapsUri,
+                    mode: LaunchMode.externalApplication,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      // Android: geo URI triggers the native app chooser
+      launchUrl(
+        Uri.parse('geo:$lat,$lng?q=$lat,$lng($encodedTitle)'),
+        mode: LaunchMode.externalApplication,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -311,22 +364,36 @@ class ListingViewBody extends StatelessWidget {
 
             return CustomPadding.only(
               top: kSpace4,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  height: 180,
-                  width: double.infinity,
-                  child: ListingMap(
-                    listings: [
-                      ListingMarkerData(
-                        id: listing.id,
-                        h3Tag: h3Tag,
-                        priceText: priceText,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  final h3 = getIt<H3Engine>();
+                  final center = h3.polygonCover.centerForTag(h3Tag);
+                  if (center == null) return;
+                  final lat = center.latitude;
+                  final lng = center.longitude;
+                  final title = listing.parsedContent.title;
+                  _openInMaps(context, lat, lng, title);
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    height: 180,
+                    width: double.infinity,
+                    child: IgnorePointer(
+                      child: ListingMap(
+                        listings: [
+                          ListingMarkerData(
+                            id: listing.id,
+                            h3Tag: h3Tag,
+                            priceText: priceText,
+                          ),
+                        ],
+                        interactive: false,
+                        showArrows: false,
+                        fitBoundsPadding: 40,
                       ),
-                    ],
-                    interactive: false,
-                    showArrows: false,
-                    fitBoundsPadding: 40,
+                    ),
                   ),
                 ),
               ),

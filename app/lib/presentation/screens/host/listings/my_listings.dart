@@ -32,10 +32,9 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
       filter: Filter(authors: [getIt<Hostr>().auth.activeKeyPair!.publicKey]),
     )..next();
 
-    // Re-fetch when a listing is created/updated/deleted elsewhere.
-    _updatesSub = getIt<Hostr>().listings.updates.listen((_) {
-      _listCubit.reset();
-      _listCubit.next();
+    // Update the list item in-place when a listing is mutated elsewhere.
+    _updatesSub = getIt<Hostr>().listings.updates.listen((listing) {
+      _listCubit.upsertItem(listing);
     });
   }
 

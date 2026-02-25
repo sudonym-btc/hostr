@@ -1,4 +1,3 @@
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
@@ -15,6 +14,28 @@ class EditProfileController extends UpsertFormController {
   final TextEditingController lightningAddressController =
       TextEditingController();
 
+  String _originalName = '';
+  String _originalAbout = '';
+  String _originalNip05 = '';
+  String _originalLud16 = '';
+  String? _originalPicture;
+
+  @override
+  bool get isDirty {
+    if (nameController.text != _originalName) return true;
+    if (aboutMeController.text != _originalAbout) return true;
+    if (nip05Controller.text != _originalNip05) return true;
+    if (lightningAddressController.text != _originalLud16) return true;
+    final currentPicture = imageController.images.isNotEmpty
+        ? imageController.images.first.path
+        : null;
+    if (currentPicture != _originalPicture) return true;
+    return false;
+  }
+
+  @override
+  bool get canSubmit => super.canSubmit && imageController.canSubmit;
+
   void setState(ProfileMetadata? profile) {
     imageController.setImages(
       profile?.metadata.picture != null
@@ -25,24 +46,25 @@ class EditProfileController extends UpsertFormController {
     aboutMeController.text = profile?.metadata.about ?? '';
     nip05Controller.text = profile?.metadata.nip05 ?? '';
     lightningAddressController.text = profile?.metadata.lud16 ?? '';
+
+    _originalName = nameController.text;
+    _originalAbout = aboutMeController.text;
+    _originalNip05 = nip05Controller.text;
+    _originalLud16 = lightningAddressController.text;
+    _originalPicture = profile?.metadata.picture;
   }
 
   @override
   Future<void> upsert() async {
-    var image = imageController.images.isNotEmpty
-        ? imageController.images.first.path
-        : null;
+    final image = imageController.resolvedPaths.isNotEmpty
+        ? imageController.resolvedPaths.first
+        : (imageController.images.isNotEmpty
+              ? imageController.images.first.path
+              : null);
     final name = nameController.text;
     final aboutMe = aboutMeController.text;
     final nip05 = nip05Controller.text;
     final lightningAddress = lightningAddressController.text;
-
-    if (imageController.images.isNotEmpty &&
-        imageController.images.first.file != null) {
-      var data = await imageController.images.first.file!.readAsBytes();
-      await getIt<Ndk>().blossom.uploadBlob(data: data);
-      image = sha256.convert(data).toString();
-    }
 
     final metadata = Metadata(
       name: name,
@@ -56,7 +78,7 @@ class EditProfileController extends UpsertFormController {
       metadata.toEvent(),
     ).withEvmAddress(getIt<Hostr>().auth.getActiveEvmKey().address.eip55With0x);
 
-    await getIt<Hostr>().metadata.create(profile);
+    await getIt<Hostr>().metadata.upsert(profile);
 
     // Notify listeners (e.g. ProfileProvider) that metadata was updated.
     final updated = await getIt<Hostr>().metadata.loadMetadata(

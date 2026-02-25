@@ -19,6 +19,36 @@ class EditListingView extends StatefulWidget {
 class EditListingViewState extends State<EditListingView> {
   final EditListingController controller = EditListingController();
 
+  Future<void> _onPopInvoked(bool didPop, dynamic result) async {
+    if (didPop) return;
+    if (!controller.isDirty) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved changes'),
+        content: const Text(
+          'You have unsaved changes. Discard them and leave?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if ((shouldLeave ?? false) && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   Scaffold buildListing(BuildContext context, Listing l) {
     if (controller.l == null ||
         (l.getDtag() != null && controller.l?.getDtag() != l.getDtag())) {
@@ -26,7 +56,6 @@ class EditListingViewState extends State<EditListingView> {
     }
 
     return Scaffold(
-      appBar: AppBar(),
       bottomNavigationBar: BottomAppBar(
         shape: CircularNotchedRectangle(),
         child: CustomPadding(
@@ -39,9 +68,12 @@ class EditListingViewState extends State<EditListingView> {
                 listenable: controller.submitListenable,
                 builder: (context, _) {
                   return FilledButton(
-                    onPressed: controller.canSubmit
+                    onPressed: controller.canSubmit && controller.isDirty
                         ? () async {
-                            await controller.save();
+                            final saved = await controller.save();
+                            if (saved && context.mounted) {
+                              Navigator.of(context).pop();
+                            }
                           }
                         : null,
                     child: controller.isSaving
@@ -57,22 +89,22 @@ class EditListingViewState extends State<EditListingView> {
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Form(
-              key: controller.formKey,
-              child: Column(
-                children: [
-                  CustomPadding(
-                    top: 1,
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: ImagesInput(
-                      controller: controller,
-                      pubkey: l.pubKey,
-                    ),
+        child: Form(
+          key: controller.formKey,
+          child: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                stretch: true,
+                expandedHeight: MediaQuery.of(context).size.height / 4,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: ImagesInput(
+                    controller: controller,
+                    pubkey: l.pubKey,
                   ),
+                ),
+              ),
+              SliverList(
+                delegate: SliverChildListDelegate([
                   CustomPadding(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,6 +131,9 @@ class EditListingViewState extends State<EditListingView> {
                         FormLabel(label: 'Price'),
                         PriceInput(controller: controller),
                         BarterInput(controller: controller),
+                        HelpText(
+                          'Allowing barter allows users to submit reservation requests below your listed price, which you can then accept or decline.',
+                        ),
                         Gap.vertical.lg(),
                         FormLabel(label: 'Amenities'),
                         Gap.vertical.md(),
@@ -109,9 +144,9 @@ class EditListingViewState extends State<EditListingView> {
                       ],
                     ),
                   ),
-                ],
+                ]),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -120,54 +155,64 @@ class EditListingViewState extends State<EditListingView> {
 
   @override
   Widget build(BuildContext context) {
-    return widget.a == null
-        ? buildListing(
-            context,
-            Listing.fromNostrEvent(
-              Nip01Event(
-                pubKey: '',
-                kind: Listing.kinds.first,
-                tags: [],
-                content: ListingContent(
-                  title: '',
-                  description: '',
-                  price: [
-                    Price(
-                      amount: Amount(
-                        currency: Currency.BTC,
-                        value: BigInt.from(100000),
-                      ),
-                      frequency: Frequency.daily,
+    if (widget.a == null) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: _onPopInvoked,
+        child: buildListing(
+          context,
+          Listing.fromNostrEvent(
+            Nip01Event(
+              pubKey: '',
+              kind: Listing.kinds.first,
+              tags: [],
+              content: ListingContent(
+                title: '',
+                description: '',
+                price: [
+                  Price(
+                    amount: Amount(
+                      currency: Currency.BTC,
+                      value: BigInt.from(100000),
                     ),
-                  ],
-                  minStay: Duration(days: 1),
-                  checkIn: TimeOfDay(hour: 11, minute: 0),
-                  checkOut: TimeOfDay(hour: 11, minute: 0),
-                  location: '',
-                  quantity: 1,
-                  type: ListingType.room,
-                  images: [],
-                  amenities: Amenities(),
-                  requiresEscrow: false,
-                ).toString(),
-              ),
+                    frequency: Frequency.daily,
+                  ),
+                ],
+                minStay: Duration(days: 1),
+                checkIn: TimeOfDay(hour: 11, minute: 0),
+                checkOut: TimeOfDay(hour: 11, minute: 0),
+                location: '',
+                quantity: 1,
+                type: ListingType.room,
+                images: [],
+                amenities: Amenities(),
+                requiresEscrow: false,
+              ).toString(),
             ),
-          )
-        : ListingProvider(
-            a: widget.a,
-            onDone: (l) {
-              if (controller.l == null || controller.l?.id != l.id) {
-                controller.setState(l);
-              }
-            },
-            builder: (context, state) {
-              if (state.data == null) {
-                return const Scaffold(
-                  body: Center(child: AppLoadingIndicator.large()),
-                );
-              }
-              return buildListing(context, state.data!);
-            },
+          ),
+        ),
+      );
+    }
+    // else branch
+    return ListingProvider(
+      a: widget.a,
+      onDone: (l) {
+        if (controller.l == null || controller.l?.id != l.id) {
+          controller.setState(l);
+        }
+      },
+      builder: (context, state) {
+        if (state.data == null) {
+          return const Scaffold(
+            body: Center(child: AppLoadingIndicator.large()),
           );
+        }
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: _onPopInvoked,
+          child: buildListing(context, state.data!),
+        );
+      },
+    );
   }
 }

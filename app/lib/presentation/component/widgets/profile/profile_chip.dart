@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
+import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 
 class ProfileChipWidget extends StatelessWidget {
   final String id;
@@ -23,8 +24,14 @@ class ProfileChipWidget extends StatelessWidget {
               shape: StadiumBorder(),
               avatar: snapshot.data?.metadata.picture != null
                   ? CircleAvatar(
-                      backgroundImage: NetworkImage(
-                        snapshot.data!.metadata.picture!,
+                      child: ClipOval(
+                        child: BlossomImage(
+                          image: snapshot.data!.metadata.picture!,
+                          pubkey: id,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     )
                   : CircleAvatar(backgroundColor: Colors.grey),

@@ -1,6 +1,6 @@
 # Override the domain thats is used in the blobs "url" field
 # By default it uses the domain the incoming HTTP request was made on
-publicDomain: "http://blossom:3000"
+publicDomain: "https://blossom.hostr.development"
 
 databasePath: data/sqlite.db
 

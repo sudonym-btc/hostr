@@ -177,6 +177,46 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     );
   }
 
+  /// Replaces an existing item that shares the same d-tag identity with
+  /// [item], or appends it if no match is found. This avoids a full
+  /// reset+refetch and updates the UI immediately.
+  void upsertItem(T item) {
+    if (isClosed) return;
+    final dTag = item.getDtag();
+    final results = List<T>.from(state.results);
+    final resultsRaw = List<T>.from(state.resultsRaw);
+
+    bool replaced = false;
+    if (dTag != null) {
+      for (var i = 0; i < results.length; i++) {
+        if (results[i].getDtag() == dTag && results[i].pubKey == item.pubKey) {
+          results[i] = item;
+          replaced = true;
+          break;
+        }
+      }
+      for (var i = 0; i < resultsRaw.length; i++) {
+        if (resultsRaw[i].getDtag() == dTag &&
+            resultsRaw[i].pubKey == item.pubKey) {
+          resultsRaw[i] = item;
+          break;
+        }
+      }
+    }
+
+    if (!replaced) {
+      results.add(item);
+      resultsRaw.add(item);
+    }
+
+    emit(
+      applySort(
+        state.copyWith(results: results, resultsRaw: resultsRaw),
+        sortCubit?.state.comparator,
+      ),
+    );
+  }
+
   void applyFilter(FilterState filter) {
     logger.d('Applying filter to ${T} list: $filter');
     nostrSubscription?.cancel();

@@ -31,7 +31,7 @@ class PriceMarkerBuilder {
     TextStyle? textStyle,
     bool showArrow = true,
     double devicePixelRatio = 2.0,
-    double borderWidth = 1.5,
+    double borderWidth = 1,
   }) async {
     final cacheKey =
         '$priceText-${fillColor.value}-${textColor.value}-$showArrow-$borderWidth';
