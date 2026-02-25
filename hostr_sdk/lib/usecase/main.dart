@@ -1,4 +1,5 @@
 export 'auth/auth.dart';
+export 'background_worker/background_worker.dart';
 export 'badge_awards/badge_awards.dart';
 export 'badge_definitions/badge_definitions.dart';
 export 'blossom/blossom.dart';

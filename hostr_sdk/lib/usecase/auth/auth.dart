@@ -51,7 +51,8 @@ class Auth {
   Future<void> logout() async {
     _logger.i('AuthService.logout');
     await authStorage.wipe();
-    _loadActiveKeyPair();
+    await _loadActiveKeyPair();
+    ensureNdkAccountsMatch();
     _syncAuthState();
   }
 
@@ -70,9 +71,10 @@ class Auth {
   /// Restores NDK login using the stored key, if any.
   bool ensureNdkAccountsMatch() {
     if (activeKeyPair == null) {
-      ndk.accounts.accounts.forEach((pubkey, account) {
+      final pubkeys = ndk.accounts.accounts.keys.toList(growable: false);
+      for (final pubkey in pubkeys) {
         ndk.accounts.removeAccount(pubkey: pubkey);
-      });
+      }
     } else {
       final pubkey = activeKeyPair!.publicKey;
       final privkey = activeKeyPair!.privateKey!;

@@ -19,11 +19,13 @@ import '../../payment_method/escrow_selector/escrow_selector.dart';
 class EscrowFundWidget extends StatefulWidget {
   final ProfileMetadata counterparty;
   final ReservationRequest reservationRequest;
+  final String? listingName;
 
   const EscrowFundWidget({
     super.key,
     required this.counterparty,
     required this.reservationRequest,
+    this.listingName,
   });
 
   @override
@@ -60,6 +62,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
           amount: widget.reservationRequest.parsedContent.amount,
           sellerProfile: widget.counterparty,
           escrowService: escrow,
+          listingName: widget.listingName,
         ),
       );
     });

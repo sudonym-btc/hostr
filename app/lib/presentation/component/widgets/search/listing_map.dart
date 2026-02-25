@@ -60,6 +60,12 @@ class ListingMap extends StatefulWidget {
   /// Whether to auto-fit camera to marker bounds whenever markers change.
   final bool autoFitBounds;
 
+  /// Zoom used when only one marker is visible.
+  ///
+  /// This avoids unstable `newLatLngBounds` behaviour for single-point bounds
+  /// (especially when large [fitBoundsPadding] is used in short map viewports).
+  final double singleMarkerZoom;
+
   const ListingMap({
     super.key,
     required this.listings,
@@ -69,6 +75,7 @@ class ListingMap extends StatefulWidget {
     this.initialCamera,
     this.fitBoundsPadding = 120,
     this.autoFitBounds = true,
+    this.singleMarkerZoom = 13,
   });
 
   @override
@@ -79,6 +86,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   final Completer<GoogleMapController> _controller = Completer();
   final Map<String, Marker> _markers = {};
   bool _mapReady = false;
+  int _syncGeneration = 0;
 
   // ── Map lifecycle ───────────────────────────────────────────────────
 
@@ -99,6 +107,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   }
 
   Future<void> _syncMarkers() async {
+    final generation = ++_syncGeneration;
     final theme = Theme.of(context);
     final dpr = MediaQuery.of(context).devicePixelRatio;
     final h3 = getIt<H3Engine>();
@@ -143,7 +152,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
         devicePixelRatio: dpr,
       );
 
-      if (!mounted) return;
+      if (!mounted || generation != _syncGeneration) return;
 
       setState(() {
         _markers[data.id] = Marker(
@@ -157,17 +166,33 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       });
     }
 
-    if (widget.autoFitBounds) {
-      _fitBounds();
+    if (widget.autoFitBounds && generation == _syncGeneration) {
+      _fitBounds(generation: generation);
     }
   }
 
   // ── Camera helpers ─────────────────────────────────────────────────
 
-  Future<void> _fitBounds() async {
+  Future<void> _fitBounds({required int generation}) async {
+    if (generation != _syncGeneration) return;
     if (_markers.isEmpty) return;
-    final bounds = _calculateBounds();
     final controller = await _controller.future;
+    if (generation != _syncGeneration) return;
+
+    if (_markers.length == 1) {
+      final marker = _markers.values.first;
+      await controller.moveCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: marker.position,
+            zoom: widget.singleMarkerZoom,
+          ),
+        ),
+      );
+      return;
+    }
+
+    final bounds = _calculateBounds();
     await controller.animateCamera(
       CameraUpdate.newLatLngBounds(bounds, widget.fitBoundsPadding),
     );

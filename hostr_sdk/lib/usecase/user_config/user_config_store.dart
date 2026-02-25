@@ -5,6 +5,7 @@ import 'package:rxdart/rxdart.dart';
 
 import '../../datasources/storage.dart';
 import '../../util/custom_logger.dart';
+import '../auth/auth.dart';
 import 'hostr_user_config.dart';
 
 /// Persistent store for [HostrUserConfig].
@@ -17,13 +18,15 @@ import 'hostr_user_config.dart';
 /// config changes (e.g. mode toggle, auto-withdraw toggle).
 @singleton
 class UserConfigStore {
-  static const _storageKey = 'hostr_user_config';
+  static const _storageKeyBase = 'hostr_user_config';
 
   final KeyValueStorage _storage;
   final CustomLogger _logger;
+  final Auth _auth;
 
   /// In-memory cache. Loaded lazily via [initialize].
   HostrUserConfig? _cache;
+  String? _loadedPubkey;
 
   /// Reactive stream of the current config. Seeded with [HostrUserConfig.defaults]
   /// and updated on every [update] call.
@@ -31,17 +34,27 @@ class UserConfigStore {
     HostrUserConfig.defaults,
   );
 
-  UserConfigStore(this._storage, this._logger);
+  UserConfigStore(this._storage, this._logger, this._auth);
 
   // ── Public API ──────────────────────────────────────────────────────────
 
   /// Load the user config from disk. Idempotent.
   Future<void> initialize() async {
-    if (_cache != null) return;
+    final pubkey = _currentPubkey();
+    if (_cache != null && _loadedPubkey == pubkey) return;
+
+    if (pubkey == null) {
+      _cache = HostrUserConfig.defaults;
+      _loadedPubkey = null;
+      _subject.add(_cache!);
+      return;
+    }
+
     try {
-      final raw = await _storage.read(_storageKey);
+      final raw = await _storage.read(_storageKeyFor(pubkey));
       if (raw == null) {
         _cache = HostrUserConfig.defaults;
+        _loadedPubkey = pubkey;
         _subject.add(_cache!);
         return;
       }
@@ -50,11 +63,13 @@ class UserConfigStore {
       final Map<String, dynamic> map =
           jsonDecode(jsonStr) as Map<String, dynamic>;
       _cache = HostrUserConfig.fromJson(map);
+      _loadedPubkey = pubkey;
       _subject.add(_cache!);
-      _logger.i('UserConfigStore loaded: $_cache');
+      _logger.i('UserConfigStore loaded for $pubkey: $_cache');
     } catch (e) {
       _logger.e('Failed to load user config: $e');
       _cache = HostrUserConfig.defaults;
+      _loadedPubkey = pubkey;
       _subject.add(_cache!);
     }
   }
@@ -94,6 +109,17 @@ class UserConfigStore {
   // ── Internal ────────────────────────────────────────────────────────────
 
   Future<void> _flush() async {
-    await _storage.write(_storageKey, jsonEncode(_cache!.toJson()));
+    if (_loadedPubkey == null) {
+      _logger.w('UserConfigStore: skip flush because no active pubkey');
+      return;
+    }
+    await _storage.write(
+      _storageKeyFor(_loadedPubkey!),
+      jsonEncode(_cache!.toJson()),
+    );
   }
+
+  String? _currentPubkey() => _auth.activeKeyPair?.publicKey;
+
+  String _storageKeyFor(String pubkey) => '$_storageKeyBase:$pubkey';
 }

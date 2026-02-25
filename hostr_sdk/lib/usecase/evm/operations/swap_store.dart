@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 
 import '../../../datasources/storage.dart';
 import '../../../util/custom_logger.dart';
+import '../../auth/auth.dart';
 import 'swap_record.dart';
 
 /// Persistent store for [SwapRecord]s.
@@ -16,24 +17,35 @@ import 'swap_record.dart';
 /// a single storage key, namespaced per EVM address to support multiple wallets.
 @singleton
 class SwapStore {
-  static const _storageKey = 'pending_swaps';
+  static const _storageKeyBase = 'pending_swaps';
 
   final KeyValueStorage _storage;
   final CustomLogger _logger;
+  final Auth _auth;
 
   /// In-memory cache. Loaded lazily on first access.
   Map<String, SwapRecord>? _cache;
+  String? _loadedPubkey;
 
-  SwapStore(this._storage, this._logger);
+  SwapStore(this._storage, this._logger, this._auth);
 
   // ── Public API ──────────────────────────────────────────────────────────
 
   /// Load all swap records from disk. Idempotent.
   Future<void> initialize() async {
-    if (_cache != null) return;
+    final pubkey = _currentPubkey();
+    if (_cache != null && _loadedPubkey == pubkey) return;
+
     _cache = {};
+    _loadedPubkey = pubkey;
+
+    if (pubkey == null) {
+      _logger.d('SwapStore initialize skipped: no active pubkey');
+      return;
+    }
+
     try {
-      final raw = await _storage.read(_storageKey);
+      final raw = await _storage.read(_storageKeyFor(pubkey));
       if (raw == null) return;
 
       final String jsonStr = raw is String ? raw : raw.toString();
@@ -50,7 +62,7 @@ class SwapStore {
         }
       }
       _logger.i(
-        'SwapStore loaded ${_cache!.length} records '
+        'SwapStore loaded ${_cache!.length} records for $pubkey '
         '(${_cache!.values.where((r) => r.needsRecovery).length} need recovery)',
       );
     } catch (e) {
@@ -148,7 +160,15 @@ class SwapStore {
   // ── Internal ────────────────────────────────────────────────────────────
 
   Future<void> _flush() async {
+    if (_loadedPubkey == null) {
+      _logger.w('SwapStore: skip flush because no active pubkey');
+      return;
+    }
     final list = _cache!.values.map((r) => r.toJson()).toList();
-    await _storage.write(_storageKey, jsonEncode(list));
+    await _storage.write(_storageKeyFor(_loadedPubkey!), jsonEncode(list));
   }
+
+  String? _currentPubkey() => _auth.activeKeyPair?.publicKey;
+
+  String _storageKeyFor(String pubkey) => '$_storageKeyBase:$pubkey';
 }

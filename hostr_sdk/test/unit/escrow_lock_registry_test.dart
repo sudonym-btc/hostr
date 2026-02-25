@@ -1,19 +1,35 @@
 import 'dart:convert';
 
 import 'package:hostr_sdk/datasources/storage.dart';
+import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
+import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/escrow_lock.dart';
 import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/escrow_lock_registry.dart';
 import 'package:hostr_sdk/util/bitcoin_amount.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:mockito/mockito.dart';
+import 'package:models/bip340.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 void main() {
   late InMemoryKeyValueStorage storage;
+  late Auth auth;
+  late KeyPair? activeKeyPair;
   late EscrowLockRegistry registry;
+
+  final userA = Bip340.fromPrivateKey('1' * 64);
+  final userB = Bip340.fromPrivateKey('2' * 64);
+
+  String keyFor(String pubkey) => 'escrow_locks:$pubkey';
 
   setUp(() {
     storage = InMemoryKeyValueStorage();
-    registry = EscrowLockRegistry(storage, CustomLogger());
+    activeKeyPair = userA;
+    final mockAuth = MockAuth();
+    when(mockAuth.activeKeyPair).thenAnswer((_) => activeKeyPair);
+    auth = mockAuth;
+    registry = EscrowLockRegistry(storage, CustomLogger(), auth);
   });
 
   tearDown(() {
@@ -42,7 +58,10 @@ void main() {
     test('serialises reservedAmountWei as hex string', () {
       final lock = EscrowLock(
         tradeId: 'hex-test',
-        reservedAmountWei: BigInt.parse('de0b6b3a7640000', radix: 16), // 1 ether
+        reservedAmountWei: BigInt.parse(
+          'de0b6b3a7640000',
+          radix: 16,
+        ), // 1 ether
         acquiredAt: DateTime.now(),
       );
 
@@ -66,7 +85,10 @@ void main() {
           reservedAmountWei: BigInt.from(50000),
           acquiredAt: DateTime.now(),
         );
-        await storage.write('escrow_locks', jsonEncode([lock.toJson()]));
+        await storage.write(
+          keyFor(userA.publicKey),
+          jsonEncode([lock.toJson()]),
+        );
 
         await registry.initialize();
         final all = await registry.getAll();
@@ -87,7 +109,10 @@ void main() {
           reservedAmountWei: BigInt.from(999),
           acquiredAt: DateTime.now(),
         );
-        await storage.write('escrow_locks', jsonEncode([other.toJson()]));
+        await storage.write(
+          keyFor(userA.publicKey),
+          jsonEncode([other.toJson()]),
+        );
 
         // Second initialize should be a no-op
         await registry.initialize();
@@ -97,7 +122,7 @@ void main() {
       });
 
       test('handles corrupt storage gracefully', () async {
-        await storage.write('escrow_locks', 'not valid json}}}');
+        await storage.write(keyFor(userA.publicKey), 'not valid json}}}');
         await registry.initialize();
         final all = await registry.getAll();
         expect(all, isEmpty);
@@ -119,7 +144,7 @@ void main() {
         expect(retrieved!.tradeId, 'trade-1');
 
         // Verify it's in underlying storage
-        final raw = await storage.read('escrow_locks');
+        final raw = await storage.read(keyFor(userA.publicKey));
         final list = jsonDecode(raw) as List;
         expect(list, hasLength(1));
       });
@@ -162,13 +187,16 @@ void main() {
         expect(all.first.tradeId, 'to-keep');
       });
 
-      test('is a no-op for unknown tradeId (safe for finally blocks)', () async {
-        await registry.initialize();
-        // Should not throw
-        await registry.release('nonexistent');
-        final all = await registry.getAll();
-        expect(all, isEmpty);
-      });
+      test(
+        'is a no-op for unknown tradeId (safe for finally blocks)',
+        () async {
+          await registry.initialize();
+          // Should not throw
+          await registry.release('nonexistent');
+          final all = await registry.getAll();
+          expect(all, isEmpty);
+        },
+      );
 
       test('persists removal to disk', () async {
         await registry.acquire(
@@ -178,7 +206,7 @@ void main() {
         await registry.release('temp');
 
         // Re-create registry from same storage
-        final registry2 = EscrowLockRegistry(storage, CustomLogger());
+        final registry2 = EscrowLockRegistry(storage, CustomLogger(), auth);
         await registry2.initialize();
         final all = await registry2.getAll();
         expect(all, isEmpty);
@@ -301,13 +329,12 @@ void main() {
           acquiredAt: DateTime.now(),
         );
         await storage.write(
-          'escrow_locks',
+          keyFor(userA.publicKey),
           jsonEncode([oldLock.toJson(), recentLock.toJson()]),
         );
 
-        final registry2 = EscrowLockRegistry(storage, CustomLogger());
-        final pruned =
-            await registry2.pruneOlderThan(const Duration(days: 30));
+        final registry2 = EscrowLockRegistry(storage, CustomLogger(), auth);
+        final pruned = await registry2.pruneOlderThan(const Duration(days: 30));
         expect(pruned, 1);
 
         final all = await registry2.getAll();
@@ -321,8 +348,7 @@ void main() {
           'fresh',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 500),
         );
-        final pruned =
-            await registry.pruneOlderThan(const Duration(days: 30));
+        final pruned = await registry.pruneOlderThan(const Duration(days: 30));
         expect(pruned, 0);
       });
     });
@@ -339,7 +365,7 @@ void main() {
         );
 
         // Create a new registry pointing at the same storage
-        final registry2 = EscrowLockRegistry(storage, CustomLogger());
+        final registry2 = EscrowLockRegistry(storage, CustomLogger(), auth);
         await registry2.initialize();
 
         final all = await registry2.getAll();
@@ -358,7 +384,7 @@ void main() {
         );
         await registry.acquire('big-amount', amount);
 
-        final registry2 = EscrowLockRegistry(storage, CustomLogger());
+        final registry2 = EscrowLockRegistry(storage, CustomLogger(), auth);
         await registry2.initialize();
 
         final lock = await registry2.get('big-amount');
@@ -366,6 +392,36 @@ void main() {
         expect(lock!.reservedAmountWei, amount.getInWei);
         registry2.dispose();
       });
+
+      test(
+        'keeps locks isolated per pubkey and survives auth changes',
+        () async {
+          await registry.acquire(
+            'user-a-lock',
+            BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
+          );
+
+          activeKeyPair = userB;
+          await registry.initialize();
+          expect(await registry.getAll(), isEmpty);
+
+          await registry.acquire(
+            'user-b-lock',
+            BitcoinAmount.fromInt(BitcoinUnit.sat, 2000),
+          );
+
+          final rawA = await storage.read(keyFor(userA.publicKey));
+          final rawB = await storage.read(keyFor(userB.publicKey));
+          expect(rawA, isNotNull);
+          expect(rawB, isNotNull);
+
+          activeKeyPair = userA;
+          await registry.initialize();
+          final locksA = await registry.getAll();
+          expect(locksA, hasLength(1));
+          expect(locksA.first.tradeId, 'user-a-lock');
+        },
+      );
     });
   });
 }

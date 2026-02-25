@@ -15,10 +15,12 @@ import '../escrow/fund/escrow_fund.dart';
 class PaymentMethodWidget extends StatelessWidget {
   final ProfileMetadata counterparty;
   final ReservationRequest reservationRequest;
+  final String? listingName;
   const PaymentMethodWidget({
     super.key,
     required this.counterparty,
     required this.reservationRequest,
+    this.listingName,
   });
 
   @override
@@ -57,6 +59,7 @@ class PaymentMethodWidget extends StatelessWidget {
                     child: EscrowFundWidget(
                       counterparty: counterparty,
                       reservationRequest: reservationRequest,
+                      listingName: listingName,
                     ),
                   );
                 },

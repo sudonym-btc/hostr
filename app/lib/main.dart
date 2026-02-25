@@ -47,13 +47,17 @@ void callbackDispatcher() {
       prefs.setString(iOSBackgroundAppRefresh, 'done');
       prefs.setString(iOSBackgroundProcessingTask, 'done');
 
-      final messages = await getIt<Hostr>().messaging.threads.refresh();
-      print('Synced messages: ${messages.length}');
-      await FlutterLocalNotificationsPlugin().show(
-        id: 2,
-        title: 'Hostr',
-        body: 'You have ${messages.length} new messages',
+      final result = await getIt<Hostr>().backgroundWorker.run();
+      print(
+        'Background worker completed: ${result.notifications.length} notifications',
       );
+      for (int i = 0; i < result.notifications.length; i++) {
+        await FlutterLocalNotificationsPlugin().show(
+          id: 2 + i,
+          title: 'Hostr',
+          body: result.notifications[i],
+        );
+      }
       // switch (task) {
       //   case "sync":
       //     print('here we are');

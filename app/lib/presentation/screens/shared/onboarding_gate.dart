@@ -49,10 +49,11 @@ class _OnboardingBody extends StatelessWidget {
         if (!state.hasMetadata) {
           if (popOnComplete) {
             context.router.popUntilRoot();
-            context.router.replace(EditProfileRoute());
+            context.router.replace(const HomeRoute());
           } else {
-            context.router.replace(EditProfileRoute());
+            context.router.replace(const HomeRoute());
           }
+          context.router.push(EditProfileRoute());
           return;
         }
 

@@ -6,6 +6,7 @@ import 'package:rxdart/rxdart.dart';
 import '../../../../datasources/storage.dart';
 import '../../../../util/bitcoin_amount.dart';
 import '../../../../util/custom_logger.dart';
+import '../../../auth/auth.dart';
 import 'escrow_lock.dart';
 
 /// Persistent registry that tracks escrow operations currently using (or about
@@ -19,29 +20,41 @@ import 'escrow_lock.dart';
 /// foreground app is not active.
 @singleton
 class EscrowLockRegistry {
-  static const _storageKey = 'escrow_locks';
+  static const _storageKeyBase = 'escrow_locks';
 
   final KeyValueStorage _storage;
   final CustomLogger _logger;
+  final Auth _auth;
 
   /// In-memory cache. Loaded lazily on first access via [initialize].
   Map<String, EscrowLock>? _cache;
+  String? _loadedPubkey;
 
   /// Emits `true` whenever at least one lock is held, `false` otherwise.
   final BehaviorSubject<bool> _hasActiveLocksSubject = BehaviorSubject.seeded(
     false,
   );
 
-  EscrowLockRegistry(this._storage, this._logger);
+  EscrowLockRegistry(this._storage, this._logger, this._auth);
 
   // ── Public API ──────────────────────────────────────────────────────────
 
   /// Load all lock records from disk. Idempotent.
   Future<void> initialize() async {
-    if (_cache != null) return;
+    final pubkey = _currentPubkey();
+    if (_cache != null && _loadedPubkey == pubkey) return;
+
     _cache = {};
+    _loadedPubkey = pubkey;
+
+    if (pubkey == null) {
+      _hasActiveLocksSubject.add(false);
+      _logger.d('EscrowLockRegistry initialize skipped: no active pubkey');
+      return;
+    }
+
     try {
-      final raw = await _storage.read(_storageKey);
+      final raw = await _storage.read(_storageKeyFor(pubkey));
       if (raw == null) return;
 
       final String jsonStr = raw is String ? raw : raw.toString();
@@ -58,7 +71,9 @@ class EscrowLockRegistry {
         }
       }
       _hasActiveLocksSubject.add(_cache!.isNotEmpty);
-      _logger.i('EscrowLockRegistry loaded ${_cache!.length} lock(s)');
+      _logger.i(
+        'EscrowLockRegistry loaded ${_cache!.length} lock(s) for $pubkey',
+      );
     } catch (e) {
       _logger.e('Failed to load escrow locks: $e');
       _cache = {};
@@ -174,7 +189,15 @@ class EscrowLockRegistry {
   // ── Internal ────────────────────────────────────────────────────────────
 
   Future<void> _flush() async {
+    if (_loadedPubkey == null) {
+      _logger.w('EscrowLockRegistry: skip flush because no active pubkey');
+      return;
+    }
     final list = _cache!.values.map((l) => l.toJson()).toList();
-    await _storage.write(_storageKey, jsonEncode(list));
+    await _storage.write(_storageKeyFor(_loadedPubkey!), jsonEncode(list));
   }
+
+  String? _currentPubkey() => _auth.activeKeyPair?.publicKey;
+
+  String _storageKeyFor(String pubkey) => '$_storageKeyBase:$pubkey';
 }
