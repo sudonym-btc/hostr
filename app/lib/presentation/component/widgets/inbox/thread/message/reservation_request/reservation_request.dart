@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/export.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
-import 'package:hostr/presentation/component/widgets/listing/price.dart';
 import 'package:models/main.dart';
 
 class ThreadReservationRequestWidget extends ThreadMessageWidget {
@@ -34,20 +32,20 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
                 context,
               ).textTheme.bodyMedium?.copyWith(color: textColor),
             ),
-            Gap.vertical.xs(),
-            Text(
-              formatDateRangeShort(
-                DateTimeRange(
-                  start: negotiateReservation.parsedContent.start,
-                  end: negotiateReservation.parsedContent.end,
-                ),
-                Localizations.localeOf(context),
-              ),
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: textColor),
-            ),
-            PriceText(formatAmount(negotiateReservation.parsedContent.amount!)),
+            // Gap.vertical.xs(),
+            // Text(
+            //   formatDateRangeShort(
+            //     DateTimeRange(
+            //       start: negotiateReservation.parsedContent.start,
+            //       end: negotiateReservation.parsedContent.end,
+            //     ),
+            //     Localizations.localeOf(context),
+            //   ),
+            //   style: Theme.of(
+            //     context,
+            //   ).textTheme.bodyMedium?.copyWith(color: textColor),
+            // ),
+            // PriceText(formatAmount(negotiateReservation.parsedContent.amount!)),
           ],
         ),
       ),

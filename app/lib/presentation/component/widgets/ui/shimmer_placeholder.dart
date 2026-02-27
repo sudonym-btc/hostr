@@ -61,7 +61,10 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        final t = _controller.value * 2 - 0.5;
+        // Map [0, 1] → [-1.5, 1.5] so the highlight enters from fully
+        // off the left edge and exits fully off the right edge before
+        // looping, eliminating the visible jump.
+        final t = _controller.value * 3.0 - 1.5;
         return Container(
           decoration: BoxDecoration(
             borderRadius: widget.borderRadius,

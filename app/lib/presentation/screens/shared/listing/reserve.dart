@@ -40,6 +40,7 @@ class Reserve extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
+                          style: Theme.of(context).textTheme.titleMedium,
                           formatAmount(
                             listing.cost(
                               dateState.dateRange!.start,

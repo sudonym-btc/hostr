@@ -88,6 +88,7 @@ Future<List<SeedThread>> buildThreads({
           stage: ReservationStage.negotiate,
           quantity: 1,
           amount: listing.cost(start, end),
+          recipient: guest.keyPair.publicKey,
         ),
       ).signAs(guest.keyPair, Reservation.fromNostrEvent);
 

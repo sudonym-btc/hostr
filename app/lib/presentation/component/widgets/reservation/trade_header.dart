@@ -11,43 +11,47 @@ import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/actions/trade_action_resolver.dart';
+import 'package:hostr_sdk/usecase/messaging/thread/trade_state.dart';
 import 'package:models/main.dart';
+import 'package:rxdart/rxdart.dart';
 
 import '../flow/payment/escrow/fund/escrow_fund.dart';
 import 'payment_status_chip.dart';
 
 class TradeHeaderView extends StatelessWidget {
   final Listing listing;
+  final ProfileMetadata listingProfile;
   final DateTime start;
   final DateTime end;
   final Amount? amount;
   final TradeAvailability availability;
   final String? availabilityReason;
-  final Widget actionsRightWidget;
-  final Widget actionsWidget;
+  final List<TradeAction> actions;
   final StreamWithStatus<PaymentEvent>? paymentEventsStream;
   final ValidatedStreamWithStatus<ReservationPairStatus>? reservationStream;
   final String tradeId;
   final String hostPubKey;
   final bool runtimeReady;
   final StreamWithStatus<ReservationTransition>? transitionsStream;
+  final ValueStream<bool>? subscriptionsLive;
 
   const TradeHeaderView({
     super.key,
     required this.listing,
+    required this.listingProfile,
     required this.start,
     required this.end,
     required this.amount,
     required this.availability,
     this.availabilityReason,
-    required this.actionsRightWidget,
-    required this.actionsWidget,
+    this.actions = const [],
     required this.tradeId,
     required this.hostPubKey,
     this.runtimeReady = true,
     this.paymentEventsStream,
     this.reservationStream,
     this.transitionsStream,
+    this.subscriptionsLive,
   });
 
   void _navigateToListing(BuildContext context) {
@@ -164,6 +168,7 @@ class TradeHeaderView extends StatelessWidget {
     BuildContext context,
     List<PaymentEvent> paymentEvents,
   ) {
+    if (amount == null) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -198,7 +203,6 @@ class TradeHeaderView extends StatelessWidget {
                       (reservationSnapshot.data ?? const []).firstOrNull;
                   return ModalBottomSheet(
                     title: 'Information',
-                    buttons: actionsWidget,
                     content: SingleChildScrollView(
                       child: SafeArea(
                         child: Column(
@@ -233,6 +237,155 @@ class TradeHeaderView extends StatelessWidget {
     );
   }
 
+  // ─── Button helpers ────────────────────────────────────────────────
+
+  void _showNotImplemented(BuildContext context) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.actionNotImplementedYet),
+        ),
+      );
+
+  Widget _cancelButton(BuildContext context) => OutlinedButton(
+    onPressed: () =>
+        context.read<ThreadCubit>().thread.trade!.execute(TradeAction.cancel),
+    style: OutlinedButton.styleFrom(
+      foregroundColor: Theme.of(context).colorScheme.error,
+      side: BorderSide(color: Theme.of(context).colorScheme.error),
+    ),
+    child: const Text('Cancel'),
+  );
+
+  Widget _messageEscrowButton(BuildContext context) => OutlinedButton(
+    onPressed: () {
+      final cubit = context.read<ThreadCubit>();
+      final pubkey = cubit.thread.trade!.getEscrowPubkey();
+      if (pubkey != null) {
+        cubit.addParticipant(pubkey);
+        cubit.thread.trade!.refreshActions();
+      }
+    },
+    style: OutlinedButton.styleFrom(
+      foregroundColor: Theme.of(context).colorScheme.secondary,
+    ),
+    child: const Text('Message Escrow'),
+  );
+
+  Widget _payButton(BuildContext context) {
+    final lastReservation = context
+        .read<ThreadCubit>()
+        .state
+        .threadState
+        .lastReservationRequest;
+    return FilledButton(
+      onPressed: () => showAppModal(
+        context,
+        child: EscrowFundWidget(
+          counterparty: listingProfile,
+          negotiateReservation: lastReservation,
+          listingName: listing.parsedContent.title,
+        ),
+      ),
+      style: FilledButton.styleFrom(
+        visualDensity: VisualDensity.comfortable,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: const Text('Pay'),
+    );
+  }
+
+  Widget _acceptButton(BuildContext context) => OutlinedButton(
+    onPressed: () =>
+        context.read<ThreadCubit>().thread.trade!.execute(TradeAction.accept),
+    child: const Text('Accept'),
+  );
+
+  Widget _counterButton(BuildContext context) => OutlinedButton(
+    onPressed: () => _showNotImplemented(context),
+    child: const Text('Counter'),
+  );
+
+  Widget _refundButton(BuildContext context) => OutlinedButton(
+    onPressed: () => _showNotImplemented(context),
+    child: const Text('Refund'),
+  );
+
+  Widget _reviewButton(BuildContext context) => OutlinedButton(
+    onPressed: () => showAppModal(
+      context,
+      child: CustomPadding(
+        child: EditReview(listing: listing, salt: 'thread_salt'),
+      ),
+    ),
+    child: const Text('Review'),
+  );
+
+  // ─── Phase rows ────────────────────────────────────────────────────
+
+  /// Negotiation phase: payment summary on the left, pay / accept / counter / cancel on the right.
+  Widget _buildNegotiationRow(
+    BuildContext context,
+    List<PaymentEvent> paymentEvents,
+  ) {
+    final hasCancel = actions.contains(TradeAction.cancel);
+    final hasCounter = actions.contains(TradeAction.counter);
+    final hasPay = actions.contains(TradeAction.pay);
+    final hasAccept = actions.contains(TradeAction.accept);
+    if (!hasCancel && !hasCounter && !hasPay && !hasAccept) {
+      return const SizedBox.shrink();
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (amount != null)
+          Expanded(child: _buildPaymentSummary(context, paymentEvents))
+        else
+          const Spacer(),
+        if (hasCancel) _cancelButton(context),
+        if (hasCounter) ...[
+          if (hasCancel) const SizedBox(width: 8),
+          _counterButton(context),
+        ],
+        if (hasPay || hasAccept) const SizedBox(width: 8),
+        if (hasPay)
+          _payButton(context)
+        else if (hasAccept)
+          _acceptButton(context),
+      ],
+    );
+  }
+
+  /// Commit phase: cancel / message-escrow on the left, claim / refund / review on the right.
+  Widget _buildCommitRow(BuildContext context) {
+    final hasCancel = actions.contains(TradeAction.cancel);
+    final hasMessageEscrow = actions.contains(TradeAction.messageEscrow);
+    final hasClaim = actions.contains(TradeAction.claim);
+    final hasRefund = actions.contains(TradeAction.refund);
+    final hasReview = actions.contains(TradeAction.review);
+    if (!hasCancel &&
+        !hasMessageEscrow &&
+        !hasClaim &&
+        !hasRefund &&
+        !hasReview) {
+      return const SizedBox.shrink();
+    }
+    return Row(
+      children: [
+        if (hasCancel) _cancelButton(context),
+        if (hasMessageEscrow) ...[
+          if (hasCancel) Gap.horizontal.md(),
+          _messageEscrowButton(context),
+        ],
+        if (hasClaim)
+          ClaimWidget()
+        else if (hasRefund)
+          _refundButton(context)
+        else if (hasReview)
+          _reviewButton(context),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<PaymentEvent>>(
@@ -247,28 +400,33 @@ class TradeHeaderView extends StatelessWidget {
             final reservations = reservationSnapshot.data ?? const [];
             final showDetails =
                 paymentEvents.isNotEmpty || reservations.isNotEmpty;
-            return ShimmerPlaceholder(
-              loading: !runtimeReady,
-              child: Container(
-                color: _containerColor(context),
-                child: CustomPadding(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSummary(context, showDetails: showDetails),
-                      Gap.vertical.lg(),
-                      Row(
+            final hasFunded = paymentEvents.isNotEmpty;
+            if (!runtimeReady) return const ShimmerCard(height: 100);
+            return StreamBuilder<bool>(
+              stream: subscriptionsLive,
+              initialData: subscriptionsLive?.value ?? false,
+              builder: (context, isLiveSnapshot) {
+                return ShimmerPlaceholder(
+                  loading: !(isLiveSnapshot.data ?? false),
+                  child: Container(
+                    color: _containerColor(context),
+                    child: CustomPadding(
+                      bottom: 0.5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: _buildPaymentSummary(context, paymentEvents),
-                          ),
-                          actionsRightWidget,
+                          _buildSummary(context, showDetails: showDetails),
+                          Gap.vertical.lg(),
+                          if (hasFunded)
+                            _buildCommitRow(context)
+                          else
+                            _buildNegotiationRow(context, paymentEvents),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );
@@ -313,204 +471,56 @@ class _ReservationRecords extends StatelessWidget {
 class TradeHeader extends StatelessWidget {
   const TradeHeader({super.key});
 
-  List<Widget> _buildActionButtons(
-    BuildContext context,
-    List<TradeAction> actionList,
-    ProfileMetadata listingProfile,
-    Listing listing,
-  ) {
-    FilledButton actionButton(String label, VoidCallback? onPressed) {
-      return FilledButton(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          visualDensity: VisualDensity.comfortable,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        child: Text(label),
-      );
-    }
-
-    void notImplemented() {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context)!.actionNotImplementedYet),
-        ),
-      );
-    }
-
-    final children = <Widget>[];
-
-    for (final action in actionList) {
-      switch (action) {
-        case TradeAction.cancel:
-          children.add(
-            TextButton(
-              child: Text('Cancel'),
-              onPressed: () {
-                context.read<ThreadCubit>().thread.trade!.execute(
-                  TradeAction.cancel,
-                );
-              },
-            ),
-          );
-          break;
-        case TradeAction.messageEscrow:
-          children.add(
-            actionButton('Message Escrow', () {
-              final threadCubit = context.read<ThreadCubit>();
-              final escrowPubkey = threadCubit.thread.trade!.getEscrowPubkey();
-              if (escrowPubkey != null) {
-                threadCubit.addParticipant(escrowPubkey);
-                threadCubit.thread.trade!.refreshActions();
-              }
-            }),
-          );
-          break;
-        case TradeAction.review:
-          children.add(actionButton('Review', () => _review(context, listing)));
-          break;
-        case TradeAction.refund:
-          children.add(actionButton('Refund', notImplemented));
-          break;
-        case TradeAction.claim:
-          children.add(ClaimWidget());
-          break;
-        case TradeAction.accept:
-          children.add(
-            actionButton(
-              'Accept',
-              () => context.read<ThreadCubit>().thread.trade!.execute(
-                TradeAction.accept,
-              ),
-            ),
-          );
-          break;
-        case TradeAction.counter:
-          children.add(actionButton('Counter', notImplemented));
-          break;
-        case TradeAction.pay:
-          children.add(
-            actionButton('Pay', () {
-              final lastNegotiateReservation = context
-                  .read<ThreadCubit>()
-                  .state
-                  .threadState
-                  .lastReservationRequest;
-              showAppModal(
-                context,
-                child: EscrowFundWidget(
-                  counterparty: listingProfile,
-                  negotiateReservation: lastNegotiateReservation,
-                  listingName: listing.parsedContent.title,
-                ),
-              );
-            }),
-          );
-          break;
-      }
-    }
-
-    return children;
-  }
-
-  Widget _buildActions(
-    BuildContext context,
-    List<TradeAction> actions,
-    ProfileMetadata listingProfile,
-    Listing listing,
-  ) {
-    final children = _buildActionButtons(
-      context,
-      actions,
-      listingProfile,
-      listing,
-    );
-    if (children.isEmpty) return const SizedBox.shrink();
-    return Row(mainAxisAlignment: MainAxisAlignment.end, children: children);
-  }
-
-  Widget _buildActionsRight(
-    BuildContext context,
-    List<TradeAction> actions,
-    ProfileMetadata listingProfile,
-    Listing listing,
-  ) {
-    final hasPay = actions.contains(TradeAction.pay);
-    final TradeAction? primaryAction = hasPay
-        ? TradeAction.pay
-        : (actions.length == 1 ? actions.first : null);
-
-    if (primaryAction == null) return const SizedBox.shrink();
-
-    final children = _buildActionButtons(
-      context,
-      [primaryAction],
-      listingProfile,
-      listing,
-    );
-    if (children.isEmpty) return const SizedBox.shrink();
-
-    return Row(mainAxisSize: MainAxisSize.min, children: children);
-  }
-
   @override
   Widget build(BuildContext context) {
     final trade = context.read<ThreadCubit>().thread.trade!;
-    return StreamBuilder<TradeResolution>(
-      stream: trade.actions$,
-      builder: (context, actionsSnapshot) {
-        return StreamBuilder<TradeContext?>(
-          stream: trade.context$,
-          initialData: trade.context$.value,
-          builder: (context, contextSnapshot) {
-            final tradeContext = contextSnapshot.data;
-            final tradeState = trade.state.value;
+    // Subscribe to trade.state so this widget rebuilds when runtimeReady
+    // changes. Without this, actions$ is captured as Stream.empty() on the
+    // first build (context$ emits before _actions$ is assigned in
+    // _doEnsureRuntime), and the StreamBuilder never picks up the real stream.
+    return StreamBuilder<TradeState>(
+      stream: trade.state,
+      initialData: trade.state.value,
+      builder: (context, stateSnapshot) {
+        final tradeState = stateSnapshot.data!;
+        return StreamBuilder<TradeResolution>(
+          stream: trade.actions$,
+          builder: (context, actionsSnapshot) {
+            return StreamBuilder<TradeContext?>(
+              stream: trade.context$,
+              initialData: trade.context$.value,
+              builder: (context, contextSnapshot) {
+                final tradeContext = contextSnapshot.data;
+                final lastRequest =
+                    trade.thread.state.value.lastReservationRequest;
 
-            if (tradeContext == null) return const SizedBox.shrink();
+                if (tradeContext == null) return const SizedBox.shrink();
 
-            final resolution = actionsSnapshot.data;
-            final actions = resolution?.actions ?? const [];
-            final listingProfile = tradeContext.profile;
+                final resolution = actionsSnapshot.data;
 
-            return TradeHeaderView(
-              listing: tradeContext.listing,
-              start: tradeState.start,
-              end: tradeState.end,
-              amount: tradeState.amount,
-              availability:
-                  resolution?.availability ?? TradeAvailability.available,
-              availabilityReason: resolution?.availabilityReason,
-              runtimeReady: tradeState.runtimeReady,
-              actionsRightWidget: _buildActionsRight(
-                context,
-                actions,
-                listingProfile,
-                tradeContext.listing,
-              ),
-              actionsWidget: _buildActions(
-                context,
-                actions,
-                listingProfile,
-                tradeContext.listing,
-              ),
-              paymentEventsStream: trade.subscriptions.paymentEvents,
-              reservationStream: trade.subscriptions.reservationStream,
-              tradeId: tradeState.tradeId,
-              hostPubKey: listingProfile.pubKey,
-              transitionsStream: trade.subscriptions.transitionsStream,
+                return TradeHeaderView(
+                  listing: tradeContext.listing,
+                  listingProfile: tradeContext.profile,
+                  start: tradeState.start,
+                  end: tradeState.end,
+                  amount: lastRequest.parsedContent.amount,
+                  availability:
+                      resolution?.availability ?? TradeAvailability.available,
+                  availabilityReason: resolution?.availabilityReason,
+                  runtimeReady: tradeState.runtimeReady,
+                  actions: resolution?.actions ?? const [],
+                  paymentEventsStream: trade.subscriptions.paymentEvents,
+                  reservationStream: trade.subscriptions.reservationStream,
+                  tradeId: tradeState.tradeId,
+                  hostPubKey: tradeContext.profile.pubKey,
+                  transitionsStream: trade.subscriptions.transitionsStream,
+                  subscriptionsLive: trade.subscriptions.isLive,
+                );
+              },
             );
           },
         );
       },
-    );
-  }
-
-  void _review(BuildContext context, Listing listing) {
-    showAppModal(
-      context,
-      child: CustomPadding(
-        child: EditReview(listing: listing, salt: 'thread_salt'),
-      ),
     );
   }
 }

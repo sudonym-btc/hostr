@@ -40,6 +40,7 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   }
 
   void _emitParticipantStates() {
+    if (isClosed) return;
     emit(
       state.copyWith(
         participantStates: participantCubits.values
@@ -53,6 +54,7 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   }
 
   void addParticipant(String pubkey) {
+    if (isClosed) return;
     if (participantCubits.containsKey(pubkey)) {
       return;
     }

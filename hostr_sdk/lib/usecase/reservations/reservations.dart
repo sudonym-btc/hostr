@@ -428,6 +428,10 @@ class Reservations extends CrudUseCase<Reservation> {
       content: ReservationContent(
         start: request.parsedContent.start,
         end: request.parsedContent.end,
+        stage: ReservationStage.commit,
+        quantity: request.parsedContent.quantity,
+        amount: request.parsedContent.amount,
+        recipient: request.parsedContent.recipient,
       ),
       pubKey: auth.activeKeyPair!.publicKey,
     );
@@ -490,7 +494,10 @@ class Reservations extends CrudUseCase<Reservation> {
         .copy(
           createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
           id: null,
-          content: reservation.parsedContent.copyWith(cancelled: true),
+          content: reservation.parsedContent.copyWith(
+            cancelled: true,
+            stage: ReservationStage.cancel,
+          ),
           pubKey: null,
         )
         .signAs(keyPair, Reservation.fromNostrEvent);

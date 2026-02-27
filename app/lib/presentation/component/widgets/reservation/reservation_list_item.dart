@@ -7,31 +7,34 @@ import 'package:hostr/presentation/component/widgets/listing/preload_listing_ima
 import 'package:hostr/router.dart';
 import 'package:models/main.dart';
 
-/// Displays a group of reservations that share the same commitment hash.
+/// Displays a single reservation pair (one trade between guest and host).
 ///
 /// Shows the listing image carousel, title, reservation date range, and status.
 /// Tapping navigates to the inbox thread for this reservation.
 class ReservationListItem extends StatelessWidget {
-  /// All reservations sharing the same commitment hash.
-  final List<Reservation> reservations;
+  /// The seller/buyer pair for this trade.
+  final ReservationPairStatus reservationPair;
 
-  const ReservationListItem({super.key, required this.reservations});
+  const ReservationListItem({super.key, required this.reservationPair});
 
   @override
   Widget build(BuildContext context) {
-    assert(reservations.isNotEmpty);
+    final representative =
+        reservationPair.buyerReservation ?? reservationPair.sellerReservation;
+    final listingAnchor = representative?.parsedTags.listingAnchor ?? '';
+    final threadAnchor = representative?.getTags(kThreadRefTag).firstOrNull;
 
-    final reservation = reservations.first;
-    final listingAnchor = reservation.parsedTags.listingAnchor;
-    final threadAnchor = reservation.getTags(kThreadRefTag).firstOrNull;
+    final start = reservationPair.start;
+    final end = reservationPair.end;
+    final subtitle = (start != null && end != null)
+        ? '${formatDate(start)} – ${formatDate(end)}'
+        : '…';
 
     return ListingProvider(
       a: listingAnchor,
       builder: (context, state) {
         final listing = state.data;
         final title = listing?.parsedContent.title.toString() ?? '…';
-        final subtitle =
-            '${formatDate(reservation.parsedContent.start)} – ${formatDate(reservation.parsedContent.end)}';
 
         return InkWell(
           onTap: threadAnchor != null
@@ -67,10 +70,8 @@ class ReservationListItem extends StatelessWidget {
                         subtitle,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      if (listing != null) ...[
-                        Gap.vertical.sm(),
-                        _buildStatusChip(context, listing),
-                      ],
+                      Gap.vertical.sm(),
+                      _buildStatusChip(context),
                     ],
                   ),
                 ),
@@ -82,18 +83,12 @@ class ReservationListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusChip(BuildContext context, Listing listing) {
-    final status = Reservation.getReservationStatus(
-      reservations: reservations,
-      listing: listing,
-    );
-
-    final (String label, Color? color) = switch (status) {
-      ReservationStatus.confirmed => ('Confirmed', Colors.green),
-      ReservationStatus.cancelled => ('Cancelled', Colors.red),
-      ReservationStatus.completed => ('Completed', Colors.grey),
-      ReservationStatus.valid => ('Pending', Colors.orange),
-      ReservationStatus.invalid => ('Invalid', Colors.red),
+  Widget _buildStatusChip(BuildContext context) {
+    final (String label, Color? color) = switch (reservationPair) {
+      _ when reservationPair.cancelled => ('Cancelled', Colors.red),
+      _ when reservationPair.isCompleted => ('Completed', Colors.grey),
+      _ when reservationPair.isActive => ('Confirmed', Colors.green),
+      _ => ('Pending', Colors.orange),
     };
 
     return Chip(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart' as crypto;
+import 'package:models/main.dart';
 
 /// Proof that a guest was a participant in a reservation.
 ///
@@ -34,6 +35,11 @@ class ParticipationProof {
   /// Verify this proof matches the given commitment hash
   bool verify(String guestPubKey, String commitmentHash) {
     return computeCommitmentHash(guestPubKey, salt) == commitmentHash;
+  }
+
+  bool verifyTweakedPubKey(String pubKey, String pubKeyWithTeak) {
+    return verifyPubKeyWithTeak(
+        pubKey: pubKey, salt: salt, pubKeyWithTeak: pubKeyWithTeak);
   }
 
   Map<String, dynamic> toJson() {

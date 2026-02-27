@@ -20,6 +20,7 @@ class ThreadHeaderWidget extends StatelessWidget {
     final subtitleStyle = Theme.of(context).textTheme.bodyMedium;
 
     return ListTile(
+      contentPadding: EdgeInsets.all(0),
       leading: ProfileAvatars(
         profiles: counterparties,
         onProfileTap: onCounterpartyTap,
@@ -95,33 +96,35 @@ class ProfileAvatars extends StatelessWidget {
   const ProfileAvatars({super.key, required this.profiles, this.onProfileTap});
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40, // Adjust as needed for avatar size
-      width: 40,
-      child: Stack(
-        children: profiles
-            .map(
-              (counterparty) => Positioned(
-                left:
-                    profiles.indexOf(counterparty) *
-                    kSpace3, // overlap offset for each avatar
-                child: GestureDetector(
-                  onTap: onProfileTap != null
-                      ? () => onProfileTap!(counterparty)
-                      : null,
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundImage: counterparty.metadata.picture != null
-                        ? NetworkImage(counterparty.metadata.picture!)
+    return ClipOval(
+      child: SizedBox(
+        height: 40,
+        width: 40,
+        child: Stack(
+          children: profiles
+              .map(
+                (counterparty) => Positioned(
+                  left:
+                      profiles.indexOf(counterparty) *
+                      kSpace3, // overlap offset for each avatar
+                  child: GestureDetector(
+                    onTap: onProfileTap != null
+                        ? () => onProfileTap!(counterparty)
                         : null,
-                    child: counterparty.metadata.picture == null
-                        ? Text(counterparty.metadata.name?[0] ?? '')
-                        : null,
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundImage: counterparty.metadata.picture != null
+                          ? NetworkImage(counterparty.metadata.picture!)
+                          : null,
+                      child: counterparty.metadata.picture == null
+                          ? Text(counterparty.metadata.name?[0] ?? '')
+                          : null,
+                    ),
                   ),
                 ),
-              ),
-            )
-            .toList(),
+              )
+              .toList(),
+        ),
       ),
     );
   }

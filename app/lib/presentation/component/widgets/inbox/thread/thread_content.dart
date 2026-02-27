@@ -8,8 +8,6 @@ import 'package:hostr/presentation/component/widgets/inbox/thread/message/messag
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
-import 'message/reservation_request/reservation_request.dart';
-
 class ThreadContent extends StatefulWidget {
   final List<ProfileMetadata> participants;
   const ThreadContent({super.key, required this.participants});
@@ -26,16 +24,15 @@ class _ThreadContentState extends State<ThreadContent> {
       if (!_scrollController.hasClients) {
         return;
       }
-
-      final offset = _scrollController.position.maxScrollExtent;
+      // reverse:true means 0 is the visual bottom (newest messages).
       if (animated) {
         _scrollController.animateTo(
-          offset,
+          0,
           duration: kAnimationDuration,
           curve: kAnimationCurve,
         );
       } else {
-        _scrollController.jumpTo(offset);
+        _scrollController.jumpTo(0);
       }
     });
   }
@@ -103,20 +100,27 @@ class _ThreadContentState extends State<ThreadContent> {
               },
               builder: (context, state) {
                 final messages = state.threadState.sortedMessages;
+                final reversed = messages.reversed.toList();
                 final isGroupChat = widget.participants.length > 2;
                 return ListView.builder(
                   controller: _scrollController,
+                  reverse: true,
                   physics: const AlwaysScrollableScrollPhysics(),
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.symmetric(vertical: kSpace4),
-                  itemCount: messages.length,
+                  itemCount: reversed.length,
                   itemBuilder: (listContext, index) {
-                    final message = messages[index];
-                    final newPubkeys = _newParticipantsAt(index, messages);
+                    final message = reversed[index];
+                    // Map back to the chronological index for join-banner logic.
+                    final chronoIndex = messages.length - 1 - index;
+                    final newPubkeys = _newParticipantsAt(
+                      chronoIndex,
+                      messages,
+                    );
                     return Column(
                       children: [
-                        if (index != 0) Gap.vertical.md(),
+                        Gap.vertical.md(),
                         for (final pubkey in newPubkeys)
                           _JoinedBanner(name: _displayName(pubkey)),
                         _buildMessage(
@@ -164,11 +168,12 @@ class _ThreadContentState extends State<ThreadContent> {
       return Container();
     } else if (message.child is Reservation &&
         (message.child as Reservation).parsedContent.isNegotiation) {
-      return ThreadReservationRequestWidget(
-        sender: sender,
-        item: message,
-        isSentByMe: isSentByMe,
-      );
+      return Container();
+      // return ThreadReservationRequestWidget(
+      //   sender: sender,
+      //   item: message,
+      //   isSentByMe: isSentByMe,
+      // );
     }
     return Text(AppLocalizations.of(context)!.unknownMessageType);
   }

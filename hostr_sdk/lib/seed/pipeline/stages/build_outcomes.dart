@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:hostr_sdk/usecase/payments/constants.dart';
@@ -389,6 +390,10 @@ Future<void> buildOutcomes({
       content: ReservationContent(
         start: thread.start,
         end: thread.end,
+        stage: ReservationStage.commit,
+        quantity: thread.request.parsedContent.quantity,
+        amount: thread.request.parsedContent.amount,
+        recipient: thread.request.parsedContent.recipient,
         proof: mutatedProof,
       ),
     ).signAs(thread.guest.keyPair, Reservation.fromNostrEvent);
@@ -396,6 +401,8 @@ Future<void> buildOutcomes({
     thread.reservation = reservation;
     thread.invalidReservationReason = invalidReason;
   }
+
+  _printOutcomesSummary(plans: plans, allThreads: threads);
 }
 
 // ─── Plan model ─────────────────────────────────────────────────────────────
@@ -739,4 +746,162 @@ EscrowOutcome _pickEscrowOutcome({
     return EscrowOutcome.claimedByHost;
   }
   return EscrowOutcome.releaseToCounterparty;
+}
+
+// ─── Outcome summary ─────────────────────────────────────────────────────────
+
+/// Prints a structured JSON summary of all resolved thread outcomes,
+/// grouped by host and guest. Pending threads (no outcome resolved) are
+/// listed separately. Useful for verifying seeder correctness at a glance.
+void _printOutcomesSummary({
+  required List<_ThreadPlan> plans,
+  required List<SeedThread> allThreads,
+}) {
+  // Threads skipped by completedRatio — no reservation built.
+  final pendingThreads = allThreads
+      .where((t) => t.reservation == null)
+      .map(
+        (t) => <String, dynamic>{
+          'trade_id': t.request.getDtag() ?? t.id,
+          'host_pubkey': t.host.keyPair.publicKey,
+          'guest_pubkey': t.guest.keyPair.publicKey,
+          'check_in': t.start.toIso8601String().substring(0, 10),
+          'check_out': t.end.toIso8601String().substring(0, 10),
+        },
+      )
+      .toList();
+
+  // Accumulate per-thread detail grouped by host and guest pubkey.
+  final hostThreads = <String, List<Map<String, dynamic>>>{};
+  final guestThreads = <String, List<Map<String, dynamic>>>{};
+  final hostPrivkeys = <String, String>{}; // pubkey → privkey
+  final guestPrivkeys = <String, String>{};
+
+  for (final plan in plans) {
+    final thread = plan.thread;
+    if (thread.reservation == null) continue;
+
+    final hostPub = thread.host.keyPair.publicKey;
+    final guestPub = thread.guest.keyPair.publicKey;
+    hostPrivkeys[hostPub] = thread.host.keyPair.privateKey ?? '(read-only)';
+    guestPrivkeys[guestPub] = thread.guest.keyPair.privateKey ?? '(read-only)';
+
+    final proofSummary = _buildProofSummary(plan);
+    final proofType = proofSummary.keys.first; // 'zap' | 'escrow' | 'no_proof'
+
+    // Detailed entry shown under the host (listing owner) view.
+    hostThreads.putIfAbsent(hostPub, () => []).add(<String, dynamic>{
+      'trade_id': thread.request.getDtag() ?? thread.id,
+      'guest_pubkey': guestPub,
+      'check_in': thread.start.toIso8601String().substring(0, 10),
+      'check_out': thread.end.toIso8601String().substring(0, 10),
+      'reservation_stage': thread.reservation!.parsedContent.stage.name,
+      'self_signed_by_buyer': plan.selfSigned,
+      'proof': proofSummary,
+    });
+
+    // Compact entry shown under the guest view.
+    guestThreads.putIfAbsent(guestPub, () => []).add(<String, dynamic>{
+      'trade_id': thread.request.getDtag() ?? thread.id,
+      'host_pubkey': hostPub,
+      'check_in': thread.start.toIso8601String().substring(0, 10),
+      'check_out': thread.end.toIso8601String().substring(0, 10),
+      'reservation_stage': thread.reservation!.parsedContent.stage.name,
+      'proof_type': proofType,
+      'proof_valid': thread.invalidReservationReason == null,
+      if (thread.invalidReservationReason != null)
+        'invalid_reason': thread.invalidReservationReason,
+    });
+  }
+
+  final output = <String, dynamic>{
+    'hosts': [
+      for (final pub in hostPrivkeys.keys)
+        <String, dynamic>{
+          'pubkey': pub,
+          'privkey': hostPrivkeys[pub],
+          'threads': hostThreads[pub]!,
+        },
+    ],
+    'guests': [
+      for (final pub in guestPrivkeys.keys)
+        <String, dynamic>{
+          'pubkey': pub,
+          'privkey': guestPrivkeys[pub],
+          'threads': guestThreads[pub]!,
+        },
+    ],
+    if (pendingThreads.isNotEmpty) 'pending_threads': pendingThreads,
+  };
+
+  print(
+    '\n[seed][outcomes_summary]\n${JsonEncoder.withIndent('  ').convert(output)}',
+  );
+}
+
+/// Builds a proof sub-document for one resolved [_ThreadPlan].
+///
+/// Returns a single-key map whose key identifies the proof type:
+///   - `'escrow'` — on-chain escrow trade
+///   - `'zap'`    — Lightning zap receipt
+///   - `'no_proof'` — proof is absent (missing or intentionally dropped)
+Map<String, dynamic> _buildProofSummary(_ThreadPlan plan) {
+  final thread = plan.thread;
+  final proof = thread.reservation?.parsedContent.proof;
+  final invalidReason = thread.invalidReservationReason;
+
+  // ── No proof present (dropped by corruption logic or legitimately absent) ──
+  if (proof == null) {
+    return {
+      'no_proof': <String, dynamic>{'fault': invalidReason ?? 'not_required'},
+    };
+  }
+
+  // ── Escrow proof ──────────────────────────────────────────────────────────
+  if (proof.escrowProof != null) {
+    final escrow = proof.escrowProof!;
+    final isBogusService = invalidReason == 'bogus_escrow_proof';
+    final isProofDropped = invalidReason == 'missing_payment_proof';
+
+    return {
+      'escrow': <String, dynamic>{
+        'escrow_trade_tx_hash': escrow.txHash,
+        'contract_address': escrow.escrowService.parsedContent.contractAddress,
+        'on_chain_settlement_outcome':
+            plan.escrowOutcome?.name ?? 'not_yet_settled',
+        'validity': <String, dynamic>{
+          'valid': invalidReason == null,
+          if (isBogusService || isProofDropped)
+            'faults': <String, dynamic>{
+              'wrong_contract_address': isBogusService,
+              'proof_intentionally_dropped': isProofDropped,
+            },
+        },
+      },
+    };
+  }
+
+  // ── Zap proof ─────────────────────────────────────────────────────────────
+  final zapReceipt = thread.zapReceipt;
+  String? amountMsats;
+  if (zapReceipt != null) {
+    for (final tag in zapReceipt.tags) {
+      if (tag.length >= 2 && tag[0] == 'amount') {
+        amountMsats = tag[1];
+        break;
+      }
+    }
+  }
+
+  return {
+    'zap': <String, dynamic>{
+      'amount_msats': amountMsats,
+      'receipt_event_id': zapReceipt?.id,
+      'validity': <String, dynamic>{
+        'valid': invalidReason == null,
+        if (invalidReason == 'missing_payment_proof')
+          'faults': <String, dynamic>{'proof_intentionally_dropped': true},
+      },
+    },
+  };
 }

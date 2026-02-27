@@ -15,55 +15,54 @@ class TripsScreen extends StatefulWidget {
 }
 
 class _TripsScreenState extends State<TripsScreen> {
-  late final StreamWithStatus<Reservation> _reservationsStream;
+  late final ValidatedStreamWithStatus<ReservationPairStatus> _pairsStream;
 
   @override
   void initState() {
     super.initState();
-    _reservationsStream = getIt<Hostr>().reservations
-        .subscribeToMyReservations();
+    _pairsStream = getIt<Hostr>().reservationPairs.subscribeToMyVerifiedPairs();
   }
 
-  /// Groups a flat list of reservations by their commitment hash.
-  Map<String, List<Reservation>> _groupByTradeId(
-    List<Reservation> reservations,
-  ) {
-    final map = <String, List<Reservation>>{};
-    for (final r in reservations) {
-      final hash = r.getDtag()!;
-      (map[hash] ??= []).add(r);
-    }
-    return map;
+  @override
+  void dispose() {
+    _pairsStream.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.trips)),
-      body: StreamBuilder<List<Reservation>>(
-        stream: _reservationsStream.list,
+      body: StreamBuilder<List<Validation<ReservationPairStatus>>>(
+        stream: _pairsStream.stream,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: AppLoadingIndicator.large());
           }
 
-          final grouped = _groupByTradeId(snapshot.data!);
+          final pairs = snapshot.data!
+              .whereType<Valid<ReservationPairStatus>>()
+              .map((v) => v.event)
+              .toList();
 
-          if (grouped.isEmpty) {
+          if (pairs.isEmpty) {
             return Center(
               child: Text(AppLocalizations.of(context)!.noTripsYet),
             );
           }
-
-          final entries = grouped.values.toList();
+          pairs.sort(
+            (a, b) => (b.start ?? DateTime.now()).compareTo(
+              a.start ?? DateTime.now(),
+            ),
+          );
 
           return ListView.separated(
             addAutomaticKeepAlives: true,
-            itemCount: entries.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemCount: pairs.length,
+            separatorBuilder: (_, __) => Container(),
             itemBuilder: (context, index) {
               return _KeepAliveReservationListItem(
-                reservations: entries[index],
+                reservationPair: pairs[index],
               );
             },
           );
@@ -74,8 +73,8 @@ class _TripsScreenState extends State<TripsScreen> {
 }
 
 class _KeepAliveReservationListItem extends StatefulWidget {
-  final List<Reservation> reservations;
-  const _KeepAliveReservationListItem({required this.reservations});
+  final ReservationPairStatus reservationPair;
+  const _KeepAliveReservationListItem({required this.reservationPair});
 
   @override
   State<_KeepAliveReservationListItem> createState() =>
@@ -91,6 +90,6 @@ class _KeepAliveReservationListItemState
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ReservationListItem(reservations: widget.reservations);
+    return ReservationListItem(reservationPair: widget.reservationPair);
   }
 }

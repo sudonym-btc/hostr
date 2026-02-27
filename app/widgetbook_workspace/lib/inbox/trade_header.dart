@@ -37,16 +37,13 @@ Widget tradeHeaderKnobs(BuildContext context) {
           onPressed: () {},
           child: const Text('Pay'),
         ),
-        actionsWidget: Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        actionsSecondaryRow: Row(
           children: [
-            FilledButton.tonal(onPressed: () {}, child: const Text('Accept')),
+            TextButton(onPressed: () {}, child: const Text('Cancel')),
             FilledButton.tonal(
               onPressed: () {},
               child: const Text('Message Escrow'),
             ),
-            FilledButton.tonal(onPressed: () {}, child: const Text('Cancel')),
           ],
         ),
       ),
