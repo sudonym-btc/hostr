@@ -29,21 +29,26 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
 
   @override
   Future<ReviewDeps> resolve(Review review) async {
-    final hash = ParticipationProof.computeCommitmentHash(
-      review.pubKey,
-      review.parsedContent.proof.salt,
-    );
-
     // Both calls drop into their respective batch queues. When multiple
     // reviews resolve concurrently, these merge into 1 findByTag query +
     // 1 getOne batch query.
     final results = await Future.wait([
-      reservations.findByTag(kCommitmentHashTag, hash),
+      reservations.getListingReservations(
+        listingAnchor: review.parsedTags.listingAnchor,
+      ),
       listings.getOneByAnchor(review.parsedTags.listingAnchor),
     ]);
 
+    var candidateReservations = results[0] as List<Reservation>;
+    final reservationAnchor = review.getFirstTag(kReservationRefTag);
+    if (reservationAnchor != null && reservationAnchor.isNotEmpty) {
+      candidateReservations = candidateReservations
+          .where((reservation) => reservation.anchor == reservationAnchor)
+          .toList();
+    }
+
     return ReviewDeps(
-      reservations: results[0] as List<Reservation>,
+      reservations: candidateReservations,
       listing: results[1] as Listing?,
     );
   }
@@ -63,18 +68,22 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
       return Invalid(review, 'Listing not found');
     }
 
-    // Verify the participation proof itself.
-    final proofValid = Review.validateProof(
-      deps.reservations.first,
-      review.pubKey,
-      review.parsedContent.proof,
-    );
-    if (!proofValid) {
+    // Verify participation proof against candidate reservations.
+    final proofMatchedReservations = deps.reservations
+        .where(
+          (reservation) => Review.validateProof(
+            reservation,
+            review.pubKey,
+            review.parsedContent.proof,
+          ),
+        )
+        .toList();
+    if (proofMatchedReservations.isEmpty) {
       return Invalid(review, 'Participation proof does not match');
     }
 
     // Host-confirmed reservation: no payment proof needed.
-    final hostConfirmed = deps.reservations.any(
+    final hostConfirmed = proofMatchedReservations.any(
       (r) => r.pubKey == listing.pubKey && !r.parsedContent.cancelled,
     );
     if (hostConfirmed) {
@@ -83,7 +92,7 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
 
     // Self-signed: validate payment proof on the senior reservation.
     final senior = Reservation.getSeniorReservation(
-      reservations: deps.reservations,
+      reservations: proofMatchedReservations,
       listing: listing,
     );
     if (senior == null) {

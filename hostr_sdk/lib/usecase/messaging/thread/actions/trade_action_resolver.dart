@@ -1,14 +1,15 @@
-import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/actions/reservation_request.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/trade_state.dart';
+import 'package:hostr_sdk/usecase/messaging/thread/state.dart';
+import 'package:hostr_sdk/usecase/messaging/thread/trade_context.dart';
+import 'package:hostr_sdk/util/stream_status.dart';
+import 'package:hostr_sdk/util/validation_stream.dart';
 import 'package:models/main.dart';
 
 import 'payment.dart';
 import 'reservation.dart';
 
 // enum ThreadHeaderSource { reservation, reservationRequest, listing }
-
-enum ThreadPartyRole { host, guest }
 
 enum TradeAction {
   cancel,
@@ -21,72 +22,90 @@ enum TradeAction {
   review,
 }
 
+enum TradeAvailability {
+  available,
+  unavailable,
+  cancelled,
+  invalidReservation,
+  invalidTransitions,
+}
+
 class TradeResolution {
   final ThreadPartyRole? role;
   final List<TradeAction> actions;
-  final bool isBlocked;
-  final String? blockedReason;
+  final TradeAvailability availability;
+  final String? availabilityReason;
+
+  bool get isAvailable => availability == TradeAvailability.available;
 
   const TradeResolution({
     this.role,
     required this.actions,
-    required this.isBlocked,
-    required this.blockedReason,
+    required this.availability,
+    this.availabilityReason,
   });
 }
 
 class TradeActionResolver {
+  /// Pure function: derives available actions from concrete stream emissions.
+  /// All inputs are plain values so this can be composed inside combineLatest.
   static TradeResolution resolve({
     required ThreadState threadState,
-    required TradeState tradeState,
-    required TradeSubscriptions subscriptions,
+    required TradeContext context,
+    required String tradeId,
+    required DateTime start,
+    required DateTime end,
+    required Amount? amount,
     required String ourPubkey,
+    required List<Validation<ReservationPairStatus>> allReservations,
+    required List<Validation<ReservationPairStatus>> ownReservations,
+    required StreamStatus ownReservationsStatus,
+    required List<PaymentEvent> payments,
+    required StreamStatus paymentsStatus,
     List<String> addedParticipants = const [],
   }) {
-    final listing = tradeState.listing;
-    if (listing == null) {
-      return const TradeResolution(
-        role: null,
-        actions: [],
-        isBlocked: false,
-        blockedReason: null,
-      );
-    }
-    final role = getRole(hostPubkey: listing.pubKey, ourPubkey: ourPubkey);
+    final listing = context.listing;
+    final role = context.role;
+
+    final validAllListingPairs = allReservations
+        .whereType<Valid<ReservationPairStatus>>()
+        .map((v) => v.event)
+        .where((p) => !p.cancelled)
+        .toList();
+
+    final validTradeReservations = ownReservations
+        .whereType<Valid<ReservationPairStatus>>()
+        .where((v) => !v.event.cancelled)
+        .expand((v) => [v.event.sellerReservation, v.event.buyerReservation])
+        .whereType<Reservation>()
+        .toList();
 
     final overlapLock = resolveOverlapLock(
-      ourPubkey: ourPubkey,
-      allListingReservations: subscriptions.allReservationsStream!.list.value,
-      startDate: tradeState.start,
-      endDate: tradeState.end,
-      salt: tradeState.salt,
+      ourReservationDTag: tradeId,
+      allListingReservationPairs: validAllListingPairs,
+      startDate: start,
+      endDate: end,
     );
 
-    final actions = <TradeAction>[];
+    final resolvedActions = <TradeAction>[];
 
-    actions.addAll(
-      PaymentActions.resolve(
-        subscriptions.paymentEvents!.list.value,
-        subscriptions.paymentEvents!.status.value,
-        role,
-        overlapLock.isBlocked,
-      ),
+    resolvedActions.addAll(
+      PaymentActions.resolve(payments, paymentsStatus, role),
     );
 
-    actions.addAll(
+    resolvedActions.addAll(
       ReservationActions.resolve(
-        subscriptions.reservationStream!.list.value,
-        subscriptions.reservationStream!.status.value,
+        validTradeReservations,
+        ownReservationsStatus,
         listing,
         [...threadState.participantPubkeys, ...addedParticipants],
         role,
       ),
     );
 
-    // Only if we don't have a reservation yet, we can send reservation requests
-    if (subscriptions.reservationStream!.status.value is StreamStatusLive &&
-        subscriptions.reservationStream!.list.value.isEmpty) {
-      actions.addAll(
+    // Only emit reservation-request actions if we have no reservation yet.
+    if (ownReservationsStatus is StreamStatusLive && ownReservations.isEmpty) {
+      resolvedActions.addAll(
         ReservationRequestActions.resolve(
           threadState.reservationRequests,
           listing,
@@ -95,48 +114,73 @@ class TradeActionResolver {
         ),
       );
     }
+
+    final availability = _resolveAvailability(
+      ownReservations: ownReservations,
+      overlapLock: overlapLock,
+    );
+
     return TradeResolution(
       role: role,
-      actions: actions,
-      isBlocked: overlapLock.isBlocked,
-      blockedReason: overlapLock.reason,
+      actions: resolvedActions,
+      availability: availability,
+      availabilityReason: switch (availability) {
+        TradeAvailability.unavailable => overlapLock.reason,
+        _ => null,
+      },
     );
   }
 }
 
-ThreadPartyRole getRole({
-  required String hostPubkey,
-  required String ourPubkey,
+TradeAvailability _resolveAvailability({
+  required List<Validation<ReservationPairStatus>> ownReservations,
+  required ({bool isBlocked, String? reason}) overlapLock,
 }) {
-  return hostPubkey == ourPubkey ? ThreadPartyRole.host : ThreadPartyRole.guest;
+  if (ownReservations.any((v) => v is Invalid)) {
+    return TradeAvailability.invalidReservation;
+  }
+  if (ownReservations.whereType<Valid<ReservationPairStatus>>().any(
+    (v) => v.event.cancelled,
+  )) {
+    return TradeAvailability.cancelled;
+  }
+  if (overlapLock.isBlocked) return TradeAvailability.unavailable;
+  return TradeAvailability.available;
 }
 
 ({bool isBlocked, String? reason}) resolveOverlapLock({
-  required List<Reservation> allListingReservations,
+  required List<ReservationPairStatus> allListingReservationPairs,
   required DateTime startDate,
   required DateTime endDate,
-  required String salt,
-  required String ourPubkey,
+  required String ourReservationDTag,
 }) {
-  final ourCommitment = ParticipationProof.computeCommitmentHash(
-    ourPubkey,
-    salt,
-  );
-
-  final overlapsOtherCommitment = allListingReservations.any((reservation) {
-    if (reservation.parsedContent.cancelled) {
+  final overlapsOtherCommitment = allListingReservationPairs.any((pair) {
+    if (pair.cancelled) {
       return false;
     }
+
+    final pairStart = pair.start;
+    final pairEnd = pair.end;
+    if (pairStart == null || pairEnd == null) {
+      return false;
+    }
+
+    final pairTradeId =
+        pair.sellerReservation?.getDtag() ?? pair.buyerReservation?.getDtag();
+    if (pairTradeId == null || pairTradeId == ourReservationDTag) {
+      return false;
+    }
+
     if (!_overlapsRange(
       startA: startDate,
       endA: endDate,
-      startB: reservation.parsedContent.start,
-      endB: reservation.parsedContent.end,
+      startB: pairStart,
+      endB: pairEnd,
     )) {
       return false;
     }
 
-    return reservation.parsedTags.commitmentHash != ourCommitment;
+    return true;
   });
 
   if (!overlapsOtherCommitment) {

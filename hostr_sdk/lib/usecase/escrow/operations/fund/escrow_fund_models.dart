@@ -6,14 +6,14 @@ import '../../supported_escrow_contract/supported_escrow_contract.dart';
 
 class EscrowFundParams {
   final EscrowService escrowService;
-  final ReservationRequest reservationRequest;
+  final Reservation negotiateReservation;
   final ProfileMetadata sellerProfile;
   final Amount amount;
   final String? listingName;
 
   EscrowFundParams({
     required this.escrowService,
-    required this.reservationRequest,
+    required this.negotiateReservation,
     required this.sellerProfile,
     required this.amount,
     this.listingName,
@@ -29,9 +29,9 @@ class EscrowFundParams {
 
   ContractFundEscrowParams toContractParams(EthPrivateKey ethKey) {
     final unlockAt =
-        reservationRequest.parsedContent.end.millisecondsSinceEpoch ~/ 1000;
+        negotiateReservation.parsedContent.end.millisecondsSinceEpoch ~/ 1000;
     return ContractFundEscrowParams(
-      tradeId: reservationRequest.getDtag()!,
+      tradeId: negotiateReservation.getDtag()!,
       amount: BitcoinAmount.fromAmount(amount),
       sellerEvmAddress: sellerProfile.evmAddress!,
       arbiterEvmAddress: escrowService.parsedContent.evmAddress,

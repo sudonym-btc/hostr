@@ -8,17 +8,34 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../../modal_bottom_sheet.dart';
 
-class SwapInFlowWidget extends StatelessWidget {
+class SwapInFlowWidget extends StatefulWidget {
   final SwapInOperation cubit;
   const SwapInFlowWidget({super.key, required this.cubit});
 
   @override
+  State<SwapInFlowWidget> createState() => _SwapInFlowWidgetState();
+}
+
+class _SwapInFlowWidgetState extends State<SwapInFlowWidget> {
+  @override
+  void dispose() {
+    // Allow in-flight swaps to complete before closing the cubit.
+    widget.cubit.detachOrClose(
+      (s) => s is SwapInCompleted || s is SwapInFailed,
+    );
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: cubit,
+      value: widget.cubit,
       child: BlocBuilder<SwapInOperation, SwapInState>(
         builder: (context, state) {
-          return SwapInViewWidget(state, onConfirm: () => cubit.execute());
+          return SwapInViewWidget(
+            state,
+            onConfirm: () => widget.cubit.execute(),
+          );
         },
       ),
     );

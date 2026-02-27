@@ -18,13 +18,13 @@ import '../../payment_method/escrow_selector/escrow_selector.dart';
 
 class EscrowFundWidget extends StatefulWidget {
   final ProfileMetadata counterparty;
-  final ReservationRequest reservationRequest;
+  final Reservation negotiateReservation;
   final String? listingName;
 
   const EscrowFundWidget({
     super.key,
     required this.counterparty,
-    required this.reservationRequest,
+    required this.negotiateReservation,
     this.listingName,
   });
 
@@ -42,7 +42,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     super.initState();
     _selectorCubit = EscrowSelectorCubit(
       counterparty: widget.counterparty,
-      reservationRequest: widget.reservationRequest,
+      negotiateReservation: widget.negotiateReservation,
     )..load();
     _selectorSub = _selectorCubit.stream.listen(_onSelectorChanged);
   }
@@ -58,8 +58,8 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     setState(() {
       _fundOperation = getIt<Hostr>().escrow.fund(
         EscrowFundParams(
-          reservationRequest: widget.reservationRequest,
-          amount: widget.reservationRequest.parsedContent.amount,
+          negotiateReservation: widget.negotiateReservation,
+          amount: widget.negotiateReservation.parsedContent.amount!,
           sellerProfile: widget.counterparty,
           escrowService: escrow,
           listingName: widget.listingName,
@@ -71,8 +71,12 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
   @override
   void dispose() {
     _selectorSub.cancel();
-    _fundOperation?.close();
     _selectorCubit.close();
+    // Detach rather than close: if a deposit/swap is still in-flight, let it
+    // finish and self-close. Only close immediately when idle or terminal.
+    _fundOperation?.detachOrClose(
+      (s) => s is EscrowFundCompleted || s is EscrowFundFailed,
+    );
     super.dispose();
   }
 

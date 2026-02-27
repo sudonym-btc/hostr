@@ -22,6 +22,8 @@ T parser<T extends Nip01Event>(Nip01Event event) {
   try {
     if (Reservation.kinds.contains(eventKind)) {
       return Reservation.fromNostrEvent(event) as T;
+    } else if (ReservationTransition.kinds.contains(eventKind)) {
+      return ReservationTransition.fromNostrEvent(event) as T;
     } else if (Message.kinds.contains(eventKind)) {
       return Message.safeFromNostrEvent(event) as T;
     } else if (EscrowServiceSelected.kinds.contains(eventKind)) {
@@ -34,8 +36,6 @@ T parser<T extends Nip01Event>(Nip01Event event) {
       return EscrowMethod.fromNostrEvent(event) as T;
     } else if (Listing.kinds.contains(eventKind)) {
       return Listing.fromNostrEvent(event) as T;
-    } else if (ReservationRequest.kinds.contains(eventKind)) {
-      return ReservationRequest.fromNostrEvent(event) as T;
     } else if (Review.kinds.contains(eventKind)) {
       return Review.fromNostrEvent(event) as T;
     } else if (BadgeAward.kinds.contains(eventKind)) {

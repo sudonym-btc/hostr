@@ -135,11 +135,6 @@ class BackgroundWorker {
         final listingAnchor = lastRequest.parsedTags.listingAnchor;
         final hostPubkey = getPubKeyFromAnchor(listingAnchor);
 
-        final commitmentHash = ParticipationProof.computeCommitmentHash(
-          myPubkey,
-          lastRequest.parsedContent.salt,
-        );
-
         final matchingReservations = await reservations.getListingReservations(
           listingAnchor: listingAnchor,
         );
@@ -147,7 +142,7 @@ class BackgroundWorker {
         final hostConfirmed = matchingReservations.any(
           (r) =>
               r.pubKey == hostPubkey &&
-              r.parsedTags.commitmentHash == commitmentHash &&
+              r.getDtag() == lastRequest.getDtag() &&
               !r.parsedContent.cancelled,
         );
 

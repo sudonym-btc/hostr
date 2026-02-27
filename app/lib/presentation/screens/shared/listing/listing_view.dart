@@ -30,6 +30,7 @@ class ListingView extends StatefulWidget {
 class _ListingViewState extends State<ListingView> {
   StreamWithStatus<Reservation>? _listingReservationsStream;
   ValidatedStreamWithStatus<Review>? _verifiedReviews;
+  ValidatedStreamWithStatus<ReservationPairStatus>? _verifiedPairs;
   String? _reviewsAnchor;
 
   @override
@@ -58,9 +59,17 @@ class _ListingViewState extends State<ListingView> {
     );
   }
 
+  void _ensureVerifiedPairs(Listing listing) {
+    if (_verifiedPairs != null) return;
+    _verifiedPairs = getIt<Hostr>().reservationPairs.subscribeVerified(
+      listing: listing,
+    );
+  }
+
   @override
   void dispose() {
     _verifiedReviews?.close();
+    _verifiedPairs?.close();
     _listingReservationsStream?.close();
     super.dispose();
   }
@@ -114,6 +123,7 @@ class _ListingViewState extends State<ListingView> {
               state.data!.pubKey == activeKeyPair.publicKey;
 
           _ensureVerifiedReviews(state.data!.anchor!);
+          _ensureVerifiedPairs(state.data!);
 
           final reviewsListWidget = StreamBuilder<List<Validation<Review>>>(
             stream: _verifiedReviews!.list,
@@ -148,18 +158,49 @@ class _ListingViewState extends State<ListingView> {
                   ? null
                   : BottomAppBar(
                       child: CustomPadding.horizontal.lg(
-                        child: Reserve(listing: state.data!),
+                        child:
+                            StreamBuilder<
+                              List<Validation<ReservationPairStatus>>
+                            >(
+                              stream: _verifiedPairs!.stream,
+                              builder: (context, snapshot) {
+                                final reservationPairs =
+                                    (snapshot.data ??
+                                            const <
+                                              Validation<ReservationPairStatus>
+                                            >[])
+                                        .whereType<
+                                          Valid<ReservationPairStatus>
+                                        >()
+                                        .map((e) => e.event)
+                                        .toList();
+
+                                return Reserve(
+                                  listing: state.data!,
+                                  reservationPairs: reservationPairs,
+                                );
+                              },
+                            ),
                       ),
                     ),
               body: StreamBuilder<List<Reservation>>(
                 stream: _listingReservationsStream!.list,
                 builder: (context, reservationsSnapshot) {
+                  final allReservations =
+                      reservationsSnapshot.data ?? const <Reservation>[];
+
                   final blockedReservations = activeKeyPair != null
-                      ? reservationsSnapshot.data
-                                ?.where((r) => r.isBlockedDate(activeKeyPair))
-                                .toList() ??
-                            const <Reservation>[]
+                      ? allReservations
+                            .where((r) => r.isBlockedDate(activeKeyPair))
+                            .toList()
                       : const <Reservation>[];
+
+                  final reservationPairs = state.data != null
+                      ? Reservations.toReservationPairs(
+                          reservations: allReservations,
+                          listing: state.data!,
+                        )
+                      : const <String, ReservationPairStatus>{};
 
                   return CustomScrollView(
                     slivers: [
@@ -211,13 +252,23 @@ class _ListingViewState extends State<ListingView> {
                                 id: state.data!.pubKey,
                               ),
                               reviewsSummaryWidget: ReviewsReservationsWidget(
-                                listing: state.data!,
+                                reservationCount: _verifiedPairs!.stream.map(
+                                  (pairs) => pairs
+                                      .whereType<Valid<ReservationPairStatus>>()
+                                      .length,
+                                ),
+                                reviewCount: _verifiedReviews!.stream.map(
+                                  (reviews) =>
+                                      reviews.whereType<Valid<Review>>().length,
+                                ),
                               ),
                               reviewsListWidget: reviewsListWidget,
                               blockedReservations: blockedReservations,
+                              reservationPairs: reservationPairs,
                               onCancelBlockedReservation: (reservation) async {
                                 await getIt<Hostr>().reservations.cancel(
                                   reservation,
+                                  getIt<Hostr>().auth.getActiveKey(),
                                 );
                               },
                               onBlockDates: () {
@@ -253,6 +304,7 @@ class ListingViewBody extends StatelessWidget {
   final Widget reviewsSummaryWidget;
   final Widget reviewsListWidget;
   final List<Reservation> blockedReservations;
+  final Map<String, ReservationPairStatus> reservationPairs;
   final ValueChanged<Reservation> onCancelBlockedReservation;
   final VoidCallback onBlockDates;
 
@@ -266,6 +318,7 @@ class ListingViewBody extends StatelessWidget {
     required this.reviewsSummaryWidget,
     required this.reviewsListWidget,
     required this.blockedReservations,
+    required this.reservationPairs,
     required this.onCancelBlockedReservation,
     required this.onBlockDates,
   });

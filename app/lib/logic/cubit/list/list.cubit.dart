@@ -25,9 +25,13 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   late StreamSubscription? filterSubscription;
   late StreamSubscription? sortSubscription;
   late StreamSubscription? postResultFilterSubscription;
+  StreamSubscription? relayConnectivitySubscription;
   StreamSubscription<T>? nostrSubscription;
   StreamSubscription<T>? requestSubscription;
   StreamWithStatus<T>? _nostrResponse;
+  DateTime? _lastConnectivityRetryAt;
+
+  static const Duration _connectivityRetryDebounce = Duration(seconds: 2);
 
   ListCubit({
     this.nostrInstance,
@@ -53,6 +57,30 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     ) {
       emit(applyPostResultFilter(state, postResultFilterState.filter));
     });
+
+    relayConnectivitySubscription = nostrService.relays.connectivity().listen(
+      (_) => _retryOnConnectivityChange(),
+      onError: (_) {
+        // Keep current state; retry is best-effort only.
+      },
+    );
+  }
+
+  void _retryOnConnectivityChange() {
+    if (isClosed) return;
+    if (!state.hasError) return;
+    if (state.fetching || state.synching) return;
+
+    final now = DateTime.now();
+    if (_lastConnectivityRetryAt != null &&
+        now.difference(_lastConnectivityRetryAt!) <
+            _connectivityRetryDebounce) {
+      return;
+    }
+
+    _lastConnectivityRetryAt = now;
+    logger.i('Retrying ListCubit<$T> after relay connectivity change');
+    sync();
   }
 
   /// Nostr treats separate NostrFilters as OR, so we need to combine them
@@ -267,6 +295,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     logger.d('Closing ${T} ListCubit');
     await nostrSubscription?.cancel();
     await requestSubscription?.cancel();
+    await relayConnectivitySubscription?.cancel();
     _nostrResponse?.close();
     _nostrResponse = null;
     filterSubscription?.cancel();

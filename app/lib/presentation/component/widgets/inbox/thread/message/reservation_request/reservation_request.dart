@@ -6,7 +6,7 @@ import 'package:hostr/presentation/component/widgets/listing/price.dart';
 import 'package:models/main.dart';
 
 class ThreadReservationRequestWidget extends ThreadMessageWidget {
-  ReservationRequest get reservationRequest => item.child as ReservationRequest;
+  Reservation get negotiateReservation => item.child as Reservation;
 
   const ThreadReservationRequestWidget({
     super.key,
@@ -38,8 +38,8 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
             Text(
               formatDateRangeShort(
                 DateTimeRange(
-                  start: reservationRequest.parsedContent.start,
-                  end: reservationRequest.parsedContent.end,
+                  start: negotiateReservation.parsedContent.start,
+                  end: negotiateReservation.parsedContent.end,
                 ),
                 Localizations.localeOf(context),
               ),
@@ -47,7 +47,7 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
                 context,
               ).textTheme.bodyMedium?.copyWith(color: textColor),
             ),
-            PriceText(formatAmount(reservationRequest.parsedContent.amount)),
+            PriceText(formatAmount(negotiateReservation.parsedContent.amount!)),
           ],
         ),
       ),

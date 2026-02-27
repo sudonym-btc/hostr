@@ -85,10 +85,11 @@ Future<void> buildOutcomes({
   // ── Phase 1: Zap paths (no RPC, pure event construction) ──
   for (final plan in plans.where((p) => !p.useEscrow)) {
     final hostProfile = profileByPubkey[plan.thread.host.keyPair.publicKey];
+    final tradeId = plan.thread.request.getDtag() ?? '';
     plan.thread.zapReceipt = _buildZapReceipt(
       ctx: ctx,
       threadIndex: plan.index + 1,
-      commitmentHash: plan.thread.commitmentHash,
+      tradeId: tradeId,
       request: plan.thread.request,
       listing: plan.thread.listing,
       host: plan.thread.host,
@@ -98,30 +99,47 @@ Future<void> buildOutcomes({
   }
 
   // ── Phase 2: Create escrow trades — parallel by guest (nonce-safe) ──
-  final escrowPlans = plans
-      .where((p) => p.useEscrow && p.trust != null && p.method != null)
-      .toList();
+  final allEscrowPlans = plans.where((p) => p.useEscrow).toList();
 
   print(
     '[seed][escrow] Phase 0+1 (decisions + zaps): '
     '${sw.elapsedMilliseconds} ms',
   );
 
-  if (escrowPlans.isNotEmpty) {
-    final contract = ctx.multiEscrowContract(
-      escrowService.parsedContent.contractAddress,
-    );
+  // ── Phase 2a: Batch log scan to discover already-created and
+  //    already-settled trades. Runs unconditionally so that plans
+  //    originally assigned to the zap path can be promoted to escrow
+  //    when a prior seed run left an on-chain trade for the same
+  //    deterministic tradeId.
+  final contract = ctx.multiEscrowContract(
+    escrowService.parsedContent.contractAddress,
+  );
 
-    // ── Phase 2a: Batch log scan to discover already-created and
-    //    already-settled trades. Uses immutable event logs so it
-    //    works even after the contract does `delete trades[tradeId]`.
-    final createdTrades = <String, String>{}; // tradeIdHex → txHash
-    final settledTrades = <String>{}; // tradeIdHex set
+  final createdTrades = <String, String>{}; // tradeIdHex → txHash
+  final settledTrades = <String>{}; // tradeIdHex set
 
-    await Future.wait([
-      // Scan TradeCreated logs.
+  await Future.wait([
+    // Scan TradeCreated logs.
+    () async {
+      final event = contract.self.event('TradeCreated');
+      final filter = FilterOptions.events(
+        contract: contract.self,
+        event: event,
+        fromBlock: const BlockNum.genesis(),
+      );
+      final logs = await ctx.chainClient().getLogs(filter);
+      for (final log in logs) {
+        final decoded = event.decodeResults(log.topics!, log.data!);
+        final idHex = _bytesToHex(decoded[0] as Uint8List);
+        if (log.transactionHash != null) {
+          createdTrades[idHex] = log.transactionHash!;
+        }
+      }
+    }(),
+    // Scan all settlement event types in parallel.
+    for (final eventName in ['Claimed', 'Arbitrated', 'ReleasedToCounterparty'])
       () async {
-        final event = contract.self.event('TradeCreated');
+        final event = contract.self.event(eventName);
         final filter = FilterOptions.events(
           contract: contract.self,
           event: event,
@@ -130,47 +148,45 @@ Future<void> buildOutcomes({
         final logs = await ctx.chainClient().getLogs(filter);
         for (final log in logs) {
           final decoded = event.decodeResults(log.topics!, log.data!);
-          final idHex = _bytesToHex(decoded[0] as Uint8List);
-          if (log.transactionHash != null) {
-            createdTrades[idHex] = log.transactionHash!;
-          }
+          settledTrades.add(_bytesToHex(decoded[0] as Uint8List));
         }
       }(),
-      // Scan all settlement event types in parallel.
-      for (final eventName in [
-        'Claimed',
-        'Arbitrated',
-        'ReleasedToCounterparty',
-      ])
-        () async {
-          final event = contract.self.event(eventName);
-          final filter = FilterOptions.events(
-            contract: contract.self,
-            event: event,
-            fromBlock: const BlockNum.genesis(),
-          );
-          final logs = await ctx.chainClient().getLogs(filter);
-          for (final log in logs) {
-            final decoded = event.decodeResults(log.topics!, log.data!);
-            settledTrades.add(_bytesToHex(decoded[0] as Uint8List));
-          }
-        }(),
-    ]);
+  ]);
 
-    print(
-      '[seed][escrow] Log scan: ${createdTrades.length} created, '
-      '${settledTrades.length} settled on-chain.',
-    );
+  print(
+    '[seed][escrow] Log scan: ${createdTrades.length} created, '
+    '${settledTrades.length} settled on-chain.',
+  );
 
-    // Mark plans whose trades already exist.
-    for (final plan in escrowPlans) {
-      final tradeIdHex = plan.thread.request.getDtag() ?? '';
-      final existingTxHash = createdTrades[tradeIdHex];
-      if (existingTxHash != null) {
-        plan.tradeAlreadyExisted = true;
-        plan.createTxHash = existingTxHash;
-        // Only needs settlement if created but NOT yet settled.
-        plan.needsSettlement = !settledTrades.contains(tradeIdHex);
+  // Mark ALL plans whose trades already exist on-chain — including
+  // plans on the zap path whose tradeId has an on-chain trade from a
+  // prior seed run. These get promoted to the escrow path so the
+  // reservation proof matches the on-chain state.
+  for (final plan in plans) {
+    final tradeIdHex = plan.thread.request.getDtag() ?? '';
+    final existingTxHash = createdTrades[tradeIdHex];
+    if (existingTxHash != null) {
+      if (!plan.useEscrow) {
+        // Promote zap-path plan to escrow path — an on-chain trade
+        // exists from a prior seed run.
+        plan.useEscrow = true;
+        plan.trust ??= trustByPubkey[plan.thread.host.keyPair.publicKey];
+        plan.method ??= methodByPubkey[plan.thread.host.keyPair.publicKey];
+        plan.escrowOutcome ??= settledTrades.contains(tradeIdHex)
+            ? EscrowOutcome.claimedByHost
+            : null;
+        print(
+          '[seed][escrow] thread=${plan.index + 1} '
+          'tradeId=$tradeIdHex PROMOTED to escrow path '
+          '(on-chain trade found from prior run, '
+          'fundTx=$existingTxHash)',
+        );
+      }
+      plan.tradeAlreadyExisted = true;
+      plan.createTxHash = existingTxHash;
+      // Only needs settlement if created but NOT yet settled.
+      plan.needsSettlement = !settledTrades.contains(tradeIdHex);
+      if (plan.useEscrow) {
         final status = plan.needsSettlement ? 'active' : 'settled';
         print(
           '[seed][escrow] thread=${plan.index + 1} '
@@ -179,9 +195,16 @@ Future<void> buildOutcomes({
         );
       }
     }
+  }
 
-    // ── Phase 2b: Assign nonces only for plans that need a tx. ──
-    final plansToCreate = escrowPlans
+  if (allEscrowPlans.isNotEmpty || plans.any((p) => p.useEscrow)) {
+    // ── Phase 2b: Assign nonces only for plans that need a tx.
+    //    Only plans with trust+method can actually send create txs.
+    //    Re-compute escrowPlans to include any promoted plans.
+    final activeEscrowPlans = plans
+        .where((p) => p.useEscrow && p.trust != null && p.method != null)
+        .toList();
+    final plansToCreate = activeEscrowPlans
         .where((p) => !p.tradeAlreadyExisted)
         .toList();
 
@@ -224,7 +247,7 @@ Future<void> buildOutcomes({
     // ── Phase 3: Settle trades ──
     // Settlement status is already known from the batch log scan,
     // so no per-trade re-verification is needed.
-    final actuallyToSettle = escrowPlans
+    final actuallyToSettle = activeEscrowPlans
         .where((p) => p.needsSettlement)
         .toList();
 
@@ -302,16 +325,34 @@ Future<void> buildOutcomes({
     PaymentProof? proof;
 
     if (plan.useEscrow && plan.createTxHash != null) {
-      proof = PaymentProof(
-        hoster: hostProfile!,
-        listing: thread.listing,
-        zapProof: null,
-        escrowProof: EscrowProof(
-          txHash: plan.createTxHash!,
-          escrowService: escrowService,
-          hostsTrustedEscrows: plan.trust!,
-          hostsEscrowMethods: plan.method!,
-        ),
+      final trust = plan.trust ?? trustByPubkey[thread.host.keyPair.publicKey];
+      final method =
+          plan.method ?? methodByPubkey[thread.host.keyPair.publicKey];
+      if (trust != null && method != null) {
+        proof = PaymentProof(
+          hoster: hostProfile!,
+          listing: thread.listing,
+          zapProof: null,
+          escrowProof: EscrowProof(
+            txHash: plan.createTxHash!,
+            escrowService: escrowService,
+            hostsTrustedEscrows: trust,
+            hostsEscrowMethods: method,
+          ),
+        );
+      } else {
+        print(
+          '[seed][escrow] WARNING thread=${plan.index + 1}: '
+          'has createTxHash but missing trust/method for host '
+          '${thread.host.keyPair.publicKey} — escrow proof omitted',
+        );
+      }
+    } else if (plan.useEscrow && plan.createTxHash == null) {
+      print(
+        '[seed][escrow] WARNING thread=${plan.index + 1}: '
+        'useEscrow=true but createTxHash is null — no on-chain '
+        'trade found and no creation was attempted '
+        '(trust=${plan.trust != null}, method=${plan.method != null})',
       );
     } else if (!plan.useEscrow) {
       proof = PaymentProof(
@@ -339,8 +380,7 @@ Future<void> buildOutcomes({
       tags: ReservationTags([
         [kListingRefTag, thread.listing.anchor!],
         [kThreadRefTag, thread.request.getDtag()!],
-        ['d', 'seed-rsv-${plan.index + 1}'],
-        [kCommitmentHashTag, thread.commitmentHash],
+        ['d', thread.request.getDtag()!],
         if (plan.escrowOutcome != null)
           ['escrowOutcome', plan.escrowOutcome!.name],
         if (plan.selfSigned) ['selfSigned', 'true'],
@@ -363,11 +403,11 @@ Future<void> buildOutcomes({
 class _ThreadPlan {
   final int index;
   final SeedThread thread;
-  final bool useEscrow;
-  final EscrowOutcome? escrowOutcome;
+  bool useEscrow;
+  EscrowOutcome? escrowOutcome;
   final bool selfSigned;
-  final EscrowTrust? trust;
-  final EscrowMethod? method;
+  EscrowTrust? trust;
+  EscrowMethod? method;
 
   String? createTxHash;
   bool tradeAlreadyExisted = false;
@@ -478,7 +518,7 @@ Future<void> _createTradeForPlan({
   final tradeIdHex = request.getDtag() ?? '';
   final tradeId = getBytes32(tradeIdHex);
   final amountWei =
-      request.parsedContent.amount.value * BigInt.from(10).pow(10);
+      request.parsedContent.amount!.value * BigInt.from(10).pow(10);
 
   final guestCredentials = EthPrivateKey.fromHex(guest.keyPair.privateKey!);
   final buyer = getEvmCredentials(guest.keyPair.privateKey!).address;
@@ -629,14 +669,14 @@ String _bytesToHex(Uint8List bytes) =>
 Nip01Event _buildZapReceipt({
   required SeedContext ctx,
   required int threadIndex,
-  required String commitmentHash,
-  required ReservationRequest request,
+  required String tradeId,
+  required Reservation request,
   required Listing listing,
   required SeedUser host,
   required SeedUser guest,
   required ProfileMetadata? hostProfile,
 }) {
-  final amountMsats = request.parsedContent.amount.value * BigInt.from(1000);
+  final amountMsats = request.parsedContent.amount!.value * BigInt.from(1000);
   final lnurl = hostProfile != null
       ? Metadata.fromEvent(hostProfile).lud16
       : null;
@@ -649,7 +689,7 @@ Nip01Event _buildZapReceipt({
       tags: [
         ['p', host.keyPair.publicKey],
         ['amount', amountMsats.toString()],
-        ['e', commitmentHash],
+        ['e', tradeId],
         ['l', listing.anchor!],
         if (lnurl != null) ['lnurl', lnurl],
       ],

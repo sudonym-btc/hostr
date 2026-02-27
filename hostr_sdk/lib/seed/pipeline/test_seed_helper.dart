@@ -74,17 +74,10 @@ class TestSeedHelper {
 
     SeedThread? thread;
     if (withThread && listing != null) {
-      // We need at least one host to build a thread.
-      final hostPubkey = listing.pubKey;
-      final hostUser = SeedUser(
-        index: _nextUserIndex++,
-        keyPair: _dummyKeyPairForPubkey(hostPubkey),
-        isHost: true,
-        hasEvm: true,
-      );
-
       final threads = await _factory.buildThreads(
-        hosts: [hostUser],
+        // If no explicit host user is provided, buildThreads will fall back
+        // to a deterministic mock host when it can't match listing.pubKey.
+        hosts: const [],
         guests: [user],
         listings: [listing],
       );
@@ -99,8 +92,7 @@ class TestSeedHelper {
             guest: thread.guest,
             listing: thread.listing,
             request: thread.request,
-            salt: thread.salt,
-            commitmentHash: thread.commitmentHash,
+            id: thread.id,
             start: thread.start,
             end: thread.end,
             stageSpec: threadStages,
@@ -110,6 +102,70 @@ class TestSeedHelper {
     }
 
     return TestGuest(user: user, profile: profile, thread: thread);
+  }
+
+  /// Build a single pending thread for an explicit [host]/[guest]/[listing].
+  ///
+  /// This is the recommended API for tests that need a realistic negotiate
+  /// reservation without manually constructing tags/content/signatures.
+  Future<SeedThread> freshThread({
+    required TestHost host,
+    required TestGuest guest,
+    Listing? listing,
+    DateTime? now,
+    ThreadStageSpec? threadStages,
+  }) async {
+    final resolvedListing = listing ?? host.listing;
+    final threads = await _factory.buildThreads(
+      hosts: [host.user],
+      guests: [guest.user],
+      listings: [resolvedListing],
+      now: now,
+    );
+
+    if (threads.isEmpty) {
+      throw StateError('No thread was generated for host/guest fixture');
+    }
+
+    final t = threads.first;
+    if (threadStages == null) return t;
+
+    return SeedThread(
+      host: t.host,
+      guest: t.guest,
+      listing: t.listing,
+      request: t.request,
+      id: t.id,
+      start: t.start,
+      end: t.end,
+      stageSpec: threadStages,
+      reservation: t.reservation,
+      zapReceipt: t.zapReceipt,
+      paidViaEscrow: t.paidViaEscrow,
+      escrowOutcome: t.escrowOutcome,
+      selfSigned: t.selfSigned,
+      invalidReservationReason: t.invalidReservationReason,
+    );
+  }
+
+  /// Convenience for tests that need all core entities together.
+  Future<TestTrade> freshTrade({
+    bool hostHasEvm = true,
+    bool setupGuestLnbits = false,
+    DateTime? now,
+    ThreadStageSpec? threadStages,
+  }) async {
+    final host = await freshHost(hasEvm: hostHasEvm);
+    final guest = await freshGuest(setupLnbits: setupGuestLnbits);
+    final thread = await freshThread(
+      host: host,
+      guest: guest,
+      listing: host.listing,
+      now: now,
+      threadStages: threadStages,
+    );
+
+    return TestTrade(host: host, guest: guest, thread: thread);
   }
 
   /// Create a fresh host with N listings.
@@ -145,14 +201,6 @@ class TestSeedHelper {
   KeyPair deriveKeyPair(int index) => context.deriveKeyPair(index);
 
   void dispose() => _factory.dispose();
-
-  KeyPair _dummyKeyPairForPubkey(String pubkey) {
-    // We can't reverse a pubkey to a keypair, so derive a fresh one.
-    // The thread builder matches by listing.pubKey, so this host user
-    // won't match unless we use the real host's keypair.
-    // For test helpers, the caller should provide the actual host.
-    return context.deriveKeyPair(_nextUserIndex++);
-  }
 }
 
 /// Result of [TestSeedHelper.freshGuest].
@@ -184,4 +232,21 @@ class TestHost {
   String get publicKey => user.keyPair.publicKey;
   String get privateKey => user.keyPair.privateKey!;
   Listing get listing => listings.first;
+}
+
+/// Result of [TestSeedHelper.freshTrade].
+class TestTrade {
+  final TestHost host;
+  final TestGuest guest;
+  final SeedThread thread;
+
+  const TestTrade({
+    required this.host,
+    required this.guest,
+    required this.thread,
+  });
+
+  Listing get listing => thread.listing;
+  Reservation get negotiateReservation => thread.request;
+  ProfileMetadata get sellerProfile => host.profile;
 }

@@ -1,3 +1,6 @@
+@Tags(['unit'])
+library;
+
 import 'dart:convert';
 
 import 'package:hostr_sdk/datasources/storage.dart';

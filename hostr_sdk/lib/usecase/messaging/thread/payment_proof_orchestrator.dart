@@ -8,20 +8,23 @@ import 'package:rxdart/rxdart.dart';
 @injectable
 class ThreadPaymentProofOrchestrator {
   final ThreadTrade trade;
-  final TradeSubscriptions subscriptions;
   final Auth auth;
   final Reservations reservations;
   final CustomLogger logger;
 
   ThreadPaymentProofOrchestrator({
     @factoryParam required this.trade,
-    @factoryParam required this.subscriptions,
     required this.auth,
     required this.reservations,
     required this.logger,
   });
 
-  Future<void> start() async {
+  /// Starts the orchestrator using the already-resolved [context].
+  /// Must only be called after [TradeSubscriptions.start] has completed so
+  /// that [trade.subscriptions] stream fields are non-null.
+  Future<void> start(TradeContext context) async {
+    final subscriptions = trade.subscriptions;
+
     logger.d(
       'Starting payment proof orchestrator for thread ${trade.thread.anchor}',
     );
@@ -35,7 +38,16 @@ class ThreadPaymentProofOrchestrator {
       return;
     }
 
-    if (subscriptions.reservationStream!.list.value.isNotEmpty) {
+    final hasExistingTradeReservation = subscriptions
+        .reservationStream!
+        .list
+        .value
+        .whereType<Validation<ReservationPairStatus>>()
+        .expand((validation) => [validation.event.buyerReservation])
+        .whereType<Reservation>()
+        .isNotEmpty;
+
+    if (hasExistingTradeReservation) {
       logger.d(
         'Thread ${trade.thread.anchor} already has reservations, skipping proof publication',
       );
@@ -52,15 +64,9 @@ class ThreadPaymentProofOrchestrator {
       return;
     }
 
-    final listing = await trade.getListing();
-    final hoster = await trade.getListingProfile();
+    final listing = context.listing;
+    final hoster = context.profile;
 
-    if (listing == null || hoster == null) {
-      logger.w(
-        'Cannot publish proof for thread ${trade.thread.anchor}: context missing',
-      );
-      return;
-    }
     if (listing.pubKey == auth.getActiveKey().publicKey) {
       logger.d(
         'We are the host for thread ${trade.thread.anchor}, skipping proof publication',
@@ -88,7 +94,7 @@ class ThreadPaymentProofOrchestrator {
 
     final reservation = await reservations.createSelfSigned(
       activeKeyPair: await trade.activeKeyPair(),
-      reservationRequest: trade.thread.state.value.lastReservationRequest,
+      negotiateReservation: trade.thread.state.value.lastReservationRequest,
       proof: proof,
     );
     logger.d('Created self-signed reservation: ${reservation.id}');

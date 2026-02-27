@@ -65,7 +65,10 @@ class InboxItem extends StatelessWidget {
                       lastMessage.pubKey == thread.auth.activeKeyPair!.publicKey
                   ? 'You: '
                   : '') +
-              (lastMessage?.child is ReservationRequest
+              (lastMessage?.child is Reservation &&
+                      (lastMessage?.child as Reservation)
+                          .parsedContent
+                          .isNegotiation
                   ? 'Reservation Request'
                   : lastMessage?.content ?? '');
 

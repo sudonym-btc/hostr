@@ -16,6 +16,10 @@ class RelaySeeder {
     print('Seeding ${config.relayUrl} (pipeline)...');
     print(const JsonEncoder.withIndent('  ').convert(config.toJson()));
     final contractAddress = await _resolveDeployedMultiEscrowAddress();
+    await _ensureContractIsDeployed(
+      rpcUrl: config.rpcUrl,
+      contractAddress: contractAddress,
+    );
     print('Using contract address: $contractAddress');
 
     // Enable automine so seed transactions confirm instantly.
@@ -185,6 +189,71 @@ class RelaySeeder {
     );
   }
 
+  Future<void> _ensureContractIsDeployed({
+    required String rpcUrl,
+    required String contractAddress,
+  }) async {
+    final code = await _ethGetCode(rpcUrl: rpcUrl, address: contractAddress);
+    final normalized = code.trim().toLowerCase();
+    final isEmptyCode = RegExp(r'^0x0*$').hasMatch(normalized);
+
+    if (isEmptyCode) {
+      throw StateError(
+        'Escrow contract not deployed at $contractAddress on $rpcUrl. '
+        'Deployment file exists, but address has no contract code. '
+        'Deploy contracts first (or refresh deployment artifacts) before seeding.',
+      );
+    }
+  }
+
+  Future<String> _ethGetCode({
+    required String rpcUrl,
+    required String address,
+  }) async {
+    final httpClient = HttpClient();
+    try {
+      final uri = Uri.parse(rpcUrl);
+      final request = await httpClient.postUrl(uri);
+      request.headers.contentType = ContentType.json;
+      request.write(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'eth_getCode',
+          'params': [address, 'latest'],
+        }),
+      );
+
+      final response = await request.close();
+      final body = await utf8.decodeStream(response);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError(
+          'RPC eth_getCode failed with HTTP ${response.statusCode}: $body',
+        );
+      }
+
+      final decoded = jsonDecode(body);
+      if (decoded is! Map) {
+        throw StateError('Invalid eth_getCode response: $body');
+      }
+
+      final map = Map<String, dynamic>.from(decoded);
+      final error = map['error'];
+      if (error != null) {
+        throw StateError('RPC eth_getCode error: $error');
+      }
+
+      final result = map['result'];
+      if (result is! String) {
+        throw StateError('Invalid eth_getCode result: $result');
+      }
+
+      return result;
+    } finally {
+      httpClient.close(force: true);
+    }
+  }
+
   List<File> _candidateDeploymentFiles() {
     final files = <File>[];
     final seen = <String>{};
@@ -274,7 +343,7 @@ class RelaySeeder {
     };
 
     for (final reservation in data.reservations) {
-      final commitmentHash = reservation.parsedTags.commitmentHash;
+      final tradeId = reservation.getDtag() ?? reservation.id;
       final proof = reservation.parsedContent.proof;
       if (proof == null) continue;
 
@@ -290,10 +359,10 @@ class RelaySeeder {
         if (info == null) return;
         final reservations = info['reservations'] as Map<String, dynamic>;
         if (usesEscrow) {
-          (reservations['escrow'] as List<String>).add(commitmentHash);
+          (reservations['escrow'] as List<String>).add(tradeId);
         }
         if (usesZap) {
-          (reservations['zap'] as List<String>).add(commitmentHash);
+          (reservations['zap'] as List<String>).add(tradeId);
         }
       }
 

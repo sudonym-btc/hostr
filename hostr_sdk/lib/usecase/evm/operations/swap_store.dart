@@ -97,14 +97,22 @@ class SwapStore {
       _logger.w('SwapStore: cannot update unknown record $id');
       return null;
     }
-    final updated = existing.copyWithStatus(
-      newStatus,
-      resolutionTxHash: resolutionTxHash,
-      lastBoltzStatus: lastBoltzStatus,
-      errorMessage: errorMessage,
-      refundAddress: refundAddress,
-      lockTxHash: lockTxHash,
-    );
+    final SwapRecord updated = switch (existing) {
+      SwapInRecord r => r.copyWithStatus(
+        newStatus,
+        resolutionTxHash: resolutionTxHash,
+        lastBoltzStatus: lastBoltzStatus,
+        errorMessage: errorMessage,
+        refundAddress: refundAddress,
+      ),
+      SwapOutRecord r => r.copyWithStatus(
+        newStatus,
+        resolutionTxHash: resolutionTxHash,
+        lastBoltzStatus: lastBoltzStatus,
+        errorMessage: errorMessage,
+        lockTxHash: lockTxHash,
+      ),
+    };
     _cache![id] = updated;
     await _flush();
     _logger.d('SwapStore updated $id → $newStatus');

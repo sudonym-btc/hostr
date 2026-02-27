@@ -60,9 +60,16 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     _isExecuting = true;
 
     // Acquire a lock so the auto-withdraw service knows not to drain balance.
+    // All contract params are persisted so a background worker can resume the
+    // deposit if the app is killed after the swap-in completes.
     await _lockRegistry.acquire(
-      contractParams.tradeId,
-      BitcoinAmount.fromAmount(params.amount),
+      tradeId: contractParams.tradeId,
+      reservedAmount: BitcoinAmount.fromAmount(params.amount),
+      sellerEvmAddress: contractParams.sellerEvmAddress,
+      arbiterEvmAddress: contractParams.arbiterEvmAddress,
+      contractAddress: params.escrowService.parsedContent.contractAddress,
+      chainId: params.escrowService.parsedContent.chainId,
+      unlockAt: contractParams.unlockAt,
     );
 
     try {
@@ -70,10 +77,23 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
         'Creating escrow for tradeId ${params.toContractParams(auth.getActiveEvmKey()).tradeId} at ${params.escrowService.parsedContent.contractAddress}',
       );
       await _swapRequiredAmount();
+
+      // Mark ready — swap is done, balance is available for the deposit.
+      await _lockRegistry.updateStatus(
+        contractParams.tradeId,
+        status: EscrowLockStatus.readyToDeposit,
+      );
+
       emit(EscrowFundDepositing());
       TransactionInformation tx = await contract.deposit(contractParams);
       final txHash = _extractTxHash(tx);
       if (txHash != null) {
+        // Persist the tx hash so a background worker can monitor it.
+        await _lockRegistry.updateStatus(
+          contractParams.tradeId,
+          status: EscrowLockStatus.depositing,
+          depositTxHash: txHash,
+        );
         emit(EscrowFundDepositing(txHash: txHash));
         final receipt = await chain.awaitReceipt(txHash);
         if (!_isReceiptSuccessful(receipt)) {

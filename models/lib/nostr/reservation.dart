@@ -5,10 +5,21 @@ import 'package:crypto/crypto.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
-import 'package:web3dart/web3dart.dart';
+
+/// The stage of a reservation in its lifecycle.
+///
+/// - [negotiate]: Mutable proposal / counter-offer. Only exchanged via DMs;
+///   clients MUST ignore published negotiate events for availability.
+/// - [commit]: Immutable booking. Only `stage=commit` affects availability.
+/// - [cancel]: Cancels a prior commit for the same `trade_id`.
+enum ReservationStage {
+  negotiate,
+  commit,
+  cancel,
+}
 
 class ReservationTags extends EventTags
-    with ReferencesListing<ReservationTags>, CommitmentTag<ReservationTags> {
+    with ReferencesListing<ReservationTags> {
   ReservationTags(super.tags);
 }
 
@@ -214,14 +225,13 @@ class Reservation
   }
 
   bool isBlockedDate(KeyPair hostKey) {
-    final salt = Reservation.getSaltForBlockedReservation(
+    final nonce = Reservation.getNonceForBlockedReservation(
         start: parsedContent.start, end: parsedContent.end, hostKey: hostKey);
 
-    return parsedTags.commitmentHash ==
-        ParticipationProof.computeCommitmentHash(hostKey.publicKey, salt);
+    return getDtag() == nonce;
   }
 
-  static getSaltForBlockedReservation(
+  static getNonceForBlockedReservation(
       {required DateTime start,
       required DateTime end,
       required KeyPair hostKey}) {
@@ -233,26 +243,136 @@ class Reservation
   }
 }
 
-class ReservationContent extends EventContent {
+class ReservationContent extends EventContent with CommitTerms {
   final DateTime start;
   final DateTime end;
   final bool cancelled;
   final PaymentProof? proof;
+
+  /// Private recipient witness used to derive recipient commitments.
+  /// Keep this for negotiate/private flows; omit from public commit events.
+  final String? salt;
+
+  /// The lifecycle stage of this reservation snapshot.
+  final ReservationStage stage;
+
+  /// Number of rooms / units requested.
+  final int quantity;
+
+  /// The agreed (or proposed) price for this reservation.
+  final Amount? amount;
+
+  /// Public key of the intended recipient (e.g. the guest).
+  final String? recipient;
+
+  /// Schnorr signatures over [commitHash], keyed by public key.
+  @override
+  final Map<String, String> signatures;
+
+  /// The fields whose values are locked into the commitment hash.
+  @override
+  Set<String> get committedFields =>
+      {'start', 'end', 'quantity', 'amount', 'recipient'};
 
   ReservationContent({
     required this.start,
     required this.end,
     this.cancelled = false,
     this.proof,
+    this.salt,
+    this.stage = ReservationStage.negotiate,
+    this.quantity = 1,
+    this.amount,
+    this.recipient,
+    this.signatures = const {},
   });
+
+  factory ReservationContent.negotiate({
+    required DateTime start,
+    required DateTime end,
+    PaymentProof? proof,
+    String? salt,
+    int quantity = 1,
+    Amount? amount,
+    String? recipient,
+    Map<String, String> signatures = const {},
+  }) {
+    return ReservationContent(
+      start: start,
+      end: end,
+      cancelled: false,
+      proof: proof,
+      salt: salt,
+      stage: ReservationStage.negotiate,
+      quantity: quantity,
+      amount: amount,
+      recipient: recipient,
+      signatures: signatures,
+    );
+  }
+
+  factory ReservationContent.commit({
+    required DateTime start,
+    required DateTime end,
+    PaymentProof? proof,
+    String? salt,
+    int quantity = 1,
+    Amount? amount,
+    String? recipient,
+    Map<String, String> signatures = const {},
+  }) {
+    return ReservationContent(
+      start: start,
+      end: end,
+      cancelled: false,
+      proof: proof,
+      salt: salt,
+      stage: ReservationStage.commit,
+      quantity: quantity,
+      amount: amount,
+      recipient: recipient,
+      signatures: signatures,
+    );
+  }
+
+  factory ReservationContent.cancel({
+    required DateTime start,
+    required DateTime end,
+    PaymentProof? proof,
+    String? salt,
+    int quantity = 1,
+    Amount? amount,
+    String? recipient,
+    Map<String, String> signatures = const {},
+  }) {
+    return ReservationContent(
+      start: start,
+      end: end,
+      cancelled: true,
+      proof: proof,
+      salt: salt,
+      stage: ReservationStage.cancel,
+      quantity: quantity,
+      amount: amount,
+      recipient: recipient,
+      signatures: signatures,
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() {
     return {
-      "start": start.toIso8601String(),
-      "end": end.toIso8601String(),
+      "start": start.toUtc().toIso8601String(),
+      "end": end.toUtc().toIso8601String(),
       "proof": proof?.toJson(),
+      if (salt != null) "salt": salt,
       "cancelled": cancelled,
+      "stage": stage.name,
+      "quantity": quantity,
+      if (amount != null) "amount": amount!.toJson(),
+      if (recipient != null) "recipient": recipient,
+      if (signatures.isNotEmpty)
+        "signatures": Map<String, String>.from(signatures),
     };
   }
 
@@ -261,12 +381,24 @@ class ReservationContent extends EventContent {
     DateTime? end,
     bool? cancelled,
     PaymentProof? proof,
+    String? salt,
+    ReservationStage? stage,
+    int? quantity,
+    Amount? amount,
+    String? recipient,
+    Map<String, String>? signatures,
   }) {
     return ReservationContent(
       start: start ?? this.start,
       end: end ?? this.end,
       cancelled: cancelled ?? this.cancelled,
       proof: proof ?? this.proof,
+      salt: salt ?? this.salt,
+      stage: stage ?? this.stage,
+      quantity: quantity ?? this.quantity,
+      amount: amount ?? this.amount,
+      recipient: recipient ?? this.recipient,
+      signatures: signatures ?? this.signatures,
     );
   }
 
@@ -277,13 +409,37 @@ class ReservationContent extends EventContent {
         : (cancelledValue is String
             ? cancelledValue.toLowerCase() == 'true'
             : false);
+    final stageStr = json["stage"] as String?;
+    final stage = stageStr != null
+        ? ReservationStage.values.firstWhere(
+            (e) => e.name == stageStr,
+            orElse: () => ReservationStage.negotiate,
+          )
+        : ReservationStage.negotiate;
+    final sigs = json["signatures"] as Map<String, dynamic>?;
     return ReservationContent(
-        start: DateTime.parse(json["start"]),
-        end: DateTime.parse(json["end"]),
-        proof:
-            json["proof"] != null ? PaymentProof.fromJson(json["proof"]) : null,
-        cancelled: cancelled);
+      start: DateTime.parse(json["start"]),
+      end: DateTime.parse(json["end"]),
+      proof:
+          json["proof"] != null ? PaymentProof.fromJson(json["proof"]) : null,
+      salt: json["salt"] as String?,
+      cancelled: cancelled,
+      stage: stage,
+      quantity: json["quantity"] as int? ?? 1,
+      amount: json["amount"] != null ? Amount.fromJson(json["amount"]) : null,
+      recipient: json["recipient"] as String?,
+      signatures: sigs?.map((k, v) => MapEntry(k, v as String)) ?? const {},
+    );
   }
+
+  /// Whether this reservation is in the negotiation stage.
+  bool get isNegotiation => stage == ReservationStage.negotiate;
+
+  /// Whether this reservation is a committed booking.
+  bool get isCommit => stage == ReservationStage.commit;
+
+  /// Whether this reservation is a cancellation.
+  bool get isCancel => stage == ReservationStage.cancel;
 }
 
 class PaymentProof {
@@ -291,8 +447,10 @@ class PaymentProof {
   Listing listing;
   ZapProof? zapProof;
   EscrowProof? escrowProof;
-  // Include the signed seller reservation request if buyer offering sub-marketprice for this reservation so can be seen that hoster accepted the offer by signing the reservation request
-  ReservationRequest? sellerReservationRequest;
+
+  /// Include the signed seller negotiate reservation if buyer offering
+  /// sub-market price, so it can be seen that hoster accepted the offer.
+  Reservation? sellerNegotiateReservation;
 
   PaymentProof(
       {required this.hoster,
@@ -344,47 +502,6 @@ class EscrowProof {
       "hostsEscrowMethods": hostsEscrowMethods.toString(),
       "hostsTrustedEscrows": hostsTrustedEscrows.toString(),
     };
-  }
-
-  // @TODO: Must validate all components
-  static Future<bool> validate({
-    required EscrowProof proof,
-    required Web3Client client,
-    required BigInt minAmount,
-  }) async {
-    final txHash = proof.txHash;
-    if (txHash == null) {
-      return false;
-    }
-
-    final information = await client.getTransactionByHash(txHash);
-    if (information == null) {
-      return false;
-    }
-
-    final receipt = await client.getTransactionReceipt(txHash);
-    if (receipt == null) {
-      return false;
-    }
-
-    final to = information.to;
-    final value = information.value;
-    if (to == null || value == null) {
-      return false;
-    }
-
-    assert(
-      (await proof.hostsTrustedEscrows.toNip51List())
-          .elements
-          .any((el) => el.value == to),
-      'Transaction does not target escrow address',
-    );
-    assert(
-      receipt.status == true,
-      'Escrow funding transaction failed',
-    );
-
-    return false;
   }
 
   static fromJson(Map<String, dynamic> json) {

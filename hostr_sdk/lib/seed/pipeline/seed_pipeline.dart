@@ -11,6 +11,7 @@ import 'seed_factory.dart';
 import 'seed_pipeline_config.dart';
 import 'seed_pipeline_models.dart';
 import 'stages/build_outcomes.dart' as stage_outcomes;
+import 'stages/build_reservation_transitions.dart';
 
 /// Full infrastructure-backed seed pipeline.
 ///
@@ -248,12 +249,16 @@ class SeedPipeline {
           .where((t) => t.reservation != null)
           .map((t) => t.reservation!)
           .toList(growable: false);
+      final reservationTransitions = buildReservationTransitions(
+        threads: threads,
+      );
       final zapReceipts = threads
           .map((t) => t.zapReceipt)
           .whereType<Nip01Event>()
           .toList(growable: false);
 
       _emitAll(s, reservations);
+      _emitAll(s, reservationTransitions);
       _emitAll(s, zapReceipts);
 
       // Push chain tx info from completed escrow trades.
@@ -313,6 +318,7 @@ class SeedPipeline {
           escrowMethods: escrowMethods,
           threads: threads,
           reservationRequests: reservationRequests,
+          reservationTransitions: reservationTransitions,
           threadMessages: threadMessages,
           reservations: reservations,
           zapReceipts: zapReceipts,

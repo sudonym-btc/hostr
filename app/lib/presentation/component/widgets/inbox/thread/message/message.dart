@@ -7,27 +7,52 @@ class ThreadMessageWidget extends StatelessWidget {
   final Message item;
   final bool isSentByMe;
 
+  /// When true, shows the sender's display name above the message bubble.
+  /// Intended for group chats with more than two participants.
+  final bool showSenderLabel;
+
   const ThreadMessageWidget({
     super.key,
     required this.sender,
     required this.item,
     required this.isSentByMe,
+    this.showSenderLabel = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final senderName =
+        sender.metadata.name ?? sender.metadata.displayName ?? '';
     return Align(
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: MessageContainer(
-        isSentByMe: isSentByMe,
-        child: Text(
-          item.content,
-          style: TextStyle(
-            color: isSentByMe
-                ? Theme.of(context).colorScheme.onPrimaryContainer
-                : Theme.of(context).colorScheme.onSurface,
+      child: Column(
+        crossAxisAlignment: isSentByMe
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showSenderLabel && senderName.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2, left: 4, right: 4),
+              child: Text(
+                senderName,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          MessageContainer(
+            isSentByMe: isSentByMe,
+            child: Text(
+              item.content,
+              style: TextStyle(
+                color: isSentByMe
+                    ? Theme.of(context).colorScheme.onPrimaryContainer
+                    : Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

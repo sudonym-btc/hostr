@@ -1,3 +1,6 @@
+@Tags(['unit'])
+library;
+
 import 'dart:async';
 
 import 'package:hostr_sdk/datasources/nostr/mock.relay.dart' show matchEvent;
@@ -5,6 +8,7 @@ import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
+import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/reviews/reviews.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -21,6 +25,8 @@ import 'package:test/test.dart';
 class _FakeMessaging extends Fake implements Messaging {}
 
 class _FakeAuth extends Fake implements Auth {}
+
+class _FakeTransitions extends Fake implements ReservationTransitions {}
 
 /// Fake requests that supports both `subscribe` (returning a manually-
 /// controlled StreamWithStatus) and `query` (returning filter-matched
@@ -89,12 +95,13 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
 Reservation _reservation({
   required Listing listing,
   required KeyPair signer,
-  required String commitmentHash,
+  required String tradeId,
   required DateTime start,
   required DateTime end,
   PaymentProof? proof,
   bool cancelled = false,
   int createdAtOffsetSeconds = 0,
+  String? recipient,
 }) {
   return Reservation(
     pubKey: signer.publicKey,
@@ -103,13 +110,14 @@ Reservation _reservation({
         createdAtOffsetSeconds,
     tags: ReservationTags([
       [kListingRefTag, listing.anchor!],
-      [kCommitmentHashTag, commitmentHash],
+      ['d', tradeId],
     ]),
     content: ReservationContent(
       start: start,
       end: end,
       proof: proof,
       cancelled: cancelled,
+      recipient: recipient,
     ),
   ).signAs(signer, Reservation.fromNostrEvent);
 }
@@ -133,6 +141,35 @@ Review _review({
   ).signAs(signer, Review.fromNostrEvent);
 }
 
+Listing _fixtureListing() {
+  return Listing(
+    pubKey: MockKeys.hoster.publicKey,
+    tags: EventTags([
+      ['d', 'review-listing'],
+    ]),
+    content: ListingContent(
+      title: 'Review Listing',
+      description: 'Fixture',
+      price: [
+        Price(
+          amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
+          frequency: Frequency.daily,
+        ),
+      ],
+      allowBarter: false,
+      minStay: const Duration(days: 1),
+      checkIn: TimeOfDay(hour: 15, minute: 0),
+      checkOut: TimeOfDay(hour: 11, minute: 0),
+      location: 'Test',
+      quantity: 1,
+      type: ListingType.house,
+      images: const [],
+      amenities: Amenities(),
+      requiresEscrow: false,
+    ),
+  ).signAs(MockKeys.hoster, Listing.fromNostrEvent);
+}
+
 void main() {
   group('Reviews.subscribeVerified', () {
     late _FakeRequests fakeRequests;
@@ -151,6 +188,7 @@ void main() {
         logger: logger,
         messaging: _FakeMessaging(),
         auth: _FakeAuth(),
+        transitions: _FakeTransitions(),
       );
       reviews = Reviews(
         requests: fakeRequests,
@@ -159,7 +197,7 @@ void main() {
         listings: listings,
       );
 
-      listing = MOCK_LISTINGS.first;
+      listing = _fixtureListing();
       // Seed the listing so getOneByAnchor can find it.
       fakeRequests.events.add(listing);
     });
@@ -179,9 +217,10 @@ void main() {
       final hostReservation = _reservation(
         listing: listing,
         signer: MockKeys.hoster,
-        commitmentHash: commitment,
+        tradeId: commitment,
         start: DateTime(2026, 2, 1),
         end: DateTime(2026, 2, 3),
+        recipient: MockKeys.guest.publicKey,
       );
       fakeRequests.events.add(hostReservation);
 
@@ -258,9 +297,10 @@ void main() {
       final hostReservation = _reservation(
         listing: listing,
         signer: MockKeys.hoster,
-        commitmentHash: commitment,
+        tradeId: commitment,
         start: DateTime(2026, 2, 1),
         end: DateTime(2026, 2, 3),
+        // No recipient — simulates a reservation that does not name this guest.
       );
       fakeRequests.events.add(hostReservation);
 
@@ -303,9 +343,10 @@ void main() {
           _reservation(
             listing: listing,
             signer: MockKeys.hoster,
-            commitmentHash: commitment,
+            tradeId: commitment,
             start: DateTime(2026, 3, 1),
             end: DateTime(2026, 3, 5),
+            recipient: MockKeys.guest.publicKey,
           ),
         );
         fakeRequests.events.add(
@@ -343,10 +384,11 @@ void main() {
         _reservation(
           listing: listing,
           signer: MockKeys.hoster,
-          commitmentHash: commitment,
+          tradeId: commitment,
           start: DateTime(2026, 4, 1),
           end: DateTime(2026, 4, 3),
           cancelled: true,
+          recipient: MockKeys.guest.publicKey,
         ),
       );
 

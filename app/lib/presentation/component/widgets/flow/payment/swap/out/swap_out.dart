@@ -11,20 +11,35 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import '../../../../amount/amount_input.dart';
 import '../../../modal_bottom_sheet.dart';
 
-class SwapOutFlowWidget extends StatelessWidget {
+class SwapOutFlowWidget extends StatefulWidget {
   final SwapOutOperation cubit;
   const SwapOutFlowWidget({super.key, required this.cubit});
 
   @override
+  State<SwapOutFlowWidget> createState() => _SwapOutFlowWidgetState();
+}
+
+class _SwapOutFlowWidgetState extends State<SwapOutFlowWidget> {
+  @override
+  void dispose() {
+    // Allow in-flight swaps to complete before closing the cubit.
+    widget.cubit.detachOrClose(
+      (s) =>
+          s is SwapOutCompleted || s is SwapOutRefunded || s is SwapOutFailed,
+    );
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: cubit,
+      value: widget.cubit,
       child: BlocBuilder<SwapOutOperation, SwapOutState>(
         builder: (context, state) {
           return SwapOutViewWidget(
             state,
-            onConfirm: () => cubit.execute(),
-            onSubmitInvoice: cubit.submitExternalInvoice,
+            onConfirm: () => widget.cubit.execute(),
+            onSubmitInvoice: widget.cubit.submitExternalInvoice,
           );
         },
       ),

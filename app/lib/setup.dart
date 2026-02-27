@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hostr/data/sources/h3_engine.dart';
@@ -27,10 +28,18 @@ final logger = CustomLogger();
 Future<void> setup(String env) async {
   logger.d('${DateTime.now()} Setting up environment: $env');
   await setupBackgroundAndMainCommon(env);
+  await _lockAppOrientation();
   logger.d('${DateTime.now()} Workmanager setup complete');
   if (!kIsWeb) {
     setupWorkmanager();
   }
+}
+
+Future<void> _lockAppOrientation() async {
+  if (kIsWeb) return;
+  if (!(Platform.isAndroid || Platform.isIOS)) return;
+
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 }
 
 Future<void> setupBackgroundAndMainCommon(String env) async {

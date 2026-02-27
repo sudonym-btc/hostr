@@ -14,12 +14,12 @@ import '../escrow/fund/escrow_fund.dart';
 /// Escrow selection is now handled directly inside [EscrowFundWidget].
 class PaymentMethodWidget extends StatelessWidget {
   final ProfileMetadata counterparty;
-  final ReservationRequest reservationRequest;
+  final Reservation negotiateReservation;
   final String? listingName;
   const PaymentMethodWidget({
     super.key,
     required this.counterparty,
-    required this.reservationRequest,
+    required this.negotiateReservation,
     this.listingName,
   });
 
@@ -42,7 +42,7 @@ class PaymentMethodWidget extends StatelessWidget {
                         ZapPayParameters(
                           to: counterparty.metadata.lud16!,
                           amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
-                          event: reservationRequest,
+                          event: negotiateReservation,
                         ),
                       )..resolve(),
                     ),
@@ -58,7 +58,7 @@ class PaymentMethodWidget extends StatelessWidget {
                     context,
                     child: EscrowFundWidget(
                       counterparty: counterparty,
-                      reservationRequest: reservationRequest,
+                      negotiateReservation: negotiateReservation,
                       listingName: listingName,
                     ),
                   );

@@ -1,0 +1,7 @@
+tags:
+  unit:
+    description: Fast, isolated tests with no docker/network dependencies.
+  integration:
+    description: Cross-component tests that exercise real integration paths.
+  docker:
+    description: Tests that require the local docker-compose stack.

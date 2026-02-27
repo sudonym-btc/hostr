@@ -21,6 +21,9 @@ class Hostr {
   Listings get listings => getIt<Listings>();
   Location get location => getIt<Location>();
   Reservations get reservations => getIt<Reservations>();
+  ReservationPairs get reservationPairs => getIt<ReservationPairs>();
+  ReservationTransitions get reservationTransitions =>
+      getIt<ReservationTransitions>();
   EscrowUseCase get escrow => getIt<EscrowUseCase>();
   Escrows get escrows => getIt<Escrows>();
   EscrowTrusts get escrowTrusts => getIt<EscrowTrusts>();
@@ -31,6 +34,7 @@ class Hostr {
   ReservationRequests get reservationRequests => getIt<ReservationRequests>();
   Payments get payments => getIt<Payments>();
   Reviews get reviews => getIt<Reviews>();
+  TradeAudit get tradeAudit => getIt<TradeAudit>();
   Evm get evm => getIt<Evm>();
   Relays get relays => getIt<Relays>();
   Verification get verification => getIt<Verification>();

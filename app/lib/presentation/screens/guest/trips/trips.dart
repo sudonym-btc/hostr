@@ -25,12 +25,12 @@ class _TripsScreenState extends State<TripsScreen> {
   }
 
   /// Groups a flat list of reservations by their commitment hash.
-  Map<String, List<Reservation>> _groupByCommitmentHash(
+  Map<String, List<Reservation>> _groupByTradeId(
     List<Reservation> reservations,
   ) {
     final map = <String, List<Reservation>>{};
     for (final r in reservations) {
-      final hash = r.parsedTags.commitmentHash;
+      final hash = r.getDtag()!;
       (map[hash] ??= []).add(r);
     }
     return map;
@@ -47,7 +47,7 @@ class _TripsScreenState extends State<TripsScreen> {
             return const Center(child: AppLoadingIndicator.large());
           }
 
-          final grouped = _groupByCommitmentHash(snapshot.data!);
+          final grouped = _groupByTradeId(snapshot.data!);
 
           if (grouped.isEmpty) {
             return Center(

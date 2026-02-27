@@ -21,19 +21,19 @@ class AvailabilityCubit extends Cubit<AvailabilityCubitState> {
   final DateRangeCubit dateRangeCubit;
   late final StreamSubscription<DateRangeState> _dateRangeSubscription;
 
-  List<Reservation> _reservations;
+  List<ReservationPairStatus> _reservationPairs;
 
   AvailabilityCubit({
     required this.dateRangeCubit,
-    List<Reservation> reservations = const [],
-  }) : _reservations = List<Reservation>.from(reservations),
+    List<ReservationPairStatus> reservationPairs = const [],
+  }) : _reservationPairs = List<ReservationPairStatus>.from(reservationPairs),
        super(AvailabilityLoading()) {
     _dateRangeSubscription = dateRangeCubit.stream.listen((_) => refresh());
     refresh();
   }
 
-  void updateReservations(List<Reservation> reservations) {
-    _reservations = List<Reservation>.from(reservations);
+  void updateReservationPairs(List<ReservationPairStatus> reservationPairs) {
+    _reservationPairs = List<ReservationPairStatus>.from(reservationPairs);
     refresh();
   }
 
@@ -49,7 +49,7 @@ class AvailabilityCubit extends Cubit<AvailabilityCubitState> {
     final available = Listing.isAvailable(
       selectedRange.start,
       selectedRange.end,
-      _reservations,
+      _reservationPairs,
     );
 
     emit(

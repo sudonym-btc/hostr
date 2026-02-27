@@ -1,7 +1,8 @@
 const kNostrKindListing = 32121;
 const kNostrKindReservation = 32122;
-const kNostrKindReservationRequest = 32123;
+
 const kNostrKindReview = 32124;
+const kNostrKindReservationTransition = 32126;
 
 /// Escrow service advertisement. Moved from 40021 (ephemeral range, not stored
 /// by relays) to 30303 (parameterized replaceable) so relays persist it.
@@ -41,4 +42,3 @@ const kNostrKindProfileBadges = 30008;
 const kReservationRefTag = "r";
 const kThreadRefTag = "t";
 const kListingRefTag = "l";
-const kCommitmentHashTag = "h";

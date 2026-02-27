@@ -7,27 +7,27 @@ import 'package:timelines_plus/timelines_plus.dart';
 import 'payment_timeline_item.dart';
 
 class TradeTimeline extends StatelessWidget {
-  final List<Reservation> reservations;
+  final List<ReservationTransition> transitions;
   final List<PaymentEvent> paymentEvents;
   final String hostPubKey;
   const TradeTimeline({
     super.key,
-    required this.reservations,
+    required this.transitions,
     required this.paymentEvents,
     required this.hostPubKey,
   });
 
   @override
   Widget build(BuildContext context) {
-    final List<dynamic> events = [...reservations, ...paymentEvents]
+    final List<dynamic> events = [...transitions, ...paymentEvents]
       ..sort((a, b) {
-        final timestampA = a is Reservation
+        final timestampA = a is ReservationTransition
             ? DateTime.fromMillisecondsSinceEpoch(a.createdAt * 1000)
             : (a is EscrowEvent
                   ? a.block.timestamp
                   : DateTime.fromMillisecondsSinceEpoch(0));
 
-        final timestampB = b is Reservation
+        final timestampB = b is ReservationTransition
             ? DateTime.fromMillisecondsSinceEpoch(b.createdAt * 1000)
             : (b is EscrowEvent
                   ? b.block.timestamp
@@ -37,7 +37,6 @@ class TradeTimeline extends StatelessWidget {
     if (events.isEmpty) return const SizedBox.shrink();
 
     const maxHistoryHeight = 320.0;
-    final surface = Theme.of(context).colorScheme.surface;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: maxHistoryHeight),

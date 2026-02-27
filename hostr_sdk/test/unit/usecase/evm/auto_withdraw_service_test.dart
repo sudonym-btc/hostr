@@ -1,6 +1,10 @@
+@Tags(['unit'])
+library;
+
 import 'dart:async';
 
 import 'package:hostr_sdk/datasources/storage.dart';
+import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart';
 import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/escrow_lock_registry.dart';
 import 'package:hostr_sdk/usecase/evm/operations/swap_record.dart';
@@ -9,6 +13,8 @@ import 'package:hostr_sdk/usecase/user_config/hostr_user_config.dart';
 import 'package:hostr_sdk/usecase/user_config/user_config_store.dart';
 import 'package:hostr_sdk/util/bitcoin_amount.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:mockito/mockito.dart';
+import 'package:models/bip340.dart';
 import 'package:test/test.dart';
 
 // ── Test harness ──────────────────────────────────────────────────────────
@@ -41,9 +47,12 @@ class GateHarness {
     BitcoinAmount? initialBalance,
   }) async {
     storage = InMemoryKeyValueStorage();
-    lockRegistry = EscrowLockRegistry(storage, CustomLogger());
-    swapStore = SwapStore(storage, CustomLogger());
-    userConfigStore = UserConfigStore(storage, CustomLogger());
+    final mockAuth = MockAuth();
+    final fakeUser = Bip340.fromPrivateKey('1' * 64);
+    when(mockAuth.activeKeyPair).thenAnswer((_) => fakeUser);
+    lockRegistry = EscrowLockRegistry(storage, CustomLogger(), mockAuth);
+    swapStore = SwapStore(storage, CustomLogger(), mockAuth);
+    userConfigStore = UserConfigStore(storage, CustomLogger(), mockAuth);
     logger = CustomLogger();
 
     balance = initialBalance ?? BitcoinAmount.zero();
@@ -143,8 +152,13 @@ void main() {
       );
 
       await h.lockRegistry.acquire(
-        'trade-1',
-        BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
+        tradeId: 'trade-1',
+        reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
+        sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+        arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+        contractAddress: '0x0000000000000000000000000000000000000003',
+        chainId: 33,
+        unlockAt: 9999999999,
       );
 
       expect(await h.runCheck(), isFalse);
@@ -157,8 +171,13 @@ void main() {
       );
 
       await h.lockRegistry.acquire(
-        'trade-1',
-        BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
+        tradeId: 'trade-1',
+        reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
+        sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+        arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+        contractAddress: '0x0000000000000000000000000000000000000003',
+        chainId: 33,
+        unlockAt: 9999999999,
       );
       expect(await h.runCheck(), isFalse);
 
@@ -174,12 +193,22 @@ void main() {
         );
 
         await h.lockRegistry.acquire(
-          'trade-1',
-          BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
+          tradeId: 'trade-1',
+          reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
+          sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+          arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+          contractAddress: '0x0000000000000000000000000000000000000003',
+          chainId: 33,
+          unlockAt: 9999999999,
         );
         await h.lockRegistry.acquire(
-          'trade-2',
-          BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
+          tradeId: 'trade-2',
+          reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
+          sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+          arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+          contractAddress: '0x0000000000000000000000000000000000000003',
+          chainId: 33,
+          unlockAt: 9999999999,
         );
 
         expect(await h.runCheck(), isFalse);
@@ -200,14 +229,7 @@ void main() {
       );
 
       await h.swapStore.save(
-        SwapRecord(
-          id: 'swap-1',
-          boltzId: 'boltz-1',
-          type: SwapType.swapOut,
-          status: SwapRecordStatus.funded,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
+        _minimalSwapOut('swap-1', SwapRecordStatus.funded),
       );
 
       expect(await h.runCheck(), isFalse);
@@ -219,14 +241,7 @@ void main() {
       );
 
       await h.swapStore.save(
-        SwapRecord(
-          id: 'swap-1',
-          boltzId: 'boltz-1',
-          type: SwapType.swapOut,
-          status: SwapRecordStatus.funded,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
+        _minimalSwapOut('swap-1', SwapRecordStatus.funded),
       );
       expect(await h.runCheck(), isFalse);
 
@@ -240,14 +255,7 @@ void main() {
       );
 
       await h.swapStore.save(
-        SwapRecord(
-          id: 'swap-1',
-          boltzId: 'boltz-1',
-          type: SwapType.swapOut,
-          status: SwapRecordStatus.created,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
+        _minimalSwapOut('swap-1', SwapRecordStatus.created),
       );
 
       expect(await h.runCheck(), isFalse);
@@ -400,18 +408,16 @@ void main() {
       );
 
       await h.lockRegistry.acquire(
-        'trade-1',
-        BitcoinAmount.fromInt(BitcoinUnit.sat, 50),
+        tradeId: 'trade-1',
+        reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 50),
+        sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+        arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+        contractAddress: '0x0000000000000000000000000000000000000003',
+        chainId: 33,
+        unlockAt: 9999999999,
       );
       await h.swapStore.save(
-        SwapRecord(
-          id: 'swap-1',
-          boltzId: 'boltz-1',
-          type: SwapType.swapOut,
-          status: SwapRecordStatus.funded,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
+        _minimalSwapOut('swap-1', SwapRecordStatus.funded),
       );
 
       expect(await h.runCheck(), isFalse);
@@ -427,18 +433,16 @@ void main() {
       );
 
       await h.lockRegistry.acquire(
-        'trade-1',
-        BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
+        tradeId: 'trade-1',
+        reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
+        sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+        arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+        contractAddress: '0x0000000000000000000000000000000000000003',
+        chainId: 33,
+        unlockAt: 9999999999,
       );
       await h.swapStore.save(
-        SwapRecord(
-          id: 'swap-1',
-          boltzId: 'boltz-1',
-          type: SwapType.swapOut,
-          status: SwapRecordStatus.funded,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
+        _minimalSwapOut('swap-1', SwapRecordStatus.funded),
       );
 
       expect(await h.runCheck(), isFalse);
@@ -464,4 +468,24 @@ void main() {
       expect(AutoWithdrawService, isNotNull);
     });
   });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+SwapOutRecord _minimalSwapOut(String id, SwapRecordStatus status) {
+  final now = DateTime.now();
+  return SwapOutRecord(
+    id: id,
+    boltzId: 'boltz-$id',
+    status: status,
+    createdAt: now,
+    updatedAt: now,
+    invoice: 'lnbc1000...',
+    invoicePreimageHashHex: 'deadbeef',
+    claimAddress: '0xclaimaddr',
+    lockedAmountWeiHex: 'f4240',
+    lockerAddress: '0xlockeraddr',
+    timeoutBlockHeight: 900000,
+    chainId: 31,
+  );
 }

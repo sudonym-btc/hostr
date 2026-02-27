@@ -4,6 +4,8 @@ import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:models/main.dart';
 
+import '../ui/form_label.dart';
+
 class ListingsWidget extends StatefulWidget {
   final ScrollController? scrollController;
 
@@ -117,15 +119,7 @@ class _ListingsWidgetState extends State<ListingsWidget> {
         resultCountBuilder: (count, hasMore) => CustomPadding(
           bottom: 0,
           child: Row(
-            children: [
-              Text(
-                '$count${hasMore ? '+' : ''} results',
-                textAlign: TextAlign.left,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
-              ),
-            ],
+            children: [FormLabel(label: '$count${hasMore ? '+' : ''} results')],
           ),
         ),
         builder: (el) {

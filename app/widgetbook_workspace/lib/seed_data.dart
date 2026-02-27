@@ -50,7 +50,7 @@ Future<void> initSeedData() async {
     }
 
     return ThreadScenario(
-      id: thread.request.getDtag() ?? 'thread-${thread.salt}',
+      id: thread.request.getDtag()!,
       thread: thread,
       reservation: reservation,
     );
@@ -87,7 +87,7 @@ List<ThreadScenario> get MOCK_THREAD_SCENARIOS => _threadScenarios;
 /// - [threadAnchor] — the Nostr thread anchor string
 /// - [requestMessage] — the reservation request wrapped as a [Message]
 /// - [listing] — the listing this thread references
-/// - [reservationRequest] — the raw reservation request event
+/// - [reservationRequest] — the negotiate-stage reservation event
 /// - [reservations] — list with the mock reservation (if any)
 class ThreadScenario {
   final String id;
@@ -107,7 +107,7 @@ class ThreadScenario {
 
   Listing get listing => thread.listing;
 
-  ReservationRequest get reservationRequest => thread.request;
+  Reservation get reservationRequest => thread.request;
 
   List<Reservation> get reservations =>
       reservation != null ? [reservation!] : [];
