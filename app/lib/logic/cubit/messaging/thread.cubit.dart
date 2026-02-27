@@ -18,8 +18,6 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   ThreadCubit({required this.thread})
     : super(
         ThreadCubitState(
-          listing: null,
-          listingProfile: null,
           counterpartyStates: [],
           participantStates: [],
           threadState: thread.state.value,
@@ -75,23 +73,6 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 
   void watch() {
     thread.trade!.start();
-    thread.trade!
-        .getListing()
-        .then((listing) {
-          emit(state.copyWith(listing: listing));
-        })
-        .catchError((e) {
-          logger.e('Failed to watch listing for thread', error: e);
-        });
-
-    thread.trade!
-        .getListingProfile()
-        .then((listingProfile) {
-          emit(state.copyWith(listingProfile: listingProfile));
-        })
-        .catchError((e) {
-          logger.e('Failed to watch listing profile for thread', error: e);
-        });
   }
 
   @override
@@ -108,31 +89,22 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 }
 
 class ThreadCubitState {
-  final Listing? listing;
-  final ProfileMetadata? listingProfile;
   final List<EntityCubitState<ProfileMetadata>> participantStates;
   final List<EntityCubitState<ProfileMetadata>> counterpartyStates;
-
   final ThreadState threadState;
 
   ThreadCubitState({
-    required this.listing,
-    required this.listingProfile,
     required this.participantStates,
     required this.counterpartyStates,
     required this.threadState,
   });
 
   ThreadCubitState copyWith({
-    Listing? listing,
-    ProfileMetadata? listingProfile,
     List<EntityCubitState<ProfileMetadata>>? participantStates,
     List<EntityCubitState<ProfileMetadata>>? counterpartyStates,
     ThreadState? threadState,
   }) {
     return ThreadCubitState(
-      listing: listing ?? this.listing,
-      listingProfile: listingProfile ?? this.listingProfile,
       participantStates: participantStates ?? this.participantStates,
       counterpartyStates: counterpartyStates ?? this.counterpartyStates,
       threadState: threadState ?? this.threadState,

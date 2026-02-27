@@ -32,6 +32,10 @@ jobs:
         run: dart pub get
         working-directory: hostr_sdk
 
+      - name: Run unit tests
+        run: dart test test/unit -t unit
+        working-directory: hostr_sdk
+
       - name: Start test stack
         env:
           DOCKER_DEFAULT_PLATFORM: linux/amd64
@@ -48,8 +52,8 @@ jobs:
         run: |
           echo "127.0.0.1 relay.hostr.development blossom.hostr.development alby1.hostr.development alby2.hostr.development lnbits1.hostr.development lnbits2.hostr.development" | sudo tee -a /etc/hosts
 
-      - name: Run tests
-        run: dart test
+      - name: Run docker integration tests
+        run: dart test test/integration -t docker
         working-directory: hostr_sdk
       # test_coverage package outdated
       # - name: Check coverage

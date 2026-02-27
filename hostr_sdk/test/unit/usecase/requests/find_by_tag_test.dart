@@ -1,3 +1,6 @@
+@Tags(['unit'])
+library;
+
 import 'dart:async';
 
 import 'package:hostr_sdk/datasources/nostr/mock.relay.dart' show matchEvent;
@@ -42,7 +45,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
 
 Reservation _reservation({
   required String pubkey,
-  required String commitmentHash,
+  required String tradeId,
   required String listingAnchor,
   String? id,
 }) {
@@ -52,7 +55,7 @@ Reservation _reservation({
     createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     tags: ReservationTags([
       [kListingRefTag, listingAnchor],
-      [kCommitmentHashTag, commitmentHash],
+      ['d', tradeId],
     ]),
     content: ReservationContent(
       start: DateTime.utc(2026, 3, 1),
@@ -78,94 +81,91 @@ void main() {
     test('returns matching events for a single value', () async {
       final r1 = _reservation(
         pubkey: 'pub1',
-        commitmentHash: 'hash-a',
+        tradeId: 'hash-a',
         listingAnchor: '32121:host:listing-1',
       );
       fakeRequests.events.add(r1);
 
-      final results = await useCase.findByTag(kCommitmentHashTag, 'hash-a');
+      final results = await useCase.findByTag('d', 'hash-a');
       expect(results, hasLength(1));
-      expect(results.first.parsedTags.commitmentHash, 'hash-a');
+      expect(results.first.getDtag(), 'hash-a');
     });
 
     test('returns empty list when no events match', () async {
       final r1 = _reservation(
         pubkey: 'pub1',
-        commitmentHash: 'hash-a',
+        tradeId: 'hash-a',
         listingAnchor: '32121:host:listing-1',
       );
       fakeRequests.events.add(r1);
 
-      final results = await useCase.findByTag(kCommitmentHashTag, 'hash-z');
+      final results = await useCase.findByTag('d', 'hash-z');
       expect(results, isEmpty);
     });
 
     test('returns multiple events for the same tag value', () async {
       final r1 = _reservation(
         pubkey: 'guest1',
-        commitmentHash: 'hash-shared',
+        tradeId: 'hash-shared',
         listingAnchor: '32121:host:listing-1',
       );
       final r2 = _reservation(
         pubkey: 'host1',
-        commitmentHash: 'hash-shared',
+        tradeId: 'hash-shared',
         listingAnchor: '32121:host:listing-1',
       );
       fakeRequests.events.addAll([r1, r2]);
 
-      final results = await useCase.findByTag(
-        kCommitmentHashTag,
-        'hash-shared',
-      );
+      final results = await useCase.findByTag('d', 'hash-shared');
       expect(results, hasLength(2));
     });
 
     test('batches concurrent calls into a single query', () async {
       final r1 = _reservation(
         pubkey: 'pub1',
-        commitmentHash: 'hash-a',
+        tradeId: 'hash-a',
         listingAnchor: '32121:host:listing-1',
       );
       final r2 = _reservation(
         pubkey: 'pub2',
-        commitmentHash: 'hash-b',
+        tradeId: 'hash-b',
         listingAnchor: '32121:host:listing-1',
       );
       final r3 = _reservation(
         pubkey: 'pub3',
-        commitmentHash: 'hash-c',
+        tradeId: 'hash-c',
         listingAnchor: '32121:host:listing-1',
       );
       fakeRequests.events.addAll([r1, r2, r3]);
 
       // Fire all three calls concurrently — they should batch.
       final futures = [
-        useCase.findByTag(kCommitmentHashTag, 'hash-a'),
-        useCase.findByTag(kCommitmentHashTag, 'hash-b'),
-        useCase.findByTag(kCommitmentHashTag, 'hash-c'),
+        useCase.findByTag('d', 'hash-a'),
+        useCase.findByTag('d', 'hash-b'),
+        useCase.findByTag('d', 'hash-c'),
       ];
 
       final results = await Future.wait(futures);
       expect(results[0], hasLength(1));
-      expect(results[0].first.parsedTags.commitmentHash, 'hash-a');
+      expect(results[0].first.getDtag(), 'hash-a');
       expect(results[1], hasLength(1));
-      expect(results[1].first.parsedTags.commitmentHash, 'hash-b');
+      expect(results[1].first.getDtag(), 'hash-b');
       expect(results[2], hasLength(1));
-      expect(results[2].first.parsedTags.commitmentHash, 'hash-c');
+      expect(results[2].first.getDtag(), 'hash-c');
     });
 
     test('deduplicates identical values in the same batch', () async {
       final r1 = _reservation(
         pubkey: 'pub1',
-        commitmentHash: 'hash-dup',
+        tradeId: 'hash-dup',
         listingAnchor: '32121:host:listing-1',
       );
       fakeRequests.events.add(r1);
 
       // Two callers ask for the same value.
       final futures = [
-        useCase.findByTag(kCommitmentHashTag, 'hash-dup'),
-        useCase.findByTag(kCommitmentHashTag, 'hash-dup'),
+        useCase.findByTag('d', 'hash-dup'),
+        useCase.findByTag('d', 'hash-dup'),
       ];
 
       final results = await Future.wait(futures);
@@ -185,8 +185,8 @@ void main() {
       );
 
       final futures = [
-        errorUseCase.findByTag(kCommitmentHashTag, 'hash-a'),
-        errorUseCase.findByTag(kCommitmentHashTag, 'hash-b'),
+        errorUseCase.findByTag('d', 'hash-a'),
+        errorUseCase.findByTag('d', 'hash-b'),
       ];
 
       expect(futures[0], throwsA(isA<StateError>()));

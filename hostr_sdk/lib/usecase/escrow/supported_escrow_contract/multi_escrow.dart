@@ -69,6 +69,29 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   }
 
   @override
+  Future<OnChainTrade?> getTrade(String tradeId) async {
+    await ensureDeployed();
+    final activeTrade = await _withDecodedCustomError(() {
+      return contract.activeTrade((tradeId: getBytes32(tradeId)));
+    });
+
+    if (!activeTrade.isActive) return null;
+
+    final trade = _extractTrade(activeTrade.trade);
+    if (trade == null) return null;
+
+    return OnChainTrade(
+      isActive: true,
+      buyer: trade.buyer,
+      seller: trade.seller,
+      arbiter: trade.arbiter,
+      amount: trade.amount,
+      unlockAt: trade.unlockAt,
+      escrowFee: trade.escrowFee,
+    );
+  }
+
+  @override
   Future<bool> canClaim(ContractClaimEscrowParams params) async {
     await ensureDeployed();
     final activeTrade = await _withDecodedCustomError(() {

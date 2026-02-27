@@ -41,13 +41,16 @@ class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
   /// - reviewerPubKey: The public key of the person posting the review (should be the guest)
   /// - proof: The proof of participation being revealed
   ///
-  /// Returns true if proof.verify(reviewerPubKey, reservation.guestCommitmentHash) is valid
+  /// Returns true if reviewer pubkey matches reservation recipient key.
   static bool validateProof(
     Reservation reservation,
     String reviewerPubKey,
     ParticipationProof proof,
   ) {
-    return proof.verify(reviewerPubKey, reservation.parsedTags.commitmentHash);
+    final recipient = reservation.parsedContent.recipient;
+    return recipient != null &&
+        recipient.isNotEmpty &&
+        reviewerPubKey == recipient;
   }
 }
 

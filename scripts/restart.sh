@@ -15,7 +15,7 @@ esac
 
 restart_hostr() {
     (cd "$REPO_ROOT/dependencies/boltz-regtest" && ./stop.sh) || true
-    (cd "$REPO_ROOT" && docker compose down --volumes) || true
+    (set -a; source "$REPO_ROOT/.env"; source "$REPO_ROOT/.env.$ENVIRONMENT"; set +a; cd "$REPO_ROOT" && docker compose down --volumes --remove-orphans) || true
 
     rm -rf \
         "$REPO_ROOT/docker/data/lightning_data" \

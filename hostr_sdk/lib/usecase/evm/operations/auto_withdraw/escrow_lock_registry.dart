@@ -82,20 +82,35 @@ class EscrowLockRegistry {
 
   /// Acquire a lock for an escrow fund operation.
   ///
+  /// All contract parameters are persisted so that a background worker can
+  /// reconstruct a [ContractFundEscrowParams] and complete the deposit if the
+  /// foreground app is killed after the swap-in but before the deposit tx.
+  ///
   /// Returns the created [EscrowLock] handle. Call [release] with the same
   /// [tradeId] when the operation completes (success or failure).
   ///
   /// If a lock for [tradeId] already exists it is **replaced** (idempotent
   /// re-acquire).
-  Future<EscrowLock> acquire(
-    String tradeId,
-    BitcoinAmount reservedAmount,
-  ) async {
+  Future<EscrowLock> acquire({
+    required String tradeId,
+    required BitcoinAmount reservedAmount,
+    required String sellerEvmAddress,
+    required String arbiterEvmAddress,
+    required String contractAddress,
+    required int chainId,
+    required int unlockAt,
+  }) async {
     await initialize();
     final lock = EscrowLock(
       tradeId: tradeId,
       reservedAmountWei: reservedAmount.getInWei,
       acquiredAt: DateTime.now(),
+      status: EscrowLockStatus.swapping,
+      sellerEvmAddress: sellerEvmAddress,
+      arbiterEvmAddress: arbiterEvmAddress,
+      contractAddress: contractAddress,
+      chainId: chainId,
+      unlockAt: unlockAt,
     );
     _cache![tradeId] = lock;
     await _flush();
@@ -105,6 +120,40 @@ class EscrowLockRegistry {
       '(reserved ${reservedAmount.getInSats} sats)',
     );
     return lock;
+  }
+
+  /// Transition a lock to a new [status], optionally recording a
+  /// [depositTxHash].
+  ///
+  /// No-op if no lock exists for [tradeId].
+  Future<void> updateStatus(
+    String tradeId, {
+    required EscrowLockStatus status,
+    String? depositTxHash,
+  }) async {
+    await initialize();
+    final existing = _cache![tradeId];
+    if (existing == null) {
+      _logger.w(
+        'EscrowLockRegistry: cannot update status for unknown $tradeId',
+      );
+      return;
+    }
+    _cache![tradeId] = existing.copyWith(
+      status: status,
+      depositTxHash: depositTxHash,
+    );
+    await _flush();
+    _logger.d(
+      'EscrowLock $tradeId status → ${status.name}'
+      '${depositTxHash != null ? ' (tx: $depositTxHash)' : ''}',
+    );
+  }
+
+  /// Returns all locks whose status indicates the deposit can be resumed.
+  Future<List<EscrowLock>> getResumable() async {
+    await initialize();
+    return _cache!.values.where((l) => l.canResumeDeposit).toList();
   }
 
   /// Release a previously acquired lock.

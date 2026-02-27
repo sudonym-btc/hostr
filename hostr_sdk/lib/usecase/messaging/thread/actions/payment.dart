@@ -14,7 +14,6 @@ class PaymentActions {
     List<PaymentEvent> paymentEvents,
     StreamStatus paymentStreamStatus,
     ThreadPartyRole role,
-    bool isBlocked,
   ) {
     final paymentStateFresh =
         paymentStreamStatus is StreamStatusLive ||

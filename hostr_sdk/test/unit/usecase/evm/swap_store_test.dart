@@ -1,3 +1,6 @@
+@Tags(['unit'])
+library;
+
 import 'dart:convert';
 
 import 'package:hostr_sdk/datasources/storage.dart';
@@ -31,11 +34,11 @@ void main() {
     store = SwapStore(storage, CustomLogger(), auth);
   });
 
-  SwapRecord _swapIn({
+  SwapInRecord _swapIn({
     String boltzId = 'swap-in-1',
     SwapRecordStatus status = SwapRecordStatus.created,
   }) {
-    final record = SwapRecord.forSwapIn(
+    final record = SwapInRecord.create(
       boltzId: boltzId,
       preimage: List<int>.generate(32, (i) => i),
       preimageHash: 'hash-$boltzId',
@@ -49,11 +52,11 @@ void main() {
     return record;
   }
 
-  SwapRecord _swapOut({
+  SwapOutRecord _swapOut({
     String boltzId = 'swap-out-1',
     SwapRecordStatus status = SwapRecordStatus.created,
   }) {
-    final record = SwapRecord.forSwapOut(
+    final record = SwapOutRecord.create(
       boltzId: boltzId,
       invoice: 'lnbc1000...',
       invoicePreimageHashHex: 'deadbeef',
@@ -160,7 +163,7 @@ void main() {
         expect(updated, isNotNull);
         expect(updated!.status, SwapRecordStatus.funded);
         expect(updated.lastBoltzStatus, 'transaction.confirmed');
-        expect(updated.refundAddress, '0xrefund');
+        expect((updated as SwapInRecord).refundAddress, '0xrefund');
       });
 
       test('returns null for unknown record', () async {
@@ -253,31 +256,42 @@ void main() {
 
     group('pruneOlderThan', () {
       test('removes only terminal records older than cutoff', () async {
-        final old = SwapRecord(
+        final old = SwapInRecord(
           id: 'old',
           boltzId: 'old',
-          type: SwapType.swapIn,
           status: SwapRecordStatus.completed,
           createdAt: DateTime(2025, 1, 1),
           updatedAt: DateTime(2025, 1, 1),
+          preimageHex: 'aa',
+          preimageHash: 'hh',
+          onchainAmountSat: 1000,
+          timeoutBlockHeight: 100,
           chainId: 31,
         );
-        final recent = SwapRecord(
+        final recent = SwapInRecord(
           id: 'recent',
           boltzId: 'recent',
-          type: SwapType.swapIn,
           status: SwapRecordStatus.completed,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
+          preimageHex: 'bb',
+          preimageHash: 'hh2',
+          onchainAmountSat: 2000,
+          timeoutBlockHeight: 200,
           chainId: 31,
         );
-        final oldButActive = SwapRecord(
+        final oldButActive = SwapOutRecord(
           id: 'old-active',
           boltzId: 'old-active',
-          type: SwapType.swapOut,
           status: SwapRecordStatus.funded,
           createdAt: DateTime(2025, 1, 1),
           updatedAt: DateTime(2025, 1, 1),
+          invoice: 'inv',
+          invoicePreimageHashHex: 'cc',
+          claimAddress: '0xaddr',
+          lockedAmountWeiHex: 'ff',
+          lockerAddress: '0xlocker',
+          timeoutBlockHeight: 300,
           chainId: 31,
         );
 
@@ -314,10 +328,10 @@ void main() {
         expect(all, hasLength(2));
 
         final inRecord = all.firstWhere((r) => r.boltzId == 'persist-1');
-        expect(inRecord.type, SwapType.swapIn);
+        expect(inRecord, isA<SwapInRecord>());
 
         final outRecord = all.firstWhere((r) => r.boltzId == 'persist-2');
-        expect(outRecord.type, SwapType.swapOut);
+        expect(outRecord, isA<SwapOutRecord>());
       });
 
       test(

@@ -1,3 +1,6 @@
+@Tags(['unit'])
+library;
+
 import 'dart:async';
 
 import 'package:hostr_sdk/util/stream_status.dart';
@@ -40,6 +43,8 @@ void main() {
       final stream = StreamWithStatus<int>();
       final completer = Completer<StreamStatusError>();
 
+      final dataSub = stream.stream.listen((_) {}, onError: (_, __) {});
+
       final sub = stream.status.listen((status) {
         if (status is StreamStatusError && !completer.isCompleted) {
           completer.complete(status);
@@ -54,6 +59,7 @@ void main() {
       expect(statusError.error.toString(), contains('boom'));
 
       await sub.cancel();
+      await dataSub.cancel();
       await stream.close();
     });
   });

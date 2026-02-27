@@ -1,3 +1,6 @@
+@Tags(['unit'])
+library;
+
 import 'dart:async';
 
 import 'package:hostr_sdk/util/main.dart';
@@ -7,7 +10,7 @@ import 'package:test/test.dart';
 Reservation _reservation({
   required String id,
   required String pubkey,
-  required String commitmentHash,
+  required String tradeId,
 }) {
   return Reservation(
     id: id,
@@ -15,7 +18,7 @@ Reservation _reservation({
     createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     tags: ReservationTags([
       [kListingRefTag, '32121:host:listing-1'],
-      [kCommitmentHashTag, commitmentHash],
+      ['d', tradeId],
     ]),
     content: ReservationContent(
       start: DateTime.utc(2026, 1, 1),
@@ -26,8 +29,8 @@ Reservation _reservation({
 
 /// Trivial "deps" for testing — just mirrors the commitment hash.
 class _TestDeps {
-  final String commitmentHash;
-  const _TestDeps(this.commitmentHash);
+  final String tradeId;
+  const _TestDeps(this.tradeId);
 }
 
 void main() {
@@ -39,22 +42,18 @@ void main() {
         source: source,
         debounce: Duration.zero,
         resolve: (item) async {
-          return _TestDeps(item.parsedTags.commitmentHash);
+          return _TestDeps(item.getDtag()!);
         },
         verify: (item, deps) {
-          return deps.commitmentHash == 'good'
+          return deps.tradeId == 'good'
               ? Valid(item)
               : Invalid(item, 'bad commitment');
         },
       );
 
       source.addStatus(StreamStatusLive());
-      source.add(
-        _reservation(id: 'r1', pubkey: 'guest', commitmentHash: 'good'),
-      );
-      source.add(
-        _reservation(id: 'r2', pubkey: 'guest', commitmentHash: 'bad'),
-      );
+      source.add(_reservation(id: 'r1', pubkey: 'guest', tradeId: 'good'));
+      source.add(_reservation(id: 'r2', pubkey: 'guest', tradeId: 'bad'));
 
       // Wait for resolve futures to complete.
       await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -85,7 +84,7 @@ void main() {
         resolve: (item) async {
           // Block until we manually release.
           await resolveCompleter.future;
-          return _TestDeps(item.parsedTags.commitmentHash);
+          return _TestDeps(item.getDtag()!);
         },
         verify: (item, deps) => Valid(item),
       );
@@ -94,7 +93,7 @@ void main() {
       final statusSub = verified.status.listen(statuses.add);
 
       source.addStatus(StreamStatusQuerying());
-      source.add(_reservation(id: 'r1', pubkey: 'guest', commitmentHash: 'c1'));
+      source.add(_reservation(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
       source.addStatus(StreamStatusLive());
 
       // Give the debounce + resolve kickoff time to start.
@@ -130,7 +129,7 @@ void main() {
       );
 
       source.addStatus(StreamStatusLive());
-      source.add(_reservation(id: 'r1', pubkey: 'guest', commitmentHash: 'c1'));
+      source.add(_reservation(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
 
@@ -155,20 +154,20 @@ void main() {
         debounce: Duration.zero,
         resolve: (item) async {
           resolveCount++;
-          return _TestDeps(item.parsedTags.commitmentHash);
+          return _TestDeps(item.getDtag()!);
         },
         verify: (item, deps) => Valid(item),
       );
 
       source.addStatus(StreamStatusLive());
-      source.add(_reservation(id: 'r1', pubkey: 'guest', commitmentHash: 'c1'));
+      source.add(_reservation(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(resolveCount, 1);
       expect(verified.list.value, hasLength(1));
 
       // Add a second item — r1 should not be re-resolved.
-      source.add(_reservation(id: 'r2', pubkey: 'guest', commitmentHash: 'c2'));
+      source.add(_reservation(id: 'r2', pubkey: 'guest', tradeId: 'c2'));
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(resolveCount, 2); // Only r2 was resolved.

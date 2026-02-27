@@ -97,9 +97,10 @@ class SeedThread {
   final SeedUser host;
   final SeedUser guest;
   final Listing listing;
-  final ReservationRequest request;
-  final String salt;
-  final String commitmentHash;
+  final Reservation request;
+
+  /// Stable deterministic identifier for this seeded negotiation/thread.
+  final String id;
   final DateTime start;
   final DateTime end;
 
@@ -119,8 +120,7 @@ class SeedThread {
     required this.guest,
     required this.listing,
     required this.request,
-    required this.salt,
-    required this.commitmentHash,
+    required this.id,
     required this.start,
     required this.end,
     required this.stageSpec,
@@ -143,7 +143,8 @@ class SeedPipelineData {
   final List<EscrowTrust> escrowTrusts;
   final List<EscrowMethod> escrowMethods;
   final List<SeedThread> threads;
-  final List<ReservationRequest> reservationRequests;
+  final List<Reservation> reservationRequests;
+  final List<ReservationTransition> reservationTransitions;
   final List<Nip01Event> threadMessages;
   final List<Reservation> reservations;
   final List<Nip01Event> zapReceipts;
@@ -158,6 +159,7 @@ class SeedPipelineData {
     required this.escrowMethods,
     required this.threads,
     required this.reservationRequests,
+    required this.reservationTransitions,
     required this.threadMessages,
     required this.reservations,
     required this.zapReceipts,
@@ -171,6 +173,7 @@ class SeedPipelineData {
     ...escrowMethods,
     ...listings,
     ...reservationRequests,
+    ...reservationTransitions,
     ...threadMessages,
     ...zapReceipts,
     ...reservations,
@@ -216,6 +219,7 @@ class SeedPipelineData {
       escrowThreads: escrowThreads,
       zapThreads: zapThreads,
       reservationRequests: reservationRequests.length,
+      reservationTransitions: reservationTransitions.length,
       messages: threadMessages.length,
       reservations: reservations.length,
       zapReceipts: zapReceipts.length,
@@ -243,6 +247,7 @@ class SeedSummary {
   final int escrowThreads;
   final int zapThreads;
   final int reservationRequests;
+  final int reservationTransitions;
   final int messages;
   final int reservations;
   final int zapReceipts;
@@ -265,6 +270,7 @@ class SeedSummary {
     required this.escrowThreads,
     required this.zapThreads,
     required this.reservationRequests,
+    required this.reservationTransitions,
     required this.messages,
     required this.reservations,
     required this.zapReceipts,
@@ -288,6 +294,7 @@ class SeedSummary {
     'escrowThreads': escrowThreads,
     'zapThreads': zapThreads,
     'reservationRequests': reservationRequests,
+    'reservationTransitions': reservationTransitions,
     'messages': messages,
     'reservations': reservations,
     'zapReceipts': zapReceipts,

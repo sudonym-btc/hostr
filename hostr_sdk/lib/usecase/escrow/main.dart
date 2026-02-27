@@ -1,4 +1,5 @@
 export 'escrow.dart';
+export 'escrow_verification.dart';
 export 'operations/claim/escrow_claim_models.dart';
 export 'operations/claim/escrow_claim_operation.dart';
 export 'operations/claim/escrow_claim_state.dart';

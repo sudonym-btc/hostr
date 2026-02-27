@@ -80,6 +80,9 @@ void main(List<String> arguments) async {
         help: 'Forward ratio as double, strictly between 0 and 1',
         mandatory: true);
 
+  final auditCmd = parser.addCommand('audit');
+  auditCmd.addOption('tradeId', help: 'Trade ID to audit', mandatory: true);
+
   final argResults = parser.parse(arguments);
 
   switch (argResults.command?.name) {
@@ -163,6 +166,17 @@ void main(List<String> arguments) async {
         ),
       );
       print('Arbitrate tx: $txHash');
+      break;
+    case 'audit':
+      final cmd = argResults.command;
+      final tradeId = cmd?['tradeId'] as String?;
+      if (tradeId == null || tradeId.isEmpty) {
+        print('--tradeId is required');
+        exitCode = 64;
+        return;
+      }
+      final result = await hostr.tradeAudit.audit(tradeId);
+      print(result.format());
       break;
     default:
       print('Unknown command');

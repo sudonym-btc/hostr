@@ -3,141 +3,106 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/route/auth_gated_action.dart';
 import 'package:hostr/router.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
-class Reserve extends StatefulWidget {
+class Reserve extends StatelessWidget {
   final Listing listing;
-  const Reserve({super.key, required this.listing});
+  final List<ReservationPairStatus> reservationPairs;
 
-  @override
-  State<StatefulWidget> createState() => ReserveState();
-}
-
-class ReserveState extends State<Reserve> {
-  late final Future<List<Reservation>> _reservationsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _reservationsFuture = getIt<Hostr>().reservations.getListingReservations(
-      listingAnchor: widget.listing.anchor!,
-    );
-  }
+  const Reserve({
+    super.key,
+    required this.listing,
+    required this.reservationPairs,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Reservation>>(
-      future: _reservationsFuture,
-      builder: (context, reservationsSnapshot) {
-        final reservations = reservationsSnapshot.data ?? const <Reservation>[];
-        final availabilityReady =
-            reservationsSnapshot.connectionState == ConnectionState.done &&
-            !reservationsSnapshot.hasError;
-
-        return BlocBuilder<DateRangeCubit, DateRangeState>(
-          builder: (context, dateState) => BlocProvider<ReservationCubit>(
-            create: (context) => ReservationCubit(),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                dateState.dateRange != null
-                    ? GestureDetector(
-                        onTap: availabilityReady
-                            ? () => selectDates(
-                                context,
-                                context.read<DateRangeCubit>(),
-                                reservations,
-                                enforceContiguousAvailability: true,
-                              )
-                            : null,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              formatAmount(
-                                widget.listing.cost(
-                                  dateState.dateRange!.start,
-                                  dateState.dateRange!.end,
-                                ),
-                              ),
+    return BlocBuilder<DateRangeCubit, DateRangeState>(
+      builder: (context, dateState) => BlocProvider<ReservationCubit>(
+        create: (context) => ReservationCubit(),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            dateState.dateRange != null
+                ? GestureDetector(
+                    onTap: () => selectDates(
+                      context,
+                      context.read<DateRangeCubit>(),
+                      reservationPairs,
+                      enforceContiguousAvailability: true,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          formatAmount(
+                            listing.cost(
+                              dateState.dateRange!.start,
+                              dateState.dateRange!.end,
                             ),
-                            Text(
-                              formatDateRangeShort(
-                                dateState.dateRange!,
-                                Localizations.localeOf(context),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : GestureDetector(
-                        child: TextButton(
-                          onPressed: availabilityReady
-                              ? () => selectDates(
-                                  context,
-                                  context.read<DateRangeCubit>(),
-                                  reservations,
-                                  enforceContiguousAvailability: true,
-                                )
-                              : null,
-                          child: Text(
-                            availabilityReady
-                                ? AppLocalizations.of(context)!.selectDates
-                                : AppLocalizations.of(context)!.loading,
                           ),
                         ),
-                        onTap: availabilityReady
-                            ? () => selectDates(
-                                context,
-                                context.read<DateRangeCubit>(),
-                                reservations,
-                                enforceContiguousAvailability: true,
-                              )
-                            : null,
+                        Text(
+                          formatDateRangeShort(
+                            dateState.dateRange!,
+                            Localizations.localeOf(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : GestureDetector(
+                    child: TextButton(
+                      onPressed: () => selectDates(
+                        context,
+                        context.read<DateRangeCubit>(),
+                        reservationPairs,
+                        enforceContiguousAvailability: true,
                       ),
-                BlocBuilder<ReservationCubit, ReservationCubitState>(
-                  builder: (context, state) {
-                    return FilledButton(
-                      onPressed:
-                          !availabilityReady ||
-                              state.status == ReservationCubitStatus.loading ||
-                              dateState.dateRange == null
-                          ? null
-                          : () => authGatedAction(context, () async {
-                              await context
-                                  .read<ReservationCubit>()
-                                  .createReservationRequest(
-                                    listing: widget.listing,
-                                    startDate: dateState.dateRange!.start,
-                                    endDate: dateState.dateRange!.end,
-                                    onSuccess: (reservationRequest) {
-                                      AutoRouter.of(context).push(
-                                        ThreadRoute(
-                                          // If reservationRequest keeps thread anchor tag, retain. Otherwise parse it from the d tag
-                                          anchor: reservationRequest.getDtag()!,
-                                        ),
-                                      );
-                                    },
+                      child: Text(AppLocalizations.of(context)!.selectDates),
+                    ),
+                    onTap: () => selectDates(
+                      context,
+                      context.read<DateRangeCubit>(),
+                      reservationPairs,
+                      enforceContiguousAvailability: true,
+                    ),
+                  ),
+            BlocBuilder<ReservationCubit, ReservationCubitState>(
+              builder: (context, state) {
+                return FilledButton(
+                  onPressed:
+                      state.status == ReservationCubitStatus.loading ||
+                          dateState.dateRange == null
+                      ? null
+                      : () => authGatedAction(context, () async {
+                          await context
+                              .read<ReservationCubit>()
+                              .createReservationRequest(
+                                listing: listing,
+                                startDate: dateState.dateRange!.start,
+                                endDate: dateState.dateRange!.end,
+                                onSuccess: (reservation) {
+                                  AutoRouter.of(context).push(
+                                    ThreadRoute(anchor: reservation.getDtag()!),
                                   );
-                            }),
-                      child: state.status == ReservationCubitStatus.loading
-                          ? const AppLoadingIndicator.small()
-                          : Text(AppLocalizations.of(context)!.reserve),
-                    );
-                  },
-                ),
-              ],
+                                },
+                              );
+                        }),
+                  child: state.status == ReservationCubitStatus.loading
+                      ? const AppLoadingIndicator.small()
+                      : Text(AppLocalizations.of(context)!.reserve),
+                );
+              },
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
@@ -145,7 +110,7 @@ class ReserveState extends State<Reserve> {
 Future<void> selectDates(
   BuildContext context,
   DateRangeCubit dateRangeCubit,
-  List<Reservation> reservations, {
+  List<ReservationPairStatus> reservationPairs, {
   bool enforceContiguousAvailability = true,
 }) async {
   final picked = await showDateRangePicker(
@@ -166,12 +131,12 @@ Future<void> selectDates(
             return false;
           }
 
-          if (!Listing.isAvailable(day, day, reservations)) {
+          if (!Listing.isAvailable(day, day, reservationPairs)) {
             return false;
           }
 
           if (enforceContiguousAvailability && selectedStartDay != null) {
-            return Listing.isAvailable(selectedStartDay, day, reservations);
+            return Listing.isAvailable(selectedStartDay, day, reservationPairs);
           }
 
           return true;

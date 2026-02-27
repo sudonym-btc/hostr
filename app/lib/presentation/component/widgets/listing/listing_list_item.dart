@@ -25,6 +25,12 @@ class ListingListItemView extends StatelessWidget {
   final Widget? availabilityWidget;
   final VoidCallback? onTap;
 
+  /// Optional validated-reservation-pair count stream.
+  /// When supplied, the stays count shows only verified pairs.
+  final ValidatedStreamWithStatus<Review> verifiedReviews;
+  final ValidatedStreamWithStatus<ReservationPairStatus>
+  verifiedReservationPairs;
+
   const ListingListItemView({
     super.key,
     required this.listing,
@@ -35,6 +41,8 @@ class ListingListItemView extends StatelessWidget {
     required this.showAvailability,
     this.availabilityWidget,
     this.onTap,
+    required this.verifiedReviews,
+    required this.verifiedReservationPairs,
   });
 
   Widget _buildImage() {
@@ -79,7 +87,16 @@ class ListingListItemView extends StatelessWidget {
                 if (showFeedback) ...[
                   const Spacer(),
                   if (showPrice) Gap.horizontal.md(),
-                  ReviewsReservationsWidget(listing: listing),
+                  ReviewsReservationsWidget(
+                    reservationCount: verifiedReservationPairs.stream.map(
+                      (pairs) => pairs
+                          .whereType<Valid<ReservationPairStatus>>()
+                          .length,
+                    ),
+                    reviewCount: verifiedReviews.stream.map(
+                      (reviews) => reviews.whereType<Valid<Review>>().length,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -124,10 +141,6 @@ class ListingListItemWidget extends StatefulWidget {
   final bool smallImage;
   final WidgetBuilder? bottom;
 
-  /// Optional externally-provided reservations stream.
-  /// When supplied the widget skips creating its own subscription.
-  final StreamWithStatus<Reservation>? reservationsStream;
-
   const ListingListItemWidget({
     super.key,
     required this.listing,
@@ -136,7 +149,6 @@ class ListingListItemWidget extends StatefulWidget {
     this.showFeedback = true,
     this.smallImage = false,
     this.bottom,
-    this.reservationsStream,
   });
 
   @override
@@ -146,50 +158,41 @@ class ListingListItemWidget extends StatefulWidget {
 class ListingListItemWidgetState extends State<ListingListItemWidget> {
   ListingListItemWidgetState();
 
-  static const _streamInitDelay = Duration(seconds: 2);
-
-  StreamWithStatus<Reservation>? _reservationsStream;
-  StreamSubscription<List<Reservation>>? _reservationsSubscription;
+  late final ValidatedStreamWithStatus<ReservationPairStatus> _verifiedPairs;
+  StreamSubscription<List<Validation<ReservationPairStatus>>>?
+  _verifiedPairsSubscription;
+  late final ValidatedStreamWithStatus<Review> _verifiedReviews;
   AvailabilityCubit? _availabilityCubit;
   DateRangeCubit? _localDateRangeCubit;
-  List<Reservation> _latestReservations = const [];
-  Timer? _initTimer;
-  bool _ownsStream = false;
+  List<ReservationPairStatus> _latestAvailabilityPairs = const [];
 
   @override
   initState() {
     super.initState();
-    if (widget.reservationsStream != null) {
-      _attachReservationsStream(widget.reservationsStream!);
-    } else {
-      _initTimer = Timer(_streamInitDelay, _initOwnReservationsStream);
-    }
-  }
-
-  void _initOwnReservationsStream() {
-    if (!mounted) return;
-    final anchor = widget.listing.anchor;
-    if (anchor == null) return;
-
-    final stream = getIt<Hostr>().reservations.query(
-      name: 'ListingListItem-$anchor-reservations',
-      Filter(
+    assert(
+      widget.listing.anchor != null,
+      'ListingListItemWidget requires a listing with a non-null anchor',
+    );
+    _verifiedPairs = getIt<Hostr>().reservationPairs.queryVerified(
+      listing: widget.listing,
+    );
+    _verifiedReviews = getIt<Hostr>().reviews.subscribeVerified(
+      filter: Filter(
         tags: {
-          kListingRefTag: [anchor],
+          kListingRefTag: [widget.listing.anchor!],
         },
       ),
     );
-    _ownsStream = true;
-    _attachReservationsStream(stream);
-  }
 
-  void _attachReservationsStream(StreamWithStatus<Reservation> stream) {
-    _reservationsStream = stream;
-    _reservationsSubscription = stream.list.listen((items) {
-      _latestReservations = items;
-      _availabilityCubit?.updateReservations(items);
+    _verifiedPairsSubscription = _verifiedPairs.stream.listen((pairs) {
+      final availabilityPairs = pairs
+          .whereType<Valid<ReservationPairStatus>>()
+          .map((validated) => validated.event)
+          .toList();
+
+      _latestAvailabilityPairs = availabilityPairs;
+      _availabilityCubit?.updateReservationPairs(availabilityPairs);
     });
-    if (mounted) setState(() {});
   }
 
   @override
@@ -207,15 +210,15 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     _localDateRangeCubit ??= DateRangeCubit();
     _availabilityCubit = AvailabilityCubit(
       dateRangeCubit: dateRangeCubit ?? _localDateRangeCubit!,
-      reservations: _latestReservations,
+      reservationPairs: _latestAvailabilityPairs,
     );
   }
 
   @override
   void dispose() {
-    _initTimer?.cancel();
-    _reservationsSubscription?.cancel();
-    if (_ownsStream) _reservationsStream?.close();
+    _verifiedPairsSubscription?.cancel();
+    _verifiedPairs.close();
+    _verifiedReviews.close();
     _availabilityCubit?.close();
     _localDateRangeCubit?.close();
     super.dispose();
@@ -280,6 +283,8 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
         availabilityWidget: showAvailability
             ? _buildAvailabilityText(context)
             : null,
+        verifiedReservationPairs: _verifiedPairs,
+        verifiedReviews: _verifiedReviews,
         onTap: widget.listing.anchor != null
             ? () {
                 DateTimeRange? dr = widget.dateRange;

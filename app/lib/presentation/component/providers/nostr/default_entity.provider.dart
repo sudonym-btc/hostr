@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -71,6 +72,7 @@ class DefaultEntityProvider<Type extends Event>
                 eTags: e != null ? [e!] : null,
               ),
               crud: crud,
+              hostr: getIt<Hostr>(),
             )
             ..get().then((value) {
               if (onDone != null && value != null) {

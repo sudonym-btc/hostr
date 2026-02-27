@@ -1,3 +1,6 @@
+@Tags(['unit'])
+library;
+
 import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
@@ -5,11 +8,11 @@ import 'package:hostr_sdk/usecase/evm/operations/swap_record.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('SwapRecord', () {
-    group('forSwapIn factory', () {
+  group('SwapRecord sealed hierarchy', () {
+    group('SwapInRecord.create', () {
       test('creates a record with correct defaults', () {
         final preimage = List<int>.generate(32, (i) => i);
-        final record = SwapRecord.forSwapIn(
+        final record = SwapInRecord.create(
           boltzId: 'swap-in-123',
           preimage: preimage,
           preimageHash: 'abc123',
@@ -20,25 +23,20 @@ void main() {
 
         expect(record.id, 'swap-in-123');
         expect(record.boltzId, 'swap-in-123');
-        expect(record.type, SwapType.swapIn);
+        expect(record, isA<SwapInRecord>());
         expect(record.status, SwapRecordStatus.created);
         expect(record.preimageHex, hex.encode(preimage));
         expect(record.preimageHash, 'abc123');
         expect(record.onchainAmountSat, 50000);
         expect(record.timeoutBlockHeight, 800000);
         expect(record.chainId, 31);
-        // Swap-out fields should be null
-        expect(record.invoice, isNull);
-        expect(record.invoicePreimageHashHex, isNull);
-        expect(record.claimAddress, isNull);
-        expect(record.lockedAmountWeiHex, isNull);
-        expect(record.lockerAddress, isNull);
+        expect(record.refundAddress, isNull);
       });
     });
 
-    group('forSwapOut factory', () {
+    group('SwapOutRecord.create', () {
       test('creates a record with correct defaults', () {
-        final record = SwapRecord.forSwapOut(
+        final record = SwapOutRecord.create(
           boltzId: 'swap-out-456',
           invoice: 'lnbc1000...',
           invoicePreimageHashHex: 'deadbeef',
@@ -51,7 +49,7 @@ void main() {
 
         expect(record.id, 'swap-out-456');
         expect(record.boltzId, 'swap-out-456');
-        expect(record.type, SwapType.swapOut);
+        expect(record, isA<SwapOutRecord>());
         expect(record.status, SwapRecordStatus.created);
         expect(record.invoice, 'lnbc1000...');
         expect(record.invoicePreimageHashHex, 'deadbeef');
@@ -66,17 +64,14 @@ void main() {
         expect(record.lockerAddress, '0xaabbccdd');
         expect(record.timeoutBlockHeight, 900000);
         expect(record.chainId, 31);
-        // Swap-in fields should be null
-        expect(record.preimageHex, isNull);
-        expect(record.preimageHash, isNull);
-        expect(record.onchainAmountSat, isNull);
+        expect(record.lockTxHash, isNull);
       });
     });
 
     group('derived getters', () {
       test('preimageBytes decodes hex correctly', () {
         final preimage = List<int>.generate(32, (i) => i);
-        final record = SwapRecord.forSwapIn(
+        final record = SwapInRecord.create(
           boltzId: 'test',
           preimage: preimage,
           preimageHash: 'hash',
@@ -85,29 +80,13 @@ void main() {
           chainId: 31,
         );
 
-        expect(record.preimageBytes, isNotNull);
         expect(record.preimageBytes, isA<Uint8List>());
-        expect(record.preimageBytes!.toList(), preimage);
-      });
-
-      test('preimageBytes returns null when preimageHex is null', () {
-        final record = SwapRecord.forSwapOut(
-          boltzId: 'test',
-          invoice: 'inv',
-          invoicePreimageHashHex: 'hash',
-          claimAddress: '0xaddr',
-          lockedAmountWei: BigInt.one,
-          lockerAddress: '0xlocker',
-          timeoutBlockHeight: 100,
-          chainId: 31,
-        );
-
-        expect(record.preimageBytes, isNull);
+        expect(record.preimageBytes.toList(), preimage);
       });
 
       test('invoicePreimageHashBytes decodes hex correctly', () {
         final hashHex = 'aabbccdd';
-        final record = SwapRecord.forSwapOut(
+        final record = SwapOutRecord.create(
           boltzId: 'test',
           invoice: 'inv',
           invoicePreimageHashHex: hashHex,
@@ -118,13 +97,12 @@ void main() {
           chainId: 31,
         );
 
-        expect(record.invoicePreimageHashBytes, isNotNull);
-        expect(record.invoicePreimageHashBytes!.toList(), hex.decode(hashHex));
+        expect(record.invoicePreimageHashBytes.toList(), hex.decode(hashHex));
       });
 
       test('lockedAmountWei parses hex correctly', () {
         final amount = BigInt.from(123456789);
-        final record = SwapRecord.forSwapOut(
+        final record = SwapOutRecord.create(
           boltzId: 'test',
           invoice: 'inv',
           invoicePreimageHashHex: 'hash',
@@ -137,9 +115,11 @@ void main() {
 
         expect(record.lockedAmountWei, amount);
       });
+    });
 
-      test('lockedAmountWei returns null when hex is null', () {
-        final record = SwapRecord.forSwapIn(
+    group('claimParams', () {
+      test('returns null when refundAddress is missing', () {
+        final record = SwapInRecord.create(
           boltzId: 'test',
           preimage: [1, 2, 3],
           preimageHash: 'hash',
@@ -147,8 +127,45 @@ void main() {
           timeoutBlockHeight: 100,
           chainId: 31,
         );
+        expect(record.claimParams, isNull);
+      });
 
-        expect(record.lockedAmountWei, isNull);
+      test('returns params when refundAddress is present', () {
+        final record = SwapInRecord.create(
+          boltzId: 'test',
+          preimage: List<int>.generate(32, (i) => i),
+          preimageHash: 'hash',
+          onchainAmountSat: 50000,
+          timeoutBlockHeight: 800000,
+          chainId: 31,
+        );
+        record.refundAddress = '0xrefund';
+
+        final params = record.claimParams;
+        expect(params, isNotNull);
+        expect(params!.onchainAmountSat, 50000);
+        expect(params.refundAddress, '0xrefund');
+        expect(params.timeoutBlockHeight, 800000);
+      });
+    });
+
+    group('refundParams', () {
+      test('always returns non-null for SwapOutRecord', () {
+        final record = SwapOutRecord.create(
+          boltzId: 'test',
+          invoice: 'inv',
+          invoicePreimageHashHex: 'deadbeef',
+          claimAddress: '0xclaimaddr',
+          lockedAmountWei: BigInt.from(1000000),
+          lockerAddress: '0xlocker',
+          timeoutBlockHeight: 900000,
+          chainId: 31,
+        );
+
+        final params = record.refundParams;
+        expect(params.claimAddress, '0xclaimaddr');
+        expect(params.lockedAmountWei, BigInt.from(1000000));
+        expect(params.timeoutBlockHeight, 900000);
       });
     });
 
@@ -159,7 +176,7 @@ void main() {
           SwapRecordStatus.refunded,
           SwapRecordStatus.failed,
         ]) {
-          final record = _makeRecord(status: status);
+          final record = _makeSwapOutRecord(status: status);
           expect(
             record.isTerminal,
             isTrue,
@@ -176,7 +193,7 @@ void main() {
           SwapRecordStatus.needsAction,
           SwapRecordStatus.refunding,
         ]) {
-          final record = _makeRecord(status: status);
+          final record = _makeSwapOutRecord(status: status);
           expect(
             record.isTerminal,
             isFalse,
@@ -191,7 +208,7 @@ void main() {
           SwapRecordStatus.claiming,
           SwapRecordStatus.needsAction,
         ]) {
-          final record = _makeRecord(status: status);
+          final record = _makeSwapOutRecord(status: status);
           expect(
             record.needsRecovery,
             isTrue,
@@ -208,7 +225,7 @@ void main() {
           SwapRecordStatus.failed,
           SwapRecordStatus.refunding,
         ]) {
-          final record = _makeRecord(status: status);
+          final record = _makeSwapOutRecord(status: status);
           expect(
             record.needsRecovery,
             isFalse,
@@ -218,21 +235,48 @@ void main() {
       });
 
       test('isTimelockExpired', () {
-        final record = _makeRecord(timeoutBlockHeight: 1000);
+        final record = _makeSwapOutRecord(timeoutBlockHeight: 1000);
         expect(record.isTimelockExpired(999), isFalse);
         expect(record.isTimelockExpired(1000), isTrue);
         expect(record.isTimelockExpired(1001), isTrue);
       });
+    });
 
-      test('isTimelockExpired returns false when no timelock', () {
-        final record = _makeRecord(timeoutBlockHeight: null);
-        expect(record.isTimelockExpired(1000), isFalse);
+    group('sealed type matching', () {
+      test('switch works exhaustively on sealed SwapRecord', () {
+        final swapIn = SwapInRecord.create(
+          boltzId: 'in-1',
+          preimage: [1, 2, 3],
+          preimageHash: 'hash',
+          onchainAmountSat: 1000,
+          timeoutBlockHeight: 100,
+          chainId: 31,
+        );
+        final swapOut = SwapOutRecord.create(
+          boltzId: 'out-1',
+          invoice: 'inv',
+          invoicePreimageHashHex: 'hash',
+          claimAddress: '0xaddr',
+          lockedAmountWei: BigInt.one,
+          lockerAddress: '0xlocker',
+          timeoutBlockHeight: 100,
+          chainId: 31,
+        );
+
+        // This compiles only because the sealed hierarchy is exhaustive
+        String direction(SwapRecord r) => switch (r) {
+          SwapInRecord() => 'in',
+          SwapOutRecord() => 'out',
+        };
+
+        expect(direction(swapIn), 'in');
+        expect(direction(swapOut), 'out');
       });
     });
 
     group('copyWithStatus', () {
-      test('copies with new status and preserves other fields', () {
-        final record = SwapRecord.forSwapIn(
+      test('SwapInRecord preserves fields and accepts refundAddress', () {
+        final record = SwapInRecord.create(
           boltzId: 'copy-test',
           preimage: [1, 2, 3],
           preimageHash: 'hash',
@@ -243,19 +287,43 @@ void main() {
 
         final updated = record.copyWithStatus(
           SwapRecordStatus.funded,
-          lockTxHash: '0xabc',
+          refundAddress: '0xrefund',
         );
 
+        expect(updated, isA<SwapInRecord>());
         expect(updated.status, SwapRecordStatus.funded);
-        expect(updated.lockTxHash, '0xabc');
+        expect(updated.refundAddress, '0xrefund');
         expect(updated.boltzId, 'copy-test');
         expect(updated.preimageHex, record.preimageHex);
         expect(updated.chainId, 31);
         expect(updated.updatedAt.isAfter(record.createdAt), isTrue);
       });
 
-      test('overrides optional fields', () {
-        final record = _makeRecord(status: SwapRecordStatus.funded);
+      test('SwapOutRecord preserves fields and accepts lockTxHash', () {
+        final record = SwapOutRecord.create(
+          boltzId: 'copy-test',
+          invoice: 'inv',
+          invoicePreimageHashHex: 'hash',
+          claimAddress: '0xaddr',
+          lockedAmountWei: BigInt.one,
+          lockerAddress: '0xlocker',
+          timeoutBlockHeight: 100,
+          chainId: 31,
+        );
+
+        final updated = record.copyWithStatus(
+          SwapRecordStatus.funded,
+          lockTxHash: '0xlocktx',
+        );
+
+        expect(updated, isA<SwapOutRecord>());
+        expect(updated.status, SwapRecordStatus.funded);
+        expect(updated.lockTxHash, '0xlocktx');
+        expect(updated.invoice, 'inv');
+      });
+
+      test('overrides optional metadata fields', () {
+        final record = _makeSwapOutRecord(status: SwapRecordStatus.funded);
         final updated = record.copyWithStatus(
           SwapRecordStatus.claiming,
           resolutionTxHash: '0xresolution',
@@ -270,7 +338,7 @@ void main() {
 
     group('JSON serialization', () {
       test('roundtrip for swap-in', () {
-        final original = SwapRecord.forSwapIn(
+        final original = SwapInRecord.create(
           boltzId: 'json-test-in',
           preimage: List<int>.generate(32, (i) => i),
           preimageHash: 'abc123hash',
@@ -282,19 +350,20 @@ void main() {
         final json = original.toJson();
         final restored = SwapRecord.fromJson(json);
 
-        expect(restored.id, original.id);
-        expect(restored.boltzId, original.boltzId);
-        expect(restored.type, original.type);
-        expect(restored.status, original.status);
-        expect(restored.preimageHex, original.preimageHex);
-        expect(restored.preimageHash, original.preimageHash);
-        expect(restored.onchainAmountSat, original.onchainAmountSat);
-        expect(restored.timeoutBlockHeight, original.timeoutBlockHeight);
-        expect(restored.chainId, original.chainId);
+        expect(restored, isA<SwapInRecord>());
+        final r = restored as SwapInRecord;
+        expect(r.id, original.id);
+        expect(r.boltzId, original.boltzId);
+        expect(r.status, original.status);
+        expect(r.preimageHex, original.preimageHex);
+        expect(r.preimageHash, original.preimageHash);
+        expect(r.onchainAmountSat, original.onchainAmountSat);
+        expect(r.timeoutBlockHeight, original.timeoutBlockHeight);
+        expect(r.chainId, original.chainId);
       });
 
       test('roundtrip for swap-out', () {
-        final original = SwapRecord.forSwapOut(
+        final original = SwapOutRecord.create(
           boltzId: 'json-test-out',
           invoice: 'lnbc500u1...',
           invoicePreimageHashHex: 'deadbeef01020304',
@@ -308,20 +377,18 @@ void main() {
         final json = original.toJson();
         final restored = SwapRecord.fromJson(json);
 
-        expect(restored.type, SwapType.swapOut);
-        expect(restored.invoice, original.invoice);
-        expect(
-          restored.invoicePreimageHashHex,
-          original.invoicePreimageHashHex,
-        );
-        expect(restored.claimAddress, original.claimAddress);
-        expect(restored.lockedAmountWeiHex, original.lockedAmountWeiHex);
-        expect(restored.lockedAmountWei, original.lockedAmountWei);
-        expect(restored.lockerAddress, original.lockerAddress);
+        expect(restored, isA<SwapOutRecord>());
+        final r = restored as SwapOutRecord;
+        expect(r.invoice, original.invoice);
+        expect(r.invoicePreimageHashHex, original.invoicePreimageHashHex);
+        expect(r.claimAddress, original.claimAddress);
+        expect(r.lockedAmountWeiHex, original.lockedAmountWeiHex);
+        expect(r.lockedAmountWei, original.lockedAmountWei);
+        expect(r.lockerAddress, original.lockerAddress);
       });
 
       test('roundtrip preserves nullable fields', () {
-        final original = SwapRecord.forSwapIn(
+        final original = SwapInRecord.create(
           boltzId: 'nullable-test',
           preimage: [1],
           preimageHash: 'h',
@@ -344,8 +411,8 @@ void main() {
         expect(restored.errorMessage, 'Something went wrong');
       });
 
-      test('omits null fields from JSON', () {
-        final record = SwapRecord.forSwapIn(
+      test('swap-in JSON does not contain swap-out fields', () {
+        final record = SwapInRecord.create(
           boltzId: 'omit-test',
           preimage: [1],
           preimageHash: 'h',
@@ -358,24 +425,47 @@ void main() {
         expect(json.containsKey('invoice'), isFalse);
         expect(json.containsKey('claimAddress'), isFalse);
         expect(json.containsKey('lockedAmountWeiHex'), isFalse);
-        expect(json.containsKey('resolutionTxHash'), isFalse);
-        expect(json.containsKey('errorMessage'), isFalse);
+        expect(json['type'], 'swapIn');
+      });
+
+      test('swap-out JSON does not contain swap-in fields', () {
+        final record = SwapOutRecord.create(
+          boltzId: 'omit-test',
+          invoice: 'inv',
+          invoicePreimageHashHex: 'hash',
+          claimAddress: '0xaddr',
+          lockedAmountWei: BigInt.one,
+          lockerAddress: '0xlocker',
+          timeoutBlockHeight: 10,
+          chainId: 31,
+        );
+        final json = record.toJson();
+
+        expect(json.containsKey('preimageHex'), isFalse);
+        expect(json.containsKey('preimageHash'), isFalse);
+        expect(json.containsKey('onchainAmountSat'), isFalse);
+        expect(json['type'], 'swapOut');
       });
     });
   });
 }
 
-SwapRecord _makeRecord({
+SwapOutRecord _makeSwapOutRecord({
   SwapRecordStatus status = SwapRecordStatus.created,
-  int? timeoutBlockHeight = 1000,
+  int timeoutBlockHeight = 1000,
 }) {
-  return SwapRecord(
-    id: 'test-id',
+  final record = SwapOutRecord.create(
     boltzId: 'test-boltz-id',
-    type: SwapType.swapOut,
-    status: status,
-    createdAt: DateTime(2026, 1, 1),
-    updatedAt: DateTime(2026, 1, 1),
+    invoice: 'lnbc1000...',
+    invoicePreimageHashHex: 'deadbeef',
+    claimAddress: '0xclaimaddr',
+    lockedAmountWei: BigInt.from(1000000),
+    lockerAddress: '0xlockeraddr',
     timeoutBlockHeight: timeoutBlockHeight,
+    chainId: 31,
   );
+  if (status != SwapRecordStatus.created) {
+    return record.copyWithStatus(status);
+  }
+  return record;
 }

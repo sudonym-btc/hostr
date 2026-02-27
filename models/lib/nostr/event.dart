@@ -55,6 +55,11 @@ abstract class Event<TagsType extends EventTags> extends Nip01Event {
     return fromNostrEvent(signed);
   }
 
+  bool valid() {
+    if (sig == null) return false;
+    return Bip340.verify(id, sig!, pubKey);
+  }
+
   Nip01EventModel get model => Nip01EventModel.fromEntity(this);
 
   String? get anchor => getDtag() == null ? null : '$kind:$pubKey:${getDtag()}';
@@ -164,19 +169,6 @@ mixin ReferencesThread<T extends ReferencesThread<T>> on EventTags {
   T setThreadAnchor(String? anchor) {
     if (anchor != null) {
       tags.add([kThreadRefTag, anchor]);
-    }
-    return this as T;
-  }
-}
-
-mixin CommitmentTag<T extends CommitmentTag<T>> on EventTags {
-  String get commitmentHash {
-    return getTags(kCommitmentHashTag).first;
-  }
-
-  T setCommitmentHash(String? hash) {
-    if (hash != null) {
-      tags.add([kCommitmentHashTag, hash]);
     }
     return this as T;
   }

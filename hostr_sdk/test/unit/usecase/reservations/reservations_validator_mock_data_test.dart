@@ -1,18 +1,25 @@
+@Tags(['unit'])
+library;
+
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
+import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
-import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip01EventModel;
+import 'package:ndk/ndk.dart'
+    show Filter, Nip01Event, Nip01EventModel, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 class _FakeMessaging extends Fake implements Messaging {}
 
 class _FakeAuth extends Fake implements Auth {}
+
+class _FakeTransitions extends Fake implements ReservationTransitions {}
 
 /// In-memory fake relay source for reservation subscriptions.
 class _FakeRelayRequests extends Fake implements hostr_requests.Requests {
@@ -22,6 +29,7 @@ class _FakeRelayRequests extends Fake implements hostr_requests.Requests {
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
+    String? name,
   }) {
     return _source as StreamWithStatus<T>;
   }
@@ -43,7 +51,7 @@ class _FakeEscrowRpc {
 Reservation _reservation({
   required Listing listing,
   required KeyPair signer,
-  required String commitmentHash,
+  required String tradeId,
   required DateTime start,
   required DateTime end,
   PaymentProof? proof,
@@ -57,7 +65,7 @@ Reservation _reservation({
         createdAtOffsetSeconds,
     tags: ReservationTags([
       [kListingRefTag, listing.anchor!],
-      [kCommitmentHashTag, commitmentHash],
+      ['d', tradeId],
     ]),
     content: ReservationContent(
       start: start,
@@ -68,12 +76,72 @@ Reservation _reservation({
   ).signAs(signer, Reservation.fromNostrEvent);
 }
 
+Listing _fixtureListing() {
+  return Listing(
+    pubKey: MockKeys.hoster.publicKey,
+    tags: EventTags([
+      ['d', 'unit-listing'],
+    ]),
+    content: ListingContent(
+      title: 'Unit Listing',
+      description: 'Fixture',
+      price: [
+        Price(
+          amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
+          frequency: Frequency.daily,
+        ),
+      ],
+      allowBarter: false,
+      minStay: const Duration(days: 1),
+      checkIn: TimeOfDay(hour: 15, minute: 0),
+      checkOut: TimeOfDay(hour: 11, minute: 0),
+      location: 'Test',
+      quantity: 1,
+      type: ListingType.house,
+      images: const [],
+      amenities: Amenities(),
+      requiresEscrow: false,
+    ),
+  ).signAs(MockKeys.hoster, Listing.fromNostrEvent);
+}
+
+Nip01Event _fixtureHostProfile() {
+  return Nip01Utils.signWithPrivateKey(
+    event: Nip01Event(
+      kind: kNostrKindProfile,
+      pubKey: MockKeys.hoster.publicKey,
+      tags: const [],
+      content: '{"name":"host","lud16":"host@hostr.development"}',
+    ),
+    privateKey: MockKeys.hoster.privateKey!,
+  );
+}
+
+Nip01Event _fixtureZapReceipt() {
+  return Nip01Utils.signWithPrivateKey(
+    event: Nip01Event(
+      kind: kNostrKindZapReceipt,
+      pubKey: MockKeys.hoster.publicKey,
+      tags: [
+        ['p', MockKeys.hoster.publicKey],
+        ['bolt11', 'lnbc1000n1punit'],
+        [
+          'description',
+          '{"tags":[["amount","1000"],["lnurl","host@hostr.development"]]}',
+        ],
+      ],
+      content: '',
+    ),
+    privateKey: MockKeys.hoster.privateKey!,
+  );
+}
+
 PaymentProof _zapProofFromStubReceipt({required Listing listing}) {
   return PaymentProof(
-    hoster: MOCK_PROFILES.first,
+    hoster: _fixtureHostProfile(),
     listing: listing,
     zapProof: ZapProof(
-      receipt: Nip01EventModel.fromEntity(MOCK_ZAP_RECEIPTS.first),
+      receipt: Nip01EventModel.fromEntity(_fixtureZapReceipt()),
     ),
     escrowProof: null,
   );
@@ -94,8 +162,9 @@ void main() {
         logger: CustomLogger(),
         messaging: _FakeMessaging(),
         auth: _FakeAuth(),
+        transitions: _FakeTransitions(),
       );
-      listing = MOCK_LISTINGS.first;
+      listing = _fixtureListing();
       start = DateTime(2026, 2, 1);
       end = DateTime(2026, 2, 3);
     });
@@ -105,7 +174,7 @@ void main() {
     });
 
     test(
-      'zap proof: marks invalid when receipt details are insufficient',
+      'zap proof: filters out reservations when receipt details are insufficient',
       () async {
         final commitment = ParticipationProof.computeCommitmentHash(
           MockKeys.guest.publicKey,
@@ -115,7 +184,7 @@ void main() {
         final reservation = _reservation(
           listing: listing,
           signer: MockKeys.guest,
-          commitmentHash: commitment,
+          tradeId: commitment,
           start: start,
           end: end,
           proof: _zapProofFromStubReceipt(listing: listing),
@@ -125,15 +194,23 @@ void main() {
           listing: listing,
           debounce: Duration.zero,
         );
+        final activationSub = validated.stream.listen(
+          (_) {},
+          onError: (_, __) {},
+        );
 
         relay.emitStatus(StreamStatusLive());
         relay.emit(reservation);
 
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-        final snapshot = validated.list.value;
-        expect(snapshot.single, isA<Invalid<Reservation>>());
-        expect((snapshot.single as Invalid<Reservation>).reason, isNotEmpty);
+        var snapshot = validated.list.value;
+        for (var i = 0; i < 20 && snapshot.isEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          snapshot = validated.list.value;
+        }
 
+        expect(snapshot, isEmpty);
+
+        await activationSub.cancel();
         await validated.close();
       },
     );
@@ -157,7 +234,7 @@ void main() {
         final guestReservation = _reservation(
           listing: listing,
           signer: MockKeys.guest,
-          commitmentHash: commitment,
+          tradeId: commitment,
           start: start,
           end: end,
           proof: null,
@@ -167,7 +244,7 @@ void main() {
         final hostReservation = _reservation(
           listing: listing,
           signer: MockKeys.hoster,
-          commitmentHash: commitment,
+          tradeId: commitment,
           start: start,
           end: end,
           proof: null,
@@ -209,7 +286,7 @@ void main() {
         final keep = _reservation(
           listing: listing,
           signer: MockKeys.hoster,
-          commitmentHash: keepCommitment,
+          tradeId: keepCommitment,
           start: start,
           end: end,
           proof: null,
@@ -218,7 +295,7 @@ void main() {
         final droppedOriginal = _reservation(
           listing: listing,
           signer: MockKeys.guest,
-          commitmentHash: dropCommitment,
+          tradeId: dropCommitment,
           start: start,
           end: end,
           proof: null,
@@ -227,7 +304,7 @@ void main() {
         final droppedCancelled = _reservation(
           listing: listing,
           signer: MockKeys.hoster,
-          commitmentHash: dropCommitment,
+          tradeId: dropCommitment,
           start: start,
           end: end,
           cancelled: true,
@@ -247,7 +324,7 @@ void main() {
         final snapshot = validated.list.value;
 
         final survivingCommitments = snapshot
-            .map((v) => v.event.parsedTags.commitmentHash)
+            .map((v) => v.event.getDtag())
             .toSet();
 
         expect(survivingCommitments.contains(keepCommitment), isTrue);

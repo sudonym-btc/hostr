@@ -8,13 +8,41 @@ import 'package:ndk/ndk.dart';
 
 class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
   CustomLogger logger = CustomLogger();
+  final Hostr hostr;
   final CrudUseCase<T> crud;
   final Filter? filter;
   StreamSubscription<T>? _updatesSub;
+  StreamSubscription? _relayConnectivitySub;
+  DateTime? _lastConnectivityRetryAt;
 
-  EntityCubit({required this.filter, required this.crud})
+  static const Duration _connectivityRetryDebounce = Duration(seconds: 2);
+
+  EntityCubit({required this.filter, required this.crud, required this.hostr})
     : super(const EntityCubitState(data: null)) {
     _updatesSub = crud.updates.listen(_onUpdate);
+    _relayConnectivitySub = hostr.relays.connectivity().listen(
+      (_) => _retryOnConnectivityChange(),
+      onError: (_) {
+        // Keep current state; retry is best-effort only.
+      },
+    );
+  }
+
+  void _retryOnConnectivityChange() {
+    if (isClosed) return;
+    if (state is! EntityCubitStateError<T>) return;
+    if (state.active) return;
+
+    final now = DateTime.now();
+    if (_lastConnectivityRetryAt != null &&
+        now.difference(_lastConnectivityRetryAt!) <
+            _connectivityRetryDebounce) {
+      return;
+    }
+
+    _lastConnectivityRetryAt = now;
+    logger.i('Retrying EntityCubit<$T> after relay connectivity change');
+    get();
   }
 
   /// Checks whether [event] matches this cubit's filter (same d-tag and
@@ -56,6 +84,7 @@ class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
   @override
   Future<void> close() {
     _updatesSub?.cancel();
+    _relayConnectivitySub?.cancel();
     return super.close();
   }
 }

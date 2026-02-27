@@ -21,8 +21,9 @@ class Thread {
   final StreamWithStatus<Message> messages = StreamWithStatus<Message>();
 
   bool _isTradeCandidate(ThreadState current) => current.messages.any(
-    (message) => message.child is ReservationRequest,
-    // || message.child is EscrowServiceSelected,
+    (message) =>
+        message.child is Reservation &&
+        (message.child as Reservation).parsedContent.isNegotiation,
   );
 
   Thread(

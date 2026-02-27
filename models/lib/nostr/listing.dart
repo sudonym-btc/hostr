@@ -31,7 +31,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, EventTags> {
   static bool isAvailable(
     DateTime start,
     DateTime end,
-    List<Reservation> reservations,
+    List<ReservationPairStatus> reservationPairs,
   ) {
     DateTime normalize(DateTime value) {
       return DateTime(value.year, value.month, value.day);
@@ -50,12 +50,19 @@ class Listing extends JsonContentNostrEvent<ListingContent, EventTags> {
         ? normalizedEnd.add(Duration(days: 1))
         : normalizedEnd;
 
-    for (final reservation in reservations) {
-      if (reservation.parsedContent.cancelled) {
+    for (final pair in reservationPairs) {
+      if (pair.cancelled) {
         continue;
       }
-      final reservationStart = normalize(reservation.parsedContent.start);
-      final reservationEnd = normalize(reservation.parsedContent.end);
+
+      final pairStartValue = pair.start;
+      final pairEndValue = pair.end;
+      if (pairStartValue == null || pairEndValue == null) {
+        continue;
+      }
+
+      final reservationStart = normalize(pairStartValue);
+      final reservationEnd = normalize(pairEndValue);
 
       final overlaps = normalizedStart.isBefore(reservationEnd) &&
           effectiveEnd.isAfter(reservationStart);
@@ -96,6 +103,12 @@ class ListingContent extends EventContent {
   final Amenities amenities;
   final bool requiresEscrow;
 
+  /// When `true`, the buyer can self-sign a `stage=commit` reservation
+  /// without waiting for a seller acknowledgement (sellerAck). When `false`,
+  /// the seller MUST broadcast a sellerAck transition before the buyer can
+  /// commit.
+  final bool allowSelfSignedReservation;
+
   ListingContent({
     required this.title,
     required this.description,
@@ -110,6 +123,7 @@ class ListingContent extends EventContent {
     required this.images,
     required this.amenities,
     required this.requiresEscrow,
+    this.allowSelfSignedReservation = false,
   });
 
   @override
@@ -128,6 +142,7 @@ class ListingContent extends EventContent {
       "images": images,
       "amenities": amenities.toMap(),
       "requiresEscrow": requiresEscrow,
+      "allowSelfSignedReservation": allowSelfSignedReservation,
     };
   }
 
@@ -151,6 +166,7 @@ class ListingContent extends EventContent {
       images: List<String>.from(json["images"]),
       amenities: Amenities.fromJSON(json["amenities"]),
       requiresEscrow: json["requiresEscrow"],
+      allowSelfSignedReservation: json["allowSelfSignedReservation"] ?? false,
     );
   }
 }

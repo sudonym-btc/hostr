@@ -25,7 +25,7 @@ class PaymentTimelineItem extends StatelessWidget {
           .replaceFirst(RegExp(r'\.$'), '');
     }
 
-    Widget paymentEvent({
+    Widget buildTimeLineItem({
       required String title,
       String? description,
       IconData? icon,
@@ -50,38 +50,54 @@ class PaymentTimelineItem extends StatelessWidget {
       );
     }
 
-    if (event is Reservation) {
-      return paymentEvent(
-        title:
-            'Reservation ${event.parsedContent.cancelled ? "cancelled" : "updated"} by ${event.pubKey == hostPubkey ? 'host' : 'guest'}',
+    if (event is ReservationTransition) {
+      final transitionEvent = event as ReservationTransition;
+      var title = 'Guest created reservation';
+      switch (transitionEvent.parsedContent.transitionType) {
+        case ReservationTransitionType.sellerAck:
+          title = 'Host confirmed reservation';
+          break;
+        case ReservationTransitionType.cancel:
+          title = transitionEvent.pubKey == hostPubkey
+              ? 'Host cancelled reservation'
+              : 'Guest cancelled reservation';
+          break;
+        case ReservationTransitionType.commit:
+        case ReservationTransitionType.counterOffer:
+          title = 'Guest created reservation';
+          break;
+      }
+
+      return buildTimeLineItem(
+        title: title,
         timestamp: DateTime.fromMillisecondsSinceEpoch(event.createdAt * 1000),
       );
     }
     if (event is EscrowFundedEvent) {
-      return paymentEvent(
+      return buildTimeLineItem(
         title: 'Escrow funded',
         description: '${formatAmount(event.amount.toAmount())}',
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowReleasedEvent) {
-      return paymentEvent(
+      return buildTimeLineItem(
         title: 'Funds released',
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowArbitratedEvent) {
-      return paymentEvent(
+      return buildTimeLineItem(
         title: 'Escrow arbitrated',
         description:
             'Forwarded ${formatPercent(event.forwarded * 100)}% to host',
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowClaimedEvent) {
-      return paymentEvent(
+      return buildTimeLineItem(
         title: 'Funds claimed by host',
         timestamp: event.block.timestamp,
       );
     } else if (event is ZapFundedEvent) {
-      return paymentEvent(
+      return buildTimeLineItem(
         title: 'Funded via zap',
         description: '${formatAmount(event.amount.toAmount())}',
         timestamp: DateTime.fromMillisecondsSinceEpoch(

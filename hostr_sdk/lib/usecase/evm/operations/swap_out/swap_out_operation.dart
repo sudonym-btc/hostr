@@ -6,6 +6,9 @@ import 'package:meta/meta.dart';
 
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
+import '../../chain/evm_chain.dart';
+import '../swap_record.dart';
+import '../swap_store.dart';
 import 'swap_out_models.dart';
 import 'swap_out_state.dart';
 
@@ -35,4 +38,17 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
 
   Future<SwapOutFees> estimateFees();
   Future<void> execute();
+
+  /// Recover a persisted swap-out record.
+  ///
+  /// Checks the current Boltz status and either marks the swap as completed,
+  /// failed, or attempts to refund locked EVM funds (cooperative then timelock).
+  ///
+  /// Returns `true` if the swap was resolved (completed, refunded, or terminal).
+  Future<bool> recover({
+    required SwapOutRecord record,
+    required String boltzStatus,
+    required EvmChain chain,
+    required SwapStore swapStore,
+  });
 }

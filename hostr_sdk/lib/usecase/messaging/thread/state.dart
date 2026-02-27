@@ -28,12 +28,21 @@ class ThreadState {
     return mapper.values.toList();
   }
 
-  List<Message> get reservationRequestMessages =>
-      messages.where((message) => message.child is ReservationRequest).toList();
+  /// Messages whose child is a negotiate-stage [Reservation] (replaces the
+  /// old `reservationRequestMessages` backed by `ReservationRequest`).
+  List<Message> get reservationRequestMessages => messages
+      .where(
+        (message) =>
+            message.child is Reservation &&
+            (message.child as Reservation).parsedContent.isNegotiation,
+      )
+      .toList();
 
-  List<ReservationRequest> get reservationRequests => reservationRequestMessages
+  /// Negotiate-stage [Reservation]s extracted from messages. This is the
+  /// unified replacement for the old `List<ReservationRequest>` getter.
+  List<Reservation> get reservationRequests => reservationRequestMessages
       .map((element) => element.child)
-      .whereType<ReservationRequest>()
+      .whereType<Reservation>()
       .toList();
 
   List<Message> get textMessages =>
@@ -48,22 +57,18 @@ class ThreadState {
     return pubkeys.toList();
   }
 
-  ReservationRequest get lastReservationRequest {
-    return messages
-        .where((element) => element.child is ReservationRequest)
-        .map((element) => element.child as ReservationRequest)
-        .last;
+  /// The most recent negotiate-stage [Reservation] in the thread.
+  Reservation get lastReservationRequest {
+    return reservationRequests.last;
   }
 
   Message getLastMessageOrReservationRequest() {
     final latest = getLatestMessage;
     if (latest != null) return latest;
 
-    final reservationRequests = messages
-        .where((element) => element.child is ReservationRequest)
-        .toList();
-    if (reservationRequests.isNotEmpty) {
-      return reservationRequests.last;
+    final rr = reservationRequestMessages;
+    if (rr.isNotEmpty) {
+      return rr.last;
     }
 
     throw Exception('No messages or reservation requests found in thread');

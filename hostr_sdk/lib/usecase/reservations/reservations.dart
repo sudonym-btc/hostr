@@ -10,6 +10,7 @@ import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
 import '../messaging/messaging.dart';
+import '../reservation_transitions/reservation_transitions.dart';
 
 class Commitment {
   final String hash;
@@ -21,6 +22,7 @@ class Commitment {
 class Reservations extends CrudUseCase<Reservation> {
   final Messaging messaging;
   final Auth auth;
+  final ReservationTransitions transitions;
   StreamWithStatus<Reservation>? _myReservations;
   StreamSubscription<Reservation>? _myReservationsSubscription;
   Reservations({
@@ -28,7 +30,17 @@ class Reservations extends CrudUseCase<Reservation> {
     required super.logger,
     required this.messaging,
     required this.auth,
+    required this.transitions,
   }) : super(kind: Reservation.kinds[0]);
+
+  /// Query all reservations for a given trade id (d-tag).
+  Future<List<Reservation>> getByTradeId(String tradeId) {
+    logger.d('Fetching reservations for tradeId: $tradeId');
+    return list(
+      Filter(kinds: Reservation.kinds, dTags: [tradeId]),
+      name: 'byTradeId-$tradeId',
+    );
+  }
 
   Future<List<Reservation>> getListingReservations({
     required String listingAnchor,
@@ -47,21 +59,25 @@ class Reservations extends CrudUseCase<Reservation> {
     });
   }
 
+  String _tradeIdFor(Reservation reservation) {
+    return reservation.getDtag() ?? reservation.id;
+  }
+
   groupByCommitment(List<Reservation> reservations, Listing listing) {
     final Map<String, List<Reservation>> grouped = {};
     for (final reservation in reservations) {
-      final commitmentHash = reservation.parsedTags.commitmentHash;
-      grouped.putIfAbsent(commitmentHash, () => []).add(reservation);
+      final tradeId = _tradeIdFor(reservation);
+      grouped.putIfAbsent(tradeId, () => []).add(reservation);
     }
-    // Remove non-host reservation if a host reservation exists for same commitment hash
+    // Remove non-host reservation if a host reservation exists for same trade.
     for (final entry in grouped.entries) {
-      final commitmentHash = entry.key;
+      final tradeId = entry.key;
       final group = entry.value;
       final hostReservations = group
           .where((reservation) => reservation.pubKey == listing.pubKey)
           .toList();
       if (hostReservations.isNotEmpty) {
-        grouped[commitmentHash] = hostReservations;
+        grouped[tradeId] = hostReservations;
       }
     }
     return grouped;
@@ -119,7 +135,7 @@ class Reservations extends CrudUseCase<Reservation> {
   ) {
     final cancelledCommitments = reservations
         .where((reservation) => reservation.parsedContent.cancelled)
-        .map((reservation) => reservation.parsedTags.commitmentHash)
+        .map((reservation) => _tradeIdFor(reservation))
         .toSet();
 
     if (cancelledCommitments.isEmpty) {
@@ -128,9 +144,8 @@ class Reservations extends CrudUseCase<Reservation> {
 
     return reservations
         .where(
-          (reservation) => !cancelledCommitments.contains(
-            reservation.parsedTags.commitmentHash,
-          ),
+          (reservation) =>
+              !cancelledCommitments.contains(_tradeIdFor(reservation)),
         )
         .toList();
   }
@@ -141,9 +156,7 @@ class Reservations extends CrudUseCase<Reservation> {
   }) async {
     final grouped = <String, List<Reservation>>{};
     for (final reservation in reservations) {
-      grouped
-          .putIfAbsent(reservation.parsedTags.commitmentHash, () => [])
-          .add(reservation);
+      grouped.putIfAbsent(_tradeIdFor(reservation), () => []).add(reservation);
     }
 
     final results = <Validation<Reservation>>[];
@@ -174,7 +187,7 @@ class Reservations extends CrudUseCase<Reservation> {
           results.add(
             Invalid(
               reservation,
-              'No host confirmation and no guest reservation found for commitment hash',
+              'No host confirmation and no guest reservation found for trade',
             ),
           );
         }
@@ -228,7 +241,7 @@ class Reservations extends CrudUseCase<Reservation> {
           results.add(
             Invalid(
               reservation,
-              'Superseded by latest guest reservation for commitment hash',
+              'Superseded by latest guest reservation for trade',
             ),
           );
         }
@@ -266,6 +279,61 @@ class Reservations extends CrudUseCase<Reservation> {
     return reservations.where((e) => !e.parsedContent.cancelled).toList();
   }
 
+  /// Converts a flat list of reservations into [ReservationPairStatus] objects
+  /// grouped by trade id (`d` tag).
+  ///
+  /// The [listing] is used to determine which reservations belong to the
+  /// seller (listing owner) vs the buyer.
+  static Map<String, ReservationPairStatus> toReservationPairs({
+    required List<Reservation> reservations,
+    required Listing listing,
+  }) {
+    final Map<
+      String,
+      ({Reservation? sellerReservation, Reservation? buyerReservation})
+    >
+    pairs = {};
+
+    for (final reservation in reservations) {
+      final hash = reservation.getDtag() ?? reservation.id;
+      final current =
+          pairs[hash] ?? (sellerReservation: null, buyerReservation: null);
+
+      if (reservation.pubKey == listing.pubKey) {
+        pairs[hash] = (
+          sellerReservation: reservation,
+          buyerReservation: current.buyerReservation,
+        );
+      } else {
+        pairs[hash] = (
+          sellerReservation: current.sellerReservation,
+          buyerReservation: reservation,
+        );
+      }
+    }
+
+    return pairs.map(
+      (hash, pair) => MapEntry(
+        hash,
+        ReservationPairStatus(
+          sellerReservation: pair.sellerReservation,
+          buyerReservation: pair.buyerReservation,
+        ),
+      ),
+    );
+  }
+
+  /// Queries all reservations for [listing] and returns them grouped as
+  /// [ReservationPairStatus] by trade id (`d` tag).
+  Future<Map<String, ReservationPairStatus>> queryReservationPairs({
+    required Listing listing,
+  }) async {
+    final reservations = await getListingReservations(
+      listingAnchor: listing.anchor!,
+    );
+    return toReservationPairs(reservations: reservations, listing: listing);
+  }
+
   Map<String, ({Reservation? sellerReservation, Reservation? buyerReservation})>
   groupByThread(List<Reservation> reservations) {
     final temp =
@@ -275,8 +343,9 @@ class Reservations extends CrudUseCase<Reservation> {
         >{};
 
     for (final reservation in reservations) {
-      final thread =
-          messaging.threads.threads[reservation.parsedTags.commitmentHash];
+      final tradeId = reservation.getDtag();
+      if (tradeId == null || tradeId.isEmpty) continue;
+      final thread = messaging.threads.threads[tradeId];
       if (thread == null) continue;
 
       final sellerPubKey = getPubKeyFromAnchor(
@@ -284,16 +353,15 @@ class Reservations extends CrudUseCase<Reservation> {
       );
 
       final current =
-          temp[reservation.parsedTags.commitmentHash] ??
-          (sellerReservation: null, buyerReservation: null);
+          temp[tradeId] ?? (sellerReservation: null, buyerReservation: null);
 
       if (reservation.pubKey == sellerPubKey) {
-        temp[reservation.parsedTags.commitmentHash] = (
+        temp[tradeId] = (
           sellerReservation: reservation,
           buyerReservation: current.buyerReservation,
         );
       } else {
-        temp[reservation.parsedTags.commitmentHash] = (
+        temp[tradeId] = (
           sellerReservation: current.sellerReservation,
           buyerReservation: reservation,
         );
@@ -313,23 +381,23 @@ class Reservations extends CrudUseCase<Reservation> {
     _myReservations = response;
 
     final reservationsStream = messaging.threads.subscription!.replay
-        .where((message) => message.child is ReservationRequest)
-        .map((message) => message.child as ReservationRequest)
-        .asyncMap((reservationRequest) async {
+        .where(
+          (message) =>
+              message.child is Reservation &&
+              (message.child as Reservation).parsedContent.isNegotiation,
+        )
+        .map((message) => message.child as Reservation)
+        .asyncMap((negotiateReservation) async {
           logger.d(
-            'Processing reservation request: $reservationRequest, ${reservationRequest.getFirstTag('a')}',
+            'Processing negotiate reservation: $negotiateReservation, ${negotiateReservation.getFirstTag('a')}',
           );
           final reservations = await getListingReservations(
-            listingAnchor: reservationRequest.parsedTags.listingAnchor,
+            listingAnchor: negotiateReservation.parsedTags.listingAnchor,
           );
           logger.d('Found reservations: $reservations');
           return reservations.firstWhere(
             (reservation) =>
-                reservation.parsedTags.commitmentHash ==
-                ParticipationProof.computeCommitmentHash(
-                  auth.activeKeyPair!.publicKey,
-                  reservationRequest.parsedContent.salt,
-                ),
+                reservation.getDtag() == negotiateReservation.getDtag(),
             orElse: () => throw Exception('Reservation not found'),
           );
         })
@@ -346,22 +414,16 @@ class Reservations extends CrudUseCase<Reservation> {
 
   Future<List<RelayBroadcastResponse>> accept(
     String anchor,
-    ReservationRequest request,
+    Reservation request,
     String guestPubkey,
     String saltedPubkey,
-  ) {
+  ) async {
     final reservation = Reservation(
       tags: ReservationTags([
         ['p', saltedPubkey],
+        ['d', request.getDtag()!],
         [kListingRefTag, request.parsedTags.listingAnchor],
         [kThreadRefTag, anchor],
-        [
-          kCommitmentHashTag,
-          ParticipationProof.computeCommitmentHash(
-            guestPubkey,
-            request.parsedContent.salt,
-          ),
-        ],
       ]),
       content: ReservationContent(
         start: request.parsedContent.start,
@@ -370,50 +432,104 @@ class Reservations extends CrudUseCase<Reservation> {
       pubKey: auth.activeKeyPair!.publicKey,
     );
     logger.d('Accepting reservation request: $request');
-    return upsert(reservation);
+    return _upsertWithTransition(
+      reservation: reservation,
+      transitionType: ReservationTransitionType.sellerAck,
+      fromStage: ReservationStage.negotiate,
+      toStage: ReservationStage.commit,
+      commitTermsHash: request.parsedContent.commitHash(),
+    );
   }
 
   Future<Reservation> createSelfSigned({
     required KeyPair activeKeyPair,
-    required ReservationRequest reservationRequest,
+    required Reservation negotiateReservation,
     required PaymentProof proof,
   }) async {
-    String commitment = ParticipationProof.computeCommitmentHash(
-      auth.activeKeyPair!.publicKey,
-      reservationRequest.parsedContent.salt,
-    );
+    final tradeId = negotiateReservation.getDtag();
+    final threadAnchor = negotiateReservation.getFirstTag(kThreadRefTag);
 
-    Reservation reservation = Reservation(
+    final reservation = Reservation(
       content: ReservationContent(
-        start: reservationRequest.parsedContent.start,
-        end: reservationRequest.parsedContent.end,
+        start: negotiateReservation.parsedContent.start,
+        end: negotiateReservation.parsedContent.end,
+        stage: ReservationStage.commit,
+        quantity: negotiateReservation.parsedContent.quantity,
+        amount: negotiateReservation.parsedContent.amount,
+        recipient: negotiateReservation.parsedContent.recipient,
         proof: proof,
       ),
       pubKey: activeKeyPair.publicKey,
       tags: ReservationTags([
         [kListingRefTag, proof.listing.anchor!],
-        [kCommitmentHashTag, commitment],
+        ['d', tradeId!],
+        if (threadAnchor != null) [kThreadRefTag, threadAnchor],
       ]),
     );
 
-    await upsert(reservation.signAs(activeKeyPair, Reservation.fromNostrEvent));
-    logger.d('Created self-signed reservation: $reservation');
-    return reservation;
+    final signedReservation = reservation.signAs(
+      activeKeyPair,
+      Reservation.fromNostrEvent,
+    );
+    await _upsertWithTransition(
+      reservation: signedReservation,
+      transitionType: ReservationTransitionType.commit,
+      fromStage: ReservationStage.negotiate,
+      toStage: ReservationStage.commit,
+      commitTermsHash: signedReservation.parsedContent.commitHash(),
+    );
+    logger.d('Created self-signed reservation: $signedReservation');
+    return signedReservation;
   }
 
-  Future<Reservation> cancel(Reservation reservation) async {
+  Future<Reservation> cancel(Reservation reservation, KeyPair keyPair) async {
     if (reservation.parsedContent.cancelled) {
       throw Exception('Reservation is already cancelled');
     }
-    final updated = reservation.copy(
-      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      id: null,
-      content: reservation.parsedContent.copyWith(cancelled: true),
-      pubKey: null,
-    );
+    final updated = reservation
+        .copy(
+          createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          id: null,
+          content: reservation.parsedContent.copyWith(cancelled: true),
+          pubKey: null,
+        )
+        .signAs(keyPair, Reservation.fromNostrEvent);
     logger.d('Cancelling reservation: $updated');
-    await upsert(updated);
+    await _upsertWithTransition(
+      reservation: updated,
+      transitionType: ReservationTransitionType.cancel,
+      fromStage: reservation.parsedContent.stage,
+      toStage: ReservationStage.cancel,
+      commitTermsHash: reservation.parsedContent.commitHash(),
+    );
     return updated;
+  }
+
+  /// Broadcasts [reservation] and atomically records its lifecycle transition.
+  ///
+  /// All public mutation methods that advance a reservation through its
+  /// lifecycle ([accept], [createSelfSigned], [cancel], [createBlocked]) MUST
+  /// use this instead of calling [upsert] + [transitions.record] separately,
+  /// enforcing the invariant that no reservation is broadcast without a
+  /// transition record.
+  Future<List<RelayBroadcastResponse>> _upsertWithTransition({
+    required Reservation reservation,
+    required ReservationTransitionType transitionType,
+    required ReservationStage fromStage,
+    required ReservationStage toStage,
+    String? commitTermsHash,
+    String? reason,
+  }) async {
+    final result = await upsert(reservation);
+    await transitions.record(
+      reservation: reservation,
+      transitionType: transitionType,
+      fromStage: fromStage,
+      toStage: toStage,
+      commitTermsHash: commitTermsHash,
+      reason: reason,
+    );
+    return result;
   }
 
   Future<Reservation> createBlocked({
@@ -421,26 +537,26 @@ class Reservations extends CrudUseCase<Reservation> {
     required DateTime start,
     required DateTime end,
   }) async {
+    final nonce = Reservation.getNonceForBlockedReservation(
+      start: start,
+      end: end,
+      hostKey: auth.activeKeyPair!,
+    );
     final reservation = Reservation(
       content: ReservationContent(start: start, end: end),
       pubKey: auth.activeKeyPair!.publicKey,
       tags: ReservationTags([
         [kListingRefTag, listingAnchor],
-        [
-          kCommitmentHashTag,
-          ParticipationProof.computeCommitmentHash(
-            auth.activeKeyPair!.publicKey,
-            Reservation.getSaltForBlockedReservation(
-              start: start,
-              end: end,
-              hostKey: auth.activeKeyPair!,
-            ),
-          ),
-        ],
+        ['d', nonce],
       ]),
     );
 
-    await upsert(reservation);
+    await _upsertWithTransition(
+      reservation: reservation,
+      transitionType: ReservationTransitionType.commit,
+      fromStage: ReservationStage.negotiate,
+      toStage: ReservationStage.commit,
+    );
     logger.d('Created blocked reservation: $reservation');
     return reservation;
   }

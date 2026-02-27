@@ -8,6 +8,7 @@ import 'seed_pipeline_models.dart';
 import 'stages/build_listings.dart' as stage_listings;
 import 'stages/build_messages.dart' as stage_messages;
 import 'stages/build_profiles.dart' as stage_profiles;
+import 'stages/build_reservation_transitions.dart' as stage_transitions;
 import 'stages/build_reviews.dart' as stage_reviews;
 import 'stages/build_threads.dart' as stage_threads;
 import 'stages/build_users.dart' as stage_users;
@@ -104,6 +105,10 @@ class SeedFactory {
     List<SeedThread> threads,
   ) => stage_messages.buildEscrowSelectedMessages(ctx: _ctx, threads: threads);
 
+  List<ReservationTransition> buildReservationTransitions(
+    List<SeedThread> threads,
+  ) => stage_transitions.buildReservationTransitions(threads: threads);
+
   List<Review> buildReviews(List<SeedThread> threads) =>
       stage_reviews.buildReviews(ctx: _ctx, threads: threads);
 
@@ -137,12 +142,13 @@ class SeedFactory {
       now: now,
     );
 
-    final reservationRequests =
-        threads.map((t) => t.request).toList(growable: false);
+    final reservationRequests = threads
+        .map((t) => t.request)
+        .toList(growable: false);
+    final reservationTransitions = buildReservationTransitions(threads);
 
     final messages = await buildMessages(threads);
-    final escrowSelectedMessages =
-        await buildEscrowSelectedMessages(threads);
+    final escrowSelectedMessages = await buildEscrowSelectedMessages(threads);
     final reviews = buildReviews(threads);
 
     return SeedPipelineData(
@@ -154,6 +160,7 @@ class SeedFactory {
       escrowMethods: escrowMethods,
       threads: threads,
       reservationRequests: reservationRequests,
+      reservationTransitions: reservationTransitions,
       threadMessages: [...messages, ...escrowSelectedMessages],
       reservations: const [], // no outcomes — all pending
       zapReceipts: const [],
@@ -190,7 +197,7 @@ class SeedFactory {
         zapProof: null,
         escrowProof: EscrowProof(
           txHash:
-              '0x${List.generate(64, (i) => ((thread.salt.codeUnitAt(i % thread.salt.length) + i) % 16).toRadixString(16)).join()}',
+              '0x${List.generate(64, (i) => ((thread.id.codeUnitAt(i % thread.id.length) + i) % 16).toRadixString(16)).join()}',
           escrowService: escrowService,
           hostsTrustedEscrows: escrowTrust,
           hostsEscrowMethods: escrowMethod,
@@ -210,8 +217,7 @@ class SeedFactory {
       tags: ReservationTags([
         [kListingRefTag, thread.listing.anchor!],
         [kThreadRefTag, thread.request.getDtag()!],
-        ['d', 'mock-reservation-${thread.salt}'],
-        [kCommitmentHashTag, thread.commitmentHash],
+        ['d', 'mock-reservation-${thread.id}'],
       ]),
       createdAt: _ctx.timestampDaysAfter(80),
       content: ReservationContent(

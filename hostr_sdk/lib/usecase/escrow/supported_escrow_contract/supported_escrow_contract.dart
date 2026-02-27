@@ -5,6 +5,33 @@ import 'package:web3dart/web3dart.dart';
 
 import '../../../util/main.dart';
 
+/// On-chain trade data returned by [SupportedEscrowContract.getTrade].
+class OnChainTrade {
+  final bool isActive;
+  final EthereumAddress buyer;
+  final EthereumAddress seller;
+  final EthereumAddress arbiter;
+
+  /// The escrowed amount in wei.
+  final BigInt amount;
+  final BigInt unlockAt;
+  final BigInt escrowFee;
+
+  OnChainTrade({
+    required this.isActive,
+    required this.buyer,
+    required this.seller,
+    required this.arbiter,
+    required this.amount,
+    required this.unlockAt,
+    required this.escrowFee,
+  });
+
+  @override
+  String toString() =>
+      'OnChainTrade(active=$isActive, amount=$amount, buyer=$buyer, seller=$seller, arbiter=$arbiter)';
+}
+
 abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   final Contract contract;
   final Web3Client client;
@@ -15,6 +42,11 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     required this.client,
     required this.address,
   });
+
+  /// Read the on-chain trade for [tradeId].
+  ///
+  /// Returns `null` if the trade does not exist or is not active.
+  Future<OnChainTrade?> getTrade(String tradeId);
 
   Future<void> ensureDeployed() async {
     final code = await contract.client.getCode(contract.self.address);

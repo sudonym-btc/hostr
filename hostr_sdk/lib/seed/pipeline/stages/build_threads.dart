@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 
@@ -68,27 +71,25 @@ Future<List<SeedThread>> buildThreads({
         start = end.subtract(Duration(days: stayDays));
       }
 
-      final salt = 'seed-${ctx.seed}-thread-$threadIndex';
-      final commitmentHash = ParticipationProof.computeCommitmentHash(
-        guest.keyPair.publicKey,
-        salt,
-      );
+      final nonce = sha256
+          .convert(utf8.encode('seed-${ctx.seed}-thread-$threadIndex'))
+          .toString();
 
-      final request = ReservationRequest(
+      final request = Reservation(
         pubKey: guest.keyPair.publicKey,
-        tags: ReservationRequestTags([
+        tags: ReservationTags([
           [kListingRefTag, listing.anchor!],
-          ['d', commitmentHash],
+          ['d', nonce],
         ]),
         createdAt: ctx.timestampDaysAfter(30 + threadIndex),
-        content: ReservationRequestContent(
+        content: ReservationContent(
           start: start,
           end: end,
+          stage: ReservationStage.negotiate,
           quantity: 1,
           amount: listing.cost(start, end),
-          salt: salt,
         ),
-      ).signAs(guest.keyPair, ReservationRequest.fromNostrEvent);
+      ).signAs(guest.keyPair, Reservation.fromNostrEvent);
 
       threads.add(
         SeedThread(
@@ -96,8 +97,7 @@ Future<List<SeedThread>> buildThreads({
           guest: guest,
           listing: listing,
           request: request,
-          salt: salt,
-          commitmentHash: commitmentHash,
+          id: nonce,
           start: start,
           end: end,
           stageSpec: stageSpec,

@@ -1,3 +1,6 @@
+@Tags(['unit'])
+library;
+
 import 'dart:async';
 
 import 'package:hostr_sdk/injection.dart';
@@ -48,6 +51,7 @@ class _FakeRequests extends Fake implements Requests {
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,
+    String? name,
   }) {
     return _source as StreamWithStatus<T>;
   }

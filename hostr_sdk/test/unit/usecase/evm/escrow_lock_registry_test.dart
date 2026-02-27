@@ -1,3 +1,6 @@
+@Tags(['unit'])
+library;
+
 import 'dart:convert';
 
 import 'package:hostr_sdk/datasources/storage.dart';
@@ -11,6 +14,39 @@ import 'package:mockito/mockito.dart';
 import 'package:models/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
+
+/// Test helper – wraps [EscrowLockRegistry.acquire] with dummy contract
+/// params so the existing tests (which only care about lock management)
+/// don't need to repeat the boilerplate.
+Future<EscrowLock> _acquire(
+  EscrowLockRegistry registry,
+  String tradeId,
+  BitcoinAmount amount,
+) => registry.acquire(
+  tradeId: tradeId,
+  reservedAmount: amount,
+  sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+  arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+  contractAddress: '0x0000000000000000000000000000000000000003',
+  chainId: 33,
+  unlockAt: 9999999999,
+);
+
+/// Test helper – constructs an [EscrowLock] with dummy contract params.
+EscrowLock _testLock({
+  required String tradeId,
+  required BigInt reservedAmountWei,
+  required DateTime acquiredAt,
+}) => EscrowLock(
+  tradeId: tradeId,
+  reservedAmountWei: reservedAmountWei,
+  acquiredAt: acquiredAt,
+  sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+  arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+  contractAddress: '0x0000000000000000000000000000000000000003',
+  chainId: 33,
+  unlockAt: 9999999999,
+);
 
 void main() {
   late InMemoryKeyValueStorage storage;
@@ -38,7 +74,7 @@ void main() {
 
   group('EscrowLock model', () {
     test('toJson / fromJson roundtrip', () {
-      final lock = EscrowLock(
+      final lock = _testLock(
         tradeId: 'trade-42',
         reservedAmountWei: BigInt.from(100000),
         acquiredAt: DateTime(2025, 6, 15, 12, 0, 0),
@@ -56,7 +92,7 @@ void main() {
     });
 
     test('serialises reservedAmountWei as hex string', () {
-      final lock = EscrowLock(
+      final lock = _testLock(
         tradeId: 'hex-test',
         reservedAmountWei: BigInt.parse(
           'de0b6b3a7640000',
@@ -80,7 +116,7 @@ void main() {
       });
 
       test('loads locks from storage', () async {
-        final lock = EscrowLock(
+        final lock = _testLock(
           tradeId: 'preloaded',
           reservedAmountWei: BigInt.from(50000),
           acquiredAt: DateTime.now(),
@@ -98,13 +134,14 @@ void main() {
 
       test('is idempotent — second call does not reload', () async {
         await registry.initialize();
-        await registry.acquire(
+        await _acquire(
+          registry,
           'first',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
         );
 
         // Write something different directly to storage
-        final other = EscrowLock(
+        final other = _testLock(
           tradeId: 'other',
           reservedAmountWei: BigInt.from(999),
           acquiredAt: DateTime.now(),
@@ -131,7 +168,8 @@ void main() {
 
     group('acquire', () {
       test('persists a lock and flushes to storage', () async {
-        final lock = await registry.acquire(
+        final lock = await _acquire(
+          registry,
           'trade-1',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
         );
@@ -150,11 +188,13 @@ void main() {
       });
 
       test('replaces existing lock with same tradeId (idempotent)', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'trade-1',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
         );
-        await registry.acquire(
+        await _acquire(
+          registry,
           'trade-1',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 20000),
         );
@@ -171,11 +211,13 @@ void main() {
 
     group('release', () {
       test('removes a lock by tradeId', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'to-release',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
         );
-        await registry.acquire(
+        await _acquire(
+          registry,
           'to-keep',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 2000),
         );
@@ -199,7 +241,8 @@ void main() {
       );
 
       test('persists removal to disk', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'temp',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 500),
         );
@@ -220,7 +263,8 @@ void main() {
       });
 
       test('returns true when locks are held', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'trade-1',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
         );
@@ -228,7 +272,8 @@ void main() {
       });
 
       test('returns false after all locks are released', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'trade-1',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
         );
@@ -245,7 +290,8 @@ void main() {
         // Allow the initial seeded value to propagate
         await Future<void>.delayed(Duration.zero);
 
-        await registry.acquire(
+        await _acquire(
+          registry,
           'trade-1',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
         );
@@ -268,11 +314,13 @@ void main() {
       });
 
       test('sums all active lock amounts', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'trade-1',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
         );
-        await registry.acquire(
+        await _acquire(
+          registry,
           'trade-2',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 20000),
         );
@@ -283,11 +331,13 @@ void main() {
       });
 
       test('decreases after release', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'trade-1',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
         );
-        await registry.acquire(
+        await _acquire(
+          registry,
           'trade-2',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 20000),
         );
@@ -301,11 +351,13 @@ void main() {
 
     group('activeTradeIds', () {
       test('returns all held trade IDs', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'a',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
         );
-        await registry.acquire(
+        await _acquire(
+          registry,
           'b',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 2000),
         );
@@ -318,12 +370,12 @@ void main() {
     group('pruneOlderThan', () {
       test('removes locks older than cutoff', () async {
         // Directly seed storage with an old lock
-        final oldLock = EscrowLock(
+        final oldLock = _testLock(
           tradeId: 'old-lock',
           reservedAmountWei: BigInt.from(1000),
           acquiredAt: DateTime(2024, 1, 1),
         );
-        final recentLock = EscrowLock(
+        final recentLock = _testLock(
           tradeId: 'recent-lock',
           reservedAmountWei: BigInt.from(2000),
           acquiredAt: DateTime.now(),
@@ -344,7 +396,8 @@ void main() {
       });
 
       test('returns 0 when nothing to prune', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'fresh',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 500),
         );
@@ -355,11 +408,13 @@ void main() {
 
     group('persistence roundtrip', () {
       test('locks survive registry recreation', () async {
-        await registry.acquire(
+        await _acquire(
+          registry,
           'persist-1',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
         );
-        await registry.acquire(
+        await _acquire(
+          registry,
           'persist-2',
           BitcoinAmount.fromInt(BitcoinUnit.sat, 20000),
         );
@@ -382,7 +437,7 @@ void main() {
           BitcoinUnit.wei,
           BigInt.parse('de0b6b3a7640000', radix: 16), // 1 ether in wei
         );
-        await registry.acquire('big-amount', amount);
+        await _acquire(registry, 'big-amount', amount);
 
         final registry2 = EscrowLockRegistry(storage, CustomLogger(), auth);
         await registry2.initialize();
@@ -396,7 +451,8 @@ void main() {
       test(
         'keeps locks isolated per pubkey and survives auth changes',
         () async {
-          await registry.acquire(
+          await _acquire(
+            registry,
             'user-a-lock',
             BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
           );
@@ -405,7 +461,8 @@ void main() {
           await registry.initialize();
           expect(await registry.getAll(), isEmpty);
 
-          await registry.acquire(
+          await _acquire(
+            registry,
             'user-b-lock',
             BitcoinAmount.fromInt(BitcoinUnit.sat, 2000),
           );

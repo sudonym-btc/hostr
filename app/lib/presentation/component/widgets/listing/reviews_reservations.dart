@@ -1,87 +1,34 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 class ReviewsReservationsWidget extends StatelessWidget {
-  final Listing listing;
-
   /// Optional externally-provided review count stream.
   /// When supplied the widget skips creating its own [CountCubit] for reviews.
-  final Stream<int>? reviewCount;
+  final Stream<int> reviewCount;
 
   /// Optional externally-provided reservation/stays count stream.
   /// When supplied the widget skips creating its own [CountCubit] for stays.
-  final Stream<int>? reservationCount;
+  final Stream<int> reservationCount;
 
   const ReviewsReservationsWidget({
     super.key,
-    required this.listing,
-    this.reviewCount,
-    this.reservationCount,
+    required this.reviewCount,
+    required this.reservationCount,
   });
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => FilterCubit()
-        ..updateFilter(
-          Filter(
-            tags: {
-              kListingRefTag: [listing.anchor!],
-            },
-          ),
-        ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (reviewCount != null)
-            _ExternalCountSegment(noun: 'reviews', countStream: reviewCount!)
-          else
-            BlocProvider(
-              create: (context) => CountCubit(
-                kinds: Review.kinds,
-                nostrService: getIt(),
-                filterCubit: context.read<FilterCubit>(),
-              )..count(),
-              child: BlocBuilder<CountCubit, CountCubitState>(
-                builder: (context, state) {
-                  return _CountSegment(
-                    noun: 'reviews',
-                    count: state.count ?? 0,
-                    loading: state is CountCubitStateLoading,
-                  );
-                },
-              ),
-            ),
-          const Text(' · '),
-          if (reservationCount != null)
-            _ExternalCountSegment(noun: 'stays', countStream: reservationCount!)
-          else
-            BlocProvider(
-              create: (context) => CountCubit(
-                kinds: Reservation.kinds,
-                nostrService: getIt(),
-                filterCubit: context.read<FilterCubit>(),
-              )..count(),
-              child: BlocBuilder<CountCubit, CountCubitState>(
-                builder: (context, state) {
-                  return _CountSegment(
-                    noun: 'stays',
-                    count: state.count ?? 0,
-                    loading: state is CountCubitStateLoading,
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ExternalCountSegment(noun: 'reviews', countStream: reviewCount),
+        const Text(' · '),
+        _ExternalCountSegment(noun: 'stays', countStream: reservationCount),
+      ],
     );
   }
 }

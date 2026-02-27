@@ -41,7 +41,7 @@ class RootstockSwapOutOperation extends SwapOutOperation {
 
   @override
   Future<void> execute() async {
-    SwapRecord? record;
+    SwapOutRecord? record;
     try {
       emit(SwapOutRequestCreated());
       final quote = await _buildSwapOutQuote();
@@ -107,7 +107,7 @@ class RootstockSwapOutOperation extends SwapOutOperation {
       // ── PERSIST before locking funds ──
       // Once we call lock(), our EVM funds are committed to the HTLC.
       // We MUST persist all refund parameters before that point.
-      record = SwapRecord.forSwapOut(
+      record = SwapOutRecord.create(
         boltzId: swap.id,
         invoice: invoice,
         invoicePreimageHashHex: hex.encode(preimageHash),
@@ -143,12 +143,14 @@ class RootstockSwapOutOperation extends SwapOutOperation {
       );
 
       // ── Persist lock tx hash ──
-      record = (await _swapStore.updateStatus(
-        swap.id,
-        SwapRecordStatus.funded,
-        lockTxHash: tx,
-        lastBoltzStatus: 'lock.broadcast',
-      ))!;
+      record =
+          (await _swapStore.updateStatus(
+                swap.id,
+                SwapRecordStatus.funded,
+                lockTxHash: tx,
+                lastBoltzStatus: 'lock.broadcast',
+              ))!
+              as SwapOutRecord;
       emit(SwapOutFunded());
       logger.i('Locked funds in EtherSwap: $tx');
 
@@ -238,24 +240,12 @@ class RootstockSwapOutOperation extends SwapOutOperation {
   /// immediately when swap is in a failed state). Falls back to timelock refund
   /// if cooperative refund isn't available.
   Future<void> _attemptRefund({
-    required SwapRecord record,
+    required SwapOutRecord record,
     required EtherSwap swapContract,
     required String swapId,
   }) async {
-    final preimageHashBytes = record.invoicePreimageHashBytes;
-    final claimAddr = record.claimAddress;
-    final lockedWei = record.lockedAmountWei;
-    final timelock = record.timeoutBlockHeight;
-
-    if (preimageHashBytes == null ||
-        claimAddr == null ||
-        lockedWei == null ||
-        timelock == null) {
-      logger.e('Cannot refund: missing required swap parameters');
-      return;
-    }
-
-    final claimAddress = EthereumAddress.fromHex(claimAddr);
+    final refundP = record.refundParams;
+    final claimAddress = EthereumAddress.fromHex(refundP.claimAddress);
 
     // 1. Try cooperative refund (immediate, doesn't need timelock expiry)
     try {
@@ -267,10 +257,10 @@ class RootstockSwapOutOperation extends SwapOutOperation {
         final sig = _parseEip712Signature(sigResponse.signature);
 
         final refundTx = await swapContract.refundCooperative$2((
-          preimageHash: preimageHashBytes,
-          amount: lockedWei,
+          preimageHash: refundP.invoicePreimageHash,
+          amount: refundP.lockedAmountWei,
           claimAddress: claimAddress,
-          timelock: BigInt.from(timelock),
+          timelock: BigInt.from(refundP.timeoutBlockHeight),
           v: sig.v,
           r: sig.r,
           s: sig.s,
@@ -297,25 +287,25 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     // 2. Fall back to timelock refund (must wait for block height)
     try {
       final currentBlock = await rootstock.client.getBlockNumber();
-      if (currentBlock < timelock) {
+      if (currentBlock < refundP.timeoutBlockHeight) {
         logger.w(
-          'Timelock not expired yet (current: $currentBlock, timelock: $timelock). '
+          'Timelock not expired yet (current: $currentBlock, timelock: ${refundP.timeoutBlockHeight}). '
           'Refund will be retried by SwapRecoveryService.',
         );
         await _swapStore.updateStatus(
           swapId,
           SwapRecordStatus.needsAction,
           errorMessage:
-              'Waiting for timelock expiry at block $timelock (current: $currentBlock)',
+              'Waiting for timelock expiry at block ${refundP.timeoutBlockHeight} (current: $currentBlock)',
         );
         return;
       }
 
       final refundTx = await swapContract.refund((
-        preimageHash: preimageHashBytes,
-        amount: lockedWei,
+        preimageHash: refundP.invoicePreimageHash,
+        amount: refundP.lockedAmountWei,
         claimAddress: claimAddress,
-        timelock: BigInt.from(timelock),
+        timelock: BigInt.from(refundP.timeoutBlockHeight),
       ), credentials: params.evmKey);
 
       await _swapStore.updateStatus(
@@ -337,6 +327,184 @@ class RootstockSwapOutOperation extends SwapOutOperation {
         SwapRecordStatus.needsAction,
         errorMessage: 'Refund failed: $e',
       );
+    }
+  }
+
+  @override
+  Future<bool> recover({
+    required SwapOutRecord record,
+    required String boltzStatus,
+    required EvmChain chain,
+    required SwapStore swapStore,
+  }) async {
+    // Boltz already paid the invoice — swap succeeded!
+    if (boltzStatus == 'invoice.paid' || boltzStatus == 'transaction.claimed') {
+      logger.i(
+        'SwapRecovery: swap-out ${record.boltzId} completed '
+        '(Boltz status: $boltzStatus).',
+      );
+      await swapStore.updateStatus(
+        record.id,
+        SwapRecordStatus.completed,
+        lastBoltzStatus: boltzStatus,
+      );
+      return true;
+    }
+
+    // Swap was created but we never locked funds — safe to abandon.
+    if (record.status == SwapRecordStatus.created &&
+        record.lockTxHash == null) {
+      if (boltzStatus == 'swap.expired' || boltzStatus == 'swap.created') {
+        logger.i(
+          'SwapRecovery: swap-out ${record.boltzId} never funded, safe to abandon.',
+        );
+        await swapStore.updateStatus(
+          record.id,
+          SwapRecordStatus.failed,
+          lastBoltzStatus: boltzStatus,
+          errorMessage: 'Swap abandoned — funds were never locked.',
+        );
+        return true;
+      }
+    }
+
+    // These states mean Boltz failed to pay the invoice and we need to refund.
+    if (boltzStatus == 'invoice.failedToPay' ||
+        boltzStatus == 'transaction.lockupFailed' ||
+        boltzStatus == 'swap.expired' ||
+        record.status == SwapRecordStatus.needsAction) {
+      return await _attemptRecoveryRefund(
+        record: record,
+        chain: chain,
+        swapStore: swapStore,
+      );
+    }
+
+    // Swap is still in progress (Boltz is trying to pay) — wait.
+    if (boltzStatus == 'invoice.pending' ||
+        boltzStatus == 'transaction.mempool' ||
+        boltzStatus == 'transaction.confirmed') {
+      logger.d(
+        'SwapRecovery: swap-out ${record.boltzId} still in progress '
+        '($boltzStatus). Will check again later.',
+      );
+      await swapStore.updateStatus(
+        record.id,
+        SwapRecordStatus.funded,
+        lastBoltzStatus: boltzStatus,
+      );
+      return false;
+    }
+
+    logger.d(
+      'SwapRecovery: swap-out ${record.boltzId} in status $boltzStatus — '
+      'no action taken.',
+    );
+    return false;
+  }
+
+  /// Attempt to refund locked funds during recovery.
+  ///
+  /// Tries cooperative refund first, then falls back to timelock refund.
+  Future<bool> _attemptRecoveryRefund({
+    required SwapOutRecord record,
+    required EvmChain chain,
+    required SwapStore swapStore,
+  }) async {
+    final refundP = record.refundParams;
+    final claimAddress = EthereumAddress.fromHex(refundP.claimAddress);
+    final swapContract = await chain.getEtherSwapContract();
+
+    // 1. Try cooperative refund first (immediate, no timelock wait)
+    try {
+      final boltz = getIt<BoltzClient>();
+      final sigResponse = await boltz.getCooperativeRefundSignature(
+        id: record.boltzId,
+      );
+      if (sigResponse != null) {
+        logger.i(
+          'SwapRecovery: got cooperative refund sig for ${record.boltzId}',
+        );
+        final sig = _parseEip712Signature(sigResponse.signature);
+
+        final refundTx = await swapContract.refundCooperative$2((
+          preimageHash: refundP.invoicePreimageHash,
+          amount: refundP.lockedAmountWei,
+          claimAddress: claimAddress,
+          timelock: BigInt.from(refundP.timeoutBlockHeight),
+          v: sig.v,
+          r: sig.r,
+          s: sig.s,
+        ), credentials: params.evmKey);
+
+        await swapStore.updateStatus(
+          record.id,
+          SwapRecordStatus.refunding,
+          resolutionTxHash: refundTx,
+        );
+        logger.i('SwapRecovery: cooperative refund broadcast: $refundTx');
+
+        await chain.awaitReceipt(refundTx);
+        await swapStore.updateStatus(record.id, SwapRecordStatus.refunded);
+        logger.i(
+          'SwapRecovery: cooperative refund confirmed for ${record.boltzId}',
+        );
+        return true;
+      }
+    } catch (e) {
+      logger.w(
+        'SwapRecovery: cooperative refund failed for ${record.boltzId}: $e',
+      );
+    }
+
+    // 2. Fall back to timelock refund
+    try {
+      final currentBlock = await chain.client.getBlockNumber();
+      if (currentBlock < refundP.timeoutBlockHeight) {
+        logger.w(
+          'SwapRecovery: timelock not expired for ${record.boltzId} '
+          '(current: $currentBlock, expires: ${refundP.timeoutBlockHeight}). '
+          'Will retry on next recovery pass.',
+        );
+        await swapStore.updateStatus(
+          record.id,
+          SwapRecordStatus.needsAction,
+          errorMessage:
+              'Waiting for timelock at block ${refundP.timeoutBlockHeight} (current: $currentBlock).',
+        );
+        return false;
+      }
+
+      final refundTx = await swapContract.refund((
+        preimageHash: refundP.invoicePreimageHash,
+        amount: refundP.lockedAmountWei,
+        claimAddress: claimAddress,
+        timelock: BigInt.from(refundP.timeoutBlockHeight),
+      ), credentials: params.evmKey);
+
+      await swapStore.updateStatus(
+        record.id,
+        SwapRecordStatus.refunding,
+        resolutionTxHash: refundTx,
+      );
+      logger.i(
+        'SwapRecovery: timelock refund broadcast for ${record.boltzId}: $refundTx',
+      );
+
+      await chain.awaitReceipt(refundTx);
+      await swapStore.updateStatus(record.id, SwapRecordStatus.refunded);
+      logger.i('SwapRecovery: timelock refund confirmed for ${record.boltzId}');
+      return true;
+    } catch (e) {
+      logger.e(
+        'SwapRecovery: timelock refund failed for ${record.boltzId}: $e',
+      );
+      await swapStore.updateStatus(
+        record.id,
+        SwapRecordStatus.needsAction,
+        errorMessage: 'Timelock refund failed: $e',
+      );
+      return false;
     }
   }
 

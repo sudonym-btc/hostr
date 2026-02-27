@@ -4,10 +4,10 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
-  final ReservationRequest reservationRequest;
+  final Reservation negotiateReservation;
   final ProfileMetadata counterparty;
   EscrowSelectorCubit({
-    required this.reservationRequest,
+    required this.negotiateReservation,
     required this.counterparty,
   }) : super(EscrowSelectorLoading());
 
@@ -51,7 +51,7 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
       await getIt<Hostr>()
           .messaging
           .threads
-          .threads[reservationRequest.getDtag()!]!
+          .threads[negotiateReservation.getDtag()!]!
           .replyEvent(
             EscrowServiceSelected(
               pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,

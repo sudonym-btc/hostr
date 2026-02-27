@@ -29,11 +29,11 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
   ReservationCubit()
     : super(ReservationCubitState(status: ReservationCubitStatus.initial));
 
-  Future<ReservationRequest?> createReservationRequest({
+  Future<Reservation?> createReservationRequest({
     required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
-    required Function(ReservationRequest reservationRequest) onSuccess,
+    required Function(Reservation reservation) onSuccess,
   }) async {
     emit(ReservationCubitState(status: ReservationCubitStatus.loading));
 

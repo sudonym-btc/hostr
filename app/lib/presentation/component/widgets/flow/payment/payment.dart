@@ -16,14 +16,28 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../modal_bottom_sheet.dart';
 
-class PaymentFlowWidget extends StatelessWidget {
+class PaymentFlowWidget extends StatefulWidget {
   final PayOperation cubit;
   const PaymentFlowWidget({super.key, required this.cubit});
 
   @override
+  State<PaymentFlowWidget> createState() => _PaymentFlowWidgetState();
+}
+
+class _PaymentFlowWidgetState extends State<PaymentFlowWidget> {
+  @override
+  void dispose() {
+    // Allow in-flight payments to complete before closing the cubit.
+    widget.cubit.detachOrClose(
+      (s) => s is PayCompleted || s is PayFailed || s is PayCancelled,
+    );
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: cubit,
+      value: widget.cubit,
       child: BlocBuilder<PayOperation, PayState>(
         builder: (context, state) {
           return PaymentViewWidget(state);
