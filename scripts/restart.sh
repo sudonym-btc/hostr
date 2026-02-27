@@ -52,6 +52,15 @@ restart_hostr() {
 
     (cd "$REPO_ROOT/dependencies/boltz-regtest" && git clean -fdx data/) || true
 
+    # Re-pull boltz images for the native platform so that stale linux/amd64
+    # layers from the cache don't shadow the correct linux/arm64 variants.
+    if [[ "${COMPOSE_FILE:-}" == *"dependencies/boltz-regtest/docker-compose.yml"* ]]; then
+        (set -a; source "$REPO_ROOT/.env"; source "$REPO_ROOT/.env.$ENVIRONMENT"; \
+            [ -f "$REPO_ROOT/dependencies/boltz-regtest/.env" ] && source "$REPO_ROOT/dependencies/boltz-regtest/.env"; \
+            set +a; cd "$REPO_ROOT" && \
+            docker compose pull --platform linux/arm64 boltz-backend boltz-backend-nginx boltz-client 2>/dev/null || true)
+    fi
+
     "$SCRIPT_DIR/start.sh" "$ENVIRONMENT"
 }
 

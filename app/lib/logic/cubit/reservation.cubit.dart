@@ -42,7 +42,7 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
         listing: listing,
         startDate: startDate,
         endDate: endDate,
-        recipientPubkey: listing.pubKey,
+        recipientPubkey: hostr.auth.activeKeyPair!.publicKey,
       );
       await hostr.messaging.broadcastEventAndWait(
         event: result,

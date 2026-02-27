@@ -30,6 +30,7 @@ class ProfileCubit extends Cubit<EntityCubitState<ProfileMetadata>> {
   }
 
   Future<ProfileMetadata?> load(String pubkey) async {
+    if (isClosed) return null;
     emit(state.copyWith(active: true));
     try {
       final metadata = await metadataUseCase.loadMetadata(pubkey);
@@ -37,10 +38,12 @@ class ProfileCubit extends Cubit<EntityCubitState<ProfileMetadata>> {
       if (metadata == null) {
         logger.w('Profile metadata missing for $pubkey, using fallback');
       }
+      if (isClosed) return resolved;
       emit(EntityCubitState(data: resolved, active: false));
       return resolved;
     } catch (e, stackTrace) {
       logger.e("Error loading profile metadata for $pubkey: $e $stackTrace");
+      if (isClosed) return null;
       emit(EntityCubitStateError(data: state.data, error: e));
       return null;
     }

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
@@ -50,6 +52,7 @@ class ThreadReadyWidget extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Theme.of(context).bottomAppBarTheme.color,
         appBar: AppBar(
+          titleSpacing: 0,
           title: ThreadHeaderWidget(
             counterparties: counterparties,
             onCounterpartyTap: (profile) =>
@@ -67,10 +70,25 @@ class ThreadReadyWidget extends StatelessWidget {
             child: CustomPadding(top: 1, bottom: 1, child: ThreadReplyWidget()),
           ),
         ),
-        body: Column(
+        body: Stack(
           children: [
-            TradeHeader(),
-            Expanded(child: ThreadContent(participants: participants)),
+            Positioned.fill(child: ThreadContent(participants: participants)),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: ColoredBox(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surface.withValues(alpha: 0.82),
+                    child: const TradeHeader(),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

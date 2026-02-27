@@ -1,0 +1,8 @@
+# Rewrite /.well-known/nostr.json to the nostrnip5 extension endpoint.
+# domain_id comes from the nostrnip5_domains table in ext_nostrnip5.sqlite3.
+location = /.well-known/nostr.json {
+    proxy_pass http://lnbits2:5000/nostrnip5/api/v1/domain/4uYgDkTHJctYvxFZcq43aG/nostr.json$is_args$args;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    add_header Access-Control-Allow-Origin *;
+}

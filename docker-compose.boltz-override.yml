@@ -1,3 +1,15 @@
 services:
   cleanup:
     entrypoint: ['/bin/bash', '-c', 'echo "cleanup disabled by hostr override"; exit 0']
+
+  # Force native arm64 platform for boltz images that don't declare one.
+  # Without this, Docker may use a stale linux/amd64 layer from the local cache
+  # which fails to start on Apple Silicon (and other arm64 hosts).
+  boltz-backend:
+    platform: linux/arm64
+
+  boltz-backend-nginx:
+    platform: linux/arm64
+
+  boltz-client:
+    platform: linux/arm64

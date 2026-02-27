@@ -106,6 +106,140 @@ class ReservationPairs {
     );
   }
 
+  /// Live subscription that emits validated [ReservationPairStatus] objects
+  /// for all listings the authenticated user is involved in as a guest.
+  ///
+  /// Uses the messaging thread subscription (via
+  /// [Reservations.subscribeToMyReservations]) to track which listings the
+  /// user has active trades on. For each listing, all reservations are fetched
+  /// and grouped into seller/buyer pairs. Only pairs where the current user
+  /// appears as a participant are emitted.
+  ///
+  /// Unlike [subscribeVerified], no on-chain proof verification is performed
+  /// here — the pair status (pending, confirmed, cancelled, completed) is
+  /// derived directly from the [ReservationPairStatus] properties, which is
+  /// sufficient for the trips list view.
+  ValidatedStreamWithStatus<ReservationPairStatus> subscribeToMyVerifiedPairs({
+    Duration debounce = const Duration(milliseconds: 350),
+  }) {
+    final source = reservations.subscribeToMyReservations();
+
+    late final StreamSubscription<StreamStatus> statusSub;
+    late final StreamSubscription<List<Reservation>> listSub;
+    late final ValidatedStreamWithStatus<ReservationPairStatus> response;
+    Timer? debounceTimer;
+    var hasValidatedAtLeastOnce = false;
+    StreamStatus? latestSourceStatus;
+
+    Future<void> runValidation(List<Reservation> myReservations) async {
+      response.addStatus(StreamStatusQuerying());
+
+      // Group the user's reservations by listing anchor so we can batch-fetch
+      // all reservations per listing (to retrieve the seller's side too).
+      final byAnchor = <String, Set<String>>{};
+      for (final r in myReservations) {
+        final anchor = r.parsedTags.listingAnchor;
+        if (anchor.isNotEmpty) {
+          (byAnchor[anchor] ??= {}).add(r.getDtag() ?? r.id);
+        }
+      }
+
+      final results = <Validation<ReservationPairStatus>>[];
+
+      for (final entry in byAnchor.entries) {
+        final anchor = entry.key;
+        final myTradeIds = entry.value;
+
+        // Fetch ALL reservations for this listing (both buyer and seller).
+        final allReservations = await reservations.getListingReservations(
+          listingAnchor: anchor,
+        );
+
+        // Determine the seller pubkey from the listing anchor.
+        final sellerPubKey = getPubKeyFromAnchor(anchor);
+
+        // Group into seller/buyer pairs by trade id (d-tag), keeping only
+        // pairs the current user participates in.
+        final pairs =
+            <
+              String,
+              ({Reservation? sellerReservation, Reservation? buyerReservation})
+            >{};
+
+        for (final r in allReservations) {
+          final tradeId = r.getDtag() ?? r.id;
+          if (!myTradeIds.contains(tradeId)) continue;
+
+          final current =
+              pairs[tradeId] ??
+              (sellerReservation: null, buyerReservation: null);
+
+          if (r.pubKey == sellerPubKey) {
+            pairs[tradeId] = (
+              sellerReservation: r,
+              buyerReservation: current.buyerReservation,
+            );
+          } else {
+            pairs[tradeId] = (
+              sellerReservation: current.sellerReservation,
+              buyerReservation: r,
+            );
+          }
+        }
+
+        for (final pair in pairs.values) {
+          results.add(
+            Valid(
+              ReservationPairStatus(
+                sellerReservation: pair.sellerReservation,
+                buyerReservation: pair.buyerReservation,
+              ),
+            ),
+          );
+        }
+      }
+
+      response.setSnapshot(results);
+      hasValidatedAtLeastOnce = true;
+      if (latestSourceStatus != null) {
+        response.addStatus(latestSourceStatus!);
+      }
+    }
+
+    response = ValidatedStreamWithStatus<ReservationPairStatus>(
+      onClose: () async {
+        debounceTimer?.cancel();
+        await statusSub.cancel();
+        await listSub.cancel();
+        await source.close();
+      },
+    );
+
+    statusSub = source.status.listen((status) {
+      latestSourceStatus = status;
+      if (status is StreamStatusError) {
+        response.addStatus(status);
+        return;
+      }
+      if (hasValidatedAtLeastOnce) {
+        response.addStatus(status);
+      }
+    }, onError: response.addError);
+
+    listSub = source.list.listen((myReservations) {
+      debounceTimer?.cancel();
+      if (debounce == Duration.zero) {
+        unawaited(runValidation(myReservations));
+        return;
+      }
+      debounceTimer = Timer(debounce, () {
+        unawaited(runValidation(myReservations));
+      });
+    }, onError: response.addError);
+
+    return response;
+  }
+
   // ── Verification ────────────────────────────────────────────────────
 
   /// Pure verification of a single pair against its [listing].

@@ -223,6 +223,10 @@ class SeedFactory {
       content: ReservationContent(
         start: thread.start,
         end: thread.end,
+        stage: ReservationStage.commit,
+        quantity: thread.request.parsedContent.quantity,
+        amount: thread.request.parsedContent.amount,
+        recipient: thread.request.parsedContent.recipient,
         proof: proof,
       ),
     ).signAs(thread.guest.keyPair, Reservation.fromNostrEvent);

@@ -40,6 +40,11 @@ class TradeSubscriptions {
   StreamWithStatus<PaymentEvent>? paymentEvents;
   StreamWithStatus<ReservationTransition>? transitionsStream;
 
+  /// Emits `true` once every required subscription has reached
+  /// [StreamStatusLive], `false` at all other times (including after [stop]).
+  final BehaviorSubject<bool> _isLive = BehaviorSubject.seeded(false);
+  ValueStream<bool> get isLive => _isLive;
+
   Future<void> start(TradeContext context) async {
     if (_started) return;
     _started = true;
@@ -80,6 +85,23 @@ class TradeSubscriptions {
       thread.trade!.state.value.tradeId,
     );
     paymentEvents = await _buildPaymentEvents(listing: listing);
+
+    _subscriptions.add(
+      Rx.combineLatest([
+        allReservationsStream!.status,
+        reservationStream!.status,
+        myReviewsStream!.status,
+        transitionsStream!.status,
+      ], (statuses) => statuses.every((s) => s is StreamStatusLive)).listen((
+        allLive,
+      ) {
+        // One-way latch: once live, never go back to false until stop().
+        // paymentEvents is intentionally excluded: it contains dynamic EVM
+        // sub-streams (escrow contracts) that may query indefinitely and
+        // would permanently block isLive from becoming true.
+        if (allLive && !(_isLive.value)) _isLive.add(true);
+      }),
+    );
   }
 
   Future<void> stop() async {
@@ -109,6 +131,7 @@ class TradeSubscriptions {
     paymentEvents = null;
     await transitionsStream?.close();
     transitionsStream = null;
+    _isLive.add(false);
   }
 
   Future<StreamWithStatus<PaymentEvent>> _buildPaymentEvents({
@@ -259,5 +282,6 @@ class TradeSubscriptions {
     if (!_dispose$.isClosed) {
       await _dispose$.close();
     }
+    await _isLive.close();
   }
 }
