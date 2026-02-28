@@ -67,7 +67,9 @@ class ThreadReadyWidget extends StatelessWidget {
           ),
           child: SafeArea(
             top: false,
-            child: CustomPadding(top: 1, bottom: 1, child: ThreadReplyWidget()),
+            child: CustomPadding.vertical.sm(
+              child: CustomPadding.horizontal.lg(child: ThreadReplyWidget()),
+            ),
           ),
         ),
         body: Stack(

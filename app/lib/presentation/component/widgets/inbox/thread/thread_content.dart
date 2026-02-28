@@ -118,16 +118,19 @@ class _ThreadContentState extends State<ThreadContent> {
                       chronoIndex,
                       messages,
                     );
+                    final messageWidget = _buildMessage(
+                      context,
+                      message: message,
+                    );
+                    if (messageWidget == null) {
+                      return Container();
+                    }
                     return Column(
                       children: [
-                        Gap.vertical.md(),
+                        if (index != reversed.length - 1) Gap.vertical.md(),
                         for (final pubkey in newPubkeys)
                           _JoinedBanner(name: _displayName(pubkey)),
-                        _buildMessage(
-                          context,
-                          message: message,
-                          showSenderLabel: isGroupChat,
-                        ),
+                        messageWidget,
                       ],
                     );
                   },
@@ -140,7 +143,7 @@ class _ThreadContentState extends State<ThreadContent> {
     );
   }
 
-  Widget _buildMessage(
+  Widget? _buildMessage(
     BuildContext context, {
     required Message message,
     bool showSenderLabel = false,
@@ -152,7 +155,7 @@ class _ThreadContentState extends State<ThreadContent> {
       );
     } catch (_) {
       // Sender not yet resolved (e.g. escrow service); skip rendering.
-      return const SizedBox.shrink();
+      return null;
     }
     final activePubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
     final isSentByMe = message.pubKey == activePubKey;
@@ -165,10 +168,10 @@ class _ThreadContentState extends State<ThreadContent> {
         showSenderLabel: showSenderLabel && !isSentByMe,
       );
     } else if (message.child is EscrowServiceSelected) {
-      return Container();
+      return null;
     } else if (message.child is Reservation &&
         (message.child as Reservation).parsedContent.isNegotiation) {
-      return Container();
+      return null;
       // return ThreadReservationRequestWidget(
       //   sender: sender,
       //   item: message,

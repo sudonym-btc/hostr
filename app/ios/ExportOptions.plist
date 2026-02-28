@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Store distribution — upload directly to App Store Connect -->
+    <key>method</key>
+    <string>app-store</string>
+
+    <key>teamID</key>
+    <!-- Replace with your Apple Developer Team ID (found in developer.apple.com/account) -->
+    <string>YOUR_TEAM_ID</string>
+
+    <key>uploadBitcode</key>
+    <false/>
+
+    <key>uploadSymbols</key>
+    <true/>
+
+    <key>compileBitcode</key>
+    <false/>
+
+    <key>destination</key>
+    <string>upload</string>
+
+    <key>signingStyle</key>
+    <string>manual</string>
+
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.sudonym.hostr</key>
+        <!-- Must match the name of the provisioning profile installed in CI -->
+        <string>hostr AppStore</string>
+    </dict>
+</dict>
+</plist>

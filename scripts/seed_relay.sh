@@ -55,6 +55,8 @@ seed_relay() {
         cd "$REPO_ROOT/hostr_sdk" && \
         dart run bin/seed.dart "${extra_args[@]}" 2>&1 | tee "$log_file"
     )
+    # NIP-05 domain IDs are fixed by the lnbits-init Docker service at startup.
+    # No post-seed fixup needed.
 }
 
 # If script is run directly (not sourced), execute the function

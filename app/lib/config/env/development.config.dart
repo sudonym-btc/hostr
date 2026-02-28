@@ -29,7 +29,7 @@ class DevelopmentRootstockConfig extends RootstockConfig {
   @override
   BoltzConfig get boltz => DevelopmentBoltzConfig();
   @override
-  String get rpcUrl => 'http://anvil.hostr.development:8545';
+  String get rpcUrl => 'https://anvil.hostr.development';
 }
 
 class DevelopmentBoltzConfig extends BoltzConfig {

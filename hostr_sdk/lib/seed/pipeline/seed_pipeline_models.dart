@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -130,6 +132,40 @@ class SeedThread {
     this.escrowOutcome,
     this.selfSigned = false,
     this.invalidReservationReason,
+  });
+}
+
+// ─── Outcome plan ────────────────────────────────────────────────────────────
+
+/// The deterministic plan for a single thread's outcome.
+///
+/// Computed in [buildOutcomePlans] (Phase 0, synchronous, no I/O).
+/// The execution stage ([buildOutcomes]) mutates [createTxHash],
+/// [tradeAlreadyExisted], and [needsSettlement] as I/O results arrive.
+class SeedOutcomePlan {
+  final int index;
+  final SeedThread thread;
+  bool useEscrow;
+  EscrowOutcome? escrowOutcome;
+  final bool selfSigned;
+  EscrowTrust? trust;
+  EscrowMethod? method;
+
+  // ── Filled in during execution (buildOutcomes) ──
+  String? createTxHash;
+  bool tradeAlreadyExisted = false;
+  bool needsSettlement = false;
+  int? assignedCreateNonce;
+  int? assignedSettleNonce;
+
+  SeedOutcomePlan({
+    required this.index,
+    required this.thread,
+    required this.useEscrow,
+    this.escrowOutcome,
+    required this.selfSigned,
+    this.trust,
+    this.method,
   });
 }
 
@@ -333,4 +369,273 @@ String? _findTagValue(EventTags tags, String tagType) {
     }
   }
   return null;
+}
+
+// ─── Pipeline spec (pre-run plan) ────────────────────────────────────────────
+
+/// A fully-deterministic description of what the pipeline intends to build.
+///
+/// Computed synchronously from [buildOutcomePlans] before any I/O.
+/// Print at the very start of the run so the full plan is visible before
+/// waiting for EVM / LNbits calls.
+class SeedPipelineSpec {
+  final int seed;
+  final List<SeedUser> users;
+  final List<Listing> listings;
+  final List<SeedThread> threads;
+  final List<SeedOutcomePlan> outcomePlans;
+
+  const SeedPipelineSpec({
+    required this.seed,
+    required this.users,
+    required this.listings,
+    required this.threads,
+    required this.outcomePlans,
+  });
+
+  void printSpec() {
+    print("\n[seed][plan]\n${JsonEncoder.withIndent('  ').convert(toJson())}");
+  }
+
+  Map<String, dynamic> toJson() {
+    final hosts = users.where((u) => u.isHost).toList();
+    final guests = users.where((u) => !u.isHost).toList();
+    final planByThreadId = {for (final p in outcomePlans) p.thread.id: p};
+
+    return {
+      'seed': seed,
+      'totals': {
+        'users': users.length,
+        'hosts': hosts.length,
+        'guests': guests.length,
+        'listings': listings.length,
+        'threads': threads.length,
+        'threads_with_planned_outcome': outcomePlans.length,
+        'threads_pending': threads.length - outcomePlans.length,
+        'escrow_threads': outcomePlans.where((p) => p.useEscrow).length,
+        'zap_threads': outcomePlans.where((p) => !p.useEscrow).length,
+        'self_signed_by_buyer': outcomePlans.where((p) => p.selfSigned).length,
+      },
+      'planned_escrow_outcomes': {
+        'claimed_by_host': outcomePlans
+            .where((p) => p.escrowOutcome == EscrowOutcome.claimedByHost)
+            .length,
+        'released_to_counterparty': outcomePlans
+            .where(
+              (p) => p.escrowOutcome == EscrowOutcome.releaseToCounterparty,
+            )
+            .length,
+        'arbitrated': outcomePlans
+            .where((p) => p.escrowOutcome == EscrowOutcome.arbitrated)
+            .length,
+      },
+      'hosts': [
+        for (final host in hosts)
+          <String, dynamic>{
+            'pubkey': host.keyPair.publicKey,
+            'privkey': host.keyPair.privateKey ?? '(read-only)',
+            'has_evm': host.hasEvm,
+            'listings': listings
+                .where((l) => l.pubKey == host.keyPair.publicKey)
+                .map((l) => l.anchor ?? 'unknown')
+                .toList(),
+            'threads': [
+              for (final t in threads.where(
+                (t) => t.host.keyPair.publicKey == host.keyPair.publicKey,
+              ))
+                _threadSpecEntry(t, planByThreadId[t.id]),
+            ],
+          },
+      ],
+      'guests': [
+        for (final guest in guests)
+          <String, dynamic>{
+            'pubkey': guest.keyPair.publicKey,
+            'privkey': guest.keyPair.privateKey ?? '(read-only)',
+            'threads': [
+              for (final t in threads.where(
+                (t) => t.guest.keyPair.publicKey == guest.keyPair.publicKey,
+              ))
+                _threadSpecEntry(t, planByThreadId[t.id]),
+            ],
+          },
+      ],
+    };
+  }
+
+  static Map<String, dynamic> _threadSpecEntry(
+    SeedThread thread,
+    SeedOutcomePlan? plan,
+  ) {
+    return <String, dynamic>{
+      'trade_id': thread.request.getDtag() ?? thread.id,
+      'listing_anchor': thread.listing.anchor ?? 'unknown',
+      'check_in': thread.start.toIso8601String().substring(0, 10),
+      'check_out': thread.end.toIso8601String().substring(0, 10),
+      'planned_outcome': plan == null
+          ? 'pending'
+          : <String, dynamic>{
+              'proof_type': plan.useEscrow ? 'escrow' : 'zap',
+              if (plan.useEscrow)
+                'escrow_settlement': plan.escrowOutcome?.name ?? 'active',
+              'self_signed_by_buyer': plan.selfSigned,
+            },
+    };
+  }
+}
+
+// ─── Pipeline outcome (post-run report) ──────────────────────────────────────
+
+/// Outcome report produced after all I/O (EVM trades, zap receipts) has
+/// completed. Contains only information that was NOT known at planning time:
+/// tx hashes, on-chain settlement confirmations, and proof validity.
+class SeedPipelineOutcome {
+  final List<SeedThread> threads;
+  final List<SeedOutcomePlan> plans;
+
+  const SeedPipelineOutcome({required this.threads, required this.plans});
+
+  void printOutcome() {
+    print(
+      "\n[seed][outcome]\n${JsonEncoder.withIndent('  ').convert(toJson())}",
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final completedPlans = plans
+        .where((p) => p.thread.reservation != null)
+        .toList();
+    final pendingThreads = threads.where((t) => t.reservation == null).toList();
+
+    return {
+      'totals': {
+        'threads_total': threads.length,
+        'threads_with_reservation': completedPlans.length,
+        'threads_pending': pendingThreads.length,
+        'escrow_trades_newly_created': completedPlans
+            .where((p) => p.createTxHash != null && !p.tradeAlreadyExisted)
+            .length,
+        'escrow_trades_already_existed_on_chain': completedPlans
+            .where((p) => p.tradeAlreadyExisted)
+            .length,
+        'zap_receipts_built': completedPlans
+            .where((p) => !p.useEscrow && p.thread.zapReceipt != null)
+            .length,
+        'invalid_reservations': completedPlans
+            .where((p) => p.thread.invalidReservationReason != null)
+            .length,
+      },
+      'hosts': _groupByHost(completedPlans),
+      'guests': _groupByGuest(completedPlans),
+      if (pendingThreads.isNotEmpty)
+        'pending_threads': [
+          for (final t in pendingThreads)
+            <String, dynamic>{
+              'trade_id': t.request.getDtag() ?? t.id,
+              'host_pubkey': t.host.keyPair.publicKey,
+              'guest_pubkey': t.guest.keyPair.publicKey,
+              'check_in': t.start.toIso8601String().substring(0, 10),
+              'check_out': t.end.toIso8601String().substring(0, 10),
+            },
+        ],
+    };
+  }
+
+  static List<Map<String, dynamic>> _groupByHost(List<SeedOutcomePlan> plans) {
+    final byHost = <String, List<SeedOutcomePlan>>{};
+    final privkeyByHost = <String, String>{};
+    for (final p in plans) {
+      final pub = p.thread.host.keyPair.publicKey;
+      byHost.putIfAbsent(pub, () => []).add(p);
+      privkeyByHost[pub] = p.thread.host.keyPair.privateKey ?? '(read-only)';
+    }
+    return [
+      for (final pub in byHost.keys)
+        <String, dynamic>{
+          'pubkey': pub,
+          'privkey': privkeyByHost[pub],
+          'threads': byHost[pub]!.map(_threadOutcomeEntry).toList(),
+        },
+    ];
+  }
+
+  static List<Map<String, dynamic>> _groupByGuest(List<SeedOutcomePlan> plans) {
+    final byGuest = <String, List<SeedOutcomePlan>>{};
+    final privkeyByGuest = <String, String>{};
+    for (final p in plans) {
+      final pub = p.thread.guest.keyPair.publicKey;
+      byGuest.putIfAbsent(pub, () => []).add(p);
+      privkeyByGuest[pub] = p.thread.guest.keyPair.privateKey ?? '(read-only)';
+    }
+    return [
+      for (final pub in byGuest.keys)
+        <String, dynamic>{
+          'pubkey': pub,
+          'privkey': privkeyByGuest[pub],
+          'threads': byGuest[pub]!.map(_threadOutcomeEntry).toList(),
+        },
+    ];
+  }
+
+  static Map<String, dynamic> _threadOutcomeEntry(SeedOutcomePlan plan) {
+    final thread = plan.thread;
+    final proof = thread.reservation?.parsedContent.proof;
+    final invalidReason = thread.invalidReservationReason;
+
+    final Map<String, dynamic> proofEntry;
+    if (proof == null) {
+      proofEntry = <String, dynamic>{
+        'type': 'no_proof',
+        'fault': invalidReason ?? 'not_required',
+      };
+    } else if (proof.escrowProof != null) {
+      final e = proof.escrowProof!;
+      proofEntry = <String, dynamic>{
+        'type': 'escrow',
+        'tx_hash': e.txHash,
+        'contract_address': e.escrowService.parsedContent.contractAddress,
+        'settlement_outcome': plan.escrowOutcome?.name ?? 'active',
+        'trade_already_existed_on_chain': plan.tradeAlreadyExisted,
+        'proof_valid': invalidReason == null,
+        if (invalidReason != null)
+          'validity_fault': <String, dynamic>{
+            'reason': invalidReason,
+            'wrong_contract_address': invalidReason == 'bogus_escrow_proof',
+            'proof_intentionally_dropped':
+                invalidReason == 'missing_payment_proof',
+          },
+      };
+    } else {
+      String? amountMsats;
+      final zap = thread.zapReceipt;
+      if (zap != null) {
+        for (final tag in zap.tags) {
+          if (tag.length >= 2 && tag[0] == 'amount') {
+            amountMsats = tag[1];
+            break;
+          }
+        }
+      }
+      proofEntry = <String, dynamic>{
+        'type': 'zap',
+        'amount_msats': amountMsats,
+        'receipt_event_id': thread.zapReceipt?.id,
+        'proof_valid': invalidReason == null,
+        if (invalidReason != null)
+          'validity_fault': <String, dynamic>{
+            'reason': invalidReason,
+            'proof_intentionally_dropped': true,
+          },
+      };
+    }
+
+    return <String, dynamic>{
+      'trade_id': thread.request.getDtag() ?? thread.id,
+      'check_in': thread.start.toIso8601String().substring(0, 10),
+      'check_out': thread.end.toIso8601String().substring(0, 10),
+      'reservation_stage': thread.reservation?.parsedContent.stage.name,
+      'self_signed_by_buyer': plan.selfSigned,
+      'proof': proofEntry,
+    };
+  }
 }

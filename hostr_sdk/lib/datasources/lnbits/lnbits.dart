@@ -162,14 +162,8 @@ class LnbitsDatasource {
 
     final unauth = _createLnbitsClient(baseUrl: cfg.baseUrl);
     try {
-      await unauth.apiV1AuthFirstInstallPut(
-        body: UpdateSuperuserPassword(
-          username: cfg.adminEmail,
-          password: cfg.adminPassword,
-          passwordRepeat: cfg.adminPassword,
-        ),
-      );
-
+      // Extensions and first-install are handled by lnbits-init at startup.
+      // Just log in to get a token.
       final loginResponse = await unauth.apiV1AuthPost(
         body: LoginUsernamePassword(
           username: cfg.adminEmail,
@@ -189,21 +183,6 @@ class LnbitsDatasource {
         bearerToken: token,
       );
       try {
-        await _ensureExtensionEnabled(
-          authed,
-          cfg.extensionName,
-          archive:
-              'https://github.com/lnbits/${cfg.extensionName}/archive/refs/tags/v1.3.0.zip',
-          version: '1.3.0',
-        );
-        await _ensureExtensionEnabled(
-          authed,
-          'nostrnip5',
-          archive:
-              'https://github.com/lnbits/nostrnip5/archive/refs/tags/v1.0.4.zip',
-          version: '1.0.4',
-        );
-
         final walletsResponse = await authed.apiV1WalletsGet();
         final wallets = walletsResponse.body;
         if (wallets == null || wallets.isEmpty) {
@@ -395,14 +374,7 @@ class LnbitsDatasource {
         bearerToken: token,
       );
       try {
-        await _ensureExtensionEnabled(
-          authed,
-          'nostrnip5',
-          archive:
-              'https://github.com/lnbits/nostrnip5/archive/refs/tags/v1.0.4.zip',
-          version: '1.0.4',
-        );
-
+        // Extensions are guaranteed enabled by lnbits-init at startup.
         final walletsResponse = await authed.apiV1WalletsGet();
         final wallets = walletsResponse.body;
         if (wallets == null || wallets.isEmpty) {
@@ -427,6 +399,15 @@ class LnbitsDatasource {
           walletApiKey: wallet.adminkey,
         );
 
+        // Fetch all existing lnurlp links once and build a username→id map.
+        // The lnurlp API has no server-side username filter, so fetching once
+        // here is O(1) round-trips regardless of how many users we seed.
+        final lnurlpLinkIdByUsername = await _fetchLnurlpLinkIdByUsername(
+          baseUrl: cfg.baseUrl,
+          bearerToken: token,
+          walletApiKey: wallet.adminkey,
+        );
+
         final sorted = entries.entries.toList()
           ..sort((a, b) => a.key.compareTo(b.key));
         for (final entry in sorted) {
@@ -437,6 +418,7 @@ class LnbitsDatasource {
             domainId: domainId,
             localPart: entry.key,
             pubkey: entry.value,
+            lnurlpLinkIdByUsername: lnurlpLinkIdByUsername,
           );
         }
 
@@ -558,6 +540,10 @@ class LnbitsDatasource {
   }
 
   /// Creates and activates a NIP-05 address in a nostrnip5 domain.
+  ///
+  /// [lnurlpLinkIdByUsername] is a pre-fetched username→linkId map (built once
+  /// per server via [_fetchLnurlpLinkIdByUsername]) so we avoid an O(n) GET
+  /// for every address when seeding large numbers of users.
   Future<void> _ensureNostrnip5Address({
     required String baseUrl,
     required String bearerToken,
@@ -565,6 +551,7 @@ class LnbitsDatasource {
     required String domainId,
     required String localPart,
     required String pubkey,
+    required Map<String, String> lnurlpLinkIdByUsername,
   }) async {
     final headers = {
       'Authorization': 'Bearer $bearerToken',
@@ -587,12 +574,25 @@ class LnbitsDatasource {
 
       final addressId = response['id']?.toString();
       if (addressId != null && addressId.isNotEmpty) {
-        // Activate the address so it appears in nostr.json lookups.
-        // The activate endpoint also calls update_ln_address(), which tries
-        // to create a lnurlp pay link. If that link was already created by
-        // setupUsernamesByDomain the call will 500 — but the address is
-        // already marked active in the DB before that step, so we treat
-        // the error as non-fatal.
+        // Delete any pre-existing lnurlp pay link for this username before
+        // activating.  activate_address() calls update_ln_address() which
+        // creates the pay link and stores the pay_link_id on the NIP-05
+        // address record.  If a link with this username already exists the
+        // create fails and pay_link_id stays empty — breaking the ln-address.
+        // Use the pre-fetched map to avoid an extra GET per user.
+        final existingLinkId = lnurlpLinkIdByUsername[localPart.toLowerCase()];
+        if (existingLinkId != null) {
+          await _deleteLnurlpLinkById(
+            baseUrl: baseUrl,
+            bearerToken: bearerToken,
+            walletApiKey: walletApiKey,
+            linkId: existingLinkId,
+            username: localPart,
+          );
+          // Remove from map so a re-entrant call won't attempt a double-delete.
+          lnurlpLinkIdByUsername.remove(localPart.toLowerCase());
+        }
+
         try {
           await _jsonRequest(
             method: 'PUT',
@@ -606,9 +606,6 @@ class LnbitsDatasource {
             '$localPart (id=$addressId, pubkey=${pubkey.substring(0, 8)}...)',
           );
         } catch (e) {
-          // activate_address() persists active=true before update_ln_address()
-          // runs, so the NIP-05 lookup will still work even if the lnurlp
-          // link creation fails (e.g. duplicate username).
           print(
             '[lnbits][nip05] Created address $localPart (id=$addressId). '
             'Activate returned an error (non-fatal): $e',
@@ -629,6 +626,84 @@ class LnbitsDatasource {
       }
       print('[lnbits][nip05] Error creating address $localPart: ${e.message}');
       rethrow;
+    }
+  }
+
+  /// Fetches all lnurlp pay links for [walletApiKey] in a single GET and
+  /// returns a lowercase-username → linkId map.  Call once per server before
+  /// looping over users so cleanup is O(1) lookups rather than O(n) GETs.
+  Future<Map<String, String>> _fetchLnurlpLinkIdByUsername({
+    required String baseUrl,
+    required String bearerToken,
+    required String walletApiKey,
+  }) async {
+    try {
+      final links = await _jsonRequest(
+        method: 'GET',
+        uri: Uri.parse('$baseUrl/lnurlp/api/v1/links'),
+        headers: {
+          'Authorization': 'Bearer $bearerToken',
+          'X-Api-Key': walletApiKey,
+        },
+        returnList: true,
+      );
+      if (links is! List) return {};
+      final map = <String, String>{};
+      for (final link in links) {
+        if (link is! Map) continue;
+        final username = link['username']?.toString();
+        final id = link['id']?.toString();
+        if (username != null &&
+            username.isNotEmpty &&
+            id != null &&
+            id.isNotEmpty) {
+          map[username.toLowerCase()] = id;
+        }
+      }
+      print(
+        '[lnbits][nip05] Fetched ${map.length} existing lnurlp link(s) '
+        'from $baseUrl for pre-activation cleanup.',
+      );
+      return map;
+    } catch (e) {
+      print(
+        '[lnbits][nip05] Warning: could not fetch lnurlp links from '
+        '$baseUrl: $e. Proceeding without cleanup.',
+      );
+      return {};
+    }
+  }
+
+  /// Deletes a single lnurlp pay link by [linkId].
+  Future<void> _deleteLnurlpLinkById({
+    required String baseUrl,
+    required String bearerToken,
+    required String walletApiKey,
+    required String linkId,
+    required String username,
+  }) async {
+    try {
+      final client = HttpClient();
+      try {
+        final req = await client.openUrl(
+          'DELETE',
+          Uri.parse('$baseUrl/lnurlp/api/v1/links/$linkId'),
+        );
+        req.headers.set('Authorization', 'Bearer $bearerToken');
+        req.headers.set('X-Api-Key', walletApiKey);
+        await req.close();
+      } finally {
+        client.close(force: true);
+      }
+      print(
+        '[lnbits][nip05] Deleted existing lnurlp link for '
+        '"$username" (id=$linkId) before NIP-05 activation.',
+      );
+    } catch (e) {
+      print(
+        '[lnbits][nip05] Warning: could not delete lnurlp link '
+        'for "$username" (id=$linkId): $e',
+      );
     }
   }
 

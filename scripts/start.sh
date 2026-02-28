@@ -59,7 +59,9 @@ fi
 
 docker compose up -d --remove-orphans --yes
 
-# Trust the dev CA on the host so browsers show green lock
+# Trust the dev CA on the host so browsers show green lock.
+# Not required in CI (no browser, ephemeral runner) — run best-effort so a
+# missing sudo or unknown OS never aborts the stack startup.
 if [ "$ENVIRONMENT" != "prod" ]; then
-    "$SCRIPT_DIR/trust-dev-ca.sh"
+    "$SCRIPT_DIR/trust-dev-ca.sh" || echo "⚠️  trust-dev-ca.sh failed (non-fatal)"
 fi

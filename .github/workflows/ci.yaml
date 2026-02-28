@@ -1,19 +1,50 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main, next]
+  pull_request:
 
 jobs:
-  sdk: 
+  # ── 1. Detect which submodules changed ─────────────────────────────────────
+  changes:
     runs-on: ubuntu-latest
-
+    outputs:
+      sdk: ${{ steps.filter.outputs.sdk }}
+      app: ${{ steps.filter.outputs.app }}
+      escrow: ${{ steps.filter.outputs.escrow }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            sdk:
+              - 'hostr_sdk/**'
+              - 'models/**'
+              - '.github/workflows/ci.yaml'
+            app:
+              - 'app/**'
+              - 'hostr_sdk/**'
+              - 'models/**'
+              - '.github/workflows/ci.yaml'
+            escrow:
+              - 'escrow/**'
+              - 'hostr_sdk/**'
+              - '.github/workflows/ci.yaml'
+
+  # ── 2. hostr_sdk tests (unit + Docker integration) ─────────────────────────
+  test_sdk:
+    name: Test — hostr_sdk
+    needs: changes
+    if: needs.changes.outputs.sdk == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@v1
         with:
           sdk: '3.10.8'
 
@@ -24,10 +55,10 @@ jobs:
         with:
           path: |
             ~/.pub-cache
-            app/.dart_tool
-          key: ${{ runner.os }}-dart-${{ hashFiles('app/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-dart-
+            hostr_sdk/.dart_tool
+          key: ${{ runner.os }}-dart-${{ hashFiles('hostr_sdk/pubspec.yaml') }}
+          restore-keys: ${{ runner.os }}-dart-
+
       - name: Install dependencies
         run: dart pub get
         working-directory: hostr_sdk
@@ -46,37 +77,34 @@ jobs:
         run: |
           docker compose ps -a || true
           docker compose logs --no-color hostrbitcoind lnd1 lnd2 bootstrap escrow-contract-deploy || true
-          docker compose logs --no-color bitcoind-init lnd-1 lnd-2 regtest-start boltz-backend || true
 
-      - name: Add local host aliases for integration tests
+      - name: Add host aliases
         run: |
           echo "127.0.0.1 relay.hostr.development blossom.hostr.development alby1.hostr.development alby2.hostr.development lnbits1.hostr.development lnbits2.hostr.development" | sudo tee -a /etc/hosts
 
-      - name: Run docker integration tests
+      - name: Run Docker integration tests
         run: dart test test/integration -t docker
         working-directory: hostr_sdk
-      # test_coverage package outdated
-      # - name: Check coverage
-      #   run: |
-      #     COVERAGE=$(dart pub run test_coverage)   
 
       - name: Stop test stack
         if: always()
         run: docker compose down --remove-orphans --volumes
-  app:
-    runs-on: ubuntu-latest
 
+  # ── 3. Flutter app tests ────────────────────────────────────────────────────
+  test_app:
+    name: Test — app
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.41.1
+          flutter-version: '3.41.1'
 
       - run: flutter --version
 
@@ -88,65 +116,82 @@ jobs:
             app/.dart_tool
             app/widgetbook_workspace/.dart_tool
           key: ${{ runner.os }}-flutter-${{ hashFiles('app/pubspec.yaml', 'app/widgetbook_workspace/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
+          restore-keys: ${{ runner.os }}-flutter-
 
       - name: Install dependencies
         run: flutter pub get
         working-directory: app
 
-      - name: Build Widgetbook
+      - name: Run tests
+        run: flutter test --coverage
+        working-directory: app
+
+      - name: Build Widgetbook (compile check)
         run: |
           flutter pub get
           flutter build web --no-wasm-dry-run
         working-directory: app/widgetbook_workspace
 
-      - name: Run tests
-        run: flutter test --coverage
-        working-directory: app
+  # ── 4. Quality gate — blocks release if any required test failed ────────────
+  # Jobs that were skipped (no changes) are treated as passing.
+  quality_gate:
+    name: Quality Gate
+    needs: [test_sdk, test_app]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          sdk="${{ needs.test_sdk.result }}"
+          app="${{ needs.test_app.result }}"
+          failed=()
+          for entry in "sdk:$sdk" "app:$app"; do
+            name="${entry%%:*}"
+            result="${entry##*:}"
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              failed+=("$name")
+            fi
+          done
+          if [[ ${#failed[@]} -gt 0 ]]; then
+            echo "❌ Failed jobs: ${failed[*]}"
+            exit 1
+          fi
+          echo "✅ Quality gate passed (sdk=$sdk, app=$app)"
 
-        # test_coverage package outdated
-      # - name: Check coverage
-      #   run: |
-      #     COVERAGE=$(flutter pub run test_coverage)
-      #     THRESHOLD=80
-      #     if [ "$COVERAGE" -lt "$THRESHOLD" ]; then
-      #       echo "Code coverage ($COVERAGE%) is below the threshold ($THRESHOLD%)."
-      #       exit 1
-      #     fi
-      #   working-directory: app
-
-      # not able to find free codecov for shield icon generation
-      # - name: Upload coverage to Codecov
-      #   uses: codecov/codecov-action@v3
-      #   with:
-      #     files: ./app/coverage/lcov.info
-      #     token: ${{ secrets.CODECOV_TOKEN }}
+  # ── 5. Semantic release (main only, after gate passes) ─────────────────────
   release:
     name: Release
+    needs: quality_gate
+    if: >
+      needs.quality_gate.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
-      contents: write # to be able to publish a GitHub release
-      issues: write # to be able to comment on released issues
-      pull-requests: write # to be able to comment on released pull requests
-      id-token: write # to enable use of OIDC for npm provenance
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+
+      - uses: actions/setup-node@v4
         with:
-          node-version: "lts/*"
+          node-version: 'lts/*'
+
       - name: Install dependencies
         run: npm clean-install
+
       - name: Install semantic-release/exec
         run: npm install --save-dev @semantic-release/exec
-      - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
+
+      - name: Verify provenance attestations
         run: npm audit signatures
+
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release --dry-run
+        run: npx semantic-release
