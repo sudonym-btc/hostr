@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825610193834">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.0.1">
+
+    <!-- Primary Meta Tags -->
+    <title>TODO: NIP-17 Read Receipts &amp; Chat Liveness</title>
+    <meta name="title" content="TODO: NIP-17 Read Receipts & Chat Liveness">
+    <meta name="description" content="Status: Not started References:">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="/hostr_sdk/lib/usecase/messaging/todo_read_receipts/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="/hostr_sdk/lib/usecase/messaging/todo_read_receipts/">
+    <meta property="og:title" content="TODO: NIP-17 Read Receipts & Chat Liveness">
+    <meta property="og:description" content="Status: Not started References:">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../../../../../resources/css/retype.css?v=4.0.1.825610193834" rel="stylesheet">
+
+    <script data-cfasync="false" src="../../../../../resources/js/config.js?v=4.0.1.825610193834" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../../resources/js/retype.js?v=4.0.1" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../../resources/js/lunr.js?v=4.0.1.825610193834" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../../resources/js/prism.js?v=4.0.1.825610193834" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="../../../../../" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 dark:hidden md:inline-block" src="../../../../../app/assets/images/logo/logo.svg">
+                            <img class="max-h-10 hidden dark:inline-block" src="../../../../../app/assets/images/logo/logo.svg">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../../../.doc/guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../../../.doc/guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <!-- Page content  -->
+<doc-anchor-target id="todo-nip-17-read-receipts--chat-liveness" class="break-words">
+    <h1>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#todo-nip-17-read-receipts--chat-liveness">#</doc-anchor-trigger>
+        <span>TODO: NIP-17 Read Receipts &amp; Chat Liveness</span>
+    </h1>
+</doc-anchor-target>
+<p>Status: <strong>Not started</strong>
+References:</p>
+<ul>
+<li><a href="https://github.com/nostr-protocol/nips/pull/2000">PR #2000 — Mark as Received</a> (vitorpamplona, open)</li>
+<li><a href="https://github.com/nostr-protocol/nips/pull/1761">PR #1761 — Seen events / bloom filter</a> (kehiy, open)</li>
+<li><a href="https://github.com/nostr-protocol/nips/pull/1994">PR #1994 — &quot;seen&quot; event</a> (fiatjaf, closed)</li>
+<li><a href="https://github.com/nostr-protocol/nips/pull/1405">PR #1405 — Read status 2</a> (staab, closed — removed from Coracle)</li>
+<li><a href="https://github.com/nostr-protocol/nips/issues/2002">Issue #2002 — Liveness pulse</a></li>
+</ul>
+<hr>
+<doc-anchor-target id="overview">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#overview">#</doc-anchor-trigger>
+        <span>Overview</span>
+    </h2>
+</doc-anchor-target>
+<p>There are three distinct concerns for message-delivery feedback in NIP-17 DMs.
+Each has a different privacy/complexity trade-off and should be implemented
+separately.</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>#</th>
+<th>Concern</th>
+<th>Visibility</th>
+<th>Persistence</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Received</strong> — counterparty&#x27;s client has downloaded &amp; decrypted</td>
+<td>Public heartbeat</td>
+<td>Replaceable event</td>
+<td><strong>High</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Seen</strong> — user has actually read a message (cross-client sync)</td>
+<td>Private / encrypted</td>
+<td>Replaceable event per chat</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Typing / liveness</strong> — ephemeral chat-specific status</td>
+<td>Public, ephemeral</td>
+<td>Short-lived (expiration tag)</td>
+<td>Low</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+<doc-anchor-target id="1-received-heartbeat--kind-10017">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#1-received-heartbeat--kind-10017">#</doc-anchor-trigger>
+        <span>1. &quot;Received&quot; heartbeat — kind <code translate="no" v-pre>10017</code></span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="what-it-does">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#what-it-does">#</doc-anchor-trigger>
+        <span>What it does</span>
+    </h3>
+</doc-anchor-target>
+<p>A public <strong>replaceable</strong> event (<code translate="no" v-pre>kind 10017</code>) updated every time the NIP-17
+client decrypts a new message batch. Contains no message IDs and no content —
+just a <code translate="no" v-pre>created_at</code> timestamp. Counterparties check: <em>&quot;is their <code translate="no" v-pre>10017</code>
+timestamp newer than my last sent message?&quot;</em> If yes → message was likely
+received.</p>
+<doc-anchor-target id="event-shape">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#event-shape">#</doc-anchor-trigger>
+        <span>Event shape</span>
+    </h3>
+</doc-anchor-target>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">{
+  &quot;kind&quot;: 10017,
+  &quot;pubkey&quot;: &quot;&lt;my-pubkey&gt;&quot;,
+  &quot;created_at&quot;: &quot;&lt;now, slightly randomized ±30s&gt;&quot;,
+  &quot;tags&quot;: [],
+  &quot;content&quot;: &quot;&quot;
+}</code></pre>
+</doc-codeblock></div>
+<doc-anchor-target id="implementation-plan">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#implementation-plan">#</doc-anchor-trigger>
+        <span>Implementation plan</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li><p><strong>Create <code translate="no" v-pre>ReceivedHeartbeat</code> service</strong> in <code translate="no" v-pre>usecase/messaging/received_heartbeat.dart</code>.</p>
+<ul>
+<li>Inject <code translate="no" v-pre>Ndk</code>, <code translate="no" v-pre>Auth</code>, <code translate="no" v-pre>Requests</code>.</li>
+<li>On each <code translate="no" v-pre>Threads.processMessage()</code> call (or debounced after a batch),publish/replace a <code translate="no" v-pre>kind 10017</code> event signed by the active keypair.</li>
+<li>Randomise <code translate="no" v-pre>created_at</code> by up to ±30 seconds to limit metadata leakage(as discussed in PR #2000).</li>
+</ul>
+</li>
+<li><p><strong>Query counterparty heartbeats</strong> in <code translate="no" v-pre>Thread</code>:</p>
+<ul>
+<li>When opening a thread, subscribe to <code translate="no" v-pre>kind 10017</code> from the counterpartypubkey.</li>
+<li>Expose a <code translate="no" v-pre>Stream&lt;DateTime?&gt; lastReceivedAt</code> on <code translate="no" v-pre>Thread</code>.</li>
+<li>In the UI, compare each outgoing message&#x27;s <code translate="no" v-pre>created_at</code> against<code translate="no" v-pre>lastReceivedAt</code>. If <code translate="no" v-pre>lastReceivedAt &gt;= message.created_at</code> → show asingle-check (✓) &quot;delivered&quot; indicator.</li>
+</ul>
+</li>
+<li><p><strong>Debounce publishing</strong> — don&#x27;t publish a new <code translate="no" v-pre>10017</code> on every single
+message decrypt. Debounce to ~5 seconds so that catching up on 100
+messages produces one event, not 100.</p>
+</li>
+<li><p><strong>Files to create/modify:</strong></p>
+<ul>
+<li><code translate="no" v-pre>usecase/messaging/received_heartbeat.dart</code> (new — service)</li>
+<li><code translate="no" v-pre>usecase/messaging/threads.dart</code> (call heartbeat after processing)</li>
+<li><code translate="no" v-pre>usecase/messaging/thread/thread.dart</code> (subscribe to counterparty&#x27;s 10017)</li>
+<li><code translate="no" v-pre>datasources/</code> — add filter/kind constant <code translate="no" v-pre>kNostrKindReceivedHeartbeat = 10017</code></li>
+</ul>
+</li>
+</ol>
+<hr>
+<doc-anchor-target id="2-seen-status--private-per-conversation">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#2-seen-status--private-per-conversation">#</doc-anchor-trigger>
+        <span>2. &quot;Seen&quot; status — private, per-conversation</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="what-it-does-1">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#what-it-does-1">#</doc-anchor-trigger>
+        <span>What it does</span>
+    </h3>
+</doc-anchor-target>
+<p>Tells the <strong>counterparty</strong> which specific messages you have actually opened/read
+(double-check ✓✓). Two sub-approaches are viable:</p>
+<doc-anchor-target id="option-a-timestamp-based-recommended--simplest">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#option-a-timestamp-based-recommended--simplest">#</doc-anchor-trigger>
+        <span>Option A: Timestamp-based (recommended — simplest)</span>
+    </h3>
+</doc-anchor-target>
+<p>Store a single timestamp per conversation = <code translate="no" v-pre>created_at</code> of the most recent
+message you&#x27;ve scrolled to / rendered on screen. Everything with
+<code translate="no" v-pre>created_at &lt;= that timestamp</code> is &quot;seen.&quot; Send this inside a NIP-17 gift-wrapped
+event to the counterparty.</p>
+<p><strong>Pros:</strong> Simple, tiny payload, no bloom-filter complexity.
+<strong>Cons:</strong> Late-arriving or out-of-order messages may be incorrectly marked seen.
+staab found this acceptable in practice for 1:1 chats.</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">// Rumor (unsigned, inside gift-wrap)
+{
+  &quot;kind&quot;: 16,
+  &quot;tags&quot;: [
+    [&quot;p&quot;, &quot;&lt;counterparty-pubkey&gt;&quot;],
+    [&quot;seen_until&quot;, &quot;&lt;unix-timestamp-of-last-seen-message&gt;&quot;]
+  ],
+  &quot;content&quot;: &quot;&quot;
+}</code></pre>
+</doc-codeblock></div>
+<doc-anchor-target id="option-b-bloom-filter-on-replaceable-event-pr-1761">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#option-b-bloom-filter-on-replaceable-event-pr-1761">#</doc-anchor-trigger>
+        <span>Option B: Bloom filter on replaceable event (PR #1761)</span>
+    </h3>
+</doc-anchor-target>
+<p>A <code translate="no" v-pre>kind 30010</code> addressable event whose <code translate="no" v-pre>.content</code> is a bloom filter encoding
+seen gift-wrap IDs. The <code translate="no" v-pre>d</code> tag is derived as
+<code translate="no" v-pre>sha256(hkdf(private_key, salt: 'nip17') || &quot;&lt;counterparty-pubkey&gt;&quot;)</code> to hide
+the conversation counterparty.</p>
+<p><strong>Pros:</strong> Per-message granularity, public but obfuscated, replaceable.
+<strong>Cons:</strong> Must spec bloom filter exactly (hash function, encoding, salt, size).
+False positives (message falsely shown as seen) are possible but benign.</p>
+<doc-anchor-target id="implementation-plan-option-a--timestamp-based">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#implementation-plan-option-a--timestamp-based">#</doc-anchor-trigger>
+        <span>Implementation plan (Option A — timestamp-based)</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li><p><strong>Create <code translate="no" v-pre>SeenStatus</code> service</strong> in <code translate="no" v-pre>usecase/messaging/seen_status.dart</code>.</p>
+<ul>
+<li>Track <code translate="no" v-pre>Map&lt;String, int&gt; lastSeenTimestampByThread</code> (thread ID → unix ts).</li>
+<li>When the user scrolls to / views a message in the UI, update thetimestamp for that thread.</li>
+</ul>
+</li>
+<li><p><strong>Broadcast seen timestamp to counterparty:</strong></p>
+<ul>
+<li>Debounce (e.g. 3 seconds after last scroll).</li>
+<li>Create a <code translate="no" v-pre>kind 16</code> rumor with a <code translate="no" v-pre>seen_until</code> tag.</li>
+<li>Gift-wrap and send via the same <code translate="no" v-pre>Messaging.broadcastText</code> path to thecounterparty&#x27;s <code translate="no" v-pre>10050</code> relays.</li>
+<li>Set a short <code translate="no" v-pre>expiration</code> tag on the gift wrap (e.g. 7 days) to avoidrelay bloat.</li>
+</ul>
+</li>
+<li><p><strong>Receive and display counterparty&#x27;s seen status:</strong></p>
+<ul>
+<li>In <code translate="no" v-pre>Thread</code>, listen for incoming <code translate="no" v-pre>kind 16</code> events with <code translate="no" v-pre>seen_until</code> tag.</li>
+<li>Expose <code translate="no" v-pre>Stream&lt;int?&gt; counterpartySeenUntil</code> on <code translate="no" v-pre>Thread</code>.</li>
+<li>UI: for each outgoing message, if <code translate="no" v-pre>message.created_at &lt;= counterpartySeenUntil</code>→ show double-check ✓✓.</li>
+</ul>
+</li>
+<li><p><strong>Cross-client sync (own devices):</strong></p>
+<ul>
+<li><p>Optionally publish a <strong>private</strong> replaceable event (<code translate="no" v-pre>kind 30010</code> or
+similar) encrypted to yourself, storing <code translate="no" v-pre>lastSeenTimestampByThread</code>.</p>
+</li>
+<li><p>This lets a second client (e.g. desktop) pick up where mobile left off
+without re-marking everything as unread.</p>
+</li>
+</ul>
+</li>
+<li><p><strong>Files to create/modify:</strong></p>
+<ul>
+<li><code translate="no" v-pre>usecase/messaging/seen_status.dart</code> (new — service)</li>
+<li><code translate="no" v-pre>usecase/messaging/thread/thread.dart</code> (expose seen stream, process incoming seen events)</li>
+<li><code translate="no" v-pre>usecase/messaging/thread/state.dart</code> (add seen-until to thread state)</li>
+<li>App UI layer — message bubbles need ✓ / ✓✓ indicators</li>
+</ul>
+</li>
+</ol>
+<hr>
+<doc-anchor-target id="3-typing--liveness-indicator--kind-10018-ephemeral">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#3-typing--liveness-indicator--kind-10018-ephemeral">#</doc-anchor-trigger>
+        <span>3. &quot;Typing&quot; / liveness indicator — kind <code translate="no" v-pre>10018</code> (ephemeral)</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="what-it-does-2">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#what-it-does-2">#</doc-anchor-trigger>
+        <span>What it does</span>
+    </h3>
+</doc-anchor-target>
+<p>A public, short-lived replaceable event indicating the user is currently typing
+in a specific chat room. The <code translate="no" v-pre>room</code> is identified by a bloom filter of recent
+message IDs (so it doesn&#x27;t leak which conversation).</p>
+<doc-anchor-target id="event-shape-per-vitorpamplonas-proposal">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#event-shape-per-vitorpamplonas-proposal">#</doc-anchor-trigger>
+        <span>Event shape (per vitorpamplona&#x27;s proposal)</span>
+    </h3>
+</doc-anchor-target>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">{
+  &quot;kind&quot;: 10018,
+  &quot;pubkey&quot;: &quot;&lt;my-pubkey&gt;&quot;,
+  &quot;created_at&quot;: &quot;&lt;now&gt;&quot;,
+  &quot;tags&quot;: [
+    [&quot;room&quot;, &quot;&lt;bloom-filter-of-last-3-message-ids&gt;&quot;],
+    [&quot;expiration&quot;, &quot;&lt;now + 15 seconds&gt;&quot;]
+  ],
+  &quot;content&quot;: &quot;&quot;
+}</code></pre>
+</doc-codeblock></div>
+<p>Receiving clients check if the IDs of the 3 most recent <code translate="no" v-pre>kind 14</code> messages in
+the current thread are inside the bloom filter. If yes → show &quot;typing…&quot;.</p>
+<doc-anchor-target id="implementation-plan-1">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#implementation-plan-1">#</doc-anchor-trigger>
+        <span>Implementation plan</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li><p><strong>Create <code translate="no" v-pre>TypingIndicator</code> service</strong> in <code translate="no" v-pre>usecase/messaging/typing_indicator.dart</code>.</p>
+<ul>
+<li>Expose <code translate="no" v-pre>void startTyping(Thread thread)</code> / <code translate="no" v-pre>void stopTyping()</code>.</li>
+<li>On <code translate="no" v-pre>startTyping</code>, publish a <code translate="no" v-pre>kind 10018</code> with a 15-second expiration.</li>
+<li>Re-publish every ~10 seconds while the user continues typing.</li>
+<li>On <code translate="no" v-pre>stopTyping</code> (or after 15s idle), stop publishing.</li>
+</ul>
+</li>
+<li><p><strong>Bloom filter for room identification:</strong></p>
+<ul>
+<li>Take the last 3 message IDs from the thread.</li>
+<li>Build a small bloom filter (≤256 bits, 3 hash rounds, random salt).</li>
+<li>Encode as <code translate="no" v-pre>size:rounds:base64(bits):base64(salt)</code> in the <code translate="no" v-pre>room</code> tag.</li>
+</ul>
+</li>
+<li><p><strong>Subscribe to counterparty typing events:</strong></p>
+<ul>
+<li>In <code translate="no" v-pre>Thread</code>, subscribe to <code translate="no" v-pre>kind 10018</code> from the counterparty pubkey.</li>
+<li>On receive, check if your last 3 thread message IDs appear in the bloomfilter → if yes, set <code translate="no" v-pre>isCounterpartyTyping = true</code>.</li>
+<li>Auto-expire after 15 seconds with no new event.</li>
+</ul>
+</li>
+<li><p><strong>Privacy considerations:</strong></p>
+<ul>
+<li>This is <strong>opt-in</strong>. Users should be able to disable it in settings.</li>
+<li>The bloom filter prevents leaking exact conversation identity to relayoperators while still allowing the counterparty to match.</li>
+</ul>
+</li>
+<li><p><strong>Files to create/modify:</strong></p>
+<ul>
+<li><code translate="no" v-pre>usecase/messaging/typing_indicator.dart</code> (new)</li>
+<li><code translate="no" v-pre>util/bloom_filter.dart</code> (new — shared bloom filter implementation)</li>
+<li><code translate="no" v-pre>usecase/messaging/thread/thread.dart</code> (subscribe, expose typing stream)</li>
+</ul>
+</li>
+</ol>
+<hr>
+<doc-anchor-target id="key-constants-to-add">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#key-constants-to-add">#</doc-anchor-trigger>
+        <span>Key Constants to Add</span>
+    </h2>
+</doc-anchor-target>
+<p>In <code translate="no" v-pre>models</code> or <code translate="no" v-pre>datasources</code>, define:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">const kNostrKindReceivedHeartbeat = 10017;
+const kNostrKindTypingIndicator = 10018;
+const kNostrKindSeenMessages = 30010;
+const kNostrKindSeenStatus = 16; // rumor kind inside gift-wrap</code></pre>
+</doc-codeblock></div>
+<hr>
+<doc-anchor-target id="risks--open-questions">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#risks--open-questions">#</doc-anchor-trigger>
+        <span>Risks &amp; Open Questions</span>
+    </h2>
+</doc-anchor-target>
+<ul>
+<li><p><strong>No merged NIP yet.</strong> All proposals are still open PRs. Kind numbers and
+event shapes may change. Build behind a feature flag.</p>
+</li>
+<li><p><strong>Gift-wrap bloat.</strong> Seen events sent as gift wraps are non-replaceable on
+relays. Always set <code translate="no" v-pre>expiration</code> tags to limit storage.</p>
+</li>
+<li><p><strong>Group chats.</strong> The timestamp approach works well for 1:1 DMs (Hostr&#x27;s
+primary use case for host↔guest messaging). For groups &gt;2, bloom filters
+or per-member seen events are needed — defer until needed.</p>
+</li>
+<li><p><strong>staab&#x27;s lesson.</strong> Enumerating individual event IDs in persistent events
+caused &quot;notification badge whack-a-mole&quot; due to late-arriving events.
+Timestamp-based is more forgiving. Don&#x27;t store full ID lists.</p>
+</li>
+<li><p><strong>Privacy.</strong> The <code translate="no" v-pre>10017</code> heartbeat is public — anyone can see when you last
+fetched DMs. Randomise <code translate="no" v-pre>created_at</code> to limit precision.</p>
+</li>
+</ul>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../../../hostr_sdk/lib/usecase/evm/operations/auto_withdraw/todo_auto_withdraw/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">TODO: EVM Auto-​Withdrawal via Swap-​Out</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../../../hostr_sdk/changelog/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">CHANGELOG</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+    <script data-cfasync="false">window.__DOCS__ = { "title": "TODO: NIP-17 Read Receipts & Chat Liveness", level: 5, icon: "file", hasPrism: true, hasMermaid: false, hasMath: false, tocDepth: 23 }</script>
+</body>
+</html>

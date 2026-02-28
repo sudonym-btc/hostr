@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825610193834">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.0.1">
+
+    <!-- Primary Meta Tags -->
+    <title>Release Guide</title>
+    <meta name="title" content="Release Guide">
+    <meta name="description" content="This document covers the full release lifecycle: branching, PRs, versioning, CI secrets, and deploying staging and production builds to the App Store and">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="/.doc/guides/release/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="/.doc/guides/release/">
+    <meta property="og:title" content="Release Guide">
+    <meta property="og:description" content="This document covers the full release lifecycle: branching, PRs, versioning, CI secrets, and deploying staging and production builds to the App Store and">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../../../resources/css/retype.css?v=4.0.1.825610193834" rel="stylesheet">
+
+    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.0.1.825610193834" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../resources/js/retype.js?v=4.0.1" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.0.1.825610193834" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.0.1.825610193834" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="../../../" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 dark:hidden md:inline-block" src="../../../app/assets/images/logo/logo.svg">
+                            <img class="max-h-10 hidden dark:inline-block" src="../../../app/assets/images/logo/logo.svg">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../.doc/guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../.doc/guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <!-- Page content  -->
+<doc-anchor-target id="release-guide" class="break-words">
+    <h1>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#release-guide">#</doc-anchor-trigger>
+        <span>Release Guide</span>
+    </h1>
+</doc-anchor-target>
+<p>This document covers the full release lifecycle: branching, PRs, versioning, CI secrets, and deploying staging and production builds to the App Store and Play Store.</p>
+<hr>
+<doc-anchor-target id="branch-strategy">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#branch-strategy">#</doc-anchor-trigger>
+        <span>Branch Strategy</span>
+    </h2>
+</doc-anchor-target>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">main          ← production-ready code; triggers releases
+next          ← pre-release / RC staging area
+feature/*     ← new features, branched from main
+fix/*         ← bug fixes, branched from main
+chore/*       ← non-functional changes (deps, CI, docs)</code></pre>
+</doc-codeblock></div>
+<doc-anchor-target id="rules">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#rules">#</doc-anchor-trigger>
+        <span>Rules</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li><code translate="no" v-pre>main</code> and <code translate="no" v-pre>next</code> are protected. Direct pushes are blocked.</li>
+<li>All changes enter via a <strong>Pull Request</strong> targeting <code translate="no" v-pre>main</code> (or <code translate="no" v-pre>next</code> for pre-releases).</li>
+<li>PRs require the <code translate="no" v-pre>Quality Gate</code> CI check to pass before merging.</li>
+<li>Commit messages must follow <strong><a href="https://www.conventionalcommits.org/">Conventional Commits</a></strong> — semantic-release reads these to determine the next version.</li>
+</ul>
+<doc-anchor-target id="commit-message-format">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#commit-message-format">#</doc-anchor-trigger>
+        <span>Commit message format</span>
+    </h3>
+</doc-anchor-target>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">&lt;type&gt;(&lt;scope&gt;): &lt;short description&gt;
+
+feat(app): add lightning invoice QR scanner
+fix(sdk): handle relay disconnect gracefully
+chore(ci): update Flutter version to 3.41.1
+docs: add release guide</code></pre>
+</doc-codeblock></div>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Version bump</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>feat:</code></td>
+<td>minor (<code translate="no" v-pre>0.x.0</code>)</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>fix:</code>, <code translate="no" v-pre>refactor:</code>, <code translate="no" v-pre>perf:</code></td>
+<td>patch (<code translate="no" v-pre>0.0.x</code>)</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>feat!:</code> / <code translate="no" v-pre>BREAKING CHANGE:</code> footer</td>
+<td>major (<code translate="no" v-pre>x.0.0</code>)</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>chore:</code>, <code translate="no" v-pre>docs:</code>, <code translate="no" v-pre>test:</code>, <code translate="no" v-pre>ci:</code></td>
+<td>no release</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+<doc-anchor-target id="pull-request-workflow">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#pull-request-workflow">#</doc-anchor-trigger>
+        <span>Pull Request Workflow</span>
+    </h2>
+</doc-anchor-target>
+<ol>
+<li>Branch from <code translate="no" v-pre>main</code>: <code translate="no" v-pre>git checkout -b feat/my-feature</code></li>
+<li>Push and open a PR against <code translate="no" v-pre>main</code>.</li>
+<li>CI runs automatically:
+<ul>
+<li><strong>Change detection</strong> determines which test suites are relevant.</li>
+<li>Only affected suites run (<code translate="no" v-pre>hostr_sdk</code>, <code translate="no" v-pre>app</code>).</li>
+<li>The <code translate="no" v-pre>Quality Gate</code> job is the required status check.</li>
+</ul>
+</li>
+<li>Merge via <strong>Squash and Merge</strong> to keep <code translate="no" v-pre>main</code> history linear.</li>
+</ol>
+<hr>
+<doc-anchor-target id="versioning">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#versioning">#</doc-anchor-trigger>
+        <span>Versioning</span>
+    </h2>
+</doc-anchor-target>
+<p>Version is managed by <strong><a href="https://github.com/semantic-release/semantic-release">semantic-release</a></strong> based on commit history since the last tag. The version in <code translate="no" v-pre>app/pubspec.yaml</code> is updated automatically as part of the release step (via <code translate="no" v-pre>.releaserc.yml</code> <code translate="no" v-pre>prepareCmd</code>).</p>
+<doc-anchor-target id="build-numbers">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#build-numbers">#</doc-anchor-trigger>
+        <span>Build numbers</span>
+    </h3>
+</doc-anchor-target>
+<p>Both Android (AAB) and iOS (IPA) use <strong><code translate="no" v-pre>github.run_number</code></strong> as the build number. This is:</p>
+<ul>
+<li>Monotonically increasing across all workflow runs in the repo.</li>
+<li>Identical for Android and iOS builds triggered in the same workflow run, ensuring consistent build numbers across both stores.</li>
+<li>Never requires an external API call to calculate.</li>
+</ul>
+<p>The semantic version string (<code translate="no" v-pre>x.y.z</code>) is kept in sync via <code translate="no" v-pre>pubspec.yaml</code>. The build number and version string together uniquely identify every build.</p>
+<hr>
+<doc-anchor-target id="environments">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#environments">#</doc-anchor-trigger>
+        <span>Environments</span>
+    </h2>
+</doc-anchor-target>
+<p>There are two deployed environments, each with their own backend, app build, and CI secrets.</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th></th>
+<th>Staging</th>
+<th>Production</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Backend</strong></td>
+<td><code translate="no" v-pre>staging.hostr.network</code></td>
+<td><code translate="no" v-pre>hostr.network</code></td>
+</tr>
+<tr>
+<td><strong>Flutter entrypoint</strong></td>
+<td><code translate="no" v-pre>lib/main_staging.dart</code></td>
+<td><code translate="no" v-pre>lib/main_production.dart</code></td>
+</tr>
+<tr>
+<td><strong>Dart env</strong></td>
+<td><code translate="no" v-pre>Env.staging</code></td>
+<td><code translate="no" v-pre>Env.prod</code></td>
+</tr>
+<tr>
+<td><strong>Play Store track</strong></td>
+<td><code translate="no" v-pre>internal</code></td>
+<td><code translate="no" v-pre>production</code> (manual promotion)</td>
+</tr>
+<tr>
+<td><strong>TestFlight</strong></td>
+<td><code translate="no" v-pre>staging</code> group</td>
+<td><code translate="no" v-pre>production</code> group</td>
+</tr>
+<tr>
+<td><strong>GitHub Environment</strong></td>
+<td><code translate="no" v-pre>staging</code></td>
+<td><code translate="no" v-pre>production</code></td>
+</tr>
+<tr>
+<td><strong>TLS</strong></td>
+<td>Let&#x27;s Encrypt via acme-companion</td>
+<td>Let&#x27;s Encrypt via acme-companion</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="when-each-build-is-triggered">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#when-each-build-is-triggered">#</doc-anchor-trigger>
+        <span>When each build is triggered</span>
+    </h3>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Event</th>
+<th>Staging build</th>
+<th>Production build</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Merge to <code translate="no" v-pre>main</code></td>
+<td><span class="docs-emoji">&#x2705;</span> Automatically</td>
+<td><span class="docs-emoji">&#x274C;</span></td>
+</tr>
+<tr>
+<td>GitHub Release published by semantic-release</td>
+<td><span class="docs-emoji">&#x2705;</span></td>
+<td><span class="docs-emoji">&#x2705;</span></td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>workflow_dispatch</code> with <code translate="no" v-pre>track: internal</code></td>
+<td>Optionally</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>workflow_dispatch</code> with <code translate="no" v-pre>track: production</code></td>
+<td>—</td>
+<td>Optionally</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A production build is always preceded by a passing staging build (same release version).</p>
+<hr>
+<doc-anchor-target id="ci-pipeline-overview">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#ci-pipeline-overview">#</doc-anchor-trigger>
+        <span>CI Pipeline Overview</span>
+    </h2>
+</doc-anchor-target>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">PR / push
+    │
+    ▼
+[changes]          ← dorny/paths-filter: detect app / sdk / escrow changes
+    │
+    ├── [test_sdk]  (only if hostr_sdk/** or models/** changed)
+    └── [test_app]  (only if app/** or hostr_sdk/** or models/** changed)
+                │
+                ▼
+         [quality_gate]   ← skipped jobs count as passing; failed/cancelled = block
+                │
+                ▼ (main branch, push only)
+          [release]       ← semantic-release: bump version, create GitHub Release
+                │
+                ▼ (GitHub Release published event)
+     ┌──────────┴──────────┐
+[build_android_staging] [build_ios_staging]
+[build_android_prod]    [build_ios_prod]</code></pre>
+</doc-codeblock></div>
+<hr>
+<doc-anchor-target id="required-ci-secrets">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#required-ci-secrets">#</doc-anchor-trigger>
+        <span>Required CI Secrets</span>
+    </h2>
+</doc-anchor-target>
+<p>Secrets are scoped to <strong>GitHub Environments</strong> (<code translate="no" v-pre>staging</code> and <code translate="no" v-pre>production</code>). Go to:
+<code translate="no" v-pre>Settings → Environments → &lt;environment&gt; → Environment secrets</code></p>
+<doc-anchor-target id="shared-both-environments">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#shared-both-environments">#</doc-anchor-trigger>
+        <span>Shared (both environments)</span>
+    </h3>
+</doc-anchor-target>
+<p>These are identical values in both environments unless you use separate developer accounts per environment.</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Secret</th>
+<th>How to obtain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>APP_STORE_CONNECT_ISSUER_ID</code></td>
+<td>App Store Connect → Users &amp; Access → Integrations → Keys</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>APP_STORE_CONNECT_KEY_ID</code></td>
+<td>Same page — the key ID shown next to your API key</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>APP_STORE_CONNECT_PRIVATE_KEY</code></td>
+<td>Contents of the <code translate="no" v-pre>.p8</code> file downloaded when creating the key</td>
+</tr>
+</tbody>
+</table>
+</div>
+<doc-anchor-target id="android-per-environment">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#android-per-environment">#</doc-anchor-trigger>
+        <span>Android (per environment)</span>
+    </h3>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Secret</th>
+<th>How to obtain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>ANDROID_KEYSTORE_BASE64</code></td>
+<td><code translate="no" v-pre>base64 -i upload-keystore.jks \| pbcopy</code></td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>ANDROID_KEYSTORE_PASSWORD</code></td>
+<td>Password used when creating the keystore</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>ANDROID_KEY_ALIAS</code></td>
+<td>Alias used when creating the keystore</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>ANDROID_KEY_PASSWORD</code></td>
+<td>Key password (often same as keystore password)</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>GOOGLE_PLAY_CREDENTIALS</code></td>
+<td>Service account JSON — paste the <strong>contents</strong> of the <code translate="no" v-pre>.json</code> file</td>
+</tr>
+</tbody>
+</table>
+</div>
+<blockquote>
+<p><span class="docs-emoji">&#x26A0;&#xFE0F;</span> Use separate upload keystores for staging and production. If a staging keystore is compromised, it cannot be used to push to the production track.</p>
+</blockquote>
+<doc-anchor-target id="ios-per-environment">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#ios-per-environment">#</doc-anchor-trigger>
+        <span>iOS (per environment)</span>
+    </h3>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Secret</th>
+<th>How to obtain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>IOS_DISTRIBUTION_CERT_BASE64</code></td>
+<td><code translate="no" v-pre>base64 -i Certificates.p12 \| pbcopy</code></td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>IOS_DISTRIBUTION_CERT_PASSWORD</code></td>
+<td>Password set when exporting the <code translate="no" v-pre>.p12</code> from Keychain</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>IOS_PROVISIONING_PROFILE_BASE64</code></td>
+<td><code translate="no" v-pre>base64 -i hostr_appstore.mobileprovision \| pbcopy</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<blockquote>
+<p>For staging, create a separate App ID (e.g. <code translate="no" v-pre>com.sudonym.hostr.staging</code>), a separate provisioning profile, and a separate TestFlight app (or use a different internal group on the same app — either works).</p>
+</blockquote>
+<doc-anchor-target id="cloud-deploy-per-environment">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#cloud-deploy-per-environment">#</doc-anchor-trigger>
+        <span>Cloud Deploy (per environment)</span>
+    </h3>
+</doc-anchor-target>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Secret</th>
+<th>How to obtain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>GCP_SERVICE_ACCOUNT_KEY</code></td>
+<td>GCP Console → IAM → Service Accounts → create key (JSON)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+<doc-anchor-target id="preparing-a-release-manually">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#preparing-a-release-manually">#</doc-anchor-trigger>
+        <span>Preparing a Release Manually</span>
+    </h2>
+</doc-anchor-target>
+<p>In normal operation, semantic-release handles this automatically. If you need to cut a release manually:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash"># Ensure you are on main with a clean working tree
+git checkout main &amp;&amp; git pull
+
+# Dry-run to preview what semantic-release would do
+npx semantic-release --dry-run
+
+# Trigger CI to do the real release by pushing a conventional commit
+git commit --allow-empty -m &quot;chore(release): trigger release&quot;
+git push</code></pre>
+</doc-codeblock></div>
+<hr>
+<doc-anchor-target id="promoting-a-staging-build-to-production">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#promoting-a-staging-build-to-production">#</doc-anchor-trigger>
+        <span>Promoting a Staging Build to Production</span>
+    </h2>
+</doc-anchor-target>
+<p>After validating the staging build on internal TestFlight / Play internal track:</p>
+<ol>
+<li>Go to <strong>Actions → Build &amp; Deploy → Run workflow</strong>.</li>
+<li>Select <code translate="no" v-pre>track: production</code>.</li>
+<li>The workflow builds with <code translate="no" v-pre>lib/main_production.dart</code> (pointing to <code translate="no" v-pre>hostr.network</code>) and uploads directly to the production track.</li>
+</ol>
+<p>Alternatively, on Android you can promote within the Play Console without a rebuild (the same AAB from the internal track is promoted). On iOS, promote the same TestFlight build to App Store review.</p>
+<blockquote>
+<p><span class="docs-emoji">&#x1F512;</span> The <code translate="no" v-pre>production</code> GitHub Environment requires <strong>manual approval</strong> before the job runs. Configure this under <code translate="no" v-pre>Settings → Environments → production → Required reviewers</code>.</p>
+</blockquote>
+<hr>
+<doc-anchor-target id="adding-secrets-to-the-vm-cloud-services">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#adding-secrets-to-the-vm-cloud-services">#</doc-anchor-trigger>
+        <span>Adding Secrets to the VM (Cloud Services)</span>
+    </h2>
+</doc-anchor-target>
+<p>Runtime secrets (Nostr private key, LNbits passwords, etc.) are stored in <strong>Google Secret Manager</strong> and fetched onto the VM at deploy time. See the infrastructure README for the <code translate="no" v-pre>fetch_secrets.sh</code> flow. These are separate from the GitHub CI secrets above.</p>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../.doc/guides/getting_started/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">Getting started</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../.doc/guides/state_di/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">State and DI Guide</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+    <script data-cfasync="false">window.__DOCS__ = { "title": "Release Guide", level: 3, icon: "file", hasPrism: true, hasMermaid: false, hasMath: false, tocDepth: 23 }</script>
+</body>
+</html>
