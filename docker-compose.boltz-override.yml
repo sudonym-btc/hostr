@@ -14,14 +14,14 @@ services:
       - default
       - shared_network
 
-  # Force native arm64 platform for boltz images that don't declare one.
-  # Without this, Docker may use a stale linux/amd64 layer from the local cache
-  # which fails to start on Apple Silicon (and other arm64 hosts).
+  # Force Boltz service platform explicitly, but allow CI/host to override via
+  # DOCKER_DEFAULT_PLATFORM (e.g. linux/amd64 on GitHub runners).
+  # Falls back to linux/arm64 for Apple Silicon local development.
   boltz-backend:
-    platform: linux/arm64
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
 
   boltz-backend-nginx:
-    platform: linux/arm64
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
 
   boltz-client:
-    platform: linux/arm64
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
