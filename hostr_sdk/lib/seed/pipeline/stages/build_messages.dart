@@ -4,6 +4,85 @@ import 'package:ndk/ndk.dart';
 import '../seed_context.dart';
 import '../seed_pipeline_models.dart';
 
+/// Seeded conversation templates.
+///
+/// Each entry is one coherent back-and-forth exchange. Messages alternate
+/// guest → host → guest → host …, so even indices are always from the
+/// guest and odd indices are always from the host — matching the `m.isEven`
+/// sender logic in [buildMessages].
+const _conversations = [
+  // 1. Availability check
+  [
+    'Is this still available for those dates?',
+    "Yes, it's available — feel free to book!",
+    'Brilliant, just going to confirm with my partner first.',
+    'Of course, no rush at all!',
+  ],
+  // 2. Capacity question
+  [
+    'How many people does this sleep?',
+    'It sleeps up to four comfortably.',
+    'Great, it\'s just the two of us so that works perfectly.',
+    'Wonderful — you\'ll have lots of space to spread out.',
+  ],
+  // 3. Dog-walking
+  [
+    "What's the nearest park for walking dogs?",
+    "There's a great dog-friendly park just five minutes away.",
+    'Oh perfect, we\'re bringing our spaniel.',
+    'Lovely! Dogs are very welcome here.',
+  ],
+  // 4. Cancellation
+  [
+    "I'm so sorry, but I need to cancel our stay.",
+    'Oh no, I hope everything\'s okay. I\'ll process the cancellation now.',
+    'Thank you for understanding — it was a last-minute change of plans.',
+    'No problem at all — hope to host you another time!',
+  ],
+  // 5. Check-in logistics
+  [
+    'Just confirming — what time can we check in?',
+    'Check-in is from 3pm, but I can do noon if you need.',
+    'Noon would be amazing, thank you!',
+    "Great, I'll leave the keys in the lockbox. Code is on the app.",
+  ],
+  // 6. Remote work / wifi
+  [
+    "What's the wifi like? I'll be working remotely.",
+    'Fast fibre — you\'ll have no trouble with video calls.',
+    "That's exactly what I needed to know, thanks.",
+    "There's also a quiet desk in the spare room if that helps.",
+  ],
+  // 7. Local restaurants
+  [
+    'Are there any good restaurants nearby?',
+    "There's a great Italian place around the corner and a farmers market on Saturdays.",
+    'The farmers market sounds amazing!',
+    "It really is — I'd recommend getting there early.",
+  ],
+  // 8. Pets
+  [
+    'Is the place pet-friendly? We have a small dog.',
+    'Absolutely — well-behaved dogs are very welcome!',
+    "Wonderful, she's very well-trained.",
+    "I'm sure she'll love the garden.",
+  ],
+  // 9. Parking
+  [
+    'Do you have parking available?',
+    "Yes, there's a private driveway with space for two cars.",
+    "Perfect, we're driving up from London.",
+    "Safe travels — the drive should be lovely this time of year.",
+  ],
+  // 10. Discount
+  [
+    "We're hoping to stay for two weeks — is a discount possible?",
+    "Happy to offer 15% off for a two-week stay.",
+    "That's very generous, thank you!",
+    "My pleasure — I love having longer-term guests.",
+  ],
+];
+
 /// Stage 6: Build NIP-17 gift-wrapped DM messages for threads.
 ///
 /// Each thread gets:
@@ -79,7 +158,7 @@ Future<List<Nip01Event>> buildMessages({
             ['p', recipient.keyPair.publicKey],
           ],
           createdAt: ctx.timestampDaysAfter(41 + i + m),
-          content: 'Seed message ${m + 1} for thread ${i + 1}',
+          content: _conversations[i % _conversations.length][m % 4],
         );
         messages.addAll(wraps);
         wrapCount += wraps.length;

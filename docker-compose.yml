@@ -448,40 +448,57 @@ services:
       - local
       - test
 
-  unlock-alby-lnbits:
-    image: dart:3.10.8
+  # ── LNbits init ──────────────────────────────────────────────────────────
+  # Runs once after both LNbits containers are healthy.
+  # Handles: first-install, extension enabling, NIP-05 domain creation, and
+  # renaming the random domain ID to the fixed value in SQLite so the
+  # committed nginx vhost.d files never need to change.
+  lnbits-init:
+    image: python:3.12-alpine
     depends_on:
       lnbits1:
         condition: service_healthy
       lnbits2:
         condition: service_healthy
+    volumes:
+      - ./docker/scripts/lnbits_init.py:/scripts/lnbits_init.py:ro
+      - ./docker/data/lnbits/1:/data/lnbits1
+      - ./docker/data/lnbits/2:/data/lnbits2
+    environment:
+      - DOMAIN=${DOMAIN}
+      - LNBITS_1_URL=http://lnbits1:5000
+      - LNBITS_2_URL=http://lnbits2:5000
+      - LNBITS_ADMIN_EMAIL=${LNBITS_ADMIN_EMAIL}
+      - LNBITS_ADMIN_PASSWORD=${LNBITS_ADMIN_PASSWORD}
+      - LNBITS_NOSTR_PRIVATE_KEY=${LNBITS_NOSTR_PRIVATE_KEY}
+    command: ["python3", "/scripts/lnbits_init.py"]
+    restart: "no"
+    networks:
+      - default
+    profiles:
+      - local
+      - test
+
+  # ── AlbyHub init ──────────────────────────────────────────────────────────
+  # Runs once after both AlbyHub containers are healthy.
+  # Handles: first-time password setup, wallet start, and unlock.
+  alby-init:
+    image: python:3.12-alpine
+    depends_on:
       albyhub1:
         condition: service_healthy
       albyhub2:
         condition: service_healthy
-      nginx-proxy:
-        condition: service_healthy
     volumes:
-      - ./:/workspace:ro
-      - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
-    working_dir: /workspace/hostr_sdk
+      - ./docker/scripts/alby_init.py:/scripts/alby_init.py:ro
     environment:
-      - LNBITS_1_URL=https://lnbits1.${DOMAIN}
-      - LNBITS_2_URL=https://lnbits2.${DOMAIN}
       - ALBYHUB_1_URL=https://alby1.${DOMAIN}
       - ALBYHUB_2_URL=https://alby2.${DOMAIN}
-      - LNBITS_ADMIN_EMAIL=${LNBITS_ADMIN_EMAIL}
-      - LNBITS_ADMIN_PASSWORD=${LNBITS_ADMIN_PASSWORD}
-      - LNBITS_EXTENSION_NAME=${LNBITS_EXTENSION_NAME}
-      - LNBITS_NOSTR_PRIVATE_KEY=${LNBITS_NOSTR_PRIVATE_KEY}
       - ALBYHUB_PASSWORD=${ALBYHUB_PASSWORD}
-    command:
-      [
-        "sh",
-        "-lc",
-        "cp /tls/ca.crt /usr/local/share/ca-certificates/hostr-dev-ca.crt && update-ca-certificates 2>/dev/null && /usr/lib/dart/bin/dart --version && rm -rf /tmp/workspace && cp -a /workspace /tmp/workspace && cd /tmp/workspace/hostr_sdk && /usr/lib/dart/bin/dart pub get && /usr/lib/dart/bin/dart run bin/setup_lightning.dart",
-      ]
+    command: ["python3", "/scripts/alby_init.py"]
     restart: "no"
+    networks:
+      - default
     profiles:
       - local
       - test
@@ -492,6 +509,10 @@ services:
       relay:
         condition: service_healthy
       bootstrap:
+        condition: service_completed_successfully
+      lnbits-init:
+        condition: service_completed_successfully
+      alby-init:
         condition: service_completed_successfully
       nginx-proxy:
         condition: service_healthy

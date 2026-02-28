@@ -117,6 +117,9 @@ generate_cert "alby2.${DOMAIN}" \
 generate_cert "landing.${DOMAIN}" \
   "DNS:landing.${DOMAIN},DNS:${DOMAIN},DNS:landing-page,DNS:localhost,IP:127.0.0.1"
 
+generate_cert "anvil.${DOMAIN}" \
+  "DNS:anvil.${DOMAIN},DNS:anvil,DNS:localhost,IP:127.0.0.1"
+
 # ── Create combined CA bundle (system CAs + our CA) ────────────
 # Containers can set SSL_CERT_FILE=/tls/ca-bundle.crt to trust
 # both public CAs and our development CA.

@@ -1,91 +1,244 @@
-name: Build with Fastlane
+name: Build & Deploy
 
+# Triggered when semantic-release publishes a GitHub Release,
+# or manually to deploy a specific variant to a specific track.
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Build variant'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      track:
+        description: 'Play Store / TestFlight track'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
 
 jobs:
-  production-android:
-    name: Production Android Workflow with Fastlane
+  # ── Android — Staging (internal track, points to staging.hostr.network) ─────
+  build_android_staging:
+    name: Android — Staging
     runs-on: ubuntu-latest
+    environment: staging
+    # On release: always build staging. On manual: only when variant=staging.
+    if: github.event_name == 'release' || inputs.variant == 'staging'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up local.properties
-        run: |
-          echo "storePassword=${{ secrets.CM_KEYSTORE_PASSWORD }}" >> app/android/local.properties
-          echo "keyPassword=${{ secrets.CM_KEY_PASSWORD }}" >> app/android/local.properties
-          echo "keyAlias=${{ secrets.CM_KEY_ALIAS }}" >> app/android/local.properties
-          echo "storeFile=${{ secrets.CM_KEYSTORE_PATH }}" >> app/android/local.properties
-          echo "flutter.sdk=$HOME/flutter" >> app/android/local.properties
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
         with:
-          flutter-version: stable
+          submodules: recursive
 
-      - name: Get packages
-        working-directory: app
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.1'
+
+      - name: Install dependencies
         run: flutter pub get
-
-      - name: Set Build Number
-        id: build_number
-        run: |
-          # Replace the following placeholder with your actual command to get the build number.
-          BUILD_NUMBER=$(( $(curl -s "https://your-play-store-api/get-latest-build-number?package=com.sudonym.sudonym") + 1 ))
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
-          echo "Build number: $BUILD_NUMBER"
-
-      - name: Build Android App
         working-directory: app
+
+      - name: Set build number
+        run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Decode keystore
         run: |
-          flutter build appbundle --build-number=$BUILD_NUMBER -t lib/main_production.dart --release
-          flutter build apk --build-number=$BUILD_NUMBER -t lib/main_production.dart --release
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode \
+            > app/android/upload-keystore.jks
 
-      - name: Deploy to Play Store via Fastlane
+      - name: Set up signing config
+        run: |
+          cat >> app/android/local.properties << EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=upload-keystore.jks
+          flutter.sdk=$HOME/flutter
+          EOF
+
+      - name: Build App Bundle (staging)
+        run: |
+          flutter build appbundle \
+            --build-number=$BUILD_NUMBER \
+            -t lib/main_staging.dart \
+            --release
         working-directory: app
-        run: fastlane run upload_to_play_store
-        env:
-          GOOGLE_PLAY_CREDENTIALS: ${{ secrets.GOOGLE_PLAY_CREDENTIALS }}
 
-  production-apple:
-    name: Production iOS Workflow with Fastlane
+      - name: Upload to Play Store (internal)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_CREDENTIALS }}
+          packageName: com.sudonym.hostr
+          releaseFiles: app/build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+
+  # ── Android — Production (points to hostr.network) ──────────────────────────
+  build_android_production:
+    name: Android — Production
+    runs-on: ubuntu-latest
+    environment: production
+    # On release: always build prod. On manual: only when variant=production.
+    if: github.event_name == 'release' || inputs.variant == 'production'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.1'
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: app
+
+      - name: Set build number
+        run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode \
+            > app/android/upload-keystore.jks
+
+      - name: Set up signing config
+        run: |
+          cat >> app/android/local.properties << EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=upload-keystore.jks
+          flutter.sdk=$HOME/flutter
+          EOF
+
+      - name: Build App Bundle (production)
+        run: |
+          flutter build appbundle \
+            --build-number=$BUILD_NUMBER \
+            -t lib/main_production.dart \
+            --release
+        working-directory: app
+
+      - name: Upload to Play Store
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_CREDENTIALS }}
+          packageName: com.sudonym.hostr
+          releaseFiles: app/build/app/outputs/bundle/release/app-release.aab
+          track: ${{ inputs.track || 'internal' }}
+          status: completed
+
+  # ── iOS — Staging (TestFlight staging group, points to staging.hostr.network)
+  build_ios_staging:
+    name: iOS — Staging
     runs-on: macos-latest
+    environment: staging
+    if: github.event_name == 'release' || inputs.variant == 'staging'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
         with:
-          flutter-version: stable
+          submodules: recursive
 
-      - name: Get packages
-        working-directory: app
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.1'
+
+      - name: Install dependencies
         run: flutter pub get
-
-      - name: Set up Xcode Code Signing
-        run: xcode-project use-profiles
-
-      - name: Set Build Number
-        id: build_number_ios
-        run: |
-          # Replace the following placeholder with your actual command to get the latest TestFlight build number.
-          BUILD_NUMBER=$(( $(curl -s "https://api.appstoreconnect.apple.com/your-endpoint?app_id=${{ secrets.APP_ID }}") + 1 ))
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
-          echo "Build number: $BUILD_NUMBER"
-
-      - name: Build iOS IPA
         working-directory: app
-        run: |
-          flutter build ipa -t lib/main_production.dart --release --export-options-plist=/Users/builder/export_options.plist --build-number=$BUILD_NUMBER
 
-      - name: Deploy to App Store via Fastlane
+      - name: Set build number
+        run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Import certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 }}
+          p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
+
+      - name: Install provisioning profile
+        run: |
+          PP_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/hostr.mobileprovision"
+          mkdir -p "$(dirname "$PP_PATH")"
+          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > "$PP_PATH"
+
+      - name: Build IPA (staging)
+        run: |
+          flutter build ipa \
+            -t lib/main_staging.dart \
+            --release \
+            --build-number=$BUILD_NUMBER \
+            --export-options-plist=ios/ExportOptions.plist
         working-directory: app
-        run: fastlane run upload_to_app_store
-        env:
-          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: app/build/ios/ipa/*.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+
+  # ── iOS — Production (TestFlight production group, points to hostr.network) ─
+  build_ios_production:
+    name: iOS — Production
+    runs-on: macos-latest
+    environment: production
+    if: github.event_name == 'release' || inputs.variant == 'production'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.1'
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: app
+
+      - name: Set build number
+        run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Import certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 }}
+          p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
+
+      - name: Install provisioning profile
+        run: |
+          PP_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/hostr.mobileprovision"
+          mkdir -p "$(dirname "$PP_PATH")"
+          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > "$PP_PATH"
+
+      - name: Build IPA (production)
+        run: |
+          flutter build ipa \
+            -t lib/main_production.dart \
+            --release \
+            --build-number=$BUILD_NUMBER \
+            --export-options-plist=ios/ExportOptions.plist
+        working-directory: app
+
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: app/build/ios/ipa/*.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}

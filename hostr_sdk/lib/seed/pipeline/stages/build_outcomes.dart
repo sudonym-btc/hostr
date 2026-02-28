@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:hostr_sdk/usecase/payments/constants.dart';
@@ -24,25 +23,23 @@ import '../seed_pipeline_models.dart';
 ///
 /// Threads whose [ThreadStageSpec.completedRatio] causes them to be
 /// skipped remain in pending state.
-Future<void> buildOutcomes({
+
+/// Phase 0 of outcome resolution — deterministic, synchronous, no I/O.
+///
+/// Consumes [SeedContext.random] to assign each thread a planned outcome
+/// (escrow vs zap, settlement type, self-signed flag). The RNG call
+/// sequence is identical to the old inline Phase 0, so seed stability
+/// is preserved.
+///
+/// Pass the returned list directly into [buildOutcomes].
+List<SeedOutcomePlan> buildOutcomePlans({
   required SeedContext ctx,
   required List<SeedThread> threads,
-  required Map<String, ProfileMetadata> profileByPubkey,
-  required EscrowService escrowService,
+  required DateTime chainNow,
   required Map<String, EscrowTrust> trustByPubkey,
   required Map<String, EscrowMethod> methodByPubkey,
-  required double invalidReservationRate,
-  DateTime? chainNow,
-}) async {
-  final sw = Stopwatch()..start();
-
-  // Use provided chainNow or fetch from chain.
-  chainNow ??= (await ctx.chainClient().getBlockInformation()).timestamp
-      .toUtc();
-
-  // ── Phase 0: Decide outcomes deterministically (preserves Random
-  //    call sequence so seed data stays stable).
-  final plans = <_ThreadPlan>[];
+}) {
+  final plans = <SeedOutcomePlan>[];
   for (var i = 0; i < threads.length; i++) {
     final thread = threads[i];
     final spec = thread.stageSpec;
@@ -67,7 +64,7 @@ Future<void> buildOutcomes({
     final isSelfSigned = ctx.pickByRatio(spec.selfSignedReservationRatio);
 
     plans.add(
-      _ThreadPlan(
+      SeedOutcomePlan(
         index: i,
         thread: thread,
         useEscrow: shouldUseEscrow,
@@ -82,6 +79,25 @@ Future<void> buildOutcomes({
       ),
     );
   }
+  return plans;
+}
+
+Future<void> buildOutcomes({
+  required SeedContext ctx,
+  required List<SeedThread> threads,
+  required Map<String, ProfileMetadata> profileByPubkey,
+  required EscrowService escrowService,
+  required Map<String, EscrowTrust> trustByPubkey,
+  required Map<String, EscrowMethod> methodByPubkey,
+  required double invalidReservationRate,
+  required List<SeedOutcomePlan> plans,
+  DateTime? chainNow,
+}) async {
+  final sw = Stopwatch()..start();
+
+  // Use provided chainNow or fetch from chain.
+  chainNow ??= (await ctx.chainClient().getBlockInformation()).timestamp
+      .toUtc();
 
   // ── Phase 1: Zap paths (no RPC, pure event construction) ──
   for (final plan in plans.where((p) => !p.useEscrow)) {
@@ -103,7 +119,7 @@ Future<void> buildOutcomes({
   final allEscrowPlans = plans.where((p) => p.useEscrow).toList();
 
   print(
-    '[seed][escrow] Phase 0+1 (decisions + zaps): '
+    '[seed][escrow] Phase 1 (zaps): '
     '${sw.elapsedMilliseconds} ms',
   );
 
@@ -401,37 +417,9 @@ Future<void> buildOutcomes({
     thread.reservation = reservation;
     thread.invalidReservationReason = invalidReason;
   }
-
-  _printOutcomesSummary(plans: plans, allThreads: threads);
 }
 
-// ─── Plan model ─────────────────────────────────────────────────────────────
-
-class _ThreadPlan {
-  final int index;
-  final SeedThread thread;
-  bool useEscrow;
-  EscrowOutcome? escrowOutcome;
-  final bool selfSigned;
-  EscrowTrust? trust;
-  EscrowMethod? method;
-
-  String? createTxHash;
-  bool tradeAlreadyExisted = false;
-  bool needsSettlement = false;
-  int? assignedCreateNonce;
-  int? assignedSettleNonce;
-
-  _ThreadPlan({
-    required this.index,
-    required this.thread,
-    required this.useEscrow,
-    this.escrowOutcome,
-    required this.selfSigned,
-    this.trust,
-    this.method,
-  });
-}
+// ─── Plan model — see SeedOutcomePlan in seed_pipeline_models.dart ──────────
 
 PaymentProof? _maybeCorruptPaymentProof({
   required SeedContext ctx,
@@ -511,7 +499,7 @@ String _randomHex(SeedContext ctx, int length) {
 /// Existence is pre-checked in phase 2a so nonces are gap-free.
 Future<void> _createTradeForPlan({
   required SeedContext ctx,
-  required _ThreadPlan plan,
+  required SeedOutcomePlan plan,
   required EscrowService escrowService,
 }) async {
   final contract = ctx.multiEscrowContract(
@@ -578,7 +566,7 @@ Future<void> _createTradeForPlan({
 /// Chain time is guaranteed past all unlock times by phase 3b.
 Future<void> _settleForPlan({
   required SeedContext ctx,
-  required _ThreadPlan plan,
+  required SeedOutcomePlan plan,
   required EscrowService escrowService,
 }) async {
   final contract = ctx.multiEscrowContract(
@@ -746,162 +734,4 @@ EscrowOutcome _pickEscrowOutcome({
     return EscrowOutcome.claimedByHost;
   }
   return EscrowOutcome.releaseToCounterparty;
-}
-
-// ─── Outcome summary ─────────────────────────────────────────────────────────
-
-/// Prints a structured JSON summary of all resolved thread outcomes,
-/// grouped by host and guest. Pending threads (no outcome resolved) are
-/// listed separately. Useful for verifying seeder correctness at a glance.
-void _printOutcomesSummary({
-  required List<_ThreadPlan> plans,
-  required List<SeedThread> allThreads,
-}) {
-  // Threads skipped by completedRatio — no reservation built.
-  final pendingThreads = allThreads
-      .where((t) => t.reservation == null)
-      .map(
-        (t) => <String, dynamic>{
-          'trade_id': t.request.getDtag() ?? t.id,
-          'host_pubkey': t.host.keyPair.publicKey,
-          'guest_pubkey': t.guest.keyPair.publicKey,
-          'check_in': t.start.toIso8601String().substring(0, 10),
-          'check_out': t.end.toIso8601String().substring(0, 10),
-        },
-      )
-      .toList();
-
-  // Accumulate per-thread detail grouped by host and guest pubkey.
-  final hostThreads = <String, List<Map<String, dynamic>>>{};
-  final guestThreads = <String, List<Map<String, dynamic>>>{};
-  final hostPrivkeys = <String, String>{}; // pubkey → privkey
-  final guestPrivkeys = <String, String>{};
-
-  for (final plan in plans) {
-    final thread = plan.thread;
-    if (thread.reservation == null) continue;
-
-    final hostPub = thread.host.keyPair.publicKey;
-    final guestPub = thread.guest.keyPair.publicKey;
-    hostPrivkeys[hostPub] = thread.host.keyPair.privateKey ?? '(read-only)';
-    guestPrivkeys[guestPub] = thread.guest.keyPair.privateKey ?? '(read-only)';
-
-    final proofSummary = _buildProofSummary(plan);
-    final proofType = proofSummary.keys.first; // 'zap' | 'escrow' | 'no_proof'
-
-    // Detailed entry shown under the host (listing owner) view.
-    hostThreads.putIfAbsent(hostPub, () => []).add(<String, dynamic>{
-      'trade_id': thread.request.getDtag() ?? thread.id,
-      'guest_pubkey': guestPub,
-      'check_in': thread.start.toIso8601String().substring(0, 10),
-      'check_out': thread.end.toIso8601String().substring(0, 10),
-      'reservation_stage': thread.reservation!.parsedContent.stage.name,
-      'self_signed_by_buyer': plan.selfSigned,
-      'proof': proofSummary,
-    });
-
-    // Compact entry shown under the guest view.
-    guestThreads.putIfAbsent(guestPub, () => []).add(<String, dynamic>{
-      'trade_id': thread.request.getDtag() ?? thread.id,
-      'host_pubkey': hostPub,
-      'check_in': thread.start.toIso8601String().substring(0, 10),
-      'check_out': thread.end.toIso8601String().substring(0, 10),
-      'reservation_stage': thread.reservation!.parsedContent.stage.name,
-      'proof_type': proofType,
-      'proof_valid': thread.invalidReservationReason == null,
-      if (thread.invalidReservationReason != null)
-        'invalid_reason': thread.invalidReservationReason,
-    });
-  }
-
-  final output = <String, dynamic>{
-    'hosts': [
-      for (final pub in hostPrivkeys.keys)
-        <String, dynamic>{
-          'pubkey': pub,
-          'privkey': hostPrivkeys[pub],
-          'threads': hostThreads[pub]!,
-        },
-    ],
-    'guests': [
-      for (final pub in guestPrivkeys.keys)
-        <String, dynamic>{
-          'pubkey': pub,
-          'privkey': guestPrivkeys[pub],
-          'threads': guestThreads[pub]!,
-        },
-    ],
-    if (pendingThreads.isNotEmpty) 'pending_threads': pendingThreads,
-  };
-
-  print(
-    '\n[seed][outcomes_summary]\n${JsonEncoder.withIndent('  ').convert(output)}',
-  );
-}
-
-/// Builds a proof sub-document for one resolved [_ThreadPlan].
-///
-/// Returns a single-key map whose key identifies the proof type:
-///   - `'escrow'` — on-chain escrow trade
-///   - `'zap'`    — Lightning zap receipt
-///   - `'no_proof'` — proof is absent (missing or intentionally dropped)
-Map<String, dynamic> _buildProofSummary(_ThreadPlan plan) {
-  final thread = plan.thread;
-  final proof = thread.reservation?.parsedContent.proof;
-  final invalidReason = thread.invalidReservationReason;
-
-  // ── No proof present (dropped by corruption logic or legitimately absent) ──
-  if (proof == null) {
-    return {
-      'no_proof': <String, dynamic>{'fault': invalidReason ?? 'not_required'},
-    };
-  }
-
-  // ── Escrow proof ──────────────────────────────────────────────────────────
-  if (proof.escrowProof != null) {
-    final escrow = proof.escrowProof!;
-    final isBogusService = invalidReason == 'bogus_escrow_proof';
-    final isProofDropped = invalidReason == 'missing_payment_proof';
-
-    return {
-      'escrow': <String, dynamic>{
-        'escrow_trade_tx_hash': escrow.txHash,
-        'contract_address': escrow.escrowService.parsedContent.contractAddress,
-        'on_chain_settlement_outcome':
-            plan.escrowOutcome?.name ?? 'not_yet_settled',
-        'validity': <String, dynamic>{
-          'valid': invalidReason == null,
-          if (isBogusService || isProofDropped)
-            'faults': <String, dynamic>{
-              'wrong_contract_address': isBogusService,
-              'proof_intentionally_dropped': isProofDropped,
-            },
-        },
-      },
-    };
-  }
-
-  // ── Zap proof ─────────────────────────────────────────────────────────────
-  final zapReceipt = thread.zapReceipt;
-  String? amountMsats;
-  if (zapReceipt != null) {
-    for (final tag in zapReceipt.tags) {
-      if (tag.length >= 2 && tag[0] == 'amount') {
-        amountMsats = tag[1];
-        break;
-      }
-    }
-  }
-
-  return {
-    'zap': <String, dynamic>{
-      'amount_msats': amountMsats,
-      'receipt_event_id': zapReceipt?.id,
-      'validity': <String, dynamic>{
-        'valid': invalidReason == null,
-        if (invalidReason == 'missing_payment_proof')
-          'faults': <String, dynamic>{'proof_intentionally_dropped': true},
-      },
-    },
-  };
 }

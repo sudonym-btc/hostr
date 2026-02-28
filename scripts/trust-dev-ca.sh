@@ -15,22 +15,12 @@ if [ ! -f "$CA_CERT" ]; then
   exit 0
 fi
 
-CA_FINGERPRINT=$(openssl x509 -in "$CA_CERT" -noout -fingerprint -sha256 2>/dev/null | sed 's/.*=//')
-
 if [[ "$OSTYPE" == darwin* ]]; then
-  # Check if already trusted by comparing SHA-256 fingerprints.
-  # `security find-certificate -Z` only prints SHA-1, so dump PEM certs and
-  # re-fingerprint them with openssl to get a reliable SHA-256 comparison.
-  ALREADY_TRUSTED=false
-  while IFS= read -r pem_cert; do
-    fp=$(printf '%s' "$pem_cert" | openssl x509 -noout -fingerprint -sha256 2>/dev/null | sed 's/.*=//')
-    if [[ "$fp" == "$CA_FINGERPRINT" ]]; then
-      ALREADY_TRUSTED=true
-      break
-    fi
-  done < <(security find-certificate -a -p /Library/Keychains/System.keychain 2>/dev/null \
-    | awk '/BEGIN CERTIFICATE/{cert=""} {cert=cert $0 "\n"} /END CERTIFICATE/{print cert}')
-  if $ALREADY_TRUSTED; then
+  # `security find-certificate -Z` outputs SHA-1 hashes; compute SHA-1 to match.
+  CA_SHA1=$(openssl x509 -in "$CA_CERT" -noout -fingerprint -sha1 2>/dev/null \
+    | sed 's/.*=//' | tr -d ':')
+  if security find-certificate -a -Z /Library/Keychains/System.keychain 2>/dev/null \
+     | grep -qi "$CA_SHA1"; then
     echo "✓ Hostr dev CA already trusted in system keychain"
   else
     echo "→ Adding Hostr dev CA to macOS system keychain (requires sudo)..."

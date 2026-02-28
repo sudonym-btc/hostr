@@ -31,7 +31,7 @@ class InboxItemView extends StatelessWidget {
     return ListTile(
       leading: ProfileAvatars(profiles: counterparties),
       title: Text(title),
-      subtitle: Text(subtitle),
+      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: _RelativeTimeText(dateTime: lastDateTime),
       onTap: onTap,
     );
