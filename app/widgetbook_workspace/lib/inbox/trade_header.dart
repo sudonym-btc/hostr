@@ -16,6 +16,10 @@ Widget tradeHeaderKnobs(BuildContext context) {
   );
 
   final listing = MOCK_LISTINGS.first;
+  final listingProfile = MOCK_PROFILES.firstWhere(
+    (p) => p.pubKey == listing.pubKey,
+    orElse: () => MOCK_PROFILES.first,
+  );
   final start = DateTime.now();
   final end = DateTime.now().add(const Duration(days: 2));
 
@@ -23,6 +27,7 @@ Widget tradeHeaderKnobs(BuildContext context) {
     body: SingleChildScrollView(
       child: TradeHeaderView(
         listing: listing,
+        listingProfile: listingProfile,
         start: start,
         end: end,
         amount: listing.parsedContent.price.first.amount,
@@ -33,19 +38,6 @@ Widget tradeHeaderKnobs(BuildContext context) {
         tradeId: 'mock-trade-id',
         hostPubKey: listing.pubKey,
         runtimeReady: true,
-        actionsRightWidget: FilledButton.tonal(
-          onPressed: () {},
-          child: const Text('Pay'),
-        ),
-        actionsSecondaryRow: Row(
-          children: [
-            TextButton(onPressed: () {}, child: const Text('Cancel')),
-            FilledButton.tonal(
-              onPressed: () {},
-              child: const Text('Message Escrow'),
-            ),
-          ],
-        ),
       ),
     ),
   );

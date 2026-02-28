@@ -8,6 +8,6 @@ import 'seed_data.dart';
 Widget reserve(BuildContext context) {
   return Align(
     alignment: Alignment.center,
-    child: Reserve(listing: MOCK_LISTINGS[0]),
+    child: Reserve(listing: MOCK_LISTINGS[0], reservationPairs: const []),
   );
 }
