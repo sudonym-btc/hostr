@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825610193834">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825631470984">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 4.0.1">
@@ -12,7 +12,7 @@
     <!-- Primary Meta Tags -->
     <title>Infrastructure</title>
     <meta name="title" content="Infrastructure">
-    <meta name="description" content="You will need to have your domain registar use the Google Cloud DNS nameservers. After applying the Terraform config, you can go to the Google Cloud">
+    <meta name="description" content="Infrastructure is split into two Terraform stacks:">
 
     <!-- Canonical -->
     <link rel="canonical" href="/.doc/infrastructure/">
@@ -21,18 +21,18 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="/.doc/infrastructure/">
     <meta property="og:title" content="Infrastructure">
-    <meta property="og:description" content="You will need to have your domain registar use the Google Cloud DNS nameservers. After applying the Terraform config, you can go to the Google Cloud">
+    <meta property="og:description" content="Infrastructure is split into two Terraform stacks:">
     <meta property="og:site_name" content="Hostr">
     <meta property="og:locale" content="en_US">
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../resources/css/retype.css?v=4.0.1.825610193834" rel="stylesheet">
+    <link href="../../resources/css/retype.css?v=4.0.1.825631470984" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../resources/js/config.js?v=4.0.1.825610193834" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../resources/js/retype.js?v=4.0.1" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.0.1.825610193834" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.0.1.825610193834" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.0.1.825631470984" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -146,29 +146,147 @@
         <span>Infrastructure</span>
     </h1>
 </doc-anchor-target>
-<doc-anchor-target id="getting-started">
+<p>Infrastructure is split into <strong>two Terraform stacks</strong>:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Stack</th>
+<th>Path</th>
+<th>State</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Bootstrap</strong></td>
+<td><code translate="no" v-pre>infrastructure/bootstrap/</code></td>
+<td>Local (checked into <code translate="no" v-pre>.gitignore</code>)</td>
+<td>State bucket, DNS zones, MX, NS delegation</td>
+</tr>
+<tr>
+<td><strong>Environment</strong></td>
+<td><code translate="no" v-pre>infrastructure/</code></td>
+<td>GCS remote (per-env prefix)</td>
+<td>Compute VM, VPC, secrets, DNS A records</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The compute stack deploys a <strong>single Compute Engine VM</strong> that runs Docker Compose
+for staging/production services (<code translate="no" v-pre>relay</code>, <code translate="no" v-pre>blossom</code>, <code translate="no" v-pre>escrow</code>) with
+<code translate="no" v-pre>docker-compose.prod-tls.yml</code> (Let&#x27;s Encrypt via <code translate="no" v-pre>acme-companion</code>).</p>
+<doc-anchor-target id="fresh-setup-in-a-new-gcp-account">
     <h2>
-        <doc-anchor-trigger class="header-anchor-trigger" to="#getting-started">#</doc-anchor-trigger>
-        <span>Getting started</span>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#fresh-setup-in-a-new-gcp-account">#</doc-anchor-trigger>
+        <span>Fresh setup in a new GCP account</span>
     </h2>
 </doc-anchor-target>
+<ol>
+<li>Create two GCP projects manually (or via <code translate="no" v-pre>gcloud</code>).</li>
+<li>Update project IDs in <code translate="no" v-pre>infrastructure/bootstrap/terraform.tfvars</code> and <code translate="no" v-pre>infrastructure/var/{staging,production}.tfvars</code>.</li>
+<li><p>Run the bootstrap stack:</p>
 <div class="codeblock-wrapper"><doc-codeblock>
-<pre translate="no" class="language-bash"><code v-pre class="language-bash">brew install terraform</code></pre>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/bootstrap.sh</code></pre>
 </doc-codeblock></div>
+</li>
+<li><p>Deploy each environment:</p>
 <div class="codeblock-wrapper"><doc-codeblock>
-<pre translate="no" class="language-bash"><code v-pre class="language-bash"> terraform apply -var-file=shared.tfvars -var-file=staging.tfvars</code></pre>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/deploy.sh staging
+scripts/deploy.sh production</code></pre>
 </doc-codeblock></div>
-<p>You will need to have your domain registar use the Google Cloud DNS nameservers. After applying the Terraform config, you can go to the Google Cloud Console under Networks services &gt; Cloud DNS. Find your domain name and get the DNS nameservers. Go to your domain registar and use all of the DNS nameservers (under the NS record like ns-cloud-b1.googledomains.com.).</p>
+</li>
+<li>Update your domain registrar NS records to the values shown in bootstrap outputs.</li>
+<li>Seed runtime secrets in Secret Manager (see below).</li>
+</ol>
+<doc-anchor-target id="local-deployment">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#local-deployment">#</doc-anchor-trigger>
+        <span>Local deployment</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="bootstrap-once--rare">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#bootstrap-once--rare">#</doc-anchor-trigger>
+        <span>Bootstrap (once / rare)</span>
+    </h3>
+</doc-anchor-target>
 <div class="codeblock-wrapper"><doc-codeblock>
-<pre translate="no" class="language-none"><code v-pre class="language-none">&lt;!-- For interacting with kubectl commandline --&gt;
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/bootstrap.sh</code></pre>
+</doc-codeblock></div>
+<p>Creates: GCS state bucket, Cloud DNS zones (parent + staging child), MX records, NS delegation.</p>
+<doc-anchor-target id="environment-deploy">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#environment-deploy">#</doc-anchor-trigger>
+        <span>Environment deploy</span>
+    </h3>
+</doc-anchor-target>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/deploy.sh staging
+# or
+scripts/deploy.sh production</code></pre>
+</doc-codeblock></div>
+<p>This initialises the GCS backend, runs <code translate="no" v-pre>terraform apply</code>, and optionally resets the VM.</p>
+<p>The state bucket name is read from <code translate="no" v-pre>infrastructure/bootstrap/terraform.tfvars</code>.
+You can override it with <code translate="no" v-pre>TF_STATE_BUCKET</code> env var.</p>
+<doc-anchor-target id="ci-deployment">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#ci-deployment">#</doc-anchor-trigger>
+        <span>CI deployment</span>
+    </h2>
+</doc-anchor-target>
+<p>The GitHub Actions workflow (<code translate="no" v-pre>.github/workflows/infra_deploy.yaml</code>) handles
+environment deploys automatically. It requires the <code translate="no" v-pre>TF_STATE_BUCKET</code> repository
+variable to be set.</p>
+<p>Bootstrap is <strong>not</strong> run in CI — it&#x27;s a one-time local operation.</p>
+<doc-anchor-target id="runtime-secrets-secret-manager">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#runtime-secrets-secret-manager">#</doc-anchor-trigger>
+        <span>Runtime secrets (Secret Manager)</span>
+    </h2>
+</doc-anchor-target>
+<p>Terraform creates the required Secret Manager secret containers for:</p>
+<ul>
+<li><code translate="no" v-pre>ESCROW_PRIVATE_KEY</code></li>
+<li><code translate="no" v-pre>BLOSSOM_DASHBOARD_PASSWORD</code></li>
+</ul>
+<p>Non-sensitive runtime values like <code translate="no" v-pre>DOMAIN</code>, <code translate="no" v-pre>LETSENCRYPT_EMAIL</code>, <code translate="no" v-pre>RPC_URL</code>, and
+<code translate="no" v-pre>ESCROW_CONTRACT_ADDR</code> are read from <code translate="no" v-pre>.env.staging</code> / <code translate="no" v-pre>.env.prod</code>.</p>
+<p>You can seed values either:</p>
+<ol>
+<li>via Terraform variable <code translate="no" v-pre>compose_runtime_secret_values</code> (sensitive map), or</li>
+<li>manually in GCP Secret Manager.</li>
+</ol>
+<p>Manual example:</p>
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">PROJECT_ID=&quot;&lt;terraform output project_id&gt;&quot;
 
-gcloud container clusters get-credentials hostr-staging-gke --region us-central1-a</code></pre>
+echo &quot;&lt;escrow-private-key&gt;&quot; | gcloud secrets versions add ESCROW_PRIVATE_KEY --project &quot;$PROJECT_ID&quot; --data-file=-
+echo &quot;&lt;blossom-dashboard-password&gt;&quot; | gcloud secrets versions add BLOSSOM_DASHBOARD_PASSWORD --project &quot;$PROJECT_ID&quot; --data-file=-</code></pre>
 </doc-codeblock></div>
+<doc-anchor-target id="deployment-behavior">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#deployment-behavior">#</doc-anchor-trigger>
+        <span>Deployment behavior</span>
+    </h2>
+</doc-anchor-target>
+<p>The VM startup/deploy script:</p>
+<ol>
+<li>Pulls the repo branch.</li>
+<li>Fetches secrets from Secret Manager into <code translate="no" v-pre>/opt/hostr/.env.runtime</code>.</li>
+<li>Writes <code translate="no" v-pre>ESCROW_CONTRACT_ADDR</code> to <code translate="no" v-pre>docker/data/escrow/contract_addr</code>.</li>
+<li>Runs:</li>
+</ol>
 <div class="codeblock-wrapper"><doc-codeblock>
-<pre translate="no" class="language-none"><code v-pre class="language-none">gcloud secrets create nsec \
-    --replication-policy=&quot;automatic&quot; &amp;&amp; 
-    echo &quot;yournsec&quot; | gcloud secrets versions add nsec --data-file=-</code></pre>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">docker compose \
+    --env-file /opt/hostr/.env.runtime \
+    --profile &lt;staging|prod&gt; \
+    -f docker-compose.yml \
+    -f docker-compose.prod-tls.yml \
+    up -d --build --remove-orphans</code></pre>
 </doc-codeblock></div>
+<p>So TLS is always deployed through <code translate="no" v-pre>docker-compose.prod-tls.yml</code> in
+staging/production.</p>
 
                 
                 <!-- Required only on API pages -->
