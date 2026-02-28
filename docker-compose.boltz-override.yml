@@ -6,7 +6,7 @@ services:
   # https://anvil.hostr.development (TLS-terminated by nginx-proxy).
   # Without VIRTUAL_HOST + shared_network, nginx sends TLSV1_ALERT_UNRECOGNIZED_NAME.
   anvil:
-    platform: linux/arm64
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
     environment:
       - VIRTUAL_HOST=anvil.${DOMAIN}
       - VIRTUAL_PORT=8545
