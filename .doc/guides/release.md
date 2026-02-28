@@ -164,6 +164,11 @@ These are identical values in both environments unless you use separate develope
 | ------------------------- | -------------------------------------------------------- |
 | `GCP_SERVICE_ACCOUNT_KEY` | GCP Console → IAM → Service Accounts → create key (JSON) |
 
+Deployment is executed by the **Infrastructure Deploy** workflow
+([.github/workflows/infra_deploy.yaml](../../.github/workflows/infra_deploy.yaml)),
+which applies Terraform and then resets the compose VM to trigger the startup
+deploy script.
+
 ---
 
 ## Preparing a Release Manually
@@ -200,4 +205,14 @@ Alternatively, on Android you can promote within the Play Console without a rebu
 
 ## Adding Secrets to the VM (Cloud Services)
 
-Runtime secrets (Nostr private key, LNbits passwords, etc.) are stored in **Google Secret Manager** and fetched onto the VM at deploy time. See the infrastructure README for the `fetch_secrets.sh` flow. These are separate from the GitHub CI secrets above.
+Runtime secrets are stored in **Google Secret Manager** and fetched onto the VM
+at deploy time. Required keys are:
+
+- `ESCROW_PRIVATE_KEY`
+- `BLOSSOM_DASHBOARD_PASSWORD`
+
+Non-sensitive runtime values (`DOMAIN`, `LETSENCRYPT_EMAIL`, `RPC_URL`,
+`ESCROW_CONTRACT_ADDR`) are sourced from `.env.staging` / `.env.prod`.
+
+See [.doc/infrastructure/README.md](../infrastructure/README.md) for the
+`hostr-fetch-secrets` flow and example commands.

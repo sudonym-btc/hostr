@@ -7,7 +7,8 @@
 /// - Barter: buyer must attach seller-signed negotiation when price < listing.
 /// - Self-signed proof: must fail when `allowSelfSignedReservation = false`
 ///   and no seller reservation exists.
-/// - Cancelled / invalid pairs do NOT appear as [Valid] in verification.
+/// - Cancelled pairs are [Valid] protocol outcomes (filter via
+///   [ReservationPairStatus.cancelled] when needed).
 ///
 /// Prerequisites:
 ///   - Anvil running on http://localhost:8545 (chain-id 33)
@@ -434,7 +435,7 @@ void main() {
       expect(result, isA<Valid<ReservationPairStatus>>());
     });
 
-    test('buyer cancelled → Invalid', () {
+    test('buyer cancelled → Valid with buyerCancelled flag', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
       final cancelled = _buildCancel(
         source: nego,
@@ -445,11 +446,11 @@ void main() {
       final pair = ReservationPairStatus(buyerReservation: cancelled);
 
       final result = ReservationPairs.verifyPair(pair, listing);
-      expect(result, isA<Invalid<ReservationPairStatus>>());
-      expect((result as Invalid).reason, contains('buyer'));
+      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect((result as Valid).event.buyerCancelled, isTrue);
     });
 
-    test('seller cancelled → Invalid', () {
+    test('seller cancelled → Valid with sellerCancelled flag', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
       final ack = _buildSellerAck(
         negotiate: nego,
@@ -468,11 +469,11 @@ void main() {
       );
 
       final result = ReservationPairs.verifyPair(pair, listing);
-      expect(result, isA<Invalid<ReservationPairStatus>>());
-      expect((result as Invalid).reason, contains('seller'));
+      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect((result as Valid).event.sellerCancelled, isTrue);
     });
 
-    test('both cancelled → Invalid with "both parties"', () {
+    test('both cancelled → Valid with both cancelled flags', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
       final sellerCancelled = _buildCancel(
         source: nego,
@@ -491,11 +492,12 @@ void main() {
       );
 
       final result = ReservationPairs.verifyPair(pair, listing);
-      expect(result, isA<Invalid<ReservationPairStatus>>());
-      expect((result as Invalid).reason, contains('both parties'));
+      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect((result as Valid).event.sellerCancelled, isTrue);
+      expect((result as Valid).event.buyerCancelled, isTrue);
     });
 
-    test('negotiate → commit → cancel (buyer) → Invalid', () {
+    test('negotiate → commit → cancel (buyer) → Valid cancelled pair', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
       final ack = _buildSellerAck(
         negotiate: nego,
@@ -515,10 +517,11 @@ void main() {
       );
 
       final result = ReservationPairs.verifyPair(pair, listing);
-      expect(result, isA<Invalid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect((result as Valid).event.buyerCancelled, isTrue);
     });
 
-    test('negotiate → commit → cancel (seller) → Invalid', () {
+    test('negotiate → commit → cancel (seller) → Valid cancelled pair', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
       final ack = _buildSellerAck(
         negotiate: nego,
@@ -538,7 +541,8 @@ void main() {
       );
 
       final result = ReservationPairs.verifyPair(pair, listing);
-      expect(result, isA<Invalid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect((result as Valid).event.sellerCancelled, isTrue);
     });
 
     test('empty pair (both null) → Invalid', () {
@@ -1363,8 +1367,8 @@ void main() {
           .whereType<Invalid<ReservationPairStatus>>()
           .length;
 
-      expect(validCount, 1, reason: 'Only seller-confirmed pair is valid');
-      expect(invalidCount, 2, reason: 'Cancelled + no-proof are invalid');
+      expect(validCount, 2, reason: 'Seller-confirmed + cancelled are valid');
+      expect(invalidCount, 1, reason: 'Only no-proof pair is invalid');
     });
 
     test('valid zap-proof self-signed among mixed pairs → exactly 2 valid', () {
@@ -1427,7 +1431,7 @@ void main() {
       expect(validCount, 2);
     });
 
-    test('cancelled pairs are excluded from valid count', () {
+    test('cancelled pairs are excluded from active count', () {
       // Three pairs: 1 seller-confirmed, 1 buyer-cancelled, 1 seller-cancelled
       final nego1 = _buildNegotiate(
         listing: listing,
@@ -1483,14 +1487,15 @@ void main() {
           .map((pair) => ReservationPairs.verifyPair(pair, listing))
           .toList();
 
-      final validCount = results
+      final activeCount = results
           .whereType<Valid<ReservationPairStatus>>()
+          .where((v) => !v.event.cancelled)
           .length;
 
       expect(
-        validCount,
+        activeCount,
         1,
-        reason: 'Only pair 1 is valid; pairs 2 & 3 are cancelled',
+        reason: 'Only pair 1 is active; pairs 2 & 3 are cancelled',
       );
     });
   });

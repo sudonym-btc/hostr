@@ -41,10 +41,12 @@ resource "google_dns_record_set" "mx" {
 }
 
 resource "google_compute_address" "static_ip" {
+  project    = google_project.project.project_id
   name       = "static-ip"
   region     = var.region
   depends_on = [google_project.project]
 }
+
 resource "google_dns_record_set" "relay" {
   name         = "relay.${var.domain_name}."
   type         = "A"
@@ -53,6 +55,15 @@ resource "google_dns_record_set" "relay" {
   rrdatas      = [google_compute_address.static_ip.address]
   depends_on   = [google_compute_address.static_ip]
 
+}
+
+resource "google_dns_record_set" "blossom" {
+  name         = "blossom.${var.domain_name}."
+  type         = "A"
+  ttl          = 300
+  managed_zone = google_dns_managed_zone.main.name
+  rrdatas      = [google_compute_address.static_ip.address]
+  depends_on   = [google_compute_address.static_ip]
 }
 
 # resource "google_dns_record_set" "mx" {

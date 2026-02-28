@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y ca-certificates curl git jq docker.io docker-compose-plugin
+systemctl enable --now docker
+
+if id -u ubuntu >/dev/null 2>&1; then
+  usermod -aG docker ubuntu || true
+fi
+if id -u debian >/dev/null 2>&1; then
+  usermod -aG docker debian || true
+fi
+
+mkdir -p /opt
+if [ ! -d /opt/hostr/.git ]; then
+  git clone "${repo_clone_url}" /opt/hostr
+fi
+
+cat >/usr/local/bin/hostr-fetch-secrets <<'EOS'
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET_ENV="$${1:-staging}"
+case "$${TARGET_ENV}" in
+  staging)
+    ENV_FILE_SUFFIX="staging"
+    ;;
+  production|prod)
+    ENV_FILE_SUFFIX="prod"
+    ;;
+  *)
+    echo "Unsupported target env: $${TARGET_ENV}" >&2
+    exit 64
+    ;;
+esac
+
+PROJECT_ID="$$(curl -fsS -H Metadata-Flavor:Google \
+  http://metadata.google.internal/computeMetadata/v1/project/project-id)"
+ACCESS_TOKEN="$$(curl -fsS -H Metadata-Flavor:Google \
+  http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token | jq -r '.access_token')"
+
+get_secret() {
+  local secret_name="$${1}"
+  curl -fsS \
+    -H "Authorization: Bearer $${ACCESS_TOKEN}" \
+    "https://secretmanager.googleapis.com/v1/projects/$${PROJECT_ID}/secrets/$${secret_name}/versions/latest:access" \
+    | jq -r '.payload.data' \
+    | tr '_-' '/+' \
+    | base64 -d
+}
+
+ENV_FILE="/opt/hostr/.env.runtime"
+cp /opt/hostr/.env "$${ENV_FILE}"
+if [[ -f "/opt/hostr/.env.$${ENV_FILE_SUFFIX}" ]]; then
+  cat "/opt/hostr/.env.$${ENV_FILE_SUFFIX}" >> "$${ENV_FILE}"
+fi
+
+while IFS= read -r secret_name; do
+  [[ -z "$${secret_name}" ]] && continue
+  if value="$$(get_secret "$${secret_name}")"; then
+    printf '%s=%s\n' "$${secret_name}" "$${value}" >> "$${ENV_FILE}"
+  else
+    echo "WARN: secret $${secret_name} not found or inaccessible; continuing" >&2
+  fi
+done <<'SECRETS'
+${join("\n", secret_names)}
+SECRETS
+
+mkdir -p /opt/hostr/docker/data/escrow
+if grep -q '^ESCROW_CONTRACT_ADDR=' "$${ENV_FILE}"; then
+  grep '^ESCROW_CONTRACT_ADDR=' "$${ENV_FILE}" | sed 's/^ESCROW_CONTRACT_ADDR=//' > /opt/hostr/docker/data/escrow/contract_addr
+fi
+EOS
+chmod +x /usr/local/bin/hostr-fetch-secrets
+
+cat >/usr/local/bin/hostr-deploy <<'EOS'
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET_ENV="$${1:-${default_target_env}}"
+case "$${TARGET_ENV}" in
+  staging)
+    COMPOSE_PROFILE="staging"
+    ;;
+  production|prod)
+    COMPOSE_PROFILE="prod"
+    TARGET_ENV="production"
+    ;;
+  *)
+    echo "Unsupported target env: $${TARGET_ENV}" >&2
+    exit 64
+    ;;
+esac
+
+cd /opt/hostr
+git fetch --all --prune
+git checkout "${repo_branch}"
+git pull --ff-only origin "${repo_branch}"
+
+/usr/local/bin/hostr-fetch-secrets "$${TARGET_ENV}"
+
+docker network inspect shared_network >/dev/null 2>&1 || docker network create shared_network
+
+docker compose \
+  --env-file /opt/hostr/.env.runtime \
+  --profile "$${COMPOSE_PROFILE}" \
+  -f docker-compose.yml \
+  -f docker-compose.prod-tls.yml \
+  up -d --build --remove-orphans
+EOS
+chmod +x /usr/local/bin/hostr-deploy
+
+/usr/local/bin/hostr-deploy "${default_target_env}"

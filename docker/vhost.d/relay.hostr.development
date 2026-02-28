@@ -1,3 +1,0 @@
-# Included by nginx-proxy at the server{} level for relay.hostr.development.
-# No extra server-level directives needed — websocket headers are in the
-# _location override file.

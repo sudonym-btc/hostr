@@ -3,6 +3,21 @@ output "project_id" {
   value = google_project.project.project_id
 }
 
+output "compose_vm_name" {
+  value = google_compute_instance.compose_vm.name
+}
+
+output "compose_vm_zone" {
+  value = google_compute_instance.compose_vm.zone
+}
+
+output "compose_runtime_secret_names" {
+  value = [
+    "ESCROW_PRIVATE_KEY",
+    "BLOSSOM_DASHBOARD_PASSWORD",
+  ]
+}
+
 # output "dns_zone_name" {
 #   value = google_dns_managed_zone.main.name
 # }
