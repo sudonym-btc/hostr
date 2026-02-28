@@ -79,12 +79,13 @@ services:
         aliases:
           - relay.${DOMAIN}
           - blossom.${DOMAIN}
+          - landing.${DOMAIN}
+          - ${DOMAIN}
+          # Dev-only aliases (lnbits, alby) — active only in local/test profiles
           - lnbits1.${DOMAIN}
           - lnbits2.${DOMAIN}
           - alby1.${DOMAIN}
           - alby2.${DOMAIN}
-          - landing.${DOMAIN}
-          - ${DOMAIN}
 
   # NOSTR Relay
   relay:
@@ -101,7 +102,6 @@ services:
       timeout: 3s
       retries: 30
       start_period: 10s
-      start_interval: 2s
     environment:
       - VIRTUAL_HOST=relay.${DOMAIN}
       - VIRTUAL_PORT=80
@@ -159,7 +159,9 @@ services:
       - default
     profiles:
       - local
-      
+      - staging
+      - prod
+
   # Escrow client which watches nostr & chain to facilitate escrow transactions
   escrow-contract-deploy:
     image: node:22-alpine

@@ -1,20 +1,15 @@
 variable "env" {
-  description = "The environment of the project."
+  description = "The environment (staging or production)."
   type        = string
 }
 
 variable "project_name" {
-  description = "The name of the project."
+  description = "Short project name used in resource naming."
   type        = string
 }
 
-variable "org_id" {
-  description = "The organization ID."
-  type        = string
-}
-
-variable "billing_account" {
-  description = "The billing account ID."
+variable "project_id" {
+  description = "GCP project ID to deploy into."
   type        = string
 }
 
@@ -27,6 +22,12 @@ variable "region" {
 variable "domain_name" {
   description = "The domain name to be purchased."
   type        = string
+}
+
+variable "managed_zone_name" {
+  description = "Existing Cloud DNS managed zone name in this environment project."
+  type        = string
+  default     = "main-zone"
 }
 
 variable "compose_machine_type" {
@@ -70,4 +71,10 @@ variable "compose_runtime_secret_values" {
   type        = map(string)
   sensitive   = true
   default     = {}
+}
+
+variable "enable_maps_infra" {
+  description = "Whether to manage Maps API services/keys in this stack. Disable for compose-only infra deploys."
+  type        = bool
+  default     = false
 }

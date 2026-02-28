@@ -1,12 +1,12 @@
 resource "google_project_service" "compute" {
-  project = google_project.project.project_id
+  project = var.project_id
   service = "compute.googleapis.com"
 }
 
 # VPC
 resource "google_compute_network" "vpc" {
-  project                 = google_project.project.project_id
-  name                    = "${google_project.project.name}-vpc"
+  project                 = var.project_id
+  name                    = "${local.project_base_name}-vpc"
   auto_create_subnetworks = false
 
   depends_on = [
@@ -16,8 +16,8 @@ resource "google_compute_network" "vpc" {
 
 # Subnet
 resource "google_compute_subnetwork" "default" {
-  project = google_project.project.project_id
-  name    = "${google_project.project.name}-subnet"
+  project = var.project_id
+  name    = "${local.project_base_name}-subnet"
   region  = var.region
   network = google_compute_network.vpc.name
 

@@ -1,27 +1,62 @@
 # Infrastructure
 
-This stack now deploys a **single Compute Engine VM** that runs Docker Compose
+Infrastructure is split into **two Terraform stacks**:
+
+| Stack           | Path                        | State                             | Purpose                                    |
+| --------------- | --------------------------- | --------------------------------- | ------------------------------------------ |
+| **Bootstrap**   | `infrastructure/bootstrap/` | Local (checked into `.gitignore`) | State bucket, DNS zones, MX, NS delegation |
+| **Environment** | `infrastructure/`           | GCS remote (per-env prefix)       | Compute VM, VPC, secrets, DNS A records    |
+
+The compute stack deploys a **single Compute Engine VM** that runs Docker Compose
 for staging/production services (`relay`, `blossom`, `escrow`) with
 `docker-compose.prod-tls.yml` (Let's Encrypt via `acme-companion`).
 
-Kubernetes/GKE resources are no longer used.
+## Fresh setup in a new GCP account
 
-## Apply Terraform
+1. Create two GCP projects manually (or via `gcloud`).
+2. Update project IDs in `infrastructure/bootstrap/terraform.tfvars` and `infrastructure/var/{staging,production}.tfvars`.
+3. Run the bootstrap stack:
+   ```bash
+   scripts/bootstrap.sh
+   ```
+4. Deploy each environment:
+   ```bash
+   scripts/deploy.sh staging
+   scripts/deploy.sh production
+   ```
+5. Update your domain registrar NS records to the values shown in bootstrap outputs.
+6. Seed runtime secrets in Secret Manager (see below).
+
+## Local deployment
+
+### Bootstrap (once / rare)
 
 ```bash
-cd infrastructure
-terraform init
-terraform apply -var-file=var/shared.tfvars -var-file=var/staging.tfvars
+scripts/bootstrap.sh
 ```
 
-For production:
+Creates: GCS state bucket, Cloud DNS zones (parent + staging child), MX records, NS delegation.
+
+### Environment deploy
 
 ```bash
-terraform apply -var-file=var/shared.tfvars -var-file=var/production.tfvars
+scripts/deploy.sh staging
+# or
+scripts/deploy.sh production
 ```
 
-After apply, update your domain registrar NS records to the Cloud DNS name
-servers shown in Terraform outputs / GCP Console.
+This initialises the GCS backend, runs `terraform apply`, and optionally resets the VM.
+
+The state bucket name is read from `infrastructure/bootstrap/terraform.tfvars`.
+You can override it with `TF_STATE_BUCKET` env var.
+
+## CI deployment
+
+The GitHub Actions workflow (`.github/workflows/infra_deploy.yaml`) handles
+environment deploys automatically. It requires the `TF_STATE_BUCKET` repository
+variable to be set.
+
+Bootstrap is **not** run in CI — it's a one-time local operation.
 
 ## Runtime secrets (Secret Manager)
 

@@ -164,6 +164,12 @@ These are identical values in both environments unless you use separate develope
 | ------------------------- | -------------------------------------------------------- |
 | `GCP_SERVICE_ACCOUNT_KEY` | GCP Console → IAM → Service Accounts → create key (JSON) |
 
+Repository/Environment variable required for Terraform remote state:
+
+| Variable          | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
+| `TF_STATE_BUCKET` | GCS bucket name created by `infrastructure/project` bootstrap. |
+
 Deployment is executed by the **Infrastructure Deploy** workflow
 ([.github/workflows/infra_deploy.yaml](../../.github/workflows/infra_deploy.yaml)),
 which applies Terraform and then resets the compose VM to trigger the startup
