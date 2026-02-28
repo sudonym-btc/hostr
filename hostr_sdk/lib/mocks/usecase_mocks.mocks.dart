@@ -1390,13 +1390,16 @@ class MockReservations extends _i1.Mock implements _i8.Reservations {
           as _i13.Future<_i9.Reservation>);
 
   @override
-  _i13.Future<_i9.Reservation> cancel(_i9.Reservation? reservation) =>
+  _i13.Future<_i9.Reservation> cancel(
+    _i9.Reservation? reservation,
+    _i5.KeyPair? keyPair,
+  ) =>
       (super.noSuchMethod(
-            Invocation.method(#cancel, [reservation]),
+            Invocation.method(#cancel, [reservation, keyPair]),
             returnValue: _i13.Future<_i9.Reservation>.value(
               _FakeReservation_23(
                 this,
-                Invocation.method(#cancel, [reservation]),
+                Invocation.method(#cancel, [reservation, keyPair]),
               ),
             ),
           )
