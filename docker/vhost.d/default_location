@@ -1,0 +1,4 @@
+# Environment-agnostic location overrides applied to every VIRTUAL_HOST.
+# Keeps long-lived websocket/stream-style HTTP connections from timing out too quickly.
+proxy_read_timeout 86400s;
+proxy_send_timeout 86400s;

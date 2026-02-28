@@ -1,0 +1,66 @@
+name: Infrastructure Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: Deploy environment
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    name: Deploy infrastructure + compose
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'release' && 'production' || inputs.target_env }}
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      TARGET_ENV: ${{ github.event_name == 'release' && 'production' || inputs.target_env }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: infrastructure
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: infrastructure
+        run: |
+          terraform apply -auto-approve \
+            -var-file=var/shared.tfvars \
+            -var-file=var/${TARGET_ENV}.tfvars
+
+      - name: Read Terraform outputs
+        id: tfout
+        working-directory: infrastructure
+        run: |
+          echo "project_id=$(terraform output -raw project_id)" >> "$GITHUB_OUTPUT"
+          echo "vm_name=$(terraform output -raw compose_vm_name)" >> "$GITHUB_OUTPUT"
+          echo "zone=$(terraform output -raw compose_vm_zone)" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger compose deploy (startup script)
+        run: |
+          gcloud compute instances reset "${{ steps.tfout.outputs.vm_name }}" \
+            --project "${{ steps.tfout.outputs.project_id }}" \
+            --zone "${{ steps.tfout.outputs.zone }}"

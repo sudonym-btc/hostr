@@ -6,7 +6,6 @@ provider "google" {
   project = "${var.project_name}-${var.env}-${random_id.project_id.hex}"
   region  = var.region
 }
-data "google_client_config" "default" {}
 
 provider "google-beta" {
   project               = "${var.project_name}-${var.env}-${random_id.project_id.hex}"

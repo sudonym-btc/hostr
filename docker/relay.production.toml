@@ -1,0 +1,16 @@
+# Nostr-rs-relay configuration (production)
+
+[info]
+relay_url = "wss://relay.hostr.network/"
+name = "Hostr relay"
+description = "Hostr production relay."
+
+[network]
+address = "0.0.0.0"
+port = 80
+
+[options]
+reject_future_seconds = 1800
+
+[limits]
+limit_scrapers = false

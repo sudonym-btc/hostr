@@ -1,2 +1,0 @@
-# Allow larger uploads for Blossom (location-level override)
-client_max_body_size 50m;
