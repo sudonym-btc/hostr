@@ -400,6 +400,18 @@ extension GetItInjectableX on _i174.GetIt {
           _i124.Bolt11PayOperation(params: params, nwc: gh<_i588.Nwc>()),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.factoryParam<
+      _i636.ThreadPaymentProofOrchestrator,
+      _i520.ThreadTrade,
+      dynamic
+    >(
+      (trade, _) => _i636.ThreadPaymentProofOrchestrator(
+        trade: trade,
+        auth: gh<_i520.Auth>(),
+        reservations: gh<_i520.Reservations>(),
+        logger: gh<_i520.CustomLogger>(),
+      ),
+    );
     gh.singleton<_i966.ReservationPairs>(
       () => _i966.ReservationPairs(
         reservations: gh<_i326.Reservations>(),
@@ -425,18 +437,6 @@ extension GetItInjectableX on _i174.GetIt {
         evm: gh<_i305.Evm>(),
       ),
     );
-    gh.factoryParam<
-      _i636.ThreadPaymentProofOrchestrator,
-      _i520.ThreadTrade,
-      dynamic
-    >(
-      (trade, _) => _i636.ThreadPaymentProofOrchestrator(
-        trade: trade,
-        auth: gh<_i520.Auth>(),
-        reservations: gh<_i520.Reservations>(),
-        logger: gh<_i520.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i660.Reviews>(
       () => _i660.Reviews(
         requests: gh<_i1014.Requests>(),
@@ -458,6 +458,19 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i455.ReservationActions(
         trade: gh<_i520.ThreadTrade>(),
         reservations: gh<_i520.Reservations>(),
+      ),
+    );
+    gh.factoryParam<_i802.TradeSubscriptions, _i520.Thread, dynamic>(
+      (thread, _) => _i802.TradeSubscriptions(
+        thread: thread,
+        auth: gh<_i520.Auth>(),
+        logger: gh<_i520.CustomLogger>(),
+        reservations: gh<_i520.Reservations>(),
+        reservationPairs: gh<_i520.ReservationPairs>(),
+        zaps: gh<_i520.Zaps>(),
+        escrow: gh<_i520.EscrowUseCase>(),
+        reviews: gh<_i520.Reviews>(),
+        reservationTransitions: gh<_i520.ReservationTransitions>(),
       ),
     );
     gh.factoryParam<
@@ -488,19 +501,6 @@ extension GetItInjectableX on _i174.GetIt {
         nwc: gh<_i520.Nwc>(),
         logger: gh<_i520.CustomLogger>(),
         escrow: gh<_i520.EscrowUseCase>(),
-      ),
-    );
-    gh.factoryParam<_i802.TradeSubscriptions, _i520.Thread, dynamic>(
-      (thread, _) => _i802.TradeSubscriptions(
-        thread: thread,
-        auth: gh<_i520.Auth>(),
-        logger: gh<_i520.CustomLogger>(),
-        reservations: gh<_i520.Reservations>(),
-        reservationPairs: gh<_i966.ReservationPairs>(),
-        zaps: gh<_i520.Zaps>(),
-        escrow: gh<_i520.EscrowUseCase>(),
-        reviews: gh<_i520.Reviews>(),
-        reservationTransitions: gh<_i826.ReservationTransitions>(),
       ),
     );
     gh.singleton<_i768.Threads>(

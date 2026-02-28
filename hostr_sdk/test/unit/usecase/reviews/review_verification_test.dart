@@ -214,13 +214,17 @@ void main() {
       );
 
       // Host published the reservation (auto-valid, no payment proof needed).
+      final tweakedRecipient = saltedKey(
+        key: MockKeys.guest.privateKey!,
+        salt: salt,
+      ).publicKey;
       final hostReservation = _reservation(
         listing: listing,
         signer: MockKeys.hoster,
         tradeId: commitment,
         start: DateTime(2026, 2, 1),
         end: DateTime(2026, 2, 3),
-        recipient: MockKeys.guest.publicKey,
+        recipient: tweakedRecipient,
       );
       fakeRequests.events.add(hostReservation);
 
@@ -339,6 +343,10 @@ void main() {
           MockKeys.guest.publicKey,
           salt,
         );
+        final tweakedRecipient = saltedKey(
+          key: MockKeys.guest.privateKey!,
+          salt: salt,
+        ).publicKey;
         fakeRequests.events.add(
           _reservation(
             listing: listing,
@@ -346,7 +354,7 @@ void main() {
             tradeId: commitment,
             start: DateTime(2026, 3, 1),
             end: DateTime(2026, 3, 5),
-            recipient: MockKeys.guest.publicKey,
+            recipient: tweakedRecipient,
           ),
         );
         fakeRequests.events.add(
