@@ -10,6 +10,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
+      docker_root: ${{ steps.filter.outputs.docker_root }}
       sdk: ${{ steps.filter.outputs.sdk }}
       app: ${{ steps.filter.outputs.app }}
       escrow: ${{ steps.filter.outputs.escrow }}
@@ -19,6 +20,16 @@ jobs:
         id: filter
         with:
           filters: |
+            docker_root:
+              - 'docker-compose*.yml'
+              - 'docker/**'
+              - 'scripts/**'
+              - 'Dockerfile'
+              - '.dockerignore'
+              - '.env'
+              - '.env.*'
+              - '**/.env'
+              - '**/.env.*'
             sdk:
               - 'hostr_sdk/**'
               - 'models/**'
@@ -37,7 +48,7 @@ jobs:
   test_sdk:
     name: Test — hostr_sdk
     needs: changes
-    if: needs.changes.outputs.sdk == 'true'
+    if: needs.changes.outputs.sdk == 'true' || needs.changes.outputs.docker_root == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +105,7 @@ jobs:
   test_app:
     name: Test — app
     needs: changes
-    if: needs.changes.outputs.app == 'true'
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.docker_root == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -132,11 +143,45 @@ jobs:
           flutter build web --no-wasm-dry-run
         working-directory: app/widgetbook_workspace
 
-  # ── 4. Quality gate — blocks release if any required test failed ────────────
+  # ── 4. Escrow daemon checks ───────────────────────────────────────────────
+  test_escrow:
+    name: Test — escrow
+    needs: changes
+    if: needs.changes.outputs.escrow == 'true' || needs.changes.outputs.docker_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.10.8'
+
+      - run: dart --version
+
+      - name: Cache Dart dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            escrow/.dart_tool
+          key: ${{ runner.os }}-dart-escrow-${{ hashFiles('escrow/pubspec.yaml') }}
+          restore-keys: ${{ runner.os }}-dart-escrow-
+
+      - name: Install dependencies
+        run: dart pub get
+        working-directory: escrow
+
+      - name: Analyze (compile check)
+        run: dart analyze
+        working-directory: escrow
+
+  # ── 5. Quality gate — blocks release if any required test failed ────────────
   # Jobs that were skipped (no changes) are treated as passing.
   quality_gate:
     name: Quality Gate
-    needs: [test_sdk, test_app]
+    needs: [test_sdk, test_app, test_escrow]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -144,8 +189,9 @@ jobs:
         run: |
           sdk="${{ needs.test_sdk.result }}"
           app="${{ needs.test_app.result }}"
+          escrow="${{ needs.test_escrow.result }}"
           failed=()
-          for entry in "sdk:$sdk" "app:$app"; do
+          for entry in "sdk:$sdk" "app:$app" "escrow:$escrow"; do
             name="${entry%%:*}"
             result="${entry##*:}"
             if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
@@ -156,9 +202,9 @@ jobs:
             echo "❌ Failed jobs: ${failed[*]}"
             exit 1
           fi
-          echo "✅ Quality gate passed (sdk=$sdk, app=$app)"
+            echo "✅ Quality gate passed (sdk=$sdk, app=$app, escrow=$escrow)"
 
-  # ── 5. Semantic release (main only, after gate passes) ─────────────────────
+          # ── 6. Semantic release (main only, after gate passes) ─────────────────────
   release:
     name: Release
     needs: quality_gate
