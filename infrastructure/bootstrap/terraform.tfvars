@@ -1,0 +1,5 @@
+org_id          = "806934415007"
+billing_account = "015110-340DAA-439478"
+project_name    = "hostr"
+state_bucket_name = "hostr-tfstate"
+domain          = "hostr.network"

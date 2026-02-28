@@ -15,10 +15,23 @@
 # ──────────────────────────────────────────────────────────────
 
 services:
-  # Disable the dev CA — Let's Encrypt replaces it
+  # ── Disable dev-only services ─────────────────────────────────
+  # tls-init: Replace with no-op (nginx-proxy depends on it completing)
   tls-init:
+    entrypoint: ["true"]
+    restart: "no"
+
+  escrow-contract-deploy:
     profiles:
-      - never  # effectively disables this service
+      - never
+
+  anvil:
+    profiles:
+      - never
+
+  bootstrap:
+    profiles:
+      - never
 
   # ACME companion auto-provisions Let's Encrypt certs for each
   # service that sets LETSENCRYPT_HOST and LETSENCRYPT_EMAIL.
@@ -35,11 +48,11 @@ services:
       - acme-html:/usr/share/nginx/html
     environment:
       - DEFAULT_EMAIL=${LETSENCRYPT_EMAIL:-admin@hostr.cc}
+      - NGINX_PROXY_CONTAINER=hostr-nginx-proxy-1
     restart: unless-stopped
 
   # nginx-proxy needs the html volume for ACME challenges
   nginx-proxy:
-    depends_on: {}  # Remove tls-init dependency
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./docker/certs:/etc/nginx/certs
@@ -57,28 +70,8 @@ services:
     environment:
       - LETSENCRYPT_HOST=blossom.${DOMAIN}
 
-  lnbits1:
-    environment:
-      - LETSENCRYPT_HOST=lnbits1.${DOMAIN}
-
-  lnbits2:
-    environment:
-      - LETSENCRYPT_HOST=lnbits2.${DOMAIN}
-
-  albyhub1:
-    environment:
-      - LETSENCRYPT_HOST=alby1.${DOMAIN}
-    volumes:
-      - ./docker/data/lightning_data/1:/lnd
-      - ./docker/data/albyhub:/data
-      # No CA bundle needed — Let's Encrypt certs are publicly trusted
-
-  albyhub2:
-    environment:
-      - LETSENCRYPT_HOST=alby2.${DOMAIN}
-    volumes:
-      - ./docker/data/lightning_data/2:/lnd
-      - ./docker/data/albyhub:/data
+  # lnbits1, lnbits2, albyhub1, albyhub2 are dev-only (profiles: local, test)
+  # and do not run in staging/production.
 
   landing-page:
     environment:
@@ -87,6 +80,16 @@ services:
   # Dart services don't need CA injection in prod — LE certs are
   # already in system trust stores.
   escrow:
+    depends_on:
+      nginx-proxy:
+        condition: service_healthy
+        restart: true
+      escrow-contract-deploy:
+        condition: service_completed_successfully
+        required: false
+      anvil:
+        condition: service_healthy
+        required: false
     volumes:
       - ./docker/data/escrow:/data:ro
     command:
@@ -94,16 +97,6 @@ services:
         "sh",
         "-lc",
         "set -euo pipefail && export CONTRACT_ADDR=$$(cat /data/contract_addr) && exec dart run lib/cli.dart start",
-      ]
-
-  unlock-alby-lnbits:
-    volumes:
-      - ./:/workspace:ro
-    command:
-      [
-        "sh",
-        "-lc",
-        "/usr/lib/dart/bin/dart --version && rm -rf /tmp/workspace && cp -a /workspace /tmp/workspace && cd /tmp/workspace/hostr_sdk && /usr/lib/dart/bin/dart pub get && /usr/lib/dart/bin/dart run bin/setup_lightning.dart",
       ]
 
   seed-relay:

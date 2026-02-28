@@ -25,6 +25,7 @@ jobs:
 
     env:
       TARGET_ENV: ${{ github.event_name == 'release' && 'production' || inputs.target_env }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
 
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +43,14 @@ jobs:
 
       - name: Terraform init
         working-directory: infrastructure
-        run: terraform init
+        run: |
+          if [ -z "${TF_STATE_BUCKET}" ]; then
+            echo "Missing repository/environment variable: TF_STATE_BUCKET" >&2
+            exit 1
+          fi
+          terraform init -reconfigure \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="prefix=hostr/infrastructure/${TARGET_ENV}"
 
       - name: Terraform apply
         working-directory: infrastructure
@@ -59,7 +67,7 @@ jobs:
           echo "vm_name=$(terraform output -raw compose_vm_name)" >> "$GITHUB_OUTPUT"
           echo "zone=$(terraform output -raw compose_vm_zone)" >> "$GITHUB_OUTPUT"
 
-      - name: Trigger compose deploy (startup script)
+      - name: Reset VM to trigger compose deploy
         run: |
           gcloud compute instances reset "${{ steps.tfout.outputs.vm_name }}" \
             --project "${{ steps.tfout.outputs.project_id }}" \

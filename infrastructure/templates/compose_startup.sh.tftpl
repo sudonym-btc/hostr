@@ -3,8 +3,13 @@ set -euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y ca-certificates curl git jq docker.io docker-compose-plugin
+apt-get install -y ca-certificates curl git jq docker.io docker-compose
 systemctl enable --now docker
+
+# Install Docker Compose v2 standalone binary (preferred over legacy apt v1)
+install -d -m 0755 /usr/local/bin
+curl -fsSL "https://github.com/docker/compose/releases/download/v2.33.1/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
 
 if id -u ubuntu >/dev/null 2>&1; then
   usermod -aG docker ubuntu || true
@@ -103,7 +108,16 @@ git pull --ff-only origin "${repo_branch}"
 
 docker network inspect shared_network >/dev/null 2>&1 || docker network create shared_network
 
-docker compose \
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_BIN=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_BIN=(docker-compose)
+else
+  echo "No docker compose command found" >&2
+  exit 127
+fi
+
+"$${COMPOSE_BIN[@]}" \
   --env-file /opt/hostr/.env.runtime \
   --profile "$${COMPOSE_PROFILE}" \
   -f docker-compose.yml \

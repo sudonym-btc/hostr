@@ -1,3 +1,3 @@
 env         = "staging"
-region      = "us-central1"
+project_id  = "hostr-staging-d4c52998"
 domain_name = "staging.hostr.network"
