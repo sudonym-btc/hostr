@@ -111,6 +111,7 @@ void main(List<String> arguments) async {
       final amount = cmd?['amount'] as String?;
       final swapOp = hostr.evm.supportedEvmChains[0].swapIn(SwapInParams(
           evmKey: hostr.auth.getActiveEvmKey(),
+          accountIndex: 0,
           amount: BitcoinAmount.fromInt(BitcoinUnit.sat, int.parse(amount!))));
       swapOp.execute();
       swapOp.stream

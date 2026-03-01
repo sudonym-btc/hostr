@@ -23,6 +23,54 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
   Future<SwapInFees> estimateFees();
   Future<void> execute();
 
+  /// Fetches the chain's minimum and maximum swap-in amounts.
+  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits();
+
+  /// Fetches chain limits and clamps [params.minAmount] / [params.maxAmount]
+  /// to the chain's supported range. If the caller didn't provide min/max,
+  /// the chain limits are used directly. Re-emits [SwapInInitialised] so the
+  /// UI picks up the resolved range.
+  Future<void> init() async {
+    try {
+      final limits = await getSwapLimits();
+
+      // Effective min = max(user min, chain min)
+      params.minAmount = params.minAmount != null
+          ? BitcoinAmount.max(params.minAmount!, limits.min)
+          : limits.min;
+
+      // Effective max = min(user max, chain max)
+      params.maxAmount = params.maxAmount != null
+          ? BitcoinAmount.min(params.maxAmount!, limits.max)
+          : limits.max;
+
+      // Clamp the current amount into the resolved range
+      if (params.amount < params.minAmount!) {
+        params.amount = params.minAmount!;
+      } else if (params.amount > params.maxAmount!) {
+        params.amount = params.maxAmount!;
+      }
+
+      emit(SwapInInitialised());
+    } catch (e) {
+      logger.w('Failed to fetch swap limits: $e');
+    }
+  }
+
+  /// Updates the swap amount (must be within min/max range if set).
+  void updateAmount(BitcoinAmount amount) {
+    if (params.minAmount != null && amount < params.minAmount!) {
+      logger.w('Amount $amount below minimum ${params.minAmount}');
+      return;
+    }
+    if (params.maxAmount != null && amount > params.maxAmount!) {
+      logger.w('Amount $amount exceeds maximum ${params.maxAmount}');
+      return;
+    }
+    params.amount = amount;
+    emit(SwapInInitialised());
+  }
+
   /// Recover a persisted swap-in record.
   ///
   /// Checks the current Boltz status and either marks the swap as completed,

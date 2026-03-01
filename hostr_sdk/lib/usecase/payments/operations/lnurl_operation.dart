@@ -3,7 +3,6 @@ import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:injectable/injectable.dart';
-import 'package:ndk/ndk.dart' hide Nwc;
 
 import 'pay_state.dart';
 
@@ -88,10 +87,12 @@ class LnurlPayOperation
 
   @override
   Future<LightningCompletedDetails> completer() async {
-    PayInvoiceResponse response = await nwc.payInvoice(
-      nwc.connections[0].connection!,
+    final preimage = await settleInvoice(
       callbackDetails!.invoice.paymentRequest,
     );
-    return LightningCompletedDetails(preimage: response.preimage!);
+    if (preimage == null) {
+      throw StateError('External payment required');
+    }
+    return LightningCompletedDetails(preimage: preimage);
   }
 }

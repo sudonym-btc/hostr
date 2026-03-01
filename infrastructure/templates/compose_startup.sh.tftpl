@@ -18,6 +18,39 @@ if id -u debian >/dev/null 2>&1; then
   usermod -aG docker debian || true
 fi
 
+# ── Helper: format-if-needed and mount a persistent disk ─────────────
+mount_disk() {
+  local dev="$${1}" mnt="$${2}"
+  mkdir -p "$${mnt}"
+  if ! blkid "$${dev}" | grep -q ext4; then
+    mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard "$${dev}"
+  fi
+  if ! mountpoint -q "$${mnt}"; then
+    mount -o discard,defaults "$${dev}" "$${mnt}"
+  fi
+  grep -q "$${dev}" /etc/fstab || \
+    echo "$${dev} $${mnt} ext4 discard,defaults,nofail 0 2" >> /etc/fstab
+}
+
+# ── Mount persistent data disks ──────────────────────────────────────
+mount_disk /dev/disk/by-id/google-relay-data   /mnt/relay-data
+mount_disk /dev/disk/by-id/google-blossom-data /mnt/blossom-data
+
+# ── Prepare data directories with correct ownership ──────────────────
+# relay (nostr-rs-relay) runs as appuser uid=1000
+chown -R 1000:1000 /mnt/relay-data
+# blossom runs as uid=1000
+chown -R 1000:1000 /mnt/blossom-data
+
+# Symlink compose volume mount paths to the persistent disks
+mkdir -p /opt/hostr/docker/data
+rm -rf /opt/hostr/docker/data/relay   && ln -sfn /mnt/relay-data   /opt/hostr/docker/data/relay
+rm -rf /opt/hostr/docker/data/blossom && ln -sfn /mnt/blossom-data /opt/hostr/docker/data/blossom
+
+# Small data (escrow, certs, vhost.d) stays on the boot disk — trivial size
+mkdir -p /opt/hostr/docker/data/escrow /opt/hostr/docker/certs /opt/hostr/docker/vhost.d
+
+# ── Clone repo ────────────────────────────────────────────────────────
 mkdir -p /opt
 if [ ! -d /opt/hostr/.git ]; then
   git clone "${repo_clone_url}" /opt/hostr

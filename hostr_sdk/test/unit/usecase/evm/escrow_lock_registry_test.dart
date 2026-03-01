@@ -30,6 +30,7 @@ Future<EscrowLock> _acquire(
   contractAddress: '0x0000000000000000000000000000000000000003',
   chainId: 33,
   unlockAt: 9999999999,
+  accountIndex: 0,
 );
 
 /// Test helper – constructs an [EscrowLock] with dummy contract params.
@@ -46,6 +47,7 @@ EscrowLock _testLock({
   contractAddress: '0x0000000000000000000000000000000000000003',
   chainId: 33,
   unlockAt: 9999999999,
+  accountIndex: 0,
 );
 
 void main() {

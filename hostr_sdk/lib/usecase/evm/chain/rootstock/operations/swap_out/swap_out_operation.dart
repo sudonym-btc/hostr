@@ -116,6 +116,7 @@ class RootstockSwapOutOperation extends SwapOutOperation {
         lockerAddress: params.evmKey.address.with0x,
         timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
         chainId: rootstock.config.rootstockConfig.chainId,
+        accountIndex: params.accountIndex,
       );
       await _swapStore.save(record);
       logger.i('Swap-out record persisted for ${swap.id} before lock');

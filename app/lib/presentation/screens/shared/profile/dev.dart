@@ -28,6 +28,7 @@ class DevWidget extends StatelessWidget {
                   SwapInParams(
                     amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 1000000),
                     evmKey: getIt<Hostr>().auth.getActiveEvmKey(),
+                    accountIndex: 0,
                   ),
                 )..estimateFees(),
               ),

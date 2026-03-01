@@ -45,6 +45,7 @@ void main() {
       onchainAmountSat: 50000,
       timeoutBlockHeight: 800000,
       chainId: 31,
+      accountIndex: 0,
     );
     if (status != SwapRecordStatus.created) {
       return record.copyWithStatus(status);
@@ -65,6 +66,7 @@ void main() {
       lockerAddress: '0xlockeraddr',
       timeoutBlockHeight: 900000,
       chainId: 31,
+      accountIndex: 0,
     );
     if (status != SwapRecordStatus.created) {
       return record.copyWithStatus(status);

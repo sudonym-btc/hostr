@@ -4,6 +4,7 @@ import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 import '../../../datasources/boltz/boltz.dart';
 import '../../../injection.dart';
 import '../../../util/main.dart';
+import '../../auth/auth.dart';
 import '../chain/evm_chain.dart';
 import '../chain/rootstock/operations/swap_in/swap_in_operation.dart'
     as rootstock_swap_in;
@@ -37,8 +38,14 @@ class SwapRecoveryService {
   final SwapStore _swapStore;
   final BoltzClient _boltzClient;
   final CustomLogger _logger;
+  final Auth _auth;
 
-  SwapRecoveryService(this._swapStore, this._boltzClient, this._logger);
+  SwapRecoveryService(
+    this._swapStore,
+    this._boltzClient,
+    this._logger,
+    this._auth,
+  );
 
   /// Check for pending swaps and attempt recovery.
   ///
@@ -47,8 +54,10 @@ class SwapRecoveryService {
   ///
   /// [chainResolver] maps a chainId to the [EvmChain] that can execute
   /// claim / refund transactions on that network.
+  ///
+  /// The EVM key for each swap is re-derived from its persisted
+  /// [SwapRecord.accountIndex] via [Auth.getActiveEvmKey].
   Future<int> recoverPendingSwaps({
-    required EthPrivateKey evmKey,
     required Future<EvmChain> Function(int chainId) chainResolver,
   }) async {
     await _swapStore.initialize();
@@ -79,6 +88,9 @@ class SwapRecoveryService {
         _logger.d(
           'SwapRecovery: ${record.boltzId} Boltz status: ${currentStatus.status}',
         );
+
+        // Re-derive the EVM key using the persisted account index.
+        final evmKey = _auth.getActiveEvmKey(accountIndex: record.accountIndex);
 
         final bool success;
         switch (record) {
@@ -123,6 +135,7 @@ class SwapRecoveryService {
     final cubit = getIt<rootstock_swap_in.RootstockSwapInOperation>(
       param1: SwapInParams(
         evmKey: evmKey,
+        accountIndex: record.accountIndex,
         // Amount is unused during recovery — only recover() is called.
         amount: BitcoinAmount.zero(),
       ),
@@ -150,6 +163,7 @@ class SwapRecoveryService {
     final cubit = getIt<rootstock_swap_out.RootstockSwapOutOperation>(
       param1: SwapOutParams(
         evmKey: evmKey,
+        accountIndex: record.accountIndex,
         // Amount is unused during recovery — only recover() is called.
         amount: null,
       ),

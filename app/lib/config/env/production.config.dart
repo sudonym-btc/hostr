@@ -14,6 +14,8 @@ class ProductionConfig extends Config {
   String get hostrRelay => 'wss://relay.hostr.network';
   @override
   RootstockConfig rootstock = ProductionRootstockConfig();
+  @override
+  String get googleMapsApiKey => ''; // TODO: deploy production maps infra and set key
 }
 
 class ProductionRootstockConfig extends RootstockConfig {
@@ -23,7 +25,6 @@ class ProductionRootstockConfig extends RootstockConfig {
   String get rpcUrl => 'https://public-node.rsk.co';
 
   @override
-  // TODO: implement boltz
   BoltzConfig get boltz => ProductionBoltzConfig();
 }
 
@@ -32,22 +33,17 @@ class ProductionBoltzConfig extends BoltzConfig {
   String get apiUrl => 'https://api.boltz.exchange/v2';
 
   @override
-  // TODO: implement rifRelayCallVerifier
-  String get rifRelayCallVerifier => throw UnimplementedError();
+  String get rifRelayUrl => 'https://boltz.mainnet.relay.rifcomputing.net';
 
   @override
-  // TODO: implement rifRelayDeployVerifier
-  String get rifRelayDeployVerifier => throw UnimplementedError();
+  String get rifRelayCallVerifier =>
+      '0xe221608F3FaBbeDfFb7537F8a9001e80654f55C8';
 
   @override
-  // TODO: implement rifRelayUrl
-  String get rifRelayUrl => throw UnimplementedError();
+  String get rifRelayDeployVerifier =>
+      '0xc0F5bEF6b20Be41174F826684c663a8635c6A081';
 
   @override
-  // TODO: implement rifSmartWalletFactoryAddress
-  String get rifSmartWalletFactoryAddress => throw UnimplementedError();
-
-  @override
-  // TODO: implement wsUrl
-  String get wsUrl => throw UnimplementedError();
+  String get rifSmartWalletFactoryAddress =>
+      '0x44944a80861120B58cc48B066d57cDAf5eC213dd';
 }

@@ -1,22 +1,34 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:http/http.dart' as http;
+import 'package:eip712/eip712.dart' as eip712;
+import 'package:hostr_sdk/datasources/contracts/boltz/EtherSwap.g.dart';
+import 'package:hostr_sdk/util/main.dart';
 import 'package:injectable/injectable.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../../../config.dart';
-import '../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
-import '../../../../../datasources/contracts/escrow/MultiEscrow.g.dart';
-import '../../../../../datasources/contracts/rif_relay/BaseSmartWallet.g.dart';
 import '../../../../../datasources/contracts/rif_relay/IForwarder.g.dart';
 import '../../../../../datasources/contracts/rif_relay/SmartWalletFactory.g.dart';
-import '../../../../../util/bitcoin_amount.dart';
-import '../../../../../util/custom_logger.dart';
-import '../../../../payments/constants.dart';
+import '../../../../../datasources/swagger_generated/rif_relay.swagger.dart'
+    as relay_api;
 
-// THIS FILE SHOULD MIRROR JS IMPLEMENTATION: https://github.com/BoltzExchange/boltz-web-app/tree/162ecc350f61460d6f8b888cd873bd5d90e02e29/src/rif
+// THIS FILE SHOULD MIRROR JS IMPLEMENTATION: https://github.com/rsksmart/rif-relay-client
+// AND https://github.com/BoltzExchange/boltz-web-app/blob/main/src/rif/Signer.ts
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+typedef ClaimArgs = ({
+  BigInt amount,
+  Uint8List preimage,
+  Uint8List r,
+  EthereumAddress refundAddress,
+  Uint8List s,
+  BigInt timelock,
+  BigInt v,
+});
+
 class RifMetadata {
   String? signature;
   int relayMaxNonce;
@@ -36,71 +48,116 @@ class RifMetadata {
   }
 }
 
-class ChainInfo {
-  String relayWorkerAddress;
-  String feesReceiver;
-  String relayManagerAddress;
-  String relayHubAddress;
-  String minGasPrice;
-  String chainId;
-  String networkId;
-  bool ready;
-  String version;
-  ChainInfo({
-    required this.relayWorkerAddress,
-    required this.feesReceiver,
-    required this.relayManagerAddress,
-    required this.relayHubAddress,
-    required this.minGasPrice,
-    required this.chainId,
-    required this.networkId,
-    required this.ready,
-    required this.version,
-  });
-}
-
-class EstimationResponse {
-  String gasPrice;
-  String estimation;
-  String requiredTokenAmount;
-  String requiredNativeAmount;
-  String exchangeRate;
-  EstimationResponse({
-    required this.gasPrice,
-    required this.estimation,
-    required this.requiredTokenAmount,
-    required this.requiredNativeAmount,
-    required this.exchangeRate,
-  });
-}
-
-class RelayResponse {
-  final String txHash;
-  RelayResponse({required this.txHash});
-}
-
-class EnvelopingRequest {
-  late Map<String, dynamic> request;
-  late Map<String, dynamic> relayData;
-
-  Map<String, dynamic> toJson() {
-    return {'request': request, 'relayData': relayData};
-  }
-}
-
-class RifInfo {}
-
 class SmartWalletAddressInfo {
   final BigInt nonce;
   final EthereumAddress address;
   const SmartWalletAddressInfo({required this.nonce, required this.address});
 }
 
+// ---------------------------------------------------------------------------
+// Extended request types – adds fields missing from the swagger spec
+// (validUntilTime, index, recoverer).
+// ---------------------------------------------------------------------------
+
+/// Relay-path request (smart wallet already deployed).
+/// Adds [validUntilTime] on top of the swagger [relay_api.ForwardRequest].
+class RelayForwardRequest extends relay_api.ForwardRequest {
+  final int validUntilTime;
+
+  const RelayForwardRequest({
+    required this.validUntilTime,
+    super.relayHub,
+    super.from,
+    super.to,
+    super.tokenContract,
+    super.value,
+    super.gas,
+    super.nonce,
+    super.tokenAmount,
+    super.tokenGas,
+    super.data,
+  });
+
+  @override
+  Map<String, dynamic> toJson() => {
+    ...super.toJson(),
+    'validUntilTime': validUntilTime,
+  };
+}
+
+/// Deploy-path request (smart wallet not yet deployed).
+/// Adds [validUntilTime], [index], and [recoverer]; omits `gas`.
+class DeployForwardRequest extends relay_api.ForwardRequest {
+  final int validUntilTime;
+  final int index;
+  final String recoverer;
+
+  const DeployForwardRequest({
+    required this.validUntilTime,
+    required this.index,
+    required this.recoverer,
+    super.relayHub,
+    super.from,
+    super.to,
+    super.tokenContract,
+    super.value,
+    super.nonce,
+    super.tokenAmount,
+    super.tokenGas,
+    super.data,
+  });
+
+  @override
+  Map<String, dynamic> toJson() {
+    final json = super.toJson();
+    json.remove('gas'); // deploy path must not include `gas`
+    return {
+      ...json,
+      'validUntilTime': validUntilTime,
+      'index': index,
+      'recoverer': recoverer,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Constants – aligned with rsksmart/rif-relay-client TypeScript reference
+// ---------------------------------------------------------------------------
+
 const String _zeroAddress = '0x0000000000000000000000000000000000000000';
-const int _maxRelayNonceGap = 3;
-const int _defaultGasNeededToClaim = 250000;
-const int _defaultGasNeededToEscrowClaim = 220000;
-const int _validUntilSeconds = 24 * 60 * 60;
+const int _maxRelayNonceGap = 10;
+const int _defaultGasNeededToClaim = 400000;
+const int _defaultGasNeededToEscrowClaim = 300000;
+
+/// Observed gas for a deploy-path EtherSwap.claim relay (~243k) + 15% buffer.
+const int _estimatedDeployClaimGas = 280000;
+
+/// Observed gas for a relay-path (already deployed) EtherSwap.claim (~180k) + 15% buffer.
+const int _estimatedRelayClaimGas = 210000;
+const int _validUntilSeconds = 172800;
+const int _maxRelayGasRetries = 1;
+
+/// Gas price multiplier (0 = no boost, 20 = +20 %).
+/// Mirrors `gasPriceFactorPercent` in the TS client.
+const int _gasPriceFactorPercent = 0;
+
+/// Overhead constants from the TS gas estimator (`gasEstimator/utils.ts`).
+const int _preRelayGasCost = 74000;
+const int _postRelayDeployGasCost = 33500;
+const int _postDeployExecution = 1500;
+// Storage refund (15_000) can be subtracted when nonce > 0, but we
+// conservatively omit it in the fallback to avoid under-estimation.
+
+/// How long to cache `/chain-info` responses (seconds).
+const int _chainInfoTtlSeconds = 45;
+
+/// Minimum RBTC balance (in wei) the relay worker should have.
+/// ~0.001 RBTC – enough for several relay transactions.
+final BigInt _minWorkerBalance = BigInt.from(10).pow(15); // 0.001 RBTC
+
+// ---------------------------------------------------------------------------
+// RifRelay
+// ---------------------------------------------------------------------------
 
 @Injectable()
 class RifRelay {
@@ -108,554 +165,389 @@ class RifRelay {
   final Web3Client client;
   final HostrConfig config;
 
-  RifRelay(this.config, @factoryParam this.client, this.logger);
+  /// Generated Chopper API client for the RIF Relay server.
+  final relay_api.RifRelay _api;
 
-  /// Http GET request to the relay server to get the metadata
-  Future<ChainInfo> getChainInfo() async {
-    final response = await http.get(
-      Uri.parse('${config.rootstockConfig.boltz.rifRelayUrl}/chain-info'),
-    );
-    if (response.statusCode == 200) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      return ChainInfo(
-        relayWorkerAddress: body['relayWorkerAddress'],
-        feesReceiver: body['feesReceiver'],
-        relayManagerAddress: body['relayManagerAddress'],
-        relayHubAddress: body['relayHubAddress'],
-        minGasPrice: body['minGasPrice'],
-        chainId: body['chainId'],
-        networkId: body['networkId'],
-        ready: body['ready'],
-        version: body['version'],
+  /// Cached chain info and its fetch timestamp.
+  relay_api.PingResponse? _chainInfoCache;
+  DateTime? _chainInfoCacheTime;
+
+  RifRelay(this.config, @factoryParam this.client, this.logger)
+    : _api = relay_api.RifRelay.create(
+        baseUrl: Uri.parse(config.rootstockConfig.boltz.rifRelayUrl),
       );
+
+  // -------------------------------------------------------------------------
+  // Chain info (cached)
+  // -------------------------------------------------------------------------
+
+  /// Returns cached [PingResponse] if still fresh, otherwise fetches anew.
+  Future<relay_api.PingResponse> _getCachedChainInfo() async {
+    final now = DateTime.now();
+    if (_chainInfoCache != null &&
+        _chainInfoCacheTime != null &&
+        now.difference(_chainInfoCacheTime!).inSeconds < _chainInfoTtlSeconds) {
+      return _chainInfoCache!;
     }
-    throw Exception('Failed to load relay chain info: ${response.body}');
+    final info = await getChainInfo();
+    _chainInfoCache = info;
+    _chainInfoCacheTime = now;
+    return info;
   }
 
-  Future<EstimationResponse> estimate(
-    EnvelopingRequest relay,
-    RifMetadata metadata,
+  /// Http GET request to the relay server to get the metadata.
+  /// Uses the generated Chopper API client for transport.
+  Future<relay_api.PingResponse> getChainInfo() async {
+    final response = await _api.chainInfoGet();
+    return response.bodyOrThrow;
+  }
+
+  // -------------------------------------------------------------------------
+  // HTTP: /estimate and /relay
+  // -------------------------------------------------------------------------
+
+  Future<relay_api.EstimatePost$Response> estimateClaim(
+    EtherSwap etherSwap,
+    EthPrivateKey signer,
+    ClaimArgs args,
   ) async {
-    final response = await http.post(
-      Uri.parse('${config.rootstockConfig.boltz.rifRelayUrl}/estimate'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'metadata': metadata.toJson(),
-        'relayRequest': relay.toJson(),
-      }),
-    );
+    logger.d('RIF relay /estimateClaim request: $args');
 
-    if (response.statusCode == 200) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      if (body.containsKey('error')) {
-        throw StateError('Relay estimate error: ${body['error']}');
-      }
-      final estimation = _stringFrom(body, 'estimation');
-      final requiredTokenAmount = _stringFrom(body, 'requiredTokenAmount');
-      final requiredNativeAmount = _stringFrom(body, 'requiredNativeAmount');
-      final gasPrice = _stringFrom(body, 'gasPrice');
-      final exchangeRate = _stringFrom(body, 'exchangeRate');
-      return EstimationResponse(
-        gasPrice: gasPrice,
-        estimation: estimation,
-        requiredTokenAmount: requiredTokenAmount,
-        requiredNativeAmount: requiredNativeAmount,
-        exchangeRate: exchangeRate,
-      );
-    }
-    throw Exception('Failed to estimate relay gas: ${response.body}');
+    final relayTransactionRequest = await _buildRelayTransactionRequest(
+      etherSwap,
+      signer,
+      args,
+    );
+    final requestJson = relayTransactionRequest.toJson();
+    logger.d('Estimate request JSON: $requestJson');
+
+    return (await _api.estimatePost(body: requestJson)).bodyOrThrow;
   }
 
-  Future<RelayResponse> relay(
-    EnvelopingRequest relay,
-    RifMetadata metadata,
+  Future<relay_api.RelayTransactionRequest> _buildRelayTransactionRequest(
+    EtherSwap etherSwap,
+    EthPrivateKey signer,
+    ClaimArgs args,
   ) async {
-    final response = await http.post(
-      Uri.parse('${config.rootstockConfig.boltz.rifRelayUrl}/relay'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'metadata': metadata.toJson(),
-        'relayRequest': relay.toJson(),
-      }),
+    // Encode EtherSwap.claim(preimage, amount, refundAddress, timelock) calldata
+    // — 4-param overload (selector 0xc3c37fbc), msg.sender = smart wallet = claimAddress.
+    final claimFunction = etherSwap.self.abi.functions.firstWhere(
+      (f) => f.name == 'claim' && f.parameters.length == 4,
     );
-
-    if (response.statusCode == 200) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      if (body.containsKey('error') && body['error'] != null) {
-        throw StateError('Relay transaction error: ${body['error']}');
-      }
-
-      final txHash = _extractRelayTxHash(body);
-      if (txHash == null) {
-        throw StateError(
-          'Relay response missing tx hash. Response: ${jsonEncode(body)}',
-        );
-      }
-
-      return RelayResponse(txHash: txHash);
-    }
-    throw Exception('Failed to relay transaction: ${response.body}');
-  }
-
-  Future<String> relayClaimTransaction({
-    required EthPrivateKey signer,
-    required EtherSwap etherSwap,
-    required Uint8List preimage,
-    required BigInt amountWei,
-    required EthereumAddress refundAddress,
-    required BigInt timeoutBlockHeight,
-  }) async {
-    final callData = _encodeClaimCalldata(
-      etherSwap: etherSwap,
-      preimage: preimage,
-      amountWei: amountWei,
-      refundAddress: refundAddress,
-      timeoutBlockHeight: timeoutBlockHeight,
+    final claimCalldata = bytesToHex(
+      claimFunction.encodeCall([
+        args.preimage,
+        args.amount,
+        args.refundAddress,
+        args.timelock,
+      ]),
+      include0x: true,
     );
+    logger.d('Claim calldata: $claimCalldata');
 
-    final chainInfo = await getChainInfo();
+    final info = await _getCachedChainInfo();
     final smartWalletInfo = await getSmartWalletAddress(signer);
+    final isDeploy = smartWalletInfo.nonce == BigInt.zero;
+
+    // Effective gas price (floor to relay minGasPrice).
+    // PingResponse.minGasPrice is typed String? but the server may return an
+    // int, so we toString() it before parsing.
     final gasPrice = await client.getGasPrice();
+    final minGasPrice =
+        BigInt.tryParse(info.minGasPrice?.toString() ?? '') ?? BigInt.zero;
+    final effectiveGasPrice = gasPrice.getInWei > minGasPrice
+        ? gasPrice.getInWei
+        : minGasPrice;
 
-    final signerAddress = signer.address;
-    final etherSwapAddress = etherSwap.self.address;
-
-    final smartWalletExists = await _isContractDeployed(
-      smartWalletInfo.address,
-    );
-    logger.i('RIF smart wallet exists: $smartWalletExists');
-
-    final envelopingRequest = EnvelopingRequest()
-      ..request = {
-        'value': '0',
-        'data': callData,
-        'tokenAmount': '0',
-        'tokenGas': '20000',
-        'from': signerAddress.eip55With0x,
-        'to': etherSwapAddress.eip55With0x,
-        'tokenContract': _zeroAddress,
-        'relayHub': chainInfo.relayHubAddress,
-        'validUntilTime': _validUntilTime(),
-      }
-      ..relayData = {
-        'feesReceiver': chainInfo.feesReceiver,
-        'gasPrice': _calculateGasPrice(
-          gasPrice,
-          chainInfo.minGasPrice,
-        ).toString(),
-      };
-
-    if (!smartWalletExists) {
-      if (config.rootstockConfig.boltz.rifRelayDeployVerifier.isEmpty) {
-        throw StateError('Missing rifRelayDeployVerifier in Config.');
-      }
-      if (config.rootstockConfig.boltz.rifSmartWalletFactoryAddress.isEmpty) {
-        throw StateError(
-          'Missing rifSmartWalletFactoryAddress in Config for relay deploy.',
-        );
-      }
-      envelopingRequest.relayData['callVerifier'] =
-          config.rootstockConfig.boltz.rifRelayDeployVerifier;
-      envelopingRequest.request['recoverer'] = _zeroAddress;
-      envelopingRequest.request['index'] = smartWalletInfo.nonce.toInt();
-      envelopingRequest.request['nonce'] =
-          (await _getSmartWalletFactory().nonce((
-            from: signerAddress,
-          ))).toString();
-      envelopingRequest.relayData['callForwarder'] =
-          config.rootstockConfig.boltz.rifSmartWalletFactoryAddress;
-    } else {
-      envelopingRequest.relayData['callVerifier'] =
-          config.rootstockConfig.boltz.rifRelayCallVerifier;
-      envelopingRequest.request['gas'] = _defaultGasNeededToClaim;
-      envelopingRequest.request['nonce'] = (await getForwarder(
-        smartWalletInfo.address,
-      ).nonce()).toString();
-      envelopingRequest.relayData['callForwarder'] =
-          smartWalletInfo.address.eip55With0x;
-    }
-
-    final relayWorkerAddress = EthereumAddress.fromHex(
-      chainInfo.relayWorkerAddress,
+    // Relay worker nonce for metadata.relayMaxNonce.
+    final workerAddress = info.relayWorkerAddress.toString();
+    final workerNonce = await client.getTransactionCount(
+      EthereumAddress.fromHex(workerAddress),
     );
 
-    final metadata = RifMetadata(
+    // validUntilTime (48h from now).
+    final validUntilTime =
+        DateTime.now().millisecondsSinceEpoch ~/ 1000 + _validUntilSeconds;
+
+    final relayHubAddr = info.relayHubAddress.toString();
+
+    // --- Build typed parts using swagger types ---
+    final metadata = relay_api.RelayMetadata(
+      relayHubAddress: relayHubAddr,
+      relayMaxNonce: (workerNonce + _maxRelayNonceGap).toDouble(),
       signature: 'SERVER_SIGNATURE_REQUIRED',
-      relayHubAddress: chainInfo.relayHubAddress,
-      relayMaxNonce:
-          (await client.getTransactionCount(relayWorkerAddress)) +
-          _maxRelayNonceGap,
     );
 
-    // final estimateRes = await estimate(envelopingRequest, metadata);
-    // logger.d('RIF gas estimation response: $estimateRes');
-    // envelopingRequest.request['tokenGas'] =
-    //     int.tryParse(estimateRes.estimation) ?? 0;
-    // envelopingRequest.request['tokenAmount'] = estimateRes.requiredTokenAmount;
-    // Skip estimate and use dummy values
-    envelopingRequest.request['tokenGas'] = '20000';
-    envelopingRequest.request['tokenAmount'] = '0';
-    metadata.signature = await signRelayRequest(signer, envelopingRequest);
-
-    final relayRes = await relay(envelopingRequest, metadata);
-    return relayRes.txHash;
-  }
-
-  Future<BitcoinAmount> estimateSwapInClaimRelayFees({
-    required EthPrivateKey signer,
-    required EtherSwap etherSwap,
-    required Uint8List preimage,
-    required BigInt amountWei,
-    required EthereumAddress refundAddress,
-    required BigInt timeoutBlockHeight,
-  }) async {
-    final callData = _encodeClaimCalldata(
-      etherSwap: etherSwap,
-      preimage: preimage,
-      amountWei: amountWei,
-      refundAddress: refundAddress,
-      timeoutBlockHeight: timeoutBlockHeight,
+    // feesReceiver = relay worker address (PingResponse lacks the field, but
+    // the server's /chain-info returns feesReceiver == relayWorkerAddress).
+    final relayData = relay_api.RelayData(
+      gasPrice: effectiveGasPrice.toString(),
+      feesReceiver: workerAddress,
+      callForwarder: isDeploy
+          ? config.rootstockConfig.boltz.rifSmartWalletFactoryAddress
+          : smartWalletInfo.address.eip55With0x,
+      callVerifier: isDeploy
+          ? config.rootstockConfig.boltz.rifRelayDeployVerifier
+          : config.rootstockConfig.boltz.rifRelayCallVerifier,
     );
 
-    final chainInfo = await getChainInfo();
-    final smartWalletInfo = await getSmartWalletAddress(signer);
-    final gasPrice = await client.getGasPrice();
-
-    // During pre-swap funding estimation we don't have a real lock yet.
-    // Simulating claim gas against EtherSwap will revert ("swap has no Ether locked").
-    // In that case, skip simulation and return a conservative estimate directly.
-    if (timeoutBlockHeight == BigInt.zero) {
-      final fallback = _fallbackClaimRelayFee(
-        gasPrice: gasPrice,
-        minGasPrice: chainInfo.minGasPrice,
+    final relay_api.ForwardRequest request;
+    if (isDeploy) {
+      request = DeployForwardRequest(
+        validUntilTime: validUntilTime,
+        index: smartWalletInfo.nonce.toInt(),
+        recoverer: _zeroAddress,
+        relayHub: relayHubAddr,
+        from: signer.address.eip55With0x,
+        to: etherSwap.self.address.eip55With0x,
+        tokenContract: _zeroAddress,
+        value: '0',
+        nonce: smartWalletInfo.nonce.toString(),
+        tokenAmount: '0',
+        tokenGas: '20000',
+        data: claimCalldata,
       );
-      logger.d(
-        'Skipping RIF relay simulation for pre-swap estimate, fallback fee: ${fallback.getInSats} sats',
-      );
-      return fallback;
-    }
-
-    final signerAddress = signer.address;
-    final etherSwapAddress = etherSwap.self.address;
-
-    final smartWalletExists = await _isContractDeployed(
-      smartWalletInfo.address,
-    );
-
-    final envelopingRequest = EnvelopingRequest()
-      ..request = {
-        'value': '0',
-        'data': callData,
-        'tokenAmount': '0',
-        'tokenGas': '20000',
-        'from': signerAddress.eip55With0x,
-        'to': etherSwapAddress.eip55With0x,
-        'tokenContract': _zeroAddress,
-        'relayHub': chainInfo.relayHubAddress,
-        'validUntilTime': _validUntilTime(),
-      }
-      ..relayData = {
-        'feesReceiver': chainInfo.feesReceiver,
-        'gasPrice': _calculateGasPrice(
-          gasPrice,
-          chainInfo.minGasPrice,
-        ).toString(),
-      };
-
-    if (!smartWalletExists) {
-      if (config.rootstockConfig.boltz.rifRelayDeployVerifier.isEmpty) {
-        throw StateError('Missing rifRelayDeployVerifier in Config.');
-      }
-      if (config.rootstockConfig.boltz.rifSmartWalletFactoryAddress.isEmpty) {
-        throw StateError(
-          'Missing rifSmartWalletFactoryAddress in Config for relay deploy.',
-        );
-      }
-      envelopingRequest.relayData['callVerifier'] =
-          config.rootstockConfig.boltz.rifRelayDeployVerifier;
-      envelopingRequest.request['recoverer'] = _zeroAddress;
-      envelopingRequest.request['index'] = smartWalletInfo.nonce.toInt();
-      envelopingRequest.request['nonce'] =
-          (await _getSmartWalletFactory().nonce((
-            from: signerAddress,
-          ))).toString();
-      envelopingRequest.relayData['callForwarder'] =
-          config.rootstockConfig.boltz.rifSmartWalletFactoryAddress;
     } else {
-      envelopingRequest.relayData['callVerifier'] =
-          config.rootstockConfig.boltz.rifRelayCallVerifier;
-      envelopingRequest.request['gas'] = _defaultGasNeededToClaim;
-      envelopingRequest.request['nonce'] = (await getForwarder(
-        smartWalletInfo.address,
-      ).nonce()).toString();
-      envelopingRequest.relayData['callForwarder'] =
-          smartWalletInfo.address.eip55With0x;
-    }
-
-    final relayWorkerAddress = EthereumAddress.fromHex(
-      chainInfo.relayWorkerAddress,
-    );
-    final metadata = RifMetadata(
-      relayHubAddress: chainInfo.relayHubAddress,
-      relayMaxNonce:
-          (await client.getTransactionCount(relayWorkerAddress)) +
-          _maxRelayNonceGap,
-    );
-
-    // Use a real signature for estimate requests to satisfy stricter relay validators.
-    metadata.signature = await signRelayRequest(signer, envelopingRequest);
-
-    try {
-      final estimateRes = await estimate(envelopingRequest, metadata);
-      final requiredNativeWei = BigInt.tryParse(
-        estimateRes.requiredNativeAmount,
-      );
-      if (requiredNativeWei == null) {
-        throw StateError(
-          'Invalid requiredNativeAmount from relay estimate: ${estimateRes.requiredNativeAmount}',
-        );
-      }
-      return BitcoinAmount.inWei(requiredNativeWei);
-    } catch (e) {
-      // Estimate can fail with nonce-mismatch / unpredictable-gas even when relay tx can be sent.
-      // Fall back to a conservative native-fee estimate.
-      logger.w('RIF relay estimate failed, using fallback fee estimate: $e');
-      return _fallbackClaimRelayFee(
-        gasPrice: gasPrice,
-        minGasPrice: chainInfo.minGasPrice,
+      request = RelayForwardRequest(
+        validUntilTime: validUntilTime,
+        relayHub: relayHubAddr,
+        from: signer.address.eip55With0x,
+        to: etherSwap.self.address.eip55With0x,
+        tokenContract: _zeroAddress,
+        value: '0',
+        gas: _defaultGasNeededToClaim.toString(),
+        nonce: smartWalletInfo.nonce.toString(),
+        tokenAmount: '0',
+        tokenGas: '20000',
+        data: claimCalldata,
       );
     }
+
+    return relay_api.RelayTransactionRequest(
+      metadata: metadata,
+      relayRequest: relay_api.RelayRequest(
+        request: request,
+        relayData: relayData,
+      ),
+    );
   }
 
-  Future<String> relayEscrowClaimTransaction({
+  /// Relays an EtherSwap.claim via the RIF Relay server.
+  ///
+  /// Same parameters as [estimateClaim]. Internally:
+  /// 1. Builds the same relay request as estimate (via [_buildRelayTransactionRequest]).
+  /// 2. Signs it with EIP-712 (`signTypedData_v4`).
+  /// 3. POSTs to `/relay`.
+  Future<relay_api.RelayPost$Response> relayClaim(
+    EtherSwap etherSwap,
+    EthPrivateKey signer,
+    ClaimArgs args,
+  ) async {
+    logger.d('RIF relay /relayClaim');
+
+    final relayTransactionRequest = await _buildRelayTransactionRequest(
+      etherSwap,
+      signer,
+      args,
+    );
+
+    // -- EIP-712 signature --
+    final relayRequest = relayTransactionRequest.relayRequest!;
+    final request = relayRequest.request!;
+    final relayData = relayRequest.relayData!;
+    final isDeploy = request is DeployForwardRequest;
+
+    final verifyingContract = relayData.callForwarder! as String;
+
+    final signature = _signRelayRequest(
+      signer: signer,
+      request: request,
+      relayData: relayData,
+      chainId: config.rootstockConfig.chainId,
+      verifyingContract: verifyingContract,
+      isDeploy: isDeploy,
+    );
+
+    // Replace the placeholder metadata signature with the real one.
+    final signed = relay_api.RelayTransactionRequest(
+      metadata: relay_api.RelayMetadata(
+        relayHubAddress: relayTransactionRequest.metadata!.relayHubAddress,
+        relayMaxNonce: relayTransactionRequest.metadata!.relayMaxNonce,
+        signature: signature,
+      ),
+      relayRequest: relayRequest,
+    );
+
+    final requestJson = signed.toJson();
+    logger.d('Relay request JSON: $requestJson');
+
+    final response = await _api.relayPost(body: requestJson);
+    logger.d(
+      'RIF relay /relay response (${response.statusCode}): '
+      '${response.bodyString}',
+    );
+    return response.bodyOrThrow;
+  }
+
+  // -------------------------------------------------------------------------
+  // EIP-712 signing
+  // -------------------------------------------------------------------------
+
+  /// Signs a relay/deploy request using EIP-712 typed data v4.
+  ///
+  /// Mirrors the TS `getLocalEip712Signature` / `getLocalEip712DeploySignature`
+  /// from `rif-relay-contracts/test/utils/EIP712Utils.ts`.
+  String _signRelayRequest({
     required EthPrivateKey signer,
-    required EthereumAddress escrowContractAddress,
-    required String tradeId,
-  }) async {
-    final callData = _encodeEscrowClaimCalldata(
-      escrowContractAddress: escrowContractAddress,
-      tradeId: tradeId,
-    );
-
-    final chainInfo = await getChainInfo();
-    final smartWalletInfo = await getSmartWalletAddress(signer);
-    final gasPrice = await client.getGasPrice();
-    final signerAddress = signer.address;
-
-    final smartWalletExists = await _isContractDeployed(
-      smartWalletInfo.address,
-    );
-
-    final envelopingRequest = EnvelopingRequest()
-      ..request = {
-        'value': '0',
-        'data': callData,
-        'tokenAmount': '0',
-        'tokenGas': '20000',
-        'from': signerAddress.eip55With0x,
-        'to': escrowContractAddress.eip55With0x,
-        'tokenContract': _zeroAddress,
-        'relayHub': chainInfo.relayHubAddress,
-        'validUntilTime': _validUntilTime(),
-      }
-      ..relayData = {
-        'feesReceiver': chainInfo.feesReceiver,
-        'gasPrice': _calculateGasPrice(
-          gasPrice,
-          chainInfo.minGasPrice,
-        ).toString(),
-      };
-
-    if (!smartWalletExists) {
-      if (config.rootstockConfig.boltz.rifRelayDeployVerifier.isEmpty) {
-        throw StateError('Missing rifRelayDeployVerifier in Config.');
-      }
-      if (config.rootstockConfig.boltz.rifSmartWalletFactoryAddress.isEmpty) {
-        throw StateError(
-          'Missing rifSmartWalletFactoryAddress in Config for relay deploy.',
-        );
-      }
-      envelopingRequest.relayData['callVerifier'] =
-          config.rootstockConfig.boltz.rifRelayDeployVerifier;
-      envelopingRequest.request['recoverer'] = _zeroAddress;
-      envelopingRequest.request['index'] = smartWalletInfo.nonce.toInt();
-      envelopingRequest.request['nonce'] =
-          (await _getSmartWalletFactory().nonce((
-            from: signerAddress,
-          ))).toString();
-      envelopingRequest.relayData['callForwarder'] =
-          config.rootstockConfig.boltz.rifSmartWalletFactoryAddress;
-    } else {
-      envelopingRequest.relayData['callVerifier'] =
-          config.rootstockConfig.boltz.rifRelayCallVerifier;
-      envelopingRequest.request['gas'] = _defaultGasNeededToEscrowClaim;
-      envelopingRequest.request['nonce'] = (await getForwarder(
-        smartWalletInfo.address,
-      ).nonce()).toString();
-      envelopingRequest.relayData['callForwarder'] =
-          smartWalletInfo.address.eip55With0x;
-    }
-
-    final relayWorkerAddress = EthereumAddress.fromHex(
-      chainInfo.relayWorkerAddress,
-    );
-    final metadata = RifMetadata(
-      signature: 'SERVER_SIGNATURE_REQUIRED',
-      relayHubAddress: chainInfo.relayHubAddress,
-      relayMaxNonce:
-          (await client.getTransactionCount(relayWorkerAddress)) +
-          _maxRelayNonceGap,
-    );
-
-    envelopingRequest.request['tokenGas'] = '20000';
-    envelopingRequest.request['tokenAmount'] = '0';
-    metadata.signature = await signRelayRequest(signer, envelopingRequest);
-
-    final relayRes = await relay(envelopingRequest, metadata);
-    return relayRes.txHash;
-  }
-
-  Future<BitcoinAmount> estimateEscrowClaimRelayFees({
-    required EthPrivateKey signer,
-    required EthereumAddress escrowContractAddress,
-    required String tradeId,
-  }) async {
-    final callData = _encodeEscrowClaimCalldata(
-      escrowContractAddress: escrowContractAddress,
-      tradeId: tradeId,
-    );
-
-    final chainInfo = await getChainInfo();
-    final smartWalletInfo = await getSmartWalletAddress(signer);
-    final gasPrice = await client.getGasPrice();
-    final signerAddress = signer.address;
-
-    final smartWalletExists = await _isContractDeployed(
-      smartWalletInfo.address,
-    );
-
-    final envelopingRequest = EnvelopingRequest()
-      ..request = {
-        'value': '0',
-        'data': callData,
-        'tokenAmount': '0',
-        'tokenGas': '20000',
-        'from': signerAddress.eip55With0x,
-        'to': escrowContractAddress.eip55With0x,
-        'tokenContract': _zeroAddress,
-        'relayHub': chainInfo.relayHubAddress,
-        'validUntilTime': _validUntilTime(),
-      }
-      ..relayData = {
-        'feesReceiver': chainInfo.feesReceiver,
-        'gasPrice': _calculateGasPrice(
-          gasPrice,
-          chainInfo.minGasPrice,
-        ).toString(),
-      };
-
-    if (!smartWalletExists) {
-      if (config.rootstockConfig.boltz.rifRelayDeployVerifier.isEmpty) {
-        throw StateError('Missing rifRelayDeployVerifier in Config.');
-      }
-      if (config.rootstockConfig.boltz.rifSmartWalletFactoryAddress.isEmpty) {
-        throw StateError(
-          'Missing rifSmartWalletFactoryAddress in Config for relay deploy.',
-        );
-      }
-      envelopingRequest.relayData['callVerifier'] =
-          config.rootstockConfig.boltz.rifRelayDeployVerifier;
-      envelopingRequest.request['recoverer'] = _zeroAddress;
-      envelopingRequest.request['index'] = smartWalletInfo.nonce.toInt();
-      envelopingRequest.request['nonce'] =
-          (await _getSmartWalletFactory().nonce((
-            from: signerAddress,
-          ))).toString();
-      envelopingRequest.relayData['callForwarder'] =
-          config.rootstockConfig.boltz.rifSmartWalletFactoryAddress;
-    } else {
-      envelopingRequest.relayData['callVerifier'] =
-          config.rootstockConfig.boltz.rifRelayCallVerifier;
-      envelopingRequest.request['gas'] = _defaultGasNeededToEscrowClaim;
-      envelopingRequest.request['nonce'] = (await getForwarder(
-        smartWalletInfo.address,
-      ).nonce()).toString();
-      envelopingRequest.relayData['callForwarder'] =
-          smartWalletInfo.address.eip55With0x;
-    }
-
-    final relayWorkerAddress = EthereumAddress.fromHex(
-      chainInfo.relayWorkerAddress,
-    );
-    final metadata = RifMetadata(
-      relayHubAddress: chainInfo.relayHubAddress,
-      relayMaxNonce:
-          (await client.getTransactionCount(relayWorkerAddress)) +
-          _maxRelayNonceGap,
-    );
-
-    metadata.signature = await signRelayRequest(signer, envelopingRequest);
-
-    try {
-      final estimateRes = await estimate(envelopingRequest, metadata);
-      final requiredNativeWei = BigInt.tryParse(
-        estimateRes.requiredNativeAmount,
-      );
-      if (requiredNativeWei == null) {
-        throw StateError(
-          'Invalid requiredNativeAmount from relay estimate: ${estimateRes.requiredNativeAmount}',
-        );
-      }
-      return BitcoinAmount.inWei(requiredNativeWei);
-    } catch (e) {
-      logger.w(
-        'Escrow claim relay estimate failed, using fallback fee estimate: $e',
-      );
-      return _fallbackEscrowClaimRelayFee(
-        gasPrice: gasPrice,
-        minGasPrice: chainInfo.minGasPrice,
-      );
-    }
-  }
-
-  BitcoinAmount _fallbackClaimRelayFee({
-    required EtherAmount gasPrice,
-    required String minGasPrice,
+    required relay_api.ForwardRequest request,
+    required relay_api.RelayData relayData,
+    required int chainId,
+    required String verifyingContract,
+    required bool isDeploy,
   }) {
-    final effectiveGasPrice = _calculateGasPrice(gasPrice, minGasPrice);
-    final fallbackWei =
-        (BigInt.from(_defaultGasNeededToClaim) *
-            effectiveGasPrice *
-            BigInt.from(12)) ~/
-        BigInt.from(10);
-    return BitcoinAmount.inWei(fallbackWei);
+    // EIP-712 type definitions – must match the Solidity structs exactly.
+    final relayDataType = [
+      const eip712.MessageTypeProperty(name: 'gasPrice', type: 'uint256'),
+      const eip712.MessageTypeProperty(name: 'feesReceiver', type: 'address'),
+      const eip712.MessageTypeProperty(name: 'callForwarder', type: 'address'),
+      const eip712.MessageTypeProperty(name: 'callVerifier', type: 'address'),
+    ];
+
+    final List<eip712.MessageTypeProperty> requestFieldTypes;
+    if (isDeploy) {
+      requestFieldTypes = [
+        const eip712.MessageTypeProperty(name: 'relayHub', type: 'address'),
+        const eip712.MessageTypeProperty(name: 'from', type: 'address'),
+        const eip712.MessageTypeProperty(name: 'to', type: 'address'),
+        const eip712.MessageTypeProperty(
+          name: 'tokenContract',
+          type: 'address',
+        ),
+        const eip712.MessageTypeProperty(name: 'recoverer', type: 'address'),
+        const eip712.MessageTypeProperty(name: 'value', type: 'uint256'),
+        const eip712.MessageTypeProperty(name: 'nonce', type: 'uint256'),
+        const eip712.MessageTypeProperty(name: 'tokenAmount', type: 'uint256'),
+        const eip712.MessageTypeProperty(name: 'tokenGas', type: 'uint256'),
+        const eip712.MessageTypeProperty(
+          name: 'validUntilTime',
+          type: 'uint256',
+        ),
+        const eip712.MessageTypeProperty(name: 'index', type: 'uint256'),
+        const eip712.MessageTypeProperty(name: 'data', type: 'bytes'),
+        const eip712.MessageTypeProperty(name: 'relayData', type: 'RelayData'),
+      ];
+    } else {
+      requestFieldTypes = [
+        const eip712.MessageTypeProperty(name: 'relayHub', type: 'address'),
+        const eip712.MessageTypeProperty(name: 'from', type: 'address'),
+        const eip712.MessageTypeProperty(name: 'to', type: 'address'),
+        const eip712.MessageTypeProperty(
+          name: 'tokenContract',
+          type: 'address',
+        ),
+        const eip712.MessageTypeProperty(name: 'value', type: 'uint256'),
+        const eip712.MessageTypeProperty(name: 'gas', type: 'uint256'),
+        const eip712.MessageTypeProperty(name: 'nonce', type: 'uint256'),
+        const eip712.MessageTypeProperty(name: 'tokenAmount', type: 'uint256'),
+        const eip712.MessageTypeProperty(name: 'tokenGas', type: 'uint256'),
+        const eip712.MessageTypeProperty(
+          name: 'validUntilTime',
+          type: 'uint256',
+        ),
+        const eip712.MessageTypeProperty(name: 'data', type: 'bytes'),
+        const eip712.MessageTypeProperty(name: 'relayData', type: 'RelayData'),
+      ];
+    }
+
+    // Flatten request fields + nested relayData into the EIP-712 message,
+    // matching the TS: `{ ...relayRequest.request, relayData: relayRequest.relayData }`
+    final requestJson = request.toJson();
+    final relayDataJson = relayData.toJson();
+    final message = <String, dynamic>{
+      ...requestJson,
+      'relayData': relayDataJson,
+    };
+
+    final typedData = eip712.TypedMessage(
+      types: {
+        eip712.EIP712Domain.type: [
+          const eip712.MessageTypeProperty(name: 'name', type: 'string'),
+          const eip712.MessageTypeProperty(name: 'version', type: 'string'),
+          const eip712.MessageTypeProperty(name: 'chainId', type: 'uint256'),
+          const eip712.MessageTypeProperty(
+            name: 'verifyingContract',
+            type: 'address',
+          ),
+        ],
+        'RelayRequest': requestFieldTypes,
+        'RelayData': relayDataType,
+      },
+      primaryType: 'RelayRequest',
+      domain: eip712.EIP712Domain(
+        name: 'RSK Enveloping Transaction',
+        version: '2',
+        chainId: BigInt.from(chainId),
+        verifyingContract: EthereumAddress.fromHex(verifyingContract),
+        salt: null,
+      ),
+      message: message,
+    );
+
+    // Hash according to EIP-712.
+    final hash = eip712.hashTypedData(
+      typedData: typedData,
+      version: eip712.TypedDataVersion.v4,
+    );
+
+    // Sign the hash directly (web3dart's `sign` takes a pre-hashed message).
+    final sig = sign(hash, signer.privateKey);
+
+    // Pack into 65-byte hex: r (32) + s (32) + v (1)
+    final r = padUint8ListTo32(unsignedIntToBytes(sig.r));
+    final s = padUint8ListTo32(unsignedIntToBytes(sig.s));
+    final v = Uint8List.fromList([sig.v]);
+
+    final packed = Uint8List(65);
+    packed.setRange(0, 32, r);
+    packed.setRange(32, 64, s);
+    packed.setRange(64, 65, v);
+
+    return bytesToHex(packed, include0x: true);
   }
 
-  BitcoinAmount _fallbackEscrowClaimRelayFee({
-    required EtherAmount gasPrice,
-    required String minGasPrice,
-  }) {
-    final effectiveGasPrice = _calculateGasPrice(gasPrice, minGasPrice);
-    final fallbackWei =
-        (BigInt.from(_defaultGasNeededToEscrowClaim) *
-            effectiveGasPrice *
-            BigInt.from(12)) ~/
-        BigInt.from(10);
-    return BitcoinAmount.inWei(fallbackWei);
-  }
+  // -------------------------------------------------------------------------
+  // Smart wallet helpers
+  // -------------------------------------------------------------------------
 
+  /// Returns the smart wallet address for [signer].
+  ///
+  /// Matches Boltz web-app behavior:
+  /// - if factory nonce == 0, deploy/resolve index 0
+  /// - if factory nonce > 0, always reuse index 0 for relays
+  ///
+  /// The returned [SmartWalletAddressInfo.nonce] is still the current factory
+  /// nonce and is used for deploy anti-replay fields.
   Future<SmartWalletAddressInfo> getSmartWalletAddress(
     EthPrivateKey signer,
   ) async {
     final factory = _getSmartWalletFactory();
-    final nonce = await factory.nonce((from: signer.address));
+    final factoryNonce = await factory.nonce((from: signer.address));
+    final walletIndex = factoryNonce > BigInt.zero ? BigInt.zero : factoryNonce;
+
+    // Reuse first wallet once it has been deployed.
     final smartWalletAddress = await factory.getSmartWalletAddress((
       owner: signer.address,
       recoverer: EthereumAddress.fromHex(_zeroAddress),
-      index: nonce,
+      index: walletIndex,
     ));
-    logger.d('RIF smart wallet address $smartWalletAddress with nonce $nonce');
-    return SmartWalletAddressInfo(nonce: nonce, address: smartWalletAddress);
+    logger.d(
+      'RIF smart wallet address $smartWalletAddress '
+      '(factory nonce $factoryNonce, wallet index $walletIndex)',
+    );
+    return SmartWalletAddressInfo(
+      nonce: factoryNonce,
+      address: smartWalletAddress,
+    );
   }
 
   SmartWalletFactory _getSmartWalletFactory() {
@@ -674,258 +566,35 @@ class RifRelay {
     return IForwarder(address: forwarderAddress, client: client);
   }
 
-  Future<String> signRelayRequest(
-    EthPrivateKey signer,
-    EnvelopingRequest relay,
-  ) async {
-    final callForwarder = EthereumAddress.fromHex(
-      relay.relayData['callForwarder'],
+  /// Lock-independent estimate using gas constants × current gas price.
+  ///
+  /// Returns the estimated relay fee in wei. This does NOT call the relay
+  /// server's `/estimate` endpoint (which requires the swap to exist on-chain)
+  /// — instead it uses a conservative gas constant derived from observed
+  /// deploy/relay claim transactions.
+  ///
+  /// Only [signer] is needed to determine the deploy-vs-relay path.
+  Future<BigInt> estimateClaimBeforeLock(EthPrivateKey evmKey) async {
+    final info = await _getCachedChainInfo();
+    final smartWalletInfo = await getSmartWalletAddress(evmKey);
+    final isDeploy = smartWalletInfo.nonce == BigInt.zero;
+
+    final gasPrice = await client.getGasPrice();
+    final minGasPrice =
+        BigInt.tryParse(info.minGasPrice?.toString() ?? '') ?? BigInt.zero;
+    final effectiveGasPrice = gasPrice.getInWei > minGasPrice
+        ? gasPrice.getInWei
+        : minGasPrice;
+
+    final gasEstimate = BigInt.from(
+      isDeploy ? _estimatedDeployClaimGas : _estimatedRelayClaimGas,
     );
-    final isDeploy = _isDeployRequest(relay.request);
-    final domainSeparator = await _getDomainSeparator(
-      callForwarder,
-      isDeploy: isDeploy,
+
+    final fee = effectiveGasPrice * gasEstimate;
+    logger.d(
+      'estimateClaimBeforeLock: isDeploy=$isDeploy, '
+      'gasPrice=$effectiveGasPrice, gas=$gasEstimate, fee=$fee wei',
     );
-    final relayRequestHash = _hashRelayRequest(relay);
-    final preimage = Uint8List.fromList(
-      [0x19, 0x01] + domainSeparator + relayRequestHash,
-    );
-
-    final sig = signer.signToEcSignature(preimage);
-    var v = sig.v;
-    if (v < 27) {
-      v += 27;
-    }
-    final r = padUint8ListTo32(unsignedIntToBytes(sig.r));
-    final s = padUint8ListTo32(unsignedIntToBytes(sig.s));
-    final vBytes = unsignedIntToBytes(BigInt.from(v));
-    final signature = uint8ListFromList(r + s + vBytes);
-    return bytesToHex(signature, include0x: true);
-  }
-
-  String _encodeClaimCalldata({
-    required EtherSwap etherSwap,
-    required Uint8List preimage,
-    required BigInt amountWei,
-    required EthereumAddress refundAddress,
-    required BigInt timeoutBlockHeight,
-  }) {
-    final claimFunction = etherSwap.self.abi.functions.firstWhere(
-      (f) => f.name == 'claim' && f.parameters.length == 4,
-    );
-    final data = claimFunction.encodeCall([
-      preimage,
-      amountWei,
-      refundAddress,
-      timeoutBlockHeight,
-    ]);
-    return bytesToHex(data, include0x: true);
-  }
-
-  String _encodeEscrowClaimCalldata({
-    required EthereumAddress escrowContractAddress,
-    required String tradeId,
-  }) {
-    final escrowContract = MultiEscrow(
-      address: escrowContractAddress,
-      client: client,
-    );
-    final claimFunction = escrowContract.self.abi.functions.firstWhere(
-      (f) => f.name == 'claim' && f.parameters.length == 1,
-    );
-    final data = claimFunction.encodeCall([getBytes32(tradeId)]);
-    return bytesToHex(data, include0x: true);
-  }
-
-  Future<bool> _isContractDeployed(EthereumAddress address) async {
-    final code = await client.getCode(address);
-    return code.isNotEmpty;
-  }
-
-  BigInt _calculateGasPrice(EtherAmount gasPrice, String minGasPrice) {
-    final minPrice = BigInt.tryParse(minGasPrice) ?? BigInt.zero;
-    final current = gasPrice.getInWei;
-    return current > minPrice ? current : minPrice;
-  }
-
-  int _validUntilTime() {
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    return now + _validUntilSeconds;
-  }
-
-  Uint8List _hashRelayRequest(EnvelopingRequest relay) {
-    final request = relay.request;
-    if (_isDeployRequest(request)) {
-      return _hashDeployRelayRequest(relay);
-    }
-    return _hashForwardRelayRequest(relay);
-  }
-
-  Uint8List _hashForwardRelayRequest(EnvelopingRequest relay) {
-    final request = relay.request;
-    final relayData = relay.relayData;
-
-    final relayRequestType =
-        'RelayRequest(address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,bytes data,RelayData relayData)'
-        'RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)';
-
-    final relayRequestTypeHash = keccakUtf8(relayRequestType);
-    final relayDataHash = _hashRelayData(relayData);
-
-    return keccak256(
-      _concat([
-        relayRequestTypeHash,
-        _concat([
-          _encodeAddress(request['relayHub']),
-          _encodeAddress(request['from']),
-          _encodeAddress(request['to']),
-          _encodeAddress(request['tokenContract']),
-          _encodeUint(request['value']),
-          _encodeUint(request['gas']),
-          _encodeUint(request['nonce']),
-          _encodeUint(request['tokenAmount']),
-          _encodeUint(request['tokenGas']),
-          _encodeUint(request['validUntilTime']),
-          _encodeBytes32(keccak256(hexToBytes(_with0x(request['data'])))),
-        ]),
-        _encodeBytes32(relayDataHash),
-      ]),
-    );
-  }
-
-  Uint8List _hashDeployRelayRequest(EnvelopingRequest relay) {
-    final request = relay.request;
-    final relayData = relay.relayData;
-
-    final relayRequestType =
-        'RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,uint256 index,bytes data,RelayData relayData)'
-        'RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)';
-
-    final relayRequestTypeHash = keccakUtf8(relayRequestType);
-    final relayDataHash = _hashRelayData(relayData);
-
-    return keccak256(
-      _concat([
-        relayRequestTypeHash,
-        _concat([
-          _encodeAddress(request['relayHub']),
-          _encodeAddress(request['from']),
-          _encodeAddress(request['to']),
-          _encodeAddress(request['tokenContract']),
-          _encodeAddress(request['recoverer']),
-          _encodeUint(request['value']),
-          _encodeUint(request['nonce']),
-          _encodeUint(request['tokenAmount']),
-          _encodeUint(request['tokenGas']),
-          _encodeUint(request['validUntilTime']),
-          _encodeUint(request['index']),
-          _encodeBytes32(keccak256(hexToBytes(_with0x(request['data'])))),
-        ]),
-        _encodeBytes32(relayDataHash),
-      ]),
-    );
-  }
-
-  bool _isDeployRequest(Map<String, dynamic> request) {
-    return request.containsKey('recoverer') && !request.containsKey('gas');
-  }
-
-  Future<Uint8List> _getDomainSeparator(
-    EthereumAddress callForwarder, {
-    required bool isDeploy,
-  }) async {
-    if (isDeploy) {
-      final contract = SmartWalletFactory(
-        address: callForwarder,
-        client: client,
-      );
-      return contract.domainSeparator();
-    }
-    final contract = BaseSmartWallet(address: callForwarder, client: client);
-    return contract.domainSeparator();
-  }
-
-  Uint8List _hashRelayData(Map<String, dynamic> relayData) {
-    final relayDataType =
-        'RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)';
-    final relayDataTypeHash = keccakUtf8(relayDataType);
-    return keccak256(
-      _concat([
-        relayDataTypeHash,
-        _encodeUint(relayData['gasPrice']),
-        _encodeAddress(relayData['feesReceiver']),
-        _encodeAddress(relayData['callForwarder']),
-        _encodeAddress(relayData['callVerifier']),
-      ]),
-    );
-  }
-
-  Uint8List _encodeAddress(String addressHex) {
-    final address = EthereumAddress.fromHex(addressHex);
-    return padUint8ListTo32(address.value);
-  }
-
-  Uint8List _encodeUint(dynamic value) {
-    final parsed = value is BigInt
-        ? value
-        : (value is int ? BigInt.from(value) : BigInt.parse(value.toString()));
-    return padUint8ListTo32(unsignedIntToBytes(parsed));
-  }
-
-  Uint8List _encodeBytes32(Uint8List value) {
-    return padUint8ListTo32(value);
-  }
-
-  Uint8List _concat(List<Uint8List> parts) {
-    final buffer = BytesBuilder(copy: false);
-    for (final part in parts) {
-      buffer.add(part);
-    }
-    return buffer.toBytes();
-  }
-
-  String _with0x(String value) {
-    if (value.startsWith('0x')) {
-      return value;
-    }
-    return '0x$value';
-  }
-
-  String _stringFrom(Map<String, dynamic> body, String key) {
-    final value = body[key];
-    if (value == null) {
-      throw StateError('Relay estimate missing "$key": ${jsonEncode(body)}');
-    }
-    return value.toString();
-  }
-
-  String? _extractRelayTxHash(Map<String, dynamic> body) {
-    final directCandidates = [
-      body['txHash'],
-      body['transactionHash'],
-      body['hash'],
-    ];
-
-    final result = body['result'];
-    final nestedCandidates = <dynamic>[];
-    if (result is Map<String, dynamic>) {
-      nestedCandidates.addAll([
-        result['txHash'],
-        result['transactionHash'],
-        result['hash'],
-      ]);
-    } else {
-      nestedCandidates.add(result);
-    }
-
-    for (final candidate in [...directCandidates, ...nestedCandidates]) {
-      if (candidate == null) continue;
-      final value = candidate.toString().trim();
-      if (value.isNotEmpty && value.toLowerCase() != 'null') {
-        return value;
-      }
-    }
-
-    return null;
+    return fee;
   }
 }

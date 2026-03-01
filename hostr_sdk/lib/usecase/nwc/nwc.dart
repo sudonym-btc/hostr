@@ -77,6 +77,7 @@ class Nwc {
 
   /// Create a reactive connection from a URL and add it to the list
   Future<NwcConnection> connect(String url) async {
+    logger.d('Connecting to NWC URL: $url');
     return ndk.nwc.connect(url);
   }
 

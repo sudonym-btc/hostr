@@ -35,11 +35,12 @@ class EscrowClaimOperation extends Cubit<EscrowClaimState> {
 
   Future<EscrowClaimFees> estimateFees() async {
     final estimatedGasFees = await contract.estimateClaimFee(contractParams);
-    final estimatedRelayFees = await rifRelay.estimateEscrowClaimRelayFees(
-      signer: contractParams.ethKey,
-      escrowContractAddress: contract.address,
-      tradeId: contractParams.tradeId,
-    );
+    final estimatedRelayFees = BitcoinAmount.zero();
+    // await rifRelay.estimateEscrowClaimRelayFees(
+    //   signer: contractParams.ethKey,
+    //   escrowContractAddress: contract.address,
+    //   tradeId: contractParams.tradeId,
+    // );
     return EscrowClaimFees(
       estimatedGasFees: estimatedGasFees,
       estimatedRelayFees: estimatedRelayFees,
@@ -69,11 +70,12 @@ class EscrowClaimOperation extends Cubit<EscrowClaimState> {
         logger.i(
           'Escrow claim will be relayed due to low balance. Have: $balance, need: $estimatedGasFees',
         );
-        final txHash = await rifRelay.relayEscrowClaimTransaction(
-          signer: contractParams.ethKey,
-          escrowContractAddress: contract.address,
-          tradeId: contractParams.tradeId,
-        );
+        final txHash = 'err';
+        // await rifRelay.relayEscrowClaimTransaction(
+        //   signer: contractParams.ethKey,
+        //   escrowContractAddress: contract.address,
+        //   tradeId: contractParams.tradeId,
+        // );
         tx = await chain.awaitTransaction(txHash);
       } else {
         tx = await contract.claim(contractParams);

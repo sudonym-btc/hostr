@@ -43,7 +43,7 @@ void main() {
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
       );
 
-      final swapOut = hostr.evm.rootstock.swapOutAll();
+      final swapOut = hostr.evm.rootstock.swapOutAll().first;
 
       final emittedStates = <SwapOutState>[swapOut.state];
       final sub = swapOut.stream.listen(emittedStates.add);
@@ -75,7 +75,7 @@ void main() {
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
       );
 
-      final swapOut = hostr.evm.rootstock.swapOutAll();
+      final swapOut = hostr.evm.rootstock.swapOutAll().first;
 
       final emittedStates = <SwapOutState>[swapOut.state];
       final sub = swapOut.stream.listen(emittedStates.add);

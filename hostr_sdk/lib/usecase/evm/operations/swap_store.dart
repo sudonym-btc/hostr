@@ -103,6 +103,7 @@ class SwapStore {
         resolutionTxHash: resolutionTxHash,
         lastBoltzStatus: lastBoltzStatus,
         errorMessage: errorMessage,
+        lockupTxHash: lockTxHash,
         refundAddress: refundAddress,
       ),
       SwapOutRecord r => r.copyWithStatus(

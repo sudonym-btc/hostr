@@ -15,6 +15,7 @@ import 'package:hostr/config/env/base.config.dart' as _i467;
 import 'package:hostr/config/env/development.config.dart' as _i598;
 import 'package:hostr/config/env/mock.config.dart' as _i331;
 import 'package:hostr/config/env/production.config.dart' as _i1071;
+import 'package:hostr/config/env/staging.config.dart' as _i236;
 import 'package:hostr/config/env/test.config.dart' as _i292;
 import 'package:hostr/data/sources/api/google_maps.dart' as _i575;
 import 'package:hostr/data/sources/h3_engine.dart' as _i175;
@@ -27,8 +28,8 @@ import 'package:models/util/location/h3.dart' as _i854;
 
 const String _test = 'test';
 const String _mock = 'mock';
-const String _dev = 'dev';
 const String _staging = 'staging';
+const String _dev = 'dev';
 const String _prod = 'prod';
 
 extension GetItInjectableX on _i174.GetIt {
@@ -44,6 +45,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i361.Dio>(() => dioModule.dio());
     gh.factory<_i467.Config>(() => _i292.TestConfig(), registerFor: {_test});
     gh.factory<_i467.Config>(() => _i331.MockConfig(), registerFor: {_mock});
+    gh.factory<_i467.Config>(
+      () => _i236.StagingConfig(),
+      registerFor: {_staging},
+    );
     gh.singleton<_i854.H3Engine>(() => _i175.H3EngineIml());
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),

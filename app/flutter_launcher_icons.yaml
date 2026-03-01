@@ -1,28 +1,33 @@
 # flutter pub run flutter_launcher_icons
 flutter_launcher_icons:
-  image_path: "assets/images/logo/logo_icon_padding/logo.png"
+  image_path: "assets/images/logo/generated/logo_app_padded_1024.png"
 
   android: "launcher_icon"
-  # image_path_android: "assets/icon/icon.png"
+  image_path_android: "assets/images/logo/generated/logo_app_padded_1024.png"
   min_sdk_android: 21 # android min sdk min:16, default 21
-  # adaptive_icon_background: "assets/icon/background.png"
-  # adaptive_icon_foreground: "assets/icon/foreground.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/logo/generated/logo_android_foreground_1024.png"
+  adaptive_icon_foreground_inset: 16
+  adaptive_icon_monochrome: "assets/images/logo/generated/logo_android_monochrome_1024.png"
 
   ios: true
-  # image_path_ios: "assets/icon/icon.png"
-  remove_alpha_channel_ios: true
+  image_path_ios: "assets/images/logo/generated/logo_app_padded_1024.png"
+  remove_alpha_ios: true
+  image_path_ios_dark_transparent: "assets/images/logo/generated/logo_ios_dark_transparent_1024.png"
+  image_path_ios_tinted_grayscale: "assets/images/logo/generated/logo_ios_tinted_grayscale_1024.png"
+  desaturate_tinted_to_grayscale_ios: true
 
   web:
     generate: true
-    image_path: "assets/images/logo/logo_icon_padding/logo.png"
+    image_path: "assets/images/logo/generated/logo_app_padded_1024.png"
     background_color: "#hexcode"
     theme_color: "#hexcode"
 
   windows:
     generate: true
-    image_path: "assets/images/logo/logo_icon_padding/logo.png"
+    image_path: "assets/images/logo/generated/logo_app_padded_1024.png"
     icon_size: 48 # min:48, max:256, default: 48
 
   macos:
     generate: true
-    image_path: "assets/images/logo/logo_icon_padding/logo.png"
+    image_path: "assets/images/logo/generated/logo_app_padded_1024.png"

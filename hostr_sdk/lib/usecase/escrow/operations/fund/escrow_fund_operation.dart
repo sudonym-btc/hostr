@@ -14,8 +14,13 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   late final EvmChain chain;
   late final SupportedEscrowContract contract;
   final EscrowFundParams params;
-  late final ContractFundEscrowParams contractParams;
+  late ContractFundEscrowParams contractParams;
   bool _isExecuting = false;
+
+  /// The HD account index chosen by [getNextUnusedAddress].
+  /// Set once at the start of [execute] and used for all operations.
+  /// Defaults to 0 for pre-execute calls like [estimateFees].
+  int _accountIndex = 0;
 
   EscrowFundOperation(
     this.auth,
@@ -26,6 +31,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   ) : super(EscrowFundInitialised()) {
     chain = evm.getChainForEscrowService(params.escrowService);
     contract = chain.getSupportedEscrowContract(params.escrowService);
+    // Initialise with index 0; execute() will resolve the real index.
     contractParams = params.toContractParams(auth.getActiveEvmKey());
   }
 
@@ -35,7 +41,8 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
         ? await chain
               .swapIn(
                 SwapInParams(
-                  evmKey: auth.getActiveEvmKey(),
+                  evmKey: contractParams.ethKey,
+                  accountIndex: _accountIndex,
                   amount: requiredSwapAmount,
                   invoiceDescription: params.swapInvoiceDescription,
                 ),
@@ -59,6 +66,27 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     }
     _isExecuting = true;
 
+    // Resolve the next unused HD address for this operation.
+    final (:address, :accountIndex) = await chain.getNextUnusedAddress();
+    _accountIndex = accountIndex;
+    final evmKey = auth.getActiveEvmKey(accountIndex: _accountIndex);
+    contractParams = params.toContractParams(evmKey);
+
+    // ── Address invariant ──────────────────────────────────────────────
+    // contractParams.ethKey is the SINGLE source of truth for the funding
+    // address. Every sub-operation reuses it:
+    //
+    //   1. _doesEscrowRequireSwap  → checks balance of ethKey.address (EOA)
+    //   2. _swapRequiredAmount     → passes ethKey to SwapInParams, which
+    //      derives the RIF smart-wallet as the Boltz claim address.
+    //      After the relayed EtherSwap.claim, the SmartWallet.execute()
+    //      auto-forwards received RBTC back to the owner EOA (ethKey.address).
+    //   3. contract.deposit        → sends from ethKey.address (EOA)
+    //
+    // This guarantees the swap-in funds arrive at the exact address that
+    // will sign the escrow deposit transaction.
+    // ───────────────────────────────────────────────────────────────────
+
     // Acquire a lock so the auto-withdraw service knows not to drain balance.
     // All contract params are persisted so a background worker can resume the
     // deposit if the app is killed after the swap-in completes.
@@ -70,11 +98,12 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
       contractAddress: params.escrowService.parsedContent.contractAddress,
       chainId: params.escrowService.parsedContent.chainId,
       unlockAt: contractParams.unlockAt,
+      accountIndex: _accountIndex,
     );
 
     try {
       logger.i(
-        'Creating escrow for tradeId ${params.toContractParams(auth.getActiveEvmKey()).tradeId} at ${params.escrowService.parsedContent.contractAddress}',
+        'Creating escrow for tradeId ${contractParams.tradeId} at ${params.escrowService.parsedContent.contractAddress} (accountIndex: $_accountIndex)',
       );
       await _swapRequiredAmount();
 
@@ -147,7 +176,10 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   }
 
   Future<BitcoinAmount> _doesEscrowRequireSwap() async {
-    final balance = await chain.getBalance(auth.getActiveEvmKey().address);
+    // Use contractParams.ethKey — the single source of truth for the deposit
+    // address — so the balance check targets the exact same EOA that will fund
+    // the escrow.
+    final balance = await chain.getBalance(contractParams.ethKey.address);
     logger.i('Escrow sender balance: $balance RBTC');
 
     final transactionFee = await contract.estimateDespositFee(contractParams);
@@ -171,9 +203,14 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   Future<void> _swapRequiredAmount() async {
     final requiredAmountInBtc = await _doesEscrowRequireSwap();
     if (requiredAmountInBtc > BitcoinAmount.zero()) {
+      // Reuse contractParams.ethKey so the swap-in derives the same smart
+      // wallet that auto-forwards RBTC back to this EOA — the exact address
+      // that will sign the escrow deposit.
+      final evmKey = contractParams.ethKey;
       SwapInOperation swapEstimation = chain.swapIn(
         SwapInParams(
-          evmKey: auth.getActiveEvmKey(),
+          evmKey: evmKey,
+          accountIndex: _accountIndex,
           amount: requiredAmountInBtc,
           invoiceDescription: params.swapInvoiceDescription,
         ),
@@ -181,7 +218,8 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
       final swapFees = await swapEstimation.estimateFees();
       SwapInOperation swap = chain.swapIn(
         SwapInParams(
-          evmKey: auth.getActiveEvmKey(),
+          evmKey: evmKey,
+          accountIndex: _accountIndex,
           amount: (requiredAmountInBtc + swapFees.totalFees).roundUp(
             BitcoinUnit.sat,
           ),

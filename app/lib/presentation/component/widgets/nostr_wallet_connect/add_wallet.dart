@@ -87,9 +87,23 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
               children: [
                 FilledButton(
                   onPressed: () async {
+                    print('Attempting to paste from clipboard...');
                     final clipboardData = await Clipboard.getData('text/plain');
+                    print('Clipboard data: ${clipboardData?.text}');
                     if (clipboardData?.text != null) {
                       await _onInput(context, clipboardData!.text!);
+                    } else {
+                      print('No text found in clipboard');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Nothing to paste',
+                            // AppLocalizations.of(
+                            //   context,
+                            // )!.emptyClipboard, // todo: better error handling
+                          ),
+                        ),
+                      );
                     }
                   },
                   child: Text(AppLocalizations.of(context)!.paste),

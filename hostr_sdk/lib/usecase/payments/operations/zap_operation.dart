@@ -43,17 +43,14 @@ class ZapPayOperation
 
   @override
   Future<ZapCompletedDetails> completer() async {
-    final activeConnection = nwc.getActiveConnection();
-    if (activeConnection == null) {
-      throw Exception('No active NWC connection');
-    }
-
-    final response = await nwc.payInvoice(
-      activeConnection,
+    final preimage = await settleInvoice(
       callbackDetails!.invoice.paymentRequest,
     );
+    if (preimage == null) {
+      throw StateError('External payment required');
+    }
     return ZapCompletedDetails(
-      preimage: response.preimage,
+      preimage: preimage,
       zapReceiptId: _zapReceiptId,
       confirmedByZapReceipt: false,
     );
@@ -63,22 +60,15 @@ class ZapPayOperation
   Future<void> complete() async {
     emit(PayInFlight(params: params));
 
-    if (nwc.getActiveConnection() == null) {
-      emit(
-        PayExternalRequired(params: params, callbackDetails: callbackDetails!),
-      );
-
-      await _listenForExternalZapReceipt();
-      return;
-    }
-
     try {
       completedDetails = await completer();
       emit(PayCompleted(params: params, details: completedDetails!));
+      await close();
+    } on StateError {
+      // settleInvoice emitted PayExternalRequired; listen for external zap receipt
+      await _listenForExternalZapReceipt();
     } catch (e) {
       emit(PayFailed(e.toString(), params: params));
-      rethrow;
-    } finally {
       await close();
     }
   }

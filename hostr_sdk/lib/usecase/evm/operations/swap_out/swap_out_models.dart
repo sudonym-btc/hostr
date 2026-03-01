@@ -4,9 +4,14 @@ import '../../../../util/bitcoin_amount.dart';
 
 class SwapOutParams {
   final EthPrivateKey evmKey;
+  final int accountIndex;
   final BitcoinAmount? amount;
 
-  SwapOutParams({required this.evmKey, required this.amount});
+  SwapOutParams({
+    required this.evmKey,
+    required this.accountIndex,
+    required this.amount,
+  });
 }
 
 class SwapOutFees {

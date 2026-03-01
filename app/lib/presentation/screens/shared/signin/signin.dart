@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
@@ -119,7 +120,7 @@ class SignInScreenState extends State<SignInScreen> {
                 children: [
                   const Spacer(flex: 2),
                   // ── Logo ──
-                  Image.asset('assets/images/logo/logo.png', height: 80),
+                  SvgPicture.asset('assets/images/logo/logo.svg', height: 80),
                   Gap.vertical.custom(40),
                   // ── Private key field ──
                   TextFormField(

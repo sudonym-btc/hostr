@@ -261,13 +261,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i331.CustomLogger>(),
       ),
     );
-    gh.factory<_i71.SwapRecoveryService>(
-      () => _i71.SwapRecoveryService(
-        gh<_i82.SwapStore>(),
-        gh<_i350.BoltzClient>(),
-        gh<_i372.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i588.Nwc>(
       () => _i588.Nwc(
         gh<_i218.NwcStorage>(),
@@ -382,6 +375,14 @@ extension GetItInjectableX on _i174.GetIt {
         messaging: gh<_i1019.Messaging>(),
         auth: gh<_i1000.Auth>(),
         transitions: gh<_i826.ReservationTransitions>(),
+      ),
+    );
+    gh.factory<_i71.SwapRecoveryService>(
+      () => _i71.SwapRecoveryService(
+        gh<_i82.SwapStore>(),
+        gh<_i350.BoltzClient>(),
+        gh<_i372.CustomLogger>(),
+        gh<_i1000.Auth>(),
       ),
     );
     gh.singleton<_i305.Evm>(
