@@ -25,6 +25,9 @@ class MockConfig extends Config {
 
   @override
   RootstockConfig rootstock = MockRootstockConfig();
+
+  @override
+  String get googleMapsApiKey => 'mock-key';
 }
 
 class MockRootstockConfig extends RootstockConfig {

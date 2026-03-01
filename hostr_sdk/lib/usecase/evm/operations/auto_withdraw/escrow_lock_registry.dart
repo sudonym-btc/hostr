@@ -99,6 +99,7 @@ class EscrowLockRegistry {
     required String contractAddress,
     required int chainId,
     required int unlockAt,
+    required int accountIndex,
   }) async {
     await initialize();
     final lock = EscrowLock(
@@ -111,6 +112,7 @@ class EscrowLockRegistry {
       contractAddress: contractAddress,
       chainId: chainId,
       unlockAt: unlockAt,
+      accountIndex: accountIndex,
     );
     _cache![tradeId] = lock;
     await _flush();

@@ -59,6 +59,12 @@ class EscrowLock {
   /// Unix timestamp (seconds) when the escrow funds unlock.
   final int unlockAt;
 
+  /// The HD derivation account index used to derive the EVM key.
+  ///
+  /// Persisted so a background worker can re-derive the correct key via
+  /// `auth.getActiveEvmKey(accountIndex: accountIndex)`.
+  final int accountIndex;
+
   /// Tx hash of the deposit transaction once broadcast. `null` until the
   /// deposit is sent.
   final String? depositTxHash;
@@ -73,6 +79,7 @@ class EscrowLock {
     required this.contractAddress,
     required this.chainId,
     required this.unlockAt,
+    required this.accountIndex,
     this.depositTxHash,
   });
 
@@ -88,6 +95,7 @@ class EscrowLock {
       contractAddress: contractAddress,
       chainId: chainId,
       unlockAt: unlockAt,
+      accountIndex: accountIndex,
       depositTxHash: depositTxHash ?? this.depositTxHash,
     );
   }
@@ -112,6 +120,7 @@ class EscrowLock {
       contractAddress: json['contractAddress'] as String? ?? '',
       chainId: json['chainId'] as int? ?? 0,
       unlockAt: json['unlockAt'] as int? ?? 0,
+      accountIndex: json['accountIndex'] as int? ?? 0,
       depositTxHash: json['depositTxHash'] as String?,
     );
   }
@@ -127,6 +136,7 @@ class EscrowLock {
     'contractAddress': contractAddress,
     'chainId': chainId,
     'unlockAt': unlockAt,
+    'accountIndex': accountIndex,
     if (depositTxHash != null) 'depositTxHash': depositTxHash,
   };
 

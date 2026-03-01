@@ -249,6 +249,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.3"
+  eip712:
+    dependency: "direct main"
+    description:
+      name: eip712
+      sha256: "3573d449fc2b5372f2a3644aa569aee76923a751faff65769a7c06da2872c68a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   elliptic:
     dependency: transitive
     description:
@@ -297,6 +305,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  freezed_annotation:
+    dependency: transitive
+    description:
+      name: freezed_annotation
+      sha256: "7294967ff0a6d98638e7acb774aac3af2550777accd8149c90af5b014e6d44d8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0"
   frontend_server_client:
     dependency: transitive
     description:

@@ -4,12 +4,18 @@ import '../../../../util/bitcoin_amount.dart';
 
 class SwapInParams {
   final EthPrivateKey evmKey;
-  final BitcoinAmount amount;
+  final int accountIndex;
+  BitcoinAmount amount;
+  BitcoinAmount? minAmount;
+  BitcoinAmount? maxAmount;
   final String? invoiceDescription;
 
   SwapInParams({
     required this.evmKey,
+    required this.accountIndex,
     required this.amount,
+    this.minAmount,
+    this.maxAmount,
     this.invoiceDescription,
   });
 }

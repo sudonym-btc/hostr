@@ -44,6 +44,7 @@ void main() {
       swapStore,
       boltzClient,
       CustomLogger(),
+      mockAuth,
     );
 
     fakeSwapInOperation = FakeSwapInOperation();
@@ -81,6 +82,7 @@ void main() {
       onchainAmountSat: 50000,
       timeoutBlockHeight: 800000,
       chainId: 31,
+      accountIndex: 0,
     );
     return record.copyWithStatus(
       status,
@@ -103,6 +105,7 @@ void main() {
       lockerAddress: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       timeoutBlockHeight: 900000,
       chainId: 31,
+      accountIndex: 0,
     );
     return record.copyWithStatus(status, lockTxHash: lockTxHash);
   }
@@ -110,7 +113,6 @@ void main() {
   group('SwapRecoveryService orchestration', () {
     test('no pending swaps returns 0 and does not call cubits', () async {
       final resolved = await recoveryService.recoverPendingSwaps(
-        evmKey: evmKey,
         chainResolver: chainResolver,
       );
 
@@ -124,7 +126,6 @@ void main() {
       boltzClient.swapStatuses['in-1'] = 'transaction.confirmed';
 
       final resolved = await recoveryService.recoverPendingSwaps(
-        evmKey: evmKey,
         chainResolver: chainResolver,
       );
 
@@ -143,7 +144,6 @@ void main() {
       boltzClient.swapStatuses['out-1'] = 'invoice.failedToPay';
 
       final resolved = await recoveryService.recoverPendingSwaps(
-        evmKey: evmKey,
         chainResolver: chainResolver,
       );
 
@@ -167,7 +167,6 @@ void main() {
       fakeSwapOutOperation.recoverResult = false;
 
       final resolved = await recoveryService.recoverPendingSwaps(
-        evmKey: evmKey,
         chainResolver: chainResolver,
       );
 
@@ -182,7 +181,6 @@ void main() {
       fakeSwapInOperation.recoverError = Exception('boom');
 
       final resolved = await recoveryService.recoverPendingSwaps(
-        evmKey: evmKey,
         chainResolver: chainResolver,
       );
 
@@ -203,7 +201,6 @@ void main() {
       fakeSwapOutOperation.recoverResult = true;
 
       final resolved = await recoveryService.recoverPendingSwaps(
-        evmKey: evmKey,
         chainResolver: chainResolver,
       );
 
@@ -218,7 +215,6 @@ void main() {
       boltzClient.throwOnGetSwap = true;
 
       final resolved = await recoveryService.recoverPendingSwaps(
-        evmKey: evmKey,
         chainResolver: chainResolver,
       );
 
@@ -238,16 +234,14 @@ void main() {
         updatedAt: DateTime(2025, 1, 1),
         timeoutBlockHeight: 123,
         chainId: 31,
+        accountIndex: 0,
         preimageHex: '00',
         preimageHash: '00',
         onchainAmountSat: 1,
       );
       await swapStore.save(oldRecord);
 
-      await recoveryService.recoverPendingSwaps(
-        evmKey: evmKey,
-        chainResolver: chainResolver,
-      );
+      await recoveryService.recoverPendingSwaps(chainResolver: chainResolver);
 
       final all = await swapStore.getAll();
       expect(all, isEmpty);

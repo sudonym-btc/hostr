@@ -19,6 +19,7 @@ void main() {
           onchainAmountSat: 50000,
           timeoutBlockHeight: 800000,
           chainId: 31,
+          accountIndex: 0,
         );
 
         expect(record.id, 'swap-in-123');
@@ -45,6 +46,7 @@ void main() {
           lockerAddress: '0xaabbccdd',
           timeoutBlockHeight: 900000,
           chainId: 31,
+          accountIndex: 0,
         );
 
         expect(record.id, 'swap-out-456');
@@ -78,6 +80,7 @@ void main() {
           onchainAmountSat: 1000,
           timeoutBlockHeight: 100,
           chainId: 31,
+          accountIndex: 0,
         );
 
         expect(record.preimageBytes, isA<Uint8List>());
@@ -95,6 +98,7 @@ void main() {
           lockerAddress: '0xlocker',
           timeoutBlockHeight: 100,
           chainId: 31,
+          accountIndex: 0,
         );
 
         expect(record.invoicePreimageHashBytes.toList(), hex.decode(hashHex));
@@ -111,6 +115,7 @@ void main() {
           lockerAddress: '0xlocker',
           timeoutBlockHeight: 100,
           chainId: 31,
+          accountIndex: 0,
         );
 
         expect(record.lockedAmountWei, amount);
@@ -126,6 +131,7 @@ void main() {
           onchainAmountSat: 1000,
           timeoutBlockHeight: 100,
           chainId: 31,
+          accountIndex: 0,
         );
         expect(record.claimParams, isNull);
       });
@@ -138,6 +144,7 @@ void main() {
           onchainAmountSat: 50000,
           timeoutBlockHeight: 800000,
           chainId: 31,
+          accountIndex: 0,
         );
         record.refundAddress = '0xrefund';
 
@@ -160,6 +167,7 @@ void main() {
           lockerAddress: '0xlocker',
           timeoutBlockHeight: 900000,
           chainId: 31,
+          accountIndex: 0,
         );
 
         final params = record.refundParams;
@@ -251,6 +259,7 @@ void main() {
           onchainAmountSat: 1000,
           timeoutBlockHeight: 100,
           chainId: 31,
+          accountIndex: 0,
         );
         final swapOut = SwapOutRecord.create(
           boltzId: 'out-1',
@@ -261,6 +270,7 @@ void main() {
           lockerAddress: '0xlocker',
           timeoutBlockHeight: 100,
           chainId: 31,
+          accountIndex: 0,
         );
 
         // This compiles only because the sealed hierarchy is exhaustive
@@ -283,6 +293,7 @@ void main() {
           onchainAmountSat: 5000,
           timeoutBlockHeight: 100,
           chainId: 31,
+          accountIndex: 0,
         );
 
         final updated = record.copyWithStatus(
@@ -309,6 +320,7 @@ void main() {
           lockerAddress: '0xlocker',
           timeoutBlockHeight: 100,
           chainId: 31,
+          accountIndex: 0,
         );
 
         final updated = record.copyWithStatus(
@@ -345,6 +357,7 @@ void main() {
           onchainAmountSat: 42000,
           timeoutBlockHeight: 500000,
           chainId: 31,
+          accountIndex: 3,
         );
 
         final json = original.toJson();
@@ -372,6 +385,7 @@ void main() {
           lockerAddress: '0xlockeraddr',
           timeoutBlockHeight: 750000,
           chainId: 30,
+          accountIndex: 2,
         );
 
         final json = original.toJson();
@@ -395,6 +409,7 @@ void main() {
           onchainAmountSat: 100,
           timeoutBlockHeight: 10,
           chainId: 31,
+          accountIndex: 0,
         );
         final updated = original.copyWithStatus(
           SwapRecordStatus.needsAction,
@@ -419,6 +434,7 @@ void main() {
           onchainAmountSat: 100,
           timeoutBlockHeight: 10,
           chainId: 31,
+          accountIndex: 0,
         );
         final json = record.toJson();
 
@@ -438,6 +454,7 @@ void main() {
           lockerAddress: '0xlocker',
           timeoutBlockHeight: 10,
           chainId: 31,
+          accountIndex: 0,
         );
         final json = record.toJson();
 
@@ -463,6 +480,7 @@ SwapOutRecord _makeSwapOutRecord({
     lockerAddress: '0xlockeraddr',
     timeoutBlockHeight: timeoutBlockHeight,
     chainId: 31,
+    accountIndex: 0,
   );
   if (status != SwapRecordStatus.created) {
     return record.copyWithStatus(status);

@@ -145,57 +145,72 @@ class AutoWithdrawService {
       if (_swapInProgress) break;
 
       try {
-        // Gate 5: Fee ratio acceptable?
-        final swapOp = chain.swapOutAll();
-        final fees = await swapOp.estimateFees();
-        final netAmount = fees.balance - fees.totalFees;
+        // Get all swap-out operations (one per funded address).
+        final swapOps = await chain.swapOutAllAddresses();
 
-        if (netAmount <= BitcoinAmount.zero()) {
-          _logger.d(
-            'AutoWithdraw skipped on ${chain.runtimeType}: '
-            'fees exceed balance',
-          );
-          continue;
-        }
+        for (final swapOp in swapOps) {
+          if (_swapInProgress) break;
 
-        final feeRatio = fees.totalFees.getInSats == BigInt.zero
-            ? 0.0
-            : fees.totalFees.getInSats.toDouble() /
-                  fees.balance.getInSats.toDouble();
+          try {
+            // Gate 5: Fee ratio acceptable?
+            final fees = await swapOp.estimateFees();
+            final netAmount = fees.balance - fees.totalFees;
 
-        if (feeRatio > maxFeeRatio) {
-          _logger.d(
-            'AutoWithdraw skipped on ${chain.runtimeType}: fee ratio '
-            '${(feeRatio * 100).toStringAsFixed(1)}% exceeds max '
-            '${(maxFeeRatio * 100).toStringAsFixed(1)}%',
-          );
-          continue;
-        }
+            if (netAmount <= BitcoinAmount.zero()) {
+              _logger.d(
+                'AutoWithdraw skipped on ${chain.runtimeType}: '
+                'fees exceed balance',
+              );
+              continue;
+            }
 
-        // All gates passed — execute swap-out
-        _swapInProgress = true;
-        _logger.i(
-          'AutoWithdraw: initiating swap-out of '
-          '${fees.balance.getInSats} sats on ${chain.runtimeType}',
-        );
+            final feeRatio = fees.totalFees.getInSats == BigInt.zero
+                ? 0.0
+                : fees.totalFees.getInSats.toDouble() /
+                      fees.balance.getInSats.toDouble();
 
-        final op = chain.swapOutAll();
-        await op.execute();
+            if (feeRatio > maxFeeRatio) {
+              _logger.d(
+                'AutoWithdraw skipped on ${chain.runtimeType}: fee ratio '
+                '${(feeRatio * 100).toStringAsFixed(1)}% exceeds max '
+                '${(maxFeeRatio * 100).toStringAsFixed(1)}%',
+              );
+              continue;
+            }
 
-        if (op.state is SwapOutCompleted) {
-          _logger.i('AutoWithdraw: swap-out completed on ${chain.runtimeType}');
-        } else if (op.state is SwapOutFailed) {
-          final failed = op.state as SwapOutFailed;
-          _logger.e(
-            'AutoWithdraw: swap-out failed on ${chain.runtimeType}: '
-            '${failed.error}',
-          );
+            // All gates passed — execute swap-out for this address
+            _swapInProgress = true;
+            _logger.i(
+              'AutoWithdraw: initiating swap-out of '
+              '${fees.balance.getInSats} sats on ${chain.runtimeType}',
+            );
+
+            await swapOp.execute();
+
+            if (swapOp.state is SwapOutCompleted) {
+              _logger.i(
+                'AutoWithdraw: swap-out completed on ${chain.runtimeType}',
+              );
+            } else if (swapOp.state is SwapOutFailed) {
+              final failed = swapOp.state as SwapOutFailed;
+              _logger.e(
+                'AutoWithdraw: swap-out failed on ${chain.runtimeType}: '
+                '${failed.error}',
+              );
+            }
+          } catch (e) {
+            _logger.e(
+              'AutoWithdraw: swap-out failed on ${chain.runtimeType}: $e',
+            );
+          } finally {
+            _swapInProgress = false;
+            _cooldownTimer = Timer(cooldownDuration, () {});
+          }
         }
       } catch (e) {
-        _logger.e('AutoWithdraw: swap-out failed on ${chain.runtimeType}: $e');
-      } finally {
-        _swapInProgress = false;
-        _cooldownTimer = Timer(cooldownDuration, () {});
+        _logger.e(
+          'AutoWithdraw: failed to create swap-out ops on ${chain.runtimeType}: $e',
+        );
       }
     }
   }

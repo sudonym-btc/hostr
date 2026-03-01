@@ -43,6 +43,30 @@ abstract class EvmChain {
     });
   }
 
+  /// Emits a new block number whenever the chain advances.
+  ///
+  /// Uses `eth_blockNumber` polling — the most universally supported RPC
+  /// method across all EVM nodes (Rootstock, Anvil, Geth, etc.).
+  /// Unlike `eth_newBlockFilter` or `eth_subscribe`, this works with every
+  /// HTTP and WebSocket RPC endpoint.
+  Stream<int> _newBlocks({
+    Duration interval = const Duration(seconds: 15),
+  }) async* {
+    int? lastBlock;
+    while (true) {
+      try {
+        final current = await client.getBlockNumber();
+        if (lastBlock == null || current > lastBlock!) {
+          lastBlock = current;
+          yield current;
+        }
+      } catch (e) {
+        logger.w('Block number poll failed: $e');
+      }
+      await Future.delayed(interval);
+    }
+  }
+
   Stream<BitcoinAmount> subscribeBalance(EthereumAddress address) async* {
     try {
       yield await getBalance(address);
@@ -50,7 +74,7 @@ abstract class EvmChain {
       logger.w('Failed initial balance fetch: $e');
     }
 
-    await for (final _ in client.addedBlocks()) {
+    await for (final _ in _newBlocks()) {
       try {
         yield await getBalance(address);
       } catch (e) {
@@ -70,21 +94,18 @@ abstract class EvmChain {
   }
 
   Future<TransactionInformation> awaitTransaction(String txHash) async {
-    /// Fetch the from address of the lockup transaction to use as refund address
-    TransactionInformation? lockupTx = await getTransaction(txHash);
-
-    // Make sure our RPC node sees the swap funding transaction as well
+    // Poll until our RPC node sees the transaction (may lag behind Boltz).
     while (true) {
-      if (lockupTx == null) {
-        logger.i('Lockup transaction not found');
-        await Future.delayed(Duration(milliseconds: 500));
-        continue;
+      final tx = await getTransaction(txHash);
+      if (tx != null) {
+        logger.i(
+          'Transaction $txHash confirmed: from ${tx.from} value ${tx.value.getInWei}',
+        );
+        return tx;
       }
-      logger.i('Lockup transaction: $lockupTx');
-
-      break;
+      logger.i('Transaction $txHash not found, retrying…');
+      await Future.delayed(const Duration(milliseconds: 500));
     }
-    return lockupTx;
   }
 
   Future<TransactionReceipt> awaitReceipt(String txHash) async {
@@ -95,13 +116,153 @@ abstract class EvmChain {
     }
   }
 
+  /// Returns the first HD-derived EVM address that has never been used
+  /// on-chain (zero nonce **and** zero balance).
+  ///
+  /// Addresses are derived from [auth] using BIP-44 account indices
+  /// (`m/44'/60'/0'/0/{index}`).  To minimise latency the function checks
+  /// [_batchSize] addresses in parallel per round, which keeps RPC round-trips
+  /// to a minimum while staying within typical rate-limits.
+  ///
+  /// Returns a record containing both the [EthereumAddress] and its
+  /// [accountIndex] so callers can persist or re-derive the key later.
+  Future<({EthereumAddress address, int accountIndex})>
+  getNextUnusedAddress() async {
+    const batchSize = 5;
+
+    for (var offset = 0; ; offset += batchSize) {
+      // Derive a batch of addresses.
+      final indices = List.generate(batchSize, (i) => offset + i);
+      final addresses = indices.map(
+        (i) => (index: i, address: auth.getEvmAddress(accountIndex: i)),
+      );
+
+      // Fire nonce + balance queries for every address in the batch at once.
+      final results = await Future.wait(
+        addresses.map((entry) async {
+          final nonce = await client.getTransactionCount(entry.address);
+          final balance = await client.getBalance(entry.address);
+          return (
+            index: entry.index,
+            address: entry.address,
+            used: nonce > 0 || balance.getInWei > BigInt.zero,
+          );
+        }),
+      );
+
+      // Return the first unused address (results are in index order).
+      for (final r in results) {
+        if (!r.used) {
+          return (address: r.address, accountIndex: r.index);
+        }
+      }
+    }
+  }
+
+  /// Returns all HD-derived EVM addresses that have a non-zero balance,
+  /// along with their account index and current balance.
+  ///
+  /// Scans in batches of 5 addresses at a time, stopping at the first
+  /// batch where no address has ever been used (same gap logic as
+  /// [getNextUnusedAddress]).
+  Future<
+    List<({EthereumAddress address, int accountIndex, BitcoinAmount balance})>
+  >
+  getUsedAddressesWithBalance() async {
+    const batchSize = 5;
+    final funded =
+        <
+          ({EthereumAddress address, int accountIndex, BitcoinAmount balance})
+        >[];
+
+    for (var offset = 0; ; offset += batchSize) {
+      final indices = List.generate(batchSize, (i) => offset + i);
+      final addresses = indices.map(
+        (i) => (index: i, address: auth.getEvmAddress(accountIndex: i)),
+      );
+
+      final results = await Future.wait(
+        addresses.map((entry) async {
+          final nonce = await client.getTransactionCount(entry.address);
+          final balance = await client.getBalance(entry.address);
+          return (
+            index: entry.index,
+            address: entry.address,
+            nonce: nonce,
+            balance: balance,
+          );
+        }),
+      );
+
+      bool anyUsed = false;
+      for (final r in results) {
+        final used = r.nonce > 0 || r.balance.getInWei > BigInt.zero;
+        if (used) {
+          anyUsed = true;
+          if (r.balance.getInWei > BigInt.zero) {
+            funded.add((
+              address: r.address,
+              accountIndex: r.index,
+              balance: BitcoinAmount.inWei(r.balance.getInWei),
+            ));
+          }
+        }
+      }
+
+      // If no address in this batch was ever used, we've passed the gap.
+      if (!anyUsed) break;
+    }
+
+    return funded;
+  }
+
+  /// Returns the total balance across all used HD-derived addresses.
+  Future<BitcoinAmount> getTotalBalance() async {
+    final addresses = await getUsedAddressesWithBalance();
+    if (addresses.isEmpty) {
+      // Fall back to checking account 0 directly (may have never transacted
+      // but could have received funds via direct transfer).
+      return getBalance(auth.getEvmAddress(accountIndex: 0));
+    }
+    return addresses.fold<BitcoinAmount>(
+      BitcoinAmount.zero(),
+      (sum, entry) => sum + entry.balance,
+    );
+  }
+
+  /// Emits the total balance across all used addresses on each new block.
+  Stream<BitcoinAmount> subscribeTotalBalance() async* {
+    try {
+      yield await getTotalBalance();
+    } catch (e) {
+      logger.w('Failed initial total balance fetch: $e');
+    }
+
+    await for (final _ in _newBlocks()) {
+      try {
+        yield await getTotalBalance();
+      } catch (e) {
+        logger.w('Failed to fetch total balance on new block: $e');
+      }
+    }
+  }
+
   Future<EtherSwap> getEtherSwapContract();
 
   Future<BitcoinAmount> getMinimumSwapIn();
 
+  Future<BitcoinAmount> getMaximumSwapIn();
+
   SwapInOperation swapIn(SwapInParams params);
 
-  SwapOutOperation swapOutAll();
+  List<SwapOutOperation> swapOutAll();
+
+  /// Async version that scans all HD-derived addresses for non-zero balances
+  /// and returns one [SwapOutOperation] per funded address.
+  ///
+  /// Subclasses should override to provide chain-specific implementations.
+  /// The default falls back to [swapOutAll] (account 0 only).
+  Future<List<SwapOutOperation>> swapOutAllAddresses() async => swapOutAll();
 
   Future<List<dynamic>> call(
     ContractAbi abi,

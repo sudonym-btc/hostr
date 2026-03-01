@@ -33,7 +33,7 @@ variable "managed_zone_name" {
 variable "compose_machine_type" {
   description = "Machine type for the single Docker Compose VM."
   type        = string
-  default     = "e2-standard-2"
+  default     = "e2-small"
 }
 
 variable "compose_zone" {
@@ -46,6 +46,18 @@ variable "compose_boot_disk_size_gb" {
   description = "Boot disk size (GB) for the Docker Compose VM."
   type        = number
   default     = 50
+}
+
+variable "relay_disk_size_gb" {
+  description = "Persistent disk size (GB) for relay SQLite DB. Survives VM recreation."
+  type        = number
+  default     = 10
+}
+
+variable "blossom_disk_size_gb" {
+  description = "Persistent disk size (GB) for blossom blob storage. Survives VM recreation."
+  type        = number
+  default     = 10
 }
 
 variable "compose_repo_clone_url" {
@@ -73,8 +85,4 @@ variable "compose_runtime_secret_values" {
   default     = {}
 }
 
-variable "enable_maps_infra" {
-  description = "Whether to manage Maps API services/keys in this stack. Disable for compose-only infra deploys."
-  type        = bool
-  default     = false
-}
+

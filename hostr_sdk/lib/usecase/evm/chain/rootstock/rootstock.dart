@@ -27,6 +27,15 @@ class Rootstock extends EvmChain {
     );
   }
 
+  @override
+  Future<BitcoinAmount> getMaximumSwapIn() async {
+    final response = (await getIt<BoltzClient>().getSwapReserve());
+    return BitcoinAmount.fromInt(
+      BitcoinUnit.sat,
+      response.body["BTC"]["RBTC"]["limits"]["maximal"],
+    );
+  }
+
   Future<BitcoinAmount> getMinimumSwapOut() async {
     final response = (await getIt<BoltzClient>().getSwapSubmarine());
     return BitcoinAmount.fromInt(
@@ -54,7 +63,51 @@ class Rootstock extends EvmChain {
       getIt<RootstockSwapInOperation>(param1: params);
 
   @override
-  RootstockSwapOutOperation swapOutAll() => getIt<RootstockSwapOutOperation>(
-    param1: SwapOutParams(evmKey: auth.getActiveEvmKey(), amount: null),
-  );
+  List<RootstockSwapOutOperation> swapOutAll() {
+    // Synchronously build a single operation for account 0 as a fallback.
+    // The caller should prefer swapOutAllAddresses() for multi-address sweeps.
+    return [
+      getIt<RootstockSwapOutOperation>(
+        param1: SwapOutParams(
+          evmKey: auth.getActiveEvmKey(),
+          accountIndex: 0,
+          amount: null,
+        ),
+      ),
+    ];
+  }
+
+  /// Returns one [RootstockSwapOutOperation] per funded HD-derived address.
+  ///
+  /// Scans all used addresses and creates a swap-out operation for each one
+  /// that holds a non-zero balance.  If no used address has funds, falls back
+  /// to a single operation targeting account index 0.
+  @override
+  Future<List<RootstockSwapOutOperation>> swapOutAllAddresses() async {
+    final funded = await getUsedAddressesWithBalance();
+
+    if (funded.isEmpty) {
+      // Nothing found – return single op for account 0 (will fail gracefully
+      // with an insufficient-balance error during execution).
+      return [
+        getIt<RootstockSwapOutOperation>(
+          param1: SwapOutParams(
+            evmKey: auth.getActiveEvmKey(accountIndex: 0),
+            accountIndex: 0,
+            amount: null,
+          ),
+        ),
+      ];
+    }
+
+    return funded.map((entry) {
+      return getIt<RootstockSwapOutOperation>(
+        param1: SwapOutParams(
+          evmKey: auth.getActiveEvmKey(accountIndex: entry.accountIndex),
+          accountIndex: entry.accountIndex,
+          amount: null,
+        ),
+      );
+    }).toList();
+  }
 }

@@ -9,7 +9,7 @@ import workmanager_apple
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GMSServices.provideAPIKey("AIzaSyBjcePUwkKwD-iMmHpjXVDV0MaiYH1dnGo")
+    GMSServices.provideAPIKey("AIzaSyDbIij_LkLDQTePfWnoLo5bmqhDKS2xXbU")
     WorkmanagerPlugin.registerPeriodicTask(
       withIdentifier: "com.sudonym.hostr.sync.ios.fetch",
       frequency: NSNumber(value: 15 * 60) // 20 minutes (15 min minimum)

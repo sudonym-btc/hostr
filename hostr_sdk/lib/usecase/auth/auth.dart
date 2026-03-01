@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'dart:typed_data';
 
-import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:convert/convert.dart' as convert;
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
@@ -9,10 +9,15 @@ import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';
 
 import '../../util/main.dart';
 import '../storage/storage.dart';
+
+/// BIP-44 derivation path for EVM (Ethereum / Rootstock).
+/// m/44'/60'/0'/0/{accountIndex}
+const _evmPathPrefix = "m/44'/60'/0'/0";
 
 @Singleton()
 class Auth {
@@ -37,7 +42,7 @@ class Auth {
     await signin(Bip340.generatePrivateKey().privateKey!);
   }
 
-  /// Imports a private key (hex) or mnemonic and stores it.
+  /// Imports a private key (hex or nsec) and stores it.
   Future<void> signin(String input) async {
     _logger.i('AuthService.signin');
     final privateKey = _parseAndValidateKey(input);
@@ -105,9 +110,47 @@ class Auth {
     return activeKeyPair!;
   }
 
-  EthPrivateKey getActiveEvmKey() {
-    return EthPrivateKey.fromHex(getActiveKey().privateKey!);
+  // ---------------------------------------------------------------------------
+  // HD wallet – EVM key derivation
+  // ---------------------------------------------------------------------------
+
+  /// Returns the BIP-44 derived EVM private key at [accountIndex].
+  ///
+  /// Derivation: nsec bytes → BIP-39 mnemonic (entropy-to-words) →
+  ///   PBKDF2 seed → BIP-32 master → m/44'/60'/0'/0/{accountIndex}
+  ///
+  /// This is MetaMask-compatible: pasting [getEvmMnemonic] into MetaMask
+  /// will show the same addresses.
+  EthPrivateKey getActiveEvmKey({int accountIndex = 0}) {
+    return _deriveEvmKey(accountIndex);
   }
+
+  /// Returns the EVM address at [accountIndex] without exposing the key.
+  bip.EthereumAddress getEvmAddress({int accountIndex = 0}) {
+    return _deriveEvmKey(accountIndex).address;
+  }
+
+  /// Returns the 24-word BIP-39 mnemonic derived from the Nostr private key
+  /// entropy. Paste this into MetaMask to see all derived EVM addresses.
+  List<String> getEvmMnemonic() {
+    final nsecHex = getActiveKey().privateKey!;
+    final entropy = Uint8List.fromList(convert.hex.decode(nsecHex));
+    return bip.entropyToMnemonic(entropy);
+  }
+
+  /// Derives the EVM private key at [accountIndex] from the Nostr key.
+  EthPrivateKey _deriveEvmKey(int accountIndex) {
+    final mnemonic = getEvmMnemonic();
+    final seed = bip.mnemonicToSeed(mnemonic);
+    final master = bip.ExtendedPrivateKey.master(seed, bip.xprv);
+    final derived =
+        master.forPath("$_evmPathPrefix/$accountIndex")
+            as bip.ExtendedPrivateKey;
+    final keyHex = derived.key.toRadixString(16).padLeft(64, '0');
+    return EthPrivateKey.fromHex(keyHex);
+  }
+
+  // ---------------------------------------------------------------------------
 
   void _syncAuthState() {
     _emitAuthState(activeKeyPair != null ? const LoggedIn() : LoggedOut());
@@ -123,12 +166,11 @@ class Auth {
     await _authStateContoller.close();
   }
 
-  /// Validates and returns a private key hex string.
+  /// Validates and returns a 64-char hex private key.
   ///
   /// Accepts:
   /// - 64-char hex private key
   /// - nsec1… bech32-encoded private key
-  /// - 12 or 24 word BIP-39 mnemonic
   String _parseAndValidateKey(String input) {
     final trimmed = input.trim();
 
@@ -147,21 +189,8 @@ class Auth {
       throw Exception('Invalid nsec key');
     }
 
-    // Mnemonic (12 or 24 words)
-    final words = trimmed.split(RegExp(r'\s+'));
-    if (words.length == 12 || words.length == 24) {
-      try {
-        final mnemonic = Mnemonic.fromSentence(trimmed, Language.english);
-        final hex = convert.hex.encode(mnemonic.entropy);
-        if (hex.length == 64 && _isHex(hex)) {
-          return hex;
-        }
-      } catch (_) {}
-      throw Exception('Invalid mnemonic phrase');
-    }
-
     throw Exception(
-      'Invalid key format. Expected nsec, 64-char hex, or 12/24-word mnemonic',
+      'Invalid key format. Expected nsec or 64-char hex private key',
     );
   }
 

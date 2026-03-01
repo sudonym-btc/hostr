@@ -67,10 +67,9 @@ resource "google_project_service" "logging" {
   ]
 }
 
-# ─── Maps (optional) ────────────────────────────────────────────────────────
+# ─── Maps ────────────────────────────────────────────────────────────────────
 
 resource "google_project_service" "api_keys" {
-  count   = var.enable_maps_infra ? 1 : 0
   project = var.project_id
   service = "apikeys.googleapis.com"
 
@@ -81,7 +80,6 @@ resource "google_project_service" "api_keys" {
 }
 
 resource "google_project_service" "maps" {
-  count   = var.enable_maps_infra ? 1 : 0
   project = var.project_id
   service = "geocoding-backend.googleapis.com"
 
@@ -92,7 +90,6 @@ resource "google_project_service" "maps" {
 }
 
 resource "google_project_service" "maps_places" {
-  count   = var.enable_maps_infra ? 1 : 0
   project = var.project_id
   service = "places.googleapis.com"
 
@@ -103,7 +100,6 @@ resource "google_project_service" "maps_places" {
 }
 
 resource "google_apikeys_key" "maps_api_key" {
-  count    = var.enable_maps_infra ? 1 : 0
   provider = google-beta
   project  = var.project_id
 
@@ -120,19 +116,17 @@ resource "google_apikeys_key" "maps_api_key" {
   }
 
   depends_on = [
-    google_project_service.maps[0],
-    google_project_service.api_keys[0],
+    google_project_service.maps,
+    google_project_service.api_keys,
   ]
 }
 
 resource "google_project_service" "maps_ios" {
-  count   = var.enable_maps_infra ? 1 : 0
   project = var.project_id
   service = "maps-ios-backend.googleapis.com"
 }
 
 resource "google_apikeys_key" "maps_ios_key" {
-  count    = var.enable_maps_infra ? 1 : 0
   project  = var.project_id
   provider = google-beta
 
@@ -158,14 +152,13 @@ resource "google_apikeys_key" "maps_ios_key" {
   }
 
   depends_on = [
-    google_project_service.maps[0],
-    google_project_service.api_keys[0],
-    google_project_service.maps_ios[0],
+    google_project_service.maps,
+    google_project_service.api_keys,
+    google_project_service.maps_ios,
   ]
 }
 
 resource "local_file" "maps_api_key_file" {
-  count    = var.enable_maps_infra ? 1 : 0
-  content  = google_apikeys_key.maps_api_key[0].key_string
+  content  = google_apikeys_key.maps_api_key.key_string
   filename = "${path.module}/_local_outputs/${var.env}/maps_api_key.txt"
 }

@@ -65,6 +65,34 @@ resource "google_project_iam_member" "compose_vm_log_writer" {
   member  = "serviceAccount:${google_service_account.compose_vm.email}"
 }
 
+resource "google_compute_disk" "relay_data" {
+  name    = "${local.project_base_name}-relay-data"
+  project = var.project_id
+  zone    = var.compose_zone
+  type    = "pd-balanced"
+  size    = var.relay_disk_size_gb
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.compute]
+}
+
+resource "google_compute_disk" "blossom_data" {
+  name    = "${local.project_base_name}-blossom-data"
+  project = var.project_id
+  zone    = var.compose_zone
+  type    = "pd-balanced"
+  size    = var.blossom_disk_size_gb
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.compute]
+}
+
 resource "google_compute_instance" "compose_vm" {
   name         = "${local.project_base_name}-compose"
   project      = var.project_id
@@ -78,6 +106,16 @@ resource "google_compute_instance" "compose_vm" {
       size  = var.compose_boot_disk_size_gb
       type  = "pd-balanced"
     }
+  }
+
+  attached_disk {
+    source      = google_compute_disk.relay_data.self_link
+    device_name = "relay-data"
+  }
+
+  attached_disk {
+    source      = google_compute_disk.blossom_data.self_link
+    device_name = "blossom-data"
   }
 
   network_interface {

@@ -135,6 +135,10 @@ class BitcoinAmount {
     return a >= b ? a : b;
   }
 
+  static BitcoinAmount min(BitcoinAmount a, BitcoinAmount b) {
+    return a <= b ? a : b;
+  }
+
   BitcoinAmount operator +(BitcoinAmount other) {
     return BitcoinAmount.inWei(_value + other._value);
   }

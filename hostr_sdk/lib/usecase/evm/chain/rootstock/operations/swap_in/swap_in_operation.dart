@@ -11,7 +11,6 @@ import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/payments.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart' hide params;
 
 import '../../../../../../datasources/boltz/boltz.dart';
@@ -44,6 +43,15 @@ class RootstockSwapInOperation extends SwapInOperation {
   }
 
   @override
+  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits() async {
+    final results = await Future.wait([
+      rootstock.getMinimumSwapIn(),
+      rootstock.getMaximumSwapIn(),
+    ]);
+    return (min: results[0], max: results[1]);
+  }
+
+  @override
   Future<void> execute() async {
     SwapInRecord? record;
     try {
@@ -62,6 +70,7 @@ class RootstockSwapInOperation extends SwapInOperation {
         onchainAmountSat: swap.onchainAmount?.toInt() ?? 0,
         timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
         chainId: rootstock.config.rootstockConfig.chainId,
+        accountIndex: params.accountIndex,
       );
       await _swapStore.save(record);
       logger.i('Swap record persisted for ${swap.id} with preimage');
@@ -132,18 +141,29 @@ class RootstockSwapInOperation extends SwapInOperation {
         );
       }
 
+      // ── Persist lockup tx hash IMMEDIATELY so recovery can always
+      //    fetch the full transaction even if the app restarts during
+      //    the awaitTransaction poll below. ──
+      record =
+          (await _swapStore.updateStatus(
+                swap.id,
+                SwapRecordStatus.funded,
+                lockTxHash: lockupTxId,
+                lastBoltzStatus: swapStatus.status,
+              ))!
+              as SwapInRecord;
+
       TransactionInformation lockupTx = await rootstock.awaitTransaction(
         lockupTxId,
       );
       emit(SwapInFunded());
 
-      // ── Update record with lockup details needed for claim ──
+      // ── Update record with refund address from the lockup tx ──
       record =
           (await _swapStore.updateStatus(
                 swap.id,
                 SwapRecordStatus.funded,
                 refundAddress: lockupTx.from.with0x,
-                lastBoltzStatus: swapStatus.status,
               ))!
               as SwapInRecord;
 
@@ -216,14 +236,9 @@ class RootstockSwapInOperation extends SwapInOperation {
       to: 'RBTC',
     );
 
-    final etherSwap = await rootstock.getEtherSwapContract();
-    final relayFees = await rifRelay.estimateSwapInClaimRelayFees(
-      signer: params.evmKey,
-      etherSwap: etherSwap,
-      preimage: Uint8List(32),
-      amountWei: params.amount.getInWei,
-      refundAddress: params.evmKey.address,
-      timeoutBlockHeight: BigInt.zero,
+    final relayFees = BitcoinAmount.fromBigInt(
+      BitcoinUnit.wei,
+      await rifRelay.estimateClaimBeforeLock(params.evmKey),
     );
     logger.d('Estimated relay fees ${relayFees.getInSats} sats');
 
@@ -279,16 +294,7 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
   }
 
-  ({
-    BigInt amount,
-    Uint8List preimage,
-    Uint8List r,
-    EthereumAddress refundAddress,
-    Uint8List s,
-    BigInt timelock,
-    BigInt v,
-  })
-  _generateClaimArgs({
+  ClaimArgs _generateClaimArgs({
     required TransactionInformation lockupTx,
     required ReverseResponse swap,
   }) {
@@ -313,15 +319,12 @@ class RootstockSwapInOperation extends SwapInOperation {
   }
 
   Future<String> _claim({required claimArgs}) async {
-    EtherSwap swapContract = await rootstock.getEtherSwapContract();
-    return rifRelay.relayClaimTransaction(
-      signer: params.evmKey,
-      etherSwap: swapContract,
-      preimage: claimArgs.preimage,
-      amountWei: claimArgs.amount,
-      refundAddress: claimArgs.refundAddress,
-      timeoutBlockHeight: claimArgs.timelock,
-    );
+    EtherSwap etherSwap = await rootstock.getEtherSwapContract();
+    return (await rifRelay.relayClaim(
+      etherSwap,
+      params.evmKey,
+      claimArgs,
+    )).transactionHash.toString();
   }
 
   /// We generate the preimage for the invoice we will pay
@@ -444,59 +447,109 @@ class RootstockSwapInOperation extends SwapInOperation {
     required EvmChain chain,
     required SwapStore swapStore,
   }) async {
-    final claimP = record.claimParams;
-    if (claimP == null) {
-      logger.e(
-        'SwapRecovery: swap-in ${record.boltzId} missing refund address '
-        '(lockup tx not yet observed). Funds may be unrecoverable.',
+    // If we don't have the refund address yet, try to resolve it from the
+    // lockup tx hash (persisted from the Boltz websocket or re-fetched from
+    // the Boltz HTTP API).
+    if (record.refundAddress == null) {
+      String? txHash = record.lockupTxHash;
+
+      // If we never persisted the lockup tx hash either (legacy record),
+      // try fetching the current swap status from Boltz.
+      if (txHash == null) {
+        try {
+          final status = await getIt<BoltzClient>().getSwap(id: record.boltzId);
+          txHash = status.transaction?.id;
+        } catch (e) {
+          logger.w(
+            'SwapRecovery: ${record.boltzId} — could not fetch Boltz status: $e',
+          );
+        }
+      }
+
+      if (txHash == null) {
+        logger.e(
+          'SwapRecovery: swap-in ${record.boltzId} missing lockup tx hash. '
+          'Cannot derive refund address.',
+        );
+        await swapStore.updateStatus(
+          record.id,
+          SwapRecordStatus.failed,
+          errorMessage:
+              'Claim parameters incomplete (missing: lockupTxHash). '
+              'Contact support with swap ID.',
+        );
+        return false;
+      }
+
+      // We have the tx hash — fetch the full transaction from the chain.
+      logger.i(
+        'SwapRecovery: ${record.boltzId} — resolving refund address from '
+        'lockup tx $txHash',
       );
-      await swapStore.updateStatus(
-        record.id,
-        SwapRecordStatus.failed,
-        errorMessage:
-            'Preimage lost or claim parameters incomplete '
-            '(missing: refundAddress). Contact support with swap ID.',
+      final lockupTx = await chain.awaitTransaction(txHash);
+      final refundAddr = lockupTx.from.with0x;
+
+      // Persist both the tx hash and the refund address so we won't need
+      // to re-fetch next time.
+      final updated =
+          (await swapStore.updateStatus(
+                record.id,
+                record.status,
+                lockTxHash: txHash,
+                refundAddress: refundAddr,
+              ))!
+              as SwapInRecord;
+
+      // Continue with the now-complete record.
+      return _attemptRecoveryClaim(
+        record: updated,
+        evmKey: evmKey,
+        chain: chain,
+        swapStore: swapStore,
       );
-      return false;
     }
 
-    try {
-      final amountWei = BitcoinAmount.fromBigInt(
-        BitcoinUnit.sat,
-        BigInt.from(claimP.onchainAmountSat),
-      ).getInWei;
+    final claimP = record.claimParams!;
+    return false;
+    // try {
+    //   final amountWei = BitcoinAmount.fromBigInt(
+    //     BitcoinUnit.sat,
+    //     BigInt.from(claimP.onchainAmountSat),
+    //   ).getInWei;
 
-      final swapContract = await chain.getEtherSwapContract();
-      final relay = getIt<RifRelay>(param1: chain.client);
+    //   final swapContract = await chain.getEtherSwapContract();
+    //   final relay = getIt<RifRelay>(param1: chain.client);
 
-      final tx = await relay.relayClaimTransaction(
-        signer: evmKey,
-        etherSwap: swapContract,
-        preimage: claimP.preimage,
-        amountWei: amountWei,
-        refundAddress: EthereumAddress.fromHex(claimP.refundAddress),
-        timeoutBlockHeight: BigInt.from(claimP.timeoutBlockHeight),
-      );
+    //   final tx = await relay.relayClaim(
+    //     swapContract,
+    //     evmKey,
+    //     _generateClaimArgs(lockupTx: (await chain.getTransaction(record.lockupTxHash!))!, swap: swap)
+    //     etherSwap: swapContract,
+    //     preimage: claimP.preimage,
+    //     amountWei: amountWei,
+    //     refundAddress: EthereumAddress.fromHex(claimP.refundAddress),
+    //     timeoutBlockHeight: BigInt.from(claimP.timeoutBlockHeight),
+    //   );
 
-      logger.i('SwapRecovery: claim broadcast for ${record.boltzId}: $tx');
-      await swapStore.updateStatus(
-        record.id,
-        SwapRecordStatus.claiming,
-        resolutionTxHash: tx,
-      );
+    //   logger.i('SwapRecovery: claim broadcast for ${record.boltzId}: $tx');
+    //   await swapStore.updateStatus(
+    //     record.id,
+    //     SwapRecordStatus.claiming,
+    //     resolutionTxHash: tx,
+    //   );
 
-      await chain.awaitReceipt(tx);
-      logger.i('SwapRecovery: claim confirmed for ${record.boltzId}');
-      await swapStore.updateStatus(record.id, SwapRecordStatus.completed);
-      return true;
-    } catch (e) {
-      logger.e('SwapRecovery: claim failed for ${record.boltzId}: $e');
-      await swapStore.updateStatus(
-        record.id,
-        SwapRecordStatus.needsAction,
-        errorMessage: 'Claim failed: $e',
-      );
-      return false;
-    }
+    //   await chain.awaitReceipt(tx);
+    //   logger.i('SwapRecovery: claim confirmed for ${record.boltzId}');
+    //   await swapStore.updateStatus(record.id, SwapRecordStatus.completed);
+    //   return true;
+    // } catch (e) {
+    //   logger.e('SwapRecovery: claim failed for ${record.boltzId}: $e');
+    //   await swapStore.updateStatus(
+    //     record.id,
+    //     SwapRecordStatus.needsAction,
+    //     errorMessage: 'Claim failed: $e',
+    //   );
+    //   return false;
+    // }
   }
 }

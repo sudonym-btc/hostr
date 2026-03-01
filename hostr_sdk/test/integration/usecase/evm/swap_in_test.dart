@@ -42,7 +42,11 @@ void main() {
             minimumSwapIn + BitcoinAmount.fromInt(BitcoinUnit.sat, 1000);
 
         final swapIn = evm.rootstock.swapIn(
-          SwapInParams(evmKey: hostr.auth.getActiveEvmKey(), amount: amount),
+          SwapInParams(
+            evmKey: hostr.auth.getActiveEvmKey(),
+            accountIndex: 0,
+            amount: amount,
+          ),
         );
 
         final emittedStates = <SwapInState>[swapIn.state];

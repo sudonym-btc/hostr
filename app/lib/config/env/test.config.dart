@@ -26,4 +26,7 @@ class TestConfig extends Config {
 
   @override
   RootstockConfig rootstock = DevelopmentRootstockConfig();
+
+  @override
+  String get googleMapsApiKey => 'test-key';
 }

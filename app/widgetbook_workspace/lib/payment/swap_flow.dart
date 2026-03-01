@@ -10,7 +10,7 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 @widgetbook.UseCase(name: 'Swap In - Confirm', type: SwapInConfirmWidget)
 Widget swapInConfirm(BuildContext context) {
-  return SwapInConfirmWidget(onConfirm: () {});
+  return SwapInConfirmWidget(onConfirm: () async {});
 }
 
 @widgetbook.UseCase(name: 'Swap In - Loading', type: SwapInProgressWidget)

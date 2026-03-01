@@ -9,6 +9,28 @@ import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 
 enum NostrWalletConnectConnectionUiState { loading, connected, failure }
 
+Color _parseWalletColorOrDefault(
+  String? rawColor, {
+  Color fallback = Colors.orange,
+}) {
+  if (rawColor == null || rawColor.trim().isEmpty) {
+    return fallback;
+  }
+
+  final normalized = rawColor.trim().replaceFirst(RegExp(r'^#+'), '');
+
+  if (normalized.length != 6) {
+    return fallback;
+  }
+
+  final parsed = int.tryParse(normalized, radix: 16);
+  if (parsed == null) {
+    return fallback;
+  }
+
+  return Color(parsed + 0xFF000000);
+}
+
 class NostrWalletConnectConnectionTileView extends StatelessWidget {
   final NostrWalletConnectConnectionUiState state;
   final bool canClose;
@@ -110,6 +132,9 @@ class NostrWalletConnectConnectionView extends StatelessWidget {
             }
 
             if (state is NwcSuccess) {
+              print(
+                'NWC Connection Success: ${state.data.alias}, ${state.data.color}, ${state.data.pubkey}',
+              );
               return NostrWalletConnectConnectionTileView(
                 state: NostrWalletConnectConnectionUiState.connected,
                 canClose: canClose,
@@ -118,15 +143,7 @@ class NostrWalletConnectConnectionView extends StatelessWidget {
                     : null,
                 alias: state.data.alias,
                 subtitle: AppLocalizations.of(context)!.connected,
-                avatarColor: state.data.color != null
-                    ? Color(
-                        int.parse(
-                              state.data.color!.substring(1, 7),
-                              radix: 16,
-                            ) +
-                            0xFF000000,
-                      )
-                    : Colors.orange,
+                avatarColor: _parseWalletColorOrDefault(state.data.color),
               );
             }
 

@@ -120,22 +120,45 @@ abstract class PayOperation<
     }
   }
 
+  /// Attempts to settle a Lightning invoice via NWC.
+  ///
+  /// Returns the preimage on success. If no NWC connection is available or
+  /// the NWC payment fails, emits [PayExternalRequired] (attaching the NWC
+  /// error when one was attempted) and returns `null`.
+  Future<String?> settleInvoice(String bolt11) async {
+    final connection = nwc.getActiveConnection();
+    if (connection == null) {
+      logger.d('No NWC connection available, requiring external payment');
+      emit(
+        PayExternalRequired(params: params, callbackDetails: callbackDetails!),
+      );
+      return null;
+    }
+
+    try {
+      final response = await nwc.payInvoice(connection, bolt11);
+      return response.preimage;
+    } catch (e) {
+      logger.w('NWC payment failed, falling back to external: $e');
+      emit(
+        PayExternalRequired(
+          params: params,
+          callbackDetails: callbackDetails!,
+          nwcError: e.toString(),
+        ),
+      );
+      return null;
+    }
+  }
+
   Future<void> complete() async {
     emit(PayInFlight(params: params));
     try {
-      if (nwc.getActiveConnection() == null) {
-        logger.d('No NWC connections available');
-        emit(
-          PayExternalRequired(
-            params: params,
-            callbackDetails: callbackDetails!,
-          ),
-        );
-        return;
-      }
       completedDetails = await completer();
       emit(PayCompleted(params: params, details: completedDetails!));
       await close();
+    } on StateError catch (_) {
+      // settleInvoice already emitted PayExternalRequired; don't overwrite.
     } catch (e) {
       emit(PayFailed(e.toString(), params: params));
     }

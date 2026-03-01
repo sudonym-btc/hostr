@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:web3dart/web3dart.dart';
 
 import '../../injection.dart';
 import '../../util/main.dart';
@@ -30,11 +29,7 @@ class Evm {
     if (_balanceSubscription != null) return;
 
     final streams = supportedEvmChains
-        .map(
-          (chain) => chain.subscribeBalance(
-            getEvmCredentials(auth.activeKeyPair!.privateKey!).address,
-          ),
-        )
+        .map((chain) => chain.subscribeTotalBalance())
         .toList();
 
     final combined = Rx.combineLatestList<BitcoinAmount>(streams).map(
@@ -51,19 +46,12 @@ class Evm {
   }
 
   Future<BitcoinAmount> getBalance() async {
-    // Get current user's Ethereum address
-    final keyPair = auth.activeKeyPair!;
-
-    final ethPrivateKey = EthPrivateKey.fromHex(
-      keyPair.privateKey!.replaceFirst('0x', ''),
-    );
-    final userAddress = ethPrivateKey.address;
-
-    // Loop all supported EVM chains and sum balances
+    // Loop all supported EVM chains and sum total balances across all
+    // HD-derived addresses that have ever been used.
     BitcoinAmount totalBalance = BitcoinAmount.zero();
     for (var chain in supportedEvmChains) {
       try {
-        final chainBalance = await chain.getBalance(userAddress);
+        final chainBalance = await chain.getTotalBalance();
         totalBalance += chainBalance;
       } catch (e) {
         logger.w('Failed to get balance from chain: $e');
@@ -130,9 +118,7 @@ class Evm {
   Future<int> recoverStaleSwaps() async {
     try {
       final recoveryService = getIt<SwapRecoveryService>();
-      final evmKey = auth.getActiveEvmKey();
       return await recoveryService.recoverPendingSwaps(
-        evmKey: evmKey,
         chainResolver: getClientForChainId,
       );
     } catch (e) {

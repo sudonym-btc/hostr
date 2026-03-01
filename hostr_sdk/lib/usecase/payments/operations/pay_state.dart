@@ -42,7 +42,13 @@ class PayInFlight extends PayState {
 }
 
 class PayExternalRequired<T extends CallbackDetails> extends PayState {
-  PayExternalRequired({required super.params, required super.callbackDetails});
+  /// If NWC was attempted but failed, this contains the error.
+  final String? nwcError;
+  PayExternalRequired({
+    required super.params,
+    required super.callbackDetails,
+    this.nwcError,
+  });
 }
 
 class PayCancelled extends PayState {

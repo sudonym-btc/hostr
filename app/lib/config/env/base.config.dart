@@ -10,7 +10,7 @@ abstract class Config {
   RootstockConfig get rootstock;
   List<String> get bootstrapEscrowPubkeys => [];
   bool get useSecureKeyValueStorage => true;
-  String get googleMapsApiKey => 'AIzaSyBjcePUwkKwD-iMmHpjXVDV0MaiYH1dnGo';
+  String get googleMapsApiKey;
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 

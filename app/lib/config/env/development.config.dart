@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/stubs/keypairs.dart';
@@ -18,9 +17,10 @@ class DevelopmentConfig extends Config {
   String get hostrBlossom => 'https://blossom.hostr.development';
 
   @override
-  String get hostrRelay => kIsWeb
-      ? 'wss://relay.hostr.development'
-      : 'wss://relay.hostr.development';
+  String get hostrRelay => 'wss://relay.hostr.development';
+
+  @override
+  String get googleMapsApiKey => 'AIzaSyDbIij_LkLDQTePfWnoLo5bmqhDKS2xXbU';
 }
 
 class DevelopmentRootstockConfig extends RootstockConfig {

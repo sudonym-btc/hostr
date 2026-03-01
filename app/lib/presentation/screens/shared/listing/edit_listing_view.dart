@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart' hide TimeOfDay;
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -163,7 +165,7 @@ class EditListingViewState extends State<EditListingView> {
           context,
           Listing.fromNostrEvent(
             Nip01Event(
-              pubKey: '',
+              pubKey: getIt<Hostr>().auth.getActiveKey().publicKey,
               kind: Listing.kinds.first,
               tags: [],
               content: ListingContent(
