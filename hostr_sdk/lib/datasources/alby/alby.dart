@@ -424,14 +424,11 @@ class AlbyHubClient {
     await setup();
     await start();
     final token = await unlock();
-    print('going to destroy connection for $appPubkey with token: $token');
-    print(
-      (await _request(
-        method: 'DELETE',
-        path: '/api/apps/$appPubkey',
-        bearerToken: token.isEmpty ? null : token,
-        throwOnHttpError: false,
-      )).statusCode,
+    await _request(
+      method: 'DELETE',
+      path: '/api/apps/$appPubkey',
+      bearerToken: token.isEmpty ? null : token,
+      throwOnHttpError: false,
     );
   }
 

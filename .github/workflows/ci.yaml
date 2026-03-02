@@ -91,10 +91,15 @@ jobs:
 
       - name: Add host aliases
         run: |
-          echo "127.0.0.1 relay.hostr.development blossom.hostr.development alby1.hostr.development alby2.hostr.development lnbits1.hostr.development lnbits2.hostr.development" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 relay.hostr.development blossom.hostr.development alby1.hostr.development alby2.hostr.development lnbits1.hostr.development lnbits2.hostr.development anvil.hostr.development boltz.hostr.development rifrelay.hostr.development" | sudo tee -a /etc/hosts
 
       - name: Run Docker integration tests
-        run: dart test test/integration -t docker
+        run: dart test test/integration -t docker -j 1 -P ci
+        working-directory: hostr_sdk
+
+      - name: Show full test log on failure
+        if: failure()
+        run: cat test-results.txt 2>/dev/null || echo "No test log found"
         working-directory: hostr_sdk
 
       - name: Stop test stack

@@ -14,9 +14,10 @@ void main() {
   late IntegrationTestHarness harness;
 
   setUpAll(() async {
+    await IntegrationTestHarness.clearBoltzPendingEvmTransactions();
     harness = await IntegrationTestHarness.create(
       name: 'hostr_swap_in_it',
-      logLevel: Level.debug,
+      logLevel: Level.warning,
     );
   });
 

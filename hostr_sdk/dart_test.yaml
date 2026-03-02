@@ -1,3 +1,10 @@
+# Serialize test execution — the shared Boltz signer wallet in the Docker
+# stack can only broadcast one Rootstock tx at a time. Parallel runs cause
+# NONCE_EXPIRED failures when multiple reverse swaps hit lockup simultaneously.
+# CI runs unit and integration tests as separate commands, so this primarily
+# affects integration runs. Override locally with: dart test -j N
+concurrency: 1
+
 tags:
   unit:
     description: Fast, isolated tests with no docker/network dependencies.
@@ -5,3 +12,11 @@ tags:
     description: Cross-component tests that exercise real integration paths.
   docker:
     description: Tests that require the local docker-compose stack.
+
+# Usage: dart test -P ci test/integration -t docker
+# Shows only failures on console; full expanded output goes to test-results.txt.
+presets:
+  ci:
+    reporter: failures-only
+    file_reporters:
+      expanded: test-results.txt
