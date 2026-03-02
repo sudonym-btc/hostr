@@ -32,6 +32,28 @@ class OnChainTrade {
       'OnChainTrade(active=$isActive, amount=$amount, buyer=$buyer, seller=$seller, arbiter=$arbiter)';
 }
 
+/// Gas parameters captured at estimation time.
+///
+/// Pinning these values ensures the actual transaction uses the exact gas
+/// price and limit that the fee budget was calculated with — eliminating
+/// variance from gas-price drift between estimation and broadcast.
+class GasEstimate {
+  final BitcoinAmount fee;
+  final EtherAmount gasPrice;
+  final BigInt gasLimit;
+
+  const GasEstimate({
+    required this.fee,
+    required this.gasPrice,
+    required this.gasLimit,
+  });
+
+  @override
+  String toString() =>
+      'GasEstimate(fee=${fee.getInSats} sats, '
+      'gasPrice=${gasPrice.getInWei}, gasLimit=$gasLimit)';
+}
+
 abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   final Contract contract;
   final Web3Client client;
@@ -59,9 +81,8 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     }
   }
 
-  Future<({BitcoinAmount fee, EtherAmount gasPrice, BigInt gasLimit})>
-  estimateEscrowFundFee(ContractFundEscrowParams params);
-  Future<BitcoinAmount> estimateClaimFee(ContractClaimEscrowParams params);
+  Future<GasEstimate> estimateEscrowFundFee(ContractFundEscrowParams params);
+  Future<GasEstimate> estimateClaimFee(ContractClaimEscrowParams params);
   // Future<BigInt> estimateRefundFee(EscrowParams params);
 
   depositArgs(ContractFundEscrowParams params);
@@ -135,13 +156,9 @@ class ContractFundEscrowParams {
   final int unlockAt;
   final int? escrowFee;
 
-  /// Pinned gas price from estimation. When set, the deposit transaction
-  /// will use this exact gas price instead of letting the node pick one.
-  final EtherAmount? gasPrice;
-
-  /// Pinned gas limit from estimation. When set, the deposit transaction
-  /// will use this exact gas limit instead of re-estimating.
-  final int? maxGas;
+  /// Gas parameters pinned at estimation time. When set, the deposit
+  /// transaction uses these exact values instead of re-querying the node.
+  final GasEstimate? gasEstimate;
 
   ContractFundEscrowParams({
     required this.tradeId,
@@ -151,15 +168,11 @@ class ContractFundEscrowParams {
     required this.ethKey,
     required this.unlockAt,
     this.escrowFee,
-    this.gasPrice,
-    this.maxGas,
+    this.gasEstimate,
   });
 
-  /// Returns a copy with the pinned gas parameters set.
-  ContractFundEscrowParams withGasParams({
-    required EtherAmount gasPrice,
-    required BigInt gasLimit,
-  }) {
+  /// Returns a copy with pinned [gasEstimate].
+  ContractFundEscrowParams withGasEstimate(GasEstimate estimate) {
     return ContractFundEscrowParams(
       tradeId: tradeId,
       amount: amount,
@@ -168,8 +181,7 @@ class ContractFundEscrowParams {
       ethKey: ethKey,
       unlockAt: unlockAt,
       escrowFee: escrowFee,
-      gasPrice: gasPrice,
-      maxGas: gasLimit.toInt(),
+      gasEstimate: estimate,
     );
   }
 }

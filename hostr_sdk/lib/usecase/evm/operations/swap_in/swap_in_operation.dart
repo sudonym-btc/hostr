@@ -33,10 +33,47 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
   }
 
   Future<SwapInFees> estimateFees();
-  Future<void> execute();
 
   /// Fetches the chain's minimum and maximum swap-in amounts.
   Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits();
+
+  /// Reads the current state and performs exactly one state transition.
+  ///
+  /// Implementors switch on [state] and run the appropriate step:
+  ///
+  /// | State group                                     | Action           |
+  /// |-------------------------------------------------|------------------|
+  /// | `Initialised`                                   | Create Boltz swap |
+  /// | `RequestCreated / AwaitingOnChain / PaymentProgress` | Ensure lockup funded |
+  /// | `Funded`                                        | Claim on-chain   |
+  /// | `Claimed`                                       | Confirm claim receipt |
+  /// | `Completed / Failed`                            | No-op (terminal) |
+  Future<void> handle();
+
+  /// Loops [handle] until the state is terminal.
+  Future<void> run() async {
+    while (!state.isTerminal) {
+      await handle();
+    }
+  }
+
+  /// Start a new swap-in from [SwapInInitialised].
+  Future<void> execute() => run();
+
+  /// Resume from a persisted (non-terminal) state.
+  ///
+  /// Returns `true` if the swap reached a terminal state.
+  Future<bool> recover() async {
+    if (state.data == null) return false;
+    if (state.isTerminal) return true;
+    try {
+      await run();
+      return state.isTerminal;
+    } catch (e) {
+      logger.e('Recovery error for ${state.data?.boltzId}: $e');
+      return false;
+    }
+  }
 
   /// Fetches chain limits and clamps [params.minAmount] / [params.maxAmount]
   /// to the chain's supported range. Re-emits [SwapInInitialised] so the
@@ -79,12 +116,4 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
     params.amount = amount;
     super.emit(const SwapInInitialised());
   }
-
-  /// Resume from the current deserialized state.
-  ///
-  /// Checks the current Boltz status and either marks the swap as completed,
-  /// failed, or attempts to re-claim on-chain funds using the preimage.
-  ///
-  /// Returns `true` if the swap was resolved (completed or terminal failure).
-  Future<bool> recover();
 }

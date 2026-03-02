@@ -19,28 +19,19 @@ class Rootstock extends EvmChain {
     : super(client: Web3Client(config.rootstockConfig.rpcUrl, http.Client()));
 
   @override
-  Future<BitcoinAmount> getMinimumSwapIn() async {
-    final response = (await getIt<BoltzClient>().getSwapReserve());
-    return BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      response.body["BTC"]["RBTC"]["limits"]["minimal"],
+  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapInLimits() async {
+    final pair = await getIt<BoltzClient>().getReversePair();
+    return (
+      min: BitcoinAmount.fromInt(BitcoinUnit.sat, pair.limits.minimal.ceil()),
+      max: BitcoinAmount.fromInt(BitcoinUnit.sat, pair.limits.maximal.floor()),
     );
   }
 
-  @override
-  Future<BitcoinAmount> getMaximumSwapIn() async {
-    final response = (await getIt<BoltzClient>().getSwapReserve());
-    return BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      response.body["BTC"]["RBTC"]["limits"]["maximal"],
-    );
-  }
-
-  Future<BitcoinAmount> getMinimumSwapOut() async {
-    final response = (await getIt<BoltzClient>().getSwapSubmarine());
-    return BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      response.body["RBTC"]["BTC"]["limits"]["minimal"],
+  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapOutLimits() async {
+    final pair = await getIt<BoltzClient>().getSubmarinePair();
+    return (
+      min: BitcoinAmount.fromInt(BitcoinUnit.sat, pair.limits.minimal.ceil()),
+      max: BitcoinAmount.fromInt(BitcoinUnit.sat, pair.limits.maximal.floor()),
     );
   }
 

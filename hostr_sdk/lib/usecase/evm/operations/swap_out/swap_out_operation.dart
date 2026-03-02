@@ -49,13 +49,42 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
   }
 
   Future<SwapOutFees> estimateFees();
-  Future<void> execute();
 
-  /// Resume from the current deserialized state.
+  /// Reads the current state and performs exactly one state transition.
   ///
-  /// Checks the current Boltz status and either marks the swap as completed,
-  /// failed, or attempts to refund locked EVM funds.
+  /// Implementors switch on [state] and run the appropriate step:
   ///
-  /// Returns `true` if the swap was resolved (completed, refunded, or terminal).
-  Future<bool> recover();
+  /// | State group                                        | Action                          |
+  /// |----------------------------------------------------|---------------------------------|
+  /// | `Initialised`                                      | Acquire invoice + create swap   |
+  /// | `AwaitingOnChain`                                  | Lock funds in EtherSwap         |
+  /// | `Funded`                                           | Await Boltz payment or refund   |
+  /// | `Refunding`                                        | Confirm refund receipt          |
+  /// | `Completed / Refunded / Failed`                    | No-op (terminal)                |
+  Future<void> handle();
+
+  /// Loops [handle] until the state is terminal.
+  Future<void> run() async {
+    while (!state.isTerminal) {
+      await handle();
+    }
+  }
+
+  /// Start a new swap-out from [SwapOutInitialised].
+  Future<void> execute() => run();
+
+  /// Resume from a persisted (non-terminal) state.
+  ///
+  /// Returns `true` if the swap reached a terminal state.
+  Future<bool> recover() async {
+    if (state.data == null) return false;
+    if (state.isTerminal) return true;
+    try {
+      await run();
+      return state.isTerminal;
+    } catch (e) {
+      logger.e('Recovery error for ${state.data?.boltzId}: $e');
+      return false;
+    }
+  }
 }

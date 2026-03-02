@@ -88,6 +88,42 @@ PayParameters get _mockPayParams => PayParameters(
   amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
 );
 
+const _mockSwapInData = SwapInData(
+  boltzId: 'mock-swap-in-001',
+  preimageHex:
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+  preimageHash:
+      'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+  onchainAmountSat: 50000,
+  timeoutBlockHeight: 800000,
+  chainId: 31,
+  accountIndex: 0,
+);
+
+const _mockSwapOutData = SwapOutData(
+  boltzId: 'mock-swap-out-001',
+  invoice: 'lnbc450u1p...',
+  invoicePreimageHashHex:
+      'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+  claimAddress: '0x0000000000000000000000000000000000000001',
+  lockedAmountWeiHex: '0xC350',
+  lockerAddress: '0x0000000000000000000000000000000000000002',
+  timeoutBlockHeight: 800000,
+  chainId: 31,
+  accountIndex: 0,
+);
+
+const _mockEscrowFundData = EscrowFundData(
+  tradeId: 'mock-trade-001',
+  reservedAmountWeiHex: '0xC350',
+  sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+  arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+  contractAddress: '0x0000000000000000000000000000000000000003',
+  chainId: 31,
+  unlockAt: 1700000000,
+  accountIndex: 0,
+);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Payment Flow – animated
 // ═══════════════════════════════════════════════════════════════════════════
@@ -152,10 +188,10 @@ Widget swapOutAnimatedFlow(BuildContext context) {
         ),
       ),
       ('Invoice created', const SwapOutInvoiceCreated('lnbc450u1p...')),
-      ('Awaiting on-chain', const SwapOutAwaitingOnChain()),
-      ('Funded', const SwapOutFunded()),
-      ('Claimed', const SwapOutClaimed()),
-      ('Completed', const SwapOutCompleted()),
+      ('Awaiting on-chain', const SwapOutAwaitingOnChain(_mockSwapOutData)),
+      ('Funded', const SwapOutFunded(_mockSwapOutData)),
+      ('Claimed', const SwapOutClaimed(_mockSwapOutData)),
+      ('Completed', const SwapOutCompleted(_mockSwapOutData)),
       ('Failed', const SwapOutFailed('Insufficient EVM balance for swap')),
     ],
     builder: (context, state) => SwapOutViewWidget(state),
@@ -171,17 +207,18 @@ Widget swapInAnimatedFlow(BuildContext context) {
   return _StateCyclerWidget<SwapInState>(
     states: [
       ('Initialised', const SwapInInitialised()),
-      ('Request created', const SwapInRequestCreated()),
+      ('Request created', const SwapInRequestCreated(_mockSwapInData)),
       (
         'Payment progress',
         SwapInPaymentProgress(
+          _mockSwapInData,
           paymentState: PayInFlight(params: _mockPayParams),
         ),
       ),
-      ('Awaiting on-chain', const SwapInAwaitingOnChain()),
-      ('Funded', const SwapInFunded()),
-      ('Claimed', const SwapInClaimed()),
-      ('Completed', const SwapInCompleted()),
+      ('Awaiting on-chain', const SwapInAwaitingOnChain(_mockSwapInData)),
+      ('Funded', const SwapInFunded(_mockSwapInData)),
+      ('Claimed', const SwapInClaimed(_mockSwapInData)),
+      ('Completed', const SwapInCompleted(_mockSwapInData)),
       (
         'Failed',
         const SwapInFailed('Swap timed out waiting for on-chain confirmation'),
@@ -203,23 +240,38 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
       (
         'Swap progress – paying',
         EscrowFundSwapProgress(
-          SwapInPaymentProgress(
+          _mockEscrowFundData,
+          swapState: SwapInPaymentProgress(
+            _mockSwapInData,
             paymentState: PayInFlight(params: _mockPayParams),
           ),
         ),
       ),
       (
         'Swap progress – awaiting on-chain',
-        EscrowFundSwapProgress(const SwapInAwaitingOnChain()),
+        EscrowFundSwapProgress(
+          _mockEscrowFundData,
+          swapState: const SwapInAwaitingOnChain(_mockSwapInData),
+        ),
       ),
-      ('Swap progress – funded', EscrowFundSwapProgress(const SwapInFunded())),
+      (
+        'Swap progress – funded',
+        EscrowFundSwapProgress(
+          _mockEscrowFundData,
+          swapState: const SwapInFunded(_mockSwapInData),
+        ),
+      ),
       (
         'Swap progress – completed',
-        EscrowFundSwapProgress(const SwapInCompleted()),
+        EscrowFundSwapProgress(
+          _mockEscrowFundData,
+          swapState: const SwapInCompleted(_mockSwapInData),
+        ),
       ),
       (
         'Completed',
         EscrowFundCompleted(
+          _mockEscrowFundData,
           transactionInformation: TransactionInformation.fromMap({
             'blockHash':
                 '0x0000000000000000000000000000000000000000000000000000000000000000',

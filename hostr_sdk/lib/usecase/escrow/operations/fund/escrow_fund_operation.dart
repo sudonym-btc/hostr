@@ -15,9 +15,8 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   late final SupportedEscrowContract contract;
   final EscrowFundParams? params;
   late ContractFundEscrowParams contractParams;
-  bool _isExecuting = false;
 
-  /// The HD account index chosen by [getNextUnusedAddress].
+  /// The HD account index chosen by [_resolveAddress].
   /// Set once at the start of [execute] and used for all operations.
   /// Defaults to 0 for pre-execute calls like [estimateFees].
   int _accountIndex = 0;
@@ -70,14 +69,15 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   }
 
   Future<EscrowFundFees> estimateFees() async {
-    final requiredSwapAmount = await _doesEscrowRequireSwap();
-    final swapFees = requiredSwapAmount > BitcoinAmount.zero()
+    final gasEstimate = await contract.estimateEscrowFundFee(contractParams);
+    final swapDeficit = await _computeSwapDeficit(gasEstimate);
+    final swapFees = swapDeficit > BitcoinAmount.zero()
         ? await chain
               .swapIn(
                 SwapInParams(
                   evmKey: contractParams.ethKey,
                   accountIndex: _accountIndex,
-                  amount: requiredSwapAmount,
+                  amount: swapDeficit,
                   invoiceDescription: params!.swapInvoiceDescription,
                 ),
               )
@@ -88,28 +88,209 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
             estimatedRelayFees: BitcoinAmount.zero(),
           );
     return EscrowFundFees(
-      estimatedGasFees: (await contract.estimateEscrowFundFee(
-        contractParams,
-      )).fee,
+      estimatedGasFees: gasEstimate.fee,
       estimatedSwapFees: swapFees,
     );
   }
 
-  Future<void> execute() async {
-    if (_isExecuting) {
-      logger.w('Escrow fund already in progress, ignoring duplicate execute()');
-      return;
+  // ── State machine ─────────────────────────────────────────────────────
+
+  /// Reads the current state and performs exactly one state transition.
+  ///
+  /// | State group          | Action                                     |
+  /// |----------------------|--------------------------------------------|
+  /// | `Initialised`        | Resolve address, create data, swap if needed |
+  /// | `SwapProgress`       | Check nested swap completion               |
+  /// | `Depositing`         | Send or confirm deposit tx                 |
+  /// | `Completed / Failed` | No-op (terminal)                           |
+  Future<void> handle() async {
+    try {
+      switch (state) {
+        case EscrowFundInitialised():
+          await _stepInitialise();
+        case EscrowFundSwapProgress():
+          await _stepCheckSwap();
+        case EscrowFundDepositing():
+          await _stepDeposit();
+        case EscrowFundCompleted() || EscrowFundFailed():
+          return; // terminal — nothing to do
+      }
+    } on _SwapNotReadyException {
+      rethrow; // Let run()/recover() handle this — not an error.
+    } catch (e, st) {
+      logger.e('Error during escrow fund handle (${state.runtimeType}): $e');
+      emit(EscrowFundFailed(e, data: state.data, stackTrace: st));
     }
-    _isExecuting = true;
+  }
 
-    EscrowFundData? fundData;
+  /// Loops [handle] until the state is terminal.
+  Future<void> run() async {
+    while (!state.isTerminal) {
+      await handle();
+    }
+  }
 
-    // ── Pick the best address to fund from ─────────────────────────────
-    // First, check if any already-funded HD address can cover the escrow
-    // amount (plus gas).  This avoids an unnecessary swap-in when the
-    // user already holds RBTC — e.g. from a prior swap-in or direct
-    // transfer.  Only if no address qualifies do we fall back to a fresh
-    // unused address (which will be funded via swap-in later).
+  /// Start a new escrow fund from [EscrowFundInitialised].
+  Future<void> execute() async {
+    await _resolveAddress();
+    await run();
+  }
+
+  /// Resume from a persisted (non-terminal) state.
+  ///
+  /// Returns `true` if the operation reached a terminal state.
+  ///
+  /// **Note:** When in [EscrowFundSwapProgress], the nested swap is NOT
+  /// recovered here — that's the [SwapRecoverer]'s job. If the swap isn't
+  /// complete yet, [_stepCheckSwap] throws [_SwapNotReadyException] to break
+  /// the [run] loop and `recover()` returns `false`.
+  Future<bool> recover() async {
+    if (state.data == null) return false;
+    if (state.isTerminal) return true;
+    try {
+      await run();
+      return state.isTerminal;
+    } on _SwapNotReadyException {
+      logger.d('Recovery: nested swap not ready for ${state.data?.tradeId}');
+      return false;
+    } catch (e) {
+      logger.e('Recovery error for ${state.data?.tradeId}: $e');
+      return false;
+    }
+  }
+
+  // ── Step 1: Resolve address, create data, swap if needed ──────────────
+
+  Future<void> _stepInitialise() async {
+    logger.i(
+      'Creating escrow for tradeId ${contractParams.tradeId} at '
+      '${params!.escrowService.parsedContent.contractAddress} '
+      '(accountIndex: $_accountIndex)',
+    );
+
+    // Create recovery data immediately.
+    var fundData = EscrowFundData(
+      tradeId: contractParams.tradeId,
+      reservedAmountWeiHex: BitcoinAmount.fromAmount(
+        params!.amount,
+      ).getInWei.toRadixString(16),
+      sellerEvmAddress: contractParams.sellerEvmAddress,
+      arbiterEvmAddress: contractParams.arbiterEvmAddress,
+      contractAddress: params!.escrowService.parsedContent.contractAddress,
+      chainId: params!.escrowService.parsedContent.chainId,
+      unlockAt: contractParams.unlockAt,
+      accountIndex: _accountIndex,
+    );
+
+    // Run the nested swap-in if the balance is insufficient.
+    fundData = await _swapRequiredAmount(fundData);
+
+    // Swap done (or not needed) — ready to deposit.
+    emit(EscrowFundDepositing(fundData));
+  }
+
+  // ── Step 2: Check nested swap completion (recovery only) ──────────────
+
+  /// Checks whether the nested swap-in has completed.
+  ///
+  /// If the swap is still in progress, this method returns **without**
+  /// transitioning — the [run] loop will see a non-terminal, non-progressing
+  /// state and [recover] will return `false`. The [SwapRecoverer] handles
+  /// completing the swap; on the next recovery pass this step will find
+  /// the swap complete and advance to [EscrowFundDepositing].
+  Future<void> _stepCheckSwap() async {
+    final data = state.data!;
+
+    if (data.swapId != null) {
+      final swapJson = await _stateStore.read('swap_in', data.swapId!);
+      if (swapJson != null) {
+        final swapState = SwapInState.fromJson(swapJson);
+        if (swapState is SwapInCompleted) {
+          logger.i(
+            'EscrowFund: swap ${data.swapId} completed, proceeding to deposit',
+          );
+          emit(EscrowFundDepositing(data));
+          return;
+        }
+        if (swapState is SwapInFailed) {
+          emit(
+            EscrowFundFailed(
+              'Nested swap failed: ${swapState.error}',
+              data: data,
+            ),
+          );
+          return;
+        }
+      }
+    }
+
+    // Swap not done yet — break out of run() loop. SwapRecoverer handles it.
+    logger.d('EscrowFund: swap ${data.swapId} not yet complete, exiting');
+    throw _SwapNotReadyException();
+  }
+
+  // ── Step 3: Send or confirm the deposit transaction ───────────────────
+
+  Future<void> _stepDeposit() async {
+    final data = state.data!;
+    final evmKey = auth.getActiveEvmKey(accountIndex: data.accountIndex);
+    contractParams = data.toContractParams(evmKey);
+
+    // ── 3a. Transaction already broadcast — check receipt ──
+    if (data.depositTxHash != null) {
+      try {
+        final receipt = await chain.awaitReceipt(data.depositTxHash!);
+        if (_isReceiptSuccessful(receipt)) {
+          emit(EscrowFundCompleted(data));
+        } else {
+          emit(
+            EscrowFundFailed(
+              'Deposit reverted: ${data.depositTxHash}',
+              data: data,
+            ),
+          );
+        }
+        return;
+      } catch (e) {
+        logger.w('EscrowFund: tx ${data.depositTxHash} not found, re-sending');
+      }
+    }
+
+    // ── 3b. Send the deposit transaction ──
+    emit(EscrowFundDepositing(data));
+    final tx = await contract.deposit(contractParams);
+    final txHash = _extractTxHash(tx);
+    if (txHash != null) {
+      final updatedData = data.copyWith(depositTxHash: txHash);
+      emit(EscrowFundDepositing(updatedData));
+      final receipt = await chain.awaitReceipt(txHash);
+      if (!_isReceiptSuccessful(receipt)) {
+        throw StateError(
+          'Escrow funding transaction reverted (tx: $txHash, receipt: $receipt)',
+        );
+      }
+      logger.d('Escrow deposit confirmed: $txHash');
+      emit(EscrowFundCompleted(updatedData, transactionInformation: tx));
+    } else {
+      logger.w(
+        'Could not extract tx hash from TransactionInformation, '
+        'skipping receipt status check',
+      );
+      emit(EscrowFundCompleted(data, transactionInformation: tx));
+    }
+  }
+
+  // ── Address resolution ────────────────────────────────────────────────
+
+  /// Pick the best HD address to fund from.
+  ///
+  /// First, check if any already-funded HD address can cover the escrow
+  /// amount (plus gas). This avoids an unnecessary swap-in when the user
+  /// already holds RBTC. Only if no address qualifies do we fall back to a
+  /// fresh unused address (which will be funded via swap-in later).
+  ///
+  /// Called once at the start of [execute] before entering the state machine.
+  Future<void> _resolveAddress() async {
     final requiredAmount = BitcoinAmount.fromAmount(params!.amount);
     final fundedAddresses = await chain.getAddressesWithBalance();
 
@@ -140,74 +321,9 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     _accountIndex = resolvedAccountIndex;
     final evmKey = auth.getActiveEvmKey(accountIndex: _accountIndex);
     contractParams = params!.toContractParams(evmKey);
-
-    // ── Address invariant ──────────────────────────────────────────────
-    // contractParams.ethKey is the SINGLE source of truth for the funding
-    // address. Every sub-operation reuses it:
-    //
-    //   1. _doesEscrowRequireSwap  → checks balance of ethKey.address (EOA)
-    //   2. _swapRequiredAmount     → passes ethKey to SwapInParams, which
-    //      derives the RIF smart-wallet as the Boltz claim address.
-    //      After the relayed EtherSwap.claim, the SmartWallet.execute()
-    //      auto-forwards received RBTC back to the owner EOA (ethKey.address).
-    //   3. contract.deposit        → sends from ethKey.address (EOA)
-    //
-    // This guarantees the swap-in funds arrive at the exact address that
-    // will sign the escrow deposit transaction.
-    // ───────────────────────────────────────────────────────────────────
-
-    // Create recovery data immediately.
-    fundData = EscrowFundData(
-      tradeId: contractParams.tradeId,
-      reservedAmountWeiHex: BitcoinAmount.fromAmount(
-        params!.amount,
-      ).getInWei.toRadixString(16),
-      sellerEvmAddress: contractParams.sellerEvmAddress,
-      arbiterEvmAddress: contractParams.arbiterEvmAddress,
-      contractAddress: params!.escrowService.parsedContent.contractAddress,
-      chainId: params!.escrowService.parsedContent.chainId,
-      unlockAt: contractParams.unlockAt,
-      accountIndex: _accountIndex,
-    );
-
-    try {
-      logger.i(
-        'Creating escrow for tradeId ${contractParams.tradeId} at ${params!.escrowService.parsedContent.contractAddress} (accountIndex: $_accountIndex)',
-      );
-      fundData = await _swapRequiredAmount(fundData);
-
-      emit(EscrowFundDepositing(fundData));
-      TransactionInformation tx = await contract.deposit(contractParams);
-      final txHash = _extractTxHash(tx);
-      if (txHash != null) {
-        fundData = fundData.copyWith(depositTxHash: txHash);
-        emit(EscrowFundDepositing(fundData));
-        final receipt = await chain.awaitReceipt(txHash);
-        if (!_isReceiptSuccessful(receipt)) {
-          throw StateError(
-            'Escrow funding transaction reverted (tx: $txHash, receipt: $receipt)',
-          );
-        }
-        logger.d(
-          'Escrow deposit transaction confirmed with hash: $txHash, $receipt',
-        );
-        logger.d('Receipt ${receipt.blockNumber}');
-      } else {
-        logger.w(
-          'Could not extract tx hash from TransactionInformation, skipping receipt status check',
-        );
-      }
-      logger.d('Escrow funded with transaction: $tx');
-      emit(EscrowFundCompleted(fundData, transactionInformation: tx));
-    } catch (error, stackTrace) {
-      logger.e('Escrow failed', error: error, stackTrace: stackTrace);
-      final e = EscrowFundFailed(error, data: fundData, stackTrace: stackTrace);
-      emit(e);
-      throw e;
-    } finally {
-      _isExecuting = false;
-    }
   }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
 
   String? _extractTxHash(TransactionInformation tx) {
     final dynamic d = tx;
@@ -232,39 +348,39 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     return normalized == '1' || normalized == '0x1' || normalized == 'true';
   }
 
+  /// Check whether the current balance can cover the escrow deposit + gas.
+  ///
+  /// Returns the amount of RBTC that must be swapped in (zero if sufficient).
+  /// As a side-effect, pins the [GasEstimate] onto [contractParams] so the
+  /// deposit transaction uses the exact gas price/limit the budget was
+  /// calculated with.
   Future<BitcoinAmount> _doesEscrowRequireSwap() async {
-    // Use contractParams.ethKey — the single source of truth for the deposit
-    // address — so the balance check targets the exact same EOA that will fund
-    // the escrow.
+    final gasEstimate = await contract.estimateEscrowFundFee(contractParams);
+
+    // Pin gas params so deposit uses the same price the budget assumes.
+    contractParams = contractParams.withGasEstimate(gasEstimate);
+
+    return _computeSwapDeficit(gasEstimate);
+  }
+
+  /// Pure computation: given a [gasEstimate], check the on-chain balance and
+  /// return how much additional RBTC is needed (zero if the balance suffices).
+  Future<BitcoinAmount> _computeSwapDeficit(GasEstimate gasEstimate) async {
     final balance = await chain.getBalance(contractParams.ethKey.address);
-    logger.i('Escrow sender balance: $balance RBTC');
+    final escrowAmount = BitcoinAmount.fromAmount(params!.amount);
+    final shortfall = balance - escrowAmount - gasEstimate.fee;
 
-    final estimate = await contract.estimateEscrowFundFee(contractParams);
-    final transactionFee = estimate.fee;
-
-    // Pin the gas price and gas limit from estimation onto contractParams
-    // so the deposit transaction uses the exact same values.
-    contractParams = contractParams.withGasParams(
-      gasPrice: estimate.gasPrice,
-      gasLimit: estimate.gasLimit,
+    logger.i(
+      'Balance check: have=${balance.getInSats}, '
+      'escrow=${escrowAmount.getInSats}, gas=${gasEstimate.fee.getInSats}, '
+      'shortfall=${shortfall.getInSats}',
     );
 
-    logger.w(
-      'Estimated transaction fee for escrow deposit: ${transactionFee.getInSats} sats '
-      '(gasPrice: ${estimate.gasPrice.getInWei}, gasLimit: ${estimate.gasLimit})',
-    );
-
-    final leftAfterTrade =
-        balance - BitcoinAmount.fromAmount(params!.amount) - transactionFee;
-
-    if (leftAfterTrade < BitcoinAmount.zero()) {
-      logger.e(
-        'Insufficient balance for escrow deposit. Have $balance RBTC, would leave us with $leftAfterTrade',
-      );
-
+    if (shortfall < BitcoinAmount.zero()) {
+      final limits = await chain.getSwapInLimits();
       return BitcoinAmount.max(
-        await chain.getMinimumSwapIn(),
-        leftAfterTrade.abs(),
+        limits.min,
+        shortfall.abs(),
       ).roundUp(BitcoinUnit.sat);
     }
     return BitcoinAmount.zero();
@@ -317,102 +433,12 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     }
     return fundData;
   }
+}
 
-  /// Resume from the current (deserialized) state.
-  ///
-  /// Does NOT recover nested swaps — that's the [SwapRecoverer]'s job.
-  /// If the swap is still in progress, returns immediately.
-  Future<void> recover() async {
-    final currentState = state;
-    final data = currentState.data;
-    if (data == null || currentState.isTerminal) return;
-
-    switch (currentState) {
-      case EscrowFundSwapProgress():
-        // Check if the nested swap has completed via the store.
-        if (data.swapId != null) {
-          final swapJson = await _stateStore.read('swap_in', data.swapId!);
-          if (swapJson != null) {
-            final swapState = SwapInState.fromJson(swapJson);
-            if (swapState is SwapInCompleted) {
-              logger.i(
-                'EscrowFund recover: swap ${data.swapId} completed, '
-                'proceeding to deposit',
-              );
-              await _executeDeposit(data);
-              return;
-            }
-            if (swapState is SwapInFailed) {
-              emit(
-                EscrowFundFailed(
-                  'Nested swap failed: ${swapState.error}',
-                  data: data,
-                ),
-              );
-              return;
-            }
-          }
-        }
-        // Swap not done yet — exit. SwapRecoverer handles it.
-        logger.d(
-          'EscrowFund recover: swap ${data.swapId} not yet complete, exiting',
-        );
-        return;
-      case EscrowFundDepositing():
-        await _executeDeposit(data);
-        return;
-      default:
-        return;
-    }
-  }
-
-  Future<void> _executeDeposit(EscrowFundData data) async {
-    try {
-      final evmKey = auth.getActiveEvmKey(accountIndex: data.accountIndex);
-      contractParams = data.toContractParams(evmKey);
-
-      if (data.depositTxHash != null) {
-        // Transaction already broadcast — check receipt.
-        try {
-          final receipt = await chain.awaitReceipt(data.depositTxHash!);
-          if (_isReceiptSuccessful(receipt)) {
-            emit(EscrowFundCompleted(data));
-          } else {
-            emit(
-              EscrowFundFailed(
-                'Deposit reverted: ${data.depositTxHash}',
-                data: data,
-              ),
-            );
-          }
-          return;
-        } catch (e) {
-          logger.w(
-            'EscrowFund recover: tx ${data.depositTxHash} not found, re-sending',
-          );
-        }
-      }
-
-      emit(EscrowFundDepositing(data));
-      TransactionInformation tx = await contract.deposit(contractParams);
-      final txHash = _extractTxHash(tx);
-      if (txHash != null) {
-        final updatedData = data.copyWith(depositTxHash: txHash);
-        emit(EscrowFundDepositing(updatedData));
-        final receipt = await chain.awaitReceipt(txHash);
-        if (_isReceiptSuccessful(receipt)) {
-          emit(EscrowFundCompleted(updatedData, transactionInformation: tx));
-        } else {
-          emit(
-            EscrowFundFailed('Deposit reverted: $txHash', data: updatedData),
-          );
-        }
-      } else {
-        emit(EscrowFundCompleted(data, transactionInformation: tx));
-      }
-    } catch (e, st) {
-      logger.e('EscrowFund recover deposit failed: $e');
-      emit(EscrowFundFailed(e, data: data, stackTrace: st));
-    }
-  }
+/// Internal signal that [_stepCheckSwap] cannot make progress because the
+/// nested swap-in has not completed yet. Caught by [recover] to return
+/// `false` (i.e. "not resolved — try again later").
+class _SwapNotReadyException implements Exception {
+  @override
+  String toString() => 'Nested swap not yet complete';
 }

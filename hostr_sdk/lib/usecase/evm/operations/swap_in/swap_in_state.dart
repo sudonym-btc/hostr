@@ -19,6 +19,8 @@ class SwapInData {
   final int timeoutBlockHeight;
   final int chainId;
   final int accountIndex;
+  final int? creationBlockHeight;
+  final String? invoiceString;
   final String? lockupTxHash;
   final String? refundAddress;
   final String? claimTxHash;
@@ -33,6 +35,8 @@ class SwapInData {
     required this.timeoutBlockHeight,
     required this.chainId,
     required this.accountIndex,
+    this.creationBlockHeight,
+    this.invoiceString,
     this.lockupTxHash,
     this.refundAddress,
     this.claimTxHash,
@@ -44,6 +48,8 @@ class SwapInData {
   Uint8List get preimageBytes => Uint8List.fromList(hex.decode(preimageHex));
 
   SwapInData copyWith({
+    int? creationBlockHeight,
+    String? invoiceString,
     String? lockupTxHash,
     String? refundAddress,
     String? claimTxHash,
@@ -57,6 +63,8 @@ class SwapInData {
     timeoutBlockHeight: timeoutBlockHeight,
     chainId: chainId,
     accountIndex: accountIndex,
+    creationBlockHeight: creationBlockHeight ?? this.creationBlockHeight,
+    invoiceString: invoiceString ?? this.invoiceString,
     lockupTxHash: lockupTxHash ?? this.lockupTxHash,
     refundAddress: refundAddress ?? this.refundAddress,
     claimTxHash: claimTxHash ?? this.claimTxHash,
@@ -72,6 +80,8 @@ class SwapInData {
     'timeoutBlockHeight': timeoutBlockHeight,
     'chainId': chainId,
     'accountIndex': accountIndex,
+    if (creationBlockHeight != null) 'creationBlockHeight': creationBlockHeight,
+    if (invoiceString != null) 'invoiceString': invoiceString,
     if (lockupTxHash != null) 'lockupTxHash': lockupTxHash,
     if (refundAddress != null) 'refundAddress': refundAddress,
     if (claimTxHash != null) 'claimTxHash': claimTxHash,
@@ -87,6 +97,8 @@ class SwapInData {
     timeoutBlockHeight: json['timeoutBlockHeight'] as int,
     chainId: json['chainId'] as int,
     accountIndex: json['accountIndex'] as int? ?? 0,
+    creationBlockHeight: json['creationBlockHeight'] as int?,
+    invoiceString: json['invoiceString'] as String?,
     lockupTxHash: json['lockupTxHash'] as String?,
     refundAddress: json['refundAddress'] as String?,
     claimTxHash: json['claimTxHash'] as String?,

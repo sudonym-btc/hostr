@@ -29,6 +29,26 @@
     },
     "extensions.ignoreRecommendations": false,
     "editor.formatOnSave": true,
+
+    // Exclude dependencies/ from VS Code file watchers, search, and explorers
+    "files.exclude": {
+      "**/dependencies": false
+    },
+    "files.watcherExclude": {
+      "**/dependencies/**": true
+    },
+    "search.exclude": {
+      "**/dependencies/**": true
+    },
+
+    // Dart: exclude dependencies/ from analysis
+    "dart.analysisExcludedFolders": [
+      "dependencies"
+    ],
+
+    // Hardhat Solidity: only analyse the escrow contracts, not vendored deps
+    "hardhat.telemetry": false,
+    "solidity.packageDefaultDependenciesDirectory": "",
   },
   "extensions": {
     "recommendations": [

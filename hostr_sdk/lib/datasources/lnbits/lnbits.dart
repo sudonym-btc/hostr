@@ -245,46 +245,6 @@ class LnbitsDatasource {
     );
   }
 
-  Future<void> _ensureExtensionEnabled(
-    Lnbits api,
-    String extensionName, {
-    required String archive,
-    required String version,
-  }) async {
-    final installResponse = await api.apiV1ExtensionPost(
-      body: CreateExtension(
-        extId: extensionName,
-        archive: archive,
-        sourceRepo:
-            'https://raw.githubusercontent.com/lnbits/lnbits-extensions/main/extensions.json',
-        version: version,
-      ),
-    );
-
-    if (!installResponse.isSuccessful) {
-      final detail = _extractDetail(installResponse.body);
-      final already = detail?.toLowerCase().contains('already') ?? false;
-      if (!already) {
-        throw Exception(
-          'LNbits extension install failed: ${installResponse.body}',
-        );
-      }
-    }
-
-    final enableResponse = await api.apiV1ExtensionExtIdEnablePut(
-      extId: extensionName,
-    );
-    if (!enableResponse.isSuccessful) {
-      final detail = _extractDetail(enableResponse.body);
-      final already = detail?.toLowerCase().contains('already') ?? false;
-      if (!already) {
-        throw Exception(
-          'LNbits extension enable failed: ${enableResponse.body}',
-        );
-      }
-    }
-  }
-
   Future<void> _configureLnurlpNostrKey({
     required String baseUrl,
     required String bearerToken,
@@ -765,11 +725,6 @@ class LnbitsDatasource {
   String? _extractAccessToken(dynamic body) {
     final map = _asJsonMap(body);
     return map['access_token']?.toString();
-  }
-
-  String? _extractDetail(dynamic body) {
-    final map = _asJsonMap(body);
-    return map['detail']?.toString();
   }
 
   Map<String, dynamic> _asJsonMap(dynamic body) {

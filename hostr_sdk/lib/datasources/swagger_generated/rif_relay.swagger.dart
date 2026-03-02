@@ -1081,7 +1081,7 @@ extension $RelayMetadataExtension on RelayMetadata {
 
 @JsonSerializable(explicitToJson: true)
 class RelayPost$Response {
-  const RelayPost$Response({this.signedTx, this.transactionHash});
+  const RelayPost$Response({this.signedTx, this.txHash});
 
   factory RelayPost$Response.fromJson(Map<String, dynamic> json) =>
       _$RelayPost$ResponseFromJson(json);
@@ -1092,7 +1092,7 @@ class RelayPost$Response {
   @JsonKey(name: 'signedTx', includeIfNull: false)
   final Object? signedTx;
   @JsonKey(name: 'txHash', includeIfNull: false)
-  final Object? transactionHash;
+  final Object? txHash;
   static const fromJsonFactory = _$RelayPost$ResponseFromJson;
 
   @override
@@ -1104,11 +1104,8 @@ class RelayPost$Response {
                   other.signedTx,
                   signedTx,
                 )) &&
-            (identical(other.transactionHash, transactionHash) ||
-                const DeepCollectionEquality().equals(
-                  other.transactionHash,
-                  transactionHash,
-                )));
+            (identical(other.txHash, txHash) ||
+                const DeepCollectionEquality().equals(other.txHash, txHash)));
   }
 
   @override
@@ -1117,27 +1114,25 @@ class RelayPost$Response {
   @override
   int get hashCode =>
       const DeepCollectionEquality().hash(signedTx) ^
-      const DeepCollectionEquality().hash(transactionHash) ^
+      const DeepCollectionEquality().hash(txHash) ^
       runtimeType.hashCode;
 }
 
 extension $RelayPost$ResponseExtension on RelayPost$Response {
-  RelayPost$Response copyWith({Object? signedTx, Object? transactionHash}) {
+  RelayPost$Response copyWith({Object? signedTx, Object? txHash}) {
     return RelayPost$Response(
       signedTx: signedTx ?? this.signedTx,
-      transactionHash: transactionHash ?? this.transactionHash,
+      txHash: txHash ?? this.txHash,
     );
   }
 
   RelayPost$Response copyWithWrapped({
     Wrapped<Object?>? signedTx,
-    Wrapped<Object?>? transactionHash,
+    Wrapped<Object?>? txHash,
   }) {
     return RelayPost$Response(
       signedTx: (signedTx != null ? signedTx.value : this.signedTx),
-      transactionHash: (transactionHash != null
-          ? transactionHash.value
-          : this.transactionHash),
+      txHash: (txHash != null ? txHash.value : this.txHash),
     );
   }
 }

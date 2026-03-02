@@ -168,15 +168,12 @@ Map<String, dynamic> _$RelayMetadataToJson(RelayMetadata instance) =>
     };
 
 RelayPost$Response _$RelayPost$ResponseFromJson(Map<String, dynamic> json) =>
-    RelayPost$Response(
-      signedTx: json['signedTx'],
-      transactionHash: json['txHash'],
-    );
+    RelayPost$Response(signedTx: json['signedTx'], txHash: json['txHash']);
 
 Map<String, dynamic> _$RelayPost$ResponseToJson(RelayPost$Response instance) =>
     <String, dynamic>{
       'signedTx': ?instance.signedTx,
-      'txHash': ?instance.transactionHash,
+      'txHash': ?instance.txHash,
     };
 
 EstimatePost$Response _$EstimatePost$ResponseFromJson(

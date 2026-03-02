@@ -119,7 +119,7 @@ The `AutoWithdrawService` reads user preferences from
 ### Fee-awareness
 
 Before triggering a swap, the service should call
-`Rootstock.getMinimumSwapOut()` to get the current Boltz minimum, and
+`Rootstock.getSwapOutLimits()` to get the current Boltz limits, and
 `SwapOutOperation.estimateFees()` to compute total fees. Only proceed if:
 
 ```

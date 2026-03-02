@@ -1,19 +1,11 @@
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../injection.dart';
-import '../../../util/main.dart';
-import '../../auth/auth.dart';
-import '../../nwc/nwc.dart';
 import '../chain/rootstock/operations/swap_in/swap_in_operation.dart'
     as rootstock_swap_in;
 import '../chain/rootstock/operations/swap_out/swap_out_operation.dart'
     as rootstock_swap_out;
-import '../chain/rootstock/rootstock.dart';
-import 'operation_state_store.dart';
-import 'swap_in/swap_in_models.dart';
-import 'swap_in/swap_in_state.dart';
-import 'swap_out/swap_out_models.dart';
-import 'swap_out/swap_out_state.dart';
 
 /// Recovers pending swap-in and swap-out operations on app start.
 ///
@@ -112,6 +104,8 @@ class SwapRecoverer {
       auth: _auth,
       logger: _logger,
       nwc: getIt<Nwc>(),
+      payments: getIt<Payments>(),
+      quoteService: getIt<SwapOutQuoteService>(),
       params: SwapOutParams(
         evmKey: evmKey,
         accountIndex: data.accountIndex,

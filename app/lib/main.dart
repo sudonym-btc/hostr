@@ -35,11 +35,12 @@ void mainCommon(String env) async {
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
-  print('callbackDispatcher: not in taskexecution');
+  final logger = CustomLogger();
+  logger.d('callbackDispatcher invoked');
 
   Workmanager().executeTask((task, inputData) async {
     try {
-      print('callbackDispatcher: $task, inputData: $inputData');
+      logger.d('callbackDispatcher: $task, inputData: $inputData');
       final env = await readPersistedEnvironment();
       await setupBackground(env);
 
@@ -48,7 +49,7 @@ void callbackDispatcher() {
       prefs.setString(iOSBackgroundProcessingTask, 'done');
 
       final result = await getIt<Hostr>().backgroundWorker.run();
-      print(
+      logger.d(
         'Background worker completed: ${result.notifications.length} notifications',
       );
       for (int i = 0; i < result.notifications.length; i++) {
@@ -75,7 +76,7 @@ void callbackDispatcher() {
 
       return Future.value(true);
     } catch (e, st) {
-      print('Error in background task: $e, stackTrace: $st');
+      logger.e('Error in background task', error: e, stackTrace: st);
       return Future.value(false);
     }
   });

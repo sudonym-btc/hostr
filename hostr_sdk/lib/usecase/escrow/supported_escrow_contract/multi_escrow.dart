@@ -62,8 +62,8 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         credentials: params.ethKey,
         transaction: Transaction(
           value: params.amount.toEtherAmount(),
-          gasPrice: params.gasPrice,
-          maxGas: params.maxGas,
+          gasPrice: params.gasEstimate?.gasPrice,
+          maxGas: params.gasEstimate?.gasLimit.toInt(),
         ),
       );
     });
@@ -146,8 +146,9 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   }
 
   @override
-  Future<({BitcoinAmount fee, EtherAmount gasPrice, BigInt gasLimit})>
-  estimateEscrowFundFee(ContractFundEscrowParams params) async {
+  Future<GasEstimate> estimateEscrowFundFee(
+    ContractFundEscrowParams params,
+  ) async {
     final gasPrice = await client.getGasPrice();
 
     // Use eth_estimateGas with state overrides (3rd param) so the node
@@ -179,28 +180,20 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         },
       ]);
 
-      logger.d(
-        'Estimated gas hex from eth_estimateGas: $gasHex. This is a hex string representing the estimated gas limit for the transaction.',
-      );
-
       final gasLimit = BigInt.parse(gasHex.substring(2), radix: 16);
-      final feeWei = gasPrice.getInWei * gasLimit;
-      return (
-        fee: BitcoinAmount.inWei(feeWei),
+      return GasEstimate(
+        fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
         gasPrice: gasPrice,
         gasLimit: gasLimit,
       );
     } catch (e) {
-      // Fallback to a conservative hardcoded estimate if the node does not
-      // support eth_estimateGas state overrides.
       logger.w(
         'estimateEscrowFundFee: state-override estimation failed, '
         'falling back to hardcoded gas limit. Error: $e',
       );
       final gasLimit = BigInt.from(200000);
-      final feeWei = gasPrice.getInWei * gasLimit;
-      return (
-        fee: BitcoinAmount.inWei(feeWei),
+      return GasEstimate(
+        fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
         gasPrice: gasPrice,
         gasLimit: gasLimit,
       );
@@ -208,13 +201,14 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   }
 
   @override
-  Future<BitcoinAmount> estimateClaimFee(
-    ContractClaimEscrowParams params,
-  ) async {
+  Future<GasEstimate> estimateClaimFee(ContractClaimEscrowParams params) async {
     final gasPrice = await contract.client.getGasPrice();
     final gasLimit = BigInt.from(200000);
-    final feeWei = gasPrice.getInWei * gasLimit;
-    return BitcoinAmount.inWei(feeWei);
+    return GasEstimate(
+      fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
+      gasPrice: gasPrice,
+      gasLimit: gasLimit,
+    );
   }
 
   @override
