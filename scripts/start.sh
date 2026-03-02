@@ -57,10 +57,13 @@ if [ "$ENVIRONMENT" = "test" ]; then
     docker compose down --remove-orphans --volumes || true
 fi
 
+# -d with proper depends_on chains (bootstrap → regtest-start → LND/CLN)
+# ensures every container is scheduled after its deps are met.
+# We can't use --wait because it treats one-shot init containers
+# (tls-init, alby-init, lnbits-init, etc.) that exit 0 as failures.
 docker compose up -d --remove-orphans --yes
 
-# In local/test profiles, `bootstrap` is a one-shot init container.
-# CI needs this script to block until bootstrap has completed successfully.
+# Block until the one-shot bootstrap container finishes.
 bootstrap_cid="$(docker compose ps -aq bootstrap 2>/dev/null | head -n 1 || true)"
 if [ -n "$bootstrap_cid" ]; then
     docker compose wait bootstrap

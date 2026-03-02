@@ -9,12 +9,36 @@ services:
       - |
         set -e
         echo "hostr override: ensuring volume dirs exist with correct ownership"
-        dirs=(.bitcoin .elements .lightning-1 .lightning-2 .lnd-1 .lnd-2 .boltz-backend .boltz-client .arkd .fulmine)
+        dirs=(.bitcoin .elements .lightning-1 .lightning-2 .lnd-1 .lnd-2 .lnd-3 .boltz-backend .boltz-client .arkd .fulmine)
         for d in "$${dirs[@]}"; do
           mkdir -p "/root/$$d"
           find "/root/$$d" -not -type s -exec chown ${UID:-1000}:${GID:-1000} {} + 2>/dev/null || true
         done
         echo "done"
+
+  # --- Networking ---
+  # Attach boltz services to shared_network so they are reachable by the
+  # hostr nginx-proxy (TLS termination) and other hostr services.
+
+  bitcoind:
+    networks:
+      - default
+      - shared_network
+
+  elementsd:
+    # Slow Apple-Silicon emulation needs more startup headroom.
+    healthcheck:
+      start_period: 10s
+
+  cln-1:
+    networks:
+      - default
+      - shared_network
+
+  cln-2:
+    networks:
+      - default
+      - shared_network
 
   # Expose anvil to nginx-proxy so the Flutter app can reach it via
   # https://anvil.hostr.development (TLS-terminated by nginx-proxy).
@@ -28,6 +52,7 @@ services:
       - default
       - shared_network
 
+  # --- Platform overrides ---
   # Force Boltz service platform explicitly, but allow CI/host to override via
   # DOCKER_DEFAULT_PLATFORM (e.g. linux/amd64 on GitHub runners).
   # Falls back to linux/arm64 for Apple Silicon local development.
@@ -40,8 +65,48 @@ services:
   boltz-client:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
 
-  # Raise max pending channels so batched opens in setup_channels.sh don't get rejected.
+  # --- RIF Relay ---
+  # Needed by hostr for RSK gas-less meta-transactions.
+  rif-relay:
+    hostname: rif-relay
+    container_name: boltz-rif-relay
+    image: ${RIF_RELAY_IMAGE}
+    depends_on:
+      anvil:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s localhost:8090/chain-info"]
+      timeout: 1s
+      retries: 200
+      interval: 2s
+      start_period: 15s
+    ports:
+      - 8090:8090
+    profiles: ["default", "ci"]
+
+  # Add rif-relay as a dependency for regtest-start so channels are opened
+  # only after the relay is healthy.
+  regtest-start:
+    depends_on:
+      rif-relay:
+        condition: service_healthy
+
+  # --- Redis ---
+  # Override volume path so it resolves relative to the hostr repo root
+  # (BOLTZ_ROOT points into the submodule directory).
+  redis:
+    volumes:
+      - ${BOLTZ_ROOT:-.}/redis/cache.conf:/usr/local/etc/redis/redis.conf:ro
+
+  # --- LND overrides ---
+  # Use upstream LND image with explicit platform for ARM64 compatibility.
+  # Raise max pending channels so batched opens in setup_channels.sh don't
+  # get rejected.
   lnd-1:
+    platform: ${LND_PLATFORM:-linux/arm64}
+    networks:
+      - default
+      - shared_network
     command:
       - --listen=0.0.0.0:9735
       - --rpclisten=0.0.0.0:10009
@@ -58,7 +123,12 @@ services:
       - --protocol.wumbo-channels
       - --lnddir=/app/lnd
       - --maxpendingchannels=10
+
   lnd-2:
+    platform: ${LND_PLATFORM:-linux/arm64}
+    networks:
+      - default
+      - shared_network
     command:
       - --listen=0.0.0.0:9735
       - --rpclisten=0.0.0.0:10009
@@ -75,3 +145,105 @@ services:
       - --protocol.wumbo-channels
       - --lnddir=/app/lnd
       - --maxpendingchannels=10
+
+  lnd-3:
+    platform: ${LND_PLATFORM:-linux/arm64}
+    networks:
+      - default
+      - shared_network
+
+  # --- Volume device paths ---
+  # Use BOLTZ_ROOT so volumes resolve correctly when compose is run from
+  # the hostr repo root rather than from inside the submodule.
+
+volumes:
+  boltz-data:
+    name: boltz-backend-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/backend
+  boltz-client-data:
+    name: boltz-client-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/boltz-client
+  bitcoin-data:
+    name: boltz-bitcoind-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/bitcoind
+  elements-data:
+    name: boltz-elements-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/elements
+  cln1-data:
+    name: boltz-cln1-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/cln1
+  cln2-data:
+    name: boltz-cln2-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/cln2
+  lnd1-data:
+    name: boltz-lnd1-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/lnd1
+  lnd2-data:
+    name: boltz-lnd2-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/lnd2
+  lnd3-data:
+    name: boltz-lnd3-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/lnd3
+  nginx-data:
+    name: boltz-nginx-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/backend-nginx/
+  arkd-data:
+    name: arkd-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/arkd
+  fulmine-data:
+    name: fulmine-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BOLTZ_ROOT:-.}/data/fulmine
+
+networks:
+  default:
+    driver: bridge
+  shared_network:
+    external: true
