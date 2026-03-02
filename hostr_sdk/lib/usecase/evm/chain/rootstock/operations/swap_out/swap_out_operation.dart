@@ -4,22 +4,15 @@ import 'dart:typed_data';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
 import 'package:hostr_sdk/datasources/swagger_generated/boltz.swagger.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/usecase/evm/main.dart';
-import 'package:hostr_sdk/usecase/metadata/metadata.dart';
-import 'package:hostr_sdk/usecase/nwc/nwc.dart';
-import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
-import 'package:ndk/data_layer/data_sources/http_request.dart';
-import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
-import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart' hide params;
 
 import '../../../../../../datasources/boltz/boltz.dart';
 import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
-import '../../../../../../util/main.dart';
 import '../../rif_relay/rif_relay.dart';
 
 @injectable
@@ -28,6 +21,8 @@ class RootstockSwapOutOperation extends SwapOutOperation {
 
   final Rootstock rootstock;
   final Nwc nwc;
+  final SwapOutQuoteService quoteService;
+  final Payments payments;
   late final RifRelay rifRelay = getIt<RifRelay>(param1: rootstock.client);
 
   RootstockSwapOutOperation({
@@ -35,183 +30,240 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     required super.auth,
     required super.logger,
     required this.nwc,
+    required this.quoteService,
+    required this.payments,
     @factoryParam required super.params,
-    super.initialState,
+    @ignoreParam super.initialState,
   });
 
+  // ── State machine ─────────────────────────────────────────────────────
+
   @override
-  Future<void> execute() async {
-    SwapOutData? data;
+  Future<void> handle() async {
     try {
-      emit(SwapOutRequestCreated());
-      final quote = await _buildSwapOutQuote();
-
-      final String invoice;
-      if (nwc.getActiveConnection() == null) {
-        // No NWC wallet connected – try LUD16 from user metadata first
-        final lud16Invoice = await _tryCreateInvoiceFromLud16(
-          quote.invoiceAmount.getInSats.toInt(),
-        );
-
-        if (lud16Invoice != null) {
-          invoice = lud16Invoice;
-          logger.i('Created invoice via LUD16 lightning address');
-        } else {
-          // No LUD16 either – ask the user to provide an invoice manually
-          emit(SwapOutExternalInvoiceRequired(quote.invoiceAmount));
-          logger.i(
-            'No NWC or LUD16 available, emitted SwapOutExternalInvoiceRequired '
-            'with amount ${quote.invoiceAmount.getInSats} sats',
-          );
-          externalInvoiceCompleter = Completer<String>();
-          invoice = await externalInvoiceCompleter!.future;
-        }
-      } else {
-        final makeInvoice = await nwc.makeInvoice(
-          nwc.getActiveConnection()!,
-          amountSats: quote.invoiceAmount.getInSats.toInt(),
-          description: 'Hostr payout',
-        );
-        invoice = makeInvoice.invoice;
-      }
-      emit(SwapOutInvoiceCreated(invoice));
-      logger.i('Invoice created: $invoice');
-
-      final invoicePreimageHash = Bolt11PaymentRequest(
-        invoice,
-      ).tags.where((tag) => tag.type == 'payment_hash').first.data;
-      final preimageHash = _decodePaymentHash(invoicePreimageHash);
-
-      final swap = await getIt<BoltzClient>().submarine(invoice: invoice);
-      logger.i('Submarine swap created: ${swap.toString()}');
-
-      final expectedLockAmount = BitcoinAmount.fromInt(
-        BitcoinUnit.sat,
-        swap.expectedAmount.ceil(),
-      );
-      final expectedLockAmountRounded = expectedLockAmount.roundUp(
-        BitcoinUnit.sat,
-      );
-      final gasFeeRounded = quote.estimatedGasFee.roundUp(BitcoinUnit.sat);
-      final balanceRounded = quote.balance.roundDown(BitcoinUnit.sat);
-
-      if (expectedLockAmountRounded + gasFeeRounded > balanceRounded) {
-        final requiredTotal = expectedLockAmountRounded + gasFeeRounded;
-        throw StateError(
-          'Insufficient balance to lock swap. Need ${expectedLockAmountRounded.getInSats} sats + ${gasFeeRounded.getInSats} sats gas, total of ${requiredTotal.getInSats} sats, have ${balanceRounded.getInSats} sats.',
-        );
-      }
-
-      final lockClaimAddress = _resolveSubmarineClaimAddress(swap);
-
-      // ── Create recovery data before locking funds ──
-      // Once we call lock(), our EVM funds are committed to the HTLC.
-      // We MUST persist all refund parameters before that point.
-      data = SwapOutData(
-        boltzId: swap.id,
-        invoice: invoice,
-        invoicePreimageHashHex: hex.encode(preimageHash),
-        claimAddress: lockClaimAddress.with0x,
-        lockedAmountWeiHex: expectedLockAmountRounded.getInWei.toRadixString(
-          16,
-        ),
-        lockerAddress: params.evmKey.address.with0x,
-        timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
-        chainId: rootstock.config.rootstockConfig.chainId,
-        accountIndex: params.accountIndex,
-      );
-      emit(SwapOutAwaitingOnChain(data));
-      logger.i('Swap-out data persisted for ${swap.id} before lock');
-
-      // Subscribe to Boltz WebSocket for status updates
-      final swapStatusStream = _waitForSwapOnChain(swap.id);
-
-      // Create the args record for the lock function
-      final lockArgs = (
-        claimAddress: lockClaimAddress,
-        preimageHash: preimageHash,
-        timelock: BigInt.from(swap.timeoutBlockHeight),
-      );
-
-      final swapContract = await rootstock.getEtherSwapContract();
-
-      // Lock the funds in the EtherSwap contract
-      String tx = await swapContract.lock(
-        lockArgs,
-        credentials: params.evmKey,
-        transaction: Transaction(
-          value: expectedLockAmountRounded.toEtherAmount(),
-        ),
-      );
-
-      // ── Persist lock tx hash ──
-      data = data.copyWith(lockTxHash: tx, lastBoltzStatus: 'lock.broadcast');
-      emit(SwapOutFunded(data));
-      logger.i('Locked funds in EtherSwap: $tx');
-
-      // Wait for Boltz to pay our Lightning invoice or report failure
-      final terminalStatus = await swapStatusStream
-          .where(
-            (status) =>
-                status.status == 'invoice.paid' ||
-                status.status == 'invoice.failedToPay' ||
-                status.status == 'transaction.lockupFailed' ||
-                status.status == 'swap.expired',
-          )
-          .timeout(
-            const Duration(minutes: 60),
-            onTimeout: (sink) {
-              sink.addError(
-                TimeoutException(
-                  'Timed out waiting for Boltz to pay invoice for swap ${swap.id}. '
-                  'Funds are locked in EtherSwap contract. '
-                  'A refund can be attempted after block ${swap.timeoutBlockHeight}.',
-                ),
-              );
-            },
-          )
-          .first;
-
-      if (terminalStatus.status == 'invoice.paid') {
-        // ── SUCCESS ──
-        emit(SwapOutCompleted(data.copyWith(lastBoltzStatus: 'invoice.paid')));
-        logger.i('Swap-out completed: invoice paid by Boltz');
-        await close();
-      } else {
-        // ── FAILURE: Need to refund ──
-        logger.w(
-          'Swap-out failed with status: ${terminalStatus.status}. '
-          'Will attempt refund.',
-        );
-        data = data.copyWith(
-          lastBoltzStatus: terminalStatus.status,
-          errorMessage:
-              'Boltz reported ${terminalStatus.status}. Refund required.',
-        );
-        emit(SwapOutFunded(data));
-
-        // Attempt refund immediately
-        await _attemptRefund(data: data, swapContract: swapContract);
+      switch (state) {
+        case SwapOutInitialised() ||
+            SwapOutRequestCreated() ||
+            SwapOutExternalInvoiceRequired() ||
+            SwapOutInvoiceCreated() ||
+            SwapOutPaymentProgress():
+          await _stepCreateSwap();
+        case SwapOutAwaitingOnChain():
+          await _stepLockFunds();
+        case SwapOutFunded() || SwapOutClaimed():
+          await _stepAwaitResolution();
+        case SwapOutRefunding():
+          await _stepConfirmRefund();
+        case SwapOutCompleted() || SwapOutRefunded() || SwapOutFailed():
+          return; // terminal — nothing to do
       }
     } on TimeoutException catch (e, st) {
       logger.e('Timeout during swap-out: $e');
-      emit(SwapOutFailed(e, data: data, stackTrace: st));
+      emit(SwapOutFailed(e, data: state.data, stackTrace: st));
     } catch (e, st) {
-      logger.e('Error during swap out operation: $e');
-      emit(SwapOutFailed(e, data: data, stackTrace: st));
+      logger.e('Error during swap-out handle (${state.runtimeType}): $e');
+      emit(SwapOutFailed(e, data: state.data, stackTrace: st));
     }
   }
+
+  // ── Step 1: Acquire invoice + create Boltz submarine swap ─────────────
+
+  Future<void> _stepCreateSwap() async {
+    emit(SwapOutRequestCreated());
+
+    final quote = await _buildQuote();
+    final invoice = await _acquireInvoice(quote);
+    emit(SwapOutInvoiceCreated(invoice));
+    logger.i('Invoice created: $invoice');
+
+    final creationBlock = await rootstock.client.getBlockNumber();
+    await _prepareSwap(invoice, quote, creationBlock);
+    // _prepareSwap emits SwapOutAwaitingOnChain internally
+  }
+
+  // ── Step 2: Lock funds in EtherSwap ───────────────────────────────────
+
+  Future<void> _stepLockFunds() async {
+    final data = state.data!;
+
+    // ── 2a. Check if already locked on-chain (idempotent recovery) ──
+    if (data.lockTxHash != null) {
+      // Already locked — fast-forward to Funded
+      emit(SwapOutFunded(data));
+      return;
+    }
+
+    final swapContract = await rootstock.getEtherSwapContract();
+    final tx = await swapContract.lock(
+      (
+        claimAddress: EthereumAddress.fromHex(data.claimAddress),
+        preimageHash: data.invoicePreimageHashBytes,
+        timelock: BigInt.from(data.timeoutBlockHeight),
+      ),
+      credentials: params.evmKey,
+      transaction: Transaction(value: EtherAmount.inWei(data.lockedAmountWei)),
+    );
+
+    emit(
+      SwapOutFunded(
+        data.copyWith(lockTxHash: tx, lastBoltzStatus: 'lock.broadcast'),
+      ),
+    );
+    logger.i('Locked funds in EtherSwap: $tx');
+  }
+
+  // ── Step 3: Await Boltz payment or trigger refund ─────────────────────
+
+  Future<void> _stepAwaitResolution() async {
+    final data = state.data!;
+
+    // ── 3a. Check chain for existing refund event ──
+    final refundEvent = await _findRefundOnChain(data);
+    if (refundEvent != null) {
+      logger.i('Found refund on-chain for ${data.boltzId}');
+      emit(
+        SwapOutRefunded(
+          data.copyWith(resolutionTxHash: refundEvent.event.transactionHash),
+        ),
+      );
+      return;
+    }
+
+    // ── 3b. Check chain for claim event (Boltz claimed = success) ──
+    final claimEvent = await _findClaimOnChain(data);
+    if (claimEvent != null) {
+      logger.i('Found claim on-chain for ${data.boltzId} — swap succeeded');
+      emit(SwapOutCompleted(data.copyWith(lastBoltzStatus: 'invoice.paid')));
+      return;
+    }
+
+    // ── 3c. Check Boltz HTTP status for terminal conditions ──
+    try {
+      final boltzResponse = await getIt<BoltzClient>().getSwap(
+        id: data.boltzId,
+      );
+      final status = boltzResponse.status;
+
+      // Boltz already paid the invoice — swap succeeded
+      if (status == 'invoice.paid' || status == 'transaction.claimed') {
+        logger.i('Boltz reports ${data.boltzId} completed ($status)');
+        emit(SwapOutCompleted(data.copyWith(lastBoltzStatus: status)));
+        return;
+      }
+
+      // Swap was created but we never locked funds — safe to abandon
+      if (data.lockTxHash == null &&
+          (status == 'swap.expired' || status == 'swap.created')) {
+        logger.i('Swap ${data.boltzId} never funded, safe to abandon');
+        emit(
+          SwapOutFailed(
+            'Swap abandoned — funds were never locked.',
+            data: data.copyWith(lastBoltzStatus: status),
+          ),
+        );
+        return;
+      }
+
+      // Boltz failed to pay — need to refund
+      if (status == 'invoice.failedToPay' ||
+          status == 'transaction.lockupFailed' ||
+          status == 'swap.expired') {
+        logger.w('Boltz reported $status for ${data.boltzId} — refunding');
+        await _attemptRefund(data.copyWith(lastBoltzStatus: status));
+        return;
+      }
+
+      // Swap still in progress — subscribe to WebSocket for live updates
+      if (status == 'invoice.pending' ||
+          status == 'transaction.mempool' ||
+          status == 'transaction.confirmed') {
+        logger.d('Swap ${data.boltzId} in progress ($status) — waiting');
+        await _waitForTerminalStatus(data);
+        return;
+      }
+
+      logger.d('Swap ${data.boltzId} in status $status — no action taken');
+    } catch (e) {
+      logger.w('Could not check Boltz status for ${data.boltzId}: $e');
+    }
+
+    // ── 3d. Fall back to WebSocket wait (fresh execute path) ──
+    await _waitForTerminalStatus(data);
+  }
+
+  /// Subscribes to the Boltz WebSocket and waits for a terminal status,
+  /// then either completes the swap or triggers a refund.
+  Future<void> _waitForTerminalStatus(SwapOutData data) async {
+    final statusStream = _waitForSwapOnChain(data.boltzId);
+
+    final terminalStatus = await statusStream
+        .where(
+          (s) =>
+              s.status == 'invoice.paid' ||
+              s.status == 'invoice.failedToPay' ||
+              s.status == 'transaction.lockupFailed' ||
+              s.status == 'swap.expired',
+        )
+        .timeout(
+          const Duration(minutes: 60),
+          onTimeout: (sink) {
+            sink.addError(
+              TimeoutException(
+                'Timed out waiting for Boltz to pay invoice for swap '
+                '${data.boltzId}. Funds are locked in EtherSwap contract. '
+                'A refund can be attempted after block '
+                '${data.timeoutBlockHeight}.',
+              ),
+            );
+          },
+        )
+        .first;
+
+    if (terminalStatus.status == 'invoice.paid') {
+      emit(SwapOutCompleted(data.copyWith(lastBoltzStatus: 'invoice.paid')));
+      logger.i('Swap-out completed: invoice paid by Boltz');
+      return;
+    }
+
+    // ── FAILURE: attempt refund ──
+    logger.w(
+      'Swap-out failed with status: ${terminalStatus.status}. '
+      'Will attempt refund.',
+    );
+    await _attemptRefund(
+      data.copyWith(
+        lastBoltzStatus: terminalStatus.status,
+        errorMessage:
+            'Boltz reported ${terminalStatus.status}. Refund required.',
+      ),
+    );
+  }
+
+  // ── Step 4: Confirm refund receipt ────────────────────────────────────
+
+  Future<void> _stepConfirmRefund() async {
+    final data = state.data!;
+    if (data.resolutionTxHash == null) {
+      // Shouldn't happen, but re-attempt refund
+      await _attemptRefund(data);
+      return;
+    }
+    final receipt = await rootstock.awaitReceipt(data.resolutionTxHash!);
+    logger.i('Refund receipt for ${data.boltzId}: $receipt');
+    emit(SwapOutRefunded(data));
+    logger.i('Swap-out refunded: ${data.resolutionTxHash}');
+  }
+
+  // ── Refund logic ──────────────────────────────────────────────────────
 
   /// Attempt to refund locked funds from the EtherSwap contract.
   ///
   /// Tries cooperative refund first (via EIP-712 signature from Boltz, available
   /// immediately when swap is in a failed state). Falls back to timelock refund
   /// if cooperative refund isn't available.
-  Future<void> _attemptRefund({
-    required SwapOutData data,
-    required EtherSwap swapContract,
-  }) async {
+  Future<void> _attemptRefund(SwapOutData data) async {
     final claimAddress = EthereumAddress.fromHex(data.claimAddress);
+    final swapContract = await rootstock.getEtherSwapContract();
 
     // 1. Try cooperative refund (immediate, doesn't need timelock expiry)
     try {
@@ -222,7 +274,7 @@ class RootstockSwapOutOperation extends SwapOutOperation {
 
       if (sigResponse != null) {
         logger.i('Got cooperative refund signature from Boltz');
-        final sig = _parseEip712Signature(sigResponse.signature);
+        final sig = parseEvmSignature(sigResponse.signature);
 
         final refundTx = await swapContract.refundCooperative$2((
           preimageHash: data.invoicePreimageHashBytes,
@@ -234,13 +286,8 @@ class RootstockSwapOutOperation extends SwapOutOperation {
           s: sig.s,
         ), credentials: params.evmKey);
 
-        data = data.copyWith(resolutionTxHash: refundTx);
-        emit(SwapOutRefunding(data));
+        emit(SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx)));
         logger.i('Cooperative refund broadcast: $refundTx');
-
-        final receipt = await rootstock.awaitReceipt(refundTx);
-        logger.i('Cooperative refund confirmed: $receipt');
-        emit(SwapOutRefunded(data));
         return;
       }
     } catch (e) {
@@ -252,14 +299,16 @@ class RootstockSwapOutOperation extends SwapOutOperation {
       final currentBlock = await rootstock.client.getBlockNumber();
       if (currentBlock < data.timeoutBlockHeight) {
         logger.w(
-          'Timelock not expired yet (current: $currentBlock, timelock: ${data.timeoutBlockHeight}). '
+          'Timelock not expired yet (current: $currentBlock, '
+          'timelock: ${data.timeoutBlockHeight}). '
           'Refund will be retried by SwapRecoverer.',
         );
         emit(
           SwapOutFunded(
             data.copyWith(
               errorMessage:
-                  'Waiting for timelock expiry at block ${data.timeoutBlockHeight} (current: $currentBlock)',
+                  'Waiting for timelock expiry at block '
+                  '${data.timeoutBlockHeight} (current: $currentBlock)',
             ),
           ),
         );
@@ -273,206 +322,19 @@ class RootstockSwapOutOperation extends SwapOutOperation {
         timelock: BigInt.from(data.timeoutBlockHeight),
       ), credentials: params.evmKey);
 
-      data = data.copyWith(resolutionTxHash: refundTx);
-      emit(SwapOutRefunding(data));
+      emit(SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx)));
       logger.i('Timelock refund broadcast: $refundTx');
-
-      final receipt = await rootstock.awaitReceipt(refundTx);
-      logger.i('Timelock refund confirmed: $receipt');
-      emit(SwapOutRefunded(data));
     } catch (e) {
       logger.e('Timelock refund failed: $e');
       emit(SwapOutFunded(data.copyWith(errorMessage: 'Refund failed: $e')));
     }
   }
 
-  @override
-  Future<bool> recover() async {
-    final currentState = state;
-    final data = currentState.data;
-    if (data == null) return false; // Never committed on-chain
-    if (currentState.isTerminal) return true; // Already resolved
-
-    try {
-      // Fetch current Boltz status
-      final boltzResponse = await getIt<BoltzClient>().getSwap(
-        id: data.boltzId,
-      );
-      final boltzStatus = boltzResponse.status;
-
-      // Boltz already paid the invoice — swap succeeded!
-      if (boltzStatus == 'invoice.paid' ||
-          boltzStatus == 'transaction.claimed') {
-        logger.i(
-          'SwapRecovery: swap-out ${data.boltzId} completed '
-          '(Boltz status: $boltzStatus).',
-        );
-        emit(SwapOutCompleted(data.copyWith(lastBoltzStatus: boltzStatus)));
-        return true;
-      }
-
-      // Swap was created but we never locked funds — safe to abandon.
-      if (data.lockTxHash == null) {
-        if (boltzStatus == 'swap.expired' || boltzStatus == 'swap.created') {
-          logger.i(
-            'SwapRecovery: swap-out ${data.boltzId} never funded, safe to abandon.',
-          );
-          emit(
-            SwapOutFailed(
-              'Swap abandoned — funds were never locked.',
-              data: data.copyWith(lastBoltzStatus: boltzStatus),
-            ),
-          );
-          return true;
-        }
-      }
-
-      // These states mean Boltz failed to pay the invoice and we need to refund.
-      if (boltzStatus == 'invoice.failedToPay' ||
-          boltzStatus == 'transaction.lockupFailed' ||
-          boltzStatus == 'swap.expired') {
-        return await _attemptRecoveryRefund(
-          data.copyWith(lastBoltzStatus: boltzStatus),
-        );
-      }
-
-      // Swap is still in progress (Boltz is trying to pay) — wait.
-      if (boltzStatus == 'invoice.pending' ||
-          boltzStatus == 'transaction.mempool' ||
-          boltzStatus == 'transaction.confirmed') {
-        logger.d(
-          'SwapRecovery: swap-out ${data.boltzId} still in progress '
-          '($boltzStatus). Will check again later.',
-        );
-        emit(SwapOutFunded(data.copyWith(lastBoltzStatus: boltzStatus)));
-        return false;
-      }
-
-      logger.d(
-        'SwapRecovery: swap-out ${data.boltzId} in status $boltzStatus — '
-        'no action taken.',
-      );
-      return false;
-    } catch (e) {
-      logger.e('SwapRecovery: error recovering ${data.boltzId}: $e');
-      return false;
-    }
-  }
-
-  /// Attempt to refund locked funds during recovery.
-  ///
-  /// Tries cooperative refund first, then falls back to timelock refund.
-  Future<bool> _attemptRecoveryRefund(SwapOutData data) async {
-    final claimAddress = EthereumAddress.fromHex(data.claimAddress);
-    final swapContract = await rootstock.getEtherSwapContract();
-
-    // 1. Try cooperative refund first (immediate, no timelock wait)
-    try {
-      final boltz = getIt<BoltzClient>();
-      final sigResponse = await boltz.getCooperativeRefundSignature(
-        id: data.boltzId,
-      );
-      if (sigResponse != null) {
-        logger.i(
-          'SwapRecovery: got cooperative refund sig for ${data.boltzId}',
-        );
-        final sig = _parseEip712Signature(sigResponse.signature);
-
-        final refundTx = await swapContract.refundCooperative$2((
-          preimageHash: data.invoicePreimageHashBytes,
-          amount: data.lockedAmountWei,
-          claimAddress: claimAddress,
-          timelock: BigInt.from(data.timeoutBlockHeight),
-          v: sig.v,
-          r: sig.r,
-          s: sig.s,
-        ), credentials: params.evmKey);
-
-        data = data.copyWith(resolutionTxHash: refundTx);
-        emit(SwapOutRefunding(data));
-        logger.i('SwapRecovery: cooperative refund broadcast: $refundTx');
-
-        await rootstock.awaitReceipt(refundTx);
-        emit(SwapOutRefunded(data));
-        logger.i(
-          'SwapRecovery: cooperative refund confirmed for ${data.boltzId}',
-        );
-        return true;
-      }
-    } catch (e) {
-      logger.w(
-        'SwapRecovery: cooperative refund failed for ${data.boltzId}: $e',
-      );
-    }
-
-    // 2. Fall back to timelock refund
-    try {
-      final currentBlock = await rootstock.client.getBlockNumber();
-      if (currentBlock < data.timeoutBlockHeight) {
-        logger.w(
-          'SwapRecovery: timelock not expired for ${data.boltzId} '
-          '(current: $currentBlock, expires: ${data.timeoutBlockHeight}). '
-          'Will retry on next recovery pass.',
-        );
-        emit(
-          SwapOutFunded(
-            data.copyWith(
-              errorMessage:
-                  'Waiting for timelock at block ${data.timeoutBlockHeight} (current: $currentBlock).',
-            ),
-          ),
-        );
-        return false;
-      }
-
-      final refundTx = await swapContract.refund((
-        preimageHash: data.invoicePreimageHashBytes,
-        amount: data.lockedAmountWei,
-        claimAddress: claimAddress,
-        timelock: BigInt.from(data.timeoutBlockHeight),
-      ), credentials: params.evmKey);
-
-      data = data.copyWith(resolutionTxHash: refundTx);
-      emit(SwapOutRefunding(data));
-      logger.i(
-        'SwapRecovery: timelock refund broadcast for ${data.boltzId}: $refundTx',
-      );
-
-      await rootstock.awaitReceipt(refundTx);
-      emit(SwapOutRefunded(data));
-      logger.i('SwapRecovery: timelock refund confirmed for ${data.boltzId}');
-      return true;
-    } catch (e) {
-      logger.e('SwapRecovery: timelock refund failed for ${data.boltzId}: $e');
-      emit(
-        SwapOutFunded(
-          data.copyWith(errorMessage: 'Timelock refund failed: $e'),
-        ),
-      );
-      return false;
-    }
-  }
-
-  /// Parse an EIP-712 signature string (hex) into (v, r, s) components.
-  ({BigInt v, Uint8List r, Uint8List s}) _parseEip712Signature(String sigHex) {
-    final normalized = sigHex.startsWith('0x') ? sigHex.substring(2) : sigHex;
-    final sigBytes = hex.decode(normalized);
-    if (sigBytes.length != 65) {
-      throw StateError(
-        'Expected 65-byte EIP-712 signature, got ${sigBytes.length} bytes',
-      );
-    }
-    return (
-      r: Uint8List.fromList(sigBytes.sublist(0, 32)),
-      s: Uint8List.fromList(sigBytes.sublist(32, 64)),
-      v: BigInt.from(sigBytes[64]),
-    );
-  }
+  // ── Fee estimation ────────────────────────────────────────────────────
 
   @override
   Future<SwapOutFees> estimateFees() async {
-    final quote = await _buildSwapOutQuote();
-
+    final quote = await _buildQuote();
     return SwapOutFees(
       estimatedGasFees: quote.estimatedGasFee,
       estimatedSwapFees: quote.estimatedSwapFee,
@@ -481,97 +343,155 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     );
   }
 
-  Future<
-    ({
-      BitcoinAmount balance,
-      BitcoinAmount invoiceAmount,
-      BitcoinAmount estimatedGasFee,
-      BitcoinAmount estimatedSwapFee,
-    })
-  >
-  _buildSwapOutQuote() async {
-    final balance = await rootstock.getBalance(params.evmKey.address);
-    final balanceRounded = balance.roundDown(BitcoinUnit.sat);
-    final estimatedGasFee = (await _estimateLockGasFee()).roundUp(
+  // ── On-chain event queries ────────────────────────────────────────────
+
+  /// Scans the chain for a Claim event matching [data.invoicePreimageHashHex].
+  Future<Claim?> _findClaimOnChain(SwapOutData data) async {
+    try {
+      final etherSwap = await rootstock.getEtherSwapContract();
+      final fromBlock = data.creationBlockHeight != null
+          ? BlockNum.exact(data.creationBlockHeight!)
+          : const BlockNum.genesis();
+
+      final event = etherSwap.self.event('Claim');
+      final filter = FilterOptions.events(
+        contract: etherSwap.self,
+        event: event,
+        fromBlock: fromBlock,
+        toBlock: const BlockNum.current(),
+      );
+      final logs = await rootstock.client.getLogs(filter);
+      for (final log in logs) {
+        final decoded = event.decodeResults(log.topics!, log.data!);
+        final claim = Claim(decoded, log);
+        if (_bytesEqual(claim.preimageHash, data.invoicePreimageHashBytes)) {
+          return claim;
+        }
+      }
+      return null;
+    } catch (e) {
+      logger.w('Failed to query claim events: $e');
+      return null;
+    }
+  }
+
+  /// Scans the chain for a Refund event matching [data.invoicePreimageHashHex].
+  Future<Refund?> _findRefundOnChain(SwapOutData data) async {
+    try {
+      final etherSwap = await rootstock.getEtherSwapContract();
+      final fromBlock = data.creationBlockHeight != null
+          ? BlockNum.exact(data.creationBlockHeight!)
+          : const BlockNum.genesis();
+
+      final event = etherSwap.self.event('Refund');
+      final filter = FilterOptions.events(
+        contract: etherSwap.self,
+        event: event,
+        fromBlock: fromBlock,
+        toBlock: const BlockNum.current(),
+      );
+      final logs = await rootstock.client.getLogs(filter);
+      for (final log in logs) {
+        final decoded = event.decodeResults(log.topics!, log.data!);
+        final refund = Refund(decoded, log);
+        if (_bytesEqual(refund.preimageHash, data.invoicePreimageHashBytes)) {
+          return refund;
+        }
+      }
+      return null;
+    } catch (e) {
+      logger.w('Failed to query refund events: $e');
+      return null;
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+
+  /// Obtains a Lightning invoice for the swap-out.
+  ///
+  /// Tries NWC / LUD-16 first; if unavailable, asks the user to provide
+  /// one manually via [SwapOutExternalInvoiceRequired].
+  Future<String> _acquireInvoice(SwapOutQuote quote) async {
+    final invoice = await payments.getMyInvoice(
+      quote.invoiceAmount.getInSats.toInt(),
+      description: 'Hostr payout',
+    );
+    if (invoice != null) return invoice;
+
+    emit(SwapOutExternalInvoiceRequired(quote.invoiceAmount));
+    logger.i(
+      'No NWC or LUD16 available, emitted SwapOutExternalInvoiceRequired '
+      'with amount ${quote.invoiceAmount.getInSats} sats',
+    );
+    externalInvoiceCompleter = Completer<String>();
+    return externalInvoiceCompleter!.future;
+  }
+
+  /// Decodes a BOLT-11 invoice and returns the 32-byte preimage hash.
+  Uint8List _extractPreimageHash(String invoice) {
+    final tag = Bolt11PaymentRequest(
+      invoice,
+    ).tags.where((t) => t.type == 'payment_hash').first.data;
+    return _decodePaymentHash(tag);
+  }
+
+  /// Creates the Boltz submarine swap, validates that the on-chain balance
+  /// covers the lock amount plus gas, and builds the [SwapOutData] recovery
+  /// record.
+  Future<SwapOutData> _prepareSwap(
+    String invoice,
+    SwapOutQuote quote,
+    int creationBlock,
+  ) async {
+    final preimageHash = _extractPreimageHash(invoice);
+    final swap = await getIt<BoltzClient>().submarine(invoice: invoice);
+    logger.i('Submarine swap created: ${swap.toString()}');
+
+    final expectedLockAmount = BitcoinAmount.fromInt(
+      BitcoinUnit.sat,
+      swap.expectedAmount.ceil(),
+    );
+    final expectedLockAmountRounded = expectedLockAmount.roundUp(
       BitcoinUnit.sat,
     );
-    final pair = await _getSubmarinePair(from: 'RBTC', to: 'BTC');
+    final gasFeeRounded = quote.estimatedGasFee.roundUp(BitcoinUnit.sat);
+    final balanceRounded = quote.balance.roundDown(BitcoinUnit.sat);
 
-    final minInvoice = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      pair.limits.minimal.ceil(),
-    );
-    final maxInvoiceByPair = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      pair.limits.maximal.floor(),
-    );
-
-    final percentage = pair.fees.percentage;
-    final minerFeesSatsRoundedUp = pair.fees.minerFees.ceil();
-    final spendableAfterGasSats =
-        balanceRounded.getInSats.toDouble() -
-        estimatedGasFee.getInSats.toDouble();
-
-    if (spendableAfterGasSats <= 0) {
+    if (expectedLockAmountRounded + gasFeeRounded > balanceRounded) {
+      final requiredTotal = expectedLockAmountRounded + gasFeeRounded;
       throw StateError(
-        'Balance ${balance.getInSats} sats is not enough to cover estimated gas ${estimatedGasFee.getInSats} sats.',
+        'Insufficient balance to lock swap. '
+        'Need ${expectedLockAmountRounded.getInSats} sats + '
+        '${gasFeeRounded.getInSats} sats gas, '
+        'total of ${requiredTotal.getInSats} sats, '
+        'have ${balanceRounded.getInSats} sats.',
       );
     }
 
-    final denom = 1 + (percentage / 100.0);
-    final maxInvoiceByBalanceSats =
-        ((spendableAfterGasSats - minerFeesSatsRoundedUp) / denom).floor();
+    final lockClaimAddress = _resolveSubmarineClaimAddress(swap);
 
-    if (maxInvoiceByBalanceSats <= 0) {
-      throw StateError(
-        'Balance after gas cannot cover submarine swap fees. Spendable: ${spendableAfterGasSats.floor()} sats, fixed miner fee: $minerFeesSatsRoundedUp sats.',
-      );
-    }
-
-    final maxInvoiceByBalance = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      maxInvoiceByBalanceSats,
+    final data = SwapOutData(
+      boltzId: swap.id,
+      invoice: invoice,
+      invoicePreimageHashHex: hex.encode(preimageHash),
+      claimAddress: lockClaimAddress.with0x,
+      lockedAmountWeiHex: expectedLockAmountRounded.getInWei.toRadixString(16),
+      lockerAddress: params.evmKey.address.with0x,
+      timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
+      chainId: rootstock.config.rootstockConfig.chainId,
+      accountIndex: params.accountIndex,
+      creationBlockHeight: creationBlock,
     );
-    final maxInvoice = BitcoinAmount.max(
-      BitcoinAmount.zero(),
-      maxInvoiceByBalance < maxInvoiceByPair
-          ? maxInvoiceByBalance
-          : maxInvoiceByPair,
-    );
+    emit(SwapOutAwaitingOnChain(data));
+    logger.i('Swap-out data persisted for ${swap.id} before lock');
+    return data;
+  }
 
-    final invoiceAmount = (params.amount ?? maxInvoice).roundDown(
-      BitcoinUnit.sat,
-    );
-
-    if (invoiceAmount < minInvoice) {
-      throw StateError(
-        'Invoice amount ${invoiceAmount.getInSats} sats is below Boltz minimum ${minInvoice.getInSats} sats.',
-      );
-    }
-    if (invoiceAmount > maxInvoiceByPair) {
-      throw StateError(
-        'Invoice amount ${invoiceAmount.getInSats} sats exceeds Boltz maximum ${maxInvoiceByPair.getInSats} sats.',
-      );
-    }
-    if (invoiceAmount > maxInvoiceByBalance) {
-      throw StateError(
-        'Invoice amount ${invoiceAmount.getInSats} sats exceeds affordable maximum ${maxInvoiceByBalance.getInSats} sats after gas+swap fees.',
-      );
-    }
-
-    final estimatedSwapFeeSats =
-        invoiceAmount.getInSats.toDouble() * (percentage / 100.0) +
-        minerFeesSatsRoundedUp;
-    final estimatedSwapFee = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      estimatedSwapFeeSats.ceil(),
-    ).roundUp(BitcoinUnit.sat);
-
-    return (
-      balance: balanceRounded,
-      invoiceAmount: invoiceAmount,
-      estimatedGasFee: estimatedGasFee,
-      estimatedSwapFee: estimatedSwapFee,
+  Future<SwapOutQuote> _buildQuote() async {
+    return quoteService.buildQuote(
+      balance: await rootstock.getBalance(params.evmKey.address),
+      estimatedGasFee: await _estimateLockGasFee(),
+      requestedAmount: params.amount,
     );
   }
 
@@ -579,36 +499,6 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     final gasPrice = await rootstock.client.getGasPrice();
     final feeWei = gasPrice.getInWei * BigInt.from(_estimatedLockGasLimit);
     return BitcoinAmount.inWei(feeWei);
-  }
-
-  Future<SubmarinePair> _getSubmarinePair({
-    required String from,
-    required String to,
-  }) async {
-    final response = await getIt<BoltzClient>().getSwapSubmarine();
-    if (!response.isSuccessful || response.body == null) {
-      throw StateError('Failed to fetch submarine swap pairs from Boltz');
-    }
-
-    final body = response.body;
-    if (body is! Map) {
-      throw StateError('Unexpected Boltz submarine pairs response shape');
-    }
-
-    final fromMap = body[from];
-    if (fromMap is! Map) {
-      throw StateError('Boltz submarine source currency not found: $from');
-    }
-
-    final pairRaw = fromMap[to];
-    if (pairRaw is! Map) {
-      throw StateError('Boltz submarine pair not found: $from->$to');
-    }
-
-    final pairJson = Map<String, dynamic>.from(
-      pairRaw.map((key, value) => MapEntry(key.toString(), value)),
-    );
-    return SubmarinePair.fromJson(pairJson);
   }
 
   Uint8List _decodePaymentHash(String paymentHash) {
@@ -649,50 +539,12 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     });
   }
 
-  /// Attempts to create an invoice from the current user's LUD16 lightning
-  /// address. Returns the bolt11 invoice string on success, or `null` if the
-  /// user has no LUD16 set or the LNURL flow fails.
-  Future<String?> _tryCreateInvoiceFromLud16(int amountSats) async {
-    try {
-      final pubkey = auth.activeKeyPair?.publicKey;
-      if (pubkey == null) return null;
-
-      final profile = await getIt<MetadataUseCase>().loadMetadata(pubkey);
-      final lud16 = profile?.metadata.lud16;
-      if (lud16 == null || lud16.isEmpty) {
-        logger.d('No LUD16 set on user metadata');
-        return null;
-      }
-
-      final lud16Link = Lnurl.getLud16LinkFromLud16(lud16);
-      if (lud16Link == null) {
-        logger.w('Failed to parse LUD16 address: $lud16');
-        return null;
-      }
-
-      final lnurl = Lnurl(
-        transport: LnurlTransportHttpImpl(HttpRequestDS(http.Client())),
-      );
-      final lnurlResponse = await lnurl.getLnurlResponse(lud16Link);
-      if (lnurlResponse == null || lnurlResponse.callback == null) {
-        logger.w('LNURL response invalid for $lud16');
-        return null;
-      }
-
-      final invoiceResponse = await lnurl.fetchInvoice(
-        lnurlResponse: lnurlResponse,
-        amountSats: amountSats,
-      );
-      if (invoiceResponse == null || invoiceResponse.invoice.isEmpty) {
-        logger.w('Failed to fetch invoice from LUD16 $lud16');
-        return null;
-      }
-
-      logger.i('Successfully created invoice via LUD16 ($lud16)');
-      return invoiceResponse.invoice;
-    } catch (e) {
-      logger.w('Error creating invoice from LUD16: $e');
-      return null;
+  /// Constant-time-safe byte array comparison.
+  static bool _bytesEqual(Uint8List a, Uint8List b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
     }
+    return true;
   }
 }

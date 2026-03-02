@@ -480,8 +480,7 @@ class RifRelay {
     }
 
     final relayResponse = response.bodyOrThrow;
-    if (relayResponse.signedTx == null &&
-        relayResponse.transactionHash == null) {
+    if (relayResponse.signedTx == null && relayResponse.txHash == null) {
       throw Exception(
         'RIF relay server returned empty response '
         '(no signedTx or txHash): $bodyStr',

@@ -166,8 +166,6 @@ services:
   escrow-contract-deploy:
     image: node:22-alpine
     depends_on:
-      bootstrap:
-        condition: service_completed_successfully
       anvil:
         condition: service_healthy
     working_dir: /workspace/escrow/contracts

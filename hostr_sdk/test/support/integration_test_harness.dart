@@ -8,6 +8,7 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:logger/logger.dart';
 import 'package:models/nostr_kinds.dart';
 import 'package:ndk/ndk.dart' hide ConsoleOutput;
+import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 /// Shared integration-test bootstrap for Hostr SDK tests.
@@ -26,7 +27,11 @@ class IntegrationTestHarness {
   final TestSeedHelper seeds;
   final Directory hydratedDir;
 
-  const IntegrationTestHarness({
+  /// Pubkeys of NWC app connections created during this harness lifetime.
+  /// Used by [dispose] to tear them down and free relay subscription slots.
+  final List<String> _createdAppPubkeys = [];
+
+  IntegrationTestHarness({
     required this.hostr,
     required this.anvil,
     required this.albyHub,
@@ -106,7 +111,15 @@ class IntegrationTestHarness {
     // wallet pubkey to the relay. Without this, NDK's connect() may query
     // before the event has propagated → empty permissions → "method not in
     // permissions" errors.
-    final walletPubkey = Uri.parse(pairingUrl).host;
+    final parsedUri = Uri.parse(pairingUrl);
+    final walletPubkey = parsedUri.host;
+
+    // The `secret` query param is the app's private key. Derive its public
+    // key — that's the appPubkey AlbyHub indexes connections by.
+    final appSecret = parsedUri.queryParameters['secret'];
+    if (appSecret != null) {
+      _createdAppPubkeys.add(Bip340.getPublicKey(appSecret));
+    }
     await hostr.requests
         .subscribe(
           filter: Filter(kinds: [kNostrKindNWCInfo], authors: [walletPubkey]),
@@ -124,6 +137,23 @@ class IntegrationTestHarness {
     if (resetGetIt) {
       await getIt.reset();
     }
+
+    print('IntegrationTestHarness disposed');
+    print(_createdAppPubkeys);
+    // Tear down NWC app connections on AlbyHub to free relay subscription
+    // slots. Errors are swallowed so a single failure doesn't block the rest.
+    for (final pubkey in _createdAppPubkeys) {
+      try {
+        await albyHub.destroyConnection(pubkey);
+      } catch (e) {
+        // best-effort cleanup
+        CustomLogger().e(
+          'Failed to destroy AlbyHub connection for $pubkey',
+          error: e,
+        );
+      }
+    }
+    _createdAppPubkeys.clear();
     albyHub.close();
     seeds.dispose();
   }

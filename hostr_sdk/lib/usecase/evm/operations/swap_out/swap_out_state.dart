@@ -22,6 +22,7 @@ class SwapOutData {
   final int timeoutBlockHeight;
   final int chainId;
   final int accountIndex;
+  final int? creationBlockHeight;
   final String? lockTxHash;
   final String? resolutionTxHash;
   final String? lastBoltzStatus;
@@ -37,6 +38,7 @@ class SwapOutData {
     required this.timeoutBlockHeight,
     required this.chainId,
     required this.accountIndex,
+    this.creationBlockHeight,
     this.lockTxHash,
     this.resolutionTxHash,
     this.lastBoltzStatus,
@@ -51,6 +53,7 @@ class SwapOutData {
   BigInt get lockedAmountWei => BigInt.parse(lockedAmountWeiHex, radix: 16);
 
   SwapOutData copyWith({
+    int? creationBlockHeight,
     String? lockTxHash,
     String? resolutionTxHash,
     String? lastBoltzStatus,
@@ -65,6 +68,7 @@ class SwapOutData {
     timeoutBlockHeight: timeoutBlockHeight,
     chainId: chainId,
     accountIndex: accountIndex,
+    creationBlockHeight: creationBlockHeight ?? this.creationBlockHeight,
     lockTxHash: lockTxHash ?? this.lockTxHash,
     resolutionTxHash: resolutionTxHash ?? this.resolutionTxHash,
     lastBoltzStatus: lastBoltzStatus ?? this.lastBoltzStatus,
@@ -81,6 +85,7 @@ class SwapOutData {
     'timeoutBlockHeight': timeoutBlockHeight,
     'chainId': chainId,
     'accountIndex': accountIndex,
+    if (creationBlockHeight != null) 'creationBlockHeight': creationBlockHeight,
     if (lockTxHash != null) 'lockTxHash': lockTxHash,
     if (resolutionTxHash != null) 'resolutionTxHash': resolutionTxHash,
     if (lastBoltzStatus != null) 'lastBoltzStatus': lastBoltzStatus,
@@ -97,6 +102,7 @@ class SwapOutData {
     timeoutBlockHeight: json['timeoutBlockHeight'] as int,
     chainId: json['chainId'] as int,
     accountIndex: json['accountIndex'] as int? ?? 0,
+    creationBlockHeight: json['creationBlockHeight'] as int?,
     lockTxHash: json['lockTxHash'] as String?,
     resolutionTxHash: json['resolutionTxHash'] as String?,
     lastBoltzStatus: json['lastBoltzStatus'] as String?,

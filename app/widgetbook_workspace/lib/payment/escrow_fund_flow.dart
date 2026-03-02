@@ -6,6 +6,31 @@ import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
+// ── Mock data ────────────────────────────────────────────────────────────
+
+const _mockSwapInData = SwapInData(
+  boltzId: 'mock-swap-in-001',
+  preimageHex:
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+  preimageHash:
+      'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+  onchainAmountSat: 50000,
+  timeoutBlockHeight: 800000,
+  chainId: 31,
+  accountIndex: 0,
+);
+
+const _mockEscrowFundData = EscrowFundData(
+  tradeId: 'mock-trade-001',
+  reservedAmountWeiHex: '0xC350',
+  sellerEvmAddress: '0x0000000000000000000000000000000000000001',
+  arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
+  contractAddress: '0x0000000000000000000000000000000000000003',
+  chainId: 31,
+  unlockAt: 1700000000,
+  accountIndex: 0,
+);
+
 // -- Confirm (pure stand-in — real widget reads cubit) ------------------
 
 @widgetbook.UseCase(name: 'Escrow Fund - Confirm', type: ModalBottomSheet)
@@ -21,38 +46,31 @@ Widget escrowFundConfirm(BuildContext context) {
         const SizedBox(height: 8),
         Text(
           '50 000 sats',
-          style: Theme.of(context)
-              .textTheme
-              .displayMedium!
-              .copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(
+            context,
+          ).textTheme.displayMedium!.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Text(
           '+ 150 sats in gas',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.color
-                    ?.withValues(alpha: 0.6),
-              ),
+            color: Theme.of(
+              context,
+            ).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+          ),
         ),
         Text(
           '+ 250 sats in swap fees',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.color
-                    ?.withValues(alpha: 0.6),
-              ),
+            color: Theme.of(
+              context,
+            ).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+          ),
         ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            FilledButton(onPressed: () {}, child: const Text('OK')),
-          ],
+          children: [FilledButton(onPressed: () {}, child: const Text('OK'))],
         ),
       ],
     ),
@@ -61,12 +79,13 @@ Widget escrowFundConfirm(BuildContext context) {
 
 // -- Swap in-progress (composing swap-in view) -------------------------
 
-@widgetbook.UseCase(
-    name: 'Swap in progress', type: EscrowFundProgressWidget)
+@widgetbook.UseCase(name: 'Swap in progress', type: EscrowFundProgressWidget)
 Widget escrowFundSwapProgress(BuildContext context) {
   return EscrowFundProgressWidget(
     EscrowFundSwapProgress(
-      SwapInPaymentProgress(
+      _mockEscrowFundData,
+      swapState: SwapInPaymentProgress(
+        _mockSwapInData,
         paymentState: PayInFlight(
           params: PayParameters(
             to: 'escrow@hostr.cc',
@@ -79,17 +98,24 @@ Widget escrowFundSwapProgress(BuildContext context) {
 }
 
 @widgetbook.UseCase(
-    name: 'On-chain in progress', type: EscrowFundProgressWidget)
+  name: 'On-chain in progress',
+  type: EscrowFundProgressWidget,
+)
 Widget escrowFundOnChainProgress(BuildContext context) {
   return EscrowFundProgressWidget(
-    EscrowFundSwapProgress(const SwapInAwaitingOnChain()),
+    EscrowFundSwapProgress(
+      _mockEscrowFundData,
+      swapState: const SwapInAwaitingOnChain(_mockSwapInData),
+    ),
   );
 }
 
 // -- Trade progress ----------------------------------------------------
 
 @widgetbook.UseCase(
-    name: 'Trade in progress', type: EscrowFundTradeProgressWidget)
+  name: 'Trade in progress',
+  type: EscrowFundTradeProgressWidget,
+)
 Widget escrowFundTradeProgress(BuildContext context) {
   return const EscrowFundTradeProgressWidget();
 }

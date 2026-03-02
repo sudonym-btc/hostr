@@ -235,9 +235,7 @@ abstract class EvmChain {
 
   Future<EtherSwap> getEtherSwapContract();
 
-  Future<BitcoinAmount> getMinimumSwapIn();
-
-  Future<BitcoinAmount> getMaximumSwapIn();
+  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapInLimits();
 
   SwapInOperation swapIn(SwapInParams params);
 

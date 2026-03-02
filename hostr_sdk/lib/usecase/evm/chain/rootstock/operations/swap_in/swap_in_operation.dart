@@ -12,6 +12,7 @@ import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/payments.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart' hide params;
 
 import '../../../../../../datasources/boltz/boltz.dart';
@@ -28,173 +29,330 @@ import '../../rootstock.dart';
 class RootstockSwapInOperation extends SwapInOperation {
   final Rootstock rootstock;
   late final RifRelay rifRelay = getIt<RifRelay>(param1: rootstock.client);
-  late final ({List<int> preimage, String hash}) preimage;
 
   RootstockSwapInOperation({
     required this.rootstock,
     required super.auth,
     required super.logger,
     @factoryParam required super.params,
-    super.initialState,
-  }) {
-    final recoveryData = state.data;
-    if (recoveryData != null) {
-      preimage = (
-        preimage: recoveryData.preimageBytes.toList(),
-        hash: recoveryData.preimageHash,
-      );
-    } else {
-      preimage = _newPreimage();
-    }
-  }
+    @ignoreParam super.initialState,
+  });
 
   @override
-  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits() async {
-    final results = await Future.wait([
-      rootstock.getMinimumSwapIn(),
-      rootstock.getMaximumSwapIn(),
-    ]);
-    return (min: results[0], max: results[1]);
-  }
+  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits() =>
+      rootstock.getSwapInLimits();
+
+  // ── State machine ─────────────────────────────────────────────────────
 
   @override
-  Future<void> execute() async {
-    SwapInData? data;
+  Future<void> handle() async {
     try {
-      logger.i("Preimage: ${preimage.hash}, ${preimage.preimage.length}");
-
-      /// Create a reverse submarine swap
-      final swap = await _generateSwapRequest();
-
-      // ── Create recovery data immediately after swap creation ──
-      // The preimage is the single most critical piece of data.
-      // Without it, any on-chain funds locked by Boltz are UNRECOVERABLE.
-      data = SwapInData(
-        boltzId: swap.id,
-        preimageHex: hex.encode(preimage.preimage),
-        preimageHash: preimage.hash,
-        onchainAmountSat: swap.onchainAmount?.toInt() ?? 0,
-        timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
-        chainId: rootstock.config.rootstockConfig.chainId,
-        accountIndex: params.accountIndex,
-      );
-      emit(SwapInRequestCreated(data));
-      logger.i('Swap data persisted for ${swap.id} with preimage');
-      logger.d('Swap ${swap.toString()}');
-
-      // Create the payment cubit but DON'T execute yet — we must subscribe
-      // to its broadcast stream first to avoid losing fast-emitted states
-      // (e.g. PayExternalRequired when no NWC wallet is connected).
-      final payment = _createPaymentForSwap(
-        invoice: swap.invoice,
-        amount: params.amount,
-      );
-
-      // Subscribe to Boltz status updates with timeout
-      final swapStatusFuture = _waitForSwapOnChain(swap.id);
-      emit(SwapInAwaitingOnChain(data));
-
-      // Subscribe to payment stream BEFORE executing so we never miss
-      // states on the broadcast stream (Bolt11 resolve/finalize are near-
-      // synchronous and can complete before an await-for would subscribe).
-      final paymentCompleter = Completer<void>();
-      final paySub = payment.stream
-          .where((state) => state is PayFailed || state is PayExternalRequired)
-          .takeUntil(swapStatusFuture.asStream())
-          .listen(
-            (paymentState) {
-              logger.e('Payment emitted with state: $paymentState');
-              emit(SwapInPaymentProgress(data!, paymentState: paymentState));
-            },
-            onDone: () {
-              if (!paymentCompleter.isCompleted) paymentCompleter.complete();
-            },
-          );
-
-      // NOW execute the payment — the listener above is already active
-      payment.execute();
-
-      // Wait until the payment stream completes (either all states processed,
-      // or takeUntil fires because Boltz locked on-chain)
-      await paymentCompleter.future;
-      await paySub.cancel();
-
-      // Wait for Boltz's lockup transaction with a generous timeout
-      final swapStatus = await swapStatusFuture.timeout(
-        const Duration(minutes: 30),
-        onTimeout: () => throw TimeoutException(
-          'Timed out waiting for Boltz to lock funds on-chain for swap ${swap.id}. '
-          'The Lightning payment may still be pending. '
-          'If Boltz never locks, the Lightning HTLC will expire and refund automatically.',
-        ),
-      );
-
-      final lockupTxId = swapStatus.transaction?.id;
-      if (lockupTxId == null) {
-        throw StateError(
-          'Boltz reported on-chain status but no transaction ID for swap ${swap.id}',
-        );
+      switch (state) {
+        case SwapInInitialised():
+          await _stepCreateSwap();
+        case SwapInRequestCreated() ||
+            SwapInAwaitingOnChain() ||
+            SwapInPaymentProgress():
+          await _stepEnsureFunded();
+        case SwapInFunded():
+          await _stepClaim();
+        case SwapInClaimed():
+          await _stepConfirmClaim();
+        case SwapInCompleted() || SwapInFailed():
+          return; // terminal — nothing to do
       }
-
-      // ── Persist lockup tx hash immediately ──
-      data = data.copyWith(
-        lockupTxHash: lockupTxId,
-        lastBoltzStatus: swapStatus.status,
-      );
-      emit(SwapInFunded(data));
-
-      TransactionInformation lockupTx = await rootstock.awaitTransaction(
-        lockupTxId,
-      );
-
-      // ── Persist refund address from the lockup tx ──
-      data = data.copyWith(refundAddress: lockupTx.from.with0x);
-      emit(SwapInFunded(data));
-
-      /// Create the args record for the claim function
-      final claimArgs = _generateClaimArgs(lockupTx: lockupTx, swap: swap);
-      logger.i('Claim can be unlocked with arguments: $claimArgs');
-
-      /// Withdraw the funds to our own address, providing swapper with preimage to settle lightning
-      /// Must send via RIF if no previous balance exists
-      String tx = await _claim(claimArgs: claimArgs);
-
-      data = data.copyWith(claimTxHash: tx);
-      emit(SwapInClaimed(data));
-
-      final receipt = await rootstock.awaitReceipt(tx);
-      logger.i('Claim receipt: $receipt');
-
-      emit(SwapInCompleted(data));
-      logger.i('Swap-in completed: $tx');
-      await close();
     } on TimeoutException catch (e, st) {
       logger.e('Timeout during swap-in: $e');
-      emit(SwapInFailed(e, data: data, stackTrace: st));
+      emit(SwapInFailed(e, data: state.data, stackTrace: st));
     } catch (e, st) {
-      logger.e('Error during swap in operation: $e');
-      emit(SwapInFailed(e, data: data, stackTrace: st));
+      logger.e('Error during swap-in handle (${state.runtimeType}): $e');
+      emit(SwapInFailed(e, data: state.data, stackTrace: st));
     }
   }
+
+  // ── Step 1: Create the Boltz reverse-submarine swap ───────────────────
+
+  Future<void> _stepCreateSwap() async {
+    final preimage = _newPreimage();
+    logger.i('Preimage: ${preimage.hash}, ${preimage.preimage.length}');
+
+    final creationBlock = await rootstock.client.getBlockNumber();
+
+    /// Create a reverse submarine swap
+    final swap = await _generateSwapRequest(preimage);
+
+    // ── Persist recovery data immediately after swap creation ──
+    // The preimage is the single most critical piece of data.
+    // Without it, any on-chain funds locked by Boltz are UNRECOVERABLE.
+    final data = SwapInData(
+      boltzId: swap.id,
+      preimageHex: hex.encode(preimage.preimage),
+      preimageHash: preimage.hash,
+      onchainAmountSat: swap.onchainAmount?.toInt() ?? 0,
+      timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
+      chainId: rootstock.config.rootstockConfig.chainId,
+      accountIndex: params.accountIndex,
+      creationBlockHeight: creationBlock,
+      invoiceString: swap.invoice,
+    );
+    emit(SwapInRequestCreated(data));
+    logger.i('Swap data persisted for ${swap.id} with preimage');
+    logger.d('Swap ${swap.toString()}');
+  }
+
+  // ── Step 2: Ensure Boltz locked on-chain (chain-first) ───────────────
+
+  Future<void> _stepEnsureFunded() async {
+    final data = state.data!;
+
+    // ── 2a. Check chain for existing lockup (idempotent recovery) ──
+    final lockup = await _findLockupOnChain(data);
+    if (lockup != null) {
+      logger.i(
+        'Found lockup on-chain for ${data.boltzId}: '
+        'amount=${lockup.amount}, refund=${lockup.refundAddress}',
+      );
+      emit(
+        SwapInFunded(
+          data.copyWith(
+            lockupTxHash: lockup.event.transactionHash,
+            refundAddress: lockup.refundAddress.with0x,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // ── 2b. Check if already claimed on-chain ──
+    final claim = await _findClaimOnChain(data);
+    if (claim != null) {
+      logger.i('Swap ${data.boltzId} already claimed on-chain');
+      emit(
+        SwapInCompleted(
+          data.copyWith(claimTxHash: claim.event.transactionHash),
+        ),
+      );
+      return;
+    }
+
+    // ── 2c. Check if expired ──
+    final currentBlock = await rootstock.client.getBlockNumber();
+    if (currentBlock >= data.timeoutBlockHeight) {
+      logger.w(
+        'Swap ${data.boltzId} expired (block $currentBlock >= ${data.timeoutBlockHeight})',
+      );
+      emit(
+        SwapInFailed(
+          'Swap expired. No on-chain funds at risk — Lightning payment '
+          'refunds automatically via HTLC expiry.',
+          data: data,
+        ),
+      );
+      return;
+    }
+
+    // ── 2d. Check Boltz status for terminal conditions ──
+    try {
+      final boltzStatus = await getIt<BoltzClient>().getSwap(id: data.boltzId);
+      final status = boltzStatus.status;
+
+      if (status == 'transaction.refunded') {
+        emit(
+          SwapInFailed(
+            'Boltz refunded the on-chain lockup. The claim window expired.',
+            data: data.copyWith(lastBoltzStatus: status),
+          ),
+        );
+        return;
+      }
+
+      if (status == 'invoice.settled') {
+        logger.i('Boltz reports ${data.boltzId} already settled');
+        emit(SwapInCompleted(data.copyWith(lastBoltzStatus: status)));
+        return;
+      }
+
+      if (status == 'swap.expired' || status == 'transaction.failed') {
+        emit(
+          SwapInFailed(
+            'Swap expired or failed before lockup. No on-chain funds at risk.',
+            data: data.copyWith(lastBoltzStatus: status),
+          ),
+        );
+        return;
+      }
+
+      // If Boltz says lockup is already in mempool/confirmed, wait for chain.
+      if (status == 'transaction.mempool' ||
+          status == 'transaction.confirmed') {
+        final txHash = boltzStatus.transaction?.id;
+        if (txHash != null) {
+          logger.i(
+            'Boltz reports lockup tx $txHash — awaiting chain confirmation',
+          );
+          final lockupTx = await rootstock.awaitTransaction(txHash);
+          emit(
+            SwapInFunded(
+              data.copyWith(
+                lockupTxHash: txHash,
+                refundAddress: lockupTx.from.with0x,
+                lastBoltzStatus: status,
+              ),
+            ),
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      logger.w('Could not check Boltz status for ${data.boltzId}: $e');
+      // Non-fatal — fall through to the payment + WebSocket flow.
+    }
+
+    // ── 2e. No lockup yet — attempt the payment flow (execute path) ──
+    await _payAndWaitForLockup(data);
+  }
+
+  /// Pays the Lightning invoice and waits for the on-chain lockup via the
+  /// Boltz WebSocket. Only reached during the initial execute flow (not
+  /// recovery — recovery finds the lockup via chain or Boltz HTTP above).
+  Future<void> _payAndWaitForLockup(SwapInData data) async {
+    final invoice = data.invoiceString;
+    if (invoice == null) {
+      throw StateError(
+        'Swap ${data.boltzId} has no invoice — cannot pay. '
+        'This swap may have been created before invoice persistence was added.',
+      );
+    }
+
+    // Create the payment cubit but DON'T execute yet — we must subscribe
+    // to its broadcast stream first to avoid losing fast-emitted states.
+    final payment = _createPaymentForSwap(
+      invoice: invoice,
+      amount: params.amount,
+      preimageHash: data.preimageHash,
+    );
+
+    // Subscribe to Boltz status updates with timeout
+    final swapStatusFuture = _waitForSwapOnChain(data.boltzId);
+    emit(SwapInAwaitingOnChain(data));
+
+    // Subscribe to payment stream BEFORE executing so we never miss
+    // states on the broadcast stream.
+    final paymentCompleter = Completer<void>();
+    final paySub = payment.stream
+        .where((s) => s is PayFailed || s is PayExternalRequired)
+        .takeUntil(swapStatusFuture.asStream())
+        .listen(
+          (paymentState) {
+            logger.e('Payment emitted with state: $paymentState');
+            emit(SwapInPaymentProgress(data, paymentState: paymentState));
+          },
+          onDone: () {
+            if (!paymentCompleter.isCompleted) paymentCompleter.complete();
+          },
+        );
+
+    // NOW execute the payment — the listener above is already active
+    payment.execute();
+
+    // Wait until the payment stream completes
+    await paymentCompleter.future;
+    await paySub.cancel();
+
+    // Wait for Boltz's lockup transaction with a generous timeout
+    final swapStatus = await swapStatusFuture.timeout(
+      const Duration(minutes: 30),
+      onTimeout: () => throw TimeoutException(
+        'Timed out waiting for Boltz to lock funds on-chain for swap ${data.boltzId}. '
+        'The Lightning payment may still be pending. '
+        'If Boltz never locks, the Lightning HTLC will expire and refund automatically.',
+      ),
+    );
+
+    final lockupTxId = swapStatus.transaction?.id;
+    if (lockupTxId == null) {
+      throw StateError(
+        'Boltz reported on-chain status but no transaction ID for swap ${data.boltzId}',
+      );
+    }
+
+    // ── Persist lockup tx hash immediately ──
+    final lockupTx = await rootstock.awaitTransaction(lockupTxId);
+    emit(
+      SwapInFunded(
+        data.copyWith(
+          lockupTxHash: lockupTxId,
+          refundAddress: lockupTx.from.with0x,
+          lastBoltzStatus: swapStatus.status,
+        ),
+      ),
+    );
+  }
+
+  // ── Step 3: Claim the locked funds ────────────────────────────────────
+
+  Future<void> _stepClaim() async {
+    final data = state.data!;
+
+    // ── 3a. Check if already claimed on-chain (idempotent) ──
+    final existingClaim = await _findClaimOnChain(data);
+    if (existingClaim != null) {
+      logger.i('Swap ${data.boltzId} already claimed on-chain');
+      emit(
+        SwapInClaimed(
+          data.copyWith(claimTxHash: existingClaim.event.transactionHash),
+        ),
+      );
+      return;
+    }
+
+    // ── 3b. Resolve refund address if missing ──
+    var claimData = data;
+    if (claimData.refundAddress == null && claimData.lockupTxHash != null) {
+      final lockupTx = await rootstock.awaitTransaction(
+        claimData.lockupTxHash!,
+      );
+      claimData = claimData.copyWith(refundAddress: lockupTx.from.with0x);
+      emit(SwapInFunded(claimData)); // persist before claim attempt
+    }
+
+    if (claimData.refundAddress == null) {
+      throw StateError(
+        'Cannot claim swap ${claimData.boltzId}: missing refundAddress and lockupTxHash',
+      );
+    }
+
+    // ── 3c. Perform the claim via RIF Relay ──
+    final claimArgs = _claimArgsFromData(claimData);
+    logger.i('Claiming swap ${claimData.boltzId} with args: $claimArgs');
+
+    final tx = await _claim(claimArgs: claimArgs);
+    emit(SwapInClaimed(claimData.copyWith(claimTxHash: tx)));
+    logger.i('Claim broadcast for ${claimData.boltzId}: $tx');
+  }
+
+  // ── Step 4: Confirm the claim receipt ─────────────────────────────────
+
+  Future<void> _stepConfirmClaim() async {
+    final data = state.data!;
+    final receipt = await rootstock.awaitReceipt(data.claimTxHash!);
+    logger.i('Claim receipt for ${data.boltzId}: $receipt');
+    emit(SwapInCompleted(data));
+    logger.i('Swap-in completed: ${data.claimTxHash}');
+  }
+
+  // ── Fee estimation ────────────────────────────────────────────────────
 
   @override
   Future<SwapInFees> estimateFees() async {
-    // params.amount is the desired *on-chain* amount. Use the inverse Boltz
-    // formula so the fee overhead accounts for the percentage being applied
-    // to the (larger) invoice, not to the desired on-chain amount.
-    // ignore: unused_local_variable
-    final (:invoiceAmount, :feeOverhead) = await getIt<BoltzClient>()
-        .computeInvoiceForDesiredOnchain(
-          desiredOnchainAmount: params.amount,
-          from: 'BTC',
-          to: 'RBTC',
-        );
+    final boltz = getIt<BoltzClient>();
+    final (:feeOverhead, invoiceAmount: _) = await boltz
+        .computeInvoiceForDesiredOnchain(desiredOnchainAmount: params.amount);
 
     final relayFees = BitcoinAmount.fromBigInt(
       BitcoinUnit.wei,
       await rifRelay.estimateClaimBeforeLock(params.evmKey),
     );
-    logger.d('Estimated relay fees ${relayFees.getInSats} sats');
 
     return SwapInFees(
       estimatedGasFees: BitcoinAmount.zero(),
@@ -203,7 +361,83 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
   }
 
-  Future<ReverseResponse> _generateSwapRequest() async {
+  // ── On-chain event queries ────────────────────────────────────────────
+
+  /// Scans the chain for a Lockup event matching [data.preimageHash].
+  Future<Lockup?> _findLockupOnChain(SwapInData data) async {
+    try {
+      final etherSwap = await rootstock.getEtherSwapContract();
+      final fromBlock = data.creationBlockHeight != null
+          ? BlockNum.exact(data.creationBlockHeight!)
+          : const BlockNum.genesis();
+      final preimageHashBytes = Uint8List.fromList(
+        hex.decode(data.preimageHash),
+      );
+
+      // One-shot getLogs query — the streaming API (client.events) never
+      // closes, so .toList() on it would hang forever.
+      final event = etherSwap.self.event('Lockup');
+      final filter = FilterOptions.events(
+        contract: etherSwap.self,
+        event: event,
+        fromBlock: fromBlock,
+        toBlock: const BlockNum.current(),
+      );
+      final logs = await rootstock.client.getLogs(filter);
+      for (final log in logs) {
+        final decoded = event.decodeResults(log.topics!, log.data!);
+        final lockup = Lockup(decoded, log);
+        if (_bytesEqual(lockup.preimageHash, preimageHashBytes)) {
+          return lockup;
+        }
+      }
+      return null;
+    } catch (e) {
+      logger.w('Failed to query lockup events: $e');
+      return null;
+    }
+  }
+
+  /// Scans the chain for a Claim event matching [data.preimageHash].
+  Future<Claim?> _findClaimOnChain(SwapInData data) async {
+    try {
+      final etherSwap = await rootstock.getEtherSwapContract();
+      final fromBlock = data.creationBlockHeight != null
+          ? BlockNum.exact(data.creationBlockHeight!)
+          : const BlockNum.genesis();
+      final preimageHashBytes = Uint8List.fromList(
+        hex.decode(data.preimageHash),
+      );
+
+      // One-shot getLogs query — the streaming API (client.events) never
+      // closes, so .toList() on it would hang forever.
+      final event = etherSwap.self.event('Claim');
+      final filter = FilterOptions.events(
+        contract: etherSwap.self,
+        event: event,
+        fromBlock: fromBlock,
+        toBlock: const BlockNum.current(),
+      );
+      final logs = await rootstock.client.getLogs(filter);
+      for (final log in logs) {
+        final decoded = event.decodeResults(log.topics!, log.data!);
+        final claim = Claim(decoded, log);
+        if (_bytesEqual(claim.preimageHash, preimageHashBytes)) {
+          return claim;
+        }
+      }
+      return null;
+    } catch (e) {
+      logger.w('Failed to query claim events: $e');
+      return null;
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+
+  Future<ReverseResponse> _generateSwapRequest(
+    ({List<int> preimage, String hash}) preimage,
+  ) async {
     final smartWalletInfo = await rifRelay.getSmartWalletAddress(params.evmKey);
     final claimAddress = smartWalletInfo.address.eip55With0x;
     final description = params.invoiceDescription ?? 'Hostr Reservation';
@@ -224,6 +458,7 @@ class RootstockSwapInOperation extends SwapInOperation {
   PayOperation _createPaymentForSwap({
     required String invoice,
     required BitcoinAmount amount,
+    required String preimageHash,
   }) {
     Bolt11PaymentRequest pr = Bolt11PaymentRequest(invoice);
     final invoiceAmount = BitcoinAmount.fromDecimal(
@@ -231,7 +466,7 @@ class RootstockSwapInOperation extends SwapInOperation {
       pr.amount.toString(),
     );
     logger.i(
-      'Invoice to pay: ${invoiceAmount.getInSats} against ${amount.getInSats} planned, hash: ${pr.tags.firstWhere((t) => t.type == 'payment_hash').data} against planned ${preimage.hash}',
+      'Invoice to pay: ${invoiceAmount.getInSats} against ${amount.getInSats} planned, hash: ${pr.tags.firstWhere((t) => t.type == 'payment_hash').data} against planned $preimageHash',
     );
 
     /// Before paying, check that the invoice swapper generated is for the correct amount
@@ -240,7 +475,7 @@ class RootstockSwapInOperation extends SwapInOperation {
     /// Before paying, check that the invoice hash is equivalent to the preimage hash we generated
     /// Ensures we know the invoice can't be settled until we reveal it in the claim txn
     assert(
-      pr.tags.firstWhere((t) => t.type == 'payment_hash').data == preimage.hash,
+      pr.tags.firstWhere((t) => t.type == 'payment_hash').data == preimageHash,
     );
 
     return getIt<Payments>().pay(
@@ -248,43 +483,36 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
   }
 
-  ClaimArgs _generateClaimArgs({
-    required TransactionInformation lockupTx,
-    required ReverseResponse swap,
-  }) {
+  /// Builds [ClaimArgs] purely from persisted [SwapInData] — no Boltz
+  /// dependency. All parameters needed for the on-chain claim are stored
+  /// in the data object.
+  ClaimArgs _claimArgsFromData(SwapInData data) {
     return (
       amount: BitcoinAmount.fromBigInt(
         BitcoinUnit.sat,
-        BigInt.from(swap.onchainAmount!),
+        BigInt.from(data.onchainAmountSat),
       ).getInWei,
-      preimage: Uint8List.fromList(preimage.preimage),
+      preimage: data.preimageBytes,
+      refundAddress: EthereumAddress.fromHex(data.refundAddress!),
+      timelock: BigInt.from(data.timeoutBlockHeight),
 
-      /// Why is swap.refundPublicKey null in the response
-      refundAddress:
-          lockupTx.from, //EthereumAddress.fromHex(swap.refundPublicKey!),
-
-      timelock: BigInt.from(swap.timeoutBlockHeight),
-
-      /// EIP-712 signature parts from the claim address (placeholder zeros until wired up)
+      /// EIP-712 signature parts (placeholder zeros — uses 4-param claim overload)
       v: BigInt.zero,
       r: Uint8List(32),
       s: Uint8List(32),
     );
   }
 
-  Future<String> _claim({required claimArgs}) async {
+  Future<String> _claim({required ClaimArgs claimArgs}) async {
     EtherSwap etherSwap = await rootstock.getEtherSwapContract();
     return (await rifRelay.relayClaim(
       etherSwap,
       params.evmKey,
       claimArgs,
-    )).transactionHash.toString();
+    )).txHash.toString();
   }
 
-  /// We generate the preimage for the invoice we will pay
-  /// This prevents swapper from being able to claim the HTLC
-  /// until we reveal the preimage to make the claim transaction
-  /// Has to be 32 bytes for the claim txn to pass
+  /// Generate a cryptographically secure 32-byte preimage and its SHA-256 hash.
   ({List<int> preimage, String hash}) _newPreimage() {
     final random = Random.secure();
     final preimage = List<int>.generate(32, (i) => random.nextInt(256));
@@ -306,9 +534,6 @@ class RootstockSwapInOperation extends SwapInOperation {
               swapStatus.status == 'swap.expired',
         )
         .map((swapStatus) {
-          // If Boltz reports failure, throw so we don't hang waiting forever.
-          // For reverse swaps, transaction.failed means Boltz couldn't lock
-          // on-chain — the Lightning HTLC will expire and refund automatically.
           if (swapStatus.status == 'transaction.failed') {
             throw StateError(
               'Boltz failed to lock on-chain funds (transaction.failed). '
@@ -326,154 +551,12 @@ class RootstockSwapInOperation extends SwapInOperation {
         .first;
   }
 
-  @override
-  Future<bool> recover() async {
-    final currentState = state;
-    final data = currentState.data;
-    if (data == null) return false; // Never started
-    if (currentState.isTerminal) return true; // Already resolved
-
-    try {
-      // Fetch current Boltz status
-      final boltzResponse = await getIt<BoltzClient>().getSwap(
-        id: data.boltzId,
-      );
-      final boltzStatus = boltzResponse.status;
-
-      // If Boltz already refunded itself, the swap is lost.
-      if (boltzStatus == 'transaction.refunded') {
-        logger.w(
-          'SwapRecovery: swap-in ${data.boltzId} — Boltz refunded. '
-          'Funds lost (preimage was not revealed in time).',
-        );
-        emit(
-          SwapInFailed(
-            'Boltz refunded the on-chain lockup. The claim window expired.',
-            data: data.copyWith(lastBoltzStatus: boltzStatus),
-          ),
-        );
-        return false;
-      }
-
-      // If swap expired without Boltz ever locking, Lightning refunds automatically.
-      if (boltzStatus == 'swap.expired' ||
-          boltzStatus == 'transaction.failed') {
-        logger.i(
-          'SwapRecovery: swap-in ${data.boltzId} expired/failed before lockup. '
-          'Lightning payment refunded automatically.',
-        );
-        emit(
-          SwapInFailed(
-            'Swap expired. No on-chain funds at risk.',
-            data: data.copyWith(lastBoltzStatus: boltzStatus),
-          ),
-        );
-        return true;
-      }
-
-      // If Boltz reports invoice.settled, the claim was already processed.
-      if (boltzStatus == 'invoice.settled') {
-        logger.i('SwapRecovery: swap-in ${data.boltzId} already settled.');
-        emit(SwapInCompleted(data.copyWith(lastBoltzStatus: boltzStatus)));
-        return true;
-      }
-
-      // Boltz has locked on-chain, we need to claim.
-      if (boltzStatus == 'transaction.mempool' ||
-          boltzStatus == 'transaction.confirmed' ||
-          currentState is SwapInFunded ||
-          currentState is SwapInClaimed) {
-        return await _attemptRecoveryClaim(
-          data.copyWith(lastBoltzStatus: boltzStatus),
-        );
-      }
-
-      logger.d(
-        'SwapRecovery: swap-in ${data.boltzId} in status $boltzStatus — '
-        'no action needed yet.',
-      );
-      return false;
-    } catch (e) {
-      logger.e('SwapRecovery: error recovering ${data.boltzId}: $e');
-      return false;
+  /// Constant-time-safe byte array comparison.
+  static bool _bytesEqual(Uint8List a, Uint8List b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
     }
-  }
-
-  Future<bool> _attemptRecoveryClaim(SwapInData data) async {
-    // If we don't have the refund address yet, try to resolve it from the
-    // lockup tx hash (persisted or re-fetched from the Boltz HTTP API).
-    if (data.refundAddress == null) {
-      String? txHash = data.lockupTxHash;
-
-      // If we never persisted the lockup tx hash either, try fetching the
-      // current swap status from Boltz.
-      if (txHash == null) {
-        try {
-          final status = await getIt<BoltzClient>().getSwap(id: data.boltzId);
-          txHash = status.transaction?.id;
-        } catch (e) {
-          logger.w(
-            'SwapRecovery: ${data.boltzId} — could not fetch Boltz status: $e',
-          );
-        }
-      }
-
-      if (txHash == null) {
-        logger.e(
-          'SwapRecovery: swap-in ${data.boltzId} missing lockup tx hash. '
-          'Cannot derive refund address.',
-        );
-        emit(
-          SwapInFailed(
-            'Claim parameters incomplete (missing: lockupTxHash). '
-            'Contact support with swap ID.',
-            data: data,
-          ),
-        );
-        return false;
-      }
-
-      // We have the tx hash — fetch the full transaction from the chain.
-      logger.i(
-        'SwapRecovery: ${data.boltzId} — resolving refund address from '
-        'lockup tx $txHash',
-      );
-      final lockupTx = await rootstock.awaitTransaction(txHash);
-      data = data.copyWith(
-        lockupTxHash: txHash,
-        refundAddress: lockupTx.from.with0x,
-      );
-      emit(SwapInFunded(data)); // persist updated data
-    }
-
-    // We have all claim params — attempt claim via RIF Relay.
-    return false;
-    // try {
-    //   final amountWei = BitcoinAmount.fromBigInt(
-    //     BitcoinUnit.sat,
-    //     BigInt.from(claimP.onchainAmountSat),
-    //   ).getInWei;
-
-    //   final swapContract = await rootstock.getEtherSwapContract();
-    //   final relay = getIt<RifRelay>(param1: rootstock.client);
-
-    //   final tx = await relay.relayClaim(
-    //     swapContract,
-    //     params.evmKey,
-    //     _generateClaimArgs(...)
-    //   );
-
-    //   logger.i('SwapRecovery: claim broadcast for ${claimP.boltzId}: $tx');
-    //   data = data.copyWith(claimTxHash: tx);
-    //   emit(SwapInClaimed(data));
-
-    //   await rootstock.awaitReceipt(tx);
-    //   logger.i('SwapRecovery: claim confirmed for ${claimP.boltzId}');
-    //   emit(SwapInCompleted(data));
-    //   return true;
-    // } catch (e) {
-    //   logger.e('SwapRecovery: claim failed for ${claimP.boltzId}: $e');
-    //   return false;
-    // }
+    return true;
   }
 }

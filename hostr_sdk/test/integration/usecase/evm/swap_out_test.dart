@@ -59,7 +59,11 @@ void main() {
         isTrue,
       );
       expect(emittedStates.any((state) => state is SwapOutFunded), isTrue);
-      expect(emittedStates.last, isA<SwapOutCompleted>());
+      // Use the synchronous state getter for the terminal check — the Cubit
+      // updates `state` synchronously in emit(), but the broadcast
+      // StreamController (sync: false in Bloc 9) delivers stream events via
+      // microtasks, so `emittedStates.last` may lag behind.
+      expect(swapOut.state, isA<SwapOutCompleted>());
     },
     timeout: const Timeout(Duration(seconds: 25)),
   );

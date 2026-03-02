@@ -318,6 +318,7 @@ class AlbyHubClient {
     final request = switch (method) {
       'GET' => await _httpClient.getUrl(baseUri.resolve(path)),
       'POST' => await _httpClient.postUrl(baseUri.resolve(path)),
+      'DELETE' => await _httpClient.deleteUrl(baseUri.resolve(path)),
       _ => throw UnsupportedError('Unsupported method: $method'),
     };
 
@@ -409,6 +410,29 @@ class AlbyHubClient {
         lower.contains('forbidden') ||
         lower.contains('token') ||
         lower.contains('jwt');
+  }
+
+  /// Deletes an app connection on the AlbyHub instance.
+  ///
+  /// [appPubkey] is the wallet-service pubkey (the `host` component of the
+  /// `nostr+walletconnect://` pairing URI returned by [createApp]).
+  ///
+  /// Calls `DELETE /api/apps/<appPubkey>` which tears down the NWC relay
+  /// subscription and publishes a kind-5 deletion event for the NIP-47 info
+  /// event, freeing the subscription slot on the relay.
+  Future<void> destroyConnection(String appPubkey) async {
+    await setup();
+    await start();
+    final token = await unlock();
+    print('going to destroy connection for $appPubkey with token: $token');
+    print(
+      (await _request(
+        method: 'DELETE',
+        path: '/api/apps/$appPubkey',
+        bearerToken: token.isEmpty ? null : token,
+        throwOnHttpError: false,
+      )).statusCode,
+    );
   }
 
   void close() {

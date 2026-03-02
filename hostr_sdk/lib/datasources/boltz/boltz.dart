@@ -125,131 +125,87 @@ class BoltzClient {
     return await gBoltzCli.swapReverseGet();
   }
 
-  Future<BitcoinAmount> estimateReverseSwapFees({
-    required BitcoinAmount invoiceAmount,
+  /// Fetch the typed [ReversePair] for a given currency pair.
+  ///
+  /// Parses the raw Boltz `/swap/reverse` response into the generated
+  /// [ReversePair] model so callers don't need to dig through untyped maps.
+  Future<ReversePair> getReversePair({
     String from = 'BTC',
     String to = 'RBTC',
   }) async {
     final response = await getSwapReserve();
     if (!response.isSuccessful || response.body == null) {
-      throw Exception('Failed to fetch reverse swap pairs from Boltz');
+      throw StateError('Failed to fetch reverse swap pairs from Boltz');
     }
-
     final body = response.body;
     if (body is! Map) {
-      throw Exception('Unexpected Boltz reverse pairs response shape');
+      throw StateError('Unexpected Boltz reverse pairs response shape');
     }
-
     final fromMap = body[from];
     if (fromMap is! Map) {
-      throw Exception('Boltz reverse pair source currency not found: $from');
+      throw StateError('Boltz reverse pair source currency not found: $from');
     }
-    final pair = fromMap[to];
-    if (pair is! Map) {
-      throw Exception('Boltz reverse pair not found: $from->$to');
+    final pairRaw = fromMap[to];
+    if (pairRaw is! Map) {
+      throw StateError('Boltz reverse pair not found: $from->$to');
     }
-
-    final fees = pair['fees'];
-    if (fees is! Map) {
-      throw Exception('Boltz reverse pair fees missing for: $from->$to');
-    }
-
-    final percentageRaw = fees['percentage'];
-    final minerFees = fees['minerFees'];
-    if (percentageRaw is! num || minerFees is! Map) {
-      throw Exception('Boltz reverse pair fee fields invalid for: $from->$to');
-    }
-
-    final lockupRaw = minerFees['lockup'];
-    final claimRaw = minerFees['claim'];
-    if (lockupRaw is! num || claimRaw is! num) {
-      throw Exception('Boltz reverse miner fees invalid for: $from->$to');
-    }
-
-    final invoiceSats = invoiceAmount.getInSats.toDouble();
-    final percentageFeeSats = invoiceSats * (percentageRaw.toDouble() / 100.0);
-    final totalFeeSats =
-        percentageFeeSats + lockupRaw.toDouble() + claimRaw.toDouble();
-
-    final estimated = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      totalFeeSats.ceil(),
+    final pairJson = Map<String, dynamic>.from(
+      pairRaw.map((key, value) => MapEntry(key.toString(), value)),
     );
-    logger.i(
-      'Estimated reverse swap fees from Boltz for $from->$to '
-      '(invoice: ${invoiceAmount.getInSats} sats): ${estimated.getInSats} sats',
+    return ReversePair.fromJson(pairJson);
+  }
+
+  /// Fetch the typed [SubmarinePair] for a given currency pair.
+  Future<SubmarinePair> getSubmarinePair({
+    String from = 'RBTC',
+    String to = 'BTC',
+  }) async {
+    final response = await getSwapSubmarine();
+    if (!response.isSuccessful || response.body == null) {
+      throw StateError('Failed to fetch submarine swap pairs from Boltz');
+    }
+    final body = response.body;
+    if (body is! Map) {
+      throw StateError('Unexpected Boltz submarine pairs response shape');
+    }
+    final fromMap = body[from];
+    if (fromMap is! Map) {
+      throw StateError('Boltz submarine source currency not found: $from');
+    }
+    final pairRaw = fromMap[to];
+    if (pairRaw is! Map) {
+      throw StateError('Boltz submarine pair not found: $from->$to');
+    }
+    final pairJson = Map<String, dynamic>.from(
+      pairRaw.map((key, value) => MapEntry(key.toString(), value)),
     );
-    return estimated;
+    return SubmarinePair.fromJson(pairJson);
   }
 
   /// Given a desired **on-chain** amount, compute the Lightning invoice amount
   /// needed so that after Boltz deducts its percentage + miner fees the
   /// recipient receives at least [desiredOnchainAmount].
   ///
-  /// Boltz formula for reverse swaps:
-  ///   onchain = invoice × (1 − p/100) − lockup − claim
+  /// Boltz reverse-swap formula:
+  ///   `onchain = invoice × (1 − percentage/100) − lockupFee`
+  ///
+  /// The claim fee is **not** deducted by Boltz — the recipient pays it
+  /// separately (via RIF Relay on EVM, or a sweep tx on BTC).
   ///
   /// Solving for invoice:
-  ///   invoice = (onchain + lockup + claim) / (1 − p/100)
-  ///
-  /// Returns a record with the required [invoiceAmount] and the fee overhead.
+  ///   `invoice = (desired + lockupFee) / (1 − percentage/100)`
   Future<({BitcoinAmount invoiceAmount, BitcoinAmount feeOverhead})>
   computeInvoiceForDesiredOnchain({
     required BitcoinAmount desiredOnchainAmount,
     String from = 'BTC',
     String to = 'RBTC',
   }) async {
-    final response = await getSwapReserve();
-    if (!response.isSuccessful || response.body == null) {
-      throw Exception('Failed to fetch reverse swap pairs from Boltz');
-    }
-
-    final body = response.body;
-    if (body is! Map) {
-      throw Exception('Unexpected Boltz reverse pairs response shape');
-    }
-
-    final fromMap = body[from];
-    if (fromMap is! Map) {
-      throw Exception('Boltz reverse pair source currency not found: \$from');
-    }
-    final pair = fromMap[to];
-    if (pair is! Map) {
-      throw Exception('Boltz reverse pair not found: \$from->\$to');
-    }
-
-    final fees = pair['fees'];
-    if (fees is! Map) {
-      throw Exception('Boltz reverse pair fees missing for: \$from->\$to');
-    }
-
-    final percentageRaw = fees['percentage'];
-    final minerFees = fees['minerFees'];
-    if (percentageRaw is! num || minerFees is! Map) {
-      throw Exception(
-        'Boltz reverse pair fee fields invalid for: \$from->\$to',
-      );
-    }
-
-    final lockupRaw = minerFees['lockup'];
-    final claimRaw = minerFees['claim'];
-    if (lockupRaw is! num || claimRaw is! num) {
-      throw Exception('Boltz reverse miner fees invalid for: \$from->\$to');
-    }
+    final pair = await getReversePair(from: from, to: to);
+    final pFraction = pair.fees.percentage / 100.0;
+    final lockupFee = pair.fees.minerFees.lockup;
 
     final desiredSats = desiredOnchainAmount.getInSats.toDouble();
-    final pFraction = percentageRaw.toDouble() / 100.0;
-
-    // Boltz only deducts the *lockup* miner fee from the on-chain amount in
-    // reverse swaps. The *claim* fee is informational — the recipient pays it
-    // separately (via RIF Relay gas on EVM, or via a sweep tx on BTC).
-    //
-    //   onchain = invoice × (1 − p/100) − lockup
-    //   ⟹ invoice = (desired + lockup) / (1 − p/100)
-    final boltzDeductedMinerFee = lockupRaw.toDouble();
-
-    final invoiceSats =
-        (desiredSats + boltzDeductedMinerFee) / (1.0 - pFraction);
+    final invoiceSats = (desiredSats + lockupFee) / (1.0 - pFraction);
     final invoiceSatsCeil = invoiceSats.ceil();
 
     final invoice = BitcoinAmount.fromInt(BitcoinUnit.sat, invoiceSatsCeil);
@@ -259,10 +215,9 @@ class BoltzClient {
     );
 
     logger.i(
-      'Computed invoice for desired on-chain $from->$to '
-      '(desired: ${desiredOnchainAmount.getInSats} sats, '
-      'invoice: ${invoice.getInSats} sats, '
-      'fee overhead: ${feeOverhead.getInSats} sats)',
+      'computeInvoiceForDesiredOnchain $from->$to: '
+      'desired=${desiredOnchainAmount.getInSats}, invoice=${invoice.getInSats}, '
+      'overhead=${feeOverhead.getInSats} (lockup=$lockupFee, pct=${pair.fees.percentage}%)',
     );
     return (invoiceAmount: invoice, feeOverhead: feeOverhead);
   }

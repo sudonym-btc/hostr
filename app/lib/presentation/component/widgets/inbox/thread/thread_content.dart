@@ -101,7 +101,6 @@ class _ThreadContentState extends State<ThreadContent> {
               builder: (context, state) {
                 final messages = state.threadState.sortedMessages;
                 final reversed = messages.reversed.toList();
-                final isGroupChat = widget.participants.length > 2;
                 return ListView.builder(
                   controller: _scrollController,
                   reverse: true,

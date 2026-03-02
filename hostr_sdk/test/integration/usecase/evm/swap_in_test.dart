@@ -20,12 +20,9 @@ void main() {
     );
   });
 
-  tearDownAll(() {
-    IntegrationTestHarness.resetLogLevel();
-  });
-
-  tearDown(() async {
+  tearDownAll(() async {
     await harness.dispose();
+    IntegrationTestHarness.resetLogLevel();
   });
 
   test(
@@ -38,9 +35,9 @@ void main() {
           user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
           appNamePrefix: 'swap-in-it',
         );
-        final minimumSwapIn = await evm.rootstock.getMinimumSwapIn();
+        final swapLimits = await evm.rootstock.getSwapInLimits();
         final amount =
-            minimumSwapIn + BitcoinAmount.fromInt(BitcoinUnit.sat, 1000);
+            swapLimits.min + BitcoinAmount.fromInt(BitcoinUnit.sat, 1000);
 
         final swapIn = evm.rootstock.swapIn(
           SwapInParams(
@@ -71,7 +68,7 @@ void main() {
             .any((state) => state.paymentState is PayExternalRequired);
         expect(externalPaymentRequested, isFalse);
 
-        expect(emittedStates.last, isA<SwapInCompleted>());
+        expect(swapIn.state, isA<SwapInCompleted>());
       } finally {
         // no-op: closed by harness in tearDown
       }
