@@ -101,7 +101,7 @@ jobs:
       # Poll until the background restart.sh process exits, then check its
       # exit code from the file it wrote.
       - name: Wait for test stack
-        timeout-minutes: 10
+        timeout-minutes: 5
         run: |
           STACK_PID=$(cat /tmp/stack_pid)
           echo "Waiting for Docker stack (PID $STACK_PID) to finish…"
@@ -125,9 +125,6 @@ jobs:
           echo ""
           echo "=== Bootstrap container logs ==="
           docker compose logs --no-color --tail=200 bootstrap || true
-          echo ""
-          echo "=== Stack startup log ==="
-          cat /tmp/stack.log 2>/dev/null || echo "(no stack log)"
           echo ""
           echo "=== boltz-regtest-start logs ==="
           docker logs boltz-regtest-start 2>&1 | tail -200 || echo "(no boltz-regtest-start container)"
