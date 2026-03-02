@@ -15,7 +15,7 @@ wait_for_healthy() {
         sleep 5
     done
     if docker ps -a --format '{{.Names}}' | grep -q '^boltz-regtest-start$'; then
-        local start_max=60   # 60 × 5s = 300s = 5 minutes
+        local start_max=120  # 120 × 5s = 600s = 10 minutes
         local start_attempt=0
         while true; do
             status=$(docker inspect -f '{{.State.Status}}' boltz-regtest-start 2>/dev/null)
@@ -27,6 +27,7 @@ wait_for_healthy() {
             start_attempt=$((start_attempt + 1))
             if [ $start_attempt -ge $start_max ]; then
                 echo "Timed out waiting for boltz-regtest-start after $((start_max * 5))s (status=$status, exit_code=$exit_code)"
+                docker logs boltz-regtest-start 2>&1 | tail -100 || true
                 return 1
             fi
             echo "Waiting for boltz-regtest-start to complete (attempt $start_attempt/$start_max)..."

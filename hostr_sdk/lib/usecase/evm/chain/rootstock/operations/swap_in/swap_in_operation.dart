@@ -385,10 +385,22 @@ class RootstockSwapInOperation extends SwapInOperation {
       );
       final logs = await rootstock.client.getLogs(filter);
       for (final log in logs) {
-        final decoded = event.decodeResults(log.topics!, log.data!);
-        final lockup = Lockup(decoded, log);
-        if (_bytesEqual(lockup.preimageHash, preimageHashBytes)) {
-          return lockup;
+        // Pre-filter: match preimageHash from the first indexed topic
+        // before calling decodeResults. The deployed contract may have
+        // fewer indexed params than the generated ABI expects (e.g.
+        // contract v3 vs ABI v6), causing a RangeError in decodeResults.
+        final topics = log.topics;
+        if (topics == null || topics.length < 2) continue;
+        final topicHex = topics[1]!.replaceFirst('0x', '').toLowerCase();
+        if (topicHex != data.preimageHash.toLowerCase()) continue;
+
+        // Found our lockup — standard decode with manual fallback.
+        try {
+          final decoded = event.decodeResults(topics, log.data!);
+          return Lockup(decoded, log);
+        } catch (e) {
+          logger.d('Standard Lockup decode failed, manual parse: $e');
+          return _decodeLockupManually(log, preimageHashBytes);
         }
       }
       return null;
@@ -420,10 +432,18 @@ class RootstockSwapInOperation extends SwapInOperation {
       );
       final logs = await rootstock.client.getLogs(filter);
       for (final log in logs) {
-        final decoded = event.decodeResults(log.topics!, log.data!);
-        final claim = Claim(decoded, log);
-        if (_bytesEqual(claim.preimageHash, preimageHashBytes)) {
-          return claim;
+        // Pre-filter by preimageHash from the first indexed topic.
+        final topics = log.topics;
+        if (topics == null || topics.length < 2) continue;
+        final topicHex = topics[1]!.replaceFirst('0x', '').toLowerCase();
+        if (topicHex != data.preimageHash.toLowerCase()) continue;
+
+        try {
+          final decoded = event.decodeResults(topics, log.data!);
+          return Claim(decoded, log);
+        } catch (e) {
+          logger.d('Standard Claim decode failed, manual parse: $e');
+          return _decodeClaimManually(log, preimageHashBytes);
         }
       }
       return null;
@@ -551,12 +571,88 @@ class RootstockSwapInOperation extends SwapInOperation {
         .first;
   }
 
-  /// Constant-time-safe byte array comparison.
-  static bool _bytesEqual(Uint8List a, Uint8List b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
+  // ── Manual event decoders (ABI-version-agnostic) ──────────────────────
+
+  /// Decodes a Lockup event from raw log data when [decodeResults] fails
+  /// (e.g. deployed contract indexes fewer params than the generated ABI).
+  Lockup _decodeLockupManually(FilterEvent log, Uint8List preimageHash) {
+    final topics = log.topics!;
+    final dataBytes = _hexToBytes(log.data!);
+    final wordCount = dataBytes.length ~/ 32;
+    final topicCount = topics.length; // includes event-signature topic
+
+    BigInt amount = BigInt.zero;
+    EthereumAddress claimAddress = EthereumAddress(Uint8List(20));
+    EthereumAddress refundAddress = EthereumAddress(Uint8List(20));
+    BigInt timelock = BigInt.zero;
+
+    if (topicCount >= 4 && wordCount >= 2) {
+      // 3 indexed (preimageHash, claimAddress, refundAddress)
+      // data: [amount, timelock]
+      claimAddress = _addressFromTopic(topics[2]!);
+      refundAddress = _addressFromTopic(topics[3]!);
+      amount = _bigIntFromWord(dataBytes, 0);
+      timelock = _bigIntFromWord(dataBytes, 1);
+    } else if (topicCount >= 3 && wordCount >= 3) {
+      // 2 indexed (preimageHash, claimAddress)
+      // data: [amount, refundAddress, timelock]
+      claimAddress = _addressFromTopic(topics[2]!);
+      amount = _bigIntFromWord(dataBytes, 0);
+      refundAddress = _addressFromDataWord(dataBytes, 1);
+      timelock = _bigIntFromWord(dataBytes, 2);
+    } else if (topicCount >= 3 && wordCount >= 2) {
+      // 2 indexed, 2 data words — no refundAddress in event
+      claimAddress = _addressFromTopic(topics[2]!);
+      amount = _bigIntFromWord(dataBytes, 0);
+      timelock = _bigIntFromWord(dataBytes, 1);
+      // refundAddress stays zero — caller resolves from tx sender
+    } else if (topicCount >= 2 && wordCount >= 4) {
+      // 1 indexed (preimageHash only)
+      // data: [amount, claimAddress, refundAddress, timelock]
+      amount = _bigIntFromWord(dataBytes, 0);
+      claimAddress = _addressFromDataWord(dataBytes, 1);
+      refundAddress = _addressFromDataWord(dataBytes, 2);
+      timelock = _bigIntFromWord(dataBytes, 3);
     }
-    return true;
+
+    return Lockup([
+      preimageHash,
+      amount,
+      claimAddress,
+      refundAddress,
+      timelock,
+    ], log);
+  }
+
+  /// Decodes a Claim event from raw log data.
+  Claim _decodeClaimManually(FilterEvent log, Uint8List preimageHash) {
+    final dataBytes = _hexToBytes(log.data!);
+    // preimage is always the first (and only) non-indexed param
+    final preimage = Uint8List.fromList(dataBytes.sublist(0, 32));
+    return Claim([preimageHash, preimage], log);
+  }
+
+  // ── Low-level ABI helpers ─────────────────────────────────────────────
+
+  static Uint8List _hexToBytes(String hexStr) {
+    return Uint8List.fromList(hex.decode(hexStr.replaceFirst('0x', '')));
+  }
+
+  static BigInt _bigIntFromWord(Uint8List data, int wordIndex) {
+    final start = wordIndex * 32;
+    return BigInt.parse(hex.encode(data.sublist(start, start + 32)), radix: 16);
+  }
+
+  static EthereumAddress _addressFromTopic(String topicHex) {
+    final bytes = hex.decode(topicHex.replaceFirst('0x', ''));
+    // Address occupies the last 20 bytes of the 32-byte topic
+    return EthereumAddress(Uint8List.fromList(bytes.sublist(12, 32)));
+  }
+
+  static EthereumAddress _addressFromDataWord(Uint8List data, int wordIndex) {
+    final start = wordIndex * 32;
+    return EthereumAddress(
+      Uint8List.fromList(data.sublist(start + 12, start + 32)),
+    );
   }
 }

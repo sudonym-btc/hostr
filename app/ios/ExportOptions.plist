@@ -7,8 +7,7 @@
     <string>app-store</string>
 
     <key>teamID</key>
-    <!-- Replace with your Apple Developer Team ID (found in developer.apple.com/account) -->
-    <string>YOUR_TEAM_ID</string>
+    <string>H77UU62P55</string>
 
     <key>uploadBitcode</key>
     <false/>
