@@ -129,6 +129,9 @@ jobs:
           echo "=== Stack startup log ==="
           cat /tmp/stack.log 2>/dev/null || echo "(no stack log)"
           echo ""
+          echo "=== boltz-regtest-start logs ==="
+          docker logs boltz-regtest-start 2>&1 | tail -200 || echo "(no boltz-regtest-start container)"
+          echo ""
           echo "=== Other service logs ==="
           docker compose logs --no-color --tail=50 hostrbitcoind lnd1 lnd2 escrow-contract-deploy || true
 
