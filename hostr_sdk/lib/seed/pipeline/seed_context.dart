@@ -25,7 +25,7 @@ class SeedContext {
   SeedContext({
     required this.seed,
     required this.contractAddress,
-    this.rpcUrl = 'http://localhost:8545',
+    this.rpcUrl = 'https://anvil.hostr.development',
     int? userCount,
     int? reservationRequestsPerGuest,
   }) : random = Random(seed),

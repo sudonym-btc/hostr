@@ -31,7 +31,7 @@ void main(List<String> arguments) async {
   final String privateKey =
       Platform.environment['PRIVATE_KEY'] ?? MockKeys.escrow.privateKey!;
   final String rpcUrl =
-      Platform.environment['RPC_URL'] ?? 'http://localhost:8545';
+      Platform.environment['RPC_URL'] ?? 'https://anvil.hostr.development';
   final String blossomUrl = Platform.environment['BLOSSOM_URL'] ??
       'https://blossom.hostr.development';
   final String environment = Platform.environment['ENV'] ?? 'dev';

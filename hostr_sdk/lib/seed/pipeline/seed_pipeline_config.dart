@@ -179,12 +179,12 @@ class SeedPipelineConfig {
 
   const SeedPipelineConfig({
     this.relayUrl = 'wss://relay.hostr.development',
-    this.rpcUrl = 'http://localhost:8545',
+    this.rpcUrl = 'https://anvil.hostr.development',
     this.fundProfiles = true,
     this.setupLnbits = true,
     this.fundAmountWei,
-    this.lnbits1BaseUrl = 'http://localhost:5055',
-    this.lnbits2BaseUrl = 'http://localhost:5056',
+    this.lnbits1BaseUrl = 'https://lnbits1.hostr.development',
+    this.lnbits2BaseUrl = 'https://lnbits2.hostr.development',
     this.lnbitsAdminEmail = 'admin@example.com',
     this.lnbitsAdminPassword = 'adminpassword',
     this.lnbitsExtensionName = 'lnurlp',
@@ -204,12 +204,14 @@ class SeedPipelineConfig {
   factory SeedPipelineConfig.fromJson(Map<String, dynamic> json) {
     return SeedPipelineConfig(
       relayUrl: _str(json['relayUrl']) ?? 'wss://relay.hostr.development',
-      rpcUrl: _str(json['rpcUrl']) ?? 'http://localhost:8545',
+      rpcUrl: _str(json['rpcUrl']) ?? 'https://anvil.hostr.development',
       fundProfiles: _bool(json['fundProfiles'], true),
       setupLnbits: _bool(json['setupLnbits'], false),
       fundAmountWei: _bigInt(json['fundAmountWei']),
-      lnbits1BaseUrl: _str(json['lnbits1BaseUrl']) ?? 'http://localhost:5055',
-      lnbits2BaseUrl: _str(json['lnbits2BaseUrl']) ?? 'http://localhost:5056',
+      lnbits1BaseUrl:
+          _str(json['lnbits1BaseUrl']) ?? 'https://lnbits1.hostr.development',
+      lnbits2BaseUrl:
+          _str(json['lnbits2BaseUrl']) ?? 'https://lnbits2.hostr.development',
       lnbitsAdminEmail: _str(json['lnbitsAdminEmail']) ?? 'admin@example.com',
       lnbitsAdminPassword: _str(json['lnbitsAdminPassword']) ?? 'adminpassword',
       lnbitsExtensionName: _str(json['lnbitsExtensionName']) ?? 'lnurlp',

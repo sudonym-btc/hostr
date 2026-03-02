@@ -34,10 +34,10 @@ class DevelopmentRootstockConfig extends RootstockConfig {
 
 class DevelopmentBoltzConfig extends BoltzConfig {
   @override
-  String apiUrl = 'http://boltz.hostr.development:9001/v2';
+  String apiUrl = 'https://boltz.hostr.development/v2';
 
   @override
-  String get rifRelayUrl => 'http://rifrelay.hostr.development:8090';
+  String get rifRelayUrl => 'https://rifrelay.hostr.development';
   @override
   String get rifRelayCallVerifier =>
       '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';

@@ -86,6 +86,9 @@ services:
           - lnbits2.${DOMAIN}
           - alby1.${DOMAIN}
           - alby2.${DOMAIN}
+          - anvil.${DOMAIN}
+          - boltz.${DOMAIN}
+          - rifrelay.${DOMAIN}
 
   # NOSTR Relay
   relay:
