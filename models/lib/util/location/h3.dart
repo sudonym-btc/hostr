@@ -29,7 +29,12 @@ class H3Engine {
 
     final platformDefaultPath = resolvePlatformDefaultH3LibraryPath();
     if (platformDefaultPath != null) {
-      return H3Engine(H3Factory().byPath(platformDefaultPath));
+      try {
+        return H3Engine(H3Factory().byPath(platformDefaultPath));
+      } catch (_) {
+        // Platform default path failed (e.g. bare 'libh3.so' on Linux CI).
+        // Fall through to bundled binary resolution below.
+      }
     }
 
     return H3Engine(H3Factory().byPath(resolveBundledH3LibraryPath()));
