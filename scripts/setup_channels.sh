@@ -101,50 +101,60 @@ connect_peer() {
     local cmd_name=$1
     local pubkey=$2
     local addr=$3
-    local max_connect_attempts=30
-    local connect_attempt=0
+    local max_outer_attempts=5
+    local outer_attempt=0
 
-    if $cmd_name listpeers 2>/dev/null | jq -e --arg pk "$pubkey" 'any(.peers[]?; .pub_key == $pk)' >/dev/null 2>&1; then
-        echo "Already connected to $pubkey"
-        return 0
-    fi
-
-    echo "Attempting to connect to $pubkey@$addr..."
-
-    while [ $connect_attempt -lt $max_connect_attempts ]; do
-        output=$($cmd_name connect ${pubkey}@${addr} 2>&1)
-        if echo "$output" | grep -q "still in the process of starting"; then
-            connect_attempt=$((connect_attempt + 1))
-            echo "$cmd_name still starting (attempt $connect_attempt/$max_connect_attempts)..."
-            sleep 1
-            continue
+    while [ $outer_attempt -lt $max_outer_attempts ]; do
+        if $cmd_name listpeers 2>/dev/null | jq -e --arg pk "$pubkey" 'any(.peers[]?; .pub_key == $pk)' >/dev/null 2>&1; then
+            echo "Already connected to $pubkey"
+            return 0
         fi
-        # Check if already connected (race with parallel connects).
-        if echo "$output" | grep -qi "already connected"; then
+
+        outer_attempt=$((outer_attempt + 1))
+        echo "Attempting to connect to $pubkey@$addr (cycle $outer_attempt/$max_outer_attempts)..."
+
+        local max_connect_attempts=10
+        local connect_attempt=0
+        while [ $connect_attempt -lt $max_connect_attempts ]; do
+            output=$($cmd_name connect ${pubkey}@${addr} 2>&1)
+            if echo "$output" | grep -q "still in the process of starting"; then
+                connect_attempt=$((connect_attempt + 1))
+                echo "$cmd_name still starting (attempt $connect_attempt/$max_connect_attempts)..."
+                sleep 1
+                continue
+            fi
+            # Check if already connected (race with parallel connects).
+            if echo "$output" | grep -qi "already connected"; then
+                break
+            fi
+            # If connect returned an error, retry after a short pause.
+            if echo "$output" | grep -qi "error\|failed\|refused\|unavailable"; then
+                connect_attempt=$((connect_attempt + 1))
+                echo "Connect to $pubkey failed (attempt $connect_attempt/$max_connect_attempts): $output"
+                sleep 2
+                continue
+            fi
             break
+        done
+
+        if wait_for_peer_online "$cmd_name" "$pubkey"; then
+            return 0
         fi
-        # If connect returned an error, retry after a short pause.
-        if echo "$output" | grep -qi "error\|failed\|refused\|unavailable"; then
-            connect_attempt=$((connect_attempt + 1))
-            echo "Connect to $pubkey failed (attempt $connect_attempt/$max_connect_attempts): $output"
-            sleep 2
-            continue
-        fi
-        break
+
+        # Peer didn't appear — CLN may have dropped the handshake while still
+        # processing blocks.  Pause and retry the full connect cycle.
+        echo "Peer $pubkey not online yet, retrying connect cycle ($outer_attempt/$max_outer_attempts)..."
+        sleep 5
     done
 
-    if wait_for_peer_online "$cmd_name" "$pubkey"; then
-        return 0
-    fi
-
-    echo "Peer $pubkey did not come online after attempts."
+    echo "Peer $pubkey did not come online after $max_outer_attempts connect cycles."
     exit 1
 }
 
 wait_for_peer_online() {
     local cmd_name=$1
     local pubkey=$2
-    local max_attempts=30
+    local max_attempts=15
     local attempt=0
 
     while [ $attempt -lt $max_attempts ]; do
