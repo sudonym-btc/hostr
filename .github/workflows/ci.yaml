@@ -286,9 +286,6 @@ jobs:
       - name: Install dependencies
         run: npm clean-install
 
-      - name: Install semantic-release/exec
-        run: npm install --save-dev @semantic-release/exec
-
       - name: Verify provenance attestations
         run: npm audit signatures
 
