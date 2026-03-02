@@ -148,6 +148,11 @@ jobs:
         run: |
           echo "127.0.0.1 relay.hostr.development blossom.hostr.development alby1.hostr.development alby2.hostr.development lnbits1.hostr.development lnbits2.hostr.development anvil.hostr.development boltz.hostr.development rifrelay.hostr.development" | sudo tee -a /etc/hosts
 
+      - name: Trust dev CA on runner
+        run: |
+          sudo cp docker/tls/ca/ca.crt /usr/local/share/ca-certificates/hostr-dev-ca.crt
+          sudo update-ca-certificates
+
       - name: Run Docker integration tests
         run: dart test test/integration -t docker -j 1 -P ci
         working-directory: hostr_sdk

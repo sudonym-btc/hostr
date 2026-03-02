@@ -11,6 +11,18 @@ import 'package:ndk/ndk.dart' hide ConsoleOutput;
 import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
+/// Allow self-signed certificates so integration tests can connect to the
+/// local Docker stack's TLS endpoints (relay, blossom, lnbits, etc.) without
+/// a trusted CA chain.
+class _PermissiveHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (_, _, _) => true;
+    return client;
+  }
+}
+
 /// Shared integration-test bootstrap for Hostr SDK tests.
 ///
 /// Provides a single place for:
@@ -52,6 +64,9 @@ class IntegrationTestHarness {
     Level logLevel = Level.warning,
     bool cleanHydratedStorage = true,
   }) async {
+    // Accept self-signed dev TLS certs for all HTTP/WebSocket connections.
+    HttpOverrides.global = _PermissiveHttpOverrides();
+
     CustomLogger.configure(output: ConsoleOutput(), level: logLevel);
 
     final storageDir = Directory('${Directory.systemTemp.path}/$name');
