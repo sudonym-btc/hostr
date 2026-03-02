@@ -90,9 +90,7 @@ class Requests extends RequestsModel {
               return Stream.fromFuture(_relays.ensureConnected()).asyncExpand(
                 (_) => ndk.requests
                     .query(
-                      name: name != null
-                          ? '$name-q'
-                          : 'q-${Helpers.getRandomString(5)}',
+                      name: '$name-q',
                       filter: cleanTags(filter),
                       cacheRead: true,
                       cacheWrite: true,

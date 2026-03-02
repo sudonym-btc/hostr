@@ -59,7 +59,7 @@ class _TripsScreenState extends State<TripsScreen> {
           return ListView.separated(
             addAutomaticKeepAlives: true,
             itemCount: pairs.length,
-            separatorBuilder: (_, __) => Container(),
+            separatorBuilder: (_, _) => Container(),
             itemBuilder: (context, index) {
               return _KeepAliveReservationListItem(
                 reservationPair: pairs[index],

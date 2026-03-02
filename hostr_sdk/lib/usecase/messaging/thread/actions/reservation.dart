@@ -11,7 +11,7 @@ class ReservationActions {
 
   ReservationActions({required this.trade, required this.reservations});
 
-  static resolve(
+  static List<TradeAction> resolve(
     List<Reservation> reservations,
     StreamStatus reservationStreamStatus,
     Listing listing,

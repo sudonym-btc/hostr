@@ -308,7 +308,7 @@ Widget _statusRow(
           overflow: TextOverflow.ellipsis,
         ),
       ),
-      if (trailing != null) trailing,
+      ?trailing,
     ],
   );
 }

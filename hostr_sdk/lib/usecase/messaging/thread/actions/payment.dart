@@ -43,15 +43,15 @@ class PaymentActions {
     return actions;
   }
 
-  pay() {
+  void pay() {
     throw UnimplementedError('Payment action is not implemented yet');
   }
 
-  refund() {
+  void refund() {
     throw UnimplementedError('Refund action is not implemented yet');
   }
 
-  claim() {
+  void claim() {
     throw UnimplementedError('Claim action is not implemented yet');
   }
 }

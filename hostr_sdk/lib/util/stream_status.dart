@@ -70,7 +70,7 @@ class StreamWithStatus<T> {
   }
 
   void _init({Stream<T> Function()? queryFn, Stream<T> Function()? liveFn}) {
-    void _startLive() {
+    void startLive() {
       if (liveFn != null) {
         addStatus(StreamStatusLive());
         final liveSub = liveFn().listen(add, onError: addError);
@@ -85,12 +85,12 @@ class StreamWithStatus<T> {
         onError: addError,
         onDone: () {
           addStatus(StreamStatusQueryComplete());
-          _startLive();
+          startLive();
         },
       );
       _subscriptions.add(sub);
     } else {
-      _startLive();
+      startLive();
     }
   }
 

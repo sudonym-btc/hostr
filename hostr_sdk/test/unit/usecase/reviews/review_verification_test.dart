@@ -37,6 +37,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
 
   /// Creates a StreamWithStatus that the test can push events into.
   /// Events are also matched against the filter from the in-memory store.
+  @override
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
     List<String>? relays,

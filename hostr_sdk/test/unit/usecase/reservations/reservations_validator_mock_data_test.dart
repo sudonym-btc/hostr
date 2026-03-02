@@ -196,7 +196,7 @@ void main() {
         );
         final activationSub = validated.stream.listen(
           (_) {},
-          onError: (_, __) {},
+          onError: (_, _) {},
         );
 
         relay.emitStatus(StreamStatusLive());

@@ -390,7 +390,7 @@ Widget _verificationTile(
           ],
         ),
       ),
-      if (trailing != null) trailing,
+      ?trailing,
     ],
   );
 }

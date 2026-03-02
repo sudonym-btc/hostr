@@ -84,7 +84,7 @@ class ReservationListItem extends StatelessWidget {
   }
 
   Widget _buildStatusChip(BuildContext context) {
-    final (String label, Color? color) = switch (reservationPair) {
+    final (String label, Color color) = switch (reservationPair) {
       _ when reservationPair.cancelled => ('Cancelled', Colors.red),
       _ when reservationPair.isCompleted => ('Completed', Colors.grey),
       _ when reservationPair.isActive => ('Confirmed', Colors.green),

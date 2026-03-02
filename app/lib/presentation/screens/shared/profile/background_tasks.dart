@@ -18,6 +18,8 @@ final List<String> allTasks = [
 ];
 
 class BackgroundTasks extends StatefulWidget {
+  const BackgroundTasks({super.key});
+
   @override
   _BackgroundTasksState createState() => _BackgroundTasksState();
 }
@@ -117,11 +119,6 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
           // Currently we cannot provide frequency for iOS, hence it will be
           // minimum 15 minutes after which iOS will reschedule
           FilledButton(
-            child: Text(
-              AppLocalizations.of(
-                context,
-              )!.registerPeriodicBackgroundAppRefreshIos,
-            ),
             onPressed: Platform.isIOS
                 ? () async {
                     if (!workmanagerInitialized) {
@@ -136,6 +133,11 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
                     );
                   }
                 : null,
+            child: Text(
+              AppLocalizations.of(
+                context,
+              )!.registerPeriodicBackgroundAppRefreshIos,
+            ),
           ),
 
           // This task runs only once, to perform a time consuming task at
@@ -144,9 +146,6 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
           // terminate any running background processing tasks when the
           // user starts using the device.
           FilledButton(
-            child: Text(
-              AppLocalizations.of(context)!.registerBackgroundProcessingTaskIos,
-            ),
             onPressed: Platform.isIOS
                 ? () async {
                     if (!workmanagerInitialized) {
@@ -160,6 +159,9 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
                     );
                   }
                 : null,
+            child: Text(
+              AppLocalizations.of(context)!.registerBackgroundProcessingTaskIos,
+            ),
           ),
           Gap.vertical.sm(),
           Text(
@@ -175,8 +177,8 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
           ),
           Gap.vertical.md(),
           FilledButton(
-            child: Text(AppLocalizations.of(context)!.refreshStats),
             onPressed: _refreshStats,
+            child: Text(AppLocalizations.of(context)!.refreshStats),
           ),
           Gap.vertical.sm(),
           SingleChildScrollView(

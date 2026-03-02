@@ -1293,12 +1293,15 @@ class MockReservations extends _i1.Mock implements _i9.Reservations {
           as _i14.Future<List<_i10.Reservation>>);
 
   @override
-  dynamic groupByCommitment(
+  Map<String, List<_i10.Reservation>> groupByCommitment(
     List<_i10.Reservation>? reservations,
     _i10.Listing? listing,
-  ) => super.noSuchMethod(
-    Invocation.method(#groupByCommitment, [reservations, listing]),
-  );
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#groupByCommitment, [reservations, listing]),
+            returnValue: <String, List<_i10.Reservation>>{},
+          )
+          as Map<String, List<_i10.Reservation>>);
 
   @override
   _i8.ValidatedStreamWithStatus<_i10.Reservation> subscribeValidatedForListing({

@@ -28,11 +28,7 @@ void main() {
     required String id,
     bool isTerminal = false,
     String? updatedAt,
-  }) => {
-    'id': id,
-    'isTerminal': isTerminal,
-    if (updatedAt != null) 'updatedAt': updatedAt,
-  };
+  }) => {'id': id, 'isTerminal': isTerminal, 'updatedAt': ?updatedAt};
 
   setUp(() {
     storage = InMemoryKeyValueStorage();

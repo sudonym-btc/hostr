@@ -17,8 +17,8 @@ class AlbyHubClient {
   }) : _httpClient =
            httpClient ??
            (HttpClient()
-             ..badCertificateCallback =
-                 (X509Certificate _, String __, int ___) => true);
+             ..badCertificateCallback = (X509Certificate _, String _, int _) =>
+                 true);
 
   Future<void> setup() async {
     final response = await _request(

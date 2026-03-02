@@ -28,10 +28,7 @@ class ProfileChipWidget extends StatelessWidget {
                 duration: const Duration(milliseconds: 200),
                 layoutBuilder: (currentChild, previousChildren) => Stack(
                   alignment: Alignment.centerLeft,
-                  children: [
-                    ...previousChildren,
-                    if (currentChild != null) currentChild,
-                  ],
+                  children: [...previousChildren, ?currentChild],
                 ),
                 child: Align(
                   key: ValueKey(name),

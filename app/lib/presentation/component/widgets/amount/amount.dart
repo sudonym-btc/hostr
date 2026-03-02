@@ -32,7 +32,7 @@ class AmountWidget extends StatelessWidget {
           ProfileProvider(
             pubkey: toPubkey!,
             builder: (context, profile) =>
-                Text("${profile.data?.metadata.getName() ?? ''}"),
+                Text(profile.data?.metadata.getName() ?? ''),
           )
         else if (to != null)
           Text(to!, maxLines: 1, overflow: TextOverflow.ellipsis),
