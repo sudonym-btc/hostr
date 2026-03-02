@@ -132,6 +132,15 @@ jobs:
           echo "=== boltz-regtest-start logs ==="
           docker logs boltz-regtest-start 2>&1 | tail -200 || echo "(no boltz-regtest-start container)"
           echo ""
+          echo "=== boltz-bitcoind logs ==="
+          docker logs boltz-bitcoind 2>&1 | tail -200 || echo "(no boltz-bitcoind container)"
+          echo ""
+          echo "=== boltz-scripts logs ==="
+          docker logs boltz-scripts 2>&1 | tail -100 || echo "(no boltz-scripts container)"
+          echo ""
+          echo "=== boltz-bitcoind-init logs ==="
+          docker logs boltz-bitcoind-init 2>&1 | tail -100 || echo "(no boltz-bitcoind-init container)"
+          echo ""
           echo "=== Other service logs ==="
           docker compose logs --no-color --tail=50 hostrbitcoind lnd1 lnd2 escrow-contract-deploy || true
 
