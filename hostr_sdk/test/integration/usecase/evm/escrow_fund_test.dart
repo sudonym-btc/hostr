@@ -77,7 +77,8 @@ void main() {
       expect(emittedStates.whereType<EscrowFundCompleted>(), isNotEmpty);
 
       final completed = operation.state as EscrowFundCompleted;
-      final txHash = _extractTxHash(completed.transactionInformation);
+      expect(completed.transactionInformation, isNotNull);
+      final txHash = _extractTxHash(completed.transactionInformation!);
       expect(txHash, isNotNull);
 
       final receipt = await hostr.evm.rootstock.awaitReceipt(txHash!);

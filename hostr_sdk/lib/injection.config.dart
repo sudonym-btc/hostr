@@ -27,6 +27,8 @@ import 'package:hostr_sdk/usecase/escrow/operations/claim/escrow_claim_operation
     as _i654;
 import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_operation.dart'
     as _i832;
+import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_recoverer.dart'
+    as _i82;
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i445;
 import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i943;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i303;
@@ -41,13 +43,12 @@ import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
 import 'package:hostr_sdk/usecase/evm/main.dart' as _i785;
 import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart'
     as _i503;
-import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/escrow_lock_registry.dart'
+import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart'
     as _i143;
 import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart'
     as _i677;
-import 'package:hostr_sdk/usecase/evm/operations/swap_recovery_service.dart'
+import 'package:hostr_sdk/usecase/evm/operations/swap_recoverer.dart'
     as _i71;
-import 'package:hostr_sdk/usecase/evm/operations/swap_store.dart' as _i82;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
 import 'package:hostr_sdk/usecase/location/location.dart' as _i56;
 import 'package:hostr_sdk/usecase/messaging/messaging.dart' as _i1019;
@@ -233,20 +234,14 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i143.EscrowLockRegistry>(
-      () => _i143.EscrowLockRegistry(
+    gh.singleton<_i143.OperationStateStore>(
+      () => _i143.OperationStateStore(
         gh<_i111.KeyValueStorage>(),
         gh<_i331.CustomLogger>(),
         gh<_i1000.Auth>(),
       ),
     );
-    gh.singleton<_i82.SwapStore>(
-      () => _i82.SwapStore(
-        gh<_i111.KeyValueStorage>(),
-        gh<_i331.CustomLogger>(),
-        gh<_i1000.Auth>(),
-      ),
-    );
+    // SwapStore replaced by OperationStateStore (registered above)
     gh.singleton<_i794.UserConfigStore>(
       () => _i794.UserConfigStore(
         gh<_i111.KeyValueStorage>(),
@@ -377,12 +372,19 @@ extension GetItInjectableX on _i174.GetIt {
         transitions: gh<_i826.ReservationTransitions>(),
       ),
     );
-    gh.factory<_i71.SwapRecoveryService>(
-      () => _i71.SwapRecoveryService(
-        gh<_i82.SwapStore>(),
-        gh<_i350.BoltzClient>(),
-        gh<_i372.CustomLogger>(),
+    gh.factory<_i71.SwapRecoverer>(
+      () => _i71.SwapRecoverer(
+        gh<_i143.OperationStateStore>(),
         gh<_i1000.Auth>(),
+        gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.factory<_i82.EscrowFundRecoverer>(
+      () => _i82.EscrowFundRecoverer(
+        gh<_i143.OperationStateStore>(),
+        gh<_i1000.Auth>(),
+        gh<_i305.Evm>(),
+        gh<_i372.CustomLogger>(),
       ),
     );
     gh.singleton<_i305.Evm>(
@@ -449,8 +451,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i503.AutoWithdrawService>(
       () => _i503.AutoWithdrawService(
         gh<_i305.Evm>(),
-        gh<_i82.SwapStore>(),
-        gh<_i143.EscrowLockRegistry>(),
+        gh<_i143.OperationStateStore>(),
         gh<_i794.UserConfigStore>(),
         gh<_i331.CustomLogger>(),
       ),
@@ -492,7 +493,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i520.Auth>(),
         gh<_i520.Evm>(),
         gh<_i520.CustomLogger>(),
-        gh<_i520.EscrowLockRegistry>(),
         params,
       ),
     );

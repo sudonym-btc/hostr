@@ -79,7 +79,7 @@ class BackgroundWorker {
 
     // ── 2. Recover pending swaps ──────────────────────────────────────
     await _runSafe('recoverSwaps', () async {
-      evm.recoverStaleSwaps();
+      evm.recoverStaleOperations();
     });
 
     // ── 3. Run auto-withdraw ─────────────────────────────────────────

@@ -1,4 +1,5 @@
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/injection.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:web3dart/web3dart.dart';
@@ -10,10 +11,9 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   final CustomLogger logger;
   final Auth auth;
   final Evm evm;
-  final EscrowLockRegistry _lockRegistry;
   late final EvmChain chain;
   late final SupportedEscrowContract contract;
-  final EscrowFundParams params;
+  final EscrowFundParams? params;
   late ContractFundEscrowParams contractParams;
   bool _isExecuting = false;
 
@@ -22,17 +22,51 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   /// Defaults to 0 for pre-execute calls like [estimateFees].
   int _accountIndex = 0;
 
+  late final OperationStateStore _stateStore = getIt<OperationStateStore>();
+
   EscrowFundOperation(
     this.auth,
     this.evm,
     this.logger,
-    this._lockRegistry,
     @factoryParam this.params,
   ) : super(EscrowFundInitialised()) {
-    chain = evm.getChainForEscrowService(params.escrowService);
-    contract = chain.getSupportedEscrowContract(params.escrowService);
-    // Initialise with index 0; execute() will resolve the real index.
-    contractParams = params.toContractParams(auth.getActiveEvmKey());
+    if (params != null) {
+      chain = evm.getChainForEscrowService(params!.escrowService);
+      contract = chain.getSupportedEscrowContract(params!.escrowService);
+      // Initialise with index 0; execute() will resolve the real index.
+      contractParams = params!.toContractParams(auth.getActiveEvmKey());
+    }
+  }
+
+  /// Create for recovery mode. [recoveryChain] and [recoveryContract] are pre-resolved.
+  EscrowFundOperation.forRecovery(
+    this.auth,
+    this.evm,
+    this.logger, {
+    required EvmChain recoveryChain,
+    required SupportedEscrowContract recoveryContract,
+    required EscrowFundState initialState,
+  }) : params = null,
+       super(initialState) {
+    chain = recoveryChain;
+    contract = recoveryContract;
+    final data = initialState.data;
+    if (data != null) {
+      _accountIndex = data.accountIndex;
+      contractParams = data.toContractParams(
+        auth.getActiveEvmKey(accountIndex: _accountIndex),
+      );
+    }
+  }
+
+  /// Persist every state that carries data.
+  @override
+  void emit(EscrowFundState state) {
+    super.emit(state);
+    final id = state.operationId;
+    if (id != null) {
+      _stateStore.write('escrow_fund', id, state.toJson());
+    }
   }
 
   Future<EscrowFundFees> estimateFees() async {
@@ -44,7 +78,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
                   evmKey: contractParams.ethKey,
                   accountIndex: _accountIndex,
                   amount: requiredSwapAmount,
-                  invoiceDescription: params.swapInvoiceDescription,
+                  invoiceDescription: params!.swapInvoiceDescription,
                 ),
               )
               .estimateFees()
@@ -66,11 +100,13 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     }
     _isExecuting = true;
 
+    EscrowFundData? fundData;
+
     // Resolve the next unused HD address for this operation.
     final (:address, :accountIndex) = await chain.getNextUnusedAddress();
     _accountIndex = accountIndex;
     final evmKey = auth.getActiveEvmKey(accountIndex: _accountIndex);
-    contractParams = params.toContractParams(evmKey);
+    contractParams = params!.toContractParams(evmKey);
 
     // ── Address invariant ──────────────────────────────────────────────
     // contractParams.ethKey is the SINGLE source of truth for the funding
@@ -87,43 +123,32 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     // will sign the escrow deposit transaction.
     // ───────────────────────────────────────────────────────────────────
 
-    // Acquire a lock so the auto-withdraw service knows not to drain balance.
-    // All contract params are persisted so a background worker can resume the
-    // deposit if the app is killed after the swap-in completes.
-    await _lockRegistry.acquire(
+    // Create recovery data immediately.
+    fundData = EscrowFundData(
       tradeId: contractParams.tradeId,
-      reservedAmount: BitcoinAmount.fromAmount(params.amount),
+      reservedAmountWeiHex: BitcoinAmount.fromAmount(
+        params!.amount,
+      ).getInWei.toRadixString(16),
       sellerEvmAddress: contractParams.sellerEvmAddress,
       arbiterEvmAddress: contractParams.arbiterEvmAddress,
-      contractAddress: params.escrowService.parsedContent.contractAddress,
-      chainId: params.escrowService.parsedContent.chainId,
+      contractAddress: params!.escrowService.parsedContent.contractAddress,
+      chainId: params!.escrowService.parsedContent.chainId,
       unlockAt: contractParams.unlockAt,
       accountIndex: _accountIndex,
     );
 
     try {
       logger.i(
-        'Creating escrow for tradeId ${contractParams.tradeId} at ${params.escrowService.parsedContent.contractAddress} (accountIndex: $_accountIndex)',
+        'Creating escrow for tradeId ${contractParams.tradeId} at ${params!.escrowService.parsedContent.contractAddress} (accountIndex: $_accountIndex)',
       );
-      await _swapRequiredAmount();
+      fundData = await _swapRequiredAmount(fundData);
 
-      // Mark ready — swap is done, balance is available for the deposit.
-      await _lockRegistry.updateStatus(
-        contractParams.tradeId,
-        status: EscrowLockStatus.readyToDeposit,
-      );
-
-      emit(EscrowFundDepositing());
+      emit(EscrowFundDepositing(fundData));
       TransactionInformation tx = await contract.deposit(contractParams);
       final txHash = _extractTxHash(tx);
       if (txHash != null) {
-        // Persist the tx hash so a background worker can monitor it.
-        await _lockRegistry.updateStatus(
-          contractParams.tradeId,
-          status: EscrowLockStatus.depositing,
-          depositTxHash: txHash,
-        );
-        emit(EscrowFundDepositing(txHash: txHash));
+        fundData = fundData.copyWith(depositTxHash: txHash);
+        emit(EscrowFundDepositing(fundData));
         final receipt = await chain.awaitReceipt(txHash);
         if (!_isReceiptSuccessful(receipt)) {
           throw StateError(
@@ -140,14 +165,13 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
         );
       }
       logger.d('Escrow funded with transaction: $tx');
-      emit(EscrowFundCompleted(transactionInformation: tx));
+      emit(EscrowFundCompleted(fundData, transactionInformation: tx));
     } catch (error, stackTrace) {
       logger.e('Escrow failed', error: error, stackTrace: stackTrace);
-      final e = EscrowFundFailed(error, stackTrace);
+      final e = EscrowFundFailed(error, data: fundData, stackTrace: stackTrace);
       emit(e);
       throw e;
     } finally {
-      await _lockRegistry.release(contractParams.tradeId);
       _isExecuting = false;
     }
   }
@@ -185,7 +209,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     final transactionFee = await contract.estimateDespositFee(contractParams);
 
     final leftAfterTrade =
-        balance - BitcoinAmount.fromAmount(params.amount) - transactionFee;
+        balance - BitcoinAmount.fromAmount(params!.amount) - transactionFee;
 
     if (leftAfterTrade < BitcoinAmount.zero()) {
       logger.e(
@@ -200,7 +224,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     return BitcoinAmount.zero();
   }
 
-  Future<void> _swapRequiredAmount() async {
+  Future<EscrowFundData> _swapRequiredAmount(EscrowFundData fundData) async {
     final requiredAmountInBtc = await _doesEscrowRequireSwap();
     if (requiredAmountInBtc > BitcoinAmount.zero()) {
       // Reuse contractParams.ethKey so the swap-in derives the same smart
@@ -212,7 +236,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
           evmKey: evmKey,
           accountIndex: _accountIndex,
           amount: requiredAmountInBtc,
-          invoiceDescription: params.swapInvoiceDescription,
+          invoiceDescription: params!.swapInvoiceDescription,
         ),
       );
       final swapFees = await swapEstimation.estimateFees();
@@ -223,11 +247,19 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
           amount: (requiredAmountInBtc + swapFees.totalFees).roundUp(
             BitcoinUnit.sat,
           ),
-          invoiceDescription: params.swapInvoiceDescription,
+          invoiceDescription: params!.swapInvoiceDescription,
         ),
       );
-      final sub = swap.stream.listen((state) {
-        emit(EscrowFundSwapProgress(state));
+
+      String? swapId;
+      final sub = swap.stream.listen((swapState) {
+        swapId ??= swapState.operationId;
+        emit(
+          EscrowFundSwapProgress(
+            fundData.copyWith(swapId: swapId),
+            swapState: swapState,
+          ),
+        );
       });
 
       try {
@@ -235,6 +267,106 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
       } finally {
         await sub.cancel();
       }
+      return fundData.copyWith(swapId: swapId);
+    }
+    return fundData;
+  }
+
+  /// Resume from the current (deserialized) state.
+  ///
+  /// Does NOT recover nested swaps — that's the [SwapRecoverer]'s job.
+  /// If the swap is still in progress, returns immediately.
+  Future<void> recover() async {
+    final currentState = state;
+    final data = currentState.data;
+    if (data == null || currentState.isTerminal) return;
+
+    switch (currentState) {
+      case EscrowFundSwapProgress():
+        // Check if the nested swap has completed via the store.
+        if (data.swapId != null) {
+          final swapJson = await _stateStore.read('swap_in', data.swapId!);
+          if (swapJson != null) {
+            final swapState = SwapInState.fromJson(swapJson);
+            if (swapState is SwapInCompleted) {
+              logger.i(
+                'EscrowFund recover: swap ${data.swapId} completed, '
+                'proceeding to deposit',
+              );
+              await _executeDeposit(data);
+              return;
+            }
+            if (swapState is SwapInFailed) {
+              emit(
+                EscrowFundFailed(
+                  'Nested swap failed: ${swapState.error}',
+                  data: data,
+                ),
+              );
+              return;
+            }
+          }
+        }
+        // Swap not done yet — exit. SwapRecoverer handles it.
+        logger.d(
+          'EscrowFund recover: swap ${data.swapId} not yet complete, exiting',
+        );
+        return;
+      case EscrowFundDepositing():
+        await _executeDeposit(data);
+        return;
+      default:
+        return;
+    }
+  }
+
+  Future<void> _executeDeposit(EscrowFundData data) async {
+    try {
+      final evmKey = auth.getActiveEvmKey(accountIndex: data.accountIndex);
+      contractParams = data.toContractParams(evmKey);
+
+      if (data.depositTxHash != null) {
+        // Transaction already broadcast — check receipt.
+        try {
+          final receipt = await chain.awaitReceipt(data.depositTxHash!);
+          if (_isReceiptSuccessful(receipt)) {
+            emit(EscrowFundCompleted(data));
+          } else {
+            emit(
+              EscrowFundFailed(
+                'Deposit reverted: ${data.depositTxHash}',
+                data: data,
+              ),
+            );
+          }
+          return;
+        } catch (e) {
+          logger.w(
+            'EscrowFund recover: tx ${data.depositTxHash} not found, re-sending',
+          );
+        }
+      }
+
+      emit(EscrowFundDepositing(data));
+      TransactionInformation tx = await contract.deposit(contractParams);
+      final txHash = _extractTxHash(tx);
+      if (txHash != null) {
+        final updatedData = data.copyWith(depositTxHash: txHash);
+        emit(EscrowFundDepositing(updatedData));
+        final receipt = await chain.awaitReceipt(txHash);
+        if (_isReceiptSuccessful(receipt)) {
+          emit(EscrowFundCompleted(updatedData, transactionInformation: tx));
+        } else {
+          emit(
+            EscrowFundFailed('Deposit reverted: $txHash', data: updatedData),
+          );
+        }
+      } else {
+        emit(EscrowFundCompleted(data, transactionInformation: tx));
+      }
+    } catch (e, st) {
+      logger.e('EscrowFund recover deposit failed: $e');
+      emit(EscrowFundFailed(e, data: data, stackTrace: st));
     }
   }
 }

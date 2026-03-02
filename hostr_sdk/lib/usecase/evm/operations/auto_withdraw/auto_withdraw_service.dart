@@ -7,9 +7,8 @@ import '../../../../util/bitcoin_amount.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../user_config/user_config_store.dart';
 import '../../evm.dart';
+import '../operation_state_store.dart';
 import '../swap_out/swap_out_state.dart';
-import '../swap_store.dart';
-import 'escrow_lock_registry.dart';
 
 /// Watches the EVM balance across all supported chains and automatically
 /// triggers a swap-out to Lightning when conditions are met.
@@ -17,8 +16,8 @@ import 'escrow_lock_registry.dart';
 /// ### Gates (all must pass before a swap-out is initiated)
 ///
 /// 1. **Enabled** — `HostrUserConfig.autoWithdrawEnabled` is `true`.
-/// 2. **No escrow locks** — [EscrowLockRegistry] has no active locks.
-/// 3. **No active swaps** — [SwapStore] has no non-terminal swap records.
+/// 2. **No escrow locks** — [OperationStateStore] has no non-terminal escrow fund states.
+/// 3. **No active swaps** — [OperationStateStore] has no non-terminal swap states.
 /// 4. **Minimum balance** — balance ≥ `autoWithdrawMinimumSats`.
 /// 5. **Fee ratio** — estimated fees / balance ≤ [maxFeeRatio].
 ///
@@ -35,8 +34,7 @@ class AutoWithdrawService {
   /// Maximum fee-to-balance ratio tolerated for an auto-withdrawal.
   static const double maxFeeRatio = 0.10;
   final Evm _evm;
-  final SwapStore _swapStore;
-  final EscrowLockRegistry _lockRegistry;
+  final OperationStateStore _stateStore;
   final UserConfigStore _userConfigStore;
   final CustomLogger _logger;
 
@@ -46,8 +44,7 @@ class AutoWithdrawService {
 
   AutoWithdrawService(
     this._evm,
-    this._swapStore,
-    this._lockRegistry,
+    this._stateStore,
     this._userConfigStore,
     this._logger,
   );
@@ -114,16 +111,15 @@ class AutoWithdrawService {
     }
 
     // Gate 2: Any escrow operations in flight?
-    if (await _lockRegistry.hasActiveLocks) {
-      final ids = await _lockRegistry.activeTradeIds;
-      _logger.d('AutoWithdraw skipped: escrow lock(s) held for $ids');
+    if (await _stateStore.hasNonTerminal('escrow_fund')) {
+      _logger.d('AutoWithdraw skipped: escrow fund operation(s) in flight');
       return;
     }
 
     // Gate 3: Any active (non-terminal) swaps already running?
-    final activeSwaps = await _swapStore.getActive();
-    if (activeSwaps.isNotEmpty) {
-      _logger.d('AutoWithdraw skipped: ${activeSwaps.length} active swap(s)');
+    if (await _stateStore.hasNonTerminal('swap_in') ||
+        await _stateStore.hasNonTerminal('swap_out')) {
+      _logger.d('AutoWithdraw skipped: active swap(s) in progress');
       return;
     }
 

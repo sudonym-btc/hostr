@@ -3069,9 +3069,9 @@ class MockEvm extends _i1.Mock implements _i9.Evm {
           as _i14.Future<_i9.EvmChain>);
 
   @override
-  _i14.Future<int> recoverStaleSwaps() =>
+  _i14.Future<int> recoverStaleOperations() =>
       (super.noSuchMethod(
-            Invocation.method(#recoverStaleSwaps, []),
+            Invocation.method(#recoverStaleOperations, []),
             returnValue: _i14.Future<int>.value(0),
           )
           as _i14.Future<int>);
