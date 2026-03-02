@@ -4,11 +4,10 @@ import 'package:bloc/bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:meta/meta.dart';
 
+import '../../../../injection.dart';
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
-import '../../chain/evm_chain.dart';
-import '../swap_record.dart';
-import '../swap_store.dart';
+import '../operation_state_store.dart';
 import 'swap_out_models.dart';
 import 'swap_out_state.dart';
 
@@ -22,11 +21,24 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
   @protected
   Completer<String>? externalInvoiceCompleter;
 
+  late final OperationStateStore _stateStore = getIt<OperationStateStore>();
+
   SwapOutOperation({
     required this.auth,
     required this.logger,
     @factoryParam required this.params,
-  }) : super(SwapOutInitialised());
+    SwapOutState? initialState,
+  }) : super(initialState ?? const SwapOutInitialised());
+
+  /// Persist every state that carries data.
+  @override
+  void emit(SwapOutState state) {
+    super.emit(state);
+    final id = state.operationId;
+    if (id != null) {
+      _stateStore.write('swap_out', id, state.toJson());
+    }
+  }
 
   /// Call this from the UI after the user pastes an external Lightning invoice.
   void submitExternalInvoice(String invoice) {
@@ -39,16 +51,11 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
   Future<SwapOutFees> estimateFees();
   Future<void> execute();
 
-  /// Recover a persisted swap-out record.
+  /// Resume from the current deserialized state.
   ///
   /// Checks the current Boltz status and either marks the swap as completed,
-  /// failed, or attempts to refund locked EVM funds (cooperative then timelock).
+  /// failed, or attempts to refund locked EVM funds.
   ///
   /// Returns `true` if the swap was resolved (completed, refunded, or terminal).
-  Future<bool> recover({
-    required SwapOutRecord record,
-    required String boltzStatus,
-    required EvmChain chain,
-    required SwapStore swapStore,
-  });
+  Future<bool> recover();
 }

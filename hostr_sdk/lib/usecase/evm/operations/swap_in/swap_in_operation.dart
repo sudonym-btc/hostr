@@ -1,11 +1,10 @@
 import 'package:bloc/bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../../injection.dart';
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
-import '../../chain/evm_chain.dart';
-import '../swap_record.dart';
-import '../swap_store.dart';
+import '../operation_state_store.dart';
 import 'swap_in_models.dart';
 import 'swap_in_state.dart';
 
@@ -14,11 +13,24 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
   final Auth auth;
   final SwapInParams params;
 
+  late final OperationStateStore _stateStore = getIt<OperationStateStore>();
+
   SwapInOperation({
     required this.auth,
     required this.logger,
     @factoryParam required this.params,
-  }) : super(SwapInInitialised());
+    SwapInState? initialState,
+  }) : super(initialState ?? const SwapInInitialised());
+
+  /// Persist every state that carries data.
+  @override
+  void emit(SwapInState state) {
+    super.emit(state);
+    final id = state.operationId;
+    if (id != null) {
+      _stateStore.write('swap_in', id, state.toJson());
+    }
+  }
 
   Future<SwapInFees> estimateFees();
   Future<void> execute();
@@ -27,31 +39,28 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
   Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits();
 
   /// Fetches chain limits and clamps [params.minAmount] / [params.maxAmount]
-  /// to the chain's supported range. If the caller didn't provide min/max,
-  /// the chain limits are used directly. Re-emits [SwapInInitialised] so the
+  /// to the chain's supported range. Re-emits [SwapInInitialised] so the
   /// UI picks up the resolved range.
   Future<void> init() async {
     try {
       final limits = await getSwapLimits();
 
-      // Effective min = max(user min, chain min)
       params.minAmount = params.minAmount != null
           ? BitcoinAmount.max(params.minAmount!, limits.min)
           : limits.min;
 
-      // Effective max = min(user max, chain max)
       params.maxAmount = params.maxAmount != null
           ? BitcoinAmount.min(params.maxAmount!, limits.max)
           : limits.max;
 
-      // Clamp the current amount into the resolved range
       if (params.amount < params.minAmount!) {
         params.amount = params.minAmount!;
       } else if (params.amount > params.maxAmount!) {
         params.amount = params.maxAmount!;
       }
 
-      emit(SwapInInitialised());
+      // Use super.emit to avoid persisting an Initialised state.
+      super.emit(const SwapInInitialised());
     } catch (e) {
       logger.w('Failed to fetch swap limits: $e');
     }
@@ -68,19 +77,14 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
       return;
     }
     params.amount = amount;
-    emit(SwapInInitialised());
+    super.emit(const SwapInInitialised());
   }
 
-  /// Recover a persisted swap-in record.
+  /// Resume from the current deserialized state.
   ///
   /// Checks the current Boltz status and either marks the swap as completed,
   /// failed, or attempts to re-claim on-chain funds using the preimage.
   ///
   /// Returns `true` if the swap was resolved (completed or terminal failure).
-  Future<bool> recover({
-    required SwapInRecord record,
-    required String boltzStatus,
-    required EvmChain chain,
-    required SwapStore swapStore,
-  });
+  Future<bool> recover();
 }

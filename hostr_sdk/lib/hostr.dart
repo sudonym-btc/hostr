@@ -99,7 +99,7 @@ class Hostr {
         evm.resetBalance();
 
         // Recover any stale swaps (claims/refunds) from previous sessions.
-        evm.recoverStaleSwaps();
+        evm.recoverStaleOperations();
 
         // Start auto-withdrawing EVM balances to Lightning.
         autoWithdraw.start();

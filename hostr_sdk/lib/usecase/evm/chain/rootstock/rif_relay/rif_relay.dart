@@ -207,21 +207,17 @@ class RifRelay {
   // -------------------------------------------------------------------------
 
   Future<relay_api.EstimatePost$Response> estimateClaim(
-    EtherSwap etherSwap,
-    EthPrivateKey signer,
-    ClaimArgs args,
+    relay_api.RelayTransactionRequest request,
   ) async {
-    logger.d('RIF relay /estimateClaim request: $args');
+    logger.d('RIF relay /estimateClaim request: $request');
 
-    final relayTransactionRequest = await _buildRelayTransactionRequest(
-      etherSwap,
-      signer,
-      args,
-    );
-    final requestJson = relayTransactionRequest.toJson();
-    logger.d('Estimate request JSON: $requestJson');
+    final response = await _api.estimatePost(body: request.toJson());
+    if (response.bodyString.contains('error')) {
+      throw response.bodyString;
+    }
+    logger.d('RIF relay /estimateClaim response: ${response.bodyString}');
 
-    return (await _api.estimatePost(body: requestJson)).bodyOrThrow;
+    return response.bodyOrThrow;
   }
 
   Future<relay_api.RelayTransactionRequest> _buildRelayTransactionRequest(
@@ -248,6 +244,24 @@ class RifRelay {
     final info = await _getCachedChainInfo();
     final smartWalletInfo = await getSmartWalletAddress(signer);
     final isDeploy = smartWalletInfo.nonce == BigInt.zero;
+
+    // For the relay path (wallet already deployed), the ForwardRequest nonce
+    // must be the smart wallet's internal IForwarder anti-replay nonce — NOT
+    // the factory nonce.  The factory nonce counts deployments; IForwarder
+    // nonce counts relayed calls.  Mirrors TS:
+    //   deploy → IWalletFactory.nonce(from)
+    //   relay  → IForwarder(callForwarder).nonce()
+    final BigInt forwardRequestNonce;
+    if (isDeploy) {
+      forwardRequestNonce = smartWalletInfo.nonce;
+    } else {
+      final forwarder = getForwarder(smartWalletInfo.address);
+      forwardRequestNonce = await forwarder.nonce();
+      logger.d(
+        'IForwarder nonce for ${smartWalletInfo.address.eip55With0x}: '
+        '$forwardRequestNonce (factory nonce: ${smartWalletInfo.nonce})',
+      );
+    }
 
     // Effective gas price (floor to relay minGasPrice).
     // PingResponse.minGasPrice is typed String? but the server may return an
@@ -280,15 +294,17 @@ class RifRelay {
 
     // feesReceiver = relay worker address (PingResponse lacks the field, but
     // the server's /chain-info returns feesReceiver == relayWorkerAddress).
+    //
+    // callVerifier: The Boltz web-app always uses the deployVerifier for both
+    // deploy and relay paths. The relay server's verifier contract must match
+    // what was registered on-chain.
     final relayData = relay_api.RelayData(
       gasPrice: effectiveGasPrice.toString(),
       feesReceiver: workerAddress,
       callForwarder: isDeploy
           ? config.rootstockConfig.boltz.rifSmartWalletFactoryAddress
           : smartWalletInfo.address.eip55With0x,
-      callVerifier: isDeploy
-          ? config.rootstockConfig.boltz.rifRelayDeployVerifier
-          : config.rootstockConfig.boltz.rifRelayCallVerifier,
+      callVerifier: config.rootstockConfig.boltz.rifRelayDeployVerifier,
     );
 
     final relay_api.ForwardRequest request;
@@ -302,9 +318,9 @@ class RifRelay {
         to: etherSwap.self.address.eip55With0x,
         tokenContract: _zeroAddress,
         value: '0',
-        nonce: smartWalletInfo.nonce.toString(),
+        nonce: forwardRequestNonce.toString(),
         tokenAmount: '0',
-        tokenGas: '20000',
+        tokenGas: '0',
         data: claimCalldata,
       );
     } else {
@@ -316,9 +332,9 @@ class RifRelay {
         tokenContract: _zeroAddress,
         value: '0',
         gas: _defaultGasNeededToClaim.toString(),
-        nonce: smartWalletInfo.nonce.toString(),
+        nonce: forwardRequestNonce.toString(),
         tokenAmount: '0',
-        tokenGas: '20000',
+        tokenGas: '0',
         data: claimCalldata,
       );
     }
@@ -334,10 +350,13 @@ class RifRelay {
 
   /// Relays an EtherSwap.claim via the RIF Relay server.
   ///
-  /// Same parameters as [estimateClaim]. Internally:
-  /// 1. Builds the same relay request as estimate (via [_buildRelayTransactionRequest]).
-  /// 2. Signs it with EIP-712 (`signTypedData_v4`).
-  /// 3. POSTs to `/relay`.
+  /// Mirrors the Boltz web-app `relayClaimTransaction` flow:
+  /// 1. Builds the relay request with placeholder tokenGas/tokenAmount.
+  /// 2. POSTs to `/estimate` (unsigned — `SERVER_SIGNATURE_REQUIRED`).
+  /// 3. Updates the request with the server's `estimation` → `tokenGas`
+  ///    and `requiredTokenAmount` → `tokenAmount`.
+  /// 4. Signs the *updated* request with EIP-712.
+  /// 5. POSTs to `/relay`.
   Future<relay_api.RelayPost$Response> relayClaim(
     EtherSwap etherSwap,
     EthPrivateKey signer,
@@ -350,18 +369,76 @@ class RifRelay {
       signer,
       args,
     );
-
-    // -- EIP-712 signature --
     final relayRequest = relayTransactionRequest.relayRequest!;
-    final request = relayRequest.request!;
+    final originalRequest = relayRequest.request!;
     final relayData = relayRequest.relayData!;
-    final isDeploy = request is DeployForwardRequest;
+    final isDeploy = originalRequest is DeployForwardRequest;
 
+    // -- 1. Estimate (unsigned) --
+    relay_api.EstimatePost$Response? estimateResponse;
+
+    // Do not estimate on deploy, since smart wallet does not yet exist so we cannot estimate reliably
+    if (false) {
+      estimateResponse = await estimateClaim(relayTransactionRequest);
+      logger.d(
+        'RIF estimate response: '
+        'gasPrice=${estimateResponse.gasPrice}, '
+        'estimation=${estimateResponse.estimation}, '
+        'requiredTokenAmount=${estimateResponse.requiredTokenAmount}',
+      );
+    }
+
+    final updatedTokenGas = estimateResponse?.estimation ?? '0';
+    final updatedTokenAmount = estimateResponse?.requiredTokenAmount ?? '0';
+    // -- 2. Update request with estimate results --
+    // Mirrors TS: request.tokenGas = estimateRes.estimation
+    //             request.tokenAmount = estimateRes.requiredTokenAmount
+
+    final relay_api.ForwardRequest updatedRequest;
+    if (isDeploy) {
+      final deploy = originalRequest as DeployForwardRequest;
+      updatedRequest = DeployForwardRequest(
+        validUntilTime: deploy.validUntilTime,
+        index: deploy.index,
+        recoverer: deploy.recoverer,
+        relayHub: deploy.relayHub,
+        from: deploy.from,
+        to: deploy.to,
+        tokenContract: deploy.tokenContract,
+        value: deploy.value,
+        nonce: deploy.nonce,
+        tokenAmount: updatedTokenAmount,
+        tokenGas: updatedTokenGas,
+        data: deploy.data,
+      );
+    } else {
+      final rel = originalRequest as RelayForwardRequest;
+      updatedRequest = RelayForwardRequest(
+        validUntilTime: rel.validUntilTime,
+        relayHub: rel.relayHub,
+        from: rel.from,
+        to: rel.to,
+        tokenContract: rel.tokenContract,
+        value: rel.value,
+        gas: rel.gas,
+        nonce: rel.nonce,
+        tokenAmount: updatedTokenAmount,
+        tokenGas: updatedTokenGas,
+        data: rel.data,
+      );
+    }
+
+    final updatedRelayRequest = relay_api.RelayRequest(
+      request: updatedRequest,
+      relayData: relayData,
+    );
+
+    // -- 3. EIP-712 signature (over the updated request) --
     final verifyingContract = relayData.callForwarder! as String;
 
     final signature = _signRelayRequest(
       signer: signer,
-      request: request,
+      request: updatedRequest,
       relayData: relayData,
       chainId: config.rootstockConfig.chainId,
       verifyingContract: verifyingContract,
@@ -375,9 +452,10 @@ class RifRelay {
         relayMaxNonce: relayTransactionRequest.metadata!.relayMaxNonce,
         signature: signature,
       ),
-      relayRequest: relayRequest,
+      relayRequest: updatedRelayRequest,
     );
 
+    // -- 4. Relay (signed) --
     final requestJson = signed.toJson();
     logger.d('Relay request JSON: $requestJson');
 
@@ -386,7 +464,25 @@ class RifRelay {
       'RIF relay /relay response (${response.statusCode}): '
       '${response.bodyString}',
     );
-    return response.bodyOrThrow;
+
+    // The relay server may return HTTP 200 with an error body instead of
+    // signedTx/txHash.  Detect this before returning a response with null
+    // fields that would cascade into an "invalid string length" RPCError.
+    final bodyStr = response.bodyString;
+    if (bodyStr.contains('"error"')) {
+      throw Exception('RIF relay server returned an error: $bodyStr');
+    }
+
+    final relayResponse = response.bodyOrThrow;
+    if (relayResponse.signedTx == null &&
+        relayResponse.transactionHash == null) {
+      throw Exception(
+        'RIF relay server returned empty response '
+        '(no signedTx or txHash): $bodyStr',
+      );
+    }
+
+    return relayResponse;
   }
 
   // -------------------------------------------------------------------------

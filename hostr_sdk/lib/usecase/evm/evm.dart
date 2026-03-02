@@ -7,9 +7,10 @@ import 'package:rxdart/rxdart.dart';
 import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
+import '../escrow/operations/fund/escrow_fund_recoverer.dart';
 import 'chain/evm_chain.dart';
 import 'chain/rootstock/rootstock.dart';
-import 'operations/swap_recovery_service.dart';
+import 'operations/swap_recoverer.dart';
 
 @Singleton()
 class Evm {
@@ -108,21 +109,22 @@ class Evm {
     throw Exception('EVM chain with ID $chainId not supported.');
   }
 
-  /// Recover stale swaps whose on-chain funds may be at risk.
+  /// Recover stale swaps and escrow fund operations.
   ///
-  /// Iterates persisted [SwapRecord]s, resolves the matching [EvmChain] by
-  /// `chainId`, and delegates claim / refund logic to [SwapRecoveryService].
+  /// Loads persisted cubit states from [OperationStateStore], reconstructs
+  /// the appropriate cubits, and calls their [recover] methods.
   ///
   /// Safe to call repeatedly — idempotent and non-destructive.
-  /// Returns the number of swaps that were successfully resolved.
-  Future<int> recoverStaleSwaps() async {
+  /// Returns the number of operations that were successfully resolved.
+  Future<int> recoverStaleOperations() async {
     try {
-      final recoveryService = getIt<SwapRecoveryService>();
-      return await recoveryService.recoverPendingSwaps(
-        chainResolver: getClientForChainId,
-      );
+      final swapRecoverer = getIt<SwapRecoverer>();
+      final escrowRecoverer = getIt<EscrowFundRecoverer>();
+      final swapsResolved = await swapRecoverer.recoverAll();
+      final escrowsResolved = await escrowRecoverer.recoverAll();
+      return swapsResolved + escrowsResolved;
     } catch (e) {
-      logger.e('Evm.recoverStaleSwaps failed: $e');
+      logger.e('Evm.recoverStaleOperations failed: $e');
       return 0;
     }
   }

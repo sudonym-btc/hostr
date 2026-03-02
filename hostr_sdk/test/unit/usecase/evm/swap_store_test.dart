@@ -6,8 +6,7 @@ import 'dart:convert';
 import 'package:hostr_sdk/datasources/storage.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_record.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_store.dart';
+import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/bip340.dart';
@@ -18,12 +17,22 @@ void main() {
   late InMemoryKeyValueStorage storage;
   late Auth auth;
   late KeyPair? activeKeyPair;
-  late SwapStore store;
+  late OperationStateStore store;
 
   final userA = Bip340.fromPrivateKey('1' * 64);
   final userB = Bip340.fromPrivateKey('2' * 64);
 
-  String keyFor(String pubkey) => 'pending_swaps:$pubkey';
+  String keyFor(String pubkey, String ns) => 'ops:$pubkey:$ns';
+
+  Map<String, dynamic> _entry({
+    required String id,
+    bool isTerminal = false,
+    String? updatedAt,
+  }) => {
+    'id': id,
+    'isTerminal': isTerminal,
+    if (updatedAt != null) 'updatedAt': updatedAt,
+  };
 
   setUp(() {
     storage = InMemoryKeyValueStorage();
@@ -31,334 +40,246 @@ void main() {
     final mockAuth = MockAuth();
     when(mockAuth.activeKeyPair).thenAnswer((_) => activeKeyPair);
     auth = mockAuth;
-    store = SwapStore(storage, CustomLogger(), auth);
+    store = OperationStateStore(storage, CustomLogger(), auth);
   });
 
-  SwapInRecord _swapIn({
-    String boltzId = 'swap-in-1',
-    SwapRecordStatus status = SwapRecordStatus.created,
-  }) {
-    final record = SwapInRecord.create(
-      boltzId: boltzId,
-      preimage: List<int>.generate(32, (i) => i),
-      preimageHash: 'hash-$boltzId',
-      onchainAmountSat: 50000,
-      timeoutBlockHeight: 800000,
-      chainId: 31,
-      accountIndex: 0,
-    );
-    if (status != SwapRecordStatus.created) {
-      return record.copyWithStatus(status);
-    }
-    return record;
-  }
+  tearDown(() {
+    store.dispose();
+  });
 
-  SwapOutRecord _swapOut({
-    String boltzId = 'swap-out-1',
-    SwapRecordStatus status = SwapRecordStatus.created,
-  }) {
-    final record = SwapOutRecord.create(
-      boltzId: boltzId,
-      invoice: 'lnbc1000...',
-      invoicePreimageHashHex: 'deadbeef',
-      claimAddress: '0xclaimaddr',
-      lockedAmountWei: BigInt.from(1000000),
-      lockerAddress: '0xlockeraddr',
-      timeoutBlockHeight: 900000,
-      chainId: 31,
-      accountIndex: 0,
-    );
-    if (status != SwapRecordStatus.created) {
-      return record.copyWithStatus(status);
-    }
-    return record;
-  }
-
-  group('SwapStore', () {
+  group('OperationStateStore', () {
     group('initialize', () {
       test('loads empty store when storage has nothing', () async {
-        await store.initialize();
-        final all = await store.getAll();
+        await store.initialize('swap_in');
+        final all = await store.readAll('swap_in');
         expect(all, isEmpty);
       });
 
-      test('loads records from storage', () async {
-        // Pre-populate storage
-        final record = _swapIn(boltzId: 'preloaded');
+      test('loads entries from storage', () async {
+        final entry = _entry(id: 'preloaded');
         await storage.write(
-          keyFor(userA.publicKey),
-          jsonEncode([record.toJson()]),
+          keyFor(userA.publicKey, 'swap_in'),
+          jsonEncode([entry]),
         );
 
-        await store.initialize();
-        final all = await store.getAll();
+        await store.initialize('swap_in');
+        final all = await store.readAll('swap_in');
         expect(all, hasLength(1));
-        expect(all.first.boltzId, 'preloaded');
+        expect(all.first['id'], 'preloaded');
       });
 
       test('is idempotent — second call does not reload', () async {
-        await store.initialize();
-        await store.save(_swapIn(boltzId: 'first'));
+        await store.initialize('swap_in');
+        await store.write('swap_in', 'first', _entry(id: 'first'));
 
         // Write something different directly to storage
-        final other = _swapIn(boltzId: 'other');
         await storage.write(
-          keyFor(userA.publicKey),
-          jsonEncode([other.toJson()]),
+          keyFor(userA.publicKey, 'swap_in'),
+          jsonEncode([_entry(id: 'other')]),
         );
 
         // Second initialize should be a no-op (cache already loaded)
-        await store.initialize();
-        final all = await store.getAll();
+        await store.initialize('swap_in');
+        final all = await store.readAll('swap_in');
         expect(all, hasLength(1));
-        expect(all.first.boltzId, 'first');
+        expect(all.first['id'], 'first');
       });
 
       test('handles corrupt storage gracefully', () async {
-        await storage.write(keyFor(userA.publicKey), 'not valid json}}}');
-        await store.initialize();
-        final all = await store.getAll();
-        expect(all, isEmpty); // Should start fresh
+        await storage.write(
+          keyFor(userA.publicKey, 'swap_in'),
+          'not valid json}}}',
+        );
+        await store.initialize('swap_in');
+        final all = await store.readAll('swap_in');
+        expect(all, isEmpty);
       });
     });
 
-    group('save', () {
-      test('persists a record and flushes to storage', () async {
-        final record = _swapIn();
-        await store.save(record);
+    group('write / read', () {
+      test('persists an entry and flushes to storage', () async {
+        final entry = _entry(id: 'item-1');
+        await store.write('swap_in', 'item-1', entry);
 
         // Verify it's retrievable
-        final retrieved = await store.get('swap-in-1');
+        final retrieved = await store.read('swap_in', 'item-1');
         expect(retrieved, isNotNull);
-        expect(retrieved!.boltzId, 'swap-in-1');
+        expect(retrieved!['id'], 'item-1');
 
         // Verify it's in underlying storage
-        final raw = await storage.read(keyFor(userA.publicKey));
+        final raw = await storage.read(keyFor(userA.publicKey, 'swap_in'));
         final list = jsonDecode(raw) as List;
         expect(list, hasLength(1));
       });
 
-      test('overwrites existing record with same id', () async {
-        final record = _swapIn();
-        await store.save(record);
+      test('overwrites existing entry with same id', () async {
+        await store.write('swap_in', 'x', {'id': 'x', 'v': 1});
+        await store.write('swap_in', 'x', {'id': 'x', 'v': 2});
 
-        final updated = record.copyWithStatus(SwapRecordStatus.funded);
-        await store.save(updated);
-
-        final all = await store.getAll();
+        final all = await store.readAll('swap_in');
         expect(all, hasLength(1));
-        expect(all.first.status, SwapRecordStatus.funded);
-      });
-    });
-
-    group('updateStatus', () {
-      test('updates status and optional fields', () async {
-        await store.save(_swapIn());
-
-        final updated = await store.updateStatus(
-          'swap-in-1',
-          SwapRecordStatus.funded,
-          lastBoltzStatus: 'transaction.confirmed',
-          refundAddress: '0xrefund',
-        );
-
-        expect(updated, isNotNull);
-        expect(updated!.status, SwapRecordStatus.funded);
-        expect(updated.lastBoltzStatus, 'transaction.confirmed');
-        expect((updated as SwapInRecord).refundAddress, '0xrefund');
-      });
-
-      test('returns null for unknown record', () async {
-        await store.initialize();
-        final result = await store.updateStatus(
-          'nonexistent',
-          SwapRecordStatus.funded,
-        );
-        expect(result, isNull);
-      });
-
-      test('persists update to disk', () async {
-        await store.save(_swapIn());
-        await store.updateStatus('swap-in-1', SwapRecordStatus.completed);
-
-        // Re-create store from same storage to verify persistence
-        final store2 = SwapStore(storage, CustomLogger(), auth);
-        await store2.initialize();
-        final record = await store2.get('swap-in-1');
-        expect(record!.status, SwapRecordStatus.completed);
-      });
-    });
-
-    group('getPendingRecovery', () {
-      test('returns only records that need recovery', () async {
-        await store.save(
-          _swapIn(boltzId: 'a', status: SwapRecordStatus.funded),
-        );
-        await store.save(
-          _swapIn(boltzId: 'b', status: SwapRecordStatus.claiming),
-        );
-        await store.save(
-          _swapIn(boltzId: 'c', status: SwapRecordStatus.needsAction),
-        );
-        // These should NOT appear:
-        await store.save(
-          _swapIn(boltzId: 'd', status: SwapRecordStatus.created),
-        );
-        await store.save(
-          _swapIn(boltzId: 'e', status: SwapRecordStatus.completed),
-        );
-        await store.save(
-          _swapIn(boltzId: 'f', status: SwapRecordStatus.failed),
-        );
-
-        final pending = await store.getPendingRecovery();
-        expect(pending, hasLength(3));
-        final ids = pending.map((r) => r.boltzId).toSet();
-        expect(ids, containsAll(['a', 'b', 'c']));
-      });
-
-      test('returns empty list when no pending records', () async {
-        await store.save(
-          _swapIn(boltzId: 'done', status: SwapRecordStatus.completed),
-        );
-        final pending = await store.getPendingRecovery();
-        expect(pending, isEmpty);
-      });
-    });
-
-    group('getActive', () {
-      test('returns non-terminal records', () async {
-        await store.save(
-          _swapIn(boltzId: 'active1', status: SwapRecordStatus.created),
-        );
-        await store.save(
-          _swapIn(boltzId: 'active2', status: SwapRecordStatus.funded),
-        );
-        await store.save(
-          _swapIn(boltzId: 'done', status: SwapRecordStatus.completed),
-        );
-
-        final active = await store.getActive();
-        expect(active, hasLength(2));
+        expect(all.first['v'], 2);
       });
     });
 
     group('remove', () {
-      test('removes a record by id', () async {
-        await store.save(_swapIn(boltzId: 'to-remove'));
-        await store.save(_swapIn(boltzId: 'to-keep'));
+      test('removes an entry by id', () async {
+        await store.write('swap_in', 'to-remove', _entry(id: 'to-remove'));
+        await store.write('swap_in', 'to-keep', _entry(id: 'to-keep'));
 
-        await store.remove('to-remove');
+        await store.remove('swap_in', 'to-remove');
 
-        final all = await store.getAll();
+        final all = await store.readAll('swap_in');
         expect(all, hasLength(1));
-        expect(all.first.boltzId, 'to-keep');
+        expect(all.first['id'], 'to-keep');
       });
     });
 
-    group('pruneOlderThan', () {
-      test('removes only terminal records older than cutoff', () async {
-        final old = SwapInRecord(
-          id: 'old',
-          boltzId: 'old',
-          status: SwapRecordStatus.completed,
-          createdAt: DateTime(2025, 1, 1),
-          updatedAt: DateTime(2025, 1, 1),
-          preimageHex: 'aa',
-          preimageHash: 'hh',
-          onchainAmountSat: 1000,
-          timeoutBlockHeight: 100,
-          chainId: 31,
+    group('hasNonTerminal', () {
+      test('returns true when non-terminal entries exist', () async {
+        await store.write(
+          'escrow_fund',
+          'active',
+          _entry(id: 'active', isTerminal: false),
         );
-        final recent = SwapInRecord(
-          id: 'recent',
-          boltzId: 'recent',
-          status: SwapRecordStatus.completed,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          preimageHex: 'bb',
-          preimageHash: 'hh2',
-          onchainAmountSat: 2000,
-          timeoutBlockHeight: 200,
-          chainId: 31,
+        expect(await store.hasNonTerminal('escrow_fund'), isTrue);
+      });
+
+      test('returns false when all entries are terminal', () async {
+        await store.write(
+          'escrow_fund',
+          'done',
+          _entry(id: 'done', isTerminal: true),
         );
-        final oldButActive = SwapOutRecord(
-          id: 'old-active',
-          boltzId: 'old-active',
-          status: SwapRecordStatus.funded,
-          createdAt: DateTime(2025, 1, 1),
-          updatedAt: DateTime(2025, 1, 1),
-          invoice: 'inv',
-          invoicePreimageHashHex: 'cc',
-          claimAddress: '0xaddr',
-          lockedAmountWeiHex: 'ff',
-          lockerAddress: '0xlocker',
-          timeoutBlockHeight: 300,
-          chainId: 31,
+        expect(await store.hasNonTerminal('escrow_fund'), isFalse);
+      });
+
+      test('returns false for empty namespace', () async {
+        expect(await store.hasNonTerminal('escrow_fund'), isFalse);
+      });
+    });
+
+    group('pruneTerminal', () {
+      test('removes only terminal entries older than cutoff', () async {
+        final oldDate = DateTime(2025, 1, 1).toIso8601String();
+        final recentDate = DateTime.now().toIso8601String();
+
+        await store.write(
+          'swap_in',
+          'old-done',
+          _entry(id: 'old-done', isTerminal: true, updatedAt: oldDate),
+        );
+        await store.write(
+          'swap_in',
+          'recent-done',
+          _entry(id: 'recent-done', isTerminal: true, updatedAt: recentDate),
+        );
+        await store.write(
+          'swap_in',
+          'old-active',
+          _entry(id: 'old-active', isTerminal: false, updatedAt: oldDate),
         );
 
-        await store.save(old);
-        await store.save(recent);
-        await store.save(oldButActive);
-
-        final pruned = await store.pruneOlderThan(const Duration(days: 30));
+        final pruned = await store.pruneTerminal(
+          'swap_in',
+          const Duration(days: 30),
+        );
         expect(pruned, 1);
 
-        final all = await store.getAll();
+        final all = await store.readAll('swap_in');
         expect(all, hasLength(2));
-        final ids = all.map((r) => r.boltzId).toSet();
-        expect(ids, containsAll(['recent', 'old-active']));
+        final ids = all.map((e) => e['id']).toSet();
+        expect(ids, containsAll(['recent-done', 'old-active']));
       });
 
       test('returns 0 when nothing to prune', () async {
-        await store.save(_swapIn(boltzId: 'fresh'));
-        final pruned = await store.pruneOlderThan(const Duration(days: 30));
+        await store.write('swap_in', 'fresh', _entry(id: 'fresh'));
+        final pruned = await store.pruneTerminal(
+          'swap_in',
+          const Duration(days: 30),
+        );
         expect(pruned, 0);
       });
     });
 
+    group('namespace isolation', () {
+      test('different namespaces are independent', () async {
+        await store.write('swap_in', 'a', _entry(id: 'a'));
+        await store.write('swap_out', 'b', _entry(id: 'b'));
+
+        final swapInAll = await store.readAll('swap_in');
+        final swapOutAll = await store.readAll('swap_out');
+        expect(swapInAll, hasLength(1));
+        expect(swapOutAll, hasLength(1));
+        expect(swapInAll.first['id'], 'a');
+        expect(swapOutAll.first['id'], 'b');
+      });
+    });
+
     group('persistence roundtrip', () {
-      test('records survive store recreation', () async {
-        await store.save(_swapIn(boltzId: 'persist-1'));
-        await store.save(_swapOut(boltzId: 'persist-2'));
+      test('entries survive store recreation', () async {
+        await store.write('swap_in', 'persist-1', _entry(id: 'persist-1'));
+        await store.write('swap_out', 'persist-2', _entry(id: 'persist-2'));
+        store.dispose();
 
         // Create a new store instance pointing at the same storage
-        final store2 = SwapStore(storage, CustomLogger(), auth);
-        await store2.initialize();
-
-        final all = await store2.getAll();
-        expect(all, hasLength(2));
-
-        final inRecord = all.firstWhere((r) => r.boltzId == 'persist-1');
-        expect(inRecord, isA<SwapInRecord>());
-
-        final outRecord = all.firstWhere((r) => r.boltzId == 'persist-2');
-        expect(outRecord, isA<SwapOutRecord>());
+        final store2 = OperationStateStore(storage, CustomLogger(), auth);
+        final swapIn = await store2.readAll('swap_in');
+        final swapOut = await store2.readAll('swap_out');
+        expect(swapIn, hasLength(1));
+        expect(swapOut, hasLength(1));
+        store2.dispose();
       });
 
-      test(
-        'keeps data isolated per pubkey and survives auth changes',
-        () async {
-          await store.save(_swapIn(boltzId: 'user-a-swap'));
+      test('keeps data isolated per pubkey', () async {
+        await store.write('swap_in', 'user-a', _entry(id: 'user-a'));
 
-          activeKeyPair = userB;
-          await store.initialize();
-          expect(await store.getAll(), isEmpty);
+        // Switch user
+        activeKeyPair = userB;
+        // Force reload by creating new store
+        store.dispose();
+        store = OperationStateStore(storage, CustomLogger(), auth);
+        final allB = await store.readAll('swap_in');
+        expect(allB, isEmpty);
 
-          await store.save(_swapIn(boltzId: 'user-b-swap'));
+        await store.write('swap_in', 'user-b', _entry(id: 'user-b'));
 
-          final rawA = await storage.read(keyFor(userA.publicKey));
-          final rawB = await storage.read(keyFor(userB.publicKey));
-          expect(rawA, isNotNull);
-          expect(rawB, isNotNull);
+        // Verify storage has both
+        final rawA = await storage.read(keyFor(userA.publicKey, 'swap_in'));
+        final rawB = await storage.read(keyFor(userB.publicKey, 'swap_in'));
+        expect(rawA, isNotNull);
+        expect(rawB, isNotNull);
 
-          activeKeyPair = userA;
-          await store.initialize();
-          final allA = await store.getAll();
-          expect(allA, hasLength(1));
-          expect(allA.first.boltzId, 'user-a-swap');
-        },
-      );
+        // Switch back to user A
+        activeKeyPair = userA;
+        store.dispose();
+        store = OperationStateStore(storage, CustomLogger(), auth);
+        final allA = await store.readAll('swap_in');
+        expect(allA, hasLength(1));
+        expect(allA.first['id'], 'user-a');
+      });
+    });
+
+    group('onChanged', () {
+      test('fires on write', () async {
+        var changeCount = 0;
+        store.onChanged.listen((_) => changeCount++);
+
+        await store.write('swap_in', 'x', _entry(id: 'x'));
+        // Allow microtask to process
+        await Future.delayed(Duration.zero);
+        expect(changeCount, 1);
+      });
+
+      test('fires on remove', () async {
+        await store.write('swap_in', 'x', _entry(id: 'x'));
+
+        var changeCount = 0;
+        store.onChanged.listen((_) => changeCount++);
+        await store.remove('swap_in', 'x');
+        await Future.delayed(Duration.zero);
+        expect(changeCount, 1);
+      });
     });
   });
 }

@@ -6,9 +6,7 @@ import 'dart:async';
 import 'package:hostr_sdk/datasources/storage.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart';
-import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/escrow_lock_registry.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_record.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_store.dart';
+import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/user_config/hostr_user_config.dart';
 import 'package:hostr_sdk/usecase/user_config/user_config_store.dart';
 import 'package:hostr_sdk/util/bitcoin_amount.dart';
@@ -20,8 +18,8 @@ import 'package:test/test.dart';
 // ── Test harness ──────────────────────────────────────────────────────────
 
 /// Exercises the same gate logic as [AutoWithdrawService._onBalanceChanged]
-/// using real [EscrowLockRegistry], [SwapStore], and [UserConfigStore]
-/// instances backed by [InMemoryKeyValueStorage].
+/// using a real [OperationStateStore] and [UserConfigStore] backed by
+/// [InMemoryKeyValueStorage].
 ///
 /// We don't construct the real service because it depends on [Evm] (which
 /// needs a live RPC client). Instead we replicate the gate checks to verify
@@ -29,8 +27,7 @@ import 'package:test/test.dart';
 /// can be registered via DI.
 class GateHarness {
   late final InMemoryKeyValueStorage storage;
-  late final EscrowLockRegistry lockRegistry;
-  late final SwapStore swapStore;
+  late final OperationStateStore stateStore;
   late final UserConfigStore userConfigStore;
   late final CustomLogger logger;
 
@@ -50,16 +47,13 @@ class GateHarness {
     final mockAuth = MockAuth();
     final fakeUser = Bip340.fromPrivateKey('1' * 64);
     when(mockAuth.activeKeyPair).thenAnswer((_) => fakeUser);
-    lockRegistry = EscrowLockRegistry(storage, CustomLogger(), mockAuth);
-    swapStore = SwapStore(storage, CustomLogger(), mockAuth);
+    stateStore = OperationStateStore(storage, CustomLogger(), mockAuth);
     userConfigStore = UserConfigStore(storage, CustomLogger(), mockAuth);
     logger = CustomLogger();
 
     balance = initialBalance ?? BitcoinAmount.zero();
     swapOutCallCount = 0;
 
-    await lockRegistry.initialize();
-    await swapStore.initialize();
     await userConfigStore.initialize();
     await userConfigStore.update(initialConfig);
     _initialized = true;
@@ -72,12 +66,14 @@ class GateHarness {
     // Gate 1: Enabled?
     if (!config.autoWithdrawEnabled) return false;
 
-    // Gate 2: Locks?
-    if (await lockRegistry.hasActiveLocks) return false;
+    // Gate 2: Escrow fund operations in flight?
+    if (await stateStore.hasNonTerminal('escrow_fund')) return false;
 
     // Gate 3: Active swaps?
-    final activeSwaps = await swapStore.getActive();
-    if (activeSwaps.isNotEmpty) return false;
+    if (await stateStore.hasNonTerminal('swap_in') ||
+        await stateStore.hasNonTerminal('swap_out')) {
+      return false;
+    }
 
     // Gate 4: Minimum balance?
     final minimumBalance = BitcoinAmount.fromInt(
@@ -103,13 +99,36 @@ class GateHarness {
 
   void tearDown() {
     if (_initialized) {
-      lockRegistry.dispose();
+      stateStore.dispose();
       userConfigStore.dispose();
     }
   }
 
   bool _initialized = false;
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+/// A minimal non-terminal escrow fund entry.
+Map<String, dynamic> _escrowFundEntry(String tradeId) => {
+  'id': tradeId,
+  'isTerminal': false,
+  'updatedAt': DateTime.now().toIso8601String(),
+};
+
+/// A minimal non-terminal swap entry.
+Map<String, dynamic> _activeSwapEntry(String id) => {
+  'id': id,
+  'isTerminal': false,
+  'updatedAt': DateTime.now().toIso8601String(),
+};
+
+/// A minimal terminal swap entry.
+Map<String, dynamic> _terminalSwapEntry(String id) => {
+  'id': id,
+  'isTerminal': true,
+  'updatedAt': DateTime.now().toIso8601String(),
+};
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
@@ -145,92 +164,103 @@ void main() {
     });
   });
 
-  group('Gate 2: escrow locks', () {
-    test('skips when escrow locks are held', () async {
+  group('Gate 2: escrow fund operations', () {
+    test('skips when escrow fund operation is in flight', () async {
       await h.setUp(
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
       );
 
-      await h.lockRegistry.acquire(
-        tradeId: 'trade-1',
-        reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
-        sellerEvmAddress: '0x0000000000000000000000000000000000000001',
-        arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
-        contractAddress: '0x0000000000000000000000000000000000000003',
-        chainId: 33,
-        unlockAt: 9999999999,
+      await h.stateStore.write(
+        'escrow_fund',
+        'trade-1',
+        _escrowFundEntry('trade-1'),
       );
 
       expect(await h.runCheck(), isFalse);
       expect(h.swapOutWasCalled, isFalse);
     });
 
-    test('proceeds after lock is released', () async {
+    test('proceeds after escrow fund reaches terminal state', () async {
       await h.setUp(
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
       );
 
-      await h.lockRegistry.acquire(
-        tradeId: 'trade-1',
-        reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
-        sellerEvmAddress: '0x0000000000000000000000000000000000000001',
-        arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
-        contractAddress: '0x0000000000000000000000000000000000000003',
-        chainId: 33,
-        unlockAt: 9999999999,
+      await h.stateStore.write(
+        'escrow_fund',
+        'trade-1',
+        _escrowFundEntry('trade-1'),
       );
       expect(await h.runCheck(), isFalse);
 
-      await h.lockRegistry.release('trade-1');
+      // Mark terminal
+      await h.stateStore.write('escrow_fund', 'trade-1', {
+        'id': 'trade-1',
+        'isTerminal': true,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
       expect(await h.runCheck(), isTrue);
     });
 
     test(
-      'skips when multiple locks held, proceeds when all released',
+      'skips when multiple escrow operations in flight, proceeds when all done',
       () async {
         await h.setUp(
           initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
         );
 
-        await h.lockRegistry.acquire(
-          tradeId: 'trade-1',
-          reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
-          sellerEvmAddress: '0x0000000000000000000000000000000000000001',
-          arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
-          contractAddress: '0x0000000000000000000000000000000000000003',
-          chainId: 33,
-          unlockAt: 9999999999,
+        await h.stateStore.write(
+          'escrow_fund',
+          'trade-1',
+          _escrowFundEntry('trade-1'),
         );
-        await h.lockRegistry.acquire(
-          tradeId: 'trade-2',
-          reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
-          sellerEvmAddress: '0x0000000000000000000000000000000000000001',
-          arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
-          contractAddress: '0x0000000000000000000000000000000000000003',
-          chainId: 33,
-          unlockAt: 9999999999,
+        await h.stateStore.write(
+          'escrow_fund',
+          'trade-2',
+          _escrowFundEntry('trade-2'),
         );
 
         expect(await h.runCheck(), isFalse);
 
-        await h.lockRegistry.release('trade-1');
-        expect(await h.runCheck(), isFalse); // trade-2 still held
+        // Mark trade-1 terminal
+        await h.stateStore.write('escrow_fund', 'trade-1', {
+          'id': 'trade-1',
+          'isTerminal': true,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+        expect(await h.runCheck(), isFalse); // trade-2 still active
 
-        await h.lockRegistry.release('trade-2');
+        // Mark trade-2 terminal
+        await h.stateStore.write('escrow_fund', 'trade-2', {
+          'id': 'trade-2',
+          'isTerminal': true,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
         expect(await h.runCheck(), isTrue);
       },
     );
   });
 
   group('Gate 3: active swaps', () {
-    test('skips when non-terminal swap exists', () async {
+    test('skips when non-terminal swap_out exists', () async {
       await h.setUp(
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
       );
 
-      await h.swapStore.save(
-        _minimalSwapOut('swap-1', SwapRecordStatus.funded),
+      await h.stateStore.write(
+        'swap_out',
+        'swap-1',
+        _activeSwapEntry('swap-1'),
       );
+
+      expect(await h.runCheck(), isFalse);
+    });
+
+    test('skips when non-terminal swap_in exists', () async {
+      await h.setUp(
+        initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
+      );
+
+      await h.stateStore.write('swap_in', 'swap-1', _activeSwapEntry('swap-1'));
 
       expect(await h.runCheck(), isFalse);
     });
@@ -240,25 +270,19 @@ void main() {
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
       );
 
-      await h.swapStore.save(
-        _minimalSwapOut('swap-1', SwapRecordStatus.funded),
+      await h.stateStore.write(
+        'swap_out',
+        'swap-1',
+        _activeSwapEntry('swap-1'),
       );
       expect(await h.runCheck(), isFalse);
 
-      await h.swapStore.updateStatus('swap-1', SwapRecordStatus.completed);
+      await h.stateStore.write(
+        'swap_out',
+        'swap-1',
+        _terminalSwapEntry('swap-1'),
+      );
       expect(await h.runCheck(), isTrue);
-    });
-
-    test('skips with swap in created state', () async {
-      await h.setUp(
-        initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
-      );
-
-      await h.swapStore.save(
-        _minimalSwapOut('swap-1', SwapRecordStatus.created),
-      );
-
-      expect(await h.runCheck(), isFalse);
     });
   });
 
@@ -407,17 +431,15 @@ void main() {
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 100),
       );
 
-      await h.lockRegistry.acquire(
-        tradeId: 'trade-1',
-        reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 50),
-        sellerEvmAddress: '0x0000000000000000000000000000000000000001',
-        arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
-        contractAddress: '0x0000000000000000000000000000000000000003',
-        chainId: 33,
-        unlockAt: 9999999999,
+      await h.stateStore.write(
+        'escrow_fund',
+        'trade-1',
+        _escrowFundEntry('trade-1'),
       );
-      await h.swapStore.save(
-        _minimalSwapOut('swap-1', SwapRecordStatus.funded),
+      await h.stateStore.write(
+        'swap_out',
+        'swap-1',
+        _activeSwapEntry('swap-1'),
       );
 
       expect(await h.runCheck(), isFalse);
@@ -432,17 +454,15 @@ void main() {
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
       );
 
-      await h.lockRegistry.acquire(
-        tradeId: 'trade-1',
-        reservedAmount: BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
-        sellerEvmAddress: '0x0000000000000000000000000000000000000001',
-        arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
-        contractAddress: '0x0000000000000000000000000000000000000003',
-        chainId: 33,
-        unlockAt: 9999999999,
+      await h.stateStore.write(
+        'escrow_fund',
+        'trade-1',
+        _escrowFundEntry('trade-1'),
       );
-      await h.swapStore.save(
-        _minimalSwapOut('swap-1', SwapRecordStatus.funded),
+      await h.stateStore.write(
+        'swap_out',
+        'swap-1',
+        _activeSwapEntry('swap-1'),
       );
 
       expect(await h.runCheck(), isFalse);
@@ -454,8 +474,16 @@ void main() {
           autoWithdrawMinimumSats: 10000,
         ),
       );
-      await h.lockRegistry.release('trade-1');
-      await h.swapStore.updateStatus('swap-1', SwapRecordStatus.completed);
+      await h.stateStore.write('escrow_fund', 'trade-1', {
+        'id': 'trade-1',
+        'isTerminal': true,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+      await h.stateStore.write(
+        'swap_out',
+        'swap-1',
+        _terminalSwapEntry('swap-1'),
+      );
       h.balance = BitcoinAmount.fromInt(BitcoinUnit.sat, 50000);
 
       expect(await h.runCheck(), isTrue);
@@ -468,24 +496,4 @@ void main() {
       expect(AutoWithdrawService, isNotNull);
     });
   });
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────
-
-SwapOutRecord _minimalSwapOut(String id, SwapRecordStatus status) {
-  final now = DateTime.now();
-  return SwapOutRecord(
-    id: id,
-    boltzId: 'boltz-$id',
-    status: status,
-    createdAt: now,
-    updatedAt: now,
-    invoice: 'lnbc1000...',
-    invoicePreimageHashHex: 'deadbeef',
-    claimAddress: '0xclaimaddr',
-    lockedAmountWeiHex: 'f4240',
-    lockerAddress: '0xlockeraddr',
-    timeoutBlockHeight: 900000,
-    chainId: 31,
-  );
 }

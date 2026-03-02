@@ -1,250 +1,206 @@
 @Tags(['unit'])
 library;
 
-import 'package:convert/convert.dart';
-import 'package:get_it/get_it.dart';
 import 'package:hostr_sdk/datasources/storage.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_in/swap_in_operation.dart';
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_out/swap_out_operation.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_record.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_recovery_service.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_store.dart';
+import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
+import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_state.dart';
+import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_state.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/bip340.dart';
 import 'package:test/test.dart';
-import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
-import '../../fakes/fake_boltz_client.dart';
-import '../../fakes/fake_evm_chain.dart';
-import '../../fakes/fake_swap_operations.dart';
-
+/// These tests verify the persistence layer used by [SwapRecoverer]:
+/// round-trip serialisation of swap states to/from [OperationStateStore],
+/// filtering of terminal vs non-terminal entries, and pruning.
+///
+/// Full integration tests that exercise actual recovery (Boltz API, claim
+/// transactions, etc.) are in the integration_test/ directory.
 void main() {
-  late SwapStore swapStore;
-  late FakeBoltzClient boltzClient;
-  late FakeEvmChain fakeChain;
-  late SwapRecoveryService recoveryService;
-  late EthPrivateKey evmKey;
-  late FakeSwapInOperation fakeSwapInOperation;
-  late FakeSwapOutOperation fakeSwapOutOperation;
+  late InMemoryKeyValueStorage storage;
+  late OperationStateStore store;
 
-  setUp(() async {
-    await GetIt.instance.reset();
+  final userA = Bip340.fromPrivateKey('1' * 64);
 
+  setUp(() {
+    storage = InMemoryKeyValueStorage();
     final mockAuth = MockAuth();
-    final fakeUser = Bip340.fromPrivateKey('1' * 64);
-    when(mockAuth.activeKeyPair).thenAnswer((_) => fakeUser);
-
-    swapStore = SwapStore(InMemoryKeyValueStorage(), CustomLogger(), mockAuth);
-    boltzClient = FakeBoltzClient();
-    fakeChain = FakeEvmChain();
-    recoveryService = SwapRecoveryService(
-      swapStore,
-      boltzClient,
-      CustomLogger(),
-      mockAuth,
-    );
-
-    fakeSwapInOperation = FakeSwapInOperation();
-    fakeSwapOutOperation = FakeSwapOutOperation();
-
-    GetIt.instance
-        .registerFactoryParam<RootstockSwapInOperation, dynamic, dynamic>(
-          (_, __) => fakeSwapInOperation,
-        );
-    GetIt.instance
-        .registerFactoryParam<RootstockSwapOutOperation, dynamic, dynamic>(
-          (_, __) => fakeSwapOutOperation,
-        );
-
-    evmKey = EthPrivateKey.fromHex(
-      'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-    );
+    when(mockAuth.activeKeyPair).thenAnswer((_) => userA);
+    store = OperationStateStore(storage, CustomLogger(), mockAuth);
   });
 
-  tearDown(() async {
-    await GetIt.instance.reset();
+  tearDown(() {
+    store.dispose();
   });
 
-  Future<EvmChain> chainResolver(int chainId) async => fakeChain;
+  // ── Helpers ───────────────────────────────────────────────────────────
 
-  SwapInRecord _pendingSwapIn({
+  /// A minimal SwapInRequestCreated JSON, the earliest recoverable state.
+  /// Matches the flat layout produced by SwapInRequestCreated.toJson().
+  Map<String, dynamic> _swapInJson({
     String boltzId = 'swap-in-1',
-    SwapRecordStatus status = SwapRecordStatus.funded,
-  }) {
-    final preimage = List<int>.generate(32, (i) => i);
-    final record = SwapInRecord.create(
-      boltzId: boltzId,
-      preimage: preimage,
-      preimageHash: hex.encode(preimage),
-      onchainAmountSat: 50000,
-      timeoutBlockHeight: 800000,
-      chainId: 31,
-      accountIndex: 0,
-    );
-    return record.copyWithStatus(
-      status,
-      refundAddress: '0x1234567890abcdef1234567890abcdef12345678',
-    );
-  }
+    bool terminal = false,
+  }) => {
+    'state': 'requestCreated',
+    'id': boltzId,
+    'isTerminal': terminal,
+    'updatedAt': DateTime.now().toIso8601String(),
+    // SwapInData fields at top level (spread by toJson)
+    'boltzId': boltzId,
+    'preimageHex': 'aa' * 32,
+    'preimageHash': 'hh',
+    'onchainAmountSat': 50000,
+    'timeoutBlockHeight': 800000,
+    'chainId': 31,
+    'accountIndex': 0,
+  };
 
-  SwapOutRecord _pendingSwapOut({
+  /// A minimal SwapOutAwaitingOnChain JSON, the earliest recoverable state.
+  /// Matches the flat layout produced by SwapOutAwaitingOnChain.toJson().
+  Map<String, dynamic> _swapOutJson({
     String boltzId = 'swap-out-1',
-    SwapRecordStatus status = SwapRecordStatus.funded,
-    String? lockTxHash = '0xlocktx',
-  }) {
-    final hashBytes = List<int>.generate(32, (i) => i);
-    final record = SwapOutRecord.create(
-      boltzId: boltzId,
-      invoice: 'lnbc50000...',
-      invoicePreimageHashHex: hex.encode(hashBytes),
-      claimAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      lockedAmountWei: BigInt.from(50000000000000),
-      lockerAddress: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-      timeoutBlockHeight: 900000,
-      chainId: 31,
-      accountIndex: 0,
+    bool terminal = false,
+  }) => {
+    'state': 'awaitingOnChain',
+    'id': boltzId,
+    'isTerminal': terminal,
+    'updatedAt': DateTime.now().toIso8601String(),
+    // SwapOutData fields at top level (spread by toJson)
+    'boltzId': boltzId,
+    'invoice': 'lnbc50000...',
+    'invoicePreimageHashHex': 'deadbeef',
+    'claimAddress': '0xclaimaddr',
+    'lockedAmountWeiHex': 'b5e620f48000',
+    'lockerAddress': '0xlockeraddr',
+    'timeoutBlockHeight': 900000,
+    'chainId': 31,
+    'accountIndex': 0,
+  };
+
+  group('swap state persistence', () {
+    test('swap-in state round-trips through store', () async {
+      final json = _swapInJson(boltzId: 'in-1');
+      await store.write('swap_in', 'in-1', json);
+
+      final loaded = await store.read('swap_in', 'in-1');
+      expect(loaded, isNotNull);
+      expect(loaded!['id'], 'in-1');
+
+      // Verify it deserialises back to a real state
+      final state = SwapInState.fromJson(loaded);
+      expect(state, isA<SwapInRequestCreated>());
+      expect(state.data?.boltzId, 'in-1');
+    });
+
+    test('swap-out state round-trips through store', () async {
+      final json = _swapOutJson(boltzId: 'out-1');
+      await store.write('swap_out', 'out-1', json);
+
+      final loaded = await store.read('swap_out', 'out-1');
+      expect(loaded, isNotNull);
+
+      final state = SwapOutState.fromJson(loaded!);
+      expect(state, isA<SwapOutAwaitingOnChain>());
+      expect(state.data?.boltzId, 'out-1');
+    });
+
+    test('readAll returns all entries for a namespace', () async {
+      await store.write('swap_in', 'a', _swapInJson(boltzId: 'a'));
+      await store.write('swap_in', 'b', _swapInJson(boltzId: 'b'));
+      await store.write('swap_out', 'c', _swapOutJson(boltzId: 'c'));
+
+      final swapIns = await store.readAll('swap_in');
+      expect(swapIns, hasLength(2));
+
+      final swapOuts = await store.readAll('swap_out');
+      expect(swapOuts, hasLength(1));
+    });
+  });
+
+  group('terminal filtering', () {
+    test('hasNonTerminal returns true for non-terminal entries', () async {
+      await store.write('swap_in', 'active', _swapInJson(boltzId: 'active'));
+      expect(await store.hasNonTerminal('swap_in'), isTrue);
+    });
+
+    test(
+      'hasNonTerminal returns false when all entries are terminal',
+      () async {
+        await store.write(
+          'swap_in',
+          'done',
+          _swapInJson(boltzId: 'done', terminal: true),
+        );
+        expect(await store.hasNonTerminal('swap_in'), isFalse);
+      },
     );
-    return record.copyWithStatus(status, lockTxHash: lockTxHash);
-  }
 
-  group('SwapRecoveryService orchestration', () {
-    test('no pending swaps returns 0 and does not call cubits', () async {
-      final resolved = await recoveryService.recoverPendingSwaps(
-        chainResolver: chainResolver,
+    test('hasNonTerminal returns false for empty namespace', () async {
+      expect(await store.hasNonTerminal('swap_in'), isFalse);
+    });
+  });
+
+  group('pruning', () {
+    test('prunes terminal entries older than 30 days', () async {
+      final oldDate = DateTime(2025, 1, 1).toIso8601String();
+      final recentDate = DateTime.now().toIso8601String();
+
+      final oldEntry = _swapInJson(boltzId: 'old', terminal: true);
+      oldEntry['updatedAt'] = oldDate;
+
+      final recentEntry = _swapInJson(boltzId: 'recent', terminal: true);
+      recentEntry['updatedAt'] = recentDate;
+
+      final activeEntry = _swapInJson(boltzId: 'active');
+      activeEntry['updatedAt'] = oldDate;
+
+      await store.write('swap_in', 'old', oldEntry);
+      await store.write('swap_in', 'recent', recentEntry);
+      await store.write('swap_in', 'active', activeEntry);
+
+      final pruned = await store.pruneTerminal(
+        'swap_in',
+        const Duration(days: 30),
       );
+      expect(pruned, 1);
 
-      expect(resolved, 0);
-      expect(fakeSwapInOperation.recoverCalls, isEmpty);
-      expect(fakeSwapOutOperation.recoverCalls, isEmpty);
+      final remaining = await store.readAll('swap_in');
+      expect(remaining, hasLength(2));
+      final ids = remaining.map((e) => e['id']).toSet();
+      expect(ids, containsAll(['recent', 'active']));
     });
 
-    test('delegates swap-in records to swap-in cubit', () async {
-      await swapStore.save(_pendingSwapIn(boltzId: 'in-1'));
-      boltzClient.swapStatuses['in-1'] = 'transaction.confirmed';
-
-      final resolved = await recoveryService.recoverPendingSwaps(
-        chainResolver: chainResolver,
+    test('returns 0 when nothing to prune', () async {
+      await store.write('swap_in', 'fresh', _swapInJson(boltzId: 'fresh'));
+      final pruned = await store.pruneTerminal(
+        'swap_in',
+        const Duration(days: 30),
       );
-
-      expect(resolved, 1);
-      expect(fakeSwapInOperation.recoverCalls, hasLength(1));
-      expect(fakeSwapInOperation.recoverCalls.first.record.boltzId, 'in-1');
-      expect(
-        fakeSwapInOperation.recoverCalls.first.boltzStatus,
-        'transaction.confirmed',
-      );
-      expect(fakeSwapOutOperation.recoverCalls, isEmpty);
+      expect(pruned, 0);
     });
+  });
 
-    test('delegates swap-out records to swap-out cubit', () async {
-      await swapStore.save(_pendingSwapOut(boltzId: 'out-1'));
-      boltzClient.swapStatuses['out-1'] = 'invoice.failedToPay';
+  group('persistence round-trip (storage recreation)', () {
+    test('entries survive store recreation', () async {
+      await store.write('swap_in', 'in-1', _swapInJson(boltzId: 'in-1'));
+      await store.write('swap_out', 'out-1', _swapOutJson(boltzId: 'out-1'));
+      store.dispose();
 
-      final resolved = await recoveryService.recoverPendingSwaps(
-        chainResolver: chainResolver,
-      );
+      // Create fresh store from same storage
+      final mockAuth = MockAuth();
+      when(mockAuth.activeKeyPair).thenAnswer((_) => userA);
+      final store2 = OperationStateStore(storage, CustomLogger(), mockAuth);
 
-      expect(resolved, 1);
-      expect(fakeSwapOutOperation.recoverCalls, hasLength(1));
-      expect(fakeSwapOutOperation.recoverCalls.first.record.boltzId, 'out-1');
-      expect(
-        fakeSwapOutOperation.recoverCalls.first.boltzStatus,
-        'invoice.failedToPay',
-      );
-      expect(fakeSwapInOperation.recoverCalls, isEmpty);
-    });
+      final swapIns = await store2.readAll('swap_in');
+      final swapOuts = await store2.readAll('swap_out');
+      expect(swapIns, hasLength(1));
+      expect(swapOuts, hasLength(1));
 
-    test('counts only successful recoveries', () async {
-      await swapStore.save(_pendingSwapIn(boltzId: 'in-1'));
-      await swapStore.save(_pendingSwapOut(boltzId: 'out-1'));
-      boltzClient.swapStatuses['in-1'] = 'invoice.settled';
-      boltzClient.swapStatuses['out-1'] = 'invoice.pending';
-
-      fakeSwapInOperation.recoverResult = true;
-      fakeSwapOutOperation.recoverResult = false;
-
-      final resolved = await recoveryService.recoverPendingSwaps(
-        chainResolver: chainResolver,
-      );
-
-      expect(resolved, 1);
-      expect(fakeSwapInOperation.recoverCalls, hasLength(1));
-      expect(fakeSwapOutOperation.recoverCalls, hasLength(1));
-    });
-
-    test('marks record needsAction when cubit recovery throws', () async {
-      await swapStore.save(_pendingSwapIn(boltzId: 'in-1'));
-      boltzClient.swapStatuses['in-1'] = 'transaction.confirmed';
-      fakeSwapInOperation.recoverError = Exception('boom');
-
-      final resolved = await recoveryService.recoverPendingSwaps(
-        chainResolver: chainResolver,
-      );
-
-      expect(resolved, 0);
-      final updated = await swapStore.get('in-1');
-      expect(updated, isNotNull);
-      expect(updated!.status, SwapRecordStatus.needsAction);
-      expect(updated.errorMessage, contains('Recovery attempt failed'));
-    });
-
-    test('continues after one failure and still recovers others', () async {
-      await swapStore.save(_pendingSwapIn(boltzId: 'fail-1'));
-      await swapStore.save(_pendingSwapOut(boltzId: 'ok-1'));
-      boltzClient.swapStatuses['fail-1'] = 'transaction.confirmed';
-      boltzClient.swapStatuses['ok-1'] = 'invoice.paid';
-
-      fakeSwapInOperation.recoverError = Exception('claim failed');
-      fakeSwapOutOperation.recoverResult = true;
-
-      final resolved = await recoveryService.recoverPendingSwaps(
-        chainResolver: chainResolver,
-      );
-
-      expect(resolved, 1);
-      final failed = await swapStore.get('fail-1');
-      expect(failed, isNotNull);
-      expect(failed!.status, SwapRecordStatus.needsAction);
-    });
-
-    test('handles Boltz API failure by marking needsAction', () async {
-      await swapStore.save(_pendingSwapIn(boltzId: 'in-1'));
-      boltzClient.throwOnGetSwap = true;
-
-      final resolved = await recoveryService.recoverPendingSwaps(
-        chainResolver: chainResolver,
-      );
-
-      expect(resolved, 0);
-      final updated = await swapStore.get('in-1');
-      expect(updated, isNotNull);
-      expect(updated!.status, SwapRecordStatus.needsAction);
-      expect(updated.errorMessage, contains('Recovery attempt failed'));
-    });
-
-    test('prunes old terminal records before recovering', () async {
-      final oldRecord = SwapInRecord(
-        id: 'ancient',
-        boltzId: 'ancient',
-        status: SwapRecordStatus.completed,
-        createdAt: DateTime(2025, 1, 1),
-        updatedAt: DateTime(2025, 1, 1),
-        timeoutBlockHeight: 123,
-        chainId: 31,
-        accountIndex: 0,
-        preimageHex: '00',
-        preimageHash: '00',
-        onchainAmountSat: 1,
-      );
-      await swapStore.save(oldRecord);
-
-      await recoveryService.recoverPendingSwaps(chainResolver: chainResolver);
-
-      final all = await swapStore.getAll();
-      expect(all, isEmpty);
+      // Verify deserialization still works
+      final state = SwapInState.fromJson(swapIns.first);
+      expect(state, isA<SwapInRequestCreated>());
+      store2.dispose();
     });
   });
 }

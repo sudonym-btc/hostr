@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
+import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hostr_sdk/datasources/swagger_generated/boltz.swagger.dart';
 import 'package:hostr_sdk/injection.dart';
@@ -18,11 +19,8 @@ import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../../../util/main.dart';
 import '../../../../../payments/operations/pay_operation.dart';
 import '../../../../../payments/operations/pay_state.dart';
-import '../../../../chain/evm_chain.dart';
 import '../../../../operations/swap_in/swap_in_operation.dart';
 import '../../../../operations/swap_in/swap_in_state.dart';
-import '../../../../operations/swap_record.dart';
-import '../../../../operations/swap_store.dart';
 import '../../rif_relay/rif_relay.dart';
 import '../../rootstock.dart';
 
@@ -31,15 +29,23 @@ class RootstockSwapInOperation extends SwapInOperation {
   final Rootstock rootstock;
   late final RifRelay rifRelay = getIt<RifRelay>(param1: rootstock.client);
   late final ({List<int> preimage, String hash}) preimage;
-  late final SwapStore _swapStore = getIt<SwapStore>();
 
   RootstockSwapInOperation({
     required this.rootstock,
     required super.auth,
     required super.logger,
     @factoryParam required super.params,
+    super.initialState,
   }) {
-    preimage = _newPreimage();
+    final recoveryData = state.data;
+    if (recoveryData != null) {
+      preimage = (
+        preimage: recoveryData.preimageBytes.toList(),
+        hash: recoveryData.preimageHash,
+      );
+    } else {
+      preimage = _newPreimage();
+    }
   }
 
   @override
@@ -53,29 +59,27 @@ class RootstockSwapInOperation extends SwapInOperation {
 
   @override
   Future<void> execute() async {
-    SwapInRecord? record;
+    SwapInData? data;
     try {
       logger.i("Preimage: ${preimage.hash}, ${preimage.preimage.length}");
 
       /// Create a reverse submarine swap
       final swap = await _generateSwapRequest();
 
-      // ── PERSIST IMMEDIATELY after swap creation ──
+      // ── Create recovery data immediately after swap creation ──
       // The preimage is the single most critical piece of data.
       // Without it, any on-chain funds locked by Boltz are UNRECOVERABLE.
-      record = SwapInRecord.create(
+      data = SwapInData(
         boltzId: swap.id,
-        preimage: preimage.preimage,
+        preimageHex: hex.encode(preimage.preimage),
         preimageHash: preimage.hash,
         onchainAmountSat: swap.onchainAmount?.toInt() ?? 0,
         timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
         chainId: rootstock.config.rootstockConfig.chainId,
         accountIndex: params.accountIndex,
       );
-      await _swapStore.save(record);
-      logger.i('Swap record persisted for ${swap.id} with preimage');
-
-      emit(SwapInRequestCreated());
+      emit(SwapInRequestCreated(data));
+      logger.i('Swap data persisted for ${swap.id} with preimage');
       logger.d('Swap ${swap.toString()}');
 
       // Create the payment cubit but DON'T execute yet — we must subscribe
@@ -88,16 +92,7 @@ class RootstockSwapInOperation extends SwapInOperation {
 
       // Subscribe to Boltz status updates with timeout
       final swapStatusFuture = _waitForSwapOnChain(swap.id);
-      emit(SwapInAwaitingOnChain());
-
-      // ── Update record: we've initiated the Lightning payment ──
-      record =
-          (await _swapStore.updateStatus(
-                swap.id,
-                SwapRecordStatus.funded,
-                lastBoltzStatus: 'payment.initiated',
-              ))!
-              as SwapInRecord;
+      emit(SwapInAwaitingOnChain(data));
 
       // Subscribe to payment stream BEFORE executing so we never miss
       // states on the broadcast stream (Bolt11 resolve/finalize are near-
@@ -109,7 +104,7 @@ class RootstockSwapInOperation extends SwapInOperation {
           .listen(
             (paymentState) {
               logger.e('Payment emitted with state: $paymentState');
-              emit(SwapInPaymentProgress(paymentState: paymentState));
+              emit(SwapInPaymentProgress(data!, paymentState: paymentState));
             },
             onDone: () {
               if (!paymentCompleter.isCompleted) paymentCompleter.complete();
@@ -141,90 +136,44 @@ class RootstockSwapInOperation extends SwapInOperation {
         );
       }
 
-      // ── Persist lockup tx hash IMMEDIATELY so recovery can always
-      //    fetch the full transaction even if the app restarts during
-      //    the awaitTransaction poll below. ──
-      record =
-          (await _swapStore.updateStatus(
-                swap.id,
-                SwapRecordStatus.funded,
-                lockTxHash: lockupTxId,
-                lastBoltzStatus: swapStatus.status,
-              ))!
-              as SwapInRecord;
+      // ── Persist lockup tx hash immediately ──
+      data = data.copyWith(
+        lockupTxHash: lockupTxId,
+        lastBoltzStatus: swapStatus.status,
+      );
+      emit(SwapInFunded(data));
 
       TransactionInformation lockupTx = await rootstock.awaitTransaction(
         lockupTxId,
       );
-      emit(SwapInFunded());
 
-      // ── Update record with refund address from the lockup tx ──
-      record =
-          (await _swapStore.updateStatus(
-                swap.id,
-                SwapRecordStatus.funded,
-                refundAddress: lockupTx.from.with0x,
-              ))!
-              as SwapInRecord;
+      // ── Persist refund address from the lockup tx ──
+      data = data.copyWith(refundAddress: lockupTx.from.with0x);
+      emit(SwapInFunded(data));
 
       /// Create the args record for the claim function
       final claimArgs = _generateClaimArgs(lockupTx: lockupTx, swap: swap);
       logger.i('Claim can be unlocked with arguments: $claimArgs');
 
-      // ── Mark as claiming before broadcasting ──
-      record =
-          (await _swapStore.updateStatus(swap.id, SwapRecordStatus.claiming))!
-              as SwapInRecord;
-
       /// Withdraw the funds to our own address, providing swapper with preimage to settle lightning
       /// Must send via RIF if no previous balance exists
       String tx = await _claim(claimArgs: claimArgs);
-      emit(SwapInClaimed());
 
-      // ── Persist claim tx hash ──
-      record =
-          (await _swapStore.updateStatus(
-                swap.id,
-                SwapRecordStatus.claiming,
-                resolutionTxHash: tx,
-              ))!
-              as SwapInRecord;
+      data = data.copyWith(claimTxHash: tx);
+      emit(SwapInClaimed(data));
 
       final receipt = await rootstock.awaitReceipt(tx);
       logger.i('Claim receipt: $receipt');
 
-      // ── Mark completed ──
-      await _swapStore.updateStatus(swap.id, SwapRecordStatus.completed);
-
-      emit(SwapInCompleted());
+      emit(SwapInCompleted(data));
       logger.i('Swap-in completed: $tx');
       await close();
     } on TimeoutException catch (e, st) {
       logger.e('Timeout during swap-in: $e');
-      if (record != null) {
-        await _swapStore.updateStatus(
-          record.id,
-          SwapRecordStatus.needsAction,
-          errorMessage: e.toString(),
-        );
-      }
-      emit(SwapInFailed(e, st));
+      emit(SwapInFailed(e, data: data, stackTrace: st));
     } catch (e, st) {
       logger.e('Error during swap in operation: $e');
-      if (record != null) {
-        // Determine whether the swap needs recovery or has truly failed.
-        // If we haven't funded yet, the swap can be safely abandoned.
-        // If funds are at risk (funded/claiming), mark as needsAction for recovery.
-        final recoverable =
-            record.status == SwapRecordStatus.funded ||
-            record.status == SwapRecordStatus.claiming;
-        await _swapStore.updateStatus(
-          record.id,
-          recoverable ? SwapRecordStatus.needsAction : SwapRecordStatus.failed,
-          errorMessage: e.toString(),
-        );
-      }
-      emit(SwapInFailed(e, st));
+      emit(SwapInFailed(e, data: data, stackTrace: st));
     }
   }
 
@@ -373,143 +322,126 @@ class RootstockSwapInOperation extends SwapInOperation {
   }
 
   @override
-  Future<bool> recover({
-    required SwapInRecord record,
-    required String boltzStatus,
-    required EvmChain chain,
-    required SwapStore swapStore,
-  }) async {
-    // If Boltz already refunded itself, the swap is lost.
-    if (boltzStatus == 'transaction.refunded') {
-      logger.w(
-        'SwapRecovery: swap-in ${record.boltzId} — Boltz refunded. '
-        'Funds lost (preimage was not revealed in time).',
+  Future<bool> recover() async {
+    final currentState = state;
+    final data = currentState.data;
+    if (data == null) return false; // Never started
+    if (currentState.isTerminal) return true; // Already resolved
+
+    try {
+      // Fetch current Boltz status
+      final boltzResponse = await getIt<BoltzClient>().getSwap(
+        id: data.boltzId,
       );
-      await swapStore.updateStatus(
-        record.id,
-        SwapRecordStatus.failed,
-        lastBoltzStatus: boltzStatus,
-        errorMessage:
+      final boltzStatus = boltzResponse.status;
+
+      // If Boltz already refunded itself, the swap is lost.
+      if (boltzStatus == 'transaction.refunded') {
+        logger.w(
+          'SwapRecovery: swap-in ${data.boltzId} — Boltz refunded. '
+          'Funds lost (preimage was not revealed in time).',
+        );
+        emit(
+          SwapInFailed(
             'Boltz refunded the on-chain lockup. The claim window expired.',
+            data: data.copyWith(lastBoltzStatus: boltzStatus),
+          ),
+        );
+        return false;
+      }
+
+      // If swap expired without Boltz ever locking, Lightning refunds automatically.
+      if (boltzStatus == 'swap.expired' ||
+          boltzStatus == 'transaction.failed') {
+        logger.i(
+          'SwapRecovery: swap-in ${data.boltzId} expired/failed before lockup. '
+          'Lightning payment refunded automatically.',
+        );
+        emit(
+          SwapInFailed(
+            'Swap expired. No on-chain funds at risk.',
+            data: data.copyWith(lastBoltzStatus: boltzStatus),
+          ),
+        );
+        return true;
+      }
+
+      // If Boltz reports invoice.settled, the claim was already processed.
+      if (boltzStatus == 'invoice.settled') {
+        logger.i('SwapRecovery: swap-in ${data.boltzId} already settled.');
+        emit(SwapInCompleted(data.copyWith(lastBoltzStatus: boltzStatus)));
+        return true;
+      }
+
+      // Boltz has locked on-chain, we need to claim.
+      if (boltzStatus == 'transaction.mempool' ||
+          boltzStatus == 'transaction.confirmed' ||
+          currentState is SwapInFunded ||
+          currentState is SwapInClaimed) {
+        return await _attemptRecoveryClaim(
+          data.copyWith(lastBoltzStatus: boltzStatus),
+        );
+      }
+
+      logger.d(
+        'SwapRecovery: swap-in ${data.boltzId} in status $boltzStatus — '
+        'no action needed yet.',
       );
       return false;
+    } catch (e) {
+      logger.e('SwapRecovery: error recovering ${data.boltzId}: $e');
+      return false;
     }
-
-    // If swap expired without Boltz ever locking, Lightning refunds automatically.
-    if (boltzStatus == 'swap.expired' || boltzStatus == 'transaction.failed') {
-      logger.i(
-        'SwapRecovery: swap-in ${record.boltzId} expired/failed before lockup. '
-        'Lightning payment refunded automatically.',
-      );
-      await swapStore.updateStatus(
-        record.id,
-        SwapRecordStatus.failed,
-        lastBoltzStatus: boltzStatus,
-        errorMessage: 'Swap expired. No on-chain funds at risk.',
-      );
-      return true;
-    }
-
-    // If Boltz reports invoice.settled, the claim was already processed.
-    if (boltzStatus == 'invoice.settled') {
-      logger.i('SwapRecovery: swap-in ${record.boltzId} already settled.');
-      await swapStore.updateStatus(
-        record.id,
-        SwapRecordStatus.completed,
-        lastBoltzStatus: boltzStatus,
-      );
-      return true;
-    }
-
-    // Boltz has locked on-chain, we need to claim.
-    if (boltzStatus == 'transaction.mempool' ||
-        boltzStatus == 'transaction.confirmed' ||
-        record.status == SwapRecordStatus.funded ||
-        record.status == SwapRecordStatus.claiming) {
-      return await _attemptRecoveryClaim(
-        record: record,
-        evmKey: params.evmKey,
-        chain: chain,
-        swapStore: swapStore,
-      );
-    }
-
-    logger.d(
-      'SwapRecovery: swap-in ${record.boltzId} in status $boltzStatus — '
-      'no action needed yet.',
-    );
-    return false;
   }
 
-  Future<bool> _attemptRecoveryClaim({
-    required SwapInRecord record,
-    required EthPrivateKey evmKey,
-    required EvmChain chain,
-    required SwapStore swapStore,
-  }) async {
+  Future<bool> _attemptRecoveryClaim(SwapInData data) async {
     // If we don't have the refund address yet, try to resolve it from the
-    // lockup tx hash (persisted from the Boltz websocket or re-fetched from
-    // the Boltz HTTP API).
-    if (record.refundAddress == null) {
-      String? txHash = record.lockupTxHash;
+    // lockup tx hash (persisted or re-fetched from the Boltz HTTP API).
+    if (data.refundAddress == null) {
+      String? txHash = data.lockupTxHash;
 
-      // If we never persisted the lockup tx hash either (legacy record),
-      // try fetching the current swap status from Boltz.
+      // If we never persisted the lockup tx hash either, try fetching the
+      // current swap status from Boltz.
       if (txHash == null) {
         try {
-          final status = await getIt<BoltzClient>().getSwap(id: record.boltzId);
+          final status = await getIt<BoltzClient>().getSwap(id: data.boltzId);
           txHash = status.transaction?.id;
         } catch (e) {
           logger.w(
-            'SwapRecovery: ${record.boltzId} — could not fetch Boltz status: $e',
+            'SwapRecovery: ${data.boltzId} — could not fetch Boltz status: $e',
           );
         }
       }
 
       if (txHash == null) {
         logger.e(
-          'SwapRecovery: swap-in ${record.boltzId} missing lockup tx hash. '
+          'SwapRecovery: swap-in ${data.boltzId} missing lockup tx hash. '
           'Cannot derive refund address.',
         );
-        await swapStore.updateStatus(
-          record.id,
-          SwapRecordStatus.failed,
-          errorMessage:
-              'Claim parameters incomplete (missing: lockupTxHash). '
-              'Contact support with swap ID.',
+        emit(
+          SwapInFailed(
+            'Claim parameters incomplete (missing: lockupTxHash). '
+            'Contact support with swap ID.',
+            data: data,
+          ),
         );
         return false;
       }
 
       // We have the tx hash — fetch the full transaction from the chain.
       logger.i(
-        'SwapRecovery: ${record.boltzId} — resolving refund address from '
+        'SwapRecovery: ${data.boltzId} — resolving refund address from '
         'lockup tx $txHash',
       );
-      final lockupTx = await chain.awaitTransaction(txHash);
-      final refundAddr = lockupTx.from.with0x;
-
-      // Persist both the tx hash and the refund address so we won't need
-      // to re-fetch next time.
-      final updated =
-          (await swapStore.updateStatus(
-                record.id,
-                record.status,
-                lockTxHash: txHash,
-                refundAddress: refundAddr,
-              ))!
-              as SwapInRecord;
-
-      // Continue with the now-complete record.
-      return _attemptRecoveryClaim(
-        record: updated,
-        evmKey: evmKey,
-        chain: chain,
-        swapStore: swapStore,
+      final lockupTx = await rootstock.awaitTransaction(txHash);
+      data = data.copyWith(
+        lockupTxHash: txHash,
+        refundAddress: lockupTx.from.with0x,
       );
+      emit(SwapInFunded(data)); // persist updated data
     }
 
-    final claimP = record.claimParams!;
+    // We have all claim params — attempt claim via RIF Relay.
     return false;
     // try {
     //   final amountWei = BitcoinAmount.fromBigInt(
@@ -517,38 +449,25 @@ class RootstockSwapInOperation extends SwapInOperation {
     //     BigInt.from(claimP.onchainAmountSat),
     //   ).getInWei;
 
-    //   final swapContract = await chain.getEtherSwapContract();
-    //   final relay = getIt<RifRelay>(param1: chain.client);
+    //   final swapContract = await rootstock.getEtherSwapContract();
+    //   final relay = getIt<RifRelay>(param1: rootstock.client);
 
     //   final tx = await relay.relayClaim(
     //     swapContract,
-    //     evmKey,
-    //     _generateClaimArgs(lockupTx: (await chain.getTransaction(record.lockupTxHash!))!, swap: swap)
-    //     etherSwap: swapContract,
-    //     preimage: claimP.preimage,
-    //     amountWei: amountWei,
-    //     refundAddress: EthereumAddress.fromHex(claimP.refundAddress),
-    //     timeoutBlockHeight: BigInt.from(claimP.timeoutBlockHeight),
+    //     params.evmKey,
+    //     _generateClaimArgs(...)
     //   );
 
-    //   logger.i('SwapRecovery: claim broadcast for ${record.boltzId}: $tx');
-    //   await swapStore.updateStatus(
-    //     record.id,
-    //     SwapRecordStatus.claiming,
-    //     resolutionTxHash: tx,
-    //   );
+    //   logger.i('SwapRecovery: claim broadcast for ${claimP.boltzId}: $tx');
+    //   data = data.copyWith(claimTxHash: tx);
+    //   emit(SwapInClaimed(data));
 
-    //   await chain.awaitReceipt(tx);
-    //   logger.i('SwapRecovery: claim confirmed for ${record.boltzId}');
-    //   await swapStore.updateStatus(record.id, SwapRecordStatus.completed);
+    //   await rootstock.awaitReceipt(tx);
+    //   logger.i('SwapRecovery: claim confirmed for ${claimP.boltzId}');
+    //   emit(SwapInCompleted(data));
     //   return true;
     // } catch (e) {
-    //   logger.e('SwapRecovery: claim failed for ${record.boltzId}: $e');
-    //   await swapStore.updateStatus(
-    //     record.id,
-    //     SwapRecordStatus.needsAction,
-    //     errorMessage: 'Claim failed: $e',
-    //   );
+    //   logger.e('SwapRecovery: claim failed for ${claimP.boltzId}: $e');
     //   return false;
     // }
   }
