@@ -126,6 +126,9 @@ jobs:
           echo "=== Bootstrap container logs ==="
           docker compose logs --no-color --tail=200 bootstrap || true
           echo ""
+          echo "=== Stack startup log (last 80 lines) ==="
+          tail -80 /tmp/stack.log 2>/dev/null || echo "(no stack log)"
+          echo ""
           echo "=== boltz-regtest-start logs ==="
           docker logs boltz-regtest-start 2>&1 | tail -200 || echo "(no boltz-regtest-start container)"
           echo ""
