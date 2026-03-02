@@ -25,3 +25,39 @@ services:
 
   boltz-client:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+
+  # Raise max pending channels so batched opens in setup_channels.sh don't get rejected.
+  lnd-1:
+    command:
+      - --listen=0.0.0.0:9735
+      - --rpclisten=0.0.0.0:10009
+      - --restlisten=0.0.0.0:8081
+      - --bitcoin.timelockdelta=18
+      - --bitcoin.active
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind
+      - --bitcoind.zmqpubrawtx=bitcoind:29000
+      - --bitcoind.zmqpubrawblock=bitcoind:29001
+      - --bitcoind.rpccookie=/app/bitcoin/regtest/.cookie
+      - --noseedbackup
+      - --protocol.wumbo-channels
+      - --lnddir=/app/lnd
+      - --maxpendingchannels=10
+  lnd-2:
+    command:
+      - --listen=0.0.0.0:9735
+      - --rpclisten=0.0.0.0:10009
+      - --restlisten=0.0.0.0:8081
+      - --bitcoin.timelockdelta=18
+      - --bitcoin.active
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind
+      - --bitcoind.zmqpubrawtx=bitcoind:29000
+      - --bitcoind.zmqpubrawblock=bitcoind:29001
+      - --bitcoind.rpccookie=/app/bitcoin/regtest/.cookie
+      - --noseedbackup
+      - --protocol.wumbo-channels
+      - --lnddir=/app/lnd
+      - --maxpendingchannels=10

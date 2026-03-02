@@ -20,7 +20,7 @@ x-templates:
       - sh
       - -lc
     command:
-      - exec lnd --alias=Alby --tlsextradomain=lnd1 --tlsextradomain=lnd2 --lnddir=/lnd --datadir=/lnd --adminmacaroonpath=/lnd/data/chain/bitcoin/regtest/admin.macaroon --tlscertpath=/lnd/tls.cert --tlskeypath=/lnd/tls.key --noseedbackup --rpclisten=0.0.0.0:${LIGHTNING_RPC_PORT} --restlisten=0.0.0.0:${LIGHTNING_REST_PORT} --tlsextraip=0.0.0.0 --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT} --bitcoind.rpcuser=${BITCOIN_RPC_USER} --bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD} --bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT} --bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT}
+      - exec lnd --alias=Alby --tlsextradomain=lnd1 --tlsextradomain=lnd2 --lnddir=/lnd --datadir=/lnd --adminmacaroonpath=/lnd/data/chain/bitcoin/regtest/admin.macaroon --tlscertpath=/lnd/tls.cert --tlskeypath=/lnd/tls.key --noseedbackup --rpclisten=0.0.0.0:${LIGHTNING_RPC_PORT} --restlisten=0.0.0.0:${LIGHTNING_REST_PORT} --tlsextraip=0.0.0.0 --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT} --bitcoind.rpcuser=${BITCOIN_RPC_USER} --bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD} --bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT} --bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT} --maxpendingchannels=10
     networks:
       - default
       - shared_network

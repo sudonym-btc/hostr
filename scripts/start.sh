@@ -59,6 +59,18 @@ fi
 
 docker compose up -d --remove-orphans --yes
 
+# In local/test profiles, `bootstrap` is a one-shot init container.
+# CI needs this script to block until bootstrap has completed successfully.
+bootstrap_cid="$(docker compose ps -aq bootstrap 2>/dev/null | head -n 1 || true)"
+if [ -n "$bootstrap_cid" ]; then
+    docker compose wait bootstrap
+    bootstrap_exit_code="$(docker inspect "$bootstrap_cid" --format '{{.State.ExitCode}}')"
+    if [ "$bootstrap_exit_code" -ne 0 ]; then
+        echo "bootstrap failed with exit code: $bootstrap_exit_code"
+        exit "$bootstrap_exit_code"
+    fi
+fi
+
 # Trust the dev CA on the host so browsers show green lock.
 # Not required in CI (no browser, ephemeral runner) — run best-effort so a
 # missing sudo or unknown OS never aborts the stack startup.

@@ -17,7 +17,7 @@ void main() {
     harness = await IntegrationTestHarness.create(
       name: 'hostr_escrow_fund_recoverer_it',
       seed: DateTime.now().microsecondsSinceEpoch,
-      logLevel: Level.debug,
+      logLevel: Level.warning,
       cleanHydratedStorage: true,
     );
   });

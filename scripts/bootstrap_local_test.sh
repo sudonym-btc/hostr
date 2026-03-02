@@ -4,8 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/wait_for_healthy.sh"
-source "$SCRIPT_DIR/setup_ln.sh"
-source "$SCRIPT_DIR/setup_boltz.sh"
+source "$SCRIPT_DIR/setup_channels.sh"
 
 wait_for_boltz_regtest_start() {
     local max_attempts=180
@@ -31,10 +30,8 @@ wait_for_boltz_regtest_start() {
 
 bootstrap_local_test() {
     wait_for_healthy
-    wait_for_boltz_regtest_start
 
-    setup_ln
-    setup_boltz
+    setup_channels
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

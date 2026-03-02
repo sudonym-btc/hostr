@@ -56,7 +56,7 @@ abstract class EvmChain {
     while (true) {
       try {
         final current = await client.getBlockNumber();
-        if (lastBlock == null || current > lastBlock!) {
+        if (lastBlock == null || current > lastBlock) {
           lastBlock = current;
           yield current;
         }

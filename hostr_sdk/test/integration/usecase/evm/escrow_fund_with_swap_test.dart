@@ -14,10 +14,11 @@ void main() {
   late IntegrationTestHarness harness;
 
   setUpAll(() async {
+    await IntegrationTestHarness.clearBoltzPendingEvmTransactions();
     harness = await IntegrationTestHarness.create(
       name: 'hostr_escrow_fund_swap_it',
       seed: DateTime.now().microsecondsSinceEpoch,
-      logLevel: Level.debug,
+      logLevel: Level.warning,
       cleanHydratedStorage: true,
     );
   });

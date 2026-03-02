@@ -132,14 +132,42 @@ class IntegrationTestHarness {
     await hostr.nwc.initiateAndAdd(pairingUrl);
   }
 
+  /// Clears stale pending EVM transactions from Boltz's database.
+  ///
+  /// The Boltz backend's Node.js `InjectedProvider` stores every broadcast
+  /// attempt in the `pendingEthereumTransactions` table **before** the actual
+  /// RPC broadcast.  When the Rust sidecar (boltz-evm, using alloy) wins the
+  /// nonce race, the Node.js broadcast fails with "nonce too low" but the
+  /// stale DB entry remains.  Subsequent `getTransactionCount` calls return
+  /// `max(stale_nonce) + 1` instead of querying the chain, causing a
+  /// snowballing nonce desync that makes every other reverse-swap lockup fail.
+  ///
+  /// Call this before any test that triggers a Boltz reverse swap (swap-in).
+  static Future<void> clearBoltzPendingEvmTransactions() async {
+    final result = await Process.run('docker', [
+      'exec',
+      'boltz-postgres',
+      'psql',
+      '-U',
+      'boltz',
+      '-d',
+      'boltz',
+      '-c',
+      'DELETE FROM "pendingEthereumTransactions";',
+    ]);
+    if (result.exitCode != 0) {
+      throw StateError(
+        'Failed to clear Boltz pending EVM transactions: ${result.stderr}',
+      );
+    }
+  }
+
   Future<void> dispose({bool resetGetIt = true}) async {
     await hostr.dispose();
     if (resetGetIt) {
       await getIt.reset();
     }
 
-    print('IntegrationTestHarness disposed');
-    print(_createdAppPubkeys);
     // Tear down NWC app connections on AlbyHub to free relay subscription
     // slots. Errors are swallowed so a single failure doesn't block the rest.
     for (final pubkey in _createdAppPubkeys) {
