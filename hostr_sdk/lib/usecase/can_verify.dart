@@ -28,9 +28,7 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
   }) {
     final effectiveFilter = filter ?? Filter();
     final streamName = name ?? verificationStreamName;
-    logger.d(
-      'Subscribing to $streamName $T with filter: $effectiveFilter',
-    );
+    logger.d('Subscribing to $streamName $T with filter: $effectiveFilter');
 
     final source = subscribe(effectiveFilter, name: streamName);
     return _verifySource(
@@ -47,7 +45,7 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
     String? name,
   }) {
     final effectiveFilter = filter ?? Filter();
-    final streamName = name ?? '${verificationStreamName}-query';
+    final streamName = name ?? '$verificationStreamName-query';
     logger.d('Querying $streamName $T with filter: $effectiveFilter');
 
     final source = _queryWithStatus(effectiveFilter, name: streamName);
@@ -75,10 +73,8 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
   StreamWithStatus<T> _queryWithStatus(Filter filter, {required String name}) {
     final combinedFilter = getCombinedFilter(filter, Filter(kinds: [kind]));
     return StreamWithStatus<T>(
-      queryFn: () => requests.query<T>(
-        filter: combinedFilter,
-        name: '$T-$name',
-      ),
+      queryFn: () =>
+          requests.query<T>(filter: combinedFilter, name: '$T-$name'),
     );
   }
 }

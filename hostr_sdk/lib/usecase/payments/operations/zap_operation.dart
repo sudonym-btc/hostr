@@ -137,7 +137,7 @@ class ZapPayOperation
     );
     // @todo: verify nostr pubkey same as in params
 
-    logger.i('Resolved LNURL params: ${lnurlParams}');
+    logger.i('Resolved LNURL params: $lnurlParams');
     // lnurlParams.
     if (lnurlParams == null || lnurlParams.callback == null) {
       throw Exception('Failed to resolve LNURL parameters');
@@ -197,7 +197,7 @@ class ZapPayOperation
 
     _zapReceiptSubscription = _zapReceiptStream!.stream.listen(
       (event) async {
-        logger.d('Received zap receipt event: ${event}');
+        logger.d('Received zap receipt event: $event');
         if (isClosed) {
           return;
         }

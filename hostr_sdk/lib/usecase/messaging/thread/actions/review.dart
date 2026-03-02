@@ -7,7 +7,7 @@ class ReviewActions {
 
   ReviewActions({required this.trade});
 
-  review() {
+  void review() {
     throw UnimplementedError('Review action is not implemented yet');
   }
 }

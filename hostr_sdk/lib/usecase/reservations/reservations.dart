@@ -63,7 +63,10 @@ class Reservations extends CrudUseCase<Reservation> {
     return reservation.getDtag() ?? reservation.id;
   }
 
-  groupByCommitment(List<Reservation> reservations, Listing listing) {
+  Map<String, List<Reservation>> groupByCommitment(
+    List<Reservation> reservations,
+    Listing listing,
+  ) {
     final Map<String, List<Reservation>> grouped = {};
     for (final reservation in reservations) {
       final tradeId = _tradeIdFor(reservation);

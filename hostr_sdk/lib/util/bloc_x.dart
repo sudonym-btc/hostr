@@ -27,7 +27,7 @@ extension BlocDetachX<S> on BlocBase<S> {
           if (!isClosed) close();
         }
       },
-      onError: (_, __) {
+      onError: (_, _) {
         sub.cancel();
         if (!isClosed) close();
       },

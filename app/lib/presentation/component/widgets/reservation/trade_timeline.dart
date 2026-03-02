@@ -55,7 +55,7 @@ class TradeTimeline extends StatelessWidget {
         ),
         builder: TimelineTileBuilder.connected(
           connectionDirection: ConnectionDirection.before,
-          connectorBuilder: (_, index, ___) =>
+          connectorBuilder: (_, index, _) =>
               SolidLineConnector(color: Theme.of(context).colorScheme.primary),
           indicatorBuilder: (context, index) => DotIndicator(
             color: Theme.of(context).colorScheme.primary,

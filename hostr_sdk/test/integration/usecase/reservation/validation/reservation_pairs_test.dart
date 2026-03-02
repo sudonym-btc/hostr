@@ -101,7 +101,7 @@ Nip01Event _buildProfileEvent({
 }) {
   final meta = <String, dynamic>{
     'name': 'test-user-${key.publicKey.substring(0, 6)}',
-    if (lud16 != null) 'lud16': lud16,
+    'lud16': ?lud16,
   };
   final tags = <List<String>>[
     if (evmAddress != null) ['i', 'evm:address', evmAddress],

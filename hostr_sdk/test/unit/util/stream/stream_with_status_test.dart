@@ -43,7 +43,7 @@ void main() {
       final stream = StreamWithStatus<int>();
       final completer = Completer<StreamStatusError>();
 
-      final dataSub = stream.stream.listen((_) {}, onError: (_, __) {});
+      final dataSub = stream.stream.listen((_) {}, onError: (_, _) {});
 
       final sub = stream.status.listen((status) {
         if (status is StreamStatusError && !completer.isCompleted) {

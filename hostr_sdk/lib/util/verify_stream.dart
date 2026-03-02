@@ -100,7 +100,6 @@ ValidatedStreamWithStatus<T> verifyStream<T extends Nip01Event, TDeps>({
     final newItems = <T>[];
     for (final item in snapshot) {
       final id = item.id;
-      if (id == null) continue;
       if (!verified.containsKey(id)) {
         newItems.add(item);
       }
@@ -112,7 +111,7 @@ ValidatedStreamWithStatus<T> verifyStream<T extends Nip01Event, TDeps>({
     }
 
     for (final item in newItems) {
-      final id = item.id!;
+      final id = item.id;
       pendingCount++;
 
       resolve(item)

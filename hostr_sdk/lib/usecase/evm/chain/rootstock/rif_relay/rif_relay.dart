@@ -404,7 +404,7 @@ class RifRelay {
 
     final relay_api.ForwardRequest updatedRequest;
     if (isDeploy) {
-      final deploy = originalRequest as DeployForwardRequest;
+      final deploy = originalRequest;
       updatedRequest = DeployForwardRequest(
         validUntilTime: deploy.validUntilTime,
         index: deploy.index,

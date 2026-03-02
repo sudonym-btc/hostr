@@ -107,7 +107,7 @@ Future<List<Nip01Event>> buildMessages({
     totalExpected += 2 * (1 + thread.stageSpec.textMessageCount);
   }
 
-  void _logProgress({bool force = false}) {
+  void logProgress({bool force = false}) {
     final pct = totalExpected > 0 ? (wrapCount * 100 ~/ totalExpected) : 100;
     if (force || (pct ~/ 5) > (lastLoggedPct ~/ 5)) {
       print(
@@ -140,7 +140,7 @@ Future<List<Nip01Event>> buildMessages({
       );
       messages.addAll(requestMessageWraps);
       wrapCount += requestMessageWraps.length;
-      _logProgress();
+      logProgress();
 
       // 2. Filler text messages.
       final msgCount = thread.stageSpec.textMessageCount;
@@ -162,7 +162,7 @@ Future<List<Nip01Event>> buildMessages({
         );
         messages.addAll(wraps);
         wrapCount += wraps.length;
-        _logProgress();
+        logProgress();
       }
 
       // Yield to the event loop every 10 threads so that concurrent
@@ -174,7 +174,7 @@ Future<List<Nip01Event>> buildMessages({
       }
     }
 
-    _logProgress(force: true);
+    logProgress(force: true);
     return messages;
   } finally {
     await giftWrapNdk.destroy();
@@ -202,7 +202,7 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
     totalExpected += 2;
   }
 
-  void _logProgress({bool force = false}) {
+  void logProgress({bool force = false}) {
     final pct = totalExpected > 0 ? (wrapCount * 100 ~/ totalExpected) : 100;
     if (force || (pct ~/ 5) > (lastLoggedPct ~/ 5)) {
       print(
@@ -255,10 +255,10 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
       );
       messages.addAll(wraps);
       wrapCount += wraps.length;
-      _logProgress();
+      logProgress();
     }
 
-    _logProgress(force: true);
+    logProgress(force: true);
     return messages;
   } finally {
     await giftWrapNdk.destroy();

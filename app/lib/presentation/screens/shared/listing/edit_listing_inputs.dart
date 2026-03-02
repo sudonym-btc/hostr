@@ -71,7 +71,7 @@ class ImagesInput extends StatelessWidget {
             child: Image.network(
               _placeholderUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => ColoredBox(
+              errorBuilder: (_, _, _) => ColoredBox(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
               ),
             ),
