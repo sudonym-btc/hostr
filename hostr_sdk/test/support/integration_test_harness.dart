@@ -54,7 +54,7 @@ class IntegrationTestHarness {
   static const bootstrapRelays = ['wss://relay.hostr.development'];
   static const bootstrapBlossom = ['https://blossom.hostr.development'];
   static const hostrRelay = 'wss://relay.hostr.development';
-  static const anvilRpc = 'http://localhost:8545';
+  static const anvilRpc = 'https://anvil.hostr.development';
   static const albyHubUrl = 'https://alby1.hostr.development';
 
   static Future<IntegrationTestHarness> create({
