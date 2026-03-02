@@ -4,11 +4,30 @@ library;
 import 'dart:math';
 
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:models/stubs/main.dart';
+import 'package:ndk/data_layer/data_sources/http_request.dart';
+import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
+import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 import 'package:test/test.dart';
 
 import '../../../support/integration_test_harness.dart';
+
+/// Fetches a real BOLT-11 invoice for [amountSats] from the LNbits
+/// `tips@lnbits1.hostr.development` Lightning Address.
+Future<String> _fetchLnurlInvoice(int amountSats) async {
+  final lnurl = Lnurl(
+    transport: LnurlTransportHttpImpl(HttpRequestDS(http.Client())),
+  );
+  final link = Lnurl.getLud16LinkFromLud16('tips@lnbits1.hostr.development');
+  final response = await lnurl.getLnurlResponse(link!);
+  final invoiceResponse = await lnurl.fetchInvoice(
+    lnurlResponse: response!,
+    amountSats: amountSats,
+  );
+  return invoiceResponse!.invoice;
+}
 
 void main() {
   late IntegrationTestHarness harness;
@@ -69,11 +88,12 @@ void main() {
   );
 
   test(
-    'swap out fails with expected state flow when NWC is not connected',
+    'submitExternalInvoice rejects invalid invoice then accepts valid one',
     () async {
       final hostr = harness.hostr;
       final anvil = harness.anvil;
 
+      // Sign in without NWC so _acquireInvoice falls through to external.
       await hostr.auth.signin(MockKeys.guest.privateKey!);
 
       await anvil.setBalance(
@@ -81,34 +101,54 @@ void main() {
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
       );
 
-      final swapOut = hostr.evm.rootstock.swapOutAll().first;
+      // ── Attempt 1: submit an invalid invoice → swap fails ──────────
+      final swapOut1 = hostr.evm.rootstock.swapOutAll().first;
+      final states1 = <SwapOutState>[swapOut1.state];
+      final sub1 = swapOut1.stream.listen(states1.add);
 
-      final emittedStates = <SwapOutState>[swapOut.state];
-      final sub = swapOut.stream.listen(emittedStates.add);
-
-      final run = swapOut.execute();
+      final run1 = swapOut1.execute();
       await expectLater(
-        swapOut.stream,
+        swapOut1.stream,
         emitsThrough(isA<SwapOutExternalInvoiceRequired>()),
       );
 
-      // Complete the pending external-invoice path with an invalid invoice so
-      // operation exits deterministically in tests.
-      swapOut.submitExternalInvoice('invalid-invoice');
-      await run;
-      await sub.cancel();
+      swapOut1.submitExternalInvoice('invalid-invoice');
+      await run1;
+      await sub1.cancel();
 
-      expect(emittedStates.first, isA<SwapOutInitialised>());
-      expect(swapOut.state, isA<SwapOutFailed>());
+      expect(swapOut1.state, isA<SwapOutFailed>());
+      expect(states1.any((s) => s is SwapOutExternalInvoiceRequired), isTrue);
       expect(
-        emittedStates.any((state) => state is SwapOutExternalInvoiceRequired),
-        isTrue,
-      );
-      expect(
-        emittedStates.any((state) => state is SwapOutAwaitingOnChain),
+        states1.any((s) => s is SwapOutAwaitingOnChain),
         isFalse,
+        reason: 'Invalid invoice should never reach on-chain step',
       );
+
+      // ── Attempt 2: submit a valid LNURL-fetched invoice → completes ─
+      final swapOut2 = hostr.evm.rootstock.swapOutAll().first;
+      final states2 = <SwapOutState>[swapOut2.state];
+      final sub2 = swapOut2.stream.listen(states2.add);
+
+      final run2 = swapOut2.execute();
+      await expectLater(
+        swapOut2.stream,
+        emitsThrough(isA<SwapOutExternalInvoiceRequired>()),
+      );
+
+      // Extract the exact amount Boltz requires and fetch a real invoice.
+      final required$ = swapOut2.state as SwapOutExternalInvoiceRequired;
+      final requiredSats = required$.invoiceAmount.getInSats.toInt();
+      final validInvoice = await _fetchLnurlInvoice(requiredSats);
+
+      swapOut2.submitExternalInvoice(validInvoice);
+      await run2;
+      await sub2.cancel();
+
+      expect(swapOut2.state, isA<SwapOutCompleted>());
+      expect(states2.any((s) => s is SwapOutExternalInvoiceRequired), isTrue);
+      expect(states2.any((s) => s is SwapOutAwaitingOnChain), isTrue);
+      expect(states2.any((s) => s is SwapOutFunded), isTrue);
     },
-    timeout: const Timeout(Duration(seconds: 15)),
+    timeout: const Timeout(Duration(seconds: 30)),
   );
 }

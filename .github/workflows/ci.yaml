@@ -74,20 +74,63 @@ jobs:
         run: dart pub get
         working-directory: hostr_sdk
 
+      # Start the Docker stack in the background while unit tests run.
+      # This overlaps ~30-60s of image pulls / container boot with the
+      # fast unit-test suite, shaving that time off the total CI run.
+      #
+      # NOTE: Each GitHub Actions `run:` block is a separate shell, so the
+      # `wait` builtin cannot be used across steps (it only works for child
+      # processes of the *current* shell).  We use nohup + disown to detach
+      # the process, capture its exit code in a file, and poll with kill -0.
+      - name: Start test stack (background)
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
+        run: |
+          nohup bash -c './scripts/restart.sh test; echo $? > /tmp/stack_exit' \
+            > /tmp/stack.log 2>&1 &
+          echo $! > /tmp/stack_pid
+          disown
+          echo "Docker stack starting in background (PID $(cat /tmp/stack_pid))"
+
       - name: Run unit tests
         run: dart test test/unit -t unit
         working-directory: hostr_sdk
 
-      - name: Start test stack
-        env:
-          DOCKER_DEFAULT_PLATFORM: linux/amd64
-        run: ./scripts/restart.sh test
+      # If unit tests failed the job is already marked as failed and
+      # subsequent steps without `if: always()` are skipped automatically.
+      # Poll until the background restart.sh process exits, then check its
+      # exit code from the file it wrote.
+      - name: Wait for test stack
+        timeout-minutes: 10
+        run: |
+          STACK_PID=$(cat /tmp/stack_pid)
+          echo "Waiting for Docker stack (PID $STACK_PID) to finish…"
+          while kill -0 "$STACK_PID" 2>/dev/null; do
+            sleep 5
+          done
+          EXIT_CODE=$(cat /tmp/stack_exit 2>/dev/null || echo "1")
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "--- Stack startup log (last 200 lines) ---"
+            tail -200 /tmp/stack.log
+            echo "::error::Docker stack startup failed (exit $EXIT_CODE)"
+            exit 1
+          fi
+          echo "Docker stack is ready."
 
       - name: Debug stack startup failure
         if: failure()
         run: |
+          echo "=== Docker container status ==="
           docker compose ps -a || true
-          docker compose logs --no-color hostrbitcoind lnd1 lnd2 bootstrap escrow-contract-deploy || true
+          echo ""
+          echo "=== Bootstrap container logs ==="
+          docker compose logs --no-color --tail=200 bootstrap || true
+          echo ""
+          echo "=== Stack startup log ==="
+          cat /tmp/stack.log 2>/dev/null || echo "(no stack log)"
+          echo ""
+          echo "=== Other service logs ==="
+          docker compose logs --no-color --tail=50 hostrbitcoind lnd1 lnd2 escrow-contract-deploy || true
 
       - name: Add host aliases
         run: |
