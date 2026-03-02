@@ -61,7 +61,7 @@ class _EscrowRootstockConfig extends RootstockConfig {
 
 class _EscrowBoltzConfig extends BoltzConfig {
   @override
-  String get apiUrl => 'http://localhost:9001/v2';
+  String get apiUrl => 'https://boltz.hostr.development/v2';
 
   @override
   String get rifRelayCallVerifier =>
@@ -72,7 +72,7 @@ class _EscrowBoltzConfig extends BoltzConfig {
       '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
 
   @override
-  String get rifRelayUrl => 'http://localhost:8090';
+  String get rifRelayUrl => 'https://rifrelay.hostr.development';
 
   @override
   String get rifSmartWalletFactoryAddress =>

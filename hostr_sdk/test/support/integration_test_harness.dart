@@ -223,10 +223,10 @@ class _DevelopmentBoltzConfig extends BoltzConfig {
   _DevelopmentBoltzConfig();
 
   @override
-  String get apiUrl => 'http://localhost:9001/v2';
+  String get apiUrl => 'https://boltz.hostr.development/v2';
 
   @override
-  String get rifRelayUrl => 'http://localhost:8090';
+  String get rifRelayUrl => 'https://rifrelay.hostr.development';
 
   @override
   String get rifRelayCallVerifier =>

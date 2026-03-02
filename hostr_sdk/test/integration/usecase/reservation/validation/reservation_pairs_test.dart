@@ -11,7 +11,7 @@
 ///   [ReservationPairStatus.cancelled] when needed).
 ///
 /// Prerequisites:
-///   - Anvil running on http://localhost:8545 (chain-id 33)
+///   - Anvil running on https://anvil.hostr.development (chain-id 33)
 ///   - Nostr relay at wss://relay.hostr.development
 ///   - MultiEscrow contract deployed (CONTRACT_ADDR env var or default)
 ///
@@ -618,8 +618,10 @@ void main() {
       late Nip01Event hosterProfile;
 
       setUpAll(() async {
-        anvil = AnvilClient(rpcUri: Uri.parse('http://localhost:8545'));
-        web3 = Web3Client('http://localhost:8545', http.Client());
+        anvil = AnvilClient(
+          rpcUri: Uri.parse('https://anvil.hostr.development'),
+        );
+        web3 = Web3Client('https://anvil.hostr.development', http.Client());
 
         listing = _buildListing(
           host: host,

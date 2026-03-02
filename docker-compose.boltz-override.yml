@@ -61,6 +61,12 @@ services:
 
   boltz-backend-nginx:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    environment:
+      - VIRTUAL_HOST=boltz.${DOMAIN}
+      - VIRTUAL_PORT=9001
+    networks:
+      - default
+      - shared_network
 
   boltz-client:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
@@ -80,8 +86,14 @@ services:
       retries: 200
       interval: 2s
       start_period: 15s
+    environment:
+      - VIRTUAL_HOST=rifrelay.${DOMAIN}
+      - VIRTUAL_PORT=8090
     ports:
       - 8090:8090
+    networks:
+      - default
+      - shared_network
     profiles: ["default", "ci"]
 
   # Add rif-relay as a dependency for regtest-start so channels are opened

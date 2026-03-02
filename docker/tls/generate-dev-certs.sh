@@ -120,6 +120,12 @@ generate_cert "landing.${DOMAIN}" \
 generate_cert "anvil.${DOMAIN}" \
   "DNS:anvil.${DOMAIN},DNS:anvil,DNS:localhost,IP:127.0.0.1"
 
+generate_cert "boltz.${DOMAIN}" \
+  "DNS:boltz.${DOMAIN},DNS:boltz,DNS:localhost,IP:127.0.0.1"
+
+generate_cert "rifrelay.${DOMAIN}" \
+  "DNS:rifrelay.${DOMAIN},DNS:rifrelay,DNS:localhost,IP:127.0.0.1"
+
 # ── Create combined CA bundle (system CAs + our CA) ────────────
 # Containers can set SSL_CERT_FILE=/tls/ca-bundle.crt to trust
 # both public CAs and our development CA.
