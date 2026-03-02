@@ -81,6 +81,8 @@ void main() {
         '(${balanceAfter.getInSats} sats)',
       );
 
+      expect(balanceAfter.getInSats.toInt(), equals(0));
+
       // --- State flow assertions ---
       expect(emittedStates.first, isA<EscrowFundInitialised>());
 
