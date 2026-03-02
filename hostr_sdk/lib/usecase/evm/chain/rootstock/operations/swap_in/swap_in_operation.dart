@@ -179,11 +179,16 @@ class RootstockSwapInOperation extends SwapInOperation {
 
   @override
   Future<SwapInFees> estimateFees() async {
-    final boltzFees = await getIt<BoltzClient>().estimateReverseSwapFees(
-      invoiceAmount: params.amount,
-      from: 'BTC',
-      to: 'RBTC',
-    );
+    // params.amount is the desired *on-chain* amount. Use the inverse Boltz
+    // formula so the fee overhead accounts for the percentage being applied
+    // to the (larger) invoice, not to the desired on-chain amount.
+    // ignore: unused_local_variable
+    final (:invoiceAmount, :feeOverhead) = await getIt<BoltzClient>()
+        .computeInvoiceForDesiredOnchain(
+          desiredOnchainAmount: params.amount,
+          from: 'BTC',
+          to: 'RBTC',
+        );
 
     final relayFees = BitcoinAmount.fromBigInt(
       BitcoinUnit.wei,
@@ -193,7 +198,7 @@ class RootstockSwapInOperation extends SwapInOperation {
 
     return SwapInFees(
       estimatedGasFees: BitcoinAmount.zero(),
-      estimatedSwapFees: boltzFees,
+      estimatedSwapFees: feeOverhead,
       estimatedRelayFees: relayFees,
     );
   }

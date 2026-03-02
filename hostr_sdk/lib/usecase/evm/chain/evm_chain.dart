@@ -159,71 +159,57 @@ abstract class EvmChain {
     }
   }
 
-  /// Returns all HD-derived EVM addresses that have a non-zero balance,
+  /// Returns all HD-derived EVM addresses that hold a non-zero balance,
   /// along with their account index and current balance.
   ///
-  /// Scans in batches of 5 addresses at a time, stopping at the first
-  /// batch where no address has ever been used (same gap logic as
-  /// [getNextUnusedAddress]).
+  /// Unlike the previous nonce-based approach, this scans a fixed window of
+  /// [_maxScanIndex] addresses by **balance only**.  Addresses that received
+  /// funds via swap-in never send a transaction (nonce stays 0), so
+  /// nonce-based gap detection would miss them.
+  static const _maxScanIndex = 20;
+
   Future<
     List<({EthereumAddress address, int accountIndex, BitcoinAmount balance})>
   >
-  getUsedAddressesWithBalance() async {
+  getAddressesWithBalance() async {
     const batchSize = 5;
     final funded =
         <
           ({EthereumAddress address, int accountIndex, BitcoinAmount balance})
         >[];
 
-    for (var offset = 0; ; offset += batchSize) {
-      final indices = List.generate(batchSize, (i) => offset + i);
+    for (var offset = 0; offset < _maxScanIndex; offset += batchSize) {
+      final count = min(batchSize, _maxScanIndex - offset);
+      final indices = List.generate(count, (i) => offset + i);
       final addresses = indices.map(
         (i) => (index: i, address: auth.getEvmAddress(accountIndex: i)),
       );
 
       final results = await Future.wait(
         addresses.map((entry) async {
-          final nonce = await client.getTransactionCount(entry.address);
           final balance = await client.getBalance(entry.address);
-          return (
-            index: entry.index,
-            address: entry.address,
-            nonce: nonce,
-            balance: balance,
-          );
+          return (index: entry.index, address: entry.address, balance: balance);
         }),
       );
 
-      bool anyUsed = false;
       for (final r in results) {
-        final used = r.nonce > 0 || r.balance.getInWei > BigInt.zero;
-        if (used) {
-          anyUsed = true;
-          if (r.balance.getInWei > BigInt.zero) {
-            funded.add((
-              address: r.address,
-              accountIndex: r.index,
-              balance: BitcoinAmount.inWei(r.balance.getInWei),
-            ));
-          }
+        if (r.balance.getInWei > BigInt.zero) {
+          funded.add((
+            address: r.address,
+            accountIndex: r.index,
+            balance: BitcoinAmount.inWei(r.balance.getInWei),
+          ));
         }
       }
-
-      // If no address in this batch was ever used, we've passed the gap.
-      if (!anyUsed) break;
     }
 
     return funded;
   }
 
-  /// Returns the total balance across all used HD-derived addresses.
+  /// Returns the total balance across all HD-derived addresses that hold
+  /// funds, scanning up to [_maxScanIndex] indices.
   Future<BitcoinAmount> getTotalBalance() async {
-    final addresses = await getUsedAddressesWithBalance();
-    if (addresses.isEmpty) {
-      // Fall back to checking account 0 directly (may have never transacted
-      // but could have received funds via direct transfer).
-      return getBalance(auth.getEvmAddress(accountIndex: 0));
-    }
+    final addresses = await getAddressesWithBalance();
     return addresses.fold<BitcoinAmount>(
       BitcoinAmount.zero(),
       (sum, entry) => sum + entry.balance,

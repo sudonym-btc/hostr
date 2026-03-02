@@ -243,7 +243,15 @@ class RifRelay {
 
     final info = await _getCachedChainInfo();
     final smartWalletInfo = await getSmartWalletAddress(signer);
-    final isDeploy = smartWalletInfo.nonce == BigInt.zero;
+
+    // Determine deploy vs relay by checking on-chain bytecode at the
+    // computed smart-wallet address.  Matches Boltz TS:
+    //   const smartWalletExists = (await getCode(address)) !== "0x";
+    // With the walletIndex=factoryNonce fix, this should always be deploy
+    // (new wallet for each claim), but the check keeps the relay path
+    // available if a wallet at that index somehow already exists.
+    final codeAtWallet = await client.getCode(smartWalletInfo.address);
+    final isDeploy = codeAtWallet.isEmpty;
 
     // For the relay path (wallet already deployed), the ForwardRequest nonce
     // must be the smart wallet's internal IForwarder anti-replay nonce — NOT
@@ -378,7 +386,7 @@ class RifRelay {
     relay_api.EstimatePost$Response? estimateResponse;
 
     // Do not estimate on deploy, since smart wallet does not yet exist so we cannot estimate reliably
-    if (false) {
+    if (!isDeploy) {
       estimateResponse = await estimateClaim(relayTransactionRequest);
       logger.d(
         'RIF estimate response: '
@@ -447,9 +455,7 @@ class RifRelay {
 
     // Replace the placeholder metadata signature with the real one.
     final signed = relay_api.RelayTransactionRequest(
-      metadata: relay_api.RelayMetadata(
-        relayHubAddress: relayTransactionRequest.metadata!.relayHubAddress,
-        relayMaxNonce: relayTransactionRequest.metadata!.relayMaxNonce,
+      metadata: relayTransactionRequest.metadata!.copyWith(
         signature: signature,
       ),
       relayRequest: updatedRelayRequest,
@@ -617,20 +623,25 @@ class RifRelay {
 
   /// Returns the smart wallet address for [signer].
   ///
-  /// Matches Boltz web-app behavior:
-  /// - if factory nonce == 0, deploy/resolve index 0
-  /// - if factory nonce > 0, always reuse index 0 for relays
+  /// Matches Boltz web-app behavior: every claim deploys a NEW smart wallet.
+  /// The wallet index = current factory nonce, so the address is always for a
+  /// wallet that hasn't been deployed yet.  After deployCall succeeds the
+  /// factory nonce increments and the next call returns a fresh address.
   ///
-  /// The returned [SmartWalletAddressInfo.nonce] is still the current factory
-  /// nonce and is used for deploy anti-replay fields.
+  /// The returned [SmartWalletAddressInfo.nonce] is the current factory nonce
+  /// and doubles as both the deploy-request `index` and `nonce` fields.
   Future<SmartWalletAddressInfo> getSmartWalletAddress(
     EthPrivateKey signer,
   ) async {
     final factory = _getSmartWalletFactory();
     final factoryNonce = await factory.nonce((from: signer.address));
-    final walletIndex = factoryNonce > BigInt.zero ? BigInt.zero : factoryNonce;
 
-    // Reuse first wallet once it has been deployed.
+    // Use factoryNonce as the wallet index — this always points to the NEXT
+    // wallet that hasn't been deployed yet, matching the Boltz TS:
+    //   const smartWalletAddress = await factory.getSmartWalletAddress(
+    //       signerAddress, ZeroAddress, nonce);
+    final walletIndex = factoryNonce;
+
     final smartWalletAddress = await factory.getSmartWalletAddress((
       owner: signer.address,
       recoverer: EthereumAddress.fromHex(_zeroAddress),
@@ -671,26 +682,28 @@ class RifRelay {
   ///
   /// Only [signer] is needed to determine the deploy-vs-relay path.
   Future<BigInt> estimateClaimBeforeLock(EthPrivateKey evmKey) async {
-    final info = await _getCachedChainInfo();
-    final smartWalletInfo = await getSmartWalletAddress(evmKey);
-    final isDeploy = smartWalletInfo.nonce == BigInt.zero;
+    // Boltz subsidizes these claim relays
+    return BitcoinAmount.zero().getInWei;
+    // final info = await _getCachedChainInfo();
+    // final smartWalletInfo = await getSmartWalletAddress(evmKey);
+    // final isDeploy = smartWalletInfo.nonce == BigInt.zero;
 
-    final gasPrice = await client.getGasPrice();
-    final minGasPrice =
-        BigInt.tryParse(info.minGasPrice?.toString() ?? '') ?? BigInt.zero;
-    final effectiveGasPrice = gasPrice.getInWei > minGasPrice
-        ? gasPrice.getInWei
-        : minGasPrice;
+    // final gasPrice = await client.getGasPrice();
+    // final minGasPrice =
+    //     BigInt.tryParse(info.minGasPrice?.toString() ?? '') ?? BigInt.zero;
+    // final effectiveGasPrice = gasPrice.getInWei > minGasPrice
+    //     ? gasPrice.getInWei
+    //     : minGasPrice;
 
-    final gasEstimate = BigInt.from(
-      isDeploy ? _estimatedDeployClaimGas : _estimatedRelayClaimGas,
-    );
+    // final gasEstimate = BigInt.from(
+    //   isDeploy ? _estimatedDeployClaimGas : _estimatedRelayClaimGas,
+    // );
 
-    final fee = effectiveGasPrice * gasEstimate;
-    logger.d(
-      'estimateClaimBeforeLock: isDeploy=$isDeploy, '
-      'gasPrice=$effectiveGasPrice, gas=$gasEstimate, fee=$fee wei',
-    );
-    return fee;
+    // final fee = effectiveGasPrice * gasEstimate;
+    // logger.d(
+    //   'estimateClaimBeforeLock: isDeploy=$isDeploy, '
+    //   'gasPrice=$effectiveGasPrice, gas=$gasEstimate, fee=$fee wei',
+    // );
+    // return fee;
   }
 }

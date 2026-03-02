@@ -26,14 +26,7 @@ class CustomLogger extends Logger {
 
   CustomLogger()
     : super(
-        printer: PrettyPrinter(
-          colors: false,
-          // Don't truncate long messages.
-          lineLength: 1096,
-          // Show full stack traces / method context.
-          methodCount: 0,
-          errorMethodCount: 8,
-        ),
+        printer: PrettyPrinter(colors: true),
         output: _outputOverride ?? _DeveloperLogOutput(),
         level: _levelOverride,
       );

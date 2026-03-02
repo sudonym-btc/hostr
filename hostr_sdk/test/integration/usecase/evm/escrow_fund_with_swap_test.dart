@@ -15,9 +15,9 @@ void main() {
 
   setUpAll(() async {
     harness = await IntegrationTestHarness.create(
-      name: 'hostr_escrow_fund_it',
+      name: 'hostr_escrow_fund_swap_it',
       seed: DateTime.now().microsecondsSinceEpoch,
-      logLevel: Level.warning,
+      logLevel: Level.debug,
       cleanHydratedStorage: true,
     );
   });
@@ -31,17 +31,19 @@ void main() {
   });
 
   test(
-    'escrow fund emits expected state flow and confirms transaction',
+    'escrow fund with swap-in emits expected state flow and confirms transaction',
     () async {
       final hostr = harness.hostr;
-      final anvil = harness.anvil;
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
-      await hostr.auth.signin(trade.guest.privateKey);
-
-      await anvil.setBalance(
-        address: hostr.auth.getActiveEvmKey().address.eip55With0x,
-        amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
+      await harness.anvil.setAutomine(true);
+      await harness.signInAndConnectNwc(
+        user: trade.guest.keyPair,
+        appNamePrefix: 'escrow-fund-swap-it',
       );
+
+      // Do NOT pre-fund the EVM address — the operation must detect
+      // insufficient balance and trigger a swap-in (Lightning → Boltz →
+      // RIF Relay → EVM) before depositing to the escrow contract.
 
       final contractAddress = _resolveContractAddress();
       final escrowService = harness.seeds.factory
@@ -66,7 +68,29 @@ void main() {
       emittedStates.add(operation.state);
       await sub.cancel();
 
+      // --- Log the balance of the funding address after the operation ---
+      final completedData = operation.state.data!;
+      final fundingAddress = hostr.auth.getEvmAddress(
+        accountIndex: completedData.accountIndex,
+      );
+      final balanceAfter = await hostr.evm.rootstock.getBalance(fundingAddress);
+      print(
+        'Balance of funding address ($fundingAddress, '
+        'index ${completedData.accountIndex}) after escrow fund: '
+        '(${balanceAfter.getInSats} sats)',
+      );
+
+      // --- State flow assertions ---
       expect(emittedStates.first, isA<EscrowFundInitialised>());
+
+      // A swap-in must have been triggered because we started with zero EVM
+      // balance. Verify at least one EscrowFundSwapProgress state appeared.
+      expect(
+        emittedStates.whereType<EscrowFundSwapProgress>(),
+        isNotEmpty,
+        reason: 'Expected swap-in to be triggered (zero EVM balance)',
+      );
+
       expect(operation.state, isA<EscrowFundCompleted>());
       expect(emittedStates.whereType<EscrowFundCompleted>(), isNotEmpty);
 
@@ -78,7 +102,7 @@ void main() {
       final receipt = await hostr.evm.rootstock.awaitReceipt(txHash!);
       expect(_isReceiptSuccessful(receipt), isTrue);
     },
-    timeout: const Timeout(Duration(seconds: 30)),
+    timeout: const Timeout(Duration(seconds: 60)),
   );
 }
 

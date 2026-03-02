@@ -173,7 +173,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
           EscrowSelectorWidget(),
           Gap.vertical.md(),
           AmountWidget(
-            amount: context.read<EscrowFundOperation>().params.amount,
+            amount: context.read<EscrowFundOperation>().params!.amount,
             loading: _loading,
             feeWidget: FutureBuilder(
               future: context.read<EscrowFundOperation>().estimateFees(),
@@ -220,7 +220,11 @@ class EscrowFundProgressWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SwapInViewWidget(progress.swapState);
+    final swapState = progress.swapState;
+    if (swapState == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return SwapInViewWidget(swapState);
   }
 }
 

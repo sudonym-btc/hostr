@@ -1,10 +1,11 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'dart:math';
+
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:logger/logger.dart';
-import 'package:models/stubs/main.dart';
 import 'package:test/test.dart';
 
 import '../../../support/integration_test_harness.dart';
@@ -16,10 +17,6 @@ void main() {
     harness = await IntegrationTestHarness.create(
       name: 'hostr_swap_in_it',
       logLevel: Level.debug,
-    );
-    await harness.signInAndConnectNwc(
-      user: MockKeys.guest,
-      appNamePrefix: 'swap-in-it',
     );
   });
 
@@ -37,6 +34,10 @@ void main() {
       try {
         final hostr = harness.hostr;
         final evm = hostr.evm;
+        await harness.signInAndConnectNwc(
+          user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
+          appNamePrefix: 'swap-in-it',
+        );
         final minimumSwapIn = await evm.rootstock.getMinimumSwapIn();
         final amount =
             minimumSwapIn + BitcoinAmount.fromInt(BitcoinUnit.sat, 1000);

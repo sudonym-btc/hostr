@@ -84,7 +84,7 @@ class Rootstock extends EvmChain {
   /// to a single operation targeting account index 0.
   @override
   Future<List<RootstockSwapOutOperation>> swapOutAllAddresses() async {
-    final funded = await getUsedAddressesWithBalance();
+    final funded = await getAddressesWithBalance();
 
     if (funded.isEmpty) {
       // Nothing found – return single op for account 0 (will fail gracefully
