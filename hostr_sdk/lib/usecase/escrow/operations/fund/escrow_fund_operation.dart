@@ -185,6 +185,17 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     // Run the nested swap-in if the balance is insufficient.
     fundData = await _swapRequiredAmount(fundData);
 
+    // Persist the pinned gas estimate into recovery data so that
+    // _stepDeposit (and recovery) use the exact same gas parameters
+    // the swap-in budget was calculated against.
+    final estimate = contractParams.gasEstimate;
+    if (estimate != null) {
+      fundData = fundData.copyWith(
+        gasPriceWei: estimate.gasPrice.getInWei.toString(),
+        gasLimit: estimate.gasLimit.toString(),
+      );
+    }
+
     // Swap done (or not needed) — ready to deposit.
     emit(EscrowFundDepositing(fundData));
   }
@@ -257,6 +268,11 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     }
 
     // ── 3b. Send the deposit transaction ──
+    //
+    // The gas estimate is pinned: toContractParams() rebuilds it from the
+    // gasPriceWei / gasLimit fields persisted in EscrowFundData so the
+    // deposit uses the exact parameters the swap budget was calculated
+    // against — no drift, no re-estimation.
     emit(EscrowFundDepositing(data));
     final tx = await contract.deposit(contractParams);
     final txHash = _extractTxHash(tx);
