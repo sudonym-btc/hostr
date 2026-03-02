@@ -114,14 +114,6 @@ Future<void> main() async {
     '(nonce: ${smartWalletInfo.nonce})',
   );
 
-  // Fund the (not-yet-deployed) smart wallet so the relay server's internal
-  // eth_estimateGas from that address doesn't fail with "allowance: 0".
-  final swFunded = await anvil.setBalance(
-    address: claimAddress.eip55With0x,
-    amountWei: BigInt.from(10).pow(17), // 0.1 RBTC — enough for gas sim
-  );
-  print('Funded smart wallet for estimation: $swFunded');
-
   // Timelock far in the future so it doesn't expire.
   final currentBlock = await web3.getBlockNumber();
   final timelock = BigInt.from(currentBlock + 10000);
@@ -255,20 +247,19 @@ Future<void> main() async {
   // -- Estimate --
   print('\n--- estimate ---');
 
-  final estimateResponse = await rif.estimateClaim(
-    etherSwap,
-    signerKey,
-    claimArgs,
-  );
+  final estimateResponse = await rif.estimateClaimBeforeLock(signerKey);
 
   print("Estimate response: $estimateResponse");
 
-  // Snapshot balances before relay
+  // Snapshot balances before relay.
+  // Note: claimAddress is the smart wallet that will be DEPLOYED by this relay
+  // call.  Its execute() will forward funds to the signer EOA (the owner).
   final swBalanceBefore = await web3.getBalance(claimAddress);
   final signerBalanceBefore = await web3.getBalance(signerAddress);
   print('\n--- balances before relay ---');
-  print('Smart wallet: ${swBalanceBefore.getInWei} wei');
-  print('Signer EOA:   ${signerBalanceBefore.getInWei} wei');
+  print('Smart wallet ($claimAddress): ${swBalanceBefore.getInWei} wei');
+  print('Signer EOA   ($signerAddress): ${signerBalanceBefore.getInWei} wei');
+  print('Lock amount:  $lockAmount wei');
 
   print('\n--- relay ---');
   final relayRes = await rif.relayClaim(etherSwap, signerKey, claimArgs);
@@ -318,7 +309,10 @@ Future<void> main() async {
   final swapExistsAfter = await etherSwap.swaps(($param77: swapHash));
   print('Swap still exists on-chain: $swapExistsAfter (should be false)');
 
-  // Snapshot balances after relay
+  // Snapshot balances after relay.
+  // The smart wallet's execute() forwards the claimed funds to the signer
+  // EOA (the `from` address in the ForwardRequest).  So the lock amount
+  // ends up in the signer, not the smart wallet.
   final swBalanceAfter = await web3.getBalance(claimAddress);
   final signerBalanceAfter = await web3.getBalance(signerAddress);
   print('\n--- balances after relay ---');
@@ -328,20 +322,36 @@ Future<void> main() async {
   final swDelta = swBalanceAfter.getInWei - swBalanceBefore.getInWei;
   final signerDelta =
       signerBalanceAfter.getInWei - signerBalanceBefore.getInWei;
-  print('\nSmart wallet delta: $swDelta wei');
-  print('Signer EOA delta:   $signerDelta wei');
 
-  // The claim sends lockAmount to the smart wallet (which then forwards to
-  // the EOA, or keeps it — depends on the relay forwarder logic). Either way,
-  // the combined balance should have increased by ~lockAmount minus gas fees.
-  final totalDelta = swDelta + signerDelta;
-  print('Combined delta:     $totalDelta wei');
-  print('Expected (lock):    $lockAmount wei');
+  // The signer paid gas for the lock tx earlier, so signerDelta includes
+  // that cost.  The relay claim itself is subsidized (relay worker pays gas).
+  // To isolate the claim amount, we look at signerDelta which should be
+  // exactly +lockAmount (the smart wallet forwarded it).
+  print('\n--- fee analysis ---');
+  print('Lock amount:             $lockAmount wei');
+  print(
+    'Smart wallet balance:    ${swBalanceAfter.getInWei} wei (should be 0 — forwarded to signer)',
+  );
+  print('Smart wallet delta:      $swDelta wei');
+  print('Signer EOA delta:        $signerDelta wei');
+  print('Expected signer delta:   +$lockAmount wei');
+  print('Difference:              ${signerDelta - lockAmount} wei');
 
-  if (totalDelta > BigInt.zero) {
-    print('\n✅ SUCCESS — funds received ($totalDelta wei)');
+  if (signerDelta == lockAmount) {
+    print('\n✅ EXACT MATCH — signer received exactly the lock amount.');
+    print(
+      '   Relay fee: 0 wei (subsidized). Smart wallet forwarded all funds.',
+    );
+  } else if (signerDelta > BigInt.zero && signerDelta > lockAmount) {
+    print('\n⚠️  OVERSHOOT — signer received more than lock amount.');
+    print('   Extra: ${signerDelta - lockAmount} wei');
+  } else if (signerDelta > BigInt.zero && signerDelta < lockAmount) {
+    print('\n⚠️  PARTIAL — signer received less than lock amount.');
+    print('   Missing: ${lockAmount - signerDelta} wei');
   } else {
-    print('\n❌ FAILURE — no funds received (delta: $totalDelta wei)');
+    print(
+      '\n❌ FAILURE — signer balance did not increase (delta: $signerDelta wei)',
+    );
   }
 
   anvil.close();

@@ -60,7 +60,11 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       return contract.createTrade(
         depositArgs(params),
         credentials: params.ethKey,
-        transaction: Transaction(value: params.amount.toEtherAmount()),
+        transaction: Transaction(
+          value: params.amount.toEtherAmount(),
+          gasPrice: params.gasPrice,
+          maxGas: params.maxGas,
+        ),
       );
     });
     return (await client.getTransactionByHash(
@@ -142,24 +146,65 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   }
 
   @override
-  Future<BitcoinAmount> estimateDespositFee(
-    ContractFundEscrowParams params,
-  ) async {
-    // We cannot estimateGas, because it'll error if the sender doesn't have enough balance.
-    // final function = contract.self.function('createTrade');
-    // final (:tradeId, :buyer, :seller, :arbiter, :unlockAt, :escrowFee) =
-    //     depositArgs(params);
-    // final args = [tradeId, buyer, seller, arbiter, unlockAt, escrowFee];
-    // final gasLimit = await contract.client.estimateGas(
-    //   sender: params.ethKey.address,
-    //   to: contract.self.address,
-    //   data: function.encodeCall(args),
-    //   value: EtherAmount.fromInt(EtherUnit.wei, 0),
-    // );
-    final gasPrice = await contract.client.getGasPrice();
-    final gasLimit = BigInt.from(200000);
-    final feeWei = gasPrice.getInWei * gasLimit;
-    return BitcoinAmount.inWei(feeWei);
+  Future<({BitcoinAmount fee, EtherAmount gasPrice, BigInt gasLimit})>
+  estimateEscrowFundFee(ContractFundEscrowParams params) async {
+    final gasPrice = await client.getGasPrice();
+
+    // Use eth_estimateGas with state overrides (3rd param) so the node
+    // simulates the call as if the sender has enough balance, even when
+    // the real on-chain balance is zero.
+    try {
+      final function = contract.self.abi.functions[5]; // createTrade
+      final (:tradeId, :buyer, :seller, :arbiter, :unlockAt, :escrowFee) =
+          depositArgs(params);
+      final args = [tradeId, buyer, seller, arbiter, unlockAt, escrowFee];
+      final calldata = function.encodeCall(args);
+      final sender = params.ethKey.address;
+      final value = params.amount.toEtherAmount();
+
+      // 10 million RBTC — far more than any real deposit.
+      final fakeBalance =
+          '0x${(BigInt.from(10) * BigInt.from(10).pow(24)).toRadixString(16)}';
+
+      final gasHex = await client.makeRPCCall<String>('eth_estimateGas', [
+        {
+          'from': sender.eip55With0x,
+          'to': contract.self.address.eip55With0x,
+          'data': bytesToHex(calldata, include0x: true),
+          'value': '0x${value.getInWei.toRadixString(16)}',
+        },
+        'latest',
+        {
+          sender.eip55With0x: {'balance': fakeBalance},
+        },
+      ]);
+
+      logger.d(
+        'Estimated gas hex from eth_estimateGas: $gasHex. This is a hex string representing the estimated gas limit for the transaction.',
+      );
+
+      final gasLimit = BigInt.parse(gasHex.substring(2), radix: 16);
+      final feeWei = gasPrice.getInWei * gasLimit;
+      return (
+        fee: BitcoinAmount.inWei(feeWei),
+        gasPrice: gasPrice,
+        gasLimit: gasLimit,
+      );
+    } catch (e) {
+      // Fallback to a conservative hardcoded estimate if the node does not
+      // support eth_estimateGas state overrides.
+      logger.w(
+        'estimateEscrowFundFee: state-override estimation failed, '
+        'falling back to hardcoded gas limit. Error: $e',
+      );
+      final gasLimit = BigInt.from(200000);
+      final feeWei = gasPrice.getInWei * gasLimit;
+      return (
+        fee: BitcoinAmount.inWei(feeWei),
+        gasPrice: gasPrice,
+        gasLimit: gasLimit,
+      );
+    }
   }
 
   @override

@@ -182,6 +182,91 @@ class BoltzClient {
     return estimated;
   }
 
+  /// Given a desired **on-chain** amount, compute the Lightning invoice amount
+  /// needed so that after Boltz deducts its percentage + miner fees the
+  /// recipient receives at least [desiredOnchainAmount].
+  ///
+  /// Boltz formula for reverse swaps:
+  ///   onchain = invoice × (1 − p/100) − lockup − claim
+  ///
+  /// Solving for invoice:
+  ///   invoice = (onchain + lockup + claim) / (1 − p/100)
+  ///
+  /// Returns a record with the required [invoiceAmount] and the fee overhead.
+  Future<({BitcoinAmount invoiceAmount, BitcoinAmount feeOverhead})>
+  computeInvoiceForDesiredOnchain({
+    required BitcoinAmount desiredOnchainAmount,
+    String from = 'BTC',
+    String to = 'RBTC',
+  }) async {
+    final response = await getSwapReserve();
+    if (!response.isSuccessful || response.body == null) {
+      throw Exception('Failed to fetch reverse swap pairs from Boltz');
+    }
+
+    final body = response.body;
+    if (body is! Map) {
+      throw Exception('Unexpected Boltz reverse pairs response shape');
+    }
+
+    final fromMap = body[from];
+    if (fromMap is! Map) {
+      throw Exception('Boltz reverse pair source currency not found: \$from');
+    }
+    final pair = fromMap[to];
+    if (pair is! Map) {
+      throw Exception('Boltz reverse pair not found: \$from->\$to');
+    }
+
+    final fees = pair['fees'];
+    if (fees is! Map) {
+      throw Exception('Boltz reverse pair fees missing for: \$from->\$to');
+    }
+
+    final percentageRaw = fees['percentage'];
+    final minerFees = fees['minerFees'];
+    if (percentageRaw is! num || minerFees is! Map) {
+      throw Exception(
+        'Boltz reverse pair fee fields invalid for: \$from->\$to',
+      );
+    }
+
+    final lockupRaw = minerFees['lockup'];
+    final claimRaw = minerFees['claim'];
+    if (lockupRaw is! num || claimRaw is! num) {
+      throw Exception('Boltz reverse miner fees invalid for: \$from->\$to');
+    }
+
+    final desiredSats = desiredOnchainAmount.getInSats.toDouble();
+    final pFraction = percentageRaw.toDouble() / 100.0;
+
+    // Boltz only deducts the *lockup* miner fee from the on-chain amount in
+    // reverse swaps. The *claim* fee is informational — the recipient pays it
+    // separately (via RIF Relay gas on EVM, or via a sweep tx on BTC).
+    //
+    //   onchain = invoice × (1 − p/100) − lockup
+    //   ⟹ invoice = (desired + lockup) / (1 − p/100)
+    final boltzDeductedMinerFee = lockupRaw.toDouble();
+
+    final invoiceSats =
+        (desiredSats + boltzDeductedMinerFee) / (1.0 - pFraction);
+    final invoiceSatsCeil = invoiceSats.ceil();
+
+    final invoice = BitcoinAmount.fromInt(BitcoinUnit.sat, invoiceSatsCeil);
+    final feeOverhead = BitcoinAmount.fromBigInt(
+      BitcoinUnit.sat,
+      BigInt.from(invoiceSatsCeil) - desiredOnchainAmount.getInSats,
+    );
+
+    logger.i(
+      'Computed invoice for desired on-chain $from->$to '
+      '(desired: ${desiredOnchainAmount.getInSats} sats, '
+      'invoice: ${invoice.getInSats} sats, '
+      'fee overhead: ${feeOverhead.getInSats} sats)',
+    );
+    return (invoiceAmount: invoice, feeOverhead: feeOverhead);
+  }
+
   Future<Response> getSwapSubmarine() async {
     return await gBoltzCli.swapSubmarineGet();
   }

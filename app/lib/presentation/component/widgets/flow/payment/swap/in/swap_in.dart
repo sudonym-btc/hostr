@@ -187,7 +187,11 @@ class SwapInPaymentProgressWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PaymentViewWidget(state.paymentState);
+    final payState = state.paymentState;
+    if (payState == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return PaymentViewWidget(payState);
   }
 }
 

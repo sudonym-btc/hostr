@@ -26,7 +26,7 @@ class DevWidget extends StatelessWidget {
               child: SwapInFlowWidget(
                 cubit: getIt<Hostr>().evm.supportedEvmChains[0].swapIn(
                   SwapInParams(
-                    amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 1000000),
+                    amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000),
                     evmKey: getIt<Hostr>().auth.getActiveEvmKey(),
                     accountIndex: 0,
                   ),
@@ -115,27 +115,23 @@ class DevWidget extends StatelessWidget {
         ),
         KeysWidget(),
         FilledButton(
-          child: const Text('Clear Swap & Lock Stores'),
+          child: const Text('Clear Operation Stores'),
           onPressed: () async {
-            final swapStore = getIt<SwapStore>();
-            final lockRegistry = getIt<EscrowLockRegistry>();
+            final store = getIt<OperationStateStore>();
 
-            final swaps = await swapStore.getAll();
-            for (final swap in swaps) {
-              await swapStore.remove(swap.id);
-            }
-
-            final locks = await lockRegistry.getAll();
-            for (final lock in locks) {
-              await lockRegistry.release(lock.tradeId);
+            // Remove all swap-in, swap-out, and escrow fund entries
+            for (final ns in ['swap_in', 'swap_out', 'escrow_fund']) {
+              final entries = await store.readAll(ns);
+              for (final entry in entries) {
+                final id = entry['id'] as String?;
+                if (id != null) await store.remove(ns, id);
+              }
             }
 
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Cleared ${swaps.length} swap(s) and ${locks.length} lock(s)',
-                  ),
+                const SnackBar(
+                  content: Text('Cleared all operation state stores'),
                 ),
               );
             }

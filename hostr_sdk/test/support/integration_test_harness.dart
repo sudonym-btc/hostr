@@ -6,6 +6,8 @@ import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:logger/logger.dart';
+import 'package:models/nostr_kinds.dart';
+import 'package:ndk/ndk.dart' hide ConsoleOutput;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 /// Shared integration-test bootstrap for Hostr SDK tests.
@@ -45,7 +47,7 @@ class IntegrationTestHarness {
     Level logLevel = Level.warning,
     bool cleanHydratedStorage = true,
   }) async {
-    CustomLogger.configure(level: logLevel);
+    CustomLogger.configure(output: ConsoleOutput(), level: logLevel);
 
     final storageDir = Directory('${Directory.systemTemp.path}/$name');
     if (cleanHydratedStorage && storageDir.existsSync()) {
@@ -99,6 +101,21 @@ class IntegrationTestHarness {
         'Failed to obtain NWC pairing URL for ${user.publicKey}',
       );
     }
+
+    // Wait for AlbyHub to publish the kind 13194 info event for this app's
+    // wallet pubkey to the relay. Without this, NDK's connect() may query
+    // before the event has propagated → empty permissions → "method not in
+    // permissions" errors.
+    final walletPubkey = Uri.parse(pairingUrl).host;
+    await hostr.requests
+        .subscribe(
+          filter: Filter(kinds: [kNostrKindNWCInfo], authors: [walletPubkey]),
+          name: 'nwc-info-wait',
+        )
+        .stream
+        .take(1)
+        .toList();
+
     await hostr.nwc.initiateAndAdd(pairingUrl);
   }
 

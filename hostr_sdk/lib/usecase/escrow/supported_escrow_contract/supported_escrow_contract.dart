@@ -59,7 +59,8 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     }
   }
 
-  Future<BitcoinAmount> estimateDespositFee(ContractFundEscrowParams params);
+  Future<({BitcoinAmount fee, EtherAmount gasPrice, BigInt gasLimit})>
+  estimateEscrowFundFee(ContractFundEscrowParams params);
   Future<BitcoinAmount> estimateClaimFee(ContractClaimEscrowParams params);
   // Future<BigInt> estimateRefundFee(EscrowParams params);
 
@@ -134,6 +135,14 @@ class ContractFundEscrowParams {
   final int unlockAt;
   final int? escrowFee;
 
+  /// Pinned gas price from estimation. When set, the deposit transaction
+  /// will use this exact gas price instead of letting the node pick one.
+  final EtherAmount? gasPrice;
+
+  /// Pinned gas limit from estimation. When set, the deposit transaction
+  /// will use this exact gas limit instead of re-estimating.
+  final int? maxGas;
+
   ContractFundEscrowParams({
     required this.tradeId,
     required this.amount,
@@ -142,7 +151,27 @@ class ContractFundEscrowParams {
     required this.ethKey,
     required this.unlockAt,
     this.escrowFee,
+    this.gasPrice,
+    this.maxGas,
   });
+
+  /// Returns a copy with the pinned gas parameters set.
+  ContractFundEscrowParams withGasParams({
+    required EtherAmount gasPrice,
+    required BigInt gasLimit,
+  }) {
+    return ContractFundEscrowParams(
+      tradeId: tradeId,
+      amount: amount,
+      sellerEvmAddress: sellerEvmAddress,
+      arbiterEvmAddress: arbiterEvmAddress,
+      ethKey: ethKey,
+      unlockAt: unlockAt,
+      escrowFee: escrowFee,
+      gasPrice: gasPrice,
+      maxGas: gasLimit.toInt(),
+    );
+  }
 }
 
 class ContractClaimEscrowParams {

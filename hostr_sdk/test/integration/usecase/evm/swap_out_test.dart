@@ -1,6 +1,8 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'dart:math';
+
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:models/stubs/main.dart';
@@ -34,7 +36,7 @@ void main() {
       final anvil = harness.anvil;
 
       await harness.signInAndConnectNwc(
-        user: MockKeys.guest,
+        user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
         appNamePrefix: 'swap-out-it',
       );
 

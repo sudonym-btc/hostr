@@ -88,7 +88,9 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
             estimatedRelayFees: BitcoinAmount.zero(),
           );
     return EscrowFundFees(
-      estimatedGasFees: await contract.estimateDespositFee(contractParams),
+      estimatedGasFees: (await contract.estimateEscrowFundFee(
+        contractParams,
+      )).fee,
       estimatedSwapFees: swapFees,
     );
   }
@@ -102,9 +104,40 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
 
     EscrowFundData? fundData;
 
-    // Resolve the next unused HD address for this operation.
-    final (:address, :accountIndex) = await chain.getNextUnusedAddress();
-    _accountIndex = accountIndex;
+    // ── Pick the best address to fund from ─────────────────────────────
+    // First, check if any already-funded HD address can cover the escrow
+    // amount (plus gas).  This avoids an unnecessary swap-in when the
+    // user already holds RBTC — e.g. from a prior swap-in or direct
+    // transfer.  Only if no address qualifies do we fall back to a fresh
+    // unused address (which will be funded via swap-in later).
+    final requiredAmount = BitcoinAmount.fromAmount(params!.amount);
+    final fundedAddresses = await chain.getAddressesWithBalance();
+
+    int resolvedAccountIndex = 0;
+    bool foundFunded = false;
+
+    for (final entry in fundedAddresses) {
+      if (entry.balance >= requiredAmount) {
+        resolvedAccountIndex = entry.accountIndex;
+        foundFunded = true;
+        logger.i(
+          'Using funded address at index $resolvedAccountIndex '
+          '(balance: ${entry.balance})',
+        );
+        break;
+      }
+    }
+
+    if (!foundFunded) {
+      final (:address, :accountIndex) = await chain.getNextUnusedAddress();
+      resolvedAccountIndex = accountIndex;
+      logger.i(
+        'No funded address found, using fresh address at index '
+        '$resolvedAccountIndex ($address) — will swap in',
+      );
+    }
+
+    _accountIndex = resolvedAccountIndex;
     final evmKey = auth.getActiveEvmKey(accountIndex: _accountIndex);
     contractParams = params!.toContractParams(evmKey);
 
@@ -206,7 +239,20 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
     final balance = await chain.getBalance(contractParams.ethKey.address);
     logger.i('Escrow sender balance: $balance RBTC');
 
-    final transactionFee = await contract.estimateDespositFee(contractParams);
+    final estimate = await contract.estimateEscrowFundFee(contractParams);
+    final transactionFee = estimate.fee;
+
+    // Pin the gas price and gas limit from estimation onto contractParams
+    // so the deposit transaction uses the exact same values.
+    contractParams = contractParams.withGasParams(
+      gasPrice: estimate.gasPrice,
+      gasLimit: estimate.gasLimit,
+    );
+
+    logger.w(
+      'Estimated transaction fee for escrow deposit: ${transactionFee.getInSats} sats '
+      '(gasPrice: ${estimate.gasPrice.getInWei}, gasLimit: ${estimate.gasLimit})',
+    );
 
     final leftAfterTrade =
         balance - BitcoinAmount.fromAmount(params!.amount) - transactionFee;
