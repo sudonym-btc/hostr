@@ -53,3 +53,6 @@ redis
 
 # Test coverage output
 coverage/
+
+# Test results
+test-results.txt

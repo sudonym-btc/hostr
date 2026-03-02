@@ -66,11 +66,27 @@ wait_for_sync() {
     local attempt=0
     echo "Waiting for $cmd_name to sync..."
     while true; do
-        synced=$($cmd_name getinfo 2>/dev/null | jq -r '.synced_to_chain' 2>/dev/null || echo "false")
-        echo "$cmd_name is synched $synced"
-        if [ "$synced" == "true" ]; then
+        local info
+        info=$($cmd_name getinfo 2>/dev/null || echo "{}")
+
+        # LND: check .synced_to_chain == true
+        local lnd_synced
+        lnd_synced=$(echo "$info" | jq -r '.synced_to_chain // empty' 2>/dev/null)
+        if [ "$lnd_synced" == "true" ]; then
+            echo "$cmd_name synced (LND)"
             break
         fi
+
+        # CLN: synced when warning_lightningd_sync is absent/null
+        local cln_warning
+        cln_warning=$(echo "$info" | jq -r '.warning_lightningd_sync // empty' 2>/dev/null)
+        local cln_blockheight
+        cln_blockheight=$(echo "$info" | jq -r '.blockheight // empty' 2>/dev/null)
+        if [ -n "$cln_blockheight" ] && [ -z "$cln_warning" ]; then
+            echo "$cmd_name synced (CLN, blockheight=$cln_blockheight)"
+            break
+        fi
+
         attempt=$((attempt + 1))
         if [ $attempt -ge $max_attempts ]; then
             echo "Timed out waiting for $cmd_name to sync after $((max_attempts * 5))s"
@@ -103,6 +119,17 @@ connect_peer() {
             sleep 1
             continue
         fi
+        # Check if already connected (race with parallel connects).
+        if echo "$output" | grep -qi "already connected"; then
+            break
+        fi
+        # If connect returned an error, retry after a short pause.
+        if echo "$output" | grep -qi "error\|failed\|refused\|unavailable"; then
+            connect_attempt=$((connect_attempt + 1))
+            echo "Connect to $pubkey failed (attempt $connect_attempt/$max_connect_attempts): $output"
+            sleep 2
+            continue
+        fi
         break
     done
 
@@ -117,7 +144,7 @@ connect_peer() {
 wait_for_peer_online() {
     local cmd_name=$1
     local pubkey=$2
-    local max_attempts=10
+    local max_attempts=30
     local attempt=0
 
     while [ $attempt -lt $max_attempts ]; do
@@ -201,6 +228,7 @@ setup_channels() {
     ensure_node_online "LND2"            & pids+=($!)
     ensure_node_online "lncli-sim 1"     & pids+=($!)
     ensure_node_online "lncli-sim 2"     & pids+=($!)
+    ensure_node_online "lncli-sim 3"     & pids+=($!)
     ensure_node_online "lightning-cli-sim 1" & pids+=($!)
     ensure_node_online "lightning-cli-sim 2" & pids+=($!)
     wait_all_pids "${pids[@]}"
@@ -252,8 +280,14 @@ setup_channels() {
     # ── Phase 3: Collect pubkeys & connect every peer ─────────────────
     BOLTZ_LND1_PUB=$(lncli-sim 1 getinfo | jq -r .identity_pubkey)
     BOLTZ_LND2_PUB=$(lncli-sim 2 getinfo | jq -r .identity_pubkey)
+    BOLTZ_LND3_PUB=$(lncli-sim 3 getinfo | jq -r .identity_pubkey)
     BOLTZ_CLN1_PUB=$(lightning-cli-sim 1 getinfo | jq -r .id)
     BOLTZ_CLN2_PUB=$(lightning-cli-sim 2 getinfo | jq -r .id)
+
+    # Ensure all nodes (including CLN) have caught up with the blocks mined
+    # during funding, otherwise CLN will silently drop incoming LN handshakes.
+    sync_nodes "LND1" "LND2" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
+               "lightning-cli-sim 1" "lightning-cli-sim 2"
 
     # Serialize connections to the same target node — CLN drops one of two
     # simultaneous inbound handshakes.  Different targets run in parallel.
@@ -267,6 +301,7 @@ setup_channels() {
         connect_peer "LND1" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
         connect_peer "LND2" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
     } & pids+=($!)
+    connect_peer "LND1" "$BOLTZ_LND3_PUB" "${BOLTZ_LND3_HOST}" & pids+=($!)
     {
         connect_peer "LND1" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
         connect_peer "LND2" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
@@ -277,19 +312,42 @@ setup_channels() {
     } & pids+=($!)
     wait_all_pids "${pids[@]}"
 
-    # ── Phase 4: Sync all nodes ───────────────────────────────────────
-    sync_nodes "LND1" "LND2" "lncli-sim 1" "lncli-sim 2"
+    # ── Phase 4: Sync all nodes after peer connections ──────────────────
+    sync_nodes "LND1" "LND2" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
+               "lightning-cli-sim 1" "lightning-cli-sim 2"
+
+    # Re-verify peers are still connected — regtest-start mines blocks that
+    # can cause CLN nodes to drop peers while catching up.
+    echo "Re-verifying peer connections before opening channels..."
+    pids=()
+    {
+        connect_peer "LND1" "$LND2_PUB" "lnd2"
+        connect_peer "LND1" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
+        connect_peer "LND1" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
+        connect_peer "LND1" "$BOLTZ_LND3_PUB" "${BOLTZ_LND3_HOST}"
+        connect_peer "LND1" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
+        connect_peer "LND1" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
+    } & pids+=($!)
+    {
+        connect_peer "LND2" "$LND1_PUB" "lnd1"
+        connect_peer "LND2" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
+        connect_peer "LND2" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
+        connect_peer "LND2" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
+        connect_peer "LND2" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
+    } & pids+=($!)
+    wait_all_pids "${pids[@]}"
 
     # ── Phase 5: Batch 1 — all 10 outbound opens from hostr LND ──────
-    # LND1↔LND2 (2) + LND1/2 → boltz LND1/LND2/CLN1/CLN2 (8) = 10.
-    # maxpendingchannels=10 per node (docker-compose), peak per node = 5.
-    echo "Opening 10 outbound channels (hostr LND → all peers)..."
+    # LND1↔LND2 (2) + LND1/2 → boltz LND1/LND2/CLN1/CLN2 (8) + LND1 → boltz LND3 (1) = 11.
+    # maxpendingchannels=10 per node (docker-compose), peak per node = 6 (LND1).
+    echo "Opening 11 outbound channels (hostr LND → all peers)..."
     LND1 openchannel ${LND2_PUB}       ${CHANNEL_SIZE} >/dev/null
     LND2 openchannel ${LND1_PUB}       ${CHANNEL_SIZE} >/dev/null
     LND1 openchannel ${BOLTZ_LND1_PUB} ${CHANNEL_SIZE} >/dev/null
     LND2 openchannel ${BOLTZ_LND1_PUB} ${CHANNEL_SIZE} >/dev/null
     LND1 openchannel ${BOLTZ_LND2_PUB} ${CHANNEL_SIZE} >/dev/null
     LND2 openchannel ${BOLTZ_LND2_PUB} ${CHANNEL_SIZE} >/dev/null
+    LND1 openchannel ${BOLTZ_LND3_PUB} ${CHANNEL_SIZE} >/dev/null
     LND1 openchannel ${BOLTZ_CLN1_PUB} ${CHANNEL_SIZE} >/dev/null
     LND2 openchannel ${BOLTZ_CLN1_PUB} ${CHANNEL_SIZE} >/dev/null
     LND1 openchannel ${BOLTZ_CLN2_PUB} ${CHANNEL_SIZE} >/dev/null
@@ -304,6 +362,7 @@ setup_channels() {
     wait_for_channel "LND2" "${BOLTZ_LND1_PUB}" & pids+=($!)
     wait_for_channel "LND1" "${BOLTZ_LND2_PUB}" & pids+=($!)
     wait_for_channel "LND2" "${BOLTZ_LND2_PUB}" & pids+=($!)
+    wait_for_channel "LND1" "${BOLTZ_LND3_PUB}" & pids+=($!)
     wait_for_channel "LND1" "${BOLTZ_CLN1_PUB}" & pids+=($!)
     wait_for_channel "LND2" "${BOLTZ_CLN1_PUB}" & pids+=($!)
     wait_for_channel "LND1" "${BOLTZ_CLN2_PUB}" & pids+=($!)
@@ -311,13 +370,15 @@ setup_channels() {
     wait_all_pids "${pids[@]}"
 
     # ── Phase 6: Batch 2 — all 8 inbound opens from boltz → hostr ────
-    sync_nodes "LND1" "LND2" "lncli-sim 1" "lncli-sim 2"
+    sync_nodes "LND1" "LND2" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
+               "lightning-cli-sim 1" "lightning-cli-sim 2"
 
-    echo "Opening 8 inbound channels (boltz → hostr LND)..."
+    echo "Opening 9 inbound channels (boltz → hostr LND)..."
     lncli-sim 1 openchannel ${LND1_PUB} ${CHANNEL_SIZE} >/dev/null
     lncli-sim 1 openchannel ${LND2_PUB} ${CHANNEL_SIZE} >/dev/null
     lncli-sim 2 openchannel ${LND1_PUB} ${CHANNEL_SIZE} >/dev/null
     lncli-sim 2 openchannel ${LND2_PUB} ${CHANNEL_SIZE} >/dev/null
+    lncli-sim 3 openchannel ${LND1_PUB} ${CHANNEL_SIZE} >/dev/null
     # CLN: sequential per node to avoid wallet UTXO lock conflicts.
     lightning-cli-sim 1 fundchannel ${LND1_PUB} ${CHANNEL_SIZE} >/dev/null
     lightning-cli-sim 1 fundchannel ${LND2_PUB} ${CHANNEL_SIZE} >/dev/null
@@ -331,6 +392,7 @@ setup_channels() {
     wait_for_channel "lncli-sim 1" "${LND2_PUB}"     & pids+=($!)
     wait_for_channel "lncli-sim 2" "${LND1_PUB}"     & pids+=($!)
     wait_for_channel "lncli-sim 2" "${LND2_PUB}"     & pids+=($!)
+    wait_for_channel "lncli-sim 3" "${LND1_PUB}"     & pids+=($!)
     wait_for_channel "lightning-cli-sim 1" "${LND1_PUB}" & pids+=($!)
     wait_for_channel "lightning-cli-sim 1" "${LND2_PUB}" & pids+=($!)
     wait_for_channel "lightning-cli-sim 2" "${LND1_PUB}" & pids+=($!)
