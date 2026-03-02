@@ -62,6 +62,8 @@ ensure_node_online() {
 
 wait_for_sync() {
     local cmd_name=$1
+    local max_attempts=36  # 36 × 5s = 180s = 3 minutes
+    local attempt=0
     echo "Waiting for $cmd_name to sync..."
     while true; do
         synced=$($cmd_name getinfo 2>/dev/null | jq -r '.synced_to_chain' 2>/dev/null || echo "false")
@@ -69,7 +71,12 @@ wait_for_sync() {
         if [ "$synced" == "true" ]; then
             break
         fi
-        echo "Waiting for $cmd_name to sync..."
+        attempt=$((attempt + 1))
+        if [ $attempt -ge $max_attempts ]; then
+            echo "Timed out waiting for $cmd_name to sync after $((max_attempts * 5))s"
+            return 1
+        fi
+        echo "Waiting for $cmd_name to sync (attempt $attempt/$max_attempts)..."
         sleep 5
     done
 }

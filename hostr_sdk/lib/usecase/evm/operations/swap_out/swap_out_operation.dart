@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:injectable/injectable.dart';
 import 'package:meta/meta.dart';
 
@@ -41,11 +42,47 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
   }
 
   /// Call this from the UI after the user pastes an external Lightning invoice.
+  ///
+  /// Validates that [invoice] is a well-formed BOLT-11 payment request whose
+  /// amount matches the amount required by the current swap.  Throws a
+  /// [FormatException] for unparseable invoices and an [ArgumentError] when
+  /// the encoded amount does not equal the expected amount.
   void submitExternalInvoice(String invoice) {
-    if (externalInvoiceCompleter != null &&
-        !externalInvoiceCompleter!.isCompleted) {
-      externalInvoiceCompleter!.complete(invoice);
+    if (externalInvoiceCompleter == null ||
+        externalInvoiceCompleter!.isCompleted) {
+      return;
     }
+
+    final Bolt11PaymentRequest decoded;
+    try {
+      decoded = Bolt11PaymentRequest(invoice);
+    } catch (e) {
+      externalInvoiceCompleter!.completeError(
+        FormatException('Invalid Lightning invoice: $e'),
+      );
+      return;
+    }
+
+    final invoiceAmount = BitcoinAmount.fromDecimal(
+      BitcoinUnit.bitcoin,
+      decoded.amount.toString(),
+    );
+
+    final currentState = state;
+    if (currentState is SwapOutExternalInvoiceRequired) {
+      final expectedAmount = currentState.invoiceAmount;
+      if (invoiceAmount.getInSats != expectedAmount.getInSats) {
+        externalInvoiceCompleter!.completeError(
+          ArgumentError(
+            'Invoice amount ${invoiceAmount.getInSats} sats does not match '
+            'the required ${expectedAmount.getInSats} sats.',
+          ),
+        );
+        return;
+      }
+    }
+
+    externalInvoiceCompleter!.complete(invoice);
   }
 
   Future<SwapOutFees> estimateFees();
