@@ -131,7 +131,7 @@ void main() {
   });
 
   tearDown(() async {
-    threads.stop();
+    await threads.stop();
     await getIt.reset();
   });
 
@@ -143,7 +143,7 @@ void main() {
         createdAnchors.add(thread.anchor);
       });
 
-      threads.sync();
+      await threads.sync();
 
       requests.emitStatus(StreamStatusLive());
       requests.emit(
@@ -197,7 +197,7 @@ void main() {
   test(
     'creates a new thread when a new thread tag appears in stream',
     () async {
-      threads.sync();
+      await threads.sync();
 
       requests.emit(
         _textMessage(
@@ -228,7 +228,7 @@ void main() {
   );
 
   test('ignores duplicate message ids from stream', () async {
-    threads.sync();
+    await threads.sync();
 
     final message = _textMessage(
       id: 'm-dup',

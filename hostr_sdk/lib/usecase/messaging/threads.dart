@@ -46,8 +46,8 @@ class Threads extends HydratedCubit<List<Message>> {
     required this.payments,
   }) : super([]);
 
-  void sync() {
-    _closeSubscription();
+  Future<void> sync() async {
+    await _closeSubscription();
     _rebuildThreadsFromMessages(state);
 
     if (auth.activeKeyPair == null) {
