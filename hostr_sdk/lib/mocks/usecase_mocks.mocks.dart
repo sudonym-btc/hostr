@@ -1480,10 +1480,13 @@ class MockReservations extends _i1.Mock implements _i9.Reservations {
           as _i14.Future<_i10.Reservation>);
 
   @override
-  void dispose() => super.noSuchMethod(
-    Invocation.method(#dispose, []),
-    returnValueForMissingStub: null,
-  );
+  _i14.Future<void> dispose() =>
+      (super.noSuchMethod(
+            Invocation.method(#dispose, []),
+            returnValue: _i14.Future<void>.value(),
+            returnValueForMissingStub: _i14.Future<void>.value(),
+          )
+          as _i14.Future<void>);
 
   @override
   void notifyUpdate(_i10.Reservation? event) => super.noSuchMethod(
