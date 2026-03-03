@@ -24,7 +24,8 @@ class Threads extends HydratedCubit<List<Message>> {
   final Payments payments;
   final Auth auth;
 
-  final StreamController<Thread> threadController = StreamController<Thread>();
+  final StreamController<Thread> threadController =
+      StreamController<Thread>.broadcast();
   Stream<Thread> get threadStream => threadController.stream;
 
   final BehaviorSubject<StreamStatus> _statusSubject =

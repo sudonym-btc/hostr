@@ -107,9 +107,9 @@ class Hostr {
         logger.i('User logged out');
         autoWithdraw.stop();
         messaging.threads.reset();
-        nwc.dispose();
+        await nwc.dispose();
         reservations.dispose();
-        evm.dispose();
+        await evm.dispose();
       }
     });
   }
@@ -121,11 +121,11 @@ class Hostr {
   Future<void> dispose() async {
     stop();
     autoWithdraw.stop();
-    messaging.threads.close();
-    reservations.dispose();
-    nwc.dispose();
-    evm.dispose();
-    auth.dispose();
+    await messaging.threads.close();
+    await reservations.dispose();
+    await nwc.dispose();
+    await evm.dispose();
+    await auth.dispose();
     userConfig.dispose();
   }
 }
