@@ -268,6 +268,8 @@ jobs:
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push'
     runs-on: ubuntu-latest
+    outputs:
+      new_release: ${{ steps.semantic.outputs.new_release }}
     permissions:
       contents: write
       issues: write
@@ -290,6 +292,20 @@ jobs:
         run: npm audit signatures
 
       - name: Release
+        id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: |
+          npx semantic-release
+          # If semantic-release created a tag, signal downstream jobs
+          if git describe --exact-match HEAD 2>/dev/null; then
+            echo "new_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── 7. Build & deploy (only when a new release was published) ──────────────
+  build:
+    name: Build & Deploy
+    needs: release
+    if: needs.release.outputs.new_release == 'true'
+    uses: ./.github/workflows/app_build.yaml
+    secrets: inherit
