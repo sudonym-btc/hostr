@@ -35,7 +35,7 @@ void main() {
   setUp(() async {
     harness = await IntegrationTestHarness.create(
       name: 'hostr_swap_out_it',
-      logLevel: Level.debug,
+      logLevel: Level.warning,
       cleanHydratedStorage: true,
     );
   });

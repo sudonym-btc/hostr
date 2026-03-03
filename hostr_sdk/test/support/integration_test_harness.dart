@@ -57,6 +57,14 @@ class IntegrationTestHarness {
   static const anvilRpc = 'https://anvil.hostr.development';
   static const albyHubUrl = 'https://alby1.hostr.development';
 
+  /// Accept self-signed dev TLS certs for all HTTP/WebSocket connections.
+  ///
+  /// Call from `setUpAll` in tests that talk to the Docker stack's TLS
+  /// endpoints but don't need the full [IntegrationTestHarness].
+  static void acceptSelfSignedCerts() {
+    HttpOverrides.global = _PermissiveHttpOverrides();
+  }
+
   static Future<IntegrationTestHarness> create({
     required String name,
     String environment = Env.dev,
