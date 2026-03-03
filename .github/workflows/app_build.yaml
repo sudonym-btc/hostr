@@ -1,10 +1,9 @@
 name: Build & Deploy
 
-# Triggered when semantic-release publishes a GitHub Release,
-# or manually to deploy a specific variant to a specific track.
+# Called automatically by CI after semantic-release publishes a new version,
+# or triggered manually to deploy a specific variant to a specific track.
 on:
-  release:
-    types: [published]
+  workflow_call:          # invoked from ci.yaml after a release
   workflow_dispatch:
     inputs:
       variant:
@@ -32,8 +31,8 @@ jobs:
     name: Android — Staging
     runs-on: ubuntu-latest
     environment: staging
-    # On release: always build staging. On manual: only when variant=staging.
-    if: github.event_name == 'release' || inputs.variant == 'staging'
+    # On workflow_call: always build staging. On manual: only when variant=staging.
+    if: github.event_name != 'workflow_dispatch' || inputs.variant == 'staging'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -88,8 +87,8 @@ jobs:
     name: Android — Production
     runs-on: ubuntu-latest
     environment: production
-    # On release: always build prod. On manual: only when variant=production.
-    if: github.event_name == 'release' || inputs.variant == 'production'
+    # On workflow_call: always build prod. On manual: only when variant=production.
+    if: github.event_name != 'workflow_dispatch' || inputs.variant == 'production'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -144,7 +143,7 @@ jobs:
     name: iOS — Staging
     runs-on: macos-latest
     environment: staging
-    if: github.event_name == 'release' || inputs.variant == 'staging'
+    if: github.event_name != 'workflow_dispatch' || inputs.variant == 'staging'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -183,10 +182,13 @@ jobs:
             --export-options-plist=ios/ExportOptions.plist
         working-directory: app
 
+      - name: Resolve IPA path
+        run: echo "IPA_PATH=$(ls app/build/ios/ipa/*.ipa)" >> $GITHUB_ENV
+
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v1
         with:
-          app-path: app/build/ios/ipa/*.ipa
+          app-path: ${{ env.IPA_PATH }}
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
@@ -196,7 +198,7 @@ jobs:
     name: iOS — Production
     runs-on: macos-latest
     environment: production
-    if: github.event_name == 'release' || inputs.variant == 'production'
+    if: github.event_name != 'workflow_dispatch' || inputs.variant == 'production'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -235,10 +237,13 @@ jobs:
             --export-options-plist=ios/ExportOptions.plist
         working-directory: app
 
+      - name: Resolve IPA path
+        run: echo "IPA_PATH=$(ls app/build/ios/ipa/*.ipa)" >> $GITHUB_ENV
+
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v1
         with:
-          app-path: app/build/ios/ipa/*.ipa
+          app-path: ${{ env.IPA_PATH }}
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
