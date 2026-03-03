@@ -101,7 +101,7 @@ jobs:
       # Poll until the background restart.sh process exits, then check its
       # exit code from the file it wrote.
       - name: Wait for test stack
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: |
           STACK_PID=$(cat /tmp/stack_pid)
           echo "Waiting for Docker stack (PID $STACK_PID) to finish…"
