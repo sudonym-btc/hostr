@@ -135,8 +135,6 @@ class Hostr {
     // read/write on a transport that's already been closed, producing a
     // SocketException.
     final ndk = getIt<Ndk>();
-    // ignore: deprecated_member_use_from_same_package
-    await ndk.nwc.disconnectAll();
     await ndk.requests.closeAllSubscription();
     await ndk.destroy();
   }
