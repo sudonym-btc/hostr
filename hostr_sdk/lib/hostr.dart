@@ -128,6 +128,16 @@ class Hostr {
     await evm.dispose();
     await auth.dispose();
     userConfig.dispose();
-    await getIt<Ndk>().destroy();
+
+    // Pre-close NDK subscriptions and NWC connections sequentially before
+    // calling destroy(). NDK's destroy() runs these concurrently with
+    // closeAllTransports(), which can race — a subscription might try to
+    // read/write on a transport that's already been closed, producing a
+    // SocketException.
+    final ndk = getIt<Ndk>();
+    // ignore: deprecated_member_use_from_same_package
+    await ndk.nwc.disconnectAll();
+    await ndk.requests.closeAllSubscription();
+    await ndk.destroy();
   }
 }
