@@ -395,7 +395,9 @@ setup_channels() {
     lightning-cli-sim 2 fundchannel ${LND1_PUB} ${CHANNEL_SIZE} >/dev/null
     lightning-cli-sim 2 fundchannel ${LND2_PUB} ${CHANNEL_SIZE} >/dev/null
 
-    BTC generatetoaddress ${CHANNEL_BLOCK_CONFIRMATIONS} $LND1_ADDR >/dev/null
+    # Mine on Boltz's bitcoind — the funding txs were broadcast by Boltz
+    # nodes and may not have propagated to hostr's mempool yet.
+    run_in_boltz_scripts bitcoin-cli-sim-client generatetoaddress ${CHANNEL_BLOCK_CONFIRMATIONS} $LND1_ADDR >/dev/null
 
     pids=()
     wait_for_channel "lncli-sim 1" "${LND1_PUB}"     & pids+=($!)

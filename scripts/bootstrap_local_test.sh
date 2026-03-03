@@ -86,8 +86,9 @@ bootstrap_local_test() {
     # Gate on external services being *functionally* ready, not just
     # healthcheck-passing.  The Docker healthchecks only confirm ports
     # are open; these verify the APIs / contracts are fully initialised.
+    # Gate on Boltz API being fully initialised — the Docker healthcheck
+    # only confirms the port is open, not that LN backends are connected.
     # wait_for_boltz_api
-    # wait_for_rif_relay_ready
 
     # All container health checks and regtest-start completion are
     # enforced by depends_on conditions in docker-compose.yml, so
