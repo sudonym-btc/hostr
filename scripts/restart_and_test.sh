@@ -21,7 +21,7 @@ bash "$SCRIPT_DIR/restart.sh" test
 echo ""
 echo ">>> Running integration tests..."
 cd "$REPO_ROOT/hostr_sdk"
-dart test test/integration/usecase/evm/swap_out_test.dart \
+dart test test/integration \
     --timeout 120s \
     --concurrency=1 \
     --reporter expanded

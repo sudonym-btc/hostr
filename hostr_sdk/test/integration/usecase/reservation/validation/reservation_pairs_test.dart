@@ -24,7 +24,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:hostr_sdk/datasources/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/main.dart';
@@ -34,6 +33,8 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
+
+import '../../../../support/integration_test_harness.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Constants & shared state
@@ -375,10 +376,22 @@ Uint8List _hexToBytes32(String hex) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 void main() {
+  late IntegrationTestHarness harness;
+
   // Keys used throughout
   final host = MockKeys.hoster;
   final buyer = MockKeys.guest;
   final buyer2 = MockKeys.reviewer;
+
+  setUpAll(() async {
+    harness = await IntegrationTestHarness.create(
+      name: 'hostr_reservation_pairs_it',
+    );
+  });
+
+  tearDownAll(() async {
+    await harness.dispose();
+  });
 
   // ─── Group 1: Pure verification via verifyPair (no infra needed) ───────
 
@@ -609,7 +622,6 @@ void main() {
   group(
     'verifyPair — escrow proof (on-chain)',
     () {
-      late AnvilClient anvil;
       late Web3Client web3;
       late Listing listing;
       late EscrowService escrowService;
@@ -618,10 +630,7 @@ void main() {
       late Nip01Event hosterProfile;
 
       setUpAll(() async {
-        anvil = AnvilClient(
-          rpcUri: Uri.parse('https://anvil.hostr.development'),
-        );
-        web3 = Web3Client('https://anvil.hostr.development', http.Client());
+        web3 = Web3Client(IntegrationTestHarness.anvilRpc, http.Client());
 
         listing = _buildListing(
           host: host,
@@ -642,7 +651,6 @@ void main() {
 
       tearDownAll(() {
         web3.dispose();
-        anvil.close();
       });
 
       test(
@@ -650,7 +658,7 @@ void main() {
         () async {
           // Fund buyer's EVM address
           final buyerEvm = getEvmCredentials(buyer.privateKey!);
-          await anvil.setBalance(
+          await harness.anvil.setBalance(
             address: buyerEvm.address.eip55With0x,
             amountWei: _twoEthWei,
           );
@@ -745,7 +753,7 @@ void main() {
         'EscrowProof.validate checks tx exists on chain',
         () async {
           final buyerEvm = getEvmCredentials(buyer.privateKey!);
-          await anvil.setBalance(
+          await harness.anvil.setBalance(
             address: buyerEvm.address.eip55With0x,
             amountWei: _twoEthWei,
           );
@@ -832,7 +840,7 @@ void main() {
         'escrow deposit with wrong amount — tx exists but amount mismatch',
         () async {
           final buyerEvm = getEvmCredentials(buyer2.privateKey!);
-          await anvil.setBalance(
+          await harness.anvil.setBalance(
             address: buyerEvm.address.eip55With0x,
             amountWei: _twoEthWei,
           );

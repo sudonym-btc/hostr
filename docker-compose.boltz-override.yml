@@ -81,11 +81,11 @@ services:
       anvil:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -s localhost:8090/chain-info"]
-      timeout: 1s
+      test: ["CMD-SHELL", "curl -sf localhost:8090/chain-info | grep -q '\"ready\":true'"]
+      timeout: 2s
       retries: 200
-      interval: 2s
-      start_period: 15s
+      interval: 3s
+      start_period: 20s
     environment:
       - VIRTUAL_HOST=rifrelay.${DOMAIN}
       - VIRTUAL_PORT=8090
