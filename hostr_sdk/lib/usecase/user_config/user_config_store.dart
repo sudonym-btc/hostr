@@ -102,8 +102,8 @@ class UserConfigStore {
   }
 
   /// Dispose the reactive stream. Call on app shutdown.
-  void dispose() {
-    _subject.close();
+  Future<void> dispose() async {
+    await _subject.close();
   }
 
   // ── Internal ────────────────────────────────────────────────────────────

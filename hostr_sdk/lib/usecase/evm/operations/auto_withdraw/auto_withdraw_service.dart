@@ -76,8 +76,8 @@ class AutoWithdrawService {
   }
 
   /// Stop listening. Safe to call even if not started.
-  void stop() {
-    _balanceSub?.cancel();
+  Future<void> stop() async {
+    await _balanceSub?.cancel();
     _balanceSub = null;
     _cooldownTimer?.cancel();
     _cooldownTimer = null;

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/injection.dart';
+import 'package:ndk/ndk.dart' show Ndk;
 
 import 'usecase/main.dart';
 import 'util/custom_logger.dart' show CustomLogger;
@@ -114,18 +115,19 @@ class Hostr {
     });
   }
 
-  void stop() {
-    _authStateSubscription?.cancel();
+  Future<void> stop() async {
+    await _authStateSubscription?.cancel();
   }
 
   Future<void> dispose() async {
-    stop();
-    autoWithdraw.stop();
+    await stop();
+    await autoWithdraw.stop();
     await messaging.threads.close();
     await reservations.dispose();
     await nwc.dispose();
     await evm.dispose();
     await auth.dispose();
     userConfig.dispose();
+    await getIt<Ndk>().destroy();
   }
 }
