@@ -90,10 +90,10 @@ class Threads extends HydratedCubit<List<Message>> {
     return newMessages;
   }
 
-  void stop() {
-    _closeSubscription();
+  Future<void> stop() async {
+    await _closeSubscription();
     for (final thread in threads.values) {
-      thread.close();
+      await thread.close();
     }
     threads.clear();
   }
@@ -101,18 +101,18 @@ class Threads extends HydratedCubit<List<Message>> {
   /// Fully resets messaging state, clearing both in-memory threads and
   /// the persisted [HydratedCubit] storage. Call on sign-out so a
   /// subsequent login starts with a clean slate.
-  void reset() {
-    stop();
+  Future<void> reset() async {
+    await stop();
     emit([]);
-    clear();
+    await clear();
   }
 
-  void _closeSubscription() {
-    _statusSubscription?.cancel();
+  Future<void> _closeSubscription() async {
+    await _statusSubscription?.cancel();
     _statusSubscription = null;
-    _messageSubscription?.cancel();
+    await _messageSubscription?.cancel();
     _messageSubscription = null;
-    subscription?.close();
+    await subscription?.close();
   }
 
   /// Waits for a message with the specified ID to be received.
@@ -196,7 +196,7 @@ class Threads extends HydratedCubit<List<Message>> {
   @override
   Future<void> close() async {
     // @todo are the right close methods called here?
-    stop();
+    await stop();
     for (final thread in threads.values) {
       await thread.close();
     }
