@@ -36,12 +36,17 @@ class GateHarness {
   /// How many sats of fees the fake "estimate" returns.
   int fakeFeeSats = 1000;
 
+  /// The minimum balance (in sats) per address before auto-withdrawal triggers.
+  /// Mirrors [HostrConfig.autoWithdrawMinimumSats].
+  int minimumSats = 10000;
+
   int swapOutCallCount = 0;
   bool get swapOutWasCalled => swapOutCallCount > 0;
 
   Future<void> setUp({
     HostrUserConfig initialConfig = const HostrUserConfig(),
     BitcoinAmount? initialBalance,
+    int minimumSats = 10000,
   }) async {
     storage = InMemoryKeyValueStorage();
     final mockAuth = MockAuth();
@@ -53,6 +58,7 @@ class GateHarness {
 
     balance = initialBalance ?? BitcoinAmount.zero();
     swapOutCallCount = 0;
+    this.minimumSats = minimumSats;
 
     await userConfigStore.initialize();
     await userConfigStore.update(initialConfig);
@@ -76,10 +82,7 @@ class GateHarness {
     }
 
     // Gate 4: Minimum balance?
-    final minimumBalance = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      config.autoWithdrawMinimumSats,
-    );
+    final minimumBalance = BitcoinAmount.fromInt(BitcoinUnit.sat, minimumSats);
     if (balance < minimumBalance) return false;
 
     // Gate 5: Fee ratio?
@@ -295,7 +298,7 @@ void main() {
 
     test('skips when balance is below minimum', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 10000),
+        minimumSats: 10000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
       );
 
@@ -304,7 +307,7 @@ void main() {
 
     test('proceeds with exact minimum balance', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 10000),
+        minimumSats: 10000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
       );
 
@@ -313,7 +316,7 @@ void main() {
 
     test('proceeds when well above minimum', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 10000),
+        minimumSats: 10000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000),
       );
 
@@ -324,7 +327,7 @@ void main() {
   group('Gate 5: fee ratio', () {
     test('skips when fees exceed balance (net zero)', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 500),
+        minimumSats: 500,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 1000),
       );
       h.fakeFeeSats = 1000; // fees == balance
@@ -334,7 +337,7 @@ void main() {
 
     test('skips when fees exceed balance (net negative)', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 500),
+        minimumSats: 500,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 800),
       );
       h.fakeFeeSats = 1000;
@@ -344,7 +347,7 @@ void main() {
 
     test('skips when fee ratio exceeds max', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 1000),
+        minimumSats: 1000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
       );
       h.fakeFeeSats = 1000; // 1000/5000 = 20% > 10%
@@ -354,7 +357,7 @@ void main() {
 
     test('proceeds when fee ratio is at the limit', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 1000),
+        minimumSats: 1000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
       );
       h.fakeFeeSats = 1000; // 1000/10000 = 10% == 10%
@@ -364,7 +367,7 @@ void main() {
 
     test('proceeds when fee ratio is below max', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 1000),
+        minimumSats: 1000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
       );
       h.fakeFeeSats = 1000; // 1000/50000 = 2%
@@ -374,7 +377,7 @@ void main() {
 
     test('proceeds with low fee ratio', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 1000),
+        minimumSats: 1000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 20000),
       );
       h.fakeFeeSats = 1000; // 1000/20000 = 5% < 10%
@@ -405,17 +408,14 @@ void main() {
 
     test('respects minimum sats change', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(autoWithdrawMinimumSats: 10000),
+        minimumSats: 10000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 15000),
       );
 
       expect(await h.runCheck(), isTrue);
 
       // Raise minimum above current balance
-      final config = await h.userConfigStore.state;
-      await h.userConfigStore.update(
-        config.copyWith(autoWithdrawMinimumSats: 20000),
-      );
+      h.minimumSats = 20000;
 
       expect(await h.runCheck(), isFalse);
     });
@@ -424,10 +424,8 @@ void main() {
   group('combined gates', () {
     test('all gates failing returns false', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(
-          autoWithdrawEnabled: false,
-          autoWithdrawMinimumSats: 100000,
-        ),
+        initialConfig: const HostrUserConfig(autoWithdrawEnabled: false),
+        minimumSats: 100000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 100),
       );
 
@@ -447,10 +445,8 @@ void main() {
 
     test('clearing all blockers allows withdrawal', () async {
       await h.setUp(
-        initialConfig: const HostrUserConfig(
-          autoWithdrawEnabled: false,
-          autoWithdrawMinimumSats: 10000,
-        ),
+        initialConfig: const HostrUserConfig(autoWithdrawEnabled: false),
+        minimumSats: 10000,
         initialBalance: BitcoinAmount.fromInt(BitcoinUnit.sat, 5000),
       );
 
@@ -469,10 +465,7 @@ void main() {
 
       // Clear all blockers
       await h.userConfigStore.update(
-        const HostrUserConfig(
-          autoWithdrawEnabled: true,
-          autoWithdrawMinimumSats: 10000,
-        ),
+        const HostrUserConfig(autoWithdrawEnabled: true),
       );
       await h.stateStore.write('escrow_fund', 'trade-1', {
         'id': 'trade-1',

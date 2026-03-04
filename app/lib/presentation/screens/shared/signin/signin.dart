@@ -1,8 +1,8 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
@@ -25,8 +25,15 @@ class SignInScreen extends StatefulWidget {
 }
 
 class SignInScreenState extends State<SignInScreen> {
+  final _controller = TextEditingController();
   String _private = '';
   String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   /// Returns true if the current input looks like a valid nsec, hex key, or mnemonic.
   bool get _isValidInput {
@@ -75,7 +82,7 @@ class SignInScreenState extends State<SignInScreen> {
     if (widget.onSuccess != null) {
       widget.onSuccess!();
     } else {
-      router.replaceAll([OnboardingRoute()]);
+      router.replaceAll([StartupGateRoute()]);
     }
   }
 
@@ -101,7 +108,7 @@ class SignInScreenState extends State<SignInScreen> {
     if (widget.onSuccess != null) {
       widget.onSuccess!();
     } else {
-      router.replaceAll([OnboardingRoute()]);
+      router.replaceAll([StartupGateRoute()]);
     }
   }
 
@@ -120,11 +127,16 @@ class SignInScreenState extends State<SignInScreen> {
                 children: [
                   const Spacer(flex: 2),
                   // ── Logo ──
-                  SvgPicture.asset('assets/images/logo/logo.svg', height: 80),
+                  Image.asset(
+                    'assets/images/logo/generated/logo_base_1024.png',
+                    width: 120,
+                    height: 120,
+                  ),
                   Gap.vertical.custom(40),
                   // ── Private key field ──
                   TextFormField(
                     key: const ValueKey('key'),
+                    controller: _controller,
                     onChanged: (value) {
                       setState(() {
                         _private = value;
@@ -133,9 +145,24 @@ class SignInScreenState extends State<SignInScreen> {
                     },
                     maxLines: null,
                     decoration: InputDecoration(
-                      hintText: 'nsec or recovery phrase',
+                      hintText: 'nsec',
                       errorText: _error,
                       prefixIcon: const Icon(Icons.key),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.paste),
+                        onPressed: () async {
+                          final data = await Clipboard.getData(
+                            Clipboard.kTextPlain,
+                          );
+                          if (data?.text != null) {
+                            _controller.text = data!.text!;
+                            setState(() {
+                              _private = data.text!;
+                              _error = null;
+                            });
+                          }
+                        },
+                      ),
                     ),
                   ),
                   Gap.vertical.custom(kSpace5),
@@ -152,7 +179,7 @@ class SignInScreenState extends State<SignInScreen> {
                   // ── OR divider ──
                   Row(
                     children: [
-                      const Expanded(child: Divider()),
+                      const Expanded(child: SizedBox.shrink()),
                       CustomPadding.horizontal.md(
                         child: Text(
                           'OR',
@@ -161,7 +188,7 @@ class SignInScreenState extends State<SignInScreen> {
                           ),
                         ),
                       ),
-                      const Expanded(child: Divider()),
+                      const Expanded(child: SizedBox.shrink()),
                     ],
                   ),
                   Gap.vertical.md(),

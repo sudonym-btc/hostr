@@ -5,7 +5,7 @@ import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 /// Executes [action] immediately if the user is authenticated.
-/// Otherwise pushes the sign-in → onboarding flow and then
+/// Otherwise pushes the sign-in → startup gate flow and then
 /// executes [action] once complete.
 ///
 /// The current page stays in the navigation stack so the user
@@ -33,10 +33,10 @@ Future<void> authGatedAction(
   AutoRouter.of(context).push(
     SignInRoute(
       onSuccess: () {
-        // After sign-in, replace sign-in with onboarding.
-        // Onboarding will pop back when `popOnComplete` is true,
+        // After sign-in, replace sign-in with the startup gate.
+        // StartupGate will pop back when `popOnComplete` is true,
         // returning the user to their original page.
-        AutoRouter.of(context).replace(OnboardingRoute(popOnComplete: true));
+        AutoRouter.of(context).replace(StartupGateRoute(popOnComplete: true));
       },
     ),
   );

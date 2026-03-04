@@ -78,7 +78,7 @@ class _MyAppState extends State<MyApp> {
 
 class MyObserver extends AutoRouterObserver {
   /// Broadcast stream that fires every time a route is popped.
-  /// Screens like [HomeScreen] listen to this to restore the navbar.
+  /// Screens like [AppShellScreen] listen to this to restore the navbar.
   static final StreamController<void> _onPop =
       StreamController<void>.broadcast();
   static Stream<void> get onPop => _onPop.stream;

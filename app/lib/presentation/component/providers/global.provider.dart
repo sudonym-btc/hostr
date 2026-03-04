@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/app.controller.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
@@ -15,20 +14,9 @@ class GlobalProviderWidget extends StatefulWidget {
 }
 
 class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
-  AppController? appController;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      appController = AppController()..start();
-    });
-  }
-
   @override
   void dispose() {
-    appController?.dispose();
+    getIt<Hostr>().dispose();
     super.dispose();
   }
 

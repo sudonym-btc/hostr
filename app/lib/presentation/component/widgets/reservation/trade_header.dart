@@ -173,8 +173,8 @@ class TradeHeaderView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          formatAmount(amount!),
-          style: Theme.of(context).textTheme.titleMedium,
+          formatAmount(amount!, exact: false),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
         // Gap.vertical.xs(),
         PaymentStatusChip(state: paymentEvents.lastOrNull),

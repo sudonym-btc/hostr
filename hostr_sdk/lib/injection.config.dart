@@ -394,6 +394,15 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i520.CustomLogger>(),
       ),
     );
+    gh.singleton<_i503.AutoWithdrawService>(
+      () => _i503.AutoWithdrawService(
+        gh<_i305.Evm>(),
+        gh<_i842.OperationStateStore>(),
+        gh<_i794.UserConfigStore>(),
+        gh<_i910.HostrConfig>(),
+        gh<_i331.CustomLogger>(),
+      ),
+    );
     gh.singleton<_i966.ReservationPairs>(
       () => _i966.ReservationPairs(
         reservations: gh<_i326.Reservations>(),
@@ -485,6 +494,19 @@ extension GetItInjectableX on _i174.GetIt {
         payments: gh<_i226.Payments>(),
       ),
     );
+    gh.singleton<_i843.BackgroundWorker>(
+      () => _i843.BackgroundWorker(
+        auth: gh<_i1000.Auth>(),
+        threads: gh<_i768.Threads>(),
+        evm: gh<_i305.Evm>(),
+        autoWithdraw: gh<_i503.AutoWithdrawService>(),
+        reservations: gh<_i326.Reservations>(),
+        reviews: gh<_i660.Reviews>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+    );
     gh.factoryParam<
       _i654.EscrowClaimOperation,
       _i520.EscrowClaimParams,
@@ -496,14 +518,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i520.CustomLogger>(),
         gh<_i520.Rootstock>(),
         params,
-      ),
-    );
-    gh.singleton<_i503.AutoWithdrawService>(
-      () => _i503.AutoWithdrawService(
-        gh<_i305.Evm>(),
-        gh<_i842.OperationStateStore>(),
-        gh<_i794.UserConfigStore>(),
-        gh<_i331.CustomLogger>(),
       ),
     );
     gh.factoryParam<
@@ -519,19 +533,6 @@ extension GetItInjectableX on _i174.GetIt {
         quoteService: gh<_i520.SwapOutQuoteService>(),
         payments: gh<_i520.Payments>(),
         params: params,
-      ),
-    );
-    gh.singleton<_i843.BackgroundWorker>(
-      () => _i843.BackgroundWorker(
-        auth: gh<_i1000.Auth>(),
-        threads: gh<_i768.Threads>(),
-        evm: gh<_i305.Evm>(),
-        autoWithdraw: gh<_i503.AutoWithdrawService>(),
-        reservations: gh<_i326.Reservations>(),
-        reviews: gh<_i660.Reviews>(),
-        listings: gh<_i906.Listings>(),
-        metadata: gh<_i149.MetadataUseCase>(),
-        logger: gh<_i372.CustomLogger>(),
       ),
     );
     return this;

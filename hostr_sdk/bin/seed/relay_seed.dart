@@ -323,6 +323,8 @@ class RelaySeeder {
           : null;
 
       return {
+        'nsec': user.keyPair.privateKeyBech32,
+        'npub': user.keyPair.publicKeyBech32,
         'hasEvm': user.hasEvm,
         'evmAddress': evmAddress,
         'reservations': {'escrow': <String>[], 'zap': <String>[]},

@@ -12,8 +12,11 @@ class Hostr {
   final CustomLogger logger;
   Hostr({required this.config, String environment = Env.prod})
     : logger = config.logger {
+    print('[NDK-TRACE] ${DateTime.now()} Hostr constructor (env=$environment)');
     configureInjection(environment, config: config);
+    print('[NDK-TRACE] ${DateTime.now()} Hostr constructor complete');
   }
+  Ndk get ndk => getIt<Ndk>();
   Auth get auth => getIt<Auth>();
   Requests get requests => getIt<Requests>();
   MetadataUseCase get metadata => getIt<MetadataUseCase>();
@@ -42,17 +45,53 @@ class Hostr {
   BlossomUseCase get blossom => getIt<BlossomUseCase>();
   UserConfigStore get userConfig => getIt<UserConfigStore>();
   AutoWithdrawService get autoWithdraw => getIt<AutoWithdrawService>();
+  OperationStateStore get operationStateStore => getIt<OperationStateStore>();
   BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
 
   StreamSubscription? _authStateSubscription;
+  bool _authInitialized = false;
+  bool _connected = false;
 
-  void start() {
-    stop();
+  /// Loads stored user config and restores auth keys.
+  ///
+  /// This is fast and network-free — safe to call before `runApp()`.
+  /// Must be called exactly once, before [connect].
+  Future<void> initAuth() async {
+    if (_authInitialized) return;
+    _authInitialized = true;
+
+    print('[NDK-TRACE] ${DateTime.now()} Hostr.initAuth() called');
 
     // Ensure user config is loaded from disk before anything else.
-    userConfig.initialize();
+    await userConfig.initialize();
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Hostr.initAuth() → userConfig.initialize() complete',
+    );
 
-    auth.init();
+    // Restore stored keys and sync NDK accounts.
+    await auth.init();
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Hostr.initAuth() → auth.init() complete',
+    );
+  }
+
+  /// Connects to bootstrap relays and starts the auth-state listener.
+  ///
+  /// Call this from the startup gate widget — it blocks on the relay
+  /// handshake and can take 300 ms – 15 s depending on the network.
+  /// Throws if no relay connects within the timeout.
+  ///
+  /// Safe to call more than once — subsequent calls are no-ops.
+  Future<void> connect() async {
+    if (_connected) return;
+    _connected = true;
+    await _stopAuthListener();
+
+    print('[NDK-TRACE] ${DateTime.now()} Hostr.connect() → relays.connect()');
+    await relays.connect();
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Hostr.connect() → relays.connect() complete',
+    );
 
     _authStateSubscription = auth.authState.listen((state) async {
       logger.d('Auth state changed: $state');
@@ -115,12 +154,24 @@ class Hostr {
     });
   }
 
-  Future<void> stop() async {
+  /// Legacy single-call entry point. Calls [initAuth] then [connect].
+  @Deprecated('Use initAuth() + connect() instead')
+  Future<void> start() async {
+    await initAuth();
+    await connect();
+  }
+
+  Future<void> _stopAuthListener() async {
+    print('[NDK-TRACE] ${DateTime.now()} Hostr._stopAuthListener() called');
     await _authStateSubscription?.cancel();
+    print('[NDK-TRACE] ${DateTime.now()} Hostr._stopAuthListener() complete');
   }
 
   Future<void> dispose() async {
-    await stop();
+    print('[NDK-TRACE] ${DateTime.now()} Hostr.dispose() called');
+    _authInitialized = false;
+    _connected = false;
+    await _stopAuthListener();
     await autoWithdraw.stop();
     await messaging.threads.close();
     await reservations.dispose();
@@ -135,7 +186,16 @@ class Hostr {
     // read/write on a transport that's already been closed, producing a
     // SocketException.
     final ndk = getIt<Ndk>();
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Hostr.dispose() → ndk.requests.closeAllSubscription() (ndk=${ndk.hashCode})',
+    );
     await ndk.requests.closeAllSubscription();
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Hostr.dispose() → closeAllSubscription complete',
+    );
+
+    print('[NDK-TRACE] ${DateTime.now()} Hostr.dispose() → ndk.destroy()');
     await ndk.destroy();
+    print('[NDK-TRACE] ${DateTime.now()} Hostr.dispose() complete');
   }
 }

@@ -117,7 +117,7 @@ class DevWidget extends StatelessWidget {
         FilledButton(
           child: const Text('Clear Operation Stores'),
           onPressed: () async {
-            final store = getIt<OperationStateStore>();
+            final store = getIt<Hostr>().operationStateStore;
 
             // Remove all swap-in, swap-out, and escrow fund entries
             for (final ns in ['swap_in', 'swap_out', 'escrow_fund']) {

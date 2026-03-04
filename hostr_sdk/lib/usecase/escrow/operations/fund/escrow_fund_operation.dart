@@ -216,7 +216,9 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
       final swapJson = await _stateStore.read('swap_in', data.swapId!);
       if (swapJson != null) {
         final swapState = SwapInState.fromJson(swapJson);
-        if (swapState is SwapInCompleted) {
+        if (swapState is SwapInClaimed ||
+            swapState is SwapInClaimTxInMempool ||
+            swapState is SwapInCompleted) {
           logger.i(
             'EscrowFund: swap ${data.swapId} completed, proceeding to deposit',
           );
@@ -441,6 +443,14 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
       });
 
       try {
+        // @todo: Stop once the claim tx is broadcast — we don't need to wait for
+        // on-chain confirmation before issuing the escrow deposit, as our RPC should have our updated balance
+
+        //         Since it's atomic, the RPC node's view depends on the block tag:
+
+        // "latest" (default): Balance updates only after the block is mined (~30s on Rootstock)
+        // "pending": Balance should reflect mempool tx effects, but this is unreliable — not all nodes implement it, and internal transfers from contract calls may not be traced in the pending state
+
         await swap.execute();
       } finally {
         await sub.cancel();

@@ -610,6 +610,12 @@ abstract class AppLocalizations {
   /// **'Swap claimed, finalising...'**
   String get swapStatusClaimedFinalising;
 
+  /// No description provided for @swapStatusClaimTxInMempool.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim transaction in mempool...'**
+  String get swapStatusClaimTxInMempool;
+
   /// No description provided for @swapStatusRequestCreated.
   ///
   /// In en, this message translates to:

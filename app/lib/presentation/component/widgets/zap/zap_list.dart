@@ -3,6 +3,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/component/widgets/zap/zap_receipt.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:ndk/ndk.dart';
 
 class ZapListWidget extends StatefulWidget {
@@ -28,7 +29,7 @@ class ZapListWidgetState extends State<ZapListWidget> {
   @override
   void initState() {
     super.initState();
-    zapStream = getIt<Ndk>().zaps.fetchZappedReceipts(
+    zapStream = getIt<Hostr>().ndk.zaps.fetchZappedReceipts(
       pubKey: widget.pubkey,
       eventId: widget.eventId,
     );

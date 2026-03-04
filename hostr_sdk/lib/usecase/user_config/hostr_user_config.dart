@@ -25,14 +25,9 @@ class HostrUserConfig extends Equatable {
   /// Whether EVM auto-withdrawal is enabled.
   final bool autoWithdrawEnabled;
 
-  /// Minimum EVM balance (in sats) before auto-withdrawal triggers.
-  /// Must be above swap-out fees to avoid losing money on small amounts.
-  final int autoWithdrawMinimumSats;
-
   const HostrUserConfig({
     this.mode = AppMode.guest,
     this.autoWithdrawEnabled = true,
-    this.autoWithdrawMinimumSats = 10000,
   });
 
   /// Default config for a fresh install.
@@ -40,16 +35,10 @@ class HostrUserConfig extends Equatable {
 
   // ── copyWith ────────────────────────────────────────────────────────────
 
-  HostrUserConfig copyWith({
-    AppMode? mode,
-    bool? autoWithdrawEnabled,
-    int? autoWithdrawMinimumSats,
-  }) {
+  HostrUserConfig copyWith({AppMode? mode, bool? autoWithdrawEnabled}) {
     return HostrUserConfig(
       mode: mode ?? this.mode,
       autoWithdrawEnabled: autoWithdrawEnabled ?? this.autoWithdrawEnabled,
-      autoWithdrawMinimumSats:
-          autoWithdrawMinimumSats ?? this.autoWithdrawMinimumSats,
     );
   }
 
@@ -59,14 +48,12 @@ class HostrUserConfig extends Equatable {
     return HostrUserConfig(
       mode: AppMode.fromString(json['mode'] as String?),
       autoWithdrawEnabled: json['autoWithdrawEnabled'] as bool? ?? true,
-      autoWithdrawMinimumSats: json['autoWithdrawMinimumSats'] as int? ?? 10000,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'mode': mode.name,
     'autoWithdrawEnabled': autoWithdrawEnabled,
-    'autoWithdrawMinimumSats': autoWithdrawMinimumSats,
   };
 
   // ── Convenience getters ─────────────────────────────────────────────────
@@ -75,16 +62,11 @@ class HostrUserConfig extends Equatable {
   bool get isGuest => mode == AppMode.guest;
 
   @override
-  List<Object?> get props => [
-    mode,
-    autoWithdrawEnabled,
-    autoWithdrawMinimumSats,
-  ];
+  List<Object?> get props => [mode, autoWithdrawEnabled];
 
   @override
   String toString() =>
       'HostrUserConfig('
       'mode: ${mode.name}, '
-      'autoWithdraw: $autoWithdrawEnabled, '
-      'minSats: $autoWithdrawMinimumSats)';
+      'autoWithdraw: $autoWithdrawEnabled)';
 }

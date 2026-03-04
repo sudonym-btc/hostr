@@ -52,10 +52,7 @@ dependencies:
     path: ../models
   hostr_sdk:
     path: ../hostr_sdk
-  ndk:
-    git:
-      url: https://github.com/relaystr/ndk.git 
-      path: packages/ndk 
+  ndk: ^0.7.1-dev.19
   workmanager: ^0.9.0+3
   permission_handler: ^12.0.1
   shared_preferences: ^2.5.4

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../../../../config.dart';
 import '../../../../util/bitcoin_amount.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../user_config/user_config_store.dart';
@@ -18,7 +19,9 @@ import '../swap_out/swap_out_state.dart';
 /// 1. **Enabled** — `HostrUserConfig.autoWithdrawEnabled` is `true`.
 /// 2. **No escrow locks** — [OperationStateStore] has no non-terminal escrow fund states.
 /// 3. **No active swaps** — [OperationStateStore] has no non-terminal swap states.
-/// 4. **Minimum balance** — balance ≥ `autoWithdrawMinimumSats`.
+/// 4. **Minimum balance (per address)** — each individual chain address's
+///    balance ≥ [HostrConfig.autoWithdrawMinimumSats] (checked via
+///    `getAddressesWithBalance`).
 /// 5. **Fee ratio** — estimated fees / balance ≤ [maxFeeRatio].
 ///
 /// The service debounces balance changes ([debounceDuration]) and enters a
@@ -36,6 +39,7 @@ class AutoWithdrawService {
   final Evm _evm;
   final OperationStateStore _stateStore;
   final UserConfigStore _userConfigStore;
+  final HostrConfig _hostrConfig;
   final CustomLogger _logger;
 
   StreamSubscription<BitcoinAmount>? _balanceSub;
@@ -46,6 +50,7 @@ class AutoWithdrawService {
     this._evm,
     this._stateStore,
     this._userConfigStore,
+    this._hostrConfig,
     this._logger,
   );
 
@@ -123,29 +128,55 @@ class AutoWithdrawService {
       return;
     }
 
-    // Gate 4: Balance above minimum?
     final minimumBalance = BitcoinAmount.fromInt(
       BitcoinUnit.sat,
-      config.autoWithdrawMinimumSats,
+      _hostrConfig.autoWithdrawMinimumSats,
     );
-    if (balance < minimumBalance) {
-      _logger.d(
-        'AutoWithdraw skipped: balance ${balance.getInSats} sats '
-        'below minimum ${config.autoWithdrawMinimumSats}',
-      );
-      return;
-    }
 
     // Iterate each chain independently (sequential to avoid NWC invoice conflicts)
     for (final chain in _evm.supportedEvmChains) {
       if (_swapInProgress) break;
 
       try {
-        // Get all swap-out operations (one per funded address).
+        // Get individual address balances for this chain.
+        final fundedAddresses = await chain.getAddressesWithBalance();
+
+        // Gate 4: Apply minimum balance per individual address.
+        final qualifyingIndices = <int>{};
+        for (final entry in fundedAddresses) {
+          if (entry.balance >= minimumBalance) {
+            qualifyingIndices.add(entry.accountIndex);
+            _logger.d(
+              'AutoWithdraw: address index ${entry.accountIndex} on '
+              '${chain.runtimeType} qualifies with '
+              '${entry.balance.getInSats} sats',
+            );
+          } else {
+            _logger.d(
+              'AutoWithdraw skipped address index ${entry.accountIndex} on '
+              '${chain.runtimeType}: balance ${entry.balance.getInSats} sats '
+              'below minimum ${_hostrConfig.autoWithdrawMinimumSats}',
+            );
+          }
+        }
+
+        if (qualifyingIndices.isEmpty) {
+          _logger.d(
+            'AutoWithdraw: no qualifying addresses on ${chain.runtimeType}',
+          );
+          continue;
+        }
+
+        // Create swap-out operations for all funded addresses, then filter
+        // to only those whose individual balance met the minimum threshold.
         final swapOps = await chain.swapOutAllAddresses();
 
         for (final swapOp in swapOps) {
           if (_swapInProgress) break;
+
+          if (!qualifyingIndices.contains(swapOp.params.accountIndex)) {
+            continue;
+          }
 
           try {
             // Gate 5: Fee ratio acceptable?

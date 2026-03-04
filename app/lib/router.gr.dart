@@ -11,17 +11,17 @@
 part of 'router.dart';
 
 /// generated route for
-/// [BookingsScreen]
-class BookingsRoute extends PageRouteInfo<void> {
-  const BookingsRoute({List<PageRouteInfo>? children})
-    : super(BookingsRoute.name, initialChildren: children);
+/// [AppShellScreen]
+class AppShellRoute extends PageRouteInfo<void> {
+  const AppShellRoute({List<PageRouteInfo>? children})
+    : super(AppShellRoute.name, initialChildren: children);
 
-  static const String name = 'BookingsRoute';
+  static const String name = 'AppShellRoute';
 
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      return const BookingsScreen();
+      return const AppShellScreen();
     },
   );
 }
@@ -130,22 +130,6 @@ class FiltersRouteArgs {
 
   @override
   int get hashCode => asBottomSheet.hashCode;
-}
-
-/// generated route for
-/// [HomeScreen]
-class HomeRoute extends PageRouteInfo<void> {
-  const HomeRoute({List<PageRouteInfo>? children})
-    : super(HomeRoute.name, initialChildren: children);
-
-  static const String name = 'HomeRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      return const HomeScreen();
-    },
-  );
 }
 
 /// generated route for
@@ -259,55 +243,6 @@ class MyListingsRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [OnboardingScreen]
-class OnboardingRoute extends PageRouteInfo<OnboardingRouteArgs> {
-  OnboardingRoute({
-    Key? key,
-    bool popOnComplete = false,
-    List<PageRouteInfo>? children,
-  }) : super(
-         OnboardingRoute.name,
-         args: OnboardingRouteArgs(key: key, popOnComplete: popOnComplete),
-         initialChildren: children,
-       );
-
-  static const String name = 'OnboardingRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      final args = data.argsAs<OnboardingRouteArgs>(
-        orElse: () => const OnboardingRouteArgs(),
-      );
-      return OnboardingScreen(key: args.key, popOnComplete: args.popOnComplete);
-    },
-  );
-}
-
-class OnboardingRouteArgs {
-  const OnboardingRouteArgs({this.key, this.popOnComplete = false});
-
-  final Key? key;
-
-  final bool popOnComplete;
-
-  @override
-  String toString() {
-    return 'OnboardingRouteArgs{key: $key, popOnComplete: $popOnComplete}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! OnboardingRouteArgs) return false;
-    return key == other.key && popOnComplete == other.popOnComplete;
-  }
-
-  @override
-  int get hashCode => key.hashCode ^ popOnComplete.hashCode;
-}
-
-/// generated route for
 /// [ProfileScreen]
 class ProfileRoute extends PageRouteInfo<void> {
   const ProfileRoute({List<PageRouteInfo>? children})
@@ -397,6 +332,58 @@ class SignInRouteArgs {
 
   @override
   int get hashCode => onSuccess.hashCode;
+}
+
+/// generated route for
+/// [StartupGateScreen]
+class StartupGateRoute extends PageRouteInfo<StartupGateRouteArgs> {
+  StartupGateRoute({
+    Key? key,
+    bool popOnComplete = false,
+    List<PageRouteInfo>? children,
+  }) : super(
+         StartupGateRoute.name,
+         args: StartupGateRouteArgs(key: key, popOnComplete: popOnComplete),
+         initialChildren: children,
+       );
+
+  static const String name = 'StartupGateRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<StartupGateRouteArgs>(
+        orElse: () => const StartupGateRouteArgs(),
+      );
+      return StartupGateScreen(
+        key: args.key,
+        popOnComplete: args.popOnComplete,
+      );
+    },
+  );
+}
+
+class StartupGateRouteArgs {
+  const StartupGateRouteArgs({this.key, this.popOnComplete = false});
+
+  final Key? key;
+
+  final bool popOnComplete;
+
+  @override
+  String toString() {
+    return 'StartupGateRouteArgs{key: $key, popOnComplete: $popOnComplete}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! StartupGateRouteArgs) return false;
+    return key == other.key && popOnComplete == other.popOnComplete;
+  }
+
+  @override
+  int get hashCode => key.hashCode ^ popOnComplete.hashCode;
 }
 
 /// generated route for

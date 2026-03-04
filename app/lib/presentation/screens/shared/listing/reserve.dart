@@ -116,9 +116,11 @@ Future<void> selectDates(
 }) async {
   final picked = await showDateRangePicker(
     builder: (context, child) {
-      return Theme(
-        data: Theme.of(context), // Reset to default light theme
-        child: child!,
+      return MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(padding: MediaQuery.of(context).padding.copyWith(bottom: 0)),
+        child: Theme(data: Theme.of(context), child: child!),
       );
     },
     context: context,

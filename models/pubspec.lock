@@ -316,12 +316,11 @@ packages:
   ndk:
     dependency: "direct main"
     description:
-      path: "packages/ndk"
-      ref: HEAD
-      resolved-ref: "702e5ddcca1c41d1de259cd52732c1fea63dceec"
-      url: "https://github.com/relaystr/ndk.git"
-    source: git
-    version: "0.7.1-dev.12"
+      name: ndk
+      sha256: "95f535cdc5b8c2fa730b48dd3123ea03a9c545629429b2422e552f150f2d7001"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.1-dev.19"
   node_preamble:
     dependency: transitive
     description:

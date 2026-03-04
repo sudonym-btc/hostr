@@ -14,7 +14,8 @@ import 'main.directories.g.dart';
 import 'seed_data.dart';
 
 void main() async {
-  await setup(Env.mock); // Call the setup function to register dependencies
+  await initCore(Env.mock);
+  await initApp();
   await initSeedData();
   runApp(const WidgetbookApp());
 }
