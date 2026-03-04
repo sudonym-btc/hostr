@@ -41,6 +41,7 @@ class ValidatedStreamWithStatus<T> {
   }
 
   void setSnapshot(List<Validation<T>> snapshot) {
+    if (_listSubject.isClosed) return;
     _listSubject.add(List.unmodifiable(snapshot));
   }
 

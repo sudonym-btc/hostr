@@ -83,14 +83,14 @@ class TradeHeaderView extends StatelessWidget {
         ),
         shape: const StadiumBorder(),
       ),
-      TradeAvailability.unavailable => Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          availabilityReason ?? 'This reservation is not available.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.error,
-          ),
+      TradeAvailability.unavailable => Chip(
+        label: const Text('Unavailable'),
+        backgroundColor: Colors.transparent,
+        labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.error,
         ),
+        side: BorderSide(color: Theme.of(context).colorScheme.error),
+        shape: const StadiumBorder(),
       ),
       TradeAvailability.invalidReservation => Padding(
         padding: const EdgeInsets.only(top: 4),
@@ -247,8 +247,34 @@ class TradeHeaderView extends StatelessWidget {
       );
 
   Widget _cancelButton(BuildContext context) => OutlinedButton(
-    onPressed: () =>
-        context.read<ThreadCubit>().thread.trade!.execute(TradeAction.cancel),
+    onPressed: () {
+      showAppModal(
+        context,
+        child: ModalBottomSheet(
+          title: AppLocalizations.of(context)!.cancelReservation,
+          subtitle: AppLocalizations.of(context)!.areYouSure,
+          content: const SizedBox.shrink(),
+          buttons: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.read<ThreadCubit>().thread.trade!.execute(
+                    TradeAction.cancel,
+                  );
+                },
+                child: Text(AppLocalizations.of(context)!.ok),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
     style: OutlinedButton.styleFrom(
       foregroundColor: Theme.of(context).colorScheme.error,
       side: BorderSide(color: Theme.of(context).colorScheme.error),

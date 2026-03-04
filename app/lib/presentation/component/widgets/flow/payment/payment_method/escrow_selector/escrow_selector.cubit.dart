@@ -40,6 +40,7 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
   void changeSelection(EscrowService escrow) {
     if (state is EscrowSelectorLoaded) {
       final loaded = state as EscrowSelectorLoaded;
+      if (loaded.selectedEscrow?.pubKey == escrow.pubKey) return;
       emit(EscrowSelectorLoaded(selectedEscrow: escrow, result: loaded.result));
     }
   }

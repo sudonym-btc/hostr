@@ -98,12 +98,13 @@ class ImageUpload extends StatelessWidget {
                       return Stack(
                         fit: StackFit.expand,
                         children: [
-                          image.path != null
-                              ? BlossomImage(image: image.path!, pubkey: pubkey)
-                              : Image.file(
-                                  File(image.file!.path),
-                                  fit: BoxFit.cover,
-                                ),
+                          if (image.file != null)
+                            Image.file(
+                              File(image.file!.path),
+                              fit: BoxFit.cover,
+                            ),
+                          if (image.file == null && image.path != null)
+                            BlossomImage(image: image.path!, pubkey: pubkey),
                           if (uploading)
                             Positioned.fill(
                               child: const _UploadShimmerOverlay(),

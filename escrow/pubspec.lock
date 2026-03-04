@@ -81,6 +81,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  build_cli_annotations:
+    dependency: transitive
+    description:
+      name: build_cli_annotations
+      sha256: e563c2e01de8974566a1998410d3f6f03521788160a02503b0b1f1a46c7b3d95
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.1"
   characters:
     dependency: transitive
     description:
@@ -138,7 +146,7 @@ packages:
     source: hosted
     version: "1.15.0"
   crypto:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: crypto
       sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
@@ -185,6 +193,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.3"
+  eip712:
+    dependency: transitive
+    description:
+      name: eip712
+      sha256: "3573d449fc2b5372f2a3644aa569aee76923a751faff65769a7c06da2872c68a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   elliptic:
     dependency: transitive
     description:
@@ -233,6 +249,27 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  flutter:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
+  flutter_rust_bridge:
+    dependency: transitive
+    description:
+      name: flutter_rust_bridge
+      sha256: "37ef40bc6f863652e865f0b2563ea07f0d3c58d8efad803cc01933a4b2ee067e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.11.1"
+  freezed_annotation:
+    dependency: transitive
+    description:
+      name: freezed_annotation
+      sha256: "7294967ff0a6d98638e7acb774aac3af2550777accd8149c90af5b014e6d44d8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0"
   frontend_server_client:
     dependency: transitive
     description:
@@ -432,6 +469,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.12.18"
+  material_color_utilities:
+    dependency: transitive
+    description:
+      name: material_color_utilities
+      sha256: "9c337007e82b1889149c82ed242ed1cb24a66044e30979c44912381e9be4c48b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.13.0"
   meta:
     dependency: transitive
     description:
@@ -458,12 +503,19 @@ packages:
   ndk:
     dependency: "direct main"
     description:
-      path: "packages/ndk"
-      ref: HEAD
-      resolved-ref: "702e5ddcca1c41d1de259cd52732c1fea63dceec"
-      url: "https://github.com/relaystr/ndk.git"
-    source: git
-    version: "0.7.1-dev.12"
+      name: ndk
+      sha256: "95f535cdc5b8c2fa730b48dd3123ea03a9c545629429b2422e552f150f2d7001"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.1-dev.19"
+  ndk_rust_verifier:
+    dependency: transitive
+    description:
+      name: ndk_rust_verifier
+      sha256: d45eff27d79dbd37104bf8c5a197f4bed0a4d50698355fb2e6c9c0aaf59407f8
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.0"
   node_preamble:
     dependency: transitive
     description:
@@ -488,6 +540,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
+  plugin_platform_interface:
+    dependency: transitive
+    description:
+      name: plugin_platform_interface
+      sha256: "4820fbfdb9478b1ebae27888254d445073732dae3d6ea81f0b7e06d5dedc3f02"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.8"
   pointycastle:
     dependency: transitive
     description:
@@ -528,6 +588,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.3"
+  rust_lib_ndk:
+    dependency: transitive
+    description:
+      name: rust_lib_ndk
+      sha256: "26df8806fe09800a7430549d2372c6a89c290962900029afca9b2db1fdb19aea"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.7+1"
   rxdart:
     dependency: transitive
     description:
@@ -576,6 +644,11 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
+  sky_engine:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
   source_map_stack_trace:
     dependency: transitive
     description:
@@ -704,6 +777,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.5.2"
+  vector_math:
+    dependency: transitive
+    description:
+      name: vector_math
+      sha256: d530bd74fea330e6e364cda7a85019c434070188383e1cd8d9777ee586914c5b
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.0"
   vm_service:
     dependency: transitive
     description:
@@ -713,7 +794,7 @@ packages:
     source: hosted
     version: "15.0.2"
   wallet:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: wallet
       sha256: "20b6d8440039726841bd23b2bac64f888ec1ce1509edcc3ed2ad1753f613521e"
@@ -745,7 +826,7 @@ packages:
     source: hosted
     version: "1.1.1"
   web3dart:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: web3dart
       sha256: b7401f8c57833fbde08aaaa8c56e020c5cbdef6bab7f946f69bcc342c9c492b2
@@ -810,3 +891,4 @@ packages:
     version: "3.1.3"
 sdks:
   dart: ">=3.10.8 <4.0.0"
+  flutter: ">=3.32.0"

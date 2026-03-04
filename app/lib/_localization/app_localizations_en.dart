@@ -154,6 +154,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logout => 'Logout';
 
   @override
+  String get areYouSure => 'Are you sure?';
+
+  @override
   String get signIn => 'Sign in';
 
   @override
@@ -429,6 +432,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cancel => 'Cancel';
+
+  @override
+  String get cancelReservation => 'Cancel Reservation';
 
   @override
   String get noWalletConnected => 'No wallet connected';

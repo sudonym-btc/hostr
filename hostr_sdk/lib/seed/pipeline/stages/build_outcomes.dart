@@ -472,6 +472,9 @@ EscrowService _buildBogusEscrowService(SeedContext ctx) {
     chainId: 1000 + ctx.random.nextInt(8000),
     maxDuration: const Duration(days: 365),
     type: EscrowType.EVM,
+    feeBase: 50 + ctx.random.nextInt(200),
+    feePercent: (ctx.random.nextInt(30) + 5) / 10, // 0.5 – 3.5 %
+    minAmount: 1000 + ctx.random.nextInt(9000),
   );
 
   final unsigned = EscrowService(

@@ -37,7 +37,9 @@ class EscrowFundParams {
       arbiterEvmAddress: escrowService.parsedContent.evmAddress,
       ethKey: ethKey,
       unlockAt: unlockAt,
-      // escrowFee: escrowService.parsedContent.fee,
+      escrowFee: escrowService.parsedContent.escrowFee(
+        BitcoinAmount.fromAmount(amount).getInSats.toInt(),
+      ),
     );
   }
 }
@@ -45,9 +47,14 @@ class EscrowFundParams {
 class EscrowFundFees {
   final BitcoinAmount estimatedGasFees;
   final SwapInFees estimatedSwapFees;
+  final BitcoinAmount estimatedEscrowFees;
 
   EscrowFundFees({
     required this.estimatedGasFees,
     required this.estimatedSwapFees,
+    required this.estimatedEscrowFees,
   });
+
+  BitcoinAmount get networkFees =>
+      estimatedGasFees + estimatedSwapFees.totalFees;
 }

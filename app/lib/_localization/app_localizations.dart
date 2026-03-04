@@ -382,6 +382,12 @@ abstract class AppLocalizations {
   /// **'Logout'**
   String get logout;
 
+  /// No description provided for @areYouSure.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure?'**
+  String get areYouSure;
+
   /// No description provided for @signIn.
   ///
   /// In en, this message translates to:
@@ -903,6 +909,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
+
+  /// No description provided for @cancelReservation.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel Reservation'**
+  String get cancelReservation;
 
   /// No description provided for @noWalletConnected.
   ///

@@ -6,20 +6,17 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/escrow/escrow_services_modal.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
-import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/presentation/screens/shared/profile/dev.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
-import 'package:models/stubs/keypairs.dart';
 
 import 'mode_toggle.dart';
+import 'zap_us.dart';
 
 @RoutePage()
 class ProfileScreen extends StatelessWidget {
@@ -51,6 +48,46 @@ class ProfileScreen extends StatelessWidget {
                 icon: Icon(Icons.edit),
                 onPressed: () {
                   AutoRouter.of(context).navigate(EditProfileRoute());
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout),
+                tooltip: AppLocalizations.of(context)!.logout,
+                color: Theme.of(context).colorScheme.error,
+                onPressed: () {
+                  final router = AutoRouter.of(context);
+                  final authCubit = BlocProvider.of<AuthCubit>(context);
+                  showAppModal(
+                    context,
+                    child: ModalBottomSheet(
+                      title: AppLocalizations.of(context)!.logout,
+                      subtitle: AppLocalizations.of(context)!.areYouSure,
+                      content: const SizedBox.shrink(),
+                      buttons: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.error,
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.onError,
+                            ),
+                            onPressed: () async {
+                              Navigator.of(context).pop();
+                              await authCubit.logout();
+                              await router.replaceAll([
+                                SignInRoute(),
+                              ], onFailure: (failure) => throw failure);
+                            },
+                            child: Text(AppLocalizations.of(context)!.ok),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
                 },
               ),
             ],
@@ -138,63 +175,7 @@ class ProfileScreen extends StatelessWidget {
                   },
                 ),
               ),
-
-              Section(
-                body: Column(
-                  children: [
-                    FilledButton(
-                      child: Text(AppLocalizations.of(context)!.logout),
-                      onPressed: () async {
-                        final router = AutoRouter.of(
-                          context,
-                        ); // Store the router instance
-                        await BlocProvider.of<AuthCubit>(context).logout();
-                        await router.replaceAll([
-                          SignInRoute(),
-                        ], onFailure: (failure) => throw failure);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              Section(
-                body: Column(
-                  children: [
-                    CustomPadding(
-                      child: Text(
-                        'Hostr is open source software maintained by the community with ❤️.',
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        FilledButton(
-                          child: Text(AppLocalizations.of(context)!.zapUs),
-                          onPressed: () {
-                            final params = ZapPayParameters(
-                              to: 'tips@lnbits1.hostr.development',
-                              amount: BitcoinAmount.fromInt(
-                                BitcoinUnit.sat,
-                                10000,
-                              ),
-                            );
-                            showAppModal(
-                              context,
-                              child: PaymentFlowWidget(
-                                cubit: getIt<Hostr>().payments.pay(params)
-                                  ..resolve(),
-                              ),
-                            );
-                          },
-                        ),
-                        ZapListWidget(
-                          pubkey: MockKeys.hoster.publicKey,
-                          builder: (p0) => Text(p0.pubKey!),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              const ZapUsWidget(),
               // Info section as an expandable list item
               if (const bool.fromEnvironment('dart.vm.product') == false)
                 DevWidget(),
