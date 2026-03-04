@@ -9,34 +9,39 @@ import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
-/// Dedicated route page that runs the post-login onboarding sequence.
+/// The first screen on every cold start and post-sign-in flow.
 ///
-/// After sign-in / sign-up the app navigates here. The cubit walks through
-/// relay list → connect → metadata → messages, then automatically navigates
-/// to [HomeRoute] (or [EditProfileRoute] when no profile exists).
+/// Renders as an extended splash (centred logo, matching the native splash)
+/// while the [StartupGateCubit] connects relays, syncs metadata and
+/// messages, then automatically navigates to [AppShellRoute]
+/// (or [EditProfileRoute] when no profile exists).
 @RoutePage()
-class OnboardingScreen extends StatelessWidget {
+class StartupGateScreen extends StatelessWidget {
   final bool popOnComplete;
-  const OnboardingScreen({super.key, this.popOnComplete = false});
+  const StartupGateScreen({super.key, this.popOnComplete = false});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => OnboardingCubit(hostr: getIt<Hostr>())..run(),
-      child: _OnboardingBody(popOnComplete: popOnComplete),
+      create: (_) => StartupGateCubit(hostr: getIt<Hostr>())..run(),
+      child: _StartupGateBody(popOnComplete: popOnComplete),
     );
   }
 }
 
-class _OnboardingBody extends StatelessWidget {
+class _StartupGateBody extends StatelessWidget {
   final bool popOnComplete;
-  const _OnboardingBody({required this.popOnComplete});
+  const _StartupGateBody({required this.popOnComplete});
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<OnboardingCubit, OnboardingState>(
+    return BlocConsumer<StartupGateCubit, StartupGateState>(
       listener: (context, state) async {
-        if (state is! OnboardingComplete) return;
+        if (state is! StartupGateReady) return;
+
+        // Let the user see the "All Done!" state before navigating.
+        await Future.delayed(const Duration(milliseconds: 1500));
+        if (!context.mounted) return;
 
         if (state.isHost) {
           try {
@@ -49,9 +54,9 @@ class _OnboardingBody extends StatelessWidget {
         if (!state.hasMetadata) {
           if (popOnComplete) {
             context.router.popUntilRoot();
-            context.router.replace(const HomeRoute());
+            context.router.replace(const AppShellRoute());
           } else {
-            context.router.replace(const HomeRoute());
+            context.router.replace(const AppShellRoute());
           }
           context.router.push(EditProfileRoute());
           return;
@@ -59,20 +64,35 @@ class _OnboardingBody extends StatelessWidget {
 
         if (popOnComplete) {
           context.router.popUntilRoot();
-          context.router.replace(const HomeRoute());
+          context.router.replace(const AppShellRoute());
         } else {
-          context.router.replace(const HomeRoute());
+          context.router.replace(const AppShellRoute());
         }
       },
       builder: (context, state) {
         return switch (state) {
-          OnboardingError(:final message) => _ErrorView(
+          StartupGateError(:final message) => _ErrorView(
             message: message,
-            onRetry: () => context.read<OnboardingCubit>().run(),
+            onRetry: () {
+              context.read<StartupGateCubit>().reset();
+              context.read<StartupGateCubit>().run();
+            },
           ),
-          OnboardingInProgress() => _ProgressView(state: state),
-          _ => const _ProgressView(
-            state: OnboardingInProgress(currentStep: OnboardingStep.relayList),
+          StartupGateReady() => const _SplashProgressView(
+            state: StartupGateInProgress(
+              currentStep: StartupStep.messages,
+              completedSteps: {
+                StartupStep.relay,
+                StartupStep.relayList,
+                StartupStep.metadata,
+                StartupStep.messages,
+              },
+            ),
+            allDone: true,
+          ),
+          StartupGateInProgress() => _SplashProgressView(state: state),
+          _ => const _SplashProgressView(
+            state: StartupGateInProgress(currentStep: StartupStep.relay),
           ),
         };
       },
@@ -80,23 +100,37 @@ class _OnboardingBody extends StatelessWidget {
   }
 }
 
-// ─── Progress view ──────────────────────────────────────────────────────────
+// ─── Splash-style progress view ─────────────────────────────────────────────
 
-class _ProgressView extends StatelessWidget {
-  final OnboardingInProgress state;
-  const _ProgressView({required this.state});
+/// Renders the app logo centred on the same background as the native splash,
+/// with an animated progress ring and step list that fade in below the logo
+/// once the first step begins.
+class _SplashProgressView extends StatelessWidget {
+  final StartupGateInProgress state;
+  final bool allDone;
+  const _SplashProgressView({required this.state, this.allDone = false});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final steps = OnboardingStep.values;
+    final steps = StartupStep.values;
 
     return Scaffold(
+      // Match native splash background.
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Center(
         child: CustomPadding.horizontal.lg(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Logo – same asset as the native splash.
+              Image.asset(
+                'assets/images/logo/generated/logo_base_1024.png',
+                width: 200,
+                height: 200,
+              ),
+              Gap.vertical.lg(),
+
               // Animated progress ring
               SizedBox(
                 width: 64,
@@ -147,6 +181,28 @@ class _ProgressView extends StatelessWidget {
                   ),
                 );
               }),
+
+              // "All Done!" indicator
+              if (allDone) ...[
+                Gap.vertical.sm(),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      color: theme.colorScheme.primary,
+                      size: kIconMd,
+                    ),
+                    Gap.horizontal.custom(kSpace3),
+                    Text(
+                      'All Done!',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

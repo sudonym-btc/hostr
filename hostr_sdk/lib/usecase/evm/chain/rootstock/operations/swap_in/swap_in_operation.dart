@@ -57,6 +57,8 @@ class RootstockSwapInOperation extends SwapInOperation {
         case SwapInFunded():
           await _stepClaim();
         case SwapInClaimed():
+          await _stepCheckClaimInMempool();
+        case SwapInClaimTxInMempool():
           await _stepConfirmClaim();
         case SwapInCompleted() || SwapInFailed():
           return; // terminal — nothing to do
@@ -331,7 +333,16 @@ class RootstockSwapInOperation extends SwapInOperation {
     logger.i('Claim broadcast for ${claimData.boltzId}: $tx');
   }
 
-  // ── Step 4: Confirm the claim receipt ─────────────────────────────────
+  // ── Step 4: Wait for claim tx to appear in mempool (visual only) ────
+
+  Future<void> _stepCheckClaimInMempool() async {
+    final data = state.data!;
+    await rootstock.awaitTransaction(data.claimTxHash!);
+    logger.i('Claim tx ${data.claimTxHash} visible in mempool');
+    emit(SwapInClaimTxInMempool(data));
+  }
+
+  // ── Step 5: Confirm the claim receipt ─────────────────────────────────
 
   Future<void> _stepConfirmClaim() async {
     final data = state.data!;

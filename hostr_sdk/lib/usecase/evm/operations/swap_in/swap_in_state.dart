@@ -137,6 +137,7 @@ sealed class SwapInState {
       'awaitingOnChain' => SwapInAwaitingOnChain(SwapInData.fromJson(json)),
       'funded' => SwapInFunded(SwapInData.fromJson(json)),
       'claimed' => SwapInClaimed(SwapInData.fromJson(json)),
+      'claimTxInMempool' => SwapInClaimTxInMempool(SwapInData.fromJson(json)),
       'completed' => SwapInCompleted(SwapInData.fromJson(json)),
       'failed' => SwapInFailed(
         json['errorMessage'] ?? 'Unknown error',
@@ -220,6 +221,24 @@ final class SwapInClaimed extends SwapInState {
   @override
   Map<String, dynamic> toJson() => {
     'state': 'claimed',
+    'id': data.boltzId,
+    'isTerminal': false,
+    'updatedAt': DateTime.now().toIso8601String(),
+    ...data.toJson(),
+  };
+}
+
+/// The claim transaction has been detected in the mempool.
+///
+/// This is a visual-feedback-only state between [SwapInClaimed] (broadcast)
+/// and [SwapInCompleted] (receipt confirmed). It does not gate any logic.
+final class SwapInClaimTxInMempool extends SwapInState {
+  @override
+  final SwapInData data;
+  const SwapInClaimTxInMempool(this.data);
+  @override
+  Map<String, dynamic> toJson() => {
+    'state': 'claimTxInMempool',
     'id': data.boltzId,
     'isTerminal': false,
     'updatedAt': DateTime.now().toIso8601String(),

@@ -97,12 +97,17 @@ The `SwapRecoveryService` still handles recovering stale swaps independently.
 ## 2. `AutoWithdrawConfig` — user-configurable thresholds ✅ IMPLEMENTED
 
 Auto-withdraw configuration is split between persisted user preferences
-(`HostrUserConfig`) and service-level constants (`AutoWithdrawService`).
+(`HostrUserConfig`), SDK-level defaults (`HostrConfig`), and service-level
+constants (`AutoWithdrawService`).
 
 ### Persisted in `HostrUserConfig` (user-facing)
 
 - `autoWithdrawEnabled` (bool, default: `true`)
-- `autoWithdrawMinimumSats` (int, default: `10000`)
+
+### Defaults on `HostrConfig` (SDK configuration)
+
+- `autoWithdrawMinimumSats` (int, default: `10000`) — minimum per-address
+  balance before auto-withdrawal triggers.
 
 ### Constants on `AutoWithdrawService` (implementation details)
 

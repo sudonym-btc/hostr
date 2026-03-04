@@ -69,6 +69,7 @@ class SwapInViewWidget extends StatelessWidget {
       case SwapInAwaitingOnChain():
       case SwapInFunded():
       case SwapInClaimed():
+      case SwapInClaimTxInMempool():
       case SwapInRequestCreated():
         return SwapInProgressWidget(state);
     }
@@ -207,6 +208,8 @@ class SwapInProgressWidget extends StatelessWidget {
         return l10n.swapStatusFundedClaiming;
       case SwapInClaimed():
         return l10n.swapStatusClaimedFinalising;
+      case SwapInClaimTxInMempool():
+        return l10n.swapStatusClaimTxInMempool;
       case SwapInRequestCreated():
         return l10n.swapStatusRequestCreated;
       default:

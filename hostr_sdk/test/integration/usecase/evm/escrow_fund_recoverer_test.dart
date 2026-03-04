@@ -30,6 +30,8 @@ void main() {
     await harness.dispose();
   });
 
+  // @todo: 00:52 [WARNING] timed out connecting to relay wss://relay.hostr.development happens because we login and then close connections immediately.
+  // When we launch app fresh on ios we get same error. Could auth be triggering twice or hostr.dispose be being called from somewhere?
   test('recoverAll returns 0 when store is empty', () async {
     final trade = await harness.seeds.freshTrade(hostHasEvm: true);
     await harness.hostr.auth.signin(trade.guest.privateKey);

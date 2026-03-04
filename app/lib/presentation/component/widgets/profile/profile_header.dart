@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
+import 'package:hostr/presentation/component/widgets/profile/verification/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:models/main.dart';
 
-class ProfileHeaderWidget extends StatelessWidget {
+class ProfileHeaderWidget extends StatefulWidget {
   final ProfileMetadata? profile;
   final bool isLoading;
   final VoidCallback? onEditProfile;
@@ -19,12 +20,48 @@ class ProfileHeaderWidget extends StatelessWidget {
   });
 
   @override
+  State<ProfileHeaderWidget> createState() => _ProfileHeaderWidgetState();
+}
+
+class _ProfileHeaderWidgetState extends State<ProfileHeaderWidget> {
+  final _verification = ProfileVerificationController();
+  String? _lastVerifiedPubkey;
+
+  @override
+  void initState() {
+    super.initState();
+    _verification.addListener(_onVerificationChanged);
+  }
+
+  @override
+  void dispose() {
+    _verification
+      ..removeListener(_onVerificationChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onVerificationChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileHeaderWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.profile != null &&
+        widget.profile!.pubKey != _lastVerifiedPubkey) {
+      _lastVerifiedPubkey = widget.profile!.pubKey;
+      _verification.verify(widget.profile!);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (isLoading) {
+    if (widget.isLoading) {
       return const Center(child: AppLoadingIndicator.large());
     }
 
-    if (profile == null) {
+    if (widget.profile == null) {
       return CustomPadding(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -36,9 +73,9 @@ class ProfileHeaderWidget extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             Gap.vertical.custom(kSpace3),
-            if (onEditProfile != null)
+            if (widget.onEditProfile != null)
               FilledButton.icon(
-                onPressed: onEditProfile,
+                onPressed: widget.onEditProfile,
                 icon: const Icon(Icons.edit),
                 label: Text(AppLocalizations.of(context)!.editProfile),
               ),
@@ -47,13 +84,20 @@ class ProfileHeaderWidget extends StatelessWidget {
       );
     }
 
-    final metadata = profile?.metadata;
+    // Trigger verification on first build with a non-null profile.
+    if (_lastVerifiedPubkey == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _lastVerifiedPubkey = widget.profile!.pubKey;
+        _verification.verify(widget.profile!);
+      });
+    }
+
+    final metadata = widget.profile?.metadata;
     final displayName = metadata?.name ?? metadata?.displayName ?? 'Username';
-    final nip05 = metadata?.nip05 ?? 'nip05_address@example.com';
     final about = metadata?.about ?? '';
 
     return GestureDetector(
-      onTap: () => ProfilePopup.show(context, profile!.pubKey),
+      onTap: () => ProfilePopup.show(context, widget.profile!.pubKey),
       child: CustomPadding(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -68,7 +112,7 @@ class ProfileHeaderWidget extends StatelessWidget {
                   ? ClipOval(
                       child: BlossomImage(
                         image: metadata!.picture!,
-                        pubkey: profile!.pubKey,
+                        pubkey: widget.profile!.pubKey,
                         width: 80,
                         height: 80,
                         fit: BoxFit.cover,
@@ -88,15 +132,34 @@ class ProfileHeaderWidget extends StatelessWidget {
                 context,
               ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
             ),
-            Gap.vertical.sm(),
-            Text(nip05, style: Theme.of(context).textTheme.bodyMedium),
-            Gap.vertical.xs(),
-            Text(
-              about,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-            ),
+            if (metadata?.nip05 != null && metadata!.nip05!.isNotEmpty) ...[
+              Gap.vertical.sm(),
+              Nip05Badge(
+                nip05: metadata.nip05,
+                result: _verification.nip05Result,
+                loading: _verification.nip05Loading,
+                inline: true,
+                hideWhenEmpty: true,
+              ),
+            ],
+            if (metadata?.lud16 != null && metadata!.lud16!.isNotEmpty) ...[
+              Gap.vertical.xs(),
+              Lud16Badge(
+                lud16: metadata.lud16,
+                result: _verification.lud16Result,
+                loading: _verification.lud16Loading,
+                inline: true,
+                hideWhenEmpty: true,
+              ),
+            ],
+            if (about.isNotEmpty) Gap.vertical.xs(),
+            if (about.isNotEmpty)
+              Text(
+                about,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              ),
           ],
         ),
       ),

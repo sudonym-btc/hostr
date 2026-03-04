@@ -18,21 +18,87 @@ import 'setup/hydrated_storage.dart';
 
 final logger = CustomLogger();
 
-/// Bootstraps environment-specific services, storage, and mock servers.
+/// Initializes everything required before business logic can run.
 ///
-/// - Ensures Flutter bindings are initialized
-/// - Configures HydratedBloc storage (web vs device)
-/// - Applies permissive HTTP overrides for non-prod environments
-/// - Starts local mock services for `mock`/`test` environments
-/// - Connects to relays through the injected `RelayConnector`
-Future<void> setup(String env) async {
-  logger.d('${DateTime.now()} Setting up environment: $env');
-  await setupBackgroundAndMainCommon(env);
+/// Safe to call from both the foreground app and background workers.
+/// Must complete before `runApp()` or any service-layer code.
+///
+/// Responsibilities:
+///   - Flutter bindings
+///   - Hydrated storage (persisted bloc state)
+///   - Dependency injection
+///   - H3 geo runtime
+Future<void> initCore(String env) async {
+  final total = Stopwatch()..start();
+  var sw = Stopwatch()..start();
+
+  WidgetsFlutterBinding.ensureInitialized();
+  logger.d('[initCore] ensureInitialized: ${sw.elapsedMilliseconds}ms');
+
+  sw.reset();
+  await Future.wait([
+    persistEnvironment(env),
+    buildHydratedStorage().then((storage) => HydratedBloc.storage = storage),
+  ]);
+  logger.d(
+    '[initCore] persistEnv + hydratedStorage: ${sw.elapsedMilliseconds}ms',
+  );
+
+  sw.reset();
+  configureInjection(env);
+  logger.d('[initCore] configureInjection: ${sw.elapsedMilliseconds}ms');
+
+  sw.reset();
+  getIt.registerSingleton<Hostr>(Hostr(config: getIt<Config>().hostrConfig));
+  logger.d('[initCore] registerHostr: ${sw.elapsedMilliseconds}ms');
+
+  sw.reset();
+  await getIt<Hostr>().initAuth();
+  logger.d('[initCore] initAuth: ${sw.elapsedMilliseconds}ms');
+
+  sw.reset();
+  configureFlutterH3Runtime();
+  logger.d('[initCore] H3 runtime: ${sw.elapsedMilliseconds}ms');
+
+  total.stop();
+  logger.d('[initCore] TOTAL: ${total.elapsedMilliseconds}ms (env=$env)');
+}
+
+/// Post-`runApp` setup for the foreground app only.
+///
+/// Call this *after* `runApp()` so the render pipeline is active.
+///
+/// Responsibilities:
+///   - Orientation lock
+///   - Local notifications
+///   - Workmanager periodic task registration
+Future<void> initApp() async {
+  final total = Stopwatch()..start();
+  var sw = Stopwatch()..start();
+
   await _lockAppOrientation();
-  logger.d('${DateTime.now()} Workmanager setup complete');
-  if (!kIsWeb) {
-    setupWorkmanager();
+  logger.d('[initApp] lockOrientation: ${sw.elapsedMilliseconds}ms');
+
+  sw.reset();
+  final env = await readPersistedEnvironment();
+  logger.d('[initApp] readPersistedEnv: ${sw.elapsedMilliseconds}ms');
+
+  // Skip notification permission prompt in test — it blocks CI and
+  // screenshot automation with a system dialog that can't be pre-granted.
+  if (env != Env.test) {
+    sw.reset();
+    await setupNotifications();
+    logger.d('[initApp] notifications: ${sw.elapsedMilliseconds}ms');
   }
+
+  if (!kIsWeb) {
+    sw.reset();
+    setupWorkmanager();
+    logger.d('[initApp] workmanager: ${sw.elapsedMilliseconds}ms');
+  }
+
+  total.stop();
+  logger.d('[initApp] TOTAL: ${total.elapsedMilliseconds}ms');
 }
 
 Future<void> _lockAppOrientation() async {
@@ -42,55 +108,8 @@ Future<void> _lockAppOrientation() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 }
 
-Future<void> setupBackgroundAndMainCommon(String env) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  configureFlutterH3Runtime();
-  logger.d(
-    '${DateTime.now()} Flutter bindings initialized and H3 runtime configured',
-  );
-  await persistEnvironment(env);
-  logger.d('${DateTime.now()} Environment persisted: $env');
-
-  HydratedBloc.storage = await buildHydratedStorage();
-  logger.d('${DateTime.now()}  Hydrated storage initialized');
-  // Allow self-signed certificates for development/test.
-  if ([Env.mock, Env.dev, Env.test].contains(env) && !kIsWeb) {
-    HttpOverrides.global = MyHttpOverrides();
-  }
-
-  configureInjection(env);
-  getIt.registerSingleton<Hostr>(Hostr(config: getIt<Config>().hostrConfig));
-  logger.d('${DateTime.now()} Dependency injection configured');
-
-  // Skip notification permission prompt in test — it blocks CI and
-  // screenshot automation with a system dialog that can't be pre-granted.
-  if (env != Env.test) {
-    await setupNotifications();
-    logger.d('${DateTime.now()} Notifications setup complete');
-  }
-
-  // Restore NDK session from stored keys before connecting relays.
-  await getIt<Hostr>().auth.init();
-}
-
-const String _environmentPrefsKey = 'hostr.env';
-
-Future<void> persistEnvironment(String env) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_environmentPrefsKey, env);
-}
-
-Future<String> readPersistedEnvironment() async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getString(_environmentPrefsKey) ?? Env.prod;
-}
-
-Future<void> setupBackground(String env) async {
-  await setupBackgroundAndMainCommon(env);
-}
-
 void setupWorkmanager() {
-  Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+  Workmanager().initialize(callbackDispatcher);
   // Only register periodic/processing tasks — don't register a one-off task
   // every launch, as that triggers an immediate background execution.
   // Use ExistingWorkPolicy.keep to avoid re-registering on every cold start.
@@ -99,7 +118,7 @@ void setupWorkmanager() {
     'sync',
     existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
   );
-  Workmanager().registerProcessingTask(iOSBackgroundProcessingTask, 'sync');
+  // Workmanager().registerProcessingTask(iOSBackgroundProcessingTask, 'sync');
 }
 
 Future<void> setupNotifications() async {
@@ -130,4 +149,16 @@ Future<void> setupNotifications() async {
     settings: initializationSettings,
     onDidReceiveNotificationResponse: notificationTapBackground,
   );
+}
+
+const String _environmentPrefsKey = 'hostr.env';
+
+Future<void> persistEnvironment(String env) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_environmentPrefsKey, env);
+}
+
+Future<String> readPersistedEnvironment() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString(_environmentPrefsKey) ?? Env.prod;
 }

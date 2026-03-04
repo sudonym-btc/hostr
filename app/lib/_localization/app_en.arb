@@ -85,6 +85,7 @@
   "swapStatusWaitingForTransactionConfirm": "Waiting for transaction to confirm...",
   "swapStatusFundedClaiming": "Swap funded, claiming...",
   "swapStatusClaimedFinalising": "Swap claimed, finalising...",
+  "swapStatusClaimTxInMempool": "Claim transaction in mempool...",
   "swapStatusRequestCreated": "Swap request created...",
   "swapStatusInvoiceCreatedProcessing": "Invoice created, processing...",
   "swapStatusFundedWaitingForPayment": "Swap funded, waiting for payment...",

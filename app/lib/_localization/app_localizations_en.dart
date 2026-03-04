@@ -271,6 +271,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get swapStatusClaimedFinalising => 'Swap claimed, finalising...';
 
   @override
+  String get swapStatusClaimTxInMempool => 'Claim transaction in mempool...';
+
+  @override
   String get swapStatusRequestCreated => 'Swap request created...';
 
   @override

@@ -15,7 +15,7 @@ class AppRouter extends RootStackRouter {
       initial: true,
       children: [
         AutoRoute(page: SignInRoute.page, path: 'signin'),
-        AutoRoute(page: OnboardingRoute.page, path: 'onboarding'),
+        AutoRoute(page: StartupGateRoute.page, path: 'startup', initial: true),
         AutoRoute(page: ListingRoute.page, path: 'listing/:a'),
         AutoRoute(
           page: ThreadRoute.page,
@@ -23,8 +23,7 @@ class AppRouter extends RootStackRouter {
           path: 'inbox/:id',
         ),
         AutoRoute(
-          page: HomeRoute.page,
-          initial: true,
+          page: AppShellRoute.page,
           children: [
             /// Public routes
             AutoRoute(
@@ -39,11 +38,6 @@ class AppRouter extends RootStackRouter {
             AutoRoute(
               page: ProfileRoute.page,
               path: 'profile',
-              guards: [AuthGuard()],
-            ),
-            AutoRoute(
-              page: BookingsRoute.page,
-              path: 'bookings',
               guards: [AuthGuard()],
             ),
             AutoRoute(

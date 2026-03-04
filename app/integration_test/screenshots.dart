@@ -69,9 +69,9 @@ Future<void> _takeScreenshots(
   String mode,
 ) async {
   // ── 1. Home / search ────────────────────────────────────────────
-  appRouter.navigate(HomeRoute());
+  appRouter.navigate(SearchRoute());
   await _settle(tester, frames: 6);
-  await binding.takeScreenshot('screenshots/$mode/home.png');
+  await binding.takeScreenshot('screenshots/$mode/search.png');
 
   // ── 2. Listing detail ───────────────────────────────────────────
   appRouter.navigate(ListingRoute(a: data.listings.first.anchor!));
@@ -110,7 +110,8 @@ void main() {
 
   testWidgets('screenshot suite', (tester) async {
     // ── Bootstrap ───────────────────────────────────────────────────────
-    await setup(Env.test);
+    await initCore(Env.test);
+    await initApp();
 
     final factory = SeedFactory(config: _config);
     final data = await factory.buildAll();

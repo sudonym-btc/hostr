@@ -6,7 +6,8 @@ import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
 
-final getIt = GetIt.instance;
+/// SDK-private dependency container, isolated from the host app's GetIt.
+final getIt = GetIt.asNewInstance();
 
 late HostrConfig _hostrConfig;
 
@@ -29,9 +30,6 @@ abstract class HostrSdkModule {
 
   @lazySingleton
   Ndk ndk(HostrConfig config) {
-    _hostrConfig.logger.d(
-      "Configuring NDK with bootstrap relays: ${config.bootstrapRelays}",
-    );
     return Ndk(config.ndkConfig);
   }
 }

@@ -42,6 +42,14 @@ class DateRangeController extends ChangeNotifier {
   }) async {
     final picked = await showDateRangePicker(
       context: context,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            padding: MediaQuery.of(context).padding.copyWith(bottom: 0),
+          ),
+          child: child!,
+        );
+      },
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       initialDateRange: _dateRange,

@@ -11,15 +11,21 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
+/// The main navigation shell of the app.
+///
+/// Provides the bottom navigation bar and switches between different
+/// [AutoTabsScaffold] configurations based on auth state and user mode
+/// (guest vs host). This is not a screen with its own content — it is
+/// the structural wrapper that hosts tab screens like Search, Trips, etc.
 @RoutePage()
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class AppShellScreen extends StatefulWidget {
+  const AppShellScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<AppShellScreen> createState() => _AppShellScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
+class _AppShellScreenState extends State<AppShellScreen>
     with SingleTickerProviderStateMixin {
   static const _itemTopPadding = kDefaultPadding / 2;
   late final AnimationController _navController = AnimationController(

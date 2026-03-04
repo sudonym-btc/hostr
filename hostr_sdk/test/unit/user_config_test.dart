@@ -21,7 +21,6 @@ void main() {
         const config = HostrUserConfig();
         expect(config.mode, AppMode.guest);
         expect(config.autoWithdrawEnabled, isTrue);
-        expect(config.autoWithdrawMinimumSats, 10000);
       });
 
       test('convenience getters work', () {
@@ -40,10 +39,6 @@ void main() {
         expect(updated.isHost, isTrue);
         // Everything else stays the same
         expect(updated.autoWithdrawEnabled, original.autoWithdrawEnabled);
-        expect(
-          updated.autoWithdrawMinimumSats,
-          original.autoWithdrawMinimumSats,
-        );
       });
 
       test('can update multiple fields at once', () {
@@ -51,12 +46,10 @@ void main() {
         final updated = original.copyWith(
           mode: AppMode.host,
           autoWithdrawEnabled: false,
-          autoWithdrawMinimumSats: 50000,
         );
 
         expect(updated.mode, AppMode.host);
         expect(updated.autoWithdrawEnabled, isFalse);
-        expect(updated.autoWithdrawMinimumSats, 50000);
       });
     });
 
@@ -65,7 +58,6 @@ void main() {
         const config = HostrUserConfig(
           mode: AppMode.host,
           autoWithdrawEnabled: false,
-          autoWithdrawMinimumSats: 25000,
         );
 
         final json = config.toJson();
@@ -74,14 +66,12 @@ void main() {
         expect(restored, equals(config));
         expect(restored.mode, AppMode.host);
         expect(restored.autoWithdrawEnabled, isFalse);
-        expect(restored.autoWithdrawMinimumSats, 25000);
       });
 
       test('fromJson uses defaults for missing fields', () {
         final config = HostrUserConfig.fromJson({});
         expect(config.mode, AppMode.guest);
         expect(config.autoWithdrawEnabled, isTrue);
-        expect(config.autoWithdrawMinimumSats, 10000);
       });
 
       test('fromJson handles mode string correctly', () {
@@ -250,11 +240,7 @@ void main() {
     group('persistence roundtrip', () {
       test('config survives store recreation', () async {
         await store.update(
-          const HostrUserConfig(
-            mode: AppMode.host,
-            autoWithdrawEnabled: false,
-            autoWithdrawMinimumSats: 50000,
-          ),
+          const HostrUserConfig(mode: AppMode.host, autoWithdrawEnabled: false),
         );
 
         // Create a new store pointing at the same storage
@@ -264,7 +250,6 @@ void main() {
         final config = await store2.state;
         expect(config.mode, AppMode.host);
         expect(config.autoWithdrawEnabled, isFalse);
-        expect(config.autoWithdrawMinimumSats, 50000);
 
         store2.dispose();
       });

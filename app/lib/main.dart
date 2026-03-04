@@ -22,8 +22,9 @@ export './export.dart';
 void mainCommon(String env) async {
   runZonedGuarded(
     () async {
-      await setup(env);
+      await initCore(env);
       runApp(const MyApp());
+      await initApp();
     },
     (error, stackTrace) {
       // Route all top-level errors here to avoid crashing without context.
@@ -42,11 +43,15 @@ void callbackDispatcher() {
     try {
       logger.d('callbackDispatcher: $task, inputData: $inputData');
       final env = await readPersistedEnvironment();
-      await setupBackground(env);
+      await initCore(env);
+      // Background workers need relay connectivity — the foreground app
+      // handles this via the StartupGate widget, but here we call connect()
+      // explicitly.
+      await getIt<Hostr>().connect();
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
       prefs.setString(iOSBackgroundAppRefresh, 'done');
-      prefs.setString(iOSBackgroundProcessingTask, 'done');
+      // prefs.setString(iOSBackgroundProcessingTask, 'done');
 
       final result = await getIt<Hostr>().backgroundWorker.run();
       logger.d(

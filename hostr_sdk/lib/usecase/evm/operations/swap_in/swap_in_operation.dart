@@ -46,13 +46,30 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
   /// | `Initialised`                                   | Create Boltz swap |
   /// | `RequestCreated / AwaitingOnChain / PaymentProgress` | Ensure lockup funded |
   /// | `Funded`                                        | Claim on-chain   |
-  /// | `Claimed`                                       | Confirm claim receipt |
+  /// | `Claimed`                                       | Check mempool    |
+  /// | `ClaimTxInMempool`                              | Confirm receipt  |
   /// | `Completed / Failed`                            | No-op (terminal) |
   Future<void> handle();
 
   /// Loops [handle] until the state is terminal.
   Future<void> run() async {
     while (!state.isTerminal) {
+      await handle();
+    }
+  }
+
+  /// Loops [handle] until [stopCondition] returns `true` **or** the state is
+  /// terminal — whichever comes first.
+  ///
+  /// This lets callers bail out early without waiting for the full lifecycle.
+  /// For example, the escrow-fund flow can stop at [SwapInClaimed] to avoid
+  /// blocking on the on-chain confirmation:
+  ///
+  /// ```dart
+  /// await swap.runUntil((s) => s is SwapInClaimed);
+  /// ```
+  Future<void> runUntil(bool Function(SwapInState) stopCondition) async {
+    while (!state.isTerminal && !stopCondition(state)) {
       await handle();
     }
   }

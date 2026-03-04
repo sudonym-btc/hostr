@@ -218,6 +218,7 @@ Widget swapInAnimatedFlow(BuildContext context) {
       ('Awaiting on-chain', const SwapInAwaitingOnChain(_mockSwapInData)),
       ('Funded', const SwapInFunded(_mockSwapInData)),
       ('Claimed', const SwapInClaimed(_mockSwapInData)),
+      ('Claim tx in mempool', const SwapInClaimTxInMempool(_mockSwapInData)),
       ('Completed', const SwapInCompleted(_mockSwapInData)),
       (
         'Failed',

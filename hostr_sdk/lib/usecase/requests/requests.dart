@@ -162,6 +162,7 @@ class Requests extends RequestsModel {
     // Without the onCancel cleanup, consumers like .firstWhere() that cancel
     // after the first event leave a stale entry — subsequent queries with
     // the same filter hit the dead broadcast stream and hang forever.
+    final sw = Stopwatch()..start();
     final source =
         Rx.defer(() {
               final now = DateTime.now().toIso8601String();
@@ -184,7 +185,13 @@ class Requests extends RequestsModel {
                     .stream,
               );
             })
-            .doOnDone(() => _inFlightQueries.remove(key))
+            .doOnDone(() {
+              sw.stop();
+              _logger.d(
+                'query name=${name ?? "query"} completed in ${sw.elapsedMilliseconds}ms',
+              );
+              _inFlightQueries.remove(key);
+            })
             .asBroadcastStream(
               onCancel: (subscription) {
                 subscription.cancel();

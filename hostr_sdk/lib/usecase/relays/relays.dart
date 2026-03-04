@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/injection.dart';
@@ -15,7 +16,7 @@ class Relays {
   final CustomLogger logger;
   final Ndk ndk;
   final RelayStorage relayStorage;
-  Stopwatch? _connectWaitStopwatch;
+
   Relays({required this.ndk, required this.relayStorage, required this.logger});
 
   Future<void> add(String url) {
@@ -33,8 +34,15 @@ class Relays {
   }
 
   Future<void> remove(String url) async {
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Relays.remove($url) → closeAllTransports() (ndk=${ndk.hashCode})',
+    );
+    print('[NDK-TRACE] Callstack:\n${StackTrace.current}');
     logger.d('Removing relay: $url');
     ndk.relays.closeAllTransports();
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Relays.remove($url) → closeAllTransports() complete',
+    );
 
     List<RelayConnectivity<dynamic>> relays = ndk.relays.connectedRelays;
     for (var relay in relays) {
@@ -45,11 +53,40 @@ class Relays {
     await relayStorage.remove(url);
   }
 
-  Future<void> connect() {
-    return ndk.relays.seedRelaysConnected;
-  }
+  Future<void> connect() async {
+    final config = getIt<HostrConfig>();
+    final configured = config.bootstrapRelays;
 
-  Completer<void>? _readyCompleter;
+    try {
+      // First attempt a connection without NDK. NDK will error after 4 seconds and prevent future reconnects for a long timeout.
+      // However, debug mode over wireless can result in network access being locked for 20+ seconds, so we want to use a longer than NDK timeout to attempt connection.
+      // https://www.reddit.com/r/iOSProgramming/comments/1nvksc7/network_requests_are_failing_for_first_30_seconds/?utm_source=chatgpt.com
+
+      final sw = Stopwatch()..start();
+      final ws = await WebSocket.connect(configured.first);
+      sw.stop();
+      print(
+        '[NDK-TRACE] ${DateTime.now()} WebSocket.connect(${configured.first}) took ${sw.elapsedMilliseconds}ms',
+      );
+      await ws.close();
+    } catch (_) {}
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Relays.connect() → connecting to $configured (ndk=${ndk.hashCode})',
+    );
+    if (configured.isEmpty) return;
+
+    await Future.wait(
+      configured.map(
+        (url) => ndk.relays.connectRelay(
+          dirtyUrl: url,
+          connectionSource: ConnectionSource.seed,
+        ),
+      ),
+    );
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Relays.connect() → done (connectedRelays=${ndk.relays.connectedRelays.map((r) => r.url).join(", ")})',
+    );
+  }
 
   /// Returns a future that completes once at least one relay is connected.
   ///
@@ -60,85 +97,35 @@ class Relays {
   ///
   /// Safe to call from multiple places — all callers share the same future.
   Future<void> ensureConnected() {
-    logger.d('Ensuring relay connectivity…');
-    if (_readyCompleter != null) return _readyCompleter!.future;
-    _readyCompleter = Completer<void>();
-    _connectWaitStopwatch = Stopwatch()..start();
-    logger.i(
-      'relay-connect-wait started at ${DateTime.now().toIso8601String()}',
+    print(
+      '[NDK-TRACE] ${DateTime.now()} Relays.ensureConnected() called (connectedRelays=${ndk.relays.connectedRelays.length}, ndk=${ndk.hashCode})',
     );
-    _waitForConnection();
-    return _readyCompleter!.future;
+    logger.d('Ensuring relay connectivity…');
+    return _waitForConnection();
   }
 
   Future<void> _waitForConnection() async {
     const timeout = Duration(seconds: 30);
     const pollInterval = Duration(seconds: 1);
 
-    // Already connected — resolve immediately.
-    if (ndk.relays.connectedRelays.isNotEmpty) {
-      logger.d('Already connected to a relay');
-      _connectWaitStopwatch?.stop();
-      logger.i(
-        'relay-connect-wait done in ${_connectWaitStopwatch?.elapsedMilliseconds ?? 0}ms (already open)',
-      );
-      _readyCompleter!.complete();
-      return;
-    }
-
-    // Try the seed-relay future with a short timeout.
-    try {
-      await ndk.relays.seedRelaysConnected.timeout(const Duration(seconds: 5));
-    } catch (_) {
-      logger.w('Seed relay connect timed out, polling for connectivity…');
-    }
-
-    // NDK can complete seedRelaysConnected even when no relay transport is
-    // truly open. Guard on actual connectivity and, if needed, force a
-    // reconnect attempt using configured bootstrap relays.
-    if (ndk.relays.connectedRelays.isEmpty) {
-      final configured = getIt<HostrConfig>().bootstrapRelays;
-      if (configured.isNotEmpty) {
-        logger.w(
-          'No open relay after seed connect. Forcing reconnect on ${configured.length} bootstrap relays…',
-        );
-        try {
-          await ndk.relays.reconnectRelays(configured);
-        } catch (e) {
-          logger.e('Bootstrap reconnect failed: $e');
-        }
-      }
-    }
-
     // Poll until at least one relay is connected or we exceed the timeout.
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
-      logger.d('Checking relay connectivity…');
       if (ndk.relays.connectedRelays.isNotEmpty) {
-        if (!_readyCompleter!.isCompleted) {
-          _connectWaitStopwatch?.stop();
-          logger.i('Relay connected after polling');
-          logger.i(
-            'relay-connect-wait done in ${_connectWaitStopwatch?.elapsedMilliseconds ?? 0}ms (open relays: ${ndk.relays.connectedRelays.map((r) => r.url).join(', ')})',
-          );
-          _readyCompleter!.complete();
-        }
-        logger.d('isConnected');
         return;
       }
+      getIt<HostrConfig>().bootstrapRelays.map(
+        (e) => ndk.relays.isRelayConnecting(e)
+            ? ndk.relays.reconnectRelay(
+                e,
+                connectionSource: ConnectionSource.seed,
+              )
+            : null,
+      );
+      logger.d('Checking relay connectivity…');
       await Future.delayed(pollInterval);
     }
-
-    logger.d('Finished polling for relay connectivity');
-
-    // Give up — complete anyway so callers aren't blocked forever.
-    if (!_readyCompleter!.isCompleted) {
-      _connectWaitStopwatch?.stop();
-      logger.w(
-        'No relays connected after ${timeout.inSeconds}s (elapsed ${_connectWaitStopwatch?.elapsedMilliseconds ?? 0}ms), proceeding anyway',
-      );
-      _readyCompleter!.complete();
-    }
+    throw Exception('Timed out waiting for relay connection after $timeout');
   }
 
   Stream<Map<String, RelayConnectivity<dynamic>>> connectivity() {
