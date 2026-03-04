@@ -2,8 +2,11 @@ import 'package:models/main.dart';
 
 import 'keypairs.dart';
 
-List<EscrowService> MOCK_ESCROWS(
-        {required String contractAddress, String? byteCodeHash}) =>
+List<EscrowService> MOCK_ESCROWS({
+  required String contractAddress,
+  required String evmAddress,
+  String? byteCodeHash,
+}) =>
     [
       EscrowService(
               pubKey: MockKeys.escrow.publicKey,
@@ -14,9 +17,7 @@ List<EscrowService> MOCK_ESCROWS(
 // Runtime bytecode hash: take eth_getCode for the deployed address, hash with keccak256. This uniquely identifies the deployed logic (state ignored).
 // Sourcify/Etherscan verification: third‑party verification that the published source + compiler settings reproduce the deployed bytecode. Clients can trust the verified record and compare the hash themselves.
 // So the escrow publisher should include: contract address, chainId, runtime bytecode hash, compiler version, optimizer settings, and optionally a Sourcify/Etherscan link. Clients then compare on‑chain runtime hash to the advertised hash.
-                  evmAddress: getEvmCredentials(MockKeys.escrow.privateKey!)
-                      .address
-                      .eip55With0x,
+                  evmAddress: evmAddress,
                   contractAddress: contractAddress,
                   contractBytecodeHash: byteCodeHash ?? "0xMockBytecodeHash",
                   maxDuration: Duration(days: 365),

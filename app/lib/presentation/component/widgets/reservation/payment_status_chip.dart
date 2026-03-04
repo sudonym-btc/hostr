@@ -2,28 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 
+import '../profile/verification/verification_badges.dart';
+
 class PaymentStatusChip extends StatelessWidget {
   final PaymentEvent? state;
   const PaymentStatusChip({super.key, required this.state});
 
-  Chip _buildChip(
+  StatusChip _buildChip(
     BuildContext context, {
     required String label,
     required IconData icon,
   }) {
-    return Chip(
-      label: Text(label),
-      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-      labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: Theme.of(context).colorScheme.onPrimaryContainer,
-      ),
-      side: BorderSide.none,
-      avatar: Icon(
-        icon,
-        size: kIconXs,
-        color: Theme.of(context).colorScheme.onPrimaryContainer,
-      ),
-      shape: const StadiumBorder(),
+    return StatusChip(
+      label: label,
+      color: Theme.of(context).colorScheme.primary,
     );
   }
 
@@ -33,7 +25,11 @@ class PaymentStatusChip extends StatelessWidget {
     if (state is EscrowFundedEvent) {
       child = _buildChip(context, label: 'Paid', icon: Icons.check);
     } else if (state is EscrowReleasedEvent) {
-      child = _buildChip(context, label: 'Released', icon: Icons.handshake);
+      child = _buildChip(
+        context,
+        label: 'Funds Released',
+        icon: Icons.handshake,
+      );
     } else if (state is EscrowArbitratedEvent) {
       child = _buildChip(context, label: 'Arbitrated', icon: Icons.gavel);
     } else if (state is EscrowClaimedEvent) {

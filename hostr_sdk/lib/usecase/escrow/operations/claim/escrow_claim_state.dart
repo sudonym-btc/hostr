@@ -1,24 +1,76 @@
-import 'package:web3dart/web3dart.dart';
+import '../onchain_operation.dart';
 
-import '../../../evm/operations/swap_in/swap_in_state.dart';
+// ── Escrow claim recovery data ────────────────────────────────────────────
 
-sealed class EscrowClaimState {}
+class EscrowClaimData extends OnchainOperationData {
+  final String tradeId;
+  final String? errorMessage;
 
-class EscrowClaimInitialised extends EscrowClaimState {}
+  const EscrowClaimData({
+    required this.tradeId,
+    required super.contractAddress,
+    required super.chainId,
+    required super.accountIndex,
+    super.gasPriceWei,
+    super.gasLimit,
+    super.swapId,
+    super.txHash,
+    this.errorMessage,
+  });
 
-class EscrowClaimSwapProgress extends EscrowClaimState {
-  final SwapInState swapState;
-  EscrowClaimSwapProgress(this.swapState);
-}
+  @override
+  String get operationId => tradeId;
 
-class EscrowClaimCompleted extends EscrowClaimState {
-  TransactionInformation transactionInformation;
-  EscrowClaimCompleted({required this.transactionInformation});
-}
+  @override
+  EscrowClaimData copyWithSwapId(String? swapId) => copyWith(swapId: swapId);
 
-class EscrowClaimFailed extends EscrowClaimState {
-  final dynamic error;
-  final StackTrace? stackTrace;
+  @override
+  EscrowClaimData copyWithTxHash(String? txHash) => copyWith(txHash: txHash);
 
-  EscrowClaimFailed(this.error, [this.stackTrace]);
+  @override
+  EscrowClaimData copyWithGasEstimate({
+    required String gasPriceWei,
+    required String gasLimit,
+  }) => copyWith(gasPriceWei: gasPriceWei, gasLimit: gasLimit);
+
+  EscrowClaimData copyWith({
+    String? gasPriceWei,
+    String? gasLimit,
+    String? swapId,
+    String? txHash,
+    String? errorMessage,
+  }) => EscrowClaimData(
+    tradeId: tradeId,
+    contractAddress: contractAddress,
+    chainId: chainId,
+    accountIndex: accountIndex,
+    gasPriceWei: gasPriceWei ?? this.gasPriceWei,
+    gasLimit: gasLimit ?? this.gasLimit,
+    swapId: swapId ?? this.swapId,
+    txHash: txHash ?? this.txHash,
+    errorMessage: errorMessage ?? this.errorMessage,
+  );
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'tradeId': tradeId,
+    ...super.baseToJson(),
+    if (errorMessage != null) 'errorMessage': errorMessage,
+  };
+
+  factory EscrowClaimData.fromJson(Map<String, dynamic> json) =>
+      EscrowClaimData(
+        tradeId: json['tradeId'] as String,
+        contractAddress: json['contractAddress'] as String,
+        chainId: json['chainId'] as int,
+        accountIndex: json['accountIndex'] as int? ?? 0,
+        gasPriceWei: json['gasPriceWei'] as String?,
+        gasLimit: json['gasLimit'] as String?,
+        swapId: json['swapId'] as String?,
+        txHash: json['txHash'] as String?,
+        errorMessage: json['errorMessage'] as String?,
+      );
+
+  @override
+  String toString() => 'EscrowClaimData($tradeId)';
 }

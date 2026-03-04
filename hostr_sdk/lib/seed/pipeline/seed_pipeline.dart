@@ -1,5 +1,6 @@
 import 'package:hostr_sdk/datasources/anvil/anvil.dart';
 import 'package:hostr_sdk/datasources/lnbits/lnbits.dart';
+import 'package:hostr_sdk/util/derive_evm_key.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
@@ -388,8 +389,7 @@ class SeedPipeline {
     };
 
     final addressByKey = {
-      for (final pk in privateKeys)
-        pk: getEvmCredentials(pk).address.eip55With0x,
+      for (final pk in privateKeys) pk: deriveEvmKey(pk).address.eip55With0x,
     };
     final seen = <String>{};
     final uniqueEntries = addressByKey.entries

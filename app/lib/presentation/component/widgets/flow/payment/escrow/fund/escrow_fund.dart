@@ -74,9 +74,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     _selectorCubit.close();
     // Detach rather than close: if a deposit/swap is still in-flight, let it
     // finish and self-close. Only close immediately when idle or terminal.
-    _fundOperation?.detachOrClose(
-      (s) => s is EscrowFundCompleted || s is EscrowFundFailed,
-    );
+    _fundOperation?.detach();
     super.dispose();
   }
 
@@ -109,10 +107,10 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
               }
               return BlocProvider<EscrowFundOperation>.value(
                 value: _fundOperation!,
-                child: BlocBuilder<EscrowFundOperation, EscrowFundState>(
+                child: BlocBuilder<EscrowFundOperation, OnchainOperationState>(
                   builder: (context, fundState) {
                     switch (fundState) {
-                      case EscrowFundInitialised():
+                      case OnchainInitialised():
                         return EscrowFundConfirmWidget(
                           key: ObjectKey(_fundOperation),
                           onConfirm: () async {
@@ -217,7 +215,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
 }
 
 class EscrowFundProgressWidget extends StatelessWidget {
-  final EscrowFundSwapProgress progress;
+  final OnchainSwapProgress progress;
   const EscrowFundProgressWidget(this.progress, {super.key});
 
   @override
@@ -231,7 +229,7 @@ class EscrowFundProgressWidget extends StatelessWidget {
 }
 
 class EscrowFundDepositingWidget extends StatelessWidget {
-  final EscrowFundDepositing state;
+  final OnchainTxBroadcast state;
   const EscrowFundDepositingWidget(this.state, {super.key});
 
   @override
@@ -239,7 +237,7 @@ class EscrowFundDepositingWidget extends StatelessWidget {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
       title: 'Depositing Funds',
-      subtitle: state.txHash != null
+      subtitle: state.data.txHash != null
           ? 'Waiting for on-chain confirmation...'
           : 'Submitting deposit transaction...',
       content: Column(
@@ -254,29 +252,8 @@ class EscrowFundDepositingWidget extends StatelessWidget {
   }
 }
 
-class EscrowFundTradeProgressWidget extends StatelessWidget {
-  const EscrowFundTradeProgressWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.normal,
-      title: 'Escrow Trade',
-      subtitle: 'Escrow trade in progress...',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Gap.vertical.md(),
-          const AppLoadingIndicator.large(),
-          Gap.vertical.md(),
-        ],
-      ),
-    );
-  }
-}
-
 class EscrowFundSuccessWidget extends StatelessWidget {
-  final EscrowFundCompleted state;
+  final OnchainTxConfirmed state;
   const EscrowFundSuccessWidget(this.state, {super.key});
 
   @override
@@ -291,7 +268,7 @@ class EscrowFundSuccessWidget extends StatelessWidget {
 }
 
 class EscrowFundFailureWidget extends StatelessWidget {
-  final EscrowFundFailed state;
+  final OnchainError state;
   const EscrowFundFailureWidget(this.state, {super.key});
 
   @override
@@ -321,9 +298,7 @@ class EscrowFundFlowWidget extends StatefulWidget {
 class _EscrowFundFlowWidgetState extends State<EscrowFundFlowWidget> {
   @override
   void dispose() {
-    widget.cubit.detachOrClose(
-      (s) => s is EscrowFundCompleted || s is EscrowFundFailed,
-    );
+    widget.cubit.detachOrClose((s) => s.isTerminal);
     super.dispose();
   }
 
@@ -331,18 +306,18 @@ class _EscrowFundFlowWidgetState extends State<EscrowFundFlowWidget> {
   Widget build(BuildContext context) {
     return BlocProvider<EscrowFundOperation>.value(
       value: widget.cubit,
-      child: BlocBuilder<EscrowFundOperation, EscrowFundState>(
+      child: BlocBuilder<EscrowFundOperation, OnchainOperationState>(
         builder: (context, fundState) {
           return switch (fundState) {
-            EscrowFundInitialised() => ModalBottomSheet(
+            OnchainInitialised() => ModalBottomSheet(
               type: ModalBottomSheetType.normal,
               title: 'Deposit Funds',
               content: Center(child: AppLoadingIndicator.large()),
             ),
-            EscrowFundDepositing() => EscrowFundDepositingWidget(fundState),
-            EscrowFundSwapProgress() => EscrowFundProgressWidget(fundState),
-            EscrowFundCompleted() => EscrowFundSuccessWidget(fundState),
-            EscrowFundFailed() => EscrowFundFailureWidget(fundState),
+            OnchainTxBroadcast() => EscrowFundDepositingWidget(fundState),
+            OnchainSwapProgress() => EscrowFundProgressWidget(fundState),
+            OnchainTxConfirmed() => EscrowFundSuccessWidget(fundState),
+            OnchainError() => EscrowFundFailureWidget(fundState),
           };
         },
       ),

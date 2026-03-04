@@ -6,17 +6,26 @@ publish_to: none
 environment:
   sdk: ^3.6.0
 
+executables:
+  escrow_daemon:
+    path: bin/daemon
+  escrow_cli:
+    path: bin/cli
+
 dependencies:
   args: ^2.7.0
   get_it: ^9.2.0
   injectable: ^2.7.1+4
   http: ^1.6.0 
+  json_rpc_2: ^4.0.0
+  stream_channel: ^2.1.2
   models:
     path: ../models
   hostr_sdk:
     path: ../hostr_sdk
   ndk: ^0.7.1-dev.19
   h3_dart: ^0.7.0
+  dart_console: ^4.1.0
   interact_cli: ^2.4.0
   web3dart: ^3.0.2
   wallet: ^0.0.18

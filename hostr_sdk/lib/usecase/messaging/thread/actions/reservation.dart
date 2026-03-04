@@ -59,7 +59,7 @@ class ReservationActions {
 
   Future<void> cancel() async {
     final keyPair = await trade.activeKeyPair();
-    final mine =
+    final r =
         trade.subscriptions.reservationStream!.list.value
             .whereType<Valid<ReservationPairStatus>>()
             .where((validation) => !validation.event.cancelled)
@@ -70,14 +70,14 @@ class ReservationActions {
               ],
             )
             .whereType<Reservation>()
-            .where((reservation) => reservation.pubKey == keyPair.publicKey)
             .toList()
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          ..sort((a, b) {
+            final aMatch = a.pubKey == keyPair.publicKey ? 0 : 1;
+            final bMatch = b.pubKey == keyPair.publicKey ? 0 : 1;
+            if (aMatch != bMatch) return aMatch.compareTo(bMatch);
+            return b.createdAt.compareTo(a.createdAt);
+          });
 
-    if (mine.isEmpty) {
-      throw Exception('No reservation found to cancel');
-    }
-
-    await reservations.cancel(mine.first, keyPair);
+    await reservations.cancel(r.first, keyPair);
   }
 }

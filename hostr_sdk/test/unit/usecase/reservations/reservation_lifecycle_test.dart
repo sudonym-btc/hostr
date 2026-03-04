@@ -12,6 +12,7 @@
 @Tags(['unit'])
 library;
 
+import 'package:hostr_sdk/util/derive_evm_key.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01EventModel, Nip01Utils;
@@ -185,7 +186,10 @@ ReservationTransition _transition({
 /// Minimal fake escrow proof that satisfies the `proof.escrowProof != null`
 /// branch in `Reservation.validate`.
 PaymentProof _escrowPaymentProof({required Listing listing}) {
-  final escrowService = MOCK_ESCROWS(contractAddress: '0xDEAD').first;
+  final escrowService = MOCK_ESCROWS(
+    contractAddress: '0xDEAD',
+    evmAddress: deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
+  ).first;
   // Build minimal EscrowTrust & EscrowMethod from signed events.
   final trustEvent = Nip01Utils.signWithPrivateKey(
     event: Nip01Event(

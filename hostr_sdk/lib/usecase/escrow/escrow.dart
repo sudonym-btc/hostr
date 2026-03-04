@@ -12,6 +12,8 @@ import 'operations/claim/escrow_claim_operation.dart';
 import 'operations/fund/escrow_fund_models.dart';
 import 'operations/fund/escrow_fund_operation.dart';
 import 'operations/fund/escrow_fund_registry.dart';
+import 'operations/release/escrow_release_models.dart';
+import 'operations/release/escrow_release_operation.dart';
 import 'supported_escrow_contract/supported_escrow_contract.dart';
 
 @Singleton()
@@ -43,6 +45,10 @@ class EscrowUseCase {
 
   EscrowClaimOperation claim(EscrowClaimParams params) {
     return getIt<EscrowClaimOperation>(param1: params);
+  }
+
+  EscrowReleaseOperation release(EscrowReleaseParams params) {
+    return getIt<EscrowReleaseOperation>(param1: params);
   }
 
   StreamWithStatus<EscrowEvent> checkEscrowStatus(

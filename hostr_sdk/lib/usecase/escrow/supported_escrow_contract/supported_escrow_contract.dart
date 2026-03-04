@@ -83,13 +83,15 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
 
   Future<GasEstimate> estimateEscrowFundFee(ContractFundEscrowParams params);
   Future<GasEstimate> estimateClaimFee(ContractClaimEscrowParams params);
-  // Future<BigInt> estimateRefundFee(EscrowParams params);
+  Future<GasEstimate> estimateReleaseFee(ContractReleaseEscrowParams params);
+
+  Future<bool> canClaim(ContractClaimEscrowParams params);
+  Future<bool> canRelease(ContractReleaseEscrowParams params);
 
   depositArgs(ContractFundEscrowParams params);
   Future<TransactionInformation> deposit(ContractFundEscrowParams params);
-  Future<bool> canClaim(ContractClaimEscrowParams params);
   Future<TransactionInformation> claim(ContractClaimEscrowParams params);
-  // Future<TransactionInformation> refund(ContractFundEscrowParams params);
+  Future<TransactionInformation> release(ContractReleaseEscrowParams params);
 
   StreamWithStatus<EscrowEvent> allEvents(
     ContractEventsParams params,
@@ -121,6 +123,11 @@ class ContractEventsParams {
     this.sellerEvmAddress,
     this.arbiterEvmAddress,
   });
+
+  @override
+  String toString() =>
+      'ContractEventsParams(tradeId=$tradeId, buyer=$buyerEvmAddress, '
+      'seller=$sellerEvmAddress, arbiter=$arbiterEvmAddress)';
 }
 
 class ContractArbitrateParams {
@@ -154,7 +161,10 @@ class ContractFundEscrowParams {
   final String arbiterEvmAddress;
   final EthPrivateKey ethKey;
   final int unlockAt;
-  final int? escrowFee;
+
+  /// Flat escrow fee. Stored as a [BitcoinAmount] so it can be losslessly
+  /// converted to wei when encoding the on-chain `createTrade` call.
+  final BitcoinAmount? escrowFee;
 
   /// Gas parameters pinned at estimation time. When set, the deposit
   /// transaction uses these exact values instead of re-querying the node.
@@ -191,6 +201,13 @@ class ContractClaimEscrowParams {
   final EthPrivateKey ethKey;
 
   ContractClaimEscrowParams({required this.tradeId, required this.ethKey});
+}
+
+class ContractReleaseEscrowParams {
+  final String tradeId;
+  final EthPrivateKey ethKey;
+
+  ContractReleaseEscrowParams({required this.tradeId, required this.ethKey});
 }
 
 abstract class PaymentEvent {}

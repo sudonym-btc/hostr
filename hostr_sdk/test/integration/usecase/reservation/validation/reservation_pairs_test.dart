@@ -206,7 +206,10 @@ Reservation _buildCancel({
 
 /// Builds a mock [EscrowService] pointing at the local Anvil contract.
 EscrowService _buildEscrowService() {
-  return MOCK_ESCROWS(contractAddress: _contractAddress).first;
+  return MOCK_ESCROWS(
+    contractAddress: _contractAddress,
+    evmAddress: deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
+  ).first;
 }
 
 /// Builds an [EscrowTrust] NIP-51 list event published by [host],
@@ -617,11 +620,10 @@ void main() {
         escrowTrust = _buildEscrowTrust(host: host);
         escrowMethod = _buildEscrowMethod(host: host);
 
-        final evmCreds = getEvmCredentials(host.privateKey!);
         hosterProfile = _buildProfileEvent(
           key: host,
           lud16: 'host@hostr.development',
-          evmAddress: evmCreds.address.eip55With0x,
+          evmAddress: deriveEvmKey(host.privateKey!).address.eip55With0x,
         );
       });
 
@@ -633,7 +635,7 @@ void main() {
         'self-signed commit with real escrow deposit → Valid',
         () async {
           // Fund buyer's EVM address
-          final buyerEvm = getEvmCredentials(buyer.privateKey!);
+          final buyerEvm = deriveEvmKey(buyer.privateKey!);
           await harness.anvil.setBalance(
             address: buyerEvm.address.eip55With0x,
             amountWei: _twoEthWei,
@@ -662,8 +664,8 @@ void main() {
             EthereumAddress.fromHex(_contractAddress),
           );
 
-          final sellerEvm = getEvmCredentials(host.privateKey!);
-          final arbiterEvm = getEvmCredentials(MockKeys.escrow.privateKey!);
+          final sellerEvm = deriveEvmKey(host.privateKey!);
+          final arbiterEvm = deriveEvmKey(MockKeys.escrow.privateKey!);
           final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
           final depositAmount = EtherAmount.fromBigInt(
@@ -726,7 +728,7 @@ void main() {
       test(
         'EscrowProof.validate checks tx exists on chain',
         () async {
-          final buyerEvm = getEvmCredentials(buyer.privateKey!);
+          final buyerEvm = deriveEvmKey(buyer.privateKey!);
           await harness.anvil.setBalance(
             address: buyerEvm.address.eip55With0x,
             amountWei: _twoEthWei,
@@ -753,8 +755,8 @@ void main() {
             EthereumAddress.fromHex(_contractAddress),
           );
 
-          final sellerEvm = getEvmCredentials(host.privateKey!);
-          final arbiterEvm = getEvmCredentials(MockKeys.escrow.privateKey!);
+          final sellerEvm = deriveEvmKey(host.privateKey!);
+          final arbiterEvm = deriveEvmKey(MockKeys.escrow.privateKey!);
           final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
           final depositAmount = EtherAmount.fromBigInt(
@@ -811,7 +813,7 @@ void main() {
       test(
         'escrow deposit with wrong amount — tx exists but amount mismatch',
         () async {
-          final buyerEvm = getEvmCredentials(buyer2.privateKey!);
+          final buyerEvm = deriveEvmKey(buyer2.privateKey!);
           await harness.anvil.setBalance(
             address: buyerEvm.address.eip55With0x,
             amountWei: _twoEthWei,
@@ -837,8 +839,8 @@ void main() {
             EthereumAddress.fromHex(_contractAddress),
           );
 
-          final sellerEvm = getEvmCredentials(host.privateKey!);
-          final arbiterEvm = getEvmCredentials(MockKeys.escrow.privateKey!);
+          final sellerEvm = deriveEvmKey(host.privateKey!);
+          final arbiterEvm = deriveEvmKey(MockKeys.escrow.privateKey!);
           final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
           // Deposit only 1 wei — intentionally wrong amount

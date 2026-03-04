@@ -15,10 +15,6 @@ import 'package:web3dart/web3dart.dart';
 import '../../util/main.dart';
 import '../storage/storage.dart';
 
-/// BIP-44 derivation path for EVM (Ethereum / Rootstock).
-/// m/44'/60'/0'/0/{accountIndex}
-const _evmPathPrefix = "m/44'/60'/0'/0";
-
 @Singleton()
 class Auth {
   final Ndk ndk;
@@ -130,6 +126,19 @@ class Auth {
     return _deriveEvmKey(accountIndex).address;
   }
 
+  /// Scans HD account indices 0..[maxScan] to find the one whose address
+  /// matches [address]. Throws [StateError] if no match is found.
+  int findEvmAccountIndex(bip.EthereumAddress address, {int maxScan = 20}) {
+    for (var i = 0; i < maxScan; i++) {
+      final derived = getEvmAddress(accountIndex: i);
+      if (derived == address) return i;
+    }
+    throw StateError(
+      'No HD account index (0..$maxScan) matches address '
+      '${address.eip55With0x}',
+    );
+  }
+
   /// Returns the 24-word BIP-39 mnemonic derived from the Nostr private key
   /// entropy. Paste this into MetaMask to see all derived EVM addresses.
   List<String> getEvmMnemonic() {
@@ -140,14 +149,7 @@ class Auth {
 
   /// Derives the EVM private key at [accountIndex] from the Nostr key.
   EthPrivateKey _deriveEvmKey(int accountIndex) {
-    final mnemonic = getEvmMnemonic();
-    final seed = bip.mnemonicToSeed(mnemonic);
-    final master = bip.ExtendedPrivateKey.master(seed, bip.xprv);
-    final derived =
-        master.forPath("$_evmPathPrefix/$accountIndex")
-            as bip.ExtendedPrivateKey;
-    final keyHex = derived.key.toRadixString(16).padLeft(64, '0');
-    return EthPrivateKey.fromHex(keyHex);
+    return deriveEvmKey(getActiveKey().privateKey!, accountIndex: accountIndex);
   }
 
   // ---------------------------------------------------------------------------

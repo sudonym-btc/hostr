@@ -81,7 +81,8 @@ void main(List<String> arguments) async {
           feePercent: 1,
           minAmount: 5000));
 
-  print(ourProfile);
+  print('Our escrow service: ${ourEscrowService.content}');
+  print('Our profile: ${ourProfile?.metadata.name}');
 
   final parser = ArgParser()
     ..addCommand('start')

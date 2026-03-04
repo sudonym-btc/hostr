@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:hostr_sdk/usecase/payments/constants.dart';
+import 'package:hostr_sdk/util/derive_evm_key.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
@@ -230,7 +231,7 @@ Future<void> buildOutcomes({
       }
       await Future.wait(
         guestNonces.keys.map((privKey) async {
-          final addr = getEvmCredentials(privKey).address;
+          final addr = deriveEvmKey(privKey).address;
           guestNonces[privKey] = await ctx.chainClient().getTransactionCount(
             addr,
             atBlock: const BlockNum.pending(),
@@ -292,7 +293,7 @@ Future<void> buildOutcomes({
       }
       await Future.wait(
         settlerNonces.keys.map((privKey) async {
-          final addr = getEvmCredentials(privKey).address;
+          final addr = deriveEvmKey(privKey).address;
           settlerNonces[privKey] = await ctx.chainClient().getTransactionCount(
             addr,
             atBlock: const BlockNum.pending(),
@@ -457,9 +458,7 @@ EscrowProof _buildBogusEscrowProof({
 EscrowService _buildBogusEscrowService(SeedContext ctx) {
   final content = EscrowServiceContent(
     pubkey: MockKeys.escrow.publicKey,
-    evmAddress: getEvmCredentials(
-      MockKeys.escrow.privateKey!,
-    ).address.eip55With0x,
+    evmAddress: deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
     contractAddress: _randomHex(ctx, 40),
     contractBytecodeHash: _randomHex(ctx, 64),
     chainId: 1000 + ctx.random.nextInt(8000),
@@ -508,10 +507,10 @@ Future<void> _createTradeForPlan({
   final tradeId = getBytes32(tradeIdHex);
   final amountWei = request.amount!.value * BigInt.from(10).pow(10);
 
-  final guestCredentials = EthPrivateKey.fromHex(guest.keyPair.privateKey!);
-  final buyer = getEvmCredentials(guest.keyPair.privateKey!).address;
-  final seller = getEvmCredentials(host.keyPair.privateKey!).address;
-  final arbiter = getEvmCredentials(MockKeys.escrow.privateKey!).address;
+  final guestCredentials = deriveEvmKey(guest.keyPair.privateKey!);
+  final buyer = guestCredentials.address;
+  final seller = deriveEvmKey(host.keyPair.privateKey!).address;
+  final arbiter = deriveEvmKey(MockKeys.escrow.privateKey!).address;
 
   final unlockAtSeconds = request.end.toUtc().millisecondsSinceEpoch ~/ 1000;
   final unlockAt = BigInt.from(unlockAtSeconds);
@@ -569,8 +568,8 @@ Future<void> _settleForPlan({
   final tradeIdHex = request.getDtag() ?? '';
   final tradeId = getBytes32(tradeIdHex);
 
-  final hostCredentials = EthPrivateKey.fromHex(host.keyPair.privateKey!);
-  final arbiterCredentials = EthPrivateKey.fromHex(MockKeys.escrow.privateKey!);
+  final hostCredentials = deriveEvmKey(host.keyPair.privateKey!);
+  final arbiterCredentials = deriveEvmKey(MockKeys.escrow.privateKey!);
 
   if (plan.escrowOutcome == EscrowOutcome.arbitrated) {
     final txHash = await contract.arbitrate(

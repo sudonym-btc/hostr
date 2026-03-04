@@ -59,18 +59,18 @@ void main() {
         ),
       );
 
-      final emittedStates = <EscrowFundState>[operation.state];
+      final emittedStates = <OnchainOperationState>[operation.state];
       final sub = operation.stream.listen(emittedStates.add);
 
       await operation.execute();
       emittedStates.add(operation.state);
       await sub.cancel();
 
-      expect(emittedStates.first, isA<EscrowFundInitialised>());
-      expect(operation.state, isA<EscrowFundCompleted>());
-      expect(emittedStates.whereType<EscrowFundCompleted>(), isNotEmpty);
+      expect(emittedStates.first, isA<OnchainInitialised>());
+      expect(operation.state, isA<OnchainTxConfirmed>());
+      expect(emittedStates.whereType<OnchainTxConfirmed>(), isNotEmpty);
 
-      final completed = operation.state as EscrowFundCompleted;
+      final completed = operation.state as OnchainTxConfirmed;
       expect(completed.transactionInformation, isNotNull);
       final txHash = _extractTxHash(completed.transactionInformation!);
       expect(txHash, isNotNull);

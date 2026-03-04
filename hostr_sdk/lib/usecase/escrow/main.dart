@@ -8,3 +8,7 @@ export 'operations/fund/escrow_fund_operation.dart';
 export 'operations/fund/escrow_fund_recoverer.dart';
 export 'operations/fund/escrow_fund_registry.dart';
 export 'operations/fund/escrow_fund_state.dart';
+export 'operations/onchain_operation.dart';
+export 'operations/release/escrow_release_models.dart';
+export 'operations/release/escrow_release_operation.dart';
+export 'operations/release/escrow_release_state.dart';

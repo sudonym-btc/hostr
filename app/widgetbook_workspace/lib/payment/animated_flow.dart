@@ -235,12 +235,12 @@ Widget swapInAnimatedFlow(BuildContext context) {
 
 @widgetbook.UseCase(name: 'Animated flow', type: EscrowFundProgressWidget)
 Widget escrowFundAnimatedFlow(BuildContext context) {
-  return _StateCyclerWidget<EscrowFundState>(
+  return _StateCyclerWidget<OnchainOperationState>(
     states: [
-      ('Initialised', EscrowFundInitialised()),
+      ('Initialised', const OnchainInitialised()),
       (
         'Swap progress – paying',
-        EscrowFundSwapProgress(
+        OnchainSwapProgress(
           _mockEscrowFundData,
           swapState: SwapInPaymentProgress(
             _mockSwapInData,
@@ -250,28 +250,28 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
       ),
       (
         'Swap progress – awaiting on-chain',
-        EscrowFundSwapProgress(
+        OnchainSwapProgress(
           _mockEscrowFundData,
           swapState: const SwapInAwaitingOnChain(_mockSwapInData),
         ),
       ),
       (
         'Swap progress – funded',
-        EscrowFundSwapProgress(
+        OnchainSwapProgress(
           _mockEscrowFundData,
           swapState: const SwapInFunded(_mockSwapInData),
         ),
       ),
       (
         'Swap progress – completed',
-        EscrowFundSwapProgress(
+        OnchainSwapProgress(
           _mockEscrowFundData,
           swapState: const SwapInCompleted(_mockSwapInData),
         ),
       ),
       (
         'Completed',
-        EscrowFundCompleted(
+        OnchainTxConfirmed(
           _mockEscrowFundData,
           transactionInformation: TransactionInformation.fromMap({
             'blockHash':
@@ -293,19 +293,19 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
           }),
         ),
       ),
-      ('Failed', EscrowFundFailed('Escrow contract reverted')),
+      ('Failed', OnchainError('Escrow contract reverted')),
     ],
     builder: (context, state) {
       switch (state) {
-        case EscrowFundInitialised():
+        case OnchainInitialised():
           return EscrowFundConfirmWidget(onConfirm: () async {});
-        case EscrowFundDepositing():
+        case OnchainTxBroadcast():
           return EscrowFundDepositingWidget(state);
-        case EscrowFundSwapProgress():
+        case OnchainSwapProgress():
           return EscrowFundProgressWidget(state);
-        case EscrowFundCompleted():
+        case OnchainTxConfirmed():
           return EscrowFundSuccessWidget(state);
-        case EscrowFundFailed():
+        case OnchainError():
           return EscrowFundFailureWidget(state);
       }
     },

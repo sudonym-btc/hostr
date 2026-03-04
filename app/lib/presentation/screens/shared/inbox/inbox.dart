@@ -27,14 +27,11 @@ class InboxScreen extends StatelessWidget {
               child: Text(AppLocalizations.of(context)!.noMessagesYet),
             );
           }
-          return ListView.builder(
-            itemCount: threads.length,
-            itemBuilder: (context, index) {
-              return InboxItem(
-                key: ValueKey(threads[index].anchor),
-                thread: threads[index],
-              );
-            },
+          return ListView(
+            children: [
+              for (final thread in threads)
+                InboxItem(key: ValueKey(thread.anchor), thread: thread),
+            ],
           );
         },
       ),

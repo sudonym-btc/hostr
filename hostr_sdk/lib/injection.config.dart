@@ -31,6 +31,8 @@ import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_recoverer.d
     as _i787;
 import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_registry.dart'
     as _i608;
+import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_operation.dart'
+    as _i460;
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i445;
 import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i943;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i303;
@@ -444,11 +446,35 @@ extension GetItInjectableX on _i174.GetIt {
       ),
     );
     gh.factoryParam<
+      _i654.EscrowClaimOperation,
+      _i520.EscrowClaimParams,
+      dynamic
+    >(
+      (params, _) => _i654.EscrowClaimOperation(
+        gh<_i520.Auth>(),
+        gh<_i520.Evm>(),
+        gh<_i520.CustomLogger>(),
+        params,
+      ),
+    );
+    gh.factoryParam<
       _i832.EscrowFundOperation,
       _i520.EscrowFundParams?,
       dynamic
     >(
       (params, _) => _i832.EscrowFundOperation(
+        gh<_i520.Auth>(),
+        gh<_i520.Evm>(),
+        gh<_i520.CustomLogger>(),
+        params,
+      ),
+    );
+    gh.factoryParam<
+      _i460.EscrowReleaseOperation,
+      _i520.EscrowReleaseParams,
+      dynamic
+    >(
+      (params, _) => _i460.EscrowReleaseOperation(
         gh<_i520.Auth>(),
         gh<_i520.Evm>(),
         gh<_i520.CustomLogger>(),
@@ -512,19 +538,6 @@ extension GetItInjectableX on _i174.GetIt {
         listings: gh<_i906.Listings>(),
         metadata: gh<_i149.MetadataUseCase>(),
         logger: gh<_i372.CustomLogger>(),
-      ),
-    );
-    gh.factoryParam<
-      _i654.EscrowClaimOperation,
-      _i520.EscrowClaimParams,
-      dynamic
-    >(
-      (params, _) => _i654.EscrowClaimOperation(
-        gh<_i520.Auth>(),
-        gh<_i520.Evm>(),
-        gh<_i520.CustomLogger>(),
-        gh<_i520.Rootstock>(),
-        params,
       ),
     );
     gh.factoryParam<

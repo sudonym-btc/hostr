@@ -6,13 +6,14 @@ import '../../../auth/auth.dart';
 import '../../../evm/evm.dart';
 import '../../../evm/operations/operation_state_store.dart';
 import '../../supported_escrow_contract/supported_escrow_contract_registry.dart';
+import '../onchain_operation.dart';
 import 'escrow_fund_operation.dart';
 import 'escrow_fund_registry.dart';
 import 'escrow_fund_state.dart';
 
 /// Recovers pending escrow fund operations on app start.
 ///
-/// Loads persisted [EscrowFundState]s from [OperationStateStore], checks
+/// Loads persisted escrow fund states from [OperationStateStore], checks
 /// whether any nested swap has completed, and resumes the deposit if so.
 ///
 /// **Key design constraint:** This recoverer does NOT recover nested swaps.
@@ -59,8 +60,11 @@ class EscrowFundRecoverer {
 
     for (final json in entries) {
       try {
-        final state = EscrowFundState.fromJson(json);
-        if (state.isTerminal || state is EscrowFundInitialised) continue;
+        final state = OnchainOperationState.fromJson(
+          json,
+          EscrowFundData.fromJson,
+        );
+        if (state.isTerminal || state is OnchainInitialised) continue;
         if (await _recoverOne(state)) resolved++;
       } catch (e) {
         _logger.e('EscrowFundRecoverer: error: $e');
@@ -71,7 +75,7 @@ class EscrowFundRecoverer {
     return resolved;
   }
 
-  Future<bool> _recoverOne(EscrowFundState state) async {
+  Future<bool> _recoverOne(OnchainOperationState state) async {
     final data = state.data!;
 
     // Resolve the chain and escrow contract from persisted data.
@@ -98,7 +102,7 @@ class EscrowFundRecoverer {
       initialState: state,
     );
 
-    final tradeId = data.tradeId;
+    final tradeId = data.operationId;
     _registry.register(tradeId, cubit);
 
     try {

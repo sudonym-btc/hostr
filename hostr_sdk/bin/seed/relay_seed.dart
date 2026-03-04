@@ -5,7 +5,7 @@ import 'package:hostr_sdk/datasources/anvil/anvil.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_models.dart';
-import 'package:models/main.dart';
+import 'package:hostr_sdk/util/derive_evm_key.dart';
 import 'package:path/path.dart' as p;
 
 import 'broadcast_isolate.dart';
@@ -319,7 +319,7 @@ class RelaySeeder {
     Map<String, dynamic> userSummary(SeedUser user) {
       final privateKey = user.keyPair.privateKey;
       final evmAddress = user.hasEvm && privateKey != null
-          ? getEvmCredentials(privateKey).address.eip55With0x
+          ? deriveEvmKey(privateKey).address.eip55With0x
           : null;
 
       return {

@@ -214,6 +214,54 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   }
 
   @override
+  Future<GasEstimate> estimateReleaseFee(
+    ContractReleaseEscrowParams params,
+  ) async {
+    final gasPrice = await contract.client.getGasPrice();
+    final gasLimit = BigInt.from(200000);
+    return GasEstimate(
+      fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
+      gasPrice: gasPrice,
+      gasLimit: gasLimit,
+    );
+  }
+
+  @override
+  Future<bool> canRelease(ContractReleaseEscrowParams params) async {
+    await ensureDeployed();
+    final activeTrade = await _withDecodedCustomError(() {
+      return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
+    });
+
+    if (!activeTrade.isActive) {
+      return false;
+    }
+
+    final trade = _extractTrade(activeTrade.trade);
+    if (trade == null) {
+      logger.w('Could not decode active trade for ${params.tradeId}');
+      return false;
+    }
+
+    // Release is available as long as the trade is active.
+    // Only the seller (depositor) can release, but that's enforced on-chain.
+    return true;
+  }
+
+  @override
+  Future<TransactionInformation> release(
+    ContractReleaseEscrowParams params,
+  ) async {
+    await ensureDeployed();
+    final transactionHash = await _withDecodedCustomError(() {
+      return contract.releaseToCounterparty((
+        tradeId: getBytes32(params.tradeId),
+      ), credentials: params.ethKey);
+    });
+    return (await client.getTransactionByHash(transactionHash))!;
+  }
+
+  @override
   depositArgs(ContractFundEscrowParams params) {
     return (
       tradeId: getBytes32(params.tradeId),
@@ -228,7 +276,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       arbiter: EthereumAddress.fromHex(params.arbiterEvmAddress),
 
       unlockAt: BigInt.from(params.unlockAt),
-      escrowFee: BigInt.from(params.escrowFee ?? 0),
+      escrowFee: params.escrowFee?.getInWei ?? BigInt.zero,
     );
   }
 
@@ -349,30 +397,29 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           .then((_) => contract.client.getLogs(eventFilter))
           .asStream()
           .map((logs) {
-            print('Fetched ${logs.length} logs for filter: $eventFilter');
+            print(
+              'Fetched ${logs.length} logs for filter: ${eventFilter.stringify()}',
+            );
             logStore.addAll(logs);
             return logs;
           })
           .asyncExpand((logs) => Stream.fromIterable(logs))
           .where((log) => log.transactionHash != null)
           .asyncMap(mapper),
-      liveFn: () => ensureDeployed()
-          .asStream()
-          .asyncExpand(
-            (_) => contract.client.events(
-              FilterOptions(
-                address: eventFilter.address,
-                topics: eventFilter.topics,
-                fromBlock: logStore.isEmpty
-                    ? BlockNum.current()
-                    : BlockNum.exact(
-                        logStore
-                                .where((e) => e.blockNum != null)
-                                .map((e) => e.blockNum!.toInt())
-                                .reduce(max) +
-                            1,
-                      ),
-              ),
+      liveFn: () => contract.client
+          .events(
+            FilterOptions(
+              address: eventFilter.address,
+              topics: eventFilter.topics,
+              fromBlock: logStore.isEmpty
+                  ? BlockNum.current()
+                  : BlockNum.exact(
+                      logStore
+                              .where((e) => e.blockNum != null)
+                              .map((e) => e.blockNum!.toInt())
+                              .reduce(max) +
+                          1,
+                    ),
             ),
           )
           .where((log) => log.transactionHash != null)
@@ -432,5 +479,11 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       message: text,
       originalError: error,
     );
+  }
+}
+
+extension on FilterOptions {
+  String stringify() {
+    return 'FilterOptions(address: ${address?.eip55With0x}, topics: $topics, fromBlock: $fromBlock, toBlock: $toBlock)';
   }
 }
