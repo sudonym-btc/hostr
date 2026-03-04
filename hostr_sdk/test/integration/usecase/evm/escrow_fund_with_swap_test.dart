@@ -62,7 +62,7 @@ void main() {
         ),
       );
 
-      final emittedStates = <EscrowFundState>[operation.state];
+      final emittedStates = <OnchainOperationState>[operation.state];
       final sub = operation.stream.listen(emittedStates.add);
 
       await operation.execute();
@@ -84,20 +84,20 @@ void main() {
       expect(balanceAfter.getInSats.toInt(), equals(0));
 
       // --- State flow assertions ---
-      expect(emittedStates.first, isA<EscrowFundInitialised>());
+      expect(emittedStates.first, isA<OnchainInitialised>());
 
       // A swap-in must have been triggered because we started with zero EVM
       // balance. Verify at least one EscrowFundSwapProgress state appeared.
       expect(
-        emittedStates.whereType<EscrowFundSwapProgress>(),
+        emittedStates.whereType<OnchainSwapProgress>(),
         isNotEmpty,
         reason: 'Expected swap-in to be triggered (zero EVM balance)',
       );
 
-      expect(operation.state, isA<EscrowFundCompleted>());
-      expect(emittedStates.whereType<EscrowFundCompleted>(), isNotEmpty);
+      expect(operation.state, isA<OnchainTxConfirmed>());
+      expect(emittedStates.whereType<OnchainTxConfirmed>(), isNotEmpty);
 
-      final completed = operation.state as EscrowFundCompleted;
+      final completed = operation.state as OnchainTxConfirmed;
       expect(completed.transactionInformation, isNotNull);
       final txHash = _extractTxHash(completed.transactionInformation!);
       expect(txHash, isNotNull);

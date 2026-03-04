@@ -6,7 +6,7 @@ contract Escrow {
     address public seller;
     address public arbiter;
     uint256 public amount;
-    uint256 public escrowFee; // Fee in percentage (e.g., 1 for 1%)
+    uint256 public escrowFee; // flat fee in wei
 
     enum State { AWAITING_PAYMENT, AWAITING_DELIVERY, COMPLETE, REFUNDED }
     State public currentState;
@@ -48,7 +48,7 @@ contract Escrow {
         require(factor > 0 && factor < 1 ether, "Factor must be between 0 and 1");
 
         uint256 forwardAmount = (amount * factor) / 1 ether;
-        uint256 fee = (forwardAmount * escrowFee) / 100;
+        uint256 fee = (escrowFee * factor) / 1 ether;
         uint256 amountAfterFee = forwardAmount - fee;
 
         payable(seller).transfer(amountAfterFee);
@@ -59,7 +59,7 @@ contract Escrow {
 
     function release() external onlyArbiter {
         require(currentState == State.AWAITING_DELIVERY, "Cannot release funds");
-        uint256 fee = (amount * escrowFee) / 100;
+        uint256 fee = escrowFee;
         uint256 amountAfterFee = amount - fee;
 
         payable(seller).transfer(amountAfterFee);

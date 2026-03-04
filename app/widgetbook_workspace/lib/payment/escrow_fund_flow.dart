@@ -82,7 +82,7 @@ Widget escrowFundConfirm(BuildContext context) {
 @widgetbook.UseCase(name: 'Swap in progress', type: EscrowFundProgressWidget)
 Widget escrowFundSwapProgress(BuildContext context) {
   return EscrowFundProgressWidget(
-    EscrowFundSwapProgress(
+    OnchainSwapProgress(
       _mockEscrowFundData,
       swapState: SwapInPaymentProgress(
         _mockSwapInData,
@@ -103,7 +103,7 @@ Widget escrowFundSwapProgress(BuildContext context) {
 )
 Widget escrowFundOnChainProgress(BuildContext context) {
   return EscrowFundProgressWidget(
-    EscrowFundSwapProgress(
+    OnchainSwapProgress(
       _mockEscrowFundData,
       swapState: const SwapInAwaitingOnChain(_mockSwapInData),
     ),
@@ -139,6 +139,6 @@ Widget escrowFundSuccess(BuildContext context) {
 @widgetbook.UseCase(name: 'Error', type: EscrowFundFailureWidget)
 Widget escrowFundError(BuildContext context) {
   return EscrowFundFailureWidget(
-    EscrowFundFailed('Escrow contract reverted: insufficient allowance'),
+    OnchainError('Escrow contract reverted: insufficient allowance'),
   );
 }

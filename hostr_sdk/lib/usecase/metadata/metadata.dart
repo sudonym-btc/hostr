@@ -74,9 +74,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
       // evmAddress getter throws if the tag is absent.
     }
 
-    final updated = metadata.withEvmAddress(
-      getEvmCredentials(auth.activeKeyPair!.privateKey!).address.eip55With0x,
-    );
+    final updated = metadata.withEvmAddress(auth.getEvmAddress().eip55With0x);
     await requests.broadcast(event: updated);
     notifyUpdate(updated);
   }

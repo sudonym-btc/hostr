@@ -17,6 +17,7 @@ import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../flow/payment/escrow/fund/escrow_fund.dart';
+import '../flow/payment/escrow/release/escrow_release.dart';
 import '../profile/verification/verification_badges.dart';
 import 'payment_status_chip.dart';
 
@@ -108,10 +109,19 @@ class TradeHeaderView extends StatelessWidget {
     _ => Theme.of(context).colorScheme.surfaceContainer,
   };
 
-  Widget _buildSummary(BuildContext context, {required bool showDetails}) {
+  Widget _buildSummary(
+    BuildContext context, {
+    required bool showDetails,
+    required List<PaymentEvent> paymentEvents,
+  }) {
     final availabilityBanner = _buildAvailabilityBanner(context);
+    final paymentStatusChip = paymentEvents.isNotEmpty
+        ? PaymentStatusChip(state: paymentEvents.last)
+        : null;
+
+    final statusBanners = [?availabilityBanner, ?paymentStatusChip];
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
@@ -135,8 +145,13 @@ class TradeHeaderView extends StatelessWidget {
                 ),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
-              if (availabilityBanner != null) Gap.vertical.sm(),
-              ?availabilityBanner,
+              if (statusBanners.isNotEmpty) Gap.vertical.sm(),
+              if (statusBanners.isNotEmpty)
+                Wrap(
+                  spacing: kSpace2,
+                  runSpacing: kSpace2,
+                  children: statusBanners,
+                ),
             ],
           ),
         ),
@@ -269,6 +284,8 @@ class TradeHeaderView extends StatelessWidget {
     style: OutlinedButton.styleFrom(
       foregroundColor: Theme.of(context).colorScheme.error,
       side: BorderSide(color: Theme.of(context).colorScheme.error),
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     ),
     child: const Text('Cancel'),
   );
@@ -284,6 +301,8 @@ class TradeHeaderView extends StatelessWidget {
     },
     style: OutlinedButton.styleFrom(
       foregroundColor: Theme.of(context).colorScheme.secondary,
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     ),
     child: const Text('Message Escrow'),
   );
@@ -311,7 +330,7 @@ class TradeHeaderView extends StatelessWidget {
               );
             },
             style: FilledButton.styleFrom(
-              visualDensity: VisualDensity.comfortable,
+              visualDensity: VisualDensity.compact,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             child: SizedBox(
@@ -334,7 +353,7 @@ class TradeHeaderView extends StatelessWidget {
             ),
           ),
           style: FilledButton.styleFrom(
-            visualDensity: VisualDensity.comfortable,
+            visualDensity: VisualDensity.compact,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           child: const Text('Pay'),
@@ -346,16 +365,37 @@ class TradeHeaderView extends StatelessWidget {
   Widget _acceptButton(BuildContext context) => OutlinedButton(
     onPressed: () =>
         context.read<ThreadCubit>().thread.trade!.execute(TradeAction.accept),
+    style: OutlinedButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
     child: const Text('Accept'),
   );
 
   Widget _counterButton(BuildContext context) => OutlinedButton(
     onPressed: () => _showNotImplemented(context),
+    style: OutlinedButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
     child: const Text('Counter'),
   );
 
   Widget _refundButton(BuildContext context) => OutlinedButton(
-    onPressed: () => _showNotImplemented(context),
+    style: OutlinedButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+    onPressed: () {
+      final cubit = context.read<ThreadCubit>();
+      final selectedEscrows = cubit.state.threadState.selectedEscrows;
+      if (selectedEscrows.isEmpty) return;
+      final escrowService = selectedEscrows.first.service;
+      final releaseOp = getIt<Hostr>().escrow.release(
+        EscrowReleaseParams(escrowService: escrowService, tradeId: tradeId),
+      );
+      showAppModal(context, child: ReleaseFlowWidget(cubit: releaseOp));
+    },
     child: const Text('Refund'),
   );
 
@@ -365,6 +405,10 @@ class TradeHeaderView extends StatelessWidget {
       child: CustomPadding(
         child: EditReview(listing: listing, salt: 'thread_salt'),
       ),
+    ),
+    style: OutlinedButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     ),
     child: const Text('Review'),
   );
@@ -383,21 +427,31 @@ class TradeHeaderView extends StatelessWidget {
     if (!hasCancel && !hasCounter && !hasPay && !hasAccept) {
       return null;
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(child: _buildPaymentSummary(context, paymentEvents)),
-        if (hasCancel) _cancelButton(context),
-        if (hasCounter) ...[
-          if (hasCancel) const SizedBox(width: 8),
-          _counterButton(context),
-        ],
-        if (hasPay || hasAccept) const SizedBox(width: 8),
-        if (hasPay)
-          _payButton(context)
-        else if (hasAccept)
-          _acceptButton(context),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: _buildPaymentSummary(context, paymentEvents)),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
+              child: Wrap(
+                spacing: kSpace2,
+                runSpacing: kSpace2,
+                alignment: WrapAlignment.end,
+                children: [
+                  if (hasCancel) _cancelButton(context),
+                  if (hasCounter) _counterButton(context),
+                  if (hasPay)
+                    _payButton(context)
+                  else if (hasAccept)
+                    _acceptButton(context),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -415,18 +469,14 @@ class TradeHeaderView extends StatelessWidget {
         !hasReview) {
       return null;
     }
-    return Row(
+    return Wrap(
+      spacing: kSpace2,
+      runSpacing: kSpace2,
+      alignment: WrapAlignment.end,
       children: [
         if (hasCancel) _cancelButton(context),
-        if (hasMessageEscrow) ...[
-          if (hasCancel) Gap.horizontal.md(),
-          _messageEscrowButton(context),
-        ],
-        const Spacer(),
-        if (hasRefund) ...[
-          _refundButton(context),
-          if (hasClaim || hasReview) const SizedBox(width: 8),
-        ],
+        if (hasMessageEscrow) _messageEscrowButton(context),
+        if (hasRefund) _refundButton(context),
         if (hasClaim) ClaimWidget() else if (hasReview) _reviewButton(context),
       ],
     );
@@ -467,6 +517,7 @@ class TradeHeaderView extends StatelessWidget {
                           child: _buildSummary(
                             context,
                             showDetails: showDetails,
+                            paymentEvents: paymentEvents,
                           ),
                         ),
                         Container(

@@ -15,6 +15,7 @@ contract MultiEscrow {
     error OnlySeller();
     error ClaimPeriodNotStarted();
     error NoFundsToClaim();
+    error EscrowFeeTooHigh();
 
     struct Trade {
         address buyer;
@@ -22,7 +23,7 @@ contract MultiEscrow {
         address arbiter;
         uint256 amount;
         uint256 unlockAt;
-        uint256 escrowFee;
+        uint256 escrowFee; // flat fee in wei
     }
 
     mapping(bytes32 => Trade) public trades;
@@ -95,6 +96,7 @@ contract MultiEscrow {
     function createTrade(bytes32 tradeId, address _buyer, address _seller, address _arbiter,  uint256 _unlockAt, uint256 _escrowFee) external payable {
         if (trades[tradeId].buyer != address(0)) revert TradeIdAlreadyExists();
         if (msg.value == 0) revert MustSendFunds();
+        if (_escrowFee > msg.value) revert EscrowFeeTooHigh();
         trades[tradeId] = Trade({
             buyer: _buyer,
             seller: _seller,
@@ -135,7 +137,7 @@ contract MultiEscrow {
         address seller = trade.seller;
         address buyer = trade.buyer;
 
-        uint256 fee = (amount * trade.escrowFee) / 100;
+        uint256 fee = trade.escrowFee;
         uint256 amountAfterFee = amount - fee;
         uint256 forwardAmount = (amountAfterFee * factor) / FACTOR_SCALE;
         uint256 remainingAmount = amountAfterFee - forwardAmount;

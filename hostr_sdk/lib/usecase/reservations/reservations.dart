@@ -492,7 +492,7 @@ class Reservations extends CrudUseCase<Reservation> {
           content: reservation.parsedContent.copyWith(
             stage: ReservationStage.cancel,
           ),
-          pubKey: null,
+          pubKey: keyPair.publicKey,
         )
         .signAs(keyPair, Reservation.fromNostrEvent);
     logger.d('Cancelling reservation: $updated');

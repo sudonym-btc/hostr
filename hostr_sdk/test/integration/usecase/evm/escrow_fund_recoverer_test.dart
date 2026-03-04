@@ -71,7 +71,7 @@ void main() {
       );
 
       await operation.execute();
-      expect(operation.state, isA<EscrowFundCompleted>());
+      expect(operation.state, isA<OnchainTxConfirmed>());
 
       // Store should have a terminal entry now.
       final recoverer = getIt<EscrowFundRecoverer>();
@@ -111,15 +111,16 @@ void main() {
       );
 
       await operation.execute();
-      expect(operation.state, isA<EscrowFundCompleted>());
+      expect(operation.state, isA<OnchainTxConfirmed>());
 
-      final completedData = (operation.state as EscrowFundCompleted).data;
+      final completedData =
+          (operation.state as OnchainTxConfirmed).data as EscrowFundData;
 
-      // Rewrite the store entry to "depositing" with the known tx hash —
+      // Rewrite the store entry to "txBroadcast" with the known tx hash —
       // simulating a crash after the deposit tx was broadcast but before
       // the receipt was confirmed.
       final store = getIt<OperationStateStore>();
-      final depositingState = EscrowFundDepositing(completedData);
+      final depositingState = OnchainTxBroadcast(completedData);
       await store.write(
         'escrow_fund',
         completedData.tradeId,
@@ -128,7 +129,7 @@ void main() {
 
       // Verify it was written as non-terminal.
       final stored = await store.read('escrow_fund', completedData.tradeId);
-      expect(stored?['state'], 'depositing');
+      expect(stored?['state'], 'txBroadcast');
       expect(stored?['isTerminal'], false);
 
       // Recover — the deposit tx is already on-chain, so the recoverer should
@@ -166,7 +167,7 @@ void main() {
       accountIndex: 0,
       swapId: 'nonexistent-swap-id',
     );
-    final swapProgressState = EscrowFundSwapProgress(fakeData);
+    final swapProgressState = OnchainSwapProgress(fakeData);
     await store.write(
       'escrow_fund',
       fakeData.tradeId,

@@ -10,4 +10,6 @@ WORKDIR /workspace/escrow
 
 RUN dart pub get
 
-CMD ["dart", "run", "lib/cli.dart", "start"]
+# Default: run the daemon (long-running process).
+# Override with `docker exec … dart run bin/cli.dart` to attach the CLI.
+CMD ["dart", "run", "bin/daemon.dart"]

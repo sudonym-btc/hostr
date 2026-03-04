@@ -8,9 +8,13 @@ export 'keypairs.dart';
 final faker = Faker(seed: 1);
 
 Future<List<Nip01Event>> MOCK_EVENTS(
-    {required String contractAddress, String? byteCodeHash}) async {
+    {required String contractAddress,
+    required String evmAddress,
+    String? byteCodeHash}) async {
   return [
     ...MOCK_ESCROWS(
-        contractAddress: contractAddress, byteCodeHash: byteCodeHash),
+        contractAddress: contractAddress,
+        evmAddress: evmAddress,
+        byteCodeHash: byteCodeHash),
   ];
 }

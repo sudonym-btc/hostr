@@ -14,6 +14,7 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   final Map<String, ProfileCubit> participantCubits = {};
   final Map<String, ProfileCubit> counterpartyCubits = {};
   final List<StreamSubscription> _subscriptions = [];
+  bool _ownsTradeLifecycle = false;
 
   ThreadCubit({required this.thread})
     : super(
@@ -74,12 +75,15 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
   }
 
   void watch() {
+    _ownsTradeLifecycle = true;
     thread.trade!.start();
   }
 
   @override
   close() async {
-    await thread.trade?.deactivate();
+    if (_ownsTradeLifecycle) {
+      await thread.trade?.deactivate();
+    }
     for (final c in participantCubits.values) {
       await c.close();
     }

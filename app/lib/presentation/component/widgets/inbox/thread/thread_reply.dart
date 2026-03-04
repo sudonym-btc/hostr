@@ -53,10 +53,10 @@ class ThreadReplyView extends StatelessWidget {
           ),
         ),
         Gap.horizontal.sm(),
-        FilledButton(
+        IconButton.filled(
           onPressed: isLoading || isEmpty ? null : onSend,
-          // icon: const Icon(Icons.send),
-          child: Text(AppLocalizations.of(context)!.send),
+          icon: const Icon(Icons.send_rounded, size: kDefaultFontSize),
+          // child: Text(AppLocalizations.of(context)!.send),
         ),
       ],
     );

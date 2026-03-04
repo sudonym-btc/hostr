@@ -5,7 +5,6 @@ import 'package:rxdart/rxdart.dart';
 
 import '../../../../util/custom_logger.dart';
 import 'escrow_fund_operation.dart';
-import 'escrow_fund_state.dart';
 
 /// Live, in-memory registry of running [EscrowFundOperation] instances keyed
 /// by trade ID.
@@ -30,8 +29,7 @@ class EscrowFundRegistry {
 
   /// Register a live [EscrowFundOperation] for [tradeId].
   ///
-  /// Automatically unregisters when the operation reaches a terminal state
-  /// ([EscrowFundCompleted] or [EscrowFundFailed]).
+  /// Automatically unregisters when the operation reaches a terminal state.
   void register(String tradeId, EscrowFundOperation operation) {
     // Clean up any previous watcher for this trade.
     _watchers[tradeId]?.cancel();

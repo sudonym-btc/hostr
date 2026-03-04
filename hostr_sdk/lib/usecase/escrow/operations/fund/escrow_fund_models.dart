@@ -28,8 +28,7 @@ class EscrowFundParams {
   }
 
   ContractFundEscrowParams toContractParams(EthPrivateKey ethKey) {
-    final unlockAt =
-        negotiateReservation.end.millisecondsSinceEpoch ~/ 1000;
+    final unlockAt = negotiateReservation.end.millisecondsSinceEpoch ~/ 1000;
     return ContractFundEscrowParams(
       tradeId: negotiateReservation.getDtag()!,
       amount: BitcoinAmount.fromAmount(amount),
@@ -37,8 +36,11 @@ class EscrowFundParams {
       arbiterEvmAddress: escrowService.evmAddress,
       ethKey: ethKey,
       unlockAt: unlockAt,
-      escrowFee: escrowService.escrowFee(
-        BitcoinAmount.fromAmount(amount).getInSats.toInt(),
+      escrowFee: BitcoinAmount.fromInt(
+        BitcoinUnit.sat,
+        escrowService.escrowFee(
+          BitcoinAmount.fromAmount(amount).getInSats.toInt(),
+        ),
       ),
     );
   }

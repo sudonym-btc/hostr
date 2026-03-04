@@ -1,14 +1,23 @@
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
 import '../../supported_escrow_contract/supported_escrow_contract.dart';
 
 class EscrowClaimParams {
-  final EscrowService escrowService;
+  final EscrowService? escrowService;
   final String tradeId;
 
-  EscrowClaimParams({required this.escrowService, required this.tradeId});
+  /// The EVM address that originally deposited funds. Used to resolve
+  /// which HD account index to sign the claim transaction with.
+  final EthereumAddress? evmAddress;
+
+  EscrowClaimParams({
+    required this.escrowService,
+    required this.tradeId,
+    this.evmAddress,
+  });
 
   ContractClaimEscrowParams toContractParams(EthPrivateKey ethKey) {
     return ContractClaimEscrowParams(tradeId: tradeId, ethKey: ethKey);
@@ -17,10 +26,13 @@ class EscrowClaimParams {
 
 class EscrowClaimFees {
   final BitcoinAmount estimatedGasFees;
-  final BitcoinAmount estimatedRelayFees;
+  final SwapInFees estimatedSwapFees;
 
   EscrowClaimFees({
     required this.estimatedGasFees,
-    required this.estimatedRelayFees,
+    required this.estimatedSwapFees,
   });
+
+  BitcoinAmount get networkFees =>
+      estimatedGasFees + estimatedSwapFees.totalFees;
 }

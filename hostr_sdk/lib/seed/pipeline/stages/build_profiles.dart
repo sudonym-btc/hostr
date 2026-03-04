@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/util/derive_evm_key.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
@@ -174,7 +175,7 @@ List<ProfileMetadata> buildProfiles({
           tags.add([
             'i',
             'evm:address',
-            getEvmCredentials(user.keyPair.privateKey!).address.eip55With0x,
+            deriveEvmKey(user.keyPair.privateKey!).address.eip55With0x,
           ]);
         }
 
@@ -211,7 +212,7 @@ ProfileMetadata buildEscrowProfile({required SeedContext ctx}) {
     ..add([
       'i',
       'evm:address',
-      getEvmCredentials(MockKeys.escrow.privateKey!).address.eip55With0x,
+      deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
     ]);
 
   final event = Nip01Event(
@@ -233,7 +234,10 @@ ProfileMetadata buildEscrowProfile({required SeedContext ctx}) {
 // ─── Escrow trust / method lists ────────────────────────────────────────────
 
 List<EscrowService> buildEscrowServices({required String contractAddress}) {
-  return MOCK_ESCROWS(contractAddress: contractAddress).toList(growable: false);
+  return MOCK_ESCROWS(
+    contractAddress: contractAddress,
+    evmAddress: deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
+  ).toList(growable: false);
 }
 
 Future<List<EscrowTrust>> buildEscrowTrusts({
