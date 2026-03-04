@@ -74,7 +74,7 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
           (reservation) => Review.validateProof(
             reservation,
             review.pubKey,
-            review.parsedContent.proof,
+            review.proof,
           ),
         )
         .toList();
@@ -84,7 +84,7 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
 
     // Host-confirmed reservation: no payment proof needed.
     final hostConfirmed = proofMatchedReservations.any(
-      (r) => r.pubKey == listing.pubKey && !r.parsedContent.cancelled,
+      (r) => r.pubKey == listing.pubKey && !r.cancelled,
     );
     if (hostConfirmed) {
       return Valid(review);

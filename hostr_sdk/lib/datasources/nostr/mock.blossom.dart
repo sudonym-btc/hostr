@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:ndk/shared/logger/logger.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -263,7 +262,6 @@ class MockBlossomServer {
         .addHandler(_createRouter().call);
 
     _server = await serve(handler, 'localhost', port);
-    Logger.log.i('Mock Blossom Server running on port $port');
   }
 
   Future<void> stop() async {

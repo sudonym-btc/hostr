@@ -63,7 +63,7 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
             fromStage: fromStage,
             toStage: toStage,
             commitTermsHash:
-                commitTermsHash ?? reservation.parsedContent.commitHash(),
+                commitTermsHash ?? reservation.commitHash(),
             reason: reason,
             updatedFields: updatedFields,
           ).toString(),

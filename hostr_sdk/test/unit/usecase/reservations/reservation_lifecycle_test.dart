@@ -31,36 +31,28 @@ Listing _listing({
   int pricePerNightSats = 100000,
 }) {
   final key = signer ?? MockKeys.hoster;
-  return Listing(
+  return Listing.create(
     pubKey: key.publicKey,
-    createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-    tags: EventTags([
-      ['d', 'listing-${key.publicKey.substring(0, 8)}'],
-    ]),
-    content: ListingContent(
-      title: 'Test Cottage',
-      description: 'A lovely place',
-      price: [
-        Price(
-          amount: Amount(
-            currency: Currency.BTC,
-            value: BigInt.from(pricePerNightSats),
-          ),
-          frequency: Frequency.daily,
+    dTag: 'listing-${key.publicKey.substring(0, 8)}',
+    title: 'Test Cottage',
+    description: 'A lovely place',
+    images: ['https://picsum.photos/seed/1/800/600'],
+    price: [
+      Price(
+        amount: Amount(
+          currency: Currency.BTC,
+          value: BigInt.from(pricePerNightSats),
         ),
-      ],
-      allowBarter: allowBarter,
-      allowSelfSignedReservation: allowSelfSignedReservation,
-      minStay: const Duration(days: 1),
-      checkIn: TimeOfDay(hour: 15, minute: 0),
-      checkOut: TimeOfDay(hour: 11, minute: 0),
-      location: 'test-location',
-      quantity: 1,
-      type: ListingType.house,
-      images: ['https://picsum.photos/seed/1/800/600'],
-      amenities: Amenities(),
-      requiresEscrow: requiresEscrow,
-    ),
+        frequency: Frequency.daily,
+      ),
+    ],
+    location: 'test-location',
+    type: ListingType.house,
+    amenities: Amenities(),
+    allowBarter: allowBarter,
+    allowSelfSignedReservation: allowSelfSignedReservation,
+    requiresEscrow: requiresEscrow,
+    createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   ).signAs(key, Listing.fromNostrEvent);
 }
 
@@ -112,12 +104,12 @@ Reservation _commitReservation({
       ['d', negotiate.getDtag()!],
     ]),
     content: ReservationContent(
-      start: negotiate.parsedContent.start,
-      end: negotiate.parsedContent.end,
+      start: negotiate.start,
+      end: negotiate.end,
       stage: ReservationStage.commit,
-      quantity: negotiate.parsedContent.quantity,
-      amount: negotiate.parsedContent.amount,
-      salt: negotiate.parsedContent.salt,
+      quantity: negotiate.quantity,
+      amount: negotiate.amount,
+      salt: negotiate.salt,
       proof: proof,
       signatures: signatures ?? const {},
     ),
@@ -138,8 +130,8 @@ Reservation _sellerAckReservation({
       ['d', negotiate.getDtag()!],
     ]),
     content: ReservationContent(
-      start: negotiate.parsedContent.start,
-      end: negotiate.parsedContent.end,
+      start: negotiate.start,
+      end: negotiate.end,
       stage: ReservationStage.commit,
     ),
   ).signAs(seller, Reservation.fromNostrEvent);
@@ -158,10 +150,7 @@ Reservation _cancelReservation({
       [kListingRefTag, listing.anchor!],
       ['d', source.getDtag()!],
     ]),
-    content: source.parsedContent.copyWith(
-      stage: ReservationStage.cancel,
-      cancelled: true,
-    ),
+    content: source.parsedContent.copyWith(stage: ReservationStage.cancel),
   ).signAs(signer, Reservation.fromNostrEvent);
 }
 
@@ -260,29 +249,22 @@ void main() {
   group('Listing.allowSelfSignedReservation', () {
     test('defaults to false', () {
       final listing = _listing();
-      expect(listing.parsedContent.allowSelfSignedReservation, isFalse);
+      expect(listing.allowSelfSignedReservation, isFalse);
     });
 
-    test('round-trips through toJson / fromJson when true', () {
+    test('round-trips through Listing.create when true', () {
       final listing = _listing(allowSelfSignedReservation: true);
-      final json = listing.parsedContent.toJson();
-      final restored = ListingContent.fromJson(json);
-      expect(restored.allowSelfSignedReservation, isTrue);
+      expect(listing.allowSelfSignedReservation, isTrue);
     });
 
-    test('round-trips through toJson / fromJson when false', () {
+    test('round-trips through Listing.create when false', () {
       final listing = _listing(allowSelfSignedReservation: false);
-      final json = listing.parsedContent.toJson();
-      final restored = ListingContent.fromJson(json);
-      expect(restored.allowSelfSignedReservation, isFalse);
+      expect(listing.allowSelfSignedReservation, isFalse);
     });
 
-    test('fromJson defaults to false when key is missing', () {
+    test('defaults to false', () {
       final listing = _listing();
-      final json = listing.parsedContent.toJson();
-      json.remove('allowSelfSignedReservation');
-      final restored = ListingContent.fromJson(json);
-      expect(restored.allowSelfSignedReservation, isFalse);
+      expect(listing.allowSelfSignedReservation, isFalse);
     });
   });
 
@@ -298,10 +280,10 @@ void main() {
         salt: salt,
       );
 
-      expect(negotiate.parsedContent.stage, ReservationStage.negotiate);
-      expect(negotiate.parsedContent.salt, salt);
-      expect(negotiate.parsedContent.isNegotiation, isTrue);
-      expect(negotiate.parsedContent.isCommit, isFalse);
+      expect(negotiate.stage, ReservationStage.negotiate);
+      expect(negotiate.salt, salt);
+      expect(negotiate.isNegotiation, isTrue);
+      expect(negotiate.isCommit, isFalse);
     });
 
     test('trade id (d-tag) is deterministic from salt', () {
@@ -331,7 +313,7 @@ void main() {
 
       final expected = ReservationContent(start: start, end: end, quantity: 2);
 
-      expect(negotiate.parsedContent.commitHash(), expected.commitHash());
+      expect(negotiate.commitHash(), expected.commitHash());
     });
 
     test('negotiate reservation references listing anchor', () {
@@ -404,16 +386,13 @@ void main() {
       );
 
       // Salt is still accessible in the committed reservation
-      expect(commit.parsedContent.salt, salt);
+      expect(commit.salt, salt);
 
       // Trade id (d-tag) matches across negotiate and commit
       expect(commit.getDtag(), negotiate.getDtag());
 
       // Commit terms hash matches across negotiate and commit
-      expect(
-        commit.parsedContent.commitHash(),
-        negotiate.parsedContent.commitHash(),
-      );
+      expect(commit.commitHash(), negotiate.commitHash());
     });
   });
 
@@ -435,10 +414,10 @@ void main() {
         proof: proof,
       );
 
-      expect(commit.parsedContent.stage, ReservationStage.commit);
-      expect(commit.parsedContent.isCommit, isTrue);
-      expect(commit.parsedContent.proof, isNotNull);
-      expect(commit.parsedContent.proof!.escrowProof, isNotNull);
+      expect(commit.stage, ReservationStage.commit);
+      expect(commit.isCommit, isTrue);
+      expect(commit.proof, isNotNull);
+      expect(commit.proof!.escrowProof, isNotNull);
     });
 
     test('commit preserves commitTermsHash from negotiate', () {
@@ -455,10 +434,7 @@ void main() {
         proof: _escrowPaymentProof(listing: listing),
       );
 
-      expect(
-        commit.parsedContent.commitHash(),
-        negotiate.parsedContent.commitHash(),
-      );
+      expect(commit.commitHash(), negotiate.commitHash());
     });
 
     test('commit with altered terms produces different commitTermsHash', () {
@@ -481,7 +457,7 @@ void main() {
 
       expect(
         tamperedHash,
-        isNot(equals(negotiate.parsedContent.commitHash())),
+        isNot(equals(negotiate.commitHash())),
         reason: 'Altered terms must produce a different hash',
       );
     });
@@ -503,7 +479,7 @@ void main() {
         seller: seller,
       );
 
-      expect(sellerAck.parsedContent.stage, ReservationStage.commit);
+      expect(sellerAck.stage, ReservationStage.commit);
       expect(sellerAck.pubKey, seller.publicKey);
       expect(sellerAck.getDtag(), negotiate.getDtag());
     });
@@ -562,11 +538,8 @@ void main() {
             allowBarter: barter,
             allowSelfSignedReservation: selfSigned,
           );
-          final json = listing.parsedContent.toJson();
-          final restored = ListingContent.fromJson(json);
-
-          expect(restored.allowBarter, barter);
-          expect(restored.allowSelfSignedReservation, selfSigned);
+          expect(listing.allowBarter, barter);
+          expect(listing.allowSelfSignedReservation, selfSigned);
         });
       }
     }
@@ -690,17 +663,14 @@ void main() {
         proof: _escrowPaymentProof(listing: listing),
       );
 
-      expect(
-        commit.parsedContent.commitHash(),
-        negotiate.parsedContent.commitHash(),
-      );
+      expect(commit.commitHash(), negotiate.commitHash());
       // Re-derive and verify
       final reDerived = ReservationContent(
         start: DateTime(2026, 6, 1),
         end: DateTime(2026, 6, 5),
         quantity: 2,
       ).commitHash();
-      expect(commit.parsedContent.commitHash(), reDerived);
+      expect(commit.commitHash(), reDerived);
     });
   });
 
@@ -719,7 +689,7 @@ void main() {
       );
 
       // Seller signs the negotiate content's commitHash.
-      final sellerSig = negotiate.parsedContent.signCommit(seller);
+      final sellerSig = negotiate.signCommit(seller);
 
       // Buyer builds a matching commit carrying the seller signature.
       final commit = _commitReservation(
@@ -731,7 +701,7 @@ void main() {
       );
 
       // The seller's signature verifies on the buyer's commit.
-      expect(commit.parsedContent.verifyCommit(seller.publicKey), isTrue);
+      expect(commit.verifyCommit(seller.publicKey), isTrue);
     });
 
     test('buyer alters dates → seller signature fails verification', () {
@@ -746,7 +716,7 @@ void main() {
       );
 
       // Seller signs the ORIGINAL negotiate terms.
-      final sellerSig = negotiate.parsedContent.signCommit(seller);
+      final sellerSig = negotiate.signCommit(seller);
 
       // Buyer tampers: extends the end date by 5 days.
       final tampered = Reservation(
@@ -767,12 +737,9 @@ void main() {
       ).signAs(buyer, Reservation.fromNostrEvent);
 
       // Hashes differ.
-      expect(
-        tampered.parsedContent.commitHash(),
-        isNot(equals(negotiate.parsedContent.commitHash())),
-      );
+      expect(tampered.commitHash(), isNot(equals(negotiate.commitHash())));
       // Seller's signature does NOT verify on tampered content.
-      expect(tampered.parsedContent.verifyCommit(seller.publicKey), isFalse);
+      expect(tampered.verifyCommit(seller.publicKey), isFalse);
     });
 
     test('buyer alters quantity → seller signature fails verification', () {
@@ -786,7 +753,7 @@ void main() {
         quantity: 1,
       );
 
-      final sellerSig = negotiate.parsedContent.signCommit(seller);
+      final sellerSig = negotiate.signCommit(seller);
 
       // Buyer tampers: doubles the quantity.
       final tampered = Reservation(
@@ -806,7 +773,7 @@ void main() {
         ),
       ).signAs(buyer, Reservation.fromNostrEvent);
 
-      expect(tampered.parsedContent.verifyCommit(seller.publicKey), isFalse);
+      expect(tampered.verifyCommit(seller.publicKey), isFalse);
     });
 
     test('buyer alters amount → seller signature fails verification', () {
@@ -821,7 +788,7 @@ void main() {
         amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
       );
 
-      final sellerSig = negotiate.parsedContent.signCommit(seller);
+      final sellerSig = negotiate.signCommit(seller);
 
       // Buyer tampers: lowers the price.
       final tampered = Reservation(
@@ -845,7 +812,7 @@ void main() {
         ),
       ).signAs(buyer, Reservation.fromNostrEvent);
 
-      expect(tampered.parsedContent.verifyCommit(seller.publicKey), isFalse);
+      expect(tampered.verifyCommit(seller.publicKey), isFalse);
     });
 
     test('buyer changes recipient → seller signature fails verification', () {
@@ -884,7 +851,7 @@ void main() {
         ),
       ).signAs(buyer, Reservation.fromNostrEvent);
 
-      expect(tampered.parsedContent.verifyCommit(seller.publicKey), isFalse);
+      expect(tampered.verifyCommit(seller.publicKey), isFalse);
     });
 
     test('no seller signature present → verifyCommit returns false', () {
@@ -914,7 +881,7 @@ void main() {
 
         // A random third party signs — not the seller.
         final imposter = Bip340.generatePrivateKey();
-        final imposterSig = negotiate.parsedContent.signCommit(imposter);
+        final imposterSig = negotiate.signCommit(imposter);
 
         // Buyer attaches the imposter's sig but claims it's from the seller.
         final commit = _commitReservation(
@@ -926,7 +893,7 @@ void main() {
         );
 
         // Verify against the seller pubkey → false.
-        expect(commit.parsedContent.verifyCommit(seller.publicKey), isFalse);
+        expect(commit.verifyCommit(seller.publicKey), isFalse);
       },
     );
 
@@ -1064,8 +1031,8 @@ void main() {
       expect(status.cancelled, isFalse);
       expect(status.isActive, isTrue);
       expect(status.stage, ReservationStage.commit);
-      expect(status.start, negotiate.parsedContent.start);
-      expect(status.end, negotiate.parsedContent.end);
+      expect(status.start, negotiate.start);
+      expect(status.end, negotiate.end);
     });
 
     test('negotiate only → not active', () {
@@ -1267,7 +1234,7 @@ void main() {
         buyer: buyer,
         salt: salt,
       );
-      expect(negotiate.parsedContent.isNegotiation, isTrue);
+      expect(negotiate.isNegotiation, isTrue);
 
       // Step 2: Buyer pays, receives escrow proof
       final proof = _escrowPaymentProof(listing: listing);
@@ -1280,8 +1247,8 @@ void main() {
         buyer: buyer,
         proof: proof,
       );
-      expect(commit.parsedContent.isCommit, isTrue);
-      expect(commit.parsedContent.proof!.escrowProof!.txHash, '0xabc123');
+      expect(commit.isCommit, isTrue);
+      expect(commit.proof!.escrowProof!.txHash, '0xabc123');
 
       // Validate the commit is accepted
       final validation = Reservation.validate(commit, listing);
@@ -1314,7 +1281,7 @@ void main() {
           from: ReservationStage.negotiate,
           to: ReservationStage.commit,
           signer: buyer,
-          commitTermsHash: commit.parsedContent.commitHash(),
+          commitTermsHash: commit.commitHash(),
           createdAtOffset: 0,
         ),
         _transition(
@@ -1348,7 +1315,7 @@ void main() {
           salt: salt,
           amount: Amount(currency: Currency.BTC, value: BigInt.from(80000)),
         );
-        expect(negotiate.parsedContent.amount!.value, BigInt.from(80000));
+        expect(negotiate.amount!.value, BigInt.from(80000));
 
         // Step 2: Seller acks (agrees to barter price)
         final sellerAck = _sellerAckReservation(
@@ -1356,7 +1323,7 @@ void main() {
           listing: listing,
           seller: seller,
         );
-        expect(sellerAck.parsedContent.isCommit, isTrue);
+        expect(sellerAck.isCommit, isTrue);
 
         // Host reservation is valid without proof
         expect(Reservation.validate(sellerAck, listing).isValid, isTrue);

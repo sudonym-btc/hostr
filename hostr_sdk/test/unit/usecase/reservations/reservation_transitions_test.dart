@@ -146,11 +146,10 @@ void main() {
           reason: 'Changed plans',
         );
 
-        final content = result.parsedContent;
-        expect(content.transitionType, ReservationTransitionType.cancel);
-        expect(content.fromStage, ReservationStage.commit);
-        expect(content.toStage, ReservationStage.cancel);
-        expect(content.reason, 'Changed plans');
+        expect(result.transitionType, ReservationTransitionType.cancel);
+        expect(result.fromStage, ReservationStage.commit);
+        expect(result.toStage, ReservationStage.cancel);
+        expect(result.reason, 'Changed plans');
       });
 
       test('includes d-tag, e-tag, listing-ref tags', () async {
@@ -210,7 +209,7 @@ void main() {
           updatedFields: updates,
         );
 
-        expect(result.parsedContent.updatedFields, updates);
+        expect(result.updatedFields, updates);
       });
     });
 

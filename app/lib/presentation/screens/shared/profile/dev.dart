@@ -81,7 +81,7 @@ class DevWidget extends StatelessWidget {
                   //     escrowContractAddress:
                   //         (await getIt<Hostr>().escrows.list(
                   //           Filter(),
-                  //         )).first.parsedContent.contractAddress,
+                  //         )).first.contractAddress,
 
                   //     ///Host
                   //     sellerEvmAddress:

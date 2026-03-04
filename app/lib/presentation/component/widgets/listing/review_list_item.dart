@@ -17,7 +17,7 @@ class ReviewListItem extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            StarRating(rating: review.parsedContent.rating),
+            StarRating(rating: review.rating),
             Gap.horizontal.sm(),
             ProfileChipWidget(id: review.pubKey),
           ],
@@ -25,7 +25,7 @@ class ReviewListItem extends StatelessWidget {
         Gap.vertical.xs(),
         MessageContainer(
           isSentByMe: false,
-          child: Text(review.parsedContent.content),
+          child: Text(review.reviewText),
         ),
         Gap.vertical.xs(),
         Text(

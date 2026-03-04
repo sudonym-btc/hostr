@@ -346,7 +346,7 @@ class RelaySeeder {
 
     for (final reservation in data.reservations) {
       final tradeId = reservation.getDtag() ?? reservation.id;
-      final proof = reservation.parsedContent.proof;
+      final proof = reservation.proof;
       if (proof == null) continue;
 
       final usesEscrow = proof.escrowProof != null;

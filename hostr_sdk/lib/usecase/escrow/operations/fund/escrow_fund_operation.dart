@@ -87,7 +87,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
             estimatedSwapFees: BitcoinAmount.zero(),
             estimatedRelayFees: BitcoinAmount.zero(),
           );
-    final escrowFeeSats = params!.escrowService.parsedContent.escrowFee(
+    final escrowFeeSats = params!.escrowService.escrowFee(
       contractParams.amount.getInSats.toInt(),
     );
     return EscrowFundFees(
@@ -171,7 +171,7 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
   Future<void> _stepInitialise() async {
     logger.i(
       'Creating escrow for tradeId ${contractParams.tradeId} at '
-      '${params!.escrowService.parsedContent.contractAddress} '
+      '${params!.escrowService.contractAddress} '
       '(accountIndex: $_accountIndex)',
     );
 
@@ -183,10 +183,11 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
       ).getInWei.toRadixString(16),
       sellerEvmAddress: contractParams.sellerEvmAddress,
       arbiterEvmAddress: contractParams.arbiterEvmAddress,
-      contractAddress: params!.escrowService.parsedContent.contractAddress,
-      chainId: params!.escrowService.parsedContent.chainId,
+      contractAddress: params!.escrowService.contractAddress,
+      chainId: params!.escrowService.chainId,
       unlockAt: contractParams.unlockAt,
       accountIndex: _accountIndex,
+      escrowFee: contractParams.escrowFee,
     );
 
     // Run the nested swap-in if the balance is insufficient.
@@ -294,6 +295,21 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
           'Escrow funding transaction reverted (tx: $txHash, receipt: $receipt)',
         );
       }
+
+      // Log gas estimate vs actual usage for debugging leftover balance.
+      final gasUsed = receipt.gasUsed?.toInt();
+      final estimatedLimit = contractParams.gasEstimate?.gasLimit.toInt();
+      final gasPrice = contractParams.gasEstimate?.gasPrice.getInWei;
+      if (gasUsed != null && estimatedLimit != null && gasPrice != null) {
+        final refundGas = estimatedLimit - gasUsed;
+        final refundWei = BigInt.from(refundGas) * gasPrice;
+        logger.w(
+          'Gas usage: estimated=$estimatedLimit, actual=$gasUsed, '
+          'refunded=$refundGas units '
+          '(~${BitcoinAmount.inWei(refundWei).getInSats} sats)',
+        );
+      }
+
       logger.d('Escrow deposit confirmed: $txHash');
       emit(EscrowFundCompleted(updatedData, transactionInformation: tx));
     } else {

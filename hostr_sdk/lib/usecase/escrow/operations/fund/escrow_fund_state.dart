@@ -31,6 +31,10 @@ class EscrowFundData {
   /// Gas limit pinned at estimation time. See [gasPriceWei].
   final String? gasLimit;
 
+  /// The escrow fee in sats, persisted so the deposit call uses the same
+  /// value that was included in the gas estimation calldata.
+  final int? escrowFee;
+
   /// The Boltz swap ID of the nested swap-in, if a swap was required.
   /// Used by [EscrowFundRecoverer] to check swap completion without
   /// re-running the swap.
@@ -49,6 +53,7 @@ class EscrowFundData {
     required this.accountIndex,
     this.gasPriceWei,
     this.gasLimit,
+    this.escrowFee,
     this.swapId,
     this.depositTxHash,
     this.errorMessage,
@@ -57,6 +62,7 @@ class EscrowFundData {
   EscrowFundData copyWith({
     String? gasPriceWei,
     String? gasLimit,
+    int? escrowFee,
     String? swapId,
     String? depositTxHash,
     String? errorMessage,
@@ -71,6 +77,7 @@ class EscrowFundData {
     accountIndex: accountIndex,
     gasPriceWei: gasPriceWei ?? this.gasPriceWei,
     gasLimit: gasLimit ?? this.gasLimit,
+    escrowFee: escrowFee ?? this.escrowFee,
     swapId: swapId ?? this.swapId,
     depositTxHash: depositTxHash ?? this.depositTxHash,
     errorMessage: errorMessage ?? this.errorMessage,
@@ -101,6 +108,7 @@ class EscrowFundData {
       arbiterEvmAddress: arbiterEvmAddress,
       ethKey: ethKey,
       unlockAt: unlockAt,
+      escrowFee: escrowFee,
       gasEstimate: estimate,
     );
   }
@@ -116,6 +124,7 @@ class EscrowFundData {
     'accountIndex': accountIndex,
     if (gasPriceWei != null) 'gasPriceWei': gasPriceWei,
     if (gasLimit != null) 'gasLimit': gasLimit,
+    if (escrowFee != null) 'escrowFee': escrowFee,
     if (swapId != null) 'swapId': swapId,
     if (depositTxHash != null) 'depositTxHash': depositTxHash,
     if (errorMessage != null) 'errorMessage': errorMessage,
@@ -132,6 +141,7 @@ class EscrowFundData {
     accountIndex: json['accountIndex'] as int? ?? 0,
     gasPriceWei: json['gasPriceWei'] as String?,
     gasLimit: json['gasLimit'] as String?,
+    escrowFee: json['escrowFee'] as int?,
     swapId: json['swapId'] as String?,
     depositTxHash: json['depositTxHash'] as String?,
     errorMessage: json['errorMessage'] as String?,

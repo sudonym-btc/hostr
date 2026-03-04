@@ -59,7 +59,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
       _fundOperation = getIt<Hostr>().escrow.fund(
         EscrowFundParams(
           negotiateReservation: widget.negotiateReservation,
-          amount: widget.negotiateReservation.parsedContent.amount!,
+          amount: widget.negotiateReservation.amount!,
           sellerProfile: widget.counterparty,
           escrowService: escrow,
           listingName: widget.listingName,

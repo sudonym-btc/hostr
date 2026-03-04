@@ -53,7 +53,7 @@ class EscrowVerification {
     required Reservation reservation,
     required Listing listing,
   }) async {
-    final proof = reservation.parsedContent.proof;
+    final proof = reservation.proof;
     if (proof == null) {
       return const EscrowVerificationResult.invalid(
         'No payment proof attached',
@@ -95,7 +95,7 @@ class EscrowVerification {
     final chain = evm.getChainForEscrowService(escrowService);
     final contract = chain.getSupportedEscrowContract(escrowService);
 
-    final chosenEscrowType = escrowService.parsedContent.type
+    final chosenEscrowType = escrowService.escrowType
         .toString()
         .split('.')
         .last
@@ -115,11 +115,11 @@ class EscrowVerification {
     //     .getTags('c')
     //     .where(
     //       (element) =>
-    //           element == escrowService.parsedContent.contractBytecodeHash,
+    //           element == escrowService.contractBytecodeHash,
     //     )
     //     .isEmpty) {
     //   return EscrowVerificationResult.invalid(
-    //     'Host does not support escrow contract ${escrowService.parsedContent.contractBytecodeHash}',
+    //     'Host does not support escrow contract ${escrowService.contractBytecodeHash}',
     //   );
     // }
 
@@ -155,10 +155,7 @@ class EscrowVerification {
     }
 
     // Compute the expected cost from the listing.
-    final expectedAmount = listing.cost(
-      reservation.parsedContent.start,
-      reservation.parsedContent.end,
-    );
+    final expectedAmount = listing.cost(reservation.start, reservation.end);
 
     // The on-chain amount is in wei. Compare against the expected amount.
     // We accept >= because escrowFee may be included in the deposit.
@@ -171,8 +168,8 @@ class EscrowVerification {
     if (onChainWei < expectedWei) {
       return EscrowVerificationResult.invalid(
         'On-chain escrow amount ($onChainWei wei) is less than expected '
-        '($expectedWei wei) for ${reservation.parsedContent.start} – '
-        '${reservation.parsedContent.end}',
+        '($expectedWei wei) for ${reservation.start} – '
+        '${reservation.end}',
       );
     }
 

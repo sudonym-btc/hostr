@@ -169,7 +169,7 @@ class _ThreadContentState extends State<ThreadContent> {
     } else if (message.child is EscrowServiceSelected) {
       return null;
     } else if (message.child is Reservation &&
-        (message.child as Reservation).parsedContent.isNegotiation) {
+        (message.child as Reservation).isNegotiation) {
       return null;
       // return ThreadReservationRequestWidget(
       //   sender: sender,

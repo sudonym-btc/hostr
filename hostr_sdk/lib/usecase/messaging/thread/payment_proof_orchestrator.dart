@@ -84,10 +84,10 @@ class ThreadPaymentProofOrchestrator {
           ? EscrowProof(
               txHash: funded.transactionHash,
               hostsTrustedEscrows:
-                  funded.escrowService!.parsedContent.sellerTrusts,
+                  funded.escrowService!.sellerTrusts,
               hostsEscrowMethods:
-                  funded.escrowService!.parsedContent.sellerMethods,
-              escrowService: funded.escrowService!.parsedContent.service,
+                  funded.escrowService!.sellerMethods,
+              escrowService: funded.escrowService!.service,
             )
           : null,
     );

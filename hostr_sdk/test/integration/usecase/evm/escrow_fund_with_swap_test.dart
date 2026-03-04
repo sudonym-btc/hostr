@@ -58,7 +58,7 @@ void main() {
           escrowService: escrowService,
           negotiateReservation: negotiateReservation,
           sellerProfile: sellerProfile,
-          amount: negotiateReservation.parsedContent.amount!,
+          amount: negotiateReservation.amount!,
         ),
       );
 

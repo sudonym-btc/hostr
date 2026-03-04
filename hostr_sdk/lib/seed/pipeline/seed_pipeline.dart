@@ -300,7 +300,7 @@ class SeedPipeline {
       // Push chain tx info from completed escrow trades.
       for (final thread in threads) {
         if (thread.paidViaEscrow) {
-          final proof = thread.reservation?.parsedContent.proof;
+          final proof = thread.reservation?.proof;
           final txHash = proof?.escrowProof?.txHash;
           if (txHash != null) {
             s.chainTx.add((

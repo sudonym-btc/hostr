@@ -25,7 +25,7 @@ class ReservationActions {
     );
 
     final hasUsedEscrow = reservations.any(
-      (reservation) => reservation.parsedContent.proof?.escrowProof != null,
+      (reservation) => reservation.proof?.escrowProof != null,
     );
 
     final hasTerminalReservationState =
@@ -36,13 +36,7 @@ class ReservationActions {
     final hasMessagedEscrow = participantPubkeys.any(
       (pubkey) => reservations.any(
         (reservation) =>
-            reservation
-                .parsedContent
-                .proof
-                ?.escrowProof
-                ?.escrowService
-                .parsedContent
-                .pubkey ==
+            reservation.proof?.escrowProof?.escrowService.escrowPubkey ==
             pubkey,
       ),
     );

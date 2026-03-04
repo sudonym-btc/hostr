@@ -29,33 +29,23 @@ import 'package:test/test.dart';
 
 Listing _listing({KeyPair? signer, bool allowSelfSignedReservation = false}) {
   final key = signer ?? MockKeys.hoster;
-  return Listing(
+  return Listing.create(
     pubKey: key.publicKey,
+    dTag: 'listing-${key.publicKey.substring(0, 8)}',
+    title: 'Test Cottage',
+    description: 'A lovely place',
+    images: ['https://picsum.photos/seed/1/800/600'],
+    price: [
+      Price(
+        amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
+        frequency: Frequency.daily,
+      ),
+    ],
+    location: 'test-location',
+    type: ListingType.house,
+    amenities: Amenities(),
+    allowSelfSignedReservation: allowSelfSignedReservation,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-    tags: EventTags([
-      ['d', 'listing-${key.publicKey.substring(0, 8)}'],
-    ]),
-    content: ListingContent(
-      title: 'Test Cottage',
-      description: 'A lovely place',
-      price: [
-        Price(
-          amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
-          frequency: Frequency.daily,
-        ),
-      ],
-      allowBarter: false,
-      allowSelfSignedReservation: allowSelfSignedReservation,
-      minStay: const Duration(days: 1),
-      checkIn: TimeOfDay(hour: 15, minute: 0),
-      checkOut: TimeOfDay(hour: 11, minute: 0),
-      location: 'test-location',
-      quantity: 1,
-      type: ListingType.house,
-      images: ['https://picsum.photos/seed/1/800/600'],
-      amenities: Amenities(),
-      requiresEscrow: false,
-    ),
   ).signAs(key, Listing.fromNostrEvent);
 }
 
@@ -98,8 +88,8 @@ Reservation _sellerAck({
       ['d', negotiate.getDtag()!],
     ]),
     content: ReservationContent(
-      start: negotiate.parsedContent.start,
-      end: negotiate.parsedContent.end,
+      start: negotiate.start,
+      end: negotiate.end,
       stage: ReservationStage.commit,
     ),
   ).signAs(seller, Reservation.fromNostrEvent);
@@ -117,10 +107,7 @@ Reservation _cancel({
       [kListingRefTag, listing.anchor!],
       ['d', source.getDtag()!],
     ]),
-    content: source.parsedContent.copyWith(
-      stage: ReservationStage.cancel,
-      cancelled: true,
-    ),
+    content: source.parsedContent.copyWith(stage: ReservationStage.cancel),
   ).signAs(signer, Reservation.fromNostrEvent);
 }
 

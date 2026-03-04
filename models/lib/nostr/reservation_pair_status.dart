@@ -27,16 +27,16 @@ class ReservationPairStatus {
   /// the buyer's negotiate snapshot.
   DateTime? get start {
     final committed = _committedReservation;
-    if (committed != null) return committed.parsedContent.start;
-    return (sellerReservation ?? buyerReservation)?.parsedContent.start;
+    if (committed != null) return committed.start;
+    return (sellerReservation ?? buyerReservation)?.start;
   }
 
   /// The end date from whichever reservation is available.
   /// Same precedence as [start].
   DateTime? get end {
     final committed = _committedReservation;
-    if (committed != null) return committed.parsedContent.end;
-    return (sellerReservation ?? buyerReservation)?.parsedContent.end;
+    if (committed != null) return committed.end;
+    return (sellerReservation ?? buyerReservation)?.end;
   }
 
   /// `true` when **either** party has cancelled.
@@ -88,12 +88,11 @@ class ReservationPairStatus {
 
   static bool _isCancelled(Reservation? r) {
     if (r == null) return false;
-    return r.parsedContent.stage == ReservationStage.cancel ||
-        r.parsedContent.cancelled;
+    return r.stage == ReservationStage.cancel;
   }
 
   static bool _isCommitted(Reservation? r) {
     if (r == null) return false;
-    return r.parsedContent.stage == ReservationStage.commit && !_isCancelled(r);
+    return r.stage == ReservationStage.commit && !_isCancelled(r);
   }
 }

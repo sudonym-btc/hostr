@@ -55,7 +55,7 @@ Reservation _reservation({
   required DateTime start,
   required DateTime end,
   PaymentProof? proof,
-  bool cancelled = false,
+  ReservationStage stage = ReservationStage.negotiate,
   int createdAtOffsetSeconds = 0,
 }) {
   return Reservation(
@@ -71,37 +71,27 @@ Reservation _reservation({
       start: start,
       end: end,
       proof: proof,
-      cancelled: cancelled,
+      stage: stage,
     ),
   ).signAs(signer, Reservation.fromNostrEvent);
 }
 
 Listing _fixtureListing() {
-  return Listing(
+  return Listing.create(
     pubKey: MockKeys.hoster.publicKey,
-    tags: EventTags([
-      ['d', 'unit-listing'],
-    ]),
-    content: ListingContent(
-      title: 'Unit Listing',
-      description: 'Fixture',
-      price: [
-        Price(
-          amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
-          frequency: Frequency.daily,
-        ),
-      ],
-      allowBarter: false,
-      minStay: const Duration(days: 1),
-      checkIn: TimeOfDay(hour: 15, minute: 0),
-      checkOut: TimeOfDay(hour: 11, minute: 0),
-      location: 'Test',
-      quantity: 1,
-      type: ListingType.house,
-      images: const [],
-      amenities: Amenities(),
-      requiresEscrow: false,
-    ),
+    dTag: 'unit-listing',
+    title: 'Unit Listing',
+    description: 'Fixture',
+    images: const [],
+    price: [
+      Price(
+        amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
+        frequency: Frequency.daily,
+      ),
+    ],
+    location: 'Test',
+    type: ListingType.house,
+    amenities: Amenities(),
   ).signAs(MockKeys.hoster, Listing.fromNostrEvent);
 }
 

@@ -30,7 +30,7 @@ Widget tradeHeaderKnobs(BuildContext context) {
         listingProfile: listingProfile,
         start: start,
         end: end,
-        amount: listing.parsedContent.price.first.amount,
+        amount: listing.prices.first.amount,
         availability: availability,
         availabilityReason: availability != TradeAvailability.available
             ? 'This reservation is not available.'

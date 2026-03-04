@@ -108,11 +108,11 @@ class BackgroundWorker {
 
         for (final reservation in listingReservations) {
           if (reservation.pubKey == myPubkey) continue;
-          if (reservation.parsedContent.cancelled) continue;
+          if (reservation.cancelled) continue;
           if (reservation.createdAt <= lastSync) continue;
 
           final guestName = await _resolveDisplayName(reservation.pubKey);
-          final title = listing.parsedContent.title;
+          final title = listing.title;
           notifications.add('$guestName reserved $title');
         }
       }
@@ -143,13 +143,13 @@ class BackgroundWorker {
           (r) =>
               r.pubKey == hostPubkey &&
               r.getDtag() == lastRequest.getDtag() &&
-              !r.parsedContent.cancelled,
+              !r.cancelled,
         );
 
         if (hostConfirmed) {
           final hostName = await _resolveDisplayName(hostPubkey);
           final listing = await listings.getOneByAnchor(listingAnchor);
-          final title = listing?.parsedContent.title ?? 'your stay';
+          final title = listing?.title ?? 'your stay';
           notifications.add('$hostName confirmed your stay at $title');
         }
       }
@@ -172,7 +172,7 @@ class BackgroundWorker {
 
         for (final reservation in listingReservations) {
           if (reservation.pubKey == myPubkey) continue;
-          if (!reservation.parsedContent.cancelled) continue;
+          if (!reservation.cancelled) continue;
           if (reservation.createdAt <= lastSync) continue;
 
           final cancellerName = await _resolveDisplayName(reservation.pubKey);
@@ -200,7 +200,7 @@ class BackgroundWorker {
 
         for (final reservation in matchingReservations) {
           if (reservation.pubKey != hostPubkey) continue;
-          if (!reservation.parsedContent.cancelled) continue;
+          if (!reservation.cancelled) continue;
           if (reservation.createdAt <= lastSync) continue;
 
           final cancellerName = await _resolveDisplayName(hostPubkey);
@@ -234,7 +234,7 @@ class BackgroundWorker {
           if (review.createdAt <= lastSync) continue;
 
           final reviewerName = await _resolveDisplayName(review.pubKey);
-          final title = listing.parsedContent.title;
+          final title = listing.title;
           notifications.add('$reviewerName left a review on $title');
         }
       }

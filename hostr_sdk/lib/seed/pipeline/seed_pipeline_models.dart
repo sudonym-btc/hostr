@@ -579,7 +579,7 @@ class SeedPipelineOutcome {
 
   static Map<String, dynamic> _threadOutcomeEntry(SeedOutcomePlan plan) {
     final thread = plan.thread;
-    final proof = thread.reservation?.parsedContent.proof;
+    final proof = thread.reservation?.proof;
     final invalidReason = thread.invalidReservationReason;
 
     final Map<String, dynamic> proofEntry;
@@ -593,7 +593,7 @@ class SeedPipelineOutcome {
       proofEntry = <String, dynamic>{
         'type': 'escrow',
         'tx_hash': e.txHash,
-        'contract_address': e.escrowService.parsedContent.contractAddress,
+        'contract_address': e.escrowService.contractAddress,
         'settlement_outcome': plan.escrowOutcome?.name ?? 'active',
         'trade_already_existed_on_chain': plan.tradeAlreadyExisted,
         'proof_valid': invalidReason == null,
@@ -633,7 +633,7 @@ class SeedPipelineOutcome {
       'trade_id': thread.request.getDtag() ?? thread.id,
       'check_in': thread.start.toIso8601String().substring(0, 10),
       'check_out': thread.end.toIso8601String().substring(0, 10),
-      'reservation_stage': thread.reservation?.parsedContent.stage.name,
+      'reservation_stage': thread.reservation?.stage.name,
       'self_signed_by_buyer': plan.selfSigned,
       'proof': proofEntry,
     };

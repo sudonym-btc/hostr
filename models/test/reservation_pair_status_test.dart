@@ -8,7 +8,6 @@ import 'package:test/test.dart';
 Reservation _reservation({
   KeyPair? signer,
   ReservationStage stage = ReservationStage.negotiate,
-  bool cancelled = false,
   DateTime? start,
   DateTime? end,
 }) {
@@ -23,7 +22,6 @@ Reservation _reservation({
       start: start ?? DateTime(2026, 2, 1),
       end: end ?? DateTime(2026, 2, 5),
       stage: stage,
-      cancelled: cancelled,
     ),
   ).signAs(key, Reservation.fromNostrEvent);
 }
@@ -88,7 +86,7 @@ void main() {
         final status = ReservationPairStatus(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
-            cancelled: true,
+            stage: ReservationStage.cancel,
           ),
         );
         expect(status.cancelled, isTrue);

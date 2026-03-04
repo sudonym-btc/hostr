@@ -34,7 +34,7 @@ class ReservationListItem extends StatelessWidget {
       a: listingAnchor,
       builder: (context, state) {
         final listing = state.data;
-        final title = listing?.parsedContent.title.toString() ?? '…';
+        final title = listing?.title.toString() ?? '…';
 
         return InkWell(
           onTap: threadAnchor != null

@@ -53,8 +53,8 @@ class _SearchMapWidgetState extends State<SearchMapWidget> {
 
       if (h3Tag == null) continue;
 
-      final priceText = item.parsedContent.price.isNotEmpty
-          ? formatAmount(item.parsedContent.price.first.amount, exact: false)
+      final priceText = item.prices.isNotEmpty
+          ? formatAmount(item.prices.first.amount, exact: false)
           : null;
 
       data.add(

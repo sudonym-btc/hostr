@@ -13,6 +13,12 @@ class BadgeDefinition
   static final EventContentParser<BadgeDefinitionContent> _contentParser =
       BadgeDefinitionContent.fromJson;
 
+  // ── Convenience getters ─────────────────────────────────────────────
+  String get name => parsedContent.name;
+  String? get description => parsedContent.description;
+  String? get image => parsedContent.image;
+  List<String>? get thumbs => parsedContent.thumbs;
+
   BadgeDefinition.fromNostrEvent(Nip01Event e)
       : super.fromNostrEvent(
           e,

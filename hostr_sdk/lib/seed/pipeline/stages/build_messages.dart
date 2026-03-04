@@ -198,7 +198,7 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
   var totalExpected = 0;
   for (final thread in threads) {
     if (!thread.paidViaEscrow || thread.reservation == null) continue;
-    if (thread.reservation!.parsedContent.proof?.escrowProof == null) continue;
+    if (thread.reservation!.proof?.escrowProof == null) continue;
     totalExpected += 2;
   }
 
@@ -221,7 +221,7 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
       final thread = threads[i];
       if (!thread.paidViaEscrow || thread.reservation == null) continue;
 
-      final escrowProof = thread.reservation!.parsedContent.proof?.escrowProof;
+      final escrowProof = thread.reservation!.proof?.escrowProof;
       if (escrowProof == null) continue;
 
       final threadAnchor = thread.request.getDtag()!;

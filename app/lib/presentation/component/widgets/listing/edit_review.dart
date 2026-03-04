@@ -53,8 +53,8 @@ class EditReviewController extends UpsertFormController {
       return;
     }
 
-    reviewController.text = review.parsedContent.content;
-    _rating = review.parsedContent.rating.clamp(1, 5);
+    reviewController.text = review.reviewText;
+    _rating = review.rating.clamp(1, 5);
     _originalContent = reviewController.text;
     _originalRating = _rating;
     notifyListeners();

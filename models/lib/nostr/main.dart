@@ -16,6 +16,7 @@ export 'reservation_pair_status.dart';
 export 'reservation_transition.dart';
 export 'review.dart';
 export 'serializable.dart';
+export 'tag_builder.dart';
 export 'type_json_content.dart';
 export 'type_parent.dart';
 export 'validate_state_transition.dart';

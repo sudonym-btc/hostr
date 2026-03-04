@@ -66,7 +66,7 @@ void main() {
           escrowService: escrowService,
           negotiateReservation: trade.negotiateReservation,
           sellerProfile: trade.sellerProfile,
-          amount: trade.negotiateReservation.parsedContent.amount!,
+          amount: trade.negotiateReservation.amount!,
         ),
       );
 
@@ -106,7 +106,7 @@ void main() {
           escrowService: escrowService,
           negotiateReservation: trade.negotiateReservation,
           sellerProfile: trade.sellerProfile,
-          amount: trade.negotiateReservation.parsedContent.amount!,
+          amount: trade.negotiateReservation.amount!,
         ),
       );
 

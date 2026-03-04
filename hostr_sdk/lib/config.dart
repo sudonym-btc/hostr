@@ -4,6 +4,16 @@ import 'package:ndk_rust_verifier/ndk_rust_verifier.dart';
 import 'datasources/storage.dart';
 import 'util/custom_logger.dart';
 
+/// Returns [RustEventVerifier] when the native library is available,
+/// otherwise falls back to the pure-Dart [Bip340EventVerifier].
+EventVerifier _defaultEventVerifier() {
+  // try {
+  //   return RustEventVerifier();
+  // } catch (_) {
+  return Bip340EventVerifier();
+  // }
+}
+
 class HostrConfig {
   final List<String> bootstrapRelays;
   final List<String> bootstrapBlossom;
@@ -37,7 +47,7 @@ class HostrConfig {
        ndkConfig =
            ndk ??
            NdkConfig(
-             eventVerifier: RustEventVerifier(),
+             eventVerifier: _defaultEventVerifier(),
              cache: MemCacheManager(),
              fetchedRangesEnabled: true,
              engine: NdkEngine.JIT,

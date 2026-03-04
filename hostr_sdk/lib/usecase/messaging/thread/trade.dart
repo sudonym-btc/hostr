@@ -58,10 +58,9 @@ class ThreadTrade {
   }) : state = BehaviorSubject<TradeState>.seeded(
          TradeState.initial(
            tradeId: thread.state.value.lastReservationRequest.getDtag()!,
-           start: thread.state.value.lastReservationRequest.parsedContent.start,
-           end: thread.state.value.lastReservationRequest.parsedContent.end,
-           amount:
-               thread.state.value.lastReservationRequest.parsedContent.amount,
+           start: thread.state.value.lastReservationRequest.start,
+           end: thread.state.value.lastReservationRequest.end,
+           amount: thread.state.value.lastReservationRequest.amount,
          ),
        ),
        subscriptions = getIt<TradeSubscriptions>(param1: thread);
@@ -216,13 +215,8 @@ class ThreadTrade {
         pair.buyerReservation,
       ].whereType<Reservation>();
       for (final reservation in reservations) {
-        final pubkey = reservation
-            .parsedContent
-            .proof
-            ?.escrowProof
-            ?.escrowService
-            .parsedContent
-            .pubkey;
+        final pubkey =
+            reservation.proof?.escrowProof?.escrowService.escrowPubkey;
         if (pubkey != null) return pubkey;
       }
     }

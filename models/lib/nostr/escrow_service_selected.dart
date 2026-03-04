@@ -17,6 +17,12 @@ class EscrowServiceSelected extends JsonContentNostrEvent<
   static final EventContentParser<EscrowServiceSelectedContent> _contentParser =
       EscrowServiceSelectedContent.fromJson;
   static const requiredTags = [];
+
+  // ── Convenience getters ─────────────────────────────────────────────
+  EscrowService get service => parsedContent.service;
+  EscrowTrust get sellerTrusts => parsedContent.sellerTrusts;
+  EscrowMethod get sellerMethods => parsedContent.sellerMethods;
+
   EscrowServiceSelected(
       {required super.pubKey,
       required super.tags,

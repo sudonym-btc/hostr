@@ -69,7 +69,7 @@ mixin CommitTerms on Serializable {
 
   /// Check whether a valid signature exists for [pubkey].
   ///
-  /// If [pubkey] is `null`, returns `true` when **any** signature in
+  /// If [pubkey] is `null`, returns `true` when **every** signature in
   /// [signatures] is valid.
   bool verifyCommit([String? pubkey]) {
     if (pubkey != null) {
@@ -77,7 +77,8 @@ mixin CommitTerms on Serializable {
       if (sig == null) return false;
       return Bip340.verify(commitHash(), sig, pubkey);
     }
-    return signatures.entries.any(
+    if (signatures.isEmpty) return false;
+    return signatures.entries.every(
       (entry) => Bip340.verify(commitHash(), entry.value, entry.key),
     );
   }
