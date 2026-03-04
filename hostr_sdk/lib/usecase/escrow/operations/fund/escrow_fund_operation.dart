@@ -87,9 +87,16 @@ class EscrowFundOperation extends Cubit<EscrowFundState> {
             estimatedSwapFees: BitcoinAmount.zero(),
             estimatedRelayFees: BitcoinAmount.zero(),
           );
+    final escrowFeeSats = params!.escrowService.parsedContent.escrowFee(
+      contractParams.amount.getInSats.toInt(),
+    );
     return EscrowFundFees(
       estimatedGasFees: gasEstimate.fee,
       estimatedSwapFees: swapFees,
+      estimatedEscrowFees: BitcoinAmount.fromInt(
+        BitcoinUnit.sat,
+        escrowFeeSats,
+      ),
     );
   }
 

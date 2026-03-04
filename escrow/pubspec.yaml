@@ -15,12 +15,12 @@ dependencies:
     path: ../models
   hostr_sdk:
     path: ../hostr_sdk
-  ndk:
-    git:
-      url: https://github.com/relaystr/ndk.git 
-      path: packages/ndk 
+  ndk: ^0.7.1-dev.19
   h3_dart: ^0.7.0
   interact_cli: ^2.4.0
+  web3dart: ^3.0.2
+  wallet: ^0.0.18
+  crypto: ^3.0.7
 
 dev_dependencies:
   test: ^1.29.0

@@ -2,16 +2,21 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:crypto/crypto.dart';
 import 'package:escrow/injection.dart';
+import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
+import 'package:http/http.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:wallet/wallet.dart';
+import 'package:web3dart/web3dart.dart';
 
 /// Allow self-signed certificates so the escrow daemon can connect to local
 /// relay/blossom/etc. over TLS without a trusted CA chain.
@@ -38,6 +43,12 @@ void main(List<String> arguments) async {
   final String contractAddress = Platform.environment['CONTRACT_ADDR'] ??
       '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F';
 
+  final Web3Client web3client = Web3Client(rpcUrl, Client());
+  final MultiEscrow contract = MultiEscrow(
+    address: EthereumAddress.fromHex(contractAddress),
+    client: web3client,
+  );
+
   await setupInjection(
     relayUrl: relayUrl,
     rpcUrl: rpcUrl,
@@ -58,11 +69,17 @@ void main(List<String> arguments) async {
           pubkey: hostr.auth.activeKeyPair!.publicKey,
           evmAddress: hostr.auth.getActiveEvmKey().address.eip55With0x,
           contractAddress: contractAddress,
-          contractBytecodeHash: 'MockBytecodeHash',
+          contractBytecodeHash: sha256
+              .convert(await web3client
+                  .getCode(EthereumAddress.fromHex(contractAddress)))
+              .toString(),
           chainId: (await hostr.evm.supportedEvmChains[0].client.getChainId())
               .toInt(),
           maxDuration: Duration(days: 365),
-          type: EscrowType.EVM));
+          type: EscrowType.EVM,
+          feeBase: 100,
+          feePercent: 1,
+          minAmount: 5000));
 
   print(ourProfile);
 

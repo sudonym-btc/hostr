@@ -44,6 +44,24 @@ class EscrowServiceContent extends EventContent {
   final Duration maxDuration;
   final EscrowType type;
 
+  /// Flat fee in sats charged per escrow trade.
+  final int feeBase;
+
+  /// Proportional fee as a percentage of the escrow amount (e.g. 1.5 = 1.5%).
+  final double feePercent;
+
+  /// Minimum escrow amount in sats.
+  final int minAmount;
+
+  /// Maximum escrow amount in sats. Null means unlimited.
+  final int? maxAmount;
+
+  /// Compute the total escrow fee for a given [amountSats].
+  ///
+  /// `fee = feeBase + floor(amountSats * feePercent / 100)`
+  int escrowFee(int amountSats) =>
+      feeBase + (amountSats * feePercent / 100).floor();
+
   EscrowServiceContent(
       {required this.pubkey,
       required this.evmAddress,
@@ -51,7 +69,11 @@ class EscrowServiceContent extends EventContent {
       required this.contractBytecodeHash,
       required this.chainId,
       required this.maxDuration,
-      required this.type});
+      required this.type,
+      this.feeBase = 0,
+      this.feePercent = 0,
+      this.minAmount = 0,
+      this.maxAmount});
 
   @override
   Map<String, dynamic> toJson() {
@@ -63,6 +85,10 @@ class EscrowServiceContent extends EventContent {
       "chainId": chainId,
       "maxDuration": maxDuration.inSeconds,
       "type": type.toString().split('.').last,
+      "feeBase": feeBase,
+      "feePercent": feePercent,
+      "minAmount": minAmount,
+      if (maxAmount != null) "maxAmount": maxAmount,
     };
   }
 
@@ -76,6 +102,10 @@ class EscrowServiceContent extends EventContent {
       maxDuration: Duration(seconds: json["maxDuration"]),
       type: EscrowType.values
           .firstWhere((e) => e.toString() == 'EscrowType.${json["type"]}'),
+      feeBase: (json["feeBase"] as num?)?.toInt() ?? 0,
+      feePercent: (json["feePercent"] as num?)?.toDouble() ?? 0,
+      minAmount: (json["minAmount"] as num?)?.toInt() ?? 0,
+      maxAmount: (json["maxAmount"] as num?)?.toInt(),
     );
   }
 }

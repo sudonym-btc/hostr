@@ -193,7 +193,7 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
       // Guard: the image list may have been mutated while we were uploading.
       if (index < images.length &&
           images[index].file?.path == image.file!.path) {
-        images[index] = CustomImage.path(hash);
+        images[index] = CustomImage(path: hash, file: image.file);
       }
     } catch (e, st) {
       _logger.e('Failed to upload image $index', error: e, stackTrace: st);

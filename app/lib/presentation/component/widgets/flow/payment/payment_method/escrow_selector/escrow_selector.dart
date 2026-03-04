@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:models/main.dart';
@@ -30,17 +31,25 @@ class EscrowSelectorWidget extends StatelessWidget {
               isExpanded: true,
               underline: Container(),
               selectedItemBuilder: (BuildContext context) {
-                return [ProfileChipWidget(id: state.selectedEscrow!.pubKey)];
+                return state.result.compatibleServices
+                    .map((e) => ProfileChipWidget(id: e.pubKey))
+                    .toList();
               },
               items: state.result.compatibleServices
                   .map<DropdownMenuItem<dynamic>>((EscrowService escrow) {
                     return DropdownMenuItem(
                       value: escrow,
-                      child: Text(
-                        escrow.pubKey,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      child: ProfileProvider(
+                        pubkey: escrow.pubKey,
+                        builder: (context, snapshot) {
+                          final name =
+                              snapshot.data?.metadata.name ?? escrow.pubKey;
+                          return Text(
+                            name,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(overflow: TextOverflow.ellipsis),
+                          );
+                        },
                       ),
                     );
                   })

@@ -44,7 +44,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
       counterparty: widget.counterparty,
       negotiateReservation: widget.negotiateReservation,
     )..load();
-    _selectorSub = _selectorCubit.stream.listen(_onSelectorChanged);
+    _selectorSub = _selectorCubit.stream.distinct().listen(_onSelectorChanged);
   }
 
   void _onSelectorChanged(EscrowSelectorState state) {
@@ -114,6 +114,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
                     switch (fundState) {
                       case EscrowFundInitialised():
                         return EscrowFundConfirmWidget(
+                          key: ObjectKey(_fundOperation),
                           onConfirm: () async {
                             await _selectorCubit.select();
                             _fundOperation!.execute();
@@ -151,6 +152,13 @@ class EscrowFundConfirmWidget extends StatefulWidget {
 
 class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
   bool _loading = false;
+  late final Future _feeEstimate;
+
+  @override
+  void initState() {
+    super.initState();
+    _feeEstimate = context.read<EscrowFundOperation>().estimateFees();
+  }
 
   Future<void> _handleConfirm() async {
     if (_loading) return;
@@ -176,7 +184,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
             amount: context.read<EscrowFundOperation>().params!.amount,
             loading: _loading,
             feeWidget: FutureBuilder(
-              future: context.read<EscrowFundOperation>().estimateFees(),
+              future: _feeEstimate,
               builder: (context, snapshot) {
                 final baseStyle = Theme.of(context).textTheme.bodySmall!;
                 final subtleStyle = baseStyle.copyWith(
@@ -195,11 +203,11 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedGasFees.toAmount())} in gas",
+                      "+ ${formatAmount(snapshot.data!.networkFees.toAmount())} in network fees",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedSwapFees.totalFees.toAmount())} in swap fees",
+                      "+ ${formatAmount(snapshot.data!.estimatedEscrowFees.toAmount())} in escrow fees",
                       style: subtleStyle,
                     ),
                   ],

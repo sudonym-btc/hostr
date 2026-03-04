@@ -20,7 +20,10 @@ List<EscrowService> MOCK_ESCROWS(
                   contractAddress: contractAddress,
                   contractBytecodeHash: byteCodeHash ?? "0xMockBytecodeHash",
                   maxDuration: Duration(days: 365),
-                  type: EscrowType.EVM),
+                  type: EscrowType.EVM,
+                  feeBase: 100,
+                  feePercent: 1,
+                  minAmount: 5000),
               createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
               tags: EventTags([]))
           .signAs(MockKeys.escrow, EscrowService.fromNostrEvent),

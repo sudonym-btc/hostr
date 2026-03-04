@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
@@ -39,107 +40,59 @@ class BackupKeyWidget extends StatelessWidget {
     final mnemonic = Mnemonic(entropyBytes, Language.english);
     final words = mnemonic.sentence.split(' ');
 
-    return SafeArea(
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) {
-          return Column(
-            children: [
-              // ── Drag handle ──────────────────────────────────
-              Center(
-                child: Container(
-                  width: kSpace6,
-                  height: kSpace1,
-                  margin: const EdgeInsets.only(top: kSpace3, bottom: kSpace2),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant.withAlpha(80),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              // ── Scrollable content ───────────────────────────
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, kSpace1, 20, kSpace0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Back up your keys',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      Gap.vertical.xs(),
-                      Text(
-                        'Your keys are your identity. If you lose them you will lose access to your account and any funds held in escrow.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Gap.vertical.custom(kSpace5),
-                      _KeySection(label: 'Public key (npub)', value: npub),
-                      Gap.vertical.md(),
-                      _KeySection(
-                        label: 'Private key (nsec)',
-                        value: nsec,
-                        sensitive: true,
-                      ),
-                      Gap.vertical.custom(kSpace5),
-                      Text(
-                        'Recovery words',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      Gap.vertical.sm(),
-                      _MnemonicGrid(words: words),
-                      Gap.vertical.xs(),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          icon: const Icon(Icons.copy, size: kIconSm),
-                          label: Text(AppLocalizations.of(context)!.copyWords),
-                          onPressed: () {
-                            Clipboard.setData(
-                              ClipboardData(text: mnemonic.sentence),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.recoveryWordsCopied,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      Gap.vertical.sm(),
-                    ],
-                  ),
-                ),
-              ),
-              // ── Pinned Done button ───────────────────────────
-              CustomPadding.only(
-                left: 20,
-                top: kSpace2,
-                right: 20,
-                bottom: kSpace4,
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(AppLocalizations.of(context)!.done),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+    return ModalBottomSheet(
+      buttons: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(AppLocalizations.of(context)!.done),
+          ),
+        ],
+      ),
+      title: 'Back up your keys',
+      subtitle:
+          'Your keys are your identity. If you lose them you will lose access to your account and any funds held in escrow.',
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _KeySection(label: 'Public key (npub)', value: npub),
+          Gap.vertical.md(),
+          _KeySection(
+            label: 'Private key (nsec)',
+            value: nsec,
+            sensitive: true,
+          ),
+          Gap.vertical.custom(kSpace5),
+          // Text(
+          //   'Recovery words',
+          //   style: Theme.of(context).textTheme.titleMedium,
+          // ),
+          // Gap.vertical.sm(),
+          // _MnemonicGrid(words: words),
+          // Gap.vertical.xs(),
+          // Align(
+          //   alignment: Alignment.centerRight,
+          //   child: TextButton.icon(
+          //     icon: const Icon(Icons.copy, size: kIconSm),
+          //     label: Text(AppLocalizations.of(context)!.copyWords),
+          //     onPressed: () {
+          //       Clipboard.setData(
+          //         ClipboardData(text: mnemonic.sentence),
+          //       );
+          //       ScaffoldMessenger.of(context).showSnackBar(
+          //         SnackBar(
+          //           content: Text(
+          //             AppLocalizations.of(
+          //               context,
+          //             )!.recoveryWordsCopied,
+          //           ),
+          //         ),
+          //       );
+          //     },
+          //   ),
+          // ),
+        ],
       ),
     );
   }
