@@ -212,23 +212,19 @@ class SeedFactory {
       );
     }
 
-    return Reservation(
+    return Reservation.create(
       pubKey: thread.guest.keyPair.publicKey,
-      tags: ReservationTags([
-        [kListingRefTag, thread.listing.anchor!],
-        [kThreadRefTag, thread.request.getDtag()!],
-        ['d', 'mock-reservation-${thread.id}'],
-      ]),
+      dTag: 'mock-reservation-${thread.id}',
+      listingAnchor: thread.listing.anchor!,
+      threadAnchor: thread.request.getDtag()!,
+      start: thread.start,
+      end: thread.end,
+      stage: ReservationStage.commit,
+      quantity: thread.request.quantity,
+      amount: thread.request.amount,
+      recipient: thread.request.recipient,
+      proof: proof,
       createdAt: _ctx.timestampDaysAfter(80),
-      content: ReservationContent(
-        start: thread.start,
-        end: thread.end,
-        stage: ReservationStage.commit,
-        quantity: thread.request.quantity,
-        amount: thread.request.amount,
-        recipient: thread.request.recipient,
-        proof: proof,
-      ),
     ).signAs(thread.guest.keyPair, Reservation.fromNostrEvent);
   }
 

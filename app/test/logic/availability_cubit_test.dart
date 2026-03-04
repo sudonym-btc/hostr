@@ -10,12 +10,12 @@ ReservationPairStatus _reservationPair({
   required DateTime end,
 }) {
   return ReservationPairStatus(
-    sellerReservation: Reservation(
+    sellerReservation: Reservation.create(
       pubKey: 'host-pubkey',
-      tags: ReservationTags([
-        [kListingRefTag, 'listing-anchor'],
-      ]),
-      content: ReservationContent(start: start, end: end),
+      dTag: 'test-reservation',
+      listingAnchor: 'listing-anchor',
+      start: start,
+      end: end,
     ),
   );
 }

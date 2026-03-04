@@ -46,6 +46,7 @@ class Hostr {
   UserConfigStore get userConfig => getIt<UserConfigStore>();
   AutoWithdrawService get autoWithdraw => getIt<AutoWithdrawService>();
   OperationStateStore get operationStateStore => getIt<OperationStateStore>();
+  EscrowFundRegistry get escrowFundRegistry => getIt<EscrowFundRegistry>();
   BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
 
   StreamSubscription? _authStateSubscription;

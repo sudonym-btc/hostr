@@ -58,20 +58,16 @@ Reservation _negotiate({
   final e = DateTime(2026, 3, 5);
   final nonce = 'trade-$salt';
 
-  return Reservation(
+  return Reservation.create(
     pubKey: buyer.publicKey,
+    dTag: nonce,
+    listingAnchor: listing.anchor!,
+    start: s,
+    end: e,
+    stage: ReservationStage.negotiate,
+    quantity: 1,
+    salt: salt,
     createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
-    tags: ReservationTags([
-      [kListingRefTag, listing.anchor!],
-      ['d', nonce],
-    ]),
-    content: ReservationContent(
-      start: s,
-      end: e,
-      stage: ReservationStage.negotiate,
-      quantity: 1,
-      salt: salt,
-    ),
   ).signAs(buyer, Reservation.fromNostrEvent);
 }
 
@@ -80,18 +76,14 @@ Reservation _sellerAck({
   required Listing listing,
   required KeyPair seller,
 }) {
-  return Reservation(
+  return Reservation.create(
     pubKey: seller.publicKey,
+    dTag: negotiate.getDtag()!,
+    listingAnchor: listing.anchor!,
+    start: negotiate.start,
+    end: negotiate.end,
+    stage: ReservationStage.commit,
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
-    tags: ReservationTags([
-      [kListingRefTag, listing.anchor!],
-      ['d', negotiate.getDtag()!],
-    ]),
-    content: ReservationContent(
-      start: negotiate.start,
-      end: negotiate.end,
-      stage: ReservationStage.commit,
-    ),
   ).signAs(seller, Reservation.fromNostrEvent);
 }
 
@@ -100,14 +92,19 @@ Reservation _cancel({
   required Listing listing,
   required KeyPair signer,
 }) {
-  return Reservation(
+  return Reservation.create(
     pubKey: signer.publicKey,
+    dTag: source.getDtag()!,
+    listingAnchor: listing.anchor!,
+    start: source.start,
+    end: source.end,
+    stage: ReservationStage.cancel,
+    quantity: source.quantity,
+    amount: source.amount,
+    recipient: source.recipient,
+    salt: source.salt,
+    signatures: source.signatures,
     createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
-    tags: ReservationTags([
-      [kListingRefTag, listing.anchor!],
-      ['d', source.getDtag()!],
-    ]),
-    content: source.parsedContent.copyWith(stage: ReservationStage.cancel),
   ).signAs(signer, Reservation.fromNostrEvent);
 }
 
@@ -206,17 +203,13 @@ void main() {
     });
 
     test('seller-only pair (blocked date) → Valid', () {
-      final ack = Reservation(
+      final ack = Reservation.create(
         pubKey: MockKeys.hoster.publicKey,
+        dTag: 'blocked-hash',
+        listingAnchor: listing.anchor!,
+        start: DateTime(2026, 3, 1),
+        end: DateTime(2026, 3, 5),
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
-        tags: ReservationTags([
-          [kListingRefTag, listing.anchor!],
-          ['d', 'blocked-hash'],
-        ]),
-        content: ReservationContent(
-          start: DateTime(2026, 3, 1),
-          end: DateTime(2026, 3, 5),
-        ),
       ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
 
       final pair = ReservationPairStatus(sellerReservation: ack);
@@ -413,17 +406,13 @@ void main() {
 
     test('forceValidateSelfSigned=true: seller-only pair (blocked date, '
         'no buyer) → Valid', () {
-      final ack = Reservation(
+      final ack = Reservation.create(
         pubKey: MockKeys.hoster.publicKey,
+        dTag: 'blocked-forced',
+        listingAnchor: listing.anchor!,
+        start: DateTime(2026, 3, 1),
+        end: DateTime(2026, 3, 5),
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
-        tags: ReservationTags([
-          [kListingRefTag, listing.anchor!],
-          ['d', 'blocked-forced'],
-        ]),
-        content: ReservationContent(
-          start: DateTime(2026, 3, 1),
-          end: DateTime(2026, 3, 5),
-        ),
       ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
 
       final pair = ReservationPairStatus(sellerReservation: ack);

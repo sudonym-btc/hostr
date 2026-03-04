@@ -82,18 +82,14 @@ Reservation _makeReservation({
   KeyPair? signer,
 }) {
   final key = signer ?? MockKeys.guest;
-  return Reservation(
+  return Reservation.create(
     pubKey: key.publicKey,
+    dTag: dTag,
+    listingAnchor: listingAnchor,
+    start: DateTime(2026, 2, 1),
+    end: DateTime(2026, 2, 3),
+    stage: ReservationStage.negotiate,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-    tags: ReservationTags([
-      ['d', dTag],
-      [kListingRefTag, listingAnchor],
-    ]),
-    content: ReservationContent(
-      start: DateTime(2026, 2, 1),
-      end: DateTime(2026, 2, 3),
-      stage: ReservationStage.negotiate,
-    ),
   ).signAs(key, Reservation.fromNostrEvent);
 }
 

@@ -120,14 +120,8 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
                             _fundOperation!.execute();
                           },
                         );
-                      case EscrowFundDepositing():
-                        return EscrowFundDepositingWidget(fundState);
-                      case EscrowFundSwapProgress():
-                        return EscrowFundProgressWidget(fundState);
-                      case EscrowFundCompleted():
-                        return EscrowFundSuccessWidget(fundState);
-                      case EscrowFundFailed():
-                        return EscrowFundFailureWidget(fundState);
+                      default:
+                        return EscrowFundFlowWidget(cubit: _fundOperation!);
                     }
                   },
                 ),
@@ -306,6 +300,52 @@ class EscrowFundFailureWidget extends StatelessWidget {
       type: ModalBottomSheetType.error,
       title: 'Escrow Failed',
       content: Text(state.error.toString()),
+    );
+  }
+}
+
+/// Lightweight flow widget that renders the state of an already-running
+/// [EscrowFundOperation]. Unlike [EscrowFundWidget], no escrow selector or
+/// confirm step is shown — only in-progress / success / failure UI.
+///
+/// Use this when re-attaching to an operation obtained from
+/// [EscrowFundRegistry] (e.g. when the user navigated away and came back).
+class EscrowFundFlowWidget extends StatefulWidget {
+  final EscrowFundOperation cubit;
+  const EscrowFundFlowWidget({super.key, required this.cubit});
+
+  @override
+  State<EscrowFundFlowWidget> createState() => _EscrowFundFlowWidgetState();
+}
+
+class _EscrowFundFlowWidgetState extends State<EscrowFundFlowWidget> {
+  @override
+  void dispose() {
+    widget.cubit.detachOrClose(
+      (s) => s is EscrowFundCompleted || s is EscrowFundFailed,
+    );
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<EscrowFundOperation>.value(
+      value: widget.cubit,
+      child: BlocBuilder<EscrowFundOperation, EscrowFundState>(
+        builder: (context, fundState) {
+          return switch (fundState) {
+            EscrowFundInitialised() => ModalBottomSheet(
+              type: ModalBottomSheetType.normal,
+              title: 'Deposit Funds',
+              content: Center(child: AppLoadingIndicator.large()),
+            ),
+            EscrowFundDepositing() => EscrowFundDepositingWidget(fundState),
+            EscrowFundSwapProgress() => EscrowFundProgressWidget(fundState),
+            EscrowFundCompleted() => EscrowFundSuccessWidget(fundState),
+            EscrowFundFailed() => EscrowFundFailureWidget(fundState),
+          };
+        },
+      ),
     );
   }
 }

@@ -200,7 +200,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
     List<ReservationPairStatus> reservationPairs,
   ) {
     DateTime normalize(DateTime value) {
-      return DateTime(value.year, value.month, value.day);
+      return DateTime.utc(value.year, value.month, value.day);
     }
 
     var normalizedStart = normalize(start);

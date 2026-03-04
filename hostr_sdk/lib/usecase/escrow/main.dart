@@ -6,4 +6,5 @@ export 'operations/claim/escrow_claim_state.dart';
 export 'operations/fund/escrow_fund_models.dart';
 export 'operations/fund/escrow_fund_operation.dart';
 export 'operations/fund/escrow_fund_recoverer.dart';
+export 'operations/fund/escrow_fund_registry.dart';
 export 'operations/fund/escrow_fund_state.dart';

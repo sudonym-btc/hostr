@@ -104,22 +104,18 @@ Reservation _reservation({
   int createdAtOffsetSeconds = 0,
   String? recipient,
 }) {
-  return Reservation(
+  return Reservation.create(
     pubKey: signer.publicKey,
+    dTag: tradeId,
+    listingAnchor: listing.anchor!,
+    start: start,
+    end: end,
+    proof: proof,
+    stage: stage,
+    recipient: recipient,
     createdAt:
         DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000 +
         createdAtOffsetSeconds,
-    tags: ReservationTags([
-      [kListingRefTag, listing.anchor!],
-      ['d', tradeId],
-    ]),
-    content: ReservationContent(
-      start: start,
-      end: end,
-      proof: proof,
-      stage: stage,
-      recipient: recipient,
-    ),
   ).signAs(signer, Reservation.fromNostrEvent);
 }
 

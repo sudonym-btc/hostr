@@ -34,7 +34,7 @@ List<Review> buildReviews({
           rating: rating,
           paidViaEscrow: thread.paidViaEscrow,
         ),
-        proof: ParticipationProof(salt: thread.id),
+        proof: ParticipationProof(salt: thread.request.salt!),
       ),
     ).signAs(thread.guest.keyPair, Review.fromNostrEvent);
 

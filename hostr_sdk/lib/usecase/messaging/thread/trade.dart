@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_registry.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/actions/reservation.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/actions/trade_action_resolver.dart';
@@ -49,6 +50,13 @@ class ThreadTrade {
   StreamSubscription<Message>? _messageSubscription;
   Future<void>? _inFlightEnsureRuntime;
 
+  /// When non-null, [deactivate] was called while an escrow fund operation was
+  /// in-flight. The actual teardown is deferred until the operation finishes.
+  StreamSubscription? _deferredDeactivationSub;
+
+  late final EscrowFundRegistry _escrowFundRegistry =
+      getIt<EscrowFundRegistry>();
+
   ThreadTrade({
     @factoryParam required this.thread,
     required this.logger,
@@ -73,6 +81,7 @@ class ThreadTrade {
         ? auth.getActiveKey()
         : saltedKey(
             key: auth.getActiveKey().privateKey!,
+            // @todo: must be salt!
             salt: state.value.tradeId,
           );
   }
@@ -187,6 +196,30 @@ class ThreadTrade {
   Future<void> deactivate() async {
     if (state.isClosed) return;
 
+    final tradeId = state.value.tradeId;
+
+    // Defer teardown while an escrow fund operation is in-flight.
+    if (_escrowFundRegistry.hasActiveFund(tradeId)) {
+      logger.d(
+        'Trade $tradeId: deferring deactivation — escrow fund in-flight',
+      );
+      _deferredDeactivationSub ??= _escrowFundRegistry
+          .watchTrade(tradeId)
+          .where((op) => op == null)
+          .take(1)
+          .listen((_) {
+            _deferredDeactivationSub = null;
+            logger.d(
+              'Trade $tradeId: escrow fund completed — running deferred deactivation',
+            );
+            deactivate();
+          });
+      return;
+    }
+
+    _deferredDeactivationSub?.cancel();
+    _deferredDeactivationSub = null;
+
     state.add(state.value.copyWith(active: false));
 
     await _messageSubscription?.cancel();
@@ -258,6 +291,8 @@ class ThreadTrade {
   }
 
   Future<void> close() async {
+    _deferredDeactivationSub?.cancel();
+    _deferredDeactivationSub = null;
     await deactivate();
     await state.close();
     await context$.close();

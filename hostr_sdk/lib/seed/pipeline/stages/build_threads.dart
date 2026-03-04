@@ -75,21 +75,21 @@ Future<List<SeedThread>> buildThreads({
           .convert(utf8.encode('seed-${ctx.seed}-thread-$threadIndex'))
           .toString();
 
-      final request = Reservation(
+      final request = Reservation.create(
         pubKey: guest.keyPair.publicKey,
-        tags: ReservationTags([
-          [kListingRefTag, listing.anchor!],
-          ['d', nonce],
-        ]),
+        dTag: nonce,
+        listingAnchor: listing.anchor!,
+        start: start,
+        end: end,
+        stage: ReservationStage.negotiate,
+        quantity: 1,
+        amount: listing.cost(start, end),
+        recipient: saltedKey(
+          key: guest.keyPair.privateKey!,
+          salt: nonce,
+        ).publicKey,
+        salt: nonce,
         createdAt: ctx.timestampDaysAfter(30 + threadIndex),
-        content: ReservationContent(
-          start: start,
-          end: end,
-          stage: ReservationStage.negotiate,
-          quantity: 1,
-          amount: listing.cost(start, end),
-          recipient: guest.keyPair.publicKey,
-        ),
       ).signAs(guest.keyPair, Reservation.fromNostrEvent);
 
       threads.add(

@@ -189,90 +189,96 @@ class _FakeEvm_27 extends _i1.SmartFake implements _i9.Evm {
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowFundOperation_28 extends _i1.SmartFake
+class _FakeEscrowFundRegistry_28 extends _i1.SmartFake
+    implements _i9.EscrowFundRegistry {
+  _FakeEscrowFundRegistry_28(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
+}
+
+class _FakeEscrowFundOperation_29 extends _i1.SmartFake
     implements _i9.EscrowFundOperation {
-  _FakeEscrowFundOperation_28(Object parent, Invocation parentInvocation)
+  _FakeEscrowFundOperation_29(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowClaimOperation_29 extends _i1.SmartFake
+class _FakeEscrowClaimOperation_30 extends _i1.SmartFake
     implements _i9.EscrowClaimOperation {
-  _FakeEscrowClaimOperation_29(Object parent, Invocation parentInvocation)
+  _FakeEscrowClaimOperation_30(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowMethods_30 extends _i1.SmartFake implements _i9.EscrowMethods {
-  _FakeEscrowMethods_30(Object parent, Invocation parentInvocation)
+class _FakeEscrowMethods_31 extends _i1.SmartFake implements _i9.EscrowMethods {
+  _FakeEscrowMethods_31(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeMutualEscrowResult_31 extends _i1.SmartFake
+class _FakeMutualEscrowResult_32 extends _i1.SmartFake
     implements _i9.MutualEscrowResult {
-  _FakeMutualEscrowResult_31(Object parent, Invocation parentInvocation)
+  _FakeMutualEscrowResult_32(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowService_32 extends _i1.SmartFake
+class _FakeEscrowService_33 extends _i1.SmartFake
     implements _i10.EscrowService {
-  _FakeEscrowService_32(Object parent, Invocation parentInvocation)
+  _FakeEscrowService_33(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowTrust_33 extends _i1.SmartFake implements _i10.EscrowTrust {
-  _FakeEscrowTrust_33(Object parent, Invocation parentInvocation)
+class _FakeEscrowTrust_34 extends _i1.SmartFake implements _i10.EscrowTrust {
+  _FakeEscrowTrust_34(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowMethod_34 extends _i1.SmartFake implements _i10.EscrowMethod {
-  _FakeEscrowMethod_34(Object parent, Invocation parentInvocation)
+class _FakeEscrowMethod_35 extends _i1.SmartFake implements _i10.EscrowMethod {
+  _FakeEscrowMethod_35(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeBadgeDefinition_35 extends _i1.SmartFake
+class _FakeBadgeDefinition_36 extends _i1.SmartFake
     implements _i10.BadgeDefinition {
-  _FakeBadgeDefinition_35(Object parent, Invocation parentInvocation)
+  _FakeBadgeDefinition_36(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeBadgeAward_36 extends _i1.SmartFake implements _i10.BadgeAward {
-  _FakeBadgeAward_36(Object parent, Invocation parentInvocation)
+class _FakeBadgeAward_37 extends _i1.SmartFake implements _i10.BadgeAward {
+  _FakeBadgeAward_37(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeThreads_37 extends _i1.SmartFake implements _i9.Threads {
-  _FakeThreads_37(Object parent, Invocation parentInvocation)
+class _FakeThreads_38 extends _i1.SmartFake implements _i9.Threads {
+  _FakeThreads_38(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeNip01Event_38 extends _i1.SmartFake implements _i2.Nip01Event {
-  _FakeNip01Event_38(Object parent, Invocation parentInvocation)
+class _FakeNip01Event_39 extends _i1.SmartFake implements _i2.Nip01Event {
+  _FakeNip01Event_39(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeMessage_39<T extends _i10.Event<_i10.EventTags>>
+class _FakeMessage_40<T extends _i10.Event<_i10.EventTags>>
     extends _i1.SmartFake
     implements _i10.Message<T> {
-  _FakeMessage_39(Object parent, Invocation parentInvocation)
+  _FakeMessage_40(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeZaps_40 extends _i1.SmartFake implements _i9.Zaps {
-  _FakeZaps_40(Object parent, Invocation parentInvocation)
+class _FakeZaps_41 extends _i1.SmartFake implements _i9.Zaps {
+  _FakeZaps_41(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeMetadataUseCase_41 extends _i1.SmartFake
+class _FakeMetadataUseCase_42 extends _i1.SmartFake
     implements _i9.MetadataUseCase {
-  _FakeMetadataUseCase_41(Object parent, Invocation parentInvocation)
+  _FakeMetadataUseCase_42(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowUseCase_42 extends _i1.SmartFake implements _i9.EscrowUseCase {
-  _FakeEscrowUseCase_42(Object parent, Invocation parentInvocation)
+class _FakeEscrowUseCase_43 extends _i1.SmartFake implements _i9.EscrowUseCase {
+  _FakeEscrowUseCase_43(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakePayOperation_43<
+class _FakePayOperation_44<
   T extends _i12.PayParameters,
   RD extends _i12.ResolvedDetails,
   CD extends _i12.CallbackDetails,
@@ -280,27 +286,27 @@ class _FakePayOperation_43<
 >
     extends _i1.SmartFake
     implements _i13.PayOperation<T, RD, CD, CmpD> {
-  _FakePayOperation_43(Object parent, Invocation parentInvocation)
+  _FakePayOperation_44(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeRootstock_44 extends _i1.SmartFake implements _i9.Rootstock {
-  _FakeRootstock_44(Object parent, Invocation parentInvocation)
+class _FakeRootstock_45 extends _i1.SmartFake implements _i9.Rootstock {
+  _FakeRootstock_45(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeBitcoinAmount_45 extends _i1.SmartFake implements _i8.BitcoinAmount {
-  _FakeBitcoinAmount_45(Object parent, Invocation parentInvocation)
+class _FakeBitcoinAmount_46 extends _i1.SmartFake implements _i8.BitcoinAmount {
+  _FakeBitcoinAmount_46(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEvmChain_46 extends _i1.SmartFake implements _i9.EvmChain {
-  _FakeEvmChain_46(Object parent, Invocation parentInvocation)
+class _FakeEvmChain_47 extends _i1.SmartFake implements _i9.EvmChain {
+  _FakeEvmChain_47(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeRelayStorage_47 extends _i1.SmartFake implements _i3.RelayStorage {
-  _FakeRelayStorage_47(Object parent, Invocation parentInvocation)
+class _FakeRelayStorage_48 extends _i1.SmartFake implements _i3.RelayStorage {
+  _FakeRelayStorage_48(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -1650,10 +1656,21 @@ class MockEscrowUseCase extends _i1.Mock implements _i9.EscrowUseCase {
           as _i9.Evm);
 
   @override
+  _i9.EscrowFundRegistry get escrowFundRegistry =>
+      (super.noSuchMethod(
+            Invocation.getter(#escrowFundRegistry),
+            returnValue: _FakeEscrowFundRegistry_28(
+              this,
+              Invocation.getter(#escrowFundRegistry),
+            ),
+          )
+          as _i9.EscrowFundRegistry);
+
+  @override
   _i9.EscrowFundOperation fund(_i9.EscrowFundParams? params) =>
       (super.noSuchMethod(
             Invocation.method(#fund, [params]),
-            returnValue: _FakeEscrowFundOperation_28(
+            returnValue: _FakeEscrowFundOperation_29(
               this,
               Invocation.method(#fund, [params]),
             ),
@@ -1664,7 +1681,7 @@ class MockEscrowUseCase extends _i1.Mock implements _i9.EscrowUseCase {
   _i9.EscrowClaimOperation claim(_i9.EscrowClaimParams? params) =>
       (super.noSuchMethod(
             Invocation.method(#claim, [params]),
-            returnValue: _FakeEscrowClaimOperation_29(
+            returnValue: _FakeEscrowClaimOperation_30(
               this,
               Invocation.method(#claim, [params]),
             ),
@@ -1698,7 +1715,7 @@ class MockEscrows extends _i1.Mock implements _i9.Escrows {
   _i9.EscrowMethods get escrowMethods =>
       (super.noSuchMethod(
             Invocation.getter(#escrowMethods),
-            returnValue: _FakeEscrowMethods_30(
+            returnValue: _FakeEscrowMethods_31(
               this,
               Invocation.getter(#escrowMethods),
             ),
@@ -1767,7 +1784,7 @@ class MockEscrows extends _i1.Mock implements _i9.Escrows {
               sellerPubkey,
             ]),
             returnValue: _i14.Future<_i9.MutualEscrowResult>.value(
-              _FakeMutualEscrowResult_31(
+              _FakeMutualEscrowResult_32(
                 this,
                 Invocation.method(#determineMutualEscrow, [
                   buyerPubkey,
@@ -1870,7 +1887,7 @@ class MockEscrows extends _i1.Mock implements _i9.Escrows {
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
             returnValue: _i14.Future<_i10.EscrowService>.value(
-              _FakeEscrowService_32(this, Invocation.method(#getById, [id])),
+              _FakeEscrowService_33(this, Invocation.method(#getById, [id])),
             ),
           )
           as _i14.Future<_i10.EscrowService>);
@@ -2049,7 +2066,7 @@ class MockEscrowTrusts extends _i1.Mock implements _i9.EscrowTrusts {
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
             returnValue: _i14.Future<_i10.EscrowTrust>.value(
-              _FakeEscrowTrust_33(this, Invocation.method(#getById, [id])),
+              _FakeEscrowTrust_34(this, Invocation.method(#getById, [id])),
             ),
           )
           as _i14.Future<_i10.EscrowTrust>);
@@ -2223,7 +2240,7 @@ class MockEscrowMethods extends _i1.Mock implements _i9.EscrowMethods {
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
             returnValue: _i14.Future<_i10.EscrowMethod>.value(
-              _FakeEscrowMethod_34(this, Invocation.method(#getById, [id])),
+              _FakeEscrowMethod_35(this, Invocation.method(#getById, [id])),
             ),
           )
           as _i14.Future<_i10.EscrowMethod>);
@@ -2375,7 +2392,7 @@ class MockBadgeDefinitions extends _i1.Mock implements _i9.BadgeDefinitions {
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
             returnValue: _i14.Future<_i10.BadgeDefinition>.value(
-              _FakeBadgeDefinition_35(this, Invocation.method(#getById, [id])),
+              _FakeBadgeDefinition_36(this, Invocation.method(#getById, [id])),
             ),
           )
           as _i14.Future<_i10.BadgeDefinition>);
@@ -2524,7 +2541,7 @@ class MockBadgeAwards extends _i1.Mock implements _i9.BadgeAwards {
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
             returnValue: _i14.Future<_i10.BadgeAward>.value(
-              _FakeBadgeAward_36(this, Invocation.method(#getById, [id])),
+              _FakeBadgeAward_37(this, Invocation.method(#getById, [id])),
             ),
           )
           as _i14.Future<_i10.BadgeAward>);
@@ -2584,7 +2601,7 @@ class MockMessaging extends _i1.Mock implements _i9.Messaging {
   _i9.Threads get threads =>
       (super.noSuchMethod(
             Invocation.getter(#threads),
-            returnValue: _FakeThreads_37(this, Invocation.getter(#threads)),
+            returnValue: _FakeThreads_38(this, Invocation.getter(#threads)),
           )
           as _i9.Threads);
 
@@ -2597,7 +2614,7 @@ class MockMessaging extends _i1.Mock implements _i9.Messaging {
       (super.noSuchMethod(
             Invocation.method(#getRumour, [content, tags, recipientPubkeys]),
             returnValue: _i14.Future<_i2.Nip01Event>.value(
-              _FakeNip01Event_38(
+              _FakeNip01Event_39(
                 this,
                 Invocation.method(#getRumour, [
                   content,
@@ -2623,7 +2640,7 @@ class MockMessaging extends _i1.Mock implements _i9.Messaging {
             }),
             returnValue:
                 _i14.Future<_i10.Message<_i10.Event<_i10.EventTags>>>.value(
-                  _FakeMessage_39<_i10.Event<_i10.EventTags>>(
+                  _FakeMessage_40<_i10.Event<_i10.EventTags>>(
                     this,
                     Invocation.method(#broadcastTextAndAwait, [], {
                       #content: content,
@@ -2669,7 +2686,7 @@ class MockMessaging extends _i1.Mock implements _i9.Messaging {
             }),
             returnValue:
                 _i14.Future<_i10.Message<_i10.Event<_i10.EventTags>>>.value(
-                  _FakeMessage_39<_i10.Event<_i10.EventTags>>(
+                  _FakeMessage_40<_i10.Event<_i10.EventTags>>(
                     this,
                     Invocation.method(#broadcastEventAndWait, [], {
                       #event: event,
@@ -2760,14 +2777,12 @@ class MockReservationRequests extends _i1.Mock
     required _i10.Listing? listing,
     required DateTime? startDate,
     required DateTime? endDate,
-    required String? recipientPubkey,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#createReservationRequest, [], {
               #listing: listing,
               #startDate: startDate,
               #endDate: endDate,
-              #recipientPubkey: recipientPubkey,
             }),
             returnValue: _i14.Future<_i10.Reservation>.value(
               _FakeReservation_24(
@@ -2776,7 +2791,6 @@ class MockReservationRequests extends _i1.Mock
                   #listing: listing,
                   #startDate: startDate,
                   #endDate: endDate,
-                  #recipientPubkey: recipientPubkey,
                 }),
               ),
             ),
@@ -2869,7 +2883,7 @@ class MockReservationRequests extends _i1.Mock
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
             returnValue: _i14.Future<_i2.Nip01Event>.value(
-              _FakeNip01Event_38(this, Invocation.method(#getById, [id])),
+              _FakeNip01Event_39(this, Invocation.method(#getById, [id])),
             ),
           )
           as _i14.Future<_i2.Nip01Event>);
@@ -2913,7 +2927,7 @@ class MockPayments extends _i1.Mock implements _i9.Payments {
   _i9.Zaps get zaps =>
       (super.noSuchMethod(
             Invocation.getter(#zaps),
-            returnValue: _FakeZaps_40(this, Invocation.getter(#zaps)),
+            returnValue: _FakeZaps_41(this, Invocation.getter(#zaps)),
           )
           as _i9.Zaps);
 
@@ -2929,7 +2943,7 @@ class MockPayments extends _i1.Mock implements _i9.Payments {
   _i9.MetadataUseCase get metadata =>
       (super.noSuchMethod(
             Invocation.getter(#metadata),
-            returnValue: _FakeMetadataUseCase_41(
+            returnValue: _FakeMetadataUseCase_42(
               this,
               Invocation.getter(#metadata),
             ),
@@ -2940,7 +2954,7 @@ class MockPayments extends _i1.Mock implements _i9.Payments {
   _i9.EscrowUseCase get escrow =>
       (super.noSuchMethod(
             Invocation.getter(#escrow),
-            returnValue: _FakeEscrowUseCase_42(
+            returnValue: _FakeEscrowUseCase_43(
               this,
               Invocation.getter(#escrow),
             ),
@@ -2990,7 +3004,7 @@ class MockPayments extends _i1.Mock implements _i9.Payments {
       (super.noSuchMethod(
             Invocation.method(#pay, [params]),
             returnValue:
-                _FakePayOperation_43<
+                _FakePayOperation_44<
                   _i12.PayParameters,
                   _i12.ResolvedDetails,
                   _i12.CallbackDetails,
@@ -3033,7 +3047,7 @@ class MockEvm extends _i1.Mock implements _i9.Evm {
   _i9.Rootstock get rootstock =>
       (super.noSuchMethod(
             Invocation.getter(#rootstock),
-            returnValue: _FakeRootstock_44(this, Invocation.getter(#rootstock)),
+            returnValue: _FakeRootstock_45(this, Invocation.getter(#rootstock)),
           )
           as _i9.Rootstock);
 
@@ -3056,7 +3070,7 @@ class MockEvm extends _i1.Mock implements _i9.Evm {
       (super.noSuchMethod(
             Invocation.method(#getBalance, []),
             returnValue: _i14.Future<_i8.BitcoinAmount>.value(
-              _FakeBitcoinAmount_45(this, Invocation.method(#getBalance, [])),
+              _FakeBitcoinAmount_46(this, Invocation.method(#getBalance, [])),
             ),
           )
           as _i14.Future<_i8.BitcoinAmount>);
@@ -3065,7 +3079,7 @@ class MockEvm extends _i1.Mock implements _i9.Evm {
   _i9.EvmChain getChainForEscrowService(_i10.EscrowService? service) =>
       (super.noSuchMethod(
             Invocation.method(#getChainForEscrowService, [service]),
-            returnValue: _FakeEvmChain_46(
+            returnValue: _FakeEvmChain_47(
               this,
               Invocation.method(#getChainForEscrowService, [service]),
             ),
@@ -3103,7 +3117,7 @@ class MockEvm extends _i1.Mock implements _i9.Evm {
       (super.noSuchMethod(
             Invocation.method(#getClientForChainId, [chainId]),
             returnValue: _i14.Future<_i9.EvmChain>.value(
-              _FakeEvmChain_46(
+              _FakeEvmChain_47(
                 this,
                 Invocation.method(#getClientForChainId, [chainId]),
               ),
@@ -3148,7 +3162,7 @@ class MockRelays extends _i1.Mock implements _i17.Relays {
   _i3.RelayStorage get relayStorage =>
       (super.noSuchMethod(
             Invocation.getter(#relayStorage),
-            returnValue: _FakeRelayStorage_47(
+            returnValue: _FakeRelayStorage_48(
               this,
               Invocation.getter(#relayStorage),
             ),
