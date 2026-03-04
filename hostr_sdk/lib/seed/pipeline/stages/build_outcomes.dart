@@ -128,9 +128,7 @@ Future<void> buildOutcomes({
   //    originally assigned to the zap path can be promoted to escrow
   //    when a prior seed run left an on-chain trade for the same
   //    deterministic tradeId.
-  final contract = ctx.multiEscrowContract(
-    escrowService.contractAddress,
-  );
+  final contract = ctx.multiEscrowContract(escrowService.contractAddress);
 
   final createdTrades = <String, String>{}; // tradeIdHex → txHash
   final settledTrades = <String>{}; // tradeIdHex set
@@ -278,10 +276,7 @@ Future<void> buildOutcomes({
         var maxUnlock = 0;
         for (final plan in claimedPlans) {
           final unlockSec =
-              plan.thread.request.end
-                  .toUtc()
-                  .millisecondsSinceEpoch ~/
-              1000;
+              plan.thread.request.end.toUtc().millisecondsSinceEpoch ~/ 1000;
           if (unlockSec > maxUnlock) maxUnlock = unlockSec;
         }
         await ctx.waitForChainTimePast(targetEpochSeconds: maxUnlock);
@@ -392,26 +387,24 @@ Future<void> buildOutcomes({
       onInvalid: (reason) => invalidReason = reason,
     );
 
-    final reservation = Reservation(
+    final reservation = Reservation.create(
       pubKey: thread.guest.keyPair.publicKey,
-      tags: ReservationTags([
-        [kListingRefTag, thread.listing.anchor!],
-        [kThreadRefTag, thread.request.getDtag()!],
-        ['d', thread.request.getDtag()!],
+      dTag: thread.request.getDtag()!,
+      listingAnchor: thread.listing.anchor!,
+      threadAnchor: thread.request.getDtag()!,
+      start: thread.start,
+      end: thread.end,
+      stage: ReservationStage.commit,
+      quantity: thread.request.quantity,
+      amount: thread.request.amount,
+      recipient: thread.request.recipient,
+      proof: mutatedProof,
+      extraTags: [
         if (plan.escrowOutcome != null)
           ['escrowOutcome', plan.escrowOutcome!.name],
         if (plan.selfSigned) ['selfSigned', 'true'],
-      ]),
+      ],
       createdAt: ctx.timestampDaysAfter(31 + plan.index + 1),
-      content: ReservationContent(
-        start: thread.start,
-        end: thread.end,
-        stage: ReservationStage.commit,
-        quantity: thread.request.quantity,
-        amount: thread.request.amount,
-        recipient: thread.request.recipient,
-        proof: mutatedProof,
-      ),
     ).signAs(thread.guest.keyPair, Reservation.fromNostrEvent);
 
     thread.reservation = reservation;
@@ -505,9 +498,7 @@ Future<void> _createTradeForPlan({
   required SeedOutcomePlan plan,
   required EscrowService escrowService,
 }) async {
-  final contract = ctx.multiEscrowContract(
-    escrowService.contractAddress,
-  );
+  final contract = ctx.multiEscrowContract(escrowService.contractAddress);
   final request = plan.thread.request;
   final guest = plan.thread.guest;
   final host = plan.thread.host;
@@ -515,16 +506,14 @@ Future<void> _createTradeForPlan({
 
   final tradeIdHex = request.getDtag() ?? '';
   final tradeId = getBytes32(tradeIdHex);
-  final amountWei =
-      request.amount!.value * BigInt.from(10).pow(10);
+  final amountWei = request.amount!.value * BigInt.from(10).pow(10);
 
   final guestCredentials = EthPrivateKey.fromHex(guest.keyPair.privateKey!);
   final buyer = getEvmCredentials(guest.keyPair.privateKey!).address;
   final seller = getEvmCredentials(host.keyPair.privateKey!).address;
   final arbiter = getEvmCredentials(MockKeys.escrow.privateKey!).address;
 
-  final unlockAtSeconds =
-      request.end.toUtc().millisecondsSinceEpoch ~/ 1000;
+  final unlockAtSeconds = request.end.toUtc().millisecondsSinceEpoch ~/ 1000;
   final unlockAt = BigInt.from(unlockAtSeconds);
 
   plan.createTxHash = await contract.createTrade(
@@ -572,9 +561,7 @@ Future<void> _settleForPlan({
   required SeedOutcomePlan plan,
   required EscrowService escrowService,
 }) async {
-  final contract = ctx.multiEscrowContract(
-    escrowService.contractAddress,
-  );
+  final contract = ctx.multiEscrowContract(escrowService.contractAddress);
   final request = plan.thread.request;
   final host = plan.thread.host;
   final threadIndex = plan.index + 1;

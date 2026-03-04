@@ -14,8 +14,8 @@ class ListingScreen extends StatelessWidget {
     @queryParam String? dateRangeEnd,
   }) : dateRange = dateRangeStart != null && dateRangeEnd != null
            ? DateTimeRange(
-               start: DateTime.parse(dateRangeStart),
-               end: DateTime.parse(dateRangeEnd),
+               start: DateTime.parse(dateRangeStart).toUtc(),
+               end: DateTime.parse(dateRangeEnd).toUtc(),
              )
            : null;
 

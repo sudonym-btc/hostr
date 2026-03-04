@@ -12,17 +12,14 @@ Reservation _reservation({
   DateTime? end,
 }) {
   final key = signer ?? MockKeys.hoster;
-  return Reservation(
+  return Reservation.create(
     pubKey: key.publicKey,
-    createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-    tags: ReservationTags([
-      [kListingRefTag, 'listing-anchor'],
-    ]),
-    content: ReservationContent(
-      start: start ?? DateTime(2026, 2, 1),
-      end: end ?? DateTime(2026, 2, 5),
-      stage: stage,
-    ),
+    dTag: 'test-reservation',
+    listingAnchor: 'listing-anchor',
+    start: start ?? DateTime.utc(2026, 2, 1),
+    end: end ?? DateTime.utc(2026, 2, 5),
+    stage: stage,
+    createdAt: DateTime.utc(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   ).signAs(key, Reservation.fromNostrEvent);
 }
 
@@ -184,8 +181,8 @@ void main() {
       });
 
       test('returns dates from seller when only seller is present', () {
-        final s = DateTime(2026, 3, 1);
-        final e = DateTime(2026, 3, 5);
+        final s = DateTime.utc(2026, 3, 1);
+        final e = DateTime.utc(2026, 3, 5);
         final status = ReservationPairStatus(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
@@ -202,18 +199,18 @@ void main() {
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.commit,
-            start: DateTime(2026, 4, 1),
-            end: DateTime(2026, 4, 5),
+            start: DateTime.utc(2026, 4, 1),
+            end: DateTime.utc(2026, 4, 5),
           ),
           buyerReservation: _reservation(
             signer: MockKeys.guest,
             stage: ReservationStage.negotiate,
-            start: DateTime(2026, 5, 1),
-            end: DateTime(2026, 5, 5),
+            start: DateTime.utc(2026, 5, 1),
+            end: DateTime.utc(2026, 5, 5),
           ),
         );
-        expect(status.start, DateTime(2026, 4, 1));
-        expect(status.end, DateTime(2026, 4, 5));
+        expect(status.start, DateTime.utc(2026, 4, 1));
+        expect(status.end, DateTime.utc(2026, 4, 5));
       });
     });
 
@@ -262,8 +259,8 @@ void main() {
         final status = ReservationPairStatus(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
-            start: DateTime(2020, 1, 1),
-            end: DateTime(2020, 1, 5),
+            start: DateTime.utc(2020, 1, 1),
+            end: DateTime.utc(2020, 1, 5),
           ),
         );
         expect(status.isCompleted, isTrue);
@@ -273,8 +270,8 @@ void main() {
         final status = ReservationPairStatus(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
-            start: DateTime(2099, 1, 1),
-            end: DateTime(2099, 1, 5),
+            start: DateTime.utc(2099, 1, 1),
+            end: DateTime.utc(2099, 1, 5),
           ),
         );
         expect(status.isCompleted, isFalse);
@@ -285,8 +282,8 @@ void main() {
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.cancel,
-            start: DateTime(2020, 1, 1),
-            end: DateTime(2020, 1, 5),
+            start: DateTime.utc(2020, 1, 1),
+            end: DateTime.utc(2020, 1, 5),
           ),
         );
         expect(status.isCompleted, isFalse);

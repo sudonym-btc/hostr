@@ -12,18 +12,13 @@ Reservation _reservation({
   required String pubkey,
   required String tradeId,
 }) {
-  return Reservation(
+  return Reservation.create(
     id: id,
     pubKey: pubkey,
-    createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    tags: ReservationTags([
-      [kListingRefTag, '32121:host:listing-1'],
-      ['d', tradeId],
-    ]),
-    content: ReservationContent(
-      start: DateTime.utc(2026, 1, 1),
-      end: DateTime.utc(2026, 1, 3),
-    ),
+    dTag: tradeId,
+    listingAnchor: '32121:host:listing-1',
+    start: DateTime.utc(2026, 1, 1),
+    end: DateTime.utc(2026, 1, 3),
   );
 }
 

@@ -62,7 +62,7 @@ class ReservationPairStatus {
   bool get isCompleted {
     final e = end;
     if (e == null) return false;
-    return !cancelled && e.isBefore(DateTime.now());
+    return !cancelled && e.isBefore(DateTime.now().toUtc());
   }
 
   /// The current [ReservationStage] of the trade overall.

@@ -16,15 +16,20 @@ class ReservationActions {
     StreamStatus reservationStreamStatus,
     Listing listing,
     List<String> participantPubkeys,
-    ThreadPartyRole role,
-  ) {
+    ThreadPartyRole role, {
+    List<Reservation>? allReservations,
+  }) {
     final actions = <TradeAction>[];
     final reservationStatus = Reservation.getReservationStatus(
       reservations: reservations,
       listing: listing,
     );
 
-    final hasUsedEscrow = reservations.any(
+    // Use allReservations (includes cancelled) for escrow checks,
+    // so messageEscrow is available even after cancellation.
+    final escrowReservations = allReservations ?? reservations;
+
+    final hasUsedEscrow = escrowReservations.any(
       (reservation) => reservation.proof?.escrowProof != null,
     );
 
@@ -34,7 +39,7 @@ class ReservationActions {
         reservationStatus == ReservationStatus.completed;
 
     final hasMessagedEscrow = participantPubkeys.any(
-      (pubkey) => reservations.any(
+      (pubkey) => escrowReservations.any(
         (reservation) =>
             reservation.proof?.escrowProof?.escrowService.escrowPubkey ==
             pubkey,

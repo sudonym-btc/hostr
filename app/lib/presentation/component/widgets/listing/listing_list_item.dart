@@ -296,8 +296,8 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
                 AutoRouter.of(context).push(
                   ListingRoute(
                     a: widget.listing.anchor!,
-                    dateRangeStart: dr?.start.toIso8601String(),
-                    dateRangeEnd: dr?.end.toIso8601String(),
+                    dateRangeStart: dr?.start.toUtc().toIso8601String(),
+                    dateRangeEnd: dr?.end.toUtc().toIso8601String(),
                   ),
                 );
               }

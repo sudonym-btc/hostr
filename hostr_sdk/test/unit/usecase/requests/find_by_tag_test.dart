@@ -47,20 +47,13 @@ Reservation _reservation({
   required String pubkey,
   required String tradeId,
   required String listingAnchor,
-  String? id,
 }) {
-  return Reservation(
-    id: id,
+  return Reservation.create(
     pubKey: pubkey,
-    createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    tags: ReservationTags([
-      [kListingRefTag, listingAnchor],
-      ['d', tradeId],
-    ]),
-    content: ReservationContent(
-      start: DateTime.utc(2026, 3, 1),
-      end: DateTime.utc(2026, 3, 5),
-    ),
+    dTag: tradeId,
+    listingAnchor: listingAnchor,
+    start: DateTime.utc(2026, 3, 1),
+    end: DateTime.utc(2026, 3, 5),
   );
 }
 

@@ -29,6 +29,8 @@ import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_operation.d
     as _i832;
 import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_recoverer.dart'
     as _i787;
+import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_registry.dart'
+    as _i608;
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i445;
 import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i943;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i303;
@@ -154,6 +156,9 @@ extension GetItInjectableX on _i174.GetIt {
         config: gh<_i910.HostrConfig>(),
         logger: gh<_i372.CustomLogger>(),
       ),
+    );
+    gh.singleton<_i608.EscrowFundRegistry>(
+      () => _i608.EscrowFundRegistry(gh<_i331.CustomLogger>()),
     );
     gh.factory<_i350.BoltzClient>(
       () =>
@@ -382,6 +387,15 @@ extension GetItInjectableX on _i174.GetIt {
           _i124.Bolt11PayOperation(params: params, nwc: gh<_i588.Nwc>()),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.factory<_i787.EscrowFundRecoverer>(
+      () => _i787.EscrowFundRecoverer(
+        gh<_i842.OperationStateStore>(),
+        gh<_i1000.Auth>(),
+        gh<_i305.Evm>(),
+        gh<_i372.CustomLogger>(),
+        gh<_i608.EscrowFundRegistry>(),
+      ),
+    );
     gh.factoryParam<
       _i636.ThreadPaymentProofOrchestrator,
       _i520.ThreadTrade,
@@ -410,15 +424,6 @@ extension GetItInjectableX on _i174.GetIt {
         evm: gh<_i305.Evm>(),
       ),
     );
-    gh.singleton<_i376.EscrowUseCase>(
-      () => _i376.EscrowUseCase(
-        logger: gh<_i372.CustomLogger>(),
-        auth: gh<_i1000.Auth>(),
-        escrows: gh<_i303.Escrows>(),
-        escrowTrusts: gh<_i943.EscrowTrusts>(),
-        evm: gh<_i305.Evm>(),
-      ),
-    );
     gh.singleton<_i179.TradeAudit>(
       () => _i179.TradeAudit(
         reservations: gh<_i326.Reservations>(),
@@ -426,6 +431,16 @@ extension GetItInjectableX on _i174.GetIt {
         listings: gh<_i906.Listings>(),
         logger: gh<_i372.CustomLogger>(),
         evm: gh<_i305.Evm>(),
+      ),
+    );
+    gh.singleton<_i376.EscrowUseCase>(
+      () => _i376.EscrowUseCase(
+        logger: gh<_i372.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
+        escrows: gh<_i303.Escrows>(),
+        escrowTrusts: gh<_i943.EscrowTrusts>(),
+        evm: gh<_i305.Evm>(),
+        escrowFundRegistry: gh<_i608.EscrowFundRegistry>(),
       ),
     );
     gh.factoryParam<
@@ -438,14 +453,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i520.Evm>(),
         gh<_i520.CustomLogger>(),
         params,
-      ),
-    );
-    gh.factory<_i787.EscrowFundRecoverer>(
-      () => _i787.EscrowFundRecoverer(
-        gh<_i842.OperationStateStore>(),
-        gh<_i1000.Auth>(),
-        gh<_i305.Evm>(),
-        gh<_i372.CustomLogger>(),
       ),
     );
     gh.singleton<_i660.Reviews>(

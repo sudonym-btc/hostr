@@ -73,6 +73,54 @@ class Reservation
           contentParser: _contentParser,
         );
 
+  // ── Factory constructor ─────────────────────────────────────────────
+  factory Reservation.create({
+    required String pubKey,
+    required String dTag,
+    required String listingAnchor,
+    required DateTime start,
+    required DateTime end,
+    // Content fields
+    ReservationStage stage = ReservationStage.negotiate,
+    int quantity = 1,
+    Amount? amount,
+    String? recipient,
+    String? salt,
+    PaymentProof? proof,
+    Map<String, String> signatures = const {},
+    // Tag fields
+    String? threadAnchor,
+    String? pTag,
+    List<List<String>> extraTags = const [],
+    // Event-level
+    String? id,
+    int? createdAt,
+  }) {
+    return Reservation(
+      id: id,
+      pubKey: pubKey,
+      createdAt: createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      tags: ReservationTags([
+        [kListingRefTag, listingAnchor],
+        ['d', dTag],
+        if (threadAnchor != null) [kThreadRefTag, threadAnchor],
+        if (pTag != null) ['p', pTag],
+        ...extraTags,
+      ]),
+      content: ReservationContent(
+        start: start,
+        end: end,
+        stage: stage,
+        quantity: quantity,
+        amount: amount,
+        recipient: recipient,
+        salt: salt,
+        proof: proof,
+        signatures: signatures,
+      ),
+    );
+  }
+
   Reservation copy({
     int? createdAt,
     Object? id = _unset,
@@ -119,8 +167,10 @@ class Reservation
       if (sa != sb) return sa - sb;
 
       // If same score, prefer the most recent event
-      final at = DateTime.fromMillisecondsSinceEpoch(a.createdAt * 1000);
-      final bt = DateTime.fromMillisecondsSinceEpoch(b.createdAt * 1000);
+      final at =
+          DateTime.fromMillisecondsSinceEpoch(a.createdAt * 1000, isUtc: true);
+      final bt =
+          DateTime.fromMillisecondsSinceEpoch(b.createdAt * 1000, isUtc: true);
       return bt.compareTo(at);
     });
 
@@ -150,7 +200,7 @@ class Reservation
     }
 
     final hasReservationEnded =
-        validReservations.first.end.isBefore(DateTime.now());
+        validReservations.first.end.isBefore(DateTime.now().toUtc());
     if (hasReservationEnded) {
       return ReservationStatus.completed;
     }

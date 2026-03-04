@@ -11,6 +11,7 @@ import 'operations/claim/escrow_claim_models.dart';
 import 'operations/claim/escrow_claim_operation.dart';
 import 'operations/fund/escrow_fund_models.dart';
 import 'operations/fund/escrow_fund_operation.dart';
+import 'operations/fund/escrow_fund_registry.dart';
 import 'supported_escrow_contract/supported_escrow_contract.dart';
 
 @Singleton()
@@ -20,6 +21,7 @@ class EscrowUseCase {
   final Escrows escrows;
   final EscrowTrusts escrowTrusts;
   final Evm evm;
+  final EscrowFundRegistry escrowFundRegistry;
 
   EscrowUseCase({
     required this.logger,
@@ -27,10 +29,16 @@ class EscrowUseCase {
     required this.escrows,
     required this.escrowTrusts,
     required this.evm,
+    required this.escrowFundRegistry,
   });
 
   EscrowFundOperation fund(EscrowFundParams params) {
-    return getIt<EscrowFundOperation>(param1: params);
+    final operation = getIt<EscrowFundOperation>(param1: params);
+    final tradeId = params.negotiateReservation.getDtag();
+    if (tradeId != null) {
+      escrowFundRegistry.register(tradeId, operation);
+    }
+    return operation;
   }
 
   EscrowClaimOperation claim(EscrowClaimParams params) {

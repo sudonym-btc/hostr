@@ -73,6 +73,12 @@ class TradeActionResolver {
         .where((p) => !p.cancelled)
         .toList();
 
+    final allTradeReservations = ownReservations
+        .whereType<Valid<ReservationPairStatus>>()
+        .expand((v) => [v.event.sellerReservation, v.event.buyerReservation])
+        .whereType<Reservation>()
+        .toList();
+
     final validTradeReservations = ownReservations
         .whereType<Valid<ReservationPairStatus>>()
         .where((v) => !v.event.cancelled)
@@ -100,6 +106,7 @@ class TradeActionResolver {
         listing,
         [...threadState.participantPubkeys, ...addedParticipants],
         role,
+        allReservations: allTradeReservations,
       ),
     );
 
@@ -197,7 +204,7 @@ bool _overlapsRange({
   required DateTime endB,
 }) {
   DateTime normalize(DateTime value) =>
-      DateTime(value.year, value.month, value.day);
+      DateTime.utc(value.year, value.month, value.day);
 
   var aStart = normalize(startA);
   var aEnd = normalize(endA);

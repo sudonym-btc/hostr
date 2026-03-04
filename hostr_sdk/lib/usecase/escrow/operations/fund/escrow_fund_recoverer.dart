@@ -7,6 +7,7 @@ import '../../../evm/evm.dart';
 import '../../../evm/operations/operation_state_store.dart';
 import '../../supported_escrow_contract/supported_escrow_contract_registry.dart';
 import 'escrow_fund_operation.dart';
+import 'escrow_fund_registry.dart';
 import 'escrow_fund_state.dart';
 
 /// Recovers pending escrow fund operations on app start.
@@ -25,8 +26,15 @@ class EscrowFundRecoverer {
   final Auth _auth;
   final Evm _evm;
   final CustomLogger _logger;
+  final EscrowFundRegistry _registry;
 
-  EscrowFundRecoverer(this._store, this._auth, this._evm, this._logger);
+  EscrowFundRecoverer(
+    this._store,
+    this._auth,
+    this._evm,
+    this._logger,
+    this._registry,
+  );
 
   /// Recover all pending escrow fund operations.
   ///
@@ -90,11 +98,15 @@ class EscrowFundRecoverer {
       initialState: state,
     );
 
+    final tradeId = data.tradeId;
+    _registry.register(tradeId, cubit);
+
     try {
       await cubit.recover();
       return cubit.state.isTerminal;
-    } finally {
-      await cubit.close();
+    } catch (_) {
+      // Registry auto-unregisters on terminal / error / done.
+      rethrow;
     }
   }
 }

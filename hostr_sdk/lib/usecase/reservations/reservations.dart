@@ -421,22 +421,18 @@ class Reservations extends CrudUseCase<Reservation> {
     String guestPubkey,
     String saltedPubkey,
   ) async {
-    final reservation = Reservation(
-      tags: ReservationTags([
-        ['p', saltedPubkey],
-        ['d', request.getDtag()!],
-        [kListingRefTag, request.parsedTags.listingAnchor],
-        [kThreadRefTag, anchor],
-      ]),
-      content: ReservationContent(
-        start: request.start,
-        end: request.end,
-        stage: ReservationStage.commit,
-        quantity: request.quantity,
-        amount: request.amount,
-        recipient: request.recipient,
-      ),
+    final reservation = Reservation.create(
       pubKey: auth.activeKeyPair!.publicKey,
+      dTag: request.getDtag()!,
+      listingAnchor: request.parsedTags.listingAnchor,
+      threadAnchor: anchor,
+      pTag: saltedPubkey,
+      start: request.start,
+      end: request.end,
+      stage: ReservationStage.commit,
+      quantity: request.quantity,
+      amount: request.amount,
+      recipient: request.recipient,
     );
     logger.d('Accepting reservation request: $request');
     return _upsertWithTransition(
@@ -456,22 +452,18 @@ class Reservations extends CrudUseCase<Reservation> {
     final tradeId = negotiateReservation.getDtag();
     final threadAnchor = negotiateReservation.getFirstTag(kThreadRefTag);
 
-    final reservation = Reservation(
-      content: ReservationContent(
-        start: negotiateReservation.start,
-        end: negotiateReservation.end,
-        stage: ReservationStage.commit,
-        quantity: negotiateReservation.quantity,
-        amount: negotiateReservation.amount,
-        recipient: negotiateReservation.recipient,
-        proof: proof,
-      ),
+    final reservation = Reservation.create(
       pubKey: activeKeyPair.publicKey,
-      tags: ReservationTags([
-        [kListingRefTag, proof.listing.anchor!],
-        ['d', tradeId!],
-        if (threadAnchor != null) [kThreadRefTag, threadAnchor],
-      ]),
+      dTag: tradeId!,
+      listingAnchor: proof.listing.anchor!,
+      threadAnchor: threadAnchor,
+      start: negotiateReservation.start,
+      end: negotiateReservation.end,
+      stage: ReservationStage.commit,
+      quantity: negotiateReservation.quantity,
+      amount: negotiateReservation.amount,
+      recipient: negotiateReservation.recipient,
+      proof: proof,
     );
 
     final signedReservation = reservation.signAs(
@@ -551,13 +543,12 @@ class Reservations extends CrudUseCase<Reservation> {
       end: end,
       hostKey: auth.activeKeyPair!,
     );
-    final reservation = Reservation(
-      content: ReservationContent(start: start, end: end),
+    final reservation = Reservation.create(
       pubKey: auth.activeKeyPair!.publicKey,
-      tags: ReservationTags([
-        [kListingRefTag, listingAnchor],
-        ['d', nonce],
-      ]),
+      dTag: nonce,
+      listingAnchor: listingAnchor,
+      start: start,
+      end: end,
     );
 
     await _upsertWithTransition(

@@ -8,6 +8,7 @@ import 'package:hostr/presentation/component/widgets/profile/verification/main.d
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:models/main.dart';
+import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 /// A popup card that displays profile information with verification badges.
 ///
@@ -140,44 +141,38 @@ class _PubkeyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final npub = Helpers.encodeBech32(pubkey, 'npub');
     final truncated =
-        '${pubkey.substring(0, 8)}…${pubkey.substring(pubkey.length - 8)}';
+        '${npub.substring(0, 10)}…${npub.substring(npub.length - 8)}';
 
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          Clipboard.setData(ClipboardData(text: pubkey));
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context)!.publicKeyCopied),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        },
-        child: CustomPadding(
-          top: 0.25,
-          bottom: 0.25,
-          left: 0.5,
-          right: 0.5,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.key, size: kIconXs, color: theme.colorScheme.outline),
-              Gap.horizontal.custom(6),
-              Text(
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () {
+        Clipboard.setData(ClipboardData(text: npub));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.publicKeyCopied),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
+      child: CustomPadding.vertical.sm(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.key, size: kIconMd, color: theme.colorScheme.outline),
+            Gap.horizontal.sm(),
+            Expanded(
+              child: Text(
                 truncated,
-                style: theme.textTheme.bodySmall?.copyWith(
+                style: theme.textTheme.bodyMedium?.copyWith(
                   fontFamily: 'monospace',
                   color: theme.colorScheme.outline,
                 ),
               ),
-              Gap.horizontal.xs(),
-              Icon(Icons.copy, size: kIconSm, color: theme.colorScheme.outline),
-            ],
-          ),
+            ),
+            Icon(Icons.copy, size: kIconSm, color: theme.colorScheme.outline),
+          ],
         ),
       ),
     );

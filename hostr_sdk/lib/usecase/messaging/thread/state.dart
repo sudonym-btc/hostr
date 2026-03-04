@@ -89,7 +89,10 @@ class ThreadState {
 
   DateTime get getLastDateTime {
     final latest = getLatestMessage;
-    return DateTime.fromMillisecondsSinceEpoch(latest!.createdAt * 1000);
+    return DateTime.fromMillisecondsSinceEpoch(
+      latest!.createdAt * 1000,
+      isUtc: true,
+    );
   }
 
   bool get isLastMessageOurs {

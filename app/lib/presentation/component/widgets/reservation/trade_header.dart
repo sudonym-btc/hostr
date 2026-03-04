@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart' show ThreadCubit;
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
@@ -16,6 +17,7 @@ import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../flow/payment/escrow/fund/escrow_fund.dart';
+import '../profile/verification/verification_badges.dart';
 import 'payment_status_chip.dart';
 
 class TradeHeaderView extends StatelessWidget {
@@ -59,38 +61,23 @@ class TradeHeaderView extends StatelessWidget {
       AutoRouter.of(context).push(
         ListingRoute(
           a: listing.anchor!,
-          dateRangeStart: start.toIso8601String(),
-          dateRangeEnd: end.toIso8601String(),
+          dateRangeStart: start.toUtc().toIso8601String(),
+          dateRangeEnd: end.toUtc().toIso8601String(),
         ),
       );
     }
   }
 
-  Widget _buildAvailabilityBanner(BuildContext context) {
+  Widget? _buildAvailabilityBanner(BuildContext context) {
     return switch (availability) {
-      TradeAvailability.available => const SizedBox.shrink(),
-      TradeAvailability.cancelled => Chip(
-        label: const Text('Cancelled'),
-        backgroundColor: Theme.of(context).colorScheme.errorContainer,
-        labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onErrorContainer,
-        ),
-        side: BorderSide.none,
-        avatar: Icon(
-          Icons.cancel_outlined,
-          size: kIconXs,
-          color: Theme.of(context).colorScheme.onErrorContainer,
-        ),
-        shape: const StadiumBorder(),
+      TradeAvailability.available => null,
+      TradeAvailability.cancelled => StatusChip(
+        label: 'Cancelled',
+        color: Theme.of(context).colorScheme.error,
       ),
-      TradeAvailability.unavailable => Chip(
-        label: const Text('Unavailable'),
-        backgroundColor: Colors.transparent,
-        labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.error,
-        ),
-        side: BorderSide(color: Theme.of(context).colorScheme.error),
-        shape: const StadiumBorder(),
+      TradeAvailability.unavailable => StatusChip(
+        label: 'Unavailable',
+        color: Theme.of(context).colorScheme.error,
       ),
       TradeAvailability.invalidReservation => Padding(
         padding: const EdgeInsets.only(top: 4),
@@ -118,10 +105,11 @@ class TradeHeaderView extends StatelessWidget {
     TradeAvailability.invalidTransitions => Theme.of(
       context,
     ).colorScheme.errorContainer,
-    _ => Colors.transparent,
+    _ => Theme.of(context).colorScheme.surfaceContainer,
   };
 
   Widget _buildSummary(BuildContext context, {required bool showDetails}) {
+    final availabilityBanner = _buildAvailabilityBanner(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -136,7 +124,7 @@ class TradeHeaderView extends StatelessWidget {
                   listing.title.toString(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
               Gap.vertical.xs(),
@@ -145,9 +133,10 @@ class TradeHeaderView extends StatelessWidget {
                   DateTimeRange(start: start, end: end),
                   Localizations.localeOf(context),
                 ),
-                style: Theme.of(context).textTheme.bodySmall,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-              _buildAvailabilityBanner(context),
+              if (availabilityBanner != null) Gap.vertical.sm(),
+              ?availabilityBanner,
             ],
           ),
         ),
@@ -168,7 +157,9 @@ class TradeHeaderView extends StatelessWidget {
     BuildContext context,
     List<PaymentEvent> paymentEvents,
   ) {
-    if (amount == null) return const SizedBox.shrink();
+    if (amount == null) {
+      return const SizedBox.shrink();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -303,20 +294,52 @@ class TradeHeaderView extends StatelessWidget {
         .state
         .threadState
         .lastReservationRequest;
-    return FilledButton(
-      onPressed: () => showAppModal(
-        context,
-        child: EscrowFundWidget(
-          counterparty: listingProfile,
-          negotiateReservation: lastReservation,
-          listingName: listing.title,
-        ),
-      ),
-      style: FilledButton.styleFrom(
-        visualDensity: VisualDensity.comfortable,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: const Text('Pay'),
+    final registry = getIt<Hostr>().escrowFundRegistry;
+    return StreamBuilder<EscrowFundOperation?>(
+      stream: registry.watchTrade(tradeId),
+      initialData: registry.hasActiveFund(tradeId)
+          ? null // will resolve on first stream emit
+          : null,
+      builder: (context, snapshot) {
+        final activeOp = snapshot.data;
+        if (activeOp != null) {
+          return FilledButton(
+            onPressed: () {
+              showAppModal(
+                context,
+                child: EscrowFundFlowWidget(cubit: activeOp),
+              );
+            },
+            style: FilledButton.styleFrom(
+              visualDensity: VisualDensity.comfortable,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
+            ),
+          );
+        }
+        return FilledButton(
+          onPressed: () => showAppModal(
+            context,
+            child: EscrowFundWidget(
+              counterparty: listingProfile,
+              negotiateReservation: lastReservation,
+              listingName: listing.title,
+            ),
+          ),
+          style: FilledButton.styleFrom(
+            visualDensity: VisualDensity.comfortable,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: const Text('Pay'),
+        );
+      },
     );
   }
 
@@ -349,7 +372,7 @@ class TradeHeaderView extends StatelessWidget {
   // ─── Phase rows ────────────────────────────────────────────────────
 
   /// Negotiation phase: payment summary on the left, pay / accept / counter / cancel on the right.
-  Widget _buildNegotiationRow(
+  Widget? _buildNegotiationRow(
     BuildContext context,
     List<PaymentEvent> paymentEvents,
   ) {
@@ -358,15 +381,12 @@ class TradeHeaderView extends StatelessWidget {
     final hasPay = actions.contains(TradeAction.pay);
     final hasAccept = actions.contains(TradeAction.accept);
     if (!hasCancel && !hasCounter && !hasPay && !hasAccept) {
-      return const SizedBox.shrink();
+      return null;
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        if (amount != null)
-          Expanded(child: _buildPaymentSummary(context, paymentEvents))
-        else
-          const Spacer(),
+        Expanded(child: _buildPaymentSummary(context, paymentEvents)),
         if (hasCancel) _cancelButton(context),
         if (hasCounter) ...[
           if (hasCancel) const SizedBox(width: 8),
@@ -382,7 +402,7 @@ class TradeHeaderView extends StatelessWidget {
   }
 
   /// Commit phase: cancel / message-escrow on the left, claim / refund / review on the right.
-  Widget _buildCommitRow(BuildContext context) {
+  Widget? _buildCommitRow(BuildContext context) {
     final hasCancel = actions.contains(TradeAction.cancel);
     final hasMessageEscrow = actions.contains(TradeAction.messageEscrow);
     final hasClaim = actions.contains(TradeAction.claim);
@@ -393,7 +413,7 @@ class TradeHeaderView extends StatelessWidget {
         !hasClaim &&
         !hasRefund &&
         !hasReview) {
-      return const SizedBox.shrink();
+      return null;
     }
     return Row(
       children: [
@@ -402,12 +422,12 @@ class TradeHeaderView extends StatelessWidget {
           if (hasCancel) Gap.horizontal.md(),
           _messageEscrowButton(context),
         ],
-        if (hasClaim)
-          ClaimWidget()
-        else if (hasRefund)
-          _refundButton(context)
-        else if (hasReview)
-          _reviewButton(context),
+        const Spacer(),
+        if (hasRefund) ...[
+          _refundButton(context),
+          if (hasClaim || hasReview) const SizedBox(width: 8),
+        ],
+        if (hasClaim) ClaimWidget() else if (hasReview) _reviewButton(context),
       ],
     );
   }
@@ -432,23 +452,39 @@ class TradeHeaderView extends StatelessWidget {
               stream: subscriptionsLive,
               initialData: subscriptionsLive?.value ?? false,
               builder: (context, isLiveSnapshot) {
+                final actionRow = (isLiveSnapshot.data ?? false) && hasFunded
+                    ? _buildCommitRow(context)
+                    : _buildNegotiationRow(context, paymentEvents);
+
                 return ShimmerPlaceholder(
                   loading: !(isLiveSnapshot.data ?? false),
                   child: Container(
                     color: _containerColor(context),
-                    child: CustomPadding(
-                      bottom: 0.5,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSummary(context, showDetails: showDetails),
-                          Gap.vertical.lg(),
-                          if (hasFunded)
-                            _buildCommitRow(context)
-                          else
-                            _buildNegotiationRow(context, paymentEvents),
-                        ],
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CustomPadding(
+                          child: _buildSummary(
+                            context,
+                            showDetails: showDetails,
+                          ),
+                        ),
+                        Container(
+                          color: Colors.transparent,
+                          child: AnimatedSize(
+                            duration: kAnimationDuration,
+                            curve: kAnimationCurve,
+                            alignment: Alignment.topCenter,
+                            child: actionRow != null
+                                ? CustomPadding(
+                                    top: 0,
+                                    bottom: 0.5,
+                                    child: actionRow,
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
