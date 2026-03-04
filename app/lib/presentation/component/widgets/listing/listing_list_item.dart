@@ -54,7 +54,7 @@ class ListingListItemView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          listing.parsedContent.title.toString(),
+          listing.title.toString(),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.titleLarge,
@@ -64,7 +64,7 @@ class ListingListItemView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              listing.parsedContent.description,
+              listing.description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -78,7 +78,7 @@ class ListingListItemView extends StatelessWidget {
               mainAxisSize: MainAxisSize.max,
               children: [
                 if (showPrice) ...[
-                  PriceTagWidget(price: listing.parsedContent.price[0]),
+                  PriceTagWidget(price: listing.prices[0]),
                   Text(
                     AppLocalizations.of(context)!.perDayLabel,
                     style: Theme.of(context).textTheme.bodySmall,

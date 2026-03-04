@@ -109,10 +109,7 @@ class Escrows extends CrudUseCase<EscrowService> {
       );
 
       final escrowServicesFiltered = escrowServices
-          .where(
-            (escrow) =>
-                overlappingTypes.contains(escrow.parsedContent.type.name),
-          )
+          .where((escrow) => overlappingTypes.contains(escrow.escrowType.name))
           .toList();
 
       if (escrowServicesFiltered.isNotEmpty) {
@@ -131,10 +128,7 @@ class Escrows extends CrudUseCase<EscrowService> {
       );
 
       final hostEscrowServicesFiltered = hostEscrowServices
-          .where(
-            (escrow) =>
-                overlappingTypes.contains(escrow.parsedContent.type.name),
-          )
+          .where((escrow) => overlappingTypes.contains(escrow.escrowType.name))
           .toList();
 
       result.compatibleServices = hostEscrowServicesFiltered;

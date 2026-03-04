@@ -90,9 +90,8 @@ TransitionValidationResult validateStateTransitions(
 
   for (var i = 0; i < transitions.length; i++) {
     final t = transitions[i];
-    final content = t.parsedContent;
-    final from = content.fromStage;
-    final to = content.toStage;
+    final from = t.fromStage;
+    final to = t.toStage;
 
     // 1. Legal state-machine edge?
     if (!_allowedTransitions.contains((from, to))) {
@@ -104,10 +103,10 @@ TransitionValidationResult validateStateTransitions(
     }
 
     // 2. Transition type matches declared stages?
-    final allowed = _typeToStages[content.transitionType];
+    final allowed = _typeToStages[t.transitionType];
     if (allowed != null && !allowed.contains((from, to))) {
       return TransitionValidationResult.invalid(
-        reason: 'Transition type ${content.transitionType.name} '
+        reason: 'Transition type ${t.transitionType.name} '
             'does not match stages ${from.name} → ${to.name} '
             '(index $i)',
         failedIndex: i,

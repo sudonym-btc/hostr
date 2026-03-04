@@ -11,18 +11,17 @@ class EditListingController extends UpsertFormController {
   @override
   bool get isDirty {
     if (l == null) return false;
-    final content = l!.parsedContent;
-    if (titleController.text != content.title) return true;
-    if (descriptionController.text != content.description) return true;
-    if (locationController.text != content.location) return true;
+    if (titleController.text != l!.title) return true;
+    if (descriptionController.text != l!.description) return true;
+    if (locationController.text != l!.location) return true;
     // Compare allowBarter
-    final origAllowBarter = content.allowBarter == true;
+    final origAllowBarter = l!.allowBarter == true;
     if (allowBarter != origAllowBarter) return true;
     // Price check (strip commas for comparison)
     final currentPriceSats = priceController.text.replaceAll(',', '').trim();
     if (currentPriceSats != _originalPriceSats) return true;
     // Images check (by path)
-    final origImages = content.images;
+    final origImages = l!.images;
     final currImages = imageController.images.map((i) => i.path).toList();
     if (origImages.length != currImages.length ||
         !const ListEquality<String?>().equals(origImages, currImages)) {
@@ -71,19 +70,17 @@ class EditListingController extends UpsertFormController {
   void setState(Listing? data) {
     l = data;
     imageController.setImages(
-      (data?.parsedContent.images ?? [])
-          .map((i) => CustomImage.path(i))
-          .toList(),
+      (data?.images ?? []).map((i) => CustomImage.path(i)).toList(),
     );
-    titleController.text = data?.parsedContent.title ?? '';
-    descriptionController.text = data?.parsedContent.description ?? '';
-    locationController.updateTextFromUser(data?.parsedContent.location ?? '');
+    titleController.text = data?.title ?? '';
+    descriptionController.text = data?.description ?? '';
+    locationController.updateTextFromUser(data?.location ?? '');
     locationController.clearH3();
-    amenities = data?.parsedContent.amenities ?? Amenities();
+    amenities = data?.amenities ?? Amenities();
     selectedAmenityKeys = _selectedKeysFromAmenities(amenities);
-    allowBarter = data?.parsedContent.allowBarter ?? false;
+    allowBarter = data?.allowBarter ?? false;
 
-    final prices = data?.parsedContent.price ?? [];
+    final prices = data?.prices ?? [];
     final nightly = prices.firstWhere(
       (p) => p.frequency == Frequency.daily,
       orElse: () => prices.isNotEmpty
@@ -145,43 +142,38 @@ class EditListingController extends UpsertFormController {
       throw Exception('Listing not loaded');
     }
 
-    final current = l!.parsedContent;
+    final current = l!;
     final images = imageController.resolvedPaths;
 
-    final updatedContent = ListingContent(
+    final h3Tags = locationController.h3Tags;
+    var extraTags = h3Tags.isEmpty
+        ? l!.tags
+              .where((tag) => tag.isNotEmpty && tag.first == 'g')
+              .map((tag) => List<String>.from(tag))
+              .toList()
+        : h3Tags.map((tag) => ['g', tag.index]).toList();
+
+    // Ensure a d-tag exists — generate one for new listings.
+    final dTag =
+        l!.getDtag() ?? DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+
+    final updatedListing = Listing.create(
+      pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+      dTag: dTag,
       title: title,
       description: description,
-      price: _buildUpdatedPrices(current.price),
+      price: _buildUpdatedPrices(current.prices),
       allowBarter: allowBarter,
-      minStay: current.minStay,
-      checkIn: current.checkIn,
-      checkOut: current.checkOut,
       location: location,
       quantity: current.quantity,
-      type: current.type,
+      type: current.listingType,
       images: images,
       amenities: amenities,
       requiresEscrow: current.requiresEscrow,
-    );
-
-    final h3Tags = locationController.h3Tags;
-    var updatedTags = h3Tags.isEmpty
-        ? l!.tags.map((tag) => List<String>.from(tag)).toList()
-        : _applyH3Tags(l!.tags, h3Tags);
-
-    // Ensure a d-tag exists — generate one for new listings.
-    final isNew = !updatedTags.any((t) => t.isNotEmpty && t.first == 'd');
-    if (isNew) {
-      updatedTags = [
-        ['d', DateTime.now().millisecondsSinceEpoch.toRadixString(36)],
-        ...updatedTags,
-      ];
-    }
-
-    final updatedListing = Listing(
-      pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-      tags: EventTags(updatedTags),
-      content: updatedContent,
+      minStay: current.minStay,
+      checkIn: current.checkIn ?? '15:0',
+      checkOut: current.checkOut ?? '11:0',
+      extraTags: extraTags,
     );
     await getIt<Hostr>().listings.upsert(updatedListing);
 

@@ -56,6 +56,8 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     ContractFundEscrowParams params,
   ) async {
     await ensureDeployed();
+    print('Depositing to MultiEscrow with params: $params');
+    print('${params.gasEstimate?.gasLimit} ${params.gasEstimate?.gasPrice}');
     String transactionHash = await _withDecodedCustomError(() {
       return contract.createTrade(
         depositArgs(params),

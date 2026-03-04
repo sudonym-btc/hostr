@@ -3,11 +3,54 @@ import 'dart:core';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-class Listing extends JsonContentNostrEvent<ListingContent, EventTags> {
+// ── Tag-read mixin ──────────────────────────────────────────────────────────
+// Defines all tag-promoted field getters ONCE. Mixed into both ListingTags
+// and Listing so callers can use either `listing.allowBarter` or
+// `listing.parsedTags.allowBarter`.
+
+mixin ListingTagRead {
+  EventTags get tagSource;
+
+  bool get allowBarter => tagSource.getTagBool('allowBarter');
+  int get minStay => tagSource.getTagInt('minStay') ?? 1;
+  String? get checkIn => tagSource.getTagValue('checkIn');
+  String? get checkOut => tagSource.getTagValue('checkOut');
+  String get location => tagSource.getTagValue('location') ?? '';
+  int get quantity => tagSource.getTagInt('quantity') ?? 1;
+  ListingType get listingType =>
+      tagSource.getTagEnum('type', ListingType.values) ?? ListingType.room;
+  bool get requiresEscrow => tagSource.getTagBool('requiresEscrow');
+  bool get allowSelfSignedReservation =>
+      tagSource.getTagBool('allowSelfSignedReservation');
+  List<Price> get prices => tagSource.getTagPrices();
+  Amenities get amenities => Amenities.fromTags(tagSource.tags);
+}
+
+// ── Tags class ──────────────────────────────────────────────────────────────
+
+class ListingTags extends EventTags with ListingTagRead {
+  ListingTags(super.tags);
+
+  @override
+  EventTags get tagSource => this;
+}
+
+// ── Event class ─────────────────────────────────────────────────────────────
+
+class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
+    with ListingTagRead {
   static const List<int> kinds = [kNostrKindListing];
-  static final EventTagsParser<EventTags> _tagParser = EventTags.new;
+  static final EventTagsParser<ListingTags> _tagParser = ListingTags.new;
   static final EventContentParser<ListingContent> _contentParser =
       ListingContent.fromJson;
+
+  @override
+  EventTags get tagSource => parsedTags;
+
+  // ── Content-only convenience getters ────────────────────────────────
+  String get title => parsedContent.title;
+  String get description => parsedContent.description;
+  List<String> get images => parsedContent.images;
 
   Listing(
       {required super.pubKey,
@@ -27,6 +70,129 @@ class Listing extends JsonContentNostrEvent<ListingContent, EventTags> {
           tagParser: _tagParser,
           contentParser: _contentParser,
         );
+
+  // ── Factory constructor ─────────────────────────────────────────────
+  factory Listing.create({
+    required String pubKey,
+    required String dTag,
+    // Content fields (non-searchable)
+    required String title,
+    required String description,
+    required List<String> images,
+    // Tag fields (searchable)
+    required List<Price> price,
+    required String location,
+    required ListingType type,
+    required Amenities amenities,
+    bool allowBarter = false,
+    int minStay = 1,
+    String checkIn = '15:0',
+    String checkOut = '11:0',
+    int quantity = 1,
+    bool requiresEscrow = false,
+    bool allowSelfSignedReservation = false,
+    List<List<String>> extraTags = const [],
+    int? createdAt,
+  }) {
+    return Listing(
+      pubKey: pubKey,
+      createdAt: createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      tags: ListingTags(
+        (TagBuilder()
+              ..add('d', dTag)
+              ..addBool('allowBarter', allowBarter)
+              ..addInt('minStay', minStay)
+              ..add('checkIn', checkIn)
+              ..add('checkOut', checkOut)
+              ..add('location', location)
+              ..addInt('quantity', quantity)
+              ..addEnum('type', type)
+              ..addBool('requiresEscrow', requiresEscrow)
+              ..addBool(
+                  'allowSelfSignedReservation', allowSelfSignedReservation)
+              ..addPrices(price)
+              ..addAmenities(amenities)
+              ..addAll(extraTags))
+            .build(),
+      ),
+      content: ListingContent(
+        title: title,
+        description: description,
+        images: images,
+      ),
+    );
+  }
+
+  // ── Copy-with ───────────────────────────────────────────────────────
+  Listing rebuild({
+    // Tag fields
+    bool? allowBarter,
+    int? minStay,
+    String? checkIn,
+    String? checkOut,
+    String? location,
+    int? quantity,
+    ListingType? type,
+    bool? requiresEscrow,
+    bool? allowSelfSignedReservation,
+    List<Price>? prices,
+    Amenities? amenities,
+    // Content fields
+    String? title,
+    String? description,
+    List<String>? images,
+    // Event-level
+    String? pubKey,
+    int? createdAt,
+    List<List<String>>? extraTags,
+  }) {
+    // Preserve non-promoted tags (d, g, etc.)
+    final preserved = parsedTags.tags
+        .where((t) =>
+            t.isNotEmpty &&
+            !const {
+              'allowBarter',
+              'minStay',
+              'checkIn',
+              'checkOut',
+              'location',
+              'quantity',
+              'type',
+              'requiresEscrow',
+              'allowSelfSignedReservation',
+              'price',
+              'amenity',
+            }.contains(t.first))
+        .toList();
+
+    return Listing(
+      pubKey: pubKey ?? this.pubKey,
+      createdAt: createdAt ?? this.createdAt,
+      tags: ListingTags(
+        (TagBuilder()
+              ..addAll(preserved)
+              ..addBool('allowBarter', allowBarter ?? this.allowBarter)
+              ..addInt('minStay', minStay ?? this.minStay)
+              ..add('checkIn', checkIn ?? this.checkIn ?? '15:0')
+              ..add('checkOut', checkOut ?? this.checkOut ?? '11:0')
+              ..add('location', location ?? this.location)
+              ..addInt('quantity', quantity ?? this.quantity)
+              ..addEnum('type', type ?? this.listingType)
+              ..addBool('requiresEscrow', requiresEscrow ?? this.requiresEscrow)
+              ..addBool('allowSelfSignedReservation',
+                  allowSelfSignedReservation ?? this.allowSelfSignedReservation)
+              ..addPrices(prices ?? this.prices)
+              ..addAmenities(amenities ?? this.amenities)
+              ..addAll(extraTags ?? const []))
+            .build(),
+      ),
+      content: ListingContent(
+        title: title ?? this.title,
+        description: description ?? this.description,
+        images: images ?? this.images,
+      ),
+    );
+  }
 
   static bool isAvailable(
     DateTime start,
@@ -73,10 +239,10 @@ class Listing extends JsonContentNostrEvent<ListingContent, EventTags> {
     return true;
   }
 
-// Currently can only compare prices of the same currency
+  // Currently can only compare prices of the same currency
   Amount cost(DateTime start, DateTime end) {
-    // Loop through prices and choose the cheepest result
-    List<Amount> costs = parsedContent.price
+    // Loop through prices and choose the cheapest result
+    List<Amount> costs = prices
         .map((p) => Amount(
             value: BigInt.from(end.difference(start).inDays.abs() /
                     FrequencyInDays.of(p.frequency)) *
@@ -88,42 +254,17 @@ class Listing extends JsonContentNostrEvent<ListingContent, EventTags> {
   }
 }
 
+// ── Content (non-searchable fields only) ────────────────────────────────────
+
 class ListingContent extends EventContent {
   final String title;
   final String description;
-  final List<Price> price;
-  final bool allowBarter;
-  final Duration minStay;
-  final TimeOfDay checkIn;
-  final TimeOfDay checkOut;
-  final String location;
-  final int quantity;
-  final ListingType type;
   final List<String> images;
-  final Amenities amenities;
-  final bool requiresEscrow;
-
-  /// When `true`, the buyer can self-sign a `stage=commit` reservation
-  /// without waiting for a seller acknowledgement (sellerAck). When `false`,
-  /// the seller MUST broadcast a sellerAck transition before the buyer can
-  /// commit.
-  final bool allowSelfSignedReservation;
 
   ListingContent({
     required this.title,
     required this.description,
-    required this.price,
-    this.allowBarter = false,
-    required this.minStay,
-    required this.checkIn,
-    required this.checkOut,
-    required this.location,
-    required this.quantity,
-    required this.type,
     required this.images,
-    required this.amenities,
-    required this.requiresEscrow,
-    this.allowSelfSignedReservation = false,
   });
 
   @override
@@ -131,42 +272,15 @@ class ListingContent extends EventContent {
     return {
       "title": title,
       "description": description,
-      "price": price.map((e) => e.toJson()).toList(),
-      "allowBarter": allowBarter,
-      "minStay": minStay.inDays,
-      "checkIn": '${checkIn.hour}:${checkIn.minute}',
-      "checkOut": '${checkOut.hour}:${checkOut.minute}',
-      "location": location,
-      "quantity": quantity,
-      "type": type.toString().split('.').last,
       "images": images,
-      "amenities": amenities.toMap(),
-      "requiresEscrow": requiresEscrow,
-      "allowSelfSignedReservation": allowSelfSignedReservation,
     };
   }
 
   static ListingContent fromJson(Map<String, dynamic> json) {
     return ListingContent(
-      title: json["title"],
-      description: json["description"],
-      price: (json["price"] as List).map((e) => Price.fromJson(e)).toList(),
-      allowBarter: json["allowBarter"],
-      minStay: Duration(days: json["minStay"]),
-      checkIn: TimeOfDay(
-          hour: int.parse(json["checkIn"].split(':')[0]),
-          minute: int.parse(json["checkIn"].split(':')[1])),
-      checkOut: TimeOfDay(
-          hour: int.parse(json["checkOut"].split(':')[0]),
-          minute: int.parse(json["checkOut"].split(':')[1])),
-      location: json["location"],
-      quantity: json["quantity"],
-      type: ListingType.values
-          .firstWhere((e) => e.toString() == 'ListingType.${json["type"]}'),
-      images: List<String>.from(json["images"]),
-      amenities: Amenities.fromJSON(json["amenities"]),
-      requiresEscrow: json["requiresEscrow"],
-      allowSelfSignedReservation: json["allowSelfSignedReservation"] ?? false,
+      title: json["title"] ?? '',
+      description: json["description"] ?? '',
+      images: json["images"] != null ? List<String>.from(json["images"]) : [],
     );
   }
 }
@@ -185,194 +299,151 @@ class TimeOfDay {
 
 enum ListingType { room, house, apartment, villa, hotel, hostel, resort }
 
+// ── Amenities (tag-backed) ──────────────────────────────────────────────────
+
 class Amenities {
-  bool airconditioning = false;
-  bool allows_pets = false;
-  int bathtub = 0;
-  int beds = 0;
-  int bedrooms = 0;
-  int tv = 0;
-  bool crib = false;
-  bool tumble_dryer = false;
-  bool washer = false;
-  bool elevator = false;
-  bool free_parking = false;
-  bool gym = false;
-  bool hair_dryer = false;
-  bool heating = false;
-  bool high_chair = false;
-  bool wireless_internet = false;
-  bool iron = false;
-  bool jacuzzi = false;
-  bool kitchen = false;
-  bool outlet_covers = false;
-  bool pool = false;
-  bool private_entrance = false;
-  bool smoking_allowed = false;
-  bool breakfast = false;
-  bool fireplace = false;
-  bool smoke_detector = false;
-  bool essentials = false;
-  bool shampoo = false;
-  bool infants_allowed = false;
-  bool children_allowed = false;
-  bool hangers = false;
-  bool flat_smooth_pathway_to_front_door = false;
-  bool grab_rails_in_shower_and_toilet = false;
-  bool oven = false;
-  bool bbq = false;
-  bool balcony = false;
-  bool patio = false;
-  bool dishwasher = false;
-  bool refrigerator = false;
-  bool garden_or_backyard = false;
-  bool microwave = false;
-  bool coffee_maker = false;
-  bool dishes_and_silverware = false;
-  bool stove = false;
-  bool fire_extinguisher = false;
-  bool carbon_monoxide_detector = false;
-  bool luggage_dropoff_allowed = false;
-  bool beach_essentials = false;
-  bool beachfront = false;
-  bool baby_monitor = false;
-  bool babysitter_recommendations = false;
-  bool childrens_books_and_toys = false;
-  bool game_console = false;
-  bool street_parking = false;
-  bool paid_parking = false;
-  bool hot_water = false;
-  bool lake_access = false;
-  bool single_level_home = false;
-  bool waterfront = false;
-  bool first_aid_kit = false;
-  bool handheld_shower_head = false;
-  bool home_step_free_access = false;
-  bool lock_on_bedroom_door = false;
-  bool mobile_hoist = false;
-  bool path_to_entrance_lit_at_night = false;
-  bool pool_hoist = false;
-  bool ev_charger = false;
-  bool rollin_shower = false;
-  bool shower_chair = false;
-  bool tub_with_shower_bench = false;
-  bool wide_clearance_to_bed = false;
-  bool wide_clearance_to_shower_and_toilet = false;
-  bool wide_hallway_clearance = false;
-  bool baby_bath = false;
-  bool changing_table = false;
-  bool room_darkening_shades = false;
-  bool stair_gates = false;
-  bool table_corner_guards = false;
-  bool extra_pillows_and_blankets = false;
-  bool ski_in_ski_out = false;
-  bool window_guards = false;
-  bool disabled_parking_spot = false;
-  bool grab_rails_in_toilet = false;
-  bool events_allowed = false;
-  bool common_spaces_shared = false;
-  bool bathroom_shared = false;
-  bool security_cameras = false;
+  final Map<String, dynamic> _data;
 
-  static fromJSON(Map<String, dynamic> json) {
-    Amenities i = Amenities();
+  Amenities([Map<String, dynamic>? data]) : _data = data ?? {};
 
-    i.airconditioning = json['airconditioning'] ?? false;
-    i.allows_pets = json['allows_pets'] ?? false;
-    i.bathtub = json['bathtub'] ?? 0;
-    i.beds = json['beds'] ?? 0;
-    i.bedrooms = json['bedrooms'] ?? 0;
-    i.tv = json['tv'] ?? 0;
-    i.crib = json['crib'] ?? false;
-    i.tumble_dryer = json['tumble_dryer'] ?? false;
-    i.washer = json['washer'] ?? false;
-    i.elevator = json['elevator'] ?? false;
-    i.free_parking = json['free_parking'] ?? false;
-    i.gym = json['gym'] ?? false;
-    i.hair_dryer = json['hair_dryer'] ?? false;
-    i.heating = json['heating'] ?? false;
-    i.high_chair = json['high_chair'] ?? false;
-    i.wireless_internet = json['wireless_internet'] ?? false;
-    i.iron = json['iron'] ?? false;
-    i.jacuzzi = json['jacuzzi'] ?? false;
-    i.kitchen = json['kitchen'] ?? false;
-    i.outlet_covers = json['outlet_covers'] ?? false;
-    i.pool = json['pool'] ?? false;
-    i.private_entrance = json['private_entrance'] ?? false;
-    i.smoking_allowed = json['smoking_allowed'] ?? false;
-    i.breakfast = json['breakfast'] ?? false;
-    i.fireplace = json['fireplace'] ?? false;
-    i.smoke_detector = json['smoke_detector'] ?? false;
-    i.essentials = json['essentials'] ?? false;
-    i.shampoo = json['shampoo'] ?? false;
-    i.infants_allowed = json['infants_allowed'] ?? false;
-    i.children_allowed = json['children_allowed'] ?? false;
-    i.hangers = json['hangers'] ?? false;
-    i.flat_smooth_pathway_to_front_door =
-        json['flat_smooth_pathway_to_front_door'] ?? false;
-    i.grab_rails_in_shower_and_toilet =
-        json['grab_rails_in_shower_and_toilet'] ?? false;
-    i.oven = json['oven'] ?? false;
-    i.bbq = json['bbq'] ?? false;
-    i.balcony = json['balcony'] ?? false;
-    i.patio = json['patio'] ?? false;
-    i.dishwasher = json['dishwasher'] ?? false;
-    i.refrigerator = json['refrigerator'] ?? false;
-    i.garden_or_backyard = json['garden_or_backyard'] ?? false;
-    i.microwave = json['microwave'] ?? false;
-    i.coffee_maker = json['coffee_maker'] ?? false;
-    i.dishes_and_silverware = json['dishes_and_silverware'] ?? false;
-    i.stove = json['stove'] ?? false;
-    i.fire_extinguisher = json['fire_extinguisher'] ?? false;
-    i.carbon_monoxide_detector = json['carbon_monoxide_detector'] ?? false;
-    i.luggage_dropoff_allowed = json['luggage_dropoff_allowed'] ?? false;
-    i.beach_essentials = json['beach_essentials'] ?? false;
-    i.beachfront = json['beachfront'] ?? false;
-    i.baby_monitor = json['baby_monitor'] ?? false;
-    i.babysitter_recommendations = json['babysitter_recommendations'] ?? false;
-    i.childrens_books_and_toys = json['childrens_books_and_toys'] ?? false;
-    i.game_console = json['game_console'] ?? false;
-    i.street_parking = json['street_parking'] ?? false;
-    i.paid_parking = json['paid_parking'] ?? false;
-    i.hot_water = json['hot_water'] ?? false;
-    i.lake_access = json['lake_access'] ?? false;
-    i.single_level_home = json['single_level_home'] ?? false;
-    i.waterfront = json['waterfront'] ?? false;
-    i.first_aid_kit = json['first_aid_kit'] ?? false;
-    i.handheld_shower_head = json['handheld_shower_head'] ?? false;
-    i.home_step_free_access = json['home_step_free_access'] ?? false;
-    i.lock_on_bedroom_door = json['lock_on_bedroom_door'] ?? false;
-    i.mobile_hoist = json['mobile_hoist'] ?? false;
-    i.path_to_entrance_lit_at_night =
-        json['path_to_entrance_lit_at_night'] ?? false;
-    i.pool_hoist = json['pool_hoist'] ?? false;
-    i.ev_charger = json['ev_charger'] ?? false;
-    i.rollin_shower = json['rollin_shower'] ?? false;
-    i.shower_chair = json['shower_chair'] ?? false;
-    i.tub_with_shower_bench = json['tub_with_shower_bench'] ?? false;
-    i.wide_clearance_to_bed = json['wide_clearance_to_bed'] ?? false;
-    i.wide_clearance_to_shower_and_toilet =
-        json['wide_clearance_to_shower_and_toilet'] ?? false;
-    i.wide_hallway_clearance = json['wide_hallway_clearance'] ?? false;
-    i.baby_bath = json['baby_bath'] ?? false;
-    i.changing_table = json['changing_table'] ?? false;
-    i.room_darkening_shades = json['room_darkening_shades'] ?? false;
-    i.stair_gates = json['stair_gates'] ?? false;
-    i.table_corner_guards = json['table_corner_guards'] ?? false;
-    i.extra_pillows_and_blankets = json['extra_pillows_and_blankets'] ?? false;
-    i.ski_in_ski_out = json['ski_in_ski_out'] ?? false;
-    i.window_guards = json['window_guards'] ?? false;
-    i.disabled_parking_spot = json['disabled_parking_spot'] ?? false;
-    i.grab_rails_in_toilet = json['grab_rails_in_toilet'] ?? false;
-    i.events_allowed = json['events_allowed'] ?? false;
-    i.common_spaces_shared = json['common_spaces_shared'] ?? false;
-    i.bathroom_shared = json['bathroom_shared'] ?? false;
-    i.security_cameras = json['security_cameras'] ?? false;
+  /// Generic setter – enables `amenities['pool'] = true`.
+  void operator []=(String key, dynamic value) => _data[key] = value;
 
-    return i;
+  // ── Boolean getters ───────────────────────────────────────────────
+  bool get airconditioning => _data['airconditioning'] == true;
+  bool get allows_pets => _data['allows_pets'] == true;
+  bool get crib => _data['crib'] == true;
+  bool get tumble_dryer => _data['tumble_dryer'] == true;
+  bool get washer => _data['washer'] == true;
+  bool get elevator => _data['elevator'] == true;
+  bool get free_parking => _data['free_parking'] == true;
+  bool get gym => _data['gym'] == true;
+  bool get hair_dryer => _data['hair_dryer'] == true;
+  bool get heating => _data['heating'] == true;
+  bool get high_chair => _data['high_chair'] == true;
+  bool get wireless_internet => _data['wireless_internet'] == true;
+  bool get iron => _data['iron'] == true;
+  bool get jacuzzi => _data['jacuzzi'] == true;
+  bool get kitchen => _data['kitchen'] == true;
+  bool get outlet_covers => _data['outlet_covers'] == true;
+  bool get pool => _data['pool'] == true;
+  bool get private_entrance => _data['private_entrance'] == true;
+  bool get smoking_allowed => _data['smoking_allowed'] == true;
+  bool get breakfast => _data['breakfast'] == true;
+  bool get fireplace => _data['fireplace'] == true;
+  bool get smoke_detector => _data['smoke_detector'] == true;
+  bool get essentials => _data['essentials'] == true;
+  bool get shampoo => _data['shampoo'] == true;
+  bool get infants_allowed => _data['infants_allowed'] == true;
+  bool get children_allowed => _data['children_allowed'] == true;
+  bool get hangers => _data['hangers'] == true;
+  bool get flat_smooth_pathway_to_front_door =>
+      _data['flat_smooth_pathway_to_front_door'] == true;
+  bool get grab_rails_in_shower_and_toilet =>
+      _data['grab_rails_in_shower_and_toilet'] == true;
+  bool get oven => _data['oven'] == true;
+  bool get bbq => _data['bbq'] == true;
+  bool get balcony => _data['balcony'] == true;
+  bool get patio => _data['patio'] == true;
+  bool get dishwasher => _data['dishwasher'] == true;
+  bool get refrigerator => _data['refrigerator'] == true;
+  bool get garden_or_backyard => _data['garden_or_backyard'] == true;
+  bool get microwave => _data['microwave'] == true;
+  bool get coffee_maker => _data['coffee_maker'] == true;
+  bool get dishes_and_silverware => _data['dishes_and_silverware'] == true;
+  bool get stove => _data['stove'] == true;
+  bool get fire_extinguisher => _data['fire_extinguisher'] == true;
+  bool get carbon_monoxide_detector =>
+      _data['carbon_monoxide_detector'] == true;
+  bool get luggage_dropoff_allowed => _data['luggage_dropoff_allowed'] == true;
+  bool get beach_essentials => _data['beach_essentials'] == true;
+  bool get beachfront => _data['beachfront'] == true;
+  bool get baby_monitor => _data['baby_monitor'] == true;
+  bool get babysitter_recommendations =>
+      _data['babysitter_recommendations'] == true;
+  bool get childrens_books_and_toys =>
+      _data['childrens_books_and_toys'] == true;
+  bool get game_console => _data['game_console'] == true;
+  bool get street_parking => _data['street_parking'] == true;
+  bool get paid_parking => _data['paid_parking'] == true;
+  bool get hot_water => _data['hot_water'] == true;
+  bool get lake_access => _data['lake_access'] == true;
+  bool get single_level_home => _data['single_level_home'] == true;
+  bool get waterfront => _data['waterfront'] == true;
+  bool get first_aid_kit => _data['first_aid_kit'] == true;
+  bool get handheld_shower_head => _data['handheld_shower_head'] == true;
+  bool get home_step_free_access => _data['home_step_free_access'] == true;
+  bool get lock_on_bedroom_door => _data['lock_on_bedroom_door'] == true;
+  bool get mobile_hoist => _data['mobile_hoist'] == true;
+  bool get path_to_entrance_lit_at_night =>
+      _data['path_to_entrance_lit_at_night'] == true;
+  bool get pool_hoist => _data['pool_hoist'] == true;
+  bool get ev_charger => _data['ev_charger'] == true;
+  bool get rollin_shower => _data['rollin_shower'] == true;
+  bool get shower_chair => _data['shower_chair'] == true;
+  bool get tub_with_shower_bench => _data['tub_with_shower_bench'] == true;
+  bool get wide_clearance_to_bed => _data['wide_clearance_to_bed'] == true;
+  bool get wide_clearance_to_shower_and_toilet =>
+      _data['wide_clearance_to_shower_and_toilet'] == true;
+  bool get wide_hallway_clearance => _data['wide_hallway_clearance'] == true;
+  bool get baby_bath => _data['baby_bath'] == true;
+  bool get changing_table => _data['changing_table'] == true;
+  bool get room_darkening_shades => _data['room_darkening_shades'] == true;
+  bool get stair_gates => _data['stair_gates'] == true;
+  bool get table_corner_guards => _data['table_corner_guards'] == true;
+  bool get extra_pillows_and_blankets =>
+      _data['extra_pillows_and_blankets'] == true;
+  bool get ski_in_ski_out => _data['ski_in_ski_out'] == true;
+  bool get window_guards => _data['window_guards'] == true;
+  bool get disabled_parking_spot => _data['disabled_parking_spot'] == true;
+  bool get grab_rails_in_toilet => _data['grab_rails_in_toilet'] == true;
+  bool get events_allowed => _data['events_allowed'] == true;
+  bool get common_spaces_shared => _data['common_spaces_shared'] == true;
+  bool get bathroom_shared => _data['bathroom_shared'] == true;
+  bool get security_cameras => _data['security_cameras'] == true;
+
+  // ── Numeric getters ───────────────────────────────────────────────
+  int get bathtub => (_data['bathtub'] as int?) ?? 0;
+  int get beds => (_data['beds'] as int?) ?? 0;
+  int get bedrooms => (_data['bedrooms'] as int?) ?? 0;
+  int get tv => (_data['tv'] as int?) ?? 0;
+
+  // ── Construct from tags ───────────────────────────────────────────
+  static Amenities fromTags(List<List<String>> tags) {
+    final map = <String, dynamic>{};
+    for (final tag in tags.where((t) => t.isNotEmpty && t[0] == 'amenity')) {
+      if (tag.length == 2) {
+        map[tag[1]] = true;
+      } else if (tag.length >= 3) {
+        map[tag[1]] = int.tryParse(tag[2]) ?? tag[2];
+      }
+    }
+    return Amenities(map);
+  }
+
+  // ── Serialize to tags ─────────────────────────────────────────────
+  List<List<String>> toTags() {
+    return _data.entries.expand((e) {
+      if (e.value == true)
+        return [
+          ['amenity', e.key]
+        ];
+      if (e.value is int && (e.value as int) > 0) {
+        return [
+          ['amenity', e.key, '${e.value}']
+        ];
+      }
+      return <List<String>>[];
+    }).toList();
+  }
+
+  // ── Legacy compat: toMap / fromJSON (used by UI forms) ────────────
+  static Amenities fromJSON(Map<String, dynamic> json) {
+    return Amenities(Map<String, dynamic>.from(json));
   }
 
   Map<String, dynamic> toMap() {
+    // Return a full map with defaults for all known keys
     return {
       'airconditioning': airconditioning,
       'allows_pets': allows_pets,

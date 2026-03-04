@@ -50,7 +50,7 @@ class EscrowClaimOperation extends Cubit<EscrowClaimState> {
   Future<void> execute() async {
     try {
       logger.i(
-        'Creating escrow for ${params.tradeId} at ${params.escrowService.parsedContent.contractAddress}',
+        'Creating escrow for ${params.tradeId} at ${params.escrowService.contractAddress}',
       );
 
       final canClaim = await contract.canClaim(contractParams);

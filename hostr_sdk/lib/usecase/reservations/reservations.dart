@@ -137,7 +137,7 @@ class Reservations extends CrudUseCase<Reservation> {
     List<Reservation> reservations,
   ) {
     final cancelledCommitments = reservations
-        .where((reservation) => reservation.parsedContent.cancelled)
+        .where((reservation) => reservation.cancelled)
         .map((reservation) => _tradeIdFor(reservation))
         .toSet();
 
@@ -279,7 +279,7 @@ class Reservations extends CrudUseCase<Reservation> {
   }
 
   static List<Reservation> filterCancelled(List<Reservation> reservations) {
-    return reservations.where((e) => !e.parsedContent.cancelled).toList();
+    return reservations.where((e) => !e.cancelled).toList();
   }
 
   /// Converts a flat list of reservations into [ReservationPairStatus] objects
@@ -387,7 +387,7 @@ class Reservations extends CrudUseCase<Reservation> {
         .where(
           (message) =>
               message.child is Reservation &&
-              (message.child as Reservation).parsedContent.isNegotiation,
+              (message.child as Reservation).isNegotiation,
         )
         .map((message) => message.child as Reservation)
         .asyncMap((negotiateReservation) async {
@@ -429,12 +429,12 @@ class Reservations extends CrudUseCase<Reservation> {
         [kThreadRefTag, anchor],
       ]),
       content: ReservationContent(
-        start: request.parsedContent.start,
-        end: request.parsedContent.end,
+        start: request.start,
+        end: request.end,
         stage: ReservationStage.commit,
-        quantity: request.parsedContent.quantity,
-        amount: request.parsedContent.amount,
-        recipient: request.parsedContent.recipient,
+        quantity: request.quantity,
+        amount: request.amount,
+        recipient: request.recipient,
       ),
       pubKey: auth.activeKeyPair!.publicKey,
     );
@@ -444,7 +444,7 @@ class Reservations extends CrudUseCase<Reservation> {
       transitionType: ReservationTransitionType.sellerAck,
       fromStage: ReservationStage.negotiate,
       toStage: ReservationStage.commit,
-      commitTermsHash: request.parsedContent.commitHash(),
+      commitTermsHash: request.commitHash(),
     );
   }
 
@@ -458,12 +458,12 @@ class Reservations extends CrudUseCase<Reservation> {
 
     final reservation = Reservation(
       content: ReservationContent(
-        start: negotiateReservation.parsedContent.start,
-        end: negotiateReservation.parsedContent.end,
+        start: negotiateReservation.start,
+        end: negotiateReservation.end,
         stage: ReservationStage.commit,
-        quantity: negotiateReservation.parsedContent.quantity,
-        amount: negotiateReservation.parsedContent.amount,
-        recipient: negotiateReservation.parsedContent.recipient,
+        quantity: negotiateReservation.quantity,
+        amount: negotiateReservation.amount,
+        recipient: negotiateReservation.recipient,
         proof: proof,
       ),
       pubKey: activeKeyPair.publicKey,
@@ -483,14 +483,14 @@ class Reservations extends CrudUseCase<Reservation> {
       transitionType: ReservationTransitionType.commit,
       fromStage: ReservationStage.negotiate,
       toStage: ReservationStage.commit,
-      commitTermsHash: signedReservation.parsedContent.commitHash(),
+      commitTermsHash: signedReservation.commitHash(),
     );
     logger.d('Created self-signed reservation: $signedReservation');
     return signedReservation;
   }
 
   Future<Reservation> cancel(Reservation reservation, KeyPair keyPair) async {
-    if (reservation.parsedContent.cancelled) {
+    if (reservation.cancelled) {
       throw Exception('Reservation is already cancelled');
     }
     final updated = reservation
@@ -498,7 +498,6 @@ class Reservations extends CrudUseCase<Reservation> {
           createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
           id: null,
           content: reservation.parsedContent.copyWith(
-            cancelled: true,
             stage: ReservationStage.cancel,
           ),
           pubKey: null,
@@ -508,9 +507,9 @@ class Reservations extends CrudUseCase<Reservation> {
     await _upsertWithTransition(
       reservation: updated,
       transitionType: ReservationTransitionType.cancel,
-      fromStage: reservation.parsedContent.stage,
+      fromStage: reservation.stage,
       toStage: ReservationStage.cancel,
-      commitTermsHash: reservation.parsedContent.commitHash(),
+      commitTermsHash: reservation.commitHash(),
     );
     return updated;
   }

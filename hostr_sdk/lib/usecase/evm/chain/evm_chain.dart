@@ -27,7 +27,7 @@ abstract class EvmChain {
     return SupportedEscrowContractRegistry.getSupportedContract(
       'MultiEscrow', // to be replaced with ABI hash or bytecode hash
       client,
-      EthereumAddress.fromHex(escrowService.parsedContent.contractAddress),
+      EthereumAddress.fromHex(escrowService.contractAddress),
     )!;
   }
 

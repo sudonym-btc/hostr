@@ -27,21 +27,21 @@ class ReservationRequestActions {
     );
     final lastRequestSentByUs = lastRequest?.pubKey == ourPubkey;
     final enoughPrice =
-        lastRequest != null && lastRequest.parsedContent.amount != null
+        lastRequest != null && lastRequest.amount != null
         ? listing
                   .cost(
-                    lastRequest.parsedContent.start,
-                    lastRequest.parsedContent.end,
+                    lastRequest.start,
+                    lastRequest.end,
                   )
                   .value <=
-              lastRequest.parsedContent.amount!.value
+              lastRequest.amount!.value
         : false;
     if (role == ThreadPartyRole.guest) {
       actions.addAll([
         if (!lastRequestSentByUs || enoughPrice) TradeAction.pay,
       ]);
     }
-    if (!lastRequestSentByUs && listing.parsedContent.allowBarter) {
+    if (!lastRequestSentByUs && listing.allowBarter) {
       actions.add(TradeAction.counter);
     }
 

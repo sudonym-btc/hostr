@@ -50,28 +50,27 @@ class _EscrowServicesModalContent extends StatelessWidget {
   }
 
   Widget _buildServiceTile(EscrowService service) {
-    final c = service.parsedContent;
     final feeDesc = [
-      if (c.feeBase > 0) '${c.feeBase} sats base',
-      if (c.feePercent > 0) '${c.feePercent}%',
+      if (service.feeBase > 0) '${service.feeBase} sats base',
+      if (service.feePercent > 0) '${service.feePercent}%',
     ].join(' + ');
     return Card(
       child: ListTile(
         leading: const Icon(Icons.security),
-        title: Text(c.type.name),
+        title: Text(service.escrowType.name),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Contract: ${_truncate(c.contractAddress)}',
+              'Contract: ${_truncate(service.contractAddress)}',
               overflow: TextOverflow.ellipsis,
             ),
-            Text('Chain ID: ${c.chainId}'),
-            Text('Max duration: ${c.maxDuration.inHours}h'),
+            Text('Chain ID: ${service.chainId}'),
+            Text('Max duration: ${service.maxDuration.inHours}h'),
             if (feeDesc.isNotEmpty) Text('Fee: $feeDesc'),
             Text(
-              'Min: ${c.minAmount} sats'
-              '${c.maxAmount != null ? ' · Max: ${c.maxAmount} sats' : ''}',
+              'Min: ${service.minAmount} sats'
+              '${service.maxAmount != null ? ' · Max: ${service.maxAmount} sats' : ''}',
             ),
           ],
         ),

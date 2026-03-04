@@ -58,39 +58,29 @@ Listing _buildListing({
   bool requiresEscrow = false,
   BigInt? pricePerNight,
 }) {
-  return Listing(
+  return Listing.create(
     pubKey: host.publicKey,
-    createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-    tags: EventTags([
-      [
-        'd',
+    dTag:
         'listing-it-${host.publicKey.substring(0, 8)}-${DateTime.now().microsecondsSinceEpoch}',
-      ],
-    ]),
-    content: ListingContent(
-      title: 'Integration Test Cottage',
-      description: 'A cosy place for integration testing.',
-      price: [
-        Price(
-          amount: Amount(
-            currency: Currency.BTC,
-            value: pricePerNight ?? BigInt.from(100000),
-          ),
-          frequency: Frequency.daily,
+    title: 'Integration Test Cottage',
+    description: 'A cosy place for integration testing.',
+    images: ['https://picsum.photos/seed/it/800/600'],
+    price: [
+      Price(
+        amount: Amount(
+          currency: Currency.BTC,
+          value: pricePerNight ?? BigInt.from(100000),
         ),
-      ],
-      allowBarter: allowBarter,
-      allowSelfSignedReservation: allowSelfSignedReservation,
-      minStay: const Duration(days: 1),
-      checkIn: TimeOfDay(hour: 15, minute: 0),
-      checkOut: TimeOfDay(hour: 11, minute: 0),
-      location: 'test-location',
-      quantity: 1,
-      type: ListingType.house,
-      images: ['https://picsum.photos/seed/it/800/600'],
-      amenities: Amenities(),
-      requiresEscrow: requiresEscrow,
-    ),
+        frequency: Frequency.daily,
+      ),
+    ],
+    location: 'test-location',
+    type: ListingType.house,
+    amenities: Amenities(),
+    allowBarter: allowBarter,
+    allowSelfSignedReservation: allowSelfSignedReservation,
+    requiresEscrow: requiresEscrow,
+    createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   ).signAs(host, Listing.fromNostrEvent);
 }
 
@@ -167,8 +157,8 @@ Reservation _buildSellerAck({
       ['d', negotiate.getDtag()!],
     ]),
     content: ReservationContent(
-      start: negotiate.parsedContent.start,
-      end: negotiate.parsedContent.end,
+      start: negotiate.start,
+      end: negotiate.end,
       stage: ReservationStage.commit,
     ),
   ).signAs(seller, Reservation.fromNostrEvent);
@@ -189,12 +179,12 @@ Reservation _buildSelfSignedCommit({
       ['d', negotiate.getDtag()!],
     ]),
     content: ReservationContent(
-      start: negotiate.parsedContent.start,
-      end: negotiate.parsedContent.end,
+      start: negotiate.start,
+      end: negotiate.end,
       stage: ReservationStage.commit,
-      quantity: negotiate.parsedContent.quantity,
-      amount: negotiate.parsedContent.amount,
-      salt: negotiate.parsedContent.salt,
+      quantity: negotiate.quantity,
+      amount: negotiate.amount,
+      salt: negotiate.salt,
       proof: proof,
     ),
   ).signAs(buyer, Reservation.fromNostrEvent);
@@ -213,10 +203,7 @@ Reservation _buildCancel({
       [kListingRefTag, listing.anchor!],
       ['d', source.getDtag()!],
     ]),
-    content: source.parsedContent.copyWith(
-      stage: ReservationStage.cancel,
-      cancelled: true,
-    ),
+    content: source.parsedContent.copyWith(stage: ReservationStage.cancel),
   ).signAs(signer, Reservation.fromNostrEvent);
 }
 
@@ -688,9 +675,7 @@ void main() {
 
           final sellerEvm = getEvmCredentials(host.privateKey!);
           final arbiterEvm = getEvmCredentials(MockKeys.escrow.privateKey!);
-          final unlockAt = BigInt.from(
-            nego.parsedContent.end.millisecondsSinceEpoch ~/ 1000,
-          );
+          final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
           final depositAmount = EtherAmount.fromBigInt(
             EtherUnit.wei,
@@ -781,9 +766,7 @@ void main() {
 
           final sellerEvm = getEvmCredentials(host.privateKey!);
           final arbiterEvm = getEvmCredentials(MockKeys.escrow.privateKey!);
-          final unlockAt = BigInt.from(
-            nego.parsedContent.end.millisecondsSinceEpoch ~/ 1000,
-          );
+          final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
           final depositAmount = EtherAmount.fromBigInt(
             EtherUnit.wei,
@@ -867,9 +850,7 @@ void main() {
 
           final sellerEvm = getEvmCredentials(host.privateKey!);
           final arbiterEvm = getEvmCredentials(MockKeys.escrow.privateKey!);
-          final unlockAt = BigInt.from(
-            nego.parsedContent.end.millisecondsSinceEpoch ~/ 1000,
-          );
+          final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
           // Deposit only 1 wei — intentionally wrong amount
           final wrongAmount = EtherAmount.fromBigInt(EtherUnit.wei, BigInt.one);
@@ -933,10 +914,7 @@ void main() {
     test('valid zap proof (sufficient amount, correct recipient) → Valid', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
       // 4 nights at 100000 sats/night = 400000 sats
-      final expectedCost = listing
-          .cost(nego.parsedContent.start, nego.parsedContent.end)
-          .value
-          .toInt();
+      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
 
       final proof = _buildZapPaymentProof(
         listing: listing,
@@ -960,10 +938,7 @@ void main() {
 
     test('zap proof with overpayment → Valid', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing
-          .cost(nego.parsedContent.start, nego.parsedContent.end)
-          .value
-          .toInt();
+      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
 
       final proof = _buildZapPaymentProof(
         listing: listing,
@@ -1011,10 +986,7 @@ void main() {
 
     test('zap proof with wrong recipient → Invalid', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing
-          .cost(nego.parsedContent.start, nego.parsedContent.end)
-          .value
-          .toInt();
+      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
 
       // Build receipt targeting a different pubkey
       final wrongRecipient = buyer.publicKey;
@@ -1048,10 +1020,7 @@ void main() {
 
     test('zap proof with wrong hoster profile → Invalid', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing
-          .cost(nego.parsedContent.start, nego.parsedContent.end)
-          .value
-          .toInt();
+      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
 
       // Use buyer's profile as hoster (wrong)
       final wrongHosterProfile = _buildProfileEvent(key: buyer, lud16: lnurl);
@@ -1079,10 +1048,7 @@ void main() {
 
     test('zap proof with wrong lnurl → Invalid', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing
-          .cost(nego.parsedContent.start, nego.parsedContent.end)
-          .value
-          .toInt();
+      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
 
       final proof = _buildZapPaymentProof(
         listing: listing,
@@ -1145,10 +1111,7 @@ void main() {
         lud16: 'host@hostr.development',
       );
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing
-          .cost(nego.parsedContent.start, nego.parsedContent.end)
-          .value
-          .toInt();
+      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
 
       final proof = _buildZapPaymentProof(
         listing: listing,
@@ -1202,10 +1165,7 @@ void main() {
         lud16: 'host@hostr.development',
       );
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing
-          .cost(nego.parsedContent.start, nego.parsedContent.end)
-          .value
-          .toInt();
+      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
 
       final proof = _buildZapPaymentProof(
         listing: listing,
@@ -1289,10 +1249,7 @@ void main() {
       );
 
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing
-          .cost(nego.parsedContent.start, nego.parsedContent.end)
-          .value
-          .toInt();
+      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
 
       final proof = _buildZapPaymentProof(
         listing: listing,
@@ -1400,10 +1357,7 @@ void main() {
         buyer: buyer2,
         salt: 'mixed-2',
       );
-      final expectedCost = listing
-          .cost(nego2.parsedContent.start, nego2.parsedContent.end)
-          .value
-          .toInt();
+      final expectedCost = listing.cost(nego2.start, nego2.end).value.toInt();
       final proof = _buildZapPaymentProof(
         listing: listing,
         hosterProfile: hosterProfile,

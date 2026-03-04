@@ -103,8 +103,8 @@ class BadgeChip extends StatelessWidget {
       a: badgeAnchor,
       builder: (context, state) {
         final definition = state.data;
-        final badgeName = definition?.parsedContent.name ?? 'Badge';
-        final badgeImage = definition?.parsedContent.image;
+        final badgeName = definition?.name ?? 'Badge';
+        final badgeImage = definition?.image;
 
         return InkWell(
           onTap: () => _showBadgeDetails(context, definition),
@@ -198,9 +198,9 @@ class BadgeDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badgeName = definition?.parsedContent.name ?? 'Badge';
-    final badgeDescription = definition?.parsedContent.description;
-    final badgeImage = definition?.parsedContent.image;
+    final badgeName = definition?.name ?? 'Badge';
+    final badgeDescription = definition?.description;
+    final badgeImage = definition?.image;
     final badgeAnchor = award.badgeDefinitionAnchor;
 
     return DraggableScrollableSheet(

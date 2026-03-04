@@ -21,7 +21,7 @@ class ThreadState {
     /// Deduplicate by escrow service ID, keeping the most recent selection for each service
     Map<String, EscrowServiceSelected> mapper = {};
     for (final item in items) {
-      final key = item.parsedContent.service.id;
+      final key = item.service.id;
       mapper[key] = item;
     }
 
@@ -34,7 +34,7 @@ class ThreadState {
       .where(
         (message) =>
             message.child is Reservation &&
-            (message.child as Reservation).parsedContent.isNegotiation,
+            (message.child as Reservation).isNegotiation,
       )
       .toList();
 

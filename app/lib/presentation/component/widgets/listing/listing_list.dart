@@ -86,7 +86,7 @@ class _ListingsWidgetState extends State<ListingsWidget> {
       final listing = results[i];
       if (_preloadedListingIds.contains(listing.id)) continue;
 
-      final refs = listing.parsedContent.images;
+      final refs = listing.images;
       if (refs.isEmpty) {
         _preloadedListingIds.add(listing.id);
         continue;

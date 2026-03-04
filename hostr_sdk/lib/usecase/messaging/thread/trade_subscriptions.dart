@@ -147,7 +147,7 @@ class TradeSubscriptions {
     }
 
     String escrowKey(EscrowServiceSelected selectedEscrow) {
-      final service = selectedEscrow.parsedContent.service;
+      final service = selectedEscrow.service;
       return service.id;
     }
 
@@ -172,14 +172,14 @@ class TradeSubscriptions {
             .whereType<Reservation>()
             .where(
               (reservation) =>
-                  reservation.parsedContent.proof?.escrowProof != null,
+                  reservation.proof?.escrowProof != null,
             )
             .doOnData((reservation) {
               logger.d(
                 'Found reservation with escrow proof, adding escrow subscription for thread ${thread.anchor}',
               );
             })
-            .map((reservation) => reservation.parsedContent.proof!.escrowProof!)
+            .map((reservation) => reservation.proof!.escrowProof!)
             .map(
               (proof) => EscrowServiceSelected(
                 content: EscrowServiceSelectedContent(

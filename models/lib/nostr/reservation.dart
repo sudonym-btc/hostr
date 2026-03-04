@@ -36,6 +36,24 @@ class Reservation
     [kListingRefTag],
   ];
 
+  // ── Convenience getters ─────────────────────────────────────────────
+  DateTime get start => parsedContent.start;
+  DateTime get end => parsedContent.end;
+  bool get cancelled => stage == ReservationStage.cancel;
+  PaymentProof? get proof => parsedContent.proof;
+  String? get salt => parsedContent.salt;
+  ReservationStage get stage => parsedContent.stage;
+  int get quantity => parsedContent.quantity;
+  Amount? get amount => parsedContent.amount;
+  String? get recipient => parsedContent.recipient;
+  Map<String, String> get signatures => parsedContent.signatures;
+  bool get isNegotiation => parsedContent.isNegotiation;
+  bool get isCommit => parsedContent.isCommit;
+  bool get isCancel => parsedContent.isCancel;
+  String commitHash() => parsedContent.commitHash();
+  String signCommit(KeyPair keyPair) => parsedContent.signCommit(keyPair);
+  bool verifyCommit([String? pubkey]) => parsedContent.verifyCommit(pubkey);
+
   Reservation(
       {required super.pubKey,
       required super.tags,
@@ -92,7 +110,7 @@ class Reservation
     validReservations.sort((a, b) {
       int score(Reservation r) {
         final isHost = r.pubKey == listing.pubKey;
-        final isCancelled = r.parsedContent.cancelled;
+        final isCancelled = r.cancelled;
         return [isCancelled, isHost].where((a) => a).length;
       }
 
@@ -120,7 +138,7 @@ class Reservation
         .where((reservation) => reservation.pubKey == listing.pubKey)
         .toList();
     final cancelledReservations = validReservations
-        .where((reservation) => reservation.parsedContent.cancelled)
+        .where((reservation) => reservation.cancelled)
         .toList();
 
     if (validReservations.isEmpty) {
@@ -132,7 +150,7 @@ class Reservation
     }
 
     final hasReservationEnded =
-        validReservations.first.parsedContent.end.isBefore(DateTime.now());
+        validReservations.first.end.isBefore(DateTime.now());
     if (hasReservationEnded) {
       return ReservationStatus.completed;
     }
@@ -159,7 +177,7 @@ class Reservation
       );
     }
 
-    if (reservation.parsedContent.proof == null) {
+    if (reservation.proof == null) {
       setField(
         'proof',
         false,
@@ -171,16 +189,14 @@ class Reservation
       );
     }
 
-    final proof = reservation.parsedContent.proof!;
+    final proof = reservation.proof!;
 
     if (proof.zapProof != null) {
       final zapProof = proof.zapProof!;
       final receipt = ZapReceipt.fromEvent(zapProof.receipt);
 
-      final expected = proof.listing
-          .cost(reservation.parsedContent.start, reservation.parsedContent.end)
-          .value
-          .toInt();
+      final expected =
+          proof.listing.cost(reservation.start, reservation.end).value.toInt();
       final amountOk =
           receipt.amountSats != null && receipt.amountSats! >= expected;
       setField(
@@ -226,7 +242,7 @@ class Reservation
 
   bool isBlockedDate(KeyPair hostKey) {
     final nonce = Reservation.getNonceForBlockedReservation(
-        start: parsedContent.start, end: parsedContent.end, hostKey: hostKey);
+        start: start, end: end, hostKey: hostKey);
 
     return getDtag() == nonce;
   }
@@ -246,7 +262,6 @@ class Reservation
 class ReservationContent extends EventContent with CommitTerms {
   final DateTime start;
   final DateTime end;
-  final bool cancelled;
   final PaymentProof? proof;
 
   /// Private recipient witness used to derive recipient commitments.
@@ -274,10 +289,12 @@ class ReservationContent extends EventContent with CommitTerms {
   Set<String> get committedFields =>
       {'start', 'end', 'quantity', 'amount', 'recipient'};
 
+  /// Whether this reservation is cancelled – derived from [stage].
+  bool get cancelled => stage == ReservationStage.cancel;
+
   ReservationContent({
     required this.start,
     required this.end,
-    this.cancelled = false,
     this.proof,
     this.salt,
     this.stage = ReservationStage.negotiate,
@@ -300,7 +317,6 @@ class ReservationContent extends EventContent with CommitTerms {
     return ReservationContent(
       start: start,
       end: end,
-      cancelled: false,
       proof: proof,
       salt: salt,
       stage: ReservationStage.negotiate,
@@ -324,7 +340,6 @@ class ReservationContent extends EventContent with CommitTerms {
     return ReservationContent(
       start: start,
       end: end,
-      cancelled: false,
       proof: proof,
       salt: salt,
       stage: ReservationStage.commit,
@@ -348,7 +363,6 @@ class ReservationContent extends EventContent with CommitTerms {
     return ReservationContent(
       start: start,
       end: end,
-      cancelled: true,
       proof: proof,
       salt: salt,
       stage: ReservationStage.cancel,
@@ -366,7 +380,6 @@ class ReservationContent extends EventContent with CommitTerms {
       "end": end.toUtc().toIso8601String(),
       "proof": proof?.toJson(),
       if (salt != null) "salt": salt,
-      "cancelled": cancelled,
       "stage": stage.name,
       "quantity": quantity,
       if (amount != null) "amount": amount!.toJson(),
@@ -379,7 +392,6 @@ class ReservationContent extends EventContent with CommitTerms {
   ReservationContent copyWith({
     DateTime? start,
     DateTime? end,
-    bool? cancelled,
     PaymentProof? proof,
     String? salt,
     ReservationStage? stage,
@@ -391,7 +403,6 @@ class ReservationContent extends EventContent with CommitTerms {
     return ReservationContent(
       start: start ?? this.start,
       end: end ?? this.end,
-      cancelled: cancelled ?? this.cancelled,
       proof: proof ?? this.proof,
       salt: salt ?? this.salt,
       stage: stage ?? this.stage,
@@ -403,19 +414,17 @@ class ReservationContent extends EventContent with CommitTerms {
   }
 
   static ReservationContent fromJson(Map<String, dynamic> json) {
-    final cancelledValue = json["cancelled"];
-    final cancelled = cancelledValue is bool
-        ? cancelledValue
-        : (cancelledValue is String
-            ? cancelledValue.toLowerCase() == 'true'
-            : false);
     final stageStr = json["stage"] as String?;
+    // Backward compat: if stage is missing, fall back to cancelled bool.
+    final cancelled = json["cancelled"] == true;
     final stage = stageStr != null
         ? ReservationStage.values.firstWhere(
             (e) => e.name == stageStr,
-            orElse: () => ReservationStage.negotiate,
+            orElse: () => cancelled
+                ? ReservationStage.cancel
+                : ReservationStage.negotiate,
           )
-        : ReservationStage.negotiate;
+        : (cancelled ? ReservationStage.cancel : ReservationStage.negotiate);
     final sigs = json["signatures"] as Map<String, dynamic>?;
     return ReservationContent(
       start: DateTime.parse(json["start"]),
@@ -423,7 +432,6 @@ class ReservationContent extends EventContent with CommitTerms {
       proof:
           json["proof"] != null ? PaymentProof.fromJson(json["proof"]) : null,
       salt: json["salt"] as String?,
-      cancelled: cancelled,
       stage: stage,
       quantity: json["quantity"] as int? ?? 1,
       amount: json["amount"] != null ? Amount.fromJson(json["amount"]) : null,

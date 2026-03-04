@@ -345,7 +345,7 @@ class ReservationPairs {
     // a) escrowVerification is available, AND
     // b) buyer has an escrow proof, AND
     // c) either forceValidateSelfSigned OR no seller confirmation
-    final hasEscrowProof = buyer.parsedContent.proof?.escrowProof != null;
+    final hasEscrowProof = buyer.proof?.escrowProof != null;
     final needsOnChain =
         hasEscrowProof &&
         escrowVerification != null &&

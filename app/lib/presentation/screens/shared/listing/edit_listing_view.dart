@@ -7,7 +7,6 @@ import 'package:hostr/presentation/screens/shared/listing/edit_listing.controlle
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 class EditListingView extends StatefulWidget {
   final String? a;
@@ -163,34 +162,24 @@ class EditListingViewState extends State<EditListingView> {
         onPopInvokedWithResult: _onPopInvoked,
         child: buildListing(
           context,
-          Listing.fromNostrEvent(
-            Nip01Event(
-              pubKey: getIt<Hostr>().auth.getActiveKey().publicKey,
-              kind: Listing.kinds.first,
-              tags: [],
-              content: ListingContent(
-                title: '',
-                description: '',
-                price: [
-                  Price(
-                    amount: Amount(
-                      currency: Currency.BTC,
-                      value: BigInt.from(100000),
-                    ),
-                    frequency: Frequency.daily,
-                  ),
-                ],
-                minStay: Duration(days: 1),
-                checkIn: TimeOfDay(hour: 11, minute: 0),
-                checkOut: TimeOfDay(hour: 11, minute: 0),
-                location: '',
-                quantity: 1,
-                type: ListingType.room,
-                images: [],
-                amenities: Amenities(),
-                requiresEscrow: false,
-              ).toString(),
-            ),
+          Listing.create(
+            pubKey: getIt<Hostr>().auth.getActiveKey().publicKey,
+            dTag: DateTime.now().millisecondsSinceEpoch.toRadixString(36),
+            title: '',
+            description: '',
+            price: [
+              Price(
+                amount: Amount(
+                  currency: Currency.BTC,
+                  value: BigInt.from(100000),
+                ),
+                frequency: Frequency.daily,
+              ),
+            ],
+            location: '',
+            type: ListingType.room,
+            images: [],
+            amenities: Amenities(),
           ),
         ),
       );

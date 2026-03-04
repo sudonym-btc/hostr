@@ -133,6 +133,93 @@ class EventTags {
   List<String> getTags(String key) {
     return tags.where((t) => t.first == key).map((t) => t[1]).toList();
   }
+
+  // ── Typed read helpers ──────────────────────────────────────────────
+
+  /// First value for [key], or null if absent.
+  String? getTagValue(String key) {
+    final matches = getTags(key);
+    return matches.isNotEmpty ? matches.first : null;
+  }
+
+  /// Parse a boolean tag (`"true"` / `"false"`).
+  bool getTagBool(String key, {bool defaultValue = false}) {
+    final v = getTagValue(key);
+    if (v == null) return defaultValue;
+    return v.toLowerCase() == 'true';
+  }
+
+  /// Parse an integer tag.
+  int? getTagInt(String key) {
+    final v = getTagValue(key);
+    return v != null ? int.tryParse(v) : null;
+  }
+
+  /// Parse an enum tag by matching [T.name].
+  T? getTagEnum<T extends Enum>(String key, List<T> values) {
+    final v = getTagValue(key);
+    if (v == null) return null;
+    for (final e in values) {
+      if (e.name == v) return e;
+    }
+    return null;
+  }
+
+  /// Parse an ISO-8601 datetime tag.
+  DateTime? getTagDateTime(String key) {
+    final v = getTagValue(key);
+    return v != null ? DateTime.tryParse(v) : null;
+  }
+
+  /// Parse an amount tag encoded as `"decimalValue:CURRENCY"`.
+  Amount? getTagAmount(String key) {
+    final v = getTagValue(key);
+    if (v == null) return null;
+    final parts = v.split(':');
+    if (parts.length != 2) return null;
+    final currency = Currency.values.where((c) => c.name == parts[1]);
+    if (currency.isEmpty) return null;
+    return Amount.fromDecimal(decimal: parts[0], currency: currency.first);
+  }
+
+  /// Parse price tags encoded as `["price", "decimalAmount:CURRENCY:frequency"]`.
+  List<Price> getTagPrices() {
+    return tags
+        .where((t) => t.isNotEmpty && t[0] == 'price')
+        .map((t) {
+          final parts = t[1].split(':');
+          if (parts.length != 3) return null;
+          final currency = Currency.values.where((c) => c.name == parts[1]);
+          if (currency.isEmpty) return null;
+          final freq = Frequency.values.where((f) => f.name == parts[2]);
+          if (freq.isEmpty) return null;
+          return Price(
+            amount:
+                Amount.fromDecimal(decimal: parts[0], currency: currency.first),
+            frequency: freq.first,
+          );
+        })
+        .whereType<Price>()
+        .toList();
+  }
+
+  // ── Amenity read helpers ────────────────────────────────────────────
+
+  /// Whether an amenity tag exists for [name].
+  bool hasAmenity(String name) {
+    return tags.any((t) => t.length >= 2 && t[0] == 'amenity' && t[1] == name);
+  }
+
+  /// Read a numeric amenity value, defaulting to [defaultValue].
+  int getAmenityInt(String name, {int defaultValue = 0}) {
+    final tag = tags.cast<List<String>?>().firstWhere(
+          (t) => t!.length >= 3 && t[0] == 'amenity' && t[1] == name,
+          orElse: () => null,
+        );
+    return tag != null && tag.length >= 3
+        ? int.tryParse(tag[2]) ?? defaultValue
+        : defaultValue;
+  }
 }
 
 mixin ReferencesListing<T extends ReferencesListing<T>> on EventTags {

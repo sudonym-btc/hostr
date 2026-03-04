@@ -44,7 +44,7 @@ class PaymentTimelineItem extends StatelessWidget {
           ),
 
           // ProfileChipWidget(
-          //   id: event.escrowService.parsedContent.service.pubKey,
+          //   id: event.escrowService.service.pubKey,
           // ),
         ],
       );
@@ -53,7 +53,7 @@ class PaymentTimelineItem extends StatelessWidget {
     if (event is ReservationTransition) {
       final transitionEvent = event as ReservationTransition;
       var title = 'Guest created reservation';
-      switch (transitionEvent.parsedContent.transitionType) {
+      switch (transitionEvent.transitionType) {
         case ReservationTransitionType.sellerAck:
           title = 'Host confirmed reservation';
           break;

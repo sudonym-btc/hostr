@@ -22,7 +22,7 @@ class ListingCarousel extends StatelessWidget {
             enableInfiniteScroll: false,
             height: height,
           ),
-          items: listing.parsedContent.images.map((i) {
+          items: listing.images.map((i) {
             return SizedBox.expand(
               child: BlossomImage(
                 image: i,

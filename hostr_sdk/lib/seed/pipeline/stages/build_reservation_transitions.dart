@@ -31,7 +31,7 @@ List<ReservationTransition> buildReservationTransitions({
         transitionType: ReservationTransitionType.counterOffer,
         fromStage: ReservationStage.negotiate,
         toStage: ReservationStage.negotiate,
-        commitTermsHash: request.parsedContent.commitHash(),
+        commitTermsHash: request.commitHash(),
       ),
     ).signAs(thread.guest.keyPair, ReservationTransition.fromNostrEvent);
 
@@ -40,9 +40,7 @@ List<ReservationTransition> buildReservationTransitions({
     final reservation = thread.reservation;
     if (reservation == null) continue;
 
-    final cancelled =
-        reservation.parsedContent.cancelled ||
-        reservation.parsedContent.stage == ReservationStage.cancel;
+    final cancelled = reservation.stage == ReservationStage.cancel;
     final transitionType = cancelled
         ? ReservationTransitionType.cancel
         : (thread.selfSigned
@@ -68,7 +66,7 @@ List<ReservationTransition> buildReservationTransitions({
         transitionType: transitionType,
         fromStage: ReservationStage.negotiate,
         toStage: toStage,
-        commitTermsHash: reservation.parsedContent.commitHash(),
+        commitTermsHash: reservation.commitHash(),
       ),
     ).signAs(actor, ReservationTransition.fromNostrEvent);
 

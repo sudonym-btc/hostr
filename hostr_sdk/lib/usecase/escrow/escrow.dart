@@ -44,8 +44,8 @@ class EscrowUseCase {
     logger.i('Checking escrow status for reservation: $tradeId');
 
     final contract = evm
-        .getChainForEscrowService(selectedEscrow.parsedContent.service)
-        .getSupportedEscrowContract(selectedEscrow.parsedContent.service);
+        .getChainForEscrowService(selectedEscrow.service)
+        .getSupportedEscrowContract(selectedEscrow.service);
 
     return contract.allEvents(
       ContractEventsParams(tradeId: tradeId),

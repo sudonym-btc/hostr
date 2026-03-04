@@ -36,8 +36,8 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
             // Text(
             //   formatDateRangeShort(
             //     DateTimeRange(
-            //       start: negotiateReservation.parsedContent.start,
-            //       end: negotiateReservation.parsedContent.end,
+            //       start: negotiateReservation.start,
+            //       end: negotiateReservation.end,
             //     ),
             //     Localizations.localeOf(context),
             //   ),
@@ -45,7 +45,7 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
             //     context,
             //   ).textTheme.bodyMedium?.copyWith(color: textColor),
             // ),
-            // PriceText(formatAmount(negotiateReservation.parsedContent.amount!)),
+            // PriceText(formatAmount(negotiateReservation.amount!)),
           ],
         ),
       ),

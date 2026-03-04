@@ -45,6 +45,14 @@ class ReservationTransition extends JsonContentNostrEvent<
   static final EventContentParser<ReservationTransitionContent> _contentParser =
       ReservationTransitionContent.fromJson;
 
+  // ── Convenience getters ─────────────────────────────────────────────
+  ReservationTransitionType get transitionType => parsedContent.transitionType;
+  ReservationStage get fromStage => parsedContent.fromStage;
+  ReservationStage get toStage => parsedContent.toStage;
+  String? get commitTermsHash => parsedContent.commitTermsHash;
+  String? get reason => parsedContent.reason;
+  Map<String, dynamic>? get updatedFields => parsedContent.updatedFields;
+
   ReservationTransition({
     required super.pubKey,
     required super.tags,

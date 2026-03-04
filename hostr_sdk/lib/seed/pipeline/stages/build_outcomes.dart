@@ -129,7 +129,7 @@ Future<void> buildOutcomes({
   //    when a prior seed run left an on-chain trade for the same
   //    deterministic tradeId.
   final contract = ctx.multiEscrowContract(
-    escrowService.parsedContent.contractAddress,
+    escrowService.contractAddress,
   );
 
   final createdTrades = <String, String>{}; // tradeIdHex → txHash
@@ -278,7 +278,7 @@ Future<void> buildOutcomes({
         var maxUnlock = 0;
         for (final plan in claimedPlans) {
           final unlockSec =
-              plan.thread.request.parsedContent.end
+              plan.thread.request.end
                   .toUtc()
                   .millisecondsSinceEpoch ~/
               1000;
@@ -407,9 +407,9 @@ Future<void> buildOutcomes({
         start: thread.start,
         end: thread.end,
         stage: ReservationStage.commit,
-        quantity: thread.request.parsedContent.quantity,
-        amount: thread.request.parsedContent.amount,
-        recipient: thread.request.parsedContent.recipient,
+        quantity: thread.request.quantity,
+        amount: thread.request.amount,
+        recipient: thread.request.recipient,
         proof: mutatedProof,
       ),
     ).signAs(thread.guest.keyPair, Reservation.fromNostrEvent);
@@ -506,7 +506,7 @@ Future<void> _createTradeForPlan({
   required EscrowService escrowService,
 }) async {
   final contract = ctx.multiEscrowContract(
-    escrowService.parsedContent.contractAddress,
+    escrowService.contractAddress,
   );
   final request = plan.thread.request;
   final guest = plan.thread.guest;
@@ -516,7 +516,7 @@ Future<void> _createTradeForPlan({
   final tradeIdHex = request.getDtag() ?? '';
   final tradeId = getBytes32(tradeIdHex);
   final amountWei =
-      request.parsedContent.amount!.value * BigInt.from(10).pow(10);
+      request.amount!.value * BigInt.from(10).pow(10);
 
   final guestCredentials = EthPrivateKey.fromHex(guest.keyPair.privateKey!);
   final buyer = getEvmCredentials(guest.keyPair.privateKey!).address;
@@ -524,7 +524,7 @@ Future<void> _createTradeForPlan({
   final arbiter = getEvmCredentials(MockKeys.escrow.privateKey!).address;
 
   final unlockAtSeconds =
-      request.parsedContent.end.toUtc().millisecondsSinceEpoch ~/ 1000;
+      request.end.toUtc().millisecondsSinceEpoch ~/ 1000;
   final unlockAt = BigInt.from(unlockAtSeconds);
 
   plan.createTxHash = await contract.createTrade(
@@ -573,7 +573,7 @@ Future<void> _settleForPlan({
   required EscrowService escrowService,
 }) async {
   final contract = ctx.multiEscrowContract(
-    escrowService.parsedContent.contractAddress,
+    escrowService.contractAddress,
   );
   final request = plan.thread.request;
   final host = plan.thread.host;
@@ -674,7 +674,7 @@ Nip01Event _buildZapReceipt({
   required SeedUser guest,
   required ProfileMetadata? hostProfile,
 }) {
-  final amountMsats = request.parsedContent.amount!.value * BigInt.from(1000);
+  final amountMsats = request.amount!.value * BigInt.from(1000);
   final lnurl = hostProfile != null
       ? Metadata.fromEvent(hostProfile).lud16
       : null;

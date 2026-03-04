@@ -23,7 +23,7 @@ class Thread {
   bool _isTradeCandidate(ThreadState current) => current.messages.any(
     (message) =>
         message.child is Reservation &&
-        (message.child as Reservation).parsedContent.isNegotiation,
+        (message.child as Reservation).isNegotiation,
   );
 
   Thread(

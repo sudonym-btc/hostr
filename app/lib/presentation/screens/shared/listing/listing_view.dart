@@ -378,7 +378,7 @@ class ListingViewBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          listing.parsedContent.title,
+          listing.title,
           style: Theme.of(context).textTheme.titleLarge,
         ),
         Gap.vertical.custom(kSpace1 / 2),
@@ -392,10 +392,10 @@ class ListingViewBody extends StatelessWidget {
         Gap.vertical.sm(),
         reviewsSummaryWidget,
         Gap.vertical.sm(),
-        AmenityTagsWidget(amenities: listing.parsedContent.amenities),
+        AmenityTagsWidget(amenities: listing.amenities),
         Gap.vertical.md(),
         Text(
-          listing.parsedContent.description,
+          listing.description,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         // ── Location map ──────────────────────────────────────────────
@@ -408,9 +408,9 @@ class ListingViewBody extends StatelessWidget {
                 .firstOrNull;
             if (h3Tag == null) return const SizedBox.shrink();
 
-            final priceText = listing.parsedContent.price.isNotEmpty
+            final priceText = listing.prices.isNotEmpty
                 ? formatAmount(
-                    listing.parsedContent.price.first.amount,
+                    listing.prices.first.amount,
                     exact: false,
                   )
                 : null;
@@ -425,7 +425,7 @@ class ListingViewBody extends StatelessWidget {
                   if (center == null) return;
                   final lat = center.latitude;
                   final lng = center.longitude;
-                  final title = listing.parsedContent.title;
+                  final title = listing.title;
                   _openInMaps(context, lat, lng, title);
                 },
                 child: ClipRRect(
@@ -471,8 +471,8 @@ class ListingViewBody extends StatelessWidget {
                   title: Text(
                     formatDateRangeShort(
                       DateTimeRange(
-                        start: reservation.parsedContent.start,
-                        end: reservation.parsedContent.end,
+                        start: reservation.start,
+                        end: reservation.end,
                       ),
                       Localizations.localeOf(context),
                     ),

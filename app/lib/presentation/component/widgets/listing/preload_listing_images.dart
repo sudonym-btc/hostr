@@ -51,7 +51,7 @@ class _PreloadListingImagesState extends State<PreloadListingImages> {
   }
 
   void _preload() {
-    final images = widget.listing.parsedContent.images;
+    final images = widget.listing.images;
     if (images.isEmpty) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -117,7 +117,7 @@ class _PreloadListingsImagesState extends State<PreloadListingsImages> {
       if (!mounted) return;
       final preloader = getIt<ImagePreloader>();
       for (final listing in widget.listings) {
-        final images = listing.parsedContent.images;
+        final images = listing.images;
         if (images.isNotEmpty) {
           preloader.precacheForContext(
             images,

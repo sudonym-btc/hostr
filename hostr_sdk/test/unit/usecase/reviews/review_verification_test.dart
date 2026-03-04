@@ -100,7 +100,7 @@ Reservation _reservation({
   required DateTime start,
   required DateTime end,
   PaymentProof? proof,
-  bool cancelled = false,
+  ReservationStage stage = ReservationStage.negotiate,
   int createdAtOffsetSeconds = 0,
   String? recipient,
 }) {
@@ -117,7 +117,7 @@ Reservation _reservation({
       start: start,
       end: end,
       proof: proof,
-      cancelled: cancelled,
+      stage: stage,
       recipient: recipient,
     ),
   ).signAs(signer, Reservation.fromNostrEvent);
@@ -143,31 +143,21 @@ Review _review({
 }
 
 Listing _fixtureListing() {
-  return Listing(
+  return Listing.create(
     pubKey: MockKeys.hoster.publicKey,
-    tags: EventTags([
-      ['d', 'review-listing'],
-    ]),
-    content: ListingContent(
-      title: 'Review Listing',
-      description: 'Fixture',
-      price: [
-        Price(
-          amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
-          frequency: Frequency.daily,
-        ),
-      ],
-      allowBarter: false,
-      minStay: const Duration(days: 1),
-      checkIn: TimeOfDay(hour: 15, minute: 0),
-      checkOut: TimeOfDay(hour: 11, minute: 0),
-      location: 'Test',
-      quantity: 1,
-      type: ListingType.house,
-      images: const [],
-      amenities: Amenities(),
-      requiresEscrow: false,
-    ),
+    dTag: 'review-listing',
+    title: 'Review Listing',
+    description: 'Fixture',
+    images: const [],
+    price: [
+      Price(
+        amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
+        frequency: Frequency.daily,
+      ),
+    ],
+    location: 'Test',
+    type: ListingType.house,
+    amenities: Amenities(),
   ).signAs(MockKeys.hoster, Listing.fromNostrEvent);
 }
 
@@ -396,7 +386,7 @@ void main() {
           tradeId: commitment,
           start: DateTime(2026, 4, 1),
           end: DateTime(2026, 4, 3),
-          cancelled: true,
+          stage: ReservationStage.cancel,
           recipient: MockKeys.guest.publicKey,
         ),
       );

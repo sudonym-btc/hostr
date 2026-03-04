@@ -15,6 +15,20 @@ class EscrowService
 
   static const List<List<String>> requiredTags = [];
 
+  // ── Convenience getters ─────────────────────────────────────────────
+  String get escrowPubkey => parsedContent.pubkey;
+  String get evmAddress => parsedContent.evmAddress;
+  String get contractAddress => parsedContent.contractAddress;
+  String get contractBytecodeHash => parsedContent.contractBytecodeHash;
+  int get chainId => parsedContent.chainId;
+  Duration get maxDuration => parsedContent.maxDuration;
+  EscrowType get escrowType => parsedContent.type;
+  int get feeBase => parsedContent.feeBase;
+  double get feePercent => parsedContent.feePercent;
+  int get minAmount => parsedContent.minAmount;
+  int? get maxAmount => parsedContent.maxAmount;
+  int escrowFee(int amountSats) => parsedContent.escrowFee(amountSats);
+
   EscrowService(
       {required super.pubKey,
       required super.tags,

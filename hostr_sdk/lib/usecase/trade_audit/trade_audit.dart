@@ -36,7 +36,7 @@ class PartyAudit {
   /// The current stage implied by the last transition (or null if none).
   ReservationStage? get currentStage {
     if (transitions.isEmpty) return null;
-    return transitions.last.parsedContent.toStage;
+    return transitions.last.toStage;
   }
 
   PartyAudit({
@@ -51,8 +51,7 @@ class PartyAudit {
 
   /// Summarise a single transition for display.
   static String describeTransition(ReservationTransition t) {
-    final c = t.parsedContent;
-    return '${c.transitionType.name}(${c.fromStage.name}→${c.toStage.name})';
+    return '${t.transitionType.name}(${t.fromStage.name}→${t.toStage.name})';
   }
 }
 
@@ -94,8 +93,8 @@ class TradeAuditResult {
         final r = vr.reservation;
         final v = vr.validation;
         buf.writeln(
-          '  reservation  stage=${r.parsedContent.stage.name}'
-          '  cancelled=${r.parsedContent.cancelled}'
+          '  reservation  stage=${r.stage.name}'
+          '  cancelled=${r.cancelled}'
           '  valid=${v.isValid}',
         );
         if (!v.isValid) {
@@ -241,8 +240,8 @@ class TradeAudit {
       final committedBuyer = buyerReservations
           .where(
             (r) =>
-                r.parsedContent.stage == ReservationStage.commit &&
-                r.parsedContent.proof?.escrowProof != null,
+                r.stage == ReservationStage.commit &&
+                r.proof?.escrowProof != null,
           )
           .toList();
       if (committedBuyer.isNotEmpty) {
@@ -421,15 +420,11 @@ class TradeAudit {
     // Both committed, no cancellation — active/completed trade.
     final sellerCommitted =
         seller?.currentStage == ReservationStage.commit ||
-        seller?.reservations.any(
-              (r) => r.parsedContent.stage == ReservationStage.commit,
-            ) ==
+        seller?.reservations.any((r) => r.stage == ReservationStage.commit) ==
             true;
     final buyerCommitted =
         buyer?.currentStage == ReservationStage.commit ||
-        buyer?.reservations.any(
-              (r) => r.parsedContent.stage == ReservationStage.commit,
-            ) ==
+        buyer?.reservations.any((r) => r.stage == ReservationStage.commit) ==
             true;
 
     if (sellerCommitted && buyerCommitted) {

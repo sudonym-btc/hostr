@@ -15,6 +15,11 @@ class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
   static final EventContentParser<ReviewContent> _contentParser =
       ReviewContent.fromJson;
 
+  // ── Convenience getters ─────────────────────────────────────────────
+  int get rating => parsedContent.rating;
+  String get reviewText => parsedContent.content;
+  ParticipationProof get proof => parsedContent.proof;
+
   Review(
       {required super.pubKey,
       required super.tags,
@@ -47,7 +52,7 @@ class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
     String reviewerPubKey,
     ParticipationProof proof,
   ) {
-    final recipient = reservation.parsedContent.recipient;
+    final recipient = reservation.recipient;
     if (recipient == null) return false;
     return proof.verifyTweakedPubKey(reviewerPubKey, recipient);
   }

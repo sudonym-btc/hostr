@@ -133,7 +133,7 @@ class TradeHeaderView extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _navigateToListing(context),
                 child: Text(
-                  listing.parsedContent.title.toString(),
+                  listing.title.toString(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium,
@@ -309,7 +309,7 @@ class TradeHeaderView extends StatelessWidget {
         child: EscrowFundWidget(
           counterparty: listingProfile,
           negotiateReservation: lastReservation,
-          listingName: listing.parsedContent.title,
+          listingName: listing.title,
         ),
       ),
       style: FilledButton.styleFrom(
@@ -529,7 +529,7 @@ class TradeHeader extends StatelessWidget {
                   listingProfile: tradeContext.profile,
                   start: tradeState.start,
                   end: tradeState.end,
-                  amount: lastRequest.parsedContent.amount,
+                  amount: lastRequest.amount,
                   availability:
                       resolution?.availability ?? TradeAvailability.available,
                   availabilityReason: resolution?.availabilityReason,

@@ -34,6 +34,9 @@ class Threads extends HydratedCubit<List<Message>> {
 
   final Map<String, Thread> threads = {};
 
+  /// O(1) duplicate guard — tracks every message id we have already ingested.
+  final Set<String> _seenIds = {};
+
   StreamWithStatus<Message>? subscription;
   StreamSubscription<StreamStatus>? _statusSubscription;
   StreamSubscription<Message>? _messageSubscription;
@@ -96,6 +99,7 @@ class Threads extends HydratedCubit<List<Message>> {
       await thread.close();
     }
     threads.clear();
+    _seenIds.clear();
   }
 
   /// Fully resets messaging state, clearing both in-memory threads and
@@ -103,6 +107,7 @@ class Threads extends HydratedCubit<List<Message>> {
   /// subsequent login starts with a clean slate.
   Future<void> reset() async {
     await stop();
+    _seenIds.clear();
     emit([]);
     await clear();
   }
@@ -139,21 +144,33 @@ class Threads extends HydratedCubit<List<Message>> {
 
   void processMessage(Message message) {
     logger.d('Received message with id ${message.id} $message');
-    if (state.any((existing) => existing.id == message.id)) {
+    if (!_seenIds.add(message.id)) {
       return;
     }
 
-    String? id = threadIdentifierForMessage(message);
+    final id = threadIdentifierForMessage(message);
 
     if (threads[id] == null) {
       threads[id] = getIt<Thread>(param1: id);
       threadController.add(threads[id]!);
     }
     threads[id]!.messages.add(message);
-    emit(
-      [...state, message].toList()
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
-    );
+
+    // Insert in sorted order (by createdAt) instead of copying + re-sorting
+    // the entire list on every message.
+    final list = [...state];
+    var lo = 0;
+    var hi = list.length;
+    while (lo < hi) {
+      final mid = (lo + hi) >> 1;
+      if (list[mid].createdAt <= message.createdAt) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    list.insert(lo, message);
+    emit(list);
   }
 
   /// Get the most recent timestamp from all cached threads.
@@ -170,10 +187,26 @@ class Threads extends HydratedCubit<List<Message>> {
 
   void _rebuildThreadsFromMessages(List<Message> messages) {
     threads.clear();
+    _seenIds.clear();
     logger.d('Rebuilding threads from ${messages.length} messages');
+
+    // Bulk ingest: route messages to threads in a single pass without
+    // emitting intermediate state or re-sorting per message.
     for (final message in messages) {
-      processMessage(message);
+      if (!_seenIds.add(message.id)) continue;
+
+      final id = threadIdentifierForMessage(message);
+      if (threads[id] == null) {
+        threads[id] = getIt<Thread>(param1: id);
+        threadController.add(threads[id]!);
+      }
+      threads[id]!.messages.add(message);
     }
+
+    // Single sort + single emit for the entire batch.
+    final sorted = List<Message>.of(messages)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    emit(sorted);
   }
 
   @override
@@ -201,6 +234,7 @@ class Threads extends HydratedCubit<List<Message>> {
       await thread.close();
     }
     threads.clear();
+    _seenIds.clear();
     await threadController.close();
     await _statusSubject.close();
     return super.close();
