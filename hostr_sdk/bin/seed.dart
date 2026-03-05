@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
-
-import 'seed/relay_seed.dart';
+import 'package:hostr_sdk/seed/relay_seed.dart';
 
 /// Allow self-signed certificates so the seeder can connect to local
 /// relay/blossom/etc. over TLS without a trusted CA chain.

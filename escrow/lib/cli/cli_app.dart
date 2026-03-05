@@ -11,6 +11,7 @@ import 'package:escrow/cli/screens/thread_detail.dart';
 import 'package:escrow/cli/screens/thread_list.dart';
 import 'package:escrow/cli/screens/trade_detail.dart';
 import 'package:escrow/cli/screens/trade_list.dart';
+import 'package:escrow/cli/widgets.dart';
 import 'package:interact_cli/interact_cli.dart';
 
 /// Main interactive CLI loop.
@@ -159,9 +160,11 @@ class CliApp {
       print(
           '  ⚠ Keep this mnemonic secret — it controls the escrow EVM wallet.');
       print('');
+      pressAnyKey();
     } catch (e) {
       print('  Error: $e');
       print('');
+      pressAnyKey();
     }
   }
 
@@ -184,10 +187,12 @@ class CliApp {
       print('  Pending trades : ${status['pendingTrades']}');
       print('  Synced threads : ${status['syncedThreads']}');
       print('');
+      pressAnyKey();
     } catch (e) {
       spinner.failed();
       print('  Error: $e');
       print('');
+      pressAnyKey();
     }
   }
 }

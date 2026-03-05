@@ -1,7 +1,20 @@
+import 'dart:io';
+
 import 'package:dart_console/dart_console.dart';
 import 'package:interact_cli/interact_cli.dart';
 // ignore: implementation_imports
 import 'package:interact_cli/src/framework/framework.dart';
+
+/// Blocks until the user presses any key.
+///
+/// Useful after displaying non-interactive output to prevent the main loop
+/// from immediately clearing the screen.
+void pressAnyKey() {
+  stdout.write('  Press any key to continue…');
+  final console = Console();
+  console.readKey();
+  print('');
+}
 
 /// A [Select] variant that also accepts ESC to go back.
 ///
@@ -29,7 +42,7 @@ class _SelectOrBackState extends State<SelectOrBack> {
     final buf = StringBuffer();
     buf.write(component.theme.inputPrefix);
     buf.write(component.theme.messageStyle(component.prompt));
-    buf.write(component.theme.hintStyle(' (ESC to go back)'));
+    buf.write(component.theme.hintStyle(' (q to go back)'));
     buf.write(component.theme.inputSuffix);
     buf.write(' ');
     return buf.toString();
@@ -82,6 +95,10 @@ class _SelectOrBackState extends State<SelectOrBack> {
   int interact() {
     while (true) {
       final key = context.readKey();
+
+      // Check for 'q' as a back key (reliable in Docker PTY where
+      // ESC byte timing causes dart_console to misread escape sequences).
+      if (!key.isControl && key.char == 'q') return -1;
 
       switch (key.controlChar) {
         case ControlCharacter.arrowUp:

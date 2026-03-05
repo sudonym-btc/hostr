@@ -204,6 +204,15 @@ services:
       - PRIVATE_KEY=${ESCROW_PRIVATE_KEY}
       - RPC_URL=${RPC_URL}
       - CONTRACT_ADDR=${ESCROW_CONTRACT_ADDR:-}
+    # Read the deployed contract address into CONTRACT_ADDR when it was not
+    # provided via env (local/test profiles where escrow-contract-deploy
+    # writes the address to /data/contract_addr at runtime).
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "if [ -z \"$$CONTRACT_ADDR\" ] && [ -f /data/contract_addr ]; then export CONTRACT_ADDR=$$(cat /data/contract_addr); fi && exec docker/entrypoint.sh",
+      ]
     volumes:
       - ./docker/data/escrow:/data:ro
       - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro

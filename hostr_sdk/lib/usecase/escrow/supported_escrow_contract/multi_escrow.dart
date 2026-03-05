@@ -368,20 +368,30 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         final decoded = contract.self.events
             .firstWhere((e) => e.name == 'Arbitrated')
             .decodeResults(log.topics!, log.data!);
+        final arb = Arbitrated(decoded, log);
         return EscrowArbitratedEvent(
+          tradeId: bytesToHex(arb.tradeId),
           block: block,
           escrowService: selectedEscrow,
           transactionHash: log.transactionHash!,
-          forwarded: Arbitrated(decoded, log).fractionForwarded.toInt() / 1000,
+          forwarded: arb.fractionForwarded.toInt() / 1000,
         );
       } else if (log.topics![0] == eventToSignature['ReleasedToCounterparty']) {
+        final decoded = contract.self.events
+            .firstWhere((e) => e.name == 'ReleasedToCounterparty')
+            .decodeResults(log.topics!, log.data!);
         return EscrowReleasedEvent(
+          tradeId: bytesToHex(ReleasedToCounterparty(decoded, log).tradeId),
           block: block,
           escrowService: selectedEscrow,
           transactionHash: log.transactionHash!,
         );
       } else if (log.topics![0] == eventToSignature['Claimed']) {
+        final decoded = contract.self.events
+            .firstWhere((e) => e.name == 'Claimed')
+            .decodeResults(log.topics!, log.data!);
         return EscrowClaimedEvent(
+          tradeId: bytesToHex(Claimed(decoded, log).tradeId),
           block: block,
           escrowService: selectedEscrow,
           transactionHash: log.transactionHash!,

@@ -12,16 +12,16 @@ Future<Navigation> arbitrateScreen(
   print('── Arbitrate: $tradeId ──');
   print('');
   print('  Enter the forward ratio — the fraction of escrowed funds sent to');
-  print('  the seller. Must be strictly between 0 and 1.');
+  print('  the seller. Must be between 0 and 1 (inclusive).');
   print(
-      '  Example: 0.5 = split 50/50, 0.9 = 90% to seller, 0.1 = mostly refund buyer.');
+      '  Example: 0.5 = split 50/50, 1 = all to seller, 0 = full refund to buyer.');
   print('');
 
   final forwardStr = Input(prompt: 'Forward ratio (0–1)').interact();
   final forward = double.tryParse(forwardStr.trim());
 
-  if (forward == null || forward <= 0 || forward >= 1) {
-    print('  Invalid value. Must be a number strictly between 0 and 1.');
+  if (forward == null || forward < 0 || forward > 1) {
+    print('  Invalid value. Must be a number between 0 and 1.');
     return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
   }
 
@@ -52,7 +52,11 @@ Future<Navigation> arbitrateScreen(
     print('  Tx hash: $txHash');
   } catch (e) {
     spinner.failed();
+    print('');
     print('  Error: $e');
+    print('');
+    Input(prompt: 'Press Enter to continue').interact();
+    return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
   }
 
   print('');

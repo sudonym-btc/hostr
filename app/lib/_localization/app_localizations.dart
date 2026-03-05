@@ -1102,6 +1102,12 @@ abstract class AppLocalizations {
   /// **'Something went wrong: {details}'**
   String errorGeneric(String details);
 
+  /// Search result count label with plural handling
+  ///
+  /// In en, this message translates to:
+  /// **'{count}{hasMore, select, true{+} other{}} {count, plural, =1{result} other{results}}'**
+  String searchResultCount(int count, String hasMore);
+
   /// Review count label with plural handling
   ///
   /// In en, this message translates to:

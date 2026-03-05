@@ -134,39 +134,39 @@ class EscrowMonitor {
         updatedAt: now,
       );
     } else if (event is EscrowArbitratedEvent) {
-      print('[monitor] Trade arbitrated: tx=${event.transactionHash}  '
+      print('[monitor] Trade arbitrated: ${event.tradeId}  '
           'forwarded=${event.forwarded}');
-      final existing = _trades.entries
-          .where((e) => e.value.lastTxHash == event.transactionHash)
-          .firstOrNull;
+      final existing = _trades[event.tradeId];
       if (existing != null) {
-        _trades[existing.key] = existing.value.copyWith(
+        _trades[event.tradeId] = existing.copyWith(
           status: TradeStatus.arbitrated,
           lastTxHash: event.transactionHash,
           updatedAt: now,
         );
       }
     } else if (event is EscrowReleasedEvent) {
-      print('[monitor] Trade released: tx=${event.transactionHash}');
-      _updateByTx(event.transactionHash, TradeStatus.released, now);
+      print('[monitor] Trade released: ${event.tradeId}');
+      final existing = _trades[event.tradeId];
+      if (existing != null) {
+        _trades[event.tradeId] = existing.copyWith(
+          status: TradeStatus.released,
+          lastTxHash: event.transactionHash,
+          updatedAt: now,
+        );
+      }
     } else if (event is EscrowClaimedEvent) {
-      print('[monitor] Trade claimed: tx=${event.transactionHash}');
-      _updateByTx(event.transactionHash, TradeStatus.claimed, now);
+      print('[monitor] Trade claimed: ${event.tradeId}');
+      final existing = _trades[event.tradeId];
+      if (existing != null) {
+        _trades[event.tradeId] = existing.copyWith(
+          status: TradeStatus.claimed,
+          lastTxHash: event.transactionHash,
+          updatedAt: now,
+        );
+      }
     }
 
     _tradesSubject.add(_trades);
-  }
-
-  void _updateByTx(String txHash, TradeStatus status, DateTime now) {
-    for (final entry in _trades.entries) {
-      if (entry.value.lastTxHash == txHash) {
-        _trades[entry.key] = entry.value.copyWith(
-          status: status,
-          updatedAt: now,
-        );
-        return;
-      }
-    }
   }
 
   // ── Nostr thread messages ─────────────────────────────────────────────────

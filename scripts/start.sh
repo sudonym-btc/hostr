@@ -63,10 +63,19 @@ fi
 # (tls-init, alby-init, lnbits-init, etc.) that exit 0 as failures.
 docker compose up -d --remove-orphans --yes
 
+# Block until tls-init finishes so the CA cert is available for trust
+# and for containers that mount it.
+# Use `docker wait` (not `docker compose wait`) because compose wait
+# fails with "no containers" when one-shot containers have already exited.
+tls_init_cid="$(docker compose ps -aq tls-init 2>/dev/null | head -n 1 || true)"
+if [ -n "$tls_init_cid" ]; then
+    docker wait "$tls_init_cid" >/dev/null 2>&1 || true
+fi
+
 # Block until the one-shot bootstrap container finishes.
 bootstrap_cid="$(docker compose ps -aq bootstrap 2>/dev/null | head -n 1 || true)"
 if [ -n "$bootstrap_cid" ]; then
-    docker compose wait bootstrap
+    docker wait "$bootstrap_cid" >/dev/null 2>&1
     bootstrap_exit_code="$(docker inspect "$bootstrap_cid" --format '{{.State.ExitCode}}')"
     if [ "$bootstrap_exit_code" -ne 0 ]; then
         echo "bootstrap failed with exit code: $bootstrap_exit_code"

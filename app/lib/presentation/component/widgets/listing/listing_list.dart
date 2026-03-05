@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:models/main.dart';
@@ -119,7 +120,13 @@ class _ListingsWidgetState extends State<ListingsWidget> {
         resultCountBuilder: (count, hasMore) => CustomPadding(
           bottom: 0,
           child: Row(
-            children: [FormLabel(label: '$count${hasMore ? '+' : ''} results')],
+            children: [
+              FormLabel(
+                label: AppLocalizations.of(
+                  context,
+                )!.searchResultCount(count, hasMore ? 'true' : 'false'),
+              ),
+            ],
           ),
         ),
         builder: (el) {

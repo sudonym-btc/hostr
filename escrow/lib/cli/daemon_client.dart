@@ -53,8 +53,8 @@ class DaemonClient {
     return Map<String, dynamic>.from(result as Map);
   }
 
-  Future<List<TradeSummary>> listPending() async {
-    final result = await _rpc.sendRequest(kRpcListPending);
+  Future<List<TradeSummary>> listTrades() async {
+    final result = await _rpc.sendRequest(kRpcListTrades);
     final map = Map<String, dynamic>.from(result as Map);
     return (map['trades'] as List)
         .map((e) => TradeSummary.fromJson(Map<String, dynamic>.from(e as Map)))
@@ -108,6 +108,18 @@ class DaemonClient {
       'threadId': threadId,
       'content': content,
     });
+  }
+
+  /// Resolve display names for a batch of pubkeys.
+  ///
+  /// Returns a map of pubkey → displayName (or `null` if unknown).
+  Future<Map<String, String?>> resolveNames(List<String> pubkeys) async {
+    if (pubkeys.isEmpty) return {};
+    final result =
+        await _rpc.sendRequest(kRpcResolveNames, {'pubkeys': pubkeys});
+    final map = Map<String, dynamic>.from(result as Map);
+    final names = Map<String, dynamic>.from(map['names'] as Map);
+    return names.map((k, v) => MapEntry(k, v as String?));
   }
 
   // ── Services ──────────────────────────────────────────────────────────────

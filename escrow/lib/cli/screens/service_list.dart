@@ -22,6 +22,7 @@ Future<Navigation> serviceListScreen(DaemonClient client) async {
       print('');
       print('  No escrow services published.');
       print('');
+      pressAnyKey();
       return Navigation.to(Screen.mainMenu);
     }
 

@@ -92,8 +92,12 @@ class SeedPipeline {
   /// Throws [StateError] if no address can be found.
   static String resolveContractAddress() {
     // 1. Environment variable.
-    final fromEnv = Platform.environment['CONTRACT_ADDR'];
-    if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
+    const fromEnv = String.fromEnvironment('CONTRACT_ADDR');
+    if (fromEnv.isNotEmpty) return fromEnv;
+
+    final fromEnvPlatform = Platform.environment['CONTRACT_ADDR'];
+    if (fromEnvPlatform != null && fromEnvPlatform.isNotEmpty)
+      return fromEnvPlatform;
 
     final cwd = Directory.current.path;
 
@@ -263,6 +267,7 @@ class SeedPipeline {
 
   Future<void> _runPipeline(SeedStreams s) async {
     try {
+      _ctx.anvilClient().setAutomine(true);
       final sw = Stopwatch()..start();
 
       // ── Users + funding ──────────────────────────────────────────────
@@ -456,6 +461,7 @@ class SeedPipeline {
         ),
       );
     } finally {
+      _ctx.anvilClient().setAutomine(false);
       _ctx.dispose();
     }
   }

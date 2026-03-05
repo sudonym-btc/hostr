@@ -18,7 +18,6 @@
 ///   ./scripts/screenshots.sh
 library;
 
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -30,13 +29,13 @@ import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/seed/seed.dart';
+import 'package:hostr_sdk/testing/integration_test_harness.dart';
 import 'package:hostr_sdk/usecase/requests/in_memory.requests.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail_image_network/mocktail_image_network.dart';
 
 // ── Seed configuration ──────────────────────────────────────────────────────
 // Small dataset — just enough for every screenshot page.
-// fundProfiles / setupLnbits are disabled — we only need seeded Nostr events.
 
 const _config = SeedPipelineConfig(
   seed: 42,
@@ -71,54 +70,9 @@ Future<void> _settle(
   }
 }
 
-/// Run the full seed pipeline (with outcomes) and return aggregate data.
-///
-/// Uses [SeedPipeline.run] which executes all stages including on-chain
-/// escrow outcomes via Anvil.
-/// Contract address baked in at compile time via `--dart-define`.
-/// Falls back to [SeedPipeline.resolveContractAddress] for non-simulator
-/// environments (e.g. running from the CLI).
-const _contractAddr = String.fromEnvironment('CONTRACT_ADDR');
-
 Future<SeedPipelineData> _runSeedPipeline() async {
-  final pipeline = SeedPipeline(
-    config: _config,
-    contractAddress: _contractAddr.isNotEmpty ? _contractAddr : null,
-  );
-  print('[screenshots] Using contract: ${pipeline.context.contractAddress}');
-
-  final streams = pipeline.run();
-
-  // Pipeline errors go to streams.events, not streams.done — so done.first
-  // throws "No element" instead of the real error.  Use a Completer to
-  // surface whichever signal arrives first.
-  final completer = Completer<SeedPipelineData>();
-
-  streams.done.listen(
-    (data) {
-      if (!completer.isCompleted) completer.complete(data);
-    },
-    onDone: () {
-      if (!completer.isCompleted) {
-        completer.completeError(
-          StateError('Pipeline finished without producing data'),
-        );
-      }
-    },
-  );
-
-  streams.events.listen(
-    null,
-    onError: (Object e, StackTrace st) {
-      if (!completer.isCompleted) completer.completeError(e, st);
-    },
-  );
-
-  try {
-    return await completer.future;
-  } finally {
-    pipeline.dispose();
-  }
+  final seeder = RelaySeeder();
+  return seeder.runPipeline(config: _config);
 }
 
 /// Take screenshots for every page in [mode] ("light" or "dark").
@@ -210,15 +164,22 @@ void main() {
 
   testWidgets('screenshot suite', (tester) async {
     // ── Bootstrap ───────────────────────────────────────────────────────
-    await initCore(Env.test);
+    await initCore(Env.dev);
     await initApp();
 
     final data = await _runSeedPipeline();
 
-    final requests = getIt<Hostr>().requests as InMemoryRequests;
-    requests.seedEvents(data.allEvents);
+    // final requests = getIt<Hostr>().requests as InMemoryRequests;
+    // requests.seedEvents(data.allEvents);
 
     final guest = data.users.firstWhere((u) => !u.isHost);
+
+    // Re-use the app's Hostr singleton so NWC connections land on the same
+    // instance the UI reads from.
+    final harness = await IntegrationTestHarness.create(
+      name: 'screenshots',
+      hostr: getIt<Hostr>(),
+    );
 
     final appRouter = AppRouter();
     final app = MyApp(appRouter: appRouter);
@@ -255,6 +216,13 @@ void main() {
       await tester.tap(loginButton);
       await _settle(tester, frames: 14); // 7 s — auth + thread sync
 
+      // ── Connect NWC wallet for the signed-in user ─────────────────
+      await harness.connectNwc(
+        user: guest.keyPair,
+        appNamePrefix: 'screenshots',
+      );
+      await _settle(tester, frames: 6); // let the NWC cubit propagate
+
       // ── Light mode screenshots ────────────────────────────────────
       await _takeScreenshots(tester, binding, appRouter, data, 'light');
 
@@ -267,6 +235,9 @@ void main() {
 
       // Clean up the test value.
       tester.platformDispatcher.clearPlatformBrightnessTestValue();
+
+      // Tear down AlbyHub app connections (does NOT dispose the app's Hostr).
+      await harness.dispose();
     });
   });
 }

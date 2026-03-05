@@ -32,18 +32,31 @@ Future<Navigation> threadDetailScreen(
     return Navigation.to(Screen.threadList);
   }
 
+  // ── Resolve display names ──────────────────────────────────────────────
+  Map<String, String?> names;
+  try {
+    names = await client.resolveNames(participants);
+  } catch (_) {
+    names = {};
+  }
+
+  String label(String pk) {
+    final name = names[pk];
+    final short = pk.substring(0, 5);
+    return name != null ? '$name ($short)' : short;
+  }
+
   // ── Display messages ───────────────────────────────────────────────────
   print('');
   print('── Thread: $threadId ──');
-  print(
-      '   Participants: ${participants.map((p) => p.length > 8 ? '${p.substring(0, 8)}…' : p).join(', ')}');
+  print('   Participants: ${participants.map(label).join(', ')}');
   print('');
 
   if (messages.isEmpty) {
     print('  (no messages)');
   } else {
     for (final msg in messages) {
-      _printMessage(msg);
+      _printMessage(msg, names);
     }
   }
 
@@ -66,6 +79,7 @@ Future<Navigation> threadDetailScreen(
   // ── What next? ─────────────────────────────────────────────────────────
   final actions = [
     'Refresh this thread',
+    'View Trade',
   ];
 
   final idx = SelectOrBack(prompt: 'Next', options: actions).interact();
@@ -73,6 +87,8 @@ Future<Navigation> threadDetailScreen(
   switch (idx) {
     case 0:
       return Navigation(Screen.threadDetail, selectedThreadId: threadId);
+    case 1:
+      return Navigation(Screen.tradeDetail, selectedTradeId: threadId);
     case -1:
     default:
       return Navigation.to(Screen.threadList);
@@ -81,9 +97,10 @@ Future<Navigation> threadDetailScreen(
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-void _printMessage(ThreadMessage msg) {
-  final sender =
-      msg.pubKey.length > 8 ? '${msg.pubKey.substring(0, 8)}…' : msg.pubKey;
+void _printMessage(ThreadMessage msg, Map<String, String?> names) {
+  final name = names[msg.pubKey];
+  final short = msg.pubKey.substring(0, 5);
+  final sender = name != null ? '$name ($short)' : short;
   final dt =
       DateTime.fromMillisecondsSinceEpoch(msg.createdAt * 1000).toLocal();
   final timeStr =

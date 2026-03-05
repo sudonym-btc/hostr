@@ -7,13 +7,7 @@ if [ -f /tls/ca.crt ]; then
   update-ca-certificates 2>/dev/null || true
 fi
 
-# ── Read contract address ─────────────────────────────────────────────────
-# Prefer the CONTRACT_ADDR env var; fall back to the file written by
-# escrow-contract-deploy in local/test profiles.
-if [ -z "$CONTRACT_ADDR" ] && [ -f /data/contract_addr ]; then
-  CONTRACT_ADDR=$(cat /data/contract_addr)
-  export CONTRACT_ADDR
-fi
-
 # ── Start the daemon (PID 1, foreground) ─────────────────────────────────
+# CONTRACT_ADDR must be set in the environment by the orchestrator
+# (docker-compose, k8s, etc.) — we never read it from a file here.
 exec dart run bin/daemon.dart

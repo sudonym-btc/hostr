@@ -5,9 +5,9 @@
 /// Daemon health check. Returns `{ "status": "ok" }`.
 const kRpcGetStatus = 'getStatus';
 
-/// List pending (funded but unresolved) trades.
+/// List all trades our escrow is involved in.
 /// Returns `{ "trades": [ TradeSummaryJson, … ] }`.
-const kRpcListPending = 'listPending';
+const kRpcListTrades = 'listTrades';
 
 /// Get a single trade's on-chain state.
 /// Params: `{ "tradeId": String }`.
@@ -74,6 +74,13 @@ const kRpcUpdateProfile = 'updateProfile';
 /// Returns `{ "mnemonic": String, "evmAddress": String,
 ///            "derivationPath": String }`.
 const kRpcGetEvmMnemonic = 'getEvmMnemonic';
+
+// ── Metadata Resolution ─────────────────────────────────────────────────────
+
+/// Resolve display names for a batch of pubkeys.
+/// Params: `{ "pubkeys": [String, …] }`.
+/// Returns `{ "names": { pubkey: displayName | null, … } }`.
+const kRpcResolveNames = 'resolveNames';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Serialisation helpers
