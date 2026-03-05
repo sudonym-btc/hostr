@@ -85,6 +85,11 @@ variable "compose_runtime_secret_values" {
   default     = {}
 }
 
+variable "tf_state_bucket" {
+  description = "Name of the GCS bucket holding Terraform remote state (created by bootstrap)."
+  type        = string
+}
+
 variable "github_repo_owner_name" {
   description = "GitHub owner/repo (e.g. 'sudonym-btc/hostr') used for Workload Identity Federation."
   type        = string
