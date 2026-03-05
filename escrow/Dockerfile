@@ -9,7 +9,6 @@ COPY models /workspace/models
 WORKDIR /workspace/escrow
 
 RUN dart pub get
+RUN chmod +x docker/entrypoint.sh
 
-# Default: run the daemon (long-running process).
-# Override with `docker exec … dart run bin/cli.dart` to attach the CLI.
-CMD ["dart", "run", "bin/daemon.dart"]
+ENTRYPOINT ["docker/entrypoint.sh"]

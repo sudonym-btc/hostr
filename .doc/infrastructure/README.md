@@ -82,6 +82,68 @@ echo "<escrow-private-key>" | gcloud secrets versions add ESCROW_PRIVATE_KEY --p
 echo "<blossom-dashboard-password>" | gcloud secrets versions add BLOSSOM_DASHBOARD_PASSWORD --project "$PROJECT_ID" --data-file=-
 ```
 
+### Seeding secrets after a fresh Terraform deploy
+
+After `scripts/deploy.sh staging` (or `production`) completes, the Secret
+Manager **containers** exist but have **no versions** yet. You need to seed them
+before the VM can start the escrow daemon.
+
+#### 1. Generate and store the escrow key
+
+Generate a fresh Nostr private key and store it in one step:
+
+```bash
+# From the repo root
+PROJECT_ID="hostr-staging-d4c52998"  # or hostr-production-d3ba05b4
+
+cd escrow && dart run bin/generate_nsec.dart | \
+  gcloud secrets versions add ESCROW_PRIVATE_KEY \
+    --project="$PROJECT_ID" --data-file=-
+```
+
+Or if you already have a key:
+
+```bash
+echo -n "<nsec-hex>" | \
+  gcloud secrets versions add ESCROW_PRIVATE_KEY \
+    --project="$PROJECT_ID" --data-file=-
+```
+
+#### 2. Store the blossom dashboard password
+
+```bash
+echo -n "<password>" | \
+  gcloud secrets versions add BLOSSOM_DASHBOARD_PASSWORD \
+    --project="$PROJECT_ID" --data-file=-
+```
+
+#### 3. Verify the escrow pubkey
+
+Derive the Nostr pubkey from the stored secret to confirm it's correct and
+to get the value needed for the app's `bootstrapEscrowPubkeys` config:
+
+```bash
+./scripts/escrow-pubkey.sh "$PROJECT_ID"
+```
+
+This outputs the pubkey. Update the corresponding config in
+`app/lib/config/env/{staging,production}.config.dart`:
+
+```dart
+static const _hostrEscrowPubkey = '<pubkey-from-above>';
+```
+
+#### 4. Deploy the contract and set the address
+
+Deploy the MultiEscrow contract to Rootstock (see the escrow README), then set
+`ESCROW_CONTRACT_ADDR` in `.env.staging` or `.env.prod`:
+
+```
+ESCROW_CONTRACT_ADDR=0x<deployed-address>
+```
+
+This value is **not** a secret — it's committed to the repo in the env file.
+
 ## Deployment behavior
 
 The VM startup/deploy script:

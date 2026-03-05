@@ -92,12 +92,6 @@ services:
         required: false
     volumes:
       - ./docker/data/escrow:/data:ro
-    command:
-      [
-        "sh",
-        "-lc",
-        "set -euo pipefail && export CONTRACT_ADDR=$$(cat /data/contract_addr) && exec dart run lib/cli.dart start",
-      ]
 
   seed-relay:
     volumes:

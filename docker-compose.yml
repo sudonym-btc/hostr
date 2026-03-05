@@ -203,15 +203,10 @@ services:
       - NOSTR_RELAY=wss://relay.${DOMAIN}
       - PRIVATE_KEY=${ESCROW_PRIVATE_KEY}
       - RPC_URL=${RPC_URL}
+      - CONTRACT_ADDR=${ESCROW_CONTRACT_ADDR:-}
     volumes:
       - ./docker/data/escrow:/data:ro
       - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
-    command:
-      [
-        "sh",
-        "-c",
-        "cp /tls/ca.crt /usr/local/share/ca-certificates/hostr-dev-ca.crt && update-ca-certificates 2>/dev/null && set -euo pipefail && export CONTRACT_ADDR=$$(cat /data/contract_addr) && exec dart run lib/cli.dart start",
-      ]
     networks:
       - default
       - shared_network

@@ -7,6 +7,22 @@ const config: HardhatUserConfig = {
     localhost: {
       url: process.env.RPC_URL ?? "http://127.0.0.1:8545",
     },
+    // Rootstock Testnet (chainId 31)
+    "rsk-testnet": {
+      url: "https://public-node.testnet.rsk.co",
+      chainId: 31,
+      accounts: process.env.DEPLOYER_PRIVATE_KEY
+        ? [process.env.DEPLOYER_PRIVATE_KEY]
+        : [],
+    },
+    // Rootstock Mainnet (chainId 30)
+    "rsk-mainnet": {
+      url: "https://public-node.rsk.co",
+      chainId: 30,
+      accounts: process.env.DEPLOYER_PRIVATE_KEY
+        ? [process.env.DEPLOYER_PRIVATE_KEY]
+        : [],
+    },
     hardhat: {
       mining: {
         auto: true,

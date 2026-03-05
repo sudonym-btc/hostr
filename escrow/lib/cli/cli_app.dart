@@ -106,6 +106,7 @@ class CliApp {
       'Threads',
       'Services',
       'Profile',
+      'EVM mnemonic',
       'Daemon status',
       'Exit',
     ];
@@ -122,9 +123,12 @@ class CliApp {
       case 3:
         return Navigation.to(Screen.profileEdit);
       case 4:
-        await _showStatus();
+        await _showEvmMnemonic();
         return Navigation.to(Screen.mainMenu);
       case 5:
+        await _showStatus();
+        return Navigation.to(Screen.mainMenu);
+      case 6:
       default:
         return Navigation.to(Screen.exit);
     }
@@ -134,6 +138,30 @@ class CliApp {
   void _clearScreen() {
     if (stdout.hasTerminal) {
       stdout.write('\x1B[2J\x1B[H');
+    }
+  }
+
+  Future<void> _showEvmMnemonic() async {
+    try {
+      final info = await client.getEvmMnemonic();
+      final mnemonic = info['mnemonic'] as String;
+      final evmAddress = info['evmAddress'] as String;
+      final path = info['derivationPath'] as String;
+
+      print('');
+      print('── EVM Mnemonic (MetaMask-compatible) ──');
+      print('');
+      print('  $mnemonic');
+      print('');
+      print('  Address         : $evmAddress');
+      print('  Derivation path : $path');
+      print('');
+      print(
+          '  ⚠ Keep this mnemonic secret — it controls the escrow EVM wallet.');
+      print('');
+    } catch (e) {
+      print('  Error: $e');
+      print('');
     }
   }
 

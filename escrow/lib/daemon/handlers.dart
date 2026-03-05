@@ -33,6 +33,7 @@ class DaemonHandler {
     server.registerMethod(kRpcUpdateService, _updateService);
     server.registerMethod(kRpcGetProfile, _getProfile);
     server.registerMethod(kRpcUpdateProfile, _updateProfile);
+    server.registerMethod(kRpcGetEvmMnemonic, _getEvmMnemonic);
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -335,5 +336,18 @@ class DaemonHandler {
     final profile = ProfileMetadata.fromNostrEvent(fullEvent);
     await hostr.metadata.upsert(profile);
     return {'ok': true};
+  }
+
+  // ── EVM Key Info ──────────────────────────────────────────────────────────
+
+  Map<String, dynamic> _getEvmMnemonic(json_rpc.Parameters params) {
+    final nsecHex = hostr.auth.activeKeyPair!.privateKey!;
+    final mnemonic = deriveEvmMnemonic(nsecHex);
+    final evmAddress = hostr.auth.getActiveEvmKey().address.eip55With0x;
+    return {
+      'mnemonic': mnemonic,
+      'evmAddress': evmAddress,
+      'derivationPath': "m/44'/60'/0'/0/0",
+    };
   }
 }
