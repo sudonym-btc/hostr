@@ -561,6 +561,17 @@ class Reservations extends CrudUseCase<Reservation> {
     return reservation;
   }
 
+  /// Soft cleanup for logout: cancel the subscription and null out the
+  /// stream so [subscribeToMyReservations] creates a fresh one on next
+  /// login.
+  Future<void> reset() async {
+    await _myReservationsSubscription?.cancel();
+    _myReservationsSubscription = null;
+    _myReservations = null;
+  }
+
+  /// Permanent teardown — closes the stream. Only call when the Hostr
+  /// instance itself is being disposed.
   Future<void> dispose() async {
     await _myReservations?.close();
     _myReservations = null;

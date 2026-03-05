@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/core/main.dart';
-import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 
 import 'date_range_controller.dart';
 
@@ -36,58 +35,101 @@ class DateRangeButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _handleTap(context),
-      child: AbsorbPointer(
-        child: SegmentedButton(
-          emptySelectionAllowed: true,
-          multiSelectionEnabled: true,
-          segments: [
-            ButtonSegment(
-              value: 'in',
-              label: CustomPadding.md(
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _DateTile(
+            icon: Icons.calendar_today,
+            label: 'Check in',
+            value: _effectiveRange != null
+                ? formatDate(_effectiveRange!.start)
+                : null,
+            colorScheme: colorScheme,
+            theme: theme,
+            onTap: () => _handleTap(context),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _DateTile(
+            icon: Icons.calendar_today,
+            label: 'Check out',
+            value: _effectiveRange != null
+                ? formatDate(_effectiveRange!.end)
+                : null,
+            colorScheme: colorScheme,
+            theme: theme,
+            onTap: () => _handleTap(context),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DateTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? value;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+  final VoidCallback onTap;
+
+  const _DateTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.colorScheme,
+    required this.theme,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        fontWeight: FontWeight.bold,
+                      label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface,
                       ),
-                      'Check in',
                     ),
-                    if (_effectiveRange != null)
+                    if (value != null)
                       Text(
-                        style: Theme.of(context).textTheme.bodySmall,
-                        formatDate(_effectiveRange!.start),
+                        value!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                   ],
                 ),
               ),
-            ),
-            ButtonSegment(
-              value: 'out',
-              label: CustomPadding.md(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      'Check out',
-                    ),
-                    if (_effectiveRange != null)
-                      Text(
-                        style: Theme.of(context).textTheme.bodySmall,
-                        formatDate(_effectiveRange!.end),
-                      ),
-                  ],
-                ),
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
               ),
-            ),
-          ],
-          selected: <dynamic>{},
+            ],
+          ),
         ),
       ),
     );

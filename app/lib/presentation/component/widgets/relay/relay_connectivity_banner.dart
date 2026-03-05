@@ -1,49 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/relay_connectivity.cubit.dart';
-import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
-/// A banner that slides up from the bottom of the screen when more than 50%
-/// of relays are disconnected.
-class RelayConnectivityBanner extends StatelessWidget {
+/// Listens to [RelayConnectivityCubit] and shows / hides a [SnackBar] when
+/// more than 50% of relays are disconnected.
+class RelayConnectivityBanner extends StatefulWidget {
   final Widget child;
 
   const RelayConnectivityBanner({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: BlocBuilder<RelayConnectivityCubit, RelayConnectivityState>(
-            builder: (context, state) {
-              return AnimatedSlide(
-                offset: state.majorityDisconnected
-                    ? Offset.zero
-                    : const Offset(0, 1),
-                duration: kAnimationDuration,
-                curve: kAnimationCurve,
-                child: AnimatedOpacity(
-                  opacity: state.majorityDisconnected ? 1.0 : 0.0,
-                  duration: kAnimationDuration,
-                  child: SafeArea(
-                    top: false,
-                    child: RelayConnectivityBannerView(
-                      connectedRelays: state.connectedRelays,
-                      totalRelays: state.totalRelays,
-                    ),
-                  ),
+  State<RelayConnectivityBanner> createState() =>
+      _RelayConnectivityBannerState();
+}
+
+class _RelayConnectivityBannerState extends State<RelayConnectivityBanner> {
+  bool _snackBarVisible = false;
+
+  void _onStateChanged(BuildContext context, RelayConnectivityState state) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    if (state.majorityDisconnected && !_snackBarVisible) {
+      _snackBarVisible = true;
+      final colorScheme = Theme.of(context).colorScheme;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.wifi_off, color: colorScheme.onErrorContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Relay connectivity issue — '
+                  '${state.connectedRelays}/${state.totalRelays} relays connected',
+                  style: TextStyle(color: colorScheme.onErrorContainer),
                 ),
-              );
-            },
+              ),
+            ],
           ),
+          backgroundColor: colorScheme.errorContainer,
+          duration: const Duration(days: 1), // persistent until dismissed
+          dismissDirection: DismissDirection.down,
+          behavior: SnackBarBehavior.floating,
         ),
-      ],
+      );
+    } else if (!state.majorityDisconnected && _snackBarVisible) {
+      _snackBarVisible = false;
+      messenger.hideCurrentSnackBar();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<RelayConnectivityCubit, RelayConnectivityState>(
+      listener: _onStateChanged,
+      child: widget.child,
     );
   }
 }
@@ -64,38 +76,27 @@ class RelayConnectivityBannerView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(kSpace3),
-      padding: const EdgeInsets.symmetric(
-        horizontal: kSpace4,
-        vertical: kSpace3,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.error,
-        borderRadius: BorderRadius.circular(kSpace3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.wifi_off, color: theme.colorScheme.onError),
-          Gap.horizontal.custom(kSpace3),
-          Expanded(
-            child: Text(
-              'Relay connectivity issue — '
-              '$connectedRelays/$totalRelays relays connected',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onError,
+    return Material(
+      color: theme.colorScheme.errorContainer,
+      borderRadius: BorderRadius.circular(12),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.wifi_off, color: theme.colorScheme.onErrorContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Relay connectivity issue — '
+                '$connectedRelays/$totalRelays relays connected',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

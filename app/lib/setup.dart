@@ -87,7 +87,7 @@ Future<void> initApp() async {
 
   // Skip notification permission prompt in test — it blocks CI and
   // screenshot automation with a system dialog that can't be pre-granted.
-  if (env != Env.test) {
+  if (env != Env.test && env != Env.mock) {
     sw.reset();
     await setupNotifications();
     logger.d('[initApp] notifications: ${sw.elapsedMilliseconds}ms');

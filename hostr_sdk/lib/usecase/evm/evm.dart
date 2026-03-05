@@ -93,6 +93,19 @@ class Evm {
     }
   }
 
+  /// Soft cleanup for logout: tear down the balance subscription and
+  /// subject so a subsequent [subscribeBalance] / [resetBalance] starts
+  /// fresh, but don't permanently close anything.
+  Future<void> reset() async {
+    await _balanceSubscription?.cancel();
+    _balanceSubscription = null;
+    // Don't close the subject — just null it so subscribeBalance()
+    // lazily creates a new one on the next login.
+    _balanceSubject = null;
+  }
+
+  /// Permanent teardown — closes the subject. Only call when the Hostr
+  /// instance itself is being disposed.
   Future<void> dispose() async {
     await _balanceSubscription?.cancel();
     _balanceSubscription = null;

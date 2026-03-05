@@ -148,9 +148,9 @@ class Hostr {
         logger.i('User logged out');
         autoWithdraw.stop();
         messaging.threads.reset();
-        await nwc.dispose();
-        reservations.dispose();
-        await evm.dispose();
+        await nwc.reset();
+        await reservations.reset();
+        await evm.reset();
       }
     });
   }
