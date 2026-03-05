@@ -50,11 +50,49 @@ This initialises the GCS backend, runs `terraform apply`, and optionally resets 
 The state bucket name is read from `infrastructure/bootstrap/terraform.tfvars`.
 You can override it with `TF_STATE_BUCKET` env var.
 
-## CI deployment
+## CI deployment (Workload Identity Federation)
 
 The GitHub Actions workflow (`.github/workflows/infra_deploy.yaml`) handles
-environment deploys automatically. It requires the `TF_STATE_BUCKET` repository
-variable to be set.
+environment deploys automatically. Authentication uses **Workload Identity
+Federation** (WIF) — no long-lived service account keys.
+
+### How it works
+
+1. GitHub's OIDC provider issues a short-lived JWT for the workflow run.
+2. GCP exchanges the JWT for temporary credentials via the WIF pool/provider.
+3. The workflow impersonates the `ci-deploy` service account to run Terraform.
+
+### First-time setup (chicken-and-egg)
+
+WIF resources are managed in Terraform (`infrastructure/ci.tf`), so the first
+deploy must be run **locally**:
+
+```bash
+scripts/deploy.sh staging
+scripts/deploy.sh production
+```
+
+After each apply, grab the outputs:
+
+```bash
+cd infrastructure
+terraform output ci_workload_identity_provider
+terraform output ci_service_account_email
+```
+
+Then set these as **environment variables** in GitHub:
+
+| GitHub environment | Variable                         | Value                                            |
+| ------------------ | -------------------------------- | ------------------------------------------------ |
+| staging            | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `terraform output ci_workload_identity_provider` |
+| staging            | `GCP_SERVICE_ACCOUNT_EMAIL`      | `terraform output ci_service_account_email`      |
+| staging            | `TF_STATE_BUCKET`                | The GCS bucket from bootstrap                    |
+| production         | `GCP_WORKLOAD_IDENTITY_PROVIDER` | (same outputs from the production apply)         |
+| production         | `GCP_SERVICE_ACCOUNT_EMAIL`      | (same outputs from the production apply)         |
+| production         | `TF_STATE_BUCKET`                | The GCS bucket from bootstrap                    |
+
+After that, the workflow can self-manage — subsequent `terraform apply` runs
+update the WIF resources if needed.
 
 Bootstrap is **not** run in CI — it's a one-time local operation.
 
