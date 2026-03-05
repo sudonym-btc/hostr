@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826040986624">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826042767846">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 4.1.0">
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../resources/css/retype.css?v=4.1.0.826040986624" rel="stylesheet">
+    <link href="../../resources/css/retype.css?v=4.1.0.826042767846" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../resources/js/config.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.1.0.826042767846" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.1.0.826040986624" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.1.0.826042767846" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.1.0.826042767846" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -229,15 +229,90 @@ scripts/deploy.sh production</code></pre>
 <p>This initialises the GCS backend, runs <code translate="no" v-pre>terraform apply</code>, and optionally resets the VM.</p>
 <p>The state bucket name is read from <code translate="no" v-pre>infrastructure/bootstrap/terraform.tfvars</code>.
 You can override it with <code translate="no" v-pre>TF_STATE_BUCKET</code> env var.</p>
-<doc-anchor-target id="ci-deployment">
+<doc-anchor-target id="ci-deployment-workload-identity-federation">
     <h2>
-        <doc-anchor-trigger class="header-anchor-trigger" to="#ci-deployment">#</doc-anchor-trigger>
-        <span>CI deployment</span>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#ci-deployment-workload-identity-federation">#</doc-anchor-trigger>
+        <span>CI deployment (Workload Identity Federation)</span>
     </h2>
 </doc-anchor-target>
 <p>The GitHub Actions workflow (<code translate="no" v-pre>.github/workflows/infra_deploy.yaml</code>) handles
-environment deploys automatically. It requires the <code translate="no" v-pre>TF_STATE_BUCKET</code> repository
-variable to be set.</p>
+environment deploys automatically. Authentication uses <strong>Workload Identity
+Federation</strong> (WIF) — no long-lived service account keys.</p>
+<doc-anchor-target id="how-it-works">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#how-it-works">#</doc-anchor-trigger>
+        <span>How it works</span>
+    </h3>
+</doc-anchor-target>
+<ol>
+<li>GitHub&#x27;s OIDC provider issues a short-lived JWT for the workflow run.</li>
+<li>GCP exchanges the JWT for temporary credentials via the WIF pool/provider.</li>
+<li>The workflow impersonates the <code translate="no" v-pre>ci-deploy</code> service account to run Terraform.</li>
+</ol>
+<doc-anchor-target id="first-time-setup-chicken-and-egg">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#first-time-setup-chicken-and-egg">#</doc-anchor-trigger>
+        <span>First-time setup (chicken-and-egg)</span>
+    </h3>
+</doc-anchor-target>
+<p>WIF resources are managed in Terraform (<code translate="no" v-pre>infrastructure/ci.tf</code>), so the first
+deploy must be run <strong>locally</strong>:</p>
+<div id="first-time-setup-chicken-and-egg-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/deploy.sh staging
+scripts/deploy.sh production</code></pre>
+</doc-codeblock></div>
+<p>After each apply, grab the outputs:</p>
+<div id="first-time-setup-chicken-and-egg-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd infrastructure
+terraform output ci_workload_identity_provider
+terraform output ci_service_account_email</code></pre>
+</doc-codeblock></div>
+<p>Then set these as <strong>environment variables</strong> in GitHub:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>GitHub environment</th>
+<th>Variable</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>staging</td>
+<td><code translate="no" v-pre>GCP_WORKLOAD_IDENTITY_PROVIDER</code></td>
+<td><code translate="no" v-pre>terraform output ci_workload_identity_provider</code></td>
+</tr>
+<tr>
+<td>staging</td>
+<td><code translate="no" v-pre>GCP_SERVICE_ACCOUNT_EMAIL</code></td>
+<td><code translate="no" v-pre>terraform output ci_service_account_email</code></td>
+</tr>
+<tr>
+<td>staging</td>
+<td><code translate="no" v-pre>TF_STATE_BUCKET</code></td>
+<td>The GCS bucket from bootstrap</td>
+</tr>
+<tr>
+<td>production</td>
+<td><code translate="no" v-pre>GCP_WORKLOAD_IDENTITY_PROVIDER</code></td>
+<td>(same outputs from the production apply)</td>
+</tr>
+<tr>
+<td>production</td>
+<td><code translate="no" v-pre>GCP_SERVICE_ACCOUNT_EMAIL</code></td>
+<td>(same outputs from the production apply)</td>
+</tr>
+<tr>
+<td>production</td>
+<td><code translate="no" v-pre>TF_STATE_BUCKET</code></td>
+<td>The GCS bucket from bootstrap</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>After that, the workflow can self-manage — subsequent <code translate="no" v-pre>terraform apply</code> runs
+update the WIF resources if needed.</p>
 <p>Bootstrap is <strong>not</strong> run in CI — it&#x27;s a one-time local operation.</p>
 <doc-anchor-target id="runtime-secrets-secret-manager">
     <h2>
