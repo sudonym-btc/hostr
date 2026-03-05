@@ -107,7 +107,8 @@ class IntegrationTestHarness {
       );
     }
 
-    final resolvedHostr = hostr ??
+    final resolvedHostr =
+        hostr ??
         Hostr(
           environment: environment,
           config: HostrConfig(
@@ -153,6 +154,7 @@ class IntegrationTestHarness {
     required KeyPair user,
     required String appNamePrefix,
   }) async {
+    print('[harness] connectNwc: getting pairing URL from AlbyHub...');
     final pairingUrl = await albyHub.getConnectionForUser(
       user,
       appName: '$appNamePrefix-${DateTime.now().millisecondsSinceEpoch}',
@@ -162,6 +164,7 @@ class IntegrationTestHarness {
         'Failed to obtain NWC pairing URL for ${user.publicKey}',
       );
     }
+    print('[harness] connectNwc: got pairing URL');
 
     // Wait for AlbyHub to publish the kind 13194 info event for this app's
     // wallet pubkey to the relay. Without this, NDK's connect() may query
@@ -176,6 +179,9 @@ class IntegrationTestHarness {
     if (appSecret != null) {
       _createdAppPubkeys.add(Bip340.getPublicKey(appSecret));
     }
+    print(
+      '[harness] connectNwc: waiting for NWC info event (walletPubkey=$walletPubkey)...',
+    );
     await hostr.requests
         .subscribe(
           filter: Filter(kinds: [kNostrKindNWCInfo], authors: [walletPubkey]),
@@ -183,9 +189,21 @@ class IntegrationTestHarness {
         )
         .stream
         .take(1)
+        .timeout(
+          const Duration(seconds: 15),
+          onTimeout: (sink) {
+            print(
+              '[harness] connectNwc: NWC info event timed out after 15s, continuing anyway',
+            );
+            sink.close();
+          },
+        )
         .toList();
-
+    print(
+      '[harness] connectNwc: NWC info event received (or timed out), calling initiateAndAdd...',
+    );
     await hostr.nwc.initiateAndAdd(pairingUrl);
+    print('[harness] connectNwc: done');
   }
 
   /// Clears stale pending EVM transactions from Boltz's database.

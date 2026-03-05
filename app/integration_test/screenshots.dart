@@ -164,13 +164,13 @@ void main() {
 
   testWidgets('screenshot suite', (tester) async {
     // ── Bootstrap ───────────────────────────────────────────────────────
-    await initCore(Env.dev);
+    await initCore(Env.test);
     await initApp();
 
     final data = await _runSeedPipeline();
 
-    // final requests = getIt<Hostr>().requests as InMemoryRequests;
-    // requests.seedEvents(data.allEvents);
+    final requests = getIt<Hostr>().requests as InMemoryRequests;
+    requests.seedEvents(data.allEvents);
 
     final guest = data.users.firstWhere((u) => !u.isHost);
 

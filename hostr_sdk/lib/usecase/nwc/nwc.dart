@@ -136,11 +136,20 @@ class Nwc {
     );
   }
 
-  Future<void> dispose() async {
+  /// Soft cleanup for logout: close all NWC cubits and clear the list,
+  /// but keep the [_connectionsSubject] open so a subsequent [start] works.
+  Future<void> reset() async {
     for (final connection in connections) {
       await connection.close();
     }
     connections.clear();
+    _connectionsSubject.add(connections);
+  }
+
+  /// Permanent teardown — closes the subject. Only call when the Hostr
+  /// instance itself is being disposed.
+  Future<void> dispose() async {
+    await reset();
     await _connectionsSubject.close();
   }
 

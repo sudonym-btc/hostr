@@ -43,7 +43,8 @@ ThemeData getTheme(bool isDark) {
             ), // 0.6 * 255 = 153
             type: BottomNavigationBarType.shifting,
           ),
-          splashColor: Colors.black, // Set splash color to match theme
+          splashColor:
+              darkColorScheme.primary, // Set splash color to match theme
         )
       : baseGeneric.copyWith(
           brightness: Brightness.light,
@@ -52,10 +53,14 @@ ThemeData getTheme(bool isDark) {
           bottomAppBarTheme: bottomAppBarTheme,
           bottomNavigationBarTheme: BottomNavigationBarThemeData(
             backgroundColor: bottomAppBarTheme.color,
-            selectedItemColor: Colors.deepPurple,
-            unselectedItemColor: Colors.black54,
-            type: BottomNavigationBarType.fixed,
+            selectedItemColor: lightColorScheme.onSurface,
+            elevation: 0,
+            unselectedItemColor: lightColorScheme.onSurface.withAlpha(
+              153,
+            ), // 0.6 * 255 = 153
+            type: BottomNavigationBarType.shifting,
           ),
-          splashColor: Colors.deepPurple, // Set splash color to match theme
+          splashColor:
+              lightColorScheme.primary, // Set splash color to match theme
         );
 }

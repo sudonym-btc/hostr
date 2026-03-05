@@ -1,49 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/nwc_connectivity.cubit.dart';
-import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
-/// A banner that slides up from the bottom of the screen when the user has
-/// a wallet saved but all NWC connections have failed.
-class NwcConnectivityBanner extends StatelessWidget {
+/// Listens to [NwcConnectivityCubit] and shows / hides a [SnackBar] when
+/// the user has a wallet saved but all NWC connections have failed.
+class NwcConnectivityBanner extends StatefulWidget {
   final Widget child;
 
   const NwcConnectivityBanner({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: BlocBuilder<NwcConnectivityCubit, NwcConnectivityState>(
-            builder: (context, state) {
-              return AnimatedSlide(
-                offset: state.walletDisconnected
-                    ? Offset.zero
-                    : const Offset(0, 1),
-                duration: kAnimationDuration,
-                curve: kAnimationCurve,
-                child: AnimatedOpacity(
-                  opacity: state.walletDisconnected ? 1.0 : 0.0,
-                  duration: kAnimationDuration,
-                  child: SafeArea(
-                    top: false,
-                    child: NwcConnectivityBannerView(
-                      connectedCount: state.connectedCount,
-                      totalConnections: state.totalConnections,
-                    ),
-                  ),
+  State<NwcConnectivityBanner> createState() => _NwcConnectivityBannerState();
+}
+
+class _NwcConnectivityBannerState extends State<NwcConnectivityBanner> {
+  bool _snackBarVisible = false;
+
+  void _onStateChanged(BuildContext context, NwcConnectivityState state) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    if (state.walletDisconnected && !_snackBarVisible) {
+      _snackBarVisible = true;
+      final colorScheme = Theme.of(context).colorScheme;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                Icons.account_balance_wallet_outlined,
+                color: colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Wallet connection failed',
+                  style: TextStyle(color: colorScheme.onErrorContainer),
                 ),
-              );
-            },
+              ),
+            ],
           ),
+          backgroundColor: colorScheme.errorContainer,
+          duration: const Duration(days: 1), // persistent until dismissed
+          dismissDirection: DismissDirection.down,
+          behavior: SnackBarBehavior.floating,
         ),
-      ],
+      );
+    } else if (!state.walletDisconnected && _snackBarVisible) {
+      _snackBarVisible = false;
+      messenger.hideCurrentSnackBar();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<NwcConnectivityCubit, NwcConnectivityState>(
+      listener: _onStateChanged,
+      child: widget.child,
     );
   }
 }
@@ -64,41 +77,30 @@ class NwcConnectivityBannerView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(kSpace3),
-      padding: const EdgeInsets.symmetric(
-        horizontal: kSpace4,
-        vertical: kSpace3,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(kSpace3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.account_balance_wallet_outlined,
-            color: theme.colorScheme.onErrorContainer,
-          ),
-          Gap.horizontal.custom(kSpace3),
-          Expanded(
-            child: Text(
-              'Wallet connection failed — '
-              '$connectedCount/$totalConnections wallets connected',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
+    return Material(
+      color: theme.colorScheme.errorContainer,
+      borderRadius: BorderRadius.circular(12),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              Icons.account_balance_wallet_outlined,
+              color: theme.colorScheme.onErrorContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Wallet connection failed — '
+                '$connectedCount/$totalConnections wallets connected',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
