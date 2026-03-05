@@ -89,3 +89,13 @@ resource "google_project_iam_member" "ci_deploy" {
   role    = each.value
   member  = "serviceAccount:${google_service_account.ci_deploy.email}"
 }
+
+# The TF state bucket lives in the production project.  When this stack runs
+# for staging, the project-level storage.admin above only covers staging
+# buckets, so we need an explicit bucket-level grant for the shared state
+# bucket.
+resource "google_storage_bucket_iam_member" "ci_deploy_state_bucket" {
+  bucket = var.tf_state_bucket
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.ci_deploy.email}"
+}
