@@ -13,7 +13,7 @@ dependencies:
   models:
     path: ../models
   ndk: ^0.7.1-dev.19
-  ndk_rust_verifier: 
+  # ndk_rust_verifier: requires Flutter SDK
   injectable: ^2.7.1+4
   rxdart: ^0.28.0
   logger: ^2.6.2

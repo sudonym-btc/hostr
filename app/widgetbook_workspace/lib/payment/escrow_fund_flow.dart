@@ -110,16 +110,6 @@ Widget escrowFundOnChainProgress(BuildContext context) {
   );
 }
 
-// -- Trade progress ----------------------------------------------------
-
-@widgetbook.UseCase(
-  name: 'Trade in progress',
-  type: EscrowFundTradeProgressWidget,
-)
-Widget escrowFundTradeProgress(BuildContext context) {
-  return const EscrowFundTradeProgressWidget();
-}
-
 // -- Success -----------------------------------------------------------
 
 @widgetbook.UseCase(name: 'Escrow Fund - Success', type: ModalBottomSheet)

@@ -277,17 +277,6 @@ final directories = <_widgetbook.WidgetbookNode>[
                                   ),
                                 ],
                               ),
-                              _widgetbook.WidgetbookComponent(
-                                name: 'EscrowFundTradeProgressWidget',
-                                useCases: [
-                                  _widgetbook.WidgetbookUseCase(
-                                    name: 'Trade in progress',
-                                    builder:
-                                        _widgetbook_workspace_payment_escrow_fund_flow
-                                            .escrowFundTradeProgress,
-                                  ),
-                                ],
-                              ),
                             ],
                           ),
                         ],
