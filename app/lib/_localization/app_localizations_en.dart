@@ -539,6 +539,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String searchResultCount(int count, String hasMore) {
+    String _temp0 = intl.Intl.selectLogic(hasMore, {'true': '+', 'other': ''});
+    String _temp1 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'results',
+      one: 'result',
+    );
+    return '$count$_temp0 $_temp1';
+  }
+
+  @override
   String reviewCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

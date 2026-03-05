@@ -28,19 +28,34 @@ Future<Navigation> threadListScreen(DaemonClient client) async {
 
   if (threads.isEmpty) {
     print('  No threads found.');
+    pressAnyKey();
     return Navigation.to(Screen.mainMenu);
+  }
+
+  // ── Resolve display names ──────────────────────────────────────────────
+  final allPubkeys = threads.expand((t) => t.participants).toSet().toList();
+  Map<String, String?> names;
+  try {
+    names = await client.resolveNames(allPubkeys);
+  } catch (_) {
+    names = {};
+  }
+
+  String label(String pk) {
+    final name = names[pk];
+    final short = pk.substring(0, 5);
+    return name != null ? '$name ($short)' : short;
   }
 
   // ── Selection ──────────────────────────────────────────────────────────
   final options = threads.map((t) {
-    final short =
-        t.anchor.length > 16 ? '${t.anchor.substring(0, 16)}…' : t.anchor;
+    final who = t.participants.map(label).join(', ');
     final preview = t.lastMessage != null && t.lastMessage!.isNotEmpty
         ? (t.lastMessage!.length > 40
             ? '${t.lastMessage!.substring(0, 40)}…'
             : t.lastMessage!)
         : '(no messages)';
-    return '$short  (${t.messageCount} msgs)  $preview';
+    return '$who  (${t.messageCount} msgs)  $preview';
   }).toList();
 
   final idx = SelectOrBack(prompt: 'Threads', options: options).interact();

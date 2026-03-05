@@ -12,6 +12,9 @@ class DaemonHandler {
   final DaemonContext ctx;
   final EscrowMonitor monitor;
 
+  /// In-memory cache: pubkey → display name (null = looked up but no name).
+  final Map<String, String?> _nameCache = {};
+
   DaemonHandler({required this.ctx, required this.monitor});
 
   Hostr get hostr => ctx.hostr;
@@ -21,7 +24,7 @@ class DaemonHandler {
   /// Wire every RPC method onto [server].
   void register(json_rpc.Server server) {
     server.registerMethod(kRpcGetStatus, _getStatus);
-    server.registerMethod(kRpcListPending, _listPending);
+    server.registerMethod(kRpcListTrades, _listTrades);
     server.registerMethod(kRpcGetTrade, _getTrade);
     server.registerMethod(kRpcAudit, _audit);
     server.registerMethod(kRpcArbitrate, _arbitrate);
@@ -34,6 +37,7 @@ class DaemonHandler {
     server.registerMethod(kRpcGetProfile, _getProfile);
     server.registerMethod(kRpcUpdateProfile, _updateProfile);
     server.registerMethod(kRpcGetEvmMnemonic, _getEvmMnemonic);
+    server.registerMethod(kRpcResolveNames, _resolveNames);
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -47,8 +51,15 @@ class DaemonHandler {
     };
   }
 
-  Map<String, dynamic> _listPending(json_rpc.Parameters params) {
-    final trades = monitor.pendingTrades;
+  Map<String, dynamic> _listTrades(json_rpc.Parameters params) {
+    final trades = monitor.trades.values.toList()
+      ..sort((a, b) {
+        // Pending (funded) first, then by updatedAt descending.
+        final aP = a.status == TradeStatus.funded ? 0 : 1;
+        final bP = b.status == TradeStatus.funded ? 0 : 1;
+        if (aP != bP) return aP.compareTo(bP);
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
     return {
       'trades': trades.map((t) => t.toSummary().toJson()).toList(),
     };
@@ -59,7 +70,9 @@ class DaemonHandler {
 
     // Try in-memory first, then fall back to on-chain lookup.
     final snapshot = monitor.getTrade(tradeId);
+    print('[getTrade] tradeId=$tradeId, snapshot=${snapshot?.status}');
     final onChain = await contract.getTrade(tradeId);
+    print('[getTrade] onChain=$onChain');
 
     return {
       'tradeId': tradeId,
@@ -96,17 +109,19 @@ class DaemonHandler {
     final tradeId = params['tradeId'].asString;
     final forward = params['forward'].asNum.toDouble();
 
-    if (forward <= 0 || forward >= 1) {
+    if (forward < 0 || forward > 1) {
       throw json_rpc.RpcException(
         -32602,
-        'forward must be strictly between 0 and 1',
+        'forward must be between 0 and 1 (inclusive)',
       );
     }
 
     // Look up the on-chain trade to find the arbiter address, then derive
     // the matching HD key. This ensures we sign with the correct account
     // even if the trade was created with a non-default account index.
+    print('[arbitrate] Looking up trade on chain: $tradeId');
     final onChain = await contract.getTrade(tradeId);
+    print('[arbitrate] getTrade result: $onChain');
     if (onChain == null) {
       throw json_rpc.RpcException(-32001, 'Trade not found on chain: $tradeId');
     }
@@ -188,7 +203,10 @@ class DaemonHandler {
     if (thread == null) {
       throw json_rpc.RpcException(-32001, 'Thread not found: $threadId');
     }
-
+    print([
+      ...thread.addedParticipants,
+      ...thread.state.value.participantPubkeys
+    ]);
     await thread.replyText(content);
     return {'ok': true};
   }
@@ -348,6 +366,38 @@ class DaemonHandler {
       'mnemonic': mnemonic,
       'evmAddress': evmAddress,
       'derivationPath': "m/44'/60'/0'/0/0",
+    };
+  }
+
+  // ── Metadata Resolution ──────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> _resolveNames(json_rpc.Parameters params) async {
+    final pubkeys =
+        (params['pubkeys'].value as List).map((e) => e as String).toList();
+
+    // Only fetch pubkeys we haven't cached yet.
+    final uncached =
+        pubkeys.where((pk) => !_nameCache.containsKey(pk)).toList();
+
+    // Resolve uncached pubkeys in parallel.
+    if (uncached.isNotEmpty) {
+      await Future.wait(uncached.map((pk) async {
+        try {
+          final profile = await hostr.metadata.loadMetadata(pk);
+          final m = profile?.metadata;
+          _nameCache[pk] = m?.displayName?.isNotEmpty == true
+              ? m!.displayName
+              : m?.name?.isNotEmpty == true
+                  ? m!.name
+                  : null;
+        } catch (_) {
+          _nameCache[pk] = null;
+        }
+      }));
+    }
+
+    return {
+      'names': {for (final pk in pubkeys) pk: _nameCache[pk]},
     };
   }
 }

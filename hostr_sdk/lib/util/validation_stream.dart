@@ -33,10 +33,12 @@ class ValidatedStreamWithStatus<T> {
   ValueStream<List<Validation<T>>> get list => _listSubject;
 
   void addStatus(StreamStatus next) {
+    if (status.isClosed) return;
     status.add(next);
   }
 
   void addError(Object error, StackTrace? stackTrace) {
+    if (status.isClosed) return;
     status.add(StreamStatusError(error, stackTrace));
   }
 

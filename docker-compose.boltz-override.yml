@@ -58,6 +58,12 @@ services:
   # Falls back to linux/arm64 for Apple Silicon local development.
   boltz-backend:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    # Upstream healthcheck has start_period: 0s with only 10 retries (10s).
+    # On Apple Silicon (emulated) after a volume wipe, boltz-backend can take
+    # 15-30s to connect to CLN/LND/Elements and open port 9000. Extend the
+    # grace period so compose doesn't mark it unhealthy prematurely.
+    healthcheck:
+      start_period: 45s
 
   boltz-backend-nginx:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
@@ -95,6 +101,39 @@ services:
       - default
       - shared_network
     profiles: ["default", "ci"]
+    # Override the default /start.sh entrypoint to add retry logic for
+    # registration.  The upstream script sleeps only 15s then fires a
+    # single register attempt — if the server isn't listening yet the
+    # registration fails silently and the relay never becomes ready.
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        cleanup() { echo 'SIGINT/SIGTERM received'; exit 0; }
+        trap cleanup SIGINT SIGTERM
+
+        # 1. Deploy contracts (same as upstream /start.sh)
+        cd /rif-relay-contracts && npx hardhat deploy --network regtest
+
+        # 2. Register in background with retry loop
+        (
+          cd /rif-relay-server
+          for i in $$(seq 1 30); do
+            sleep 5
+            if curl -sf http://127.0.0.1:8090/chain-info >/dev/null 2>&1; then
+              echo "Server is up, attempting registration (attempt $$i)..."
+              npm run register && echo "Registration successful" && break
+              echo "Registration failed, will retry..."
+            else
+              echo "Server not ready yet (attempt $$i/30)..."
+            fi
+          done
+        ) &
+
+        # 3. Start relay server (foreground-ish, same as upstream)
+        cd /rif-relay-server && npm run start &
+
+        wait
 
   # Ensure escrow-contract-deploy doesn't race with rif-relay for Anvil
   # Account 0 nonces (escrow now uses Account 2, but ordering is a safety net).
@@ -116,6 +155,22 @@ services:
   redis:
     volumes:
       - ${BOLTZ_ROOT:-.}/redis/cache.conf:/usr/local/etc/redis/redis.conf:ro
+
+  # --- Electrs ---
+  # Hostr doesn't need electrs (Electrum Server) — only boltz-client and
+  # esplora use it. Disable them so they don't start in local/test
+  # environments and can't cascade-fail boltz-backend startup.
+  # (Profile lists are additive in compose overrides, so we can't remove
+  # "ci" — instead we scale to 0 replicas.)
+  electrs:
+    profiles: ['default', 'backend-dev', 'webapp-ci']
+    deploy:
+      replicas: 0
+
+  electrs-liquid:
+    profiles: ['default', 'backend-dev', 'webapp-ci']
+    deploy:
+      replicas: 0
 
   # --- LND overrides ---
   # Use upstream LND image with explicit platform for ARM64 compatibility.

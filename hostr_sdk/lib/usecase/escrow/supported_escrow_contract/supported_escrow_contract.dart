@@ -270,9 +270,11 @@ class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
 }
 
 class EscrowReleasedEvent extends EscrowEvent implements PaymentReleasedEvent {
+  final String tradeId;
   final String transactionHash;
 
   EscrowReleasedEvent({
+    required this.tradeId,
     required super.block,
     super.escrowService,
     required this.transactionHash,
@@ -281,9 +283,11 @@ class EscrowReleasedEvent extends EscrowEvent implements PaymentReleasedEvent {
 
 class EscrowArbitratedEvent extends EscrowEvent
     implements PaymentArbitratedEvent {
+  final String tradeId;
   final String transactionHash;
   final double forwarded;
   EscrowArbitratedEvent({
+    required this.tradeId,
     required super.block,
     super.escrowService,
     required this.transactionHash,
@@ -292,8 +296,10 @@ class EscrowArbitratedEvent extends EscrowEvent
 }
 
 class EscrowClaimedEvent extends EscrowEvent implements PaymentClaimedEvent {
+  final String tradeId;
   final String transactionHash;
   EscrowClaimedEvent({
+    required this.tradeId,
     required super.block,
     super.escrowService,
     required this.transactionHash,

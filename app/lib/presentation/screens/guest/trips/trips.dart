@@ -5,6 +5,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
+import 'package:rxdart/rxdart.dart';
 
 @RoutePage()
 class TripsScreen extends StatefulWidget {
@@ -16,11 +17,18 @@ class TripsScreen extends StatefulWidget {
 
 class _TripsScreenState extends State<TripsScreen> {
   late final ValidatedStreamWithStatus<ReservationPairStatus> _pairsStream;
+  late final Stream<(List<Validation<ReservationPairStatus>>, StreamStatus)>
+  _combined;
 
   @override
   void initState() {
     super.initState();
     _pairsStream = getIt<Hostr>().reservationPairs.subscribeToMyVerifiedPairs();
+    _combined = Rx.combineLatest2(
+      _pairsStream.stream,
+      _pairsStream.status,
+      (data, status) => (data, status),
+    );
   }
 
   @override
@@ -33,41 +41,48 @@ class _TripsScreenState extends State<TripsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.trips)),
-      body: StreamBuilder<List<Validation<ReservationPairStatus>>>(
-        stream: _pairsStream.stream,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: AppLoadingIndicator.large());
-          }
+      body:
+          StreamBuilder<
+            (List<Validation<ReservationPairStatus>>, StreamStatus)
+          >(
+            stream: _combined,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: AppLoadingIndicator.large());
+              }
 
-          final pairs = snapshot.data!
-              .whereType<Valid<ReservationPairStatus>>()
-              .map((v) => v.event)
-              .toList();
+              final (validations, status) = snapshot.data!;
+              final pairs = validations
+                  .whereType<Valid<ReservationPairStatus>>()
+                  .map((v) => v.event)
+                  .toList();
 
-          if (pairs.isEmpty) {
-            return Center(
-              child: Text(AppLocalizations.of(context)!.noTripsYet),
-            );
-          }
-          pairs.sort(
-            (a, b) => (b.start ?? DateTime.now()).compareTo(
-              a.start ?? DateTime.now(),
-            ),
-          );
+              if (pairs.isEmpty) {
+                if (status is! StreamStatusLive) {
+                  return const Center(child: AppLoadingIndicator.large());
+                }
+                return Center(
+                  child: Text(AppLocalizations.of(context)!.noTripsYet),
+                );
+              }
+              pairs.sort(
+                (a, b) => (b.start ?? DateTime.now()).compareTo(
+                  a.start ?? DateTime.now(),
+                ),
+              );
 
-          return ListView.separated(
-            addAutomaticKeepAlives: true,
-            itemCount: pairs.length,
-            separatorBuilder: (_, _) => Container(),
-            itemBuilder: (context, index) {
-              return _KeepAliveReservationListItem(
-                reservationPair: pairs[index],
+              return ListView.separated(
+                addAutomaticKeepAlives: true,
+                itemCount: pairs.length,
+                separatorBuilder: (_, _) => Container(),
+                itemBuilder: (context, index) {
+                  return _KeepAliveReservationListItem(
+                    reservationPair: pairs[index],
+                  );
+                },
               );
             },
-          );
-        },
-      ),
+          ),
     );
   }
 }

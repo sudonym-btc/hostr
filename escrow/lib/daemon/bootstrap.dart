@@ -52,8 +52,11 @@ Future<DaemonContext> bootstrap() async {
   final String blossomUrl = Platform.environment['BLOSSOM_URL'] ??
       'https://blossom.hostr.development';
   final String environment = Platform.environment['ENV'] ?? 'dev';
-  final String contractAddress = Platform.environment['CONTRACT_ADDR'] ??
-      '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F';
+  final String? contractAddress = Platform.environment['CONTRACT_ADDR'];
+  if (contractAddress == null || contractAddress.isEmpty) {
+    print('[daemon] CONTRACT_ADDR is not set. Exiting.');
+    exit(1);
+  }
 
   final Web3Client web3client = Web3Client(rpcUrl, Client());
 

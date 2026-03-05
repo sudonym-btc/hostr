@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:hostr_sdk/datasources/anvil/anvil.dart';
 import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/main.dart';
@@ -20,6 +21,7 @@ class SeedContext {
 
   http.Client? _httpClient;
   Web3Client? _web3Client;
+  AnvilClient? _anvilClient;
   final Map<String, MultiEscrow> _escrowContracts = {};
 
   SeedContext({
@@ -86,6 +88,11 @@ class SeedContext {
     _httpClient ??= http.Client();
     _web3Client ??= Web3Client(rpcUrl, _httpClient!);
     return _web3Client!;
+  }
+
+  AnvilClient anvilClient() {
+    _anvilClient ??= AnvilClient(rpcUri: Uri.parse(rpcUrl));
+    return _anvilClient!;
   }
 
   MultiEscrow multiEscrowContract(String address) {

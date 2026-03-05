@@ -223,6 +223,18 @@
       }
     }
   },
+  "searchResultCount": "{count}{hasMore, select, true{+} other{}} {count, plural, =1{result} other{results}}",
+  "@searchResultCount": {
+    "description": "Search result count label with plural handling",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "hasMore": {
+        "type": "String"
+      }
+    }
+  },
   "reviewCount": "{count, plural, =0{No reviews} =1{1 review} other{{count} reviews}}",
   "@reviewCount": {
     "description": "Review count label with plural handling",

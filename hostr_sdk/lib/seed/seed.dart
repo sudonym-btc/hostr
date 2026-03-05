@@ -11,3 +11,4 @@ export 'pipeline/seed_pipeline.dart';
 export 'pipeline/seed_pipeline_config.dart';
 export 'pipeline/seed_pipeline_models.dart';
 export 'pipeline/test_seed_helper.dart';
+export 'relay_seed.dart';
