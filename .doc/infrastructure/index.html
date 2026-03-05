@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825631470984">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826040986624">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.0.1">
+    <meta name="generator" content="Retype 4.1.0">
 
     <!-- Primary Meta Tags -->
     <title>Infrastructure</title>
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../resources/css/retype.css?v=4.0.1.825631470984" rel="stylesheet">
+    <link href="../../resources/css/retype.css?v=4.1.0.826040986624" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../resources/js/config.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.0.1" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.0.1.825631470984" defer></script>
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.1.0.826040986624" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -211,7 +211,7 @@ scripts/deploy.sh production</code></pre>
         <span>Bootstrap (once / rare)</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="bootstrap-once--rare-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/bootstrap.sh</code></pre>
 </doc-codeblock></div>
 <p>Creates: GCS state bucket, Cloud DNS zones (parent + staging child), MX records, NS delegation.</p>
@@ -221,7 +221,7 @@ scripts/deploy.sh production</code></pre>
         <span>Environment deploy</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="environment-deploy-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/deploy.sh staging
 # or
 scripts/deploy.sh production</code></pre>
@@ -258,12 +258,81 @@ variable to be set.</p>
 <li>manually in GCP Secret Manager.</li>
 </ol>
 <p>Manual example:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="runtime-secrets-secret-manager-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash">PROJECT_ID=&quot;&lt;terraform output project_id&gt;&quot;
 
 echo &quot;&lt;escrow-private-key&gt;&quot; | gcloud secrets versions add ESCROW_PRIVATE_KEY --project &quot;$PROJECT_ID&quot; --data-file=-
 echo &quot;&lt;blossom-dashboard-password&gt;&quot; | gcloud secrets versions add BLOSSOM_DASHBOARD_PASSWORD --project &quot;$PROJECT_ID&quot; --data-file=-</code></pre>
 </doc-codeblock></div>
+<doc-anchor-target id="seeding-secrets-after-a-fresh-terraform-deploy">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#seeding-secrets-after-a-fresh-terraform-deploy">#</doc-anchor-trigger>
+        <span>Seeding secrets after a fresh Terraform deploy</span>
+    </h3>
+</doc-anchor-target>
+<p>After <code translate="no" v-pre>scripts/deploy.sh staging</code> (or <code translate="no" v-pre>production</code>) completes, the Secret
+Manager <strong>containers</strong> exist but have <strong>no versions</strong> yet. You need to seed them
+before the VM can start the escrow daemon.</p>
+<doc-anchor-target id="1-generate-and-store-the-escrow-key">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#1-generate-and-store-the-escrow-key">#</doc-anchor-trigger>
+        <span>1. Generate and store the escrow key</span>
+    </h4>
+</doc-anchor-target>
+<p>Generate a fresh Nostr private key and store it in one step:</p>
+<div id="1-generate-and-store-the-escrow-key-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash"># From the repo root
+PROJECT_ID=&quot;hostr-staging-d4c52998&quot;  # or hostr-production-d3ba05b4
+
+cd escrow &amp;&amp; dart run bin/generate_nsec.dart | \
+  gcloud secrets versions add ESCROW_PRIVATE_KEY \
+    --project=&quot;$PROJECT_ID&quot; --data-file=-</code></pre>
+</doc-codeblock></div>
+<p>Or if you already have a key:</p>
+<div id="1-generate-and-store-the-escrow-key-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">echo -n &quot;&lt;nsec-hex&gt;&quot; | \
+  gcloud secrets versions add ESCROW_PRIVATE_KEY \
+    --project=&quot;$PROJECT_ID&quot; --data-file=-</code></pre>
+</doc-codeblock></div>
+<doc-anchor-target id="2-store-the-blossom-dashboard-password">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#2-store-the-blossom-dashboard-password">#</doc-anchor-trigger>
+        <span>2. Store the blossom dashboard password</span>
+    </h4>
+</doc-anchor-target>
+<div id="2-store-the-blossom-dashboard-password-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">echo -n &quot;&lt;password&gt;&quot; | \
+  gcloud secrets versions add BLOSSOM_DASHBOARD_PASSWORD \
+    --project=&quot;$PROJECT_ID&quot; --data-file=-</code></pre>
+</doc-codeblock></div>
+<doc-anchor-target id="3-verify-the-escrow-pubkey">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#3-verify-the-escrow-pubkey">#</doc-anchor-trigger>
+        <span>3. Verify the escrow pubkey</span>
+    </h4>
+</doc-anchor-target>
+<p>Derive the Nostr pubkey from the stored secret to confirm it&#x27;s correct and
+to get the value needed for the app&#x27;s <code translate="no" v-pre>bootstrapEscrowPubkeys</code> config:</p>
+<div id="3-verify-the-escrow-pubkey-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">./scripts/escrow-pubkey.sh &quot;$PROJECT_ID&quot;</code></pre>
+</doc-codeblock></div>
+<p>This outputs the pubkey. Update the corresponding config in
+<code translate="no" v-pre>app/lib/config/env/{staging,production}.config.dart</code>:</p>
+<div id="3-verify-the-escrow-pubkey-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">static const _hostrEscrowPubkey = '&lt;pubkey-from-above&gt;';</code></pre>
+</doc-codeblock></div>
+<doc-anchor-target id="4-deploy-the-contract-and-set-the-address">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#4-deploy-the-contract-and-set-the-address">#</doc-anchor-trigger>
+        <span>4. Deploy the contract and set the address</span>
+    </h4>
+</doc-anchor-target>
+<p>Deploy the MultiEscrow contract to Rootstock (see the escrow README), then set
+<code translate="no" v-pre>ESCROW_CONTRACT_ADDR</code> in <code translate="no" v-pre>.env.staging</code> or <code translate="no" v-pre>.env.prod</code>:</p>
+<div id="4-deploy-the-contract-and-set-the-address-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">ESCROW_CONTRACT_ADDR=0x&lt;deployed-address&gt;</code></pre>
+</doc-codeblock></div>
+<p>This value is <strong>not</strong> a secret — it&#x27;s committed to the repo in the env file.</p>
 <doc-anchor-target id="deployment-behavior">
     <h2>
         <doc-anchor-trigger class="header-anchor-trigger" to="#deployment-behavior">#</doc-anchor-trigger>
@@ -277,7 +346,7 @@ echo &quot;&lt;blossom-dashboard-password&gt;&quot; | gcloud secrets versions ad
 <li>Writes <code translate="no" v-pre>ESCROW_CONTRACT_ADDR</code> to <code translate="no" v-pre>docker/data/escrow/contract_addr</code>.</li>
 <li>Runs:</li>
 </ol>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="deployment-behavior-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash">docker compose \
     --env-file /opt/hostr/.env.runtime \
     --profile &lt;staging|prod&gt; \

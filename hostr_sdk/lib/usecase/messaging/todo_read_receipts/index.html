@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825631470984">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826040986624">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.0.1">
+    <meta name="generator" content="Retype 4.1.0">
 
     <!-- Primary Meta Tags -->
     <title>TODO: NIP-17 Read Receipts &amp; Chat Liveness</title>
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../../../resources/css/retype.css?v=4.0.1.825631470984" rel="stylesheet">
+    <link href="../../../../../resources/css/retype.css?v=4.1.0.826040986624" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../../../resources/js/config.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../../../../../resources/js/retype.js?v=4.0.1" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../../../resources/js/lunr.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../../../resources/js/prism.js?v=4.0.1.825631470984" defer></script>
+    <script data-cfasync="false" src="../../../../../resources/js/config.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../../resources/js/lunr.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../../resources/js/prism.js?v=4.1.0.826040986624" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -225,7 +225,7 @@ received.</p>
         <span>Event shape</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="event-shape-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-json"><code v-pre class="language-json">{
   &quot;kind&quot;: 10017,
   &quot;pubkey&quot;: &quot;&lt;my-pubkey&gt;&quot;,
@@ -296,7 +296,7 @@ event to the counterparty.</p>
 <p><strong>Pros:</strong> Simple, tiny payload, no bloom-filter complexity.
 <strong>Cons:</strong> Late-arriving or out-of-order messages may be incorrectly marked seen.
 staab found this acceptable in practice for 1:1 chats.</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="option-a-timestamp-based-recommended--simplest-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-json"><code v-pre class="language-json">// Rumor (unsigned, inside gift-wrap)
 {
   &quot;kind&quot;: 16,
@@ -389,7 +389,7 @@ message IDs (so it doesn&#x27;t leak which conversation).</p>
         <span>Event shape (per vitorpamplona&#x27;s proposal)</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="event-shape-per-vitorpamplonas-proposal-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-json"><code v-pre class="language-json">{
   &quot;kind&quot;: 10018,
   &quot;pubkey&quot;: &quot;&lt;my-pubkey&gt;&quot;,
@@ -454,7 +454,7 @@ the current thread are inside the bloom filter. If yes → show &quot;typing…&
     </h2>
 </doc-anchor-target>
 <p>In <code translate="no" v-pre>models</code> or <code translate="no" v-pre>datasources</code>, define:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="key-constants-to-add-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">const kNostrKindReceivedHeartbeat = 10017;
 const kNostrKindTypingIndicator = 10018;
 const kNostrKindSeenMessages = 30010;

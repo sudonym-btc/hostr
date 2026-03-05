@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825631470984">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826040986624">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.0.1">
+    <meta name="generator" content="Retype 4.1.0">
 
     <!-- Primary Meta Tags -->
     <title>TODO: EVM Auto-Withdrawal via Swap-Out</title>
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../../../../../resources/css/retype.css?v=4.0.1.825631470984" rel="stylesheet">
+    <link href="../../../../../../../resources/css/retype.css?v=4.1.0.826040986624" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../../../../../resources/js/config.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../../../../../../../resources/js/retype.js?v=4.0.1" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../../../../../resources/js/lunr.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../../../../../resources/js/prism.js?v=4.0.1.825631470984" defer></script>
+    <script data-cfasync="false" src="../../../../../../../resources/js/config.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../../../../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../../../../resources/js/lunr.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../../../../resources/js/prism.js?v=4.1.0.826040986624" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -182,7 +182,7 @@ Auto-withdrawing would drain the funds and cause the escrow deposit to fail.</p>
         <span>New components</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="new-components-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">usecase/evm/operations/auto_withdraw/
 ├── auto_withdraw_service.dart    # Core service — orchestrates the loop
 ├── auto_withdraw_config.dart     # Min threshold, polling interval, etc.
@@ -195,7 +195,7 @@ Auto-withdrawing would drain the funds and cause the escrow deposit to fail.</p>
         <span>Interaction diagram</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="interaction-diagram-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">┌──────────────────┐
 │  Balance stream   │  (Evm.subscribeBalance — fires on each new block)
 └────────┬─────────┘
@@ -268,7 +268,8 @@ when the app was killed. Stale locks from crashes can be cleaned up with
     </h2>
 </doc-anchor-target>
 <p>Auto-withdraw configuration is split between persisted user preferences
-(<code translate="no" v-pre>HostrUserConfig</code>) and service-level constants (<code translate="no" v-pre>AutoWithdrawService</code>).</p>
+(<code translate="no" v-pre>HostrUserConfig</code>), SDK-level defaults (<code translate="no" v-pre>HostrConfig</code>), and service-level
+constants (<code translate="no" v-pre>AutoWithdrawService</code>).</p>
 <doc-anchor-target id="persisted-in-hostruserconfig-user-facing">
     <h3>
         <doc-anchor-trigger class="header-anchor-trigger" to="#persisted-in-hostruserconfig-user-facing">#</doc-anchor-trigger>
@@ -277,7 +278,16 @@ when the app was killed. Stale locks from crashes can be cleaned up with
 </doc-anchor-target>
 <ul>
 <li><code translate="no" v-pre>autoWithdrawEnabled</code> (bool, default: <code translate="no" v-pre>true</code>)</li>
-<li><code translate="no" v-pre>autoWithdrawMinimumSats</code> (int, default: <code translate="no" v-pre>10000</code>)</li>
+</ul>
+<doc-anchor-target id="defaults-on-hostrconfig-sdk-configuration">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#defaults-on-hostrconfig-sdk-configuration">#</doc-anchor-trigger>
+        <span>Defaults on <code translate="no" v-pre>HostrConfig</code> (SDK configuration)</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li><code translate="no" v-pre>autoWithdrawMinimumSats</code> (int, default: <code translate="no" v-pre>10000</code>) — minimum per-address
+balance before auto-withdrawal triggers.</li>
 </ul>
 <doc-anchor-target id="constants-on-autowithdrawservice-implementation-details">
     <h3>
@@ -301,9 +311,9 @@ and is accessible through <code translate="no" v-pre>hostr.userConfig.state</cod
     </h3>
 </doc-anchor-target>
 <p>Before triggering a swap, the service should call
-<code translate="no" v-pre>Rootstock.getMinimumSwapOut()</code> to get the current Boltz minimum, and
+<code translate="no" v-pre>Rootstock.getSwapOutLimits()</code> to get the current Boltz limits, and
 <code translate="no" v-pre>SwapOutOperation.estimateFees()</code> to compute total fees. Only proceed if:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="fee-awareness-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">balance - totalFees - reservedAmount &gt; 0</code></pre>
 </doc-codeblock></div>
 <p>where <code translate="no" v-pre>reservedAmount</code> is <code translate="no" v-pre>EscrowLockRegistry.totalReservedAmount</code>. The user
@@ -318,7 +328,7 @@ the minimum but fees eat most of it.</p>
         <span>3. <code translate="no" v-pre>AutoWithdrawService</code> — the orchestrator <span class="docs-emoji">&#x2705;</span> IMPLEMENTED</span>
     </h2>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="3-autowithdrawservice--the-orchestrator--implemented-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">@Singleton()
 class AutoWithdrawService {
   final Evm evm;
@@ -347,7 +357,7 @@ class AutoWithdrawService {
         <span>Core loop (pseudocode)</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="core-loop-pseudocode-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">void start() {
   _balanceSub = evm.subscribeBalance()
     .debounceTime(config.debounce)
@@ -431,7 +441,7 @@ independently. A chain with zero balance is skipped. Each chain&#x27;s
         <span>Startup (<code translate="no" v-pre>setup.dart</code> / <code translate="no" v-pre>Hostr</code>)</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="startup-setupdart--hostr-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">// After auth is ready, evm is initialised, and swap recovery has run:
 if (auth.activeKeyPair != null) {
   getIt&lt;AutoWithdrawService&gt;().start();
@@ -444,7 +454,7 @@ if (auth.activeKeyPair != null) {
     </h3>
 </doc-anchor-target>
 <p>On login/logout/key-switch, stop and restart:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="auth-changes-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">auth.activeKeyPairStream.listen((_) {
   getIt&lt;AutoWithdrawService&gt;().stop();
   if (auth.activeKeyPair != null) {
@@ -460,7 +470,7 @@ if (auth.activeKeyPair != null) {
 </doc-anchor-target>
 <p>When <code translate="no" v-pre>EscrowClaimOperation</code> completes, the user&#x27;s on-chain balance increases.
 Trigger an immediate check:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="after-escrow-claim-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">// In claim operation, after successful claim:
 getIt&lt;AutoWithdrawService&gt;().checkNow();</code></pre>
 </doc-codeblock></div>

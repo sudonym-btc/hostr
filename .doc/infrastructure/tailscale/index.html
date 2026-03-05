@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825631470984">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826040986624">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.0.1">
+    <meta name="generator" content="Retype 4.1.0">
 
     <!-- Primary Meta Tags -->
     <title>Tailscale &amp; Split DNS for Local Development</title>
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../resources/css/retype.css?v=4.0.1.825631470984" rel="stylesheet">
+    <link href="../../../resources/css/retype.css?v=4.1.0.826040986624" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../../../resources/js/retype.js?v=4.0.1" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.0.1.825631470984" defer></script>
+    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.1.0.826040986624" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -160,7 +160,7 @@
         <span>Architecture</span>
     </h2>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="architecture-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">┌─────────────────────────────────────────────────────────┐
 │  Dev Mac (100.95.205.9)                                 │
 │                                                         │
@@ -313,7 +313,7 @@
 </doc-anchor-target>
 <p>Config location: <code translate="no" v-pre>/opt/homebrew/etc/dnsmasq.conf</code></p>
 <p>Active settings (appended at end of file):</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="dnsmasq-on-dev-mac-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">address=/.hostr.development/100.95.205.9
 port=53
 listen-address=127.0.0.1,100.95.205.9
@@ -335,7 +335,7 @@ log-facility=-</code></pre>
     </h3>
 </doc-anchor-target>
 <p><code translate="no" v-pre>/etc/resolver/development</code> contains:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="macos-resolver-on-dev-mac-only-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">nameserver 127.0.0.1</code></pre>
 </doc-codeblock></div>
 <p>This is created by <code translate="no" v-pre>scripts/install.sh</code>. It tells macOS to route all <code translate="no" v-pre>.development</code> queries to local dnsmasq. <strong>Only needed on the machine running dnsmasq.</strong></p>
@@ -346,7 +346,7 @@ log-facility=-</code></pre>
     </h3>
 </doc-anchor-target>
 <p>Split DNS route configured:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="tailscale-admin-console-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">hostr.development → 100.95.205.9</code></pre>
 </doc-codeblock></div>
 <p>This tells all tailnet devices to forward <code translate="no" v-pre>*.hostr.development</code> DNS queries to the dev Mac&#x27;s dnsmasq.</p>
@@ -373,7 +373,7 @@ log-facility=-</code></pre>
     </h3>
 </doc-anchor-target>
 <p>Most likely cause: <code translate="no" v-pre>/etc/resolver/development</code> exists pointing to <code translate="no" v-pre>127.0.0.1</code>, but no dnsmasq is running locally.</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="other-mac-cant-resolve-relayhostrdevelopment-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash"># Check
 cat /etc/resolver/development
 
@@ -386,7 +386,7 @@ sudo rm /etc/resolver/development</code></pre>
         <span>Verify dnsmasq is working</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="verify-dnsmasq-is-working-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash"># Direct query to dnsmasq
 dig @127.0.0.1 relay.hostr.development A
 
@@ -398,7 +398,7 @@ dig @127.0.0.1 relay.hostr.development A
         <span>Verify Tailscale split DNS</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="verify-tailscale-split-dns-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash"># On any tailnet device
 tailscale dns status
 
@@ -412,7 +412,7 @@ tailscale dns status
         <span>Verify end-to-end (bypassing DNS)</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="verify-end-to-end-bypassing-dns-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash"># TLS check
 openssl s_client -connect 100.95.205.9:443 -servername relay.hostr.development -brief &lt;/dev/null
 
@@ -428,7 +428,7 @@ curl -vk --resolve relay.hostr.development:443:100.95.205.9 \
         <span>Watch DNS queries arrive at dnsmasq</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="watch-dns-queries-arrive-at-dnsmasq-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash"># System log
 log stream --style compact --predicate 'process == &quot;dnsmasq&quot;'
 
@@ -441,7 +441,7 @@ sudo tcpdump -ni any -tttt 'port 53 and (udp or tcp)'</code></pre>
         <span>Restart dnsmasq after config changes</span>
     </h3>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="restart-dnsmasq-after-config-changes-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-bash"><code v-pre class="language-bash">dnsmasq --test -C /opt/homebrew/etc/dnsmasq.conf
 sudo brew services restart dnsmasq</code></pre>
 </doc-codeblock></div>
@@ -484,7 +484,7 @@ sudo brew services restart dnsmasq</code></pre>
 <p><strong>Hypothesis:</strong> If event-loop overload causes the seed script issue, maybe the same thing explains the ~6s cold-start delay in the Flutter app on iPhone.</p>
 <p><strong>Setup:</strong> Added a diagnostic isolate probe in <code translate="no" v-pre>setup.dart</code> that spawns immediately after <code translate="no" v-pre>configureInjection</code>. The isolate creates its own NDK instance in a completely separate event loop with zero contention — the main isolate does nothing (even <code translate="no" v-pre>runApp</code> was removed, just a 100-second sleep).</p>
 <p><strong>Result:</strong> <span class="docs-emoji">&#x274C;</span> The probe isolate <strong>still took 6178ms</strong> to connect via NDK. Even with an empty main isolate and a dedicated event loop, the delay persists. This rules out event-loop overload as the cause for the app&#x27;s cold-start delay.</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="experiment-2-app-cold-start-relay-probe-isolate-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">[relay-probe] 01:43:36.181 Starting relay probe for wss://relay.hostr.development
 [relay-probe] 01:43:36.214 NDK instance created in 32 ms
 [WARNING]    timed out connecting to relay wss://relay.hostr.development

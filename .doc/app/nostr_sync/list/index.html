@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825631470984">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826040986624">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.0.1">
+    <meta name="generator" content="Retype 4.1.0">
 
     <!-- Primary Meta Tags -->
     <title>List cubit</title>
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../../resources/css/retype.css?v=4.0.1.825631470984" rel="stylesheet">
+    <link href="../../../../resources/css/retype.css?v=4.1.0.826040986624" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../../../../resources/js/retype.js?v=4.0.1" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.0.1.825631470984" defer></script>
+    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.1.0.826040986624" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -149,7 +149,7 @@
 <p>A list cubit listens to a filter and starts a subscription stream instance with a specific filter. Emitting from the filter cubit will trigger the list state to reset.
 Use a postFilter cubit to emit a predicate that filters fetched results based on parameters that can&#x27;t be filtered for via Nostr requests directly.
 A sort cubit determines how the results are ordered.</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="list-cubit-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">class ListCubit&lt;NostrEvent&gt; {
   FilterCubit filter;
   PostResultFilterCubit postFilter;
@@ -158,7 +158,7 @@ A sort cubit determines how the results are ordered.</p>
 </doc-codeblock></div>
 <p>It has the following methods:</p>
 <p><code translate="no" v-pre>Load new</code></p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="list-cubit-code-2" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">startRequestAndCloseOnEOSE
 {
   until: null,
@@ -166,7 +166,7 @@ A sort cubit determines how the results are ordered.</p>
 }</code></pre>
 </doc-codeblock></div>
 <p><code translate="no" v-pre>Load next</code></p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="list-cubit-code-3" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">startRequestAndCloseOnEOSE
 {
   until: min(items.createdAt),
@@ -174,7 +174,7 @@ A sort cubit determines how the results are ordered.</p>
 }</code></pre>
 </doc-codeblock></div>
 <p><code translate="no" v-pre>Load all</code></p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="list-cubit-code-4" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">// Limit not required, will load all.
 loadNew()
 
@@ -184,7 +184,7 @@ while(await loadNext()) do
 emit(State.copyWith({status: Synching}))</code></pre>
 </doc-codeblock></div>
 <p>The class emits:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="list-cubit-code-5" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">Idle          // Used when not doing anything or listening
 Listening     // Used when synched and awaiting new events
 LoadingNext   // Used when fetching older events
@@ -199,7 +199,7 @@ Failed        // Used when all relays fail to respond correctly</code></pre>
 </doc-anchor-target>
 <p>The messaging cubit is responsible for loading and storing all <code translate="no" v-pre>kind 14</code> private and encrypted DMs. Since messages include reservation offers made &amp; received, it&#x27;s vital that this stays up-to-date and is synched upon app login. Since private DMs are sent using a random pubkey for added privacy, it is not possible to search for messages from/to our OWN pubkey to load relevant messages. Nostr NIP <a href="https://github.com/nostr-protocol/nips/blob/master/17.md">17</a> recomemends giftwrapping the message and sending it from randomized keys to us and to the real receiver.</p>
 <p>Before a user can interact in the inbox, the message stream must have received <code translate="no" v-pre>EOSE</code> for all connected relays using filter</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="messaging-cubit-hydrated-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-json"><code v-pre class="language-json">{
   kinds [1059],
   tags: [
@@ -208,7 +208,7 @@ Failed        // Used when all relays fail to respond correctly</code></pre>
 }</code></pre>
 </doc-codeblock></div>
 <p>This stream, when completed, will hold a state of all messages ever received.</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="messaging-cubit-hydrated-code-2" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">/// This list should stay in memory for the duration of a user sign in
 class MessagingCubit extends ListCubit&lt;Message&gt; with HydratedMixin {
   kinds: [14],
@@ -228,7 +228,7 @@ class MessagingCubitState {
   List&lt;ThreadCubit&gt;
 }</code></pre>
 </doc-codeblock></div>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="messaging-cubit-hydrated-code-3" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">class ThreadCubit extends Cubit&lt;&gt; {
 
 }</code></pre>
@@ -260,7 +260,7 @@ In the first iteration, we can just query each listing individually.</p>
 </doc-anchor-target>
 <p>Reviews use Nostr kind 14. They can include tags such as tags: <a href="cleanliness-1-checkin-0.6">&#x27;cleanliness&#x27;, 1], [&#x27;checkIn&#x27;, 0.6</a>. The content can be the comment that the guest wishes to leave.</p>
 <p>The review event should include a tag with commitment pre-image, that only the owner of the reservation knows,</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="reviews-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">tags.append([&quot;e&quot;, liked.id])
 tags.append([&quot;p&quot;, liked.pubkey])
 tags.append([&quot;a&quot;, liked.tags[a]]),

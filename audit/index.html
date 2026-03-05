@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.0.1.825631470984">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826040986624">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.0.1">
+    <meta name="generator" content="Retype 4.1.0">
 
     <!-- Primary Meta Tags -->
     <title>Hostr App — Visual &amp; Logic Audit</title>
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../resources/css/retype.css?v=4.0.1.825631470984" rel="stylesheet">
+    <link href="../resources/css/retype.css?v=4.1.0.826040986624" rel="stylesheet">
 
-    <script data-cfasync="false" src="../resources/js/config.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../resources/js/retype.js?v=4.0.1" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../resources/js/lunr.js?v=4.0.1.825631470984" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../resources/js/prism.js?v=4.0.1.825631470984" defer></script>
+    <script data-cfasync="false" src="../resources/js/config.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../resources/js/lunr.js?v=4.1.0.826040986624" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../resources/js/prism.js?v=4.1.0.826040986624" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -276,7 +276,7 @@ Date: 2026-02-23. <strong>No code changes — findings and execution plan only.<
     </h3>
 </doc-anchor-target>
 <p>Adopt a <strong>4px base grid</strong> spacing scale (industry standard, used by Material 3):</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="recommendation-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">kSpace0  =  0
 kSpace1  =  4   (kDefaultPadding / 8)
 kSpace2  =  8   (kDefaultPadding / 4)
@@ -288,7 +288,7 @@ kSpace7  = 48   (kDefaultPadding * 1.5)
 kSpace8  = 64   (kDefaultPadding * 2)</code></pre>
 </doc-codeblock></div>
 <p>Create a <code translate="no" v-pre>Spacer</code> (or <code translate="no" v-pre>Gap</code>) widget:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="recommendation-code-2" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">class Gap extends StatelessWidget {
   final double size;
   const Gap(this.size, {super.key});
@@ -662,7 +662,7 @@ kSpace8  = 64   (kDefaultPadding * 2)</code></pre>
     </h3>
 </doc-anchor-target>
 <p>Define an icon size scale mirroring the spacing scale:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="recommendation-1-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">const kIconXs  = 14.0;  // Chips, inline labels
 const kIconSm  = 16.0;  // List item trailing, copy actions
 const kIconMd  = 20.0;  // Standard interactive icons
@@ -685,7 +685,7 @@ const kIconHero = 48.0; // Error/success status, onboarding</code></pre>
     </h3>
 </doc-anchor-target>
 <p>Animation constants are well-defined in <code translate="no" v-pre>config/constants.dart</code>:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="current-state-4-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">const kAnimationDuration = Duration(milliseconds: 300);
 const kAnimationCurve = Curves.easeInOut;
 const kStaggerDelay = Duration(milliseconds: 60);</code></pre>
@@ -811,7 +811,7 @@ const kStaggerDelay = Duration(milliseconds: 60);</code></pre>
     </h3>
 </doc-anchor-target>
 <p>Create a single entry point:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="recommendation-3-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">Future&lt;T?&gt; showAppModal&lt;T&gt;(BuildContext context, {
   required Widget child,
   bool isScrollControlled = true,
@@ -1323,7 +1323,7 @@ class MyError extends MyState { final String userMessage; final Object? cause; }
         <span>1. Add a Content Version Field</span>
     </h4>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="1-add-a-content-version-field-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-json"><code v-pre class="language-json">{ &quot;v&quot;: 1, &quot;title&quot;: &quot;...&quot;, &quot;description&quot;: &quot;...&quot;, ... }</code></pre>
 </doc-codeblock></div>
 <p>Add <code translate="no" v-pre>&quot;v&quot;</code> to all custom event content. Start at <code translate="no" v-pre>1</code>. Increment on breaking changes.</p>
@@ -1340,7 +1340,7 @@ class MyError extends MyState { final String userMessage; final Object? cause; }
         <span>3. Add a Version Tag to Events</span>
     </h4>
 </doc-anchor-target>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="3-add-a-version-tag-to-events-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">[&quot;v&quot;, &quot;1&quot;]</code></pre>
 </doc-codeblock></div>
 <p>This allows relay-side filtering by version if needed, and lets clients ignore events they can&#x27;t parse.</p>
@@ -1351,7 +1351,7 @@ class MyError extends MyState { final String userMessage; final Object? cause; }
     </h4>
 </doc-anchor-target>
 <p>When the app starts, query for own events with outdated versions, re-sign with updated content, and republish. Since Nostr events are immutable (signed), migration requires publishing new replaceable events (same <code translate="no" v-pre>d</code>-tag, newer <code translate="no" v-pre>created_at</code>).</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="4-implement-a-migrator-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">class EventMigrator {
   Future&lt;void&gt; migrate(List&lt;Nip01Event&gt; myEvents) async {
     for (final event in myEvents) {
@@ -1371,7 +1371,7 @@ class MyError extends MyState { final String userMessage; final Object? cause; }
     </h4>
 </doc-anchor-target>
 <p>The parser currently rethrows on malformed events, crashing the entire stream. Change to:</p>
-<div class="codeblock-wrapper"><doc-codeblock>
+<div id="5-parser-error-resilience-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-dart"><code v-pre class="language-dart">T? safeParser&lt;T&gt;(Nip01Event event) {
   try {
     return parser&lt;T&gt;(event);
