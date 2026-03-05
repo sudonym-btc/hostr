@@ -1,5 +1,5 @@
 import 'package:ndk/ndk.dart';
-import 'package:ndk_rust_verifier/ndk_rust_verifier.dart';
+// import 'package:ndk_rust_verifier/ndk_rust_verifier.dart';
 
 import 'datasources/storage.dart';
 import 'util/custom_logger.dart';
