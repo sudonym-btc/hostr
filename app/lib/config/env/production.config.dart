@@ -6,6 +6,16 @@ import 'base.config.dart';
 
 @Injectable(as: Config, env: [Env.prod])
 class ProductionConfig extends Config {
+  /// Hostr escrow daemon's Nostr pubkey.
+  /// Derived from the ESCROW_PRIVATE_KEY in production Secret Manager.
+  /// TODO: run ./scripts/escrow-pubkey.sh hostr-production-d3ba05b4
+  static const _hostrEscrowPubkey =
+      ''; // Set after enabling Secret Manager API on production
+
+  @override
+  List<String> get bootstrapEscrowPubkeys => [
+    if (_hostrEscrowPubkey.isNotEmpty) _hostrEscrowPubkey,
+  ];
   @override
   List<String> relays = ['wss://relay.damus.io'];
   @override

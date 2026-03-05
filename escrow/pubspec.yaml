@@ -7,10 +7,8 @@ environment:
   sdk: ^3.6.0
 
 executables:
-  escrow_daemon:
-    path: bin/daemon
-  escrow_cli:
-    path: bin/cli
+  escrow_daemon: bin/daemon
+  escrow_cli: bin/cli
 
 dependencies:
   args: ^2.7.0

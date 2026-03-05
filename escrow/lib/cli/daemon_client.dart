@@ -150,6 +150,11 @@ class DaemonClient {
     return Map<String, dynamic>.from(result as Map);
   }
 
+  Future<Map<String, dynamic>> getEvmMnemonic() async {
+    final result = await _rpc.sendRequest(kRpcGetEvmMnemonic);
+    return Map<String, dynamic>.from(result as Map);
+  }
+
   Future<void> updateProfile({
     String? name,
     String? displayName,

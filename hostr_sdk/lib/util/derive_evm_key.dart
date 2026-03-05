@@ -7,6 +7,16 @@ import 'package:web3dart/web3dart.dart';
 /// BIP-44 derivation path prefix for EVM (Ethereum / Rootstock).
 const _evmPathPrefix = "m/44'/60'/0'/0";
 
+/// Returns the BIP-39 mnemonic derived from a Nostr private key (hex).
+///
+/// This is the 24-word seed phrase that, when imported into MetaMask,
+/// will produce the same EVM addresses the daemon uses.
+String deriveEvmMnemonic(String nostrPrivateKeyHex) {
+  final entropy = Uint8List.fromList(convert.hex.decode(nostrPrivateKeyHex));
+  final words = bip.entropyToMnemonic(entropy);
+  return words.join(' ');
+}
+
 /// Derives a BIP-44 EVM private key from a Nostr private key (hex).
 ///
 /// Derivation: nsec hex → BIP-39 mnemonic (entropy-to-words) →
@@ -16,8 +26,8 @@ const _evmPathPrefix = "m/44'/60'/0'/0";
 /// will show the same addresses.
 EthPrivateKey deriveEvmKey(String nostrPrivateKeyHex, {int accountIndex = 0}) {
   final entropy = Uint8List.fromList(convert.hex.decode(nostrPrivateKeyHex));
-  final mnemonic = bip.entropyToMnemonic(entropy);
-  final seed = bip.mnemonicToSeed(mnemonic);
+  final words = bip.entropyToMnemonic(entropy);
+  final seed = bip.mnemonicToSeed(words);
   final master = bip.ExtendedPrivateKey.master(seed, bip.xprv);
   final derived =
       master.forPath("$_evmPathPrefix/$accountIndex") as bip.ExtendedPrivateKey;

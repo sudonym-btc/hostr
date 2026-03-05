@@ -6,6 +6,13 @@ import 'base.config.dart';
 
 @Injectable(as: Config, env: [Env.staging])
 class StagingConfig extends Config {
+  /// Hostr escrow daemon's Nostr pubkey.
+  /// Derived from the ESCROW_PRIVATE_KEY in staging Secret Manager.
+  static const _hostrEscrowPubkey =
+      '84d4dd964730c6cd1b901b0bb60a60ca4fb085878efd577b7a3ad60872772c5e';
+
+  @override
+  List<String> get bootstrapEscrowPubkeys => [_hostrEscrowPubkey];
   @override
   List<String> relays = [];
   @override

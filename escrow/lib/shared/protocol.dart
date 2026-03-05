@@ -68,6 +68,13 @@ const kRpcGetProfile = 'getProfile';
 /// Returns `{ "ok": true }`.
 const kRpcUpdateProfile = 'updateProfile';
 
+// ── EVM Key Info ────────────────────────────────────────────────────────────
+
+/// Get the BIP-39 mnemonic derived from the daemon's nsec.
+/// Returns `{ "mnemonic": String, "evmAddress": String,
+///            "derivationPath": String }`.
+const kRpcGetEvmMnemonic = 'getEvmMnemonic';
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Serialisation helpers
 // ──────────────────────────────────────────────────────────────────────────────
