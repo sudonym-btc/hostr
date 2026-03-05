@@ -1,7 +1,12 @@
-/// Deterministic screenshot generator using [SeedFactory].
+/// Deterministic screenshot generator using [SeedPipeline].
 ///
-/// Runs against in-memory [InMemoryRequests] — no relay, chain, or Docker needed.
-/// Data is produced from a fixed seed so output is identical across runs.
+/// Runs the full seed pipeline (including on-chain escrow outcomes) against
+/// the local Docker infrastructure (Anvil), then feeds every generated event
+/// into [InMemoryRequests] so the app renders realistic data.
+///
+/// **Requirements:** Docker must be running with at least `anvil` and
+/// `escrow-contract-deploy` services up so the contract address can be
+/// resolved and EVM transactions can land.
 ///
 /// Usage (single device):
 ///   flutter drive \
@@ -13,9 +18,13 @@
 ///   ./scripts/screenshots.sh
 library;
 
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/app.dart';
+import 'package:hostr/config/http_overrides.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
@@ -27,6 +36,7 @@ import 'package:mocktail_image_network/mocktail_image_network.dart';
 
 // ── Seed configuration ──────────────────────────────────────────────────────
 // Small dataset — just enough for every screenshot page.
+// fundProfiles / setupLnbits are disabled — we only need seeded Nostr events.
 
 const _config = SeedPipelineConfig(
   seed: 42,
@@ -34,6 +44,9 @@ const _config = SeedPipelineConfig(
   hostRatio: 0.5, // 4 hosts, 4 guests
   listingsPerHostAvg: 2.0, // ~8 listings
   reservationRequestsPerGuest: 2, // 8 threads
+  invalidReservationRate: 0,
+  fundProfiles: true,
+  setupLnbits: true,
   threadStages: ThreadStageSpec(
     textMessageCount: 4,
     completedRatio: 0.5,
@@ -58,6 +71,56 @@ Future<void> _settle(
   }
 }
 
+/// Run the full seed pipeline (with outcomes) and return aggregate data.
+///
+/// Uses [SeedPipeline.run] which executes all stages including on-chain
+/// escrow outcomes via Anvil.
+/// Contract address baked in at compile time via `--dart-define`.
+/// Falls back to [SeedPipeline.resolveContractAddress] for non-simulator
+/// environments (e.g. running from the CLI).
+const _contractAddr = String.fromEnvironment('CONTRACT_ADDR');
+
+Future<SeedPipelineData> _runSeedPipeline() async {
+  final pipeline = SeedPipeline(
+    config: _config,
+    contractAddress: _contractAddr.isNotEmpty ? _contractAddr : null,
+  );
+  print('[screenshots] Using contract: ${pipeline.context.contractAddress}');
+
+  final streams = pipeline.run();
+
+  // Pipeline errors go to streams.events, not streams.done — so done.first
+  // throws "No element" instead of the real error.  Use a Completer to
+  // surface whichever signal arrives first.
+  final completer = Completer<SeedPipelineData>();
+
+  streams.done.listen(
+    (data) {
+      if (!completer.isCompleted) completer.complete(data);
+    },
+    onDone: () {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          StateError('Pipeline finished without producing data'),
+        );
+      }
+    },
+  );
+
+  streams.events.listen(
+    null,
+    onError: (Object e, StackTrace st) {
+      if (!completer.isCompleted) completer.completeError(e, st);
+    },
+  );
+
+  try {
+    return await completer.future;
+  } finally {
+    pipeline.dispose();
+  }
+}
+
 /// Take screenshots for every page in [mode] ("light" or "dark").
 ///
 /// The [appRouter] must already be mounted and the user authenticated.
@@ -68,6 +131,11 @@ Future<void> _takeScreenshots(
   SeedPipelineData data,
   String mode,
 ) async {
+  // ── 0. Profile ────────────────────────────────────────────
+  appRouter.navigate(ProfileRoute());
+  await _settle(tester, frames: 6);
+  await binding.takeScreenshot('screenshots/$mode/profile.png');
+
   // ── 1. Home / search ────────────────────────────────────────────
   appRouter.navigate(SearchRoute());
   await _settle(tester, frames: 6);
@@ -89,6 +157,32 @@ Future<void> _takeScreenshots(
     appRouter.navigate(ThreadRoute(anchor: threadMap.keys.first));
     await _settle(tester, frames: 6);
     await binding.takeScreenshot('screenshots/$mode/thread.png');
+
+    // ── 5. Tap "Pay" → payment modal ──────────────────────────────
+    // Find a thread that shows the Pay button (pending threads where
+    // the guest hasn't committed yet).
+    const payKey = ValueKey('trade_action_pay');
+    var payFinder = find.byKey(payKey);
+    if (payFinder.evaluate().isEmpty) {
+      for (final anchor in threadMap.keys.skip(1)) {
+        appRouter.navigate(ThreadRoute(anchor: anchor));
+        await _settle(tester, frames: 6);
+        payFinder = find.byKey(payKey);
+        if (payFinder.evaluate().isNotEmpty) break;
+      }
+    }
+
+    if (payFinder.evaluate().isNotEmpty) {
+      await tester.tap(payFinder.first);
+      await _settle(tester, frames: 8); // give the modal time to load
+      await binding.takeScreenshot('screenshots/$mode/payment.png');
+
+      // Dismiss the modal bottom sheet so subsequent screenshots
+      // start from a clean slate.
+      final nav = Navigator.of(tester.element(find.byType(Scaffold).first));
+      if (nav.canPop()) nav.pop();
+      await _settle(tester, frames: 2);
+    }
   }
 }
 
@@ -106,6 +200,12 @@ Future<void> _takeScreenshots(
 // switches platformBrightness to dark and captures them again.
 
 void main() {
+  // Accept the dev CA so HTTPS calls to anvil/rifrelay/boltz through
+  // nginx-proxy don't fail with CERTIFICATE_VERIFY_FAILED.
+  // main_development.dart does this for the normal app; integration tests
+  // bypass that entrypoint so we must set it here.
+  HttpOverrides.global = MyHttpOverrides();
+
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('screenshot suite', (tester) async {
@@ -113,12 +213,10 @@ void main() {
     await initCore(Env.test);
     await initApp();
 
-    final factory = SeedFactory(config: _config);
-    final data = await factory.buildAll();
+    final data = await _runSeedPipeline();
 
-    final requests = getIt<Requests>() as InMemoryRequests;
+    final requests = getIt<Hostr>().requests as InMemoryRequests;
     requests.seedEvents(data.allEvents);
-    factory.dispose();
 
     final guest = data.users.firstWhere((u) => !u.isHost);
 

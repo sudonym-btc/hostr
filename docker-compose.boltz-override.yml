@@ -96,6 +96,13 @@ services:
       - shared_network
     profiles: ["default", "ci"]
 
+  # Ensure escrow-contract-deploy doesn't race with rif-relay for Anvil
+  # Account 0 nonces (escrow now uses Account 2, but ordering is a safety net).
+  escrow-contract-deploy:
+    depends_on:
+      rif-relay:
+        condition: service_healthy
+
   # Add rif-relay as a dependency for regtest-start so channels are opened
   # only after the relay is healthy.
   regtest-start:

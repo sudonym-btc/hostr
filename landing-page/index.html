@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hostr – P2P Accommodation on Nostr</title>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --fg: #e8e8e8;
+      --accent: #f7931a;
+      --muted: #888;
+      --card-bg: #1a1a1a;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      padding: 1.5rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo span { color: var(--accent); }
+
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      margin-left: 2rem;
+      font-size: 0.95rem;
+      transition: color 0.2s;
+    }
+
+    nav a:hover { color: var(--fg); }
+
+    .hero {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 8rem 2rem 6rem;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.4rem, 5vw, 3.8rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .hero p {
+      color: var(--muted);
+      font-size: 1.2rem;
+      max-width: 600px;
+      margin: 0 auto 2.5rem;
+    }
+
+    .store-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .store-buttons a {
+      display: inline-block;
+      transition: opacity 0.2s;
+    }
+
+    .store-buttons a:hover { opacity: 0.8; }
+
+    .store-buttons img {
+      height: 54px;
+    }
+
+    .screenshots {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 3rem 2rem 2rem;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+
+    /* iPhone 17 Pro Max device mockup */
+    .iphone {
+      position: relative;
+      width: 270px;
+      flex-shrink: 0;
+      background: linear-gradient(145deg, #3a3a3c 0%, #1c1c1e 30%, #2c2c2e 70%, #3a3a3c 100%);
+      border-radius: 36px;
+      padding: 7px;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.08),
+        0 0 0 1px #444,
+        0 0 0 2px #1a1a1a,
+        0 20px 60px rgba(0,0,0,0.6),
+        0 6px 20px rgba(0,0,0,0.4);
+    }
+
+    /* Power button (right side) */
+    .iphone::before {
+      content: '';
+      position: absolute;
+      right: -2.5px;
+      top: 120px;
+      width: 2.5px;
+      height: 40px;
+      background: linear-gradient(to right, #555, #3a3a3c);
+      border-radius: 0 2px 2px 0;
+      box-shadow: 1px 0 2px rgba(0,0,0,0.3);
+    }
+
+    /* Volume buttons (left side) */
+    .iphone::after {
+      content: '';
+      position: absolute;
+      left: -2.5px;
+      top: 95px;
+      width: 2.5px;
+      height: 50px;
+      background: linear-gradient(to left, #555, #3a3a3c);
+      border-radius: 2px 0 0 2px;
+      box-shadow: -1px 0 2px rgba(0,0,0,0.3);
+    }
+
+    .iphone-screen {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1320 / 2868;
+      border-radius: 30px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .iphone-screen img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Dynamic Island */
+    .iphone-screen::before {
+      content: '';
+      position: absolute;
+      top: 7px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 72px;
+      height: 20px;
+      background: #000;
+      border-radius: 12px;
+      z-index: 2;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    /* Home indicator */
+    .iphone-screen::after {
+      content: '';
+      position: absolute;
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 3.5px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
+      z-index: 2;
+    }
+
+    /* Subtle screen glare effect */
+    .iphone-screen-glare {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: 30px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 40%, transparent 100%);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    @media (max-width: 768px) {
+      .iphone { width: 180px; border-radius: 28px; padding: 5px; }
+      .iphone-screen { border-radius: 24px; }
+      .iphone-screen::before { width: 52px; height: 15px; top: 5px; border-radius: 9px; }
+      .iphone-screen::after { width: 60px; bottom: 4px; height: 3px; }
+      .iphone-screen-glare { border-radius: 24px; }
+      .screenshots { gap: 1rem; padding: 2rem 1rem; }
+    }
+
+    .features {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 4rem 2rem 6rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 2rem;
+    }
+
+    .card h3 {
+      font-size: 1.15rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid #222;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span>⚡</span> Hostr</div>
+  <nav>
+    <a href="https://github.com/sudonym-btc/hostr">GitHub</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>Book accommodation.<br><em>No middleman.</em></h1>
+  <p>Hostr connects hosts and guests directly over Nostr with Bitcoin escrow payments. No platform fees, no censorship, no KYC.</p>
+  <div class="store-buttons">
+    <a href="https://apps.apple.com/app/hostr" target="_blank" rel="noopener">
+      <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store">
+    </a>
+    <a href="https://play.google.com/store/apps/details?id=com.sudonym.hostr" target="_blank" rel="noopener">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play">
+    </a>
+  </div>
+</section>
+
+<section class="screenshots">
+  <div class="iphone">
+    <div class="iphone-screen">
+      <img src="assets/login.png" alt="Hostr login screen">
+      <div class="iphone-screen-glare"></div>
+    </div>
+  </div>
+  <div class="iphone">
+    <div class="iphone-screen">
+      <img src="assets/search.png" alt="Hostr search & discovery">
+      <div class="iphone-screen-glare"></div>
+    </div>
+  </div>
+  <div class="iphone">
+    <div class="iphone-screen">
+      <img src="assets/listing.png" alt="Hostr accommodation listing">
+      <div class="iphone-screen-glare"></div>
+    </div>
+  </div>
+  <div class="iphone">
+    <div class="iphone-screen">
+      <img src="assets/threads.png" alt="Hostr message threads">
+      <div class="iphone-screen-glare"></div>
+    </div>
+  </div>
+  <div class="iphone">
+    <div class="iphone-screen">
+      <img src="assets/thread.png" alt="Hostr conversation thread">
+      <div class="iphone-screen-glare"></div>
+    </div>
+  </div>
+  <div class="iphone">
+    <div class="iphone-screen">
+      <img src="assets/payment.png" alt="Hostr Bitcoin payment">
+      <div class="iphone-screen-glare"></div>
+    </div>
+  </div>
+  <div class="iphone">
+    <div class="iphone-screen">
+      <img src="assets/profile.png" alt="Hostr user profile">
+      <div class="iphone-screen-glare"></div>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="features">
+  <div class="card">
+    <h3>⚡ Bitcoin Native</h3>
+    <p>Pay with Lightning or on-chain Bitcoin through non-custodial escrow. No banks, no chargebacks.</p>
+  </div>
+  <div class="card">
+    <h3>🔑 Nostr Identity</h3>
+    <p>Your keys, your identity. Reputation travels with you across the ecosystem — no walled gardens.</p>
+  </div>
+  <div class="card">
+    <h3>🛡️ Smart Escrow</h3>
+    <p>Funds are held in escrow and released on check-in. Disputes are resolved by a neutral arbiter.</p>
+  </div>
+</section>
+
+<footer>
+  Built on <a href="https://nostr.com">Nostr</a> &amp; <a href="https://bitcoin.org">Bitcoin</a>
+</footer>
+
+</body>
+</html>

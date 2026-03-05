@@ -253,6 +253,7 @@ class TradeHeaderView extends StatelessWidget {
       );
 
   Widget _cancelButton(BuildContext context) => OutlinedButton(
+    key: const ValueKey('trade_action_cancel'),
     onPressed: () {
       showAppModal(
         context,
@@ -291,6 +292,7 @@ class TradeHeaderView extends StatelessWidget {
   );
 
   Widget _messageEscrowButton(BuildContext context) => OutlinedButton(
+    key: const ValueKey('trade_action_message_escrow'),
     onPressed: () {
       final cubit = context.read<ThreadCubit>();
       final pubkey = cubit.thread.trade!.getEscrowPubkey();
@@ -323,6 +325,7 @@ class TradeHeaderView extends StatelessWidget {
         final activeOp = snapshot.data;
         if (activeOp != null) {
           return FilledButton(
+            key: const ValueKey('trade_action_pay'),
             onPressed: () {
               showAppModal(
                 context,
@@ -344,6 +347,7 @@ class TradeHeaderView extends StatelessWidget {
           );
         }
         return FilledButton(
+          key: const ValueKey('trade_action_pay'),
           onPressed: () => showAppModal(
             context,
             child: EscrowFundWidget(
@@ -363,6 +367,7 @@ class TradeHeaderView extends StatelessWidget {
   }
 
   Widget _acceptButton(BuildContext context) => OutlinedButton(
+    key: const ValueKey('trade_action_accept'),
     onPressed: () =>
         context.read<ThreadCubit>().thread.trade!.execute(TradeAction.accept),
     style: OutlinedButton.styleFrom(
@@ -373,6 +378,7 @@ class TradeHeaderView extends StatelessWidget {
   );
 
   Widget _counterButton(BuildContext context) => OutlinedButton(
+    key: const ValueKey('trade_action_counter'),
     onPressed: () => _showNotImplemented(context),
     style: OutlinedButton.styleFrom(
       visualDensity: VisualDensity.compact,
@@ -382,6 +388,7 @@ class TradeHeaderView extends StatelessWidget {
   );
 
   Widget _refundButton(BuildContext context) => OutlinedButton(
+    key: const ValueKey('trade_action_refund'),
     style: OutlinedButton.styleFrom(
       visualDensity: VisualDensity.compact,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -400,6 +407,7 @@ class TradeHeaderView extends StatelessWidget {
   );
 
   Widget _reviewButton(BuildContext context) => OutlinedButton(
+    key: const ValueKey('trade_action_review'),
     onPressed: () => showAppModal(
       context,
       child: CustomPadding(

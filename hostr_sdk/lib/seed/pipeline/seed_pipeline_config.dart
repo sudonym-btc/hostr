@@ -196,7 +196,7 @@ class SeedPipelineConfig {
     this.listingsPerHostAvg = 1.6,
     this.reservationRequestsPerGuest = 10,
     this.threadStages = const ThreadStageSpec(),
-    this.invalidReservationRate = 0.2,
+    this.invalidReservationRate = 0.1,
     this.userOverrides = const [],
   });
 

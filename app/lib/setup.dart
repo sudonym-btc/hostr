@@ -49,7 +49,9 @@ Future<void> initCore(String env) async {
   logger.d('[initCore] configureInjection: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
-  getIt.registerSingleton<Hostr>(Hostr(config: getIt<Config>().hostrConfig));
+  getIt.registerSingleton<Hostr>(
+    Hostr(config: getIt<Config>().hostrConfig, environment: env),
+  );
   logger.d('[initCore] registerHostr: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();

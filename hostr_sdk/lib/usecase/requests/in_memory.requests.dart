@@ -91,7 +91,9 @@ class InMemoryRequests extends Requests implements RequestsModel {
 
     _subscriptions.add(subscription);
 
-    final initialEvents = _events.where((event) => matchEvent(event, filter));
+    final initialEvents = _events
+        .where((event) => matchEvent(event, filter))
+        .toList();
     response.addStatus(StreamStatusQuerying());
 
     final initialFuture = () async {
@@ -121,7 +123,8 @@ class InMemoryRequests extends Requests implements RequestsModel {
     String? name,
   }) async* {
     // Return matching events then close
-    for (var event in _events) {
+    final snapshot = List<Nip01Event>.of(_events);
+    for (var event in snapshot) {
       if (matchEvent(event, filter)) {
         final parsedEvent = await parserWithGiftWrap<T>(event, ndk);
         yield parsedEvent;
