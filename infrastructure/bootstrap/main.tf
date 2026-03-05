@@ -87,6 +87,20 @@ resource "google_project_service" "dns_staging" {
   service = "dns.googleapis.com"
 }
 
+# ─── Cloud Resource Manager API ──────────────────────────────────────────────
+# Required before Terraform (especially a CI service account) can manage
+# google_project_service or google_project_iam_member resources.
+
+resource "google_project_service" "crm_production" {
+  project = google_project.production.project_id
+  service = "cloudresourcemanager.googleapis.com"
+}
+
+resource "google_project_service" "crm_staging" {
+  project = google_project.staging.project_id
+  service = "cloudresourcemanager.googleapis.com"
+}
+
 # ─── Production zone (parent: hostr.network) ────────────────────────────────
 
 resource "google_dns_managed_zone" "production" {

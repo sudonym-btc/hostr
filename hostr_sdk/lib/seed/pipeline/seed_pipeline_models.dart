@@ -208,7 +208,8 @@ class SeedPipelineData {
     ...escrowTrusts,
     ...escrowMethods,
     ...listings,
-    ...reservationRequests,
+    // reservationRequests are intentionally excluded — negotiate-stage
+    // events must only appear gift-wrapped (present in threadMessages).
     ...reservationTransitions,
     ...threadMessages,
     ...zapReceipts,

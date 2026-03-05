@@ -36,6 +36,12 @@ mount_disk() {
 mount_disk /dev/disk/by-id/google-relay-data   /mnt/relay-data
 mount_disk /dev/disk/by-id/google-blossom-data /mnt/blossom-data
 
+# ── Clone repo ────────────────────────────────────────────────────────
+mkdir -p /opt
+if [ ! -d /opt/hostr/.git ]; then
+  git clone "${repo_clone_url}" /opt/hostr
+fi
+
 # ── Prepare data directories with correct ownership ──────────────────
 # relay (nostr-rs-relay) runs as appuser uid=1000
 chown -R 1000:1000 /mnt/relay-data
@@ -49,12 +55,6 @@ rm -rf /opt/hostr/docker/data/blossom && ln -sfn /mnt/blossom-data /opt/hostr/do
 
 # Small data (escrow, certs, vhost.d) stays on the boot disk — trivial size
 mkdir -p /opt/hostr/docker/data/escrow /opt/hostr/docker/certs /opt/hostr/docker/vhost.d
-
-# ── Clone repo ────────────────────────────────────────────────────────
-mkdir -p /opt
-if [ ! -d /opt/hostr/.git ]; then
-  git clone "${repo_clone_url}" /opt/hostr
-fi
 
 cat >/usr/local/bin/hostr-fetch-secrets <<'EOS'
 #!/usr/bin/env bash

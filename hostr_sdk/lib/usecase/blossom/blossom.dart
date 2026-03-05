@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:hostr_sdk/config.dart';
 import 'package:injectable/injectable.dart';
-import 'package:ndk/domain_layer/repositories/blossom.dart' show UploadStrategy;
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart';
 
@@ -38,13 +37,19 @@ class BlossomUseCase {
     );
     logger.d('Blossom list: $blossomList');
 
+    final mergedUrls = {
+      ...blossomList ?? [],
+      ..._config.bootstrapBlossom,
+    }.toList();
+
+    // Nothing to publish when no servers are configured (e.g. test env).
+    if (mergedUrls.isEmpty) {
+      logger.d('Blossom: no servers to publish, skipping.');
+      return;
+    }
+
     final broadcastResponse = await _ndk.blossomUserServerList
-        .publishUserServerList(
-          serverUrlsOrdered: {
-            ...blossomList ?? [],
-            ..._config.bootstrapBlossom,
-          }.toList(),
-        );
+        .publishUserServerList(serverUrlsOrdered: mergedUrls);
     logger.d(
       'Blossom list publish response: ${broadcastResponse[0].broadcastSuccessful}',
     );

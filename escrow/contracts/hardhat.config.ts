@@ -6,6 +6,10 @@ const config: HardhatUserConfig = {
   networks: {
     localhost: {
       url: process.env.RPC_URL ?? "http://127.0.0.1:8545",
+      // Use a dedicated account to avoid nonce conflicts with rif-relay (which uses Account 0)
+      accounts: process.env.DEPLOYER_PRIVATE_KEY
+        ? [process.env.DEPLOYER_PRIVATE_KEY]
+        : [],
     },
     // Rootstock Testnet (chainId 31)
     "rsk-testnet": {

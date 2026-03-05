@@ -6,7 +6,6 @@ import 'package:hostr_sdk/seed/pipeline/seed_pipeline.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_models.dart';
 import 'package:hostr_sdk/util/derive_evm_key.dart';
-import 'package:path/path.dart' as p;
 
 import 'broadcast_isolate.dart';
 
@@ -15,7 +14,7 @@ class RelaySeeder {
   Future<int> runPipeline({required SeedPipelineConfig config}) async {
     print('Seeding ${config.relayUrl} (pipeline)...');
     print(const JsonEncoder.withIndent('  ').convert(config.toJson()));
-    final contractAddress = await _resolveDeployedMultiEscrowAddress();
+    final contractAddress = SeedPipeline.resolveContractAddress();
     await _ensureContractIsDeployed(
       rpcUrl: config.rpcUrl,
       contractAddress: contractAddress,
@@ -144,51 +143,6 @@ class RelaySeeder {
   static const int _maxConcurrentBroadcasts = 5;
   static const int _broadcastMaxAttempts = 6;
 
-  Future<String> _resolveDeployedMultiEscrowAddress() async {
-    final deploymentFiles = _candidateDeploymentFiles();
-
-    final addressRegex = RegExp(r'^0x[a-fA-F0-9]{40}$');
-
-    for (final file in deploymentFiles) {
-      if (!await file.exists()) {
-        continue;
-      }
-
-      final raw = await file.readAsString();
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) {
-        continue;
-      }
-
-      final map = Map<String, dynamic>.from(decoded);
-
-      for (final entry in map.entries) {
-        final value = entry.value;
-        if (value is! String) {
-          continue;
-        }
-
-        if (!addressRegex.hasMatch(value)) {
-          continue;
-        }
-
-        if (entry.key.toLowerCase().contains('multiescrow')) {
-          return value;
-        }
-      }
-
-      for (final value in map.values) {
-        if (value is String && addressRegex.hasMatch(value)) {
-          return value;
-        }
-      }
-    }
-
-    throw Exception(
-      'No deployed multi-escrow contract address found in candidate files: ${deploymentFiles.map((f) => f.path).join(', ')}',
-    );
-  }
-
   Future<void> _ensureContractIsDeployed({
     required String rpcUrl,
     required String contractAddress,
@@ -252,64 +206,6 @@ class RelaySeeder {
     } finally {
       httpClient.close(force: true);
     }
-  }
-
-  List<File> _candidateDeploymentFiles() {
-    final files = <File>[];
-    final seen = <String>{};
-
-    void add(String path) {
-      final normalized = p.normalize(path);
-      if (seen.add(normalized)) {
-        files.add(File(normalized));
-      }
-    }
-
-    // Most common when running from hostr_sdk directory.
-    add(
-      p.join(
-        Directory.current.path,
-        '..',
-        'escrow',
-        'contracts',
-        'ignition',
-        'deployments',
-        'chain-33',
-        'deployed_addresses.json',
-      ),
-    );
-
-    // If running from repo root.
-    add(
-      p.join(
-        Directory.current.path,
-        'escrow',
-        'contracts',
-        'ignition',
-        'deployments',
-        'chain-33',
-        'deployed_addresses.json',
-      ),
-    );
-
-    // Relative to executing script location.
-    final scriptPath = Platform.script.toFilePath();
-    final scriptDir = p.dirname(scriptPath);
-    final sdkRoot = p.normalize(p.join(scriptDir, '..'));
-    add(
-      p.join(
-        sdkRoot,
-        '..',
-        'escrow',
-        'contracts',
-        'ignition',
-        'deployments',
-        'chain-33',
-        'deployed_addresses.json',
-      ),
-    );
-
-    return files;
   }
 
   void _printPipelineUsersByRole(SeedPipelineData data) {

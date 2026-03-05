@@ -128,6 +128,42 @@ echo ""
 
 cd "$APP_DIR"
 
+# ── Resolve escrow contract address (host-side, before flutter drive) ────────
+CONTRACT_ADDR="${CONTRACT_ADDR:-}"
+if [[ -z "$CONTRACT_ADDR" ]]; then
+  for candidate in \
+    "$REPO_ROOT/docker/data/escrow/contract_addr" \
+    "$REPO_ROOT/escrow/contracts/ignition/deployments/chain-33/deployed_addresses.json"; do
+    if [[ -f "$candidate" ]]; then
+      if [[ "$candidate" == *.json ]]; then
+        ADDR=$(python3 -c "
+import json, sys
+data = json.load(open('$candidate'))
+for k, v in data.items():
+    if isinstance(v, str) and len(v) == 42 and v.startswith('0x'):
+        if 'multiescrow' in k.lower():
+            print(v); sys.exit(0)
+for v in data.values():
+    if isinstance(v, str) and len(v) == 42 and v.startswith('0x'):
+        print(v); sys.exit(0)
+sys.exit(1)
+" 2>/dev/null) && CONTRACT_ADDR="$ADDR"
+      else
+        CONTRACT_ADDR=$(cat "$candidate" | tr -d '[:space:]')
+      fi
+      [[ -n "$CONTRACT_ADDR" ]] && break
+    fi
+  done
+fi
+
+if [[ -z "$CONTRACT_ADDR" ]]; then
+  echo "❌ Could not resolve escrow contract address."
+  echo "   Set CONTRACT_ADDR env var, run docker compose up, or deploy via Hardhat."
+  exit 1
+fi
+echo "📝 Contract address: $CONTRACT_ADDR"
+echo ""
+
 FAILED=()
 
 for device_name in "${DEVICES[@]}"; do
@@ -162,6 +198,7 @@ for device_name in "${DEVICES[@]}"; do
   if SCREENSHOT_DEVICE="$slug" flutter drive \
       --driver=test_driver/screenshot_test.dart \
       --target=integration_test/screenshots.dart \
+      --dart-define=CONTRACT_ADDR="$CONTRACT_ADDR" \
       -d "$udid" \
       --no-pub 2>&1 | sed 's/^/   /'; then
     echo "   ✅ Done"
@@ -190,8 +227,8 @@ fi
 # Clean simulator build artifacts so the next device build starts fresh.
 # Without this, cached simulator-signed frameworks (e.g. objective_c.framework)
 # cause "invalid signature" errors when deploying to a physical device.
-echo "🧹 Cleaning simulator build cache…"
-(cd "$APP_DIR" && flutter clean --suppress-analytics >/dev/null 2>&1) || true
+# echo "🧹 Cleaning simulator build cache…"
+# (cd "$APP_DIR" && flutter clean --suppress-analytics >/dev/null 2>&1) || true
 
 echo ""
 echo "Output:"
