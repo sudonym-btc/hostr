@@ -85,4 +85,10 @@ variable "compose_runtime_secret_values" {
   default     = {}
 }
 
+variable "github_repo_owner_name" {
+  description = "GitHub owner/repo (e.g. 'sudonym-btc/hostr') used for Workload Identity Federation."
+  type        = string
+  default     = "sudonym-btc/hostr"
+}
+
 
