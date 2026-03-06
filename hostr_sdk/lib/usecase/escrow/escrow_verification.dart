@@ -51,7 +51,6 @@ class EscrowVerification {
   /// any check fails or no escrow proof is present.
   Future<EscrowVerificationResult> verify({
     required Reservation reservation,
-    required Listing listing,
   }) async {
     final proof = reservation.proof;
     if (proof == null) {
@@ -68,12 +67,14 @@ class EscrowVerification {
       );
     }
 
-    if (escrowProof.hostsEscrowMethods.pubKey != listing.pubKey) {
+    if (escrowProof.hostsEscrowMethods.pubKey !=
+        getPubKeyFromAnchor(reservation.parsedTags.listingAnchor)) {
       return const EscrowVerificationResult.invalid(
         'Escrow proof is for a different listing (pubkey mismatch)',
       );
     }
-    if (escrowProof.hostsTrustedEscrows.pubKey != listing.pubKey) {
+    if (escrowProof.hostsTrustedEscrows.pubKey !=
+        getPubKeyFromAnchor(reservation.parsedTags.listingAnchor)) {
       return const EscrowVerificationResult.invalid(
         'Escrow proof is for a different listing (trusted escrows pubkey mismatch)',
       );
@@ -155,7 +156,10 @@ class EscrowVerification {
     }
 
     // Compute the expected cost from the listing.
-    final expectedAmount = listing.cost(reservation.start, reservation.end);
+    final expectedAmount = proof.listing.cost(
+      reservation.start,
+      reservation.end,
+    );
 
     // The on-chain amount is in wei. Compare against the expected amount.
     // We accept >= because escrowFee may be included in the deposit.

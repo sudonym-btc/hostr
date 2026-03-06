@@ -7,7 +7,6 @@ import 'package:ndk/domain_layer/entities/broadcast_state.dart'
 import 'package:ndk/ndk.dart' show Nip01Event, Filter;
 
 import '../util/main.dart';
-import 'requests/expandable_subscription.dart';
 import 'requests/requests.dart';
 
 class CrudUseCase<T extends Nip01Event> {

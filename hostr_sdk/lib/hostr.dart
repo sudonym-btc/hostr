@@ -46,6 +46,9 @@ class Hostr {
   OperationStateStore get operationStateStore => getIt<OperationStateStore>();
   EscrowFundRegistry get escrowFundRegistry => getIt<EscrowFundRegistry>();
   BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
+  UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();
+  PaymentProofOrchestrator get paymentProofOrchestrator =>
+      getIt<PaymentProofOrchestrator>();
 
   StreamSubscription? _authStateSubscription;
   bool _authInitialized = false;
@@ -102,7 +105,13 @@ class Hostr {
           pubkey: pubkey,
         );
 
-        messaging.threads.sync();
+        await messaging.threads.sync();
+
+        // Start user-scoped Nostr subscriptions and the payment-proof
+        // orchestrator. UserSubscriptions must start first so its streams
+        // are live before the orchestrator subscribes to them.
+        userSubscriptions.start();
+        paymentProofOrchestrator.start();
 
         // Ensure the user's profile has an EVM address tag.
         metadata.ensureEvmAddress();
@@ -133,6 +142,8 @@ class Hostr {
       } else {
         logger.i('User logged out');
         autoWithdraw.stop();
+        await paymentProofOrchestrator.reset();
+        await userSubscriptions.reset();
         messaging.threads.reset();
         await nwc.reset();
         await reservations.reset();
@@ -157,6 +168,8 @@ class Hostr {
     _connected = false;
     await _stopAuthListener();
     await autoWithdraw.stop();
+    await paymentProofOrchestrator.reset();
+    await userSubscriptions.reset();
     await messaging.threads.close();
     await reservations.dispose();
     await nwc.dispose();

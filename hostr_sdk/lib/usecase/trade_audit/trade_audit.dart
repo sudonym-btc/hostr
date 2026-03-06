@@ -225,7 +225,7 @@ class TradeAudit {
     validateReservations(List<Reservation> reservations) {
       return reservations.map((r) {
         final validation = listing != null
-            ? Reservation.validate(r, listing)
+            ? Reservation.validate(r)
             : ValidationResult(isValid: true, fields: {});
         return (reservation: r, validation: validation);
       }).toList();
@@ -247,7 +247,6 @@ class TradeAudit {
       if (committedBuyer.isNotEmpty) {
         buyerEscrowResult = await escrowVerification.verify(
           reservation: committedBuyer.last,
-          listing: listing,
         );
       }
     }

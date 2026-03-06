@@ -22,7 +22,6 @@ class ReservationActions {
     final actions = <TradeAction>[];
     final reservationStatus = Reservation.getReservationStatus(
       reservations: reservations,
-      listing: listing,
     );
 
     // Use allReservations (includes cancelled) for escrow checks,

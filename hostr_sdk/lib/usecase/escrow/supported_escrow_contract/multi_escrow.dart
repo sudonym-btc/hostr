@@ -56,8 +56,6 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     ContractFundEscrowParams params,
   ) async {
     await ensureDeployed();
-    print('Depositing to MultiEscrow with params: $params');
-    print('${params.gasEstimate?.gasLimit} ${params.gasEstimate?.gasPrice}');
     String transactionHash = await _withDecodedCustomError(() {
       return contract.createTrade(
         depositArgs(params),
@@ -397,8 +395,13 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           transactionHash: log.transactionHash!,
         );
       } else {
+        // @todo: decode trade id here
         logger.w('Unknown event found in allEvents stream: ${log.topics![0]}');
-        return UnknownEscrowEvent(block: block, escrowService: selectedEscrow);
+        return UnknownEscrowEvent(
+          tradeId: '',
+          block: block,
+          escrowService: selectedEscrow,
+        );
       }
     }
 

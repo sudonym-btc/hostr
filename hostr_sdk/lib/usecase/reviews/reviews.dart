@@ -71,11 +71,8 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
     // Verify participation proof against candidate reservations.
     final proofMatchedReservations = deps.reservations
         .where(
-          (reservation) => Review.validateProof(
-            reservation,
-            review.pubKey,
-            review.proof,
-          ),
+          (reservation) =>
+              Review.validateProof(reservation, review.pubKey, review.proof),
         )
         .toList();
     if (proofMatchedReservations.isEmpty) {
@@ -93,13 +90,12 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
     // Self-signed: validate payment proof on the senior reservation.
     final senior = Reservation.getSeniorReservation(
       reservations: proofMatchedReservations,
-      listing: listing,
     );
     if (senior == null) {
       return Invalid(review, 'No valid reservation in group');
     }
 
-    final validation = Reservation.validate(senior, listing);
+    final validation = Reservation.validate(senior);
     if (!validation.isValid) {
       final reason = validation.fields.values
           .where((f) => !f.ok)

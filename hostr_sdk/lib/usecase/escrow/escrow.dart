@@ -61,9 +61,25 @@ class EscrowUseCase {
         .getChainForEscrowService(selectedEscrow.service)
         .getSupportedEscrowContract(selectedEscrow.service);
 
-    return contract.allEvents(
+    final source = contract.allEvents(
       ContractEventsParams(tradeId: tradeId),
       selectedEscrow,
     );
+
+    // Auto-close after a terminal escrow event so the live EVM WebSocket
+    // subscription doesn't run indefinitely in the UserSubscriptions
+    // singleton.
+    source.stream.listen((event) {
+      if (event is EscrowReleasedEvent ||
+          event is EscrowClaimedEvent ||
+          event is EscrowArbitratedEvent) {
+        logger.d(
+          'Terminal escrow event received for $tradeId — closing stream',
+        );
+        source.close();
+      }
+    });
+
+    return source;
   }
 }

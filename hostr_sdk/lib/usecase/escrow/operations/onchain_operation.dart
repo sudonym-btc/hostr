@@ -572,6 +572,13 @@ abstract class OnchainOperation extends Cubit<OnchainOperationState> {
     } finally {
       await sub.cancel();
     }
+
+    // If the swap ended in a failed state, do not proceed to the on-chain tx.
+    if (swap.state is SwapInFailed) {
+      final failed = swap.state as SwapInFailed;
+      throw StateError('Nested swap-in failed: ${failed.error}');
+    }
+
     return data.copyWithSwapId(swapId);
   }
 

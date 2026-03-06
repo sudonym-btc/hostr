@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
-import 'package:rxdart/rxdart.dart';
 
 import '../../util/main.dart';
 import 'requests.dart';
@@ -66,11 +65,11 @@ class ExpandableSubscription<T extends Nip01Event> {
     required String name,
     required Filter initialFilter,
     Duration debounceDuration = const Duration(milliseconds: 500),
-  })  : _requests = requests,
-        _logger = logger,
-        _name = name,
-        _currentFilter = initialFilter,
-        _debounceDuration = debounceDuration;
+  }) : _requests = requests,
+       _logger = logger,
+       _name = name,
+       _currentFilter = initialFilter,
+       _debounceDuration = debounceDuration;
 
   // ── Public API ──────────────────────────────────────────────────────
 
@@ -97,10 +96,7 @@ class ExpandableSubscription<T extends Nip01Event> {
   /// [deltaFilter] covers *only* the newly-added values so the delta query
   /// doesn't re-fetch everything. If null, falls back to [expandedFilter]
   /// (safe but fetches duplicates that are deduped locally).
-  void updateFilter({
-    required Filter expandedFilter,
-    Filter? deltaFilter,
-  }) {
+  void updateFilter({required Filter expandedFilter, Filter? deltaFilter}) {
     if (_closed) return;
 
     _pendingFullFilter = expandedFilter;
@@ -123,6 +119,24 @@ class ExpandableSubscription<T extends Nip01Event> {
     await stream.close();
     _seenIds.clear();
     _logger.d('ExpandableSubscription[$_name] closed');
+  }
+
+  /// Soft teardown for logout. Cancels subscriptions and clears state
+  /// but keeps the [stream] object alive so listeners stay attached.
+  /// Call [start] again after re-login to resume.
+  Future<void> reset() async {
+    _debounceTimer?.cancel();
+    _pendingFullFilter = null;
+    _pendingDeltaFilter = null;
+    await _deltaQuerySub?.cancel();
+    _deltaQuerySub = null;
+    await _liveHandle?.cancel();
+    _liveHandle = null;
+    _seenIds.clear();
+    _initialQueryDone = false;
+    _closed = false;
+    await stream.reset();
+    _logger.d('ExpandableSubscription[$_name] reset');
   }
 
   // ── Internals ───────────────────────────────────────────────────────
@@ -189,8 +203,9 @@ class ExpandableSubscription<T extends Nip01Event> {
     // Set `since` to just after the newest event we've seen to avoid
     // re-fetching events already in the accumulator.
     if (stream.list.value.isNotEmpty) {
-      final maxCreatedAt =
-          stream.list.value.map((e) => e.createdAt).reduce(max);
+      final maxCreatedAt = stream.list.value
+          .map((e) => e.createdAt)
+          .reduce(max);
       final nextSince = maxCreatedAt + 1;
       liveFilter.since = liveFilter.since == null
           ? nextSince

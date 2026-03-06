@@ -14,6 +14,8 @@ import 'package:rxdart/rxdart.dart';
 
 import '../relays/relays.dart';
 
+export 'expandable_subscription.dart';
+
 abstract class RequestsModel {
   Stream<T> query<T extends Nip01Event>({
     required Filter filter,

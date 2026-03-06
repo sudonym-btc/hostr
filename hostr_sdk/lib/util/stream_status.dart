@@ -30,8 +30,8 @@ class StreamWithStatus<T> {
   final BehaviorSubject<StreamStatus> status =
       BehaviorSubject<StreamStatus>.seeded(StreamStatusIdle());
 
-  late final ReplaySubject<T> _replaySubject = ReplaySubject<T>();
-  late final StreamSubscription<T> _replaySubscription;
+  late ReplaySubject<T> _replaySubject = ReplaySubject<T>();
+  late StreamSubscription<T> _replaySubscription;
 
   /// A stream of [T] objects returned by the request.
   ///
@@ -104,6 +104,11 @@ class StreamWithStatus<T> {
 
   void addStatus(StreamStatus newStatus) {
     status.add(newStatus);
+  }
+
+  void setSnapshot(List<T> snapshot) {
+    if (_listSubject.isClosed) return;
+    _listSubject.add(List.unmodifiable(snapshot));
   }
 
   void add(T item) {
@@ -180,6 +185,32 @@ class StreamWithStatus<T> {
     return filtered;
   }
 
+  StreamWithStatus<T> where(bool Function(T) test, {bool closeInner = true}) {
+    final filtered = StreamWithStatus<T>();
+
+    StreamSubscription<List<T>>? listSub;
+    StreamSubscription<StreamStatus>? statusSub;
+
+    listSub = list.listen(
+      (snapshot) => filtered.setSnapshot(snapshot.where(test).toList()),
+      onError: filtered.addError,
+    );
+    statusSub = status.listen(
+      filtered.addStatus,
+      onError: (error, stackTrace) => filtered.addError(error, stackTrace),
+    );
+
+    filtered.onClose = () async {
+      await listSub?.cancel();
+      await statusSub?.cancel();
+      if (closeInner) {
+        await close();
+      }
+    };
+
+    return filtered;
+  }
+
   // @todo: suspect a status update would emit before the async mapper completes. Could be problem if trying to get stream result when listening to status changes
   StreamWithStatus<R> asyncMap<R>(
     Future<R> Function(T item) mapper, {
@@ -207,6 +238,41 @@ class StreamWithStatus<T> {
     };
 
     return mapped;
+  }
+
+  /// Resets this stream to its initial idle state.
+  ///
+  /// Cancels all inner data subscriptions, drains accumulated replay and
+  /// list state, and sets [status] back to [StreamStatusIdle]. The stream
+  /// object identity is preserved — existing listeners on [stream] and
+  /// [status] stay attached and will see new data when [_init] is called
+  /// again.
+  ///
+  /// Callers that derived streams via [where], [map], etc. with
+  /// `closeInner: false` will naturally stop receiving data after reset
+  /// (source goes idle) and resume when new data flows in.
+  Future<void> reset() async {
+    // 1. Cancel all inner data-producing subscriptions.
+    for (final sub in _subscriptions) {
+      await sub.cancel();
+    }
+    _subscriptions.clear();
+
+    // 2. Tear down and rebuild the replay infrastructure.
+    await _replaySubscription.cancel();
+    await _replaySubject.close();
+    _replaySubject = ReplaySubject<T>();
+    _setupReplay();
+
+    // 3. Reset accumulated list.
+    _listSubject.add(List<T>.unmodifiable(<T>[]));
+
+    // 4. Return to idle.
+    status.add(StreamStatusIdle());
+
+    // 5. Notify derived streams (onClose callback handles their cleanup).
+    await onClose?.call();
+    onClose = null;
   }
 
   Future<void> close() async {
@@ -266,6 +332,30 @@ class DynamicCombinedStreamWithStatus<T> extends StreamWithStatus<T> {
         }
       }
     };
+  }
+
+  @override
+  Future<void> reset() async {
+    // Cancel all per-stream subscriptions.
+    for (final sub in _streamSubscriptions) {
+      await sub.cancel();
+    }
+    _streamSubscriptions.clear();
+    for (final sub in _statusSubscriptions) {
+      await sub.cancel();
+    }
+    _statusSubscriptions.clear();
+
+    // Optionally close inner streams.
+    if (closeInner) {
+      for (final stream in _streams) {
+        await stream.close();
+      }
+    }
+    _streams.clear();
+    _statusMap.clear();
+
+    await super.reset();
   }
 
   void combine(StreamWithStatus<T> stream) {

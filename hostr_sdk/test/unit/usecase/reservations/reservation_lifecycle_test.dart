@@ -494,7 +494,7 @@ void main() {
         seller: seller,
       );
 
-      final result = Reservation.validate(sellerAck, listing);
+      final result = Reservation.validate(sellerAck);
       expect(
         result.isValid,
         isTrue,
@@ -519,7 +519,7 @@ void main() {
         proof: null,
       );
 
-      final result = Reservation.validate(commitNoProof, listing);
+      final result = Reservation.validate(commitNoProof);
       expect(result.isValid, isFalse);
     });
   });
@@ -559,7 +559,7 @@ void main() {
       );
 
       // With escrow proof, Reservation.validate should accept
-      final result = Reservation.validate(commit, listing);
+      final result = Reservation.validate(commit);
       expect(result.isValid, isTrue);
     });
 
@@ -580,7 +580,7 @@ void main() {
         proof: null,
       );
 
-      final result = Reservation.validate(commit, listing);
+      final result = Reservation.validate(commit);
       expect(result.isValid, isFalse);
     });
   });
@@ -1232,7 +1232,7 @@ void main() {
       expect(commit.proof!.escrowProof!.txHash, '0xabc123');
 
       // Validate the commit is accepted
-      final validation = Reservation.validate(commit, listing);
+      final validation = Reservation.validate(commit);
       expect(validation.isValid, isTrue);
 
       // ReservationPairStatus shows active
@@ -1307,7 +1307,7 @@ void main() {
         expect(sellerAck.isCommit, isTrue);
 
         // Host reservation is valid without proof
-        expect(Reservation.validate(sellerAck, listing).isValid, isTrue);
+        expect(Reservation.validate(sellerAck).isValid, isTrue);
 
         // ReservationPairStatus shows committed
         var status = ReservationPairStatus(

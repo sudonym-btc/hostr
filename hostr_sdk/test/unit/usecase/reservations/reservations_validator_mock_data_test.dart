@@ -2,6 +2,7 @@
 library;
 
 import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
 import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
@@ -149,6 +150,7 @@ void main() {
         messaging: _FakeMessaging(),
         auth: _FakeAuth(),
         transitions: _FakeTransitions(),
+        listings: Listings(requests: relay, logger: CustomLogger()),
       );
       listing = _fixtureListing();
       start = DateTime(2026, 2, 1);
@@ -246,7 +248,7 @@ void main() {
         relay.emit(guestReservation);
         relay.emit(hostReservation);
 
-        final snapshot = await validated.stream.firstWhere(
+        final snapshot = await validated.list.firstWhere(
           (s) => s.length >= 2 && s.every((v) => v is Valid<Reservation>),
         );
 

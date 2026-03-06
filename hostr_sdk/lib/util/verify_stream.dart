@@ -27,7 +27,7 @@ import 'validation_stream.dart';
 /// [StreamStatusQueryComplete] and [StreamStatusLive] are deferred until
 /// all pending verify operations drain, so downstream never sees "live"
 /// while verifications are still in-flight.
-ValidatedStreamWithStatus<T> verifyStream<T extends Nip01Event, TDeps>({
+StreamWithStatus<Validation<T>> verifyStream<T extends Nip01Event, TDeps>({
   required StreamWithStatus<T> source,
   required Future<TDeps> Function(T item) resolve,
   required Validation<T> Function(T item, TDeps deps) verify,
@@ -46,7 +46,7 @@ ValidatedStreamWithStatus<T> verifyStream<T extends Nip01Event, TDeps>({
   // (debounce window hasn't fired).
   var hasUnprocessedItems = false;
 
-  final response = ValidatedStreamWithStatus<T>(
+  final response = StreamWithStatus<Validation<T>>(
     onClose: () async {
       await statusSub.cancel();
       await listSub.cancel();

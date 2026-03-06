@@ -190,13 +190,13 @@ class SeedPipelineConfig {
     this.lnbitsExtensionName = 'lnurlp',
     this.lnbitsNostrPrivateKey,
     this.seed = 1,
-    this.userCount = 5,
-    this.hostRatio = 0.25,
-    this.hostHasEvmRatio = 0.8,
+    this.userCount = 2,
+    this.hostRatio = 0.5,
+    this.hostHasEvmRatio = 1,
     this.listingsPerHostAvg = 1.6,
-    this.reservationRequestsPerGuest = 10,
+    this.reservationRequestsPerGuest = 1,
     this.threadStages = const ThreadStageSpec(),
-    this.invalidReservationRate = 0.1,
+    this.invalidReservationRate = 0,
     this.userOverrides = const [],
   });
 

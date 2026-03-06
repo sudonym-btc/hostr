@@ -176,6 +176,7 @@ void main() {
         messaging: _FakeMessaging(),
         auth: _FakeAuth(),
         transitions: _FakeTransitions(),
+        listings: listings,
       );
       reviews = Reviews(
         requests: fakeRequests,

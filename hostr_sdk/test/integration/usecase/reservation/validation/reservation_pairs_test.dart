@@ -385,7 +385,7 @@ void main() {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
       final pair = ReservationPairStatus(buyerReservation: nego);
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Invalid<ReservationPairStatus>>());
     });
 
@@ -402,7 +402,7 @@ void main() {
         buyerReservation: nego,
       );
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
     });
 
@@ -419,7 +419,7 @@ void main() {
 
       final pair = ReservationPairStatus(sellerReservation: ack);
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
     });
 
@@ -433,7 +433,7 @@ void main() {
 
       final pair = ReservationPairStatus(buyerReservation: cancelled);
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
@@ -456,7 +456,7 @@ void main() {
         buyerReservation: nego,
       );
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
     });
@@ -479,7 +479,7 @@ void main() {
         buyerReservation: buyerCancelled,
       );
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
       expect((result as Valid).event.buyerCancelled, isTrue);
@@ -504,7 +504,7 @@ void main() {
         buyerReservation: cancelledBuyer,
       );
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
@@ -528,7 +528,7 @@ void main() {
         buyerReservation: nego,
       );
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
     });
@@ -536,7 +536,7 @@ void main() {
     test('empty pair (both null) → Invalid', () {
       final pair = ReservationPairStatus();
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Invalid<ReservationPairStatus>>());
       expect((result as Invalid).reason, contains('No reservation found'));
     });
@@ -715,7 +715,7 @@ void main() {
           );
 
           final pair = ReservationPairStatus(buyerReservation: commit);
-          final result = ReservationPairs.verifyPair(pair, listing);
+          final result = ReservationPairs.verifyPair(pair);
           expect(result, isA<Valid<ReservationPairStatus>>());
         },
         timeout: const Timeout(Duration(seconds: 30)),
@@ -919,7 +919,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
     });
 
@@ -943,7 +943,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
     });
 
@@ -966,7 +966,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Invalid<ReservationPairStatus>>());
       expect((result as Invalid).reason, contains('Amount insufficient'));
     });
@@ -1000,7 +1000,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Invalid<ReservationPairStatus>>());
       expect((result as Invalid).reason, contains('recipient does not match'));
     });
@@ -1028,7 +1028,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Invalid<ReservationPairStatus>>());
       expect((result as Invalid).reason, contains('profile does not match'));
     });
@@ -1053,7 +1053,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Invalid<ReservationPairStatus>>());
       expect((result as Invalid).reason, contains('LNURL does not match'));
     });
@@ -1076,7 +1076,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Invalid<ReservationPairStatus>>());
       expect(
         (result as Invalid).reason,
@@ -1116,7 +1116,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
     });
 
@@ -1131,7 +1131,7 @@ void main() {
 
         // No proof attached — should definitely be invalid
         final pair = ReservationPairStatus(buyerReservation: nego);
-        final result = ReservationPairs.verifyPair(pair, listing);
+        final result = ReservationPairs.verifyPair(pair);
         expect(result, isA<Invalid<ReservationPairStatus>>());
       },
     );
@@ -1170,7 +1170,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       // Documenting current behavior: proof validation passes regardless
       // of allowSelfSignedReservation flag.
       expect(result, isA<Valid<ReservationPairStatus>>());
@@ -1194,7 +1194,7 @@ void main() {
 
         // No seller ack, no proof
         final pair = ReservationPairStatus(buyerReservation: nego);
-        final result = ReservationPairs.verifyPair(pair, listing);
+        final result = ReservationPairs.verifyPair(pair);
         expect(result, isA<Invalid<ReservationPairStatus>>());
       },
     );
@@ -1220,7 +1220,7 @@ void main() {
         buyerReservation: nego,
       );
 
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
     });
 
@@ -1254,7 +1254,7 @@ void main() {
       );
 
       final pair = ReservationPairStatus(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair, listing);
+      final result = ReservationPairs.verifyPair(pair);
       expect(result, isA<Valid<ReservationPairStatus>>());
     });
   });
@@ -1307,11 +1307,10 @@ void main() {
 
       final pairs = Reservations.toReservationPairs(
         reservations: [nego1, ack1, nego2, cancelled2, nego3],
-        listing: listing,
       );
 
       final results = pairs.values
-          .map((pair) => ReservationPairs.verifyPair(pair, listing))
+          .map((pair) => ReservationPairs.verifyPair(pair))
           .toList();
 
       final validCount = results
@@ -1368,11 +1367,10 @@ void main() {
 
       final pairs = Reservations.toReservationPairs(
         reservations: [nego1, ack1, commit2, nego3],
-        listing: listing,
       );
 
       final results = pairs.values
-          .map((pair) => ReservationPairs.verifyPair(pair, listing))
+          .map((pair) => ReservationPairs.verifyPair(pair))
           .toList();
 
       final validCount = results
@@ -1431,11 +1429,10 @@ void main() {
           nego3,
           sellerCancelled,
         ],
-        listing: listing,
       );
 
       final results = pairs.values
-          .map((pair) => ReservationPairs.verifyPair(pair, listing))
+          .map((pair) => ReservationPairs.verifyPair(pair))
           .toList();
 
       final activeCount = results
@@ -1471,7 +1468,7 @@ void main() {
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
       ).signAs(host, Reservation.fromNostrEvent);
 
-      final result = Reservation.validate(hostRes, listing);
+      final result = Reservation.validate(hostRes);
       expect(result.isValid, isTrue);
       expect(result.fields['publisher']?.ok, isTrue);
     });
@@ -1479,7 +1476,7 @@ void main() {
     test('buyer without proof → invalid', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
 
-      final result = Reservation.validate(nego, listing);
+      final result = Reservation.validate(nego);
       expect(result.isValid, isFalse);
       expect(result.fields['proof']?.ok, isFalse);
     });
@@ -1506,7 +1503,7 @@ void main() {
         proof: proof,
       );
 
-      final result = Reservation.validate(commit, listing);
+      final result = Reservation.validate(commit);
       // Current implementation: escrow proof always sets field to true
       expect(result.isValid, isTrue);
       expect(result.fields['escrowProof']?.ok, isTrue);
