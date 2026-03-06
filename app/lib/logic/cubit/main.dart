@@ -1,6 +1,7 @@
 export 'auth.cubit.dart';
 export 'availability.cubit.dart';
 export 'date_range.cubit.dart';
+export 'discover_escrow_services.cubit.dart';
 export 'entity/entity.cubit.dart';
 export 'escrow_services.cubit.dart';
 export 'image_picker.cubit.dart';

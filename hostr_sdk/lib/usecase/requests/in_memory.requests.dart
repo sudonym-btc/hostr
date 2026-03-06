@@ -165,6 +165,39 @@ class InMemoryRequests extends Requests implements RequestsModel {
     _subscriptions.clear();
   }
 
+  @override
+  LiveSubscriptionHandle liveSubscription<T extends Nip01Event>({
+    required Filter filter,
+    required void Function(T) onData,
+    void Function(Object, StackTrace?)? onError,
+    required String name,
+  }) {
+    final subId = 'live_${_subCounter++}';
+    late final _Subscription<T> subscription;
+    final StreamWithStatus<T> response = StreamWithStatus<T>(
+      onClose: () {
+        _subscriptions.remove(subscription);
+      },
+    );
+    subscription = _Subscription<T>(
+      id: subId,
+      filter: filter,
+      response: response,
+    );
+    _subscriptions.add(subscription);
+
+    final listener = response.stream.listen(onData, onError: onError);
+    response.addStatus(StreamStatusLive());
+
+    return LiveSubscriptionHandle(
+      () async {
+        await listener.cancel();
+        _subscriptions.remove(subscription);
+      },
+      subId,
+    );
+  }
+
   /// Seed events in bulk.
   void seedEvents(List<Nip01Event> events) {
     for (var event in events) {

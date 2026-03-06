@@ -33,7 +33,9 @@ class SearchBoxWidget extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(50),
           child: ListTile(
+            minVerticalPadding: 0,
             leading: Icon(Icons.search),
+            titleAlignment: ListTileTitleAlignment.center,
             title: Text(
               filterState.location.isEmpty
                   ? AppLocalizations.of(context)!.where

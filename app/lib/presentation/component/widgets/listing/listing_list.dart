@@ -4,16 +4,18 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:models/main.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../ui/form_label.dart';
 
 class ListingsWidget extends StatefulWidget {
-  final ScrollController? scrollController;
-
   /// When a new id is emitted the list scrolls the matching item into view.
   final ValueNotifier<String?>? scrollToId;
 
-  const ListingsWidget({super.key, this.scrollController, this.scrollToId});
+  /// Written by the list when a user scroll comes to rest on an item.
+  final ValueNotifier<String?>? focusedItemId;
+
+  const ListingsWidget({super.key, this.scrollToId, this.focusedItemId});
 
   @override
   State<ListingsWidget> createState() => _ListingsWidgetState();
@@ -23,37 +25,23 @@ class _ListingsWidgetState extends State<ListingsWidget> {
   static const int _preloadWindowSize = 5;
 
   final Set<String> _preloadedListingIds = <String>{};
-  ScrollController? _ownedController;
-
-  ScrollController get _effectiveController =>
-      widget.scrollController ?? (_ownedController ??= ScrollController());
+  final ItemPositionsListener _itemPositionsListener =
+      ItemPositionsListener.create();
 
   @override
   void initState() {
     super.initState();
-    _effectiveController.addListener(_onScrollPreload);
+    _itemPositionsListener.itemPositions.addListener(_onPositionsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _preloadNextWindow());
   }
 
   @override
-  void didUpdateWidget(covariant ListingsWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrollController != widget.scrollController) {
-      final oldController = oldWidget.scrollController ?? _ownedController;
-      oldController?.removeListener(_onScrollPreload);
-      _effectiveController.addListener(_onScrollPreload);
-      WidgetsBinding.instance.addPostFrameCallback((_) => _preloadNextWindow());
-    }
-  }
-
-  @override
   void dispose() {
-    _effectiveController.removeListener(_onScrollPreload);
-    _ownedController?.dispose();
+    _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
     super.dispose();
   }
 
-  void _onScrollPreload() {
+  void _onPositionsChanged() {
     _preloadNextWindow();
   }
 
@@ -64,19 +52,16 @@ class _ListingsWidgetState extends State<ListingsWidget> {
     final results = state.results;
     if (results.isEmpty) return;
 
-    final controller = _effectiveController;
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
 
-    // Approximation is sufficient for ahead-of-time preloading.
-    const estimatedItemExtent = 320.0;
-    final firstVisible = controller.hasClients
-        ? (controller.position.pixels / estimatedItemExtent).floor()
-        : 0;
-    final visibleCount = controller.hasClients
-        ? (controller.position.viewportDimension / estimatedItemExtent).ceil() +
-              1
-        : 1;
+    // Find the last visible index, accounting for a possible header at index 0.
+    final maxVisibleIndex = positions
+        .map((p) => p.index)
+        .reduce((a, b) => a > b ? a : b);
 
-    final start = (firstVisible + visibleCount).clamp(0, results.length);
+    // Header occupies index 0 in the list, so data indices are offset by 1.
+    final start = maxVisibleIndex.clamp(0, results.length);
     final end = (start + _preloadWindowSize).clamp(0, results.length);
     if (start >= end) return;
 
@@ -115,8 +100,9 @@ class _ListingsWidgetState extends State<ListingsWidget> {
       child: ListWidget<Listing>(
         loadNextOnBottom: true,
         reserveBottomNavigationBarSpace: true,
-        scrollController: _effectiveController,
         scrollToId: widget.scrollToId,
+        focusedItemId: widget.focusedItemId,
+        itemPositionsListener: _itemPositionsListener,
         resultCountBuilder: (count, hasMore) => CustomPadding(
           bottom: 0,
           child: Row(
@@ -130,10 +116,7 @@ class _ListingsWidgetState extends State<ListingsWidget> {
           ),
         ),
         builder: (el) {
-          return ListingListItemWidget(
-            listing: el,
-            // dateRange: searchController.state.dateRange,
-          );
+          return ListingListItemWidget(listing: el);
         },
       ),
     );

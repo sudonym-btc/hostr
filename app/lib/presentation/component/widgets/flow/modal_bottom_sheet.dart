@@ -21,7 +21,7 @@ Future<T?> showAppModal<T>(
 class ModalBottomSheet extends StatelessWidget {
   final String? title;
   final String? subtitle;
-  final Widget content;
+  final Widget? content;
   final Widget? buttons;
   final Widget? leading;
   final ModalBottomSheetType type;
@@ -29,7 +29,7 @@ class ModalBottomSheet extends StatelessWidget {
     super.key,
     this.title,
     this.subtitle,
-    required this.content,
+    this.content,
     this.type = ModalBottomSheetType.normal,
     this.buttons,
     this.leading,
@@ -81,7 +81,7 @@ class ModalBottomSheet extends StatelessWidget {
                     ),
                   ],
                   Gap.vertical.md(),
-                  content,
+                  ?content,
                   if (buttons != null) ...[
                     Gap.vertical.custom(kSpace5),
                     buttons!,

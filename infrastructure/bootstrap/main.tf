@@ -156,3 +156,91 @@ resource "google_dns_record_set" "staging_delegation" {
   managed_zone = google_dns_managed_zone.production.name
   rrdatas      = google_dns_managed_zone.staging.name_servers
 }
+
+# ─── IAM APIs ────────────────────────────────────────────────────────────────
+# Required before Terraform can create service accounts or manage IAM.
+
+resource "google_project_service" "iam_production" {
+  project = google_project.production.project_id
+  service = "iam.googleapis.com"
+}
+
+resource "google_project_service" "iam_staging" {
+  project = google_project.staging.project_id
+  service = "iam.googleapis.com"
+}
+
+resource "google_project_service" "iam_credentials_production" {
+  project = google_project.production.project_id
+  service = "iamcredentials.googleapis.com"
+}
+
+resource "google_project_service" "iam_credentials_staging" {
+  project = google_project.staging.project_id
+  service = "iamcredentials.googleapis.com"
+}
+
+# ─── CI Service Accounts ────────────────────────────────────────────────────
+# Created here (rather than in the per-env main stack) so that the SA and its
+# permissions exist BEFORE CI runs `terraform apply`.  This avoids a
+# chicken-and-egg problem where the SA needs roles to refresh resources
+# (e.g. google_apikeys_key requires serviceUsageConsumer) but would otherwise
+# be granting itself those roles in the same apply.
+
+resource "google_service_account" "ci_deploy_production" {
+  project      = google_project.production.project_id
+  account_id   = "ci-deploy"
+  display_name = "CI Deploy (GitHub Actions)"
+
+  depends_on = [google_project_service.iam_production]
+}
+
+resource "google_service_account" "ci_deploy_staging" {
+  project      = google_project.staging.project_id
+  account_id   = "ci-deploy"
+  display_name = "CI Deploy (GitHub Actions)"
+
+  depends_on = [google_project_service.iam_staging]
+}
+
+locals {
+  ci_roles = [
+    "roles/compute.admin",
+    "roles/secretmanager.admin",
+    "roles/iam.serviceAccountUser",
+    "roles/storage.admin",
+    "roles/dns.admin",
+    "roles/resourcemanager.projectIamAdmin",
+    "roles/serviceusage.serviceUsageAdmin",
+    "roles/serviceusage.serviceUsageConsumer",
+  ]
+}
+
+resource "google_project_iam_member" "ci_deploy_production" {
+  for_each = toset(local.ci_roles)
+
+  project = google_project.production.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.ci_deploy_production.email}"
+}
+
+resource "google_project_iam_member" "ci_deploy_staging" {
+  for_each = toset(local.ci_roles)
+
+  project = google_project.staging.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.ci_deploy_staging.email}"
+}
+
+# The TF state bucket lives in the production project. Both envs need access.
+resource "google_storage_bucket_iam_member" "ci_deploy_state_production" {
+  bucket = google_storage_bucket.terraform_state.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.ci_deploy_production.email}"
+}
+
+resource "google_storage_bucket_iam_member" "ci_deploy_state_staging" {
+  bucket = google_storage_bucket.terraform_state.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.ci_deploy_staging.email}"
+}

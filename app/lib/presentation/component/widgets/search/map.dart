@@ -17,7 +17,10 @@ class SearchMapWidget extends StatefulWidget {
   /// Called with the listing id when a price marker is tapped.
   final ValueChanged<String>? onMarkerTap;
 
-  SearchMapWidget({super.key, this.onMarkerTap});
+  /// When a new id is written the map animates the camera to that pin.
+  final ValueNotifier<String?>? animateToId;
+
+  SearchMapWidget({super.key, this.onMarkerTap, this.animateToId});
 
   @override
   State<StatefulWidget> createState() {
@@ -38,7 +41,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget> {
     _updateMarkerData(cubit.state);
 
     _listSubscription = cubit.stream
-        .debounceTime(const Duration(milliseconds: 100))
+        .debounceTime(const Duration(milliseconds: 50))
         .listen(_updateMarkerData);
   }
 
@@ -77,6 +80,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget> {
         ListingMap(
           listings: _markerData,
           onMarkerTap: widget.onMarkerTap,
+          animateToId: widget.animateToId,
           showArrows: false,
         ),
         Positioned(

@@ -1,12 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/onchain_operation.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -35,7 +32,6 @@ class EscrowFundWidget extends StatefulWidget {
 class _EscrowFundWidgetState extends State<EscrowFundWidget> {
   late final EscrowSelectorCubit _selectorCubit;
   EscrowFundOperation? _fundOperation;
-  late final StreamSubscription<EscrowSelectorState> _selectorSub;
 
   @override
   void initState() {
@@ -44,36 +40,24 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
       counterparty: widget.counterparty,
       negotiateReservation: widget.negotiateReservation,
     )..load();
-    _selectorSub = _selectorCubit.stream.distinct().listen(_onSelectorChanged);
-  }
-
-  void _onSelectorChanged(EscrowSelectorState state) {
-    if (state is EscrowSelectorLoaded && state.selectedEscrow != null) {
-      _createFundOperation(state.selectedEscrow!);
-    }
   }
 
   void _createFundOperation(EscrowService escrow) {
     _fundOperation?.close();
-    setState(() {
-      _fundOperation = getIt<Hostr>().escrow.fund(
-        EscrowFundParams(
-          negotiateReservation: widget.negotiateReservation,
-          amount: widget.negotiateReservation.amount!,
-          sellerProfile: widget.counterparty,
-          escrowService: escrow,
-          listingName: widget.listingName,
-        ),
-      );
-    });
+    _fundOperation = getIt<Hostr>().escrow.fund(
+      EscrowFundParams(
+        negotiateReservation: widget.negotiateReservation,
+        amount: widget.negotiateReservation.amount!,
+        sellerProfile: widget.counterparty,
+        escrowService: escrow,
+        listingName: widget.listingName,
+      ),
+    );
   }
 
   @override
   void dispose() {
-    _selectorSub.cancel();
     _selectorCubit.close();
-    // Detach rather than close: if a deposit/swap is still in-flight, let it
-    // finish and self-close. Only close immediately when idle or terminal.
     _fundOperation?.detach();
     super.dispose();
   }
@@ -82,51 +66,41 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _selectorCubit,
-      child: BlocBuilder<EscrowSelectorCubit, EscrowSelectorState>(
+      child: BlocConsumer<EscrowSelectorCubit, EscrowSelectorState>(
+        listener: (context, state) {
+          if (state is EscrowSelectorLoaded && state.selectedEscrow != null) {
+            setState(() => _createFundOperation(state.selectedEscrow!));
+          }
+        },
         builder: (context, selectorState) {
-          switch (selectorState) {
-            case EscrowSelectorLoading():
-              return ModalBottomSheet(
-                type: ModalBottomSheetType.normal,
-                title: 'Deposit Funds',
-                content: Center(child: AppLoadingIndicator.large()),
-              );
-            case EscrowSelectorError():
-              return ModalBottomSheet(
-                type: ModalBottomSheetType.error,
-                title: 'Deposit Funds',
-                content: Text(selectorState.message),
-              );
-            case EscrowSelectorLoaded():
-              if (_fundOperation == null) {
-                return ModalBottomSheet(
-                  type: ModalBottomSheetType.normal,
-                  title: 'Deposit Funds',
-                  content: Center(child: AppLoadingIndicator.large()),
-                );
-              }
-              return BlocProvider<EscrowFundOperation>.value(
-                value: _fundOperation!,
-                child: BlocBuilder<EscrowFundOperation, OnchainOperationState>(
-                  builder: (context, fundState) {
-                    switch (fundState) {
-                      case OnchainInitialised():
-                        return EscrowFundConfirmWidget(
-                          key: ObjectKey(_fundOperation),
-                          onConfirm: () async {
-                            await _selectorCubit.select();
-                            _fundOperation!.execute();
-                          },
-                        );
-                      default:
-                        return EscrowFundFlowWidget(cubit: _fundOperation!);
-                    }
+          if (selectorState is EscrowSelectorError) {
+            return ModalBottomSheet(
+              type: ModalBottomSheetType.error,
+              title: 'Deposit Funds',
+              content: Text(selectorState.message),
+            );
+          }
+
+          final op = _fundOperation;
+          if (selectorState is! EscrowSelectorLoaded || op == null) {
+            return OnchainTransactionSheet.loading(title: 'Deposit Funds');
+          }
+
+          return BlocProvider<EscrowFundOperation>.value(
+            value: op,
+            child: BlocBuilder<EscrowFundOperation, OnchainOperationState>(
+              builder: (context, fundState) => switch (fundState) {
+                OnchainInitialised() => EscrowFundConfirmWidget(
+                  key: ObjectKey(op),
+                  onConfirm: () async {
+                    await _selectorCubit.select();
+                    op.execute();
                   },
                 ),
-              );
-            default:
-              throw UnimplementedError();
-          }
+                _ => EscrowFundFlowWidget(cubit: op),
+              },
+            ),
+          );
         },
       ),
     );
@@ -224,60 +198,7 @@ class EscrowFundProgressWidget extends StatelessWidget {
     if (swapState == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    return SwapInViewWidget(swapState);
-  }
-}
-
-class EscrowFundDepositingWidget extends StatelessWidget {
-  final OnchainTxBroadcast state;
-  const EscrowFundDepositingWidget(this.state, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.normal,
-      title: 'Depositing Funds',
-      subtitle: state.data.txHash != null
-          ? 'Waiting for on-chain confirmation...'
-          : 'Submitting deposit transaction...',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Gap.vertical.custom(kSpace5),
-          AsymptoticProgressBar(),
-          Gap.vertical.md(),
-        ],
-      ),
-    );
-  }
-}
-
-class EscrowFundSuccessWidget extends StatelessWidget {
-  final OnchainTxConfirmed state;
-  const EscrowFundSuccessWidget(this.state, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.success,
-      title: 'Deposit Success',
-      subtitle: 'Funds have been deposited into the escrow.',
-      content: Container(),
-    );
-  }
-}
-
-class EscrowFundFailureWidget extends StatelessWidget {
-  final OnchainError state;
-  const EscrowFundFailureWidget(this.state, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.error,
-      title: 'Escrow Failed',
-      content: Text(state.error.toString()),
-    );
+    return OnchainTransactionSheet.swapProgress(progress);
   }
 }
 
@@ -287,40 +208,26 @@ class EscrowFundFailureWidget extends StatelessWidget {
 ///
 /// Use this when re-attaching to an operation obtained from
 /// [EscrowFundRegistry] (e.g. when the user navigated away and came back).
-class EscrowFundFlowWidget extends StatefulWidget {
+class EscrowFundFlowWidget extends StatelessWidget {
   final EscrowFundOperation cubit;
   const EscrowFundFlowWidget({super.key, required this.cubit});
 
   @override
-  State<EscrowFundFlowWidget> createState() => _EscrowFundFlowWidgetState();
-}
-
-class _EscrowFundFlowWidgetState extends State<EscrowFundFlowWidget> {
-  @override
-  void dispose() {
-    widget.cubit.detachOrClose((s) => s.isTerminal);
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return BlocProvider<EscrowFundOperation>.value(
-      value: widget.cubit,
-      child: BlocBuilder<EscrowFundOperation, OnchainOperationState>(
-        builder: (context, fundState) {
-          return switch (fundState) {
-            OnchainInitialised() => ModalBottomSheet(
-              type: ModalBottomSheetType.normal,
-              title: 'Deposit Funds',
-              content: Center(child: AppLoadingIndicator.large()),
-            ),
-            OnchainTxBroadcast() => EscrowFundDepositingWidget(fundState),
-            OnchainSwapProgress() => EscrowFundProgressWidget(fundState),
-            OnchainTxConfirmed() => EscrowFundSuccessWidget(fundState),
-            OnchainError() => EscrowFundFailureWidget(fundState),
-          };
-        },
+    return OnchainOperationFlowWidget(
+      cubit: cubit,
+      broadcastBuilder: (s) => OnchainTransactionSheet.broadcast(
+        title: 'Depositing Funds',
+        subtitle: s.data.txHash != null
+            ? 'Waiting for on-chain confirmation...'
+            : 'Submitting deposit transaction...',
       ),
+      confirmedBuilder: (_) => OnchainTransactionSheet.success(
+        title: 'Deposit Success',
+        subtitle: 'Funds have been deposited into the escrow.',
+      ),
+      errorBuilder: (s) =>
+          OnchainTransactionSheet.error(s, title: 'Escrow Failed'),
     );
   }
 }

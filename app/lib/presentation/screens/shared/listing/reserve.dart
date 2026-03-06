@@ -99,6 +99,20 @@ Future<void> selectDates(
   List<ReservationPairStatus> reservationPairs, {
   bool enforceContiguousAvailability = true,
 }) async {
+  // Clear the initial selection if the previously chosen dates are no longer
+  // available — the date picker asserts that initialDateRange satisfies the
+  // selectableDayPredicate.
+  final currentRange = dateRangeCubit.state.dateRange;
+  final initialRange =
+      currentRange != null &&
+          Listing.isAvailable(
+            currentRange.start,
+            currentRange.end,
+            reservationPairs,
+          )
+      ? currentRange
+      : null;
+
   final picked = await showDateRangePicker(
     builder: (context, child) {
       return MediaQuery(
@@ -129,7 +143,7 @@ Future<void> selectDates(
 
           return true;
         },
-    initialDateRange: dateRangeCubit.state.dateRange,
+    initialDateRange: initialRange,
   );
   dateRangeCubit.updateDateRange(picked);
 }

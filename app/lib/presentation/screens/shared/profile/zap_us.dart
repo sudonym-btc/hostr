@@ -15,46 +15,49 @@ class ZapUsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Section(
-      body: Column(
-        children: [
-          Row(
-            children: [
-              FilledButton(
-                child: Text(AppLocalizations.of(context)!.zapUs),
-                onPressed: () {
-                  final params = ZapPayParameters(
-                    to: 'tips@lnbits1.hostr.development',
-                    amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
-                  );
-                  showAppModal(
-                    context,
-                    child: PaymentFlowWidget(
-                      cubit: getIt<Hostr>().payments.pay(params)..resolve(),
+      body: CustomPadding(
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: HelpText(
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      'Hostr is open source software maintained by the community with ❤️',
                     ),
-                  );
-                },
-              ),
-              Gap.horizontal.md(),
-              Expanded(
-                child: Center(
-                  child: HelpText(
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    'Hostr is open source software maintained by the community with ❤️',
                   ),
                 ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              ZapListWidget(
-                pubkey: MockKeys.hoster.publicKey,
-                builder: (p0) => Text(p0.pubKey!),
-              ),
-            ],
-          ),
-        ],
+                Gap.horizontal.md(),
+
+                FilledButton(
+                  child: Text(AppLocalizations.of(context)!.zapUs),
+                  onPressed: () {
+                    final params = ZapPayParameters(
+                      to: 'tips@lnbits1.hostr.development',
+                      amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
+                    );
+                    showAppModal(
+                      context,
+                      child: PaymentFlowWidget(
+                        cubit: getIt<Hostr>().payments.pay(params)..resolve(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                ZapListWidget(
+                  pubkey: MockKeys.hoster.publicKey,
+                  builder: (p0) => Text(p0.pubKey!),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

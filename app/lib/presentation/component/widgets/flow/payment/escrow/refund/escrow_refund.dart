@@ -1,11 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
-import '../../../modal_bottom_sheet.dart';
 import '../../onchain_operation.dart';
 
 class RefundFlowWidget extends StatefulWidget {
@@ -17,11 +13,6 @@ class RefundFlowWidget extends StatefulWidget {
 }
 
 class _RefundFlowWidgetState extends State<RefundFlowWidget> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
   @override
   void dispose() {
     // Allow in-flight swaps to complete before closing the cubit.
@@ -37,28 +28,17 @@ class _RefundFlowWidgetState extends State<RefundFlowWidget> {
         builder: (context, state) {
           return OnchainOperationViewWidget(
             state,
-            onConfirm: () async => widget.cubit.execute(),
+            initialisedBuilder: (_) =>
+                OnchainTransactionSheet.loading(title: 'Refund Escrow Funds'),
+            confirmedBuilder: (_) => OnchainTransactionSheet.success(
+              title: 'Refund Success',
+              subtitle: 'Funds have been refunded.',
+            ),
+            errorBuilder: (s) =>
+                OnchainTransactionSheet.error(s, title: 'Refund Failed'),
           );
         },
       ),
     );
-  }
-}
-
-class RefundViewWidget extends StatelessWidget {
-  final OnchainOperationState state;
-  final Future<void> Function()? onConfirm;
-  const RefundViewWidget(this.state, {super.key, this.onConfirm});
-
-  @override
-  build(BuildContext context) {
-    return switch (state) {
-      OnchainInitialised() => ModalBottomSheet(
-        type: ModalBottomSheetType.normal,
-        title: 'Refund Escrow Funds',
-        content: Center(child: AppLoadingIndicator.large()),
-      ),
-      OnchainOperationState() => OnchainOperationViewWidget(state),
-    };
   }
 }
