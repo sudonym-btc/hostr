@@ -101,6 +101,20 @@ resource "google_project_service" "crm_staging" {
   service = "cloudresourcemanager.googleapis.com"
 }
 
+# ─── Service Usage API ───────────────────────────────────────────────────────
+# Must be enabled before Terraform (or a CI service account) can manage
+# google_project_service resources on these projects.
+
+resource "google_project_service" "serviceusage_production" {
+  project = google_project.production.project_id
+  service = "serviceusage.googleapis.com"
+}
+
+resource "google_project_service" "serviceusage_staging" {
+  project = google_project.staging.project_id
+  service = "serviceusage.googleapis.com"
+}
+
 # ─── Production zone (parent: hostr.network) ────────────────────────────────
 
 resource "google_dns_managed_zone" "production" {

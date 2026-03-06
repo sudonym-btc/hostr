@@ -1,8 +1,6 @@
 @Tags(['integration', 'docker'])
 library;
 
-import 'dart:io';
-
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:logger/logger.dart';
@@ -56,7 +54,7 @@ void main() {
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
       );
 
-      final contractAddress = _resolveContractAddress();
+      final contractAddress = resolveContractAddress();
       final escrowService = harness.seeds.factory
           .buildEscrowServices(contractAddress: contractAddress)
           .first;
@@ -96,7 +94,7 @@ void main() {
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
       );
 
-      final contractAddress = _resolveContractAddress();
+      final contractAddress = resolveContractAddress();
       final escrowService = harness.seeds.factory
           .buildEscrowServices(contractAddress: contractAddress)
           .first;
@@ -159,7 +157,7 @@ void main() {
       reservedAmountWeiHex: BigInt.from(100000).toRadixString(16),
       sellerEvmAddress: '0x0000000000000000000000000000000000000001',
       arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
-      contractAddress: _resolveContractAddress(),
+      contractAddress: resolveContractAddress(),
       chainId: 33,
       unlockAt:
           DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch ~/
@@ -180,18 +178,4 @@ void main() {
     // The swap is not complete, so the recoverer should NOT resolve this entry.
     expect(resolved, 0);
   });
-}
-
-String _resolveContractAddress() {
-  final fromEnv = Platform.environment['CONTRACT_ADDR'];
-  if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
-
-  final contractFile = File('docker/data/escrow/contract_addr');
-  if (contractFile.existsSync()) {
-    final fromFile = contractFile.readAsStringSync().trim();
-    if (fromFile.isNotEmpty) return fromFile;
-  }
-
-  // Hardhat anvil default from current local stack deployment.
-  return '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F';
 }

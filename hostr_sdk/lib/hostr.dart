@@ -12,9 +12,7 @@ class Hostr {
   final CustomLogger logger;
   Hostr({required this.config, String environment = Env.prod})
     : logger = config.logger {
-    print('[NDK-TRACE] ${DateTime.now()} Hostr constructor (env=$environment)');
     configureInjection(environment, config: config);
-    print('[NDK-TRACE] ${DateTime.now()} Hostr constructor complete');
   }
   Ndk get ndk => getIt<Ndk>();
   Auth get auth => getIt<Auth>();
@@ -61,19 +59,11 @@ class Hostr {
     if (_authInitialized) return;
     _authInitialized = true;
 
-    print('[NDK-TRACE] ${DateTime.now()} Hostr.initAuth() called');
-
     // Ensure user config is loaded from disk before anything else.
     await userConfig.initialize();
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Hostr.initAuth() → userConfig.initialize() complete',
-    );
 
     // Restore stored keys and sync NDK accounts.
     await auth.init();
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Hostr.initAuth() → auth.init() complete',
-    );
   }
 
   /// Connects to bootstrap relays and starts the auth-state listener.
@@ -88,11 +78,7 @@ class Hostr {
     _connected = true;
     await _stopAuthListener();
 
-    print('[NDK-TRACE] ${DateTime.now()} Hostr.connect() → relays.connect()');
     await relays.connect();
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Hostr.connect() → relays.connect() complete',
-    );
 
     _authStateSubscription = auth.authState.listen((state) async {
       logger.d('Auth state changed: $state');
@@ -163,13 +149,10 @@ class Hostr {
   }
 
   Future<void> _stopAuthListener() async {
-    print('[NDK-TRACE] ${DateTime.now()} Hostr._stopAuthListener() called');
     await _authStateSubscription?.cancel();
-    print('[NDK-TRACE] ${DateTime.now()} Hostr._stopAuthListener() complete');
   }
 
   Future<void> dispose() async {
-    print('[NDK-TRACE] ${DateTime.now()} Hostr.dispose() called');
     _authInitialized = false;
     _connected = false;
     await _stopAuthListener();
@@ -187,16 +170,7 @@ class Hostr {
     // read/write on a transport that's already been closed, producing a
     // SocketException.
     final ndk = getIt<Ndk>();
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Hostr.dispose() → ndk.requests.closeAllSubscription() (ndk=${ndk.hashCode})',
-    );
     await ndk.requests.closeAllSubscription();
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Hostr.dispose() → closeAllSubscription complete',
-    );
-
-    print('[NDK-TRACE] ${DateTime.now()} Hostr.dispose() → ndk.destroy()');
     await ndk.destroy();
-    print('[NDK-TRACE] ${DateTime.now()} Hostr.dispose() complete');
   }
 }

@@ -1,8 +1,6 @@
 @Tags(['integration', 'docker'])
 library;
 
-import 'dart:io';
-
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:test/test.dart';
@@ -43,7 +41,7 @@ void main() {
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
       );
 
-      final contractAddress = _resolveContractAddress();
+      final contractAddress = resolveContractAddress();
       final escrowService = harness.seeds.factory
           .buildEscrowServices(contractAddress: contractAddress)
           .first;
@@ -97,18 +95,4 @@ bool _isReceiptSuccessful(TransactionReceipt receipt) {
   if (status is BigInt) return status == BigInt.one;
   final normalized = status.toString().toLowerCase();
   return normalized == '1' || normalized == '0x1' || normalized == 'true';
-}
-
-String _resolveContractAddress() {
-  final fromEnv = Platform.environment['CONTRACT_ADDR'];
-  if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
-
-  final contractFile = File('docker/data/escrow/contract_addr');
-  if (contractFile.existsSync()) {
-    final fromFile = contractFile.readAsStringSync().trim();
-    if (fromFile.isNotEmpty) return fromFile;
-  }
-
-  // Hardhat anvil default from current local stack deployment.
-  return '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F';
 }

@@ -1,13 +1,10 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:hostr_sdk/datasources/anvil/anvil.dart';
 import 'package:hostr_sdk/datasources/lnbits/lnbits.dart';
+import 'package:hostr_sdk/util/contract_address.dart';
 import 'package:hostr_sdk/util/derive_evm_key.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
-import 'package:path/path.dart' as p;
 
 import 'seed_context.dart';
 import 'seed_factory.dart';
@@ -58,9 +55,8 @@ class SeedPipeline {
 
   /// Creates a pipeline.
   ///
-  /// When [contractAddress] is omitted the constructor tries to auto-resolve
-  /// it via [resolveContractAddress] (env var → Docker data file → Hardhat
-  /// Ignition JSON).
+  /// When [contractAddress] is omitted the constructor reads it from
+  /// `docker/data/escrow/contract_addr`.
   SeedPipeline({required this.config, String? contractAddress})
     : _ctx = SeedContext(
         seed: config.seed,
@@ -74,92 +70,6 @@ class SeedPipeline {
 
   /// Expose the context for advanced callers (e.g. TestSeedHelper).
   SeedContext get context => _ctx;
-
-  // ── Contract address resolution ─────────────────────────────────────────
-
-  static const _deploymentRelPath =
-      'escrow/contracts/ignition/deployments'
-      '/chain-33/deployed_addresses.json';
-
-  /// Resolve the deployed MultiEscrow contract address.
-  ///
-  /// Resolution order:
-  ///   1. `CONTRACT_ADDR` environment variable
-  ///   2. Docker data file (`docker/data/escrow/contract_addr`)
-  ///   3. Hardhat Ignition deployment JSON (`deployed_addresses.json`)
-  ///      — searched relative to cwd, cwd/.., and the script location.
-  ///
-  /// Throws [StateError] if no address can be found.
-  static String resolveContractAddress() {
-    // 1. Environment variable.
-    const fromEnv = String.fromEnvironment('CONTRACT_ADDR');
-    if (fromEnv.isNotEmpty) return fromEnv;
-
-    final fromEnvPlatform = Platform.environment['CONTRACT_ADDR'];
-    if (fromEnvPlatform != null && fromEnvPlatform.isNotEmpty)
-      return fromEnvPlatform;
-
-    final cwd = Directory.current.path;
-
-    // 2. Docker data file (written by escrow-contract-deploy service).
-    for (final rel in [
-      'docker/data/escrow/contract_addr',
-      '../docker/data/escrow/contract_addr',
-    ]) {
-      final file = File(p.normalize(p.join(cwd, rel)));
-      if (file.existsSync()) {
-        final addr = file.readAsStringSync().trim();
-        if (addr.isNotEmpty) return addr;
-      }
-    }
-
-    // 3. Hardhat Ignition deployed_addresses.json.
-    final addressRegex = RegExp(r'^0x[a-fA-F0-9]{40}$');
-
-    final candidates = <String>{
-      p.normalize(p.join(cwd, _deploymentRelPath)),
-      p.normalize(p.join(cwd, '..', _deploymentRelPath)),
-    };
-
-    // Also try relative to the executing script (for CLI tools).
-    try {
-      final scriptDir = p.dirname(Platform.script.toFilePath());
-      final sdkRoot = p.normalize(p.join(scriptDir, '..'));
-      candidates.add(p.normalize(p.join(sdkRoot, '..', _deploymentRelPath)));
-    } catch (_) {
-      // Platform.script may not be available in all contexts.
-    }
-
-    for (final path in candidates) {
-      final file = File(path);
-      if (!file.existsSync()) continue;
-
-      final decoded = jsonDecode(file.readAsStringSync());
-      if (decoded is! Map) continue;
-      final map = Map<String, dynamic>.from(decoded);
-
-      // Prefer the key that explicitly mentions MultiEscrow.
-      for (final entry in map.entries) {
-        if (entry.value is String &&
-            addressRegex.hasMatch(entry.value as String) &&
-            entry.key.toLowerCase().contains('multiescrow')) {
-          return entry.value as String;
-        }
-      }
-
-      // Fallback: first address-shaped value.
-      for (final value in map.values) {
-        if (value is String && addressRegex.hasMatch(value)) return value;
-      }
-    }
-
-    throw StateError(
-      'No deployed MultiEscrow contract address found.\n'
-      'Set CONTRACT_ADDR env var, ensure docker/data/escrow/contract_addr '
-      'exists, or deploy via Hardhat Ignition.\n'
-      'Searched: ${candidates.join(', ')}',
-    );
-  }
 
   // ── Delegated pure-data stages ────────────────────────────────────────────
 

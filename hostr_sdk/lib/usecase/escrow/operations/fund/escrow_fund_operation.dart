@@ -108,7 +108,7 @@ class EscrowFundOperation extends OnchainOperation {
     if (gasUsed != null && estimatedLimit != null && gasPrice != null) {
       final refundGas = estimatedLimit - gasUsed;
       final refundWei = BigInt.from(refundGas) * gasPrice;
-      logger.w(
+      logger.d(
         'Gas usage: estimated=$estimatedLimit, actual=$gasUsed, '
         'refunded=$refundGas units '
         '(~${BitcoinAmount.inWei(refundWei).getInSats} sats)',

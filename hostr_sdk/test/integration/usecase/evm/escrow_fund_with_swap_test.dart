@@ -1,8 +1,6 @@
 @Tags(['integration', 'docker'])
 library;
 
-import 'dart:io';
-
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:test/test.dart';
@@ -46,7 +44,7 @@ void main() {
       // insufficient balance and trigger a swap-in (Lightning → Boltz →
       // RIF Relay → EVM) before depositing to the escrow contract.
 
-      final contractAddress = _resolveContractAddress();
+      final contractAddress = resolveContractAddress();
       final escrowService = harness.seeds.factory
           .buildEscrowServices(contractAddress: contractAddress)
           .first;
@@ -75,11 +73,6 @@ void main() {
         accountIndex: completedData.accountIndex,
       );
       final balanceAfter = await hostr.evm.rootstock.getBalance(fundingAddress);
-      print(
-        'Balance of funding address ($fundingAddress, '
-        'index ${completedData.accountIndex}) after escrow fund: '
-        '(${balanceAfter.getInSats} sats)',
-      );
 
       expect(balanceAfter.getInSats.toInt(), equals(0));
 
@@ -124,18 +117,4 @@ bool _isReceiptSuccessful(TransactionReceipt receipt) {
   if (status is BigInt) return status == BigInt.one;
   final normalized = status.toString().toLowerCase();
   return normalized == '1' || normalized == '0x1' || normalized == 'true';
-}
-
-String _resolveContractAddress() {
-  final fromEnv = Platform.environment['CONTRACT_ADDR'];
-  if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
-
-  final contractFile = File('docker/data/escrow/contract_addr');
-  if (contractFile.existsSync()) {
-    final fromFile = contractFile.readAsStringSync().trim();
-    if (fromFile.isNotEmpty) return fromFile;
-  }
-
-  // Hardhat anvil default from current local stack deployment.
-  return '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F';
 }
