@@ -275,35 +275,31 @@ class Requests extends RequestsModel {
   }) {
     final ndkSubName = '$name-${Helpers.getRandomString(5)}';
 
-    _logger.d(
-      'liveSubscription opening: $ndkSubName filter=$filter',
-    );
+    _logger.d('liveSubscription opening: $ndkSubName filter=$filter');
 
-    final listener = Rx.defer(() {
-      return Stream.fromFuture(_relays.ensureConnected()).asyncExpand(
-        (_) => ndk.requests
-            .subscription(
-              id: ndkSubName,
-              filter: cleanTags(filter),
-              cacheRead: useCache,
-              cacheWrite: true,
-            )
-            .stream,
-      );
-    })
-        .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
-        .where((event) => event != null)
-        .cast<T>()
-        .listen(onData, onError: onError);
+    final listener =
+        Rx.defer(() {
+              return Stream.fromFuture(_relays.ensureConnected()).asyncExpand(
+                (_) => ndk.requests
+                    .subscription(
+                      id: ndkSubName,
+                      filter: cleanTags(filter),
+                      cacheRead: useCache,
+                      cacheWrite: true,
+                    )
+                    .stream,
+              );
+            })
+            .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
+            .where((event) => event != null)
+            .cast<T>()
+            .listen(onData, onError: onError);
 
-    return LiveSubscriptionHandle(
-      () async {
-        _logger.d('liveSubscription closing: $ndkSubName');
-        await listener.cancel();
-        await ndk.requests.closeSubscription(ndkSubName);
-      },
-      ndkSubName,
-    );
+    return LiveSubscriptionHandle(() async {
+      _logger.d('liveSubscription closing: $ndkSubName');
+      await listener.cancel();
+      await ndk.requests.closeSubscription(ndkSubName);
+    }, ndkSubName);
   }
 }
 
