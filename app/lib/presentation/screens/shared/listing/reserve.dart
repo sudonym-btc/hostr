@@ -2,9 +2,9 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/core/main.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hostr/presentation/component/main.dart';
+import 'package:hostr/presentation/forms/main.dart';
 import 'package:hostr/route/auth_gated_action.dart';
 import 'package:hostr/router.dart';
 import 'package:models/main.dart';
@@ -27,46 +27,14 @@ class Reserve extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            dateState.dateRange != null
-                ? GestureDetector(
-                    onTap: () => selectDates(
-                      context,
-                      context.read<DateRangeCubit>(),
-                      reservationPairs,
-                      enforceContiguousAvailability: true,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          style: Theme.of(context).textTheme.titleMedium,
-                          formatAmount(
-                            listing.cost(
-                              dateState.dateRange!.start,
-                              dateState.dateRange!.end,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          formatDateRangeShort(
-                            dateState.dateRange!,
-                            Localizations.localeOf(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : GestureDetector(
-                    child: TextButton(
-                      onPressed: () => selectDates(
-                        context,
-                        context.read<DateRangeCubit>(),
-                        reservationPairs,
-                        enforceContiguousAvailability: true,
-                      ),
-                      child: Text(AppLocalizations.of(context)!.selectDates),
-                    ),
+            Flexible(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DateRangeButtons(
+                    small: true,
+                    single: true,
+                    selectedDateRange: dateState.dateRange,
                     onTap: () => selectDates(
                       context,
                       context.read<DateRangeCubit>(),
@@ -74,6 +42,23 @@ class Reserve extends StatelessWidget {
                       enforceContiguousAvailability: true,
                     ),
                   ),
+                  if (dateState.dateRange != null) ...[
+                    const SizedBox(width: 12),
+                    Text(
+                      formatAmount(
+                        listing.cost(
+                          dateState.dateRange!.start,
+                          dateState.dateRange!.end,
+                        ),
+                        exact: false,
+                      ),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
             BlocBuilder<ReservationCubit, ReservationCubitState>(
               builder: (context, state) {
                 return FilledButton(

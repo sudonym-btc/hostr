@@ -37,6 +37,8 @@ class _OnchainOperationFlowWidgetState
     return BlocProvider.value(
       value: widget.cubit,
       child: BlocBuilder<OnchainOperation, OnchainOperationState>(
+        // Hide the swap initialized screen as it will immediately move on to payment required / progress screen
+        buildWhen: (previous, current) => current is! OnchainInitialised,
         builder: (context, state) {
           return OnchainOperationViewWidget(
             state,

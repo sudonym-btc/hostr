@@ -49,6 +49,7 @@ class ThreadTrade {
   final List<StreamSubscription> _runtimeSubscriptions = [];
   StreamSubscription<Message>? _messageSubscription;
   Future<void>? _inFlightEnsureRuntime;
+  bool _isClosing = false;
 
   /// When non-null, [deactivate] was called while an escrow fund operation was
   /// in-flight. The actual teardown is deferred until the operation finishes.
@@ -93,7 +94,7 @@ class ThreadTrade {
   Future<void> start() async {
     if (state.isClosed) return;
 
-    state.add(state.value.copyWith(active: true));
+    _emitState(state.value.copyWith(active: true));
 
     _messageSubscription ??= thread.messages.stream.listen((_) {
       unawaited(_ensureRuntime());
@@ -144,7 +145,9 @@ class ThreadTrade {
         ourPubkey: auth.getActiveKey().publicKey,
       ),
     );
-    context$.add(context);
+    if (!context$.isClosed) {
+      context$.add(context);
+    }
 
     // 2. Start subscriptions with the resolved context.
     await subscriptions.start(context);
@@ -187,19 +190,31 @@ class ThreadTrade {
     // Re-evaluate actions when thread messages change (participantPubkeys,
     // reservationRequests, addedParticipants all live on the thread).
     _runtimeSubscriptions.add(
-      thread.state.stream.listen((_) => _refreshTrigger.add(null)),
+      thread.state.stream.listen((_) {
+        if (!_refreshTrigger.isClosed) {
+          _refreshTrigger.add(null);
+        }
+      }),
     );
 
-    state.add(state.value.copyWith(runtimeReady: true));
+    _emitState(state.value.copyWith(runtimeReady: true));
   }
 
-  Future<void> deactivate() async {
+  void _emitState(TradeState next) {
+    if (!state.isClosed) {
+      state.add(next);
+    }
+  }
+
+  Future<void> deactivate({bool allowDeferred = true}) async {
     if (state.isClosed) return;
 
     final tradeId = state.value.tradeId;
 
     // Defer teardown while an escrow fund operation is in-flight.
-    if (_escrowFundRegistry.hasActiveFund(tradeId)) {
+    if (allowDeferred &&
+        !_isClosing &&
+        _escrowFundRegistry.hasActiveFund(tradeId)) {
       logger.d(
         'Trade $tradeId: deferring deactivation — escrow fund in-flight',
       );
@@ -209,6 +224,7 @@ class ThreadTrade {
           .take(1)
           .listen((_) {
             _deferredDeactivationSub = null;
+            if (state.isClosed || _isClosing) return;
             logger.d(
               'Trade $tradeId: escrow fund completed — running deferred deactivation',
             );
@@ -220,7 +236,7 @@ class ThreadTrade {
     _deferredDeactivationSub?.cancel();
     _deferredDeactivationSub = null;
 
-    state.add(state.value.copyWith(active: false));
+    _emitState(state.value.copyWith(active: false));
 
     await _messageSubscription?.cancel();
     _messageSubscription = null;
@@ -234,7 +250,7 @@ class ThreadTrade {
     _runtimeStarted = false;
     _actions$ = null;
 
-    state.add(state.value.copyWith(runtimeReady: false));
+    _emitState(state.value.copyWith(runtimeReady: false));
   }
 
   /// Returns the Nostr pubkey of the escrow service used in this trade,
@@ -291,9 +307,10 @@ class ThreadTrade {
   }
 
   Future<void> close() async {
+    _isClosing = true;
     _deferredDeactivationSub?.cancel();
     _deferredDeactivationSub = null;
-    await deactivate();
+    await deactivate(allowDeferred: false);
     await state.close();
     await context$.close();
     await _refreshTrigger.close();

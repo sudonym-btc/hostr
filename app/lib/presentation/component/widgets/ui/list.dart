@@ -96,38 +96,53 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
       return;
     }
 
-    // Fall back to index-based estimation for items not yet rendered.
+    // Item isn't built yet — jump to an estimated offset, wait for the
+    // frame to lay out, then refine with ensureVisible.  Retry up to a
+    // few times because the estimate may land slightly off.
     final cubit = context.read<ListCubit<T>>();
     final results = cubit.state.results;
     final index = results.indexWhere((item) => item.id == id);
     if (index < 0 || !_scrollController.hasClients) return;
 
+    _scrollToIndex(id, index, remainingAttempts: 3);
+  }
+
+  Future<void> _scrollToIndex(
+    String id,
+    int index, {
+    required int remainingAttempts,
+  }) async {
+    if (!mounted || remainingAttempts <= 0) return;
+
     final position = _scrollController.position;
-    // Estimate item height from rendered content.
-    final estimatedItemHeight =
-        results.isNotEmpty && position.maxScrollExtent > 0
+    final estimatedItemHeight = position.maxScrollExtent > 0
         ? (position.maxScrollExtent + position.viewportDimension) /
-              results.length
+              context.read<ListCubit<T>>().state.results.length
         : 200.0;
     final target = (index * estimatedItemHeight).clamp(
       0.0,
       position.maxScrollExtent,
     );
 
-    _scrollController
-        .animateTo(target, duration: kAnimationDuration, curve: kAnimationCurve)
-        .then((_) {
-          // After scrolling, the item should be built — refine with ensureVisible.
-          final builtKey = _itemKeys[id];
-          if (builtKey?.currentContext != null) {
-            Scrollable.ensureVisible(
-              builtKey!.currentContext!,
-              duration: kAnimationDuration,
-              curve: kAnimationCurve,
-              alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
-            );
-          }
-        });
+    // Jump immediately so the ListView builds items near the target.
+    _scrollController.jumpTo(target);
+
+    // Wait for the frame to lay out.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+
+    final builtKey = _itemKeys[id];
+    if (builtKey?.currentContext != null) {
+      await Scrollable.ensureVisible(
+        builtKey!.currentContext!,
+        duration: kAnimationDuration,
+        curve: kAnimationCurve,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    } else {
+      // Item still not built — retry with a refined position.
+      await _scrollToIndex(id, index, remainingAttempts: remainingAttempts - 1);
+    }
   }
 
   void _attachScrollController(ScrollController? externalController) {

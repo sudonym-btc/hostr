@@ -180,7 +180,9 @@ class TradeHeaderView extends StatelessWidget {
       children: [
         Text(
           formatAmount(amount!, exact: false),
-          style: Theme.of(context).textTheme.titleLarge,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.bold),
         ),
         // Gap.vertical.xs(),
         PaymentStatusChip(state: paymentEvents.lastOrNull),
