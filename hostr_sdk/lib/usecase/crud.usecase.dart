@@ -7,6 +7,7 @@ import 'package:ndk/domain_layer/entities/broadcast_state.dart'
 import 'package:ndk/ndk.dart' show Nip01Event, Filter;
 
 import '../util/main.dart';
+import 'requests/expandable_subscription.dart';
 import 'requests/requests.dart';
 
 class CrudUseCase<T extends Nip01Event> {
@@ -47,6 +48,31 @@ class CrudUseCase<T extends Nip01Event> {
         name: name != null ? '$T-$name' : '$T',
       ),
     );
+  }
+
+  /// Creates an [ExpandableSubscription] whose filter can be widened at
+  /// runtime without closing the output stream.
+  ///
+  /// The entity [kind] is automatically merged into [initialFilter].
+  /// Call [ExpandableSubscription.start] after creation to begin fetching.
+  ExpandableSubscription<T> expandableSubscribe(
+    Filter initialFilter, {
+    required String name,
+    Duration debounceDuration = const Duration(milliseconds: 500),
+  }) {
+    return ExpandableSubscription<T>(
+      requests: requests,
+      logger: logger,
+      name: '$T-$name',
+      initialFilter: getCombinedFilter(initialFilter, Filter(kinds: [kind])),
+      debounceDuration: debounceDuration,
+    );
+  }
+
+  /// Merges the entity [kind] into [filter] — useful when callers need to
+  /// build filters for this entity type outside of [subscribe]/[query].
+  Filter kindFilter(Filter filter) {
+    return getCombinedFilter(filter, Filter(kinds: [kind]));
   }
 
   Future<List<RelayBroadcastResponse>> upsert(T event) {
