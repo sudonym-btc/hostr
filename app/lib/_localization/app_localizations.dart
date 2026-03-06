@@ -1108,11 +1108,29 @@ abstract class AppLocalizations {
   /// **'{count}{hasMore, select, true{+} other{}} {count, plural, =1{result} other{results}}'**
   String searchResultCount(int count, String hasMore);
 
+  /// Label shown while the review count is still loading
+  ///
+  /// In en, this message translates to:
+  /// **'reviews'**
+  String get reviewsLabel;
+
+  /// Label shown while the stay count is still loading
+  ///
+  /// In en, this message translates to:
+  /// **'stays'**
+  String get staysLabel;
+
   /// Review count label with plural handling
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =0{No reviews} =1{1 review} other{{count} reviews}}'**
+  /// **'{count, plural, =0{0 reviews} =1{1 review} other{{count} reviews}}'**
   String reviewCount(int count);
+
+  /// Stay count label with plural handling
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{0 stays} =1{1 stay} other{{count} stays}}'**
+  String stayCount(int count);
 }
 
 class _AppLocalizationsDelegate

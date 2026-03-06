@@ -372,6 +372,7 @@ class SeedPipeline {
       );
     } finally {
       _ctx.anvilClient().setAutomine(false);
+      _ctx.anvilClient().setIntervalMining(30);
       _ctx.dispose();
     }
   }

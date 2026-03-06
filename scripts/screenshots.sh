@@ -119,6 +119,27 @@ stop_recording() {
   fi
 }
 
+sync_landing_page_screenshots() {
+  local slug="$1"
+  local source_dir="$APP_DIR/screenshots/$slug/dark"
+  local dest_dir="$REPO_ROOT/landing-page/assets/screenshot"
+
+  if [[ ! -d "$source_dir" ]]; then
+    echo "   ⚠️  No dark-mode screenshots found at $source_dir"
+    return 1
+  fi
+
+  mkdir -p "$dest_dir"
+
+  if ! find "$source_dir" -maxdepth 1 -name '*.png' | grep -q .; then
+    echo "   ⚠️  No PNG screenshots found at $source_dir"
+    return 1
+  fi
+
+  cp "$source_dir"/*.png "$dest_dir"/
+  echo "   🖼️  Synced dark screenshots to landing-page/assets/screenshot/"
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────
 
 echo ""
@@ -128,37 +149,19 @@ echo ""
 
 cd "$APP_DIR"
 
-# ── Resolve escrow contract address (host-side, before flutter drive) ────────
-CONTRACT_ADDR="${CONTRACT_ADDR:-}"
-if [[ -z "$CONTRACT_ADDR" ]]; then
-  for candidate in \
-    "$REPO_ROOT/docker/data/escrow/contract_addr" \
-    "$REPO_ROOT/escrow/contracts/ignition/deployments/chain-33/deployed_addresses.json"; do
-    if [[ -f "$candidate" ]]; then
-      if [[ "$candidate" == *.json ]]; then
-        ADDR=$(python3 -c "
-import json, sys
-data = json.load(open('$candidate'))
-for k, v in data.items():
-    if isinstance(v, str) and len(v) == 42 and v.startswith('0x'):
-        if 'multiescrow' in k.lower():
-            print(v); sys.exit(0)
-for v in data.values():
-    if isinstance(v, str) and len(v) == 42 and v.startswith('0x'):
-        print(v); sys.exit(0)
-sys.exit(1)
-" 2>/dev/null) && CONTRACT_ADDR="$ADDR"
-      else
-        CONTRACT_ADDR=$(cat "$candidate" | tr -d '[:space:]')
-      fi
-      [[ -n "$CONTRACT_ADDR" ]] && break
-    fi
-  done
+# ── Resolve escrow contract address via Dart helper (host-side) ─────────────
+if ! contract_addr_output=$(CONTRACT_ADDR="${CONTRACT_ADDR:-}" dart run "$REPO_ROOT/hostr_sdk/lib/util/contract_address.dart" 2>&1); then
+  echo "❌ Failed to resolve escrow contract address via Dart helper."
+  echo "$contract_addr_output"
+  exit 1
 fi
+
+CONTRACT_ADDR=$(printf '%s\n' "$contract_addr_output" | grep -oE '0x[a-fA-F0-9]{40}' | tail -1 || true)
 
 if [[ -z "$CONTRACT_ADDR" ]]; then
   echo "❌ Could not resolve escrow contract address."
-  echo "   Set CONTRACT_ADDR env var, run docker compose up, or deploy via Hardhat."
+  echo "$contract_addr_output"
+  echo "   Set CONTRACT_ADDR env var or ensure docker/data/escrow/contract_addr exists."
   exit 1
 fi
 echo "📝 Contract address: $CONTRACT_ADDR"
@@ -195,13 +198,19 @@ for device_name in "${DEVICES[@]}"; do
   # The test_driver reads SCREENSHOT_DEVICE to route output into the right
   # subdirectory (screenshots/<slug>/*.png).
   echo "   🏃 Running screenshot suite…"
-  if SCREENSHOT_DEVICE="$slug" flutter drive \
+  if SCREENSHOT_DEVICE="$slug" CONTRACT_ADDR="$CONTRACT_ADDR" flutter drive \
       --driver=test_driver/screenshot_test.dart \
       --target=integration_test/screenshots.dart \
       --dart-define=CONTRACT_ADDR="$CONTRACT_ADDR" \
       -d "$udid" \
       --no-pub 2>&1 | sed 's/^/   /'; then
     echo "   ✅ Done"
+    if [[ "$device_name" == iPhone* ]]; then
+      if ! sync_landing_page_screenshots "$slug"; then
+        echo "   ❌ Failed to sync screenshots into landing-page assets"
+        FAILED+=("$device_name (landing-page sync)")
+      fi
+    fi
   else
     echo "   ❌ Flutter drive failed for $device_name"
     FAILED+=("$device_name")

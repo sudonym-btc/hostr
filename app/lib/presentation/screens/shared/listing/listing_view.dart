@@ -377,10 +377,7 @@ class ListingViewBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          listing.title,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text(listing.title, style: Theme.of(context).textTheme.titleLarge),
         Gap.vertical.custom(kSpace1 / 2),
         Row(
           children: [
@@ -409,10 +406,7 @@ class ListingViewBody extends StatelessWidget {
             if (h3Tag == null) return const SizedBox.shrink();
 
             final priceText = listing.prices.isNotEmpty
-                ? formatAmount(
-                    listing.prices.first.amount,
-                    exact: false,
-                  )
+                ? formatAmount(listing.prices.first.amount, exact: false)
                 : null;
 
             return CustomPadding.only(

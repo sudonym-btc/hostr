@@ -551,13 +551,31 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get reviewsLabel => 'reviews';
+
+  @override
+  String get staysLabel => 'stays';
+
+  @override
   String reviewCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count reviews',
       one: '1 review',
-      zero: 'No reviews',
+      zero: '0 reviews',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String stayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count stays',
+      one: '1 stay',
+      zero: '0 stays',
     );
     return '$_temp0';
   }

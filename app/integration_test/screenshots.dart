@@ -42,14 +42,14 @@ const _config = SeedPipelineConfig(
   userCount: 8,
   hostRatio: 0.5, // 4 hosts, 4 guests
   listingsPerHostAvg: 2.0, // ~8 listings
-  reservationRequestsPerGuest: 2, // 8 threads
+  reservationRequestsPerGuest: 10, // 8 threads
   invalidReservationRate: 0,
   fundProfiles: true,
   setupLnbits: true,
   threadStages: ThreadStageSpec(
     textMessageCount: 4,
     completedRatio: 0.5,
-    reviewRatio: 0.5,
+    reviewRatio: 1,
   ),
 );
 
@@ -163,11 +163,11 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('screenshot suite', (tester) async {
+    final data = await _runSeedPipeline();
+
     // ── Bootstrap ───────────────────────────────────────────────────────
     await initCore(Env.test);
     await initApp();
-
-    final data = await _runSeedPipeline();
 
     final requests = getIt<Hostr>().requests as InMemoryRequests;
     requests.seedEvents(data.allEvents);

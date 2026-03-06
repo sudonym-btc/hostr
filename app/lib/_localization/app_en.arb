@@ -235,9 +235,26 @@
       }
     }
   },
-  "reviewCount": "{count, plural, =0{No reviews} =1{1 review} other{{count} reviews}}",
+  "reviewsLabel": "reviews",
+  "@reviewsLabel": {
+    "description": "Label shown while the review count is still loading"
+  },
+  "staysLabel": "stays",
+  "@staysLabel": {
+    "description": "Label shown while the stay count is still loading"
+  },
+  "reviewCount": "{count, plural, =0{0 reviews} =1{1 review} other{{count} reviews}}",
   "@reviewCount": {
     "description": "Review count label with plural handling",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "stayCount": "{count, plural, =0{0 stays} =1{1 stay} other{{count} stays}}",
+  "@stayCount": {
+    "description": "Stay count label with plural handling",
     "placeholders": {
       "count": {
         "type": "int"

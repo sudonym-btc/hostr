@@ -19,14 +19,14 @@ class ReviewListItem extends StatelessWidget {
           children: [
             StarRating(rating: review.rating),
             Gap.horizontal.sm(),
-            ProfileChipWidget(id: review.pubKey),
+            ProfileChipWidget(
+              id: review.pubKey,
+              alignment: Alignment.centerRight,
+            ),
           ],
         ),
         Gap.vertical.xs(),
-        MessageContainer(
-          isSentByMe: false,
-          child: Text(review.reviewText),
-        ),
+        MessageContainer(isSentByMe: false, child: Text(review.reviewText)),
         Gap.vertical.xs(),
         Text(
           formatDate(
