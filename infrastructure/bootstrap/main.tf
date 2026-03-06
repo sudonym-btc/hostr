@@ -213,6 +213,8 @@ locals {
     "roles/resourcemanager.projectIamAdmin",
     "roles/serviceusage.serviceUsageAdmin",
     "roles/serviceusage.serviceUsageConsumer",
+    "roles/iam.workloadIdentityPoolAdmin", # manage WIF pools & providers
+    "roles/serviceusage.apiKeysAdmin",     # manage API keys (google_apikeys_key)
   ]
 }
 

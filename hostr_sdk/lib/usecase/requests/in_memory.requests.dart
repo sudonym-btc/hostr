@@ -189,13 +189,10 @@ class InMemoryRequests extends Requests implements RequestsModel {
     final listener = response.stream.listen(onData, onError: onError);
     response.addStatus(StreamStatusLive());
 
-    return LiveSubscriptionHandle(
-      () async {
-        await listener.cancel();
-        _subscriptions.remove(subscription);
-      },
-      subId,
-    );
+    return LiveSubscriptionHandle(() async {
+      await listener.cancel();
+      _subscriptions.remove(subscription);
+    }, subId);
   }
 
   /// Seed events in bulk.
