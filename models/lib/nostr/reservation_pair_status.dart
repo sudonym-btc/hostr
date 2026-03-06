@@ -22,6 +22,15 @@ class ReservationPairStatus {
 
   // ── Derived properties ──────────────────────────────────────────────
 
+  String get tradeId {
+    return (buyerReservation?.getDtag() ?? sellerReservation?.getDtag())!;
+  }
+
+  String get listingAnchor {
+    return (buyerReservation?.parsedTags.listingAnchor ??
+        buyerReservation?.parsedTags.listingAnchor)!;
+  }
+
   /// The start date from whichever reservation is available.
   /// Prefers the committed reservation; falls back to the seller's, then
   /// the buyer's negotiate snapshot.
@@ -56,6 +65,9 @@ class ReservationPairStatus {
       !cancelled &&
       (sellerReservation != null || buyerReservation != null) &&
       _committedReservation != null;
+
+  /// `true` when seller has published the counterpart reservation and not cancelled.
+  bool get isConfirmed => (sellerReservation?.stage == ReservationStage.commit);
 
   /// `true` when the reservation's end date has passed and neither party
   /// cancelled. Returns `false` if no end date can be determined.

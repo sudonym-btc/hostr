@@ -29,8 +29,8 @@ class ListingView extends StatefulWidget {
 
 class _ListingViewState extends State<ListingView> {
   StreamWithStatus<Reservation>? _listingReservationsStream;
-  ValidatedStreamWithStatus<Review>? _verifiedReviews;
-  ValidatedStreamWithStatus<ReservationPairStatus>? _verifiedPairs;
+  StreamWithStatus<Validation<Review>>? _verifiedReviews;
+  StreamWithStatus<Validation<ReservationPairStatus>>? _verifiedPairs;
   String? _reviewsAnchor;
 
   @override
@@ -62,7 +62,7 @@ class _ListingViewState extends State<ListingView> {
   void _ensureVerifiedPairs(Listing listing) {
     if (_verifiedPairs != null) return;
     _verifiedPairs = getIt<Hostr>().reservationPairs.subscribeVerified(
-      listing: listing,
+      listingAnchor: listing.anchor!,
     );
   }
 
@@ -162,7 +162,7 @@ class _ListingViewState extends State<ListingView> {
                             StreamBuilder<
                               List<Validation<ReservationPairStatus>>
                             >(
-                              stream: _verifiedPairs!.stream,
+                              stream: _verifiedPairs!.list,
                               builder: (context, snapshot) {
                                 final reservationPairs =
                                     (snapshot.data ??
@@ -198,7 +198,6 @@ class _ListingViewState extends State<ListingView> {
                   final reservationPairs = state.data != null
                       ? Reservations.toReservationPairs(
                           reservations: allReservations,
-                          listing: state.data!,
                         )
                       : const <String, ReservationPairStatus>{};
 
@@ -252,12 +251,12 @@ class _ListingViewState extends State<ListingView> {
                                 id: state.data!.pubKey,
                               ),
                               reviewsSummaryWidget: ReviewsReservationsWidget(
-                                reservationCount: _verifiedPairs!.stream.map(
+                                reservationCount: _verifiedPairs!.list.map(
                                   (pairs) => pairs
                                       .whereType<Valid<ReservationPairStatus>>()
                                       .length,
                                 ),
-                                reviewCount: _verifiedReviews!.stream.map(
+                                reviewCount: _verifiedReviews!.list.map(
                                   (reviews) =>
                                       reviews.whereType<Valid<Review>>().length,
                                 ),
