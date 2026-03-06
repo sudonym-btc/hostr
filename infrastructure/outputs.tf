@@ -30,5 +30,5 @@ output "ci_workload_identity_provider" {
 
 output "ci_service_account_email" {
   description = "CI service account email. Set as GCP_SERVICE_ACCOUNT_EMAIL in GitHub environment variables."
-  value       = google_service_account.ci_deploy.email
+  value       = data.google_service_account.ci_deploy.email
 }

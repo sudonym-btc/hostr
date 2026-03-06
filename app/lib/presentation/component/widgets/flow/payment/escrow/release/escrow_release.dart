@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -17,11 +15,6 @@ class ReleaseFlowWidget extends StatefulWidget {
 
 class _ReleaseFlowWidgetState extends State<ReleaseFlowWidget> {
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void dispose() {
     widget.cubit.detach();
     super.dispose();
@@ -33,38 +26,33 @@ class _ReleaseFlowWidgetState extends State<ReleaseFlowWidget> {
       value: widget.cubit,
       child: BlocBuilder<EscrowReleaseOperation, OnchainOperationState>(
         builder: (context, state) {
-          return ReleaseViewWidget(
+          return OnchainOperationViewWidget(
             state,
-            onConfirm: () async => widget.cubit.execute(),
+            initialisedBuilder: (_) => ModalBottomSheet(
+              type: ModalBottomSheetType.normal,
+              title: 'Release Escrow Funds',
+              subtitle:
+                  'This action will release the escrowed funds to the counterparty.',
+              buttons: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FilledButton(
+                    onPressed: () async => widget.cubit.execute(),
+                    child: Text('Confirm'),
+                  ),
+                ],
+              ),
+              content: SizedBox.shrink(),
+            ),
+            confirmedBuilder: (_) => OnchainTransactionSheet.success(
+              title: 'Release Success',
+              subtitle: 'Funds have been released to the counterparty.',
+            ),
+            errorBuilder: (s) =>
+                OnchainTransactionSheet.error(s, title: 'Release Failed'),
           );
         },
       ),
     );
-  }
-}
-
-class ReleaseViewWidget extends StatelessWidget {
-  final OnchainOperationState state;
-  final Future<void> Function()? onConfirm;
-  const ReleaseViewWidget(this.state, {super.key, this.onConfirm});
-
-  @override
-  build(BuildContext context) {
-    return switch (state) {
-      OnchainInitialised() => ModalBottomSheet(
-        type: ModalBottomSheetType.normal,
-        title: 'Release Escrow Funds',
-        subtitle:
-            'This action will release the escrowed funds to the counterparty.',
-        buttons: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            FilledButton(onPressed: onConfirm, child: Text('Confirm')),
-          ],
-        ),
-        content: SizedBox.shrink(),
-      ),
-      OnchainOperationState() => OnchainOperationViewWidget(state),
-    };
   }
 }

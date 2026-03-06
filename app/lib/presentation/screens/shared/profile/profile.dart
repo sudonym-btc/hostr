@@ -143,7 +143,13 @@ class ProfileScreen extends StatelessWidget {
                       title: "Escrows",
                       action: FilledButton.tonal(
                         onPressed: () {
-                          // TODO: implement add trusted escrow flow
+                          showTrustEscrowModal(
+                            context,
+                            trustedPubkeys: state.pubkeys,
+                            onTrusted: () {
+                              context.read<TrustedEscrowsCubit>().refresh();
+                            },
+                          );
                         },
                         child: Text(AppLocalizations.of(context)!.add),
                       ),

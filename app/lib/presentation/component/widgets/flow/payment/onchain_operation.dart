@@ -9,9 +9,187 @@ import 'package:hostr_sdk/usecase/escrow/operations/onchain_operation.dart';
 import '../../ui/gap.dart';
 import '../modal_bottom_sheet.dart';
 
+// ── OnchainTransactionSheet ─────────────────────────────────────────────
+//
+// Single factory-constructor widget that controls the look of every
+// on-chain transaction state. Update these factories to change the
+// appearance of *all* transaction flows at once.
+
+/// A [ModalBottomSheet] tailored for on-chain transaction states.
+///
+/// Use the named constructors ([loading], [broadcast], [swapProgress],
+/// [success], [error]) to get sensible defaults.  Every parameter can be
+/// overridden per-call to customise individual flows.
+class OnchainTransactionSheet extends StatelessWidget {
+  final ModalBottomSheetType type;
+  final String? title;
+  final String? subtitle;
+  final Widget? content;
+  final Widget? buttons;
+
+  const OnchainTransactionSheet({
+    super.key,
+    this.type = ModalBottomSheetType.normal,
+    this.title,
+    this.subtitle,
+    this.content,
+    this.buttons,
+  });
+
+  /// Indeterminate loading / initialising state.
+  factory OnchainTransactionSheet.loading({
+    Key? key,
+    String? title,
+    String? subtitle,
+  }) => OnchainTransactionSheet(
+    key: key,
+    title: title ?? 'Transaction Initialised',
+    subtitle: subtitle,
+    content: Center(child: AppLoadingIndicator.large()),
+  );
+
+  /// Transaction has been broadcast; awaiting on-chain confirmation.
+  factory OnchainTransactionSheet.broadcast({
+    Key? key,
+    String? title,
+    String? subtitle,
+  }) => OnchainTransactionSheet(
+    key: key,
+    title: title ?? 'Transaction Broadcasted',
+    subtitle: subtitle ?? 'Waiting for on-chain confirmation...',
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Gap.vertical.custom(kSpace5),
+        AsymptoticProgressBar(),
+        Gap.vertical.md(),
+      ],
+    ),
+  );
+
+  /// A nested swap-in is in progress.
+  factory OnchainTransactionSheet.swapProgress(
+    OnchainSwapProgress state, {
+    Key? key,
+  }) => OnchainTransactionSheet(
+    key: key,
+    content: SwapInViewWidget(state.swapState!),
+  );
+
+  /// Transaction confirmed on-chain.
+  factory OnchainTransactionSheet.success({
+    Key? key,
+    String? title,
+    String? subtitle,
+  }) => OnchainTransactionSheet(
+    key: key,
+    type: ModalBottomSheetType.success,
+    title: title ?? 'Transaction Success',
+    subtitle: subtitle ?? 'Your transaction successfully confirmed onchain.',
+    content: Container(),
+  );
+
+  /// Transaction failed.
+  factory OnchainTransactionSheet.error(
+    OnchainError state, {
+    Key? key,
+    String? title,
+    String? subtitle,
+  }) => OnchainTransactionSheet(
+    key: key,
+    type: ModalBottomSheetType.error,
+    title: title ?? 'Transaction Failed',
+    subtitle: subtitle,
+    content: Text(state.error.toString()),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    // When the only content is a swap-in flow, render it directly without
+    // the ModalBottomSheet chrome (SwapInViewWidget provides its own).
+    if (content is SwapInViewWidget) return content!;
+
+    return ModalBottomSheet(
+      type: type,
+      title: title,
+      subtitle: subtitle,
+      content: content,
+      buttons: buttons,
+    );
+  }
+}
+
+// ── State → Widget builder callbacks ────────────────────────────────────
+
+typedef OnchainStateWidgetBuilder<S extends OnchainOperationState> =
+    Widget Function(S state);
+
+// ── OnchainOperationViewWidget ──────────────────────────────────────────
+//
+// Exhaustive switch over [OnchainOperationState].  Each state has a
+// sensible default via [OnchainTransactionSheet]; supply per-state builder
+// callbacks to customise individual operations without duplicating the switch.
+
+class OnchainOperationViewWidget extends StatelessWidget {
+  final OnchainOperationState state;
+
+  /// Optional per-state builder overrides.
+  /// Return a widget to replace the default, or omit to keep it.
+  final OnchainStateWidgetBuilder<OnchainInitialised>? initialisedBuilder;
+  final OnchainStateWidgetBuilder<OnchainTxBroadcast>? broadcastBuilder;
+  final OnchainStateWidgetBuilder<OnchainSwapProgress>? swapProgressBuilder;
+  final OnchainStateWidgetBuilder<OnchainTxConfirmed>? confirmedBuilder;
+  final OnchainStateWidgetBuilder<OnchainError>? errorBuilder;
+
+  const OnchainOperationViewWidget(
+    this.state, {
+    super.key,
+    this.initialisedBuilder,
+    this.broadcastBuilder,
+    this.swapProgressBuilder,
+    this.confirmedBuilder,
+    this.errorBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (state) {
+      final OnchainInitialised s =>
+        initialisedBuilder?.call(s) ?? OnchainTransactionSheet.loading(),
+      final OnchainTxBroadcast s =>
+        broadcastBuilder?.call(s) ?? OnchainTransactionSheet.broadcast(),
+      final OnchainSwapProgress s =>
+        swapProgressBuilder?.call(s) ?? OnchainTransactionSheet.swapProgress(s),
+      final OnchainTxConfirmed s =>
+        confirmedBuilder?.call(s) ?? OnchainTransactionSheet.success(),
+      final OnchainError s =>
+        errorBuilder?.call(s) ?? OnchainTransactionSheet.error(s),
+    };
+  }
+}
+
+// ── OnchainOperationFlowWidget ──────────────────────────────────────────
+
 class OnchainOperationFlowWidget extends StatefulWidget {
   final OnchainOperation cubit;
-  const OnchainOperationFlowWidget({super.key, required this.cubit});
+
+  /// Optional per-state builder overrides forwarded to
+  /// [OnchainOperationViewWidget].
+  final OnchainStateWidgetBuilder<OnchainInitialised>? initialisedBuilder;
+  final OnchainStateWidgetBuilder<OnchainTxBroadcast>? broadcastBuilder;
+  final OnchainStateWidgetBuilder<OnchainSwapProgress>? swapProgressBuilder;
+  final OnchainStateWidgetBuilder<OnchainTxConfirmed>? confirmedBuilder;
+  final OnchainStateWidgetBuilder<OnchainError>? errorBuilder;
+
+  const OnchainOperationFlowWidget({
+    super.key,
+    required this.cubit,
+    this.initialisedBuilder,
+    this.broadcastBuilder,
+    this.swapProgressBuilder,
+    this.confirmedBuilder,
+    this.errorBuilder,
+  });
 
   @override
   State<OnchainOperationFlowWidget> createState() =>
@@ -20,11 +198,6 @@ class OnchainOperationFlowWidget extends StatefulWidget {
 
 class _OnchainOperationFlowWidgetState
     extends State<OnchainOperationFlowWidget> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
   @override
   void dispose() {
     // Allow in-flight swaps to complete before closing the cubit.
@@ -37,103 +210,20 @@ class _OnchainOperationFlowWidgetState
     return BlocProvider.value(
       value: widget.cubit,
       child: BlocBuilder<OnchainOperation, OnchainOperationState>(
-        // Hide the swap initialized screen as it will immediately move on to payment required / progress screen
+        // Hide the swap initialized screen as it will immediately move on
+        // to payment required / progress screen.
         buildWhen: (previous, current) => current is! OnchainInitialised,
         builder: (context, state) {
           return OnchainOperationViewWidget(
             state,
-            onConfirm: () async => widget.cubit.execute(),
+            initialisedBuilder: widget.initialisedBuilder,
+            broadcastBuilder: widget.broadcastBuilder,
+            swapProgressBuilder: widget.swapProgressBuilder,
+            confirmedBuilder: widget.confirmedBuilder,
+            errorBuilder: widget.errorBuilder,
           );
         },
       ),
-    );
-  }
-}
-
-class OnchainOperationViewWidget extends StatelessWidget {
-  final OnchainOperationState state;
-  final Future<void> Function()? onConfirm;
-  const OnchainOperationViewWidget(this.state, {super.key, this.onConfirm});
-
-  @override
-  build(BuildContext context) {
-    return switch (state) {
-      OnchainInitialised() => ModalBottomSheet(
-        type: ModalBottomSheetType.normal,
-        title: 'Transaction Initialised',
-        content: Center(child: AppLoadingIndicator.large()),
-      ),
-      OnchainTxBroadcast() => OnchainTransactionBroadcastWidget(
-        state as OnchainTxBroadcast,
-      ),
-      OnchainSwapProgress() => OnchainSwapProgressWidget(
-        state as OnchainSwapProgress,
-      ),
-      OnchainTxConfirmed() => OnchainTransactionSuccessWidget(
-        state as OnchainTxConfirmed,
-      ),
-      OnchainError() => OnchainTransactionFailureWidget(state as OnchainError),
-    };
-  }
-}
-
-class OnchainTransactionBroadcastWidget extends StatelessWidget {
-  final OnchainTxBroadcast state;
-  const OnchainTransactionBroadcastWidget(this.state, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.normal,
-      title: 'Transaction Broadcasted',
-      subtitle: 'Waiting for on-chain confirmation...',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Gap.vertical.custom(kSpace5),
-          AsymptoticProgressBar(),
-          Gap.vertical.md(),
-        ],
-      ),
-    );
-  }
-}
-
-class OnchainSwapProgressWidget extends StatelessWidget {
-  final OnchainSwapProgress state;
-  const OnchainSwapProgressWidget(this.state, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SwapInViewWidget(state.swapState!);
-  }
-}
-
-class OnchainTransactionSuccessWidget extends StatelessWidget {
-  final OnchainTxConfirmed state;
-  const OnchainTransactionSuccessWidget(this.state, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.success,
-      title: 'Transaction Success',
-      subtitle: 'Your transaction successfully confirmed onchain.',
-      content: Container(),
-    );
-  }
-}
-
-class OnchainTransactionFailureWidget extends StatelessWidget {
-  final OnchainError state;
-  const OnchainTransactionFailureWidget(this.state, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.error,
-      title: 'Transaction Failed',
-      content: Text(state.error.toString()),
     );
   }
 }

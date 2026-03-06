@@ -36,6 +36,34 @@ abstract class RequestsModel {
     required Nip01Event event,
     List<String>? relays,
   });
+
+  /// Opens a live-only NDK subscription (no historical query phase).
+  ///
+  /// Events are parsed and forwarded to [onData]. The caller is responsible
+  /// for closing the subscription via [LiveSubscriptionHandle.cancel].
+  ///
+  /// Use this alongside [query] when you need to manage the query and live
+  /// phases independently — e.g. expanding a filter on an existing
+  /// [StreamWithStatus] without tearing it down.
+  LiveSubscriptionHandle liveSubscription<T extends Nip01Event>({
+    required Filter filter,
+    required void Function(T) onData,
+    void Function(Object, StackTrace?)? onError,
+    required String name,
+  });
+}
+
+/// Handle returned by [Requests.liveSubscription] for tearing down the
+/// NDK relay subscription without affecting the caller's stream.
+class LiveSubscriptionHandle {
+  final Future<void> Function() _cancel;
+  final String ndkSubName;
+
+  /// @nodoc — package-internal. Use [Requests.liveSubscription] to obtain.
+  LiveSubscriptionHandle(this._cancel, this.ndkSubName);
+
+  /// Cancels the local listener and sends CLOSE to the relay.
+  Future<void> cancel() => _cancel();
 }
 
 @Singleton(env: Env.allButTestAndMock)
@@ -228,6 +256,54 @@ class Requests extends RequestsModel {
     List<String>? relays,
   }) {
     return ndk.broadcast.broadcast(nostrEvent: event).broadcastDoneFuture;
+  }
+
+  /// Opens a live-only NDK subscription (no query phase) and forwards
+  /// parsed events to [onData].
+  ///
+  /// This is the live half of [subscribe] extracted for use cases where
+  /// the caller manages its own [StreamWithStatus] and query lifecycle —
+  /// e.g. [ExpandableSubscription] which needs to close and re-open the
+  /// live subscription with an expanded filter while keeping the same
+  /// output stream.
+  @override
+  LiveSubscriptionHandle liveSubscription<T extends Nip01Event>({
+    required Filter filter,
+    required void Function(T) onData,
+    void Function(Object, StackTrace?)? onError,
+    required String name,
+  }) {
+    final ndkSubName = '$name-${Helpers.getRandomString(5)}';
+
+    _logger.d(
+      'liveSubscription opening: $ndkSubName filter=$filter',
+    );
+
+    final listener = Rx.defer(() {
+      return Stream.fromFuture(_relays.ensureConnected()).asyncExpand(
+        (_) => ndk.requests
+            .subscription(
+              id: ndkSubName,
+              filter: cleanTags(filter),
+              cacheRead: useCache,
+              cacheWrite: true,
+            )
+            .stream,
+      );
+    })
+        .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
+        .where((event) => event != null)
+        .cast<T>()
+        .listen(onData, onError: onError);
+
+    return LiveSubscriptionHandle(
+      () async {
+        _logger.d('liveSubscription closing: $ndkSubName');
+        await listener.cancel();
+        await ndk.requests.closeSubscription(ndkSubName);
+      },
+      ndkSubName,
+    );
   }
 }
 

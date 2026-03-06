@@ -66,6 +66,9 @@ class ListingMap extends StatefulWidget {
   /// (especially when large [fitBoundsPadding] is used in short map viewports).
   final double singleMarkerZoom;
 
+  /// When a new id is written the map animates the camera to that marker.
+  final ValueNotifier<String?>? animateToId;
+
   const ListingMap({
     super.key,
     required this.listings,
@@ -76,6 +79,7 @@ class ListingMap extends StatefulWidget {
     this.fitBoundsPadding = 120,
     this.autoFitBounds = true,
     this.singleMarkerZoom = 13,
+    this.animateToId,
   });
 
   @override
@@ -87,6 +91,12 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   final Map<String, Marker> _markers = {};
   bool _mapReady = false;
   int _syncGeneration = 0;
+
+  /// Currently highlighted marker id (accent colour).
+  String? _focusedId;
+
+  /// Per-marker metadata needed to rebuild icons when focus changes.
+  final Map<String, _MarkerMeta> _markerMeta = {};
 
   // ── Map lifecycle ───────────────────────────────────────────────────
 
@@ -122,6 +132,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       setState(() {
         for (final key in staleKeys) {
           _markers.remove(key);
+          _markerMeta.remove(key);
         }
       });
     }
@@ -153,6 +164,12 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       );
 
       if (!mounted || generation != _syncGeneration) return;
+
+      _markerMeta[data.id] = _MarkerMeta(
+        position: position,
+        priceText: priceText,
+        enabled: data.enabled,
+      );
 
       setState(() {
         _markers[data.id] = Marker(
@@ -232,12 +249,107 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.animateToId?.addListener(_onAnimateToId);
   }
 
   @override
   void dispose() {
+    widget.animateToId?.removeListener(_onAnimateToId);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  Future<void> _onAnimateToId() async {
+    final id = widget.animateToId?.value;
+    if (id == null || !_mapReady) return;
+
+    final marker = _markers[id];
+    if (marker == null) return;
+
+    // Swap highlight colours.
+    await _updateFocus(id);
+
+    final controller = await _controller.future;
+    if (!mounted) return;
+
+    await controller.animateCamera(CameraUpdate.newLatLng(marker.position));
+  }
+
+  /// Rebuilds the icon for [id] with [fillColor] / [textColor].
+  Future<void> _rebuildMarkerIcon(
+    String id, {
+    required Color fillColor,
+    required Color textColor,
+    double zIndex = 0,
+  }) async {
+    final meta = _markerMeta[id];
+    final existing = _markers[id];
+    if (meta == null || existing == null || !mounted) return;
+
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final theme = Theme.of(context);
+
+    final icon = await PriceMarkerBuilder.build(
+      priceText: meta.priceText,
+      fillColor: fillColor,
+      textColor: textColor,
+      textStyle: theme.textTheme.bodySmall,
+      showArrow: widget.showArrows,
+      devicePixelRatio: dpr,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _markers[id] = Marker(
+        markerId: MarkerId(id),
+        position: meta.position,
+        icon: icon,
+        zIndex: zIndex,
+        anchor: Offset(0.5, widget.showArrows ? 1.0 : 0.5),
+        consumeTapEvents: true,
+        onTap: () => widget.onMarkerTap?.call(id),
+      );
+    });
+  }
+
+  /// Switches the focused marker: restores the old one to primary,
+  /// highlights the new one with the accent (tertiary) colour.
+  Future<void> _updateFocus(String newId) async {
+    if (newId == _focusedId) return;
+
+    final theme = Theme.of(context);
+    final oldId = _focusedId;
+    _focusedId = newId;
+
+    // Restore previous focused marker to its default colour.
+    if (oldId != null && _markers.containsKey(oldId)) {
+      final meta = _markerMeta[oldId];
+      if (meta != null) {
+        final fill = meta.enabled
+            ? theme.colorScheme.primary
+            : theme.colorScheme.surfaceContainerHighest;
+        final text = meta.enabled
+            ? theme.colorScheme.onPrimary
+            : theme.colorScheme.onSurfaceVariant;
+        await _rebuildMarkerIcon(
+          oldId,
+          fillColor: fill,
+          textColor: text,
+          zIndex: 0,
+        );
+      }
+    }
+
+    // Highlight the new focused marker.
+    if (_markers.containsKey(newId)) {
+      await _rebuildMarkerIcon(
+        newId,
+        fillColor: theme.colorScheme.tertiary,
+        textColor: theme.colorScheme.onTertiary,
+        zIndex: 1,
+      );
+    }
   }
 
   @override
@@ -269,4 +381,18 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       rotateGesturesEnabled: widget.interactive,
     );
   }
+}
+
+/// Lightweight data kept per marker so we can rebuild its icon
+/// when focus changes without re-resolving H3 tags.
+class _MarkerMeta {
+  final LatLng position;
+  final String priceText;
+  final bool enabled;
+
+  const _MarkerMeta({
+    required this.position,
+    required this.priceText,
+    required this.enabled,
+  });
 }

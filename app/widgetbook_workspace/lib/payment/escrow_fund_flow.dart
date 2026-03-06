@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/onchain_operation.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
@@ -126,9 +127,10 @@ Widget escrowFundSuccess(BuildContext context) {
 
 // -- Error -------------------------------------------------------------
 
-@widgetbook.UseCase(name: 'Error', type: EscrowFundFailureWidget)
+@widgetbook.UseCase(name: 'Error', type: OnchainTransactionSheet)
 Widget escrowFundError(BuildContext context) {
-  return EscrowFundFailureWidget(
+  return OnchainTransactionSheet.error(
     OnchainError('Escrow contract reverted: insufficient allowance'),
+    title: 'Escrow Failed',
   );
 }

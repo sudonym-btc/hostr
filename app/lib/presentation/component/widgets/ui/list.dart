@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
@@ -9,13 +10,13 @@ import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.da
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:ndk/ndk.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 class ListWidget<T extends Nip01Event> extends StatefulWidget {
   final Widget Function(dynamic) builder;
   final bool loadNextOnBottom;
   final double loadNextThreshold;
   final bool reserveBottomNavigationBarSpace;
-  final ScrollController? scrollController;
 
   /// Whether list items should animate in with a staggered fade + slide.
   final bool animateItems;
@@ -29,16 +30,26 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
   /// current page.
   final Widget Function(int resultCount, bool hasMore)? resultCountBuilder;
 
+  /// Exposed so parent widgets (e.g. [ListingsWidget]) can listen to which
+  /// items are currently visible — useful for image preloading.
+  final ItemPositionsListener? itemPositionsListener;
+
+  /// Written with the id of the topmost visible data item after a user-
+  /// initiated scroll comes to rest (and optionally snaps). This is NOT
+  /// written after programmatic scrolls triggered via [scrollToId].
+  final ValueNotifier<String?>? focusedItemId;
+
   const ListWidget({
     super.key,
     required this.builder,
     this.loadNextOnBottom = false,
     this.loadNextThreshold = 200,
     this.reserveBottomNavigationBarSpace = false,
-    this.scrollController,
     this.animateItems = true,
     this.scrollToId,
     this.resultCountBuilder,
+    this.itemPositionsListener,
+    this.focusedItemId,
   });
 
   @override
@@ -46,26 +57,32 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
 }
 
 class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
-  late ScrollController _scrollController;
-  late bool _ownsScrollController;
   final CustomLogger logger = CustomLogger();
   bool _loadingNextPage = false;
-  final Map<String, GlobalKey> _itemKeys = {};
+
+  final ItemScrollController _itemScrollController = ItemScrollController();
+  late final ItemPositionsListener _itemPositionsListener;
+  final ScrollOffsetController _scrollOffsetController =
+      ScrollOffsetController();
+  final ScrollOffsetListener _scrollOffsetListener =
+      ScrollOffsetListener.create();
+  StreamSubscription<double>? _offsetSub;
+  Timer? _snapTimer;
+  bool _isProgrammaticScroll = false;
 
   @override
   void initState() {
     super.initState();
-    _attachScrollController(widget.scrollController);
+    _itemPositionsListener =
+        widget.itemPositionsListener ?? ItemPositionsListener.create();
+    _itemPositionsListener.itemPositions.addListener(_onPositionsChanged);
     widget.scrollToId?.addListener(_onScrollToId);
+    _offsetSub = _scrollOffsetListener.changes.listen(_onScrollOffsetChanged);
   }
 
   @override
   void didUpdateWidget(covariant ListWidget<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrollController != widget.scrollController) {
-      _detachScrollController();
-      _attachScrollController(widget.scrollController);
-    }
     if (oldWidget.scrollToId != widget.scrollToId) {
       oldWidget.scrollToId?.removeListener(_onScrollToId);
       widget.scrollToId?.addListener(_onScrollToId);
@@ -75,104 +92,124 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
   @override
   void dispose() {
     widget.scrollToId?.removeListener(_onScrollToId);
-    _detachScrollController();
+    _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
+    _offsetSub?.cancel();
+    _snapTimer?.cancel();
     super.dispose();
   }
+
+  // ── Scroll-to-item (deterministic, no estimation) ──────────────────
 
   void _onScrollToId() {
     final id = widget.scrollToId?.value;
     if (id == null) return;
     widget.scrollToId!.value = null;
 
-    // Try precise scroll via GlobalKey first (works for already-built items).
-    final key = _itemKeys[id];
-    if (key?.currentContext != null) {
-      Scrollable.ensureVisible(
-        key!.currentContext!,
-        duration: kAnimationDuration,
-        curve: kAnimationCurve,
-        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
-      );
+    final cubit = context.read<ListCubit<T>>();
+    final results = cubit.state.results;
+    final hasHeader = widget.resultCountBuilder != null;
+    final headerCount = hasHeader ? 1 : 0;
+
+    final dataIndex = results.indexWhere((item) => item.id == id);
+    if (dataIndex < 0) return;
+
+    final listIndex = dataIndex + headerCount;
+
+    if (_itemScrollController.isAttached) {
+      _isProgrammaticScroll = true;
+      _itemScrollController
+          .scrollTo(
+            index: listIndex,
+            duration: kAnimationDuration,
+            curve: kAnimationCurve,
+          )
+          .whenComplete(() => _isProgrammaticScroll = false);
+    }
+  }
+
+  // ── Snap-to-item after user scroll ────────────────────────────────
+
+  void _onScrollOffsetChanged(double _) {
+    if (_isProgrammaticScroll) return;
+    _snapTimer?.cancel();
+    _snapTimer = Timer(const Duration(milliseconds: 50), _snapToNearestItem);
+  }
+
+  void _snapToNearestItem() {
+    if (!mounted || !_itemScrollController.isAttached) return;
+
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+
+    // Items whose trailing edge is on-screen.
+    final visible = positions.where((p) => p.itemTrailingEdge > 0).toList();
+    if (visible.isEmpty) return;
+    visible.sort((a, b) => a.itemLeadingEdge.compareTo(b.itemLeadingEdge));
+
+    final topItem = visible.first;
+
+    final cubit = context.read<ListCubit<T>>();
+    final hasHeader = widget.resultCountBuilder != null;
+    final headerCount = hasHeader ? 1 : 0;
+    final maxIndex = headerCount + cubit.state.results.length - 1;
+
+    // Already well-aligned – just notify the focused item.
+    if (topItem.itemLeadingEdge.abs() < 0.01) {
+      _emitFocusedItem(topItem.index, headerCount, cubit);
       return;
     }
 
-    // Item isn't built yet — jump to an estimated offset, wait for the
-    // frame to lay out, then refine with ensureVisible.  Retry up to a
-    // few times because the estimate may land slightly off.
+    final itemExtent = topItem.itemTrailingEdge - topItem.itemLeadingEdge;
+    if (itemExtent <= 0) return;
+
+    // If more than half the item is visible, snap to it; otherwise next.
+    final snapIndex = topItem.itemLeadingEdge > -(itemExtent / 2)
+        ? topItem.index
+        : topItem.index + 1;
+
+    if (snapIndex > maxIndex || snapIndex < 0) return;
+
+    // Emit immediately so the map starts animating in parallel with the snap.
+    _emitFocusedItem(snapIndex, headerCount, cubit);
+
+    _isProgrammaticScroll = true;
+    _itemScrollController
+        .scrollTo(
+          index: snapIndex,
+          duration: kAnimationDuration,
+          curve: kAnimationCurve,
+        )
+        .whenComplete(() => _isProgrammaticScroll = false);
+  }
+
+  void _emitFocusedItem(int listIndex, int headerCount, ListCubit<T> cubit) {
+    final dataIndex = listIndex - headerCount;
+    if (dataIndex >= 0 && dataIndex < cubit.state.results.length) {
+      widget.focusedItemId?.value = cubit.state.results[dataIndex].id;
+    }
+  }
+
+  // ── Load-next-on-bottom via item positions ─────────────────────────
+
+  void _onPositionsChanged() {
+    if (!widget.loadNextOnBottom || !mounted) return;
+
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+
     final cubit = context.read<ListCubit<T>>();
-    final results = cubit.state.results;
-    final index = results.indexWhere((item) => item.id == id);
-    if (index < 0 || !_scrollController.hasClients) return;
+    final state = cubit.state;
+    final hasHeader = widget.resultCountBuilder != null;
+    final headerCount = hasHeader ? 1 : 0;
+    final totalItems = headerCount + state.results.length;
 
-    _scrollToIndex(id, index, remainingAttempts: 3);
-  }
+    // Check if the last data item (or near-last) is visible.
+    final maxVisibleIndex = positions
+        .map((p) => p.index)
+        .reduce((a, b) => a > b ? a : b);
 
-  Future<void> _scrollToIndex(
-    String id,
-    int index, {
-    required int remainingAttempts,
-  }) async {
-    if (!mounted || remainingAttempts <= 0) return;
-
-    final position = _scrollController.position;
-    final estimatedItemHeight = position.maxScrollExtent > 0
-        ? (position.maxScrollExtent + position.viewportDimension) /
-              context.read<ListCubit<T>>().state.results.length
-        : 200.0;
-    final target = (index * estimatedItemHeight).clamp(
-      0.0,
-      position.maxScrollExtent,
-    );
-
-    // Jump immediately so the ListView builds items near the target.
-    _scrollController.jumpTo(target);
-
-    // Wait for the frame to lay out.
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) return;
-
-    final builtKey = _itemKeys[id];
-    if (builtKey?.currentContext != null) {
-      await Scrollable.ensureVisible(
-        builtKey!.currentContext!,
-        duration: kAnimationDuration,
-        curve: kAnimationCurve,
-        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
-      );
-    } else {
-      // Item still not built — retry with a refined position.
-      await _scrollToIndex(id, index, remainingAttempts: remainingAttempts - 1);
-    }
-  }
-
-  void _attachScrollController(ScrollController? externalController) {
-    _ownsScrollController = externalController == null;
-    _scrollController = externalController ?? ScrollController();
-    _scrollController.addListener(_onScroll);
-  }
-
-  void _detachScrollController() {
-    _scrollController.removeListener(_onScroll);
-    if (_ownsScrollController) {
-      _scrollController.dispose();
-    }
-  }
-
-  void _onScroll() {
-    if (widget.loadNextOnBottom &&
-        _scrollController.hasClients &&
-        _scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent -
-                widget.loadNextThreshold) {
+    if (maxVisibleIndex >= totalItems - 2) {
       _loadNext();
-    }
-
-    if (_scrollController.position.userScrollDirection ==
-        ScrollDirection.forward) {
-      // logger.d('Scrolling up');
-    } else if (_scrollController.position.userScrollDirection ==
-        ScrollDirection.reverse) {
-      // logger.d('Scrolling down');
     }
   }
 
@@ -203,17 +240,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
         }
 
         if (state.results.isEmpty) {
-          return LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: SizedBox(
-                height: constraints.maxHeight,
-                child: Center(
-                  child: Text(AppLocalizations.of(context)!.noItems),
-                ),
-              ),
-            ),
-          );
+          return Center(child: Text(AppLocalizations.of(context)!.noItems));
         }
 
         final isLoading = state.synching || state.fetching;
@@ -225,12 +252,15 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
             ? MediaQuery.paddingOf(context).bottom + kBottomNavigationBarHeight
             : 0.0;
 
-        return ListView.builder(
+        return ScrollablePositionedList.builder(
           physics: const AlwaysScrollableScrollPhysics(),
+          itemScrollController: _itemScrollController,
+          itemPositionsListener: _itemPositionsListener,
+          scrollOffsetController: _scrollOffsetController,
+          scrollOffsetListener: _scrollOffsetListener,
           padding: EdgeInsets.only(
             bottom: kDefaultPadding.toDouble() + bottomInset,
           ),
-          controller: _scrollController,
           itemCount: itemCount,
           itemBuilder: (context, index) {
             // Result count header as first scrollable item
@@ -251,18 +281,14 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
             }
 
             final item = state.results[adjustedIndex];
-            final itemKey = _itemKeys.putIfAbsent(item.id, () => GlobalKey());
             return _KeepAliveItem(
               key: ValueKey(item.id),
-              child: KeyedSubtree(
-                key: itemKey,
-                child: widget.animateItems
-                    ? AnimatedListItem(
-                        index: adjustedIndex,
-                        child: widget.builder(item),
-                      )
-                    : widget.builder(item),
-              ),
+              child: widget.animateItems
+                  ? AnimatedListItem(
+                      index: adjustedIndex,
+                      child: widget.builder(item),
+                    )
+                  : widget.builder(item),
             );
           },
         );

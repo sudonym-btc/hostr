@@ -26,3 +26,13 @@ output "staging_zone_name" {
 output "staging_name_servers" {
   value = google_dns_managed_zone.staging.name_servers
 }
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+output "ci_service_account_email_production" {
+  value = google_service_account.ci_deploy_production.email
+}
+
+output "ci_service_account_email_staging" {
+  value = google_service_account.ci_deploy_staging.email
+}

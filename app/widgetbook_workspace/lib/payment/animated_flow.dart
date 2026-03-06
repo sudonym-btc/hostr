@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/onchain_operation.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/out/swap_out.dart';
@@ -300,13 +301,21 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
         case OnchainInitialised():
           return EscrowFundConfirmWidget(onConfirm: () async {});
         case OnchainTxBroadcast():
-          return EscrowFundDepositingWidget(state);
+          return OnchainTransactionSheet.broadcast(
+            title: 'Depositing Funds',
+            subtitle: state.data.txHash != null
+                ? 'Waiting for on-chain confirmation...'
+                : 'Submitting deposit transaction...',
+          );
         case OnchainSwapProgress():
           return EscrowFundProgressWidget(state);
         case OnchainTxConfirmed():
-          return EscrowFundSuccessWidget(state);
+          return OnchainTransactionSheet.success(
+            title: 'Deposit Success',
+            subtitle: 'Funds have been deposited into the escrow.',
+          );
         case OnchainError():
-          return EscrowFundFailureWidget(state);
+          return OnchainTransactionSheet.error(state, title: 'Escrow Failed');
       }
     },
   );

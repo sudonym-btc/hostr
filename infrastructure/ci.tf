@@ -10,27 +10,14 @@
 #   GCP_WORKLOAD_IDENTITY_PROVIDER = <ci_workload_identity_provider output>
 #   GCP_SERVICE_ACCOUNT_EMAIL      = <ci_service_account_email output>
 
-# ── APIs ──────────────────────────────────────────────────────────────────────
-
-resource "google_project_service" "iam_credentials" {
-  project = var.project_id
-  service = "iamcredentials.googleapis.com"
-}
-
-resource "google_project_service" "iam" {
-  project = var.project_id
-  service = "iam.googleapis.com"
-}
-
 # ── Workload Identity Pool ────────────────────────────────────────────────────
+# IAM APIs are enabled by the bootstrap project.
 
 resource "google_iam_workload_identity_pool" "github" {
   project                   = var.project_id
   workload_identity_pool_id = "github-actions"
   display_name              = "GitHub Actions"
   description               = "OIDC pool for GitHub Actions CI/CD"
-
-  depends_on = [google_project_service.iam]
 }
 
 resource "google_iam_workload_identity_pool_provider" "github" {
@@ -54,49 +41,19 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   depends_on = [google_iam_workload_identity_pool.github]
 }
 
-# ── CI Service Account ────────────────────────────────────────────────────────
+# ── CI Service Account (created by bootstrap) ────────────────────────────────
+# The SA and its IAM role bindings live in the bootstrap project to avoid a
+# chicken-and-egg problem: the SA needs permissions (e.g. serviceUsageConsumer)
+# to refresh resources during `terraform plan`, but it cannot grant itself
+# those permissions in the same apply that first requires them.
 
-resource "google_service_account" "ci_deploy" {
-  project      = var.project_id
-  account_id   = "ci-deploy"
-  display_name = "CI Deploy (GitHub Actions)"
+data "google_service_account" "ci_deploy" {
+  account_id = "ci-deploy@${var.project_id}.iam.gserviceaccount.com"
 }
 
 # Allow the WIF pool to impersonate this SA
 resource "google_service_account_iam_member" "ci_deploy_wif" {
-  service_account_id = google_service_account.ci_deploy.name
+  service_account_id = data.google_service_account.ci_deploy.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repo_owner_name}"
-}
-
-# ── IAM roles for the CI service account ──────────────────────────────────────
-
-locals {
-  ci_roles = [
-    "roles/compute.admin",                   # reset VM
-    "roles/secretmanager.admin",             # manage secrets
-    "roles/iam.serviceAccountUser",          # attach SAs to resources
-    "roles/storage.admin",                   # terraform state in GCS
-    "roles/dns.admin",                       # manage DNS records
-    "roles/resourcemanager.projectIamAdmin", # manage IAM bindings
-    "roles/serviceusage.serviceUsageAdmin",  # enable/disable APIs
-  ]
-}
-
-resource "google_project_iam_member" "ci_deploy" {
-  for_each = toset(local.ci_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${google_service_account.ci_deploy.email}"
-}
-
-# The TF state bucket lives in the production project.  When this stack runs
-# for staging, the project-level storage.admin above only covers staging
-# buckets, so we need an explicit bucket-level grant for the shared state
-# bucket.
-resource "google_storage_bucket_iam_member" "ci_deploy_state_bucket" {
-  bucket = var.tf_state_bucket
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.ci_deploy.email}"
 }

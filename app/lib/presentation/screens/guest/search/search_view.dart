@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
@@ -17,10 +18,16 @@ class SearchView extends StatefulWidget {
 }
 
 class SearchViewState extends State<SearchView> {
-  final DraggableScrollableController _panelController =
-      DraggableScrollableController();
   final ValueNotifier<String?> _scrollToListingId = ValueNotifier(null);
+  final ValueNotifier<String?> _focusedListingId = ValueNotifier(null);
   double? _cachedHeight;
+
+  // Panel drag state – replaces DraggableScrollableSheet which is
+  // incompatible with ScrollablePositionedList (no external ScrollController).
+  double _panelFraction = 0;
+  bool _isDragging = false;
+  late double _minFraction;
+  late double _maxFraction;
 
   @override
   void initState() {
@@ -34,7 +41,35 @@ class SearchViewState extends State<SearchView> {
   @override
   void dispose() {
     _scrollToListingId.dispose();
+    _focusedListingId.dispose();
     super.dispose();
+  }
+
+  void _resetPanel() {
+    setState(() {
+      _panelFraction = _minFraction;
+      _isDragging = false;
+    });
+  }
+
+  void _onPanelDragUpdate(DragUpdateDetails details) {
+    final totalHeight = _cachedHeight ?? 0;
+    if (totalHeight <= 0) return;
+    setState(() {
+      _isDragging = true;
+      _panelFraction = (_panelFraction - details.delta.dy / totalHeight).clamp(
+        _minFraction,
+        _maxFraction,
+      );
+    });
+  }
+
+  void _onPanelDragEnd(DragEndDetails details) {
+    final mid = (_minFraction + _maxFraction) / 2;
+    setState(() {
+      _isDragging = false;
+      _panelFraction = _panelFraction > mid ? _maxFraction : _minFraction;
+    });
   }
 
   @override
@@ -48,8 +83,9 @@ class SearchViewState extends State<SearchView> {
         final panelMaxHeight =
             listingStartHeight +
             (totalHeight - listingStartHeight) * panelStopFraction;
-        final minChildSize = listingStartHeight / totalHeight;
-        final maxChildSize = panelMaxHeight / totalHeight;
+        _minFraction = listingStartHeight / totalHeight;
+        _maxFraction = panelMaxHeight / totalHeight;
+        if (_panelFraction == 0) _panelFraction = _minFraction;
 
         return MultiBlocProvider(
           providers: [
@@ -63,9 +99,7 @@ class SearchViewState extends State<SearchView> {
             create: (context) => MapViewCubit(),
             child: BlocListener<FilterCubit, FilterState>(
               listener: (context, state) {
-                if (_panelController.isAttached) {
-                  _panelController.reset();
-                }
+                _resetPanel();
               },
               child: Scaffold(
                 resizeToAvoidBottomInset: false,
@@ -79,8 +113,10 @@ class SearchViewState extends State<SearchView> {
                             children: [
                               SearchMapWidget(
                                 onMarkerTap: (id) {
+                                  _focusedListingId.value = id;
                                   _scrollToListingId.value = id;
                                 },
+                                animateToId: _focusedListingId,
                               ),
                               SafeArea(
                                 child: CustomPadding(
@@ -142,35 +178,70 @@ class SearchViewState extends State<SearchView> {
                         ),
                       ],
                     ),
-                    DraggableScrollableSheet(
-                      controller: _panelController,
-                      initialChildSize: minChildSize,
-                      minChildSize: minChildSize,
-                      maxChildSize: maxChildSize,
-                      builder: (context, scrollController) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16),
+                    // Custom sliding panel – replaces DraggableScrollableSheet
+                    // because ScrollablePositionedList manages its own scroll
+                    // controllers and cannot accept an external one.
+                    AnimatedPositioned(
+                      duration: _isDragging
+                          ? Duration.zero
+                          : kAnimationDuration,
+                      curve: kAnimationCurve,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: totalHeight * _panelFraction,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(16),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(
+                                context,
+                              ).scaffoldBackgroundColor.withAlpha(120),
+                              blurRadius: 24,
+                              spreadRadius: 2,
+                              offset: const Offset(0, -6),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Theme.of(
-                                  context,
-                                ).scaffoldBackgroundColor.withAlpha(120),
-                                blurRadius: 24,
-                                spreadRadius: 2,
-                                offset: const Offset(0, -6),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            // Drag handle for panel resizing
+                            GestureDetector(
+                              onVerticalDragUpdate: _onPanelDragUpdate,
+                              onVerticalDragEnd: _onPanelDragEnd,
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 32,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface.withAlpha(60),
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ],
-                          ),
-                          child: ListingsWidget(
-                            scrollController: scrollController,
-                            scrollToId: _scrollToListingId,
-                          ),
-                        );
-                      },
+                            ),
+                            Expanded(
+                              child: ListingsWidget(
+                                scrollToId: _scrollToListingId,
+                                focusedItemId: _focusedListingId,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
