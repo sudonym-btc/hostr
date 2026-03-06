@@ -2,11 +2,9 @@ import 'dart:async';
 
 import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
-import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_registry.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/actions/reservation.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/actions/trade_action_resolver.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/payment_proof_orchestrator.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/thread.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/trade_context.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/trade_state.dart';
@@ -43,20 +41,11 @@ class ThreadTrade {
   /// changes without a corresponding stream event).
   final BehaviorSubject<void> _refreshTrigger = BehaviorSubject.seeded(null);
 
-  ThreadPaymentProofOrchestrator? _paymentProofOrchestrator;
   final BehaviorSubject<TradeState> state;
 
   final List<StreamSubscription> _runtimeSubscriptions = [];
   StreamSubscription<Message>? _messageSubscription;
   Future<void>? _inFlightEnsureRuntime;
-  bool _isClosing = false;
-
-  /// When non-null, [deactivate] was called while an escrow fund operation was
-  /// in-flight. The actual teardown is deferred until the operation finishes.
-  StreamSubscription? _deferredDeactivationSub;
-
-  late final EscrowFundRegistry _escrowFundRegistry =
-      getIt<EscrowFundRegistry>();
 
   ThreadTrade({
     @factoryParam required this.thread,
@@ -152,19 +141,13 @@ class ThreadTrade {
     // 2. Start subscriptions with the resolved context.
     await subscriptions.start(context);
 
-    // 3. Wire orchestrator.
-    _paymentProofOrchestrator = getIt<ThreadPaymentProofOrchestrator>(
-      param1: this,
-    );
-    unawaited(_paymentProofOrchestrator!.start(context));
-
-    // 4. Build the derived actions stream from concrete stream emissions.
-    // allReservationsStream.stream and reservationStream.stream both emit
+    // 3. Build the derived actions stream from concrete stream emissions.
+    // listingReservationsStream.stream and reservationStream.stream both emit
     // List<Validation<...>> snapshots (ValidatedStreamWithStatus).
     // paymentEvents.list emits List<PaymentEvent> snapshots.
     _actions$ = Rx.combineLatest6(
-      subscriptions.allReservationsStream!.stream,
-      subscriptions.reservationStream!.stream,
+      subscriptions.listingReservationsStream!.list,
+      subscriptions.reservationStream!.list,
       subscriptions.reservationStream!.status,
       subscriptions.paymentEvents!.list,
       subscriptions.paymentEvents!.status,
@@ -206,35 +189,8 @@ class ThreadTrade {
     }
   }
 
-  Future<void> deactivate({bool allowDeferred = true}) async {
+  Future<void> deactivate() async {
     if (state.isClosed) return;
-
-    final tradeId = state.value.tradeId;
-
-    // Defer teardown while an escrow fund operation is in-flight.
-    if (allowDeferred &&
-        !_isClosing &&
-        _escrowFundRegistry.hasActiveFund(tradeId)) {
-      logger.d(
-        'Trade $tradeId: deferring deactivation — escrow fund in-flight',
-      );
-      _deferredDeactivationSub ??= _escrowFundRegistry
-          .watchTrade(tradeId)
-          .where((op) => op == null)
-          .take(1)
-          .listen((_) {
-            _deferredDeactivationSub = null;
-            if (state.isClosed || _isClosing) return;
-            logger.d(
-              'Trade $tradeId: escrow fund completed — running deferred deactivation',
-            );
-            deactivate();
-          });
-      return;
-    }
-
-    _deferredDeactivationSub?.cancel();
-    _deferredDeactivationSub = null;
 
     _emitState(state.value.copyWith(active: false));
 
@@ -307,10 +263,7 @@ class ThreadTrade {
   }
 
   Future<void> close() async {
-    _isClosing = true;
-    _deferredDeactivationSub?.cancel();
-    _deferredDeactivationSub = null;
-    await deactivate(allowDeferred: false);
+    await deactivate();
     await state.close();
     await context$.close();
     await _refreshTrigger.close();

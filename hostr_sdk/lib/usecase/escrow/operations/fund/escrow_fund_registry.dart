@@ -15,7 +15,6 @@ import 'escrow_fund_operation.dart';
 ///
 /// 1. The UI can reactively show a loading state on the pay button when an
 ///    operation is in-flight for a given trade.
-/// 2. [ThreadTrade.deactivate] can defer teardown while an operation is active.
 @singleton
 class EscrowFundRegistry {
   final CustomLogger _logger;

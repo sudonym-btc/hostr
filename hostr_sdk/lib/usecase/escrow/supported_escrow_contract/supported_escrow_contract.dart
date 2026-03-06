@@ -210,18 +210,28 @@ class ContractReleaseEscrowParams {
   ContractReleaseEscrowParams({required this.tradeId, required this.ethKey});
 }
 
-abstract class PaymentEvent {}
+abstract class PaymentEvent {
+  final String tradeId;
+
+  PaymentEvent({required this.tradeId});
+}
 
 class PaymentFundedEvent extends PaymentEvent {
   final BitcoinAmount amount;
-  PaymentFundedEvent({required this.amount});
+  PaymentFundedEvent({required super.tradeId, required this.amount});
 }
 
-class PaymentReleasedEvent extends PaymentEvent {}
+class PaymentReleasedEvent extends PaymentEvent {
+  PaymentReleasedEvent({required super.tradeId});
+}
 
-class PaymentArbitratedEvent extends PaymentEvent {}
+class PaymentArbitratedEvent extends PaymentEvent {
+  PaymentArbitratedEvent({required super.tradeId});
+}
 
-class PaymentClaimedEvent extends PaymentEvent {}
+class PaymentClaimedEvent extends PaymentEvent {
+  PaymentClaimedEvent({required super.tradeId});
+}
 
 /// Zap payment types
 abstract interface class ZapEvent implements PaymentEvent {}
@@ -231,6 +241,7 @@ class ZapFundedEvent extends PaymentFundedEvent implements ZapEvent {
   final ZapReceipt zapReceipt;
 
   ZapFundedEvent({
+    required super.tradeId,
     required this.zapReceipt,
     required super.amount,
     required this.event,
@@ -240,28 +251,39 @@ class ZapFundedEvent extends PaymentFundedEvent implements ZapEvent {
 class ZapReleasedEvent extends PaymentReleasedEvent implements ZapEvent {
   final ZapReceipt zapReceipt;
   final BitcoinAmount amount;
-  ZapReleasedEvent({required this.zapReceipt, required this.amount});
+  ZapReleasedEvent({
+    required super.tradeId,
+    required this.zapReceipt,
+    required this.amount,
+  });
 }
 
 /// Escrow payment types
 abstract class EscrowEvent extends PaymentEvent {
   final EscrowServiceSelected? escrowService;
   final BlockInformation block;
-  EscrowEvent({required this.block, this.escrowService});
+  EscrowEvent({
+    required super.tradeId,
+    required this.block,
+    this.escrowService,
+  });
 }
 
 class UnknownEscrowEvent extends EscrowEvent {
-  UnknownEscrowEvent({required super.block, super.escrowService});
+  UnknownEscrowEvent({
+    required super.tradeId,
+    required super.block,
+    super.escrowService,
+  });
 }
 
 class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
-  final String tradeId;
   final String transactionHash;
   @override
   final BitcoinAmount amount;
 
   EscrowFundedEvent({
-    required this.tradeId,
+    required super.tradeId,
     required super.block,
     super.escrowService,
     required this.transactionHash,
@@ -270,11 +292,10 @@ class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
 }
 
 class EscrowReleasedEvent extends EscrowEvent implements PaymentReleasedEvent {
-  final String tradeId;
   final String transactionHash;
 
   EscrowReleasedEvent({
-    required this.tradeId,
+    required super.tradeId,
     required super.block,
     super.escrowService,
     required this.transactionHash,
@@ -283,11 +304,10 @@ class EscrowReleasedEvent extends EscrowEvent implements PaymentReleasedEvent {
 
 class EscrowArbitratedEvent extends EscrowEvent
     implements PaymentArbitratedEvent {
-  final String tradeId;
   final String transactionHash;
   final double forwarded;
   EscrowArbitratedEvent({
-    required this.tradeId,
+    required super.tradeId,
     required super.block,
     super.escrowService,
     required this.transactionHash,
@@ -296,10 +316,9 @@ class EscrowArbitratedEvent extends EscrowEvent
 }
 
 class EscrowClaimedEvent extends EscrowEvent implements PaymentClaimedEvent {
-  final String tradeId;
   final String transactionHash;
   EscrowClaimedEvent({
-    required this.tradeId,
+    required super.tradeId,
     required super.block,
     super.escrowService,
     required this.transactionHash,

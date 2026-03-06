@@ -18,43 +18,7 @@ class Invalid<T> extends Validation<T> {
   const Invalid(super.event, this.reason);
 }
 
-class ValidatedStreamWithStatus<T> {
-  Function? onClose;
-
-  final BehaviorSubject<List<Validation<T>>> _listSubject =
-      BehaviorSubject<List<Validation<T>>>.seeded(const []);
-  final BehaviorSubject<StreamStatus> status =
-      BehaviorSubject<StreamStatus>.seeded(StreamStatusIdle());
-
-  ValidatedStreamWithStatus({this.onClose});
-
-  Stream<List<Validation<T>>> get stream => _listSubject.stream;
-
-  ValueStream<List<Validation<T>>> get list => _listSubject;
-
-  void addStatus(StreamStatus next) {
-    if (status.isClosed) return;
-    status.add(next);
-  }
-
-  void addError(Object error, StackTrace? stackTrace) {
-    if (status.isClosed) return;
-    status.add(StreamStatusError(error, stackTrace));
-  }
-
-  void setSnapshot(List<Validation<T>> snapshot) {
-    if (_listSubject.isClosed) return;
-    _listSubject.add(List.unmodifiable(snapshot));
-  }
-
-  Future<void> close() async {
-    await onClose?.call();
-    await status.close();
-    await _listSubject.close();
-  }
-}
-
-ValidatedStreamWithStatus<T> validateStream<T>({
+StreamWithStatus<Validation<T>> validateStream<T>({
   required StreamWithStatus<T> source,
   required Future<List<Validation<T>>> Function(List<T> snapshot) validator,
   Duration debounce = const Duration(milliseconds: 300),
@@ -65,7 +29,7 @@ ValidatedStreamWithStatus<T> validateStream<T>({
   var hasValidatedAtLeastOnce = false;
   StreamStatus? latestSourceStatus;
 
-  final response = ValidatedStreamWithStatus<T>(
+  final response = StreamWithStatus<Validation<T>>(
     onClose: () async {
       await statusSub.cancel();
       await listSub.cancel();

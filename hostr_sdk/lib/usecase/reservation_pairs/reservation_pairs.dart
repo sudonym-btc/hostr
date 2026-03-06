@@ -48,13 +48,34 @@ class ReservationPairs {
 
   // ── Public API ──────────────────────────────────────────────────────
 
+  /// Validates reservation pairs from an **external** [source] stream.
+  ///
+  /// Unlike [subscribeVerified], the caller owns the [source] lifetime —
+  /// passing `closeSourceOnClose: false` (the default) keeps the shared
+  /// stream alive when this view is closed.
+  StreamWithStatus<Validation<ReservationPairStatus>> verifyFromSource({
+    required StreamWithStatus<Reservation> source,
+    Duration debounce = const Duration(milliseconds: 350),
+    bool closeSourceOnClose = false,
+    bool forceValidateSelfSigned = false,
+    bool Function(ReservationPairStatus pair)? forceValidatePredicate,
+  }) {
+    return _buildValidatedStream(
+      source: source,
+      debounce: debounce,
+      closeSourceOnClose: closeSourceOnClose,
+      forceValidateSelfSigned: forceValidateSelfSigned,
+      forceValidatePredicate: forceValidatePredicate,
+    );
+  }
+
   /// Live subscription that emits validated reservation pairs for [listing].
   ///
   /// When [forceValidateSelfSigned] is `true`, buyer-published reservations
   /// are always checked for a valid payment proof — even when a seller
   /// confirmation already exists. This is the mode escrow arbitration uses.
-  ValidatedStreamWithStatus<ReservationPairStatus> subscribeVerified({
-    required Listing listing,
+  StreamWithStatus<Validation<ReservationPairStatus>> subscribeVerified({
+    required String listingAnchor,
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
     bool Function(ReservationPairStatus pair)? forceValidatePredicate,
@@ -62,14 +83,13 @@ class ReservationPairs {
     final source = reservations.subscribe(
       Filter(
         tags: {
-          kListingRefTag: [listing.anchor!],
+          kListingRefTag: [listingAnchor],
         },
       ),
       name: 'ReservationPairs-verified',
     );
     return _buildValidatedStream(
       source: source,
-      listing: listing,
       debounce: debounce,
       closeSourceOnClose: true,
       forceValidateSelfSigned: forceValidateSelfSigned,
@@ -82,8 +102,8 @@ class ReservationPairs {
   /// When [forceValidateSelfSigned] is `true`, buyer-published reservations
   /// are always checked for a valid payment proof — even when a seller
   /// confirmation already exists.
-  ValidatedStreamWithStatus<ReservationPairStatus> queryVerified({
-    required Listing listing,
+  StreamWithStatus<Validation<ReservationPairStatus>> queryVerified({
+    required String listingAnchor,
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
     bool Function(ReservationPairStatus pair)? forceValidatePredicate,
@@ -91,153 +111,18 @@ class ReservationPairs {
     final source = reservations.query(
       Filter(
         tags: {
-          kListingRefTag: [listing.anchor!],
+          kListingRefTag: [listingAnchor],
         },
       ),
       name: 'ReservationPairs-query',
     );
     return _buildValidatedStream(
       source: source,
-      listing: listing,
       debounce: debounce,
       closeSourceOnClose: true,
       forceValidateSelfSigned: forceValidateSelfSigned,
       forceValidatePredicate: forceValidatePredicate,
     );
-  }
-
-  /// Live subscription that emits validated [ReservationPairStatus] objects
-  /// for all listings the authenticated user is involved in as a guest.
-  ///
-  /// Uses the messaging thread subscription (via
-  /// [Reservations.subscribeToMyReservations]) to track which listings the
-  /// user has active trades on. For each listing, all reservations are fetched
-  /// and grouped into seller/buyer pairs. Only pairs where the current user
-  /// appears as a participant are emitted.
-  ///
-  /// Unlike [subscribeVerified], no on-chain proof verification is performed
-  /// here — the pair status (pending, confirmed, cancelled, completed) is
-  /// derived directly from the [ReservationPairStatus] properties, which is
-  /// sufficient for the trips list view.
-  ValidatedStreamWithStatus<ReservationPairStatus> subscribeToMyVerifiedPairs({
-    Duration debounce = const Duration(milliseconds: 350),
-  }) {
-    final source = reservations.subscribeToMyReservations();
-
-    late final StreamSubscription<StreamStatus> statusSub;
-    late final StreamSubscription<List<Reservation>> listSub;
-    late final ValidatedStreamWithStatus<ReservationPairStatus> response;
-    Timer? debounceTimer;
-    var hasValidatedAtLeastOnce = false;
-    StreamStatus? latestSourceStatus;
-
-    Future<void> runValidation(List<Reservation> myReservations) async {
-      response.addStatus(StreamStatusQuerying());
-
-      // Group the user's reservations by listing anchor so we can batch-fetch
-      // all reservations per listing (to retrieve the seller's side too).
-      final byAnchor = <String, Set<String>>{};
-      for (final r in myReservations) {
-        final anchor = r.parsedTags.listingAnchor;
-        if (anchor.isNotEmpty) {
-          (byAnchor[anchor] ??= {}).add(r.getDtag() ?? r.id);
-        }
-      }
-
-      final results = <Validation<ReservationPairStatus>>[];
-
-      for (final entry in byAnchor.entries) {
-        final anchor = entry.key;
-        final myTradeIds = entry.value;
-
-        // Fetch ALL reservations for this listing (both buyer and seller).
-        final allReservations = await reservations.getListingReservations(
-          listingAnchor: anchor,
-        );
-
-        // Determine the seller pubkey from the listing anchor.
-        final sellerPubKey = getPubKeyFromAnchor(anchor);
-
-        // Group into seller/buyer pairs by trade id (d-tag), keeping only
-        // pairs the current user participates in.
-        final pairs =
-            <
-              String,
-              ({Reservation? sellerReservation, Reservation? buyerReservation})
-            >{};
-
-        for (final r in allReservations) {
-          final tradeId = r.getDtag() ?? r.id;
-          if (!myTradeIds.contains(tradeId)) continue;
-
-          final current =
-              pairs[tradeId] ??
-              (sellerReservation: null, buyerReservation: null);
-
-          if (r.pubKey == sellerPubKey) {
-            pairs[tradeId] = (
-              sellerReservation: r,
-              buyerReservation: current.buyerReservation,
-            );
-          } else {
-            pairs[tradeId] = (
-              sellerReservation: current.sellerReservation,
-              buyerReservation: r,
-            );
-          }
-        }
-
-        for (final pair in pairs.values) {
-          results.add(
-            Valid(
-              ReservationPairStatus(
-                sellerReservation: pair.sellerReservation,
-                buyerReservation: pair.buyerReservation,
-              ),
-            ),
-          );
-        }
-      }
-
-      response.setSnapshot(results);
-      hasValidatedAtLeastOnce = true;
-      if (latestSourceStatus != null) {
-        response.addStatus(latestSourceStatus!);
-      }
-    }
-
-    response = ValidatedStreamWithStatus<ReservationPairStatus>(
-      onClose: () async {
-        debounceTimer?.cancel();
-        await statusSub.cancel();
-        await listSub.cancel();
-        await source.close();
-      },
-    );
-
-    statusSub = source.status.listen((status) {
-      latestSourceStatus = status;
-      if (status is StreamStatusError) {
-        response.addStatus(status);
-        return;
-      }
-      if (hasValidatedAtLeastOnce) {
-        response.addStatus(status);
-      }
-    }, onError: response.addError);
-
-    listSub = source.list.listen((myReservations) {
-      debounceTimer?.cancel();
-      if (debounce == Duration.zero) {
-        unawaited(runValidation(myReservations));
-        return;
-      }
-      debounceTimer = Timer(debounce, () {
-        unawaited(runValidation(myReservations));
-      });
-    }, onError: response.addError);
-
-    return response;
   }
 
   // ── Verification ────────────────────────────────────────────────────
@@ -252,8 +137,7 @@ class ReservationPairs {
   /// This is intentionally static so it can be used in tests or
   /// other contexts without needing the full usecase instance.
   static Validation<ReservationPairStatus> verifyPair(
-    ReservationPairStatus pair,
-    Listing listing, {
+    ReservationPairStatus pair, {
     bool forceValidateSelfSigned = false,
   }) {
     // 1. Cancelled → Valid (cancellation is a legitimate protocol outcome,
@@ -274,7 +158,7 @@ class ReservationPairs {
         return Invalid(pair, 'No reservation found');
       }
 
-      final validation = Reservation.validate(buyer, listing);
+      final validation = Reservation.validate(buyer);
       if (validation.isValid) {
         return Valid(pair);
       }
@@ -301,7 +185,7 @@ class ReservationPairs {
     }
 
     // 5. Validate the buyer's self-signed proof.
-    final validation = Reservation.validate(buyer, listing);
+    final validation = Reservation.validate(buyer);
     if (validation.isValid) {
       return Valid(pair);
     }
@@ -322,15 +206,13 @@ class ReservationPairs {
   /// When [forceValidateSelfSigned] is `true` the buyer's escrow proof is
   /// checked regardless of whether a seller confirmation exists.
   static Future<Validation<ReservationPairStatus>> verifyPairOnChain(
-    ReservationPairStatus pair,
-    Listing listing, {
+    ReservationPairStatus pair, {
     bool forceValidateSelfSigned = false,
     EscrowVerification? escrowVerification,
   }) async {
     // Run Nostr-level check first.
     final nostrResult = verifyPair(
       pair,
-      listing,
       forceValidateSelfSigned: forceValidateSelfSigned,
     );
 
@@ -353,10 +235,7 @@ class ReservationPairs {
 
     if (!needsOnChain) return nostrResult;
 
-    final result = await escrowVerification.verify(
-      reservation: buyer,
-      listing: listing,
-    );
+    final result = await escrowVerification.verify(reservation: buyer);
 
     if (result.isValid) return nostrResult;
 
@@ -368,9 +247,8 @@ class ReservationPairs {
 
   // ── Stream plumbing ─────────────────────────────────────────────────
 
-  ValidatedStreamWithStatus<ReservationPairStatus> _buildValidatedStream({
+  StreamWithStatus<Validation<ReservationPairStatus>> _buildValidatedStream({
     required StreamWithStatus<Reservation> source,
-    required Listing listing,
     required Duration debounce,
     required bool closeSourceOnClose,
     bool forceValidateSelfSigned = false,
@@ -378,7 +256,7 @@ class ReservationPairs {
   }) {
     late final StreamSubscription<StreamStatus> statusSub;
     late final StreamSubscription<List<Reservation>> listSub;
-    late final ValidatedStreamWithStatus<ReservationPairStatus> response;
+    late final StreamWithStatus<Validation<ReservationPairStatus>> response;
     Timer? debounceTimer;
     var hasValidatedAtLeastOnce = false;
     var initialQuerySettled = false;
@@ -400,68 +278,29 @@ class ReservationPairs {
       final snapshot = List<Reservation>.unmodifiable(latestRawReservations);
       final token = ++validationRunToken;
 
-      logger.d(
-        '[reservation-pairs] validate start '
-        'listing=${listing.anchor} '
-        'rawReservations=${snapshot.length} '
-        'forceValidateSelfSigned=$forceValidateSelfSigned '
-        'token=$token',
-      );
+      // logger.d(
+      //   '[reservation-pairs] validate start '
+      //   'listing=${listing.anchor} '
+      //   'rawReservations=${snapshot.length} '
+      //   'forceValidateSelfSigned=$forceValidateSelfSigned '
+      //   'token=$token',
+      // );
 
       response.addStatus(StreamStatusQuerying());
 
-      final pairs = Reservations.toReservationPairs(
-        reservations: snapshot,
-        listing: listing,
-      );
+      final pairs = Reservations.toReservationPairs(reservations: snapshot);
 
       final results = <Validation<ReservationPairStatus>>[];
       for (final entry in pairs.entries) {
         final tradeId = entry.key;
         final pair = entry.value;
-        final hasSeller = pair.sellerReservation != null;
-        final hasBuyer = pair.buyerReservation != null;
-
-        logger.d(
-          '[reservation-pairs] validating '
-          'tradeId=$tradeId '
-          'hasSeller=$hasSeller '
-          'hasBuyer=$hasBuyer '
-          'sellerCancelled=${pair.sellerCancelled} '
-          'buyerCancelled=${pair.buyerCancelled}',
-        );
 
         final perPairForce =
             forceValidateSelfSigned ||
             (forceValidatePredicate?.call(pair) ?? false);
 
-        if (pair.cancelled) {
-          logger.d(
-            '[reservation-pairs] self-signed proof skipped '
-            'tradeId=$tradeId reason=cancelled',
-          );
-        } else if (!hasBuyer) {
-          logger.d(
-            '[reservation-pairs] self-signed proof skipped '
-            'tradeId=$tradeId reason=no-buyer-reservation',
-          );
-        } else if (!perPairForce && hasSeller) {
-          logger.d(
-            '[reservation-pairs] self-signed proof skipped '
-            'tradeId=$tradeId reason=host-confirmed',
-          );
-        } else {
-          logger.d(
-            '[reservation-pairs] validating self-signed payment proof '
-            'tradeId=$tradeId '
-            'mode=${perPairForce ? 'forced' : 'default'} '
-            'buyerId=${pair.buyerReservation?.id}',
-          );
-        }
-
         final validation = await verifyPairOnChain(
           pair,
-          listing,
           forceValidateSelfSigned: perPairForce,
           escrowVerification: escrowVerification,
         );
@@ -489,7 +328,6 @@ class ReservationPairs {
           .length;
       logger.d(
         '[reservation-pairs] validate done '
-        'listing=${listing.anchor} '
         'pairs=${results.length} '
         'valid=${results.length - invalidCount} '
         'invalid=$invalidCount '
@@ -512,7 +350,7 @@ class ReservationPairs {
       });
     }
 
-    response = ValidatedStreamWithStatus<ReservationPairStatus>(
+    response = StreamWithStatus<Validation<ReservationPairStatus>>(
       onClose: () async {
         debounceTimer?.cancel();
         await statusSub.cancel();
@@ -552,7 +390,6 @@ class ReservationPairs {
 
       final currentPairs = Reservations.toReservationPairs(
         reservations: rawReservations,
-        listing: listing,
       );
 
       final hasUpdatedSellerBuyerCombo = currentPairs.entries.any((entry) {

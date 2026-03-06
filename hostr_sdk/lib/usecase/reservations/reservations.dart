@@ -1,16 +1,11 @@
 import 'dart:async';
 
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
-
-import '../../util/main.dart';
-import '../auth/auth.dart';
-import '../crud.usecase.dart';
-import '../messaging/messaging.dart';
-import '../reservation_transitions/reservation_transitions.dart';
 
 class Commitment {
   final String hash;
@@ -18,11 +13,20 @@ class Commitment {
   Commitment({required this.hash});
 }
 
+/// Dependencies resolved for a single review verification.
+class ReservationDeps {
+  final Listing? listing;
+
+  const ReservationDeps({this.listing});
+}
+
 @Singleton()
-class Reservations extends CrudUseCase<Reservation> {
+class Reservations extends CrudUseCase<Reservation>
+    implements CanVerify<Reservation, ReservationDeps> {
   final Messaging messaging;
   final Auth auth;
   final ReservationTransitions transitions;
+  final Listings listings;
   StreamWithStatus<Reservation>? _myReservations;
   StreamSubscription<Reservation>? _myReservationsSubscription;
   Reservations({
@@ -31,6 +35,7 @@ class Reservations extends CrudUseCase<Reservation> {
     required this.messaging,
     required this.auth,
     required this.transitions,
+    required this.listings,
   }) : super(kind: Reservation.kinds[0]);
 
   /// Query all reservations for a given trade id (d-tag).
@@ -86,7 +91,7 @@ class Reservations extends CrudUseCase<Reservation> {
     return grouped;
   }
 
-  ValidatedStreamWithStatus<Reservation> subscribeValidatedForListing({
+  StreamWithStatus<Validation<Reservation>> subscribeValidatedForListing({
     required Listing listing,
     Duration debounce = const Duration(milliseconds: 350),
   }) {
@@ -107,7 +112,7 @@ class Reservations extends CrudUseCase<Reservation> {
     );
   }
 
-  ValidatedStreamWithStatus<Reservation> subscribeUncancelledReservations({
+  StreamWithStatus<Validation<Reservation>> subscribeUncancelledReservations({
     required Listing listing,
     Duration debounce = const Duration(milliseconds: 350),
   }) {
@@ -205,10 +210,7 @@ class Reservations extends CrudUseCase<Reservation> {
     // batched EVM RPC checks keyed by commitment hash.
     final latestGuestValidation = <String, ValidationResult>{};
     for (final entry in latestGuestsNeedingValidation.entries) {
-      latestGuestValidation[entry.key] = Reservation.validate(
-        entry.value,
-        listing,
-      );
+      latestGuestValidation[entry.key] = Reservation.validate(entry.value);
     }
 
     for (final entry in grouped.entries) {
@@ -268,14 +270,8 @@ class Reservations extends CrudUseCase<Reservation> {
     return 'Validation failed';
   }
 
-  static Reservation? seniorReservations(
-    List<Reservation> reservations,
-    Listing listing,
-  ) {
-    return Reservation.getSeniorReservation(
-      reservations: reservations,
-      listing: listing,
-    );
+  static Reservation? seniorReservations(List<Reservation> reservations) {
+    return Reservation.getSeniorReservation(reservations: reservations);
   }
 
   static List<Reservation> filterCancelled(List<Reservation> reservations) {
@@ -285,11 +281,10 @@ class Reservations extends CrudUseCase<Reservation> {
   /// Converts a flat list of reservations into [ReservationPairStatus] objects
   /// grouped by trade id (`d` tag).
   ///
-  /// The [listing] is used to determine which reservations belong to the
-  /// seller (listing owner) vs the buyer.
+  /// The seller pubkey is derived from each reservation's listing anchor
+  /// via [getPubKeyFromAnchor], so no [Listing] object is required.
   static Map<String, ReservationPairStatus> toReservationPairs({
     required List<Reservation> reservations,
-    required Listing listing,
   }) {
     final Map<
       String,
@@ -302,7 +297,11 @@ class Reservations extends CrudUseCase<Reservation> {
       final current =
           pairs[hash] ?? (sellerReservation: null, buyerReservation: null);
 
-      if (reservation.pubKey == listing.pubKey) {
+      final sellerPubKey = getPubKeyFromAnchor(
+        reservation.parsedTags.listingAnchor,
+      );
+
+      if (reservation.pubKey == sellerPubKey) {
         pairs[hash] = (
           sellerReservation: reservation,
           buyerReservation: current.buyerReservation,
@@ -334,7 +333,7 @@ class Reservations extends CrudUseCase<Reservation> {
     final reservations = await getListingReservations(
       listingAnchor: listing.anchor!,
     );
-    return toReservationPairs(reservations: reservations, listing: listing);
+    return toReservationPairs(reservations: reservations);
   }
 
   Map<String, ({Reservation? sellerReservation, Reservation? buyerReservation})>
@@ -577,5 +576,44 @@ class Reservations extends CrudUseCase<Reservation> {
     _myReservations = null;
     await _myReservationsSubscription?.cancel();
     _myReservationsSubscription = null;
+  }
+
+  @override
+  StreamWithStatus<Validation<Reservation>> queryVerified({
+    Filter? filter,
+    Duration debounce = const Duration(milliseconds: 50),
+    bool closeSourceOnClose = true,
+    String? name,
+  }) {
+    // TODO: implement queryVerified
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<ReservationDeps> resolve(Reservation item) async {
+    return ReservationDeps(
+      listing: await listings.getOneByAnchor(item.parsedTags.listingAnchor),
+    );
+  }
+
+  @override
+  StreamWithStatus<Validation<Reservation>> subscribeVerified({
+    Filter? filter,
+    Duration debounce = const Duration(milliseconds: 50),
+    bool closeSourceOnClose = true,
+    String? name,
+  }) {
+    // TODO: implement subscribeVerified
+    throw UnimplementedError();
+  }
+
+  @override
+  // TODO: implement verificationStreamName
+  String get verificationStreamName => throw UnimplementedError();
+
+  @override
+  Validation<Reservation> verify(Reservation item, ReservationDeps deps) {
+    // TODO: implement verify
+    throw UnimplementedError();
   }
 }

@@ -20,7 +20,7 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
   /// subscriptions/queries (useful for logging and deduped request IDs).
   String get verificationStreamName => 'verified';
 
-  ValidatedStreamWithStatus<T> subscribeVerified({
+  StreamWithStatus<Validation<T>> subscribeVerified({
     Filter? filter,
     Duration debounce = const Duration(milliseconds: 50),
     bool closeSourceOnClose = true,
@@ -38,7 +38,7 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
     );
   }
 
-  ValidatedStreamWithStatus<T> queryVerified({
+  StreamWithStatus<Validation<T>> queryVerified({
     Filter? filter,
     Duration debounce = const Duration(milliseconds: 50),
     bool closeSourceOnClose = true,
@@ -56,7 +56,7 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
     );
   }
 
-  ValidatedStreamWithStatus<T> _verifySource({
+  StreamWithStatus<Validation<T>> _verifySource({
     required StreamWithStatus<T> source,
     required Duration debounce,
     required bool closeSourceOnClose,
