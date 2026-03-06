@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
+String _colorToHex(Color color) {
+  return '#${color.r.round().toRadixString(16).padLeft(2, '0')}${color.g.round().toRadixString(16).padLeft(2, '0')}${color.b.round().toRadixString(16).padLeft(2, '0')}';
+}
+
 String getMapStyle(BuildContext context, bool isDarkMode) {
+  final waterColor = _colorToHex(Theme.of(context).scaffoldBackgroundColor);
   if (isDarkMode) {
     return '''
 [
@@ -200,7 +205,7 @@ String getMapStyle(BuildContext context, bool isDarkMode) {
     "elementType": "geometry",
     "stylers": [
       {
-        "color": "#000000"
+        "color": "$waterColor"
       }
     ]
   },
@@ -223,7 +228,7 @@ String getMapStyle(BuildContext context, bool isDarkMode) {
         "elementType": "geometry",
         "stylers": [
             {
-                "color": "#e9e9e9"
+                "color": "$waterColor"
             },
             {
                 "lightness": 17

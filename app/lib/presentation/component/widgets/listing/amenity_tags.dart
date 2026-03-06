@@ -23,31 +23,87 @@ OutlinedBorder getShapeForAmenity(BuildContext context, String amenity) {
   );
 }
 
-class AmenityTagsWidget extends StatelessWidget {
+class AmenityTagsWidget extends StatefulWidget {
   final Amenities amenities;
 
   const AmenityTagsWidget({super.key, required this.amenities});
 
   @override
+  State<AmenityTagsWidget> createState() => _AmenityTagsWidgetState();
+}
+
+class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
+  bool _expanded = false;
+  bool _overflows = false;
+  final GlobalKey _wrapKey = GlobalKey();
+
+  // 3 rows × ~32 px chip + 2 × 4 px run spacing
+  static const double _runSpacing = 4.0;
+  static const double _collapsedMaxHeight = 3 * 32.0 + 2 * _runSpacing;
+
+  @override
+  void initState() {
+    super.initState();
+    // Measure the unconstrained Wrap height after the first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final box = _wrapKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box != null &&
+          box.hasSize &&
+          box.size.height > _collapsedMaxHeight + 2) {
+        setState(() => _overflows = true);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final amenitiesMap = amenities.toMap();
+    final amenitiesMap = widget.amenities.toMap();
     final amenityKeys = amenitiesMap.keys
         .where((key) => amenitiesMap[key] == true)
         .toList();
 
-    return Wrap(
+    if (amenityKeys.isEmpty) return const SizedBox.shrink();
+
+    final wrap = Wrap(
+      key: _wrapKey,
       spacing: 8.0,
-      runSpacing: 4.0,
+      runSpacing: _runSpacing,
       children: amenityKeys.map((amenity) {
         return Chip(
           label: Text(convertToTitleCase(amenity)),
           shape: getShapeForAmenity(context, amenity),
-          backgroundColor: getColorForAmenity(
-            context,
-            amenity,
-          ), // Makes the background transparent
+          backgroundColor: getColorForAmenity(context, amenity),
         );
       }).toList(),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          clipBehavior: Clip.hardEdge,
+          // BoxDecoration required for clipBehavior to work on AnimatedContainer
+          decoration: const BoxDecoration(),
+          constraints: (_overflows && !_expanded)
+              ? const BoxConstraints(maxHeight: _collapsedMaxHeight)
+              : const BoxConstraints(),
+          child: wrap,
+        ),
+        if (_overflows)
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.only(top: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: () => setState(() => _expanded = !_expanded),
+            child: Text(_expanded ? 'Show less' : 'Show more'),
+          ),
+      ],
     );
   }
 }

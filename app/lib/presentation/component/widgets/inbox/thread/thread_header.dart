@@ -37,22 +37,22 @@ class ThreadHeaderWidget extends StatelessWidget {
           ),
         ),
       ),
-      subtitle: RichText(
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        text: TextSpan(
-          style: subtitleStyle,
-          children: _buildCounterpartySpans(
-            counterparties: counterparties,
-            valueOf: (counterparty) =>
-                counterparty.metadata.cleanNip05 ??
-                counterparty.metadata.lud06 ??
-                counterparty.metadata.lud16 ??
-                counterparty.metadata.pubKey,
-            baseStyle: subtitleStyle,
-          ),
-        ),
-      ),
+      // subtitle: RichText(
+      //   maxLines: 1,
+      //   overflow: TextOverflow.ellipsis,
+      //   text: TextSpan(
+      //     style: subtitleStyle,
+      //     children: _buildCounterpartySpans(
+      //       counterparties: counterparties,
+      //       valueOf: (counterparty) =>
+      //           counterparty.metadata.cleanNip05 ??
+      //           counterparty.metadata.lud06 ??
+      //           counterparty.metadata.lud16 ??
+      //           counterparty.metadata.pubKey,
+      //       baseStyle: subtitleStyle,
+      //     ),
+      //   ),
+      // ),
       trailing: trailing,
     );
   }

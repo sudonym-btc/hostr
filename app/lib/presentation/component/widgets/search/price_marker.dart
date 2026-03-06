@@ -137,7 +137,7 @@ class PriceMarkerBuilder {
 
     // Border — round joins so the arrow tip stays clean.
     final borderPaint = Paint()
-      ..color = textColor
+      ..color = textColor.withAlpha(100)
       ..style = PaintingStyle.stroke
       ..strokeWidth = scaledBorderWidth
       ..strokeJoin = StrokeJoin.round
