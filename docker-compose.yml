@@ -165,13 +165,13 @@ services:
 
   # Escrow client which watches nostr & chain to facilitate escrow transactions
   escrow-contract-deploy:
-    image: node:22-alpine
+    build:
+      context: ./escrow/contracts
+      dockerfile: Dockerfile
     depends_on:
       anvil:
         condition: service_healthy
-    working_dir: /workspace/escrow/contracts
     volumes:
-      - ./:/workspace
       - ./docker/data/escrow:/data
     environment:
       - RPC_URL=http://anvil:8545
@@ -181,7 +181,7 @@ services:
       [
         "sh",
         "-lc",
-        "set -euo pipefail && npm ci --no-audit --no-fund && printf 'y\n' | npm exec -- hardhat ignition deploy ignition/modules/Escrow.ts --network localhost && ADDRESS=$$(node -e \"const fs=require('fs');const p='ignition/deployments/chain-33/deployed_addresses.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const k=Object.keys(j).find((x)=>x.toLowerCase().includes('multiescrow'));if(!k){process.exit(2)};process.stdout.write(String(j[k]||''));\") && test -n \"$$ADDRESS\" && echo \"$$ADDRESS\" > /data/contract_addr && echo \"Escrow contract deployed at $$ADDRESS\"",
+        "set -eu && printf 'y\n' | npm exec -- hardhat ignition deploy ignition/modules/Escrow.ts --network localhost && ADDRESS=$$(node -e \"const fs=require('fs');const p='ignition/deployments/chain-33/deployed_addresses.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const k=Object.keys(j).find((x)=>x.toLowerCase().includes('multiescrow'));if(!k){process.exit(2)};process.stdout.write(String(j[k]||''));\") && test -n \"$$ADDRESS\" && echo \"$$ADDRESS\" > /data/contract_addr && echo \"Escrow contract deployed at $$ADDRESS\"",
       ]
     restart: "no"
     profiles:
@@ -433,8 +433,6 @@ services:
   bootstrap:
     image: docker:27-cli
     depends_on:
-      relay:
-        condition: service_healthy
       hostrbitcoind:
         condition: service_healthy
       lnd1:

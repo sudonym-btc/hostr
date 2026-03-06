@@ -1,8 +1,6 @@
 @Tags(['integration', 'docker'])
 library;
 
-import 'dart:math';
-
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
@@ -29,15 +27,21 @@ Future<String> _fetchLnurlInvoice(int amountSats) async {
   return invoiceResponse!.invoice;
 }
 
+void _printElapsed(String label, Stopwatch sw) {
+  print('[timing][swap_out_test] $label: ${sw.elapsedMilliseconds} ms');
+}
+
 void main() {
   late IntegrationTestHarness harness;
 
   setUp(() async {
+    final sw = Stopwatch()..start();
     harness = await IntegrationTestHarness.create(
       name: 'hostr_swap_out_it',
       logLevel: Level.warning,
       cleanHydratedStorage: true,
     );
+    _printElapsed('setUp', sw);
   });
 
   tearDownAll(() {
@@ -45,25 +49,24 @@ void main() {
   });
 
   tearDown(() async {
+    final sw = Stopwatch()..start();
     await harness.dispose();
+    _printElapsed('tearDown', sw);
   });
 
   test(
     'swap out emits expected state flow when NWC is connected',
     () async {
+      final sw = Stopwatch()..start();
       final hostr = harness.hostr;
-      final anvil = harness.anvil;
 
       await harness.signInAndConnectNwc(
-        user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
+        user: harness.fundedKeys[0],
         appNamePrefix: 'swap-out-it',
       );
 
-      await anvil.setBalance(
-        address: hostr.auth.getActiveEvmKey().address.eip55With0x,
-        amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
-      );
-
+      print('Connected to NWC: ${sw.elapsed}');
+      sw.reset();
       final swapOut = hostr.evm.rootstock.swapOutAll().first;
 
       final emittedStates = <SwapOutState>[swapOut.state];
@@ -83,6 +86,7 @@ void main() {
       // StreamController (sync: false in Bloc 9) delivers stream events via
       // microtasks, so `emittedStates.last` may lag behind.
       expect(swapOut.state, isA<SwapOutCompleted>());
+      _printElapsed('test: NWC connected', sw);
     },
     timeout: const Timeout(Duration(seconds: 25)),
   );
@@ -90,19 +94,17 @@ void main() {
   test(
     'submitExternalInvoice rejects invalid invoice then accepts valid one',
     () async {
-      final hostr = harness.hostr;
-      final anvil = harness.anvil;
-
+      final sw = Stopwatch()..start();
       // Sign in without NWC so _acquireInvoice falls through to external.
-      await hostr.auth.signin(MockKeys.guest.privateKey!);
+      await harness.hostr.auth.signin(MockKeys.guest.privateKey!);
 
-      await anvil.setBalance(
-        address: hostr.auth.getActiveEvmKey().address.eip55With0x,
+      await harness.anvil.setBalance(
+        address: harness.hostr.auth.getActiveEvmKey().address.eip55With0x,
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
       );
 
       // ── Attempt 1: submit an invalid invoice → swap fails ──────────
-      final swapOut1 = hostr.evm.rootstock.swapOutAll().first;
+      final swapOut1 = harness.hostr.evm.rootstock.swapOutAll().first;
       final states1 = <SwapOutState>[swapOut1.state];
       final sub1 = swapOut1.stream.listen(states1.add);
 
@@ -112,12 +114,11 @@ void main() {
         emitsThrough(isA<SwapOutExternalInvoiceRequired>()),
       );
 
-      swapOut1.submitExternalInvoice('invalid-invoice');
-      await run1;
-      await sub1.cancel();
+      expect(
+        () => swapOut1.submitExternalInvoice('invalid-invoice'),
+        throwsStateError,
+      );
 
-      expect(swapOut1.state, isA<SwapOutFailed>());
-      expect(states1.any((s) => s is SwapOutExternalInvoiceRequired), isTrue);
       expect(
         states1.any((s) => s is SwapOutAwaitingOnChain),
         isFalse,
@@ -125,29 +126,21 @@ void main() {
       );
 
       // ── Attempt 2: submit a valid LNURL-fetched invoice → completes ─
-      final swapOut2 = hostr.evm.rootstock.swapOutAll().first;
-      final states2 = <SwapOutState>[swapOut2.state];
-      final sub2 = swapOut2.stream.listen(states2.add);
-
-      final run2 = swapOut2.execute();
-      await expectLater(
-        swapOut2.stream,
-        emitsThrough(isA<SwapOutExternalInvoiceRequired>()),
-      );
 
       // Extract the exact amount Boltz requires and fetch a real invoice.
-      final required$ = swapOut2.state as SwapOutExternalInvoiceRequired;
+      final required$ = swapOut1.state as SwapOutExternalInvoiceRequired;
       final requiredSats = required$.invoiceAmount.getInSats.toInt();
       final validInvoice = await _fetchLnurlInvoice(requiredSats);
 
-      swapOut2.submitExternalInvoice(validInvoice);
-      await run2;
-      await sub2.cancel();
+      swapOut1.submitExternalInvoice(validInvoice);
+      await run1;
+      await sub1.cancel();
 
-      expect(swapOut2.state, isA<SwapOutCompleted>());
-      expect(states2.any((s) => s is SwapOutExternalInvoiceRequired), isTrue);
-      expect(states2.any((s) => s is SwapOutAwaitingOnChain), isTrue);
-      expect(states2.any((s) => s is SwapOutFunded), isTrue);
+      expect(swapOut1.state, isA<SwapOutCompleted>());
+      expect(states1.any((s) => s is SwapOutExternalInvoiceRequired), isTrue);
+      expect(states1.any((s) => s is SwapOutAwaitingOnChain), isTrue);
+      expect(states1.any((s) => s is SwapOutFunded), isTrue);
+      _printElapsed('test: external invoice flow', sw);
     },
     timeout: const Timeout(Duration(seconds: 30)),
   );

@@ -1,15 +1,18 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:hostr_sdk/datasources/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:hostr_sdk/seed/seed.dart';
-import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart' as hydrated;
 import 'package:logger/logger.dart';
 import 'package:models/nostr_kinds.dart';
 import 'package:ndk/ndk.dart' hide ConsoleOutput;
 import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+
+import 'in_memory_hydrated_storage.dart';
 
 /// Allow self-signed certificates so integration tests can connect to the
 /// local Docker stack's TLS endpoints (relay, blossom, lnbits, etc.) without
@@ -54,6 +57,7 @@ class IntegrationTestHarness {
     required this.albyHub,
     required this.seeds,
     required this.hydratedDir,
+    this.fundedKeys = const [],
     bool ownsHostr = true,
   }) : _ownsHostr = ownsHostr;
 
@@ -62,6 +66,8 @@ class IntegrationTestHarness {
   static const hostrRelay = 'wss://relay.hostr.development';
   static const anvilRpc = 'https://anvil.hostr.development';
   static const albyHubUrl = 'https://alby1.hostr.development';
+
+  final List<KeyPair> fundedKeys;
 
   /// Accept self-signed dev TLS certs for all HTTP/WebSocket connections.
   ///
@@ -82,14 +88,14 @@ class IntegrationTestHarness {
     Hostr? hostr,
     String environment = Env.dev,
     int seed = 42,
-    Level logLevel = Level.warning,
+    Level logLevel = Level.debug,
     bool cleanHydratedStorage = true,
   }) async {
     // Accept self-signed dev TLS certs for all HTTP/WebSocket connections.
     HttpOverrides.global = _PermissiveHttpOverrides();
 
     CustomLogger.configure(output: ConsoleOutput(), level: logLevel);
-
+    final seeds = TestSeedHelper(seed: seed);
     final storageDir = Directory('${Directory.systemTemp.path}/$name');
 
     // When an external Hostr is supplied the caller already set up hydrated
@@ -102,9 +108,7 @@ class IntegrationTestHarness {
         storageDir.createSync(recursive: true);
       }
 
-      HydratedBloc.storage = await HydratedStorage.build(
-        storageDirectory: HydratedStorageDirectory(storageDir.path),
-      );
+      hydrated.HydratedBloc.storage = InMemoryHydratedStorage();
     }
 
     final resolvedHostr =
@@ -121,6 +125,16 @@ class IntegrationTestHarness {
         );
 
     final anvil = AnvilClient(rpcUri: Uri.parse(anvilRpc));
+    List<KeyPair> fundKeys = [seeds.deriveKeyPair(Random().nextInt(1000000))];
+    await Future.wait([
+      anvil.setAutomine(true),
+      ...fundKeys.map(
+        (key) => anvil.setBalance(
+          address: deriveEvmKey(key.privateKey!).address.eip55With0x,
+          amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
+        ),
+      ),
+    ]);
     final albyHub = AlbyHubClient(
       baseUri: Uri.parse(albyHubUrl),
       unlockPassword: Platform.environment['ALBYHUB_PASSWORD'] ?? 'Testing123!',
@@ -131,7 +145,8 @@ class IntegrationTestHarness {
       anvil: anvil,
       albyHub: albyHub,
       hydratedDir: storageDir,
-      seeds: TestSeedHelper(seed: seed),
+      seeds: seeds,
+      fundedKeys: fundKeys,
       ownsHostr: hostr == null,
     );
   }

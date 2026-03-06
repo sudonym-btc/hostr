@@ -235,21 +235,38 @@ class BoltzClient {
     StreamSubscription<dynamic>? socketSub;
     int reconnectAttempts = 0;
     bool intentionallyClosed = false;
+    Timer? reconnectTimer;
 
     Future<void> closeSocket() async {
-      await socketSub?.cancel();
+      reconnectTimer?.cancel();
+      reconnectTimer = null;
+      try {
+        await socketSub?.cancel();
+      } catch (_) {
+        // Best-effort shutdown. Socket teardown races are expected during
+        // test cancellation and should not surface as unhandled async errors.
+      }
       socketSub = null;
-      await socket?.close();
+      try {
+        await socket?.close();
+      } catch (_) {
+        // Ignore late close errors from an already-closing websocket.
+      }
       socket = null;
     }
 
     Future<void> connect() async {
+      if (intentionallyClosed || controller.isClosed) return;
       try {
         final wsUrl = config.rootstockConfig.boltz.wsUrl;
         logger.d(
           'Connecting to Boltz WS for swap $id (attempt ${reconnectAttempts + 1})',
         );
         socket = await WebSocket.connect(wsUrl);
+        if (intentionallyClosed || controller.isClosed) {
+          await closeSocket();
+          return;
+        }
         reconnectAttempts = 0; // Reset on successful connect
         socket!.add(
           jsonEncode({
@@ -273,6 +290,7 @@ class BoltzClient {
           onError: (e, st) {
             logger.w('Boltz WS error for swap $id: $e');
             if (!intentionallyClosed) {
+              reconnectAttempts++;
               _scheduleReconnect(
                 id,
                 controller,
@@ -280,12 +298,15 @@ class BoltzClient {
                 maxReconnectAttempts,
                 connect,
                 closeSocket,
+                () => intentionallyClosed,
+                (timer) => reconnectTimer = timer,
               );
             }
           },
           onDone: () {
             logger.d('Boltz WS closed for swap $id');
             if (!intentionallyClosed && !controller.isClosed) {
+              reconnectAttempts++;
               _scheduleReconnect(
                 id,
                 controller,
@@ -293,6 +314,8 @@ class BoltzClient {
                 maxReconnectAttempts,
                 connect,
                 closeSocket,
+                () => intentionallyClosed,
+                (timer) => reconnectTimer = timer,
               );
             }
           },
@@ -300,6 +323,7 @@ class BoltzClient {
       } catch (e, st) {
         logger.w('Failed to connect Boltz WS for swap $id: $e');
         if (!intentionallyClosed) {
+          reconnectAttempts++;
           _scheduleReconnect(
             id,
             controller,
@@ -307,8 +331,10 @@ class BoltzClient {
             maxReconnectAttempts,
             connect,
             closeSocket,
+            () => intentionallyClosed,
+            (timer) => reconnectTimer = timer,
           );
-        } else {
+        } else if (!controller.isClosed) {
           controller.addError(e, st);
           if (!controller.isClosed) controller.close();
         }
@@ -316,7 +342,7 @@ class BoltzClient {
     }
 
     controller.onListen = () {
-      connect();
+      unawaited(connect());
     };
     controller.onCancel = () async {
       intentionallyClosed = true;
@@ -334,8 +360,11 @@ class BoltzClient {
     int maxAttempts,
     Future<void> Function() connect,
     Future<void> Function() closeSocket,
+    bool Function() isIntentionallyClosed,
+    void Function(Timer) setReconnectTimer,
   ) {
     if (controller.isClosed) return;
+    if (isIntentionallyClosed()) return;
     if (currentAttempts >= maxAttempts) {
       logger.e(
         'Boltz WS: max reconnect attempts ($maxAttempts) reached for swap $id. '
@@ -348,11 +377,13 @@ class BoltzClient {
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s
     final delay = Duration(seconds: 1 << currentAttempts);
     logger.d('Boltz WS: reconnecting for swap $id in ${delay.inSeconds}s');
-    Future.delayed(delay, () async {
+    final timer = Timer(delay, () async {
       if (controller.isClosed) return;
+      if (isIntentionallyClosed()) return;
       await closeSocket();
       await connect();
     });
+    setReconnectTimer(timer);
   }
 
   /// One-shot HTTP poll fallback when WebSocket reconnection is exhausted.

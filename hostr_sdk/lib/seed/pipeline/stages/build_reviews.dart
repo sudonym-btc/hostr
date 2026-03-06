@@ -1,11 +1,28 @@
+import 'dart:math';
+
 import 'package:models/main.dart';
 
 import '../seed_context.dart';
 import '../seed_pipeline_models.dart';
 
+/// Returns a deterministic, per-review [Random] seeded exclusively from
+/// [seed] and [threadIndex].
+///
+/// Using a large offset (200 000) keeps this namespace well clear of the
+/// `_listingRng` namespace (`seed * 10 000 + listingIndex`) for any
+/// realistic listing count.  The result is that every review's content,
+/// rating, and even whether it is emitted at all are stable across re-runs
+/// regardless of changes to `userCount` or other pipeline parameters.
+Random _reviewRng(int seed, int threadIndex) =>
+    Random(seed * 10000 + 200000 + threadIndex);
+
 /// Stage 7: Build review events for completed threads.
 ///
 /// Respects per-thread [ThreadStageSpec.reviewRatio].
+///
+/// All randomness is drawn from an isolated [_reviewRng] seeded by
+/// `(ctx.seed, threadIndex)`, so reviews are stable across re-runs even
+/// when [SeedPipelineConfig.userCount] changes.
 List<Review> buildReviews({
   required SeedContext ctx,
   required List<SeedThread> threads,
@@ -15,9 +32,13 @@ List<Review> buildReviews({
   for (var i = 0; i < threads.length; i++) {
     final thread = threads[i];
     if (thread.reservation == null) continue;
-    if (!ctx.pickByRatio(thread.stageSpec.reviewRatio)) continue;
 
-    final rating = _pickReviewRating(ctx);
+    // Isolated per-review RNG — all draws below come from here.
+    final rr = _reviewRng(ctx.seed, i);
+
+    if (rr.nextDouble() >= thread.stageSpec.reviewRatio) continue;
+
+    final rating = _pickReviewRating(rr);
 
     final review = Review(
       pubKey: thread.guest.keyPair.publicKey,
@@ -30,7 +51,7 @@ List<Review> buildReviews({
       content: ReviewContent(
         rating: rating,
         content: _buildReviewContentForRating(
-          ctx: ctx,
+          rr: rr,
           rating: rating,
           paidViaEscrow: thread.paidViaEscrow,
         ),
@@ -102,8 +123,8 @@ const Map<int, List<String>> _reviewPaymentNotesByRating = {
   ],
 };
 
-int _pickReviewRating(SeedContext ctx) {
-  final roll = ctx.random.nextDouble();
+int _pickReviewRating(Random rr) {
+  final roll = rr.nextDouble();
   if (roll < 0.06) return 1;
   if (roll < 0.15) return 2;
   if (roll < 0.35) return 3;
@@ -112,13 +133,15 @@ int _pickReviewRating(SeedContext ctx) {
 }
 
 String _buildReviewContentForRating({
-  required SeedContext ctx,
+  required Random rr,
   required int rating,
   required bool paidViaEscrow,
 }) {
   final clampedRating = rating.clamp(1, 5);
-  final base = ctx.pickFrom(_reviewTemplatesByRating[clampedRating]!);
-  final paymentNote = ctx.pickFrom(_reviewPaymentNotesByRating[clampedRating]!);
+  final templates = _reviewTemplatesByRating[clampedRating]!;
+  final paymentNotes = _reviewPaymentNotesByRating[clampedRating]!;
+  final base = templates[rr.nextInt(templates.length)];
+  final paymentNote = paymentNotes[rr.nextInt(paymentNotes.length)];
   final paymentKind = paidViaEscrow ? 'Escrow' : 'Zap';
   return '$base $paymentKind payment: $paymentNote';
 }

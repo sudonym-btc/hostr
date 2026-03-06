@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -83,6 +85,13 @@ const _conversations = [
   ],
 ];
 
+/// Returns a deterministic [Random] seeded from the thread anchor string.
+///
+/// Using the anchor (trade-ID / d-tag) as the seed means every thread's
+/// conversation selection is locked to that specific trade and is unaffected
+/// by changes in thread ordering, user count, or any other pipeline param.
+Random _threadRng(String threadAnchor) => Random(threadAnchor.hashCode);
+
 /// Stage 6: Build NIP-17 gift-wrapped DM messages for threads.
 ///
 /// Each thread gets:
@@ -125,6 +134,8 @@ Future<List<Nip01Event>> buildMessages({
     for (var i = 0; i < threads.length; i++) {
       final thread = threads[i];
       final threadAnchor = thread.request.getDtag()!;
+      final rr = _threadRng(threadAnchor);
+      final conversationIndex = rr.nextInt(_conversations.length);
 
       // 1. Reservation request message.
       final requestMessageWraps = await _giftWrapDmForParticipants(
@@ -158,7 +169,7 @@ Future<List<Nip01Event>> buildMessages({
             ['p', recipient.keyPair.publicKey],
           ],
           createdAt: ctx.timestampDaysAfter(41 + i + m),
-          content: _conversations[i % _conversations.length][m % 4],
+          content: _conversations[conversationIndex][m % 4],
         );
         messages.addAll(wraps);
         wrapCount += wraps.length;

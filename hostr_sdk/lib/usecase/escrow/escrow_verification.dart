@@ -171,8 +171,8 @@ class EscrowVerification {
 
     if (onChainWei < expectedWei) {
       return EscrowVerificationResult.invalid(
-        'On-chain escrow amount ($onChainWei wei) is less than expected '
-        '($expectedWei wei) for ${reservation.start} – '
+        'Onchain escrowed amount (${onChainWei.getInSats} sats) is less than expected '
+        '(${expectedWei.getInSats} sats) for ${reservation.start} – '
         '${reservation.end}',
       );
     }

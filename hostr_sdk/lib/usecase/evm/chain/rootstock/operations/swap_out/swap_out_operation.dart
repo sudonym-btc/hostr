@@ -117,7 +117,15 @@ class RootstockSwapOutOperation extends SwapOutOperation {
   Future<void> _stepAwaitResolution() async {
     final data = state.data!;
 
-    // ── 3a. Check chain for existing refund event ──
+    // ── 3a. Check chain for claim event (Boltz claimed = success) ──
+    final claimEvent = await _findClaimOnChain(data);
+    if (claimEvent != null) {
+      logger.i('Found claim on-chain for ${data.boltzId} — swap succeeded');
+      emit(SwapOutCompleted(data.copyWith(lastBoltzStatus: 'invoice.paid')));
+      return;
+    }
+
+    // ── 3b. Check chain for existing refund event ──
     final refundEvent = await _findRefundOnChain(data);
     if (refundEvent != null) {
       logger.i('Found refund on-chain for ${data.boltzId}');
@@ -126,14 +134,6 @@ class RootstockSwapOutOperation extends SwapOutOperation {
           data.copyWith(resolutionTxHash: refundEvent.event.transactionHash),
         ),
       );
-      return;
-    }
-
-    // ── 3b. Check chain for claim event (Boltz claimed = success) ──
-    final claimEvent = await _findClaimOnChain(data);
-    if (claimEvent != null) {
-      logger.i('Found claim on-chain for ${data.boltzId} — swap succeeded');
-      emit(SwapOutCompleted(data.copyWith(lastBoltzStatus: 'invoice.paid')));
       return;
     }
 

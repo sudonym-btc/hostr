@@ -57,10 +57,7 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
     try {
       decoded = Bolt11PaymentRequest(invoice);
     } catch (e) {
-      externalInvoiceCompleter!.completeError(
-        FormatException('Invalid Lightning invoice: $e'),
-      );
-      return;
+      throw StateError('Invalid Lightning invoice: $e');
     }
 
     final invoiceAmount = BitcoinAmount.fromDecimal(

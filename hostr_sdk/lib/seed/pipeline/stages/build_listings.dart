@@ -6,10 +6,40 @@ import '../seed_context.dart';
 import '../seed_pipeline_config.dart';
 import '../seed_pipeline_models.dart';
 
+/// Returns a deterministic, per-listing [Random] that is seeded exclusively
+/// from [seed] and [listingIndex].
+///
+/// This isolation means that changing [SeedPipelineConfig.userCount] (which
+/// shifts the global [SeedContext.random] stream via [buildUsers]) cannot
+/// alter listing content such as the daily price.  The same pattern is used
+/// by [SeedContext.deriveKeyPair] and [_buildListingImageUrl].
+Random _listingRng(int seed, int listingIndex) =>
+    Random(seed * 10000 + listingIndex);
+
+/// Per-host isolated [Random] used only to decide how many listings a host
+/// produces.  Seeded from [seed] and [hostIndex] so the count is stable
+/// even when the global RNG stream shifts.
+Random _hostRng(int seed, int hostIndex) =>
+    Random(seed * 100000 + hostIndex * 1000 + 77777);
+
+/// Like [SeedContext.sampleAverage] but operates on a caller-supplied [Random]
+/// so it does not consume the shared [SeedContext.random] stream.
+int _sampleAverage(Random r, double avg) {
+  if (avg <= 0) return 0;
+  final base = avg.floor();
+  final remainder = avg - base;
+  return base + (r.nextDouble() < remainder ? 1 : 0);
+}
+
 /// Stage 3: Build listing events (kind 32121) for host users.
 ///
 /// Respects per-user [SeedUserSpec.listingCount] overrides and falls back
 /// to the global [SeedPipelineConfig.listingsPerHostAvg].
+///
+/// All per-listing randomness is drawn from an isolated [_listingRng] seeded
+/// by `(ctx.seed, listingIndex)`, so listing content — especially the daily
+/// price used for on-chain escrow deposits — is stable across re-runs even
+/// when [SeedPipelineConfig.userCount] changes.
 List<Listing> buildListings({
   required SeedContext ctx,
   required SeedPipelineConfig config,
@@ -18,20 +48,32 @@ List<Listing> buildListings({
   final listings = <Listing>[];
   var listingIndex = 0;
 
-  for (final host in hosts) {
+  for (var hostIndex = 0; hostIndex < hosts.length; hostIndex++) {
+    final host = hosts[hostIndex];
+
+    // Use a per-host isolated RNG so the listing count for each host is
+    // stable regardless of shifts in the global ctx.random stream.
+    final hr = _hostRng(ctx.seed, hostIndex);
     final count =
-        host.spec?.listingCount ?? ctx.sampleAverage(config.listingsPerHostAvg);
+        host.spec?.listingCount ??
+        _sampleAverage(hr, config.listingsPerHostAvg);
 
     for (var i = 0; i < count; i++) {
       listingIndex++;
-      final dailySats = 50 * 1000 + ctx.random.nextInt(200 * 1000);
+
+      // Isolated per-listing RNG – all content drawn from here so that
+      // changing userCount (which shifts ctx.random via buildUsers) cannot
+      // alter listing prices or other on-chain-relevant attributes.
+      final lr = _listingRng(ctx.seed, listingIndex);
+
+      final dailySats = 50 * 1000 + lr.nextInt(200 * 1000);
       final requiresEscrow =
           host.hasEvm &&
-          ctx.pickByRatio(config.threadStages.paidViaEscrowRatio);
+          lr.nextDouble() < config.threadStages.paidViaEscrowRatio;
       final base = _landSeedPoints[listingIndex % _landSeedPoints.length];
       const jitterDegrees = 0.7;
-      final latJitter = (ctx.random.nextDouble() - 0.5) * jitterDegrees;
-      final lonJitter = (ctx.random.nextDouble() - 0.5) * jitterDegrees;
+      final latJitter = (lr.nextDouble() - 0.5) * jitterDegrees;
+      final lonJitter = (lr.nextDouble() - 0.5) * jitterDegrees;
 
       final latitude = (base.latitude + latJitter)
           .clamp(-85.0, 85.0)
@@ -52,9 +94,9 @@ List<Listing> buildListings({
       tags.add(['d', count.toString()]);
 
       final listingType =
-          ListingType.values[ctx.random.nextInt(ListingType.values.length)];
+          ListingType.values[lr.nextInt(ListingType.values.length)];
       final theme = _themeForListingType(listingType);
-      final imageCount = 1 + ctx.random.nextInt(6);
+      final imageCount = 1 + lr.nextInt(6);
       final images = List<String>.generate(
         imageCount,
         (imageIndex) => _buildListingImageUrl(
@@ -69,8 +111,8 @@ List<Listing> buildListings({
         pubKey: host.keyPair.publicKey,
         dTag: 'seed-listing-$listingIndex',
         createdAt: ctx.timestampDaysAfter(listingIndex),
-        title: _buildListingTitle(ctx, theme),
-        description: _buildListingDescription(ctx, theme),
+        title: _buildListingTitle(lr, theme),
+        description: _buildListingDescription(lr, theme),
         price: [
           Price(
             amount: Amount(
@@ -81,10 +123,10 @@ List<Listing> buildListings({
           ),
         ],
         location: 'seed-location-${(listingIndex % 12) + 1}',
-        quantity: 1 + ctx.random.nextInt(2),
+        quantity: 1 + lr.nextInt(2),
         type: listingType,
         images: images,
-        amenities: _buildRandomAmenities(ctx),
+        amenities: _buildRandomAmenities(lr),
         requiresEscrow: requiresEscrow,
         extraTags: tags,
       ).signAs(host.keyPair, Listing.fromNostrEvent);
@@ -286,16 +328,16 @@ const Map<_ListingTheme, List<String>> _themeDescriptionEnds = {
   ],
 };
 
-String _buildListingTitle(SeedContext ctx, _ListingTheme theme) {
-  final prefix = ctx.pickFrom(_themeTitlePrefixes[theme]!);
-  final noun = ctx.pickFrom(_themeTitleNouns[theme]!);
-  return '$prefix $noun';
+String _buildListingTitle(Random lr, _ListingTheme theme) {
+  final prefixes = _themeTitlePrefixes[theme]!;
+  final nouns = _themeTitleNouns[theme]!;
+  return '${prefixes[lr.nextInt(prefixes.length)]} ${nouns[lr.nextInt(nouns.length)]}';
 }
 
-String _buildListingDescription(SeedContext ctx, _ListingTheme theme) {
-  final start = ctx.pickFrom(_themeDescriptionStarts[theme]!);
-  final end = ctx.pickFrom(_themeDescriptionEnds[theme]!);
-  return '$start $end';
+String _buildListingDescription(Random lr, _ListingTheme theme) {
+  final starts = _themeDescriptionStarts[theme]!;
+  final ends = _themeDescriptionEnds[theme]!;
+  return '${starts[lr.nextInt(starts.length)]} ${ends[lr.nextInt(ends.length)]}';
 }
 
 // ─── Images ─────────────────────────────────────────────────────────────────
@@ -494,14 +536,14 @@ String _buildListingImageUrl({
 
 // ─── Amenities ──────────────────────────────────────────────────────────────
 
-Amenities _buildRandomAmenities(SeedContext ctx) {
+Amenities _buildRandomAmenities(Random lr) {
   final amenities = Amenities();
   final appliers = <void Function(Amenities)>[
     (a) => a['airconditioning'] = true,
     (a) => a['allows_pets'] = true,
     (a) => a['bathtub'] = 1,
-    (a) => a['beds'] = 1 + ctx.random.nextInt(4),
-    (a) => a['bedrooms'] = 1 + ctx.random.nextInt(3),
+    (a) => a['beds'] = 1 + lr.nextInt(4),
+    (a) => a['bedrooms'] = 1 + lr.nextInt(3),
     (a) => a['tv'] = 1,
     (a) => a['tumble_dryer'] = true,
     (a) => a['washer'] = true,
@@ -531,8 +573,8 @@ Amenities _buildRandomAmenities(SeedContext ctx) {
   ];
 
   final shuffledIndexes = List<int>.generate(appliers.length, (i) => i)
-    ..shuffle(ctx.random);
-  final count = 1 + ctx.random.nextInt(min(10, appliers.length));
+    ..shuffle(lr);
+  final count = 1 + lr.nextInt(min(10, appliers.length));
 
   for (var i = 0; i < count; i++) {
     appliers[shuffledIndexes[i]](amenities);

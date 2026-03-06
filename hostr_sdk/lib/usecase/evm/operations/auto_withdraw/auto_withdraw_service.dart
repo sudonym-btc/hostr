@@ -87,7 +87,7 @@ class AutoWithdrawService {
     _cooldownTimer?.cancel();
     _cooldownTimer = null;
     _swapInProgress = false;
-    _logger.i('AutoWithdrawService stopped');
+    _logger.d('AutoWithdrawService stopped');
   }
 
   /// Force an immediate check (e.g. after an escrow claim completes).
