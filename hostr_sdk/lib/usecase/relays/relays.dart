@@ -34,15 +34,7 @@ class Relays {
   }
 
   Future<void> remove(String url) async {
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Relays.remove($url) → closeAllTransports() (ndk=${ndk.hashCode})',
-    );
-    print('[NDK-TRACE] Callstack:\n${StackTrace.current}');
     logger.d('Removing relay: $url');
-    ndk.relays.closeAllTransports();
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Relays.remove($url) → closeAllTransports() complete',
-    );
 
     List<RelayConnectivity<dynamic>> relays = ndk.relays.connectedRelays;
     for (var relay in relays) {
@@ -65,14 +57,8 @@ class Relays {
       final sw = Stopwatch()..start();
       final ws = await WebSocket.connect(configured.first);
       sw.stop();
-      print(
-        '[NDK-TRACE] ${DateTime.now()} WebSocket.connect(${configured.first}) took ${sw.elapsedMilliseconds}ms',
-      );
       await ws.close();
     } catch (_) {}
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Relays.connect() → connecting to $configured (ndk=${ndk.hashCode})',
-    );
     if (configured.isEmpty) return;
 
     await Future.wait(
@@ -82,9 +68,6 @@ class Relays {
           connectionSource: ConnectionSource.seed,
         ),
       ),
-    );
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Relays.connect() → done (connectedRelays=${ndk.relays.connectedRelays.map((r) => r.url).join(", ")})',
     );
   }
 
@@ -97,9 +80,6 @@ class Relays {
   ///
   /// Safe to call from multiple places — all callers share the same future.
   Future<void> ensureConnected() {
-    print(
-      '[NDK-TRACE] ${DateTime.now()} Relays.ensureConnected() called (connectedRelays=${ndk.relays.connectedRelays.length}, ndk=${ndk.hashCode})',
-    );
     logger.d('Ensuring relay connectivity…');
     return _waitForConnection();
   }

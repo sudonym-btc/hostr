@@ -21,6 +21,7 @@ bash "$SCRIPT_DIR/restart.sh" test
 echo ""
 echo ">>> Running integration tests..."
 cd "$REPO_ROOT/hostr_sdk"
+
 dart test test/integration \
     --timeout 120s \
     --concurrency=1 \

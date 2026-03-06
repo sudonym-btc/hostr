@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_models.dart';
+import 'package:hostr_sdk/util/contract_address.dart';
 import 'package:hostr_sdk/util/derive_evm_key.dart';
 
 import 'broadcast_isolate.dart';
@@ -15,7 +16,7 @@ class RelaySeeder {
   }) async {
     print('Seeding ${config.relayUrl} (pipeline)...');
     print(const JsonEncoder.withIndent('  ').convert(config.toJson()));
-    final contractAddress = SeedPipeline.resolveContractAddress();
+    final contractAddress = resolveContractAddress();
     await _ensureContractIsDeployed(
       rpcUrl: config.rpcUrl,
       contractAddress: contractAddress,

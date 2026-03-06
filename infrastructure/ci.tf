@@ -79,6 +79,7 @@ locals {
     "roles/storage.admin",                   # terraform state in GCS
     "roles/dns.admin",                       # manage DNS records
     "roles/resourcemanager.projectIamAdmin", # manage IAM bindings
+    "roles/serviceusage.serviceUsageAdmin",  # enable/disable APIs
   ]
 }
 

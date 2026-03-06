@@ -13,14 +13,12 @@
 /// Prerequisites:
 ///   - Anvil running on https://anvil.hostr.development (chain-id 33)
 ///   - Nostr relay at wss://relay.hostr.development
-///   - MultiEscrow contract deployed (CONTRACT_ADDR env var or default)
-///
+///   - MultiEscrow contract deployed (docker/data/escrow/contract_addr file)
 /// Run: `cd hostr_sdk && dart test test/integration/reservation_pairs_test.dart`
 @Tags(['integration', 'docker'])
 library;
 
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -39,9 +37,7 @@ import '../../../../support/integration_test_harness.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 //  Constants & shared state
 // ═══════════════════════════════════════════════════════════════════════════
-final _contractAddress =
-    Platform.environment['CONTRACT_ADDR'] ??
-    '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F';
+final _contractAddress = resolveContractAddress();
 
 /// Two ETH in wei — enough for several test deposits + gas.
 final _twoEthWei = BigInt.parse('2000000000000000000');
