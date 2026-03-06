@@ -97,8 +97,9 @@ Future<void> buildOutcomes({
   final sw = Stopwatch()..start();
 
   // Use provided chainNow or fetch from chain.
-  chainNow ??= (await ctx.chainClient().getBlockInformation()).timestamp
-      .toUtc();
+  chainNow ??= (await ctx.retryChainCall(
+    (c) => c.getBlockInformation(),
+  )).timestamp.toUtc();
 
   // ── Phase 1: Zap paths (no RPC, pure event construction) ──
   for (final plan in plans.where((p) => !p.useEscrow)) {
@@ -143,7 +144,7 @@ Future<void> buildOutcomes({
         event: event,
         fromBlock: const BlockNum.genesis(),
       );
-      final logs = await ctx.chainClient().getLogs(filter);
+      final logs = await ctx.retryChainCall((c) => c.getLogs(filter));
       for (final log in logs) {
         final decoded = event.decodeResults(log.topics!, log.data!);
         final idHex = _bytesToHex(decoded[0] as Uint8List);
@@ -161,7 +162,7 @@ Future<void> buildOutcomes({
           event: event,
           fromBlock: const BlockNum.genesis(),
         );
-        final logs = await ctx.chainClient().getLogs(filter);
+        final logs = await ctx.retryChainCall((c) => c.getLogs(filter));
         for (final log in logs) {
           final decoded = event.decodeResults(log.topics!, log.data!);
           settledTrades.add(_bytesToHex(decoded[0] as Uint8List));
@@ -232,9 +233,9 @@ Future<void> buildOutcomes({
       await Future.wait(
         guestNonces.keys.map((privKey) async {
           final addr = deriveEvmKey(privKey).address;
-          guestNonces[privKey] = await ctx.chainClient().getTransactionCount(
-            addr,
-            atBlock: const BlockNum.pending(),
+          guestNonces[privKey] = await ctx.retryChainCall(
+            (c) =>
+                c.getTransactionCount(addr, atBlock: const BlockNum.pending()),
           );
         }),
       );
@@ -244,6 +245,7 @@ Future<void> buildOutcomes({
         guestNonces[key] = guestNonces[key]! + 1;
       }
 
+      final createGasPrice = await ctx.retryChainCall((c) => c.getGasPrice());
       print(
         '[seed][escrow] Creating ${plansToCreate.length} trades across '
         '${guestNonces.length} guest(s) fully in parallel...',
@@ -255,6 +257,7 @@ Future<void> buildOutcomes({
             ctx: ctx,
             plan: plan,
             escrowService: escrowService,
+            gasPrice: createGasPrice,
           ),
         ),
       );
@@ -294,9 +297,9 @@ Future<void> buildOutcomes({
       await Future.wait(
         settlerNonces.keys.map((privKey) async {
           final addr = deriveEvmKey(privKey).address;
-          settlerNonces[privKey] = await ctx.chainClient().getTransactionCount(
-            addr,
-            atBlock: const BlockNum.pending(),
+          settlerNonces[privKey] = await ctx.retryChainCall(
+            (c) =>
+                c.getTransactionCount(addr, atBlock: const BlockNum.pending()),
           );
         }),
       );
@@ -308,6 +311,7 @@ Future<void> buildOutcomes({
         settlerNonces[settlerKey] = settlerNonces[settlerKey]! + 1;
       }
 
+      final settleGasPrice = await ctx.retryChainCall((c) => c.getGasPrice());
       print(
         '[seed][escrow] Settling ${actuallyToSettle.length} trades across '
         '${settlerNonces.length} sender(s) fully in parallel...',
@@ -319,6 +323,7 @@ Future<void> buildOutcomes({
             ctx: ctx,
             plan: plan,
             escrowService: escrowService,
+            gasPrice: settleGasPrice,
           ),
         ),
       );
@@ -496,6 +501,7 @@ Future<void> _createTradeForPlan({
   required SeedContext ctx,
   required SeedOutcomePlan plan,
   required EscrowService escrowService,
+  required EtherAmount gasPrice,
 }) async {
   final contract = ctx.multiEscrowContract(escrowService.contractAddress);
   final request = plan.thread.request;
@@ -529,6 +535,7 @@ Future<void> _createTradeForPlan({
       nonce: plan.assignedCreateNonce,
       value: EtherAmount.inWei(amountWei),
       maxGas: 450000,
+      gasPrice: gasPrice,
     ),
   );
 
@@ -559,6 +566,7 @@ Future<void> _settleForPlan({
   required SeedContext ctx,
   required SeedOutcomePlan plan,
   required EscrowService escrowService,
+  required EtherAmount gasPrice,
 }) async {
   final contract = ctx.multiEscrowContract(escrowService.contractAddress);
   final request = plan.thread.request;
@@ -575,7 +583,11 @@ Future<void> _settleForPlan({
     final txHash = await contract.arbitrate(
       (tradeId: tradeId, factor: BigInt.from(700)),
       credentials: arbiterCredentials,
-      transaction: Transaction(nonce: plan.assignedSettleNonce, maxGas: 250000),
+      transaction: Transaction(
+        nonce: plan.assignedSettleNonce,
+        maxGas: 250000,
+        gasPrice: gasPrice,
+      ),
     );
     print(
       '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
@@ -586,7 +598,11 @@ Future<void> _settleForPlan({
     final txHash = await contract.claim(
       (tradeId: tradeId),
       credentials: hostCredentials,
-      transaction: Transaction(nonce: plan.assignedSettleNonce, maxGas: 250000),
+      transaction: Transaction(
+        nonce: plan.assignedSettleNonce,
+        maxGas: 250000,
+        gasPrice: gasPrice,
+      ),
     );
     print(
       '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex claimTx=$txHash',
@@ -596,7 +612,11 @@ Future<void> _settleForPlan({
     final txHash = await contract.releaseToCounterparty(
       (tradeId: tradeId),
       credentials: hostCredentials,
-      transaction: Transaction(nonce: plan.assignedSettleNonce, maxGas: 250000),
+      transaction: Transaction(
+        nonce: plan.assignedSettleNonce,
+        maxGas: 250000,
+        gasPrice: gasPrice,
+      ),
     );
     print(
       '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
@@ -621,7 +641,7 @@ Future<void> _assertTxSucceeded(
 ) async {
   final receipt = await _waitForReceipt(ctx, txHash);
   if (receipt == null) {
-    final tx = await ctx.chainClient().getTransactionByHash(txHash);
+    final tx = await ctx.retryChainCall((c) => c.getTransactionByHash(txHash));
     throw Exception(
       '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex stage=$stage tx=$txHash has no receipt '
       '(txKnown=${tx != null})',
@@ -637,7 +657,9 @@ Future<void> _assertTxSucceeded(
 Future<dynamic> _waitForReceipt(SeedContext ctx, String txHash) async {
   const maxAttempts = 30;
   for (var attempt = 0; attempt < maxAttempts; attempt++) {
-    final receipt = await ctx.chainClient().getTransactionReceipt(txHash);
+    final receipt = await ctx.retryChainCall(
+      (c) => c.getTransactionReceipt(txHash),
+    );
     if (receipt != null) return receipt;
     await Future<void>.delayed(const Duration(milliseconds: 150));
   }

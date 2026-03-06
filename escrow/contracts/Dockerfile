@@ -1,17 +1,17 @@
 FROM node:22-slim
 
-# Create app directory
 WORKDIR /usr/src/app
 
-# Install app dependencies
 COPY package*.json ./
-RUN npm install
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy the rest of the application code
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund
+
 COPY . .
 
-# Expose the Hardhat node RPC port
 EXPOSE 8545
 
-# Command to run the Hardhat node
 CMD ["npm", "exec", "hardhat", "--", "node"]

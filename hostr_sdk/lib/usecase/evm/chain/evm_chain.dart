@@ -112,7 +112,7 @@ abstract class EvmChain {
     while (true) {
       final receipt = await client.getTransactionReceipt(txHash);
       if (receipt != null) return receipt;
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 300));
     }
   }
 

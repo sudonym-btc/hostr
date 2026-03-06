@@ -144,10 +144,10 @@ services:
 
   # Add rif-relay as a dependency for regtest-start so channels are opened
   # only after the relay is healthy.
-  regtest-start:
-    depends_on:
-      rif-relay:
-        condition: service_healthy
+  # regtest-start:
+    # depends_on:
+    #   rif-relay:
+    #     condition: service_healthy
 
   # --- Redis ---
   # Override volume path so it resolves relative to the hostr repo root

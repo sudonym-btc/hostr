@@ -1,8 +1,10 @@
+import 'dart:io' as dart_io;
 import 'dart:math';
 
 import 'package:hostr_sdk/datasources/anvil/anvil.dart';
 import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart';
@@ -23,6 +25,7 @@ class SeedContext {
   Web3Client? _web3Client;
   AnvilClient? _anvilClient;
   final Map<String, MultiEscrow> _escrowContracts = {};
+  int _clientGeneration = 0;
 
   SeedContext({
     required this.seed,
@@ -85,9 +88,69 @@ class SeedContext {
   // ── Web3 client management ──
 
   Web3Client chainClient() {
-    _httpClient ??= http.Client();
+    if (_httpClient == null) {
+      // Use a short idleTimeout so the client proactively drops keep-alive
+      // connections before the nginx proxy's 65-second server-side timeout
+      // closes them, which would otherwise cause stale-connection errors
+      // ("Connection closed before full header was received") after long
+      // idle periods between RPC call batches.
+      _httpClient = IOClient(
+        dart_io.HttpClient()..idleTimeout = const Duration(seconds: 10),
+      );
+    }
     _web3Client ??= Web3Client(rpcUrl, _httpClient!);
     return _web3Client!;
+  }
+
+  /// Disposes and recreates the chain client, but only if [ifGeneration]
+  /// matches the current generation counter.
+  ///
+  /// This prevents the cascading-cancel problem that arises when many parallel
+  /// [retryChainCall] coroutines share one [_httpClient]: when the first
+  /// coroutine calls [_httpClient.close()] it cancels every other in-flight
+  /// request, causing all of them to also land in the catch block.  Without
+  /// generation-gating, each of those would call [resetChainClient] again,
+  /// disposing the *fresh* client that the first coroutine just created.
+  ///
+  /// Because Dart is single-threaded, the synchronous reset runs atomically
+  /// (no await), so the first caller wins and increments the generation before
+  /// any other coroutine can execute its catch block.
+  void _resetChainClientIfGeneration(int ifGeneration) {
+    if (_clientGeneration != ifGeneration) return;
+    _web3Client?.dispose();
+    _web3Client = null;
+    _httpClient?.close();
+    _httpClient = null;
+    _escrowContracts.clear();
+    _clientGeneration++;
+  }
+
+  /// Runs [fn] against the chain client, retrying up to [retries] times on
+  /// a [http.ClientException] (stale keep-alive connection) by recreating
+  /// the underlying HTTP client before each retry.
+  ///
+  /// Each attempt captures the current [_clientGeneration] before the async
+  /// gap so that only the first failing coroutine in a parallel [Future.wait]
+  /// actually resets the shared client; all others are no-ops.
+  Future<T> retryChainCall<T>(
+    Future<T> Function(Web3Client) fn, {
+    int retries = 1,
+  }) async {
+    for (int attempt = 1; attempt <= retries + 1; attempt++) {
+      // Capture the generation BEFORE the await so that if this coroutine's
+      // connection is cancelled by a sibling's reset, we can detect it.
+      final gen = _clientGeneration;
+      try {
+        return await fn(chainClient());
+      } on http.ClientException catch (e) {
+        if (attempt > retries) rethrow;
+        print(
+          '[chain] Stale connection on attempt $attempt – resetting client: $e',
+        );
+        _resetChainClientIfGeneration(gen);
+      }
+    }
+    throw StateError('unreachable');
   }
 
   AnvilClient anvilClient() {
@@ -143,9 +206,10 @@ class SeedContext {
 
   void dispose() {
     _web3Client?.dispose();
-    _httpClient?.close();
     _web3Client = null;
+    _httpClient?.close();
     _httpClient = null;
     _escrowContracts.clear();
+    _clientGeneration++;
   }
 }

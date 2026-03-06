@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 
 import 'package:hostr_sdk/injection.dart';
+import 'package:hostr_sdk/testing/in_memory_hydrated_storage.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/messaging/thread.dart';
@@ -18,31 +19,6 @@ import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
-
-class _InMemoryHydratedStorage implements hydrated.Storage {
-  final Map<String, dynamic> _values = {};
-
-  @override
-  dynamic read(String key) => _values[key];
-
-  @override
-  Future<void> write(String key, dynamic value) async {
-    _values[key] = value;
-  }
-
-  @override
-  Future<void> delete(String key) async {
-    _values.remove(key);
-  }
-
-  @override
-  Future<void> clear() async {
-    _values.clear();
-  }
-
-  @override
-  Future<void> close() async {}
-}
 
 class _FakeRequests extends Fake implements Requests {
   final StreamWithStatus<Message> _source = StreamWithStatus<Message>();
@@ -104,7 +80,7 @@ void main() {
   late _FakeAuth auth;
 
   setUpAll(() {
-    hydrated.HydratedBloc.storage = _InMemoryHydratedStorage();
+    hydrated.HydratedBloc.storage = InMemoryHydratedStorage();
   });
 
   setUp(() async {

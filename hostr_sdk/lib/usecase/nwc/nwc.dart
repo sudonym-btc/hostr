@@ -20,6 +20,20 @@ class Nwc {
 
   Nwc(this.nwcStorage, this.ndk, this.logger);
 
+  Future<void> _disposeReactiveConnection(NwcCubit reactiveConnection) async {
+    final connection = reactiveConnection.connection;
+    if (connection != null) {
+      if (connection.subscription != null) {
+        await ndk.requests.closeSubscription(
+          connection.subscription!.requestId,
+        );
+      }
+      await connection.close();
+      reactiveConnection.connection = null;
+    }
+    await reactiveConnection.close();
+  }
+
   String? _connectionUrl(NwcCubit cubit) =>
       cubit.url ?? cubit.connection?.uri.toString();
 
@@ -39,7 +53,7 @@ class Nwc {
           (existing) => _connectionUrl(existing) == incomingUrl,
         )) {
       logger.i('Skipping duplicate nwc connection $incomingUrl');
-      await reactiveConnection.close();
+      await _disposeReactiveConnection(reactiveConnection);
       return;
     }
 
@@ -53,7 +67,7 @@ class Nwc {
 
   Future<void> remove(NwcCubit reactiveConnection) async {
     logger.i('Removing nwc connection ${reactiveConnection.url.toString()}');
-    reactiveConnection.close();
+    await _disposeReactiveConnection(reactiveConnection);
     connections.remove(reactiveConnection);
     _connectionsSubject.add(connections);
     await save();
@@ -71,7 +85,7 @@ class Nwc {
   Future<NwcCubit> initiateAndAdd(String url) async {
     final reactive = NwcCubit(nwc: this, logger: logger);
     await reactive.connect(url);
-    add(reactive);
+    await add(reactive);
     return reactive;
   }
 
@@ -140,7 +154,7 @@ class Nwc {
   /// but keep the [_connectionsSubject] open so a subsequent [start] works.
   Future<void> reset() async {
     for (final connection in connections) {
-      await connection.close();
+      await _disposeReactiveConnection(connection);
     }
     connections.clear();
     _connectionsSubject.add(connections);

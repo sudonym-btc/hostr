@@ -177,13 +177,17 @@ class Hostr {
     await auth.dispose();
     userConfig.dispose();
 
-    // Pre-close NDK subscriptions and NWC connections sequentially before
-    // calling destroy(). NDK's destroy() runs these concurrently with
-    // closeAllTransports(), which can race — a subscription might try to
-    // read/write on a transport that's already been closed, producing a
-    // SocketException.
+    // Tear down the remaining NDK pieces sequentially.
+    //
+    // Do NOT call `ndk.destroy()` here: its implementation runs
+    // `disconnectAll()`, `closeAllSubscription()`, and
+    // `closeAllTransports()` concurrently, which can reintroduce the exact
+    // teardown race we are trying to avoid (a subscription tries to
+    // read/write while its transport is already closing), producing an
+    // intermittent `SocketException: Reading from a closed socket`.
     final ndk = getIt<Ndk>();
     await ndk.requests.closeAllSubscription();
-    await ndk.destroy();
+    await ndk.relays.closeAllTransports();
+    await ndk.accounts.dispose();
   }
 }

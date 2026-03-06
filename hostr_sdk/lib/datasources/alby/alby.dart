@@ -58,6 +58,9 @@ class AlbyHubClient {
   }
 
   Future<String> unlock({String permission = 'full'}) async {
+    if (_lastAuthToken != null) {
+      return _lastAuthToken!;
+    }
     for (var attempt = 0; attempt < 5; attempt++) {
       final response = await _request(
         method: 'POST',
@@ -94,19 +97,7 @@ class AlbyHubClient {
         continue;
       }
 
-      final startResponse = await _request(
-        method: 'POST',
-        path: '/api/start',
-        body: {'unlockPassword': unlockPassword},
-        throwOnHttpError: false,
-      );
-      final startToken =
-          _extractToken(startResponse.map) ??
-          _extractTokenFromCookies(startResponse);
-      if (startToken != null && startToken.isNotEmpty) {
-        _lastAuthToken = startToken;
-        return startToken;
-      }
+      await start();
 
       final retryResponse = await _request(
         method: 'POST',
@@ -210,8 +201,6 @@ class AlbyHubClient {
     List<String>? scopes,
     Map<String, dynamic> otherSettings = const {},
   }) async {
-    await setup();
-    await start();
     final token = await unlock();
 
     final resolvedScopes =
@@ -421,8 +410,6 @@ class AlbyHubClient {
   /// subscription and publishes a kind-5 deletion event for the NIP-47 info
   /// event, freeing the subscription slot on the relay.
   Future<void> destroyConnection(String appPubkey) async {
-    await setup();
-    await start();
     final token = await unlock();
     await _request(
       method: 'DELETE',
