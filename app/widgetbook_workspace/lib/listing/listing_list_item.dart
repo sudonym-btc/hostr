@@ -6,8 +6,8 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 import '../seed_data.dart';
 
-ValidatedStreamWithStatus<T> _emptyValidatedStream<T>() {
-  final stream = ValidatedStreamWithStatus<T>();
+StreamWithStatus<Validation<T>> _emptyValidatedStream<T>() {
+  final stream = StreamWithStatus<Validation<T>>();
   stream.setSnapshot(const []);
   return stream;
 }

@@ -143,11 +143,12 @@ class Reservation
   // 1. Reservations published by the listing owner are more senior than those published by others
   // 2. Cancelled reservations are more senior than non-cancelled reservations
   // 3. For reservations with the same publisher and cancellation status, the most recent reservation
-  static Reservation? getSeniorReservation(
-      {required List<Reservation> reservations, required Listing listing}) {
+  static Reservation? getSeniorReservation({
+    required List<Reservation> reservations,
+  }) {
+    final listingAuthor = reservations.first.parsedTags.listingAnchor;
     final validReservations = reservations
-        .where(
-            (reservation) => Reservation.validate(reservation, listing).isValid)
+        .where((reservation) => Reservation.validate(reservation).isValid)
         .toList();
 
     if (validReservations.isEmpty) {
@@ -157,7 +158,7 @@ class Reservation
     // Sort to prefer (in order): host then guest, cancelled then non-cancelled reservations
     validReservations.sort((a, b) {
       int score(Reservation r) {
-        final isHost = r.pubKey == listing.pubKey;
+        final isHost = r.pubKey == listingAuthor;
         final isCancelled = r.cancelled;
         return [isCancelled, isHost].where((a) => a).length;
       }
@@ -178,14 +179,16 @@ class Reservation
   }
 
   // Pass in reservations for same commitment hash and returns a status for the thread
-  static ReservationStatus getReservationStatus(
-      {required List<Reservation> reservations, required Listing listing}) {
+  static ReservationStatus getReservationStatus({
+    required List<Reservation> reservations,
+  }) {
     final validReservations = reservations
-        .where(
-            (reservation) => Reservation.validate(reservation, listing).isValid)
+        .where((reservation) => Reservation.validate(reservation).isValid)
         .toList();
     final hostReservations = validReservations
-        .where((reservation) => reservation.pubKey == listing.pubKey)
+        .where((reservation) =>
+            reservation.pubKey ==
+            getPubKeyFromAnchor(reservation.parsedTags.listingAnchor))
         .toList();
     final cancelledReservations = validReservations
         .where((reservation) => reservation.cancelled)
@@ -211,15 +214,17 @@ class Reservation
     return ReservationStatus.valid;
   }
 
-  static ValidationResult validate(Reservation reservation, Listing listing) {
+  static ValidationResult validate(Reservation reservation) {
     final fieldResults = <String, FieldValidation>{};
 
     void setField(String key, bool ok, [String? message]) {
       fieldResults[key] = FieldValidation(ok: ok, message: message);
     }
 
+    final listingAuthor =
+        getPubKeyFromAnchor(reservation.parsedTags.listingAnchor);
     // Any reservation published by the listing owner is valid
-    if (reservation.pubKey == listing.pubKey) {
+    if (reservation.pubKey == listingAuthor) {
       setField('publisher', true);
       return ValidationResult(
         isValid: true,
@@ -255,14 +260,14 @@ class Reservation
         amountOk ? null : 'Amount insufficient',
       );
 
-      final recipientOk = receipt.recipient == listing.pubKey;
+      final recipientOk = receipt.recipient == listingAuthor;
       setField(
         'zapRecipient',
         recipientOk,
         recipientOk ? null : 'Receipt recipient does not match listing pubKey',
       );
 
-      final hosterOk = proof.hoster.pubKey == listing.pubKey;
+      final hosterOk = proof.hoster.pubKey == listingAuthor;
       setField(
         'hosterProfile',
         hosterOk,

@@ -27,8 +27,8 @@ class ListingListItemView extends StatelessWidget {
 
   /// Optional validated-reservation-pair count stream.
   /// When supplied, the stays count shows only verified pairs.
-  final ValidatedStreamWithStatus<Review> verifiedReviews;
-  final ValidatedStreamWithStatus<ReservationPairStatus>
+  final StreamWithStatus<Validation<Review>> verifiedReviews;
+  final StreamWithStatus<Validation<ReservationPairStatus>>
   verifiedReservationPairs;
 
   const ListingListItemView({
@@ -88,12 +88,12 @@ class ListingListItemView extends StatelessWidget {
                   const Spacer(),
                   if (showPrice) Gap.horizontal.md(),
                   ReviewsReservationsWidget(
-                    reservationCount: verifiedReservationPairs.stream.map(
+                    reservationCount: verifiedReservationPairs.list.map(
                       (pairs) => pairs
                           .whereType<Valid<ReservationPairStatus>>()
                           .length,
                     ),
-                    reviewCount: verifiedReviews.stream.map(
+                    reviewCount: verifiedReviews.list.map(
                       (reviews) => reviews.whereType<Valid<Review>>().length,
                     ),
                   ),
@@ -158,10 +158,10 @@ class ListingListItemWidget extends StatefulWidget {
 class ListingListItemWidgetState extends State<ListingListItemWidget> {
   ListingListItemWidgetState();
 
-  late final ValidatedStreamWithStatus<ReservationPairStatus> _verifiedPairs;
+  late final StreamWithStatus<Validation<ReservationPairStatus>> _verifiedPairs;
   StreamSubscription<List<Validation<ReservationPairStatus>>>?
   _verifiedPairsSubscription;
-  late final ValidatedStreamWithStatus<Review> _verifiedReviews;
+  late final StreamWithStatus<Validation<Review>> _verifiedReviews;
   AvailabilityCubit? _availabilityCubit;
   DateRangeCubit? _localDateRangeCubit;
   List<ReservationPairStatus> _latestAvailabilityPairs = const [];
@@ -173,8 +173,14 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
       widget.listing.anchor != null,
       'ListingListItemWidget requires a listing with a non-null anchor',
     );
-    _verifiedPairs = getIt<Hostr>().reservationPairs.queryVerified(
-      listing: widget.listing,
+    _verifiedPairs = getIt<Hostr>().reservationPairs.verifyFromSource(
+      source: getIt<Hostr>().reservations.query(
+        Filter(
+          tags: {
+            kListingRefTag: [widget.listing.anchor!],
+          },
+        ),
+      ),
     );
     _verifiedReviews = getIt<Hostr>().reviews.subscribeVerified(
       filter: Filter(
@@ -184,7 +190,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
       ),
     );
 
-    _verifiedPairsSubscription = _verifiedPairs.stream.listen((pairs) {
+    _verifiedPairsSubscription = _verifiedPairs.list.listen((pairs) {
       final availabilityPairs = pairs
           .whereType<Valid<ReservationPairStatus>>()
           .map((validated) => validated.event)

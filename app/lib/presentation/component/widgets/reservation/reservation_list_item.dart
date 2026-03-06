@@ -22,7 +22,7 @@ class ReservationListItem extends StatelessWidget {
     final representative =
         reservationPair.buyerReservation ?? reservationPair.sellerReservation;
     final listingAnchor = representative?.parsedTags.listingAnchor ?? '';
-    final threadAnchor = representative?.getTags(kThreadRefTag).firstOrNull;
+    final threadAnchor = representative?.getDtag()!;
 
     final start = reservationPair.start;
     final end = reservationPair.end;
@@ -85,9 +85,22 @@ class ReservationListItem extends StatelessWidget {
 
   Widget _buildStatusChip(BuildContext context) {
     final (String label, Color color) = switch (reservationPair) {
-      _ when reservationPair.cancelled => ('Cancelled', Colors.red),
-      _ when reservationPair.isCompleted => ('Completed', Colors.grey),
-      _ when reservationPair.isActive => ('Confirmed', Colors.green),
+      _ when reservationPair.cancelled => (
+        'Cancelled',
+        Theme.of(context).colorScheme.errorContainer,
+      ),
+      _ when reservationPair.isCompleted => (
+        'Completed',
+        Theme.of(context).colorScheme.tertiaryContainer,
+      ),
+      _ when reservationPair.isConfirmed => (
+        'Confirmed',
+        Theme.of(context).colorScheme.primaryContainer,
+      ),
+      _ when reservationPair.isActive => (
+        'Pending Host Confirmation',
+        Theme.of(context).colorScheme.secondaryContainer,
+      ),
       _ => ('Pending', Colors.orange),
     };
 

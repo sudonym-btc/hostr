@@ -31,7 +31,7 @@ class TradeHeaderView extends StatelessWidget {
   final String? availabilityReason;
   final List<TradeAction> actions;
   final StreamWithStatus<PaymentEvent>? paymentEventsStream;
-  final ValidatedStreamWithStatus<ReservationPairStatus>? reservationStream;
+  final StreamWithStatus<Validation<ReservationPairStatus>>? reservationStream;
   final String tradeId;
   final String hostPubKey;
   final bool runtimeReady;
@@ -204,7 +204,7 @@ class TradeHeaderView extends StatelessWidget {
             builder: (context, paymentSnapshot) {
               final paymentEvents = paymentSnapshot.data ?? const [];
               return StreamBuilder<List<Validation<ReservationPairStatus>>>(
-                stream: reservationStream?.stream,
+                stream: reservationStream?.list,
                 initialData: reservationStream?.list.value,
                 builder: (context, reservationSnapshot) {
                   final reservationValidation =
@@ -500,7 +500,7 @@ class TradeHeaderView extends StatelessWidget {
       builder: (context, paymentSnapshot) {
         final paymentEvents = paymentSnapshot.data ?? const [];
         return StreamBuilder<List<Validation<ReservationPairStatus>>>(
-          stream: reservationStream?.stream,
+          stream: reservationStream?.list,
           initialData: reservationStream?.list.value ?? const [],
           builder: (context, reservationSnapshot) {
             final reservations = reservationSnapshot.data ?? const [];
