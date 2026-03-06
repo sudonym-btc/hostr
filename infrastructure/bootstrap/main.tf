@@ -208,6 +208,7 @@ locals {
     "roles/compute.admin",
     "roles/secretmanager.admin",
     "roles/iam.serviceAccountUser",
+    "roles/iam.serviceAccountAdmin", # manage IAM policies on SAs (WIF binding)
     "roles/storage.admin",
     "roles/dns.admin",
     "roles/resourcemanager.projectIamAdmin",
