@@ -1,7 +1,7 @@
 import 'package:bolt11_decoder/bolt11_decoder.dart';
-import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../injection.dart';
 import 'pay_models.dart';
 import 'pay_operation.dart';
 

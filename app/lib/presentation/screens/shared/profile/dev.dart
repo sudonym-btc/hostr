@@ -6,7 +6,6 @@ import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_i
 import 'package:hostr/presentation/component/widgets/keys/keys.dart';
 import 'package:hostr/presentation/component/widgets/ui/section.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 
 import 'background_tasks.dart';
 

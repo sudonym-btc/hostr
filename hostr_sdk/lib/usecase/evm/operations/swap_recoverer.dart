@@ -1,11 +1,15 @@
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../injection.dart';
+import '../../../util/main.dart';
+import '../../auth/auth.dart';
+import '../../nwc/nwc.dart';
+import '../../payments/payments.dart';
 import '../chain/rootstock/operations/swap_in/swap_in_operation.dart'
     as rootstock_swap_in;
 import '../chain/rootstock/operations/swap_out/swap_out_operation.dart'
     as rootstock_swap_out;
+import '../main.dart';
 
 /// Recovers pending swap-in and swap-out operations on app start.
 ///

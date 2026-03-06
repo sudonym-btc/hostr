@@ -1,10 +1,10 @@
-import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/domain_layer/usecases/nwc/consts/bitcoin_network.dart';
 import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
 import 'package:rxdart/rxdart.dart';
 
+import '../../injection.dart';
 import '../../util/custom_logger.dart';
 import '../storage/storage.dart';
 import 'nwc.cubit.dart';

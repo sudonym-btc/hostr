@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01EventModel;
@@ -9,6 +8,7 @@ import 'package:rxdart/rxdart.dart';
 
 import '../../util/main.dart';
 import '../auth/auth.dart';
+import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
 import '../reservations/reservations.dart';

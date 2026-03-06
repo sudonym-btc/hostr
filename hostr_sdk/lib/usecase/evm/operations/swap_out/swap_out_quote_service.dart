@@ -1,7 +1,7 @@
-import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../datasources/boltz/boltz.dart';
+import '../../../../injection.dart';
 import '../../../../util/bitcoin_amount.dart';
 
 /// Immutable quote describing a swap-out (RBTC → BTC).

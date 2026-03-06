@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/nwc/nwc.cubit.dart';
 
 /// State representing the aggregate NWC wallet connectivity status.
 class NwcConnectivityState extends Equatable {

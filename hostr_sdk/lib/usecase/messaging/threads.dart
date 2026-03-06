@@ -2,15 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart' as crypto;
-import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, GiftWrap, Nip01EventModel;
 import 'package:rxdart/rxdart.dart';
 
+import '../../injection.dart';
 import '../../util/main.dart';
+import '../auth/auth.dart';
 import '../payments/payments.dart';
 import '../requests/requests.dart';
 import 'messaging.dart';

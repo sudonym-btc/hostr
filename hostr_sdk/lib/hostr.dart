@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:hostr_sdk/config.dart';
-import 'package:hostr_sdk/injection.dart';
 import 'package:ndk/ndk.dart' show Ndk;
 
+import 'config.dart';
+import 'injection.dart';
 import 'usecase/main.dart';
 import 'util/custom_logger.dart' show CustomLogger;
 

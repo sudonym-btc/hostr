@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:hostr_sdk/config.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart';
 
+import '../../config.dart';
 import '../../util/main.dart';
 
 /// Wraps NDK's [Blossom] use case with hostr-specific conveniences such as

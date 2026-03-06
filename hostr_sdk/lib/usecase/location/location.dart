@@ -1,8 +1,9 @@
 import 'dart:convert';
 
-import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+
+import '../../util/custom_logger.dart';
 
 @Singleton()
 class Location {

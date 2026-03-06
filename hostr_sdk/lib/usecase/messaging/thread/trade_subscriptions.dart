@@ -1,10 +1,16 @@
 import 'dart:async';
 
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
+
+import '../../../util/main.dart';
+import '../../auth/auth.dart';
+import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import '../../reservation_pairs/reservation_pairs.dart';
+import '../user_subscriptions.dart';
+import 'thread.dart';
+import 'trade_context.dart';
 
 /// Per-trade subscription layer that **filters** the shared
 /// [UserSubscriptions] streams instead of opening its own Nostr / EVM

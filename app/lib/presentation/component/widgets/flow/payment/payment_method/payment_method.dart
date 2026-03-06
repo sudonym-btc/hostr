@@ -4,7 +4,6 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:models/main.dart';
 
 import '../../modal_bottom_sheet.dart';

@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
@@ -12,6 +10,8 @@ import 'package:ndk/shared/logger/log_event.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../../injection.dart';
+import '../../util/main.dart';
 import '../relays/relays.dart';
 
 export 'expandable_subscription.dart';

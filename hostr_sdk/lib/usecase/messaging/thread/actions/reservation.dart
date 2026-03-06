@@ -1,7 +1,10 @@
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
+import '../../../../util/main.dart';
+import '../../../reservations/reservations.dart';
+import '../trade.dart';
+import '../trade_context.dart';
 import 'trade_action_resolver.dart';
 
 @injectable

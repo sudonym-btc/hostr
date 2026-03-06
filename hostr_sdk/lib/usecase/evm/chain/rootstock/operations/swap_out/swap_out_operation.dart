@@ -3,9 +3,6 @@ import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
-import 'package:hostr_sdk/datasources/swagger_generated/boltz.swagger.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
@@ -13,6 +10,12 @@ import 'package:web3dart/web3dart.dart' hide params;
 
 import '../../../../../../datasources/boltz/boltz.dart';
 import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
+import '../../../../../../datasources/swagger_generated/boltz.swagger.dart';
+import '../../../../../../injection.dart';
+import '../../../../../../util/main.dart';
+import '../../../../../nwc/nwc.dart';
+import '../../../../../payments/payments.dart';
+import '../../../../main.dart';
 import '../../rif_relay/rif_relay.dart';
 
 @injectable

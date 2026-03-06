@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:hostr_sdk/seed/pipeline/seed_pipeline.dart';
-import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
-import 'package:hostr_sdk/seed/pipeline/seed_pipeline_models.dart';
-import 'package:hostr_sdk/util/contract_address.dart';
-import 'package:hostr_sdk/util/derive_evm_key.dart';
-
+import '../util/contract_address.dart';
+import '../util/derive_evm_key.dart';
 import 'broadcast_isolate.dart';
+import 'pipeline/seed_pipeline.dart';
+import 'pipeline/seed_pipeline_config.dart';
+import 'pipeline/seed_pipeline_models.dart';
 
 class RelaySeeder {
   /// Run the seed pipeline with the given [SeedPipelineConfig].

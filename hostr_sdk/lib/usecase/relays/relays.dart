@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:hostr_sdk/config.dart';
-import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/entities.dart';
 import 'package:ndk/ndk.dart' hide Requests;
 
+import '../../config.dart';
+import '../../injection.dart';
 import '../../util/main.dart';
 import '../requests/requests.dart';
 import '../storage/storage.dart';

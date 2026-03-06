@@ -103,8 +103,7 @@ class _StartupGateBody extends StatelessWidget {
 // ─── Splash-style progress view ─────────────────────────────────────────────
 
 /// Renders the app logo centred on the same background as the native splash,
-/// with an animated progress ring and step list that fade in below the logo
-/// once the first step begins.
+/// with a single animated step label below it that switches between steps.
 class _SplashProgressView extends StatelessWidget {
   final StartupGateInProgress state;
   final bool allDone;
@@ -113,100 +112,89 @@ class _SplashProgressView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final steps = StartupStep.values;
+    final label = allDone ? 'All Done' : state.currentStep.label;
+    final key = allDone ? 'done' : state.currentStep.name;
 
     return Scaffold(
-      // Match native splash background.
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Center(
-        child: CustomPadding.horizontal.lg(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Logo – same asset as the native splash.
-              Image.asset(
-                'assets/images/logo/generated/logo_base_1024.png',
-                width: 200,
-                height: 200,
-              ),
-              Gap.vertical.lg(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Logo – same asset as the native splash.
+            Image.asset(
+              'assets/images/logo/generated/logo_base_1024.png',
+              width: 200,
+              height: 200,
+            ),
+            Gap.vertical.lg(),
 
-              // Animated progress ring
-              SizedBox(
-                width: 64,
-                height: 64,
-                child: AppLoadingIndicator.progress(
-                  value: state.progress,
-                  size: 64,
-                  strokeWidth: 4,
-                ),
-              ),
-              Gap.vertical.lg(),
-
-              // Step checklist
-              ...steps.map((step) {
-                final isDone = state.completedSteps.contains(step);
-                final isCurrent = step == state.currentStep;
-
-                return CustomPadding.vertical.xs(
-                  child: Row(
-                    children: [
-                      if (isDone)
-                        Icon(
-                          Icons.check_circle,
-                          color: theme.colorScheme.primary,
-                          size: kIconMd,
-                        )
-                      else if (isCurrent)
-                        const AppLoadingIndicator.small()
-                      else
-                        Icon(
-                          Icons.radio_button_unchecked,
-                          color: theme.colorScheme.outline,
-                          size: kIconMd,
-                        ),
-                      Gap.horizontal.custom(kSpace3),
-                      Text(
-                        step.label,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: isDone
-                              ? theme.colorScheme.primary
-                              : isCurrent
-                              ? theme.colorScheme.onSurface
-                              : theme.colorScheme.outline,
-                          fontWeight: isCurrent ? FontWeight.w600 : null,
-                        ),
-                      ),
-                    ],
-                  ),
+            // Single animated step indicator that switches between steps.
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              transitionBuilder: (child, animation) {
+                final slide =
+                    Tween<Offset>(
+                      begin: const Offset(0, 0.4),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                    );
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: slide, child: child),
                 );
-              }),
-
-              // "All Done!" indicator
-              if (allDone) ...[
-                Gap.vertical.sm(),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      color: theme.colorScheme.primary,
-                      size: kIconMd,
-                    ),
-                    Gap.horizontal.custom(kSpace3),
-                    Text(
-                      'All Done!',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
+              },
+              child: _StepIndicator(
+                key: ValueKey(key),
+                label: label,
+                isDone: allDone,
+                theme: theme,
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _StepIndicator extends StatelessWidget {
+  final String label;
+  final bool isDone;
+  final ThemeData theme;
+
+  const _StepIndicator({
+    super.key,
+    required this.label,
+    required this.isDone,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isDone)
+          Icon(
+            Icons.check_circle,
+            color: theme.colorScheme.primary,
+            size: kIconMd,
+          )
+        else
+          const AppLoadingIndicator.small(),
+        Gap.horizontal.custom(kSpace3),
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: isDone
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

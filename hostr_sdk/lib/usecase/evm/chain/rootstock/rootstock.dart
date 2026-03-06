@@ -1,16 +1,16 @@
-import 'package:hostr_sdk/config.dart';
-import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_out/swap_out_operation.dart';
-import 'package:hostr_sdk/usecase/evm/main.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
+import '../../../../config.dart';
 import '../../../../datasources/boltz/boltz.dart';
 import '../../../../datasources/contracts/boltz/EtherSwap.g.dart';
+import '../../../../injection.dart';
 import '../../../../util/bitcoin_amount.dart';
+import '../../main.dart';
 import 'operations/swap_in/swap_in_operation.dart';
+import 'operations/swap_out/swap_out_operation.dart';
 
 @Singleton()
 class Rootstock extends EvmChain {

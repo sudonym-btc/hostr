@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:chopper/chopper.dart';
-import 'package:hostr_sdk/config.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../config.dart';
+import '../../util/main.dart';
 import '../swagger_generated/boltz.swagger.dart';
 
 @injectable

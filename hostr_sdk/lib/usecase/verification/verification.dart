@@ -1,4 +1,3 @@
-import 'package:hostr_sdk/injection.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:ndk/data_layer/data_sources/http_request.dart';
@@ -6,6 +5,8 @@ import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
 import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 import 'package:ndk/domain_layer/usecases/lnurl/lnurl_response.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
+
+import '../../injection.dart';
 
 /// Result of a NIP-05 verification check.
 class Nip05VerificationResult {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../profile/verification/verification_badges.dart';
 

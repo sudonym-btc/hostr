@@ -1,6 +1,6 @@
-import 'package:hostr_sdk/util/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 
+import '../util/main.dart';
 import 'crud.usecase.dart';
 
 /// Contract for verifying a [Nip01Event] after resolving any dependent data.

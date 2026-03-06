@@ -1,5 +1,6 @@
-import 'package:hostr_sdk/usecase/main.dart';
 import 'package:mockito/annotations.dart';
+
+import '../usecase/main.dart';
 
 @GenerateMocks([
   Auth,
