@@ -10,9 +10,6 @@ import 'package:hostr/presentation/component/widgets/reservation/actions/claim.d
 import 'package:hostr/presentation/component/widgets/reservation/trade_timeline.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/actions/trade_action_resolver.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/trade_state.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 

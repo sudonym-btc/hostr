@@ -6,9 +6,9 @@ import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../datasources/contracts/boltz/EtherSwap.g.dart';
-import '../../../usecase/auth/auth.dart';
 import '../../../util/bitcoin_amount.dart';
 import '../../../util/custom_logger.dart';
+import '../../auth/auth.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../operations/swap_in/swap_in_models.dart';

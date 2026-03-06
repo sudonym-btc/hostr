@@ -1,10 +1,6 @@
 import 'dart:async';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:http/http.dart' as http;
 import 'package:ndk/data_layer/data_sources/http_request.dart';
 import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
@@ -12,7 +8,13 @@ import 'package:ndk/domain_layer/repositories/lnurl_transport.dart';
 import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 import 'package:ndk/ndk.dart' hide Zaps;
 
+import '../../../hostr.dart';
+import '../../../injection.dart';
+import '../../../util/stream_status.dart';
+import '../../zaps/zaps.dart';
 import 'pay_models.dart';
+import 'pay_operation.dart';
+import 'pay_state.dart';
 
 // Callback/completed details are defined in LnUrlWorkflow
 

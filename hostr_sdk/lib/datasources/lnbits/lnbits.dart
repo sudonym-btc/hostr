@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:chopper/chopper.dart' as chopper;
-import 'package:hostr_sdk/datasources/swagger_generated/lnbits.swagger.dart';
+
+import '../swagger_generated/lnbits.swagger.dart';
 
 class LnbitsSetupConfig {
   final String lnbits1BaseUrl;

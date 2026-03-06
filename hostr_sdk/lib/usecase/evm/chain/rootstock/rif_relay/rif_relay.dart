@@ -1,17 +1,17 @@
 import 'dart:typed_data';
 
 import 'package:eip712/eip712.dart' as eip712;
-import 'package:hostr_sdk/datasources/contracts/boltz/EtherSwap.g.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:injectable/injectable.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../../../config.dart';
+import '../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../../datasources/contracts/rif_relay/IForwarder.g.dart';
 import '../../../../../datasources/contracts/rif_relay/SmartWalletFactory.g.dart';
 import '../../../../../datasources/swagger_generated/rif_relay.swagger.dart'
     as relay_api;
+import '../../../../../util/main.dart';
 
 // THIS FILE SHOULD MIRROR JS IMPLEMENTATION: https://github.com/rsksmart/rif-relay-client
 // AND https://github.com/BoltzExchange/boltz-web-app/blob/main/src/rif/Signer.ts

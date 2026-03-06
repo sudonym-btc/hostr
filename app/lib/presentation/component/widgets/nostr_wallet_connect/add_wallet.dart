@@ -6,7 +6,6 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/nwc/nwc.cubit.dart';
 
 import 'qr_scanner.dart';
 

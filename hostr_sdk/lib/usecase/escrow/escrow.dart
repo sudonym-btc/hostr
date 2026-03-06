@@ -1,7 +1,7 @@
-import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
+import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../escrow_trusts/escrow_trusts.dart';

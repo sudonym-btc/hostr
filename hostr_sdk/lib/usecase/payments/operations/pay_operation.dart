@@ -1,10 +1,10 @@
 import 'dart:math' as math;
 
-import 'package:hostr_sdk/util/bitcoin_amount.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../util/bitcoin_amount.dart';
+import '../../../util/custom_logger.dart';
 import '../../nwc/nwc.dart';
 import 'pay_models.dart';
 import 'pay_state.dart';

@@ -4,7 +4,7 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 import 'package:hostr/presentation/component/widgets/ui/asymptotic_progress_bar.dart';
-import 'package:hostr_sdk/usecase/escrow/operations/onchain_operation.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../ui/gap.dart';
 import '../modal_bottom_sheet.dart';
@@ -124,6 +124,14 @@ class OnchainTransactionSheet extends StatelessWidget {
 typedef OnchainStateWidgetBuilder<S extends OnchainOperationState> =
     Widget Function(S state);
 
+bool _shouldRenderSwapProgress(OnchainSwapProgress state) {
+  return switch (state.swapState) {
+    SwapInPaymentProgress(paymentState: PayExternalRequired()) => true,
+    SwapInFailed() => true,
+    _ => false,
+  };
+}
+
 // ── OnchainOperationViewWidget ──────────────────────────────────────────
 //
 // Exhaustive switch over [OnchainOperationState].  Each state has a
@@ -159,7 +167,11 @@ class OnchainOperationViewWidget extends StatelessWidget {
       final OnchainTxBroadcast s =>
         broadcastBuilder?.call(s) ?? OnchainTransactionSheet.broadcast(),
       final OnchainSwapProgress s =>
-        swapProgressBuilder?.call(s) ?? OnchainTransactionSheet.swapProgress(s),
+        _shouldRenderSwapProgress(s)
+            ? (swapProgressBuilder?.call(s) ??
+                  OnchainTransactionSheet.swapProgress(s))
+            : (broadcastBuilder?.call(OnchainTxBroadcast(s.data)) ??
+                  OnchainTransactionSheet.broadcast()),
       final OnchainTxConfirmed s =>
         confirmedBuilder?.call(s) ?? OnchainTransactionSheet.success(),
       final OnchainError s =>

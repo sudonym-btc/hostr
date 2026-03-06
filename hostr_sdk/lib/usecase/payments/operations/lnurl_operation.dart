@@ -1,9 +1,9 @@
-import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../injection.dart';
+import '../../../util/main.dart';
+import 'pay_models.dart';
+import 'pay_operation.dart';
 import 'pay_state.dart';
 
 @Injectable(env: Env.allButTestAndMock)

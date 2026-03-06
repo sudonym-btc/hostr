@@ -5,19 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hostr – P2P Accommodation on Nostr</title>
   <link rel="icon" type="image/png" href="assets/logo/hostr-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f0f0f;
+      --bg: #141218;
       --fg: #e8e8e8;
       --accent: #673ab7;
       --muted: #888;
-      --card-bg: #1a1a1a;
+      --card-bg: #1e1b23;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--fg);
       line-height: 1.6;
@@ -34,9 +37,17 @@
     }
 
     .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       font-size: 1.5rem;
       font-weight: 700;
       letter-spacing: -0.02em;
+    }
+
+    .logo img {
+      height: 2rem;
+      width: auto;
     }
 
     .logo span { color: var(--accent); }
@@ -68,7 +79,10 @@
 
     .hero h1 em {
       font-style: normal;
-      color: var(--accent);
+      background: linear-gradient(100deg, #c4a0f0 0%, #9c6fe8 40%, #673ab7 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .hero p {
@@ -97,20 +111,31 @@
     }
 
     .screenshots {
-      max-width: 100%;
-      margin: 0 auto;
-      padding: 3rem 2rem 2rem;
-      display: flex;
-      justify-content: center;
-      gap: 2rem;
-      flex-wrap: wrap;
+      padding: 3rem 0 2rem;
+      overflow: hidden;
     }
+
+    .carousel-track {
+      display: flex;
+      gap: 2rem;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      padding: 2.5rem calc(50vw - 135px);
+      scrollbar-width: none;
+      cursor: grab;
+    }
+
+    .carousel-track::-webkit-scrollbar { display: none; }
+    .carousel-track.grabbing { cursor: grabbing; user-select: none; }
 
     /* iPhone 17 Pro Max device mockup */
     .iphone {
       position: relative;
       width: 270px;
       flex-shrink: 0;
+      scroll-snap-align: center;
       background: linear-gradient(145deg, #3a3a3c 0%, #1c1c1e 30%, #2c2c2e 70%, #3a3a3c 100%);
       border-radius: 36px;
       padding: 7px;
@@ -120,6 +145,8 @@
         0 0 0 2px #1a1a1a,
         0 20px 60px rgba(0,0,0,0.6),
         0 6px 20px rgba(0,0,0,0.4);
+      transition: transform 0.12s ease-out;
+      will-change: transform;
     }
 
     /* Power button (right side) */
@@ -209,7 +236,7 @@
       .iphone-screen::before { width: 52px; height: 15px; top: 5px; border-radius: 9px; }
       .iphone-screen::after { width: 60px; bottom: 4px; height: 3px; }
       .iphone-screen-glare { border-radius: 24px; }
-      .screenshots { gap: 1rem; padding: 2rem 1rem; }
+      .carousel-track { padding: 2rem calc(50vw - 90px); gap: 1rem; }
     }
 
     .features {
@@ -251,7 +278,7 @@
 <body>
 
 <header>
-  <div class="logo"><span>⚡</span> Hostr</div>
+  <div class="logo"><img src="assets/logo/hostr-logo.png" alt="Hostr logo"> Hostr</div>
   <nav>
     <a href="https://github.com/sudonym-btc/hostr">GitHub</a>
   </nav>
@@ -271,46 +298,42 @@
 </section>
 
 <section class="screenshots">
-  <div class="iphone">
-    <div class="iphone-screen">
-      <img src="screenshot/login.png" alt="Hostr login screen">
-      <div class="iphone-screen-glare"></div>
+  <div class="carousel-track">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <img src="screenshot/login.png" alt="Hostr login screen">
+        <div class="iphone-screen-glare"></div>
+      </div>
     </div>
-  </div>
-  <div class="iphone">
-    <div class="iphone-screen">
-      <img src="screenshot/search.png" alt="Hostr search & discovery">
-      <div class="iphone-screen-glare"></div>
+    <div class="iphone">
+      <div class="iphone-screen">
+        <img src="screenshot/search.png" alt="Hostr search & discovery">
+        <div class="iphone-screen-glare"></div>
+      </div>
     </div>
-  </div>
-  <div class="iphone">
-    <div class="iphone-screen">
-      <img src="screenshot/listing.png" alt="Hostr accommodation listing">
-      <div class="iphone-screen-glare"></div>
+    <div class="iphone">
+      <div class="iphone-screen">
+        <img src="screenshot/listing.png" alt="Hostr accommodation listing">
+        <div class="iphone-screen-glare"></div>
+      </div>
     </div>
-  </div>
-  <div class="iphone">
-    <div class="iphone-screen">
-      <img src="screenshot/threads.png" alt="Hostr message threads">
-      <div class="iphone-screen-glare"></div>
+    <div class="iphone">
+      <div class="iphone-screen">
+        <img src="screenshot/thread.png" alt="Hostr conversation thread">
+        <div class="iphone-screen-glare"></div>
+      </div>
     </div>
-  </div>
-  <div class="iphone">
-    <div class="iphone-screen">
-      <img src="screenshot/thread.png" alt="Hostr conversation thread">
-      <div class="iphone-screen-glare"></div>
+    <div class="iphone">
+      <div class="iphone-screen">
+        <img src="screenshot/payment.png" alt="Hostr Bitcoin payment">
+        <div class="iphone-screen-glare"></div>
+      </div>
     </div>
-  </div>
-  <div class="iphone">
-    <div class="iphone-screen">
-      <img src="screenshot/payment.png" alt="Hostr Bitcoin payment">
-      <div class="iphone-screen-glare"></div>
-    </div>
-  </div>
-  <div class="iphone">
-    <div class="iphone-screen">
-      <img src="screenshot/profile.png" alt="Hostr user profile">
-      <div class="iphone-screen-glare"></div>
+    <div class="iphone">
+      <div class="iphone-screen">
+        <img src="screenshot/profile.png" alt="Hostr user profile">
+        <div class="iphone-screen-glare"></div>
+      </div>
     </div>
   </div>
 </section>
@@ -334,5 +357,58 @@
   Built on <a href="https://nostr.com">Nostr</a> &amp; <a href="https://bitcoin.org">Bitcoin</a>
 </footer>
 
+<script>
+  (function () {
+    const track = document.querySelector('.carousel-track');
+    const phones = Array.from(document.querySelectorAll('.iphone'));
+    const MAX_DEG = 25;
+    const MAX_SCALE_DIFF = 0.08;
+
+    function updateTilts() {
+      const tw = track.getBoundingClientRect().width;
+      const centerX = track.scrollLeft + tw / 2;
+      phones.forEach(phone => {
+        const phoneCenterX = phone.offsetLeft + phone.offsetWidth / 2;
+        const offset = phoneCenterX - centerX;
+        const norm = Math.max(-1, Math.min(1, offset / (tw * 0.55)));
+        const rotateY = norm * MAX_DEG;
+        const scale = 1 - Math.abs(norm) * MAX_SCALE_DIFF;
+        phone.style.transform =
+          `perspective(1200px) rotateY(${rotateY}deg) scale(${scale})`;
+      });
+    }
+
+    track.addEventListener('scroll', updateTilts, { passive: true });
+    window.addEventListener('resize', updateTilts);
+
+    // Start centered on the middle phone
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const mid = phones[Math.floor(phones.length / 2)];
+      if (mid) {
+        const tw = track.getBoundingClientRect().width;
+        track.scrollLeft = mid.offsetLeft - tw / 2 + mid.offsetWidth / 2;
+      }
+      updateTilts();
+    }));
+
+    // Mouse drag-to-scroll
+    let isDown = false, startX = 0, startScroll = 0;
+    track.addEventListener('mousedown', e => {
+      isDown = true;
+      track.classList.add('grabbing');
+      startX = e.pageX - track.offsetLeft;
+      startScroll = track.scrollLeft;
+    });
+    document.addEventListener('mouseup', () => {
+      isDown = false;
+      track.classList.remove('grabbing');
+    });
+    track.addEventListener('mousemove', e => {
+      if (!isDown) return;
+      e.preventDefault();
+      track.scrollLeft = startScroll - (e.pageX - track.offsetLeft - startX);
+    });
+  })();
+</script>
 </body>
 </html>

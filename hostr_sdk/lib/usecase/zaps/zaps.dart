@@ -1,7 +1,9 @@
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
+
+import '../../injection.dart';
+import '../../util/stream_status.dart';
+import '../nwc/nwc.dart';
 
 @Singleton(env: Env.allButTestAndMock)
 class Zaps {
@@ -74,58 +76,57 @@ class MockZaps extends Zaps {
   }
 }
 
+// generateZapRequestEvent({
+//   required String recipientPubkey,
+//   required String lnurl,
+//   required int amountSats,
+//   required List<String> relays,
+//   String? content,
+//   String? eventId,
+// }) async {
+//   KeyPair? keyPairs = await keyStorage.getActiveKeyPair();
+//   return Nip01EventModel.fromJson({
+//     "kind": 9734,
+//     "tags": [
+//       ["relays", ...relays],
+//       ["amount", (amountSats * 1000).toString()],
+//       ["lnurl", lnurl],
+//       ["p", recipientPubkey],
+//       if (eventId != null) ["e", eventId],
+//     ],
+//     "content": content ?? "",
+//     "keyPairs": keyPairs!,
+//   });
+// }
 
-  // generateZapRequestEvent({
-  //   required String recipientPubkey,
-  //   required String lnurl,
-  //   required int amountSats,
-  //   required List<String> relays,
-  //   String? content,
-  //   String? eventId,
-  // }) async {
-  //   KeyPair? keyPairs = await keyStorage.getActiveKeyPair();
-  //   return Nip01EventModel.fromJson({
-  //     "kind": 9734,
-  //     "tags": [
-  //       ["relays", ...relays],
-  //       ["amount", (amountSats * 1000).toString()],
-  //       ["lnurl", lnurl],
-  //       ["p", recipientPubkey],
-  //       if (eventId != null) ["e", eventId],
-  //     ],
-  //     "content": content ?? "",
-  //     "keyPairs": keyPairs!,
-  //   });
-  // }
+// getZapInvoice({
+//   required String callback,
+//   required String recipientPubkey,
+//   required String lnurl,
+//   required int amountSats,
+//   required List<String> relays,
+//   String? content,
+//   String? eventId,
+// }) async {
+//   Nip01Event event = generateZapRequestEvent(
+//     recipientPubkey: recipientPubkey,
+//     lnurl: lnurl,
+//     amountSats: amountSats,
+//     relays: relays,
+//     content: content,
+//     eventId: eventId,
+//   );
 
-  // getZapInvoice({
-  //   required String callback,
-  //   required String recipientPubkey,
-  //   required String lnurl,
-  //   required int amountSats,
-  //   required List<String> relays,
-  //   String? content,
-  //   String? eventId,
-  // }) async {
-  //   Nip01Event event = generateZapRequestEvent(
-  //     recipientPubkey: recipientPubkey,
-  //     lnurl: lnurl,
-  //     amountSats: amountSats,
-  //     relays: relays,
-  //     content: content,
-  //     eventId: eventId,
-  //   );
+//   var result = await getIt<Dio>().get(
+//     "$callback?amount=${amountSats * 1000}&nostr=$event&lnurl=$lnurl",
+//   );
 
-  //   var result = await getIt<Dio>().get(
-  //     "$callback?amount=${amountSats * 1000}&nostr=$event&lnurl=$lnurl",
-  //   );
-
-  //   if (result.statusCode! >= 300) {
-  //     throw Exception("Failed to get invoice");
-  //   }
-  //   String? pr = result.data['pr'];
-  //   if (pr == null) {
-  //     throw Exception("Failed to get invoice");
-  //   }
-  //   return pr;
-  // }
+//   if (result.statusCode! >= 300) {
+//     throw Exception("Failed to get invoice");
+//   }
+//   String? pr = result.data['pr'];
+//   if (pr == null) {
+//     throw Exception("Failed to get invoice");
+//   }
+//   return pr;
+// }

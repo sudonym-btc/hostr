@@ -1,10 +1,11 @@
 import 'package:get_it/get_it.dart';
-import 'package:hostr_sdk/config.dart';
-import 'package:hostr_sdk/datasources/storage.dart';
-import 'package:hostr_sdk/injection.config.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
+
+import 'config.dart';
+import 'datasources/storage.dart';
+import 'injection.config.dart';
+import 'util/custom_logger.dart';
 
 /// SDK-private dependency container, isolated from the host app's GetIt.
 final getIt = GetIt.asNewInstance();

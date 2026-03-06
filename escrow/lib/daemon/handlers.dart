@@ -2,7 +2,6 @@ import 'package:escrow/daemon/bootstrap.dart';
 import 'package:escrow/daemon/escrow_monitor.dart';
 import 'package:escrow/shared/protocol.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Metadata, Nip01Event;

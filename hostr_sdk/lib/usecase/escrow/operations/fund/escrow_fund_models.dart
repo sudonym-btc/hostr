@@ -1,7 +1,8 @@
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:web3dart/web3dart.dart';
 
+import '../../../../util/bitcoin_amount.dart';
+import '../../../evm/operations/swap_in/swap_in_models.dart';
 import '../../supported_escrow_contract/supported_escrow_contract.dart';
 
 class EscrowFundParams {

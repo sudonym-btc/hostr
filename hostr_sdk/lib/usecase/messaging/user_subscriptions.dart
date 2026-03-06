@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:hostr_sdk/usecase/escrow/escrow.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01EventModel, ZapReceipt;
@@ -9,6 +7,8 @@ import 'package:rxdart/rxdart.dart';
 
 import '../../util/main.dart';
 import '../auth/auth.dart';
+import '../escrow/escrow.dart';
+import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../requests/requests.dart';
 import '../reservation_pairs/reservation_pairs.dart';
 import '../reservation_transitions/reservation_transitions.dart';

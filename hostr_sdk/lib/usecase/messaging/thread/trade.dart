@@ -1,21 +1,22 @@
 import 'dart:async';
 
-import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/usecase/auth/auth.dart';
-import 'package:hostr_sdk/usecase/listings/listings.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/actions/reservation.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/actions/trade_action_resolver.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/thread.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/trade_context.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/trade_state.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/trade_subscriptions.dart';
-import 'package:hostr_sdk/usecase/metadata/metadata.dart';
-import 'package:hostr_sdk/usecase/reservations/reservations.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
+
+import '../../../injection.dart';
+import '../../../util/custom_logger.dart';
+import '../../auth/auth.dart';
+import '../../listings/listings.dart';
+import '../../metadata/metadata.dart';
+import '../../reservations/reservations.dart';
+import 'actions/reservation.dart';
+import 'actions/trade_action_resolver.dart';
+import 'thread.dart';
+import 'trade_context.dart';
+import 'trade_state.dart';
+import 'trade_subscriptions.dart';
 
 @injectable
 class ThreadTrade {

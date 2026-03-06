@@ -12,3 +12,6 @@ export 'operations/onchain_operation.dart';
 export 'operations/release/escrow_release_models.dart';
 export 'operations/release/escrow_release_operation.dart';
 export 'operations/release/escrow_release_state.dart';
+export 'supported_escrow_contract/multi_escrow.dart';
+export 'supported_escrow_contract/supported_escrow_contract.dart';
+export 'supported_escrow_contract/supported_escrow_contract_registry.dart';

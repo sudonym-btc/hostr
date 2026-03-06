@@ -1,5 +1,6 @@
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
+
+import '../trade.dart';
 
 @injectable
 class ReviewActions {

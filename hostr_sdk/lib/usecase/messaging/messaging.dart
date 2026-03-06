@@ -1,9 +1,9 @@
-import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Ndk, Nip01Event;
 
+import '../../injection.dart';
 import '../../util/custom_logger.dart';
 import '../requests/requests.dart';
 import 'threads.dart';

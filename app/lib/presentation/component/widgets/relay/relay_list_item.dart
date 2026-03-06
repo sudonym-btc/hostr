@@ -58,6 +58,8 @@ class RelayListItemWidget extends StatefulWidget {
 class RelayListItemWidgetState extends State<RelayListItemWidget> {
   late Timer _timer;
 
+  static final RegExp _protocolPrefix = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://');
+
   @override
   void initState() {
     super.initState();
@@ -76,10 +78,14 @@ class RelayListItemWidgetState extends State<RelayListItemWidget> {
   Widget build(BuildContext context) {
     Uri uri = Uri.parse(widget.connectivity.url);
     String displayHost = uri.host;
+    final displayUrl = widget.connectivity.url.replaceFirst(
+      _protocolPrefix,
+      '',
+    );
     final isConnected = widget.connectivity.relayTransport?.isOpen() == true;
     return RelayListItemView(
       title: widget.relay?.name ?? displayHost,
-      subtitle: widget.connectivity.url,
+      subtitle: displayUrl,
       iconUrl: widget.relay?.icon,
       isConnected: isConnected,
       canRemove: widget.canRemove,

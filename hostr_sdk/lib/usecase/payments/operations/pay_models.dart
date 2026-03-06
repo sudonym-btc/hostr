@@ -1,8 +1,9 @@
 import 'package:bolt11_decoder/bolt11_decoder.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/usecases/lnurl/lnurl_response.dart';
 import 'package:wallet/wallet.dart';
+
+import '../../../util/main.dart';
 
 class PayParameters {
   BitcoinAmount? amount;

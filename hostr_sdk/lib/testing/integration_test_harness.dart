@@ -1,10 +1,6 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:hostr_sdk/datasources/main.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart' as hydrated;
 import 'package:logger/logger.dart';
 import 'package:models/nostr_kinds.dart';
@@ -12,6 +8,12 @@ import 'package:ndk/ndk.dart' hide ConsoleOutput;
 import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
+import '../config.dart';
+import '../datasources/main.dart';
+import '../hostr.dart';
+import '../injection.dart';
+import '../seed/seed.dart';
+import '../util/main.dart';
 import 'in_memory_hydrated_storage.dart';
 
 /// Allow self-signed certificates so integration tests can connect to the

@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:hostr_sdk/datasources/nostr/mock.relay.dart' show matchEvent;
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter;
 
+import '../datasources/nostr/mock.relay.dart' show matchEvent;
 import '../util/main.dart';
 import 'requests/requests.dart';
 

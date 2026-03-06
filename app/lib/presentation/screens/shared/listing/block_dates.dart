@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
-import 'package:hostr_sdk/hostr.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 class BlockDatesWidget extends StatelessWidget {
   final String listingAnchor;

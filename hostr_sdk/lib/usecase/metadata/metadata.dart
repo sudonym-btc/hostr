@@ -1,9 +1,11 @@
 import 'dart:async';
 
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' hide Requests;
+
+import '../auth/auth.dart';
+import '../crud.usecase.dart';
 
 @Singleton()
 class MetadataUseCase extends CrudUseCase<ProfileMetadata> {

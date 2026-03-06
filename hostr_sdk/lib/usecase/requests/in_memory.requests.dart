@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:hostr_sdk/datasources/nostr/mock.relay.dart';
-import 'package:hostr_sdk/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter, Ndk;
 
+import '../../datasources/nostr/mock.relay.dart';
+import '../../injection.dart';
 import '../../util/main.dart';
 import 'requests.dart';
 

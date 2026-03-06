@@ -1,7 +1,7 @@
-import 'package:hostr_sdk/config.dart';
-import 'package:hostr_sdk/datasources/storage.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../config.dart';
+import '../../datasources/storage.dart';
 import '../auth/auth.dart';
 
 abstract class StringListStorage {
