@@ -75,7 +75,7 @@ services:
 
   landing-page:
     environment:
-      - LETSENCRYPT_HOST=landing.${DOMAIN}
+      - LETSENCRYPT_HOST=landing.${DOMAIN},${DOMAIN}
 
   # Dart services don't need CA injection in prod — LE certs are
   # already in system trust stores.
@@ -94,12 +94,8 @@ services:
       - ./docker/data/escrow:/data:ro
 
   seed-relay:
-    volumes:
-      - ./:/workspace
-    command: >
-      bash -lc "dart pub get &&
-      dart run bin/seed.dart
-      --config-json='{\"relayUrl\":\"wss://relay.${DOMAIN}\",\"rpcUrl\":\"http://anvil:8545\",\"fundProfiles\":false}'"
+    profiles:
+      - never
 
 volumes:
   acme-html:
