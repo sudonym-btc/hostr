@@ -18,6 +18,8 @@ import '../flow/payment/escrow/release/escrow_release.dart';
 import '../profile/verification/verification_badges.dart';
 import 'payment_status_chip.dart';
 
+typedef _TradeMenuItem = ({String label, IconData icon, VoidCallback onTap});
+
 class TradeHeaderView extends StatelessWidget {
   final Listing listing;
   final ProfileMetadata listingProfile;
@@ -110,6 +112,7 @@ class TradeHeaderView extends StatelessWidget {
     BuildContext context, {
     required bool showDetails,
     required List<PaymentEvent> paymentEvents,
+    List<_TradeMenuItem> menuItems = const [],
   }) {
     final availabilityBanner = _buildAvailabilityBanner(context);
     final paymentStatusChip = paymentEvents.isNotEmpty
@@ -152,14 +155,39 @@ class TradeHeaderView extends StatelessWidget {
             ],
           ),
         ),
-        if (showDetails)
-          TextButton(
-            onPressed: () => _showTradeDetailsSheet(context),
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text('Details'),
+        if (showDetails || menuItems.isNotEmpty)
+          PopupMenuButton<void>(
+            padding: EdgeInsets.zero,
+            iconSize: 20,
+            tooltip: '',
+            icon: const Icon(Icons.more_vert),
+            itemBuilder: (ctx) => [
+              ...menuItems.map(
+                (item) => PopupMenuItem<void>(
+                  onTap: item.onTap,
+                  child: Row(
+                    children: [
+                      Icon(item.icon, size: 18),
+                      const SizedBox(width: 12),
+                      Text(item.label),
+                    ],
+                  ),
+                ),
+              ),
+              if (showDetails) ...[
+                if (menuItems.isNotEmpty) const PopupMenuDivider(),
+                PopupMenuItem<void>(
+                  onTap: () => _showTradeDetailsSheet(context),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 18),
+                      SizedBox(width: 12),
+                      Text('Information'),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
       ],
     );
@@ -290,24 +318,6 @@ class TradeHeaderView extends StatelessWidget {
     child: const Text('Cancel'),
   );
 
-  Widget _messageEscrowButton(BuildContext context) => OutlinedButton(
-    key: const ValueKey('trade_action_message_escrow'),
-    onPressed: () {
-      final cubit = context.read<ThreadCubit>();
-      final pubkey = cubit.thread.trade!.getEscrowPubkey();
-      if (pubkey != null) {
-        cubit.addParticipant(pubkey);
-        cubit.thread.trade!.refreshActions();
-      }
-    },
-    style: OutlinedButton.styleFrom(
-      foregroundColor: Theme.of(context).colorScheme.secondary,
-      visualDensity: VisualDensity.compact,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    ),
-    child: const Text('Message Escrow'),
-  );
-
   Widget _payButton(BuildContext context) {
     final lastReservation = context
         .read<ThreadCubit>()
@@ -386,40 +396,6 @@ class TradeHeaderView extends StatelessWidget {
     child: const Text('Counter'),
   );
 
-  Widget _refundButton(BuildContext context) => OutlinedButton(
-    key: const ValueKey('trade_action_refund'),
-    style: OutlinedButton.styleFrom(
-      visualDensity: VisualDensity.compact,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    ),
-    onPressed: () {
-      final cubit = context.read<ThreadCubit>();
-      final selectedEscrows = cubit.state.threadState.selectedEscrows;
-      if (selectedEscrows.isEmpty) return;
-      final escrowService = selectedEscrows.first.service;
-      final releaseOp = getIt<Hostr>().escrow.release(
-        EscrowReleaseParams(escrowService: escrowService, tradeId: tradeId),
-      );
-      showAppModal(context, child: ReleaseFlowWidget(cubit: releaseOp));
-    },
-    child: const Text('Refund'),
-  );
-
-  Widget _reviewButton(BuildContext context) => OutlinedButton(
-    key: const ValueKey('trade_action_review'),
-    onPressed: () => showAppModal(
-      context,
-      child: CustomPadding(
-        child: EditReview(listing: listing, salt: 'thread_salt'),
-      ),
-    ),
-    style: OutlinedButton.styleFrom(
-      visualDensity: VisualDensity.compact,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    ),
-    child: const Text('Review'),
-  );
-
   // ─── Phase rows ────────────────────────────────────────────────────
 
   /// Negotiation phase: payment summary on the left, pay / accept / counter / cancel on the right.
@@ -462,31 +438,89 @@ class TradeHeaderView extends StatelessWidget {
     );
   }
 
-  /// Commit phase: cancel / message-escrow on the left, claim / refund / review on the right.
-  Widget? _buildCommitRow(BuildContext context) {
-    final hasCancel = actions.contains(TradeAction.cancel);
-    final hasMessageEscrow = actions.contains(TradeAction.messageEscrow);
-    final hasClaim = actions.contains(TradeAction.claim);
-    final hasRefund = actions.contains(TradeAction.refund);
-    final hasReview = actions.contains(TradeAction.review);
-    if (!hasCancel &&
-        !hasMessageEscrow &&
-        !hasClaim &&
-        !hasRefund &&
-        !hasReview) {
-      return null;
+  List<_TradeMenuItem> _buildCommitMenuItems(BuildContext context) {
+    final items = <_TradeMenuItem>[];
+    if (actions.contains(TradeAction.cancel)) {
+      items.add((
+        label: 'Cancel',
+        icon: Icons.cancel_outlined,
+        onTap: () => showAppModal(
+          context,
+          child: ModalBottomSheet(
+            title: AppLocalizations.of(context)!.cancelReservation,
+            subtitle: AppLocalizations.of(context)!.areYouSure,
+            content: const SizedBox.shrink(),
+            buttons: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Theme.of(context).colorScheme.onError,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.read<ThreadCubit>().thread.trade!.execute(
+                      TradeAction.cancel,
+                    );
+                  },
+                  child: Text(AppLocalizations.of(context)!.ok),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ));
     }
-    return Wrap(
-      spacing: kSpace2,
-      runSpacing: kSpace2,
-      alignment: WrapAlignment.end,
-      children: [
-        if (hasCancel) _cancelButton(context),
-        if (hasMessageEscrow) _messageEscrowButton(context),
-        if (hasRefund) _refundButton(context),
-        if (hasClaim) ClaimWidget() else if (hasReview) _reviewButton(context),
-      ],
-    );
+    if (actions.contains(TradeAction.messageEscrow)) {
+      items.add((
+        label: 'Message Escrow',
+        icon: Icons.support_agent_outlined,
+        onTap: () {
+          final cubit = context.read<ThreadCubit>();
+          final pubkey = cubit.thread.trade!.getEscrowPubkey();
+          if (pubkey != null) {
+            cubit.addParticipant(pubkey);
+            cubit.thread.trade!.refreshActions();
+          }
+        },
+      ));
+    }
+    if (actions.contains(TradeAction.refund)) {
+      items.add((
+        label: 'Refund',
+        icon: Icons.undo_outlined,
+        onTap: () {
+          final cubit = context.read<ThreadCubit>();
+          final selectedEscrows = cubit.state.threadState.selectedEscrows;
+          if (selectedEscrows.isEmpty) return;
+          final escrowService = selectedEscrows.first.service;
+          final releaseOp = getIt<Hostr>().escrow.release(
+            EscrowReleaseParams(escrowService: escrowService, tradeId: tradeId),
+          );
+          showAppModal(context, child: ReleaseFlowWidget(cubit: releaseOp));
+        },
+      ));
+    }
+    if (actions.contains(TradeAction.claim)) {
+      items.add((
+        label: 'Claim',
+        icon: Icons.download_outlined,
+        onTap: () => showAppModal(context, child: ClaimWidget()),
+      ));
+    } else if (actions.contains(TradeAction.review)) {
+      items.add((
+        label: 'Review',
+        icon: Icons.star_outline,
+        onTap: () => showAppModal(
+          context,
+          child: CustomPadding(
+            child: EditReview(listing: listing, salt: 'thread_salt'),
+          ),
+        ),
+      ));
+    }
+    return items;
   }
 
   @override
@@ -509,8 +543,13 @@ class TradeHeaderView extends StatelessWidget {
               stream: subscriptionsLive,
               initialData: subscriptionsLive?.value ?? false,
               builder: (context, isLiveSnapshot) {
-                final actionRow = (isLiveSnapshot.data ?? false) && hasFunded
-                    ? _buildCommitRow(context)
+                final isCommitPhase =
+                    (isLiveSnapshot.data ?? false) && hasFunded;
+                final commitMenuItems = isCommitPhase
+                    ? _buildCommitMenuItems(context)
+                    : <_TradeMenuItem>[];
+                final actionRow = isCommitPhase
+                    ? null
                     : _buildNegotiationRow(context, paymentEvents);
 
                 return ShimmerPlaceholder(
@@ -525,6 +564,7 @@ class TradeHeaderView extends StatelessWidget {
                             context,
                             showDetails: showDetails,
                             paymentEvents: paymentEvents,
+                            menuItems: commitMenuItems,
                           ),
                         ),
                         Container(
