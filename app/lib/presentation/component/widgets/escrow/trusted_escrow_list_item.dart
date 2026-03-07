@@ -27,11 +27,19 @@ class TrustedEscrowListItemWidget extends StatelessWidget {
             ? NetworkImage(metadata!.picture!)
             : null,
         child: metadata?.picture == null
-            ? Text((title.isNotEmpty ? title[0] : '?').toUpperCase())
+            ? Text(
+                (title.isNotEmpty ? title[0] : '?').toUpperCase(),
+                style: Theme.of(context).textTheme.titleMedium,
+              )
             : null,
       ),
       title: Text(title),
-      subtitle: Text(subtitle),
+      subtitle: Text(
+        subtitle,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
       trailing: onRemove == null
           ? null
           : IconButton(icon: const Icon(Icons.close), onPressed: onRemove),

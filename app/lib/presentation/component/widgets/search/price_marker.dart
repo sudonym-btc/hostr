@@ -28,13 +28,16 @@ class PriceMarkerBuilder {
     required String priceText,
     required Color fillColor,
     required Color textColor,
+    Color? borderColor,
     TextStyle? textStyle,
     bool showArrow = true,
+    bool isCluster = false,
     double devicePixelRatio = 2.0,
     double borderWidth = 1,
   }) async {
+    final effectiveBorderColor = borderColor ?? textColor.withAlpha(100);
     final cacheKey =
-        '$priceText-${fillColor.value}-${textColor.value}-$showArrow-$borderWidth';
+        '$priceText-${fillColor.value}-${textColor.value}-${effectiveBorderColor.value}-$showArrow-$isCluster-$borderWidth';
     if (_cache.containsKey(cacheKey)) {
       return _cache[cacheKey]!;
     }
@@ -43,8 +46,10 @@ class PriceMarkerBuilder {
       priceText: priceText,
       fillColor: fillColor,
       textColor: textColor,
+      borderColor: effectiveBorderColor,
       textStyle: textStyle,
       showArrow: showArrow,
+      isCluster: isCluster,
       devicePixelRatio: devicePixelRatio,
       borderWidth: borderWidth,
     );
@@ -59,8 +64,10 @@ class PriceMarkerBuilder {
     required String priceText,
     required Color fillColor,
     required Color textColor,
+    required Color borderColor,
     TextStyle? textStyle,
     required bool showArrow,
+    bool isCluster = false,
     required double devicePixelRatio,
     required double borderWidth,
   }) async {
@@ -89,8 +96,10 @@ class PriceMarkerBuilder {
     final scaledBorderWidth = borderWidth * renderScale;
     // The stroke is painted centered on the path, so half extends outward.
     final halfBorder = scaledBorderWidth / 2;
-    final paddingH = 9.0 * renderScale;
-    final paddingV = 5.5 * renderScale;
+    // Cluster markers get extra padding so they look visually distinct.
+    final clusterExtra = isCluster ? 4.0 * renderScale : 0.0;
+    final paddingH = 9.0 * renderScale + clusterExtra;
+    final paddingV = 5.5 * renderScale + clusterExtra;
     final arrowHeight = showArrow ? 5.0 * renderScale : 0.0;
     final arrowHalfWidth = 5.0 * renderScale;
     final pillWidth = textPainter.width + paddingH * 2;
@@ -137,7 +146,7 @@ class PriceMarkerBuilder {
 
     // Border — round joins so the arrow tip stays clean.
     final borderPaint = Paint()
-      ..color = textColor.withAlpha(100)
+      ..color = borderColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = scaledBorderWidth
       ..strokeJoin = StrokeJoin.round

@@ -16,7 +16,7 @@ class ThreadHeaderWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleStyle = Theme.of(context).textTheme.titleMedium;
+    final titleStyle = Theme.of(context).textTheme.titleLarge;
     final subtitleStyle = Theme.of(context).textTheme.bodyMedium;
 
     return ListTile(

@@ -1,8 +1,7 @@
 import 'package:models/main.dart';
 
 /// Lifecycle state for a trade. Only holds mutable signals about the trade's
-/// activity status. Context (listing, role) lives in [TradeContext] on
-/// [ThreadTrade.context$], and available actions live in [ThreadTrade.actions$].
+/// activity status. Available actions live in [Trade.actions$].
 class TradeState {
   final String tradeId;
   final DateTime start;

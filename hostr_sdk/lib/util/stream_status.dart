@@ -103,6 +103,7 @@ class StreamWithStatus<T> {
   }
 
   void addStatus(StreamStatus newStatus) {
+    if (status.isClosed) return;
     status.add(newStatus);
   }
 

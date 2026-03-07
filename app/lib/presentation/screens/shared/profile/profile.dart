@@ -202,7 +202,12 @@ Widget _buildTrustedEscrowsBody(
   }
   final pubkeys = state.pubkeys;
   if (pubkeys.isEmpty) {
-    return Text(AppLocalizations.of(context)!.noEscrowsTrustedYet);
+    return Text(
+      AppLocalizations.of(context)!.noEscrowsTrustedYet,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
   }
   return Column(
     children: [

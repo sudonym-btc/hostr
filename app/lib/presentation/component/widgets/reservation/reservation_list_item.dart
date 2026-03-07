@@ -68,7 +68,9 @@ class ReservationListItem extends StatelessWidget {
                       Gap.vertical.xs(),
                       Text(
                         subtitle,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       Gap.vertical.sm(),
                       _buildStatusChip(context),
@@ -101,7 +103,7 @@ class ReservationListItem extends StatelessWidget {
         'Pending Host Confirmation',
         Theme.of(context).colorScheme.secondaryContainer,
       ),
-      _ => ('Pending', Colors.orange),
+      _ => ('Pending', Theme.of(context).colorScheme.secondaryContainer),
     };
 
     return Chip(

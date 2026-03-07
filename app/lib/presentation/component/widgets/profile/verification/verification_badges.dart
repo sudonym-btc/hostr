@@ -86,12 +86,23 @@ class Nip05Badge extends StatelessWidget {
       );
     }
 
+    final chips = <StatusChip>[];
+    if (valid) {
+      chips.add(StatusChip(label: 'Verified', color: Colors.blue));
+    } else {
+      chips.add(
+        StatusChip(
+          label: result?.error ?? 'Verification failed',
+          color: colorScheme.error,
+        ),
+      );
+    }
+
     return VerificationTile(
-      icon: valid ? Icons.verified : Icons.error_outline,
-      iconColor: valid ? Colors.blue : colorScheme.error,
+      icon: Icons.badge_outlined,
+      iconColor: colorScheme.outline,
       title: nip05!,
-      subtitle: valid ? 'Verified' : 'Verification failed',
-      subtitleColor: valid ? Colors.blue : colorScheme.error,
+      chipRow: chips,
     );
   }
 }
@@ -152,8 +163,8 @@ class Lud16Badge extends StatelessWidget {
         );
       }
       return VerificationTile(
-        icon: Icons.bolt,
-        iconColor: colorScheme.error,
+        icon: Icons.bolt_outlined,
+        iconColor: colorScheme.outline,
         title: lud16!,
         trailing: const AppLoadingIndicator.small(),
       );
@@ -183,8 +194,8 @@ class Lud16Badge extends StatelessWidget {
     }
 
     return VerificationTile(
-      icon: reachable ? Icons.bolt : Icons.bolt_outlined,
-      iconColor: reachable ? Colors.amber : colorScheme.error,
+      icon: Icons.bolt_outlined,
+      iconColor: colorScheme.outline,
       title: lud16!,
       chipRow: chips,
     );
@@ -205,24 +216,15 @@ class Nip05StatusRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return _statusRow(
-        context,
-        icon: Icons.badge_outlined,
-        iconColor: Theme.of(context).colorScheme.outline,
-        text: 'Verifying…',
-        trailing: const AppLoadingIndicator.small(),
-      );
+      return StatusChip.verifying(context);
     }
 
     if (result == null) return const SizedBox.shrink();
 
     final valid = result!.valid;
-    return _statusRow(
-      context,
-      icon: valid ? Icons.verified : Icons.error_outline,
-      iconColor: valid ? Colors.blue : Theme.of(context).colorScheme.error,
-      text: valid ? 'Verified' : (result!.error ?? 'Verification failed'),
-      textColor: valid ? Colors.blue : Theme.of(context).colorScheme.error,
+    return StatusChip(
+      label: valid ? 'Verified' : (result!.error ?? 'Verification failed'),
+      color: valid ? Colors.blue : Theme.of(context).colorScheme.error,
     );
   }
 }
@@ -239,13 +241,7 @@ class Lud16StatusRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return _statusRow(
-        context,
-        icon: Icons.bolt_outlined,
-        iconColor: Theme.of(context).colorScheme.outline,
-        text: 'Verifying…',
-        trailing: const AppLoadingIndicator.small(),
-      );
+      return StatusChip.verifying(context);
     }
 
     if (result == null) return const SizedBox.shrink();
@@ -254,25 +250,15 @@ class Lud16StatusRow extends StatelessWidget {
     final allowsNostr = result!.allowsNostr;
 
     if (!reachable) {
-      return _statusRow(
-        context,
-        icon: Icons.bolt_outlined,
-        iconColor: Theme.of(context).colorScheme.error,
-        text: result!.error ?? 'Unreachable',
-        textColor: Theme.of(context).colorScheme.error,
+      return StatusChip(
+        label: result!.error ?? 'Unreachable',
+        color: Theme.of(context).colorScheme.error,
       );
     }
 
     return Row(
       children: [
-        Icon(Icons.bolt, color: Colors.amber, size: kIconSm),
-        Gap.horizontal.custom(6),
-        Text(
-          'Reachable',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: Colors.green),
-        ),
+        StatusChip(label: 'Reachable', color: Colors.green),
         if (allowsNostr) ...[
           Gap.horizontal.sm(),
           StatusChip(label: 'Zaps enabled', color: Colors.blue),
@@ -372,6 +358,13 @@ class StatusChip extends StatelessWidget {
       ),
     );
   }
+
+  static StatusChip verifying(BuildContext context) {
+    return StatusChip(
+      label: 'Verifying…',
+      color: Theme.of(context).colorScheme.outline,
+    );
+  }
 }
 
 // ─── Private helpers ──────────────────────────────────────────
@@ -399,34 +392,6 @@ Widget _inlineRow(
           overflow: TextOverflow.ellipsis,
         ),
       ),
-    ],
-  );
-}
-
-/// Small status row used beneath text inputs.
-Widget _statusRow(
-  BuildContext context, {
-  required IconData icon,
-  required Color iconColor,
-  required String text,
-  Color? textColor,
-  Widget? trailing,
-}) {
-  return Row(
-    children: [
-      Icon(icon, color: iconColor, size: kIconSm),
-      Gap.horizontal.custom(6),
-      Expanded(
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: textColor ?? Theme.of(context).colorScheme.outline,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      ?trailing,
     ],
   );
 }

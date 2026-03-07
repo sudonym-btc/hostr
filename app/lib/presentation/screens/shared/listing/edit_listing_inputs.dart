@@ -19,7 +19,7 @@ class ImagesInput extends StatelessWidget {
     required this.pubkey,
   });
 
-  static const _placeholderUrl =
+  static const placeholderUrl =
       'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85'
       '?auto=format&fit=crop&w=600&h=400&q=60';
 
@@ -39,41 +39,12 @@ class ImagesInput extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ColorFiltered(
-          colorFilter: const ColorFilter.matrix(<double>[
-            0.2126,
-            0.7152,
-            0.0722,
-            0,
-            0,
-            0.2126,
-            0.7152,
-            0.0722,
-            0,
-            0,
-            0.2126,
-            0.7152,
-            0.0722,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1,
-            0,
-          ]),
-          child: ImageFiltered(
-            imageFilter: ui.ImageFilter.blur(
-              sigmaX: 10,
-              sigmaY: 10,
-              tileMode: TileMode.mirror,
-            ),
-            child: Image.network(
-              _placeholderUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              ),
+        BlurredImage(
+          child: Image.network(
+            placeholderUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => ColoredBox(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
           ),
         ),
@@ -85,6 +56,48 @@ class ImagesInput extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class BlurredImage extends StatelessWidget {
+  final Widget child;
+
+  const BlurredImage({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ColorFiltered(
+      colorFilter: const ColorFilter.matrix(<double>[
+        0.2126,
+        0.7152,
+        0.0722,
+        0,
+        0,
+        0.2126,
+        0.7152,
+        0.0722,
+        0,
+        0,
+        0.2126,
+        0.7152,
+        0.0722,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+      ]),
+      child: ImageFiltered(
+        imageFilter: ui.ImageFilter.blur(
+          sigmaX: 10,
+          sigmaY: 10,
+          tileMode: TileMode.mirror,
+        ),
+        child: child,
+      ),
     );
   }
 }
@@ -251,7 +264,7 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
               );
             }),
             SizedBox(
-              width: 280,
+              width: double.infinity,
               child: RawAutocomplete<String>(
                 textEditingController: _amenityController,
                 focusNode: _amenityFocusNode,

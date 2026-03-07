@@ -34,7 +34,12 @@ class ReviewsReservationsWidget extends StatelessWidget {
           countLabelBuilder: l10n.reviewCount,
           segmentKey: 'reviews',
         ),
-        const Text(' · '),
+        Text(
+          ' · ',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         _ExternalCountSegment(
           countStream: reservationCount,
           loadingLabel: l10n.staysLabel,
@@ -122,13 +127,21 @@ class _CountSegment extends StatelessWidget {
               children: [
                 const AppLoadingIndicator.small(),
                 Gap.horizontal.custom(6),
-                Text(loadingLabel),
+                Text(
+                  loadingLabel,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             )
           : Text(
               countLabelBuilder(count),
               key: ValueKey('loaded-$segmentKey-$count'),
               overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
     );
   }

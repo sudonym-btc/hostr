@@ -61,7 +61,12 @@ class _TripsScreenState extends State<TripsScreen> {
                   return const Center(child: AppLoadingIndicator.large());
                 }
                 return Center(
-                  child: Text(AppLocalizations.of(context)!.noTripsYet),
+                  child: Text(
+                    AppLocalizations.of(context)!.noTripsYet,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 );
               }
               pairs.sort(

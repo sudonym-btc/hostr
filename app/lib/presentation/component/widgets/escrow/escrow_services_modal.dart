@@ -86,9 +86,19 @@ class _TrustEscrowModalContentState extends State<_TrustEscrowModalContent> {
         if (state.loading && state.data == null) {
           content = const Center(child: AppLoadingIndicator.large());
         } else if (state.error != null) {
-          content = const Text('Failed to discover escrow services.');
+          content = Text(
+            'Failed to discover escrow services.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+          );
         } else if (state.distinctPubkeys.isEmpty) {
-          content = const Text('No compatible escrow services found.');
+          content = Text(
+            'No compatible escrow services found.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          );
         } else {
           content = _buildFilterableList(
             context,
@@ -222,13 +232,25 @@ class _EscrowServicesModalContent extends StatelessWidget {
         if (state.loading && state.data == null) {
           content = const Center(child: AppLoadingIndicator.large());
         } else if (state.error != null) {
-          content = Text('Failed to load escrow services.');
+          content = Text(
+            'Failed to load escrow services.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+          );
         } else if (state.data == null || state.data!.isEmpty) {
-          content = const Text('No escrow services found for this operator.');
+          content = Text(
+            'No escrow services found for this operator.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          );
         } else {
           content = Column(
             mainAxisSize: MainAxisSize.min,
-            children: state.data!.map(_buildServiceTile).toList(),
+            children: state.data!
+                .map((s) => _buildServiceTile(context, s))
+                .toList(),
           );
         }
 
@@ -237,7 +259,7 @@ class _EscrowServicesModalContent extends StatelessWidget {
     );
   }
 
-  Widget _buildServiceTile(EscrowService service) {
+  Widget _buildServiceTile(BuildContext context, EscrowService service) {
     final feeDesc = [
       if (service.feeBase > 0) '${service.feeBase} sats base',
       if (service.feePercent > 0) '${service.feePercent}%',
@@ -246,21 +268,26 @@ class _EscrowServicesModalContent extends StatelessWidget {
       child: ListTile(
         leading: const Icon(Icons.security),
         title: Text(service.escrowType.name),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Contract: ${_truncate(service.contractAddress)}',
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text('Chain ID: ${service.chainId}'),
-            Text('Max duration: ${service.maxDuration.inHours}h'),
-            if (feeDesc.isNotEmpty) Text('Fee: $feeDesc'),
-            Text(
-              'Min: ${service.minAmount} sats'
-              '${service.maxAmount != null ? ' · Max: ${service.maxAmount} sats' : ''}',
-            ),
-          ],
+        subtitle: DefaultTextStyle.merge(
+          style: Theme.of(context).textTheme.bodySmall!.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Contract: ${_truncate(service.contractAddress)}',
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text('Chain ID: ${service.chainId}'),
+              Text('Max duration: ${service.maxDuration.inHours}h'),
+              if (feeDesc.isNotEmpty) Text('Fee: $feeDesc'),
+              Text(
+                'Min: ${service.minAmount} sats'
+                '${service.maxAmount != null ? ' · Max: ${service.maxAmount} sats' : ''}',
+              ),
+            ],
+          ),
         ),
         isThreeLine: true,
       ),

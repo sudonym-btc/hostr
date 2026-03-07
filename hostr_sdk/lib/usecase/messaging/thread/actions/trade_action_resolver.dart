@@ -4,7 +4,7 @@ import '../../../../util/stream_status.dart';
 import '../../../../util/validation_stream.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../state.dart';
-import '../trade_context.dart';
+import '../trade.dart';
 import 'payment.dart';
 import 'reservation.dart';
 import 'reservation_request.dart';
@@ -31,7 +31,7 @@ enum TradeAvailability {
 }
 
 class TradeResolution {
-  final ThreadPartyRole? role;
+  final TradeRole? role;
   final List<TradeAction> actions;
   final TradeAvailability availability;
   final String? availabilityReason;
@@ -51,7 +51,8 @@ class TradeActionResolver {
   /// All inputs are plain values so this can be composed inside combineLatest.
   static TradeResolution resolve({
     required ThreadState threadState,
-    required TradeContext context,
+    required Listing listing,
+    required TradeRole role,
     required String tradeId,
     required DateTime start,
     required DateTime end,
@@ -64,9 +65,6 @@ class TradeActionResolver {
     required StreamStatus paymentsStatus,
     List<String> addedParticipants = const [],
   }) {
-    final listing = context.listing;
-    final role = context.role;
-
     final validAllListingPairs = allReservations
         .whereType<Valid<ReservationPairStatus>>()
         .map((v) => v.event)
@@ -103,7 +101,6 @@ class TradeActionResolver {
       ReservationActions.resolve(
         validTradeReservations,
         ownReservationsStatus,
-        listing,
         [...threadState.participantPubkeys, ...addedParticipants],
         role,
         allReservations: allTradeReservations,

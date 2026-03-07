@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -69,6 +70,43 @@ class ListingMap extends StatefulWidget {
   /// When a new id is written the map animates the camera to that marker.
   final ValueNotifier<String?>? animateToId;
 
+  /// Whether nearby markers should be grouped into cluster markers.
+  final bool enableClustering;
+
+  // ── Pill (individual marker) styling ────────────────────────────
+  final Color? pillBackgroundColor;
+  final Color? pillBorderColor;
+  final double? pillBorderWidth;
+  final Color? pillColor;
+
+  // ── Cluster marker styling ─────────────────────────────────────
+  final Color? clusterBackgroundColor;
+  final Color? clusterBorderColor;
+  final double? clusterBorderWidth;
+  final Color? clusterColor;
+
+  // ── Focused / highlighted marker styling ───────────────────────
+  final Color? focusedBackgroundColor;
+  final Color? focusedBorderColor;
+  final double? focusedBorderWidth;
+  final Color? focusedColor;
+
+  // ── Disabled marker styling ────────────────────────────────────
+  final Color? disabledBackgroundColor;
+  final Color? disabledBorderColor;
+  final double? disabledBorderWidth;
+  final Color? disabledColor;
+
+  // ── Text builders ──────────────────────────────────────────────
+  /// Builds the label for a single (non-clustered) marker.
+  /// Receives the [ListingMarkerData] item. Defaults to [priceText].
+  final String Function(ListingMarkerData item)? pillTextBuilder;
+
+  /// Builds the label for a clustered marker.
+  /// Receives the list of [ListingMarkerData] items in the cluster.
+  /// Defaults to the cluster member count.
+  final String Function(List<ListingMarkerData> items)? clusterTextBuilder;
+
   const ListingMap({
     super.key,
     required this.listings,
@@ -80,6 +118,25 @@ class ListingMap extends StatefulWidget {
     this.autoFitBounds = true,
     this.singleMarkerZoom = 13,
     this.animateToId,
+    this.enableClustering = true,
+    this.pillBackgroundColor,
+    this.pillBorderColor,
+    this.pillBorderWidth,
+    this.pillColor,
+    this.clusterBackgroundColor,
+    this.clusterBorderColor,
+    this.clusterBorderWidth,
+    this.clusterColor,
+    this.focusedBackgroundColor,
+    this.focusedBorderColor,
+    this.focusedBorderWidth,
+    this.focusedColor,
+    this.disabledBackgroundColor,
+    this.disabledBorderColor,
+    this.disabledBorderWidth,
+    this.disabledColor,
+    this.pillTextBuilder,
+    this.clusterTextBuilder,
   });
 
   @override
@@ -92,11 +149,28 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   bool _mapReady = false;
   int _syncGeneration = 0;
 
-  /// Currently highlighted marker id (accent colour).
-  String? _focusedId;
+  /// Currently highlighted rendered marker id (accent colour).
+  String? _focusedMarkerId;
+
+  /// The last listing id requested by the list so grouped markers can
+  /// preserve focus even when the marker set is rebuilt.
+  String? _focusedListingId;
 
   /// Per-marker metadata needed to rebuild icons when focus changes.
   final Map<String, _MarkerMeta> _markerMeta = {};
+
+  /// Maps each listing id to the rendered marker id that represents it.
+  final Map<String, String> _groupIdByListingId = {};
+
+  /// Cached resolved listings so we can re-cluster on zoom without
+  /// re-resolving every H3 tag.
+  List<_ResolvedListingMarker> _resolvedListings = [];
+
+  /// Last zoom level used to cluster, so we can detect meaningful changes.
+  double? _lastClusterZoom;
+
+  /// Debounce timer for camera-idle re-clusters.
+  Timer? _cameraIdleDebounce;
 
   // ── Map lifecycle ───────────────────────────────────────────────────
 
@@ -113,79 +187,324 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant ListingMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.animateToId != widget.animateToId) {
+      oldWidget.animateToId?.removeListener(_onAnimateToId);
+      widget.animateToId?.addListener(_onAnimateToId);
+    }
     if (_mapReady) _syncMarkers();
   }
 
   Future<void> _syncMarkers() async {
-    final generation = ++_syncGeneration;
-    final theme = Theme.of(context);
-    final dpr = MediaQuery.of(context).devicePixelRatio;
     final h3 = getIt<H3Engine>();
 
-    final incomingIds = widget.listings.map((l) => l.id).toSet();
-
-    // Remove stale markers.
-    final staleKeys = _markers.keys
-        .where((id) => !incomingIds.contains(id))
-        .toList();
-    if (staleKeys.isNotEmpty) {
-      setState(() {
-        for (final key in staleKeys) {
-          _markers.remove(key);
-          _markerMeta.remove(key);
-        }
-      });
-    }
-
-    // Add / update new markers.
+    final resolvedListings = <_ResolvedListingMarker>[];
     for (final data in widget.listings) {
-      if (_markers.containsKey(data.id)) continue;
-
       final center = h3.polygonCover.centerForTag(data.h3Tag);
       if (center == null) continue;
 
-      final position = LatLng(center.latitude, center.longitude);
+      resolvedListings.add(
+        _ResolvedListingMarker(
+          id: data.id,
+          position: LatLng(center.latitude, center.longitude),
+          priceText: data.priceText ?? '?',
+          enabled: data.enabled,
+        ),
+      );
+    }
 
-      final priceText = data.priceText ?? '?';
-      final fillColor = data.enabled
-          ? theme.colorScheme.primary
-          : theme.colorScheme.surfaceContainerHighest;
-      final textColor = data.enabled
-          ? theme.colorScheme.onPrimary
-          : theme.colorScheme.onSurfaceVariant;
+    // Detect whether this is a pagination append (all previous ids still
+    // present) vs a fresh query (some old ids disappeared).  When it's a
+    // fresh query we clear focus so that fitBounds fires for the new results.
+    if (_focusedListingId != null) {
+      final newIds = {for (final l in resolvedListings) l.id};
+      final oldIds = {for (final l in _resolvedListings) l.id};
+      final isSupersetOfOld = oldIds.every(newIds.contains);
+      if (!isSupersetOfOld) {
+        _focusedListingId = null;
+        _focusedMarkerId = null;
+      }
+    }
+
+    _resolvedListings = resolvedListings;
+    _lastClusterZoom = null; // force fresh cluster
+
+    // When a marker is focused (user tapped a pill) skip camera-fit so
+    // that pagination appending new items doesn't jerk the view away.
+    final shouldFit = widget.autoFitBounds && _focusedListingId == null;
+    await _recluster(fitBounds: shouldFit);
+  }
+
+  /// Re-clusters the cached [_resolvedListings] using the current camera
+  /// zoom level and rebuilds the marker set.
+  Future<void> _recluster({bool fitBounds = false}) async {
+    final generation = ++_syncGeneration;
+    final theme = Theme.of(context);
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+
+    final clusterThreshold = widget.enableClustering
+        ? await _clusterThreshold()
+        : 0.0;
+    if (!mounted || generation != _syncGeneration) return;
+
+    final groups = _buildMarkerGroups(_resolvedListings, clusterThreshold);
+    final nextMarkers = <String, Marker>{};
+    final nextMarkerMeta = <String, _MarkerMeta>{};
+    final nextGroupIdByListingId = <String, String>{};
+
+    for (final group in groups.values) {
+      for (final listingId in group.memberIds) {
+        nextGroupIdByListingId[listingId] = group.markerId;
+      }
+    }
+
+    final desiredFocusedMarkerId = _focusedListingId == null
+        ? _focusedMarkerId
+        : nextGroupIdByListingId[_focusedListingId!];
+
+    // Build a lookup from listing id → original marker data so text
+    // builders can access the full item.
+    final dataById = <String, ListingMarkerData>{
+      for (final d in widget.listings) d.id: d,
+    };
+
+    for (final group in groups.values) {
+      final isFocused = group.markerId == desiredFocusedMarkerId;
+      final isCluster = group.memberIds.length > 1;
+
+      // ── Resolve colours ────────────────────────────────────────
+      final Color fillColor;
+      final Color textColor;
+      final Color? borderColor;
+      final double borderWidth;
+
+      if (isFocused) {
+        fillColor =
+            widget.focusedBackgroundColor ??
+            theme.colorScheme.surfaceContainerLowest;
+        textColor = widget.focusedColor ?? theme.colorScheme.onSurface;
+        borderColor = widget.focusedBorderColor;
+        borderWidth = widget.focusedBorderWidth ?? 1;
+      } else if (!group.enabled) {
+        fillColor =
+            widget.disabledBackgroundColor ??
+            theme.colorScheme.surfaceContainerHighest;
+        textColor = widget.disabledColor ?? theme.colorScheme.onSurfaceVariant;
+        borderColor = widget.disabledBorderColor;
+        borderWidth = widget.disabledBorderWidth ?? 1;
+      } else if (isCluster) {
+        fillColor =
+            widget.clusterBackgroundColor ?? theme.colorScheme.surfaceContainer;
+        textColor = widget.clusterColor ?? theme.colorScheme.onSurface;
+        borderColor = widget.clusterBorderColor;
+        borderWidth = widget.clusterBorderWidth ?? 1;
+      } else {
+        fillColor =
+            widget.pillBackgroundColor ??
+            theme.colorScheme.surfaceContainerHighest;
+        textColor = widget.pillColor ?? theme.colorScheme.onSurface;
+        borderColor = widget.pillBorderColor;
+        borderWidth = widget.pillBorderWidth ?? 1;
+      }
+
+      // ── Resolve label text ─────────────────────────────────────
+      final String label;
+      if (isCluster && widget.clusterTextBuilder != null) {
+        final items = group.memberIds
+            .map((id) => dataById[id])
+            .whereType<ListingMarkerData>()
+            .toList();
+        label = widget.clusterTextBuilder!(items);
+      } else if (!isCluster && widget.pillTextBuilder != null) {
+        final item = dataById[group.memberIds.first];
+        label = item != null ? widget.pillTextBuilder!(item) : group.label;
+      } else {
+        label = group.label;
+      }
 
       final icon = await PriceMarkerBuilder.build(
-        priceText: priceText,
+        priceText: label,
         fillColor: fillColor,
         textColor: textColor,
+        borderColor: borderColor,
         textStyle: theme.textTheme.bodySmall,
         showArrow: widget.showArrows,
+        isCluster: isCluster,
         devicePixelRatio: dpr,
+        borderWidth: borderWidth,
       );
 
       if (!mounted || generation != _syncGeneration) return;
 
-      _markerMeta[data.id] = _MarkerMeta(
-        position: position,
-        priceText: priceText,
-        enabled: data.enabled,
+      nextMarkerMeta[group.markerId] = _MarkerMeta(
+        position: group.position,
+        priceText: group.label,
+        enabled: group.enabled,
+        memberIds: group.memberIds,
+        isCluster: isCluster,
       );
-
-      setState(() {
-        _markers[data.id] = Marker(
-          markerId: MarkerId(data.id),
-          position: position,
-          icon: icon,
-          anchor: Offset(0.5, widget.showArrows ? 1.0 : 0.5),
-          consumeTapEvents: true,
-          onTap: () => widget.onMarkerTap?.call(data.id),
-        );
-      });
+      nextMarkers[group.markerId] = Marker(
+        markerId: MarkerId(group.markerId),
+        position: group.position,
+        icon: icon,
+        zIndex: isFocused ? 1 : 0,
+        anchor: Offset(0.5, widget.showArrows ? 1.0 : 0.5),
+        consumeTapEvents: true,
+        onTap: () => unawaited(_handleMarkerTap(group.markerId)),
+      );
     }
 
-    if (widget.autoFitBounds && generation == _syncGeneration) {
+    if (!mounted || generation != _syncGeneration) return;
+
+    setState(() {
+      _markers
+        ..clear()
+        ..addAll(nextMarkers);
+      _markerMeta
+        ..clear()
+        ..addAll(nextMarkerMeta);
+      _groupIdByListingId
+        ..clear()
+        ..addAll(nextGroupIdByListingId);
+      _focusedMarkerId =
+          desiredFocusedMarkerId != null &&
+              nextMarkers.containsKey(desiredFocusedMarkerId)
+          ? desiredFocusedMarkerId
+          : null;
+      if (_focusedListingId != null &&
+          !nextGroupIdByListingId.containsKey(_focusedListingId)) {
+        _focusedListingId = null;
+      }
+    });
+
+    if (fitBounds && generation == _syncGeneration) {
       _fitBounds(generation: generation);
     }
+  }
+
+  // ── Clustering helpers ─────────────────────────────────────────────
+
+  /// Computes the grouping threshold in degrees based on the *actual*
+  /// visible region of the camera so that markers whose pills would
+  /// overlap on screen get collapsed.
+  Future<double> _clusterThreshold() async {
+    if (_resolvedListings.length < 2) return 0;
+
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final viewport = renderBox?.size ?? MediaQuery.sizeOf(context);
+
+    double latSpan;
+    double lngSpan;
+
+    // Prefer the actual visible region from the live camera.
+    if (_mapReady && _controller.isCompleted) {
+      final controller = await _controller.future;
+      final visibleRegion = await controller.getVisibleRegion();
+      latSpan =
+          (visibleRegion.northeast.latitude - visibleRegion.southwest.latitude)
+              .abs();
+      lngSpan =
+          (visibleRegion.northeast.longitude -
+                  visibleRegion.southwest.longitude)
+              .abs();
+    } else {
+      // Fallback: estimate from the bounding box of all markers + padding.
+      double minLat = double.infinity, maxLat = double.negativeInfinity;
+      double minLng = double.infinity, maxLng = double.negativeInfinity;
+      for (final l in _resolvedListings) {
+        final lat = l.position.latitude;
+        final lng = l.position.longitude;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+      }
+      latSpan = maxLat - minLat;
+      lngSpan = maxLng - minLng;
+    }
+
+    final degPerPxLat = latSpan / max(viewport.height, 1.0);
+    final degPerPxLng = lngSpan / max(viewport.width, 1.0);
+
+    // A price-pill marker is roughly 70 × 28 logical pixels.
+    // Use half the pill dimensions so markers only cluster when they
+    // actually overlap rather than when their bounding boxes are close.
+    const pillW = 35.0;
+    const pillH = 14.0;
+
+    final thresholdLat = degPerPxLat * pillH;
+    final thresholdLng = degPerPxLng * pillW;
+
+    // Use the larger dimension; floor at 0.0002° (~22 m) so
+    // same-building markers always cluster.
+    return max(max(thresholdLat, thresholdLng), 0.0002);
+  }
+
+  /// Called by [onCameraIdle] — re-clusters if the zoom changed enough.
+  Future<void> _onCameraIdle() async {
+    if (!_mapReady || !_controller.isCompleted) return;
+    if (_resolvedListings.length < 2) return;
+
+    final controller = await _controller.future;
+    final zoom = (await controller.getZoomLevel());
+
+    // Only re-cluster when zoom moved by ≥ 0.5 stops (avoids thrashing
+    // on tiny pan gestures that don't change overlap).
+    if (_lastClusterZoom != null && (zoom - _lastClusterZoom!).abs() < 0.5) {
+      return;
+    }
+    _lastClusterZoom = zoom;
+    await _recluster();
+  }
+
+  void _onCameraIdleDebounced() {
+    _cameraIdleDebounce?.cancel();
+    _cameraIdleDebounce = Timer(
+      const Duration(milliseconds: 300),
+      () => unawaited(_onCameraIdle()),
+    );
+  }
+
+  /// Greedy nearest-neighbour clustering: each incoming marker joins the
+  /// closest existing group within [threshold] degrees, or starts a new one.
+  Map<String, _MarkerGroup> _buildMarkerGroups(
+    List<_ResolvedListingMarker> listings,
+    double threshold,
+  ) {
+    final thresholdSq = threshold * threshold;
+    final groups = <_MarkerGroup>[];
+
+    for (final listing in listings) {
+      int? matchIdx;
+      double bestDistSq = thresholdSq;
+
+      for (int i = 0; i < groups.length; i++) {
+        final dlat = groups[i].position.latitude - listing.position.latitude;
+        final dlng = groups[i].position.longitude - listing.position.longitude;
+        final distSq = dlat * dlat + dlng * dlng;
+        if (distSq < bestDistSq) {
+          bestDistSq = distSq;
+          matchIdx = i;
+        }
+      }
+
+      if (matchIdx != null) {
+        groups[matchIdx] = groups[matchIdx].add(listing);
+      } else {
+        groups.add(
+          _MarkerGroup.fromListing(
+            markerId: _markerGroupIdForPosition(listing.position),
+            listing: listing,
+          ),
+        );
+      }
+    }
+
+    return {for (final g in groups) g.markerId: g};
+  }
+
+  String _markerGroupIdForPosition(LatLng position) {
+    // Keep full precision so the id is stable for the exact anchor listing.
+    return 'group:${position.latitude}:${position.longitude}';
   }
 
   // ── Camera helpers ─────────────────────────────────────────────────
@@ -254,20 +573,32 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _cameraIdleDebounce?.cancel();
     widget.animateToId?.removeListener(_onAnimateToId);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   Future<void> _onAnimateToId() async {
-    final id = widget.animateToId?.value;
-    if (id == null || !_mapReady) return;
+    final listingId = widget.animateToId?.value;
+    if (listingId == null) {
+      // External signal to clear focus (e.g. search filter changed).
+      _focusedListingId = null;
+      _focusedMarkerId = null;
+      return;
+    }
+    if (!_mapReady) return;
 
-    final marker = _markers[id];
+    _focusedListingId = listingId;
+
+    final markerId = _groupIdByListingId[listingId];
+    if (markerId == null) return;
+
+    final marker = _markers[markerId];
     if (marker == null) return;
 
     // Swap highlight colours.
-    await _updateFocus(id);
+    await _updateFocus(markerId, sourceListingId: listingId);
 
     final controller = await _controller.future;
     if (!mounted) return;
@@ -275,13 +606,9 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     await controller.animateCamera(CameraUpdate.newLatLng(marker.position));
   }
 
-  /// Rebuilds the icon for [id] with [fillColor] / [textColor].
-  Future<void> _rebuildMarkerIcon(
-    String id, {
-    required Color fillColor,
-    required Color textColor,
-    double zIndex = 0,
-  }) async {
+  /// Rebuilds a single marker icon using the same colour / label
+  /// resolution as [_recluster] so style params and text builders apply.
+  Future<void> _rebuildMarkerIcon(String id, {bool isFocused = false}) async {
     final meta = _markerMeta[id];
     final existing = _markers[id];
     if (meta == null || existing == null || !mounted) return;
@@ -289,13 +616,70 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     final dpr = MediaQuery.of(context).devicePixelRatio;
     final theme = Theme.of(context);
 
+    // ── Resolve colours (mirrors _recluster) ─────────────────
+    final Color fillColor;
+    final Color textColor;
+    final Color? borderColor;
+    final double borderWidth;
+
+    if (isFocused) {
+      fillColor =
+          widget.focusedBackgroundColor ??
+          theme.colorScheme.surfaceContainerLowest;
+      textColor = widget.focusedColor ?? theme.colorScheme.onSurface;
+      borderColor = widget.focusedBorderColor;
+      borderWidth = widget.focusedBorderWidth ?? 1;
+    } else if (!meta.enabled) {
+      fillColor =
+          widget.disabledBackgroundColor ??
+          theme.colorScheme.surfaceContainerHighest;
+      textColor = widget.disabledColor ?? theme.colorScheme.onSurfaceVariant;
+      borderColor = widget.disabledBorderColor;
+      borderWidth = widget.disabledBorderWidth ?? 1;
+    } else if (meta.isCluster) {
+      fillColor =
+          widget.clusterBackgroundColor ?? theme.colorScheme.surfaceContainer;
+      textColor = widget.clusterColor ?? theme.colorScheme.onSurface;
+      borderColor = widget.clusterBorderColor;
+      borderWidth = widget.clusterBorderWidth ?? 1;
+    } else {
+      fillColor =
+          widget.pillBackgroundColor ??
+          theme.colorScheme.surfaceContainerHighest;
+      textColor = widget.pillColor ?? theme.colorScheme.onSurface;
+      borderColor = widget.pillBorderColor;
+      borderWidth = widget.pillBorderWidth ?? 1;
+    }
+
+    // ── Resolve label (mirrors _recluster) ───────────────────
+    final dataById = <String, ListingMarkerData>{
+      for (final d in widget.listings) d.id: d,
+    };
+
+    final String label;
+    if (meta.isCluster && widget.clusterTextBuilder != null) {
+      final items = meta.memberIds
+          .map((mid) => dataById[mid])
+          .whereType<ListingMarkerData>()
+          .toList();
+      label = widget.clusterTextBuilder!(items);
+    } else if (!meta.isCluster && widget.pillTextBuilder != null) {
+      final item = dataById[meta.memberIds.first];
+      label = item != null ? widget.pillTextBuilder!(item) : meta.priceText;
+    } else {
+      label = meta.priceText;
+    }
+
     final icon = await PriceMarkerBuilder.build(
-      priceText: meta.priceText,
+      priceText: label,
       fillColor: fillColor,
       textColor: textColor,
+      borderColor: borderColor,
       textStyle: theme.textTheme.bodySmall,
       showArrow: widget.showArrows,
+      isCluster: meta.isCluster,
       devicePixelRatio: dpr,
+      borderWidth: borderWidth,
     );
 
     if (!mounted) return;
@@ -305,55 +689,57 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
         markerId: MarkerId(id),
         position: meta.position,
         icon: icon,
-        zIndex: zIndex,
+        zIndex: isFocused ? 1 : 0,
         anchor: Offset(0.5, widget.showArrows ? 1.0 : 0.5),
         consumeTapEvents: true,
-        onTap: () => widget.onMarkerTap?.call(id),
+        onTap: () => unawaited(_handleMarkerTap(id)),
       );
     });
   }
 
-  /// Switches the focused marker: restores the old one to primary,
-  /// highlights the new one with the accent (tertiary) colour.
-  Future<void> _updateFocus(String newId) async {
-    if (newId == _focusedId) return;
+  Future<void> _handleMarkerTap(String markerId) async {
+    final meta = _markerMeta[markerId];
+    if (meta == null) return;
 
-    final theme = Theme.of(context);
-    final oldId = _focusedId;
-    _focusedId = newId;
+    if (meta.memberIds.length == 1) {
+      await _updateFocus(markerId, sourceListingId: meta.memberIds.single);
+      widget.onMarkerTap?.call(meta.memberIds.single);
+      return;
+    }
 
-    // Restore previous focused marker to its default colour.
+    _focusedListingId = null;
+    await _updateFocus(markerId);
+  }
+
+  /// Switches the focused marker: restores the old one to its default
+  /// style, highlights the new one with the focused style.
+  Future<void> _updateFocus(String newId, {String? sourceListingId}) async {
+    if (sourceListingId != null) {
+      _focusedListingId = sourceListingId;
+    }
+    if (newId == _focusedMarkerId) return;
+
+    final oldId = _focusedMarkerId;
+    _focusedMarkerId = newId;
+
+    // Restore previous focused marker to its default style.
     if (oldId != null && _markers.containsKey(oldId)) {
-      final meta = _markerMeta[oldId];
-      if (meta != null) {
-        final fill = meta.enabled
-            ? theme.colorScheme.primary
-            : theme.colorScheme.surfaceContainerHighest;
-        final text = meta.enabled
-            ? theme.colorScheme.onPrimary
-            : theme.colorScheme.onSurfaceVariant;
-        await _rebuildMarkerIcon(
-          oldId,
-          fillColor: fill,
-          textColor: text,
-          zIndex: 0,
-        );
-      }
+      await _rebuildMarkerIcon(oldId);
     }
 
     // Highlight the new focused marker.
     if (_markers.containsKey(newId)) {
-      await _rebuildMarkerIcon(
-        newId,
-        fillColor: theme.colorScheme.tertiary,
-        textColor: theme.colorScheme.onTertiary,
-        zIndex: 1,
-      );
+      await _rebuildMarkerIcon(newId, isFocused: true);
     }
   }
 
   @override
   void didChangePlatformBrightness() {
+    PriceMarkerBuilder.clearCache();
+    if (_mapReady) {
+      unawaited(_syncMarkers());
+      return;
+    }
     setState(() {});
   }
 
@@ -367,6 +753,9 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     return GoogleMap(
       style: getMapStyle(context, isDarkMode),
       onMapCreated: _onMapCreated,
+      onCameraIdle: widget.interactive && widget.enableClustering
+          ? _onCameraIdleDebounced
+          : null,
       initialCameraPosition: widget.initialCamera ?? defaultCamera,
       markers: _markers.values.toSet(),
       // Controls
@@ -389,10 +778,68 @@ class _MarkerMeta {
   final LatLng position;
   final String priceText;
   final bool enabled;
+  final List<String> memberIds;
+  final bool isCluster;
 
   const _MarkerMeta({
     required this.position,
     required this.priceText,
     required this.enabled,
+    required this.memberIds,
+    this.isCluster = false,
   });
+}
+
+class _ResolvedListingMarker {
+  final String id;
+  final LatLng position;
+  final String priceText;
+  final bool enabled;
+
+  const _ResolvedListingMarker({
+    required this.id,
+    required this.position,
+    required this.priceText,
+    required this.enabled,
+  });
+}
+
+class _MarkerGroup {
+  final String markerId;
+  final LatLng position;
+  final List<String> memberIds;
+  final String label;
+  final bool enabled;
+
+  const _MarkerGroup({
+    required this.markerId,
+    required this.position,
+    required this.memberIds,
+    required this.label,
+    required this.enabled,
+  });
+
+  factory _MarkerGroup.fromListing({
+    required String markerId,
+    required _ResolvedListingMarker listing,
+  }) {
+    return _MarkerGroup(
+      markerId: markerId,
+      position: listing.position,
+      memberIds: [listing.id],
+      label: listing.priceText,
+      enabled: listing.enabled,
+    );
+  }
+
+  _MarkerGroup add(_ResolvedListingMarker listing) {
+    final nextMemberIds = [...memberIds, listing.id];
+    return _MarkerGroup(
+      markerId: markerId,
+      position: position,
+      memberIds: nextMemberIds,
+      label: '${nextMemberIds.length} results',
+      enabled: enabled || listing.enabled,
+    );
+  }
 }

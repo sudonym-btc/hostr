@@ -39,9 +39,12 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
   /// written after programmatic scrolls triggered via [scrollToId].
   final ValueNotifier<String?>? focusedItemId;
 
+  final Widget Function()? emptyBuilder;
+
   const ListWidget({
     super.key,
     required this.builder,
+    this.emptyBuilder,
     this.loadNextOnBottom = false,
     this.loadNextThreshold = 200,
     this.reserveBottomNavigationBarSpace = false,
@@ -240,7 +243,8 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
         }
 
         if (state.results.isEmpty) {
-          return Center(child: Text(AppLocalizations.of(context)!.noItems));
+          return widget.emptyBuilder?.call() ??
+              Center(child: Text(AppLocalizations.of(context)!.noItems));
         }
 
         final isLoading = state.synching || state.fetching;

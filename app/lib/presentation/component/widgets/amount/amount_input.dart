@@ -93,9 +93,12 @@ class AmountInputWidget extends FormField<Amount> {
                         top: kSpace1,
                         child: Text(
                           '${amountInput.min != null ? formatAmount(amountInput.min!) : '0'} — ${amountInput.max != null ? formatAmount(amountInput.max!) : '∞'}',
-                          style: Theme.of(
-                            field.context,
-                          ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                          style: Theme.of(field.context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  field.context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ),
                   ],
@@ -120,12 +123,16 @@ class AmountInputWidget extends FormField<Amount> {
                           buttonContent = Text(
                             buttons[index].toString(),
                             style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(color: Colors.white),
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
+                                ),
                           );
                         } else if (index == 11) {
                           buttonContent = Icon(
                             Icons.backspace,
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onPrimary,
                           );
                         } else {
                           buttonContent =
@@ -233,8 +240,8 @@ class AmountInputWidget extends FormField<Amount> {
                           },
                           child: MaterialButton(
                             onPressed: null,
-                            color: Colors.blue,
-                            textColor: Colors.white,
+                            color: Theme.of(context).colorScheme.primary,
+                            textColor: Theme.of(context).colorScheme.onPrimary,
                             padding: EdgeInsets.all(16),
                             shape: CircleBorder(),
                             child: buttonContent,

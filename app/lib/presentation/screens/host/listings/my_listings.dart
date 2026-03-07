@@ -7,6 +7,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/main.dart';
+import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -22,6 +23,7 @@ class MyListingsScreen extends StatefulWidget {
 class _MyListingsScreenState extends State<MyListingsScreen> {
   late final ListCubit<Listing> _listCubit;
   StreamSubscription? _updatesSub;
+  bool _placeholderPrecached = false;
 
   @override
   void initState() {
@@ -39,6 +41,15 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_placeholderPrecached) {
+      _placeholderPrecached = true;
+      precacheImage(NetworkImage(ImagesInput.placeholderUrl), context);
+    }
+  }
+
+  @override
   void dispose() {
     _updatesSub?.cancel();
     _listCubit.close();
@@ -53,7 +64,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         appBar: AppBar(
           title: Text(AppLocalizations.of(context)!.myListings),
           actions: [
-            IconButton(
+            IconButton.filledTonal(
               icon: Icon(Icons.add),
               onPressed: () {
                 AutoRouter.of(context).pushPath('edit-listing/new');
@@ -66,6 +77,32 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
             children: [
               Expanded(
                 child: ListWidget<Listing>(
+                  emptyBuilder: () => CustomPadding(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.max,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ready to list your place?',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Gap.vertical.xs(),
+                        Text(
+                          'Create a listing to start welcoming guests to your property today!',
+                        ),
+                        Gap.vertical.lg(),
+                        FilledButton(
+                          onPressed: () {
+                            AutoRouter.of(context).pushPath('edit-listing/new');
+                          },
+                          child: Text('Create a listing'),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   builder: (el) => ListingListItemWidget(listing: el),
                 ),
               ),

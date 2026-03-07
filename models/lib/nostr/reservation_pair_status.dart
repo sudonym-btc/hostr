@@ -1,4 +1,4 @@
-import 'reservation.dart';
+import 'package:models/nostr/main.dart';
 
 /// Summarises the status of a reservation trade by examining the seller's
 /// and buyer's latest reservation snapshots.
@@ -30,6 +30,8 @@ class ReservationPairStatus {
     return (buyerReservation?.parsedTags.listingAnchor ??
         buyerReservation?.parsedTags.listingAnchor)!;
   }
+
+  String get hostPubkey => getPubKeyFromAnchor(listingAnchor);
 
   /// The start date from whichever reservation is available.
   /// Prefers the committed reservation; falls back to the seller's, then

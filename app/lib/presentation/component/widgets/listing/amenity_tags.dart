@@ -35,6 +35,7 @@ class AmenityTagsWidget extends StatefulWidget {
 class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
   bool _expanded = false;
   bool _overflows = false;
+  double? _fullHeight;
   final GlobalKey _wrapKey = GlobalKey();
 
   // 3 rows × ~32 px chip + 2 × 4 px run spacing
@@ -51,7 +52,10 @@ class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
       if (box != null &&
           box.hasSize &&
           box.size.height > _collapsedMaxHeight + 2) {
-        setState(() => _overflows = true);
+        setState(() {
+          _overflows = true;
+          _fullHeight = box.size.height;
+        });
       }
     });
   }
@@ -87,9 +91,11 @@ class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
           clipBehavior: Clip.hardEdge,
           // BoxDecoration required for clipBehavior to work on AnimatedContainer
           decoration: const BoxDecoration(),
-          constraints: (_overflows && !_expanded)
-              ? const BoxConstraints(maxHeight: _collapsedMaxHeight)
-              : const BoxConstraints(),
+          constraints: BoxConstraints(
+            maxHeight: (_overflows && !_expanded)
+                ? _collapsedMaxHeight
+                : (_fullHeight ?? _collapsedMaxHeight),
+          ),
           child: wrap,
         ),
         if (_overflows)

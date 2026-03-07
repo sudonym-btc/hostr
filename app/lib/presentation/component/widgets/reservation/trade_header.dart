@@ -8,6 +8,7 @@ import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/reservation/actions/claim.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_timeline.dart';
+import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -100,17 +101,23 @@ class TradeHeaderView extends StatelessWidget {
     };
   }
 
+  Color _appBarScrolledColor(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.colorScheme.surfaceContainerHigh;
+  }
+
   Color _containerColor(BuildContext context) => switch (availability) {
     TradeAvailability.invalidReservation ||
     TradeAvailability.invalidTransitions => Theme.of(
       context,
     ).colorScheme.errorContainer,
-    _ => Theme.of(context).colorScheme.surfaceContainer,
+    _ => _appBarScrolledColor(context),
   };
 
   Widget _buildSummary(
     BuildContext context, {
     required bool showDetails,
+    required bool showImages,
     required List<PaymentEvent> paymentEvents,
     List<_TradeMenuItem> menuItems = const [],
   }) {
@@ -120,76 +127,100 @@ class TradeHeaderView extends StatelessWidget {
         : null;
 
     final statusBanners = [?availabilityBanner, ?paymentStatusChip];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _navigateToListing(context),
-                child: Text(
-                  listing.title.toString(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 75),
+            child: SizedBox(
+              width: 75,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: listing.images.isNotEmpty
+                    ? BlossomImage(
+                        image: listing.images.first,
+                        pubkey: listing.pubKey,
+                        fit: BoxFit.cover,
+                      )
+                    : const SizedBox.shrink(),
               ),
-              Gap.vertical.xs(),
-              Text(
-                formatDateRangeShort(
-                  DateTimeRange(start: start, end: end),
-                  Localizations.localeOf(context),
-                ),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              if (statusBanners.isNotEmpty) Gap.vertical.sm(),
-              if (statusBanners.isNotEmpty)
-                Wrap(
-                  spacing: kSpace2,
-                  runSpacing: kSpace2,
-                  children: statusBanners,
-                ),
-            ],
+            ),
           ),
-        ),
-        if (showDetails || menuItems.isNotEmpty)
-          PopupMenuButton<void>(
-            padding: EdgeInsets.zero,
-            iconSize: 20,
-            tooltip: '',
-            icon: const Icon(Icons.more_vert),
-            itemBuilder: (ctx) => [
-              ...menuItems.map(
-                (item) => PopupMenuItem<void>(
-                  onTap: item.onTap,
-                  child: Row(
-                    children: [
-                      Icon(item.icon, size: 18),
-                      const SizedBox(width: 12),
-                      Text(item.label),
-                    ],
+          Gap.horizontal.md(),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _navigateToListing(context),
+                  child: Text(
+                    listing.title.toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
-              ),
-              if (showDetails) ...[
-                if (menuItems.isNotEmpty) const PopupMenuDivider(),
-                PopupMenuItem<void>(
-                  onTap: () => _showTradeDetailsSheet(context),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 18),
-                      SizedBox(width: 12),
-                      Text('Information'),
-                    ],
+                // Gap.vertical.xs(),
+                Text(
+                  formatDateRangeShort(
+                    DateTimeRange(start: start, end: end),
+                    Localizations.localeOf(context),
                   ),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
+                if (statusBanners.isNotEmpty) Gap.vertical.sm(),
+                if (statusBanners.isNotEmpty)
+                  Wrap(
+                    spacing: kSpace2,
+                    runSpacing: kSpace2,
+                    children: statusBanners,
+                  ),
               ],
-            ],
+            ),
           ),
-      ],
+          if (showDetails || menuItems.isNotEmpty) Gap.horizontal.sm(),
+          if (showDetails || menuItems.isNotEmpty)
+            Align(
+              alignment: Alignment.centerRight,
+              child: PopupMenuButton<void>(
+                padding: EdgeInsets.zero,
+                iconSize: 20,
+                tooltip: '',
+                icon: const Icon(Icons.more_vert),
+                itemBuilder: (ctx) => [
+                  ...menuItems.map(
+                    (item) => PopupMenuItem<void>(
+                      onTap: item.onTap,
+                      child: Row(
+                        children: [
+                          Icon(item.icon, size: 18),
+                          Gap.horizontal.md(),
+                          Text(item.label),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (showDetails) ...[
+                    if (menuItems.isNotEmpty) const PopupMenuDivider(),
+                    PopupMenuItem<void>(
+                      onTap: () => _showTradeDetailsSheet(context),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 18),
+                          Gap.horizontal.md(),
+                          Text('Information'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -543,12 +574,15 @@ class TradeHeaderView extends StatelessWidget {
               stream: subscriptionsLive,
               initialData: subscriptionsLive?.value ?? false,
               builder: (context, isLiveSnapshot) {
-                final isCommitPhase =
-                    (isLiveSnapshot.data ?? false) && hasFunded;
+                final isLive = isLiveSnapshot.data ?? false;
+                final isCommitPhase = isLive && hasFunded;
                 final commitMenuItems = isCommitPhase
                     ? _buildCommitMenuItems(context)
                     : <_TradeMenuItem>[];
-                final actionRow = isCommitPhase
+                // Only show the negotiation row once subscriptions are live
+                // so we know the true phase. Otherwise the row flashes open
+                // and immediately animates away when the commit phase kicks in.
+                final actionRow = isCommitPhase || !isLive
                     ? null
                     : _buildNegotiationRow(context, paymentEvents);
 
@@ -562,6 +596,7 @@ class TradeHeaderView extends StatelessWidget {
                         CustomPadding(
                           child: _buildSummary(
                             context,
+                            showImages: true,
                             showDetails: showDetails,
                             paymentEvents: paymentEvents,
                             menuItems: commitMenuItems,
@@ -636,47 +671,43 @@ class TradeHeader extends StatelessWidget {
     final trade = context.read<ThreadCubit>().thread.trade!;
     // Subscribe to trade.state so this widget rebuilds when runtimeReady
     // changes. Without this, actions$ is captured as Stream.empty() on the
-    // first build (context$ emits before _actions$ is assigned in
-    // _doEnsureRuntime), and the StreamBuilder never picks up the real stream.
+    // first build, and the StreamBuilder never picks up the real stream.
     return StreamBuilder<TradeState>(
       stream: trade.state,
       initialData: trade.state.value,
       builder: (context, stateSnapshot) {
         final tradeState = stateSnapshot.data!;
+
+        // Wait for runtime to populate listing & profile.
+        final listing = trade.listing;
+        final hostProfile = trade.hostProfile;
+        if (listing == null || hostProfile == null) {
+          return const SizedBox.shrink();
+        }
+
         return StreamBuilder<TradeResolution>(
           stream: trade.actions$,
           builder: (context, actionsSnapshot) {
-            return StreamBuilder<TradeContext?>(
-              stream: trade.context$,
-              initialData: trade.context$.value,
-              builder: (context, contextSnapshot) {
-                final tradeContext = contextSnapshot.data;
-                final lastRequest =
-                    trade.thread.state.value.lastReservationRequest;
+            final lastRequest = trade.thread.state.value.lastReservationRequest;
+            final resolution = actionsSnapshot.data;
 
-                if (tradeContext == null) return const SizedBox.shrink();
-
-                final resolution = actionsSnapshot.data;
-
-                return TradeHeaderView(
-                  listing: tradeContext.listing,
-                  listingProfile: tradeContext.profile,
-                  start: tradeState.start,
-                  end: tradeState.end,
-                  amount: lastRequest.amount,
-                  availability:
-                      resolution?.availability ?? TradeAvailability.available,
-                  availabilityReason: resolution?.availabilityReason,
-                  runtimeReady: tradeState.runtimeReady,
-                  actions: resolution?.actions ?? const [],
-                  paymentEventsStream: trade.subscriptions.paymentEvents,
-                  reservationStream: trade.subscriptions.reservationStream,
-                  tradeId: tradeState.tradeId,
-                  hostPubKey: tradeContext.profile.pubKey,
-                  transitionsStream: trade.subscriptions.transitionsStream,
-                  subscriptionsLive: trade.subscriptions.isLive,
-                );
-              },
+            return TradeHeaderView(
+              listing: listing,
+              listingProfile: hostProfile,
+              start: tradeState.start,
+              end: tradeState.end,
+              amount: lastRequest.amount,
+              availability:
+                  resolution?.availability ?? TradeAvailability.available,
+              availabilityReason: resolution?.availabilityReason,
+              runtimeReady: tradeState.runtimeReady,
+              actions: resolution?.actions ?? const [],
+              paymentEventsStream: trade.subscriptions.paymentEvents,
+              reservationStream: trade.subscriptions.reservationStream,
+              tradeId: tradeState.tradeId,
+              hostPubKey: trade.hostPubKey,
+              transitionsStream: trade.subscriptions.transitionsStream,
+              subscriptionsLive: trade.subscriptions.isLive,
             );
           },
         );

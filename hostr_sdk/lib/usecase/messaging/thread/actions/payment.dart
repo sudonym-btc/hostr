@@ -3,19 +3,18 @@ import 'package:injectable/injectable.dart';
 import '../../../../util/stream_status.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../trade.dart';
-import '../trade_context.dart';
 import 'trade_action_resolver.dart';
 
 @injectable
 class PaymentActions {
-  final ThreadTrade trade;
+  final Trade trade;
 
   PaymentActions({required this.trade});
 
   static List<TradeAction> resolve(
     List<PaymentEvent> paymentEvents,
     StreamStatus paymentStreamStatus,
-    ThreadPartyRole role,
+    TradeRole role,
   ) {
     final paymentStateFresh =
         paymentStreamStatus is StreamStatusLive ||
@@ -33,7 +32,7 @@ class PaymentActions {
 
     if (!paymentStateFresh) return actions;
 
-    if (role == ThreadPartyRole.host) {
+    if (role == TradeRole.host) {
       actions.addAll([
         if (!hasTerminalPaymentState && usedEscrow) TradeAction.claim,
         if (!hasTerminalPaymentState && paymentEvents.isNotEmpty)

@@ -4,12 +4,11 @@ import 'package:models/main.dart';
 import '../../../../util/main.dart';
 import '../../../reservations/reservations.dart';
 import '../trade.dart';
-import '../trade_context.dart';
 import 'trade_action_resolver.dart';
 
 @injectable
 class ReservationActions {
-  final ThreadTrade trade;
+  final Trade trade;
   final Reservations reservations;
 
   ReservationActions({required this.trade, required this.reservations});
@@ -17,9 +16,8 @@ class ReservationActions {
   static List<TradeAction> resolve(
     List<Reservation> reservations,
     StreamStatus reservationStreamStatus,
-    Listing listing,
     List<String> participantPubkeys,
-    ThreadPartyRole role, {
+    TradeRole role, {
     List<Reservation>? allReservations,
   }) {
     final actions = <TradeAction>[];
