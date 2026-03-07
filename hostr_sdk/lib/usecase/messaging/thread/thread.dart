@@ -19,7 +19,7 @@ class Thread {
   final CustomLogger logger;
   final Messaging messaging;
   final Auth auth;
-  ThreadTrade? trade;
+  Trade? trade;
   final BehaviorSubject<ThreadState> state;
   final List<StreamSubscription> _stateSubscriptions = [];
 
@@ -31,6 +31,8 @@ class Thread {
         message.child is Reservation &&
         (message.child as Reservation).isNegotiation,
   );
+
+  bool get isTradeCandidate => _isTradeCandidate(state.value);
 
   Thread(
     @factoryParam this.anchor, {
@@ -60,7 +62,7 @@ class Thread {
           .take(1)
           .listen((_) {
             print('Thread $anchor is a trade candidate, initializing trade...');
-            trade = getIt<ThreadTrade>(param1: this);
+            trade = getIt<Trade>(param1: this);
             _stateSubscriptions.add(trade!.state.listen((_) => _emitState()));
           }),
     );

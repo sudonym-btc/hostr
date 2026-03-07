@@ -41,10 +41,10 @@ class ThreadReplyView extends StatelessWidget {
             maxLines: 3,
             minLines: 1,
             autofocus: false,
-            style: Theme.of(context).textTheme.bodySmall,
+            // style: Theme.of(context).textTheme.bodySmall,
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: Theme.of(context).textTheme.bodySmall,
+              // hintStyle: Theme.of(context).textTheme.bodySmall,
               label: label != null
                   ? Text(label!, style: Theme.of(context).textTheme.bodySmall)
                   : null,

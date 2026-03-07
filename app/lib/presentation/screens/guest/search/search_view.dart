@@ -99,6 +99,7 @@ class SearchViewState extends State<SearchView> {
             create: (context) => MapViewCubit(),
             child: BlocListener<FilterCubit, FilterState>(
               listener: (context, state) {
+                _focusedListingId.value = null;
                 _resetPanel();
               },
               child: Scaffold(
@@ -217,12 +218,12 @@ class SearchViewState extends State<SearchView> {
                               child: Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
+                                  vertical: kSpace3,
                                 ),
                                 child: Center(
                                   child: Container(
                                     width: 32,
-                                    height: 4,
+                                    height: kSpace1,
                                     decoration: BoxDecoration(
                                       color: Theme.of(
                                         context,

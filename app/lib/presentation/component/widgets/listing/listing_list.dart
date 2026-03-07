@@ -105,6 +105,7 @@ class _ListingsWidgetState extends State<ListingsWidget> {
         itemPositionsListener: _itemPositionsListener,
         resultCountBuilder: (count, hasMore) => CustomPadding(
           bottom: 0,
+          top: 0,
           child: Row(
             children: [
               FormLabel(

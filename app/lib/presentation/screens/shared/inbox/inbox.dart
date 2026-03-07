@@ -24,7 +24,12 @@ class InboxScreen extends StatelessWidget {
               );
           if (threads.isEmpty) {
             return Center(
-              child: Text(AppLocalizations.of(context)!.noMessagesYet),
+              child: Text(
+                AppLocalizations.of(context)!.noMessagesYet,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             );
           }
           return ListView(

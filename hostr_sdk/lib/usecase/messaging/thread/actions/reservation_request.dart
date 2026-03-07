@@ -2,14 +2,13 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
 import '../trade.dart';
-import '../trade_context.dart';
 import 'trade_action_resolver.dart';
 
 /// Resolves available trade actions based on negotiate-stage [Reservation]s
 /// (formerly `ReservationRequest`s).
 @injectable
 class ReservationRequestActions {
-  final ThreadTrade trade;
+  final Trade trade;
 
   ReservationRequestActions({required this.trade});
 
@@ -17,7 +16,7 @@ class ReservationRequestActions {
     List<Reservation> reservationRequests,
     Listing listing,
     String ourPubkey,
-    ThreadPartyRole role,
+    TradeRole role,
   ) {
     final actions = <TradeAction>[];
     final lastRequest = reservationRequests.isNotEmpty
@@ -31,7 +30,7 @@ class ReservationRequestActions {
         ? listing.cost(lastRequest.start, lastRequest.end).value <=
               lastRequest.amount!.value
         : false;
-    if (role == ThreadPartyRole.guest) {
+    if (role == TradeRole.guest) {
       actions.addAll([
         if (!lastRequestSentByUs || enoughPrice) TradeAction.pay,
       ]);

@@ -10,7 +10,6 @@ import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../reservation_pairs/reservation_pairs.dart';
 import '../user_subscriptions.dart';
 import 'thread.dart';
-import 'trade_context.dart';
 
 /// Per-trade subscription layer that **filters** the shared
 /// [UserSubscriptions] streams instead of opening its own Nostr / EVM
@@ -63,19 +62,15 @@ class TradeSubscriptions {
   final BehaviorSubject<bool> _isLive = BehaviorSubject.seeded(false);
   ValueStream<bool> get isLive => _isLive;
 
-  Future<void> start(TradeContext context) async {
+  void start({required String tradeId, required String listingAnchor}) {
     if (_started) return;
     _started = true;
-
-    final tradeId = thread.trade!.state.value.tradeId;
-    final listing = context.listing;
-    final listingAnchor = thread.trade!.getListingAnchor();
 
     logger.d('Starting trade subscriptions for trade $tradeId');
 
     // ── Listing-level reservations (own subscription) ─────────────────
     listingReservationsStream = reservationPairs.subscribeVerified(
-      listingAnchor: listing.anchor!,
+      listingAnchor: listingAnchor,
       forceValidatePredicate: (pair) {
         final pairTradeId =
             pair.sellerReservation?.getDtag() ??
@@ -134,10 +129,7 @@ class TradeSubscriptions {
     if (!_started) return;
     _started = false;
 
-    logger.d(
-      'Stopping trade subscriptions for trade '
-      '${thread.trade!.state.value.tradeId}',
-    );
+    logger.d('Stopping trade subscriptions');
 
     for (final sub in _subscriptions) await sub.cancel();
     _subscriptions.clear();

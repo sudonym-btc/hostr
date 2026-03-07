@@ -31,11 +31,22 @@ class AmountWidget extends StatelessWidget {
         if (toPubkey != null)
           ProfileProvider(
             pubkey: toPubkey!,
-            builder: (context, profile) =>
-                Text(profile.data?.metadata.getName() ?? ''),
+            builder: (context, profile) => Text(
+              profile.data?.metadata.getName() ?? '',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           )
         else if (to != null)
-          Text(to!, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(
+            to!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         if (toPubkey != null || to != null) Gap.vertical.sm(),
         GestureDetector(
           onTap: onAmountTap,

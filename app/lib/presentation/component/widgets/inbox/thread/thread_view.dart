@@ -53,17 +53,19 @@ class ThreadReadyWidget extends StatelessWidget {
         backgroundColor: Theme.of(context).bottomAppBarTheme.color,
         appBar: AppBar(
           titleSpacing: 0,
+          surfaceTintColor: Colors.transparent,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
           title: ThreadHeaderWidget(
             counterparties: counterparties,
             onCounterpartyTap: (profile) =>
                 ProfilePopup.show(context, profile.pubKey),
           ),
         ),
-        bottomNavigationBar: AnimatedPadding(
-          duration: const Duration(milliseconds: 0),
-          curve: Curves.easeOut,
+        bottomNavigationBar: Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom,
+            bottom: MediaQuery.viewInsetsOf(
+              context,
+            ).bottom.clamp(0, double.infinity),
           ),
           child: SafeArea(
             top: false,
@@ -75,22 +77,23 @@ class ThreadReadyWidget extends StatelessWidget {
         body: Stack(
           children: [
             Positioned.fill(child: ThreadContent(participants: participants)),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: ClipRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  child: ColoredBox(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surface.withValues(alpha: 0.82),
-                    child: const TradeHeader(),
+            if (context.read<ThreadCubit>().thread.isTradeCandidate)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: ColoredBox(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surface.withValues(alpha: 0.82),
+                      child: const TradeHeader(),
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),

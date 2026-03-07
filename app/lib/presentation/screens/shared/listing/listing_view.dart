@@ -380,7 +380,12 @@ class ListingViewBody extends StatelessWidget {
         Gap.vertical.custom(kSpace1 / 2),
         Row(
           children: [
-            Text(hostedByText),
+            Text(
+              hostedByText,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
             Gap.horizontal.sm(),
             Flexible(child: hostWidget),
           ],
@@ -454,7 +459,12 @@ class ListingViewBody extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           if (blockedReservations.isEmpty)
-            Text(AppLocalizations.of(context)!.noBlockedDates)
+            Text(
+              AppLocalizations.of(context)!.noBlockedDates,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
           else
             ListView.builder(
               itemCount: blockedReservations.length,

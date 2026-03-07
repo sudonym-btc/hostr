@@ -4,10 +4,12 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
-import 'package:hostr/presentation/screens/shared/listing/image_picker.dart';
+import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr/presentation/screens/shared/profile/edit_profile.controller.dart';
 import 'package:hostr/presentation/screens/shared/profile/edit_profile_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+
+import '../listing/image_picker.dart';
 
 @RoutePage()
 class EditProfileScreen extends StatelessWidget {
@@ -41,6 +43,8 @@ class EditProfileViewState extends State<EditProfileView> {
       controller.aboutMeController,
       controller.nip05Controller,
       controller.lightningAddressController,
+      controller.nip05Valid,
+      controller.lnurlValid,
     ]);
   }
 
@@ -79,30 +83,63 @@ class EditProfileViewState extends State<EditProfileView> {
       AspectRatio(
         aspectRatio: 16 / 9,
         child: ImageUpload(
+          placeholder: Stack(
+            fit: StackFit.expand,
+            children: [
+              BlurredImage(
+                child: Image.network(
+                  'https://randomuser.me/api/portraits/men/1.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => ColoredBox(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                  ),
+                ),
+              ),
+              Center(
+                child: FilledButton.tonalIcon(
+                  onPressed: () =>
+                      controller.imageController.pickMultipleImages(),
+                  icon: const Icon(Icons.add_a_photo_outlined),
+                  label: Text(AppLocalizations.of(context)!.addImage),
+                ),
+              ),
+            ],
+          ),
           controller: controller.imageController,
           pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
         ),
       ),
+      Gap.vertical.sm(),
       CustomPadding(
+        bottom: 0,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FormLabel(label: 'Name'),
             TextFormField(
               controller: controller.nameController,
-              decoration: const InputDecoration(hintText: 'Name'),
+              decoration: const InputDecoration(hintText: 'John Doe'),
             ),
+            Gap.vertical.md(),
             FormLabel(label: 'About me'),
             TextFormField(
               controller: controller.aboutMeController,
               maxLines: 3,
               minLines: 1,
-              decoration: const InputDecoration(hintText: 'About me'),
+              decoration: const InputDecoration(
+                hintMaxLines: 1,
+                hintText:
+                    'I\'m an avid traveler who loves local neighborhoods, great coffee, and easy check-ins.',
+              ),
             ),
+            Gap.vertical.md(),
             FormLabel(label: 'Nostr address'),
             Nip05Input(
               controller: controller.nip05Controller,
               validator: controller.validateNip05,
+              validNotifier: controller.nip05Valid,
               pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
             ),
             Gap.vertical.md(),
@@ -110,6 +147,7 @@ class EditProfileViewState extends State<EditProfileView> {
             LnurlInput(
               controller: controller.lightningAddressController,
               validator: controller.validateLightningAddress,
+              validNotifier: controller.lnurlValid,
             ),
           ],
         ),

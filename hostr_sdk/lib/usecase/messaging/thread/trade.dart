@@ -14,23 +14,23 @@ import '../../reservations/reservations.dart';
 import 'actions/reservation.dart';
 import 'actions/trade_action_resolver.dart';
 import 'thread.dart';
-import 'trade_context.dart';
 import 'trade_state.dart';
 import 'trade_subscriptions.dart';
 
-@injectable
-class ThreadTrade {
-  final Thread thread;
-  final CustomLogger logger;
+/// Role of the local user in a trade.
+enum TradeRole { host, guest }
 
+@injectable
+class Trade {
+  final CustomLogger logger;
   final Auth auth;
   final Listings listings;
   final MetadataUseCase metadata;
 
   final TradeSubscriptions subscriptions;
 
-  /// Resolved once, before subscriptions start. Null until context is loaded.
-  final BehaviorSubject<TradeContext?> context$ = BehaviorSubject.seeded(null);
+  /// The thread backing this trade's messaging.
+  final Thread thread;
 
   /// Derived stream of available actions. Emits whenever any of the input
   /// streams change. Empty until the runtime is started.
@@ -48,13 +48,45 @@ class ThreadTrade {
   StreamSubscription<Message>? _messageSubscription;
   Future<void>? _inFlightEnsureRuntime;
 
-  ThreadTrade({
+  /// The listing anchor extracted from the last reservation request.
+  final String listingAnchor;
+
+  /// The host pubkey, derived from the listing anchor (kind:pubkey:dtag).
+  final String hostPubKey;
+
+  /// Our role in this trade, derived by comparing [hostPubKey] to our pubkey.
+  final TradeRole role;
+
+  /// The listing associated with this trade. Populated after runtime starts.
+  Listing? listing;
+
+  /// The host's profile metadata. Populated after runtime starts.
+  ProfileMetadata? hostProfile;
+
+  Trade({
     @factoryParam required this.thread,
     required this.logger,
     required this.auth,
     required this.listings,
     required this.metadata,
-  }) : state = BehaviorSubject<TradeState>.seeded(
+  }) : listingAnchor =
+           thread.state.value.lastReservationRequest.parsedTags.listingAnchor,
+       hostPubKey = getPubKeyFromAnchor(
+         thread.state.value.lastReservationRequest.parsedTags.listingAnchor,
+       ),
+       role =
+           getPubKeyFromAnchor(
+                 thread
+                     .state
+                     .value
+                     .lastReservationRequest
+                     .parsedTags
+                     .listingAnchor,
+               ) ==
+               auth.getActiveKey().publicKey
+           ? TradeRole.host
+           : TradeRole.guest,
+       state = BehaviorSubject<TradeState>.seeded(
          TradeState.initial(
            tradeId: thread.state.value.lastReservationRequest.getDtag()!,
            start: thread.state.value.lastReservationRequest.start,
@@ -65,20 +97,13 @@ class ThreadTrade {
        subscriptions = getIt<TradeSubscriptions>(param1: thread);
 
   Future<KeyPair> activeKeyPair() async {
-    final ctx =
-        context$.value ??
-        await context$.where((e) => e != null).first as TradeContext;
-    return ctx.listing.pubKey == auth.getActiveKey().publicKey
+    return role == TradeRole.host
         ? auth.getActiveKey()
         : saltedKey(
             key: auth.getActiveKey().privateKey!,
             // @todo: must be salt!
             salt: state.value.tradeId,
           );
-  }
-
-  String getListingAnchor() {
-    return thread.state.value.lastReservationRequest.parsedTags.listingAnchor;
   }
 
   Future<void> start() async {
@@ -110,42 +135,27 @@ class ThreadTrade {
     if (_runtimeStarted) return;
     _runtimeStarted = true;
 
-    // 1. Resolve context (listing + profile + role) before anything else.
-    final listing = await listings.getOneByAnchor(getListingAnchor());
-    if (listing == null) {
+    // Fetch listing — needed for action resolution (price, allowBarter).
+    final fetchedListing = await listings.getOneByAnchor(listingAnchor);
+    if (fetchedListing == null) {
       logger.w(
         'Cannot start runtime for trade ${state.value.tradeId}: listing unavailable',
       );
       _runtimeStarted = false;
       return;
     }
-    final profile = await metadata.loadMetadata(listing.pubKey);
-    if (profile == null) {
-      logger.w(
-        'Cannot start runtime for trade ${state.value.tradeId}: profile unavailable',
-      );
-      _runtimeStarted = false;
-      return;
-    }
-    final context = TradeContext(
-      listing: listing,
-      profile: profile,
-      role: getRole(
-        hostPubkey: listing.pubKey,
-        ourPubkey: auth.getActiveKey().publicKey,
-      ),
+    listing = fetchedListing;
+
+    // Fetch host profile.
+    hostProfile = await metadata.loadMetadata(hostPubKey);
+
+    // Start subscriptions.
+    subscriptions.start(
+      tradeId: state.value.tradeId,
+      listingAnchor: listingAnchor,
     );
-    if (!context$.isClosed) {
-      context$.add(context);
-    }
 
-    // 2. Start subscriptions with the resolved context.
-    await subscriptions.start(context);
-
-    // 3. Build the derived actions stream from concrete stream emissions.
-    // listingReservationsStream.stream and reservationStream.stream both emit
-    // List<Validation<...>> snapshots (ValidatedStreamWithStatus).
-    // paymentEvents.list emits List<PaymentEvent> snapshots.
+    // Build the derived actions stream from concrete stream emissions.
     _actions$ = Rx.combineLatest6(
       subscriptions.listingReservationsStream!.list,
       subscriptions.reservationStream!.list,
@@ -156,7 +166,8 @@ class ThreadTrade {
       (allRes, ownRes, ownStatus, payments, paymentsStatus, _) =>
           TradeActionResolver.resolve(
             threadState: thread.state.value,
-            context: context,
+            listing: fetchedListing,
+            role: role,
             tradeId: state.value.tradeId,
             start: state.value.start,
             end: state.value.end,
@@ -266,7 +277,6 @@ class ThreadTrade {
   Future<void> close() async {
     await deactivate();
     await state.close();
-    await context$.close();
     await _refreshTrigger.close();
   }
 }

@@ -76,7 +76,17 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
 
   void watch() {
     _ownsTradeLifecycle = true;
-    thread.trade!.start();
+    if (thread.trade != null) {
+      thread.trade!.start();
+    } else {
+      // Trade is created lazily by Thread; start it once available.
+      _subscriptions.add(
+        thread.state.stream
+            .where((_) => thread.trade != null)
+            .take(1)
+            .listen((_) => thread.trade!.start()),
+      );
+    }
   }
 
   @override

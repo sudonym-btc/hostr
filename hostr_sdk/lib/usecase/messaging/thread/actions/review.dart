@@ -4,7 +4,7 @@ import '../trade.dart';
 
 @injectable
 class ReviewActions {
-  final ThreadTrade trade;
+  final Trade trade;
 
   ReviewActions({required this.trade});
 

@@ -8,6 +8,7 @@ import 'package:models/main.dart';
 /// Shared across profile_header, profile_popup, edit_profile_inputs, etc.
 /// Call [verify] with a [ProfileMetadata] to kick off both checks.
 class ProfileVerificationController extends ChangeNotifier {
+  bool _disposed = false;
   Nip05VerificationResult? _nip05Result;
   Lud16VerificationResult? _lud16Result;
   bool _nip05Loading = false;
@@ -17,6 +18,17 @@ class ProfileVerificationController extends ChangeNotifier {
   Lud16VerificationResult? get lud16Result => _lud16Result;
   bool get nip05Loading => _nip05Loading;
   bool get lud16Loading => _lud16Loading;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
 
   /// Run both NIP-05 and LUD-16 verification for [profile].
   void verify(ProfileMetadata profile) {

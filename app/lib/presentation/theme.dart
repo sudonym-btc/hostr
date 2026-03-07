@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 ThemeData getTheme(bool isDark) {
   var darkColorScheme = ColorScheme.fromSeed(
-    seedColor: Colors.deepPurple,
+    seedColor: Colors.white,
     brightness: Brightness.dark,
   );
-  final lightColorScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple);
+  final lightColorScheme = ColorScheme.fromSeed(seedColor: Colors.white);
 
   final colorScheme = isDark ? darkColorScheme : lightColorScheme;
   final base = isDark ? ThemeData.dark() : ThemeData.light();

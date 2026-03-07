@@ -11,7 +11,7 @@ class PriceText extends StatelessWidget {
       price,
       style: Theme.of(
         context,
-      ).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.bold),
+      ).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700),
     );
   }
 }

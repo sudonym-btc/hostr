@@ -20,6 +20,10 @@ class EditProfileController extends UpsertFormController {
   String _originalLud16 = '';
   String? _originalPicture;
 
+  /// Validity signals set by the input widgets themselves.
+  final ValueNotifier<bool> nip05Valid = ValueNotifier(true);
+  final ValueNotifier<bool> lnurlValid = ValueNotifier(true);
+
   @override
   bool get isDirty {
     if (nameController.text != _originalName) return true;
@@ -34,7 +38,11 @@ class EditProfileController extends UpsertFormController {
   }
 
   @override
-  bool get canSubmit => super.canSubmit && imageController.canSubmit;
+  bool get canSubmit =>
+      super.canSubmit &&
+      imageController.canSubmit &&
+      nip05Valid.value &&
+      lnurlValid.value;
 
   void setState(ProfileMetadata? profile) {
     imageController.setImages(

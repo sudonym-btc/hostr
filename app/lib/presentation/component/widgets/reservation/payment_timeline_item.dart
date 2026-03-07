@@ -34,18 +34,26 @@ class PaymentTimelineItem extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(style: Theme.of(context).textTheme.bodyMedium, title),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           description != null
-              ? Text(description, style: Theme.of(context).textTheme.bodySmall)
+              ? Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                )
               : SizedBox.shrink(),
           Text(
             formatDateLong(timestamp),
-            style: Theme.of(context).textTheme.bodySmall,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
-
-          // ProfileChipWidget(
-          //   id: event.escrowService.service.pubKey,
-          // ),
         ],
       );
     }
@@ -110,6 +118,9 @@ class PaymentTimelineItem extends StatelessWidget {
       AppLocalizations.of(
         context,
       )!.timelineEventType(event.runtimeType.toString()),
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
     );
   }
 }

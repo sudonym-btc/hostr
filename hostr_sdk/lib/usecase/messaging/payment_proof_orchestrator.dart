@@ -248,7 +248,7 @@ class PaymentProofOrchestrator {
   }
 
   /// Derives the salted key pair for a guest's self-signed reservation,
-  /// mirroring [ThreadTrade.activeKeyPair].
+  /// mirroring [Trade.activeKeyPair].
   KeyPair _deriveKeyPair({
     required String hostPubkey,
     required String tradeId,

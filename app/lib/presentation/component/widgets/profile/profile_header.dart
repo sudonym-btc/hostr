@@ -122,6 +122,7 @@ class _ProfileHeaderWidgetState extends State<ProfileHeaderWidget> {
                       displayName.isNotEmpty
                           ? displayName[0].toUpperCase()
                           : '?',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
             ),
 
@@ -156,9 +157,9 @@ class _ProfileHeaderWidgetState extends State<ProfileHeaderWidget> {
             if (about.isNotEmpty)
               Text(
                 about,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
           ],
         ),
