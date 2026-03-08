@@ -1,7 +1,9 @@
 import 'package:ndk/ndk.dart';
+
 // import 'package:ndk_rust_verifier/ndk_rust_verifier.dart';
 
 import 'datasources/storage.dart';
+import 'usecase/calendar/calendar.dart';
 import 'util/custom_logger.dart';
 
 /// Returns [RustEventVerifier] when the native library is available,
@@ -24,6 +26,7 @@ class HostrConfig {
   final HostrSDKStorage storage;
   final KeyValueStorage keyValueStorage;
   final CustomLogger logger;
+  final CalendarPort? calendarPort;
 
   /// Minimum EVM balance (in sats) per address before auto-withdrawal
   /// triggers.  Must be above typical swap-out fees to avoid losing money
@@ -37,6 +40,7 @@ class HostrConfig {
     required this.hostrRelay,
     required this.rootstockConfig,
     this.autoWithdrawMinimumSats = 10000,
+    this.calendarPort,
     KeyValueStorage? storage,
     NdkConfig? ndk,
     CustomLogger? logs,

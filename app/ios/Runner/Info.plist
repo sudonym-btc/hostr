@@ -28,6 +28,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>$(PRODUCT_NAME) scan QRs and take pictures of listings.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>$(PRODUCT_NAME) add your trips and hostings to your calendar.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>$(PRODUCT_NAME) sync your trips and hostings with your calendar.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>$(PRODUCT_NAME) save photos of listings.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

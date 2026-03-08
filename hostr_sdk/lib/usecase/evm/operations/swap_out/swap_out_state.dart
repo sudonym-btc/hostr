@@ -282,13 +282,23 @@ final class SwapOutFailed extends SwapOutState {
   final Object error;
   final StackTrace? stackTrace;
   const SwapOutFailed(this.error, {this.data, this.stackTrace});
+
+  /// A failed swap-out is **not** terminal when the user has locked funds
+  /// on-chain. A refund (cooperative or timelock) may still be possible.
   @override
-  bool get isTerminal => true;
+  bool get isTerminal {
+    final d = data;
+    if (d == null) return true;
+    // Funds locked but no resolution tx → recoverable.
+    if (d.lockTxHash != null && d.resolutionTxHash == null) return false;
+    return true;
+  }
+
   @override
   Map<String, dynamic> toJson() => {
     'state': 'failed',
     if (data != null) 'id': data!.boltzId,
-    'isTerminal': true,
+    'isTerminal': isTerminal,
     'updatedAt': DateTime.now().toIso8601String(),
     if (data != null) ...data!.toJson(),
     'errorMessage': error.toString(),

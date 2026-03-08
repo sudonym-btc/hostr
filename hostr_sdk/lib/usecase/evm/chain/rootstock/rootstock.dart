@@ -19,6 +19,10 @@ class Rootstock extends EvmChain {
     : super(client: Web3Client(config.rootstockConfig.rpcUrl, http.Client()));
 
   @override
+  Web3Client buildClient() =>
+      Web3Client(config.rootstockConfig.rpcUrl, http.Client());
+
+  @override
   Future<({BitcoinAmount min, BitcoinAmount max})> getSwapInLimits() async {
     final pair = await getIt<BoltzClient>().getReversePair();
     return (

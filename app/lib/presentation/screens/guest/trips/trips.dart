@@ -18,17 +18,17 @@ class TripsScreen extends StatefulWidget {
 }
 
 class _TripsScreenState extends State<TripsScreen> {
-  late final StreamWithStatus<Validation<ReservationPairStatus>> _pairsStream;
+  late final StreamWithStatus<Validation<ReservationPairStatus>> _tripsStream;
   late final Stream<(List<Validation<ReservationPairStatus>>, StreamStatus)>
   _combined;
 
   @override
   void initState() {
     super.initState();
-    _pairsStream = getIt<Hostr>().userSubscriptions.allMyReservationPairs$;
+    _tripsStream = getIt<Hostr>().userSubscriptions.myTrips$;
     _combined = Rx.combineLatest2(
-      _pairsStream.list,
-      _pairsStream.status,
+      _tripsStream.list,
+      _tripsStream.status,
       (data, status) => (data, status),
     );
   }

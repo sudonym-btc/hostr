@@ -16,10 +16,39 @@ import '../operations/swap_in/swap_in_operation.dart';
 import '../operations/swap_out/swap_out_operation.dart';
 
 abstract class EvmChain {
-  final Web3Client client;
+  Web3Client _client;
   final CustomLogger logger;
   final Auth auth;
-  EvmChain({required this.client, required this.auth, required this.logger});
+
+  /// The current [Web3Client] instance.
+  ///
+  /// Accessed via getter so subclasses can transparently rebuild the
+  /// underlying HTTP transport after network failures.
+  Web3Client get client => _client;
+
+  /// Number of consecutive RPC failures before the client is rebuilt.
+  static const int maxConsecutiveFailures = 3;
+
+  /// Maximum poll interval during backoff (caps exponential growth).
+  static const Duration maxPollInterval = Duration(seconds: 60);
+
+  EvmChain({
+    required Web3Client client,
+    required this.auth,
+    required this.logger,
+  }) : _client = client;
+
+  /// Replace the underlying [Web3Client] with a fresh instance.
+  ///
+  /// Called automatically by [_newBlocks] after [maxConsecutiveFailures]
+  /// consecutive RPC errors. Subclasses must override to construct a new
+  /// [Web3Client] appropriate for their chain.
+  Web3Client buildClient();
+
+  void _rebuildClient() {
+    logger.i('Rebuilding Web3Client after consecutive failures');
+    _client = buildClient();
+  }
 
   SupportedEscrowContract getSupportedEscrowContract(
     EscrowService escrowService,
@@ -49,21 +78,56 @@ abstract class EvmChain {
   /// method across all EVM nodes (Rootstock, Anvil, Geth, etc.).
   /// Unlike `eth_newBlockFilter` or `eth_subscribe`, this works with every
   /// HTTP and WebSocket RPC endpoint.
+  ///
+  /// Self-healing: after [maxConsecutiveFailures] consecutive errors the
+  /// underlying [Web3Client] is rebuilt via [buildClient].  The poll
+  /// interval doubles on each failure (capped at [maxPollInterval]) and
+  /// resets on success.  Errors are never yielded — downstream streams
+  /// simply stop receiving values until the transport recovers.
   Stream<int> _newBlocks({
     Duration interval = const Duration(seconds: 15),
   }) async* {
     int? lastBlock;
+    int consecutiveFailures = 0;
+    Duration currentInterval = interval;
+
     while (true) {
       try {
         final current = await client.getBlockNumber();
+        // Success — reset failure tracking.
+        if (consecutiveFailures > 0) {
+          logger.i(
+            'Block poll recovered after $consecutiveFailures failure(s)',
+          );
+        }
+        consecutiveFailures = 0;
+        currentInterval = interval;
+
         if (lastBlock == null || current > lastBlock) {
           lastBlock = current;
           yield current;
         }
       } catch (e) {
-        logger.w('Block number poll failed: $e');
+        consecutiveFailures++;
+        logger.w(
+          'Block number poll failed ($consecutiveFailures/$maxConsecutiveFailures): $e',
+        );
+
+        if (consecutiveFailures >= maxConsecutiveFailures) {
+          _rebuildClient();
+          consecutiveFailures = 0;
+        }
+
+        // Exponential backoff: double the interval on each failure,
+        // capped at maxPollInterval.
+        currentInterval = Duration(
+          milliseconds: min(
+            (currentInterval.inMilliseconds * 2),
+            maxPollInterval.inMilliseconds,
+          ),
+        );
       }
-      await Future.delayed(interval);
+      await Future.delayed(currentInterval);
     }
   }
 

@@ -3,6 +3,7 @@ export 'background_worker/background_worker.dart';
 export 'badge_awards/badge_awards.dart';
 export 'badge_definitions/badge_definitions.dart';
 export 'blossom/blossom.dart';
+export 'calendar/calendar.dart';
 export 'can_verify.dart';
 export 'crud.usecase.dart';
 export 'escrow/main.dart';

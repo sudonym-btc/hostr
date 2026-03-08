@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/route/main.dart';
 
+import 'presentation/screens/host/hostings/hostings.dart';
+
 part 'router.gr.dart';
 
 /// Central application router configuration.
@@ -54,6 +56,11 @@ class AppRouter extends RootStackRouter {
             AutoRoute(
               page: MyListingsRoute.page,
               path: 'my-listings',
+              guards: [AuthGuard()],
+            ),
+            AutoRoute(
+              page: HostingsRoute.page,
+              path: 'hostings',
               guards: [AuthGuard()],
             ),
           ],

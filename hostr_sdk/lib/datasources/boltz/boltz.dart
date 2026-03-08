@@ -368,14 +368,19 @@ class BoltzClient {
     if (currentAttempts >= maxAttempts) {
       logger.e(
         'Boltz WS: max reconnect attempts ($maxAttempts) reached for swap $id. '
-        'Falling back to polling.',
+        'Falling back to periodic polling.',
       );
-      // Fall back to a single HTTP poll so the caller still gets a status
-      _pollSwapStatus(id, controller);
+      // Fall back to periodic HTTP polling so the caller keeps getting
+      // status updates even after the WebSocket is gone (e.g. app
+      // returning from background after paying an invoice externally).
+      _startPolling(id, controller, isIntentionallyClosed);
       return;
     }
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s
-    final delay = Duration(seconds: 1 << currentAttempts);
+    // Exponential backoff: 0s, 2s, 4s, 8s, 16s
+    // First attempt is immediate (e.g. app just resumed from background).
+    final delay = currentAttempts <= 1
+        ? Duration.zero
+        : Duration(seconds: 1 << currentAttempts);
     logger.d('Boltz WS: reconnecting for swap $id in ${delay.inSeconds}s');
     final timer = Timer(delay, () async {
       if (controller.isClosed) return;
@@ -386,7 +391,33 @@ class BoltzClient {
     setReconnectTimer(timer);
   }
 
-  /// One-shot HTTP poll fallback when WebSocket reconnection is exhausted.
+  /// Periodic HTTP poll fallback when WebSocket reconnection is exhausted.
+  ///
+  /// Polls every [interval] until the controller is closed or the caller
+  /// signals intentional close. This covers the case where the app goes
+  /// to background (killing the WebSocket), the user pays an invoice in
+  /// another app, and returns — the poll picks up the new status quickly.
+  void _startPolling(
+    String id,
+    StreamController<SwapStatus> controller,
+    bool Function() isIntentionallyClosed, {
+    Duration interval = const Duration(seconds: 3),
+  }) {
+    logger.d('Boltz: starting HTTP poll fallback for swap $id');
+    // Fire immediately, then repeat on interval.
+    _pollSwapStatus(id, controller);
+
+    Timer.periodic(interval, (timer) {
+      if (controller.isClosed || isIntentionallyClosed()) {
+        timer.cancel();
+        logger.d('Boltz: stopped HTTP poll fallback for swap $id');
+        return;
+      }
+      _pollSwapStatus(id, controller);
+    });
+  }
+
+  /// One-shot HTTP poll — fetches the current swap status via REST.
   Future<void> _pollSwapStatus(
     String id,
     StreamController<SwapStatus> controller,

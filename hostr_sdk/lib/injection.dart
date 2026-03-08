@@ -5,6 +5,7 @@ import 'package:ndk/ndk.dart';
 import 'config.dart';
 import 'datasources/storage.dart';
 import 'injection.config.dart';
+import 'usecase/calendar/calendar.dart';
 import 'util/custom_logger.dart';
 
 /// SDK-private dependency container, isolated from the host app's GetIt.
@@ -28,6 +29,10 @@ abstract class HostrSdkModule {
 
   @singleton
   CustomLogger get logger => _hostrConfig.logger;
+
+  @singleton
+  CalendarPort get calendarPort =>
+      _hostrConfig.calendarPort ?? const NoopCalendarPort();
 
   @lazySingleton
   Ndk ndk(HostrConfig config) {

@@ -50,6 +50,7 @@ class Hostr {
   UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();
   PaymentProofOrchestrator get paymentProofOrchestrator =>
       getIt<PaymentProofOrchestrator>();
+  Calendar get calendar => getIt<Calendar>();
 
   Trade trade(String tradeId) {
     return getIt<Trade>(
@@ -152,8 +153,11 @@ class Hostr {
 
         // Start auto-withdrawing EVM balances to Lightning.
         autoWithdraw.start();
+
+        await calendar.start();
       } else {
         logger.i('User logged out');
+        await calendar.stop();
         autoWithdraw.stop();
         await paymentProofOrchestrator.reset();
         await userSubscriptions.reset();
@@ -170,6 +174,9 @@ class Hostr {
   Future<void> start() async {
     await initAuth();
     await connect();
+    if (auth.activeKeyPair != null) {
+      await calendar.start();
+    }
   }
 
   Future<void> _stopAuthListener() async {
@@ -180,6 +187,7 @@ class Hostr {
     _authInitialized = false;
     _connected = false;
     await _stopAuthListener();
+    await calendar.stop();
     await autoWithdraw.stop();
     await paymentProofOrchestrator.reset();
     await userSubscriptions.reset();

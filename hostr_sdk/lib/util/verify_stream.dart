@@ -123,6 +123,7 @@ StreamWithStatus<Validation<T>> verifyStream<T extends Nip01Event, TDeps>({
           })
           .whenComplete(() {
             pendingCount--;
+            response.add(verified[id]!);
             emitSnapshot();
             maybeForwardDeferredStatus();
           });

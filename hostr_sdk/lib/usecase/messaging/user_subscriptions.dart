@@ -85,6 +85,12 @@ class UserSubscriptions {
   late StreamWithStatus<Validation<ReservationPairStatus>>
   allMyReservationPairs$;
 
+  /// Reservation pairs where the current user is the **guest** (not the host).
+  late StreamWithStatus<Validation<ReservationPairStatus>> myTrips$;
+
+  /// Reservation pairs where the current user is the **host**.
+  late StreamWithStatus<Validation<ReservationPairStatus>> myHostings$;
+
   /// All reservation transitions across every trade the user is in.
   late ExpandableSubscription<ReservationTransition> allTransitions$;
 
@@ -135,6 +141,16 @@ class UserSubscriptions {
       source: allMyReservations$.stream,
     );
 
+    // 3a. Filtered views: guest trips vs host bookings
+    myTrips$ = allMyReservationPairs$.where(
+      (item) => item.event.hostPubkey != myPubkey,
+      closeInner: false,
+    );
+    myHostings$ = allMyReservationPairs$.where(
+      (item) => item.event.hostPubkey == myPubkey,
+      closeInner: false,
+    );
+
     // 4. Expandable: transitions by trade ID
     allTransitions$ = _transitions.expandableSubscribe(
       _emptyTradeFilter(),
@@ -162,6 +178,8 @@ class UserSubscriptions {
     }
     _discoverySubscriptions.clear();
 
+    await myTrips$.close();
+    await myHostings$.close();
     await allMyReservationPairs$.close();
     await allMyReservations$.reset();
     await allTransitions$.reset();

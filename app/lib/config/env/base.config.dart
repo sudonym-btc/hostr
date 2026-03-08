@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hostr/data/sources/calendar/eventide_calendar_port.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 abstract class Config {
@@ -14,20 +15,25 @@ abstract class Config {
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 
-  HostrConfig get hostrConfig => HostrConfig(
-    bootstrapRelays: [
-      ...relays,
-      hostrRelay,
-    ].where((r) => r.isNotEmpty).toList(),
-    bootstrapBlossom: [hostrBlossom].where((b) => b.isNotEmpty).toList(),
-    bootstrapEscrowPubkeys: bootstrapEscrowPubkeys,
-    hostrRelay: hostrRelay,
-    rootstockConfig: rootstock,
-    storage: useSecureKeyValueStorage
-        ? SecureKeyValueStorage()
-        : InMemoryKeyValueStorage(),
-    logs: CustomLogger(),
-  );
+  HostrConfig get hostrConfig {
+    final logger = CustomLogger();
+
+    return HostrConfig(
+      bootstrapRelays: [
+        ...relays,
+        hostrRelay,
+      ].where((r) => r.isNotEmpty).toList(),
+      bootstrapBlossom: [hostrBlossom].where((b) => b.isNotEmpty).toList(),
+      bootstrapEscrowPubkeys: bootstrapEscrowPubkeys,
+      hostrRelay: hostrRelay,
+      rootstockConfig: rootstock,
+      storage: useSecureKeyValueStorage
+          ? SecureKeyValueStorage()
+          : InMemoryKeyValueStorage(),
+      logs: logger,
+      calendarPort: EventideCalendarPort(logger: logger),
+    );
+  }
 }
 
 class InMemoryKeyValueStorage implements KeyValueStorage {

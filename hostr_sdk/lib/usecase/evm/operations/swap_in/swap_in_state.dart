@@ -268,13 +268,24 @@ final class SwapInFailed extends SwapInState {
   final Object error;
   final StackTrace? stackTrace;
   const SwapInFailed(this.error, {this.data, this.stackTrace});
+
+  /// A failed swap-in is **not** terminal when funds are locked on-chain
+  /// but haven't been claimed yet. The claim can be retried (e.g. after a
+  /// transient RIF Relay failure or network outage).
   @override
-  bool get isTerminal => true;
+  bool get isTerminal {
+    final d = data;
+    if (d == null) return true;
+    // Funds locked but not claimed → recoverable.
+    if (d.lockupTxHash != null && d.claimTxHash == null) return false;
+    return true;
+  }
+
   @override
   Map<String, dynamic> toJson() => {
     'state': 'failed',
     if (data != null) 'id': data!.boltzId,
-    'isTerminal': true,
+    'isTerminal': isTerminal,
     'updatedAt': DateTime.now().toIso8601String(),
     if (data != null) ...data!.toJson(),
     'errorMessage': error.toString(),
