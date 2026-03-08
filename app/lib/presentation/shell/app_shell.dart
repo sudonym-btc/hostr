@@ -152,13 +152,22 @@ class _AppShellScreenState extends State<AppShellScreen>
                 if (state is HostMode) {
                   final hostTabs = [
                     _navItem(icon: Icon(Icons.list), label: 'My Listings'),
+                    _navItem(
+                      icon: Icon(Icons.calendar_today),
+                      label: 'Bookings',
+                    ),
                     _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
                     _navItem(icon: Icon(Icons.person), label: 'Profile'),
                   ];
                   return AutoTabsScaffold(
                     key: const ValueKey('hostTabs'),
                     extendBody: true,
-                    routes: [MyListingsRoute(), InboxRoute(), ProfileRoute()],
+                    routes: [
+                      MyListingsRoute(),
+                      HostingsRoute(),
+                      InboxRoute(),
+                      ProfileRoute(),
+                    ],
                     bottomNavigationBuilder: (context, tabsRouter) =>
                         _buildBottomNav(context, tabsRouter, hostTabs, navBg),
                   );

@@ -133,6 +133,22 @@ class FiltersRouteArgs {
 }
 
 /// generated route for
+/// [HostingsScreen]
+class HostingsRoute extends PageRouteInfo<void> {
+  const HostingsRoute({List<PageRouteInfo>? children})
+    : super(HostingsRoute.name, initialChildren: children);
+
+  static const String name = 'HostingsRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const HostingsScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [InboxScreen]
 class InboxRoute extends PageRouteInfo<void> {
   const InboxRoute({List<PageRouteInfo>? children})

@@ -1,6 +1,8 @@
 PODS:
   - app_links (7.0.0):
     - Flutter
+  - eventide (1.0.0):
+    - Flutter
   - Flutter (1.0.0)
   - flutter_local_notifications (0.0.1):
     - Flutter
@@ -38,6 +40,7 @@ PODS:
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
+  - eventide (from `.symlinks/plugins/eventide/ios`)
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_secure_storage_darwin (from `.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
@@ -59,6 +62,8 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   app_links:
     :path: ".symlinks/plugins/app_links/ios"
+  eventide:
+    :path: ".symlinks/plugins/eventide/ios"
   Flutter:
     :path: Flutter
   flutter_local_notifications:
@@ -86,6 +91,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   app_links: a754cbec3c255bd4bbb4d236ecc06f28cd9a7ce8
+  eventide: f55e9e0ac5dc1ea4a1ba4d2e6974316a695a1b8a
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_local_notifications: a5a732f069baa862e728d839dd2ebb904737effb
   flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
@@ -101,6 +107,6 @@ SPEC CHECKSUMS:
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
   workmanager_apple: 904529ae31e97fc5be632cf628507652294a0778
 
-PODFILE CHECKSUM: fad31f84632885616e1f7b77bbcde939ffc38b19
+PODFILE CHECKSUM: 7f6ed2864b8c73c271ca9d2a5b3cd8004ee42409
 
 COCOAPODS: 1.16.2

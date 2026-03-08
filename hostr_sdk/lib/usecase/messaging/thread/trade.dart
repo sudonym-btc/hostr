@@ -63,6 +63,8 @@ class Trade extends Cubit<TradeState> {
   /// Our role in this trade.
   final TradeRole role;
 
+  String salt;
+
   // ── Filtered streams (from UserSubscriptions) ──────────────────────
 
   final StreamWithStatus<Validation<ReservationPairStatus>> reservationPair$;
@@ -101,7 +103,16 @@ class Trade extends Cubit<TradeState> {
        _userSubscriptions = userSubscriptions,
        _reservationPairs = reservationPairs,
        _threads = threads,
+       thread = threads.threads[tradeId],
        hostPubKey = getPubKeyFromAnchor(listingAnchor),
+       salt =
+           threads.threads[tradeId]?.messages.list.value
+               .where((msg) => msg.child is Reservation)
+               .map((msg) => msg.child as Reservation)
+               .where((res) => res.salt != null)
+               .firstOrNull
+               ?.salt ??
+           '',
        role =
            getPubKeyFromAnchor(listingAnchor) == auth.getActiveKey().publicKey
            ? TradeRole.host
@@ -131,13 +142,26 @@ class Trade extends Cubit<TradeState> {
         transitions$.status,
         (a, b, c) => [a, b, c],
       ).listen((statuses) {
-        print('Live statuses: $statuses');
         final allLive = statuses.every((s) => s is StreamStatusLive);
         if (allLive && !(subscriptionsLive$.value)) {
           subscriptionsLive$.sink.add(true);
         }
       }),
     );
+  }
+
+  Future<String?> resolveGuestPubkey() async {
+    String? salt = (await thread!.state.value.reservationRequests.last).salt;
+    String? tweakedPubkey =
+        (await thread!.state.value.reservationRequests.last).recipient;
+    print('Pair for trade $tradeId: $salt');
+    if (salt == null || tweakedPubkey == null) {
+      throw StateError(
+        'Cannot resolve guest pubkey: missing salt($salt) or tweakedPubkey($tweakedPubkey)',
+      );
+    }
+
+    return unsaltPublicKey(saltedPublicKey: tweakedPubkey, salt: salt);
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────
@@ -147,9 +171,6 @@ class Trade extends Cubit<TradeState> {
   Future<void> start() async {
     if (_bootstrapped || isClosed) return;
     _bootstrapped = true;
-
-    // Resolve thread from the threads map (if available).
-    thread = _threads.threads[tradeId];
 
     // Fetch listing.
     final fetchedListing = await _listings.getOneByAnchor(listingAnchor);
@@ -346,8 +367,6 @@ class Trade extends Cubit<TradeState> {
           allReservations: allTradeReservations,
         ),
       );
-
-      print("RESOLVED ACTIONS $resolvedActions");
     }
 
     // Availability.

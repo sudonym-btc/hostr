@@ -19,7 +19,7 @@ class ProfileChipWidget extends StatelessWidget {
     return ProfileProvider(
       pubkey: id,
       builder: (context, snapshot) {
-        final name = snapshot.data?.metadata.name ?? id;
+        final name = snapshot.data?.metadata.name ?? id.substring(0, 8);
         final picture = snapshot.data?.metadata.picture;
 
         return AnimatedSize(
@@ -44,7 +44,21 @@ class ProfileChipWidget extends StatelessWidget {
                           ),
                         ),
                       )
-                    : CircleAvatar(backgroundColor: Colors.grey),
+                    : CircleAvatar(
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainer,
+                        child: Text(
+                          (snapshot.data?.metadata.getName() ?? '?')
+                              .characters
+                              .first
+                              .toUpperCase(),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                        ),
+                      ),
                 label: Text(
                   name,
                   overflow: TextOverflow.ellipsis,

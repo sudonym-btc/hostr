@@ -1,0 +1,10 @@
+// Local overrides for RIF Relay in development.
+// Mounted into /rif-relay-server/config/local.json5 by docker-compose.
+// node-config loads "local" last, so these values override default.json5.
+{
+  register: {
+    // Fund the relay manager with 100 RBTC during registration.
+    // Default is 0.02 which runs dry after a handful of claims.
+    funds: "100",
+  },
+}

@@ -93,7 +93,7 @@ Future<void> initApp() async {
     logger.d('[initApp] notifications: ${sw.elapsedMilliseconds}ms');
   }
 
-  if (!kIsWeb) {
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     sw.reset();
     setupWorkmanager();
     logger.d('[initApp] workmanager: ${sw.elapsedMilliseconds}ms');

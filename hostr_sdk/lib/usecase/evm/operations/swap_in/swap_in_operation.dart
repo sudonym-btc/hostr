@@ -83,6 +83,21 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
   Future<bool> recover() async {
     if (state.data == null) return false;
     if (state.isTerminal) return true;
+
+    // A non-terminal SwapInFailed means funds are locked on-chain but the
+    // claim failed transiently (e.g. RIF Relay out of gas). Re-enter the
+    // state machine from the appropriate resumable state.
+    if (state is SwapInFailed) {
+      final data = state.data!;
+      if (data.claimTxHash != null) {
+        emit(SwapInClaimed(data));
+      } else if (data.lockupTxHash != null) {
+        emit(SwapInFunded(data));
+      } else {
+        emit(SwapInRequestCreated(data));
+      }
+    }
+
     try {
       await run();
       return state.isTerminal;

@@ -77,6 +77,49 @@ KeyPair saltedKey({
   return Bip340.fromPrivateKey(derived.toRadixString(16).padLeft(64, '0'));
 }
 
+/// Given a [salt] and a [saltedPublicKey] (x-only hex), derives the original
+/// unsalted public key by subtracting the tweak point.
+///
+/// Returns the original x-only public key as a 64-char lowercase hex string,
+/// or `null` if the salted key cannot be untweaked (e.g. result is at infinity).
+String? unsaltPublicKey({
+  required String saltedPublicKey,
+  required String salt,
+}) {
+  final tweak = _deriveTweakFromSalt(salt);
+  final tweakPoint = (_secp256k1.G * tweak)!;
+
+  // Negate the tweak point to subtract it.
+  final negTweakPoint = _secp256k1.curve.createPoint(
+    tweakPoint.x!.toBigInteger()!,
+    _secp256k1Prime - tweakPoint.y!.toBigInteger()!,
+  );
+
+  // The salted key is x-only, so we must try both even and odd Y.
+  final saltedEven = _xOnlyPubKeyToEvenPoint(saltedPublicKey);
+  final saltedOdd = _secp256k1.curve.createPoint(
+    saltedEven.x!.toBigInteger()!,
+    _secp256k1Prime - saltedEven.y!.toBigInteger()!,
+  );
+
+  for (final candidate in [saltedEven, saltedOdd]) {
+    final result = (candidate + negTweakPoint)!;
+    if (result.isInfinity) continue;
+
+    final rx = result.x!.toBigInteger()!;
+    final ry = result.y!.toBigInteger()!;
+
+    // Verify the result is actually on the curve by checking y² = x³ + 7.
+    final ySquared =
+        (rx.modPow(BigInt.from(3), _secp256k1Prime) + BigInt.from(7)) %
+            _secp256k1Prime;
+    if (ry.modPow(BigInt.two, _secp256k1Prime) != ySquared) continue;
+
+    return rx.toRadixString(16).padLeft(64, '0');
+  }
+  return null;
+}
+
 bool verifyPubKeyWithTeak({
   required String pubKey,
   required String salt,

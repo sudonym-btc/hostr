@@ -95,6 +95,8 @@ services:
     environment:
       - VIRTUAL_HOST=rifrelay.${DOMAIN}
       - VIRTUAL_PORT=8090
+    volumes:
+      - ./docker/rif-relay/local.json5:/rif-relay-server/config/local.json5:ro
     ports:
       - 8090:8090
     networks:

@@ -113,6 +113,19 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
   Future<bool> recover() async {
     if (state.data == null) return false;
     if (state.isTerminal) return true;
+
+    // A non-terminal SwapOutFailed means funds are locked on-chain but
+    // resolution failed transiently. Re-enter the state machine from the
+    // appropriate resumable state so a refund can be retried.
+    if (state is SwapOutFailed) {
+      final data = state.data!;
+      if (data.lockTxHash != null) {
+        emit(SwapOutFunded(data));
+      } else {
+        emit(SwapOutAwaitingOnChain(data));
+      }
+    }
+
     try {
       await run();
       return state.isTerminal;
