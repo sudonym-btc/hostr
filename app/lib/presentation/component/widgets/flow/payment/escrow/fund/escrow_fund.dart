@@ -13,6 +13,14 @@ import '../../../modal_bottom_sheet.dart';
 import '../../payment_method/escrow_selector/escrow_selector.cubit.dart';
 import '../../payment_method/escrow_selector/escrow_selector.dart';
 
+// ── EscrowFundWidget ────────────────────────────────────────────────────
+//
+// Thin lifecycle manager: owns the [EscrowSelectorCubit] and the current
+// [EscrowFundOperation].  When the user picks a different escrow the
+// operation is torn down and recreated, then passed to
+// [EscrowFundFlowWidget] which renders every state — including the confirm
+// step — via [OnchainOperationFlowWidget.initialisedBuilder].
+
 class EscrowFundWidget extends StatefulWidget {
   final ProfileMetadata counterparty;
   final Reservation negotiateReservation;
@@ -88,16 +96,12 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
 
           return BlocProvider<EscrowFundOperation>.value(
             value: op,
-            child: BlocBuilder<EscrowFundOperation, OnchainOperationState>(
-              builder: (context, fundState) => switch (fundState) {
-                OnchainInitialised() => EscrowFundConfirmWidget(
-                  key: ObjectKey(op),
-                  onConfirm: () async {
-                    await _selectorCubit.select();
-                    op.execute();
-                  },
-                ),
-                _ => EscrowFundFlowWidget(cubit: op),
+            child: EscrowFundFlowWidget(
+              key: ObjectKey(op),
+              cubit: op,
+              onConfirm: () async {
+                await _selectorCubit.select();
+                op.execute();
               },
             ),
           );
@@ -202,20 +206,32 @@ class EscrowFundProgressWidget extends StatelessWidget {
   }
 }
 
-/// Lightweight flow widget that renders the state of an already-running
-/// [EscrowFundOperation]. Unlike [EscrowFundWidget], no escrow selector or
-/// confirm step is shown — only in-progress / success / failure UI.
+/// Renders the full state machine of an [EscrowFundOperation] through
+/// [OnchainOperationFlowWidget].
 ///
-/// Use this when re-attaching to an operation obtained from
-/// [EscrowFundRegistry] (e.g. when the user navigated away and came back).
+/// • **Fresh operation** (launched from [EscrowFundWidget]):
+///   Pass [onConfirm] so the [OnchainInitialised] state renders a confirm
+///   screen with the escrow selector and amount summary.
+///
+/// • **Reattach** (e.g. from [EscrowFundRegistry]):
+///   Omit [onConfirm] — the initialised state is suppressed and only
+///   in-progress / success / failure UI is shown.
 class EscrowFundFlowWidget extends StatelessWidget {
   final EscrowFundOperation cubit;
-  const EscrowFundFlowWidget({super.key, required this.cubit});
+
+  /// When non-null the [OnchainInitialised] state renders a confirm screen.
+  /// Omit for the reattach (already-running) path.
+  final Future<void> Function()? onConfirm;
+
+  const EscrowFundFlowWidget({super.key, required this.cubit, this.onConfirm});
 
   @override
   Widget build(BuildContext context) {
     return OnchainOperationFlowWidget(
       cubit: cubit,
+      initialisedBuilder: onConfirm != null
+          ? (_) => EscrowFundConfirmWidget(onConfirm: onConfirm!)
+          : null,
       broadcastBuilder: (s) => OnchainTransactionSheet.broadcast(
         title: 'Depositing Funds',
         subtitle: s.data.txHash != null
