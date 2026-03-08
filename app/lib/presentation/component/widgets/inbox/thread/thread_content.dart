@@ -8,6 +8,8 @@ import 'package:hostr/presentation/component/widgets/inbox/thread/message/messag
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
+Set<Type> kHiddenMessageTypes = {EscrowServiceSelected, Reservation};
+
 class ThreadContent extends StatefulWidget {
   final List<ProfileMetadata> participants;
   const ThreadContent({super.key, required this.participants});
@@ -81,6 +83,54 @@ class _ThreadContentState extends State<ThreadContent> {
         : '${pubkey.substring(0, 8)}…';
   }
 
+  /// Whether [message] is a visible text message (i.e. would be rendered
+  /// by [_buildMessage]).
+  bool _isVisibleMessage(Message message) {
+    // Unresolved sender → hidden.
+    final hasSender = widget.participants.any(
+      (p) => p.pubKey == message.pubKey,
+    );
+    if (!hasSender) return false;
+    if (message.child == null) return true; // plain text
+    if (message.child is EscrowServiceSelected) return false;
+    if (message.child is Reservation &&
+        (message.child as Reservation).isNegotiation)
+      return false;
+    return true; // unknown type still renders
+  }
+
+  /// Whether [message] should show a profile header (avatar + timestamp).
+  /// True when it's the first visible message or more than 1 hour after the
+  /// previous *visible* message.
+  bool _showProfileHeader(Message message, List<Message> reversed, int index) {
+    // Walk backwards (older) through the reversed list to find the previous
+    // visible message.
+    Message? previous;
+    for (var i = index + 1; i < reversed.length; i++) {
+      if (_isVisibleMessage(reversed[i])) {
+        previous = reversed[i];
+        break;
+      }
+    }
+    if (previous == null) return true;
+    final currentTime = DateTime.fromMillisecondsSinceEpoch(
+      message.createdAt * 1000,
+    );
+    final previousTime = DateTime.fromMillisecondsSinceEpoch(
+      previous.createdAt * 1000,
+    );
+    return currentTime.difference(previousTime).inHours >= 1;
+  }
+
+  /// Finds the [ProfileMetadata] for a given pubkey from the participants list.
+  ProfileMetadata? _findProfile(String pubkey) {
+    try {
+      return widget.participants.firstWhere((p) => p.pubKey == pubkey);
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return CustomPadding(
@@ -111,6 +161,11 @@ class _ThreadContentState extends State<ThreadContent> {
                   itemCount: reversed.length,
                   itemBuilder: (listContext, index) {
                     final message = reversed[index];
+                    final showHeader = _showProfileHeader(
+                      message,
+                      reversed,
+                      index,
+                    );
                     // Map back to the chronological index for join-banner logic.
                     final chronoIndex = messages.length - 1 - index;
                     final newPubkeys = _newParticipantsAt(
@@ -124,11 +179,24 @@ class _ThreadContentState extends State<ThreadContent> {
                     if (messageWidget == null) {
                       return Container();
                     }
+                    final activePubKey = getIt<Hostr>().auth
+                        .getActiveKey()
+                        .publicKey;
+                    final isSentByMe = message.pubKey == activePubKey;
                     return Column(
                       children: [
                         if (index != reversed.length - 1) Gap.vertical.md(),
                         for (final pubkey in newPubkeys)
                           _JoinedBanner(name: _displayName(pubkey)),
+                        if (showHeader)
+                          _MessageProfileHeader(
+                            profile: _findProfile(message.pubKey),
+                            name: _displayName(message.pubKey),
+                            timestamp: DateTime.fromMillisecondsSinceEpoch(
+                              message.createdAt * 1000,
+                            ),
+                            isSentByMe: isSentByMe,
+                          ),
                         messageWidget,
                       ],
                     );
@@ -178,6 +246,54 @@ class _ThreadContentState extends State<ThreadContent> {
       // );
     }
     return Text(AppLocalizations.of(context)!.unknownMessageType);
+  }
+}
+
+/// Profile avatar + timestamp shown when > 1 hour has passed since the
+/// previous message.
+class _MessageProfileHeader extends StatelessWidget {
+  final ProfileMetadata? profile;
+  final String name;
+  final DateTime timestamp;
+  final bool isSentByMe;
+
+  const _MessageProfileHeader({
+    required this.profile,
+    required this.name,
+    required this.timestamp,
+    required this.isSentByMe,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final picture = profile?.metadata.picture;
+    final avatar = CircleAvatar(
+      radius: 14,
+      backgroundImage: picture != null ? NetworkImage(picture) : null,
+      child: picture == null
+          ? Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: Theme.of(context).textTheme.labelSmall,
+            )
+          : null,
+    );
+    final label = Text(
+      '$name · ${formatDateLong(timestamp)}',
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: kSpace4, bottom: kSpace2),
+      child: Row(
+        mainAxisAlignment: isSentByMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        children: isSentByMe
+            ? [label, const SizedBox(width: 8), avatar]
+            : [avatar, const SizedBox(width: 8), label],
+      ),
+    );
   }
 }
 

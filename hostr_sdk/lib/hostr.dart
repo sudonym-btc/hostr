@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Ndk;
 
 import 'config.dart';
@@ -49,6 +50,18 @@ class Hostr {
   UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();
   PaymentProofOrchestrator get paymentProofOrchestrator =>
       getIt<PaymentProofOrchestrator>();
+
+  Trade trade(String tradeId) {
+    return getIt<Trade>(
+      param1: tradeId,
+      param2: messaging.threads.threads[tradeId]!.messages.list.value
+          .where((msg) => msg.child is Reservation)
+          .map((msg) => msg.child as Reservation)
+          .first
+          .parsedTags
+          .listingAnchor,
+    );
+  }
 
   StreamSubscription? _authStateSubscription;
   bool _authInitialized = false;

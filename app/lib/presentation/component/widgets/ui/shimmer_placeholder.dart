@@ -49,7 +49,7 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
   Widget build(BuildContext context) {
     final surface = Theme.of(context).colorScheme.surface;
     if (!widget.loading) {
-      return Container(color: surface, child: widget.child);
+      return widget.child;
     }
 
     final highlight = Color.lerp(

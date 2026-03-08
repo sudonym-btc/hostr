@@ -189,19 +189,32 @@ class StreamWithStatus<T> {
   StreamWithStatus<T> where(bool Function(T) test, {bool closeInner = true}) {
     final filtered = StreamWithStatus<T>();
 
-    StreamSubscription<List<T>>? listSub;
-    StreamSubscription<StreamStatus>? statusSub;
+    // Pipe matching items through controller → replay subject.
+    // Using parent's `.replay` ensures already-accumulated items are included
+    // for new subscribers on the filtered stream.
+    StreamSubscription<T>? replaySub;
+    replaySub = replay
+        .where(test)
+        .listen(
+          (item) => filtered.controller.add(item),
+          onError: filtered.addError,
+        );
 
+    // Keep filtered list snapshot in sync with parent list.
+    StreamSubscription<List<T>>? listSub;
     listSub = list.listen(
       (snapshot) => filtered.setSnapshot(snapshot.where(test).toList()),
       onError: filtered.addError,
     );
+
+    StreamSubscription<StreamStatus>? statusSub;
     statusSub = status.listen(
       filtered.addStatus,
       onError: (error, stackTrace) => filtered.addError(error, stackTrace),
     );
 
     filtered.onClose = () async {
+      await replaySub?.cancel();
       await listSub?.cancel();
       await statusSub?.cancel();
       if (closeInner) {
@@ -365,13 +378,25 @@ class DynamicCombinedStreamWithStatus<T> extends StreamWithStatus<T> {
 
     _streamSubscriptions.add(stream.stream.listen(add, onError: addError));
     _statusSubscriptions.add(
-      stream.status.listen((status) {
-        final index = _streams.indexOf(stream);
-        if (index != -1) {
-          _statusMap[index] = status;
-          _recomputeStatus();
-        }
-      }, onError: addError),
+      stream.status.listen(
+        (status) {
+          final index = _streams.indexOf(stream);
+          if (index != -1) {
+            _statusMap[index] = status;
+            _recomputeStatus();
+          }
+        },
+        onError: addError,
+        onDone: () {
+          // When a child stream closes, treat it as live/done so it
+          // doesn't permanently block the combined status.
+          final index = _streams.indexOf(stream);
+          if (index != -1) {
+            _statusMap[index] = StreamStatusLive();
+            _recomputeStatus();
+          }
+        },
+      ),
     );
 
     _recomputeStatus();

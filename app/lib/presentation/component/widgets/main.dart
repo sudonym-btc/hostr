@@ -19,7 +19,6 @@ export 'profile/profile_chip.dart';
 export 'profile/profile_header.dart';
 export 'relay/relay_connectivity_banner.dart';
 export 'relay/relay_list.dart';
-export 'reservation/reservation_list_item.dart';
 export 'search/listing_map.dart';
 export 'search/map.dart';
 export 'search/search_box.dart';

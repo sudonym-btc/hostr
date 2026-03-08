@@ -37,7 +37,6 @@ class ReservationActions {
         reservationStatus == ReservationStatus.cancelled ||
         reservationStatus == ReservationStatus.invalid ||
         reservationStatus == ReservationStatus.completed;
-
     final hasMessagedEscrow = participantPubkeys.any(
       (pubkey) => escrowReservations.any(
         (reservation) =>
@@ -60,7 +59,7 @@ class ReservationActions {
   Future<void> cancel() async {
     final keyPair = await trade.activeKeyPair();
     final r =
-        trade.subscriptions.reservationStream!.list.value
+        trade.currentReservationPairs
             .whereType<Valid<ReservationPairStatus>>()
             .where((validation) => !validation.event.cancelled)
             .expand(

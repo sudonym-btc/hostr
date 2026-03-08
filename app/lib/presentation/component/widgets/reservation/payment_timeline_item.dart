@@ -36,9 +36,9 @@ class PaymentTimelineItem extends StatelessWidget {
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           description != null
               ? Text(
@@ -82,9 +82,13 @@ class PaymentTimelineItem extends StatelessWidget {
       );
     }
     if (event is EscrowFundedEvent) {
+      final unlockDate = DateTime.fromMillisecondsSinceEpoch(
+        event.unlockAt * 1000,
+      );
       return buildTimeLineItem(
         title: 'Escrow funded',
-        description: formatAmount(event.amount.toAmount()),
+        description:
+            '${formatAmount(event.amount.toAmount())} · Unlocks ${formatDate(unlockDate)}',
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowReleasedEvent) {

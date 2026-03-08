@@ -73,40 +73,37 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
           ],
         ),
         body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: ListWidget<Listing>(
-                  emptyBuilder: () => CustomPadding(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.max,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Ready to list your place?',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        Gap.vertical.xs(),
-                        Text(
-                          'Create a listing to start welcoming guests to your property today!',
-                        ),
-                        Gap.vertical.lg(),
-                        FilledButton(
-                          onPressed: () {
-                            AutoRouter.of(context).pushPath('edit-listing/new');
-                          },
-                          child: Text('Create a listing'),
-                        ),
-                      ],
+          child: Expanded(
+            child: ListWidget<Listing>(
+              emptyBuilder: () => CustomPadding(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ready to list your place?',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-
-                  builder: (el) => ListingListItemWidget(listing: el),
+                    Gap.vertical.xs(),
+                    Text(
+                      'Create a listing to start welcoming guests to your property today!',
+                    ),
+                    Gap.vertical.lg(),
+                    FilledButton(
+                      onPressed: () {
+                        AutoRouter.of(context).pushPath('edit-listing/new');
+                      },
+                      child: Text('Create a listing'),
+                    ),
+                  ],
                 ),
               ),
-            ],
+
+              builder: (el) => ListingListItemWidget(listing: el),
+            ),
           ),
         ),
       ),

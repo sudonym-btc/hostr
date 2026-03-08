@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/main.dart';
+import 'package:hostr/presentation/component/widgets/reservation/trade_header.dart';
+import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
@@ -60,11 +62,25 @@ class _TripsScreenState extends State<TripsScreen> {
                 if (status is! StreamStatusLive) {
                   return const Center(child: AppLoadingIndicator.large());
                 }
-                return Center(
-                  child: Text(
-                    AppLocalizations.of(context)!.noTripsYet,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                return SafeArea(
+                  child: CustomPadding(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!.noTripsYet,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Gap.vertical.xs(),
+                        Text(
+                          'Head over to explore some listings to get started!',
+                        ),
+                        Gap.vertical.lg(),
+                        FilledButton(onPressed: () {}, child: Text('Search')),
+                      ],
                     ),
                   ),
                 );
@@ -80,35 +96,17 @@ class _TripsScreenState extends State<TripsScreen> {
                 itemCount: pairs.length,
                 separatorBuilder: (_, _) => Container(),
                 itemBuilder: (context, index) {
-                  return _KeepAliveReservationListItem(
-                    reservationPair: pairs[index],
+                  return TradeHeader(
+                    tradeId: pairs[index].tradeId,
+                    showActions: false,
+                    onTap: () => AutoRouter.of(
+                      context,
+                    ).push(ThreadRoute(anchor: pairs[index].tradeId)),
                   );
                 },
               );
             },
           ),
     );
-  }
-}
-
-class _KeepAliveReservationListItem extends StatefulWidget {
-  final ReservationPairStatus reservationPair;
-  const _KeepAliveReservationListItem({required this.reservationPair});
-
-  @override
-  State<_KeepAliveReservationListItem> createState() =>
-      _KeepAliveReservationListItemState();
-}
-
-class _KeepAliveReservationListItemState
-    extends State<_KeepAliveReservationListItem>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return ReservationListItem(reservationPair: widget.reservationPair);
   }
 }

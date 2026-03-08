@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
@@ -47,6 +45,7 @@ class ThreadReadyWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appBarColor = Theme.of(context).colorScheme.surfaceContainerHigh;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -54,7 +53,7 @@ class ThreadReadyWidget extends StatelessWidget {
         appBar: AppBar(
           titleSpacing: 0,
           surfaceTintColor: Colors.transparent,
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+          backgroundColor: appBarColor,
           title: ThreadHeaderWidget(
             counterparties: counterparties,
             onCounterpartyTap: (profile) =>
@@ -74,26 +73,16 @@ class ThreadReadyWidget extends StatelessWidget {
             ),
           ),
         ),
-        body: Stack(
+        body: Column(
           children: [
-            Positioned.fill(child: ThreadContent(participants: participants)),
             if (context.read<ThreadCubit>().thread.isTradeCandidate)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: ColoredBox(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surface.withValues(alpha: 0.82),
-                      child: const TradeHeader(),
-                    ),
-                  ),
+              Material(
+                color: appBarColor,
+                child: TradeHeader(
+                  tradeId: context.read<ThreadCubit>().thread.anchor,
                 ),
               ),
+            Expanded(child: ThreadContent(participants: participants)),
           ],
         ),
       ),
