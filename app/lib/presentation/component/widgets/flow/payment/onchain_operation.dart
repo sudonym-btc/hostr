@@ -124,7 +124,7 @@ class OnchainTransactionSheet extends StatelessWidget {
 typedef OnchainStateWidgetBuilder<S extends OnchainOperationState> =
     Widget Function(S state);
 
-bool _shouldRenderSwapProgress(OnchainSwapProgress state) {
+bool shouldRenderSwapProgress(OnchainSwapProgress state) {
   return switch (state.swapState) {
     SwapInPaymentProgress(paymentState: PayExternalRequired()) => true,
     SwapInFailed() => true,
@@ -167,7 +167,7 @@ class OnchainOperationViewWidget extends StatelessWidget {
       final OnchainTxBroadcast s =>
         broadcastBuilder?.call(s) ?? OnchainTransactionSheet.broadcast(),
       final OnchainSwapProgress s =>
-        _shouldRenderSwapProgress(s)
+        shouldRenderSwapProgress(s)
             ? (swapProgressBuilder?.call(s) ??
                   OnchainTransactionSheet.swapProgress(s))
             : (broadcastBuilder?.call(OnchainTxBroadcast(s.data)) ??
@@ -222,9 +222,13 @@ class _OnchainOperationFlowWidgetState
     return BlocProvider.value(
       value: widget.cubit,
       child: BlocBuilder<OnchainOperation, OnchainOperationState>(
-        // Hide the swap initialized screen as it will immediately move on
-        // to payment required / progress screen.
-        buildWhen: (previous, current) => current is! OnchainInitialised,
+        // Suppress intermediate swap states (e.g. SwapInInitialised,
+        // SwapInRequestCreated) that flash briefly before the
+        // payment-required UI is ready.
+        buildWhen: (_, current) => switch (current) {
+          final OnchainSwapProgress s => shouldRenderSwapProgress(s),
+          _ => true,
+        },
         builder: (context, state) {
           return OnchainOperationViewWidget(
             state,
