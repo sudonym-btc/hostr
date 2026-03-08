@@ -259,7 +259,7 @@ class ZapReleasedEvent extends PaymentReleasedEvent implements ZapEvent {
 }
 
 /// Escrow payment types
-abstract class EscrowEvent extends PaymentEvent {
+sealed class EscrowEvent extends PaymentEvent {
   final EscrowServiceSelected? escrowService;
   final BlockInformation block;
   EscrowEvent({
@@ -282,12 +282,16 @@ class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
   @override
   final BitcoinAmount amount;
 
+  /// The unix timestamp (seconds) after which the buyer can claim back funds.
+  final int unlockAt;
+
   EscrowFundedEvent({
     required super.tradeId,
     required super.block,
     super.escrowService,
     required this.transactionHash,
     required this.amount,
+    required this.unlockAt,
   });
 }
 

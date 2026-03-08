@@ -60,45 +60,32 @@ P1
 
 - [ ] Background worker: https://docs.page/fluttercommunity/flutter_workmanager/quickstart
   - [ ] Must show notifications for items not already in thread messaege sync hydrated cubit
-- [ ] Rif-relay mocking
-- [ ] Event validation - async?
+  - [ ] Sync calendar optional
 - [ ] Startup loading page
   - [x] Sync giftwraps
-  - [ ] Broadcast preferred user blossom servers if not found
-  - [ ] Broadcast preferred user relays if not found
-  - [ ] Broadcast preferred user escrows if not found
+  - [x] Broadcast preferred user blossom servers if not found
+  - [x] Broadcast preferred user relays if not found
+  - [x] Broadcast preferred user escrows if not found
+- [ ] Deeplinks
+  - [ ] Allow opening of listings/reviews via deeplinks
+- [ ] Payments
+  - [ ] Claim payment
+  - [ ] Refund payment
+  - [ ] Host autowithdraw should leave sats for claim/refund transactions
+- [ ] Host views
+  - [ ] List of upcoming reservations
 - [ ] Blossom files
-  - [ ] Image component which loads pubkeys blossom servers and generates file path
   - [ ] Caching of blossom servers between Image components
-  - [ ] Blossom server infrastructure
-- [ ] State management
-  - [ ] Update Nip01Events in EntityCubit / ListCubits if they are updated
-  - [ ] Form Location Input
-  - [ ] Form Image Input
-- [ ] Settings
-  - [ ] Update relays
-  - [ ] Update trusted escrows
-  - [ ] Display public / private keys
-- [ ] Escrow
-  - [ ] Escrow advertisement events should allow for multiple services in one advertisement event
-- [ ] Reservation Requests
-  - [ ] User trust escrow event broadcast
 - [ ] Payment status
   - [ ] Check if can NWC allows fetching invoice with description
   - [x] Combine rootstock status check and NWC status check into one PaymentStatus
   - [ ] Mock NWC should record "paid" invoices and respond to list invoice request appropriately
   - [ ] Mock lightning payments should 'resolve' accurate invoices and amounts
-- [ ] NIP 05 verification
+- [x] NIP 05 verification
 - [x] Language file
 - [ ] Tests
-
-P2
-
-- [x] Payment flow in one "snackbar" instead of repeated popups
-- [ ] Scan for NWC https://github.com/benthecarman/nips/blob/nostr-wallet-connect-connect/67.md
 
 ### Escrow
 
 - [ ] Update escrow advertisement on launch
 - [ ] Listen for cancelled events and arbitrate accordingly
-- [ ] Must be able to read conversation once escrow is included

@@ -74,8 +74,6 @@ import 'package:hostr_sdk/usecase/messaging/thread/actions/review.dart'
     as _i914;
 import 'package:hostr_sdk/usecase/messaging/thread/thread.dart' as _i378;
 import 'package:hostr_sdk/usecase/messaging/thread/trade.dart' as _i475;
-import 'package:hostr_sdk/usecase/messaging/thread/trade_subscriptions.dart'
-    as _i802;
 import 'package:hostr_sdk/usecase/messaging/threads.dart' as _i768;
 import 'package:hostr_sdk/usecase/messaging/user_subscriptions.dart' as _i351;
 import 'package:hostr_sdk/usecase/metadata/metadata.dart' as _i149;
@@ -379,15 +377,6 @@ extension GetItInjectableX on _i174.GetIt {
         params: params,
       ),
     );
-    gh.factoryParam<_i475.Trade, _i378.Thread, dynamic>(
-      (thread, _) => _i475.Trade(
-        thread: thread,
-        logger: gh<_i331.CustomLogger>(),
-        auth: gh<_i1000.Auth>(),
-        listings: gh<_i906.Listings>(),
-        metadata: gh<_i149.MetadataUseCase>(),
-      ),
-    );
     gh.factoryParam<
       _i832.EscrowFundOperation,
       _i560.EscrowFundParams?,
@@ -408,12 +397,6 @@ extension GetItInjectableX on _i174.GetIt {
         escrowTrusts: gh<_i943.EscrowTrusts>(),
         evm: gh<_i305.Evm>(),
         escrowFundRegistry: gh<_i608.EscrowFundRegistry>(),
-      ),
-    );
-    gh.factory<_i455.ReservationActions>(
-      () => _i455.ReservationActions(
-        trade: gh<_i475.Trade>(),
-        reservations: gh<_i326.Reservations>(),
       ),
     );
     gh.factory<_i787.EscrowFundRecoverer>(
@@ -476,15 +459,6 @@ extension GetItInjectableX on _i174.GetIt {
         metadata: gh<_i149.MetadataUseCase>(),
         auth: gh<_i1000.Auth>(),
       ),
-    );
-    gh.factory<_i374.PaymentActions>(
-      () => _i374.PaymentActions(trade: gh<_i475.Trade>()),
-    );
-    gh.factory<_i799.ReservationRequestActions>(
-      () => _i799.ReservationRequestActions(trade: gh<_i475.Trade>()),
-    );
-    gh.factory<_i914.ReviewActions>(
-      () => _i914.ReviewActions(trade: gh<_i475.Trade>()),
     );
     gh.singleton<_i660.Reviews>(
       () => _i660.Reviews(
@@ -562,14 +536,33 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.factoryParam<_i802.TradeSubscriptions, _i378.Thread, dynamic>(
-      (thread, _) => _i802.TradeSubscriptions(
-        thread: thread,
+    gh.factoryParam<_i475.Trade, String, String>(
+      (tradeId, listingAnchor) => _i475.Trade(
+        tradeId: tradeId,
+        listingAnchor: listingAnchor,
+        logger: gh<_i331.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
-        logger: gh<_i372.CustomLogger>(),
-        reservationPairs: gh<_i966.ReservationPairs>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
         userSubscriptions: gh<_i351.UserSubscriptions>(),
+        reservationPairs: gh<_i966.ReservationPairs>(),
+        threads: gh<_i768.Threads>(),
       ),
+    );
+    gh.factory<_i455.ReservationActions>(
+      () => _i455.ReservationActions(
+        trade: gh<_i475.Trade>(),
+        reservations: gh<_i326.Reservations>(),
+      ),
+    );
+    gh.factory<_i374.PaymentActions>(
+      () => _i374.PaymentActions(trade: gh<_i475.Trade>()),
+    );
+    gh.factory<_i799.ReservationRequestActions>(
+      () => _i799.ReservationRequestActions(trade: gh<_i475.Trade>()),
+    );
+    gh.factory<_i914.ReviewActions>(
+      () => _i914.ReviewActions(trade: gh<_i475.Trade>()),
     );
     return this;
   }

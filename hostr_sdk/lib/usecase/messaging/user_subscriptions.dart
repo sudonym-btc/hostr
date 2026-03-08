@@ -23,7 +23,7 @@ import 'threads.dart';
 /// this singleton maintains a **constant 5** long-lived subscriptions that
 /// cover all trades the user is involved in.
 ///
-/// [TradeSubscriptions] becomes a lightweight filter/view layer that simply
+/// [Trade] becomes a lightweight filter/view layer that simply
 /// does `.where(tradeId == mine)` on these shared streams.
 ///
 /// ## Lifecycle

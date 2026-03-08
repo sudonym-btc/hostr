@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_header.dart';
-import 'package:hostr_sdk/usecase/messaging/thread/actions/trade_action_resolver.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:widgetbook/widgetbook.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
@@ -26,18 +26,27 @@ Widget tradeHeaderKnobs(BuildContext context) {
   return Scaffold(
     body: SingleChildScrollView(
       child: TradeHeaderView(
-        listing: listing,
-        listingProfile: listingProfile,
-        start: start,
-        end: end,
-        amount: listing.prices.first.amount,
-        availability: availability,
-        availabilityReason: availability != TradeAvailability.available
-            ? 'This reservation is not available.'
-            : null,
-        tradeId: 'mock-trade-id',
-        hostPubKey: listing.pubKey,
-        runtimeReady: true,
+        tradeState: TradeReady(
+          listing: listing,
+          hostProfile: listingProfile,
+          hostPubKey: listing.pubKey,
+          role: TradeRole.guest,
+          tradeId: 'mock-trade-id',
+          listingAnchor: listing.anchor ?? 'mock-anchor',
+          start: start,
+          end: end,
+          amount: listing.prices.first.amount,
+          stage: const NegotiationStage(
+            reservationRequests: [],
+            overlapLock: (isBlocked: false, reason: null),
+          ),
+          actions: const [],
+          availability: availability,
+          availabilityReason: availability != TradeAvailability.available
+              ? 'This reservation is not available.'
+              : null,
+          streams: const TradeStreams(),
+        ),
       ),
     ),
   );

@@ -102,22 +102,15 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
     });
 
-    print('Active trade for ${params.tradeId}: $activeTrade');
-
     if (!activeTrade.isActive) {
       return false;
     }
 
     final trade = _extractTrade(activeTrade.trade);
-    print('Decoded trade: $trade');
     if (trade == null) {
       logger.w('Could not decode active trade for ${params.tradeId}');
       return false;
     }
-
-    print(
-      'trade unlockAt: ${trade.unlockAt}, current time: ${DateTime.now().millisecondsSinceEpoch ~/ 1000}',
-    );
 
     return DateTime.now().millisecondsSinceEpoch ~/ 1000 >
         trade.unlockAt.toInt();
@@ -351,9 +344,9 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         final decoded = contract.self.events
             .firstWhere((e) => e.name == 'TradeCreated')
             .decodeResults(log.topics!, log.data!);
-
+        final tradeCreated = TradeCreated(decoded, log);
         return EscrowFundedEvent(
-          tradeId: bytesToHex(TradeCreated(decoded, log).tradeId),
+          tradeId: bytesToHex(tradeCreated.tradeId),
           block: block,
           escrowService: selectedEscrow,
           transactionHash: log.transactionHash!,
@@ -361,6 +354,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
             BitcoinUnit.wei,
             receipt.value.getInWei,
           ),
+          unlockAt: tradeCreated.unlockAt.toInt(),
         ); // @todo: return TradeCreatedEvent with decoded params
       } else if (log.topics![0] == eventToSignature['Arbitrated']) {
         final decoded = contract.self.events

@@ -20,7 +20,10 @@ class PaymentActions {
         paymentStreamStatus is StreamStatusLive ||
         paymentStreamStatus is StreamStatusQueryComplete;
 
-    final usedEscrow = paymentEvents.any((event) => event is EscrowFundedEvent);
+    final escrowFunded = paymentEvents
+        .whereType<EscrowFundedEvent>()
+        .firstOrNull;
+    final usedEscrow = escrowFunded != null;
 
     final hasTerminalPaymentState = paymentEvents.any(
       (event) =>
@@ -28,13 +31,20 @@ class PaymentActions {
           event is PaymentArbitratedEvent ||
           event is PaymentReleasedEvent,
     );
+
+    final nowUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final canClaim =
+        usedEscrow &&
+        !hasTerminalPaymentState &&
+        nowUnix > escrowFunded.unlockAt;
+
     final actions = <TradeAction>[];
 
     if (!paymentStateFresh) return actions;
 
     if (role == TradeRole.host) {
       actions.addAll([
-        if (!hasTerminalPaymentState && usedEscrow) TradeAction.claim,
+        if (canClaim) TradeAction.claim,
         if (!hasTerminalPaymentState && paymentEvents.isNotEmpty)
           TradeAction.refund,
       ]);

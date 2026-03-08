@@ -6,20 +6,17 @@ import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
 
-import '../../../injection.dart';
 import '../../../util/custom_logger.dart';
 import '../../../util/stream_status.dart';
 import '../../auth/auth.dart';
 import '../messaging.dart';
 import 'state.dart';
-import 'trade.dart';
 
 @Injectable()
 class Thread {
   final CustomLogger logger;
   final Messaging messaging;
   final Auth auth;
-  Trade? trade;
   final BehaviorSubject<ThreadState> state;
   final List<StreamSubscription> _stateSubscriptions = [];
 
@@ -49,22 +46,6 @@ class Thread {
       messages.stream.listen((_) {
         _emitState();
       }),
-    );
-
-    _stateSubscriptions.add(
-      state.stream
-          .where(
-            (current) =>
-                trade == null &&
-                _isTradeCandidate(current) &&
-                current.reservationRequests.isNotEmpty,
-          )
-          .take(1)
-          .listen((_) {
-            print('Thread $anchor is a trade candidate, initializing trade...');
-            trade = getIt<Trade>(param1: this);
-            _stateSubscriptions.add(trade!.state.listen((_) => _emitState()));
-          }),
     );
   }
 
@@ -114,7 +95,6 @@ class Thread {
   }
 
   Future<void> close() async {
-    await trade?.close();
     for (final s in _stateSubscriptions) {
       await s.cancel();
     }
