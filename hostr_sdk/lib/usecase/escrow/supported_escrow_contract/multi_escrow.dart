@@ -46,8 +46,9 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   MultiEscrowWrapper({
     required super.client,
     required super.address,
-    required this.logger,
-  }) : super(
+    required CustomLogger logger,
+  }) : logger = logger.namespace('multi-escrow'),
+       super(
          contract: MultiEscrow(address: address, client: client),
        );
 

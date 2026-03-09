@@ -51,8 +51,8 @@ class AutoWithdrawService {
     this._stateStore,
     this._userConfigStore,
     this._hostrConfig,
-    this._logger,
-  );
+    CustomLogger logger,
+  ) : _logger = logger.namespace('auto-withdraw');
 
   // ── Public API ──────────────────────────────────────────────────────────
 

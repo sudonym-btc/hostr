@@ -72,7 +72,7 @@ class LiveSubscriptionHandle {
 class Requests extends RequestsModel {
   final Ndk ndk;
   final bool useCache = false;
-  final CustomLogger _logger = CustomLogger();
+  final CustomLogger _logger;
   bool _loggedFirstQuery = false;
 
   /// In-flight query dedup: filter key → broadcast stream.
@@ -84,7 +84,8 @@ class Requests extends RequestsModel {
   /// dependency (Relays → Requests for MockRelays).
   Relays get _relays => getIt<Relays>();
 
-  Requests({required this.ndk}) {
+  Requests({required this.ndk, required CustomLogger logger})
+    : _logger = logger.namespace('requests') {
     Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
   }
 

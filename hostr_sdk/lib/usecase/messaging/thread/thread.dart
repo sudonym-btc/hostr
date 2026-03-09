@@ -33,10 +33,11 @@ class Thread {
 
   Thread(
     @factoryParam this.anchor, {
-    required this.logger,
+    required CustomLogger logger,
     required this.auth,
     required this.messaging,
-  }) : state = BehaviorSubject<ThreadState>.seeded(
+  }) : logger = logger.namespace('thread'),
+       state = BehaviorSubject<ThreadState>.seeded(
          ThreadState.initial(
            ourPubkey: auth.activeKeyPair!.publicKey,
            anchor: anchor,

@@ -19,7 +19,8 @@ import 'escrow_fund_operation.dart';
 class EscrowFundRegistry {
   final CustomLogger _logger;
 
-  EscrowFundRegistry(this._logger);
+  EscrowFundRegistry(CustomLogger logger)
+    : _logger = logger.namespace('fund-registry');
 
   final BehaviorSubject<Map<String, EscrowFundOperation>> _operations$ =
       BehaviorSubject.seeded({});

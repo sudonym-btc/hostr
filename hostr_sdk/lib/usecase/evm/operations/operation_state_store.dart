@@ -31,7 +31,8 @@ class OperationStateStore {
   /// re-check their gates.
   final PublishSubject<void> _onChanged = PublishSubject();
 
-  OperationStateStore(this._storage, this._logger, this._auth);
+  OperationStateStore(this._storage, CustomLogger logger, this._auth)
+    : _logger = logger.namespace('op-store');
 
   // ── Public API ──────────────────────────────────────────────────────────
 

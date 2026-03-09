@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:injectable/injectable.dart';
 import 'package:wallet/wallet.dart';
 
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
+import '../../../background_worker/background_worker.dart';
 import '../../../evm/evm.dart';
 import '../../../evm/operations/operation_state_store.dart';
 import '../../supported_escrow_contract/supported_escrow_contract_registry.dart';
@@ -33,14 +36,18 @@ class EscrowFundRecoverer {
     this._store,
     this._auth,
     this._evm,
-    this._logger,
+    CustomLogger logger,
     this._registry,
-  );
+  ) : _logger = logger.namespace('fund-recoverer');
 
   /// Recover all pending escrow fund operations.
   ///
+  /// When [onProgress] is provided, fires real-time notifications at key
+  /// state transitions (e.g. deposit broadcast, deposit confirmed) using
+  /// the escrow `tradeId` as the stable notification ID.
+  ///
   /// Returns the number of operations that were resolved.
-  Future<int> recoverAll() async {
+  Future<int> recoverAll({OnBackgroundProgress? onProgress}) async {
     // Prune terminal entries older than 30 days.
     final pruned = await _store.pruneTerminal(
       'escrow_fund',
@@ -65,7 +72,7 @@ class EscrowFundRecoverer {
           EscrowFundData.fromJson,
         );
         if (state.isTerminal || state is OnchainInitialised) continue;
-        if (await _recoverOne(state)) resolved++;
+        if (await _recoverOne(state, onProgress: onProgress)) resolved++;
       } catch (e) {
         _logger.e('EscrowFundRecoverer: error: $e');
       }
@@ -75,7 +82,10 @@ class EscrowFundRecoverer {
     return resolved;
   }
 
-  Future<bool> _recoverOne(OnchainOperationState state) async {
+  Future<bool> _recoverOne(
+    OnchainOperationState state, {
+    OnBackgroundProgress? onProgress,
+  }) async {
     final data = state.data!;
 
     // Resolve the chain and escrow contract from persisted data.
@@ -105,12 +115,39 @@ class EscrowFundRecoverer {
     final tradeId = data.operationId;
     _registry.register(tradeId, cubit);
 
+    // Listen for key state transitions and fire progress notifications.
+    StreamSubscription? sub;
+    if (onProgress != null) {
+      _logger.d(
+        'EscrowFundRecoverer: listening for progress on $tradeId '
+        '(initial state=${state.runtimeType})',
+      );
+      sub = cubit.stream.listen((s) {
+        _logger.d('EscrowFundRecoverer: state transition → ${s.runtimeType}');
+        final String? message;
+        if (s is OnchainTxBroadcast) {
+          message = 'Broadcasting deposit transaction\u2026';
+        } else if (s is OnchainTxConfirmed) {
+          message = 'Funds deposited into escrow';
+        } else {
+          message = null;
+        }
+        if (message != null) {
+          onProgress(
+            BackgroundNotification(operationId: tradeId, body: message),
+          );
+        }
+      });
+    }
+
     try {
       await cubit.recover();
       return cubit.state.isTerminal;
     } catch (_) {
       // Registry auto-unregisters on terminal / error / done.
       rethrow;
+    } finally {
+      await sub?.cancel();
     }
   }
 }

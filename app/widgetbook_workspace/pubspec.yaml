@@ -18,6 +18,7 @@ dependencies:
   models:
     path: ../../models
   web3dart: ^3.0.2
+  rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:

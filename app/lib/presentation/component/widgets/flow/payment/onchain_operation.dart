@@ -132,6 +132,22 @@ bool shouldRenderSwapProgress(OnchainSwapProgress state) {
   };
 }
 
+/// Whether a [OnchainSwapProgress] state should trigger a BlocBuilder
+/// rebuild.  This is a superset of [shouldRenderSwapProgress]: it also
+/// includes the claiming / confirmation phases so that the broadcast-style
+/// "waiting for on-chain confirmation" UI can be shown instead of staying
+/// stuck on a stale widget.
+bool shouldRebuildForSwapProgress(OnchainSwapProgress state) {
+  if (shouldRenderSwapProgress(state)) return true;
+  return switch (state.swapState) {
+    SwapInFunded() => true,
+    SwapInClaimed() => true,
+    SwapInClaimTxInMempool() => true,
+    SwapInCompleted() => true,
+    _ => false,
+  };
+}
+
 // ── OnchainOperationViewWidget ──────────────────────────────────────────
 //
 // Exhaustive switch over [OnchainOperationState].  Each state has a
@@ -224,9 +240,10 @@ class _OnchainOperationFlowWidgetState
       child: BlocBuilder<OnchainOperation, OnchainOperationState>(
         // Suppress intermediate swap states (e.g. SwapInInitialised,
         // SwapInRequestCreated) that flash briefly before the
-        // payment-required UI is ready.
+        // payment-required UI is ready.  Claiming / confirmation phases
+        // are allowed through so the broadcast fallback UI can render.
         buildWhen: (_, current) => switch (current) {
-          final OnchainSwapProgress s => shouldRenderSwapProgress(s),
+          final OnchainSwapProgress s => shouldRebuildForSwapProgress(s),
           _ => true,
         },
         builder: (context, state) {

@@ -137,10 +137,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i301.MockVerification(ndk: gh<_i857.Ndk>()),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i1014.Requests>(
-      () => _i1014.Requests(ndk: gh<_i857.Ndk>()),
-      registerFor: {_dev, _staging, _prod},
-    );
     gh.singleton<_i301.Verification>(
       () => _i301.Verification(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
@@ -152,12 +148,15 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i372.CustomLogger>(),
       ),
     );
+    gh.singleton<_i1014.Requests>(
+      () => _i286.InMemoryRequests(
+        ndk: gh<_i857.Ndk>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+      registerFor: {_test, _mock},
+    );
     gh.singleton<_i56.Location>(
       () => _i56.Location(logger: gh<_i331.CustomLogger>()),
-    );
-    gh.singleton<_i1014.Requests>(
-      () => _i286.InMemoryRequests(ndk: gh<_i857.Ndk>()),
-      registerFor: {_test, _mock},
     );
     gh.singleton<_i824.BlossomUseCase>(
       () => _i824.BlossomUseCase(
@@ -165,6 +164,13 @@ extension GetItInjectableX on _i174.GetIt {
         config: gh<_i910.HostrConfig>(),
         logger: gh<_i372.CustomLogger>(),
       ),
+    );
+    gh.singleton<_i1014.Requests>(
+      () => _i1014.Requests(
+        ndk: gh<_i857.Ndk>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+      registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i92.BadgeAwards>(
       () => _i92.BadgeAwards(
@@ -196,13 +202,6 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
         authStorage: gh<_i218.AuthStorage>(),
         logger: gh<_i372.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i842.OperationStateStore>(
-      () => _i842.OperationStateStore(
-        gh<_i111.KeyValueStorage>(),
-        gh<_i331.CustomLogger>(),
-        gh<_i1000.Auth>(),
       ),
     );
     gh.singleton<_i794.UserConfigStore>(
@@ -280,11 +279,11 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i218.NwcStorage>(
       () => _i218.NwcStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
     );
-    gh.factory<_i249.SwapRecoverer>(
-      () => _i249.SwapRecoverer(
-        gh<_i785.OperationStateStore>(),
+    gh.singleton<_i842.OperationStateStore>(
+      () => _i842.OperationStateStore(
+        gh<_i111.KeyValueStorage>(),
+        gh<_i331.CustomLogger>(),
         gh<_i1000.Auth>(),
-        gh<_i372.CustomLogger>(),
       ),
     );
     gh.singleton<_i883.Relays>(
@@ -316,6 +315,13 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         rootstock: gh<_i158.Rootstock>(),
         logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.factory<_i249.SwapRecoverer>(
+      () => _i249.SwapRecoverer(
+        gh<_i785.OperationStateStore>(),
+        gh<_i1000.Auth>(),
+        gh<_i372.CustomLogger>(),
       ),
     );
     gh.singleton<_i883.Relays>(
@@ -391,13 +397,13 @@ extension GetItInjectableX on _i174.GetIt {
         escrowFundRegistry: gh<_i608.EscrowFundRegistry>(),
       ),
     );
-    gh.factory<_i787.EscrowFundRecoverer>(
-      () => _i787.EscrowFundRecoverer(
-        gh<_i842.OperationStateStore>(),
-        gh<_i1000.Auth>(),
+    gh.singleton<_i503.AutoWithdrawService>(
+      () => _i503.AutoWithdrawService(
         gh<_i305.Evm>(),
-        gh<_i372.CustomLogger>(),
-        gh<_i608.EscrowFundRegistry>(),
+        gh<_i842.OperationStateStore>(),
+        gh<_i794.UserConfigStore>(),
+        gh<_i910.HostrConfig>(),
+        gh<_i331.CustomLogger>(),
       ),
     );
     gh.singleton<_i179.TradeAudit>(
@@ -421,15 +427,6 @@ extension GetItInjectableX on _i174.GetIt {
         params,
       ),
     );
-    gh.singleton<_i503.AutoWithdrawService>(
-      () => _i503.AutoWithdrawService(
-        gh<_i305.Evm>(),
-        gh<_i842.OperationStateStore>(),
-        gh<_i794.UserConfigStore>(),
-        gh<_i910.HostrConfig>(),
-        gh<_i331.CustomLogger>(),
-      ),
-    );
     gh.factoryParam<
       _i654.EscrowClaimOperation,
       _i676.EscrowClaimParams,
@@ -442,11 +439,6 @@ extension GetItInjectableX on _i174.GetIt {
         params,
       ),
     );
-    gh.factoryParam<_i363.LnurlPayOperation, _i24.LnurlPayParameters, dynamic>(
-      (params, _) =>
-          _i363.LnurlPayOperation(params: params, nwc: gh<_i588.Nwc>()),
-      registerFor: {_dev, _staging, _prod},
-    );
     gh.factory<_i613.NwcCubit>(
       () => _i613.NwcCubit(
         nwc: gh<_i588.Nwc>(),
@@ -454,13 +446,33 @@ extension GetItInjectableX on _i174.GetIt {
         url: gh<String>(),
       ),
     );
+    gh.factory<_i787.EscrowFundRecoverer>(
+      () => _i787.EscrowFundRecoverer(
+        gh<_i842.OperationStateStore>(),
+        gh<_i1000.Auth>(),
+        gh<_i305.Evm>(),
+        gh<_i372.CustomLogger>(),
+        gh<_i608.EscrowFundRegistry>(),
+      ),
+    );
+    gh.factoryParam<_i363.LnurlPayOperation, _i24.LnurlPayParameters, dynamic>(
+      (params, _) => _i363.LnurlPayOperation(
+        params: params,
+        nwc: gh<_i588.Nwc>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+      registerFor: {_dev, _staging, _prod},
+    );
     gh.factoryParam<
       _i124.Bolt11PayOperation,
       _i24.Bolt11PayParameters,
       dynamic
     >(
-      (params, _) =>
-          _i124.Bolt11PayOperation(params: params, nwc: gh<_i588.Nwc>()),
+      (params, _) => _i124.Bolt11PayOperation(
+        params: params,
+        nwc: gh<_i588.Nwc>(),
+        logger: gh<_i331.CustomLogger>(),
+      ),
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i1045.Zaps>(
@@ -501,19 +513,6 @@ extension GetItInjectableX on _i174.GetIt {
         payments: gh<_i226.Payments>(),
       ),
     );
-    gh.singleton<_i843.BackgroundWorker>(
-      () => _i843.BackgroundWorker(
-        auth: gh<_i1000.Auth>(),
-        threads: gh<_i768.Threads>(),
-        evm: gh<_i305.Evm>(),
-        autoWithdraw: gh<_i503.AutoWithdrawService>(),
-        reservations: gh<_i326.Reservations>(),
-        reviews: gh<_i660.Reviews>(),
-        listings: gh<_i906.Listings>(),
-        metadata: gh<_i149.MetadataUseCase>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i351.UserSubscriptions>(
       () => _i351.UserSubscriptions(
         auth: gh<_i1000.Auth>(),
@@ -535,6 +534,20 @@ extension GetItInjectableX on _i174.GetIt {
         reservations: gh<_i326.Reservations>(),
         listings: gh<_i906.Listings>(),
         metadata: gh<_i149.MetadataUseCase>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i843.BackgroundWorker>(
+      () => _i843.BackgroundWorker(
+        auth: gh<_i1000.Auth>(),
+        threads: gh<_i768.Threads>(),
+        evm: gh<_i305.Evm>(),
+        autoWithdraw: gh<_i503.AutoWithdrawService>(),
+        reservations: gh<_i326.Reservations>(),
+        reviews: gh<_i660.Reviews>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+        operationStore: gh<_i842.OperationStateStore>(),
         logger: gh<_i372.CustomLogger>(),
       ),
     );

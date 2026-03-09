@@ -6,6 +6,8 @@
 import 'dart:async' as _i34;
 
 import 'package:hostr_sdk/usecase/auth/auth.dart' as _i10;
+import 'package:hostr_sdk/usecase/background_worker/background_worker.dart'
+    as _i45;
 import 'package:hostr_sdk/usecase/badge_awards/badge_awards.dart' as _i42;
 import 'package:hostr_sdk/usecase/badge_definitions/badge_definitions.dart'
     as _i41;
@@ -42,7 +44,7 @@ import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart' as _i30;
 import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart'
     as _i31;
 import 'package:hostr_sdk/usecase/payments/payments.dart' as _i44;
-import 'package:hostr_sdk/usecase/relays/relays.dart' as _i45;
+import 'package:hostr_sdk/usecase/relays/relays.dart' as _i46;
 import 'package:hostr_sdk/usecase/requests/requests.dart' as _i9;
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart'
     as _i43;
@@ -3685,9 +3687,15 @@ class MockEvm extends _i1.Mock implements _i20.Evm {
           as _i34.Future<_i33.EvmChain>);
 
   @override
-  _i34.Future<int> recoverStaleOperations() =>
+  _i34.Future<int> recoverStaleOperations({
+    _i45.OnBackgroundProgress? onProgress,
+    Map<String, String>? swapToTradeId,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#recoverStaleOperations, []),
+            Invocation.method(#recoverStaleOperations, [], {
+              #onProgress: onProgress,
+              #swapToTradeId: swapToTradeId,
+            }),
             returnValue: _i34.Future<int>.value(0),
           )
           as _i34.Future<int>);
@@ -3696,7 +3704,7 @@ class MockEvm extends _i1.Mock implements _i20.Evm {
 /// A class which mocks [Relays].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockRelays extends _i1.Mock implements _i45.Relays {
+class MockRelays extends _i1.Mock implements _i46.Relays {
   MockRelays() {
     _i1.throwOnMissingStub(this);
   }

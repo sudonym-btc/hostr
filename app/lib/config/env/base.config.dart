@@ -15,8 +15,8 @@ abstract class Config {
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 
-  HostrConfig get hostrConfig {
-    final logger = CustomLogger();
+  HostrConfig buildHostrConfig({CustomLogger? logger}) {
+    final log = logger ?? CustomLogger();
 
     return HostrConfig(
       bootstrapRelays: [
@@ -30,8 +30,8 @@ abstract class Config {
       storage: useSecureKeyValueStorage
           ? SecureKeyValueStorage()
           : InMemoryKeyValueStorage(),
-      logs: logger,
-      calendarPort: EventideCalendarPort(logger: logger),
+      logs: log,
+      calendarPort: EventideCalendarPort(logger: log),
     );
   }
 }

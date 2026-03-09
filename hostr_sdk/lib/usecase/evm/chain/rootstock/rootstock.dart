@@ -1,4 +1,6 @@
-import 'package:http/http.dart' as http;
+import 'dart:io';
+
+import 'package:http/io_client.dart';
 import 'package:injectable/injectable.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
@@ -15,12 +17,17 @@ import 'operations/swap_out/swap_out_operation.dart';
 @Singleton()
 class Rootstock extends EvmChain {
   final HostrConfig config;
+
+  static Web3Client _buildWeb3Client(String rpcUrl) => Web3Client(
+    rpcUrl,
+    IOClient(HttpClient()..idleTimeout = const Duration(seconds: 10)),
+  );
+
   Rootstock({required this.config, required super.auth, required super.logger})
-    : super(client: Web3Client(config.rootstockConfig.rpcUrl, http.Client()));
+    : super(client: _buildWeb3Client(config.rootstockConfig.rpcUrl));
 
   @override
-  Web3Client buildClient() =>
-      Web3Client(config.rootstockConfig.rpcUrl, http.Client());
+  Web3Client buildClient() => _buildWeb3Client(config.rootstockConfig.rpcUrl);
 
   @override
   Future<({BitcoinAmount min, BitcoinAmount max})> getSwapInLimits() async {

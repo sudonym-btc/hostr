@@ -5,9 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hostr/background_task_type.dart';
 import 'package:hostr/data/sources/h3_engine.dart';
 import 'package:hostr/main.dart';
-import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,54 +16,60 @@ import 'package:workmanager/workmanager.dart';
 import 'injection.dart';
 import 'setup/hydrated_storage.dart';
 
-final logger = CustomLogger();
+final logger = CustomLogger(tag: 'app');
 
 /// Initializes everything required before business logic can run.
 ///
 /// Safe to call from both the foreground app and background workers.
 /// Must complete before `runApp()` or any service-layer code.
 ///
+/// When [logger] is provided it is used for all boot logs **and** injected
+/// into the SDK's DI container so every singleton receives the same
+/// instance (e.g. with a `hostr-background` tag).
+///
 /// Responsibilities:
 ///   - Flutter bindings
 ///   - Hydrated storage (persisted bloc state)
 ///   - Dependency injection
 ///   - H3 geo runtime
-Future<void> initCore(String env) async {
+Future<void> initCore(String env, {CustomLogger? logger}) async {
+  final log = (logger ?? CustomLogger()).namespace('init-core');
   final total = Stopwatch()..start();
   var sw = Stopwatch()..start();
 
   WidgetsFlutterBinding.ensureInitialized();
-  logger.d('[initCore] ensureInitialized: ${sw.elapsedMilliseconds}ms');
+  log.d('ensureInitialized: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
   await Future.wait([
     persistEnvironment(env),
     buildHydratedStorage().then((storage) => HydratedBloc.storage = storage),
   ]);
-  logger.d(
-    '[initCore] persistEnv + hydratedStorage: ${sw.elapsedMilliseconds}ms',
-  );
+  log.d('persistEnv + hydratedStorage: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
   configureInjection(env);
-  logger.d('[initCore] configureInjection: ${sw.elapsedMilliseconds}ms');
+  log.d('configureInjection: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
   getIt.registerSingleton<Hostr>(
-    Hostr(config: getIt<Config>().hostrConfig, environment: env),
+    Hostr(
+      config: getIt<Config>().buildHostrConfig(logger: logger),
+      environment: env,
+    ),
   );
-  logger.d('[initCore] registerHostr: ${sw.elapsedMilliseconds}ms');
+  log.d('registerHostr: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
   await getIt<Hostr>().initAuth();
-  logger.d('[initCore] initAuth: ${sw.elapsedMilliseconds}ms');
+  log.d('initAuth: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
   configureFlutterH3Runtime();
-  logger.d('[initCore] H3 runtime: ${sw.elapsedMilliseconds}ms');
+  log.d('H3 runtime: ${sw.elapsedMilliseconds}ms');
 
   total.stop();
-  logger.d('[initCore] TOTAL: ${total.elapsedMilliseconds}ms (env=$env)');
+  log.d('TOTAL: ${total.elapsedMilliseconds}ms (env=$env)');
 }
 
 /// Post-`runApp` setup for the foreground app only.
@@ -79,28 +85,28 @@ Future<void> initApp() async {
   var sw = Stopwatch()..start();
 
   await _lockAppOrientation();
-  logger.d('[initApp] lockOrientation: ${sw.elapsedMilliseconds}ms');
+  logger.d('lockOrientation: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
   final env = await readPersistedEnvironment();
-  logger.d('[initApp] readPersistedEnv: ${sw.elapsedMilliseconds}ms');
+  logger.d('readPersistedEnv: ${sw.elapsedMilliseconds}ms');
 
   // Skip notification permission prompt in test — it blocks CI and
   // screenshot automation with a system dialog that can't be pre-granted.
   if (env != Env.test && env != Env.mock) {
     sw.reset();
     await setupNotifications();
-    logger.d('[initApp] notifications: ${sw.elapsedMilliseconds}ms');
+    logger.d('notifications: ${sw.elapsedMilliseconds}ms');
   }
 
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     sw.reset();
     setupWorkmanager();
-    logger.d('[initApp] workmanager: ${sw.elapsedMilliseconds}ms');
+    logger.d('workmanager: ${sw.elapsedMilliseconds}ms');
   }
 
   total.stop();
-  logger.d('[initApp] TOTAL: ${total.elapsedMilliseconds}ms');
+  logger.d('total elapsed: ${total.elapsedMilliseconds}ms');
 }
 
 Future<void> _lockAppOrientation() async {
@@ -116,11 +122,14 @@ void setupWorkmanager() {
   // every launch, as that triggers an immediate background execution.
   // Use ExistingWorkPolicy.keep to avoid re-registering on every cold start.
   Workmanager().registerPeriodicTask(
-    iOSBackgroundAppRefresh,
-    'sync',
+    BackgroundTaskType.periodicSync.identifier,
+    BackgroundTaskType.periodicSync.taskName,
     existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
   );
-  // Workmanager().registerProcessingTask(iOSBackgroundProcessingTask, 'sync');
+  // Workmanager().registerProcessingTask(
+  //   BackgroundTaskType.onchainOps.identifier,
+  //   BackgroundTaskType.onchainOps.taskName,
+  // );
 }
 
 Future<void> setupNotifications() async {

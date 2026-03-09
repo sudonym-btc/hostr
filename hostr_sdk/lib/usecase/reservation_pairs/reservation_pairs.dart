@@ -42,9 +42,9 @@ class ReservationPairs {
 
   ReservationPairs({
     required this.reservations,
-    required this.logger,
+    required CustomLogger logger,
     required this.evm,
-  });
+  }) : logger = logger.namespace('reservation-pairs');
 
   // ── Public API ──────────────────────────────────────────────────────
 

@@ -13,14 +13,21 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
   final Auth auth;
   final SwapInParams params;
 
+  /// True when the operation is being resumed from persisted state.
+  /// Subclasses should check this to avoid re-executing side-effects
+  /// (e.g. paying a Lightning invoice that was already dispatched).
+  bool get recovering => _recovering;
+  bool _recovering = false;
+
   late final OperationStateStore _stateStore = getIt<OperationStateStore>();
 
   SwapInOperation({
     required this.auth,
-    required this.logger,
+    required CustomLogger logger,
     @factoryParam required this.params,
     SwapInState? initialState,
-  }) : super(initialState ?? const SwapInInitialised());
+  }) : logger = logger.namespace('swap-in'),
+       super(initialState ?? const SwapInInitialised());
 
   /// Persist every state that carries data.
   @override
@@ -51,9 +58,14 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
   /// | `Completed / Failed`                            | No-op (terminal) |
   Future<void> handle();
 
-  /// Loops [handle] until the state is terminal.
+  /// Loops [handle] until the state is terminal or failed.
+  ///
+  /// A non-terminal [SwapInFailed] (e.g. funds locked but claim failed) stops
+  /// the loop immediately — retrying is the job of [recover], not [run].
+  /// Without this guard the loop would spin forever because [handle] no-ops
+  /// on [SwapInFailed] while [isTerminal] returns `false`.
   Future<void> run() async {
-    while (!state.isTerminal) {
+    while (!state.isTerminal && state is! SwapInFailed) {
       await handle();
     }
   }
@@ -69,7 +81,9 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
   /// await swap.runUntil((s) => s is SwapInClaimed);
   /// ```
   Future<void> runUntil(bool Function(SwapInState) stopCondition) async {
-    while (!state.isTerminal && !stopCondition(state)) {
+    while (!state.isTerminal &&
+        state is! SwapInFailed &&
+        !stopCondition(state)) {
       await handle();
     }
   }
@@ -98,6 +112,7 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
       }
     }
 
+    _recovering = true;
     try {
       await run();
       return state.isTerminal;

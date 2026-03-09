@@ -184,25 +184,44 @@ class RootstockSwapInOperation extends SwapInOperation {
         return;
       }
 
-      // If Boltz says lockup is already in mempool/confirmed, wait for chain.
+      // If Boltz says lockup is already in mempool/confirmed, verify on-chain.
       if (status == 'transaction.mempool' ||
           status == 'transaction.confirmed') {
         final txHash = boltzStatus.transaction?.id;
         if (txHash != null) {
           logger.i(
-            'Boltz reports lockup tx $txHash — awaiting chain confirmation',
+            'Boltz reports lockup tx $txHash — verifying against preimage hash',
           );
-          final lockupTx = await rootstock.awaitTransaction(txHash);
-          emit(
-            SwapInFunded(
-              data.copyWith(
-                lockupTxHash: txHash,
-                refundAddress: lockupTx.from.with0x,
-                lastBoltzStatus: status,
+          // Wait for the tx to be mined — `getLogs` only returns events
+          // from mined blocks, so mempool visibility is not enough.
+          await rootstock.awaitReceipt(txHash);
+
+          // Then verify on-chain that a Lockup event for OUR preimage hash
+          // exists.  The tx Boltz reports may belong to a different swap.
+          final lockup = await _findLockupOnChain(data);
+          if (lockup != null) {
+            final verifiedTxHash = lockup.event.transactionHash!;
+            if (verifiedTxHash != txHash) {
+              logger.w(
+                'Boltz reported tx $txHash but on-chain lockup for '
+                '${data.preimageHash} is $verifiedTxHash. Using verified hash.',
+              );
+            }
+            emit(
+              SwapInFunded(
+                data.copyWith(
+                  lockupTxHash: verifiedTxHash,
+                  refundAddress: lockup.refundAddress.with0x,
+                  lastBoltzStatus: status,
+                ),
               ),
-            ),
+            );
+            return;
+          }
+          logger.w(
+            'Boltz reported lockup tx $txHash but no on-chain Lockup event '
+            'matches preimage hash ${data.preimageHash}. Falling through.',
           );
-          return;
         }
       }
     } catch (e) {
@@ -210,13 +229,56 @@ class RootstockSwapInOperation extends SwapInOperation {
       // Non-fatal — fall through to the payment + WebSocket flow.
     }
 
-    // ── 2e. No lockup yet — attempt the payment flow (execute path) ──
-    await _payAndWaitForLockup(data);
+    // ── 2e. No lockup yet ──
+    if (recovering) {
+      // During recovery the Lightning payment was already dispatched (or
+      // the app died before it could be).  We must NEVER pay again —
+      // just wait for Boltz to lock the funds on-chain.
+      logger.i(
+        'Recovery: skipping payment for ${data.boltzId}, '
+        'waiting for Boltz to lock on-chain…',
+      );
+      await _waitForLockupOnly(data);
+    } else {
+      await _payAndWaitForLockup(data);
+    }
+  }
+
+  /// Waits for the on-chain lockup via the Boltz WebSocket WITHOUT paying
+  /// the Lightning invoice.  Used during recovery when the payment was
+  /// already dispatched in a previous session.
+  Future<void> _waitForLockupOnly(SwapInData data) async {
+    emit(SwapInAwaitingOnChain(data));
+
+    final swapStatus = await _waitForSwapOnChain(data.boltzId).timeout(
+      const Duration(minutes: 30),
+      onTimeout: () => throw TimeoutException(
+        'Timed out waiting for Boltz to lock funds on-chain for swap ${data.boltzId} '
+        '(recovery). The Lightning payment may still be pending. '
+        'If Boltz never locks, the Lightning HTLC will expire and refund automatically.',
+      ),
+    );
+
+    final lockupTxId = swapStatus.transaction?.id;
+    if (lockupTxId == null) {
+      throw StateError(
+        'Boltz reported on-chain status but no transaction ID for swap ${data.boltzId}',
+      );
+    }
+
+    logger.i('Recovery: waiting for lockup tx $lockupTxId to be mined…');
+    await rootstock.awaitReceipt(lockupTxId);
+
+    await _verifyLockupAndEmitFunded(
+      data: data,
+      reportedTxId: lockupTxId,
+      boltzStatus: swapStatus.status,
+    );
   }
 
   /// Pays the Lightning invoice and waits for the on-chain lockup via the
   /// Boltz WebSocket. Only reached during the initial execute flow (not
-  /// recovery — recovery finds the lockup via chain or Boltz HTTP above).
+  /// recovery — recovery uses [_waitForLockupOnly] above).
   Future<void> _payAndWaitForLockup(SwapInData data) async {
     final invoice = data.invoiceString;
     if (invoice == null) {
@@ -246,7 +308,6 @@ class RootstockSwapInOperation extends SwapInOperation {
         .takeUntil(swapStatusFuture.asStream())
         .listen(
           (paymentState) {
-            logger.e('Payment emitted with state: $paymentState');
             emit(SwapInPaymentProgress(data, paymentState: paymentState));
           },
           onDone: () {
@@ -278,14 +339,52 @@ class RootstockSwapInOperation extends SwapInOperation {
       );
     }
 
-    // ── Persist lockup tx hash immediately ──
-    final lockupTx = await rootstock.awaitTransaction(lockupTxId);
+    // ── Wait for the lockup tx to be mined ──
+    // Boltz may report `transaction.mempool` before the tx is included in a
+    // block.  `getLogs` only returns events from mined blocks, so we must
+    // wait for a receipt (= mined) before scanning for the Lockup event.
+    logger.i('Waiting for lockup tx $lockupTxId to be mined…');
+    await rootstock.awaitReceipt(lockupTxId);
+
+    await _verifyLockupAndEmitFunded(
+      data: data,
+      reportedTxId: lockupTxId,
+      boltzStatus: swapStatus.status,
+    );
+  }
+
+  /// Verifies that a Lockup event matching our preimage hash exists on-chain,
+  /// cross-checks it against the [reportedTxId] from Boltz, and emits
+  /// [SwapInFunded]. Throws if no matching lockup is found.
+  Future<void> _verifyLockupAndEmitFunded({
+    required SwapInData data,
+    required String reportedTxId,
+    required String? boltzStatus,
+  }) async {
+    final lockupOnChain = await _findLockupOnChain(data);
+    if (lockupOnChain == null) {
+      throw StateError(
+        'Boltz reported lockup tx $reportedTxId for swap ${data.boltzId}, '
+        'but no Lockup event matching preimage hash ${data.preimageHash} '
+        'was found on-chain. The lockup may belong to a different swap.',
+      );
+    }
+
+    final verifiedTxHash = lockupOnChain.event.transactionHash!;
+    if (verifiedTxHash != reportedTxId) {
+      logger.w(
+        'Boltz reported lockup tx $reportedTxId but on-chain lockup for '
+        'preimage hash ${data.preimageHash} is $verifiedTxHash. '
+        'Using verified hash.',
+      );
+    }
+
     emit(
       SwapInFunded(
         data.copyWith(
-          lockupTxHash: lockupTxId,
-          refundAddress: lockupTx.from.with0x,
-          lastBoltzStatus: swapStatus.status,
+          lockupTxHash: verifiedTxHash,
+          refundAddress: lockupOnChain.refundAddress.with0x,
+          lastBoltzStatus: boltzStatus,
         ),
       ),
     );
@@ -348,6 +447,26 @@ class RootstockSwapInOperation extends SwapInOperation {
     final data = state.data!;
     final receipt = await rootstock.awaitReceipt(data.claimTxHash!);
     logger.i('Claim receipt for ${data.boltzId}: $receipt');
+
+    if (receipt.status != true) {
+      // The claim tx was mined but reverted (e.g. SwapNotFound, wrong
+      // preimage, already claimed by someone else, etc.).  Clear the
+      // claimTxHash so recovery will re-attempt the claim step from the
+      // Funded state.
+      logger.e(
+        'Claim tx ${data.claimTxHash} REVERTED (status=${receipt.status}) '
+        'for swap ${data.boltzId}. Will clear claimTxHash for retry.',
+      );
+      emit(
+        SwapInFailed(
+          'Claim transaction reverted on-chain (status=${receipt.status}). '
+          'The lockup may be invalid or expired.',
+          data: data.copyWith(claimTxHash: null),
+        ),
+      );
+      return;
+    }
+
     emit(SwapInCompleted(data));
     logger.i('Swap-in completed: ${data.claimTxHash}');
   }

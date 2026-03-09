@@ -3,11 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hostr/app.dart';
-import 'package:hostr/injection.dart';
-import 'package:hostr/presentation/screens/shared/profile/background_tasks.dart';
+import 'package:hostr/background.dart';
 import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 /// Export items from our app such that they can be used by widgetbook.
@@ -36,54 +34,12 @@ void mainCommon(String env) async {
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
-  final logger = CustomLogger();
-  logger.d('callbackDispatcher invoked');
+  final logger = CustomLogger(tag: 'hostr-background');
+  logger.d('invoked');
 
   Workmanager().executeTask((task, inputData) async {
-    try {
-      logger.d('callbackDispatcher: $task, inputData: $inputData');
-      final env = await readPersistedEnvironment();
-      await initCore(env);
-      // Background workers need relay connectivity — the foreground app
-      // handles this via the StartupGate widget, but here we call connect()
-      // explicitly.
-      await getIt<Hostr>().connect();
-
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      prefs.setString(iOSBackgroundAppRefresh, 'done');
-      // prefs.setString(iOSBackgroundProcessingTask, 'done');
-
-      final result = await getIt<Hostr>().backgroundWorker.run();
-      logger.d(
-        'Background worker completed: ${result.notifications.length} notifications',
-      );
-      for (int i = 0; i < result.notifications.length; i++) {
-        await FlutterLocalNotificationsPlugin().show(
-          id: 2 + i,
-          title: 'Hostr',
-          body: result.notifications[i],
-        );
-      }
-      // switch (task) {
-      //   case "sync":
-      //     print('here we are');
-      //     prefs.setString(iOSBackgroundAppRefresh, 'done');
-      //     break;
-      //   case Workmanager.iOSBackgroundTask:
-      //     // iOS Background Fetch task
-      //     print('here we are in bg task');
-      //     break;
-      //   default:
-      //     print('here we are in unknown');
-      //     // Handle unknown task types
-      //     break;
-      // }
-
-      return Future.value(true);
-    } catch (e, st) {
-      logger.e('Error in background task', error: e, stackTrace: st);
-      return Future.value(false);
-    }
+    final env = await readPersistedEnvironment();
+    return await executeBackgroundTask(env, task, inputData);
   });
 }
 

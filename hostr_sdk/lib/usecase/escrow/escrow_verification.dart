@@ -40,7 +40,8 @@ class EscrowVerification {
   final Evm evm;
   final CustomLogger logger;
 
-  EscrowVerification({required this.evm, required this.logger});
+  EscrowVerification({required this.evm, required CustomLogger logger})
+    : logger = logger.namespace('escrow-verify');
 
   /// Verify the on-chain escrow for [reservation] against [listing].
   ///

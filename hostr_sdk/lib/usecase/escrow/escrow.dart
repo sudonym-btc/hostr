@@ -26,13 +26,13 @@ class EscrowUseCase {
   final EscrowFundRegistry escrowFundRegistry;
 
   EscrowUseCase({
-    required this.logger,
+    required CustomLogger logger,
     required this.auth,
     required this.escrows,
     required this.escrowTrusts,
     required this.evm,
     required this.escrowFundRegistry,
-  });
+  }) : logger = logger.namespace('escrow');
 
   EscrowFundOperation fund(EscrowFundParams params) {
     final operation = getIt<EscrowFundOperation>(param1: params);

@@ -16,7 +16,7 @@ abstract class PayOperation<
   CmpD extends CompletedDetails
 >
     extends Cubit<PayState> {
-  final CustomLogger logger = CustomLogger();
+  final CustomLogger logger;
   final Nwc nwc;
 
   T params;
@@ -25,8 +25,12 @@ abstract class PayOperation<
   CmpD? completedDetails;
   int? _effectiveMinAmount;
   int? _effectiveMaxAmount;
-  PayOperation({@factoryParam required this.params, required this.nwc})
-    : super(PayInitialised(params: params));
+  PayOperation({
+    @factoryParam required this.params,
+    required this.nwc,
+    required CustomLogger logger,
+  }) : logger = logger.namespace('pay'),
+       super(PayInitialised(params: params));
   Future<RD> resolver();
   Future<CD> finalizer();
   Future<CmpD> completer();

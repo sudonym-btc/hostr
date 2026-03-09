@@ -85,8 +85,8 @@
 	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.sudonym.hostr.sync.ios.fetch</string>
-		<string>com.sudonym.hostr.sync.ios.processing</string>
+		<string>com.sudonym.hostr.task.periodic</string>
+		<string>com.sudonym.hostr.task.oneoff</string>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

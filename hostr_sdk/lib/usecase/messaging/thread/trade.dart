@@ -96,7 +96,7 @@ class Trade extends Cubit<TradeState> {
     required UserSubscriptions userSubscriptions,
     required ReservationPairs reservationPairs,
     required Threads threads,
-  }) : _logger = logger,
+  }) : _logger = logger.namespace('trade'),
        _auth = auth,
        _listings = listings,
        _metadata = metadata,
