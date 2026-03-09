@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/background_task_type.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/route/nostr_link_handler.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:workmanager/workmanager.dart';
 
 /// The Widget that configures your application.
 class MyApp extends StatefulWidget {
@@ -18,7 +23,7 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late final AppRouter _appRouter;
   late final NostrLinkHandler _nostrLinkHandler;
 
@@ -28,12 +33,42 @@ class _MyAppState extends State<MyApp> {
     _appRouter = widget.appRouter ?? AppRouter();
     _nostrLinkHandler = NostrLinkHandler(router: _appRouter);
     _nostrLinkHandler.init();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _nostrLinkHandler.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _scheduleOnchainOperations();
+    }
+  }
+
+  /// When the app goes to background during any active onchain operation
+  /// (swap, escrow fund/claim/release, etc.), schedule a one-off background
+  /// task so the operations can complete and the user gets a notification.
+  Future<void> _scheduleOnchainOperations() async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    try {
+      final hasActive = await getIt<Hostr>().backgroundWorker
+          .hasActiveOnchainOperations();
+      if (!hasActive) return;
+
+      await Workmanager().registerOneOffTask(
+        BackgroundTaskType.onchainOps.identifier,
+        BackgroundTaskType.onchainOps.taskName,
+        initialDelay: const Duration(seconds: 0),
+        existingWorkPolicy: ExistingWorkPolicy.replace,
+      );
+    } catch (_) {
+      // Best-effort — don't crash the lifecycle handler.
+    }
   }
 
   @override

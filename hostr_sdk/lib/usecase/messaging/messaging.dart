@@ -14,7 +14,8 @@ class Messaging {
   final Requests requests;
   final CustomLogger logger;
   Threads get threads => getIt<Threads>();
-  Messaging(this.ndk, this.requests, this.logger);
+  Messaging(this.ndk, this.requests, CustomLogger logger)
+    : logger = logger.namespace('messaging');
 
   Future<Nip01Event> getRumour(
     String content,

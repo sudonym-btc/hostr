@@ -28,11 +28,11 @@ class Payments {
   Payments({
     required this.zaps,
     required this.nwc,
-    required this.logger,
+    required CustomLogger logger,
     required this.escrow,
     required this.metadata,
     required this.auth,
-  });
+  }) : logger = logger.namespace('payments');
 
   Future<String?> getMyInvoice(int amountSats, {String? description}) async {
     if (nwc.getActiveConnection() != null) {
@@ -106,11 +106,16 @@ class Payments {
 
   PayOperation pay(PayParameters params) {
     if (params is Bolt11PayParameters) {
-      return Bolt11PayOperation(params: params, nwc: nwc);
+      return Bolt11PayOperation(params: params, nwc: nwc, logger: logger);
     } else if (params is LnurlPayParameters) {
-      return LnurlPayOperation(params: params, nwc: nwc);
+      return LnurlPayOperation(params: params, nwc: nwc, logger: logger);
     } else if (params is ZapPayParameters) {
-      return ZapPayOperation(params: params, nwc: nwc, zaps: zaps);
+      return ZapPayOperation(
+        params: params,
+        nwc: nwc,
+        zaps: zaps,
+        logger: logger,
+      );
     } else {
       throw Exception('Unsupported payment type');
     }

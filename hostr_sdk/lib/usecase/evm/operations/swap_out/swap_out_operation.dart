@@ -26,10 +26,11 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
 
   SwapOutOperation({
     required this.auth,
-    required this.logger,
+    required CustomLogger logger,
     @factoryParam required this.params,
     SwapOutState? initialState,
-  }) : super(initialState ?? const SwapOutInitialised());
+  }) : logger = logger.namespace('swap-out'),
+       super(initialState ?? const SwapOutInitialised());
 
   /// Persist every state that carries data.
   @override
@@ -97,9 +98,14 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
   /// | `Completed / Refunded / Failed`                    | No-op (terminal)                |
   Future<void> handle();
 
-  /// Loops [handle] until the state is terminal.
+  /// Loops [handle] until the state is terminal or failed.
+  ///
+  /// A non-terminal [SwapOutFailed] (e.g. funds locked but refund failed)
+  /// stops the loop immediately — retrying is the job of [recover], not
+  /// [run]. Without this guard the loop would spin forever because [handle]
+  /// no-ops on [SwapOutFailed] while [isTerminal] returns `false`.
   Future<void> run() async {
-    while (!state.isTerminal) {
+    while (!state.isTerminal && state is! SwapOutFailed) {
       await handle();
     }
   }

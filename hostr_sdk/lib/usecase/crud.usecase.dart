@@ -25,8 +25,8 @@ class CrudUseCase<T extends Nip01Event> {
     required this.requests,
     required this.kind,
     this.draftKind,
-    required this.logger,
-  });
+    required CustomLogger logger,
+  }) : logger = logger.namespace('crud');
 
   /// Notify listeners that an entity was mutated. Call this from external
   /// code (e.g. controllers that bypass [create]/[upsert]/[delete]) to

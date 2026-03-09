@@ -41,6 +41,7 @@ class ZapPayOperation
     required super.params,
     required this.zaps,
     required super.nwc,
+    required super.logger,
   });
 
   @override

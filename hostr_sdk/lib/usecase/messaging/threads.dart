@@ -45,9 +45,10 @@ class Threads extends HydratedCubit<List<Message>> {
     required this.messaging,
     required this.requests,
     required this.auth,
-    required this.logger,
+    required CustomLogger logger,
     required this.payments,
-  }) : super([]);
+  }) : logger = logger.namespace('threads'),
+       super([]);
 
   Future<void> sync() async {
     await _closeSubscription();
@@ -143,12 +144,13 @@ class Threads extends HydratedCubit<List<Message>> {
   }
 
   void processMessage(Message message) {
-    logger.d('Received message with id ${message.id} $message');
+    final id = threadIdentifierForMessage(message);
+    logger.d(
+      'Received message with id ${message.id} for thread $id, content: ${message.content.runtimeType}',
+    );
     if (!_seenIds.add(message.id)) {
       return;
     }
-
-    final id = threadIdentifierForMessage(message);
 
     if (threads[id] == null) {
       threads[id] = getIt<Thread>(param1: id);

@@ -7,6 +7,7 @@ import 'package:rxdart/rxdart.dart';
 import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
+import '../background_worker/background_worker.dart';
 import '../escrow/operations/fund/escrow_fund_recoverer.dart';
 import 'chain/evm_chain.dart';
 import 'chain/rootstock/rootstock.dart';
@@ -22,7 +23,11 @@ class Evm {
   StreamSubscription<BitcoinAmount>? _balanceSubscription;
 
   late final List<EvmChain> supportedEvmChains;
-  Evm({required this.auth, required this.rootstock, required this.logger}) {
+  Evm({
+    required this.auth,
+    required this.rootstock,
+    required CustomLogger logger,
+  }) : logger = logger.namespace('evm') {
     supportedEvmChains = [rootstock];
   }
 
@@ -109,6 +114,9 @@ class Evm {
   Future<void> dispose() async {
     await _balanceSubscription?.cancel();
     _balanceSubscription = null;
+    for (final chain in supportedEvmChains) {
+      await chain.dispose();
+    }
     await _balanceSubject?.close();
     _balanceSubject = null;
   }
@@ -127,14 +135,27 @@ class Evm {
   /// Loads persisted cubit states from [OperationStateStore], reconstructs
   /// the appropriate cubits, and calls their [recover] methods.
   ///
+  /// When [onProgress] is provided, real-time notifications are fired at
+  /// key state transitions (e.g. swap funded, deposit confirmed).
+  /// [swapToTradeId] maps nested swap `boltzId`s to parent escrow `tradeId`s
+  /// so that the notification ID stays stable across swap → deposit stages.
+  ///
   /// Safe to call repeatedly — idempotent and non-destructive.
   /// Returns the number of operations that were successfully resolved.
-  Future<int> recoverStaleOperations() async {
+  Future<int> recoverStaleOperations({
+    OnBackgroundProgress? onProgress,
+    Map<String, String>? swapToTradeId,
+  }) async {
     try {
       final swapRecoverer = getIt<SwapRecoverer>();
       final escrowRecoverer = getIt<EscrowFundRecoverer>();
-      final swapsResolved = await swapRecoverer.recoverAll();
-      final escrowsResolved = await escrowRecoverer.recoverAll();
+      final swapsResolved = await swapRecoverer.recoverAll(
+        onProgress: onProgress,
+        swapToTradeId: swapToTradeId ?? const {},
+      );
+      final escrowsResolved = await escrowRecoverer.recoverAll(
+        onProgress: onProgress,
+      );
       return swapsResolved + escrowsResolved;
     } catch (e) {
       logger.e('Evm.recoverStaleOperations failed: $e');

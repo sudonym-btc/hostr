@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_header.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:widgetbook/widgetbook.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
@@ -45,7 +47,13 @@ Widget tradeHeaderKnobs(BuildContext context) {
           availabilityReason: availability != TradeAvailability.available
               ? 'This reservation is not available.'
               : null,
-          streams: const TradeStreams(),
+          streams: TradeStreams(
+            paymentEvents: StreamWithStatus<PaymentEvent>(),
+            reservationStream:
+                StreamWithStatus<Validation<ReservationPairStatus>>(),
+            transitionsStream: StreamWithStatus<ReservationTransition>(),
+            subscriptionsLive: BehaviorSubject<bool>.seeded(false),
+          ),
         ),
       ),
     ),

@@ -64,7 +64,7 @@ class PaymentProofOrchestrator {
        _reservations = reservations,
        _listings = listings,
        _metadata = metadata,
-       _logger = logger;
+       _logger = logger.namespace('payment-proof');
 
   /// Start watching. Call after [UserSubscriptions.start].
   ///

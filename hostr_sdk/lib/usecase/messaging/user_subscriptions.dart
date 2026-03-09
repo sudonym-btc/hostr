@@ -72,7 +72,7 @@ class UserSubscriptions {
        _reviews = reviews,
        _zaps = zaps,
        _escrow = escrow,
-       _logger = logger;
+       _logger = logger.namespace('subscriptions');
 
   // ── Public streams ────────────────────────────────────────────────────
 
@@ -208,7 +208,7 @@ class UserSubscriptions {
   /// Watches all threads for trade-related data and expands filters when
   /// new anchors / trade IDs / escrow services are discovered.
   void _startDiscoveryEngine() {
-    _logger.d("UserSubscriptions: processing threads");
+    _logger.d("processing threads");
 
     // Start expandable subs now — they may have empty filters initially
     // but that's fine; events just won't match until filters are expanded.
@@ -217,7 +217,6 @@ class UserSubscriptions {
 
     _discoverySubscriptions.add(
       _threads.subscription!.replay.listen((message) {
-        _logger.d('UserSubscriptions: message received! ${message.id}');
         final child = message.child;
         if (child is Reservation) {
           _processReservationRequest(child);
@@ -229,7 +228,7 @@ class UserSubscriptions {
   }
 
   void _processReservationRequest(Reservation reservation) {
-    _logger.d('UserSubscriptions: handling reservation message $reservation');
+    _logger.d('handling reservation message $reservation');
 
     bool tradeIdsChanged = false;
 
@@ -261,7 +260,7 @@ class UserSubscriptions {
     if (_knownTradeIds.isEmpty) return;
 
     final fullFilter = Filter(dTags: _knownTradeIds.toList());
-    _logger.d('UserSubscriptions: updating filter ${fullFilter.dTags}');
+    _logger.d('updating filter ${fullFilter.dTags}');
     allMyReservations$.updateFilter(
       expandedFilter: _reservations.kindFilter(fullFilter),
       deltaFilter: _reservations.kindFilter(fullFilter),

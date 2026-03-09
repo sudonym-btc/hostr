@@ -15,7 +15,11 @@ class LnurlPayOperation
           LightningCallbackDetails,
           LightningCompletedDetails
         > {
-  LnurlPayOperation({@factoryParam required super.params, required super.nwc});
+  LnurlPayOperation({
+    @factoryParam required super.params,
+    required super.nwc,
+    required super.logger,
+  });
 
   /// Converts Lightning Address (email format) to LNURL.
   String emailToLnUrl(String email) {

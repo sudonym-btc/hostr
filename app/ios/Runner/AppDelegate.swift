@@ -11,11 +11,11 @@ import workmanager_apple
   ) -> Bool {
     GMSServices.provideAPIKey("AIzaSyDbIij_LkLDQTePfWnoLo5bmqhDKS2xXbU")
     WorkmanagerPlugin.registerPeriodicTask(
-      withIdentifier: "com.sudonym.hostr.sync.ios.fetch",
+      withIdentifier: "com.sudonym.hostr.task.periodic",
       frequency: NSNumber(value: 15 * 60) // 20 minutes (15 min minimum)
     )
     WorkmanagerPlugin.registerBGProcessingTask(
-      withIdentifier: "com.sudonym.hostr.sync.ios.processing"
+      withIdentifier: "com.sudonym.hostr.task.oneoff"
     )
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate

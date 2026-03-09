@@ -14,7 +14,11 @@ class Bolt11PayOperation
           LightningCallbackDetails,
           LightningCompletedDetails
         > {
-  Bolt11PayOperation({@factoryParam required super.params, required super.nwc});
+  Bolt11PayOperation({
+    @factoryParam required super.params,
+    required super.nwc,
+    required super.logger,
+  });
 
   @override
   Future<ResolvedDetails> resolver() async {

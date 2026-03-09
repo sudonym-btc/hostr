@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
+import 'package:http/http.dart' as http;
 import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
@@ -26,6 +28,8 @@ abstract class EvmChain {
   /// underlying HTTP transport after network failures.
   Web3Client get client => _client;
 
+  int _clientGeneration = 0;
+
   /// Number of consecutive RPC failures before the client is rebuilt.
   static const int maxConsecutiveFailures = 3;
 
@@ -35,8 +39,9 @@ abstract class EvmChain {
   EvmChain({
     required Web3Client client,
     required this.auth,
-    required this.logger,
-  }) : _client = client;
+    required CustomLogger logger,
+  }) : logger = logger.namespace('evm-chain'),
+       _client = client;
 
   /// Replace the underlying [Web3Client] with a fresh instance.
   ///
@@ -47,7 +52,48 @@ abstract class EvmChain {
 
   void _rebuildClient() {
     logger.i('Rebuilding Web3Client after consecutive failures');
+    final oldClient = _client;
     _client = buildClient();
+    _clientGeneration++;
+    oldClient.dispose();
+  }
+
+  void _resetClientIfGeneration(int generation) {
+    if (_clientGeneration != generation) return;
+    _rebuildClient();
+  }
+
+  bool _isTransientRpcError(Object error) =>
+      error is http.ClientException ||
+      error is SocketException ||
+      error is TimeoutException;
+
+  Future<T> _callRpcWithRetry<T>(
+    String operation,
+    Future<T> Function(Web3Client client) fn, {
+    int retries = 1,
+    Duration retryDelay = const Duration(milliseconds: 250),
+  }) async {
+    for (int attempt = 1; attempt <= retries + 1; attempt++) {
+      final generation = _clientGeneration;
+      try {
+        return await fn(client);
+      } catch (error) {
+        if (!_isTransientRpcError(error) || attempt > retries) rethrow;
+        logger.w(
+          '$operation failed on attempt $attempt/${retries + 1}: $error. '
+          'Resetting Web3Client and retrying.',
+        );
+        _resetClientIfGeneration(generation);
+        await Future.delayed(retryDelay * attempt);
+      }
+    }
+
+    throw StateError('unreachable');
+  }
+
+  Future<void> dispose() async {
+    client.dispose();
   }
 
   SupportedEscrowContract getSupportedEscrowContract(
@@ -61,12 +107,15 @@ abstract class EvmChain {
   }
 
   Future<BigInt> getChainId() async {
-    return await client.getChainId();
+    return _callRpcWithRetry('getChainId', (client) => client.getChainId());
   }
 
   Future<BitcoinAmount> getBalance(EthereumAddress address) async {
     logger.d('Getting balance for $address');
-    return await client.getBalance(address).then((val) {
+    return await _callRpcWithRetry(
+      'getBalance($address)',
+      (client) => client.getBalance(address),
+    ).then((val) {
       logger.d('Balance for $address: $val');
       return BitcoinAmount.inWei(val.getInWei);
     });
@@ -93,7 +142,10 @@ abstract class EvmChain {
 
     while (true) {
       try {
-        final current = await client.getBlockNumber();
+        final current = await _callRpcWithRetry(
+          'getBlockNumber',
+          (client) => client.getBlockNumber(),
+        );
         // Success — reset failure tracking.
         if (consecutiveFailures > 0) {
           logger.i(
@@ -149,7 +201,10 @@ abstract class EvmChain {
 
   Future<TransactionInformation?> getTransaction(String txHash) async {
     logger.d('Getting transaction for $txHash');
-    return await client.getTransactionByHash(txHash).then((val) {
+    return await _callRpcWithRetry(
+      'getTransactionByHash($txHash)',
+      (client) => client.getTransactionByHash(txHash),
+    ).then((val) {
       logger.d(
         'Transaction for $txHash: from ${val?.from} to ${val?.to} amount ${val?.value.getInWei}',
       );
@@ -174,7 +229,10 @@ abstract class EvmChain {
 
   Future<TransactionReceipt> awaitReceipt(String txHash) async {
     while (true) {
-      final receipt = await client.getTransactionReceipt(txHash);
+      final receipt = await _callRpcWithRetry(
+        'getTransactionReceipt($txHash)',
+        (client) => client.getTransactionReceipt(txHash),
+      );
       if (receipt != null) return receipt;
       await Future.delayed(const Duration(milliseconds: 300));
     }
@@ -204,8 +262,14 @@ abstract class EvmChain {
       // Fire nonce + balance queries for every address in the batch at once.
       final results = await Future.wait(
         addresses.map((entry) async {
-          final nonce = await client.getTransactionCount(entry.address);
-          final balance = await client.getBalance(entry.address);
+          final nonce = await _callRpcWithRetry(
+            'getTransactionCount(${entry.address})',
+            (client) => client.getTransactionCount(entry.address),
+          );
+          final balance = await _callRpcWithRetry(
+            'getBalance(${entry.address})',
+            (client) => client.getBalance(entry.address),
+          );
           return (
             index: entry.index,
             address: entry.address,
@@ -251,7 +315,10 @@ abstract class EvmChain {
 
       final results = await Future.wait(
         addresses.map((entry) async {
-          final balance = await client.getBalance(entry.address);
+          final balance = await _callRpcWithRetry(
+            'getBalance(${entry.address})',
+            (client) => client.getBalance(entry.address),
+          );
           return (index: entry.index, address: entry.address, balance: balance);
         }),
       );
@@ -318,10 +385,13 @@ abstract class EvmChain {
     ContractFunction func,
     params,
   ) {
-    return client.call(
-      contract: DeployedContract(abi, address),
-      function: func,
-      params: params,
+    return _callRpcWithRetry(
+      'call(${func.name})',
+      (client) => client.call(
+        contract: DeployedContract(abi, address),
+        function: func,
+        params: params,
+      ),
     );
   }
 }

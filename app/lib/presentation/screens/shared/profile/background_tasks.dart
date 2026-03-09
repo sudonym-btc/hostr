@@ -2,20 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/background_task_type.dart';
 import 'package:hostr/main.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
-const simplePeriodic1HourTask = "com.sudonym.hostr.sync.android.periodic";
-const iOSBackgroundAppRefresh = "com.sudonym.hostr.sync.ios.fetch";
-const iOSBackgroundProcessingTask = "com.sudonym.hostr.sync.ios.processing";
-
-final List<String> allTasks = [
-  simplePeriodic1HourTask,
-  iOSBackgroundAppRefresh,
-  iOSBackgroundProcessingTask,
-];
+final List<String> allTasks = allBackgroundTaskIdentifiers;
 
 class BackgroundTasks extends StatefulWidget {
   const BackgroundTasks({super.key});
@@ -126,8 +119,8 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
                       return;
                     }
                     await Workmanager().registerPeriodicTask(
-                      iOSBackgroundAppRefresh,
-                      iOSBackgroundAppRefresh,
+                      BackgroundTaskType.periodicSync.identifier,
+                      BackgroundTaskType.periodicSync.taskName,
                       initialDelay: Duration(seconds: 0),
                       inputData: <String, dynamic>{}, //ignored on iOS
                     );
@@ -153,8 +146,8 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
                       return;
                     }
                     await Workmanager().registerProcessingTask(
-                      iOSBackgroundProcessingTask,
-                      iOSBackgroundProcessingTask,
+                      BackgroundTaskType.onchainOps.identifier,
+                      BackgroundTaskType.onchainOps.taskName,
                       initialDelay: Duration(seconds: 0),
                     );
                   }
