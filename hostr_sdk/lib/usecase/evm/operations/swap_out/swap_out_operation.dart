@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:bloc/bloc.dart';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:injectable/injectable.dart';
 import 'package:meta/meta.dart';
@@ -8,12 +7,16 @@ import 'package:meta/meta.dart';
 import '../../../../injection.dart';
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
+import '../operation_machine.dart';
 import '../operation_state_store.dart';
 import 'swap_out_models.dart';
 import 'swap_out_state.dart';
 
-abstract class SwapOutOperation extends Cubit<SwapOutState> {
-  final CustomLogger logger;
+/// All steps in the swap-out lifecycle.
+enum SwapOutStep { createSwap, lockFunds, awaitResolution, confirmRefund }
+
+abstract class SwapOutOperation
+    extends OperationMachine<SwapOutState, SwapOutStep> {
   final Auth auth;
   final SwapOutParams params;
 
@@ -22,122 +25,127 @@ abstract class SwapOutOperation extends Cubit<SwapOutState> {
   @protected
   Completer<String>? externalInvoiceCompleter;
 
-  late final OperationStateStore _stateStore = getIt<OperationStateStore>();
-
   SwapOutOperation({
     required this.auth,
     required CustomLogger logger,
     @factoryParam required this.params,
     SwapOutState? initialState,
-  }) : logger = logger.namespace('swap-out'),
-       super(initialState ?? const SwapOutInitialised());
+  }) : super(
+         store: getIt<OperationStateStore>(),
+         logger: logger.scope('swap-out'),
+         initialState: initialState ?? const SwapOutInitialised(),
+       );
 
-  /// Persist every state that carries data.
+  // ── OperationMachine contract ──────────────────────────────────────
+
   @override
-  void emit(SwapOutState state) {
-    super.emit(state);
-    final id = state.operationId;
-    if (id != null) {
-      _stateStore.write('swap_out', id, state.toJson());
-    }
+  String get namespace => 'swap_out';
+
+  @override
+  List<StepGuard<SwapOutStep>> get steps => const [
+    StepGuard(
+      step: SwapOutStep.createSwap,
+      allowedFrom: {
+        'initialised',
+        'requestCreated',
+        'externalInvoiceRequired',
+        'invoiceCreated',
+        'paymentProgress',
+      },
+      backgroundAllowed: false,
+    ),
+    StepGuard(
+      step: SwapOutStep.lockFunds,
+      allowedFrom: {'awaitingOnChain', 'locking'},
+      staleTimeout: Duration(minutes: 30),
+      backgroundAllowed: true,
+    ),
+    StepGuard(
+      step: SwapOutStep.awaitResolution,
+      allowedFrom: {'funded', 'claimed'},
+      backgroundAllowed: true,
+    ),
+    StepGuard(
+      step: SwapOutStep.confirmRefund,
+      allowedFrom: {'refunding'},
+      backgroundAllowed: true,
+    ),
+  ];
+
+  @override
+  SwapOutState stateFromJson(Map<String, dynamic> json) =>
+      SwapOutState.fromJson(json);
+
+  @override
+  SwapOutState? busyStateFor(SwapOutStep step, SwapOutState current) {
+    final data = current.data;
+    if (data == null) return null;
+    return switch (step) {
+      SwapOutStep.lockFunds => SwapOutLocking(data),
+      _ => null,
+    };
   }
+
+  @override
+  void emitError(
+    Object error,
+    SwapOutState from,
+    StackTrace? st, {
+    String? stepName,
+  }) {
+    emit(
+      SwapOutFailed(
+        error,
+        data: from.data,
+        stackTrace: st,
+        failedAtStep: stepName,
+      ),
+    );
+  }
+
+  // ── External invoice support ──────────────────────────────────────
 
   /// Call this from the UI after the user pastes an external Lightning invoice.
   ///
   /// Validates that [invoice] is a well-formed BOLT-11 payment request whose
-  /// amount matches the amount required by the current swap.  Throws a
-  /// [FormatException] for unparseable invoices and an [ArgumentError] when
-  /// the encoded amount does not equal the expected amount.
-  void submitExternalInvoice(String invoice) {
-    if (externalInvoiceCompleter == null ||
-        externalInvoiceCompleter!.isCompleted) {
-      return;
-    }
+  /// amount matches the amount required by the current swap.
+  void submitExternalInvoice(String invoice) =>
+      logger.spanSync('submitExternalInvoice', () {
+        if (externalInvoiceCompleter == null ||
+            externalInvoiceCompleter!.isCompleted) {
+          return;
+        }
 
-    final Bolt11PaymentRequest decoded;
-    try {
-      decoded = Bolt11PaymentRequest(invoice);
-    } catch (e) {
-      throw StateError('Invalid Lightning invoice: $e');
-    }
+        final Bolt11PaymentRequest decoded;
+        try {
+          decoded = Bolt11PaymentRequest(invoice);
+        } catch (e) {
+          throw StateError('Invalid Lightning invoice: $e');
+        }
 
-    final invoiceAmount = BitcoinAmount.fromDecimal(
-      BitcoinUnit.bitcoin,
-      decoded.amount.toString(),
-    );
-
-    final currentState = state;
-    if (currentState is SwapOutExternalInvoiceRequired) {
-      final expectedAmount = currentState.invoiceAmount;
-      if (invoiceAmount.getInSats != expectedAmount.getInSats) {
-        externalInvoiceCompleter!.completeError(
-          ArgumentError(
-            'Invoice amount ${invoiceAmount.getInSats} sats does not match '
-            'the required ${expectedAmount.getInSats} sats.',
-          ),
+        final invoiceAmount = BitcoinAmount.fromDecimal(
+          BitcoinUnit.bitcoin,
+          decoded.amount.toString(),
         );
-        return;
-      }
-    }
 
-    externalInvoiceCompleter!.complete(invoice);
-  }
+        final currentState = state;
+        if (currentState is SwapOutExternalInvoiceRequired) {
+          final expectedAmount = currentState.invoiceAmount;
+          if (invoiceAmount.getInSats != expectedAmount.getInSats) {
+            externalInvoiceCompleter!.completeError(
+              ArgumentError(
+                'Invoice amount ${invoiceAmount.getInSats} sats does not match '
+                'the required ${expectedAmount.getInSats} sats.',
+              ),
+            );
+            return;
+          }
+        }
+
+        externalInvoiceCompleter!.complete(invoice);
+      });
+
+  // ── Abstract: chain-specific ──────────────────────────────────────
 
   Future<SwapOutFees> estimateFees();
-
-  /// Reads the current state and performs exactly one state transition.
-  ///
-  /// Implementors switch on [state] and run the appropriate step:
-  ///
-  /// | State group                                        | Action                          |
-  /// |----------------------------------------------------|---------------------------------|
-  /// | `Initialised`                                      | Acquire invoice + create swap   |
-  /// | `AwaitingOnChain`                                  | Lock funds in EtherSwap         |
-  /// | `Funded`                                           | Await Boltz payment or refund   |
-  /// | `Refunding`                                        | Confirm refund receipt          |
-  /// | `Completed / Refunded / Failed`                    | No-op (terminal)                |
-  Future<void> handle();
-
-  /// Loops [handle] until the state is terminal or failed.
-  ///
-  /// A non-terminal [SwapOutFailed] (e.g. funds locked but refund failed)
-  /// stops the loop immediately — retrying is the job of [recover], not
-  /// [run]. Without this guard the loop would spin forever because [handle]
-  /// no-ops on [SwapOutFailed] while [isTerminal] returns `false`.
-  Future<void> run() async {
-    while (!state.isTerminal && state is! SwapOutFailed) {
-      await handle();
-    }
-  }
-
-  /// Start a new swap-out from [SwapOutInitialised].
-  Future<void> execute() => run();
-
-  /// Resume from a persisted (non-terminal) state.
-  ///
-  /// Returns `true` if the swap reached a terminal state.
-  Future<bool> recover() async {
-    if (state.data == null) return false;
-    if (state.isTerminal) return true;
-
-    // A non-terminal SwapOutFailed means funds are locked on-chain but
-    // resolution failed transiently. Re-enter the state machine from the
-    // appropriate resumable state so a refund can be retried.
-    if (state is SwapOutFailed) {
-      final data = state.data!;
-      if (data.lockTxHash != null) {
-        emit(SwapOutFunded(data));
-      } else {
-        emit(SwapOutAwaitingOnChain(data));
-      }
-    }
-
-    try {
-      await run();
-      return state.isTerminal;
-    } catch (e) {
-      logger.e('Recovery error for ${state.data?.boltzId}: $e');
-      return false;
-    }
-  }
 }

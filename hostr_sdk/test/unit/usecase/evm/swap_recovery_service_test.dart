@@ -1,7 +1,6 @@
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/datasources/storage.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_state.dart';
@@ -9,6 +8,8 @@ import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_state.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/bip340.dart';
+import 'package:sqlite3/common.dart';
+import 'package:sqlite3/sqlite3.dart' as native_sqlite3;
 import 'package:test/test.dart';
 
 /// These tests verify the persistence layer used by [SwapRecoverer]:
@@ -18,20 +19,21 @@ import 'package:test/test.dart';
 /// Full integration tests that exercise actual recovery (Boltz API, claim
 /// transactions, etc.) are in the integration_test/ directory.
 void main() {
-  late InMemoryKeyValueStorage storage;
+  late CommonDatabase db;
   late OperationStateStore store;
 
   final userA = Bip340.fromPrivateKey('1' * 64);
 
   setUp(() {
-    storage = InMemoryKeyValueStorage();
+    db = native_sqlite3.sqlite3.openInMemory();
     final mockAuth = MockAuth();
     when(mockAuth.activeKeyPair).thenAnswer((_) => userA);
-    store = OperationStateStore(storage, CustomLogger(), mockAuth);
+    store = OperationStateStore(db, CustomLogger(), mockAuth);
   });
 
   tearDown(() {
     store.dispose();
+    db.dispose();
   });
 
   // ── Helpers ───────────────────────────────────────────────────────────
@@ -187,10 +189,10 @@ void main() {
       await store.write('swap_out', 'out-1', _swapOutJson(boltzId: 'out-1'));
       store.dispose();
 
-      // Create fresh store from same storage
+      // Create fresh store from same database
       final mockAuth = MockAuth();
       when(mockAuth.activeKeyPair).thenAnswer((_) => userA);
-      final store2 = OperationStateStore(storage, CustomLogger(), mockAuth);
+      final store2 = OperationStateStore(db, CustomLogger(), mockAuth);
 
       final swapIns = await store2.readAll('swap_in');
       final swapOuts = await store2.readAll('swap_out');

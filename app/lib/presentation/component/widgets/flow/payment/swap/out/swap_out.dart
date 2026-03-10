@@ -88,6 +88,9 @@ class SwapOutViewWidget extends StatelessWidget {
         return SwapOutProgressWidget(state);
       case SwapOutRefunded():
         return SwapOutRefundedWidget();
+      case SwapOutLocking():
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 }

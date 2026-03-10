@@ -47,10 +47,10 @@ class Threads extends HydratedCubit<List<Message>> {
     required this.auth,
     required CustomLogger logger,
     required this.payments,
-  }) : logger = logger.namespace('threads'),
+  }) : logger = logger.scope('threads'),
        super([]);
 
-  Future<void> sync() async {
+  Future<void> sync() => logger.span('sync', () async {
     await _closeSubscription();
     _rebuildThreadsFromMessages(state);
 
@@ -82,9 +82,9 @@ class Threads extends HydratedCubit<List<Message>> {
     });
     _messageSubscription?.cancel();
     _messageSubscription = subscription!.stream.listen(processMessage);
-  }
+  });
 
-  Future<List<Message>> refresh() async {
+  Future<List<Message>> refresh() => logger.span('refresh', () async {
     sync();
     if (subscription == null) return [];
     List<Message> newMessages = await subscription!.stream
@@ -92,43 +92,45 @@ class Threads extends HydratedCubit<List<Message>> {
         .toList();
     stop();
     return newMessages;
-  }
+  });
 
-  Future<void> stop() async {
+  Future<void> stop() => logger.span('stop', () async {
     await _closeSubscription();
     for (final thread in threads.values) {
       await thread.close();
     }
     threads.clear();
     _seenIds.clear();
-  }
+  });
 
   /// Fully resets messaging state, clearing both in-memory threads and
   /// the persisted [HydratedCubit] storage. Call on sign-out so a
   /// subsequent login starts with a clean slate.
-  Future<void> reset() async {
+  Future<void> reset() => logger.span('reset', () async {
     await stop();
     _seenIds.clear();
     emit([]);
     await clear();
-  }
+  });
 
-  Future<void> _closeSubscription() async {
-    await _statusSubscription?.cancel();
-    _statusSubscription = null;
-    await _messageSubscription?.cancel();
-    _messageSubscription = null;
-    await subscription?.close();
-  }
+  Future<void> _closeSubscription() =>
+      logger.span('_closeSubscription', () async {
+        await _statusSubscription?.cancel();
+        _statusSubscription = null;
+        await _messageSubscription?.cancel();
+        _messageSubscription = null;
+        await subscription?.close();
+      });
 
   /// Waits for a message with the specified ID to be received.
   /// Listens to the replay subject which captures all messages.
-  Future<Message> awaitMessageId(String expectedId) {
-    logger.d('Awaiting message with id $expectedId');
-    return subscription!.replay.firstWhere(
-      (message) => message.id == expectedId,
-    );
-  }
+  Future<Message> awaitMessageId(String expectedId) =>
+      logger.span('awaitMessageId', () async {
+        logger.d('Awaiting message with id $expectedId');
+        return subscription!.replay.firstWhere(
+          (message) => message.id == expectedId,
+        );
+      });
 
   // If DM'ing has nothing to do with reservation or a specific thread, we still want to keep it compatible with the same thread structure.
   // So we generate a thread ID based on the participants if no thread anchor is provided.
@@ -143,7 +145,7 @@ class Threads extends HydratedCubit<List<Message>> {
             .toString();
   }
 
-  void processMessage(Message message) {
+  void processMessage(Message message) => logger.spanSync('processMessage', () {
     final id = threadIdentifierForMessage(message);
     logger.d(
       'Received message with id ${message.id} for thread $id, content: ${message.content.runtimeType}',
@@ -173,63 +175,69 @@ class Threads extends HydratedCubit<List<Message>> {
     }
     list.insert(lo, message);
     emit(list);
-  }
+  });
 
   /// Get the most recent timestamp from all cached threads.
   /// Returns null if no messages cached.
-  int? getMostRecentTimestamp() {
-    int? maxTimestamp;
-    for (final message in state) {
-      if (maxTimestamp == null || message.createdAt > maxTimestamp) {
-        maxTimestamp = message.createdAt;
-      }
-    }
-    return maxTimestamp;
-  }
+  int? getMostRecentTimestamp() =>
+      logger.spanSync('getMostRecentTimestamp', () {
+        int? maxTimestamp;
+        for (final message in state) {
+          if (maxTimestamp == null || message.createdAt > maxTimestamp) {
+            maxTimestamp = message.createdAt;
+          }
+        }
+        return maxTimestamp;
+      });
 
-  void _rebuildThreadsFromMessages(List<Message> messages) {
-    threads.clear();
-    _seenIds.clear();
-    logger.d('Rebuilding threads from ${messages.length} messages');
+  void _rebuildThreadsFromMessages(List<Message> messages) =>
+      logger.spanSync('_rebuildThreadsFromMessages', () {
+        threads.clear();
+        _seenIds.clear();
+        logger.d('Rebuilding threads from ${messages.length} messages');
 
-    // Bulk ingest: route messages to threads in a single pass without
-    // emitting intermediate state or re-sorting per message.
-    for (final message in messages) {
-      if (!_seenIds.add(message.id)) continue;
+        // Bulk ingest: route messages to threads in a single pass without
+        // emitting intermediate state or re-sorting per message.
+        for (final message in messages) {
+          if (!_seenIds.add(message.id)) continue;
 
-      final id = threadIdentifierForMessage(message);
-      if (threads[id] == null) {
-        threads[id] = getIt<Thread>(param1: id);
-        threadController.add(threads[id]!);
-      }
-      threads[id]!.messages.add(message);
-    }
+          final id = threadIdentifierForMessage(message);
+          if (threads[id] == null) {
+            threads[id] = getIt<Thread>(param1: id);
+            threadController.add(threads[id]!);
+          }
+          threads[id]!.messages.add(message);
+        }
 
-    // Single sort + single emit for the entire batch.
-    final sorted = List<Message>.of(messages)
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    emit(sorted);
-  }
-
-  @override
-  List<Message> fromJson(Map<String, dynamic> json) {
-    final messages = json['messages'];
-    if (messages is! List) {
-      return [];
-    }
-    return messages.map((message) {
-      final event = Nip01EventModel.fromJson(message);
-      return Message.safeFromNostrEvent(event);
-    }).toList();
-  }
+        // Single sort + single emit for the entire batch.
+        final sorted = List<Message>.of(messages)
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        emit(sorted);
+      });
 
   @override
-  Map<String, dynamic>? toJson(List<Message> state) {
-    return {'messages': state.map((message) => message.toString()).toList()};
-  }
+  List<Message> fromJson(Map<String, dynamic> json) =>
+      logger.spanSync('fromJson', () {
+        final messages = json['messages'];
+        if (messages is! List) {
+          return <Message>[];
+        }
+        return messages.map((message) {
+          final event = Nip01EventModel.fromJson(message);
+          return Message.safeFromNostrEvent(event);
+        }).toList();
+      });
 
   @override
-  Future<void> close() async {
+  Map<String, dynamic>? toJson(List<Message> state) => logger.spanSync(
+    'toJson',
+    () {
+      return {'messages': state.map((message) => message.toString()).toList()};
+    },
+  );
+
+  @override
+  Future<void> close() => logger.span('close', () async {
     // @todo are the right close methods called here?
     await stop();
     for (final thread in threads.values) {
@@ -240,5 +248,5 @@ class Threads extends HydratedCubit<List<Message>> {
     await threadController.close();
     await _statusSubject.close();
     return super.close();
-  }
+  });
 }

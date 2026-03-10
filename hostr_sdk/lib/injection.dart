@@ -1,12 +1,14 @@
 import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart';
+import 'package:sqlite3/common.dart';
 
 import 'config.dart';
 import 'datasources/storage.dart';
 import 'injection.config.dart';
 import 'usecase/calendar/calendar.dart';
 import 'util/custom_logger.dart';
+import 'util/telemetry.dart';
 
 /// SDK-private dependency container, isolated from the host app's GetIt.
 final getIt = GetIt.asNewInstance();
@@ -28,7 +30,13 @@ abstract class HostrSdkModule {
   KeyValueStorage get keyValueStorage => _hostrConfig.keyValueStorage;
 
   @singleton
+  CommonDatabase get operationsDb => _hostrConfig.operationsDb;
+
+  @singleton
   CustomLogger get logger => _hostrConfig.logger;
+
+  @singleton
+  Telemetry get telemetry => _hostrConfig.telemetry;
 
   @singleton
   CalendarPort get calendarPort =>

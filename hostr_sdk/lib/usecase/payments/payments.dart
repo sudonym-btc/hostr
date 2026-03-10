@@ -32,9 +32,12 @@ class Payments {
     required this.escrow,
     required this.metadata,
     required this.auth,
-  }) : logger = logger.namespace('payments');
+  }) : logger = logger.scope('payments');
 
-  Future<String?> getMyInvoice(int amountSats, {String? description}) async {
+  Future<String?> getMyInvoice(
+    int amountSats, {
+    String? description,
+  }) => logger.span('getMyInvoice', () async {
     if (nwc.getActiveConnection() != null) {
       try {
         return (await nwc.makeInvoice(
@@ -50,7 +53,7 @@ class Payments {
     }
     // No NWC wallet connected – try LUD16 from user metadata first
     return await _tryCreateInvoiceFromLud16(amountSats);
-  }
+  });
 
   /// Attempts to create an invoice from the current user's LUD16 lightning
   /// address. Returns the bolt11 invoice string on success, or `null` if the
@@ -58,7 +61,7 @@ class Payments {
   Future<String?> _tryCreateInvoiceFromLud16(
     int amountSats, {
     String? description,
-  }) async {
+  }) => logger.span('_tryCreateInvoiceFromLud16', () async {
     try {
       final pubkey = auth.activeKeyPair?.publicKey;
       if (pubkey == null) return null;
@@ -102,9 +105,9 @@ class Payments {
       logger.w('Error creating invoice from LUD16: $e');
       return null;
     }
-  }
+  });
 
-  PayOperation pay(PayParameters params) {
+  PayOperation pay(PayParameters params) => logger.spanSync('pay', () {
     if (params is Bolt11PayParameters) {
       return Bolt11PayOperation(params: params, nwc: nwc, logger: logger);
     } else if (params is LnurlPayParameters) {
@@ -119,5 +122,5 @@ class Payments {
     } else {
       throw Exception('Unsupported payment type');
     }
-  }
+  });
 }

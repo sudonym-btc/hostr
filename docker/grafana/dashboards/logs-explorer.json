@@ -1,0 +1,233 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 1,
+    "id": null,
+    "links": [],
+    "panels": [
+        {
+            "title": "Application Logs",
+            "description": "Structured logs from the Hostr app via OTel → Loki",
+            "type": "logs",
+            "gridPos": {
+                "h": 16,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "options": {
+                "showTime": true,
+                "showLabels": true,
+                "showCommonLabels": false,
+                "wrapLogMessage": true,
+                "prettifyLogMessage": false,
+                "enableLogDetails": true,
+                "dedupStrategy": "none",
+                "sortOrder": "Descending"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "{service_name=~\".+\"} |= `$search`",
+                    "legendFormat": ""
+                }
+            ]
+        },
+        {
+            "title": "Log Volume",
+            "description": "Log line volume over time by severity",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 16
+            },
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "fillOpacity": 40,
+                        "lineWidth": 1,
+                        "spanNulls": true,
+                        "stacking": {
+                            "mode": "normal"
+                        }
+                    },
+                    "unit": "short"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "error"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "red",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "warn"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "yellow",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "sum"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "multi"
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum by (detected_level) (count_over_time({service_name=~\".+\"} |= `$search` [$__auto]))",
+                    "legendFormat": "{{detected_level}}"
+                }
+            ]
+        },
+        {
+            "title": "Trace Search from Logs",
+            "description": "Find traces in Tempo — use this alongside the log panel to drill into specific events",
+            "type": "traces",
+            "gridPos": {
+                "h": 12,
+                "w": 24,
+                "x": 0,
+                "y": 24
+            },
+            "datasource": {
+                "type": "tempo",
+                "uid": "tempo"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "tempo",
+                        "uid": "tempo"
+                    },
+                    "queryType": "traceqlSearch",
+                    "filters": [
+                        {
+                            "id": "service-name",
+                            "tag": "service.name",
+                            "operator": "=",
+                            "scope": "resource"
+                        },
+                        {
+                            "id": "span-name",
+                            "tag": "name",
+                            "operator": "=",
+                            "scope": "intrinsic"
+                        },
+                        {
+                            "id": "status",
+                            "tag": "status",
+                            "operator": "=",
+                            "scope": "intrinsic"
+                        }
+                    ],
+                    "limit": 20
+                }
+            ]
+        }
+    ],
+    "schemaVersion": 39,
+    "tags": [
+        "hostr",
+        "logs",
+        "otel"
+    ],
+    "templating": {
+        "list": [
+            {
+                "current": {
+                    "selected": false,
+                    "text": "",
+                    "value": ""
+                },
+                "description": "Free-text filter applied to log lines",
+                "hide": 0,
+                "label": "Search",
+                "name": "search",
+                "options": [
+                    {
+                        "selected": true,
+                        "text": "",
+                        "value": ""
+                    }
+                ],
+                "query": "",
+                "skipUrlSync": false,
+                "type": "textbox"
+            }
+        ]
+    },
+    "time": {
+        "from": "now-30m",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "Hostr — Logs Explorer",
+    "uid": "hostr-logs-explorer",
+    "version": 1
+}

@@ -32,29 +32,32 @@ class EscrowUseCase {
     required this.escrowTrusts,
     required this.evm,
     required this.escrowFundRegistry,
-  }) : logger = logger.namespace('escrow');
+  }) : logger = logger.scope('escrow');
 
-  EscrowFundOperation fund(EscrowFundParams params) {
-    final operation = getIt<EscrowFundOperation>(param1: params);
-    final tradeId = params.negotiateReservation.getDtag();
-    if (tradeId != null) {
-      escrowFundRegistry.register(tradeId, operation);
-    }
-    return operation;
-  }
+  EscrowFundOperation fund(EscrowFundParams params) =>
+      logger.spanSync('fund', () {
+        final operation = getIt<EscrowFundOperation>(param1: params);
+        final tradeId = params.negotiateReservation.getDtag();
+        if (tradeId != null) {
+          escrowFundRegistry.register(tradeId, operation);
+        }
+        return operation;
+      });
 
-  EscrowClaimOperation claim(EscrowClaimParams params) {
-    return getIt<EscrowClaimOperation>(param1: params);
-  }
+  EscrowClaimOperation claim(EscrowClaimParams params) =>
+      logger.spanSync('claim', () {
+        return getIt<EscrowClaimOperation>(param1: params);
+      });
 
-  EscrowReleaseOperation release(EscrowReleaseParams params) {
-    return getIt<EscrowReleaseOperation>(param1: params);
-  }
+  EscrowReleaseOperation release(EscrowReleaseParams params) =>
+      logger.spanSync('release', () {
+        return getIt<EscrowReleaseOperation>(param1: params);
+      });
 
   StreamWithStatus<EscrowEvent> checkEscrowStatus(
     EscrowServiceSelected selectedEscrow,
     String tradeId,
-  ) {
+  ) => logger.spanSync('checkEscrowStatus', () {
     logger.i('Checking escrow status for reservation: $tradeId');
 
     final contract = evm
@@ -81,5 +84,5 @@ class EscrowUseCase {
     });
 
     return source;
-  }
+  });
 }

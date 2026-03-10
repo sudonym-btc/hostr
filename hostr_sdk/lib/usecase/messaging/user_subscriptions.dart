@@ -72,7 +72,7 @@ class UserSubscriptions {
        _reviews = reviews,
        _zaps = zaps,
        _escrow = escrow,
-       _logger = logger.namespace('subscriptions');
+       _logger = logger.scope('subscriptions');
 
   // ── Public streams ────────────────────────────────────────────────────
 
@@ -114,10 +114,20 @@ class UserSubscriptions {
   final List<StreamSubscription> _discoverySubscriptions = [];
   bool _started = false;
 
+  // ── Filter sources ────────────────────────────────────────────────────
+
+  /// Filter source for reservations: emits the accumulated d-tag filter
+  /// as trade IDs are discovered. Goes live when threads go live.
+  StreamWithStatus<Filter>? _reservationFilterSource;
+
+  /// Filter source for transitions: emits the accumulated #t filter
+  /// as trade IDs are discovered. Goes live when threads go live.
+  StreamWithStatus<Filter>? _transitionFilterSource;
+
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   /// Start all user-scoped subscriptions. Call after login.
-  void start() {
+  void start() => _logger.spanSync('start', () {
     if (_started) return;
     _started = true;
 
@@ -130,18 +140,22 @@ class UserSubscriptions {
       name: 'user-reviews',
     );
 
-    // 2. Expandable: reservations by trade ID (d-tag)
+    // 2. Create filter sources — initially idle, fed by discovery engine.
+    _reservationFilterSource = StreamWithStatus<Filter>();
+    _transitionFilterSource = StreamWithStatus<Filter>();
+
+    // 3. Expandable: reservations by trade ID (d-tag)
     allMyReservations$ = _reservations.expandableSubscribe(
-      _emptyTradeIdFilter(),
+      _reservationFilterSource!,
       name: 'user-reservations',
     );
 
-    // 3. Validated pairs from the raw reservations stream
+    // 4. Validated pairs from the raw reservations stream
     allMyReservationPairs$ = _reservationPairs.verifyFromSource(
       source: allMyReservations$.stream,
     );
 
-    // 3a. Filtered views: guest trips vs host bookings
+    // 4a. Filtered views: guest trips vs host bookings
     myTrips$ = allMyReservationPairs$.where(
       (item) => item.event.hostPubkey != myPubkey,
       closeInner: false,
@@ -151,13 +165,13 @@ class UserSubscriptions {
       closeInner: false,
     );
 
-    // 4. Expandable: transitions by trade ID
+    // 5. Expandable: transitions by trade ID
     allTransitions$ = _transitions.expandableSubscribe(
-      _emptyTradeFilter(),
+      _transitionFilterSource!,
       name: 'user-transitions',
     );
 
-    // 5. Dynamic: combined payment events (zaps + escrow)
+    // 6. Dynamic: combined payment events (zaps + escrow)
     paymentEvents$ = DynamicCombinedStreamWithStatus<PaymentEvent>();
 
     // Wire up liveness tracking
@@ -165,10 +179,10 @@ class UserSubscriptions {
 
     // Discover existing threads and listen for new ones
     _startDiscoveryEngine();
-  }
+  });
 
   /// Tear down everything. Call on logout.
-  Future<void> reset() async {
+  Future<void> reset() => _logger.span('reset', () async {
     if (!_started) return;
     _started = false;
     _logger.d('UserSubscriptions resetting');
@@ -186,35 +200,36 @@ class UserSubscriptions {
     await myReviews$.reset();
     await paymentEvents$.reset();
 
+    await _reservationFilterSource?.close();
+    _reservationFilterSource = null;
+    await _transitionFilterSource?.close();
+    _transitionFilterSource = null;
+
     _knownTradeIds.clear();
     _knownSellerPubkeys.clear();
     _knownEscrowServiceKeys.clear();
     _knownZapTradeIds.clear();
 
     _isLive.add(false);
-  }
+  });
 
-  Future<void> dispose() async {
+  Future<void> dispose() => _logger.span('dispose', () async {
     await reset();
     await allMyReservations$.close();
     await allTransitions$.close();
     await myReviews$.close();
     await paymentEvents$.close();
     await _isLive.close();
-  }
+  });
 
   // ── Discovery engine ──────────────────────────────────────────────────
 
-  /// Watches all threads for trade-related data and expands filters when
-  /// new anchors / trade IDs / escrow services are discovered.
-  void _startDiscoveryEngine() {
+  /// Watches all threads for trade-related data and emits filters on the
+  /// filter sources as new trade IDs are discovered.
+  void _startDiscoveryEngine() => _logger.spanSync('_startDiscoveryEngine', () {
     _logger.d("processing threads");
 
-    // Start expandable subs now — they may have empty filters initially
-    // but that's fine; events just won't match until filters are expanded.
-    allMyReservations$.start();
-    allTransitions$.start();
-
+    // Listen to thread messages for trade IDs and escrow services.
     _discoverySubscriptions.add(
       _threads.subscription!.replay.listen((message) {
         final child = message.child;
@@ -225,62 +240,71 @@ class UserSubscriptions {
         }
       }),
     );
-  }
 
-  void _processReservationRequest(Reservation reservation) {
-    _logger.d('handling reservation message $reservation');
-
-    bool tradeIdsChanged = false;
-
-    // Extract trade IDs from reservation requests
-    final tradeId = reservation.getDtag();
-    if (tradeId != null && tradeId.isNotEmpty && _knownTradeIds.add(tradeId)) {
-      tradeIdsChanged = true;
-    }
-
-    final anchor = reservation.parsedTags.listingAnchor;
-    final sellerPubkey = getPubKeyFromAnchor(anchor);
-    if (sellerPubkey.isNotEmpty && _knownSellerPubkeys.add(sellerPubkey)) {
-      final tradeId = reservation.getDtag();
-      if (tradeId != null && _knownZapTradeIds.add(tradeId)) {
-        _addZapReceiptStream(sellerPubkey: sellerPubkey, tradeId: tradeId);
-      }
-    }
-
-    // Expand filters if new trade IDs were discovered
-    if (tradeIdsChanged) {
-      _expandReservationFilter();
-      _expandTransitionFilter();
-    }
-  }
-
-  // ── Filter expansion ──────────────────────────────────────────────────
-
-  void _expandReservationFilter() {
-    if (_knownTradeIds.isEmpty) return;
-
-    final fullFilter = Filter(dTags: _knownTradeIds.toList());
-    _logger.d('updating filter ${fullFilter.dTags}');
-    allMyReservations$.updateFilter(
-      expandedFilter: _reservations.kindFilter(fullFilter),
-      deltaFilter: _reservations.kindFilter(fullFilter),
+    // When threads go live, mark filter sources live. This is the signal
+    // that all trade IDs that exist have been discovered.
+    _discoverySubscriptions.add(
+      _threads.status.whereType<StreamStatusLive>().take(1).listen((_) {
+        _logger.d('Threads live — marking filter sources live');
+        _reservationFilterSource?.addStatus(StreamStatusLive());
+        _transitionFilterSource?.addStatus(StreamStatusLive());
+      }),
     );
-  }
+  });
 
-  void _expandTransitionFilter() {
+  void _processReservationRequest(Reservation reservation) =>
+      _logger.spanSync('_processReservationRequest', () {
+        _logger.d('handling reservation message $reservation');
+
+        bool tradeIdsChanged = false;
+
+        // Extract trade IDs from reservation requests
+        final tradeId = reservation.getDtag();
+        if (tradeId != null &&
+            tradeId.isNotEmpty &&
+            _knownTradeIds.add(tradeId)) {
+          tradeIdsChanged = true;
+        }
+
+        final anchor = reservation.parsedTags.listingAnchor;
+        final sellerPubkey = getPubKeyFromAnchor(anchor);
+        if (sellerPubkey.isNotEmpty && _knownSellerPubkeys.add(sellerPubkey)) {
+          final tradeId = reservation.getDtag();
+          if (tradeId != null && _knownZapTradeIds.add(tradeId)) {
+            _addZapReceiptStream(sellerPubkey: sellerPubkey, tradeId: tradeId);
+          }
+        }
+
+        // Emit updated filters if new trade IDs were discovered
+        if (tradeIdsChanged) {
+          _emitReservationFilter();
+          _emitTransitionFilter();
+        }
+      });
+
+  // ── Filter emission ───────────────────────────────────────────────────
+
+  /// Emits the accumulated reservation filter (by d-tag) on the filter source.
+  void _emitReservationFilter() =>
+      _logger.spanSync('_emitReservationFilter', () {
+        if (_knownTradeIds.isEmpty) return;
+        final filter = Filter(dTags: _knownTradeIds.toList());
+        _logger.d('emitting reservation filter dTags=${filter.dTags}');
+        _reservationFilterSource?.add(filter);
+      });
+
+  /// Emits the accumulated transition filter (by #t tag) on the filter source.
+  void _emitTransitionFilter() => _logger.spanSync('_emitTransitionFilter', () {
     if (_knownTradeIds.isEmpty) return;
-
-    final fullFilter = Filter(tags: {'t': _knownTradeIds.toList()});
-    allTransitions$.updateFilter(
-      expandedFilter: _transitions.kindFilter(fullFilter),
-      deltaFilter: _transitions.kindFilter(fullFilter),
-    );
-  }
+    final filter = Filter(tags: {'t': _knownTradeIds.toList()});
+    _logger.d('emitting transition filter #t=${_knownTradeIds}');
+    _transitionFilterSource?.add(filter);
+  });
 
   void _addZapReceiptStream({
     required String sellerPubkey,
     required String tradeId,
-  }) {
+  }) => _logger.spanSync('_addZapReceiptStream', () {
     _logger.d(
       'UserSubscriptions adding zap receipt stream for '
       'seller=$sellerPubkey tradeId=$tradeId',
@@ -304,12 +328,12 @@ class UserSubscriptions {
             );
           }, closeInner: true),
     );
-  }
+  });
 
   void _maybeAddEscrowStream(
     EscrowServiceSelected escrowSelected,
     String threadAnchor,
-  ) {
+  ) => _logger.spanSync('_maybeAddEscrowStream', () {
     final serviceId = escrowSelected.service.id;
     final key = '$threadAnchor:$serviceId';
     if (!_knownEscrowServiceKeys.add(key)) return;
@@ -321,11 +345,11 @@ class UserSubscriptions {
     paymentEvents$.combine(
       _escrow.checkEscrowStatus(escrowSelected, threadAnchor),
     );
-  }
+  });
 
   // ── Liveness tracking ─────────────────────────────────────────────────
 
-  void _trackLiveness() {
+  void _trackLiveness() => _logger.spanSync('_trackLiveness', () {
     final streams = <Stream<StreamStatus>>[
       myReviews$.status,
       allMyReservations$.stream.status,
@@ -342,17 +366,5 @@ class UserSubscriptions {
         if (allLive && !_isLive.value) _isLive.add(true);
       }),
     );
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────────
-
-  /// An empty d-tag filter that will match nothing until trade IDs are
-  /// discovered.
-  Filter _emptyTradeIdFilter() {
-    return Filter(dTags: <String>[]);
-  }
-
-  Filter _emptyTradeFilter() {
-    return Filter(tags: {'t': <String>[]});
-  }
+  });
 }

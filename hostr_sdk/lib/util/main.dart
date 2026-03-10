@@ -6,5 +6,6 @@ export 'derive_evm_key.dart';
 export 'evm_signature.dart';
 export 'ndk_filter.dart';
 export 'stream_status.dart';
+export 'telemetry.dart';
 export 'validation_stream.dart';
 export 'verify_stream.dart';

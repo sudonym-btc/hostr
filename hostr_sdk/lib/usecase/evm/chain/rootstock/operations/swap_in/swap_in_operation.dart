@@ -40,148 +40,223 @@ class RootstockSwapInOperation extends SwapInOperation {
 
   @override
   Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits() =>
-      rootstock.getSwapInLimits();
+      logger.span('getSwapLimits', () => rootstock.getSwapInLimits());
+
+  @override
+  Map<String, Object?> get telemetryAttributes => {
+    ...super.telemetryAttributes,
+    'hostr.chain.id': rootstock.config.rootstockConfig.chainId,
+  };
 
   // ── State machine ─────────────────────────────────────────────────────
 
   @override
-  Future<void> handle() async {
-    try {
-      switch (state) {
-        case SwapInInitialised():
-          await _stepCreateSwap();
-        case SwapInRequestCreated() ||
-            SwapInAwaitingOnChain() ||
-            SwapInPaymentProgress():
-          await _stepEnsureFunded();
-        case SwapInFunded():
-          await _stepClaim();
-        case SwapInClaimed():
-          await _stepCheckClaimInMempool();
-        case SwapInClaimTxInMempool():
-          await _stepConfirmClaim();
-        case SwapInCompleted() || SwapInFailed():
-          return; // terminal — nothing to do
-      }
-    } on TimeoutException catch (e, st) {
-      logger.e('Timeout during swap-in: $e');
-      emit(SwapInFailed(e, data: state.data, stackTrace: st));
-    } catch (e, st) {
-      logger.e('Error during swap-in handle (${state.runtimeType}): $e');
-      emit(SwapInFailed(e, data: state.data, stackTrace: st));
-    }
-  }
+  Future<SwapInState> executeStep(SwapInStep step) =>
+      logger.span('executeStep', () async {
+        applyTelemetry({'hostr.operation.step': step.name});
+        return switch (step) {
+          SwapInStep.createSwap => await _stepCreateSwap(),
+          SwapInStep.dispatchPayment => await _stepDispatchPayment(),
+          SwapInStep.ensureFunded => await _stepEnsureFunded(),
+          SwapInStep.claimRelay => await _stepClaim(),
+          SwapInStep.checkMempool => await _stepCheckClaimInMempool(),
+          SwapInStep.confirmClaim => await _stepConfirmClaim(),
+        };
+      });
 
   // ── Step 1: Create the Boltz reverse-submarine swap ───────────────────
 
-  Future<void> _stepCreateSwap() async {
-    final preimage = _newPreimage();
-    logger.i('Preimage: ${preimage.hash}, ${preimage.preimage.length}');
+  Future<SwapInState> _stepCreateSwap() =>
+      logger.span('stepCreateSwap', () async {
+        final preimage = _newPreimage();
+        logger.i('Generated swap preimage material');
 
-    final creationBlock = await rootstock.client.getBlockNumber();
+        final creationBlock = await rootstock.client.getBlockNumber();
 
-    /// Create a reverse submarine swap
-    final swap = await _generateSwapRequest(preimage);
+        /// Create a reverse submarine swap
+        final swap = await _generateSwapRequest(preimage);
 
-    // ── Persist recovery data immediately after swap creation ──
-    // The preimage is the single most critical piece of data.
-    // Without it, any on-chain funds locked by Boltz are UNRECOVERABLE.
-    final data = SwapInData(
-      boltzId: swap.id,
-      preimageHex: hex.encode(preimage.preimage),
-      preimageHash: preimage.hash,
-      onchainAmountSat: swap.onchainAmount?.toInt() ?? 0,
-      timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
-      chainId: rootstock.config.rootstockConfig.chainId,
-      accountIndex: params.accountIndex,
-      creationBlockHeight: creationBlock,
-      invoiceString: swap.invoice,
-    );
-    emit(SwapInRequestCreated(data));
-    logger.i('Swap data persisted for ${swap.id} with preimage');
-    logger.d('Swap ${swap.toString()}');
-  }
+        // ── Persist recovery data immediately after swap creation ──
+        final data = SwapInData(
+          boltzId: swap.id,
+          preimageHex: hex.encode(preimage.preimage),
+          preimageHash: preimage.hash,
+          onchainAmountSat: swap.onchainAmount?.toInt() ?? 0,
+          timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
+          chainId: rootstock.config.rootstockConfig.chainId,
+          accountIndex: params.accountIndex,
+          creationBlockHeight: creationBlock,
+          invoiceString: swap.invoice,
+          parentOperationId: params.parentOperationId,
+        );
+        logger.i('Swap created: ${swap.id}');
+        logger.d('Swap ${swap.toString()}');
+        return SwapInRequestCreated(data);
+      });
 
-  // ── Step 2: Ensure Boltz locked on-chain (chain-first) ───────────────
+  // ── Step 2a: Dispatch payment + wait for lockup (foreground only) ─────
 
-  Future<void> _stepEnsureFunded() async {
+  Future<SwapInState>
+  _stepDispatchPayment() => logger.span('stepDispatchPayment', () async {
     final data = state.data!;
 
-    // ── 2a. Check chain for existing lockup (idempotent recovery) ──
+    // Skip ahead if on-chain activity already exists.
+    final existing = await _checkExistingProgress(data);
+    if (existing != null) return existing;
+
+    // ── Validate invoice ──
+    final invoice = data.invoiceString;
+    if (invoice == null) {
+      throw StateError(
+        'Swap ${data.boltzId} has no invoice — cannot pay. '
+        'This swap may have been created before invoice persistence was added.',
+      );
+    }
+
+    // Create the payment cubit but DON'T execute yet — we must subscribe
+    // to its broadcast stream first to avoid losing fast-emitted states.
+    final payment = _createPaymentForSwap(
+      invoice: invoice,
+      amount: params.amount,
+      preimageHash: data.preimageHash,
+    );
+
+    // Start listening for Boltz's on-chain lockup.
+    final swapStatusFuture = _waitForSwapOnChain(data.boltzId);
+    emit(SwapInAwaitingOnChain(data));
+    logger.i('Payment dispatched for swap ${data.boltzId}');
+
+    // Subscribe to payment stream BEFORE executing so we never miss
+    // states on the broadcast stream.
+    final paymentCompleter = Completer<void>();
+    final paySub = payment.stream
+        .where((s) => s is PayFailed || s is PayExternalRequired)
+        .takeUntil(swapStatusFuture.asStream())
+        .listen(
+          (paymentState) {
+            emit(SwapInPaymentProgress(data, paymentState: paymentState));
+          },
+          onDone: () {
+            if (!paymentCompleter.isCompleted) paymentCompleter.complete();
+          },
+        );
+
+    // NOW execute the payment — the listener above is already active.
+    payment.execute();
+
+    // Wait until the payment stream completes (or Boltz lockup arrives).
+    await paymentCompleter.future;
+    await paySub.cancel();
+
+    // Wait for Boltz's lockup transaction with a generous timeout.
+    final swapStatus = await swapStatusFuture.timeout(
+      const Duration(minutes: 30),
+      onTimeout: () => throw TimeoutException(
+        'Timed out waiting for Boltz to lock funds on-chain for swap ${data.boltzId}. '
+        'The Lightning payment may still be pending. '
+        'If Boltz never locks, the Lightning HTLC will expire and refund automatically.',
+      ),
+    );
+
+    final lockupTxId = swapStatus.transaction?.id;
+    if (lockupTxId == null) {
+      throw StateError(
+        'Boltz reported on-chain status but no transaction ID for swap ${data.boltzId}',
+      );
+    }
+
+    // Wait for the lockup tx to be mined.
+    logger.i('Waiting for lockup tx $lockupTxId to be mined…');
+    await rootstock.awaitReceipt(lockupTxId);
+
+    return _verifyLockupOnChain(
+      data: data,
+      reportedTxId: lockupTxId,
+      boltzStatus: swapStatus.status,
+    );
+  });
+
+  // ── Step 2b: Wait for on-chain lockup (foreground + background) ──────
+
+  Future<SwapInState> _stepEnsureFunded() =>
+      logger.span('stepEnsureFunded', () async {
+        final data = state.data!;
+
+        // Idempotent checks — may skip ahead.
+        final existing = await _checkExistingProgress(data);
+        if (existing != null) return existing;
+
+        // No lockup yet — wait for Boltz to lock on-chain.
+        return await _waitForLockupOnly(data);
+      });
+
+  /// Shared idempotent checks for on-chain progress.
+  ///
+  /// Returns a skip-ahead state if the swap is already funded / claimed /
+  /// expired / terminal on Boltz, or `null` if the caller should proceed
+  /// with its normal logic.
+  Future<SwapInState?> _checkExistingProgress(
+    SwapInData data,
+  ) => logger.span('checkExistingProgress', () async {
+    // ── Check chain for existing lockup (idempotent recovery) ──
     final lockup = await _findLockupOnChain(data);
     if (lockup != null) {
       logger.i(
         'Found lockup on-chain for ${data.boltzId}: '
         'amount=${lockup.amount}, refund=${lockup.refundAddress}',
       );
-      emit(
-        SwapInFunded(
-          data.copyWith(
-            lockupTxHash: lockup.event.transactionHash,
-            refundAddress: lockup.refundAddress.with0x,
-          ),
+      return SwapInFunded(
+        data.copyWith(
+          lockupTxHash: lockup.event.transactionHash,
+          refundAddress: lockup.refundAddress.with0x,
         ),
       );
-      return;
     }
 
-    // ── 2b. Check if already claimed on-chain ──
+    // ── Check if already claimed on-chain ──
     final claim = await _findClaimOnChain(data);
     if (claim != null) {
       logger.i('Swap ${data.boltzId} already claimed on-chain');
-      emit(
-        SwapInCompleted(
-          data.copyWith(claimTxHash: claim.event.transactionHash),
-        ),
+      return SwapInCompleted(
+        data.copyWith(claimTxHash: claim.event.transactionHash),
       );
-      return;
     }
 
-    // ── 2c. Check if expired ──
+    // ── Check if expired ──
     final currentBlock = await rootstock.client.getBlockNumber();
     if (currentBlock >= data.timeoutBlockHeight) {
       logger.w(
         'Swap ${data.boltzId} expired (block $currentBlock >= ${data.timeoutBlockHeight})',
       );
-      emit(
-        SwapInFailed(
-          'Swap expired. No on-chain funds at risk — Lightning payment '
-          'refunds automatically via HTLC expiry.',
-          data: data,
-        ),
+      return SwapInFailed(
+        'Swap expired. No on-chain funds at risk — Lightning payment '
+        'refunds automatically via HTLC expiry.',
+        data: data,
       );
-      return;
     }
 
-    // ── 2d. Check Boltz status for terminal conditions ──
+    // ── Check Boltz status for terminal conditions ──
     try {
       final boltzStatus = await getIt<BoltzClient>().getSwap(id: data.boltzId);
       final status = boltzStatus.status;
 
       if (status == 'transaction.refunded') {
-        emit(
-          SwapInFailed(
-            'Boltz refunded the on-chain lockup. The claim window expired.',
-            data: data.copyWith(lastBoltzStatus: status),
-          ),
+        return SwapInFailed(
+          'Boltz refunded the on-chain lockup. The claim window expired.',
+          data: data.copyWith(lastBoltzStatus: status),
         );
-        return;
       }
 
       if (status == 'invoice.settled') {
         logger.i('Boltz reports ${data.boltzId} already settled');
-        emit(SwapInCompleted(data.copyWith(lastBoltzStatus: status)));
-        return;
+        return SwapInCompleted(data.copyWith(lastBoltzStatus: status));
       }
 
       if (status == 'swap.expired' || status == 'transaction.failed') {
-        emit(
-          SwapInFailed(
-            'Swap expired or failed before lockup. No on-chain funds at risk.',
-            data: data.copyWith(lastBoltzStatus: status),
-          ),
+        return SwapInFailed(
+          'Swap expired or failed before lockup. No on-chain funds at risk.',
+          data: data.copyWith(lastBoltzStatus: status),
         );
-        return;
       }
 
       // If Boltz says lockup is already in mempool/confirmed, verify on-chain.
@@ -192,12 +267,8 @@ class RootstockSwapInOperation extends SwapInOperation {
           logger.i(
             'Boltz reports lockup tx $txHash — verifying against preimage hash',
           );
-          // Wait for the tx to be mined — `getLogs` only returns events
-          // from mined blocks, so mempool visibility is not enough.
           await rootstock.awaitReceipt(txHash);
 
-          // Then verify on-chain that a Lockup event for OUR preimage hash
-          // exists.  The tx Boltz reports may belong to a different swap.
           final lockup = await _findLockupOnChain(data);
           if (lockup != null) {
             final verifiedTxHash = lockup.event.transactionHash!;
@@ -207,16 +278,13 @@ class RootstockSwapInOperation extends SwapInOperation {
                 '${data.preimageHash} is $verifiedTxHash. Using verified hash.',
               );
             }
-            emit(
-              SwapInFunded(
-                data.copyWith(
-                  lockupTxHash: verifiedTxHash,
-                  refundAddress: lockup.refundAddress.with0x,
-                  lastBoltzStatus: status,
-                ),
+            return SwapInFunded(
+              data.copyWith(
+                lockupTxHash: verifiedTxHash,
+                refundAddress: lockup.refundAddress.with0x,
+                lastBoltzStatus: status,
               ),
             );
-            return;
           }
           logger.w(
             'Boltz reported lockup tx $txHash but no on-chain Lockup event '
@@ -226,28 +294,17 @@ class RootstockSwapInOperation extends SwapInOperation {
       }
     } catch (e) {
       logger.w('Could not check Boltz status for ${data.boltzId}: $e');
-      // Non-fatal — fall through to the payment + WebSocket flow.
     }
 
-    // ── 2e. No lockup yet ──
-    if (recovering) {
-      // During recovery the Lightning payment was already dispatched (or
-      // the app died before it could be).  We must NEVER pay again —
-      // just wait for Boltz to lock the funds on-chain.
-      logger.i(
-        'Recovery: skipping payment for ${data.boltzId}, '
-        'waiting for Boltz to lock on-chain…',
-      );
-      await _waitForLockupOnly(data);
-    } else {
-      await _payAndWaitForLockup(data);
-    }
-  }
+    return null; // no existing progress — caller should proceed
+  });
 
   /// Waits for the on-chain lockup via the Boltz WebSocket WITHOUT paying
   /// the Lightning invoice.  Used during recovery when the payment was
   /// already dispatched in a previous session.
-  Future<void> _waitForLockupOnly(SwapInData data) async {
+  Future<SwapInState> _waitForLockupOnly(
+    SwapInData data,
+  ) => logger.span('waitForLockupOnly', () async {
     emit(SwapInAwaitingOnChain(data));
 
     final swapStatus = await _waitForSwapOnChain(data.boltzId).timeout(
@@ -269,98 +326,21 @@ class RootstockSwapInOperation extends SwapInOperation {
     logger.i('Recovery: waiting for lockup tx $lockupTxId to be mined…');
     await rootstock.awaitReceipt(lockupTxId);
 
-    await _verifyLockupAndEmitFunded(
+    return _verifyLockupOnChain(
       data: data,
       reportedTxId: lockupTxId,
       boltzStatus: swapStatus.status,
     );
-  }
+  });
 
-  /// Pays the Lightning invoice and waits for the on-chain lockup via the
-  /// Boltz WebSocket. Only reached during the initial execute flow (not
-  /// recovery — recovery uses [_waitForLockupOnly] above).
-  Future<void> _payAndWaitForLockup(SwapInData data) async {
-    final invoice = data.invoiceString;
-    if (invoice == null) {
-      throw StateError(
-        'Swap ${data.boltzId} has no invoice — cannot pay. '
-        'This swap may have been created before invoice persistence was added.',
-      );
-    }
-
-    // Create the payment cubit but DON'T execute yet — we must subscribe
-    // to its broadcast stream first to avoid losing fast-emitted states.
-    final payment = _createPaymentForSwap(
-      invoice: invoice,
-      amount: params.amount,
-      preimageHash: data.preimageHash,
-    );
-
-    // Subscribe to Boltz status updates with timeout
-    final swapStatusFuture = _waitForSwapOnChain(data.boltzId);
-    emit(SwapInAwaitingOnChain(data));
-
-    // Subscribe to payment stream BEFORE executing so we never miss
-    // states on the broadcast stream.
-    final paymentCompleter = Completer<void>();
-    final paySub = payment.stream
-        .where((s) => s is PayFailed || s is PayExternalRequired)
-        .takeUntil(swapStatusFuture.asStream())
-        .listen(
-          (paymentState) {
-            emit(SwapInPaymentProgress(data, paymentState: paymentState));
-          },
-          onDone: () {
-            if (!paymentCompleter.isCompleted) paymentCompleter.complete();
-          },
-        );
-
-    // NOW execute the payment — the listener above is already active
-    payment.execute();
-
-    // Wait until the payment stream completes
-    await paymentCompleter.future;
-    await paySub.cancel();
-
-    // Wait for Boltz's lockup transaction with a generous timeout
-    final swapStatus = await swapStatusFuture.timeout(
-      const Duration(minutes: 30),
-      onTimeout: () => throw TimeoutException(
-        'Timed out waiting for Boltz to lock funds on-chain for swap ${data.boltzId}. '
-        'The Lightning payment may still be pending. '
-        'If Boltz never locks, the Lightning HTLC will expire and refund automatically.',
-      ),
-    );
-
-    final lockupTxId = swapStatus.transaction?.id;
-    if (lockupTxId == null) {
-      throw StateError(
-        'Boltz reported on-chain status but no transaction ID for swap ${data.boltzId}',
-      );
-    }
-
-    // ── Wait for the lockup tx to be mined ──
-    // Boltz may report `transaction.mempool` before the tx is included in a
-    // block.  `getLogs` only returns events from mined blocks, so we must
-    // wait for a receipt (= mined) before scanning for the Lockup event.
-    logger.i('Waiting for lockup tx $lockupTxId to be mined…');
-    await rootstock.awaitReceipt(lockupTxId);
-
-    await _verifyLockupAndEmitFunded(
-      data: data,
-      reportedTxId: lockupTxId,
-      boltzStatus: swapStatus.status,
-    );
-  }
-
-  /// Verifies that a Lockup event matching our preimage hash exists on-chain,
-  /// cross-checks it against the [reportedTxId] from Boltz, and emits
-  /// [SwapInFunded]. Throws if no matching lockup is found.
-  Future<void> _verifyLockupAndEmitFunded({
+  /// Verifies that a Lockup event matching our preimage hash exists on-chain
+  /// and cross-checks it against the [reportedTxId] from Boltz.
+  /// Returns [SwapInFunded]. Throws if no matching lockup is found.
+  Future<SwapInState> _verifyLockupOnChain({
     required SwapInData data,
     required String reportedTxId,
     required String? boltzStatus,
-  }) async {
+  }) => logger.span('verifyLockupOnChain', () async {
     final lockupOnChain = await _findLockupOnChain(data);
     if (lockupOnChain == null) {
       throw StateError(
@@ -379,32 +359,29 @@ class RootstockSwapInOperation extends SwapInOperation {
       );
     }
 
-    emit(
-      SwapInFunded(
-        data.copyWith(
-          lockupTxHash: verifiedTxHash,
-          refundAddress: lockupOnChain.refundAddress.with0x,
-          lastBoltzStatus: boltzStatus,
-        ),
+    logger.i('Lockup verified on-chain: $verifiedTxHash');
+
+    return SwapInFunded(
+      data.copyWith(
+        lockupTxHash: verifiedTxHash,
+        refundAddress: lockupOnChain.refundAddress.with0x,
+        lastBoltzStatus: boltzStatus,
       ),
     );
-  }
+  });
 
   // ── Step 3: Claim the locked funds ────────────────────────────────────
 
-  Future<void> _stepClaim() async {
+  Future<SwapInState> _stepClaim() => logger.span('stepClaim', () async {
     final data = state.data!;
 
     // ── 3a. Check if already claimed on-chain (idempotent) ──
     final existingClaim = await _findClaimOnChain(data);
     if (existingClaim != null) {
       logger.i('Swap ${data.boltzId} already claimed on-chain');
-      emit(
-        SwapInClaimed(
-          data.copyWith(claimTxHash: existingClaim.event.transactionHash),
-        ),
+      return SwapInClaimed(
+        data.copyWith(claimTxHash: existingClaim.event.transactionHash),
       );
-      return;
     }
 
     // ── 3b. Resolve refund address if missing ──
@@ -414,7 +391,6 @@ class RootstockSwapInOperation extends SwapInOperation {
         claimData.lockupTxHash!,
       );
       claimData = claimData.copyWith(refundAddress: lockupTx.from.with0x);
-      emit(SwapInFunded(claimData)); // persist before claim attempt
     }
 
     if (claimData.refundAddress == null) {
@@ -425,56 +401,51 @@ class RootstockSwapInOperation extends SwapInOperation {
 
     // ── 3c. Perform the claim via RIF Relay ──
     final claimArgs = _claimArgsFromData(claimData);
-    logger.i('Claiming swap ${claimData.boltzId} with args: $claimArgs');
+    logger.i('Claiming swap ${claimData.boltzId} through relay');
 
     final tx = await _claim(claimArgs: claimArgs);
-    emit(SwapInClaimed(claimData.copyWith(claimTxHash: tx)));
     logger.i('Claim broadcast for ${claimData.boltzId}: $tx');
-  }
+    return SwapInClaimed(claimData.copyWith(claimTxHash: tx));
+  });
 
   // ── Step 4: Wait for claim tx to appear in mempool (visual only) ────
 
-  Future<void> _stepCheckClaimInMempool() async {
-    final data = state.data!;
-    await rootstock.awaitTransaction(data.claimTxHash!);
-    logger.i('Claim tx ${data.claimTxHash} visible in mempool');
-    emit(SwapInClaimTxInMempool(data));
-  }
+  Future<SwapInState> _stepCheckClaimInMempool() =>
+      logger.span('stepCheckClaimInMempool', () async {
+        final data = state.data!;
+        await rootstock.awaitTransaction(data.claimTxHash!);
+        logger.i('Claim tx ${data.claimTxHash} visible in mempool');
+        return SwapInClaimTxInMempool(data);
+      });
 
   // ── Step 5: Confirm the claim receipt ─────────────────────────────────
 
-  Future<void> _stepConfirmClaim() async {
-    final data = state.data!;
-    final receipt = await rootstock.awaitReceipt(data.claimTxHash!);
-    logger.i('Claim receipt for ${data.boltzId}: $receipt');
+  Future<SwapInState> _stepConfirmClaim() =>
+      logger.span('stepConfirmClaim', () async {
+        final data = state.data!;
+        final receipt = await rootstock.awaitReceipt(data.claimTxHash!);
+        logger.i('Claim receipt for ${data.boltzId}: $receipt');
 
-    if (receipt.status != true) {
-      // The claim tx was mined but reverted (e.g. SwapNotFound, wrong
-      // preimage, already claimed by someone else, etc.).  Clear the
-      // claimTxHash so recovery will re-attempt the claim step from the
-      // Funded state.
-      logger.e(
-        'Claim tx ${data.claimTxHash} REVERTED (status=${receipt.status}) '
-        'for swap ${data.boltzId}. Will clear claimTxHash for retry.',
-      );
-      emit(
-        SwapInFailed(
-          'Claim transaction reverted on-chain (status=${receipt.status}). '
-          'The lockup may be invalid or expired.',
-          data: data.copyWith(claimTxHash: null),
-        ),
-      );
-      return;
-    }
+        if (receipt.status != true) {
+          logger.e(
+            'Claim tx ${data.claimTxHash} REVERTED (status=${receipt.status}) '
+            'for swap ${data.boltzId}. Will clear claimTxHash for retry.',
+          );
+          return SwapInFailed(
+            'Claim transaction reverted on-chain (status=${receipt.status}). '
+            'The lockup may be invalid or expired.',
+            data: data.copyWith(claimTxHash: null),
+          );
+        }
 
-    emit(SwapInCompleted(data));
-    logger.i('Swap-in completed: ${data.claimTxHash}');
-  }
+        logger.i('Swap-in completed: ${data.claimTxHash}');
+        return SwapInCompleted(data);
+      });
 
   // ── Fee estimation ────────────────────────────────────────────────────
 
   @override
-  Future<SwapInFees> estimateFees() async {
+  Future<SwapInFees> estimateFees() => logger.span('estimateFees', () async {
     final boltz = getIt<BoltzClient>();
     final (:feeOverhead, invoiceAmount: _) = await boltz
         .computeInvoiceForDesiredOnchain(desiredOnchainAmount: params.amount);
@@ -489,105 +460,107 @@ class RootstockSwapInOperation extends SwapInOperation {
       estimatedSwapFees: feeOverhead,
       estimatedRelayFees: relayFees,
     );
-  }
+  });
 
   // ── On-chain event queries ────────────────────────────────────────────
 
   /// Scans the chain for a Lockup event matching [data.preimageHash].
-  Future<Lockup?> _findLockupOnChain(SwapInData data) async {
-    try {
-      final etherSwap = await rootstock.getEtherSwapContract();
-      final fromBlock = data.creationBlockHeight != null
-          ? BlockNum.exact(data.creationBlockHeight!)
-          : const BlockNum.genesis();
-      final preimageHashBytes = Uint8List.fromList(
-        hex.decode(data.preimageHash),
-      );
-
-      // One-shot getLogs query — the streaming API (client.events) never
-      // closes, so .toList() on it would hang forever.
-      final event = etherSwap.self.event('Lockup');
-      final filter = FilterOptions.events(
-        contract: etherSwap.self,
-        event: event,
-        fromBlock: fromBlock,
-        toBlock: const BlockNum.current(),
-      );
-      final logs = await rootstock.client.getLogs(filter);
-      for (final log in logs) {
-        // Pre-filter: match preimageHash from the first indexed topic
-        // before calling decodeResults. The deployed contract may have
-        // fewer indexed params than the generated ABI expects (e.g.
-        // contract v3 vs ABI v6), causing a RangeError in decodeResults.
-        final topics = log.topics;
-        if (topics == null || topics.length < 2) continue;
-        final topicHex = topics[1]!.replaceFirst('0x', '').toLowerCase();
-        if (topicHex != data.preimageHash.toLowerCase()) continue;
-
-        // Found our lockup — standard decode with manual fallback.
+  Future<Lockup?> _findLockupOnChain(SwapInData data) =>
+      logger.span('findLockupOnChain', () async {
         try {
-          final decoded = event.decodeResults(topics, log.data!);
-          return Lockup(decoded, log);
+          final etherSwap = await rootstock.getEtherSwapContract();
+          final fromBlock = data.creationBlockHeight != null
+              ? BlockNum.exact(data.creationBlockHeight!)
+              : const BlockNum.genesis();
+          final preimageHashBytes = Uint8List.fromList(
+            hex.decode(data.preimageHash),
+          );
+
+          // One-shot getLogs query — the streaming API (client.events) never
+          // closes, so .toList() on it would hang forever.
+          final event = etherSwap.self.event('Lockup');
+          final filter = FilterOptions.events(
+            contract: etherSwap.self,
+            event: event,
+            fromBlock: fromBlock,
+            toBlock: const BlockNum.current(),
+          );
+          final logs = await rootstock.client.getLogs(filter);
+          for (final log in logs) {
+            // Pre-filter: match preimageHash from the first indexed topic
+            // before calling decodeResults. The deployed contract may have
+            // fewer indexed params than the generated ABI expects (e.g.
+            // contract v3 vs ABI v6), causing a RangeError in decodeResults.
+            final topics = log.topics;
+            if (topics == null || topics.length < 2) continue;
+            final topicHex = topics[1]!.replaceFirst('0x', '').toLowerCase();
+            if (topicHex != data.preimageHash.toLowerCase()) continue;
+
+            // Found our lockup — standard decode with manual fallback.
+            try {
+              final decoded = event.decodeResults(topics, log.data!);
+              return Lockup(decoded, log);
+            } catch (e) {
+              logger.d('Standard Lockup decode failed, manual parse: $e');
+              return _decodeLockupManually(log, preimageHashBytes);
+            }
+          }
+          return null;
         } catch (e) {
-          logger.d('Standard Lockup decode failed, manual parse: $e');
-          return _decodeLockupManually(log, preimageHashBytes);
+          logger.w('Failed to query lockup events: $e');
+          return null;
         }
-      }
-      return null;
-    } catch (e) {
-      logger.w('Failed to query lockup events: $e');
-      return null;
-    }
-  }
+      });
 
   /// Scans the chain for a Claim event matching [data.preimageHash].
-  Future<Claim?> _findClaimOnChain(SwapInData data) async {
-    try {
-      final etherSwap = await rootstock.getEtherSwapContract();
-      final fromBlock = data.creationBlockHeight != null
-          ? BlockNum.exact(data.creationBlockHeight!)
-          : const BlockNum.genesis();
-      final preimageHashBytes = Uint8List.fromList(
-        hex.decode(data.preimageHash),
-      );
-
-      // One-shot getLogs query — the streaming API (client.events) never
-      // closes, so .toList() on it would hang forever.
-      final event = etherSwap.self.event('Claim');
-      final filter = FilterOptions.events(
-        contract: etherSwap.self,
-        event: event,
-        fromBlock: fromBlock,
-        toBlock: const BlockNum.current(),
-      );
-      final logs = await rootstock.client.getLogs(filter);
-      for (final log in logs) {
-        // Pre-filter by preimageHash from the first indexed topic.
-        final topics = log.topics;
-        if (topics == null || topics.length < 2) continue;
-        final topicHex = topics[1]!.replaceFirst('0x', '').toLowerCase();
-        if (topicHex != data.preimageHash.toLowerCase()) continue;
-
+  Future<Claim?> _findClaimOnChain(SwapInData data) =>
+      logger.span('findClaimOnChain', () async {
         try {
-          final decoded = event.decodeResults(topics, log.data!);
-          return Claim(decoded, log);
+          final etherSwap = await rootstock.getEtherSwapContract();
+          final fromBlock = data.creationBlockHeight != null
+              ? BlockNum.exact(data.creationBlockHeight!)
+              : const BlockNum.genesis();
+          final preimageHashBytes = Uint8List.fromList(
+            hex.decode(data.preimageHash),
+          );
+
+          // One-shot getLogs query — the streaming API (client.events) never
+          // closes, so .toList() on it would hang forever.
+          final event = etherSwap.self.event('Claim');
+          final filter = FilterOptions.events(
+            contract: etherSwap.self,
+            event: event,
+            fromBlock: fromBlock,
+            toBlock: const BlockNum.current(),
+          );
+          final logs = await rootstock.client.getLogs(filter);
+          for (final log in logs) {
+            // Pre-filter by preimageHash from the first indexed topic.
+            final topics = log.topics;
+            if (topics == null || topics.length < 2) continue;
+            final topicHex = topics[1]!.replaceFirst('0x', '').toLowerCase();
+            if (topicHex != data.preimageHash.toLowerCase()) continue;
+
+            try {
+              final decoded = event.decodeResults(topics, log.data!);
+              return Claim(decoded, log);
+            } catch (e) {
+              logger.d('Standard Claim decode failed, manual parse: $e');
+              return _decodeClaimManually(log, preimageHashBytes);
+            }
+          }
+          return null;
         } catch (e) {
-          logger.d('Standard Claim decode failed, manual parse: $e');
-          return _decodeClaimManually(log, preimageHashBytes);
+          logger.w('Failed to query claim events: $e');
+          return null;
         }
-      }
-      return null;
-    } catch (e) {
-      logger.w('Failed to query claim events: $e');
-      return null;
-    }
-  }
+      });
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
   Future<ReverseResponse> _generateSwapRequest(
     ({List<int> preimage, String hash}) preimage,
-  ) async {
+  ) => logger.span('generateSwapRequest', () async {
     final smartWalletInfo = await rifRelay.getSmartWalletAddress(params.evmKey);
     final claimAddress = smartWalletInfo.address.eip55With0x;
     final description = params.invoiceDescription ?? 'Hostr Reservation';
@@ -600,7 +573,7 @@ class RootstockSwapInOperation extends SwapInOperation {
       preimageHash: preimage.hash,
       description: description,
     );
-  }
+  });
 
   /// Creates a payment cubit for the swap invoice but does NOT execute it.
   /// The caller MUST subscribe to the returned cubit's stream BEFORE calling
@@ -609,29 +582,28 @@ class RootstockSwapInOperation extends SwapInOperation {
     required String invoice,
     required BitcoinAmount amount,
     required String preimageHash,
-  }) {
+  }) => logger.spanSync('createPaymentForSwap', () {
     Bolt11PaymentRequest pr = Bolt11PaymentRequest(invoice);
     final invoiceAmount = BitcoinAmount.fromDecimal(
       BitcoinUnit.bitcoin,
       pr.amount.toString(),
     );
-    logger.i(
-      'Invoice to pay: ${invoiceAmount.getInSats} against ${amount.getInSats} planned, hash: ${pr.tags.firstWhere((t) => t.type == 'payment_hash').data} against planned $preimageHash',
-    );
+    final invoicePaymentHash = pr.tags
+        .firstWhere((t) => t.type == 'payment_hash')
+        .data;
+    logger.i('Validated swap invoice before dispatch');
 
     /// Before paying, check that the invoice swapper generated is for the correct amount
     assert(invoiceAmount == amount);
 
     /// Before paying, check that the invoice hash is equivalent to the preimage hash we generated
     /// Ensures we know the invoice can't be settled until we reveal it in the claim txn
-    assert(
-      pr.tags.firstWhere((t) => t.type == 'payment_hash').data == preimageHash,
-    );
+    assert(invoicePaymentHash == preimageHash);
 
     return getIt<Payments>().pay(
       Bolt11PayParameters(amount: amount, to: invoice),
     );
-  }
+  });
 
   /// Builds [ClaimArgs] purely from persisted [SwapInData] — no Boltz
   /// dependency. All parameters needed for the on-chain claim are stored
@@ -653,14 +625,15 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
   }
 
-  Future<String> _claim({required ClaimArgs claimArgs}) async {
-    EtherSwap etherSwap = await rootstock.getEtherSwapContract();
-    return (await rifRelay.relayClaim(
-      etherSwap,
-      params.evmKey,
-      claimArgs,
-    )).txHash.toString();
-  }
+  Future<String> _claim({required ClaimArgs claimArgs}) =>
+      logger.span('claim', () async {
+        EtherSwap etherSwap = await rootstock.getEtherSwapContract();
+        return (await rifRelay.relayClaim(
+          etherSwap,
+          params.evmKey,
+          claimArgs,
+        )).txHash.toString();
+      });
 
   /// Generate a cryptographically secure 32-byte preimage and its SHA-256 hash.
   ({List<int> preimage, String hash}) _newPreimage() {
@@ -670,11 +643,28 @@ class RootstockSwapInOperation extends SwapInOperation {
     return (preimage: preimage, hash: hash);
   }
 
-  Future<SwapStatus> _waitForSwapOnChain(String id) {
+  Future<SwapStatus> _waitForSwapOnChain(
+    String id,
+  ) => logger.span('waitForSwapOnChain', () {
     return getIt<BoltzClient>()
         .subscribeToSwap(id: id)
         .doOnData((swapStatus) {
           logger.i('Swap status update: ${swapStatus.status}, $swapStatus');
+          // For reverse submarine swaps, `transaction.mempool` is the
+          // signal that Boltz received the Lightning payment and locked
+          // on-chain.  (`invoice.settled` is a terminal status that only
+          // fires after the claim reveals the preimage.)
+          if (swapStatus.status == 'transaction.mempool' ||
+              swapStatus.status == 'transaction.confirmed') {
+            final data = state.data;
+            if (data != null) {
+              emit(
+                SwapInInvoicePaid(
+                  data.copyWith(lastBoltzStatus: swapStatus.status),
+                ),
+              );
+            }
+          }
         })
         .where(
           (swapStatus) =>
@@ -699,60 +689,61 @@ class RootstockSwapInOperation extends SwapInOperation {
           return swapStatus;
         })
         .first;
-  }
+  });
 
   // ── Manual event decoders (ABI-version-agnostic) ──────────────────────
 
   /// Decodes a Lockup event from raw log data when [decodeResults] fails
   /// (e.g. deployed contract indexes fewer params than the generated ABI).
-  Lockup _decodeLockupManually(FilterEvent log, Uint8List preimageHash) {
-    final topics = log.topics!;
-    final dataBytes = _hexToBytes(log.data!);
-    final wordCount = dataBytes.length ~/ 32;
-    final topicCount = topics.length; // includes event-signature topic
+  Lockup _decodeLockupManually(FilterEvent log, Uint8List preimageHash) =>
+      logger.spanSync('decodeLockupManually', () {
+        final topics = log.topics!;
+        final dataBytes = _hexToBytes(log.data!);
+        final wordCount = dataBytes.length ~/ 32;
+        final topicCount = topics.length; // includes event-signature topic
 
-    BigInt amount = BigInt.zero;
-    EthereumAddress claimAddress = EthereumAddress(Uint8List(20));
-    EthereumAddress refundAddress = EthereumAddress(Uint8List(20));
-    BigInt timelock = BigInt.zero;
+        BigInt amount = BigInt.zero;
+        EthereumAddress claimAddress = EthereumAddress(Uint8List(20));
+        EthereumAddress refundAddress = EthereumAddress(Uint8List(20));
+        BigInt timelock = BigInt.zero;
 
-    if (topicCount >= 4 && wordCount >= 2) {
-      // 3 indexed (preimageHash, claimAddress, refundAddress)
-      // data: [amount, timelock]
-      claimAddress = _addressFromTopic(topics[2]!);
-      refundAddress = _addressFromTopic(topics[3]!);
-      amount = _bigIntFromWord(dataBytes, 0);
-      timelock = _bigIntFromWord(dataBytes, 1);
-    } else if (topicCount >= 3 && wordCount >= 3) {
-      // 2 indexed (preimageHash, claimAddress)
-      // data: [amount, refundAddress, timelock]
-      claimAddress = _addressFromTopic(topics[2]!);
-      amount = _bigIntFromWord(dataBytes, 0);
-      refundAddress = _addressFromDataWord(dataBytes, 1);
-      timelock = _bigIntFromWord(dataBytes, 2);
-    } else if (topicCount >= 3 && wordCount >= 2) {
-      // 2 indexed, 2 data words — no refundAddress in event
-      claimAddress = _addressFromTopic(topics[2]!);
-      amount = _bigIntFromWord(dataBytes, 0);
-      timelock = _bigIntFromWord(dataBytes, 1);
-      // refundAddress stays zero — caller resolves from tx sender
-    } else if (topicCount >= 2 && wordCount >= 4) {
-      // 1 indexed (preimageHash only)
-      // data: [amount, claimAddress, refundAddress, timelock]
-      amount = _bigIntFromWord(dataBytes, 0);
-      claimAddress = _addressFromDataWord(dataBytes, 1);
-      refundAddress = _addressFromDataWord(dataBytes, 2);
-      timelock = _bigIntFromWord(dataBytes, 3);
-    }
+        if (topicCount >= 4 && wordCount >= 2) {
+          // 3 indexed (preimageHash, claimAddress, refundAddress)
+          // data: [amount, timelock]
+          claimAddress = _addressFromTopic(topics[2]!);
+          refundAddress = _addressFromTopic(topics[3]!);
+          amount = _bigIntFromWord(dataBytes, 0);
+          timelock = _bigIntFromWord(dataBytes, 1);
+        } else if (topicCount >= 3 && wordCount >= 3) {
+          // 2 indexed (preimageHash, claimAddress)
+          // data: [amount, refundAddress, timelock]
+          claimAddress = _addressFromTopic(topics[2]!);
+          amount = _bigIntFromWord(dataBytes, 0);
+          refundAddress = _addressFromDataWord(dataBytes, 1);
+          timelock = _bigIntFromWord(dataBytes, 2);
+        } else if (topicCount >= 3 && wordCount >= 2) {
+          // 2 indexed, 2 data words — no refundAddress in event
+          claimAddress = _addressFromTopic(topics[2]!);
+          amount = _bigIntFromWord(dataBytes, 0);
+          timelock = _bigIntFromWord(dataBytes, 1);
+          // refundAddress stays zero — caller resolves from tx sender
+        } else if (topicCount >= 2 && wordCount >= 4) {
+          // 1 indexed (preimageHash only)
+          // data: [amount, claimAddress, refundAddress, timelock]
+          amount = _bigIntFromWord(dataBytes, 0);
+          claimAddress = _addressFromDataWord(dataBytes, 1);
+          refundAddress = _addressFromDataWord(dataBytes, 2);
+          timelock = _bigIntFromWord(dataBytes, 3);
+        }
 
-    return Lockup([
-      preimageHash,
-      amount,
-      claimAddress,
-      refundAddress,
-      timelock,
-    ], log);
-  }
+        return Lockup([
+          preimageHash,
+          amount,
+          claimAddress,
+          refundAddress,
+          timelock,
+        ], log);
+      });
 
   /// Decodes a Claim event from raw log data.
   Claim _decodeClaimManually(FilterEvent log, Uint8List preimageHash) {

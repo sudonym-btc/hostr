@@ -47,7 +47,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     required super.client,
     required super.address,
     required CustomLogger logger,
-  }) : logger = logger.namespace('multi-escrow'),
+  }) : logger = logger.scope('multi-escrow'),
        super(
          contract: MultiEscrow(address: address, client: client),
        );
@@ -55,7 +55,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   @override
   Future<TransactionInformation> deposit(
     ContractFundEscrowParams params,
-  ) async {
+  ) => logger.span('deposit', () async {
     await ensureDeployed();
     String transactionHash = await _withDecodedCustomError(() {
       return contract.createTrade(
@@ -71,78 +71,82 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     return (await client.getTransactionByHash(
       transactionHash,
     ))!; // @todo awaitTransaction should really be added to web3dart client directly, instead of EvmChain class
-  }
+  });
 
   @override
-  Future<OnChainTrade?> getTrade(String tradeId) async {
-    await ensureDeployed();
-    final activeTrade = await _withDecodedCustomError(() {
-      return contract.activeTrade((tradeId: getBytes32(tradeId)));
-    });
+  Future<OnChainTrade?> getTrade(String tradeId) =>
+      logger.span('getTrade', () async {
+        await ensureDeployed();
+        final activeTrade = await _withDecodedCustomError(() {
+          return contract.activeTrade((tradeId: getBytes32(tradeId)));
+        });
 
-    if (!activeTrade.isActive) return null;
+        if (!activeTrade.isActive) return null;
 
-    final trade = _extractTrade(activeTrade.trade);
-    if (trade == null) return null;
+        final trade = _extractTrade(activeTrade.trade);
+        if (trade == null) return null;
 
-    return OnChainTrade(
-      isActive: true,
-      buyer: trade.buyer,
-      seller: trade.seller,
-      arbiter: trade.arbiter,
-      amount: trade.amount,
-      unlockAt: trade.unlockAt,
-      escrowFee: trade.escrowFee,
-    );
-  }
-
-  @override
-  Future<bool> canClaim(ContractClaimEscrowParams params) async {
-    await ensureDeployed();
-    final activeTrade = await _withDecodedCustomError(() {
-      return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
-    });
-
-    if (!activeTrade.isActive) {
-      return false;
-    }
-
-    final trade = _extractTrade(activeTrade.trade);
-    if (trade == null) {
-      logger.w('Could not decode active trade for ${params.tradeId}');
-      return false;
-    }
-
-    return DateTime.now().millisecondsSinceEpoch ~/ 1000 >
-        trade.unlockAt.toInt();
-  }
+        return OnChainTrade(
+          isActive: true,
+          buyer: trade.buyer,
+          seller: trade.seller,
+          arbiter: trade.arbiter,
+          amount: trade.amount,
+          unlockAt: trade.unlockAt,
+          escrowFee: trade.escrowFee,
+        );
+      });
 
   @override
-  Future<TransactionInformation> claim(ContractClaimEscrowParams params) async {
-    await ensureDeployed();
-    final transactionHash = await _withDecodedCustomError(() {
-      return contract.claim((
-        tradeId: getBytes32(params.tradeId),
-      ), credentials: params.ethKey);
-    });
-    return (await client.getTransactionByHash(transactionHash))!;
-  }
+  Future<bool> canClaim(ContractClaimEscrowParams params) =>
+      logger.span('canClaim', () async {
+        await ensureDeployed();
+        final activeTrade = await _withDecodedCustomError(() {
+          return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
+        });
+
+        if (!activeTrade.isActive) {
+          return false;
+        }
+
+        final trade = _extractTrade(activeTrade.trade);
+        if (trade == null) {
+          logger.w('Could not decode active trade for ${params.tradeId}');
+          return false;
+        }
+
+        return DateTime.now().millisecondsSinceEpoch ~/ 1000 >
+            trade.unlockAt.toInt();
+      });
 
   @override
-  arbitrate(ContractArbitrateParams params) async {
-    await ensureDeployed();
-    return await _withDecodedCustomError(() {
-      return contract.arbitrate(
-        arbitrateArgs(params),
-        credentials: params.ethKey,
-      );
-    });
-  }
+  Future<TransactionInformation> claim(ContractClaimEscrowParams params) =>
+      logger.span('claim', () async {
+        await ensureDeployed();
+        final transactionHash = await _withDecodedCustomError(() {
+          return contract.claim((
+            tradeId: getBytes32(params.tradeId),
+          ), credentials: params.ethKey);
+        });
+        return (await client.getTransactionByHash(transactionHash))!;
+      });
+
+  @override
+  arbitrate(ContractArbitrateParams params) =>
+      logger.span('arbitrate', () async {
+        await ensureDeployed();
+        return await _withDecodedCustomError(() {
+          return contract.arbitrate(
+            arbitrateArgs(params),
+            credentials: params.ethKey,
+          );
+        });
+      });
 
   @override
   Future<GasEstimate> estimateEscrowFundFee(
     ContractFundEscrowParams params,
-  ) async {
+  ) => logger.span('estimateEscrowFundFee', () async {
     final gasPrice = await client.getGasPrice();
 
     // Use eth_estimateGas with state overrides (3rd param) so the node
@@ -192,97 +196,101 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         gasLimit: gasLimit,
       );
     }
-  }
+  });
 
   @override
-  Future<GasEstimate> estimateClaimFee(ContractClaimEscrowParams params) async {
-    final gasPrice = await contract.client.getGasPrice();
-    final gasLimit = BigInt.from(200000);
-    return GasEstimate(
-      fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
-      gasPrice: gasPrice,
-      gasLimit: gasLimit,
-    );
-  }
+  Future<GasEstimate> estimateClaimFee(ContractClaimEscrowParams params) =>
+      logger.span('estimateClaimFee', () async {
+        final gasPrice = await contract.client.getGasPrice();
+        final gasLimit = BigInt.from(200000);
+        return GasEstimate(
+          fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
+          gasPrice: gasPrice,
+          gasLimit: gasLimit,
+        );
+      });
 
   @override
-  Future<GasEstimate> estimateReleaseFee(
-    ContractReleaseEscrowParams params,
-  ) async {
-    final gasPrice = await contract.client.getGasPrice();
-    final gasLimit = BigInt.from(200000);
-    return GasEstimate(
-      fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
-      gasPrice: gasPrice,
-      gasLimit: gasLimit,
-    );
-  }
+  Future<GasEstimate> estimateReleaseFee(ContractReleaseEscrowParams params) =>
+      logger.span('estimateReleaseFee', () async {
+        final gasPrice = await contract.client.getGasPrice();
+        final gasLimit = BigInt.from(200000);
+        return GasEstimate(
+          fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
+          gasPrice: gasPrice,
+          gasLimit: gasLimit,
+        );
+      });
 
   @override
-  Future<bool> canRelease(ContractReleaseEscrowParams params) async {
-    await ensureDeployed();
-    final activeTrade = await _withDecodedCustomError(() {
-      return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
-    });
+  Future<bool> canRelease(ContractReleaseEscrowParams params) => logger.span(
+    'canRelease',
+    () async {
+      await ensureDeployed();
+      final activeTrade = await _withDecodedCustomError(() {
+        return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
+      });
 
-    if (!activeTrade.isActive) {
-      return false;
-    }
+      if (!activeTrade.isActive) {
+        return false;
+      }
 
-    final trade = _extractTrade(activeTrade.trade);
-    if (trade == null) {
-      logger.w('Could not decode active trade for ${params.tradeId}');
-      return false;
-    }
+      final trade = _extractTrade(activeTrade.trade);
+      if (trade == null) {
+        logger.w('Could not decode active trade for ${params.tradeId}');
+        return false;
+      }
 
-    // Release is available as long as the trade is active.
-    // Only the seller (depositor) can release, but that's enforced on-chain.
-    return true;
-  }
-
-  @override
-  Future<TransactionInformation> release(
-    ContractReleaseEscrowParams params,
-  ) async {
-    await ensureDeployed();
-    final transactionHash = await _withDecodedCustomError(() {
-      return contract.releaseToCounterparty((
-        tradeId: getBytes32(params.tradeId),
-      ), credentials: params.ethKey);
-    });
-    return (await client.getTransactionByHash(transactionHash))!;
-  }
+      // Release is available as long as the trade is active.
+      // Only the seller (depositor) can release, but that's enforced on-chain.
+      return true;
+    },
+  );
 
   @override
-  depositArgs(ContractFundEscrowParams params) {
-    return (
-      tradeId: getBytes32(params.tradeId),
-
-      /// Our address derived from our nostr private key
-      buyer: params.ethKey.address,
-
-      /// Seller address derived from their nostr pubkey
-      seller: EthereumAddress.fromHex(params.sellerEvmAddress),
-
-      /// Arbiter public key from their nostr advertisement
-      arbiter: EthereumAddress.fromHex(params.arbiterEvmAddress),
-
-      unlockAt: BigInt.from(params.unlockAt),
-      escrowFee: params.escrowFee?.getInWei ?? BigInt.zero,
-    );
-  }
+  Future<TransactionInformation> release(ContractReleaseEscrowParams params) =>
+      logger.span('release', () async {
+        await ensureDeployed();
+        final transactionHash = await _withDecodedCustomError(() {
+          return contract.releaseToCounterparty((
+            tradeId: getBytes32(params.tradeId),
+          ), credentials: params.ethKey);
+        });
+        return (await client.getTransactionByHash(transactionHash))!;
+      });
 
   @override
-  arbitrateArgs(ContractArbitrateParams params) {
-    final scaledForward = BigInt.from((params.forward * 1000).round());
-    return (tradeId: getBytes32(params.tradeId), factor: scaledForward);
-  }
+  depositArgs(ContractFundEscrowParams params) =>
+      logger.spanSync('depositArgs', () {
+        return (
+          tradeId: getBytes32(params.tradeId),
+
+          /// Our address derived from our nostr private key
+          buyer: params.ethKey.address,
+
+          /// Seller address derived from their nostr pubkey
+          seller: EthereumAddress.fromHex(params.sellerEvmAddress),
+
+          /// Arbiter public key from their nostr advertisement
+          arbiter: EthereumAddress.fromHex(params.arbiterEvmAddress),
+
+          unlockAt: BigInt.from(params.unlockAt),
+          escrowFee: params.escrowFee?.getInWei ?? BigInt.zero,
+        );
+      });
+
+  @override
+  arbitrateArgs(ContractArbitrateParams params) =>
+      logger.spanSync('arbitrateArgs', () {
+        final scaledForward = BigInt.from((params.forward * 1000).round());
+        return (tradeId: getBytes32(params.tradeId), factor: scaledForward);
+      });
 
   @override
   StreamWithStatus<EscrowEvent> allEvents(
     ContractEventsParams params,
     EscrowServiceSelected? selectedEscrow,
-  ) {
+  ) => logger.spanSync('allEvents', () {
     logger.d(
       'Subscribing to events for trade id at address: ${params.tradeId}, ${contract.self.address}',
     );
@@ -433,7 +441,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           .where((log) => log.transactionHash != null)
           .asyncMap(mapper),
     );
-  }
+  });
 
   @override
   listTrades(ContractListTradesParams params) {
@@ -441,7 +449,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     throw UnimplementedError();
   }
 
-  Trades? _extractTrade(dynamic trade) {
+  Trades? _extractTrade(dynamic trade) => logger.spanSync('_extractTrade', () {
     if (trade is Trades) {
       return trade;
     }
@@ -453,41 +461,44 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       }
     }
     return null;
-  }
+  });
 
-  Future<T> _withDecodedCustomError<T>(Future<T> Function() action) async {
-    try {
-      return await action();
-    } catch (error) {
-      final decoded = _decodeCustomError(error);
-      if (decoded != null) {
-        logger.w(decoded.toString());
-        throw decoded;
-      }
-      rethrow;
-    }
-  }
+  Future<T> _withDecodedCustomError<T>(Future<T> Function() action) =>
+      logger.span('_withDecodedCustomError', () async {
+        try {
+          return await action();
+        } catch (error) {
+          final decoded = _decodeCustomError(error);
+          if (decoded != null) {
+            logger.w(decoded.toString());
+            throw decoded;
+          }
+          rethrow;
+        }
+      });
 
-  MultiEscrowContractException? _decodeCustomError(Object error) {
-    final text = error.toString();
-    final match = RegExp(
-      r'custom error\s*:??\s*(0x[a-fA-F0-9]{8})',
-      caseSensitive: false,
-    ).firstMatch(text);
+  MultiEscrowContractException? _decodeCustomError(Object error) =>
+      logger.spanSync('_decodeCustomError', () {
+        final text = error.toString();
+        final match = RegExp(
+          r'custom error\s*:??\s*(0x[a-fA-F0-9]{8})',
+          caseSensitive: false,
+        ).firstMatch(text);
 
-    if (match == null) {
-      return null;
-    }
+        if (match == null) {
+          return null;
+        }
 
-    final selector = match.group(1)!.toLowerCase();
-    final errorName = _customErrorSelectors[selector] ?? 'UnknownCustomError';
-    return MultiEscrowContractException(
-      selector: selector,
-      errorName: errorName,
-      message: text,
-      originalError: error,
-    );
-  }
+        final selector = match.group(1)!.toLowerCase();
+        final errorName =
+            _customErrorSelectors[selector] ?? 'UnknownCustomError';
+        return MultiEscrowContractException(
+          selector: selector,
+          errorName: errorName,
+          message: text,
+          originalError: error,
+        );
+      });
 }
 
 extension on FilterOptions {

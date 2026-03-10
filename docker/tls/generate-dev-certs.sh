@@ -122,6 +122,9 @@ generate_cert "landing.${DOMAIN}" \
 ln -sf "landing.${DOMAIN}.crt" "$CERT_DIR/${DOMAIN}.crt"
 ln -sf "landing.${DOMAIN}.key" "$CERT_DIR/${DOMAIN}.key"
 
+generate_cert "telemetry.${DOMAIN}" \
+  "DNS:telemetry.${DOMAIN},DNS:telemetry,DNS:localhost,IP:127.0.0.1"
+
 generate_cert "anvil.${DOMAIN}" \
   "DNS:anvil.${DOMAIN},DNS:anvil,DNS:localhost,IP:127.0.0.1"
 

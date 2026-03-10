@@ -20,7 +20,7 @@ class EscrowFundRegistry {
   final CustomLogger _logger;
 
   EscrowFundRegistry(CustomLogger logger)
-    : _logger = logger.namespace('fund-registry');
+    : _logger = logger.scope('fund-registry');
 
   final BehaviorSubject<Map<String, EscrowFundOperation>> _operations$ =
       BehaviorSubject.seeded({});
@@ -30,28 +30,31 @@ class EscrowFundRegistry {
   /// Register a live [EscrowFundOperation] for [tradeId].
   ///
   /// Automatically unregisters when the operation reaches a terminal state.
-  void register(String tradeId, EscrowFundOperation operation) {
-    // Clean up any previous watcher for this trade.
-    _watchers[tradeId]?.cancel();
+  void register(String tradeId, EscrowFundOperation operation) =>
+      _logger.spanSync('register', () {
+        // Clean up any previous watcher for this trade.
+        _watchers[tradeId]?.cancel();
 
-    final current = Map<String, EscrowFundOperation>.of(_operations$.value);
-    current[tradeId] = operation;
-    _operations$.add(current);
+        final current = Map<String, EscrowFundOperation>.of(_operations$.value);
+        current[tradeId] = operation;
+        _operations$.add(current);
 
-    _logger.d('EscrowFundRegistry: registered operation for trade $tradeId');
+        _logger.d(
+          'EscrowFundRegistry: registered operation for trade $tradeId',
+        );
 
-    _watchers[tradeId] = operation.stream.listen(
-      (state) {
-        if (state.isTerminal) {
-          _unregister(tradeId);
-        }
-      },
-      onError: (_, _) => _unregister(tradeId),
-      onDone: () => _unregister(tradeId),
-    );
-  }
+        _watchers[tradeId] = operation.stream.listen(
+          (state) {
+            if (state.isTerminal) {
+              _unregister(tradeId);
+            }
+          },
+          onError: (_, _) => _unregister(tradeId),
+          onDone: () => _unregister(tradeId),
+        );
+      });
 
-  void _unregister(String tradeId) {
+  void _unregister(String tradeId) => _logger.spanSync('_unregister', () {
     _watchers[tradeId]?.cancel();
     _watchers.remove(tradeId);
 
@@ -62,7 +65,7 @@ class EscrowFundRegistry {
         'EscrowFundRegistry: unregistered operation for trade $tradeId',
       );
     }
-  }
+  });
 
   /// Reactive stream of the [EscrowFundOperation] for [tradeId], or `null`
   /// when no operation is active. Emits immediately with the current value.
@@ -78,16 +81,17 @@ class EscrowFundRegistry {
 
   /// Returns a [Future] that completes when the operation for [tradeId]
   /// finishes (or immediately if none is active).
-  Future<void> waitForCompletion(String tradeId) {
-    if (!hasActiveFund(tradeId)) return Future.value();
-    return watchTrade(tradeId).firstWhere((op) => op == null).then((_) {});
-  }
+  Future<void> waitForCompletion(String tradeId) =>
+      _logger.span('waitForCompletion', () {
+        if (!hasActiveFund(tradeId)) return Future.value();
+        return watchTrade(tradeId).firstWhere((op) => op == null).then((_) {});
+      });
 
-  void dispose() {
+  void dispose() => _logger.spanSync('dispose', () {
     for (final sub in _watchers.values) {
       sub.cancel();
     }
     _watchers.clear();
     _operations$.close();
-  }
+  });
 }

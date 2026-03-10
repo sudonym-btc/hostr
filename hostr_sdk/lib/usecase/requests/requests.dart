@@ -85,7 +85,7 @@ class Requests extends RequestsModel {
   Relays get _relays => getIt<Relays>();
 
   Requests({required this.ndk, required CustomLogger logger})
-    : _logger = logger.namespace('requests') {
+    : _logger = logger.scope('requests') {
     Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
   }
 
@@ -95,7 +95,7 @@ class Requests extends RequestsModel {
     required Filter filter,
     List<String>? relays,
     String? name,
-  }) {
+  }) => _logger.spanSync('subscribe', () {
     final ndkSubName = name != null
         ? "$name-${Helpers.getRandomString(5)}"
         : "sub-${Helpers.getRandomString(10)}";
@@ -164,7 +164,7 @@ class Requests extends RequestsModel {
     response.addSubscription(subscription);
 
     return response;
-  }
+  });
 
   /// Canonical key for a filter, used to dedup identical in-flight queries.
   String _filterKey(Filter filter) {
@@ -177,7 +177,7 @@ class Requests extends RequestsModel {
     List<String>? relays,
     Duration? timeout,
     String? name,
-  }) {
+  }) => _logger.spanSync('query', () {
     final key = _filterKey(filter);
 
     // If there's already an in-flight query for this exact filter, share it.
@@ -236,7 +236,7 @@ class Requests extends RequestsModel {
         .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
         .where((event) => event != null)
         .cast<T>();
-  }
+  });
 
   // @TODO: There must be a better way to do this
   @override
@@ -244,14 +244,14 @@ class Requests extends RequestsModel {
     required Filter filter,
     Duration? timeout,
     List<String>? relays,
-  }) async {
+  }) => _logger.span('count', () async {
     var results = await query(
       filter: filter,
       timeout: timeout,
       relays: relays,
     ).toList();
     return results.length;
-  }
+  });
 
   @override
   Future<List<RelayBroadcastResponse>> broadcast({
@@ -275,7 +275,7 @@ class Requests extends RequestsModel {
     required void Function(T) onData,
     void Function(Object, StackTrace?)? onError,
     required String name,
-  }) {
+  }) => _logger.spanSync('liveSubscription', () {
     final ndkSubName = '$name-${Helpers.getRandomString(5)}';
 
     _logger.d('liveSubscription opening: $ndkSubName filter=$filter');
@@ -303,7 +303,7 @@ class Requests extends RequestsModel {
       await listener.cancel();
       await ndk.requests.closeSubscription(ndkSubName);
     }, ndkSubName);
-  }
+  });
 }
 
 /// Monitors NDK log output for relay subscription-limit NOTICE messages.

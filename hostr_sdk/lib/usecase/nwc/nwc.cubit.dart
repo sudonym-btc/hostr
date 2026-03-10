@@ -14,7 +14,7 @@ class NwcCubit extends Cubit<NwcCubitState> {
   NwcCubit({required this.nwc, required this.logger, this.url})
     : super(NwcIdle());
 
-  Future connect(String? url) async {
+  Future connect(String? url) => logger.span('connect', () async {
     emit(NwcLoading());
     try {
       connection = await nwc.connect((url ?? this.url)!);
@@ -24,9 +24,9 @@ class NwcCubit extends Cubit<NwcCubitState> {
       logger.e(e);
       emit(NwcFailure(e));
     }
-  }
+  });
 
-  Future checkInfo() async {
+  Future checkInfo() => logger.span('checkInfo', () async {
     emit(NwcLoading());
     return nwc
         .getInfo(connection!)
@@ -37,7 +37,7 @@ class NwcCubit extends Cubit<NwcCubitState> {
           logger.e(e);
           emit(NwcFailure(e));
         });
-  }
+  });
 }
 
 class AsyncState<T, E> {}

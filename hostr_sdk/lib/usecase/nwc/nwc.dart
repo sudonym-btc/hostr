@@ -20,33 +20,34 @@ class Nwc {
 
   Nwc(this.nwcStorage, this.ndk, this.logger);
 
-  Future<void> _disposeReactiveConnection(NwcCubit reactiveConnection) async {
-    final connection = reactiveConnection.connection;
-    if (connection != null) {
-      if (connection.subscription != null) {
-        await ndk.requests.closeSubscription(
-          connection.subscription!.requestId,
-        );
-      }
-      await connection.close();
-      reactiveConnection.connection = null;
-    }
-    await reactiveConnection.close();
-  }
+  Future<void> _disposeReactiveConnection(NwcCubit reactiveConnection) =>
+      logger.span('_disposeReactiveConnection', () async {
+        final connection = reactiveConnection.connection;
+        if (connection != null) {
+          if (connection.subscription != null) {
+            await ndk.requests.closeSubscription(
+              connection.subscription!.requestId,
+            );
+          }
+          await connection.close();
+          reactiveConnection.connection = null;
+        }
+        await reactiveConnection.close();
+      });
 
   String? _connectionUrl(NwcCubit cubit) =>
       cubit.url ?? cubit.connection?.uri.toString();
 
   /// User pasted/scanned a NWC from their wallet
   /// nostr+walletconnect://b889ff5b1513b641e2a139f661a661364979c5beee91842f8f0ef42ab558e9d4?relay=wss%3A%2F%2Frelay.damus.io&secret=71a8c14c1407c113601079c4302dab36460f0ccd0ad506f1f2dc73b5100e4f3c
-  Future<void> save() async {
+  Future<void> save() => logger.span('save', () async {
     // Parse the NWC string, check protocol, secret, relay
     await nwcStorage.set(
       connections.map(_connectionUrl).whereType<String>().toSet().toList(),
     );
-  }
+  });
 
-  Future<void> add(NwcCubit reactiveConnection) async {
+  Future<void> add(NwcCubit reactiveConnection) => logger.span('add', () async {
     final incomingUrl = _connectionUrl(reactiveConnection);
     if (incomingUrl != null &&
         connections.any(
@@ -63,37 +64,42 @@ class Nwc {
     connections.add(reactiveConnection);
     await save();
     _connectionsSubject.add(connections);
-  }
+  });
 
-  Future<void> remove(NwcCubit reactiveConnection) async {
-    logger.i('Removing nwc connection ${reactiveConnection.url.toString()}');
-    await _disposeReactiveConnection(reactiveConnection);
-    connections.remove(reactiveConnection);
-    _connectionsSubject.add(connections);
-    await save();
-  }
+  Future<void> remove(NwcCubit reactiveConnection) => logger.span(
+    'remove',
+    () async {
+      logger.i('Removing nwc connection ${reactiveConnection.url.toString()}');
+      await _disposeReactiveConnection(reactiveConnection);
+      connections.remove(reactiveConnection);
+      _connectionsSubject.add(connections);
+      await save();
+    },
+  );
 
-  NwcConnection? getActiveConnection() {
-    for (final cubit in connections) {
-      if (cubit.state is Success) {
-        return cubit.connection;
-      }
-    }
-    return null;
-  }
+  NwcConnection? getActiveConnection() =>
+      logger.spanSync('getActiveConnection', () {
+        for (final cubit in connections) {
+          if (cubit.state is Success) {
+            return cubit.connection;
+          }
+        }
+        return null;
+      });
 
-  Future<NwcCubit> initiateAndAdd(String url) async {
-    final reactive = NwcCubit(nwc: this, logger: logger);
-    await reactive.connect(url);
-    await add(reactive);
-    return reactive;
-  }
+  Future<NwcCubit> initiateAndAdd(String url) =>
+      logger.span('initiateAndAdd', () async {
+        final reactive = NwcCubit(nwc: this, logger: logger);
+        await reactive.connect(url);
+        await add(reactive);
+        return reactive;
+      });
 
   /// Create a reactive connection from a URL and add it to the list
-  Future<NwcConnection> connect(String url) async {
+  Future<NwcConnection> connect(String url) => logger.span('connect', () async {
     logger.d('Connecting to NWC URL: $url');
     return ndk.nwc.connect(url);
-  }
+  });
 
   Future<GetInfoResponse> getInfo(NwcConnection connection) async {
     return ndk.nwc.getInfo(connection);
@@ -102,7 +108,7 @@ class Nwc {
   Future<PayInvoiceResponse> payInvoice(
     NwcConnection connection,
     String invoice,
-  ) async {
+  ) => logger.span('payInvoice', () async {
     logger.i('Paying invoice $invoice');
     try {
       return await ndk.nwc.payInvoice(
@@ -114,7 +120,7 @@ class Nwc {
       logger.e('Error paying invoice: $e $stackTrace');
       rethrow;
     }
-  }
+  });
 
   Future<MakeInvoiceResponse> makeInvoice(
     NwcConnection connection, {
@@ -122,7 +128,7 @@ class Nwc {
     String? description,
     String? descriptionHash,
     int? expiry,
-  }) async {
+  }) => logger.span('makeInvoice', () async {
     logger.i('Making invoice for $amountSats sats');
     try {
       return await ndk.nwc.makeInvoice(
@@ -136,7 +142,7 @@ class Nwc {
       logger.e('Error making invoice: $e $stackTrace');
       rethrow;
     }
-  }
+  });
 
   Future<LookupInvoiceResponse> lookupInvoice(
     NwcConnection connection, {
@@ -152,22 +158,22 @@ class Nwc {
 
   /// Soft cleanup for logout: close all NWC cubits and clear the list,
   /// but keep the [_connectionsSubject] open so a subsequent [start] works.
-  Future<void> reset() async {
+  Future<void> reset() => logger.span('reset', () async {
     for (final connection in connections) {
       await _disposeReactiveConnection(connection);
     }
     connections.clear();
     _connectionsSubject.add(connections);
-  }
+  });
 
   /// Permanent teardown — closes the subject. Only call when the Hostr
   /// instance itself is being disposed.
-  Future<void> dispose() async {
+  Future<void> dispose() => logger.span('dispose', () async {
     await reset();
     await _connectionsSubject.close();
-  }
+  });
 
-  void start() {
+  void start() => logger.spanSync('start', () {
     nwcStorage.get().then((urls) async {
       final seen = <String>{};
       for (var url in urls) {
@@ -186,7 +192,7 @@ class Nwc {
       }
       logger.i('Initializing nwc connections $urls');
     });
-  }
+  });
 }
 
 @Singleton(as: Nwc, env: [Env.test, Env.mock])

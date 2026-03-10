@@ -10,7 +10,9 @@ import 'package:hostr/data/sources/h3_engine.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqlite3/sqlite3.dart' as native_sqlite3;
 import 'package:workmanager/workmanager.dart';
 
 import 'injection.dart';
@@ -33,7 +35,7 @@ final logger = CustomLogger(tag: 'app');
 ///   - Dependency injection
 ///   - H3 geo runtime
 Future<void> initCore(String env, {CustomLogger? logger}) async {
-  final log = (logger ?? CustomLogger()).namespace('init-core');
+  final log = (logger ?? CustomLogger()).scope('init-core');
   final total = Stopwatch()..start();
   var sw = Stopwatch()..start();
 
@@ -52,9 +54,26 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
   log.d('configureInjection: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
+  final dbDir = await getApplicationSupportDirectory();
+  final operationsDb = native_sqlite3.sqlite3.open(
+    '${dbDir.path}/hostr_operations.db',
+  );
+  log.d('openOperationsDb: ${sw.elapsedMilliseconds}ms');
+
+  sw.reset();
   getIt.registerSingleton<Hostr>(
     Hostr(
-      config: getIt<Config>().buildHostrConfig(logger: logger),
+      config: getIt<Config>().buildHostrConfig(
+        logger: logger,
+        operationsDb: operationsDb,
+        showNotification:
+            ({required int id, String? title, String? body, String? payload}) =>
+                FlutterLocalNotificationsPlugin().show(
+                  id: id,
+                  title: title,
+                  body: body,
+                ),
+      ),
       environment: env,
     ),
   );
@@ -97,6 +116,13 @@ Future<void> initApp() async {
     sw.reset();
     await setupNotifications();
     logger.d('notifications: ${sw.elapsedMilliseconds}ms');
+
+    // Smoke-test: prove notifications are working on every launch.
+    await FlutterLocalNotificationsPlugin().show(
+      id: 0,
+      title: 'Hostr',
+      body: 'Welcome back 👋',
+    );
   }
 
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -118,18 +144,14 @@ Future<void> _lockAppOrientation() async {
 
 void setupWorkmanager() {
   Workmanager().initialize(callbackDispatcher);
-  // Only register periodic/processing tasks — don't register a one-off task
-  // every launch, as that triggers an immediate background execution.
+  // Only register periodic tasks at launch — processing tasks are scheduled
+  // on-demand by _scheduleOnchainOperations() when the app enters background.
   // Use ExistingWorkPolicy.keep to avoid re-registering on every cold start.
   Workmanager().registerPeriodicTask(
     BackgroundTaskType.periodicSync.identifier,
     BackgroundTaskType.periodicSync.taskName,
     existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
   );
-  // Workmanager().registerProcessingTask(
-  //   BackgroundTaskType.onchainOps.identifier,
-  //   BackgroundTaskType.onchainOps.taskName,
-  // );
 }
 
 Future<void> setupNotifications() async {

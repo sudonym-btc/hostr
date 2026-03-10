@@ -13,6 +13,8 @@ import 'package:hostr_sdk/util/bitcoin_amount.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/bip340.dart';
+import 'package:sqlite3/common.dart';
+import 'package:sqlite3/sqlite3.dart' as native_sqlite3;
 import 'package:test/test.dart';
 
 // ── Test harness ──────────────────────────────────────────────────────────
@@ -26,7 +28,8 @@ import 'package:test/test.dart';
 /// the logic is correct — and separately verify that the service compiles and
 /// can be registered via DI.
 class GateHarness {
-  late final InMemoryKeyValueStorage storage;
+  late final CommonDatabase db;
+  late final InMemoryKeyValueStorage kvStorage;
   late final OperationStateStore stateStore;
   late final UserConfigStore userConfigStore;
   late final CustomLogger logger;
@@ -48,12 +51,13 @@ class GateHarness {
     BitcoinAmount? initialBalance,
     int minimumSats = 10000,
   }) async {
-    storage = InMemoryKeyValueStorage();
+    db = native_sqlite3.sqlite3.openInMemory();
+    kvStorage = InMemoryKeyValueStorage();
     final mockAuth = MockAuth();
     final fakeUser = Bip340.fromPrivateKey('1' * 64);
     when(mockAuth.activeKeyPair).thenAnswer((_) => fakeUser);
-    stateStore = OperationStateStore(storage, CustomLogger(), mockAuth);
-    userConfigStore = UserConfigStore(storage, CustomLogger(), mockAuth);
+    stateStore = OperationStateStore(db, CustomLogger(), mockAuth);
+    userConfigStore = UserConfigStore(kvStorage, CustomLogger(), mockAuth);
     logger = CustomLogger();
 
     balance = initialBalance ?? BitcoinAmount.zero();

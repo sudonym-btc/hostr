@@ -15,13 +15,13 @@ class Messaging {
   final CustomLogger logger;
   Threads get threads => getIt<Threads>();
   Messaging(this.ndk, this.requests, CustomLogger logger)
-    : logger = logger.namespace('messaging');
+    : logger = logger.scope('messaging');
 
   Future<Nip01Event> getRumour(
     String content,
     List<List<String>> tags,
     List<String> recipientPubkeys,
-  ) {
+  ) => logger.span('getRumour', () async {
     logger.d(
       'Creating rumor with content: $content, tags: $tags, recipientPubkeys: $recipientPubkeys',
     );
@@ -33,25 +33,25 @@ class Messaging {
         ...recipientPubkeys.map((pubkey) => ['p', pubkey]),
       ],
     );
-  }
+  });
 
   Future<Message> broadcastTextAndAwait({
     required String content,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
-  }) async {
+  }) => logger.span('broadcastTextAndAwait', () async {
     return broadcastEventAndWait(
       event: await getRumour(content, tags, recipientPubkeys),
       tags: tags,
       recipientPubkeys: recipientPubkeys,
     );
-  }
+  });
 
   Future<List<Future<List<RelayBroadcastResponse>>>> broadcastText({
     required String content,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
-  }) async {
+  }) => logger.span('broadcastText', () async {
     logger.d(
       'Broadcasting text: $content to $recipientPubkeys with tags: $tags',
     );
@@ -68,13 +68,13 @@ class Messaging {
         )
         .toList();
     return broadcasts;
-  }
+  });
 
   Future<Message> broadcastEventAndWait({
     required Nip01Event event,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
-  }) async {
+  }) => logger.span('broadcastEventAndWait', () async {
     final rumor = await getRumour(event.toString(), tags, recipientPubkeys);
     broadcastEvent(
       event: event,
@@ -84,17 +84,17 @@ class Messaging {
 
     // Need to get the wrapped event here
     return threads.awaitMessageId(rumor.id);
-  }
+  });
 
   Future<List<Future<List<RelayBroadcastResponse>>>> broadcastEvent({
     required Nip01Event event,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
-  }) {
+  }) => logger.span('broadcastEvent', () async {
     return broadcastText(
       content: event.toString(),
       tags: tags,
       recipientPubkeys: recipientPubkeys,
     );
-  }
+  });
 }

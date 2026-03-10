@@ -40,7 +40,7 @@ abstract class EvmChain {
     required Web3Client client,
     required this.auth,
     required CustomLogger logger,
-  }) : logger = logger.namespace('evm-chain'),
+  }) : logger = logger.scope('evm-chain'),
        _client = client;
 
   /// Replace the underlying [Web3Client] with a fresh instance.
@@ -50,13 +50,13 @@ abstract class EvmChain {
   /// [Web3Client] appropriate for their chain.
   Web3Client buildClient();
 
-  void _rebuildClient() {
+  void _rebuildClient() => logger.spanSync('_rebuildClient', () {
     logger.i('Rebuilding Web3Client after consecutive failures');
     final oldClient = _client;
     _client = buildClient();
     _clientGeneration++;
     oldClient.dispose();
-  }
+  });
 
   void _resetClientIfGeneration(int generation) {
     if (_clientGeneration != generation) return;
@@ -73,11 +73,12 @@ abstract class EvmChain {
     Future<T> Function(Web3Client client) fn, {
     int retries = 1,
     Duration retryDelay = const Duration(milliseconds: 250),
-  }) async {
+    Duration timeout = const Duration(seconds: 30),
+  }) => logger.span('_callRpcWithRetry', () async {
     for (int attempt = 1; attempt <= retries + 1; attempt++) {
       final generation = _clientGeneration;
       try {
-        return await fn(client);
+        return await fn(client).timeout(timeout);
       } catch (error) {
         if (!_isTransientRpcError(error) || attempt > retries) rethrow;
         logger.w(
@@ -90,7 +91,7 @@ abstract class EvmChain {
     }
 
     throw StateError('unreachable');
-  }
+  });
 
   Future<void> dispose() async {
     client.dispose();
@@ -110,16 +111,17 @@ abstract class EvmChain {
     return _callRpcWithRetry('getChainId', (client) => client.getChainId());
   }
 
-  Future<BitcoinAmount> getBalance(EthereumAddress address) async {
-    logger.d('Getting balance for $address');
-    return await _callRpcWithRetry(
-      'getBalance($address)',
-      (client) => client.getBalance(address),
-    ).then((val) {
-      logger.d('Balance for $address: $val');
-      return BitcoinAmount.inWei(val.getInWei);
-    });
-  }
+  Future<BitcoinAmount> getBalance(EthereumAddress address) =>
+      logger.span('getBalance', () async {
+        logger.d('Getting balance for $address');
+        return await _callRpcWithRetry(
+          'getBalance($address)',
+          (client) => client.getBalance(address),
+        ).then((val) {
+          logger.d('Balance for $address: $val');
+          return BitcoinAmount.inWei(val.getInWei);
+        });
+      });
 
   /// Emits a new block number whenever the chain advances.
   ///
@@ -199,7 +201,9 @@ abstract class EvmChain {
     }
   }
 
-  Future<TransactionInformation?> getTransaction(String txHash) async {
+  Future<TransactionInformation?> getTransaction(
+    String txHash,
+  ) => logger.span('getTransaction', () async {
     logger.d('Getting transaction for $txHash');
     return await _callRpcWithRetry(
       'getTransactionByHash($txHash)',
@@ -210,33 +214,53 @@ abstract class EvmChain {
       );
       return val;
     });
-  }
+  });
 
-  Future<TransactionInformation> awaitTransaction(String txHash) async {
+  Future<TransactionInformation> awaitTransaction(
+    String txHash,
+  ) => logger.span('awaitTransaction', () async {
     // Poll until our RPC node sees the transaction (may lag behind Boltz).
     while (true) {
       final tx = await getTransaction(txHash);
       if (tx != null) {
         logger.i(
-          'Transaction $txHash confirmed: from ${tx.from} value ${tx.value.getInWei}',
+          'Transaction $txHash visible: from ${tx.from} value ${tx.value.getInWei}',
         );
         return tx;
       }
       logger.i('Transaction $txHash not found, retrying…');
       await Future.delayed(const Duration(milliseconds: 500));
     }
-  }
+  });
 
-  Future<TransactionReceipt> awaitReceipt(String txHash) async {
-    while (true) {
-      final receipt = await _callRpcWithRetry(
-        'getTransactionReceipt($txHash)',
-        (client) => client.getTransactionReceipt(txHash),
-      );
-      if (receipt != null) return receipt;
-      await Future.delayed(const Duration(milliseconds: 300));
-    }
-  }
+  Future<TransactionReceipt> awaitReceipt(String txHash) =>
+      logger.span('awaitReceipt', () async {
+        int polls = 0;
+        logger.d('awaitReceipt: polling for $txHash');
+        while (true) {
+          try {
+            final receipt = await _callRpcWithRetry(
+              'getTransactionReceipt($txHash)',
+              (client) => client.getTransactionReceipt(txHash),
+            );
+            if (receipt != null) {
+              logger.i(
+                'awaitReceipt: got receipt for $txHash after $polls polls '
+                '(status=${receipt.status})',
+              );
+              return receipt;
+            }
+          } catch (e) {
+            logger.w('awaitReceipt: RPC error on poll $polls for $txHash: $e');
+            rethrow;
+          }
+          polls++;
+          if (polls % 10 == 0) {
+            logger.d('awaitReceipt: $polls polls for $txHash, still waiting…');
+          }
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+      });
 
   /// Returns the first HD-derived EVM address that has never been used
   /// on-chain (zero nonce **and** zero balance).
@@ -249,7 +273,7 @@ abstract class EvmChain {
   /// Returns a record containing both the [EthereumAddress] and its
   /// [accountIndex] so callers can persist or re-derive the key later.
   Future<({EthereumAddress address, int accountIndex})>
-  getNextUnusedAddress() async {
+  getNextUnusedAddress() => logger.span('getNextUnusedAddress', () async {
     const batchSize = 5;
 
     for (var offset = 0; ; offset += batchSize) {
@@ -285,7 +309,7 @@ abstract class EvmChain {
         }
       }
     }
-  }
+  });
 
   /// Returns all HD-derived EVM addresses that hold a non-zero balance,
   /// along with their account index and current balance.
@@ -299,7 +323,7 @@ abstract class EvmChain {
   Future<
     List<({EthereumAddress address, int accountIndex, BitcoinAmount balance})>
   >
-  getAddressesWithBalance() async {
+  getAddressesWithBalance() => logger.span('getAddressesWithBalance', () async {
     const batchSize = 5;
     final funded =
         <
@@ -335,17 +359,18 @@ abstract class EvmChain {
     }
 
     return funded;
-  }
+  });
 
   /// Returns the total balance across all HD-derived addresses that hold
   /// funds, scanning up to [_maxScanIndex] indices.
-  Future<BitcoinAmount> getTotalBalance() async {
-    final addresses = await getAddressesWithBalance();
-    return addresses.fold<BitcoinAmount>(
-      BitcoinAmount.zero(),
-      (sum, entry) => sum + entry.balance,
-    );
-  }
+  Future<BitcoinAmount> getTotalBalance() =>
+      logger.span('getTotalBalance', () async {
+        final addresses = await getAddressesWithBalance();
+        return addresses.fold<BitcoinAmount>(
+          BitcoinAmount.zero(),
+          (sum, entry) => sum + entry.balance,
+        );
+      });
 
   /// Emits the total balance across all used addresses on each new block.
   Stream<BitcoinAmount> subscribeTotalBalance() async* {

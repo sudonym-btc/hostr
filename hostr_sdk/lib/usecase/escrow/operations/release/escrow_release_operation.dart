@@ -60,11 +60,17 @@ class EscrowReleaseOperation extends OnchainOperation {
   // ── OnchainOperation overrides ────────────────────────────────────
 
   @override
-  String get storeNamespace => 'escrow_release';
+  String get namespace => 'escrow_release';
 
   @override
-  Future<GasEstimate> estimateGas() =>
-      contract.estimateReleaseFee(contractParams);
+  OnchainOperationData dataFromJson(Map<String, dynamic> json) =>
+      EscrowReleaseData.fromJson(json);
+
+  @override
+  Future<GasEstimate> estimateGas() => logger.span(
+    'estimateGas',
+    () => contract.estimateReleaseFee(contractParams),
+  );
 
   /// EscrowRelease doesn't send value — it only needs gas.
   @override
@@ -74,12 +80,12 @@ class EscrowReleaseOperation extends OnchainOperation {
   String get swapInvoiceDescription => 'Hostr Escrow Release';
 
   @override
-  Future<void> preflight() async {
+  Future<void> preflight() => logger.span('preflight', () async {
     final canRelease = await contract.canRelease(contractParams);
     if (!canRelease) {
       throw StateError('Release is not available. Trade must still be active.');
     }
-  }
+  });
 
   @override
   OnchainOperationData buildInitialData() => EscrowReleaseData(
@@ -91,28 +97,30 @@ class EscrowReleaseOperation extends OnchainOperation {
 
   @override
   Future<TransactionInformation> executeTransaction() =>
-      contract.release(contractParams);
+      logger.span('executeTransaction', () => contract.release(contractParams));
 
   @override
-  void onAddressResolved(int resolvedAccountIndex) {
-    contractParams = params.toContractParams(
-      auth.getActiveEvmKey(accountIndex: resolvedAccountIndex),
-    );
-  }
+  void onAddressResolved(int resolvedAccountIndex) =>
+      logger.spanSync('onAddressResolved', () {
+        contractParams = params.toContractParams(
+          auth.getActiveEvmKey(accountIndex: resolvedAccountIndex),
+        );
+      });
 
   @override
-  void onBeforeTransaction(OnchainOperationData data) {
-    contractParams = ContractReleaseEscrowParams(
-      tradeId: data.operationId,
-      ethKey: auth.getActiveEvmKey(accountIndex: data.accountIndex),
-    );
-  }
+  void onBeforeTransaction(OnchainOperationData data) =>
+      logger.spanSync('onBeforeTransaction', () {
+        contractParams = ContractReleaseEscrowParams(
+          tradeId: data.operationId,
+          ethKey: auth.getActiveEvmKey(accountIndex: data.accountIndex),
+        );
+      });
 
   /// When [EscrowReleaseParams.evmAddress] was supplied we already know the
   /// exact account index. Otherwise, query the on-chain trade to discover
   /// which of our HD addresses is the buyer or seller and resolve from that.
   @override
-  Future<void> resolveAddress() async {
+  Future<void> resolveAddress() => logger.span('resolveAddress', () async {
     final trade = await contract.getTrade(params.tradeId);
     if (trade != null) {
       // Release can be called by buyer or seller — try both.
@@ -127,32 +135,33 @@ class EscrowReleaseOperation extends OnchainOperation {
       }
     }
     throw StateError('No matching EVM account found for release.');
-  }
+  });
 
   // ── Fee estimation (public) ───────────────────────────────────────
 
-  Future<EscrowReleaseFees> estimateFees() async {
-    final gasEstimate = await contract.estimateReleaseFee(contractParams);
-    final swapDeficit = await computeSwapDeficit(gasEstimate);
-    final swapFees = swapDeficit > BitcoinAmount.zero()
-        ? await chain
-              .swapIn(
-                SwapInParams(
-                  evmKey: contractParams.ethKey,
-                  accountIndex: accountIndex,
-                  amount: swapDeficit,
-                  invoiceDescription: swapInvoiceDescription,
-                ),
-              )
-              .estimateFees()
-        : SwapInFees(
-            estimatedGasFees: BitcoinAmount.zero(),
-            estimatedSwapFees: BitcoinAmount.zero(),
-            estimatedRelayFees: BitcoinAmount.zero(),
-          );
-    return EscrowReleaseFees(
-      estimatedGasFees: gasEstimate.fee,
-      estimatedSwapFees: swapFees,
-    );
-  }
+  Future<EscrowReleaseFees> estimateFees() =>
+      logger.span('estimateFees', () async {
+        final gasEstimate = await contract.estimateReleaseFee(contractParams);
+        final swapDeficit = await computeSwapDeficit(gasEstimate);
+        final swapFees = swapDeficit > BitcoinAmount.zero()
+            ? await chain
+                  .swapIn(
+                    SwapInParams(
+                      evmKey: contractParams.ethKey,
+                      accountIndex: accountIndex,
+                      amount: swapDeficit,
+                      invoiceDescription: swapInvoiceDescription,
+                    ),
+                  )
+                  .estimateFees()
+            : SwapInFees(
+                estimatedGasFees: BitcoinAmount.zero(),
+                estimatedSwapFees: BitcoinAmount.zero(),
+                estimatedRelayFees: BitcoinAmount.zero(),
+              );
+        return EscrowReleaseFees(
+          estimatedGasFees: gasEstimate.fee,
+          estimatedSwapFees: swapFees,
+        );
+      });
 }

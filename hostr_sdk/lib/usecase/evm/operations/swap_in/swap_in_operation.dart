@@ -1,131 +1,218 @@
-import 'package:bloc/bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../../config.dart';
 import '../../../../injection.dart';
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
+import '../operation_machine.dart';
 import '../operation_state_store.dart';
 import 'swap_in_models.dart';
 import 'swap_in_state.dart';
 
-abstract class SwapInOperation extends Cubit<SwapInState> {
-  final CustomLogger logger;
+/// All steps in the swap-in lifecycle.
+///
+/// Used as the type-safe step identifier for [OperationMachine].
+/// The [StepGuard] declarations in [SwapInOperation.steps] and the
+/// exhaustive `switch` in [executeStep] both key off this enum,
+/// so the compiler catches any mismatch.
+enum SwapInStep {
+  createSwap,
+  dispatchPayment,
+  ensureFunded,
+  claimRelay,
+  checkMempool,
+  confirmClaim,
+}
+
+abstract class SwapInOperation
+    extends OperationMachine<SwapInState, SwapInStep> {
   final Auth auth;
   final SwapInParams params;
 
-  /// True when the operation is being resumed from persisted state.
-  /// Subclasses should check this to avoid re-executing side-effects
-  /// (e.g. paying a Lightning invoice that was already dispatched).
-  bool get recovering => _recovering;
-  bool _recovering = false;
-
-  late final OperationStateStore _stateStore = getIt<OperationStateStore>();
+  /// Optional callback for emitting background progress notifications.
+  ///
+  /// Called with `(notificationId, message)` at key state transitions.
+  /// Set this before calling [execute] or [recover] to receive
+  /// notifications (e.g. for OS notification updates in background tasks).
+  void Function(String notificationId, String message)? onProgress;
 
   SwapInOperation({
     required this.auth,
     required CustomLogger logger,
     @factoryParam required this.params,
     SwapInState? initialState,
-  }) : logger = logger.namespace('swap-in'),
-       super(initialState ?? const SwapInInitialised());
+  }) : super(
+         store: getIt<OperationStateStore>(),
+         logger: logger.scope('swap-in'),
+         initialState: initialState ?? const SwapInInitialised(),
+       ) {
+    _autoWireNotifications();
+  }
 
-  /// Persist every state that carries data.
+  /// Auto-wires [onProgress] from [HostrConfig.showNotification] so that
+  /// every swap — foreground or background — gets OS notifications
+  /// without the caller having to set it manually.
+  void _autoWireNotifications() {
+    final show = getIt<HostrConfig>().showNotification;
+    if (show == null) return;
+    onProgress = (id, message) =>
+        show(id: id.hashCode, title: 'Hostr', body: message);
+  }
+
+  /// The notification ID for progress callbacks.
+  ///
+  /// Uses [SwapInParams.parentOperationId] when the swap is nested inside
+  /// a parent operation (e.g. escrow-fund), otherwise falls back to the
+  /// persisted [SwapInData.parentOperationId], then to the Boltz swap ID.
+  String? get _notificationId =>
+      params.parentOperationId ??
+      state.data?.parentOperationId ??
+      state.data?.boltzId;
+
+  /// Maps a [SwapInState] to a human-readable notification message.
+  /// Returns `null` for states that should not trigger a notification.
+  String? _notificationMessage(SwapInState s) => switch (s) {
+    SwapInInvoicePaid() => 'Invoice paid!',
+    // SwapInFunded() => 'Swap funds received, claiming\u2026',
+    // SwapInCompleted() => 'Swap completed',
+    // SwapInFailed() => 'Swap failed',
+    _ => null,
+  };
+
   @override
   void emit(SwapInState state) {
     super.emit(state);
-    final id = state.operationId;
-    if (id != null) {
-      _stateStore.write('swap_in', id, state.toJson());
-    }
+    _fireNotification(state);
   }
+
+  void _fireNotification(SwapInState s) {
+    final cb = onProgress;
+    if (cb == null) {
+      logger.d(
+        '_fireNotification: onProgress is null — skipping (${s.runtimeType})',
+      );
+      return;
+    }
+    final id = _notificationId;
+    if (id == null) {
+      logger.d(
+        '_fireNotification: notificationId is null — skipping (${s.runtimeType})',
+      );
+      return;
+    }
+    final message = _notificationMessage(s);
+    if (message == null) return; // expected for non-notifiable states
+    logger.i('_fireNotification: id=$id message="$message"');
+    cb(id, message);
+  }
+
+  @override
+  Map<String, Object?> get telemetryAttributes => {
+    ...super.telemetryAttributes,
+    'hostr.swap.account_index': state.data?.accountIndex ?? params.accountIndex,
+    'hostr.swap.amount_sats':
+        state.data?.onchainAmountSat ?? params.amount.getInSats,
+    if (state.data?.boltzId != null) 'hostr.swap.id': state.data!.boltzId,
+    if (state.data?.lockupTxHash != null)
+      'hostr.swap.lockup_tx_hash': state.data!.lockupTxHash,
+    if (state.data?.claimTxHash != null)
+      'hostr.swap.claim_tx_hash': state.data!.claimTxHash,
+    if (state.data?.lastBoltzStatus != null)
+      'hostr.swap.last_boltz_status': state.data!.lastBoltzStatus,
+  };
+
+  // ── OperationMachine contract ──────────────────────────────────────
+
+  @override
+  String get namespace => 'swap_in';
+
+  @override
+  List<StepGuard<SwapInStep>> get steps => const [
+    StepGuard(
+      step: SwapInStep.createSwap,
+      allowedFrom: {'initialised'},
+      backgroundAllowed: false,
+    ),
+    StepGuard(
+      step: SwapInStep.dispatchPayment,
+      allowedFrom: {'requestCreated'},
+      staleTimeout: Duration(minutes: 45),
+      backgroundAllowed: false,
+    ),
+    StepGuard(
+      step: SwapInStep.ensureFunded,
+      allowedFrom: {
+        'awaitingOnChain',
+        'paymentProgress',
+        'paymentDispatching', // recovery: fg may have crashed after dispatch
+      },
+      backgroundAllowed: true,
+    ),
+    StepGuard(
+      step: SwapInStep.claimRelay,
+      allowedFrom: {'funded', 'claimRelaying'},
+      staleTimeout: Duration(minutes: 30),
+      backgroundAllowed: true,
+    ),
+    StepGuard(
+      step: SwapInStep.checkMempool,
+      allowedFrom: {'claimed'},
+      backgroundAllowed: true,
+    ),
+    StepGuard(
+      step: SwapInStep.confirmClaim,
+      allowedFrom: {'claimTxInMempool'},
+      backgroundAllowed: true,
+    ),
+  ];
+
+  @override
+  SwapInState stateFromJson(Map<String, dynamic> json) =>
+      SwapInState.fromJson(json);
+
+  @override
+  SwapInState? busyStateFor(SwapInStep step, SwapInState current) {
+    final data = current.data;
+    if (data == null) return null;
+    return switch (step) {
+      SwapInStep.dispatchPayment => SwapInPaymentDispatching(data),
+      SwapInStep.claimRelay => SwapInClaimRelaying(data),
+      _ => null,
+    };
+  }
+
+  @override
+  void emitError(
+    Object error,
+    SwapInState from,
+    StackTrace? st, {
+    String? stepName,
+  }) {
+    logger.e('Swap error from "${from.stateName}": $error');
+    emit(
+      SwapInFailed(
+        error,
+        data: from.data,
+        stackTrace: st,
+        failedAtStep: stepName,
+      ),
+    );
+  }
+
+  // ── Abstract: chain-specific ──────────────────────────────────────
 
   Future<SwapInFees> estimateFees();
 
   /// Fetches the chain's minimum and maximum swap-in amounts.
   Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits();
 
-  /// Reads the current state and performs exactly one state transition.
-  ///
-  /// Implementors switch on [state] and run the appropriate step:
-  ///
-  /// | State group                                     | Action           |
-  /// |-------------------------------------------------|------------------|
-  /// | `Initialised`                                   | Create Boltz swap |
-  /// | `RequestCreated / AwaitingOnChain / PaymentProgress` | Ensure lockup funded |
-  /// | `Funded`                                        | Claim on-chain   |
-  /// | `Claimed`                                       | Check mempool    |
-  /// | `ClaimTxInMempool`                              | Confirm receipt  |
-  /// | `Completed / Failed`                            | No-op (terminal) |
-  Future<void> handle();
-
-  /// Loops [handle] until the state is terminal or failed.
-  ///
-  /// A non-terminal [SwapInFailed] (e.g. funds locked but claim failed) stops
-  /// the loop immediately — retrying is the job of [recover], not [run].
-  /// Without this guard the loop would spin forever because [handle] no-ops
-  /// on [SwapInFailed] while [isTerminal] returns `false`.
-  Future<void> run() async {
-    while (!state.isTerminal && state is! SwapInFailed) {
-      await handle();
-    }
-  }
-
-  /// Loops [handle] until [stopCondition] returns `true` **or** the state is
-  /// terminal — whichever comes first.
-  ///
-  /// This lets callers bail out early without waiting for the full lifecycle.
-  /// For example, the escrow-fund flow can stop at [SwapInClaimed] to avoid
-  /// blocking on the on-chain confirmation:
-  ///
-  /// ```dart
-  /// await swap.runUntil((s) => s is SwapInClaimed);
-  /// ```
-  Future<void> runUntil(bool Function(SwapInState) stopCondition) async {
-    while (!state.isTerminal &&
-        state is! SwapInFailed &&
-        !stopCondition(state)) {
-      await handle();
-    }
-  }
-
-  /// Start a new swap-in from [SwapInInitialised].
-  Future<void> execute() => run();
-
-  /// Resume from a persisted (non-terminal) state.
-  ///
-  /// Returns `true` if the swap reached a terminal state.
-  Future<bool> recover() async {
-    if (state.data == null) return false;
-    if (state.isTerminal) return true;
-
-    // A non-terminal SwapInFailed means funds are locked on-chain but the
-    // claim failed transiently (e.g. RIF Relay out of gas). Re-enter the
-    // state machine from the appropriate resumable state.
-    if (state is SwapInFailed) {
-      final data = state.data!;
-      if (data.claimTxHash != null) {
-        emit(SwapInClaimed(data));
-      } else if (data.lockupTxHash != null) {
-        emit(SwapInFunded(data));
-      } else {
-        emit(SwapInRequestCreated(data));
-      }
-    }
-
-    _recovering = true;
-    try {
-      await run();
-      return state.isTerminal;
-    } catch (e) {
-      logger.e('Recovery error for ${state.data?.boltzId}: $e');
-      return false;
-    }
-  }
+  // ── Init & amount adjustment (UI-facing) ──────────────────────────
 
   /// Fetches chain limits and clamps [params.minAmount] / [params.maxAmount]
   /// to the chain's supported range. Re-emits [SwapInInitialised] so the
   /// UI picks up the resolved range.
-  Future<void> init() async {
+  Future<void> init() => logger.span('init', () async {
+    applyTelemetry();
     try {
       final limits = await getSwapLimits();
 
@@ -143,24 +230,33 @@ abstract class SwapInOperation extends Cubit<SwapInState> {
         params.amount = params.maxAmount!;
       }
 
+      logger.i(
+        'Swap range resolved: '
+        'min=${params.minAmount?.getInSats}, '
+        'max=${params.maxAmount?.getInSats}, '
+        'selected=${params.amount.getInSats}',
+      );
+
       // Use super.emit to avoid persisting an Initialised state.
       super.emit(const SwapInInitialised());
     } catch (e) {
       logger.w('Failed to fetch swap limits: $e');
     }
-  }
+  });
 
   /// Updates the swap amount (must be within min/max range if set).
-  void updateAmount(BitcoinAmount amount) {
-    if (params.minAmount != null && amount < params.minAmount!) {
-      logger.w('Amount $amount below minimum ${params.minAmount}');
-      return;
-    }
-    if (params.maxAmount != null && amount > params.maxAmount!) {
-      logger.w('Amount $amount exceeds maximum ${params.maxAmount}');
-      return;
-    }
-    params.amount = amount;
-    super.emit(const SwapInInitialised());
-  }
+  void updateAmount(BitcoinAmount amount) =>
+      logger.spanSync('updateAmount', () {
+        if (params.minAmount != null && amount < params.minAmount!) {
+          logger.w('Amount $amount below minimum ${params.minAmount}');
+          return;
+        }
+        if (params.maxAmount != null && amount > params.maxAmount!) {
+          logger.w('Amount $amount exceeds maximum ${params.maxAmount}');
+          return;
+        }
+        params.amount = amount;
+        logger.d('Swap amount updated to ${params.amount.getInSats} sats');
+        super.emit(const SwapInInitialised());
+      });
 }

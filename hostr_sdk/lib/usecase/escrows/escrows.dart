@@ -21,7 +21,7 @@ class Escrows extends CrudUseCase<EscrowService> {
   Future<MutualEscrowResult> determineMutualEscrow(
     String buyerPubkey,
     String sellerPubkey,
-  ) async {
+  ) => logger.span('determineMutualEscrow', () async {
     final myPubkey = escrowMethods.auth.activeKeyPair?.publicKey;
     final counterpartyPubkey = buyerPubkey == myPubkey
         ? sellerPubkey
@@ -137,7 +137,7 @@ class Escrows extends CrudUseCase<EscrowService> {
 
     result.compatibleServices = [];
     return result;
-  }
+  });
 }
 
 class MutualEscrowResult {

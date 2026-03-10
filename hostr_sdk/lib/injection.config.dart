@@ -104,8 +104,10 @@ import 'package:hostr_sdk/usecase/verification/verification.dart' as _i301;
 import 'package:hostr_sdk/usecase/zaps/zaps.dart' as _i1045;
 import 'package:hostr_sdk/util/custom_logger.dart' as _i331;
 import 'package:hostr_sdk/util/main.dart' as _i372;
+import 'package:hostr_sdk/util/telemetry.dart' as _i337;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:ndk/ndk.dart' as _i857;
+import 'package:sqlite3/common.dart' as _i216;
 import 'package:web3dart/web3dart.dart' as _i641;
 
 const String _test = 'test';
@@ -125,7 +127,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i148.SwapOutQuoteService>(() => _i148.SwapOutQuoteService());
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
     gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
+    gh.singleton<_i216.CommonDatabase>(() => hostrSdkModule.operationsDb);
     gh.singleton<_i331.CustomLogger>(() => hostrSdkModule.logger);
+    gh.singleton<_i337.Telemetry>(() => hostrSdkModule.telemetry);
     gh.singleton<_i733.CalendarPort>(() => hostrSdkModule.calendarPort);
     gh.lazySingleton<_i857.Ndk>(
       () => hostrSdkModule.ndk(gh<_i910.HostrConfig>()),
@@ -279,13 +283,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i218.NwcStorage>(
       () => _i218.NwcStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
     );
-    gh.singleton<_i842.OperationStateStore>(
-      () => _i842.OperationStateStore(
-        gh<_i111.KeyValueStorage>(),
-        gh<_i331.CustomLogger>(),
-        gh<_i1000.Auth>(),
-      ),
-    );
     gh.singleton<_i883.Relays>(
       () => _i883.MockRelays(
         ndk: gh<_i857.Ndk>(),
@@ -308,6 +305,13 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i331.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
         messaging: gh<_i1019.Messaging>(),
+      ),
+    );
+    gh.singleton<_i842.OperationStateStore>(
+      () => _i842.OperationStateStore(
+        gh<_i216.CommonDatabase>(),
+        gh<_i331.CustomLogger>(),
+        gh<_i1000.Auth>(),
       ),
     );
     gh.singleton<_i305.Evm>(

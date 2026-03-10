@@ -4,6 +4,7 @@ import 'package:convert/convert.dart';
 
 import '../../../../util/main.dart';
 import '../../../payments/operations/pay_state.dart';
+import '../operation_machine.dart';
 
 // ── Swap-Out recovery data ────────────────────────────────────────────────
 
@@ -115,19 +116,30 @@ class SwapOutData {
 
 // ── Swap-Out cubit states ─────────────────────────────────────────────────
 
-sealed class SwapOutState {
+sealed class SwapOutState implements MachineState {
   const SwapOutState();
 
   /// Persisted swap data. Non-null once funds are committed on-chain.
   SwapOutData? get data => null;
 
   /// Unique operation ID for persistence.
+  @override
   String? get operationId => data?.boltzId;
 
   /// Whether this is a terminal state.
+  @override
   bool get isTerminal => false;
 
+  /// Short string key identifying this state variant.
+  @override
+  String get stateName;
+
+  /// Only non-null for [SwapOutFailed] with a recoverable step.
+  @override
+  String? get failedAtStep => null;
+
   /// Serialise for [OperationStateStore] persistence.
+  @override
   Map<String, dynamic> toJson();
 
   /// Deserialise from persisted JSON.
@@ -141,10 +153,12 @@ sealed class SwapOutState {
       'claimed' => SwapOutClaimed(SwapOutData.fromJson(json)),
       'completed' => SwapOutCompleted(SwapOutData.fromJson(json)),
       'refunding' => SwapOutRefunding(SwapOutData.fromJson(json)),
+      'locking' => SwapOutLocking(SwapOutData.fromJson(json)),
       'refunded' => SwapOutRefunded(SwapOutData.fromJson(json)),
       'failed' => SwapOutFailed(
         json['errorMessage'] ?? 'Unknown error',
         data: SwapOutData.fromJson(json),
+        failedAtStep: json['failedAtStep'] as String?,
       ),
       _ => const SwapOutInitialised(),
     };
@@ -156,11 +170,15 @@ sealed class SwapOutState {
 final class SwapOutInitialised extends SwapOutState {
   const SwapOutInitialised();
   @override
+  String get stateName => 'initialised';
+  @override
   Map<String, dynamic> toJson() => {'state': 'initialised'};
 }
 
 final class SwapOutRequestCreated extends SwapOutState {
   const SwapOutRequestCreated();
+  @override
+  String get stateName => 'requestCreated';
   @override
   Map<String, dynamic> toJson() => {'state': 'requestCreated'};
 }
@@ -169,6 +187,8 @@ final class SwapOutExternalInvoiceRequired extends SwapOutState {
   final BitcoinAmount invoiceAmount;
   const SwapOutExternalInvoiceRequired(this.invoiceAmount);
   @override
+  String get stateName => 'externalInvoiceRequired';
+  @override
   Map<String, dynamic> toJson() => {'state': 'externalInvoiceRequired'};
 }
 
@@ -176,12 +196,16 @@ final class SwapOutInvoiceCreated extends SwapOutState {
   final String invoice;
   const SwapOutInvoiceCreated(this.invoice);
   @override
+  String get stateName => 'invoiceCreated';
+  @override
   Map<String, dynamic> toJson() => {'state': 'invoiceCreated'};
 }
 
 final class SwapOutPaymentProgress extends SwapOutState {
   final PayState paymentState;
   const SwapOutPaymentProgress({required this.paymentState});
+  @override
+  String get stateName => 'paymentProgress';
   @override
   Map<String, dynamic> toJson() => {'state': 'paymentProgress'};
 }
@@ -192,6 +216,8 @@ final class SwapOutAwaitingOnChain extends SwapOutState {
   @override
   final SwapOutData data;
   const SwapOutAwaitingOnChain(this.data);
+  @override
+  String get stateName => 'awaitingOnChain';
   @override
   Map<String, dynamic> toJson() => {
     'state': 'awaitingOnChain',
@@ -207,6 +233,8 @@ final class SwapOutFunded extends SwapOutState {
   final SwapOutData data;
   const SwapOutFunded(this.data);
   @override
+  String get stateName => 'funded';
+  @override
   Map<String, dynamic> toJson() => {
     'state': 'funded',
     'id': data.boltzId,
@@ -221,6 +249,8 @@ final class SwapOutClaimed extends SwapOutState {
   final SwapOutData data;
   const SwapOutClaimed(this.data);
   @override
+  String get stateName => 'claimed';
+  @override
   Map<String, dynamic> toJson() => {
     'state': 'claimed',
     'id': data.boltzId,
@@ -234,6 +264,8 @@ final class SwapOutCompleted extends SwapOutState {
   @override
   final SwapOutData data;
   const SwapOutCompleted(this.data);
+  @override
+  String get stateName => 'completed';
   @override
   bool get isTerminal => true;
   @override
@@ -251,6 +283,8 @@ final class SwapOutRefunding extends SwapOutState {
   final SwapOutData data;
   const SwapOutRefunding(this.data);
   @override
+  String get stateName => 'refunding';
+  @override
   Map<String, dynamic> toJson() => {
     'state': 'refunding',
     'id': data.boltzId,
@@ -264,6 +298,8 @@ final class SwapOutRefunded extends SwapOutState {
   @override
   final SwapOutData data;
   const SwapOutRefunded(this.data);
+  @override
+  String get stateName => 'refunded';
   @override
   bool get isTerminal => true;
   @override
@@ -281,12 +317,29 @@ final class SwapOutFailed extends SwapOutState {
   final SwapOutData? data;
   final Object error;
   final StackTrace? stackTrace;
-  const SwapOutFailed(this.error, {this.data, this.stackTrace});
 
-  /// A failed swap-out is **not** terminal when the user has locked funds
-  /// on-chain. A refund (cooperative or timelock) may still be possible.
+  /// The step that was executing when the failure occurred.
+  /// Used by [OperationMachine.run] to re-enter the correct step on
+  /// recovery without subclass-specific hooks.
+  @override
+  final String? failedAtStep;
+
+  const SwapOutFailed(
+    this.error, {
+    this.data,
+    this.stackTrace,
+    this.failedAtStep,
+  });
+
+  @override
+  String get stateName => 'failed';
+
+  /// A failed swap-out is **not** terminal when either:
+  /// - [failedAtStep] is set (the run loop knows where to retry), or
+  /// - the user has locked funds on-chain and no resolution tx exists.
   @override
   bool get isTerminal {
+    if (failedAtStep != null) return false;
     final d = data;
     if (d == null) return true;
     // Funds locked but no resolution tx → recoverable.
@@ -302,5 +355,27 @@ final class SwapOutFailed extends SwapOutState {
     'updatedAt': DateTime.now().toIso8601String(),
     if (data != null) ...data!.toJson(),
     'errorMessage': error.toString(),
+    if (failedAtStep != null) 'failedAtStep': failedAtStep,
+  };
+}
+
+/// Funds are being locked in the EtherSwap contract.
+///
+/// This is a **busy/CAS lock** state: persisted before the lock
+/// side-effect begins so that another process reading the store
+/// will see it and back off.
+final class SwapOutLocking extends SwapOutState {
+  @override
+  final SwapOutData data;
+  const SwapOutLocking(this.data);
+  @override
+  String get stateName => 'locking';
+  @override
+  Map<String, dynamic> toJson() => {
+    'state': 'locking',
+    'id': data.boltzId,
+    'isTerminal': false,
+    'updatedAt': DateTime.now().toIso8601String(),
+    ...data.toJson(),
   };
 }

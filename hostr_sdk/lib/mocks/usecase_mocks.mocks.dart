@@ -782,21 +782,21 @@ class MockMetadataUseCase extends _i1.Mock implements _i28.MetadataUseCase {
 
   @override
   _i9.ExpandableSubscription<_i11.ProfileMetadata> expandableSubscribe(
-    _i2.Filter? initialFilter, {
+    _i8.StreamWithStatus<_i2.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #expandableSubscribe,
-              [initialFilter],
+              [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
             returnValue: _FakeExpandableSubscription_11<_i11.ProfileMetadata>(
               this,
               Invocation.method(
                 #expandableSubscribe,
-                [initialFilter],
+                [filterSource],
                 {#name: name, #debounceDuration: debounceDuration},
               ),
             ),
@@ -1295,21 +1295,21 @@ class MockListings extends _i1.Mock implements _i16.Listings {
 
   @override
   _i9.ExpandableSubscription<_i11.Listing> expandableSubscribe(
-    _i2.Filter? initialFilter, {
+    _i8.StreamWithStatus<_i2.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #expandableSubscribe,
-              [initialFilter],
+              [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
             returnValue: _FakeExpandableSubscription_11<_i11.Listing>(
               this,
               Invocation.method(
                 #expandableSubscribe,
-                [initialFilter],
+                [filterSource],
                 {#name: name, #debounceDuration: debounceDuration},
               ),
             ),
@@ -1830,21 +1830,21 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
 
   @override
   _i9.ExpandableSubscription<_i11.Reservation> expandableSubscribe(
-    _i2.Filter? initialFilter, {
+    _i8.StreamWithStatus<_i2.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #expandableSubscribe,
-              [initialFilter],
+              [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
             returnValue: _FakeExpandableSubscription_11<_i11.Reservation>(
               this,
               Invocation.method(
                 #expandableSubscribe,
-                [initialFilter],
+                [filterSource],
                 {#name: name, #debounceDuration: debounceDuration},
               ),
             ),
@@ -2179,21 +2179,21 @@ class MockEscrows extends _i1.Mock implements _i18.Escrows {
 
   @override
   _i9.ExpandableSubscription<_i11.EscrowService> expandableSubscribe(
-    _i2.Filter? initialFilter, {
+    _i8.StreamWithStatus<_i2.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #expandableSubscribe,
-              [initialFilter],
+              [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
             returnValue: _FakeExpandableSubscription_11<_i11.EscrowService>(
               this,
               Invocation.method(
                 #expandableSubscribe,
-                [initialFilter],
+                [filterSource],
                 {#name: name, #debounceDuration: debounceDuration},
               ),
             ),
@@ -2395,21 +2395,21 @@ class MockEscrowTrusts extends _i1.Mock implements _i19.EscrowTrusts {
 
   @override
   _i9.ExpandableSubscription<_i11.EscrowTrust> expandableSubscribe(
-    _i2.Filter? initialFilter, {
+    _i8.StreamWithStatus<_i2.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #expandableSubscribe,
-              [initialFilter],
+              [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
             returnValue: _FakeExpandableSubscription_11<_i11.EscrowTrust>(
               this,
               Invocation.method(
                 #expandableSubscribe,
-                [initialFilter],
+                [filterSource],
                 {#name: name, #debounceDuration: debounceDuration},
               ),
             ),
@@ -2603,21 +2603,21 @@ class MockEscrowMethods extends _i1.Mock implements _i25.EscrowMethods {
 
   @override
   _i9.ExpandableSubscription<_i11.EscrowMethod> expandableSubscribe(
-    _i2.Filter? initialFilter, {
+    _i8.StreamWithStatus<_i2.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #expandableSubscribe,
-              [initialFilter],
+              [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
             returnValue: _FakeExpandableSubscription_11<_i11.EscrowMethod>(
               this,
               Invocation.method(
                 #expandableSubscribe,
-                [initialFilter],
+                [filterSource],
                 {#name: name, #debounceDuration: debounceDuration},
               ),
             ),
@@ -2786,21 +2786,21 @@ class MockBadgeDefinitions extends _i1.Mock implements _i41.BadgeDefinitions {
 
   @override
   _i9.ExpandableSubscription<_i11.BadgeDefinition> expandableSubscribe(
-    _i2.Filter? initialFilter, {
+    _i8.StreamWithStatus<_i2.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #expandableSubscribe,
-              [initialFilter],
+              [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
             returnValue: _FakeExpandableSubscription_11<_i11.BadgeDefinition>(
               this,
               Invocation.method(
                 #expandableSubscribe,
-                [initialFilter],
+                [filterSource],
                 {#name: name, #debounceDuration: debounceDuration},
               ),
             ),
@@ -2972,21 +2972,21 @@ class MockBadgeAwards extends _i1.Mock implements _i42.BadgeAwards {
 
   @override
   _i9.ExpandableSubscription<_i11.BadgeAward> expandableSubscribe(
-    _i2.Filter? initialFilter, {
+    _i8.StreamWithStatus<_i2.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #expandableSubscribe,
-              [initialFilter],
+              [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
             returnValue: _FakeExpandableSubscription_11<_i11.BadgeAward>(
               this,
               Invocation.method(
                 #expandableSubscribe,
-                [initialFilter],
+                [filterSource],
                 {#name: name, #debounceDuration: debounceDuration},
               ),
             ),
@@ -3348,21 +3348,21 @@ class MockReservationRequests extends _i1.Mock
 
   @override
   _i9.ExpandableSubscription<_i2.Nip01Event> expandableSubscribe(
-    _i2.Filter? initialFilter, {
+    _i8.StreamWithStatus<_i2.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #expandableSubscribe,
-              [initialFilter],
+              [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
             returnValue: _FakeExpandableSubscription_11<_i2.Nip01Event>(
               this,
               Invocation.method(
                 #expandableSubscribe,
-                [initialFilter],
+                [filterSource],
                 {#name: name, #debounceDuration: debounceDuration},
               ),
             ),
@@ -3688,13 +3688,13 @@ class MockEvm extends _i1.Mock implements _i20.Evm {
 
   @override
   _i34.Future<int> recoverStaleOperations({
+    bool? isBackground = false,
     _i45.OnBackgroundProgress? onProgress,
-    Map<String, String>? swapToTradeId,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#recoverStaleOperations, [], {
+              #isBackground: isBackground,
               #onProgress: onProgress,
-              #swapToTradeId: swapToTradeId,
             }),
             returnValue: _i34.Future<int>.value(0),
           )

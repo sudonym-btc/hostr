@@ -52,14 +52,14 @@ class AutoWithdrawService {
     this._userConfigStore,
     this._hostrConfig,
     CustomLogger logger,
-  ) : _logger = logger.namespace('auto-withdraw');
+  ) : _logger = logger.scope('auto-withdraw');
 
   // ── Public API ──────────────────────────────────────────────────────────
 
   /// Start listening for balance changes and auto-withdrawing.
   ///
   /// Idempotent — calling [start] while already running is a no-op.
-  void start() {
+  void start() => _logger.spanSync('start', () {
     if (_balanceSub != null) return;
 
     _balanceSub = _evm
@@ -78,29 +78,31 @@ class AutoWithdrawService {
         );
 
     _logger.i('AutoWithdrawService started');
-  }
+  });
 
   /// Stop listening. Safe to call even if not started.
-  Future<void> stop() async {
+  Future<void> stop() => _logger.span('stop', () async {
     await _balanceSub?.cancel();
     _balanceSub = null;
     _cooldownTimer?.cancel();
     _cooldownTimer = null;
     _swapInProgress = false;
     _logger.d('AutoWithdrawService stopped');
-  }
+  });
 
   /// Force an immediate check (e.g. after an escrow claim completes).
   ///
   /// Skips the debounce but still respects all gates.
-  Future<void> checkNow() async {
+  Future<void> checkNow() => _logger.span('checkNow', () async {
     final balance = await _evm.getBalance();
     await _onBalanceChanged(balance);
-  }
+  });
 
   // ── Internal ────────────────────────────────────────────────────────────
 
-  Future<void> _onBalanceChanged(BitcoinAmount balance) async {
+  Future<void> _onBalanceChanged(
+    BitcoinAmount balance,
+  ) => _logger.span('_onBalanceChanged', () async {
     final config = await _userConfigStore.state;
 
     // Gate 1: Enabled?
@@ -240,5 +242,5 @@ class AutoWithdrawService {
         );
       }
     }
-  }
+  });
 }

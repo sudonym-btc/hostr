@@ -36,7 +36,7 @@ class Thread {
     required CustomLogger logger,
     required this.auth,
     required this.messaging,
-  }) : logger = logger.namespace('thread'),
+  }) : logger = logger.scope('thread'),
        state = BehaviorSubject<ThreadState>.seeded(
          ThreadState.initial(
            ourPubkey: auth.activeKeyPair!.publicKey,
@@ -50,7 +50,7 @@ class Thread {
     );
   }
 
-  void _emitState() {
+  void _emitState() => logger.spanSync('_emitState', () {
     if (state.isClosed) return;
     final keyPair = auth.activeKeyPair;
     if (keyPair == null) return;
@@ -62,11 +62,13 @@ class Thread {
             .toList(),
       ),
     );
-  }
+  });
 
   List<String> addedParticipants = [];
 
-  Future<List<Future<List<RelayBroadcastResponse>>>> replyText(String content) {
+  Future<List<Future<List<RelayBroadcastResponse>>>> replyText(
+    String content,
+  ) => logger.span('replyText', () async {
     return messaging.broadcastText(
       content: content.trim(),
       tags: [
@@ -77,11 +79,13 @@ class Thread {
         ...addedParticipants,
       ],
     );
-  }
+  });
 
-  Future<List<Future<List<RelayBroadcastResponse>>>> replyEvent<
-    T extends Nip01Event
-  >(T event, {List<List<String>> tags = const []}) {
+  Future<List<Future<List<RelayBroadcastResponse>>>>
+  replyEvent<T extends Nip01Event>(
+    T event, {
+    List<List<String>> tags = const [],
+  }) => logger.span('replyEvent', () async {
     return messaging.broadcastEvent(
       event: event,
       tags: [
@@ -93,13 +97,13 @@ class Thread {
         ...addedParticipants,
       ],
     );
-  }
+  });
 
-  Future<void> close() async {
+  Future<void> close() => logger.span('close', () async {
     for (final s in _stateSubscriptions) {
       await s.cancel();
     }
     await state.close();
     await messages.close();
-  }
+  });
 }

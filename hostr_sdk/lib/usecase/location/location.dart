@@ -18,7 +18,7 @@ class Location {
     int limit = 5,
     bool preferBroadResults = true,
     Set<String>? featureTypes,
-  }) async {
+  }) => logger.span('suggestions', () async {
     final query = input.trim();
     if (query.isEmpty) return [];
 
@@ -71,12 +71,12 @@ class Location {
     }
 
     return mapped.length > limit ? mapped.take(limit).toList() : mapped;
-  }
+  });
 
   Future<LocationPolygonResult> polygon(
     String location, {
     Set<String>? featureTypes,
-  }) async {
+  }) => logger.span('polygon', () async {
     final query = location.trim();
     if (query.isEmpty) {
       throw ArgumentError('Location must not be empty');
@@ -154,9 +154,9 @@ class Location {
 
     _polygonCache[cacheKey] = result;
     return result;
-  }
+  });
 
-  Future<GeoPoint> point(String location) async {
+  Future<GeoPoint> point(String location) => logger.span('point', () async {
     final query = location.trim();
     if (query.isEmpty) {
       throw ArgumentError('Location must not be empty');
@@ -179,7 +179,7 @@ class Location {
 
       rethrow;
     }
-  }
+  });
 
   GeoPoint? _pointFromRawResult(Map<String, dynamic> result) {
     final lat = _parseDouble(result['lat']);

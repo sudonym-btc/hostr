@@ -17,7 +17,7 @@ class FakeSwapInOperation extends Fake implements RootstockSwapInOperation {
   int recoverCallCount = 0;
 
   @override
-  Future<bool> recover() async {
+  Future<bool> recover({bool isBackground = false}) async {
     recoverCallCount++;
     if (recoverError != null) throw recoverError!;
     return recoverResult;
@@ -39,7 +39,7 @@ class FakeSwapOutOperation extends Fake implements RootstockSwapOutOperation {
   int recoverCallCount = 0;
 
   @override
-  Future<bool> recover() async {
+  Future<bool> recover({bool isBackground = false}) async {
     recoverCallCount++;
     if (recoverError != null) throw recoverError!;
     return recoverResult;
