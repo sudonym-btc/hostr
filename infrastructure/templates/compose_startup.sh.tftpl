@@ -74,9 +74,9 @@ case "$${TARGET_ENV}" in
     ;;
 esac
 
-PROJECT_ID="$$(curl -fsS -H Metadata-Flavor:Google \
+PROJECT_ID="$(curl -fsS -H Metadata-Flavor:Google \
   http://metadata.google.internal/computeMetadata/v1/project/project-id)"
-ACCESS_TOKEN="$$(curl -fsS -H Metadata-Flavor:Google \
+ACCESS_TOKEN="$(curl -fsS -H Metadata-Flavor:Google \
   http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token | jq -r '.access_token')"
 
 get_secret() {
@@ -97,7 +97,7 @@ fi
 
 while IFS= read -r secret_name; do
   [[ -z "$${secret_name}" ]] && continue
-  if value="$$(get_secret "$${secret_name}")"; then
+  if value="$(get_secret "$${secret_name}")"; then
     printf '%s=%s\n' "$${secret_name}" "$${value}" >> "$${ENV_FILE}"
   else
     echo "WARN: secret $${secret_name} not found or inaccessible; continuing" >&2

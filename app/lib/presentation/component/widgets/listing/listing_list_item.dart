@@ -77,8 +77,9 @@ class ListingListItemView extends StatelessWidget {
             if (showAvailability && availabilityWidget != null)
               Gap.vertical.sm(),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
               mainAxisSize: MainAxisSize.max,
+              textBaseline: TextBaseline.alphabetic,
               children: [
                 if (showPrice) ...[
                   PriceTagWidget(price: listing.prices[0]),

@@ -553,6 +553,7 @@ class Reservations extends CrudUseCase<Reservation>
       pubKey: auth.activeKeyPair!.publicKey,
       dTag: nonce,
       listingAnchor: listingAnchor,
+      stage: ReservationStage.commit,
       start: start,
       end: end,
     );

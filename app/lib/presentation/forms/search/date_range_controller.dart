@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:models/main.dart';
 
-import 'search_form_state.dart';
+DateTimeRange? _normalizeDateRange(DateTimeRange? range) {
+  if (range == null) return null;
+  final normalized = normalizeOrderedDateBounds(range.start, range.end);
+  return DateTimeRange(start: normalized.start, end: normalized.end);
+}
 
 /// A reusable controller for a check-in / check-out date range field.
 ///
@@ -10,7 +15,7 @@ class DateRangeController extends ChangeNotifier {
   DateTimeRange? _dateRange;
 
   DateRangeController({DateTimeRange? initialDateRange})
-    : _dateRange = initialDateRange;
+    : _dateRange = _normalizeDateRange(initialDateRange);
 
   /// The currently selected date range, or `null` if none.
   DateTimeRange? get dateRange => _dateRange;
@@ -20,7 +25,7 @@ class DateRangeController extends ChangeNotifier {
 
   /// Update the selected range (normalises start < end).
   void update(DateTimeRange? range) {
-    _dateRange = ensureStartDateIsBeforeEndDate(range);
+    _dateRange = _normalizeDateRange(range);
     notifyListeners();
   }
 

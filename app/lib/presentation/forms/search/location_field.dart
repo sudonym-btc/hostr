@@ -366,6 +366,8 @@ class LocationFieldState extends State<LocationField> {
         constraints: const BoxConstraints(maxHeight: 220),
         child: ListView.builder(
           shrinkWrap: true,
+          primary: false,
+          padding: EdgeInsets.zero,
           physics: const ClampingScrollPhysics(),
           itemCount: _placeList.length,
           itemBuilder: (context, index) {

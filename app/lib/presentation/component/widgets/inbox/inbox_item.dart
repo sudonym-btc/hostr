@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/router.dart';
@@ -29,6 +30,10 @@ class InboxItemView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: kDefaultPadding.toDouble(),
+        vertical: 0,
+      ),
       leading: ProfileAvatars(profiles: counterparties),
       title: Text(title),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),

@@ -20,7 +20,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
 
   final FilterCubit? filterCubit;
   final SortCubit<T>? sortCubit;
-  final PostResultFilterCubit? postResultFilterCubit;
+  final PostResultFilterCubit<T>? postResultFilterCubit;
 
   late StreamSubscription? filterSubscription;
   late StreamSubscription? sortSubscription;
@@ -190,15 +190,16 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   /// Should be overridden if a child type of list wants to perform subquery on each Item added
   void addItem(T item) {
     if (isClosed || itemStream.isClosed) return;
-    if (postResultFilterCubit?.state == null ||
-        postResultFilterCubit!.state.filter(item)) {
+    final postResultFilter = postResultFilterCubit?.state.filter;
+    if (postResultFilter == null || postResultFilter(item)) {
       itemStream.add(item);
     }
+    final nextRaw = [...state.resultsRaw, item];
     emit(
       applySort(
-        state.copyWith(
-          results: [...state.results, item],
-          resultsRaw: [...state.results, item],
+        applyPostResultFilter(
+          state.copyWith(resultsRaw: nextRaw, results: nextRaw),
+          postResultFilter,
         ),
         sortCubit?.state.comparator,
       ),
@@ -211,35 +212,30 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   void upsertItem(T item) {
     if (isClosed) return;
     final dTag = item.getDtag();
-    final results = List<T>.from(state.results);
     final resultsRaw = List<T>.from(state.resultsRaw);
 
     bool replaced = false;
     if (dTag != null) {
-      for (var i = 0; i < results.length; i++) {
-        if (results[i].getDtag() == dTag && results[i].pubKey == item.pubKey) {
-          results[i] = item;
-          replaced = true;
-          break;
-        }
-      }
       for (var i = 0; i < resultsRaw.length; i++) {
         if (resultsRaw[i].getDtag() == dTag &&
             resultsRaw[i].pubKey == item.pubKey) {
           resultsRaw[i] = item;
+          replaced = true;
           break;
         }
       }
     }
 
     if (!replaced) {
-      results.add(item);
       resultsRaw.add(item);
     }
 
     emit(
       applySort(
-        state.copyWith(results: results, resultsRaw: resultsRaw),
+        applyPostResultFilter(
+          state.copyWith(resultsRaw: resultsRaw, results: resultsRaw),
+          postResultFilterCubit?.state.filter,
+        ),
         sortCubit?.state.comparator,
       ),
     );

@@ -38,6 +38,7 @@ class EditProfileViewState extends State<EditProfileView> {
     super.initState();
     _submitListenable = Listenable.merge([
       controller,
+      // @todo: profile image upload must only allow one file selected
       controller.imageController.notifier,
       controller.nameController,
       controller.aboutMeController,
@@ -100,7 +101,7 @@ class EditProfileViewState extends State<EditProfileView> {
               Center(
                 child: FilledButton.tonalIcon(
                   onPressed: () =>
-                      controller.imageController.pickMultipleImages(),
+                      controller.imageController.pickMultipleImages(limit: 1),
                   icon: const Icon(Icons.add_a_photo_outlined),
                   label: Text(AppLocalizations.of(context)!.addImage),
                 ),
@@ -163,9 +164,7 @@ class EditProfileViewState extends State<EditProfileView> {
       child: Form(
         key: controller.formKey,
         child: Scaffold(
-          appBar: AppBar(
-            title: Text(AppLocalizations.of(context)!.editProfile),
-          ),
+          appBar: AppBar(title: Text(AppLocalizations.of(context)!.profile)),
           body: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => FocusScope.of(context).unfocus(),

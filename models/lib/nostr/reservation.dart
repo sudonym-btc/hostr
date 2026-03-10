@@ -306,9 +306,11 @@ class Reservation
       {required DateTime start,
       required DateTime end,
       required KeyPair hostKey}) {
+    final normalized = normalizeOrderedDateBounds(start, end);
+
     return sha256
-        .convert(utf8.encode(start.toIso8601String() +
-            end.toIso8601String() +
+        .convert(utf8.encode(normalized.start.toIso8601String() +
+            normalized.end.toIso8601String() +
             hostKey.privateKey!))
         .toString();
   }

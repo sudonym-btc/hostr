@@ -92,7 +92,7 @@ class SearchViewState extends State<SearchView> {
             BlocProvider.value(value: BlocProvider.of<DateRangeCubit>(context)),
             BlocProvider.value(value: BlocProvider.of<FilterCubit>(context)),
             BlocProvider.value(
-              value: BlocProvider.of<PostResultFilterCubit>(context),
+              value: BlocProvider.of<PostResultFilterCubit<Listing>>(context),
             ),
           ],
           child: BlocProvider(
@@ -152,7 +152,9 @@ class SearchViewState extends State<SearchView> {
                                                     BlocProvider.value(
                                                       value:
                                                           BlocProvider.of<
-                                                            PostResultFilterCubit
+                                                            PostResultFilterCubit<
+                                                              Listing
+                                                            >
                                                           >(context),
                                                     ),
                                                   ],

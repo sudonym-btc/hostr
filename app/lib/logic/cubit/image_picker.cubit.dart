@@ -72,10 +72,12 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
   List<String> get resolvedPaths =>
       images.where((img) => img.path != null).map((img) => img.path!).toList();
 
-  Future<void> pickMultipleImages() async {
+  Future<void> pickMultipleImages({int limit = 10}) async {
     emit(ImageLoading());
     try {
-      final List<XFile> pickedImages = await _picker.pickMultiImage();
+      final List<XFile> pickedImages = await _picker.pickMultiImage(
+        limit: limit,
+      );
       addImages(pickedImages.map((e) => CustomImage.file(e)).toList());
     } catch (e) {
       emit(ImageError(message: "Failed to pick images: $e"));

@@ -84,12 +84,6 @@ services:
       nginx-proxy:
         condition: service_healthy
         restart: true
-      escrow-contract-deploy:
-        condition: service_completed_successfully
-        required: false
-      anvil:
-        condition: service_healthy
-        required: false
     volumes:
       - ./docker/data/escrow:/data:ro
 

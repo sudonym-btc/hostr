@@ -164,6 +164,30 @@ class BarterInput extends StatelessWidget {
   }
 }
 
+class ActiveInput extends StatelessWidget {
+  final EditListingController controller;
+
+  const ActiveInput({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        return SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Active listing'),
+          subtitle: const Text(
+            'Turn this off to hide the listing from guests.',
+          ),
+          value: controller.active,
+          onChanged: controller.setActive,
+        );
+      },
+    );
+  }
+}
+
 class DescriptionInput extends StatelessWidget {
   final EditListingController controller;
 

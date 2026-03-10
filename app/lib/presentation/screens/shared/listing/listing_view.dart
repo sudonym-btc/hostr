@@ -191,7 +191,11 @@ class _ListingViewState extends State<ListingView> {
 
                   final blockedReservations = activeKeyPair != null
                       ? allReservations
-                            .where((r) => r.isBlockedDate(activeKeyPair))
+                            .where(
+                              (r) =>
+                                  r.isBlockedDate(activeKeyPair) &&
+                                  r.cancelled != true,
+                            )
                             .toList()
                       : const <Reservation>[];
 
@@ -321,6 +325,22 @@ class ListingViewBody extends StatelessWidget {
     required this.onCancelBlockedReservation,
     required this.onBlockDates,
   });
+
+  Widget _buildBlockedReservationTile(
+    BuildContext context,
+    Reservation reservation,
+    VoidCallback onCancel,
+  ) {
+    return ListTile(
+      title: Text(
+        formatDateRangeShort(
+          DateTimeRange(start: reservation.start, end: reservation.end),
+          Localizations.localeOf(context),
+        ),
+      ),
+      trailing: IconButton(icon: const Icon(Icons.cancel), onPressed: onCancel),
+    );
+  }
 
   void _openInMaps(BuildContext context, double lat, double lng, String title) {
     final encodedTitle = Uri.encodeComponent(title);
@@ -453,7 +473,7 @@ class ListingViewBody extends StatelessWidget {
           },
         ),
         if (isOwner) ...[
-          Gap.vertical.md(),
+          Gap.vertical.lg(),
           Text(
             AppLocalizations.of(context)!.blockedDates,
             style: Theme.of(context).textTheme.titleMedium,
@@ -468,24 +488,11 @@ class ListingViewBody extends StatelessWidget {
           else
             ListView.builder(
               itemCount: blockedReservations.length,
-              itemBuilder: (context, index) {
-                final reservation = blockedReservations[index];
-                return ListTile(
-                  title: Text(
-                    formatDateRangeShort(
-                      DateTimeRange(
-                        start: reservation.start,
-                        end: reservation.end,
-                      ),
-                      Localizations.localeOf(context),
-                    ),
-                  ),
-                  trailing: IconButton(
-                    icon: Icon(Icons.cancel),
-                    onPressed: () => onCancelBlockedReservation(reservation),
-                  ),
-                );
-              },
+              itemBuilder: (context, index) => _buildBlockedReservationTile(
+                context,
+                blockedReservations[index],
+                () => onCancelBlockedReservation(blockedReservations[index]),
+              ),
               shrinkWrap: true,
               physics: NeverScrollableScrollPhysics(),
             ),

@@ -247,9 +247,9 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
               Center(
                 child: Text(
                   AppLocalizations.of(context)!.noItems,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               );
         }

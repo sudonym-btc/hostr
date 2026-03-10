@@ -14,6 +14,7 @@ class EditListingController extends UpsertFormController {
     if (titleController.text != l!.title) return true;
     if (descriptionController.text != l!.description) return true;
     if (locationController.text != l!.location) return true;
+    if (active != l!.active) return true;
     // Compare allowBarter
     final origAllowBarter = l!.allowBarter == true;
     if (allowBarter != origAllowBarter) return true;
@@ -40,12 +41,16 @@ class EditListingController extends UpsertFormController {
   Amenities amenities = Amenities();
   Set<String> selectedAmenityKeys = {};
   Currency priceCurrency = Currency.BTC;
+  bool active = true;
   bool allowBarter = false;
   late final Listenable submitListenable;
 
   EditListingController() {
     submitListenable = Listenable.merge([
       this,
+      titleController,
+      descriptionController,
+      priceController,
       locationController,
       imageController.notifier,
     ]);
@@ -78,6 +83,7 @@ class EditListingController extends UpsertFormController {
     locationController.clearH3();
     amenities = data?.amenities ?? Amenities();
     selectedAmenityKeys = _selectedKeysFromAmenities(amenities);
+    active = data?.active ?? true;
     allowBarter = data?.allowBarter ?? false;
 
     final prices = data?.prices ?? [];
@@ -94,11 +100,13 @@ class EditListingController extends UpsertFormController {
     final bitcoinAmount = BitcoinAmount.fromAmount(nightly.amount);
     _originalPriceSats = bitcoinAmount.getInSats.toString();
     priceController.text = _formatWithCommas(_originalPriceSats);
+    notifyListeners();
   }
 
   void updateSelectedAmenities(Set<String> keys) {
     selectedAmenityKeys = keys;
     amenities = _amenitiesFromKeys(amenities, keys);
+    notifyListeners();
   }
 
   void setAllowBarter(bool value) {
@@ -106,6 +114,14 @@ class EditListingController extends UpsertFormController {
       return;
     }
     allowBarter = value;
+    notifyListeners();
+  }
+
+  void setActive(bool value) {
+    if (active == value) {
+      return;
+    }
+    active = value;
     notifyListeners();
   }
 
@@ -125,8 +141,7 @@ class EditListingController extends UpsertFormController {
       }
     }
 
-    final updated = Amenities.fromJSON(map);
-    return updated is Amenities ? updated : base;
+    return Amenities.fromJSON(map);
   }
 
   @override
@@ -163,6 +178,7 @@ class EditListingController extends UpsertFormController {
       title: title,
       description: description,
       price: _buildUpdatedPrices(current.prices),
+      active: active,
       allowBarter: allowBarter,
       location: location,
       quantity: current.quantity,
@@ -178,22 +194,6 @@ class EditListingController extends UpsertFormController {
     await getIt<Hostr>().listings.upsert(updatedListing);
 
     l = updatedListing;
-  }
-
-  List<List<String>> _applyH3Tags(List<List<String>> tags, List<H3Tag> h3Tags) {
-    final filtered = tags
-        .where((tag) => tag.isEmpty || tag.first != 'g')
-        .map((tag) => List<String>.from(tag))
-        .toList();
-
-    final seen = <String>{};
-    for (final tag in h3Tags) {
-      if (seen.add(tag.index)) {
-        filtered.add(['g', tag.index]);
-      }
-    }
-
-    return filtered;
   }
 
   String? validateTitle(String? value) {
