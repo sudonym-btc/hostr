@@ -271,25 +271,26 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
       (
         'Completed',
         OnchainTxConfirmed(
-          _mockEscrowFundData,
-          transactionInformation: TransactionInformation.fromMap({
-            'blockHash':
-                '0x0000000000000000000000000000000000000000000000000000000000000000',
-            'blockNumber': '0x3039',
-            'transactionIndex': '0x0',
-            'hash':
-                '0x0000000000000000000000000000000000000000000000000000000000000001',
-            'from': '0x0000000000000000000000000000000000000001',
-            'to': '0x0000000000000000000000000000000000000002',
-            'value': '0x0',
-            'gasPrice': '0x0',
-            'gas': '0x5208',
-            'input': '0x',
-            'nonce': '0x0',
-            'v': '0x1b',
-            'r': '0x1',
-            's': '0x1',
-          }),
+          _mockEscrowFundData.copyWithTransactionInformation(
+            TransactionInformation.fromMap({
+              'blockHash':
+                  '0x0000000000000000000000000000000000000000000000000000000000000000',
+              'blockNumber': '0x3039',
+              'transactionIndex': '0x0',
+              'hash':
+                  '0x0000000000000000000000000000000000000000000000000000000000000001',
+              'from': '0x0000000000000000000000000000000000000001',
+              'to': '0x0000000000000000000000000000000000000002',
+              'value': '0x0',
+              'gasPrice': '0x0',
+              'gas': '0x5208',
+              'input': '0x',
+              'nonce': '0x0',
+              'v': '0x1b',
+              'r': '0x1',
+              's': '0x1',
+            }),
+          ),
         ),
       ),
       ('Failed', OnchainError('Escrow contract reverted')),

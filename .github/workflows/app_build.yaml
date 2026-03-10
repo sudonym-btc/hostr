@@ -173,6 +173,13 @@ jobs:
           mkdir -p "$(dirname "$PP_PATH")"
           echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > "$PP_PATH"
 
+      - name: Override signing for CI
+        working-directory: app
+        run: |
+          echo "CODE_SIGN_STYLE=Manual" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_IDENTITY=Apple Distribution" >> ios/Flutter/Release.xcconfig
+          echo "PROVISIONING_PROFILE_SPECIFIER=hostr AppStore" >> ios/Flutter/Release.xcconfig
+
       - name: Build IPA (staging)
         run: |
           flutter build ipa \
@@ -227,6 +234,13 @@ jobs:
           PP_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/hostr.mobileprovision"
           mkdir -p "$(dirname "$PP_PATH")"
           echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > "$PP_PATH"
+
+      - name: Override signing for CI
+        working-directory: app
+        run: |
+          echo "CODE_SIGN_STYLE=Manual" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_IDENTITY=Apple Distribution" >> ios/Flutter/Release.xcconfig
+          echo "PROVISIONING_PROFILE_SPECIFIER=hostr AppStore" >> ios/Flutter/Release.xcconfig
 
       - name: Build IPA (production)
         run: |

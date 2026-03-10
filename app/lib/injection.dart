@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hostr/injection.config.dart';
 import 'package:injectable/injectable.dart';
+
 // import 'package:ndk_rust_verifier/ndk_rust_verifier.dart';
 
 final getIt = GetIt.instance;

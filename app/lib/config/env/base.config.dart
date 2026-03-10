@@ -16,6 +16,8 @@ abstract class Config {
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 
+  Telemetry? buildTelemetry() => null;
+
   HostrConfig buildHostrConfig({
     CustomLogger? logger,
     CommonDatabase? operationsDb,
@@ -37,6 +39,7 @@ abstract class Config {
           ? SecureKeyValueStorage()
           : InMemoryKeyValueStorage(),
       logs: log,
+      telemetry: buildTelemetry(),
       calendarPort: EventideCalendarPort(logger: log),
       showNotification: showNotification,
     );

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
+import 'package:logging/logging.dart' as logging;
 import 'package:opentelemetry/api.dart' hide SpanProcessor;
 import 'package:opentelemetry/sdk.dart';
 
@@ -13,6 +15,27 @@ final _contextKey = Symbol('otel.context');
 /// to [Context.current] (the global root) if none was set.
 Context get _zoneContext =>
     (Zone.current[_contextKey] as Context?) ?? Context.current;
+
+Uri _resolveTraceExportUri(String endpoint) {
+  final uri = Uri.parse(endpoint);
+  final path = uri.path;
+
+  if (path.endsWith('/v1/traces')) {
+    return uri;
+  }
+
+  if (path.isEmpty || path == '/') {
+    return uri.replace(path: '/v1/traces');
+  }
+
+  if (path.endsWith('/otlp')) {
+    return uri.replace(path: '${path}/v1/traces');
+  }
+
+  return uri.replace(
+    path: '${path.replaceFirst(RegExp(r'/+$'), '')}/v1/traces',
+  );
+}
 
 String _attributeValueToString(Object value) {
   if (value is Iterable) {
@@ -46,6 +69,8 @@ Iterable<Attribute> _buildAttributes(Map<String, Object?>? attributes) sync* {
 /// telemetry.shutdown();
 /// ```
 class Telemetry {
+  static bool _otelLoggingConfigured = false;
+
   late final TracerProvider _provider;
   late final Tracer _tracer;
   final String serviceName;
@@ -67,6 +92,8 @@ class Telemetry {
     this.otlpHeaders = const {},
     String? serviceVersion,
   }) {
+    _configureOtelLogging();
+
     final resource = Resource([
       Attribute.fromString('service.name', serviceName),
       if (serviceVersion != null)
@@ -76,10 +103,13 @@ class Telemetry {
     final processors = <SpanProcessor>[];
 
     if (enableExport && otlpEndpoint != null) {
+      final exportUri = _resolveTraceExportUri(otlpEndpoint!);
+      developer.log(
+        'OTLP trace export enabled: $exportUri service=$serviceName',
+        name: 'hostr.telemetry',
+      );
       processors.add(
-        SimpleSpanProcessor(
-          CollectorExporter(Uri.parse(otlpEndpoint!), headers: otlpHeaders),
-        ),
+        SimpleSpanProcessor(CollectorExporter(exportUri, headers: otlpHeaders)),
       );
     }
 
@@ -100,6 +130,25 @@ class Telemetry {
   }
 
   Tracer get tracer => _tracer;
+
+  static void _configureOtelLogging() {
+    if (_otelLoggingConfigured) return;
+    _otelLoggingConfigured = true;
+
+    logging.hierarchicalLoggingEnabled = true;
+    logging.Logger.root.level = logging.Level.ALL;
+    logging.Logger.root.onRecord.listen((record) {
+      if (!record.loggerName.startsWith('opentelemetry')) return;
+
+      developer.log(
+        record.message,
+        name: record.loggerName,
+        level: record.level.value,
+        error: record.error,
+        stackTrace: record.stackTrace,
+      );
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Span helpers
