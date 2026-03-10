@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:dart_console/dart_console.dart';
 import 'package:interact_cli/interact_cli.dart';
@@ -38,11 +39,53 @@ class SelectOrBack extends Component<int> {
 class _SelectOrBackState extends State<SelectOrBack> {
   int index = 0;
 
+  int get _terminalLines {
+    try {
+      return stdout.hasTerminal ? stdout.terminalLines : 24;
+    } catch (_) {
+      return 24;
+    }
+  }
+
+  int get _terminalColumns {
+    try {
+      return stdout.hasTerminal ? stdout.terminalColumns : 80;
+    } catch (_) {
+      return 80;
+    }
+  }
+
+  int get _visibleOptionCount {
+    // Keep some room for the prompt, overflow markers and shell prompt.
+    final maxVisible = _terminalLines - 6;
+    return math.max(5, math.min(component.options.length, maxVisible));
+  }
+
+  ({int start, int end}) get _window {
+    final visibleCount = _visibleOptionCount;
+    if (component.options.length <= visibleCount) {
+      return (start: 0, end: component.options.length);
+    }
+
+    final half = visibleCount ~/ 2;
+    var start = index - half;
+    start = math.max(0, start);
+    start = math.min(start, component.options.length - visibleCount);
+    final end = math.min(component.options.length, start + visibleCount);
+    return (start: start, end: end);
+  }
+
+  String _truncateOption(String option) {
+    final maxWidth = math.max(20, _terminalColumns - 6);
+    if (option.length <= maxWidth) return option;
+    return '${option.substring(0, maxWidth - 1)}…';
+  }
+
   String _formatPrompt() {
     final buf = StringBuffer();
     buf.write(component.theme.inputPrefix);
     buf.write(component.theme.messageStyle(component.prompt));
-    buf.write(component.theme.hintStyle(' (q to go back)'));
+    buf.write(component.theme.hintStyle(' (↑/↓ move, q back)'));
     buf.write(component.theme.inputSuffix);
     buf.write(' ');
     return buf.toString();
@@ -74,20 +117,45 @@ class _SelectOrBackState extends State<SelectOrBack> {
 
   @override
   void render() {
-    for (var i = 0; i < component.options.length; i++) {
+    final window = _window;
+    final hiddenAbove = window.start;
+    final hiddenBelow = component.options.length - window.end;
+
+    if (component.options.length > _visibleOptionCount) {
+      context.writeln(
+        component.theme.hintStyle(
+          'Showing ${window.start + 1}-${window.end} of ${component.options.length}',
+        ),
+      );
+    }
+
+    if (hiddenAbove > 0) {
+      context.writeln(
+        component.theme.hintStyle('  ↑ $hiddenAbove more'),
+      );
+    }
+
+    for (var i = window.start; i < window.end; i++) {
       final option = component.options[i];
       final line = StringBuffer();
+      final display = _truncateOption(option);
 
       if (i == index) {
         line.write(component.theme.activeItemPrefix);
         line.write(' ');
-        line.write(component.theme.activeItemStyle(option));
+        line.write(component.theme.activeItemStyle(display));
       } else {
         line.write(component.theme.inactiveItemPrefix);
         line.write(' ');
-        line.write(component.theme.inactiveItemStyle(option));
+        line.write(component.theme.inactiveItemStyle(display));
       }
       context.writeln(line.toString());
+    }
+
+    if (hiddenBelow > 0) {
+      context.writeln(
+        component.theme.hintStyle('  ↓ $hiddenBelow more'),
+      );
     }
   }
 

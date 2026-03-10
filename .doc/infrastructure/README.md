@@ -102,9 +102,13 @@ Terraform creates the required Secret Manager secret containers for:
 
 - `ESCROW_PRIVATE_KEY`
 - `BLOSSOM_DASHBOARD_PASSWORD`
+- `OTEL_EXPORTER_OTLP_HEADERS`
 
 Non-sensitive runtime values like `DOMAIN`, `LETSENCRYPT_EMAIL`, `RPC_URL`, and
 `ESCROW_CONTRACT_ADDR` are read from `.env.staging` / `.env.prod`.
+
+`OTEL_EXPORTER_OTLP_ENDPOINT` is also non-sensitive and can live in
+`.env.staging` / `.env.prod`, while the auth header stays in Secret Manager.
 
 You can seed values either:
 

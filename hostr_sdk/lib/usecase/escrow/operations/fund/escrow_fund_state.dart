@@ -38,6 +38,8 @@ class EscrowFundData extends OnchainOperationData {
     this.escrowFeeWeiHex,
     super.swapId,
     super.txHash,
+    super.transactionInformation,
+    super.transactionReceipt,
     this.errorMessage,
   });
 
@@ -51,6 +53,16 @@ class EscrowFundData extends OnchainOperationData {
   EscrowFundData copyWithTxHash(String? txHash) => copyWith(txHash: txHash);
 
   @override
+  EscrowFundData copyWithTransactionInformation(
+    TransactionInformation? transactionInformation,
+  ) => copyWith(transactionInformation: transactionInformation);
+
+  @override
+  EscrowFundData copyWithTransactionReceipt(
+    TransactionReceipt? transactionReceipt,
+  ) => copyWith(transactionReceipt: transactionReceipt);
+
+  @override
   EscrowFundData copyWithGasEstimate({
     required String gasPriceWei,
     required String gasLimit,
@@ -62,6 +74,8 @@ class EscrowFundData extends OnchainOperationData {
     String? escrowFeeWeiHex,
     String? swapId,
     String? txHash,
+    TransactionInformation? transactionInformation,
+    TransactionReceipt? transactionReceipt,
     String? errorMessage,
   }) => EscrowFundData(
     tradeId: tradeId,
@@ -77,6 +91,9 @@ class EscrowFundData extends OnchainOperationData {
     escrowFeeWeiHex: escrowFeeWeiHex ?? this.escrowFeeWeiHex,
     swapId: swapId ?? this.swapId,
     txHash: txHash ?? this.txHash,
+    transactionInformation:
+        transactionInformation ?? this.transactionInformation,
+    transactionReceipt: transactionReceipt ?? this.transactionReceipt,
     errorMessage: errorMessage ?? this.errorMessage,
   );
 
@@ -145,6 +162,12 @@ class EscrowFundData extends OnchainOperationData {
             : null),
     swapId: json['swapId'] as String?,
     txHash: json['txHash'] as String?,
+    transactionInformation: deserializeTransactionInformation(
+      json['transactionInformation'] as Map<String, dynamic>?,
+    ),
+    transactionReceipt: deserializeTransactionReceipt(
+      json['transactionReceipt'] as Map<String, dynamic>?,
+    ),
     errorMessage: json['errorMessage'] as String?,
   );
 

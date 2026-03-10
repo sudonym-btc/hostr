@@ -16,6 +16,7 @@ contract MultiEscrow {
     error ClaimPeriodNotStarted();
     error NoFundsToClaim();
     error EscrowFeeTooHigh();
+    error NativeTransferFailed();
 
     struct Trade {
         address buyer;
@@ -64,6 +65,33 @@ contract MultiEscrow {
 
         _activeTradeIds.pop();
         delete _activeTradeIndexPlusOne[tradeId];
+    }
+
+    function _sendValue(address recipient, uint256 amount) internal {
+        if (amount == 0) return;
+
+        (bool success,) = payable(recipient).call{value: amount}("");
+        if (!success) revert NativeTransferFailed();
+    }
+
+    function _settleTrade(
+        bytes32 tradeId,
+        address firstRecipient,
+        uint256 firstAmount,
+        address secondRecipient,
+        uint256 secondAmount
+    ) internal returns (uint256 fee, uint256 distributableAmount) {
+        Trade memory trade = trades[tradeId];
+        uint256 amount = trade.amount;
+        fee = trade.escrowFee;
+        distributableAmount = amount - fee;
+
+        _removeActiveTrade(tradeId);
+        delete trades[tradeId];
+
+        _sendValue(trade.arbiter, fee);
+        _sendValue(firstRecipient, firstAmount);
+        _sendValue(secondRecipient, secondAmount);
     }
 
     function activeTradeCount() external view returns (uint256) {
@@ -122,37 +150,26 @@ contract MultiEscrow {
             revert OnlyBuyerOrSeller();
         }
 
-        uint256 amount = trade.amount;
-        payable(recipient).transfer(amount);
-        emit ReleasedToCounterparty(tradeId, msg.sender, recipient, amount);
-        _removeActiveTrade(tradeId);
-        delete trades[tradeId];
+        uint256 amountAfterFee = trade.amount - trade.escrowFee;
+        _settleTrade(tradeId, recipient, amountAfterFee, address(0), 0);
+        emit ReleasedToCounterparty(tradeId, msg.sender, recipient, amountAfterFee);
     }
 
     function arbitrate(bytes32 tradeId, uint256 factor) external onlyArbiter(tradeId) {
         Trade storage trade = trades[tradeId];
-        if (factor == 0 || factor > FACTOR_SCALE) revert InvalidFactor();
+        if (trade.amount == 0) revert NoFundsToRelease();
+        if (factor > FACTOR_SCALE) revert InvalidFactor();
 
-        uint256 amount = trade.amount;
         address seller = trade.seller;
         address buyer = trade.buyer;
 
-        uint256 fee = trade.escrowFee;
-        uint256 amountAfterFee = amount - fee;
+        uint256 amountAfterFee = trade.amount - trade.escrowFee;
         uint256 forwardAmount = (amountAfterFee * factor) / FACTOR_SCALE;
         uint256 remainingAmount = amountAfterFee - forwardAmount;
 
-        if (forwardAmount > 0) {
-            payable(seller).transfer(forwardAmount);
-        }
-
-        if (remainingAmount > 0) {
-            payable(buyer).transfer(remainingAmount);
-        }
+        _settleTrade(tradeId, seller, forwardAmount, buyer, remainingAmount);
 
         emit Arbitrated(tradeId, seller, buyer, amountAfterFee, factor);
-        _removeActiveTrade(tradeId);
-        delete trades[tradeId];
     }
 
     function claim(bytes32 tradeId) external {
@@ -160,15 +177,13 @@ contract MultiEscrow {
         if (block.timestamp <= trade.unlockAt) revert ClaimPeriodNotStarted();
         if (trade.amount == 0) revert NoFundsToClaim();
 
-        uint256 amount = trade.amount;
+        uint256 amountAfterFee = trade.amount - trade.escrowFee;
         address seller = trade.seller;
         address buyer = trade.buyer;
 
-        payable(seller).transfer(amount);
+        _settleTrade(tradeId, seller, amountAfterFee, address(0), 0);
 
-        emit Claimed(tradeId, seller, buyer, amount);
-        _removeActiveTrade(tradeId);
-        delete trades[tradeId];
+        emit Claimed(tradeId, seller, buyer, amountAfterFee);
     }
 
     function activeTrade(bytes32 tradeId) external view returns (bool isActive, Trade memory trade) {

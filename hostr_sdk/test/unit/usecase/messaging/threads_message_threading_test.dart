@@ -39,7 +39,33 @@ class _FakeRequests extends Fake implements Requests {
   Future<void> close() => _source.close();
 }
 
-class _FakeMessaging extends Fake implements Messaging {}
+class _FakeMessaging extends Fake implements Messaging {
+  String? lastContent;
+  List<List<String>>? lastTags;
+  List<String>? lastRecipientPubkeys;
+
+  @override
+  Future<Message> broadcastTextAndAwait({
+    required String content,
+    required List<List<String>> tags,
+    required List<String> recipientPubkeys,
+  }) async {
+    lastContent = content;
+    lastTags = tags;
+    lastRecipientPubkeys = recipientPubkeys;
+
+    return Message(
+      id: 'awaited-message',
+      pubKey: MockKeys.guest.publicKey,
+      content: content,
+      createdAt: 999,
+      tags: MessageTags([
+        ...tags,
+        for (final recipient in recipientPubkeys) ['p', recipient],
+      ]),
+    );
+  }
+}
 
 class _FakePayments extends Fake implements Payments {}
 
@@ -78,6 +104,7 @@ void main() {
   late Threads threads;
   late _FakeRequests requests;
   late _FakeAuth auth;
+  late _FakeMessaging messaging;
 
   setUpAll(() {
     hydrated.HydratedBloc.storage = InMemoryHydratedStorage();
@@ -86,6 +113,7 @@ void main() {
   setUp(() async {
     requests = _FakeRequests();
     auth = _FakeAuth();
+    messaging = _FakeMessaging();
 
     await getIt.reset();
     getIt.registerFactoryParam<Thread, String, dynamic>((anchor, _) {
@@ -93,12 +121,12 @@ void main() {
         anchor,
         logger: CustomLogger(),
         auth: auth,
-        messaging: _FakeMessaging(),
+        messaging: messaging,
       );
     });
 
     threads = Threads(
-      messaging: _FakeMessaging(),
+      messaging: messaging,
       requests: requests,
       auth: auth,
       logger: CustomLogger(),
@@ -222,4 +250,38 @@ void main() {
     expect(threads.threads.length, 1);
     expect(threads.threads['thread-dup']!.state.value.messages.length, 1);
   });
+
+  test(
+    'replyTextAndWait sends to current counterparties for the thread',
+    () async {
+      final thread = Thread(
+        'thread-reply',
+        logger: CustomLogger(),
+        auth: auth,
+        messaging: messaging,
+      );
+
+      thread.messages.add(
+        _textMessage(
+          id: 'existing',
+          sender: MockKeys.hoster.publicKey,
+          recipients: [MockKeys.guest.publicKey],
+          threadTag: 'thread-reply',
+          createdAt: 100,
+        ),
+      );
+      await _pump();
+
+      final message = await thread.replyTextAndWait('  hello back  ');
+
+      expect(message.id, 'awaited-message');
+      expect(messaging.lastContent, 'hello back');
+      expect(messaging.lastTags, [
+        [kThreadRefTag, 'thread-reply'],
+      ]);
+      expect(messaging.lastRecipientPubkeys, [MockKeys.hoster.publicKey]);
+
+      await thread.close();
+    },
+  );
 }

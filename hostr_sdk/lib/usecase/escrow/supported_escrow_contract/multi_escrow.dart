@@ -40,6 +40,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     '0x29ce3ded': 'MustSendFunds',
     '0xb7cc22bc': 'NoFundsToRelease',
     '0x3fb86fe2': 'InvalidFactor',
+    '0xf4b3b1bc': 'NativeTransferFailed',
   };
 
   final CustomLogger logger;

@@ -69,8 +69,9 @@ P1
 - [ ] Deeplinks
   - [ ] Allow opening of listings/reviews via deeplinks
 - [ ] Payments
-  - [ ] Claim payment
-  - [ ] Refund payment
+  - [x] Claim payment
+  - [x] Refund payment
+  - [ ] Swap in should broadcast claim as soon as lockup in mempool
   - [ ] Host autowithdraw should leave sats for claim/refund transactions
 - [ ] Host views
   - [ ] List of upcoming reservations

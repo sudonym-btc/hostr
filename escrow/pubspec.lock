@@ -81,14 +81,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
-  build_cli_annotations:
-    dependency: transitive
-    description:
-      name: build_cli_annotations
-      sha256: e563c2e01de8974566a1998410d3f6f03521788160a02503b0b1f1a46c7b3d95
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.1"
   characters:
     dependency: transitive
     description:
@@ -121,6 +113,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.2"
+  code_assets:
+    dependency: transitive
+    description:
+      name: code_assets
+      sha256: "83ccdaa064c980b5596c35dd64a8d3ecc68620174ab9b90b6343b753aa721687"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   collection:
     dependency: transitive
     description:
@@ -249,19 +249,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
-  flutter:
-    dependency: transitive
-    description: flutter
-    source: sdk
-    version: "0.0.0"
-  flutter_rust_bridge:
-    dependency: transitive
-    description:
-      name: flutter_rust_bridge
-      sha256: "37ef40bc6f863652e865f0b2563ea07f0d3c58d8efad803cc01933a4b2ee067e"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.11.1"
   freezed_annotation:
     dependency: transitive
     description:
@@ -342,6 +329,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.19.3"
+  hooks:
+    dependency: transitive
+    description:
+      name: hooks
+      sha256: e79ed1e8e1929bc6ecb6ec85f0cb519c887aa5b423705ded0d0f2d9226def388
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   hostr_sdk:
     dependency: "direct main"
     description:
@@ -469,14 +464,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.12.18"
-  material_color_utilities:
-    dependency: transitive
-    description:
-      name: material_color_utilities
-      sha256: "9c337007e82b1889149c82ed242ed1cb24a66044e30979c44912381e9be4c48b"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.13.0"
   meta:
     dependency: transitive
     description:
@@ -500,6 +487,14 @@ packages:
       relative: true
     source: path
     version: "1.0.0"
+  native_toolchain_c:
+    dependency: transitive
+    description:
+      name: native_toolchain_c
+      sha256: "92b2ca62c8bd2b8d2f267cdfccf9bfbdb7322f778f8f91b3ce5b5cda23a3899f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.17.5"
   ndk:
     dependency: "direct main"
     description:
@@ -508,14 +503,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.1-dev.19"
-  ndk_rust_verifier:
-    dependency: transitive
-    description:
-      name: ndk_rust_verifier
-      sha256: d45eff27d79dbd37104bf8c5a197f4bed0a4d50698355fb2e6c9c0aaf59407f8
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.5.0"
   node_preamble:
     dependency: transitive
     description:
@@ -524,6 +511,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.2"
+  opentelemetry:
+    dependency: transitive
+    description:
+      name: opentelemetry
+      sha256: "92d63a2e0731d34a7548add82420b8f3819ccda569f9bdfdcc4b25e00fe88da4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.18.11"
   package_config:
     dependency: transitive
     description:
@@ -540,14 +535,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
-  plugin_platform_interface:
-    dependency: transitive
-    description:
-      name: plugin_platform_interface
-      sha256: "4820fbfdb9478b1ebae27888254d445073732dae3d6ea81f0b7e06d5dedc3f02"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.8"
   pointycastle:
     dependency: transitive
     description:
@@ -564,6 +551,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.2"
+  protobuf:
+    dependency: transitive
+    description:
+      name: protobuf
+      sha256: "75ec242d22e950bdcc79ee38dd520ce4ee0bc491d7fadc4ea47694604d22bf06"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.0.0"
   pub_semver:
     dependency: transitive
     description:
@@ -580,6 +575,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.7.0"
+  quiver:
+    dependency: transitive
+    description:
+      name: quiver
+      sha256: ea0b925899e64ecdfbf9c7becb60d5b50e706ade44a85b2363be2a22d88117d2
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.2"
   rational:
     dependency: transitive
     description:
@@ -588,14 +591,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.3"
-  rust_lib_ndk:
-    dependency: transitive
-    description:
-      name: rust_lib_ndk
-      sha256: "26df8806fe09800a7430549d2372c6a89c290962900029afca9b2db1fdb19aea"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.7+1"
   rxdart:
     dependency: transitive
     description:
@@ -644,11 +639,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
-  sky_engine:
-    dependency: transitive
-    description: flutter
-    source: sdk
-    version: "0.0.0"
   source_map_stack_trace:
     dependency: transitive
     description:
@@ -673,6 +663,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.2"
+  sqlite3:
+    dependency: transitive
+    description:
+      name: sqlite3
+      sha256: f8f8ba7f9454f2761d4b416e030c4528ebc45e9290798d848f4dc08890c42a7c
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.7"
   stack_trace:
     dependency: transitive
     description:
@@ -777,14 +775,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.5.2"
-  vector_math:
-    dependency: transitive
-    description:
-      name: vector_math
-      sha256: d530bd74fea330e6e364cda7a85019c434070188383e1cd8d9777ee586914c5b
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.0"
   vm_service:
     dependency: transitive
     description:
@@ -891,4 +881,3 @@ packages:
     version: "3.1.3"
 sdks:
   dart: ">=3.10.8 <4.0.0"
-  flutter: ">=3.32.0"

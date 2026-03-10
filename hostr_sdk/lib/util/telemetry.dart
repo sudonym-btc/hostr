@@ -57,10 +57,14 @@ class Telemetry {
   /// OTLP endpoint for the collector (e.g. http://localhost:4318/v1/traces).
   final String? otlpEndpoint;
 
+  /// Optional OTLP exporter headers, such as `Authorization`.
+  final Map<String, String> otlpHeaders;
+
   Telemetry({
     this.serviceName = 'hostr-sdk',
     this.enableExport = false,
     this.otlpEndpoint,
+    this.otlpHeaders = const {},
     String? serviceVersion,
   }) {
     final resource = Resource([
@@ -73,7 +77,9 @@ class Telemetry {
 
     if (enableExport && otlpEndpoint != null) {
       processors.add(
-        SimpleSpanProcessor(CollectorExporter(Uri.parse(otlpEndpoint!))),
+        SimpleSpanProcessor(
+          CollectorExporter(Uri.parse(otlpEndpoint!), headers: otlpHeaders),
+        ),
       );
     }
 
@@ -87,7 +93,8 @@ class Telemetry {
   Telemetry.noop()
     : serviceName = 'noop',
       enableExport = false,
-      otlpEndpoint = null {
+      otlpEndpoint = null,
+      otlpHeaders = const {} {
     _provider = TracerProviderBase();
     _tracer = _provider.getTracer('noop');
   }

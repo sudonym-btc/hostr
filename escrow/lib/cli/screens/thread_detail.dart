@@ -71,6 +71,7 @@ Future<Navigation> threadDetailScreen(
     try {
       await client.sendReply(threadId, reply.trim());
       print('  ✓ Sent');
+      return Navigation(Screen.threadDetail, selectedThreadId: threadId);
     } catch (e) {
       print('  Send error: $e');
     }

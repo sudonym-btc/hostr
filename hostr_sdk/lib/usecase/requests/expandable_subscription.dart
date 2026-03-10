@@ -140,9 +140,18 @@ class ExpandableSubscription<T extends Nip01Event> {
     _filterStatusSub = filterSource.status.listen((status) {
       if (status is StreamStatusLive && !_filterSourceLive) {
         _filterSourceLive = true;
-        _logger.d(
-          'ExpandableSubscription[$_name] filter source is live',
-        );
+        _logger.d('ExpandableSubscription[$_name] filter source is live');
+
+        // Discovery can legitimately complete without finding any matching
+        // trade IDs. In that case there is no historical query to run, so the
+        // subscription is already caught up as soon as the source goes live.
+        if (_currentFilter == null && _pendingFilter == null) {
+          _relayCaughtUp = true;
+          if (stream.status.value is! StreamStatusQueryComplete) {
+            stream.addStatus(StreamStatusQueryComplete());
+          }
+        }
+
         _maybeEmitLive();
       }
     });

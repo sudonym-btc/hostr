@@ -116,13 +116,6 @@ Future<void> initApp() async {
     sw.reset();
     await setupNotifications();
     logger.d('notifications: ${sw.elapsedMilliseconds}ms');
-
-    // Smoke-test: prove notifications are working on every launch.
-    await FlutterLocalNotificationsPlugin().show(
-      id: 0,
-      title: 'Hostr',
-      body: 'Welcome back 👋',
-    );
   }
 
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {

@@ -86,12 +86,14 @@ class _ThreadContentState extends State<ThreadContent> {
   /// Whether [message] is a visible text message (i.e. would be rendered
   /// by [_buildMessage]).
   bool _isVisibleMessage(Message message) {
-    // Unresolved sender → hidden.
+    if (message.child == null) return true; // plain text
+
+    // Structured messages still depend on sender/profile-specific rendering.
     final hasSender = widget.participants.any(
       (p) => p.pubKey == message.pubKey,
     );
     if (!hasSender) return false;
-    if (message.child == null) return true; // plain text
+
     if (message.child is EscrowServiceSelected) return false;
     if (message.child is Reservation &&
         (message.child as Reservation).isNegotiation)
@@ -100,9 +102,16 @@ class _ThreadContentState extends State<ThreadContent> {
   }
 
   /// Whether [message] should show a profile header (avatar + timestamp).
-  /// True when it's the first visible message or more than 1 hour after the
-  /// previous *visible* message.
-  bool _showProfileHeader(Message message, List<Message> reversed, int index) {
+  ///
+  /// In group threads with more than two participants, always show it so the
+  /// sender is unambiguous. Otherwise, show it when it's the first visible
+  /// message or more than 1 hour after the previous *visible* message.
+  bool _showProfileHeader(
+    Message message,
+    List<Message> reversed,
+    int index, {
+    required bool alwaysShow,
+  }) {
     // Walk backwards (older) through the reversed list to find the previous
     // visible message.
     Message? previous;
@@ -113,6 +122,11 @@ class _ThreadContentState extends State<ThreadContent> {
       }
     }
     if (previous == null) return true;
+
+    if (alwaysShow) {
+      return previous.pubKey != message.pubKey;
+    }
+
     final currentTime = DateTime.fromMillisecondsSinceEpoch(
       message.createdAt * 1000,
     );
@@ -151,6 +165,8 @@ class _ThreadContentState extends State<ThreadContent> {
               builder: (context, state) {
                 final messages = state.threadState.sortedMessages;
                 final reversed = messages.reversed.toList();
+                final alwaysShowProfileHeader =
+                    state.threadState.participantPubkeys.length > 2;
                 return ListView.builder(
                   controller: _scrollController,
                   reverse: true,
@@ -165,6 +181,7 @@ class _ThreadContentState extends State<ThreadContent> {
                       message,
                       reversed,
                       index,
+                      alwaysShow: alwaysShowProfileHeader,
                     );
                     // Map back to the chronological index for join-banner logic.
                     final chronoIndex = messages.length - 1 - index;
@@ -215,26 +232,11 @@ class _ThreadContentState extends State<ThreadContent> {
     required Message message,
     bool showSenderLabel = false,
   }) {
-    ProfileMetadata? sender;
-    try {
-      sender = widget.participants.firstWhere(
-        (participant) => participant.pubKey == message.pubKey,
-      );
-    } catch (_) {
-      // Sender not yet resolved (e.g. escrow service); skip rendering.
-      return null;
-    }
+    final sender = _findProfile(message.pubKey);
     final activePubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
     final isSentByMe = message.pubKey == activePubKey;
 
-    if (message.child == null) {
-      return ThreadMessageWidget(
-        sender: sender,
-        item: message,
-        isSentByMe: isSentByMe,
-        showSenderLabel: showSenderLabel && !isSentByMe,
-      );
-    } else if (message.child is EscrowServiceSelected) {
+    if (message.child is EscrowServiceSelected) {
       return null;
     } else if (message.child is Reservation &&
         (message.child as Reservation).isNegotiation) {
@@ -245,6 +247,16 @@ class _ThreadContentState extends State<ThreadContent> {
       //   isSentByMe: isSentByMe,
       // );
     }
+
+    if (message.content.trim().isNotEmpty) {
+      return ThreadMessageWidget(
+        sender: sender,
+        item: message,
+        isSentByMe: isSentByMe,
+        showSenderLabel: showSenderLabel && !isSentByMe,
+      );
+    }
+
     return Text(AppLocalizations.of(context)!.unknownMessageType);
   }
 }
