@@ -74,7 +74,7 @@ class BackgroundWorker {
     required this.metadata,
     required this.operationStore,
     required CustomLogger logger,
-  }) : logger = logger.namespace('bg-worker');
+  }) : logger = logger.scope('bg-worker');
 
   /// Runs the periodic background sync: messages, reservations, reviews,
   /// cancellations, and auto-withdraw.
@@ -82,12 +82,12 @@ class BackgroundWorker {
   /// Does **not** recover onchain operations — use
   /// [recoverOnchainOperations] for that (typically triggered when the app
   /// goes to background with active operations).
-  Future<BackgroundWorkerResult> run() async {
-    logger.i('BackgroundWorker: starting periodic sync');
+  Future<BackgroundWorkerResult> run() => logger.span('run', () async {
+    logger.i('starting periodic sync');
     final notifications = <String>[];
 
     if (auth.activeKeyPair == null) {
-      logger.d('BackgroundWorker: no active key pair, skipping');
+      logger.d('no active key pair, skipping');
       return const BackgroundWorkerResult();
     }
 
@@ -259,11 +259,9 @@ class BackgroundWorker {
       }
     });
 
-    logger.i(
-      'BackgroundWorker: completed with ${notifications.length} notifications',
-    );
+    logger.i('completed with ${notifications.length} notifications');
     return BackgroundWorkerResult(notifications: notifications);
-  }
+  });
 
   /// Recovers all pending onchain operations (swaps, escrow fund/claim/
   /// release, auto-withdraw).
@@ -278,21 +276,20 @@ class BackgroundWorker {
   /// is updated in-place across progressive state changes.
   Future<BackgroundWorkerResult> recoverOnchainOperations({
     OnBackgroundProgress? onProgress,
-  }) async {
-    logger.i('BackgroundWorker: starting onchain recovery');
+  }) => logger.span('recoverOnchainOperations', () async {
+    logger.i('starting onchain recovery');
     final notifications = <String>[];
 
     if (auth.activeKeyPair == null) {
-      logger.d('BackgroundWorker: no active key pair, skipping');
+      logger.d('no active key pair, skipping');
       return const BackgroundWorkerResult();
     }
 
     // ── Recover pending onchain operations (swaps + escrow) ───────────
     await _runSafe('recoverOnchainOps', () async {
-      final swapToTradeId = await _buildSwapToTradeMapping();
       await evm.recoverStaleOperations(
+        isBackground: true,
         onProgress: onProgress,
-        swapToTradeId: swapToTradeId,
       );
     });
 
@@ -302,11 +299,11 @@ class BackgroundWorker {
     });
 
     logger.i(
-      'BackgroundWorker: onchain recovery completed '
+      'onchain recovery completed '
       'with ${notifications.length} notifications',
     );
     return BackgroundWorkerResult(notifications: notifications);
-  }
+  });
 
   /// All operation namespaces that should trigger a background task.
   static const _onchainNamespaces = [
@@ -322,30 +319,14 @@ class BackgroundWorker {
   ///
   /// The app layer uses this to schedule a background task when the app is
   /// paused so that pending operations can complete.
-  Future<bool> hasActiveOnchainOperations() async {
-    for (final ns in _onchainNamespaces) {
-      if (await operationStore.hasNonTerminal(ns)) return true;
-    }
-    return false;
-  }
-
-  /// Builds a mapping from swap `boltzId` → escrow `tradeId` so that
-  /// notifications for a nested swap use the same stable ID as the parent
-  /// escrow operation.
-  Future<Map<String, String>> _buildSwapToTradeMapping() async {
-    final mapping = <String, String>{};
-    for (final ns in ['escrow_fund', 'escrow_claim', 'escrow_release']) {
-      final entries = await operationStore.readAll(ns);
-      for (final entry in entries) {
-        final swapId = entry['swapId'] as String?;
-        final tradeId = entry['id'] as String?;
-        if (swapId != null && tradeId != null) {
-          mapping[swapId] = tradeId;
+  Future<bool> hasActiveOnchainOperations() =>
+      logger.span('hasActiveOnchainOperations', () async {
+        for (final ns in _onchainNamespaces) {
+          final hasNonTerminal = await operationStore.hasNonTerminal(ns);
+          if (hasNonTerminal) return true;
         }
-      }
-    }
-    return mapping;
-  }
+        return false;
+      });
 
   /// Resolves a human-readable display name for a pubkey.
   /// Falls back to a truncated hex key if no profile metadata is available.
@@ -368,10 +349,12 @@ class BackgroundWorker {
   /// Runs [task] catching and logging any errors without re-throwing,
   /// so that one failing task does not prevent subsequent tasks.
   Future<void> _runSafe(String name, Future<void> Function() task) async {
-    try {
-      await task();
-    } catch (e, st) {
-      logger.e('BackgroundWorker[$name] failed', error: e, stackTrace: st);
-    }
+    await logger.span('task.$name', () async {
+      try {
+        await task();
+      } catch (e, st) {
+        logger.e('BackgroundWorker[$name] failed', error: e, stackTrace: st);
+      }
+    });
   }
 }

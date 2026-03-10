@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hostr/data/sources/calendar/eventide_calendar_port.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:sqlite3/common.dart';
 
 abstract class Config {
   List<String> get relays => [];
@@ -15,10 +16,15 @@ abstract class Config {
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 
-  HostrConfig buildHostrConfig({CustomLogger? logger}) {
+  HostrConfig buildHostrConfig({
+    CustomLogger? logger,
+    CommonDatabase? operationsDb,
+    ShowNotification? showNotification,
+  }) {
     final log = logger ?? CustomLogger();
 
     return HostrConfig(
+      operationsDb: operationsDb,
       bootstrapRelays: [
         ...relays,
         hostrRelay,
@@ -32,6 +38,7 @@ abstract class Config {
           : InMemoryKeyValueStorage(),
       logs: log,
       calendarPort: EventideCalendarPort(logger: log),
+      showNotification: showNotification,
     );
   }
 }
@@ -60,6 +67,9 @@ class SecureKeyValueStorage implements KeyValueStorage {
 
   @override
   Future<void> write(String key, dynamic value) async {
+    // Delete first to avoid Keychain errSecDuplicateItem (-25299)
+    // when concurrent isolates write the same key simultaneously.
+    await _storage.delete(key: key);
     await _storage.write(key: key, value: value);
   }
 

@@ -25,7 +25,7 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
     Duration debounce = const Duration(milliseconds: 50),
     bool closeSourceOnClose = true,
     String? name,
-  }) {
+  }) => logger.spanSync('subscribeVerified', () {
     final effectiveFilter = filter ?? Filter();
     final streamName = name ?? verificationStreamName;
     logger.d('Subscribing to $streamName $T with filter: $effectiveFilter');
@@ -36,14 +36,14 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
       debounce: debounce,
       closeSourceOnClose: closeSourceOnClose,
     );
-  }
+  });
 
   StreamWithStatus<Validation<T>> queryVerified({
     Filter? filter,
     Duration debounce = const Duration(milliseconds: 50),
     bool closeSourceOnClose = true,
     String? name,
-  }) {
+  }) => logger.spanSync('queryVerified', () {
     final effectiveFilter = filter ?? Filter();
     final streamName = name ?? '$verificationStreamName-query';
     logger.d('Querying $streamName $T with filter: $effectiveFilter');
@@ -54,7 +54,7 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
       debounce: debounce,
       closeSourceOnClose: closeSourceOnClose,
     );
-  }
+  });
 
   StreamWithStatus<Validation<T>> _verifySource({
     required StreamWithStatus<T> source,

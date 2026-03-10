@@ -20,7 +20,9 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     required super.logger,
   }) : super(kind: Metadata.kKind);
 
-  Future<ProfileMetadata?> loadMetadata(String pubkey) async {
+  Future<ProfileMetadata?> loadMetadata(
+    String pubkey,
+  ) => logger.span('loadMetadata', () async {
     // We can't use NDK metadata use case, since it does not return custom fields/tags
     final metadatas = await requests
         .query(
@@ -62,11 +64,11 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     }
 
     return null;
-  }
+  });
 
   /// Ensures the current user's profile has an EVM address tag.
   /// Only broadcasts an update if the tag is missing.
-  Future<void> ensureEvmAddress() async {
+  Future<void> ensureEvmAddress() => logger.span('ensureEvmAddress', () async {
     final metadata = await loadMetadata(auth.activeKeyPair!.publicKey);
     if (metadata == null) return; // No profile yet — nothing to patch.
 
@@ -79,5 +81,5 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     final updated = metadata.withEvmAddress(auth.getEvmAddress().eip55With0x);
     await requests.broadcast(event: updated);
     notifyUpdate(updated);
-  }
+  });
 }

@@ -89,7 +89,7 @@ class Calendar {
        _logger = logger,
        _port = port;
 
-  Future<void> start() async {
+  Future<void> start() => _logger.span('start', () async {
     if (_started || _port == null) return;
 
     _started = true;
@@ -127,9 +127,9 @@ class Calendar {
             _logger.w('Calendar: trips stream error', error: e, stackTrace: st),
       ),
     );
-  }
+  });
 
-  Future<void> stop() async {
+  Future<void> stop() => _logger.span('stop', () async {
     if (!_started) return;
     _started = false;
     _logger.d('Calendar: stopping');
@@ -139,91 +139,94 @@ class Calendar {
     }
     _subscriptions.clear();
     _publishedEntries.clear();
-  }
+  });
 
-  Future<void> _onHosting(Validation<ReservationPairStatus> validation) async {
-    if (validation is! Valid<ReservationPairStatus>) return;
-    final pair = validation.event;
-    if (!_isFuture(pair)) return;
+  Future<void> _onHosting(Validation<ReservationPairStatus> validation) =>
+      _logger.span('_onHosting', () async {
+        if (validation is! Valid<ReservationPairStatus>) return;
+        final pair = validation.event;
+        if (!_isFuture(pair)) return;
 
-    try {
-      final guestPubkey = _resolveGuestPubkey(pair);
-      String guestName = 'Guest';
-      if (guestPubkey != null) {
-        final profile = await _metadata.loadMetadata(guestPubkey);
-        guestName = profile?.metadata.getName() ?? _shortKey(guestPubkey);
-      }
+        try {
+          final guestPubkey = _resolveGuestPubkey(pair);
+          String guestName = 'Guest';
+          if (guestPubkey != null) {
+            final profile = await _metadata.loadMetadata(guestPubkey);
+            guestName = profile?.metadata.getName() ?? _shortKey(guestPubkey);
+          }
 
-      final listingName = await _resolveListingName(pair.listingAnchor);
-      final entry = _buildEntry(
-        tradeId: pair.tradeId,
-        pair: pair,
-        baseTitle: 'Hosting $guestName at $listingName',
-      );
-      await _publishEntry(entry);
-    } catch (e, st) {
-      _logger.w(
-        'Calendar: failed to sync hosting ${pair.tradeId}',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
+          final listingName = await _resolveListingName(pair.listingAnchor);
+          final entry = _buildEntry(
+            tradeId: pair.tradeId,
+            pair: pair,
+            baseTitle: 'Hosting $guestName at $listingName',
+          );
+          await _publishEntry(entry);
+        } catch (e, st) {
+          _logger.w(
+            'Calendar: failed to sync hosting ${pair.tradeId}',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      });
 
-  Future<void> _onTrip(Validation<ReservationPairStatus> validation) async {
-    if (validation is! Valid<ReservationPairStatus>) return;
-    final pair = validation.event;
-    if (!_isFuture(pair)) return;
+  Future<void> _onTrip(Validation<ReservationPairStatus> validation) =>
+      _logger.span('_onTrip', () async {
+        if (validation is! Valid<ReservationPairStatus>) return;
+        final pair = validation.event;
+        if (!_isFuture(pair)) return;
 
-    try {
-      final hostProfile = await _metadata.loadMetadata(pair.hostPubkey);
-      final hostName =
-          hostProfile?.metadata.getName() ?? _shortKey(pair.hostPubkey);
+        try {
+          final hostProfile = await _metadata.loadMetadata(pair.hostPubkey);
+          final hostName =
+              hostProfile?.metadata.getName() ?? _shortKey(pair.hostPubkey);
 
-      final listingName = await _resolveListingName(pair.listingAnchor);
-      final entry = _buildEntry(
-        tradeId: pair.tradeId,
-        pair: pair,
-        baseTitle: 'Visiting $listingName hosted by $hostName',
-      );
-      await _publishEntry(entry);
-    } catch (e, st) {
-      _logger.w(
-        'Calendar: failed to sync trip ${pair.tradeId}',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
+          final listingName = await _resolveListingName(pair.listingAnchor);
+          final entry = _buildEntry(
+            tradeId: pair.tradeId,
+            pair: pair,
+            baseTitle: 'Visiting $listingName hosted by $hostName',
+          );
+          await _publishEntry(entry);
+        } catch (e, st) {
+          _logger.w(
+            'Calendar: failed to sync trip ${pair.tradeId}',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      });
 
   Future<void> _onHostingSnapshot(
     List<Validation<ReservationPairStatus>> validations,
-  ) async {
+  ) => _logger.span('_onHostingSnapshot', () async {
     for (final validation in validations) {
       await _onHosting(validation);
     }
-  }
+  });
 
   Future<void> _onTripSnapshot(
     List<Validation<ReservationPairStatus>> validations,
-  ) async {
+  ) => _logger.span('_onTripSnapshot', () async {
     for (final validation in validations) {
       await _onTrip(validation);
     }
-  }
+  });
 
-  Future<void> _publishEntry(CalendarEntry entry) async {
-    final port = _port;
-    if (port == null) return;
+  Future<void> _publishEntry(CalendarEntry entry) =>
+      _logger.span('_publishEntry', () async {
+        final port = _port;
+        if (port == null) return;
 
-    final previous = _publishedEntries[entry.tradeId];
-    if (previous == entry) {
-      return;
-    }
+        final previous = _publishedEntries[entry.tradeId];
+        if (previous == entry) {
+          return;
+        }
 
-    await port.upsert(entry);
-    _publishedEntries[entry.tradeId] = entry;
-  }
+        await port.upsert(entry);
+        _publishedEntries[entry.tradeId] = entry;
+      });
 
   CalendarEntry _buildEntry({
     required String tradeId,
@@ -247,14 +250,15 @@ class Calendar {
     );
   }
 
-  Future<String> _resolveListingName(String listingAnchor) async {
-    try {
-      final listing = await _listings.getOneByAnchor(listingAnchor);
-      return listing?.title ?? 'Unknown listing';
-    } catch (_) {
-      return 'Unknown listing';
-    }
-  }
+  Future<String> _resolveListingName(String listingAnchor) =>
+      _logger.span('_resolveListingName', () async {
+        try {
+          final listing = await _listings.getOneByAnchor(listingAnchor);
+          return listing?.title ?? 'Unknown listing';
+        } catch (_) {
+          return 'Unknown listing';
+        }
+      });
 
   String? _resolveGuestPubkey(ReservationPairStatus pair) {
     final tweakedPubkey = pair.buyerReservation?.pubKey;

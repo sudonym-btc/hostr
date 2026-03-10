@@ -51,8 +51,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   /// When the app goes to background during any active onchain operation
-  /// (swap, escrow fund/claim/release, etc.), schedule a one-off background
-  /// task so the operations can complete and the user gets a notification.
+  /// (swap, escrow fund/claim/release, etc.), schedule background work so the
+  /// operations can complete and the user gets a notification.
+  ///
+  /// Two tasks are scheduled:
+  ///
+  /// 1. **One-off task** — uses `UIApplication.beginBackgroundTask`, which
+  ///    runs *immediately* in the current process and gives ~30 s of
+  ///    background execution.  Often enough for a single receipt poll cycle.
+  ///
+  /// 2. **Processing task** — submits a `BGProcessingTaskRequest` with
+  ///    `requiresNetworkConnectivity = true`.  iOS schedules this
+  ///    opportunistically (could be minutes later) but grants up to several
+  ///    minutes of execution with live network.  Acts as a safety-net if the
+  ///    one-off window expires before confirmation arrives.
   Future<void> _scheduleOnchainOperations() async {
     if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
     try {
@@ -60,11 +72,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           .hasActiveOnchainOperations();
       if (!hasActive) return;
 
+      // Immediate ~30 s background window (runs in current process).
       await Workmanager().registerOneOffTask(
         BackgroundTaskType.onchainOps.identifier,
         BackgroundTaskType.onchainOps.taskName,
         initialDelay: const Duration(seconds: 0),
         existingWorkPolicy: ExistingWorkPolicy.replace,
+      );
+
+      // Longer processing window scheduled by iOS when network is available. Scheduler may delay this by minutes, but it's a safety net in case the one-off task expires before the operation completes.
+      await Workmanager().registerProcessingTask(
+        BackgroundTaskType.onchainOps.identifier,
+        BackgroundTaskType.onchainOps.taskName,
+        initialDelay: const Duration(seconds: 0),
+        constraints: Constraints(networkType: NetworkType.connected),
       );
     } catch (_) {
       // Best-effort — don't crash the lifecycle handler.

@@ -19,7 +19,7 @@ class Relays {
 
   Relays({required this.ndk, required this.relayStorage, required this.logger});
 
-  Future<void> add(String url) {
+  Future<void> add(String url) => logger.span('add', () async {
     logger.d('Adding relay: $url');
     return ndk.relays
         .connectRelay(dirtyUrl: url, connectionSource: ConnectionSource.seed)
@@ -31,9 +31,9 @@ class Relays {
             throw Exception(value.second);
           }
         });
-  }
+  });
 
-  Future<void> remove(String url) async {
+  Future<void> remove(String url) => logger.span('remove', () async {
     logger.d('Removing relay: $url');
 
     List<RelayConnectivity<dynamic>> relays = ndk.relays.connectedRelays;
@@ -43,9 +43,9 @@ class Relays {
       }
     }
     await relayStorage.remove(url);
-  }
+  });
 
-  Future<void> connect() async {
+  Future<void> connect() => logger.span('connect', () async {
     final config = getIt<HostrConfig>();
     final configured = config.bootstrapRelays;
 
@@ -69,7 +69,7 @@ class Relays {
         ),
       ),
     );
-  }
+  });
 
   /// Returns a future that completes once at least one relay is connected.
   ///
@@ -79,34 +79,37 @@ class Relays {
   /// queries that would otherwise silently return empty results.
   ///
   /// Safe to call from multiple places — all callers share the same future.
-  Future<void> ensureConnected() {
+  Future<void> ensureConnected() => logger.span('ensureConnected', () async {
     logger.d('Ensuring relay connectivity…');
     return _waitForConnection();
-  }
+  });
 
-  Future<void> _waitForConnection() async {
-    const timeout = Duration(seconds: 30);
-    const pollInterval = Duration(seconds: 1);
+  Future<void> _waitForConnection() => logger.span(
+    '_waitForConnection',
+    () async {
+      const timeout = Duration(seconds: 30);
+      const pollInterval = Duration(seconds: 1);
 
-    // Poll until at least one relay is connected or we exceed the timeout.
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      if (ndk.relays.connectedRelays.isNotEmpty) {
-        return;
+      // Poll until at least one relay is connected or we exceed the timeout.
+      final deadline = DateTime.now().add(timeout);
+      while (DateTime.now().isBefore(deadline)) {
+        if (ndk.relays.connectedRelays.isNotEmpty) {
+          return;
+        }
+        getIt<HostrConfig>().bootstrapRelays.map(
+          (e) => ndk.relays.isRelayConnecting(e)
+              ? ndk.relays.reconnectRelay(
+                  e,
+                  connectionSource: ConnectionSource.seed,
+                )
+              : null,
+        );
+        logger.d('Checking relay connectivity…');
+        await Future.delayed(pollInterval);
       }
-      getIt<HostrConfig>().bootstrapRelays.map(
-        (e) => ndk.relays.isRelayConnecting(e)
-            ? ndk.relays.reconnectRelay(
-                e,
-                connectionSource: ConnectionSource.seed,
-              )
-            : null,
-      );
-      logger.d('Checking relay connectivity…');
-      await Future.delayed(pollInterval);
-    }
-    throw Exception('Timed out waiting for relay connection after $timeout');
-  }
+      throw Exception('Timed out waiting for relay connection after $timeout');
+    },
+  );
 
   Stream<Map<String, RelayConnectivity<dynamic>>> connectivity() {
     return ndk.relays.relayConnectivityChanges;
@@ -115,7 +118,7 @@ class Relays {
   /// Fetches the user's NIP-65 relay list and connects to any relays
   /// not already connected. This populates NDK's cache so the outbox/inbox
   /// model works automatically for broadcasts and queries.
-  Future<void> syncNip65(String pubkey) async {
+  Future<void> syncNip65(String pubkey) => logger.span('syncNip65', () async {
     logger.i('Syncing NIP-65 relay list for $pubkey');
     try {
       final relayList = await ndk.userRelayLists.getSingleUserRelayList(
@@ -144,14 +147,14 @@ class Relays {
     } catch (e) {
       logger.e('Error syncing NIP-65 relay list: $e');
     }
-  }
+  });
 
   /// Publishes the user's NIP-65 relay list, ensuring the given
   /// [hostrRelay] is included with read+write markers.
   Future<void> publishNip65({
     required String hostrRelay,
     required String pubkey,
-  }) async {
+  }) => logger.span('publishNip65', () async {
     logger.i('Publishing NIP-65 relay list with hostr relay: $hostrRelay');
     try {
       final before = await ndk.userRelayLists.getSingleUserRelayList(pubkey);
@@ -178,7 +181,7 @@ class Relays {
     } catch (e) {
       logger.e('Error publishing NIP-65 relay list: $e');
     }
-  }
+  });
 }
 
 @Singleton(as: Relays, env: [Env.test, Env.mock])

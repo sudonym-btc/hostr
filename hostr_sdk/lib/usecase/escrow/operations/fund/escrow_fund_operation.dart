@@ -52,11 +52,15 @@ class EscrowFundOperation extends OnchainOperation {
   // ── OnchainOperation overrides ────────────────────────────────────
 
   @override
-  String get storeNamespace => 'escrow_fund';
+  String get namespace => 'escrow_fund';
 
   @override
-  Future<GasEstimate> estimateGas() =>
-      contract.estimateEscrowFundFee(contractParams);
+  OnchainOperationData dataFromJson(Map<String, dynamic> json) =>
+      EscrowFundData.fromJson(json);
+
+  @override
+  Future<GasEstimate> estimateGas() => logger.span('estimateGas', () =>
+      contract.estimateEscrowFundFee(contractParams));
 
   @override
   BitcoinAmount get requiredOnchainValue => params != null
@@ -82,32 +86,32 @@ class EscrowFundOperation extends OnchainOperation {
   );
 
   @override
-  Future<TransactionInformation> executeTransaction() =>
-      contract.deposit(contractParams);
+  Future<TransactionInformation> executeTransaction() => logger.span('executeTransaction', () =>
+      contract.deposit(contractParams));
 
   @override
-  void onAddressResolved(int resolvedAccountIndex) {
+  void onAddressResolved(int resolvedAccountIndex) => logger.spanSync('onAddressResolved', () {
     final evmKey = auth.getActiveEvmKey(accountIndex: resolvedAccountIndex);
     contractParams = params!.toContractParams(evmKey);
-  }
+  });
 
   @override
-  void onGasEstimated(GasEstimate estimate) {
+  void onGasEstimated(GasEstimate estimate) => logger.spanSync('onGasEstimated', () {
     contractParams = contractParams.withGasEstimate(estimate);
-  }
+  });
 
   @override
-  void onBeforeTransaction(OnchainOperationData data) {
+  void onBeforeTransaction(OnchainOperationData data) => logger.spanSync('onBeforeTransaction', () {
     final fundData = data as EscrowFundData;
     final evmKey = auth.getActiveEvmKey(accountIndex: fundData.accountIndex);
     contractParams = fundData.toContractParams(evmKey);
-  }
+  });
 
   @override
   void onTransactionConfirmed(
     OnchainOperationData data,
     TransactionReceipt receipt,
-  ) {
+  ) => logger.spanSync('onTransactionConfirmed', () {
     final gasUsed = receipt.gasUsed?.toInt();
     final estimatedLimit = contractParams.gasEstimate?.gasLimit.toInt();
     final gasPrice = contractParams.gasEstimate?.gasPrice.getInWei;
@@ -120,11 +124,11 @@ class EscrowFundOperation extends OnchainOperation {
         '(~${BitcoinAmount.inWei(refundWei).getInSats} sats)',
       );
     }
-  }
+  });
 
   // ── Fee estimation (public) ───────────────────────────────────────
 
-  Future<EscrowFundFees> estimateFees() async {
+  Future<EscrowFundFees> estimateFees() => logger.span('estimateFees', () async {
     final gasEstimate = await contract.estimateEscrowFundFee(contractParams);
     final swapDeficit = await computeSwapDeficit(gasEstimate);
     final swapFees = swapDeficit > BitcoinAmount.zero()
@@ -148,5 +152,5 @@ class EscrowFundOperation extends OnchainOperation {
       estimatedSwapFees: swapFees,
       estimatedEscrowFees: contractParams.escrowFee ?? BitcoinAmount.zero(),
     );
-  }
+  });
 }

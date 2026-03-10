@@ -19,7 +19,9 @@ class BoltzClient {
         baseUrl: Uri.parse(config.rootstockConfig.boltz.apiUrl),
       );
 
-  Future<SubmarineResponse> submarine({required String invoice}) async {
+  Future<SubmarineResponse> submarine({
+    required String invoice,
+  }) => logger.span('submarine', () async {
     logger.i('Swapping for invoice $invoice');
     SubmarineRequest r = SubmarineRequest(
       from: 'RBTC',
@@ -55,21 +57,22 @@ class BoltzClient {
       return body.copyWith(claimPublicKey: normalizedClaimAddress);
     }
     throw res.error!;
-  }
+  });
 
-  Future<SwapStatus> getSwap({required String id}) async {
-    logger.i('Getting swap $id');
-    Response<SwapStatus> res = await gBoltzCli.swapIdGet(id: id);
-    if (res.isSuccessful) return res.body!;
-    throw res.error!;
-  }
+  Future<SwapStatus> getSwap({required String id}) =>
+      logger.span('getSwap', () async {
+        logger.i('Getting swap $id');
+        Response<SwapStatus> res = await gBoltzCli.swapIdGet(id: id);
+        if (res.isSuccessful) return res.body!;
+        throw res.error!;
+      });
 
   /// Request a cooperative refund EIP-712 signature from Boltz for a failed
   /// submarine swap. Returns `null` if Boltz refuses (e.g. swap not in a
   /// failed state yet). Throws on network errors.
   Future<SwapSubmarineIdRefundGet$Response?> getCooperativeRefundSignature({
     required String id,
-  }) async {
+  }) => logger.span('getCooperativeRefundSignature', () async {
     logger.i('Requesting cooperative refund signature for swap $id');
     try {
       final res = await gBoltzCli.swapSubmarineIdRefundGet(id: id);
@@ -86,14 +89,14 @@ class BoltzClient {
       logger.w('Failed to get cooperative refund signature for $id: $e');
       return null;
     }
-  }
+  });
 
   Future<ReverseResponse> reverseSubmarine({
     required double invoiceAmount,
     required String preimageHash,
     required String claimAddress,
     String? description,
-  }) async {
+  }) => logger.span('reverseSubmarine', () async {
     logger.i('Swapping $invoiceAmount for $claimAddress');
     ReverseRequest r = ReverseRequest(
       from: 'BTC',
@@ -109,9 +112,9 @@ class BoltzClient {
     logger.i("Response: ${res.body}");
     if (res.isSuccessful) return res.body!;
     throw res.error!;
-  }
+  });
 
-  Future<Contracts> rbtcContracts() async {
+  Future<Contracts> rbtcContracts() => logger.span('rbtcContracts', () async {
     logger.i('Listing contracts');
     Response<Contracts> res = await gBoltzCli.chainCurrencyContractsGet(
       currency: 'RBTC',
@@ -119,7 +122,7 @@ class BoltzClient {
     logger.i("Response: ${res.body}");
     if (res.isSuccessful) return res.body!;
     throw res.error!;
-  }
+  });
 
   Future<Response> getSwapReserve() async {
     return await gBoltzCli.swapReverseGet();
@@ -132,7 +135,7 @@ class BoltzClient {
   Future<ReversePair> getReversePair({
     String from = 'BTC',
     String to = 'RBTC',
-  }) async {
+  }) => logger.span('getReversePair', () async {
     final response = await getSwapReserve();
     if (!response.isSuccessful || response.body == null) {
       throw StateError('Failed to fetch reverse swap pairs from Boltz');
@@ -153,13 +156,13 @@ class BoltzClient {
       pairRaw.map((key, value) => MapEntry(key.toString(), value)),
     );
     return ReversePair.fromJson(pairJson);
-  }
+  });
 
   /// Fetch the typed [SubmarinePair] for a given currency pair.
   Future<SubmarinePair> getSubmarinePair({
     String from = 'RBTC',
     String to = 'BTC',
-  }) async {
+  }) => logger.span('getSubmarinePair', () async {
     final response = await getSwapSubmarine();
     if (!response.isSuccessful || response.body == null) {
       throw StateError('Failed to fetch submarine swap pairs from Boltz');
@@ -180,7 +183,7 @@ class BoltzClient {
       pairRaw.map((key, value) => MapEntry(key.toString(), value)),
     );
     return SubmarinePair.fromJson(pairJson);
-  }
+  });
 
   /// Given a desired **on-chain** amount, compute the Lightning invoice amount
   /// needed so that after Boltz deducts its percentage + miner fees the
@@ -199,7 +202,7 @@ class BoltzClient {
     required BitcoinAmount desiredOnchainAmount,
     String from = 'BTC',
     String to = 'RBTC',
-  }) async {
+  }) => logger.span('computeInvoiceForDesiredOnchain', () async {
     final pair = await getReversePair(from: from, to: to);
     final pFraction = pair.fees.percentage / 100.0;
     final lockupFee = pair.fees.minerFees.lockup;
@@ -220,7 +223,7 @@ class BoltzClient {
       'overhead=${feeOverhead.getInSats} (lockup=$lockupFee, pct=${pair.fees.percentage}%)',
     );
     return (invoiceAmount: invoice, feeOverhead: feeOverhead);
-  }
+  });
 
   Future<Response> getSwapSubmarine() async {
     return await gBoltzCli.swapSubmarineGet();

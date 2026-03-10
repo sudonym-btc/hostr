@@ -27,10 +27,16 @@ Future<bool> executeBackgroundTask(
     }
 
     await initCore(env, logger: logger);
-    // Background workers need relay connectivity — the foreground app
-    // handles this via the StartupGate widget, but here we call connect()
-    // explicitly.
-    await getIt<Hostr>().connect();
+
+    // The background isolate has its own plugin instances — initialise the
+    // local-notifications plugin so .show() calls actually display.
+    await setupNotifications();
+
+    // Background workers need relay connectivity but must stay lightweight —
+    // connectForBackground() only opens relay sockets and syncs NIP-65
+    // without starting subscriptions, orchestrators, or other heavy
+    // foreground machinery.
+    await getIt<Hostr>().connectForBackground();
 
     final BackgroundWorkerResult result;
 
@@ -39,15 +45,8 @@ Future<bool> executeBackgroundTask(
         // One-off task triggered when the app goes to background with
         // active onchain operations (swaps, escrow fund/claim/release).
         logger.d('Running onchain operations recovery');
-        result = await getIt<Hostr>().backgroundWorker.recoverOnchainOperations(
-          onProgress: (notification) async {
-            await FlutterLocalNotificationsPlugin().show(
-              id: notification.operationId.hashCode,
-              title: 'Hostr',
-              body: notification.body,
-            );
-          },
-        );
+        result = await getIt<Hostr>().backgroundWorker
+            .recoverOnchainOperations();
         break;
       case BackgroundTaskType.periodicSync:
         // Periodic sync task — messages, reservations, reviews, etc.

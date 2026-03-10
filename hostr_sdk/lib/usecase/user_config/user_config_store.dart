@@ -39,7 +39,7 @@ class UserConfigStore {
   // ── Public API ──────────────────────────────────────────────────────────
 
   /// Load the user config from disk. Idempotent.
-  Future<void> initialize() async {
+  Future<void> initialize() => _logger.span('initialize', () async {
     final pubkey = _currentPubkey();
     if (_cache != null && _loadedPubkey == pubkey) return;
 
@@ -72,7 +72,7 @@ class UserConfigStore {
       _loadedPubkey = pubkey;
       _subject.add(_cache!);
     }
-  }
+  });
 
   /// The current config. Triggers [initialize] if not yet loaded.
   Future<HostrUserConfig> get state async {
@@ -85,21 +85,22 @@ class UserConfigStore {
   Stream<HostrUserConfig> get stream => _subject.stream;
 
   /// Replace the entire config. Persists to disk and notifies listeners.
-  Future<void> update(HostrUserConfig config) async {
-    await initialize();
-    _cache = config;
-    await _flush();
-    _subject.add(config);
-    _logger.d('UserConfigStore updated: $config');
-  }
+  Future<void> update(HostrUserConfig config) =>
+      _logger.span('update', () async {
+        await initialize();
+        _cache = config;
+        await _flush();
+        _subject.add(config);
+        _logger.d('UserConfigStore updated: $config');
+      });
 
   /// Reset to defaults. Wipes storage.
-  Future<void> reset() async {
+  Future<void> reset() => _logger.span('reset', () async {
     _cache = HostrUserConfig.defaults;
     await _flush();
     _subject.add(_cache!);
     _logger.i('UserConfigStore reset to defaults');
-  }
+  });
 
   /// Dispose the reactive stream. Call on app shutdown.
   Future<void> dispose() async {

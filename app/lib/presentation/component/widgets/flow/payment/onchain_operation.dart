@@ -140,6 +140,8 @@ bool shouldRenderSwapProgress(OnchainSwapProgress state) {
 bool shouldRebuildForSwapProgress(OnchainSwapProgress state) {
   if (shouldRenderSwapProgress(state)) return true;
   return switch (state.swapState) {
+    SwapInAwaitingOnChain() => true,
+    SwapInInvoicePaid() => true,
     SwapInFunded() => true,
     SwapInClaimed() => true,
     SwapInClaimTxInMempool() => true,
@@ -180,8 +182,14 @@ class OnchainOperationViewWidget extends StatelessWidget {
     return switch (state) {
       final OnchainInitialised s =>
         initialisedBuilder?.call(s) ?? OnchainTransactionSheet.loading(),
+      final OnchainTxBroadcasting s =>
+        broadcastBuilder?.call(OnchainTxBroadcast(s.data)) ??
+            OnchainTransactionSheet.broadcast(),
       final OnchainTxBroadcast s =>
         broadcastBuilder?.call(s) ?? OnchainTransactionSheet.broadcast(),
+      final OnchainTxSent s =>
+        broadcastBuilder?.call(OnchainTxBroadcast(s.data)) ??
+            OnchainTransactionSheet.broadcast(),
       final OnchainSwapProgress s =>
         shouldRenderSwapProgress(s)
             ? (swapProgressBuilder?.call(s) ??

@@ -1,0 +1,350 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 1,
+    "id": null,
+    "links": [],
+    "panels": [
+        {
+            "title": "Swap Traces",
+            "description": "Search for individual swap traces by swap ID, Boltz status or amount",
+            "type": "traces",
+            "gridPos": {
+                "h": 12,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "datasource": {
+                "type": "tempo",
+                "uid": "tempo"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "tempo",
+                        "uid": "tempo"
+                    },
+                    "queryType": "traceqlSearch",
+                    "filters": [
+                        {
+                            "id": "service-name",
+                            "tag": "service.name",
+                            "operator": "=",
+                            "scope": "resource"
+                        },
+                        {
+                            "id": "swap-namespace",
+                            "tag": "hostr.operation.namespace",
+                            "operator": "=",
+                            "value": "swap_in",
+                            "scope": "span"
+                        },
+                        {
+                            "id": "swap-id",
+                            "tag": "hostr.swap.id",
+                            "operator": "=",
+                            "scope": "span"
+                        },
+                        {
+                            "id": "boltz-status",
+                            "tag": "hostr.swap.last_boltz_status",
+                            "operator": "=",
+                            "scope": "span"
+                        },
+                        {
+                            "id": "status",
+                            "tag": "status",
+                            "operator": "=",
+                            "scope": "intrinsic"
+                        }
+                    ],
+                    "limit": 20
+                }
+            ]
+        },
+        {
+            "title": "Swap Throughput (rate/min)",
+            "description": "Swap-in operation trace rate over time",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 12
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "fillOpacity": 20,
+                        "lineWidth": 2,
+                        "spanNulls": true
+                    },
+                    "unit": "opm"
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "mean",
+                        "lastNotNull"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "multi"
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "sum by (hostr_operation_type) (rate(traces_spanmetrics_calls_total{hostr_operation_namespace=\"swap_in\"}[$__rate_interval])) * 60",
+                    "legendFormat": "{{hostr_operation_type}}"
+                }
+            ]
+        },
+        {
+            "title": "Swap P95 Duration",
+            "description": "95th percentile span duration for swap operations",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 12
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "fillOpacity": 10,
+                        "lineWidth": 2,
+                        "spanNulls": true
+                    },
+                    "unit": "s"
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "mean",
+                        "lastNotNull"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "multi"
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "histogram_quantile(0.95, sum by (le, hostr_operation_step) (rate(traces_spanmetrics_duration_seconds_bucket{hostr_operation_namespace=\"swap_in\"}[$__rate_interval])))",
+                    "legendFormat": "{{hostr_operation_step}}"
+                }
+            ]
+        },
+        {
+            "title": "Boltz Status Distribution",
+            "description": "Count of swap spans per last Boltz status",
+            "type": "piechart",
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 0,
+                "y": 20
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "table",
+                    "placement": "right"
+                },
+                "pieType": "donut",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ]
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "sum by (hostr_swap_last_boltz_status) (traces_spanmetrics_calls_total{hostr_swap_last_boltz_status!=\"\"})",
+                    "legendFormat": "{{hostr_swap_last_boltz_status}}"
+                }
+            ]
+        },
+        {
+            "title": "Swap Steps",
+            "description": "Trace count per operation step for swap_in namespace",
+            "type": "barchart",
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 8,
+                "y": 20
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "orientation": "horizontal",
+                "xTickLabelRotation": 0
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "sum by (hostr_operation_step) (traces_spanmetrics_calls_total{hostr_operation_namespace=\"swap_in\", hostr_operation_step!=\"\"})",
+                    "legendFormat": "{{hostr_operation_step}}"
+                }
+            ]
+        },
+        {
+            "title": "Swap Errors",
+            "description": "Error rate for swap operations over time",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 16,
+                "y": 20
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                    },
+                    "custom": {
+                        "fillOpacity": 30,
+                        "lineWidth": 2,
+                        "spanNulls": true
+                    },
+                    "unit": "opm"
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "mean",
+                        "lastNotNull"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "multi"
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "sum (rate(traces_spanmetrics_calls_total{hostr_operation_namespace=\"swap_in\", status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) * 60",
+                    "legendFormat": "swap_in errors"
+                }
+            ]
+        }
+    ],
+    "schemaVersion": 39,
+    "tags": [
+        "hostr",
+        "swap",
+        "otel"
+    ],
+    "templating": {
+        "list": []
+    },
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "Hostr — Swap Lifecycle",
+    "uid": "hostr-swap-lifecycle",
+    "version": 1
+}

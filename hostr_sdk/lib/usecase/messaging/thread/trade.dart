@@ -96,7 +96,7 @@ class Trade extends Cubit<TradeState> {
     required UserSubscriptions userSubscriptions,
     required ReservationPairs reservationPairs,
     required Threads threads,
-  }) : _logger = logger.namespace('trade'),
+  }) : _logger = logger.scope('trade'),
        _auth = auth,
        _listings = listings,
        _metadata = metadata,
@@ -150,7 +150,8 @@ class Trade extends Cubit<TradeState> {
     );
   }
 
-  Future<String?> resolveGuestPubkey() async {
+  Future<String?>
+  resolveGuestPubkey() => _logger.span('resolveGuestPubkey', () async {
     String? salt = (await thread!.state.value.reservationRequests.last).salt;
     String? tweakedPubkey =
         (await thread!.state.value.reservationRequests.last).recipient;
@@ -162,13 +163,13 @@ class Trade extends Cubit<TradeState> {
     }
 
     return unsaltPublicKey(saltedPublicKey: tweakedPubkey, salt: salt);
-  }
+  });
 
   // ── Lifecycle ──────────────────────────────────────────────────────
 
   /// Bootstrap the trade: fetch listing + profile, set up filtered streams,
   /// then wire the reactive combine pipeline.
-  Future<void> start() async {
+  Future<void> start() => _logger.span('start', () async {
     if (_bootstrapped || isClosed) return;
     _bootstrapped = true;
 
@@ -186,11 +187,11 @@ class Trade extends Cubit<TradeState> {
 
     // Wire the reactive pipeline.
     _wirePipeline();
-  }
+  });
 
   /// The core reactive pipeline. Combines all relevant streams and emits
   /// [TradeReady] with the resolved stage and actions on every change.
-  void _wirePipeline() {
+  void _wirePipeline() => _logger.spanSync('_wirePipeline', () {
     final listing = _listing!;
     final hostProfile = _hostProfile;
 
@@ -255,9 +256,8 @@ class Trade extends Cubit<TradeState> {
             if (!isClosed) emit(TradeError(error.toString()));
           },
         );
-  }
+  });
 
-  /// Pure resolution logic. Derives the stage, actions, and availability
   /// from the current stream snapshots.
   TradeReady _resolve({
     required Listing listing,
@@ -269,7 +269,7 @@ class Trade extends Cubit<TradeState> {
     required List<ReservationTransition> transitions,
     required List<Validation<ReservationPairStatus>> allListingReservations,
     required ThreadState? threadState,
-  }) {
+  }) => _logger.spanSync('_resolve', () {
     // Derive last reservation request from thread (if available).
     final reservationRequests = threadState?.reservationRequests ?? const [];
     final lastRequest = reservationRequests.isNotEmpty
@@ -399,7 +399,7 @@ class Trade extends Cubit<TradeState> {
         subscriptionsLive: subscriptionsLive$,
       ),
     );
-  }
+  });
 
   static TradeAvailability _resolveAvailability({
     required List<Validation<ReservationPairStatus>> ownReservations,
@@ -423,14 +423,14 @@ class Trade extends Cubit<TradeState> {
   List<Validation<ReservationPairStatus>> get currentReservationPairs =>
       _bootstrapped ? reservationPair$.list.value : const [];
 
-  Future<KeyPair> activeKeyPair() async {
+  Future<KeyPair> activeKeyPair() => _logger.span('activeKeyPair', () async {
     return role == TradeRole.host
         ? _auth.getActiveKey()
         : saltedKey(key: _auth.getActiveKey().privateKey!, salt: tradeId);
-  }
+  });
 
   /// Returns the Nostr pubkey of the escrow service used in this trade.
-  String? getEscrowPubkey() {
+  String? getEscrowPubkey() => _logger.spanSync('getEscrowPubkey', () {
     final pairs = reservationPair$.list.value;
     for (final validation in pairs) {
       final pair = validation.event;
@@ -445,7 +445,7 @@ class Trade extends Cubit<TradeState> {
       }
     }
     return null;
-  }
+  });
 
   /// Forces a re-emit by re-running the pipeline manually (e.g. after
   /// mutating thread.addedParticipants).
@@ -455,7 +455,7 @@ class Trade extends Cubit<TradeState> {
     // For now, thread.state listeners handle this automatically.
   }
 
-  Future<void> execute(TradeAction action) async {
+  Future<void> execute(TradeAction action) => _logger.span('execute', () async {
     final current = state;
     if (current is! TradeReady || !current.actions.contains(action)) {
       throw StateError('Action not available for this trade: $action');
@@ -482,12 +482,12 @@ class Trade extends Cubit<TradeState> {
       case TradeAction.messageEscrow:
         return;
     }
-  }
+  });
 
   // ── Dispose ────────────────────────────────────────────────────────
 
   @override
-  Future<void> close() async {
+  Future<void> close() => _logger.span('close', () async {
     await _combineSubscription?.cancel();
     for (final sub in _subscriptions) {
       await sub.cancel();
@@ -499,5 +499,5 @@ class Trade extends Cubit<TradeState> {
       await transitions$.close();
     }
     await super.close();
-  }
+  });
 }

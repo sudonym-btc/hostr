@@ -30,35 +30,50 @@ class Rootstock extends EvmChain {
   Web3Client buildClient() => _buildWeb3Client(config.rootstockConfig.rpcUrl);
 
   @override
-  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapInLimits() async {
-    final pair = await getIt<BoltzClient>().getReversePair();
-    return (
-      min: BitcoinAmount.fromInt(BitcoinUnit.sat, pair.limits.minimal.ceil()),
-      max: BitcoinAmount.fromInt(BitcoinUnit.sat, pair.limits.maximal.floor()),
-    );
-  }
+  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapInLimits() =>
+      logger.span('getSwapInLimits', () async {
+        final pair = await getIt<BoltzClient>().getReversePair();
+        return (
+          min: BitcoinAmount.fromInt(
+            BitcoinUnit.sat,
+            pair.limits.minimal.ceil(),
+          ),
+          max: BitcoinAmount.fromInt(
+            BitcoinUnit.sat,
+            pair.limits.maximal.floor(),
+          ),
+        );
+      });
 
-  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapOutLimits() async {
-    final pair = await getIt<BoltzClient>().getSubmarinePair();
-    return (
-      min: BitcoinAmount.fromInt(BitcoinUnit.sat, pair.limits.minimal.ceil()),
-      max: BitcoinAmount.fromInt(BitcoinUnit.sat, pair.limits.maximal.floor()),
-    );
-  }
+  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapOutLimits() =>
+      logger.span('getSwapOutLimits', () async {
+        final pair = await getIt<BoltzClient>().getSubmarinePair();
+        return (
+          min: BitcoinAmount.fromInt(
+            BitcoinUnit.sat,
+            pair.limits.minimal.ceil(),
+          ),
+          max: BitcoinAmount.fromInt(
+            BitcoinUnit.sat,
+            pair.limits.maximal.floor(),
+          ),
+        );
+      });
 
   @override
-  Future<EtherSwap> getEtherSwapContract() async {
-    // Fetch RBTC contracts
-    final rbtcContracts = await getIt<BoltzClient>().rbtcContracts();
-    final rbtcSwapContract = rbtcContracts.swapContracts.etherSwap;
+  Future<EtherSwap> getEtherSwapContract() =>
+      logger.span('getEtherSwapContract', () async {
+        // Fetch RBTC contracts
+        final rbtcContracts = await getIt<BoltzClient>().rbtcContracts();
+        final rbtcSwapContract = rbtcContracts.swapContracts.etherSwap;
 
-    logger.i('RBTC Swap contract: $rbtcSwapContract');
-    // Initialize EtherSwap contract
-    return EtherSwap(
-      address: EthereumAddress.fromHex(rbtcSwapContract!),
-      client: client,
-    );
-  }
+        logger.i('RBTC Swap contract: $rbtcSwapContract');
+        // Initialize EtherSwap contract
+        return EtherSwap(
+          address: EthereumAddress.fromHex(rbtcSwapContract!),
+          client: client,
+        );
+      });
 
   @override
   RootstockSwapInOperation swapIn(SwapInParams params) =>
@@ -85,31 +100,34 @@ class Rootstock extends EvmChain {
   /// that holds a non-zero balance.  If no used address has funds, falls back
   /// to a single operation targeting account index 0.
   @override
-  Future<List<RootstockSwapOutOperation>> swapOutAllAddresses() async {
-    final funded = await getAddressesWithBalance();
+  Future<List<RootstockSwapOutOperation>> swapOutAllAddresses() => logger.span(
+    'swapOutAllAddresses',
+    () async {
+      final funded = await getAddressesWithBalance();
 
-    if (funded.isEmpty) {
-      // Nothing found – return single op for account 0 (will fail gracefully
-      // with an insufficient-balance error during execution).
-      return [
-        getIt<RootstockSwapOutOperation>(
+      if (funded.isEmpty) {
+        // Nothing found – return single op for account 0 (will fail gracefully
+        // with an insufficient-balance error during execution).
+        return [
+          getIt<RootstockSwapOutOperation>(
+            param1: SwapOutParams(
+              evmKey: auth.getActiveEvmKey(accountIndex: 0),
+              accountIndex: 0,
+              amount: null,
+            ),
+          ),
+        ];
+      }
+
+      return funded.map((entry) {
+        return getIt<RootstockSwapOutOperation>(
           param1: SwapOutParams(
-            evmKey: auth.getActiveEvmKey(accountIndex: 0),
-            accountIndex: 0,
+            evmKey: auth.getActiveEvmKey(accountIndex: entry.accountIndex),
+            accountIndex: entry.accountIndex,
             amount: null,
           ),
-        ),
-      ];
-    }
-
-    return funded.map((entry) {
-      return getIt<RootstockSwapOutOperation>(
-        param1: SwapOutParams(
-          evmKey: auth.getActiveEvmKey(accountIndex: entry.accountIndex),
-          accountIndex: entry.accountIndex,
-          amount: null,
-        ),
-      );
-    }).toList();
-  }
+        );
+      }).toList();
+    },
+  );
 }

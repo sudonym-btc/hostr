@@ -157,7 +157,9 @@ class TradeAudit {
   });
 
   /// Run the full audit for [tradeId] and return a structured result.
-  Future<TradeAuditResult> audit(String tradeId) async {
+  Future<TradeAuditResult> audit(
+    String tradeId,
+  ) => logger.span('audit', () async {
     // 1. Fetch reservation snapshots and transitions in parallel.
     final results = await Future.wait([
       reservations.getByTradeId(tradeId),
@@ -325,7 +327,7 @@ class TradeAudit {
       seller: sellerAudit,
       explanation: explanation,
     );
-  }
+  });
 
   /// Derive a one-sentence fault analysis from the party audits.
   String _explain({

@@ -2,6 +2,7 @@ export 'chain/evm_chain.dart';
 export 'chain/rootstock/rootstock.dart';
 export 'evm.dart';
 export 'operations/auto_withdraw/auto_withdraw_service.dart';
+export 'operations/operation_machine.dart';
 export 'operations/operation_state_store.dart';
 export 'operations/swap_in/swap_in_models.dart';
 export 'operations/swap_in/swap_in_operation.dart';

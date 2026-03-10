@@ -1,10 +1,13 @@
 import 'package:ndk/ndk.dart';
+import 'package:sqlite3/common.dart';
 
 // import 'package:ndk_rust_verifier/ndk_rust_verifier.dart';
 
+import 'datasources/operations_database.dart';
 import 'datasources/storage.dart';
 import 'usecase/calendar/calendar.dart';
 import 'util/custom_logger.dart';
+import 'util/telemetry.dart';
 
 /// Returns [RustEventVerifier] when the native library is available,
 /// otherwise falls back to the pure-Dart [Bip340EventVerifier].
@@ -16,6 +19,19 @@ EventVerifier _defaultEventVerifier() {
   // }
 }
 
+/// Platform-agnostic notification callback.
+///
+/// Mirrors the signature of `FlutterLocalNotificationsPlugin.show()` so the
+/// app layer can forward straight through, but keeps the SDK free of any
+/// Flutter UI dependency.
+typedef ShowNotification =
+    Future<void> Function({
+      required int id,
+      String? title,
+      String? body,
+      String? payload,
+    });
+
 class HostrConfig {
   final List<String> bootstrapRelays;
   final List<String> bootstrapBlossom;
@@ -25,8 +41,15 @@ class HostrConfig {
   final NdkConfig ndkConfig;
   final HostrSDKStorage storage;
   final KeyValueStorage keyValueStorage;
+  final CommonDatabase operationsDb;
   final CustomLogger logger;
+  final Telemetry telemetry;
   final CalendarPort? calendarPort;
+
+  /// Optional callback the SDK invokes to show OS notifications (swap
+  /// progress, deposit confirmed, etc.).  When `null`, the SDK silently
+  /// skips notification delivery — the operation still completes.
+  final ShowNotification? showNotification;
 
   /// Minimum EVM balance (in sats) per address before auto-withdrawal
   /// triggers.  Must be above typical swap-out fees to avoid losing money
@@ -41,10 +64,14 @@ class HostrConfig {
     required this.rootstockConfig,
     this.autoWithdrawMinimumSats = 10000,
     this.calendarPort,
+    this.showNotification,
     KeyValueStorage? storage,
+    CommonDatabase? operationsDb,
     NdkConfig? ndk,
     CustomLogger? logs,
+    Telemetry? telemetry,
   }) : keyValueStorage = storage ?? InMemoryKeyValueStorage(),
+       operationsDb = operationsDb ?? openOperationsDb(),
        storage = HostrSDKStorage.fromKeyValue(
          storage ?? InMemoryKeyValueStorage(),
        ),
@@ -61,7 +88,16 @@ class HostrConfig {
              bootstrapRelays: [hostrRelay],
              logLevel: LogLevel.warning,
            ),
-       logger = logs ?? CustomLogger();
+       logger = logs ?? CustomLogger(),
+       telemetry =
+           telemetry ??
+           Telemetry(
+             enableExport: true,
+             otlpEndpoint: 'https://telemetry.hostr.development/v1/traces',
+           ) {
+    // Wire OTel into the global logger so every log call emits span events.
+    CustomLogger.configure(telemetry: this.telemetry);
+  }
 }
 
 abstract class EvmConfig {

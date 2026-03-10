@@ -3,7 +3,6 @@ library;
 
 import 'dart:convert';
 
-import 'package:hostr_sdk/datasources/storage.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
@@ -11,18 +10,18 @@ import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:sqlite3/common.dart';
+import 'package:sqlite3/sqlite3.dart' as native_sqlite3;
 import 'package:test/test.dart';
 
 void main() {
-  late InMemoryKeyValueStorage storage;
+  late CommonDatabase db;
   late Auth auth;
   late KeyPair? activeKeyPair;
   late OperationStateStore store;
 
   final userA = Bip340.fromPrivateKey('1' * 64);
   final userB = Bip340.fromPrivateKey('2' * 64);
-
-  String keyFor(String pubkey, String ns) => 'ops:$pubkey:$ns';
 
   Map<String, dynamic> _entry({
     required String id,
@@ -31,81 +30,91 @@ void main() {
   }) => {'id': id, 'isTerminal': isTerminal, 'updatedAt': ?updatedAt};
 
   setUp(() {
-    storage = InMemoryKeyValueStorage();
+    db = native_sqlite3.sqlite3.openInMemory();
     activeKeyPair = userA;
     final mockAuth = MockAuth();
     when(mockAuth.activeKeyPair).thenAnswer((_) => activeKeyPair);
     auth = mockAuth;
-    store = OperationStateStore(storage, CustomLogger(), auth);
+    store = OperationStateStore(db, CustomLogger(), auth);
   });
 
   tearDown(() {
     store.dispose();
+    db.dispose();
   });
 
   group('OperationStateStore', () {
-    group('initialize', () {
-      test('loads empty store when storage has nothing', () async {
-        await store.initialize('swap_in');
+    group('reads', () {
+      test('returns empty when database has nothing', () async {
         final all = await store.readAll('swap_in');
         expect(all, isEmpty);
       });
 
-      test('loads entries from storage', () async {
+      test('reads entries inserted directly into database', () async {
         final entry = _entry(id: 'preloaded');
-        await storage.write(
-          keyFor(userA.publicKey, 'swap_in'),
-          jsonEncode([entry]),
+        db.execute(
+          '''INSERT INTO operations
+             (pubkey, namespace, id, state, is_terminal, updated_at, data)
+             VALUES (?, ?, ?, ?, ?, ?, ?)''',
+          [
+            userA.publicKey,
+            'swap_in',
+            'preloaded',
+            null,
+            0,
+            null,
+            jsonEncode(entry),
+          ],
         );
 
-        await store.initialize('swap_in');
         final all = await store.readAll('swap_in');
         expect(all, hasLength(1));
         expect(all.first['id'], 'preloaded');
       });
 
-      test('is idempotent — second call does not reload', () async {
-        await store.initialize('swap_in');
+      test('always reads fresh from database (no stale cache)', () async {
         await store.write('swap_in', 'first', _entry(id: 'first'));
 
-        // Write something different directly to storage
-        await storage.write(
-          keyFor(userA.publicKey, 'swap_in'),
-          jsonEncode([_entry(id: 'other')]),
+        // Mutate directly in database (simulating another isolate)
+        final newEntry = _entry(id: 'first');
+        newEntry['extra'] = 'updated';
+        db.execute(
+          'UPDATE operations SET data = ? WHERE id = ?',
+          [jsonEncode(newEntry), 'first'],
         );
 
-        // Second initialize should be a no-op (cache already loaded)
-        await store.initialize('swap_in');
-        final all = await store.readAll('swap_in');
-        expect(all, hasLength(1));
-        expect(all.first['id'], 'first');
+        final retrieved = await store.read('swap_in', 'first');
+        expect(retrieved, isNotNull);
+        expect(retrieved!['extra'], 'updated');
       });
 
-      test('handles corrupt storage gracefully', () async {
-        await storage.write(
-          keyFor(userA.publicKey, 'swap_in'),
-          'not valid json}}}',
+      test('handles corrupt JSON in data column gracefully', () async {
+        db.execute(
+          '''INSERT INTO operations
+             (pubkey, namespace, id, state, is_terminal, data)
+             VALUES (?, ?, ?, ?, ?, ?)''',
+          [userA.publicKey, 'swap_in', 'corrupt', null, 0, 'not valid json}}}'],
         );
-        await store.initialize('swap_in');
         final all = await store.readAll('swap_in');
         expect(all, isEmpty);
       });
     });
 
     group('write / read', () {
-      test('persists an entry and flushes to storage', () async {
+      test('persists an entry and reads it back', () async {
         final entry = _entry(id: 'item-1');
         await store.write('swap_in', 'item-1', entry);
 
-        // Verify it's retrievable
         final retrieved = await store.read('swap_in', 'item-1');
         expect(retrieved, isNotNull);
         expect(retrieved!['id'], 'item-1');
 
-        // Verify it's in underlying storage
-        final raw = await storage.read(keyFor(userA.publicKey, 'swap_in'));
-        final list = jsonDecode(raw) as List;
-        expect(list, hasLength(1));
+        // Verify it's in the underlying database
+        final rows = db.select(
+          'SELECT data FROM operations WHERE id = ?',
+          ['item-1'],
+        );
+        expect(rows, hasLength(1));
       });
 
       test('overwrites existing entry with same id', () async {
@@ -213,13 +222,13 @@ void main() {
     });
 
     group('persistence roundtrip', () {
-      test('entries survive store recreation', () async {
+      test('entries survive store recreation (same db)', () async {
         await store.write('swap_in', 'persist-1', _entry(id: 'persist-1'));
         await store.write('swap_out', 'persist-2', _entry(id: 'persist-2'));
         store.dispose();
 
-        // Create a new store instance pointing at the same storage
-        final store2 = OperationStateStore(storage, CustomLogger(), auth);
+        // Create a new store instance pointing at the same database
+        final store2 = OperationStateStore(db, CustomLogger(), auth);
         final swapIn = await store2.readAll('swap_in');
         final swapOut = await store2.readAll('swap_out');
         expect(swapIn, hasLength(1));
@@ -232,24 +241,29 @@ void main() {
 
         // Switch user
         activeKeyPair = userB;
-        // Force reload by creating new store
         store.dispose();
-        store = OperationStateStore(storage, CustomLogger(), auth);
+        store = OperationStateStore(db, CustomLogger(), auth);
         final allB = await store.readAll('swap_in');
         expect(allB, isEmpty);
 
         await store.write('swap_in', 'user-b', _entry(id: 'user-b'));
 
-        // Verify storage has both
-        final rawA = await storage.read(keyFor(userA.publicKey, 'swap_in'));
-        final rawB = await storage.read(keyFor(userB.publicKey, 'swap_in'));
-        expect(rawA, isNotNull);
-        expect(rawB, isNotNull);
+        // Verify database has both users' data
+        final rowsA = db.select(
+          'SELECT * FROM operations WHERE pubkey = ? AND namespace = ?',
+          [userA.publicKey, 'swap_in'],
+        );
+        final rowsB = db.select(
+          'SELECT * FROM operations WHERE pubkey = ? AND namespace = ?',
+          [userB.publicKey, 'swap_in'],
+        );
+        expect(rowsA, hasLength(1));
+        expect(rowsB, hasLength(1));
 
         // Switch back to user A
         activeKeyPair = userA;
         store.dispose();
-        store = OperationStateStore(storage, CustomLogger(), auth);
+        store = OperationStateStore(db, CustomLogger(), auth);
         final allA = await store.readAll('swap_in');
         expect(allA, hasLength(1));
         expect(allA.first['id'], 'user-a');
@@ -275,6 +289,200 @@ void main() {
         await store.remove('swap_in', 'x');
         await Future.delayed(Duration.zero);
         expect(changeCount, 1);
+      });
+    });
+
+    group('atomicClaim', () {
+      test('claims when persisted state is in allowed set', () async {
+        await store.write('swap_in', 'op1', {
+          'id': 'op1',
+          'state': 'funded',
+          'isTerminal': false,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+
+        final result = store.atomicClaim(
+          namespace: 'swap_in',
+          id: 'op1',
+          allowedStates: {'funded'},
+          busyStateName: 'claimRelaying',
+          busyStateJson: {
+            'id': 'op1',
+            'state': 'claimRelaying',
+            'isTerminal': false,
+            'updatedAt': DateTime.now().toIso8601String(),
+          },
+          staleTimeout: const Duration(minutes: 30),
+        );
+
+        expect(result.outcome, CasOutcome.claimed);
+
+        // Verify the busy state was written
+        final persisted = await store.read('swap_in', 'op1');
+        expect(persisted?['state'], 'claimRelaying');
+      });
+
+      test('returns raceForward when state is not in allowed set', () async {
+        await store.write('swap_in', 'op1', {
+          'id': 'op1',
+          'state': 'claimed',
+          'isTerminal': false,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+
+        final result = store.atomicClaim(
+          namespace: 'swap_in',
+          id: 'op1',
+          allowedStates: {'funded'},
+          busyStateName: 'claimRelaying',
+          busyStateJson: {
+            'id': 'op1',
+            'state': 'claimRelaying',
+            'isTerminal': false,
+            'updatedAt': DateTime.now().toIso8601String(),
+          },
+          staleTimeout: const Duration(minutes: 30),
+        );
+
+        expect(result.outcome, CasOutcome.raceForward);
+        expect(result.persistedJson, isNotNull);
+        expect(result.persistedJson!['state'], 'claimed');
+      });
+
+      test('returns busyBackoff when busy state is fresh', () async {
+        await store.write('swap_in', 'op1', {
+          'id': 'op1',
+          'state': 'claimRelaying',
+          'isTerminal': false,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+
+        final result = store.atomicClaim(
+          namespace: 'swap_in',
+          id: 'op1',
+          allowedStates: {'funded', 'claimRelaying'},
+          busyStateName: 'claimRelaying',
+          busyStateJson: {
+            'id': 'op1',
+            'state': 'claimRelaying',
+            'isTerminal': false,
+            'updatedAt': DateTime.now().toIso8601String(),
+          },
+          staleTimeout: const Duration(minutes: 30),
+        );
+
+        expect(result.outcome, CasOutcome.busyBackoff);
+        expect(result.busyAge, isNotNull);
+      });
+
+      test('reclaims stale busy state', () async {
+        final staleTime = DateTime.now()
+            .subtract(const Duration(minutes: 31))
+            .toIso8601String();
+
+        await store.write('swap_in', 'op1', {
+          'id': 'op1',
+          'state': 'claimRelaying',
+          'isTerminal': false,
+          'updatedAt': staleTime,
+        });
+
+        final result = store.atomicClaim(
+          namespace: 'swap_in',
+          id: 'op1',
+          allowedStates: {'funded', 'claimRelaying'},
+          busyStateName: 'claimRelaying',
+          busyStateJson: {
+            'id': 'op1',
+            'state': 'claimRelaying',
+            'isTerminal': false,
+            'updatedAt': DateTime.now().toIso8601String(),
+          },
+          staleTimeout: const Duration(minutes: 30),
+        );
+
+        expect(result.outcome, CasOutcome.claimed);
+      });
+
+      test('claims when entry does not exist', () {
+        final result = store.atomicClaim(
+          namespace: 'swap_in',
+          id: 'nonexistent',
+          allowedStates: {'funded'},
+          busyStateName: 'claimRelaying',
+          busyStateJson: {'id': 'nonexistent', 'state': 'claimRelaying'},
+          staleTimeout: const Duration(minutes: 30),
+        );
+
+        expect(result.outcome, CasOutcome.claimed);
+      });
+    });
+
+    group('writeIfOwned', () {
+      test('writes when state matches expected', () async {
+        await store.write('swap_in', 'op1', {
+          'id': 'op1',
+          'state': 'claimRelaying',
+          'isTerminal': false,
+        });
+
+        final result = store.writeIfOwned(
+          namespace: 'swap_in',
+          id: 'op1',
+          expectedState: 'claimRelaying',
+          json: {
+            'id': 'op1',
+            'state': 'claimed',
+            'isTerminal': false,
+            'updatedAt': DateTime.now().toIso8601String(),
+          },
+        );
+
+        expect(result.written, isTrue);
+        final persisted = await store.read('swap_in', 'op1');
+        expect(persisted?['state'], 'claimed');
+      });
+
+      test('rejects when state does not match', () async {
+        await store.write('swap_in', 'op1', {
+          'id': 'op1',
+          'state': 'claimed',
+          'isTerminal': false,
+        });
+
+        final result = store.writeIfOwned(
+          namespace: 'swap_in',
+          id: 'op1',
+          expectedState: 'claimRelaying',
+          json: {
+            'id': 'op1',
+            'state': 'newState',
+            'isTerminal': false,
+          },
+        );
+
+        expect(result.written, isFalse);
+        expect(result.persistedJson, isNotNull);
+        expect(result.persistedJson!['state'], 'claimed');
+
+        // Verify original state unchanged
+        final persisted = await store.read('swap_in', 'op1');
+        expect(persisted?['state'], 'claimed');
+      });
+
+      test('inserts when entry does not exist', () {
+        final result = store.writeIfOwned(
+          namespace: 'swap_in',
+          id: 'new-op',
+          expectedState: 'anything',
+          json: {
+            'id': 'new-op',
+            'state': 'funded',
+            'isTerminal': false,
+          },
+        );
+
+        expect(result.written, isTrue);
       });
     });
   });

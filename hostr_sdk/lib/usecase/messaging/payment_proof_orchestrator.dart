@@ -6,6 +6,8 @@ import 'package:ndk/ndk.dart' show Nip01EventModel;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../../config.dart';
+import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
@@ -45,11 +47,6 @@ class PaymentProofOrchestrator {
   final List<StreamSubscription> _subscriptions = [];
   bool _started = false;
 
-  /// Completes when [allMyReservations$] has finished its initial load,
-  /// i.e. its status reaches [StreamStatusLive].
-  Completer<void>? _reservationsLoaded;
-  bool _seeded = false;
-
   PaymentProofOrchestrator({
     required UserSubscriptions userSubs,
     required Threads threads,
@@ -64,7 +61,7 @@ class PaymentProofOrchestrator {
        _reservations = reservations,
        _listings = listings,
        _metadata = metadata,
-       _logger = logger.namespace('payment-proof');
+       _logger = logger.scope('payment-proof');
 
   /// Start watching. Call after [UserSubscriptions.start].
   ///
@@ -73,7 +70,7 @@ class PaymentProofOrchestrator {
   /// Proof publication is gated on [allMyReservations$] finishing its
   /// initial load so we can check whether a buyer reservation already
   /// exists before publishing.
-  void start() {
+  void start() => _logger.spanSync('start', () {
     if (_started) return;
     _started = true;
     _logger.d('PaymentProofOrchestrator starting');
@@ -87,42 +84,48 @@ class PaymentProofOrchestrator {
     // Subscribe to payment events via replay so late-starting still gets
     // all previously emitted events.
     _subscriptions.add(_userSubs.paymentEvents$.replay.listen(_onPaymentEvent));
-  }
+  });
 
-  void _checkAndMarkExistingBuyerReservation(Reservation reservation) {
-    if (!reservation.isCommit) return;
+  void _checkAndMarkExistingBuyerReservation(Reservation reservation) =>
+      _logger.spanSync('_checkAndMarkExistingBuyerReservation', () {
+        if (!reservation.isCommit) return;
 
-    final tradeId = reservation.getDtag();
-    if (tradeId == null || tradeId.isEmpty) return;
+        final tradeId = reservation.getDtag();
+        if (tradeId == null || tradeId.isEmpty) return;
 
-    // A committed reservation from someone other than the listing host
-    // is a buyer reservation — mark as processed.
-    final listingAnchor = reservation.parsedTags.listingAnchor;
-    final hostPubkey = getPubKeyFromAnchor(listingAnchor);
-    if (reservation.pubKey != hostPubkey) {
-      _processedTradeIds.add(tradeId);
-    }
-  }
+        // A committed reservation from someone other than the listing host
+        // is a buyer reservation — mark as processed.
+        final listingAnchor = reservation.parsedTags.listingAnchor;
+        final hostPubkey = getPubKeyFromAnchor(listingAnchor);
+        if (reservation.pubKey != hostPubkey) {
+          _processedTradeIds.add(tradeId);
+        }
+      });
 
-  void _onReservation(Reservation reservation) {
-    _checkAndMarkExistingBuyerReservation(reservation);
-  }
+  void _onReservation(Reservation reservation) =>
+      _logger.spanSync('_onReservation', () {
+        _checkAndMarkExistingBuyerReservation(reservation);
+      });
 
-  void _onPaymentEvent(PaymentEvent event) {
-    if (event is ZapFundedEvent) {
-      _handleFundedEvent(tradeId: event.tradeId, funded: event);
-    } else if (event is EscrowFundedEvent) {
-      _handleFundedEvent(tradeId: event.tradeId, funded: event);
-    }
-  }
+  void _onPaymentEvent(PaymentEvent event) =>
+      _logger.spanSync('_onPaymentEvent', () {
+        if (event is ZapFundedEvent) {
+          _handleFundedEvent(tradeId: event.tradeId, funded: event);
+        } else if (event is EscrowFundedEvent) {
+          _handleFundedEvent(tradeId: event.tradeId, funded: event);
+        }
+      });
 
   Future<void> _handleFundedEvent({
     required String tradeId,
     required PaymentFundedEvent funded,
-  }) async {
-    _logger.d('PaymentProofOrchestrator: handling payment $tradeId $funded');
-    _logger.d('PaymentProofOrchestrator: handling payment for sure $funded');
+  }) => _logger.span('_handleFundedEvent', () async {
+    // Re-check after seeding — another funded event may have triggered
+    // publication while we were waiting.
+    if (_processedTradeIds.contains(tradeId)) return;
+    if (_inFlightTradeIds.contains(tradeId)) return;
 
+    _logger.d('PaymentProofOrchestrator: handling payment $tradeId $funded');
     // Wait for reservations to finish loading so we can reliably check
     // whether a buyer reservation already exists before publishing.
     await _userSubs.allMyReservations$.stream.status
@@ -132,8 +135,8 @@ class PaymentProofOrchestrator {
       'PaymentProofOrchestrator: finished all reservations fetch $funded',
     );
 
-    // Re-check after seeding — another funded event may have triggered
-    // publication while we were waiting.
+    // Re-check after await — reservations may have been marked processed
+    // while we were waiting for the stream to go live.
     if (_processedTradeIds.contains(tradeId)) return;
     if (_inFlightTradeIds.contains(tradeId)) return;
 
@@ -213,6 +216,20 @@ class PaymentProofOrchestrator {
         proof: proof,
       );
 
+      // Fire a "Trip booked!" notification so the user knows immediately.
+      try {
+        final show = getIt<HostrConfig>().showNotification;
+        if (show != null) {
+          await show(
+            id: tradeId.hashCode,
+            title: 'Hostr',
+            body: 'Trip booked! 🎉',
+          );
+        }
+      } catch (e) {
+        _logger.w('PaymentProofOrchestrator: notification failed: $e');
+      }
+
       _logger.d(
         'PaymentProofOrchestrator: published buyer reservation '
         '${reservation.id} for trade $tradeId',
@@ -227,40 +244,42 @@ class PaymentProofOrchestrator {
     } finally {
       _inFlightTradeIds.remove(tradeId);
     }
-  }
+  });
 
   /// Checks if a buyer reservation already exists for [tradeId] in the
   /// user-level reservation accumulator.
-  bool _hasBuyerReservation(String tradeId, String hostPubkey) {
-    final reservations = _userSubs.allMyReservations$.stream.list.value;
-    return reservations.any((r) {
-      final rTradeId = r.getDtag();
-      return rTradeId == tradeId && r.pubKey != hostPubkey;
-    });
-  }
+  bool _hasBuyerReservation(String tradeId, String hostPubkey) =>
+      _logger.spanSync('_hasBuyerReservation', () {
+        final reservations = _userSubs.allMyReservations$.stream.list.value;
+        return reservations.any((r) {
+          final rTradeId = r.getDtag();
+          return rTradeId == tradeId && r.pubKey != hostPubkey;
+        });
+      });
 
   /// Finds the [Thread] whose trade matches [tradeId].
-  Thread? _findThreadForTrade(String tradeId) {
-    if (!_threads.threads.containsKey(tradeId)) {
-      return null;
-    }
-    return _threads.threads[tradeId];
-  }
+  Thread? _findThreadForTrade(String tradeId) =>
+      _logger.spanSync('_findThreadForTrade', () {
+        if (!_threads.threads.containsKey(tradeId)) {
+          return null;
+        }
+        return _threads.threads[tradeId];
+      });
 
   /// Derives the salted key pair for a guest's self-signed reservation,
   /// mirroring [Trade.activeKeyPair].
   KeyPair _deriveKeyPair({
     required String hostPubkey,
     required String tradeId,
-  }) {
+  }) => _logger.spanSync('_deriveKeyPair', () {
     final myPubkey = _auth.getActiveKey().publicKey;
     if (hostPubkey == myPubkey) {
       return _auth.getActiveKey();
     }
     return saltedKey(key: _auth.getActiveKey().privateKey!, salt: tradeId);
-  }
+  });
 
-  Future<void> reset() async {
+  Future<void> reset() => _logger.span('reset', () async {
     if (!_started) return;
     _started = false;
     _logger.d('PaymentProofOrchestrator resetting');
@@ -271,9 +290,9 @@ class PaymentProofOrchestrator {
     _subscriptions.clear();
     _processedTradeIds.clear();
     _inFlightTradeIds.clear();
-  }
+  });
 
-  Future<void> dispose() async {
+  Future<void> dispose() => _logger.span('dispose', () async {
     await reset();
-  }
+  });
 }

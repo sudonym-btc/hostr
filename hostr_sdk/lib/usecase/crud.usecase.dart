@@ -26,44 +26,51 @@ class CrudUseCase<T extends Nip01Event> {
     required this.kind,
     this.draftKind,
     required CustomLogger logger,
-  }) : logger = logger.namespace('crud');
+  }) : logger = logger.scope('$T');
 
   /// Notify listeners that an entity was mutated. Call this from external
   /// code (e.g. controllers that bypass [create]/[upsert]/[delete]) to
   /// trigger refresh in consuming widgets.
   void notifyUpdate(T event) => _updates.add(event);
 
-  StreamWithStatus<T> subscribe(Filter f, {String? name}) {
-    return requests.subscribe(
-      filter: getCombinedFilter(f, Filter(kinds: [kind])),
-      name: name != null ? '$T-$name' : '$T',
-    );
-  }
+  StreamWithStatus<T> subscribe(Filter f, {String? name}) =>
+      logger.spanSync('subscribe', () {
+        return requests.subscribe(
+          filter: getCombinedFilter(f, Filter(kinds: [kind])),
+          name: name != null ? '$T-$name' : '$T',
+        );
+      });
 
-  StreamWithStatus<T> query(Filter f, {String? name}) {
-    return StreamWithStatus<T>(
-      queryFn: () => requests.query(
-        filter: getCombinedFilter(f, Filter(kinds: [kind])),
-        name: name != null ? '$T-$name' : '$T',
-      ),
-    );
-  }
+  StreamWithStatus<T> query(Filter f, {String? name}) =>
+      logger.spanSync('query', () {
+        return StreamWithStatus<T>(
+          queryFn: () => requests.query(
+            filter: getCombinedFilter(f, Filter(kinds: [kind])),
+            name: name != null ? '$T-$name' : '$T',
+          ),
+        );
+      });
 
-  /// Creates an [ExpandableSubscription] whose filter can be widened at
-  /// runtime without closing the output stream.
+  /// Creates an [ExpandableSubscription] driven by a [StreamWithStatus]<[Filter]>
+  /// input whose status reflects whether the discovery process is complete.
   ///
-  /// The entity [kind] is automatically merged into [initialFilter].
-  /// Call [ExpandableSubscription.start] after creation to begin fetching.
+  /// The entity [kind] is automatically merged into each filter emitted by
+  /// [filterSource]. The subscription begins listening immediately.
   ExpandableSubscription<T> expandableSubscribe(
-    Filter initialFilter, {
+    StreamWithStatus<Filter> filterSource, {
     required String name,
     Duration debounceDuration = const Duration(milliseconds: 500),
   }) {
+    // Wrap the filter source to merge our kind into every emitted filter.
+    final kindMerged = filterSource.map<Filter>(
+      (filter) => getCombinedFilter(filter, Filter(kinds: [kind])),
+      closeInner: false,
+    );
     return ExpandableSubscription<T>(
       requests: requests,
       logger: logger,
       name: '$T-$name',
-      initialFilter: getCombinedFilter(initialFilter, Filter(kinds: [kind])),
+      filterSource: kindMerged,
       debounceDuration: debounceDuration,
     );
   }
@@ -74,28 +81,31 @@ class CrudUseCase<T extends Nip01Event> {
     return getCombinedFilter(filter, Filter(kinds: [kind]));
   }
 
-  Future<List<RelayBroadcastResponse>> upsert(T event) {
-    return requests.broadcast(event: event).then((r) {
-      _updates.add(event);
-      return r;
-    });
-  }
+  Future<List<RelayBroadcastResponse>> upsert(T event) =>
+      logger.span('upsert', () async {
+        return requests.broadcast(event: event).then((r) {
+          _updates.add(event);
+          return r;
+        });
+      });
 
-  Future<List<RelayBroadcastResponse>> delete(T event) {
-    return requests.broadcast(event: event).then((r) {
-      _updates.add(event);
-      return r;
-    });
-  }
+  Future<List<RelayBroadcastResponse>> delete(T event) =>
+      logger.span('delete', () async {
+        return requests.broadcast(event: event).then((r) {
+          _updates.add(event);
+          return r;
+        });
+      });
 
-  Future<List<T>> list(Filter f, {String? name}) {
-    return requests
-        .query<T>(
-          filter: getCombinedFilter(f, Filter(kinds: [kind])),
-          name: '$T-list${name != null ? '-$name' : ''}',
-        )
-        .toList();
-  }
+  Future<List<T>> list(Filter f, {String? name}) =>
+      logger.span('list', () async {
+        return requests
+            .query<T>(
+              filter: getCombinedFilter(f, Filter(kinds: [kind])),
+              name: '$T-list${name != null ? '-$name' : ''}',
+            )
+            .toList();
+      });
 
   // ── getOne batching ───────────────────────────────────────────────────
   // Collects individual getOne calls, debounces for an adaptive duration,
@@ -110,7 +120,10 @@ class CrudUseCase<T extends Nip01Event> {
   final List<_GetOneRequest<T>> _getOneQueue = [];
   Timer? _getOneTimer;
 
-  Future<T?> getOne(Filter f, {bool batch = true}) {
+  Future<T?> getOne(
+    Filter f, {
+    bool batch = true,
+  }) => logger.span('getOne', () async {
     if (!batch) {
       return requests
           .query<T>(
@@ -135,7 +148,7 @@ class CrudUseCase<T extends Nip01Event> {
     _getOneTimer = Timer(debounce, _flushGetOneQueue);
 
     return completer.future;
-  }
+  });
 
   void _flushGetOneQueue() {
     if (_getOneQueue.isEmpty) return;
@@ -210,18 +223,18 @@ class CrudUseCase<T extends Nip01Event> {
     );
   }
 
-  Future<T> getById(String id) {
+  Future<T> getById(String id) => logger.span('getById', () async {
     return requests
         .query<T>(
           filter: Filter(kinds: [kind], ids: [id], limit: 1),
           name: '$T-getById',
         )
         .first;
-  }
+  });
 
-  Future<int> count() {
+  Future<int> count() => logger.span('count', () async {
     return requests.count(filter: Filter(kinds: [kind]));
-  }
+  });
 
   // ── findByTag batching ──────────────────────────────────────────────
   // Like getOne batching but for multi-result tag queries. Each caller
@@ -240,23 +253,26 @@ class CrudUseCase<T extends Nip01Event> {
   /// Find all events matching [tag]=[value]. Calls within the debounce
   /// window are batched into a single Nostr query. Returns the list of
   /// events whose [tag] contains [value].
-  Future<List<T>> findByTag(String tag, String value) {
-    final completer = Completer<List<T>>();
-    _findByTagQueues
-        .putIfAbsent(tag, () => [])
-        .add(_FindByTagRequest(value: value, completer: completer));
+  Future<List<T>> findByTag(String tag, String value) => logger.span(
+    'findByTag',
+    () async {
+      final completer = Completer<List<T>>();
+      _findByTagQueues
+          .putIfAbsent(tag, () => [])
+          .add(_FindByTagRequest(value: value, completer: completer));
 
-    // Adaptive debounce: short delay for few requests, longer for many.
-    final queueLen = _findByTagQueues[tag]?.length ?? 0;
-    final debounce = queueLen > _findByTagHighLoadThreshold
-        ? _findByTagDebounceMax
-        : _findByTagDebounceMin;
+      // Adaptive debounce: short delay for few requests, longer for many.
+      final queueLen = _findByTagQueues[tag]?.length ?? 0;
+      final debounce = queueLen > _findByTagHighLoadThreshold
+          ? _findByTagDebounceMax
+          : _findByTagDebounceMin;
 
-    _findByTagTimers[tag]?.cancel();
-    _findByTagTimers[tag] = Timer(debounce, () => _flushFindByTagQueue(tag));
+      _findByTagTimers[tag]?.cancel();
+      _findByTagTimers[tag] = Timer(debounce, () => _flushFindByTagQueue(tag));
 
-    return completer.future;
-  }
+      return completer.future;
+    },
+  );
 
   void _flushFindByTagQueue(String tag) {
     final queue = _findByTagQueues.remove(tag);

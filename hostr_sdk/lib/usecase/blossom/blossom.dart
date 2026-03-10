@@ -31,7 +31,9 @@ class BlossomUseCase {
   /// configured [HostrConfig.bootstrapBlossom] servers, and publishes the
   /// combined list. This guarantees that the user always has at least the
   /// bootstrap servers in their published NIP-10063 list.
-  Future<void> ensureBlossomServer(String pubkey) async {
+  Future<void> ensureBlossomServer(
+    String pubkey,
+  ) => logger.span('ensureBlossomServer', () async {
     final blossomList = await _ndk.blossomUserServerList.getUserServerList(
       pubkeys: [pubkey],
     );
@@ -56,7 +58,7 @@ class BlossomUseCase {
 
     // Force refresh the server list cache in NDK after publishing
     await _ndk.blossomUserServerList.getUserServerList(pubkeys: [pubkey]);
-  }
+  });
 
   // ---------------------------------------------------------------------------
   // NDK Blossom pass-through methods
@@ -72,7 +74,7 @@ class BlossomUseCase {
     String? contentType,
     UploadStrategy strategy = UploadStrategy.mirrorAfterSuccess,
     bool serverMediaOptimisation = false,
-  }) {
+  }) => logger.span('uploadBlob', () async {
     final fallbackBootstrap = _config.bootstrapBlossom
         .where((url) => url.trim().isNotEmpty)
         .toSet()
@@ -87,7 +89,7 @@ class BlossomUseCase {
       strategy: strategy,
       serverMediaOptimisation: serverMediaOptimisation,
     );
-  }
+  });
 
   /// Downloads a blob by SHA-256 hash from the user's blossom servers.
   ///

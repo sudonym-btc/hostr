@@ -161,7 +161,7 @@ final BigInt _minWorkerBalance = BigInt.from(10).pow(15); // 0.001 RBTC
 
 @Injectable()
 class RifRelay {
-  final CustomLogger logger;
+  final CustomLogger _logger;
   final Web3Client client;
   final HostrConfig config;
 
@@ -172,8 +172,9 @@ class RifRelay {
   relay_api.PingResponse? _chainInfoCache;
   DateTime? _chainInfoCacheTime;
 
-  RifRelay(this.config, @factoryParam this.client, this.logger)
-    : _api = relay_api.RifRelay.create(
+  RifRelay(this.config, @factoryParam this.client, CustomLogger logger)
+    : _logger = logger.scope('rif-relay'),
+      _api = relay_api.RifRelay.create(
         baseUrl: Uri.parse(config.rootstockConfig.boltz.rifRelayUrl),
       );
 
@@ -182,25 +183,28 @@ class RifRelay {
   // -------------------------------------------------------------------------
 
   /// Returns cached [PingResponse] if still fresh, otherwise fetches anew.
-  Future<relay_api.PingResponse> _getCachedChainInfo() async {
-    final now = DateTime.now();
-    if (_chainInfoCache != null &&
-        _chainInfoCacheTime != null &&
-        now.difference(_chainInfoCacheTime!).inSeconds < _chainInfoTtlSeconds) {
-      return _chainInfoCache!;
-    }
-    final info = await getChainInfo();
-    _chainInfoCache = info;
-    _chainInfoCacheTime = now;
-    return info;
-  }
+  Future<relay_api.PingResponse> _getCachedChainInfo() =>
+      _logger.span('_getCachedChainInfo', () async {
+        final now = DateTime.now();
+        if (_chainInfoCache != null &&
+            _chainInfoCacheTime != null &&
+            now.difference(_chainInfoCacheTime!).inSeconds <
+                _chainInfoTtlSeconds) {
+          return _chainInfoCache!;
+        }
+        final info = await getChainInfo();
+        _chainInfoCache = info;
+        _chainInfoCacheTime = now;
+        return info;
+      });
 
   /// Http GET request to the relay server to get the metadata.
   /// Uses the generated Chopper API client for transport.
-  Future<relay_api.PingResponse> getChainInfo() async {
-    final response = await _api.chainInfoGet();
-    return response.bodyOrThrow;
-  }
+  Future<relay_api.PingResponse> getChainInfo() =>
+      _logger.span('getChainInfo', () async {
+        final response = await _api.chainInfoGet();
+        return response.bodyOrThrow;
+      });
 
   // -------------------------------------------------------------------------
   // HTTP: /estimate and /relay
@@ -208,23 +212,23 @@ class RifRelay {
 
   Future<relay_api.EstimatePost$Response> estimateClaim(
     relay_api.RelayTransactionRequest request,
-  ) async {
-    logger.d('RIF relay /estimateClaim request: $request');
+  ) => _logger.span('estimateClaim', () async {
+    _logger.d('RIF relay /estimateClaim request: $request');
 
     final response = await _api.estimatePost(body: request.toJson());
     if (response.bodyString.contains('error')) {
       throw response.bodyString;
     }
-    logger.d('RIF relay /estimateClaim response: ${response.bodyString}');
+    _logger.d('RIF relay /estimateClaim response: ${response.bodyString}');
 
     return response.bodyOrThrow;
-  }
+  });
 
   Future<relay_api.RelayTransactionRequest> _buildRelayTransactionRequest(
     EtherSwap etherSwap,
     EthPrivateKey signer,
     ClaimArgs args,
-  ) async {
+  ) => _logger.span('_buildRelayTransactionRequest', () async {
     // Encode EtherSwap.claim(preimage, amount, refundAddress, timelock) calldata
     // — 4-param overload (selector 0xc3c37fbc), msg.sender = smart wallet = claimAddress.
     final claimFunction = etherSwap.self.abi.functions.firstWhere(
@@ -239,7 +243,7 @@ class RifRelay {
       ]),
       include0x: true,
     );
-    logger.d('Claim calldata: $claimCalldata');
+    _logger.d('Claim calldata: $claimCalldata');
 
     final info = await _getCachedChainInfo();
     final smartWalletInfo = await getSmartWalletAddress(signer);
@@ -265,7 +269,7 @@ class RifRelay {
     } else {
       final forwarder = getForwarder(smartWalletInfo.address);
       forwardRequestNonce = await forwarder.nonce();
-      logger.d(
+      _logger.d(
         'IForwarder nonce for ${smartWalletInfo.address.eip55With0x}: '
         '$forwardRequestNonce (factory nonce: ${smartWalletInfo.nonce})',
       );
@@ -354,7 +358,7 @@ class RifRelay {
         relayData: relayData,
       ),
     );
-  }
+  });
 
   /// Relays an EtherSwap.claim via the RIF Relay server.
   ///
@@ -369,8 +373,8 @@ class RifRelay {
     EtherSwap etherSwap,
     EthPrivateKey signer,
     ClaimArgs args,
-  ) async {
-    logger.d('RIF relay /relayClaim');
+  ) => _logger.span('relayClaim', () async {
+    _logger.d('RIF relay /relayClaim');
 
     final relayTransactionRequest = await _buildRelayTransactionRequest(
       etherSwap,
@@ -388,7 +392,7 @@ class RifRelay {
     // Do not estimate on deploy, since smart wallet does not yet exist so we cannot estimate reliably
     if (!isDeploy) {
       estimateResponse = await estimateClaim(relayTransactionRequest);
-      logger.d(
+      _logger.d(
         'RIF estimate response: '
         'gasPrice=${estimateResponse.gasPrice}, '
         'estimation=${estimateResponse.estimation}, '
@@ -463,13 +467,9 @@ class RifRelay {
 
     // -- 4. Relay (signed) --
     final requestJson = signed.toJson();
-    logger.d('Relay request JSON: $requestJson');
+    _logger.d('Relay request JSON: $requestJson');
 
     final response = await _api.relayPost(body: requestJson);
-    logger.d(
-      'RIF relay /relay response (${response.statusCode}): '
-      '${response.bodyString}',
-    );
 
     // The relay server may return HTTP 200 with an error body instead of
     // signedTx/txHash.  Detect this before returning a response with null
@@ -488,7 +488,7 @@ class RifRelay {
     }
 
     return relayResponse;
-  }
+  });
 
   // -------------------------------------------------------------------------
   // EIP-712 signing
@@ -505,7 +505,7 @@ class RifRelay {
     required int chainId,
     required String verifyingContract,
     required bool isDeploy,
-  }) {
+  }) => _logger.spanSync('_signRelayRequest', () {
     // EIP-712 type definitions – must match the Solidity structs exactly.
     final relayDataType = [
       const eip712.MessageTypeProperty(name: 'gasPrice', type: 'uint256'),
@@ -614,7 +614,7 @@ class RifRelay {
     packed.setRange(64, 65, v);
 
     return bytesToHex(packed, include0x: true);
-  }
+  });
 
   // -------------------------------------------------------------------------
   // Smart wallet helpers
@@ -629,32 +629,31 @@ class RifRelay {
   ///
   /// The returned [SmartWalletAddressInfo.nonce] is the current factory nonce
   /// and doubles as both the deploy-request `index` and `nonce` fields.
-  Future<SmartWalletAddressInfo> getSmartWalletAddress(
-    EthPrivateKey signer,
-  ) async {
-    final factory = _getSmartWalletFactory();
-    final factoryNonce = await factory.nonce((from: signer.address));
+  Future<SmartWalletAddressInfo> getSmartWalletAddress(EthPrivateKey signer) =>
+      _logger.span('getSmartWalletAddress', () async {
+        final factory = _getSmartWalletFactory();
+        final factoryNonce = await factory.nonce((from: signer.address));
 
-    // Use factoryNonce as the wallet index — this always points to the NEXT
-    // wallet that hasn't been deployed yet, matching the Boltz TS:
-    //   const smartWalletAddress = await factory.getSmartWalletAddress(
-    //       signerAddress, ZeroAddress, nonce);
-    final walletIndex = factoryNonce;
+        // Use factoryNonce as the wallet index — this always points to the NEXT
+        // wallet that hasn't been deployed yet, matching the Boltz TS:
+        //   const smartWalletAddress = await factory.getSmartWalletAddress(
+        //       signerAddress, ZeroAddress, nonce);
+        final walletIndex = factoryNonce;
 
-    final smartWalletAddress = await factory.getSmartWalletAddress((
-      owner: signer.address,
-      recoverer: EthereumAddress.fromHex(_zeroAddress),
-      index: walletIndex,
-    ));
-    logger.d(
-      'RIF smart wallet address $smartWalletAddress '
-      '(factory nonce $factoryNonce, wallet index $walletIndex)',
-    );
-    return SmartWalletAddressInfo(
-      nonce: factoryNonce,
-      address: smartWalletAddress,
-    );
-  }
+        final smartWalletAddress = await factory.getSmartWalletAddress((
+          owner: signer.address,
+          recoverer: EthereumAddress.fromHex(_zeroAddress),
+          index: walletIndex,
+        ));
+        _logger.d(
+          'RIF smart wallet address $smartWalletAddress '
+          '(factory nonce $factoryNonce, wallet index $walletIndex)',
+        );
+        return SmartWalletAddressInfo(
+          nonce: factoryNonce,
+          address: smartWalletAddress,
+        );
+      });
 
   SmartWalletFactory _getSmartWalletFactory() {
     final factoryAddress =
@@ -680,29 +679,32 @@ class RifRelay {
   /// deploy/relay claim transactions.
   ///
   /// Only [signer] is needed to determine the deploy-vs-relay path.
-  Future<BigInt> estimateClaimBeforeLock(EthPrivateKey evmKey) async {
-    // Boltz subsidizes these claim relays
-    return BitcoinAmount.zero().getInWei;
-    // final info = await _getCachedChainInfo();
-    // final smartWalletInfo = await getSmartWalletAddress(evmKey);
-    // final isDeploy = smartWalletInfo.nonce == BigInt.zero;
+  Future<BigInt> estimateClaimBeforeLock(EthPrivateKey evmKey) => _logger.span(
+    'estimateClaimBeforeLock',
+    () async {
+      // Boltz subsidizes these claim relays
+      return BitcoinAmount.zero().getInWei;
+      // final info = await _getCachedChainInfo();
+      // final smartWalletInfo = await getSmartWalletAddress(evmKey);
+      // final isDeploy = smartWalletInfo.nonce == BigInt.zero;
 
-    // final gasPrice = await client.getGasPrice();
-    // final minGasPrice =
-    //     BigInt.tryParse(info.minGasPrice?.toString() ?? '') ?? BigInt.zero;
-    // final effectiveGasPrice = gasPrice.getInWei > minGasPrice
-    //     ? gasPrice.getInWei
-    //     : minGasPrice;
+      // final gasPrice = await client.getGasPrice();
+      // final minGasPrice =
+      //     BigInt.tryParse(info.minGasPrice?.toString() ?? '') ?? BigInt.zero;
+      // final effectiveGasPrice = gasPrice.getInWei > minGasPrice
+      //     ? gasPrice.getInWei
+      //     : minGasPrice;
 
-    // final gasEstimate = BigInt.from(
-    //   isDeploy ? _estimatedDeployClaimGas : _estimatedRelayClaimGas,
-    // );
+      // final gasEstimate = BigInt.from(
+      //   isDeploy ? _estimatedDeployClaimGas : _estimatedRelayClaimGas,
+      // );
 
-    // final fee = effectiveGasPrice * gasEstimate;
-    // logger.d(
-    //   'estimateClaimBeforeLock: isDeploy=$isDeploy, '
-    //   'gasPrice=$effectiveGasPrice, gas=$gasEstimate, fee=$fee wei',
-    // );
-    // return fee;
-  }
+      // final fee = effectiveGasPrice * gasEstimate;
+      // _logger.d(
+      //   'estimateClaimBeforeLock: isDeploy=$isDeploy, '
+      //   'gasPrice=$effectiveGasPrice, gas=$gasEstimate, fee=$fee wei',
+      // );
+      // return fee;
+    },
+  );
 }

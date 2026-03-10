@@ -149,7 +149,7 @@ class Hostr {
         evm.resetBalance();
 
         // Recover any stale swaps (claims/refunds) from previous sessions.
-        evm.recoverStaleOperations();
+        evm.recoverStaleOperations(onProgress: _onProgressFromConfig());
 
         // Start auto-withdrawing EVM balances to Lightning.
         autoWithdraw.start();
@@ -169,6 +169,20 @@ class Hostr {
     });
   }
 
+  /// Lightweight connect for background workers.
+  ///
+  /// Connects to bootstrap relays and syncs the user's NIP-65 relay list
+  /// so that queries work correctly, but does **not** start any long-lived
+  /// subscriptions (UserSubscriptions, PaymentProofOrchestrator, NWC,
+  /// Calendar, AutoWithdraw, etc.).
+  ///
+  /// Use this instead of [connect] in Workmanager callbacks to keep the
+  /// background isolate fast and resource-light.
+  Future<void> connectForBackground() async {
+    await relays.connect();
+    await relays.ensureConnected();
+  }
+
   /// Legacy single-call entry point. Calls [initAuth] then [connect].
   @Deprecated('Use initAuth() + connect() instead')
   Future<void> start() async {
@@ -181,6 +195,18 @@ class Hostr {
 
   Future<void> _stopAuthListener() async {
     await _authStateSubscription?.cancel();
+  }
+
+  /// Bridges [HostrConfig.showNotification] into an [OnBackgroundProgress]
+  /// callback that the recovery pipeline understands.
+  OnBackgroundProgress? _onProgressFromConfig() {
+    final show = config.showNotification;
+    if (show == null) return null;
+    return (notification) => show(
+      id: notification.operationId.hashCode,
+      title: 'Hostr',
+      body: notification.body,
+    );
   }
 
   Future<void> dispose() async {

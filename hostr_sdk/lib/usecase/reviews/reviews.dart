@@ -28,7 +28,7 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
   }) : super(kind: Review.kinds[0]);
 
   @override
-  Future<ReviewDeps> resolve(Review review) async {
+  Future<ReviewDeps> resolve(Review review) => logger.span('resolve', () async {
     // Both calls drop into their respective batch queues. When multiple
     // reviews resolve concurrently, these merge into 1 findByTag query +
     // 1 getOne batch query.
@@ -51,62 +51,65 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
       reservations: candidateReservations,
       listing: results[1] as Listing?,
     );
-  }
+  });
 
   @override
-  Validation<Review> verify(Review review, ReviewDeps deps) {
-    logger.d(
-      "Verifying review ${review.id} with ${deps.reservations.length} "
-      "matching reservations and listing ${deps.listing?.id}",
-    );
-    if (deps.reservations.isEmpty) {
-      return Invalid(review, 'No matching reservation found');
-    }
-
-    final listing = deps.listing;
-    if (listing == null) {
-      return Invalid(review, 'Listing not found');
-    }
-
-    // Verify participation proof against candidate reservations.
-    final proofMatchedReservations = deps.reservations
-        .where(
-          (reservation) =>
-              Review.validateProof(reservation, review.pubKey, review.proof),
-        )
-        .toList();
-    if (proofMatchedReservations.isEmpty) {
-      return Invalid(review, 'Participation proof does not match');
-    }
-
-    // Host-confirmed reservation: no payment proof needed.
-    final hostConfirmed = proofMatchedReservations.any(
-      (r) => r.pubKey == listing.pubKey && !r.cancelled,
-    );
-    if (hostConfirmed) {
-      return Valid(review);
-    }
-
-    // Self-signed: validate payment proof on the senior reservation.
-    final senior = Reservation.getSeniorReservation(
-      reservations: proofMatchedReservations,
-    );
-    if (senior == null) {
-      return Invalid(review, 'No valid reservation in group');
-    }
-
-    final validation = Reservation.validate(senior);
-    if (!validation.isValid) {
-      final reason = validation.fields.values
-          .where((f) => !f.ok)
-          .map((f) => f.message)
-          .join('; ');
-      return Invalid(
-        review,
-        reason.isNotEmpty ? reason : 'Invalid payment proof',
+  Validation<Review> verify(Review review, ReviewDeps deps) => logger.spanSync(
+    'verify',
+    () {
+      logger.d(
+        "Verifying review ${review.id} with ${deps.reservations.length} "
+        "matching reservations and listing ${deps.listing?.id}",
       );
-    }
+      if (deps.reservations.isEmpty) {
+        return Invalid(review, 'No matching reservation found');
+      }
 
-    return Valid(review);
-  }
+      final listing = deps.listing;
+      if (listing == null) {
+        return Invalid(review, 'Listing not found');
+      }
+
+      // Verify participation proof against candidate reservations.
+      final proofMatchedReservations = deps.reservations
+          .where(
+            (reservation) =>
+                Review.validateProof(reservation, review.pubKey, review.proof),
+          )
+          .toList();
+      if (proofMatchedReservations.isEmpty) {
+        return Invalid(review, 'Participation proof does not match');
+      }
+
+      // Host-confirmed reservation: no payment proof needed.
+      final hostConfirmed = proofMatchedReservations.any(
+        (r) => r.pubKey == listing.pubKey && !r.cancelled,
+      );
+      if (hostConfirmed) {
+        return Valid(review);
+      }
+
+      // Self-signed: validate payment proof on the senior reservation.
+      final senior = Reservation.getSeniorReservation(
+        reservations: proofMatchedReservations,
+      );
+      if (senior == null) {
+        return Invalid(review, 'No valid reservation in group');
+      }
+
+      final validation = Reservation.validate(senior);
+      if (!validation.isValid) {
+        final reason = validation.fields.values
+            .where((f) => !f.ok)
+            .map((f) => f.message)
+            .join('; ');
+        return Invalid(
+          review,
+          reason.isNotEmpty ? reason : 'Invalid payment proof',
+        );
+      }
+
+      return Valid(review);
+    },
+  );
 }

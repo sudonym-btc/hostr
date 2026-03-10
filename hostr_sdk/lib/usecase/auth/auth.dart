@@ -32,72 +32,74 @@ class Auth {
   }) : _logger = logger;
 
   /// Generates a new key pair and stores it, clearing any previous keys.
-  Future<void> signup() async {
+  Future<void> signup() => _logger.span('signup', () async {
     _logger.i('AuthService.signup');
     await logout();
     await signin(Bip340.generatePrivateKey().privateKey!);
-  }
+  });
 
   /// Imports a private key (hex or nsec) and stores it.
-  Future<void> signin(String input) async {
+  Future<void> signin(String input) => _logger.span('signin', () async {
     _logger.i('AuthService.signin');
     final privateKey = _parseAndValidateKey(input);
     await authStorage.set([privateKey]);
     await _loadActiveKeyPair();
     ensureNdkAccountsMatch();
     _syncAuthState();
-  }
+  });
 
   /// Wipes key storage and secure storage.
-  Future<void> logout() async {
+  Future<void> logout() => _logger.span('logout', () async {
     _logger.i('AuthService.logout');
     await authStorage.wipe();
     await _loadActiveKeyPair();
     ensureNdkAccountsMatch();
     _syncAuthState();
-  }
+  });
 
-  Future<void> init() async {
+  Future<void> init() => _logger.span('init', () async {
     await _loadActiveKeyPair();
     ensureNdkAccountsMatch();
     _syncAuthState();
-  }
+  });
 
   /// Returns whether there is an active key pair.
-  Future<bool> isAuthenticated() async {
+  Future<bool> isAuthenticated() => _logger.span('isAuthenticated', () async {
     await _loadActiveKeyPair();
     return activeKeyPair != null;
-  }
+  });
 
   /// Restores NDK login using the stored key, if any.
-  bool ensureNdkAccountsMatch() {
-    if (activeKeyPair == null) {
-      final pubkeys = ndk.accounts.accounts.keys.toList(growable: false);
-      for (final pubkey in pubkeys) {
-        ndk.accounts.removeAccount(pubkey: pubkey);
-      }
-    } else {
-      final pubkey = activeKeyPair!.publicKey;
-      final privkey = activeKeyPair!.privateKey!;
-      final alreadyLoggedIn =
-          ndk.accounts.accounts.containsKey(pubkey) ||
-          ndk.accounts.getPublicKey() == pubkey;
+  bool ensureNdkAccountsMatch() =>
+      _logger.spanSync('ensureNdkAccountsMatch', () {
+        if (activeKeyPair == null) {
+          final pubkeys = ndk.accounts.accounts.keys.toList(growable: false);
+          for (final pubkey in pubkeys) {
+            ndk.accounts.removeAccount(pubkey: pubkey);
+          }
+        } else {
+          final pubkey = activeKeyPair!.publicKey;
+          final privkey = activeKeyPair!.privateKey!;
+          final alreadyLoggedIn =
+              ndk.accounts.accounts.containsKey(pubkey) ||
+              ndk.accounts.getPublicKey() == pubkey;
 
-      if (!alreadyLoggedIn) {
-        _logger.i('Restoring NDK account for stored key');
-        ndk.accounts.loginPrivateKey(privkey: privkey, pubkey: pubkey);
-      }
-    }
+          if (!alreadyLoggedIn) {
+            _logger.i('Restoring NDK account for stored key');
+            ndk.accounts.loginPrivateKey(privkey: privkey, pubkey: pubkey);
+          }
+        }
 
-    return true;
-  }
+        return true;
+      });
 
-  Future<void> _loadActiveKeyPair() async {
-    final privateKey = await authStorage.get();
-    activeKeyPair = privateKey.isEmpty
-        ? null
-        : Bip340.fromPrivateKey(privateKey[0]);
-  }
+  Future<void> _loadActiveKeyPair() =>
+      _logger.span('_loadActiveKeyPair', () async {
+        final privateKey = await authStorage.get();
+        activeKeyPair = privateKey.isEmpty
+            ? null
+            : Bip340.fromPrivateKey(privateKey[0]);
+      });
 
   KeyPair getActiveKey() {
     if (activeKeyPair == null) {
@@ -128,24 +130,25 @@ class Auth {
 
   /// Scans HD account indices 0..[maxScan] to find the one whose address
   /// matches [address]. Throws [StateError] if no match is found.
-  int findEvmAccountIndex(bip.EthereumAddress address, {int maxScan = 20}) {
-    for (var i = 0; i < maxScan; i++) {
-      final derived = getEvmAddress(accountIndex: i);
-      if (derived == address) return i;
-    }
-    throw StateError(
-      'No HD account index (0..$maxScan) matches address '
-      '${address.eip55With0x}',
-    );
-  }
+  int findEvmAccountIndex(bip.EthereumAddress address, {int maxScan = 20}) =>
+      _logger.spanSync('findEvmAccountIndex', () {
+        for (var i = 0; i < maxScan; i++) {
+          final derived = getEvmAddress(accountIndex: i);
+          if (derived == address) return i;
+        }
+        throw StateError(
+          'No HD account index (0..$maxScan) matches address '
+          '${address.eip55With0x}',
+        );
+      });
 
   /// Returns the 24-word BIP-39 mnemonic derived from the Nostr private key
   /// entropy. Paste this into MetaMask to see all derived EVM addresses.
-  List<String> getEvmMnemonic() {
+  List<String> getEvmMnemonic() => _logger.spanSync('getEvmMnemonic', () {
     final nsecHex = getActiveKey().privateKey!;
     final entropy = Uint8List.fromList(convert.hex.decode(nsecHex));
     return bip.entropyToMnemonic(entropy);
-  }
+  });
 
   /// Derives the EVM private key at [accountIndex] from the Nostr key.
   EthPrivateKey _deriveEvmKey(int accountIndex) {
@@ -173,28 +176,29 @@ class Auth {
   /// Accepts:
   /// - 64-char hex private key
   /// - nsec1… bech32-encoded private key
-  String _parseAndValidateKey(String input) {
-    final trimmed = input.trim();
+  String _parseAndValidateKey(String input) =>
+      _logger.spanSync('_parseAndValidateKey', () {
+        final trimmed = input.trim();
 
-    // Raw hex
-    if (trimmed.length == 64 && _isHex(trimmed)) {
-      return trimmed;
-    }
+        // Raw hex
+        if (trimmed.length == 64 && _isHex(trimmed)) {
+          return trimmed;
+        }
 
-    // nsec bech32
-    if (trimmed.startsWith('nsec1')) {
-      final decoded = Helpers.decodeBech32(trimmed);
-      final hex = decoded[0];
-      if (hex.isNotEmpty && hex.length == 64 && _isHex(hex)) {
-        return hex;
-      }
-      throw Exception('Invalid nsec key');
-    }
+        // nsec bech32
+        if (trimmed.startsWith('nsec1')) {
+          final decoded = Helpers.decodeBech32(trimmed);
+          final hex = decoded[0];
+          if (hex.isNotEmpty && hex.length == 64 && _isHex(hex)) {
+            return hex;
+          }
+          throw Exception('Invalid nsec key');
+        }
 
-    throw Exception(
-      'Invalid key format. Expected nsec or 64-char hex private key',
-    );
-  }
+        throw Exception(
+          'Invalid key format. Expected nsec or 64-char hex private key',
+        );
+      });
 
   bool _isHex(String str) {
     return RegExp(r'^[0-9a-fA-F]+$').hasMatch(str);

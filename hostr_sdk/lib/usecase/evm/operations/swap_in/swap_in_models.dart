@@ -10,6 +10,11 @@ class SwapInParams {
   BitcoinAmount? maxAmount;
   final String? invoiceDescription;
 
+  /// When this swap is nested inside a parent operation (e.g. escrow-fund),
+  /// set this to the parent's operation ID so that progress notifications
+  /// update the same OS notification as the parent.
+  final String? parentOperationId;
+
   SwapInParams({
     required this.evmKey,
     required this.accountIndex,
@@ -17,6 +22,7 @@ class SwapInParams {
     this.minAmount,
     this.maxAmount,
     this.invoiceDescription,
+    this.parentOperationId,
   });
 }
 

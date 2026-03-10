@@ -29,23 +29,23 @@ abstract class PayOperation<
     @factoryParam required this.params,
     required this.nwc,
     required CustomLogger logger,
-  }) : logger = logger.namespace('pay'),
+  }) : logger = logger.scope('pay'),
        super(PayInitialised(params: params));
   Future<RD> resolver();
   Future<CD> finalizer();
   Future<CmpD> completer();
 
-  void setParams(T params) {
+  void setParams(T params) => logger.spanSync('setParams', () {
     this.params = params;
     resolvedDetails = null;
     callbackDetails = null;
     completedDetails = null;
     emit(PayInitialised(params: params));
-  }
+  });
 
   /// Called upon initialization
   /// Estimates fees etc
-  Future<void> resolve() async {
+  Future<void> resolve() => logger.span('resolve', () async {
     emit(PayResolveInitiated(params: params));
     try {
       resolvedDetails = await resolver();
@@ -84,10 +84,12 @@ abstract class PayOperation<
         effectiveMaxAmount: effectiveMax,
       ),
     );
-  }
+  });
 
   /// Updates the payment amount (must be within the effective range).
-  void updateAmount(BitcoinAmount amount) {
+  void updateAmount(
+    BitcoinAmount amount,
+  ) => logger.spanSync('updateAmount', () {
     if (resolvedDetails == null ||
         _effectiveMinAmount == null ||
         _effectiveMaxAmount == null) {
@@ -112,9 +114,9 @@ abstract class PayOperation<
         effectiveMaxAmount: _effectiveMaxAmount!,
       ),
     );
-  }
+  });
 
-  Future<void> finalize() async {
+  Future<void> finalize() => logger.span('finalize', () async {
     emit(PayCallbackInitiated(params: params));
     try {
       callbackDetails = await finalizer();
@@ -122,40 +124,44 @@ abstract class PayOperation<
     } catch (e) {
       emit(PayFailed(e.toString(), params: params));
     }
-  }
+  });
 
   /// Attempts to settle a Lightning invoice via NWC.
   ///
   /// Returns the preimage on success. If no NWC connection is available or
   /// the NWC payment fails, emits [PayExternalRequired] (attaching the NWC
   /// error when one was attempted) and returns `null`.
-  Future<String?> settleInvoice(String bolt11) async {
-    final connection = nwc.getActiveConnection();
-    if (connection == null) {
-      logger.d('No NWC connection available, requiring external payment');
-      emit(
-        PayExternalRequired(params: params, callbackDetails: callbackDetails!),
-      );
-      return null;
-    }
+  Future<String?> settleInvoice(String bolt11) =>
+      logger.span('settleInvoice', () async {
+        final connection = nwc.getActiveConnection();
+        if (connection == null) {
+          logger.d('No NWC connection available, requiring external payment');
+          emit(
+            PayExternalRequired(
+              params: params,
+              callbackDetails: callbackDetails!,
+            ),
+          );
+          return null;
+        }
 
-    try {
-      final response = await nwc.payInvoice(connection, bolt11);
-      return response.preimage;
-    } catch (e) {
-      logger.w('NWC payment failed, falling back to external: $e');
-      emit(
-        PayExternalRequired(
-          params: params,
-          callbackDetails: callbackDetails!,
-          nwcError: e.toString(),
-        ),
-      );
-      return null;
-    }
-  }
+        try {
+          final response = await nwc.payInvoice(connection, bolt11);
+          return response.preimage;
+        } catch (e) {
+          logger.w('NWC payment failed, falling back to external: $e');
+          emit(
+            PayExternalRequired(
+              params: params,
+              callbackDetails: callbackDetails!,
+              nwcError: e.toString(),
+            ),
+          );
+          return null;
+        }
+      });
 
-  Future<void> complete() async {
+  Future<void> complete() => logger.span('complete', () async {
     emit(PayInFlight(params: params));
     try {
       completedDetails = await completer();
@@ -166,14 +172,14 @@ abstract class PayOperation<
     } catch (e) {
       emit(PayFailed(e.toString(), params: params));
     }
-  }
+  });
 
   /// Called when we want to execute this payment right away
-  Future<void> execute() async {
+  Future<void> execute() => logger.span('execute', () async {
     await resolve();
     if (state is PayFailed) return;
     await finalize();
     if (state is PayFailed) return;
     await complete();
-  }
+  });
 }

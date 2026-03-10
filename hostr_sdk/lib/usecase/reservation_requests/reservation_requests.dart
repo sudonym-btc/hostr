@@ -40,7 +40,7 @@ class ReservationRequests extends CrudUseCase {
     required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
-  }) async {
+  }) => logger.span('createReservationRequest', () async {
     // Generate random nonce for this reservation request
     final nonce = Helpers.getSecureRandomHex(32);
     final salt = Helpers.getSecureRandomHex(32);
@@ -65,5 +65,5 @@ class ReservationRequests extends CrudUseCase {
       salt: salt,
       recipient: recipientKey.publicKey,
     ).signAs(recipientKey, Reservation.fromNostrEvent);
-  }
+  });
 }

@@ -41,7 +41,7 @@ class EscrowVerification {
   final CustomLogger logger;
 
   EscrowVerification({required this.evm, required CustomLogger logger})
-    : logger = logger.namespace('escrow-verify');
+    : logger = logger.scope('escrow-verify');
 
   /// Verify the on-chain escrow for [reservation] against [listing].
   ///
@@ -52,7 +52,7 @@ class EscrowVerification {
   /// any check fails or no escrow proof is present.
   Future<EscrowVerificationResult> verify({
     required Reservation reservation,
-  }) async {
+  }) => logger.span('verify', () async {
     final proof = reservation.proof;
     if (proof == null) {
       return const EscrowVerificationResult.invalid(
@@ -184,5 +184,5 @@ class EscrowVerification {
     );
 
     return EscrowVerificationResult.valid(trade: fundTx);
-  }
+  });
 }

@@ -1,0 +1,349 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 1,
+    "id": null,
+    "links": [],
+    "panels": [
+        {
+            "title": "Operation Traces (rate/min)",
+            "description": "Trace throughput grouped by operation namespace",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 0
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "fillOpacity": 20,
+                        "lineWidth": 2,
+                        "spanNulls": true,
+                        "stacking": {
+                            "mode": "none"
+                        }
+                    },
+                    "unit": "opm"
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "mean",
+                        "lastNotNull"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "multi"
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "sum by (hostr_operation_namespace) (rate(traces_spanmetrics_calls_total{hostr_operation_namespace!=\"\"}[$__rate_interval])) * 60",
+                    "legendFormat": "{{hostr_operation_namespace}}"
+                }
+            ]
+        },
+        {
+            "title": "Error Rate by Namespace",
+            "description": "Error spans per operation namespace",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 0
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "fillOpacity": 20,
+                        "lineWidth": 2,
+                        "spanNulls": true
+                    },
+                    "unit": "opm"
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "mean",
+                        "lastNotNull"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "multi"
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "sum by (hostr_operation_namespace) (rate(traces_spanmetrics_calls_total{status_code=\"STATUS_CODE_ERROR\", hostr_operation_namespace!=\"\"}[$__rate_interval])) * 60",
+                    "legendFormat": "{{hostr_operation_namespace}}"
+                }
+            ]
+        },
+        {
+            "title": "Trace Search — Operations",
+            "description": "Search for operation traces in Tempo by namespace, state or ID",
+            "type": "traces",
+            "gridPos": {
+                "h": 12,
+                "w": 24,
+                "x": 0,
+                "y": 8
+            },
+            "datasource": {
+                "type": "tempo",
+                "uid": "tempo"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "tempo",
+                        "uid": "tempo"
+                    },
+                    "queryType": "traceqlSearch",
+                    "filters": [
+                        {
+                            "id": "service-name",
+                            "tag": "service.name",
+                            "operator": "=",
+                            "scope": "resource"
+                        },
+                        {
+                            "id": "op-namespace",
+                            "tag": "hostr.operation.namespace",
+                            "operator": "=",
+                            "scope": "span"
+                        },
+                        {
+                            "id": "op-state",
+                            "tag": "hostr.operation.state",
+                            "operator": "=",
+                            "scope": "span"
+                        },
+                        {
+                            "id": "status",
+                            "tag": "status",
+                            "operator": "=",
+                            "scope": "intrinsic"
+                        }
+                    ],
+                    "limit": 20
+                }
+            ]
+        },
+        {
+            "title": "Operation State Distribution",
+            "description": "Count of traces per operation state",
+            "type": "piechart",
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 0,
+                "y": 20
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "table",
+                    "placement": "right"
+                },
+                "pieType": "donut",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ]
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "sum by (hostr_operation_state) (traces_spanmetrics_calls_total{hostr_operation_state!=\"\"})",
+                    "legendFormat": "{{hostr_operation_state}}"
+                }
+            ]
+        },
+        {
+            "title": "Operation Types",
+            "description": "Count of traces per operation type",
+            "type": "piechart",
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 8,
+                "y": 20
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "table",
+                    "placement": "right"
+                },
+                "pieType": "donut",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ]
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "sum by (hostr_operation_type) (traces_spanmetrics_calls_total{hostr_operation_type!=\"\"})",
+                    "legendFormat": "{{hostr_operation_type}}"
+                }
+            ]
+        },
+        {
+            "title": "P95 Duration by Namespace",
+            "description": "95th percentile span duration per operation namespace",
+            "type": "timeseries",
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 16,
+                "y": 20
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "fillOpacity": 10,
+                        "lineWidth": 2,
+                        "spanNulls": true
+                    },
+                    "unit": "s"
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "mean",
+                        "lastNotNull"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "multi"
+                }
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "expr": "histogram_quantile(0.95, sum by (le, hostr_operation_namespace) (rate(traces_spanmetrics_duration_seconds_bucket{hostr_operation_namespace!=\"\"}[$__rate_interval])))",
+                    "legendFormat": "{{hostr_operation_namespace}}"
+                }
+            ]
+        }
+    ],
+    "schemaVersion": 39,
+    "tags": [
+        "hostr",
+        "operations",
+        "otel"
+    ],
+    "templating": {
+        "list": []
+    },
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "Hostr — Operations Overview",
+    "uid": "hostr-operations-overview",
+    "version": 1
+}

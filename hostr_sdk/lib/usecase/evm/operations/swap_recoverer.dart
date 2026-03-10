@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:injectable/injectable.dart';
 
 import '../../../injection.dart';
@@ -27,20 +25,21 @@ class SwapRecoverer {
   final CustomLogger _logger;
 
   SwapRecoverer(this._store, this._auth, CustomLogger logger)
-    : _logger = logger.namespace('swap-recoverer');
+    : _logger = logger.scope('swap-recoverer');
 
   /// Recover all pending swaps (both swap-in and swap-out).
   ///
-  /// When [onProgress] is provided, fires real-time notifications at key
-  /// swap state transitions. [swapToTradeId] maps a swap's `boltzId` to
-  /// its parent escrow `tradeId` so the notification ID stays stable.
+  /// When [onProgress] is provided, the swap operations fire real-time
+  /// notifications at key state transitions. Nested swaps use their
+  /// persisted [SwapInData.parentOperationId] to keep the notification
+  /// ID stable across swap → parent-operation stages.
   ///
   /// Returns the number of swaps that were resolved (completed, failed,
   /// or refunded). Safe to call repeatedly — idempotent.
   Future<int> recoverAll({
+    bool isBackground = false,
     OnBackgroundProgress? onProgress,
-    Map<String, String> swapToTradeId = const {},
-  }) async {
+  }) => _logger.span('recoverAll', () async {
     int resolved = 0;
 
     // Prune terminal entries older than 30 days.
@@ -53,7 +52,7 @@ class SwapRecoverer {
       const Duration(days: 30),
     );
     if (prunedIn + prunedOut > 0) {
-      _logger.d('SwapRecoverer: pruned ${prunedIn + prunedOut} old entries');
+      _logger.d('pruned ${prunedIn + prunedOut} old entries');
     }
 
     // Recover swap-ins
@@ -64,13 +63,13 @@ class SwapRecoverer {
         if (state.isTerminal || state is SwapInInitialised) continue;
         if (await _recoverSwapIn(
           state,
+          isBackground: isBackground,
           onProgress: onProgress,
-          swapToTradeId: swapToTradeId,
         )) {
           resolved++;
         }
       } catch (e) {
-        _logger.e('SwapRecoverer: swap-in recovery error: $e');
+        _logger.e('swap-in recovery error: $e');
       }
     }
 
@@ -80,23 +79,24 @@ class SwapRecoverer {
       try {
         final state = SwapOutState.fromJson(json);
         if (state.isTerminal || state is SwapOutInitialised) continue;
-        if (await _recoverSwapOut(state)) resolved++;
+        if (await _recoverSwapOut(state, isBackground: isBackground))
+          resolved++;
       } catch (e) {
-        _logger.e('SwapRecoverer: swap-out recovery error: $e');
+        _logger.e('swap-out recovery error: $e');
       }
     }
 
     if (swapInEntries.isNotEmpty || swapOutEntries.isNotEmpty) {
-      _logger.i('SwapRecoverer: resolved $resolved swap(s)');
+      _logger.i('resolved $resolved swap(s)');
     }
     return resolved;
-  }
+  });
 
   Future<bool> _recoverSwapIn(
     SwapInState state, {
+    bool isBackground = false,
     OnBackgroundProgress? onProgress,
-    Map<String, String> swapToTradeId = const {},
-  }) async {
+  }) => _logger.span('_recoverSwapIn', () async {
     final data = state.data!;
     final evmKey = _auth.getActiveEvmKey(accountIndex: data.accountIndex);
 
@@ -109,45 +109,30 @@ class SwapRecoverer {
         accountIndex: data.accountIndex,
         // Amount is unused during recovery — only recover() is called.
         amount: BitcoinAmount.zero(),
+        // Restore parent link from persisted data so notifications
+        // update the same OS notification as the parent operation.
+        parentOperationId: data.parentOperationId,
       ),
       initialState: state,
     );
 
-    // Listen for key state transitions and fire progress notifications.
-    StreamSubscription? sub;
+    // Let the swap operation itself fire progress notifications.
     if (onProgress != null) {
-      final opId = swapToTradeId[data.boltzId] ?? data.boltzId;
-      _logger.d(
-        'SwapRecoverer: listening for progress on ${data.boltzId} '
-        '(notif opId=$opId, initial state=${state.runtimeType})',
-      );
-      sub = cubit.stream.listen((s) {
-        _logger.d('SwapRecoverer: state transition → ${s.runtimeType}');
-        final String? message;
-        if (s is SwapInAwaitingOnChain) {
-          message = 'Invoice paid, awaiting on-chain confirmation\u2026';
-        } else if (s is SwapInFunded) {
-          message = 'Swap funds received, claiming\u2026';
-        } else if (s is SwapInCompleted) {
-          message = 'Swap completed';
-        } else {
-          message = null;
-        }
-        if (message != null) {
-          onProgress(BackgroundNotification(operationId: opId, body: message));
-        }
-      });
+      cubit.onProgress = (id, msg) =>
+          onProgress(BackgroundNotification(operationId: id, body: msg));
     }
 
     try {
-      return await cubit.recover();
+      return await cubit.recover(isBackground: isBackground);
     } finally {
-      await sub?.cancel();
       await cubit.close();
     }
-  }
+  });
 
-  Future<bool> _recoverSwapOut(SwapOutState state) async {
+  Future<bool> _recoverSwapOut(
+    SwapOutState state, {
+    bool isBackground = false,
+  }) => _logger.span('_recoverSwapOut', () async {
     final data = state.data!;
     final evmKey = _auth.getActiveEvmKey(accountIndex: data.accountIndex);
 
@@ -168,9 +153,9 @@ class SwapRecoverer {
     );
 
     try {
-      return await cubit.recover();
+      return await cubit.recover(isBackground: isBackground);
     } finally {
       await cubit.close();
     }
-  }
+  });
 }

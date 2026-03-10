@@ -44,7 +44,7 @@ class ReservationPairs {
     required this.reservations,
     required CustomLogger logger,
     required this.evm,
-  }) : logger = logger.namespace('reservation-pairs');
+  }) : logger = logger.scope('reservation-pairs');
 
   // ── Public API ──────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ class ReservationPairs {
     bool closeSourceOnClose = false,
     bool forceValidateSelfSigned = false,
     bool Function(ReservationPairStatus pair)? forceValidatePredicate,
-  }) {
+  }) => logger.spanSync('verifyFromSource', () {
     return _buildValidatedStream(
       source: source,
       debounce: debounce,
@@ -67,7 +67,7 @@ class ReservationPairs {
       forceValidateSelfSigned: forceValidateSelfSigned,
       forceValidatePredicate: forceValidatePredicate,
     );
-  }
+  });
 
   /// Live subscription that emits validated reservation pairs for [listing].
   ///
@@ -79,7 +79,7 @@ class ReservationPairs {
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
     bool Function(ReservationPairStatus pair)? forceValidatePredicate,
-  }) {
+  }) => logger.spanSync('subscribeVerified', () {
     final source = reservations.subscribe(
       Filter(
         tags: {
@@ -95,7 +95,7 @@ class ReservationPairs {
       forceValidateSelfSigned: forceValidateSelfSigned,
       forceValidatePredicate: forceValidatePredicate,
     );
-  }
+  });
 
   /// One-shot query that emits validated reservation pairs for [listing].
   ///
@@ -107,7 +107,7 @@ class ReservationPairs {
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
     bool Function(ReservationPairStatus pair)? forceValidatePredicate,
-  }) {
+  }) => logger.spanSync('queryVerified', () {
     final source = reservations.query(
       Filter(
         tags: {
@@ -123,7 +123,7 @@ class ReservationPairs {
       forceValidateSelfSigned: forceValidateSelfSigned,
       forceValidatePredicate: forceValidatePredicate,
     );
-  }
+  });
 
   // ── Verification ────────────────────────────────────────────────────
 

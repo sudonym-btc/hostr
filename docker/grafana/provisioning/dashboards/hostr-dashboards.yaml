@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: 'Hostr'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /otel-lgtm/hostr-dashboards
+      foldersFromFilesStructure: false

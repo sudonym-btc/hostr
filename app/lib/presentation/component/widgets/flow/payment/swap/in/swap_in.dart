@@ -66,11 +66,14 @@ class SwapInViewWidget extends StatelessWidget {
         return SwapInSuccessWidget(state as SwapInCompleted);
       case SwapInFailed():
         return SwapInFailureWidget((state as SwapInFailed).error.toString());
+      case SwapInInvoicePaid():
       case SwapInAwaitingOnChain():
       case SwapInFunded():
       case SwapInClaimed():
       case SwapInClaimTxInMempool():
       case SwapInRequestCreated():
+      case SwapInPaymentDispatching():
+      case SwapInClaimRelaying():
         return SwapInProgressWidget(state);
     }
   }

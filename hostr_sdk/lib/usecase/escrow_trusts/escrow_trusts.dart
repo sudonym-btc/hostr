@@ -14,19 +14,22 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
     required this.auth,
   }) : super(kind: EscrowTrust.kinds[0]);
 
-  Future<EscrowTrust?> trusted(String pubkey) async {
-    return await getOne(Filter(authors: [pubkey]));
-  }
+  Future<EscrowTrust?> trusted(String pubkey) =>
+      logger.span('trusted', () async {
+        return await getOne(Filter(authors: [pubkey]));
+      });
 
-  Future<EscrowTrust?> myTrusted() async {
+  Future<EscrowTrust?> myTrusted() => logger.span('myTrusted', () async {
     String pubkey = auth.activeKeyPair!.publicKey;
     return trusted(pubkey);
-  }
+  });
 
   /// Ensures the current user's escrow trust list contains the given
   /// [escrowPubkeys]. If no trust list exists or it is missing any of
   /// the pubkeys, publishes an updated list that includes them all.
-  Future<void> ensureEscrowTrust(List<String> escrowPubkeys) async {
+  Future<void> ensureEscrowTrust(
+    List<String> escrowPubkeys,
+  ) => logger.span('ensureEscrowTrust', () async {
     if (escrowPubkeys.isEmpty) return;
 
     final keyPair = auth.activeKeyPair;
@@ -85,5 +88,5 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
     logger.i(
       'Ensured escrow trust for $pubkey with ${escrowPubkeys.length} provider(s)',
     );
-  }
+  });
 }

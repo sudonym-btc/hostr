@@ -169,6 +169,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.0"
+  code_assets:
+    dependency: transitive
+    description:
+      name: code_assets
+      sha256: "83ccdaa064c980b5596c35dd64a8d3ecc68620174ab9b90b6343b753aa721687"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   code_builder:
     dependency: transitive
     description:
@@ -393,6 +401,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.19.3"
+  hooks:
+    dependency: transitive
+    description:
+      name: hooks
+      sha256: e79ed1e8e1929bc6ecb6ec85f0cb519c887aa5b423705ded0d0f2d9226def388
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   hotreloader:
     dependency: transitive
     description:
@@ -592,6 +608,14 @@ packages:
       relative: true
     source: path
     version: "1.0.0"
+  native_toolchain_c:
+    dependency: transitive
+    description:
+      name: native_toolchain_c
+      sha256: "92b2ca62c8bd2b8d2f267cdfccf9bfbdb7322f778f8f91b3ce5b5cda23a3899f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.17.5"
   ndk:
     dependency: "direct main"
     description:
@@ -608,6 +632,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.2"
+  opentelemetry:
+    dependency: "direct main"
+    description:
+      name: opentelemetry
+      sha256: "92d63a2e0731d34a7548add82420b8f3819ccda569f9bdfdcc4b25e00fe88da4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.18.11"
   package_config:
     dependency: transitive
     description:
@@ -640,6 +672,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.2"
+  protobuf:
+    dependency: transitive
+    description:
+      name: protobuf
+      sha256: "75ec242d22e950bdcc79ee38dd520ce4ee0bc491d7fadc4ea47694604d22bf06"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.0.0"
   pub_semver:
     dependency: transitive
     description:
@@ -792,6 +832,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.2"
+  sqlite3:
+    dependency: "direct main"
+    description:
+      name: sqlite3
+      sha256: f8f8ba7f9454f2761d4b416e030c4528ebc45e9290798d848f4dc08890c42a7c
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.7"
   stack_trace:
     dependency: transitive
     description:
