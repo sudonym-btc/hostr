@@ -6,6 +6,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount_input.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
+import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
@@ -162,7 +163,7 @@ class NegotiationWidget extends StatelessWidget {
     );
   }
 
-  Widget _acceptButton(BuildContext context) => OutlinedButton(
+  Widget _acceptButton(BuildContext context) => FutureButton.outlined(
     key: const ValueKey('trade_action_accept'),
     onPressed: () => context.read<Trade>().execute(TradeAction.accept),
     style: OutlinedButton.styleFrom(

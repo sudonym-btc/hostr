@@ -1,5 +1,4 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
@@ -12,9 +11,10 @@ import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'block_dates.dart';
+import 'listing_error_view.dart';
+import 'listing_location_map.dart';
 
 class ListingView extends StatefulWidget {
   final String a;
@@ -82,35 +82,7 @@ class _ListingViewState extends State<ListingView> {
         a: widget.a,
         builder: (context, state) {
           if (state is EntityCubitStateError<Listing>) {
-            return Scaffold(
-              appBar: AppBar(),
-              body: Center(
-                child: CustomPadding.horizontal.lg(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: kIconHero,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      Gap.vertical.md(),
-                      Text(
-                        '${state.error}',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      Gap.vertical.custom(kSpace5),
-                      FilledButton.icon(
-                        onPressed: () =>
-                            context.read<EntityCubit<Listing>>().get(),
-                        icon: const Icon(Icons.refresh),
-                        label: Text(AppLocalizations.of(context)!.retryButton),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
+            return ListingErrorView(error: state.error);
           }
 
           if (state.data == null) {
@@ -342,55 +314,6 @@ class ListingViewBody extends StatelessWidget {
     );
   }
 
-  void _openInMaps(BuildContext context, double lat, double lng, String title) {
-    final encodedTitle = Uri.encodeComponent(title);
-    final platform = defaultTargetPlatform;
-
-    if (platform == TargetPlatform.iOS || platform == TargetPlatform.macOS) {
-      final appleMapsUri = Uri.parse(
-        'https://maps.apple.com/?ll=$lat,$lng&q=$encodedTitle',
-      );
-      final googleMapsUri = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
-      );
-      showModalBottomSheet(
-        context: context,
-        builder: (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.map),
-                title: const Text('Apple Maps'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  launchUrl(appleMapsUri, mode: LaunchMode.externalApplication);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.map_outlined),
-                title: const Text('Google Maps'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  launchUrl(
-                    googleMapsUri,
-                    mode: LaunchMode.externalApplication,
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      );
-    } else {
-      // Android: geo URI triggers the native app chooser
-      launchUrl(
-        Uri.parse('geo:$lat,$lng?q=$lat,$lng($encodedTitle)'),
-        mode: LaunchMode.externalApplication,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -419,59 +342,7 @@ class ListingViewBody extends StatelessWidget {
           listing.description,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
-        // ── Location map ──────────────────────────────────────────────
-        Builder(
-          builder: (context) {
-            final h3Tag = listing.tags
-                .where((tag) => tag.isNotEmpty && tag.first == 'g')
-                .map((tag) => tag.length > 1 ? tag[1] : '')
-                .where((value) => value.isNotEmpty)
-                .firstOrNull;
-            if (h3Tag == null) return const SizedBox.shrink();
-
-            final priceText = listing.prices.isNotEmpty
-                ? formatAmount(listing.prices.first.amount, exact: false)
-                : null;
-
-            return CustomPadding.only(
-              top: kSpace4,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  final h3 = getIt<H3Engine>();
-                  final center = h3.polygonCover.centerForTag(h3Tag);
-                  if (center == null) return;
-                  final lat = center.latitude;
-                  final lng = center.longitude;
-                  final title = listing.title;
-                  _openInMaps(context, lat, lng, title);
-                },
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    height: 180,
-                    width: double.infinity,
-                    child: IgnorePointer(
-                      child: ListingMap(
-                        listings: [
-                          ListingMarkerData(
-                            id: listing.id,
-                            h3Tag: h3Tag,
-                            priceText: priceText,
-                          ),
-                        ],
-                        singleMarkerZoom: 9,
-                        interactive: false,
-                        showArrows: false,
-                        autoFitBounds: true,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
+        ListingLocationMapSection(listing: listing),
         if (isOwner) ...[
           Gap.vertical.lg(),
           Text(

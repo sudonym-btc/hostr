@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/component/widgets/profile/verification/verification_input.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
-import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr/presentation/screens/shared/profile/edit_profile.controller.dart';
-import 'package:hostr/presentation/screens/shared/profile/edit_profile_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../listing/image_picker.dart';
@@ -30,54 +29,6 @@ class EditProfileView extends StatefulWidget {
 
 class EditProfileViewState extends State<EditProfileView> {
   final EditProfileController controller = EditProfileController();
-  bool loading = false;
-  late final Listenable _submitListenable;
-
-  @override
-  void initState() {
-    super.initState();
-    _submitListenable = Listenable.merge([
-      controller,
-      // @todo: profile image upload must only allow one file selected
-      controller.imageController.notifier,
-      controller.nameController,
-      controller.aboutMeController,
-      controller.nip05Controller,
-      controller.lightningAddressController,
-      controller.nip05Valid,
-      controller.lnurlValid,
-    ]);
-  }
-
-  Future<void> _onPopInvoked(bool didPop, dynamic result) async {
-    if (didPop) return;
-    if (!controller.isDirty) {
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
-    final shouldLeave = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Unsaved changes'),
-        content: const Text(
-          'You have unsaved changes. Discard them and leave?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
-    );
-    if ((shouldLeave ?? false) && mounted) {
-      Navigator.of(context).pop();
-    }
-  }
 
   List<Widget> buildFormFields() {
     return [
@@ -101,14 +52,14 @@ class EditProfileViewState extends State<EditProfileView> {
               Center(
                 child: FilledButton.tonalIcon(
                   onPressed: () =>
-                      controller.imageController.pickMultipleImages(limit: 1),
+                      controller.imageField.cubit.pickMultipleImages(limit: 1),
                   icon: const Icon(Icons.add_a_photo_outlined),
                   label: Text(AppLocalizations.of(context)!.addImage),
                 ),
               ),
             ],
           ),
-          controller: controller.imageController,
+          controller: controller.imageField.cubit,
           pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
         ),
       ),
@@ -120,13 +71,13 @@ class EditProfileViewState extends State<EditProfileView> {
           children: [
             FormLabel(label: 'Name'),
             TextFormField(
-              controller: controller.nameController,
+              controller: controller.nameField.textController,
               decoration: const InputDecoration(hintText: 'John Doe'),
             ),
             Gap.vertical.md(),
             FormLabel(label: 'About me'),
             TextFormField(
-              controller: controller.aboutMeController,
+              controller: controller.aboutMeField.textController,
               maxLines: 3,
               minLines: 1,
               decoration: const InputDecoration(
@@ -137,17 +88,17 @@ class EditProfileViewState extends State<EditProfileView> {
             ),
             Gap.vertical.md(),
             FormLabel(label: 'Nostr address'),
-            Nip05Input(
-              controller: controller.nip05Controller,
-              validator: controller.validateNip05,
+            VerificationInput.nip05(
+              controller: controller.nip05Field.textController,
+              validator: controller.nip05Field.validate,
               validNotifier: controller.nip05Valid,
               pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
             ),
             Gap.vertical.md(),
             FormLabel(label: 'Lightning address'),
-            LnurlInput(
-              controller: controller.lightningAddressController,
-              validator: controller.validateLightningAddress,
+            VerificationInput.lnurl(
+              controller: controller.lightningAddressField.textController,
+              validator: controller.lightningAddressField.validate,
               validNotifier: controller.lnurlValid,
             ),
           ],
@@ -158,9 +109,8 @@ class EditProfileViewState extends State<EditProfileView> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: _onPopInvoked,
+    return UnsavedChangesGuard(
+      isDirty: () => controller.isDirty,
       child: Form(
         key: controller.formKey,
         child: Scaffold(
@@ -182,40 +132,14 @@ class EditProfileViewState extends State<EditProfileView> {
               },
             ),
           ),
-          bottomNavigationBar: BottomAppBar(
-            shape: CircularNotchedRectangle(),
-            child: CustomPadding(
-              top: 0,
-              bottom: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ListenableBuilder(
-                    listenable: _submitListenable,
-                    builder: (context, _) {
-                      return FilledButton(
-                        onPressed:
-                            controller.canSubmit &&
-                                controller.isDirty &&
-                                !loading
-                            ? () async {
-                                setState(() => loading = true);
-                                final saved = await controller.save();
-                                if (saved && context.mounted) {
-                                  Navigator.of(context).pop();
-                                }
-                                if (mounted) setState(() => loading = false);
-                              }
-                            : null,
-                        child: loading
-                            ? const AppLoadingIndicator.small()
-                            : Text(AppLocalizations.of(context)!.save),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
+          bottomNavigationBar: SaveBottomBar(
+            controller: controller,
+            onSave: () async {
+              final saved = await controller.save();
+              if (saved && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
           ),
         ),
       ),

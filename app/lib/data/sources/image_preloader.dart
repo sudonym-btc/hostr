@@ -149,7 +149,7 @@ class ImagePreloader {
     if (_resolvedUrls.containsKey(hash)) return;
 
     final servers = await _getServerList(pubkey);
-    print(
+    debugPrint(
       'ImagePreloader: resolving hash=$hash for pubkey=$pubkey against servers=$servers',
     );
     if (servers.isEmpty) return;

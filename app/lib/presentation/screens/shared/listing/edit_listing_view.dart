@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart' hide TimeOfDay;
-import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
@@ -46,36 +45,6 @@ class EditListingViewState extends State<EditListingView> {
     }
   }
 
-  Future<void> _onPopInvoked(bool didPop, dynamic result) async {
-    if (didPop) return;
-    if (!controller.isDirty) {
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
-    final shouldLeave = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Unsaved changes'),
-        content: const Text(
-          'You have unsaved changes. Discard them and leave?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
-    );
-    if ((shouldLeave ?? false) && mounted) {
-      Navigator.of(context).pop();
-    }
-  }
-
   Scaffold buildListing(BuildContext context, Listing l) {
     if (controller.l == null ||
         (l.getDtag() != null && controller.l?.getDtag() != l.getDtag())) {
@@ -83,35 +52,14 @@ class EditListingViewState extends State<EditListingView> {
     }
 
     return Scaffold(
-      bottomNavigationBar: BottomAppBar(
-        shape: CircularNotchedRectangle(),
-        child: CustomPadding(
-          top: 0,
-          bottom: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              ListenableBuilder(
-                listenable: controller.submitListenable,
-                builder: (context, _) {
-                  return FilledButton(
-                    onPressed: controller.canSubmit && controller.isDirty
-                        ? () async {
-                            final saved = await controller.save();
-                            if (saved && context.mounted) {
-                              Navigator.of(context).pop();
-                            }
-                          }
-                        : null,
-                    child: controller.isSaving
-                        ? const AppLoadingIndicator.small()
-                        : Text(AppLocalizations.of(context)!.save),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
+      bottomNavigationBar: SaveBottomBar(
+        controller: controller,
+        onSave: () async {
+          final saved = await controller.save();
+          if (saved && context.mounted) {
+            Navigator.of(context).pop();
+          }
+        },
       ),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -148,7 +96,6 @@ class EditListingViewState extends State<EditListingView> {
                                 value,
                                 emptyMessage: 'Address is required',
                               ),
-                          // null => request broad + address-level results (house numbers included)
                           featureTypes: null,
                           h3Mode: LocationFieldH3Mode.addressHierarchy,
                           debounceDuration: const Duration(milliseconds: 400),
@@ -185,13 +132,11 @@ class EditListingViewState extends State<EditListingView> {
   @override
   Widget build(BuildContext context) {
     if (widget.a == null) {
-      return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: _onPopInvoked,
+      return UnsavedChangesGuard(
+        isDirty: () => controller.isDirty,
         child: buildListing(context, _newListing!),
       );
     }
-    // else branch
     return ListingProvider(
       a: widget.a,
       onDone: (l) {
@@ -205,9 +150,8 @@ class EditListingViewState extends State<EditListingView> {
             body: Center(child: AppLoadingIndicator.large()),
           );
         }
-        return PopScope(
-          canPop: false,
-          onPopInvokedWithResult: _onPopInvoked,
+        return UnsavedChangesGuard(
+          isDirty: () => controller.isDirty,
           child: buildListing(context, state.data!),
         );
       },

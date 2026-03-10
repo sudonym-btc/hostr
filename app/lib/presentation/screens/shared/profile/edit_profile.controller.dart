@@ -1,78 +1,63 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
+import 'package:hostr/logic/forms/image_field_controller.dart';
+import 'package:hostr/logic/forms/text_field_controller.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 class EditProfileController extends UpsertFormController {
-  final ImagePickerCubit imageController = ImagePickerCubit(maxImages: 1);
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController aboutMeController = TextEditingController();
-  final TextEditingController nip05Controller = TextEditingController();
-  final TextEditingController lightningAddressController =
-      TextEditingController();
-
-  String _originalName = '';
-  String _originalAbout = '';
-  String _originalNip05 = '';
-  String _originalLud16 = '';
-  String? _originalPicture;
+  // ── Sub-controllers ─────────────────────────────────────────────
+  final ImageFieldController imageField = ImageFieldController(maxImages: 1);
+  final TextFieldController nameField = TextFieldController();
+  final TextFieldController aboutMeField = TextFieldController();
+  final TextFieldController nip05Field = TextFieldController(
+    validator: (v) => _validateEmailLike(v, label: 'NIP 05'),
+  );
+  final TextFieldController lightningAddressField = TextFieldController(
+    validator: (v) => _validateEmailLike(v, label: 'Lightning address'),
+  );
 
   /// Validity signals set by the input widgets themselves.
   final ValueNotifier<bool> nip05Valid = ValueNotifier(true);
   final ValueNotifier<bool> lnurlValid = ValueNotifier(true);
 
-  @override
-  bool get isDirty {
-    if (nameController.text != _originalName) return true;
-    if (aboutMeController.text != _originalAbout) return true;
-    if (nip05Controller.text != _originalNip05) return true;
-    if (lightningAddressController.text != _originalLud16) return true;
-    final currentPicture = imageController.images.isNotEmpty
-        ? imageController.images.first.path
-        : null;
-    if (currentPicture != _originalPicture) return true;
-    return false;
+  EditProfileController() {
+    registerField(imageField);
+    registerField(nameField);
+    registerField(aboutMeField);
+    registerField(nip05Field);
+    registerField(lightningAddressField);
+    registerListenable(nip05Valid);
+    registerListenable(lnurlValid);
   }
 
   @override
-  bool get canSubmit =>
-      super.canSubmit &&
-      imageController.canSubmit &&
-      nip05Valid.value &&
-      lnurlValid.value;
+  bool get canSubmit => super.canSubmit && nip05Valid.value && lnurlValid.value;
 
   void setState(ProfileMetadata? profile) {
-    imageController.setImages(
+    imageField.setImages(
       profile?.metadata.picture != null
           ? [CustomImage.path(profile?.metadata.picture)]
           : [],
     );
-    nameController.text = profile?.metadata.name ?? '';
-    aboutMeController.text = profile?.metadata.about ?? '';
-    nip05Controller.text = profile?.metadata.nip05 ?? '';
-    lightningAddressController.text = profile?.metadata.lud16 ?? '';
-
-    _originalName = nameController.text;
-    _originalAbout = aboutMeController.text;
-    _originalNip05 = nip05Controller.text;
-    _originalLud16 = lightningAddressController.text;
-    _originalPicture = profile?.metadata.picture;
+    nameField.setState(profile?.metadata.name ?? '');
+    aboutMeField.setState(profile?.metadata.about ?? '');
+    nip05Field.setState(profile?.metadata.nip05 ?? '');
+    lightningAddressField.setState(profile?.metadata.lud16 ?? '');
   }
 
   @override
   Future<void> upsert() async {
-    final image = imageController.resolvedPaths.isNotEmpty
-        ? imageController.resolvedPaths.first
-        : (imageController.images.isNotEmpty
-              ? imageController.images.first.path
-              : null);
-    final name = nameController.text;
-    final aboutMe = aboutMeController.text;
-    final nip05 = nip05Controller.text;
-    final lightningAddress = lightningAddressController.text;
+    final image = imageField.resolvedPaths.isNotEmpty
+        ? imageField.resolvedPaths.first
+        : (imageField.images.isNotEmpty ? imageField.images.first.path : null);
+    final name = nameField.text;
+    final aboutMe = aboutMeField.text;
+    final nip05 = nip05Field.text;
+    final lightningAddress = lightningAddressField.text;
 
     final metadata = Metadata(
       name: name,
@@ -97,21 +82,11 @@ class EditProfileController extends UpsertFormController {
     }
   }
 
-  String? validateNip05(String? value) {
-    return _validateEmailLike(value, label: 'NIP 05');
-  }
-
-  String? validateLightningAddress(String? value) {
-    return _validateEmailLike(value, label: 'Lightning address');
-  }
-
-  String? _validateEmailLike(String? value, {required String label}) {
+  static String? _validateEmailLike(String? value, {required String label}) {
     final trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) return null;
     final valid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
-    if (!valid) {
-      return '$label must look like name@example.com';
-    }
+    if (!valid) return '$label must look like name@example.com';
     return null;
   }
 }

@@ -131,9 +131,6 @@ class NostrWalletConnectConnectionView extends StatelessWidget {
             }
 
             if (state is NwcSuccess) {
-              print(
-                'NWC Connection Success: ${state.data.alias}, ${state.data.color}, ${state.data.pubkey}',
-              );
               return NostrWalletConnectConnectionTileView(
                 state: NostrWalletConnectConnectionUiState.connected,
                 canClose: canClose,

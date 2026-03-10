@@ -133,12 +133,24 @@ Future<void> selectDates(
             return false;
           }
 
-          if (!Listing.isAvailable(day, day, reservationPairs)) {
-            return false;
+          if (selectedStartDay != null) {
+            if (!day.isAfter(selectedStartDay)) {
+              return false;
+            }
+
+            if (enforceContiguousAvailability) {
+              return Listing.isAvailable(
+                selectedStartDay,
+                day,
+                reservationPairs,
+              );
+            }
+
+            return true;
           }
 
-          if (enforceContiguousAvailability && selectedStartDay != null) {
-            return Listing.isAvailable(selectedStartDay, day, reservationPairs);
+          if (!Listing.isAvailable(day, day, reservationPairs)) {
+            return false;
           }
 
           return true;

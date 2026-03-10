@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/forms/text_field_controller.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
@@ -11,22 +12,18 @@ typedef EditReviewSubmit =
     Future<void> Function(EditReviewController controller);
 
 class EditReviewController extends UpsertFormController {
-  final TextEditingController reviewController = TextEditingController();
+  final TextFieldController reviewField = TextFieldController();
   final EditReviewSubmit? onUpsert;
   final Listing listing;
   final Reservation? reservation;
   final String? salt;
 
   int _rating = 5;
-  String _originalContent = '';
   int _originalRating = 5;
 
+  // Location is tracked by super; rating is a single extra comparison.
   @override
-  bool get isDirty {
-    if (reviewController.text != _originalContent) return true;
-    if (_rating != _originalRating) return true;
-    return false;
-  }
+  bool get isDirty => super.isDirty || _rating != _originalRating;
 
   EditReviewController({
     this.onUpsert,
@@ -35,6 +32,7 @@ class EditReviewController extends UpsertFormController {
     this.reservation,
     this.salt,
   }) {
+    registerField(reviewField);
     setState(existingReview);
   }
 
@@ -45,26 +43,22 @@ class EditReviewController extends UpsertFormController {
 
   void setState(Review? review) {
     if (review == null) {
-      reviewController.text = '';
+      reviewField.setState('');
       _rating = 5;
-      _originalContent = '';
       _originalRating = 5;
       notifyListeners();
       return;
     }
 
-    reviewController.text = review.reviewText;
+    reviewField.setState(review.reviewText);
     _rating = review.rating.clamp(1, 5);
-    _originalContent = reviewController.text;
     _originalRating = _rating;
     notifyListeners();
   }
 
   void setRating(int value) {
     final clamped = value.clamp(1, 5);
-    if (_rating == clamped) {
-      return;
-    }
+    if (_rating == clamped) return;
     _rating = clamped;
     notifyListeners();
   }
@@ -76,16 +70,12 @@ class EditReviewController extends UpsertFormController {
   }
 
   String? validateReview(String? value, {required String requiredMessage}) {
-    if (value == null || value.trim().isEmpty) {
-      return requiredMessage;
-    }
+    if (value == null || value.trim().isEmpty) return requiredMessage;
     return null;
   }
 
   String? validateRating(int? value, {required String outOfRangeMessage}) {
-    if (value == null || value < 1 || value > 5) {
-      return outOfRangeMessage;
-    }
+    if (value == null || value < 1 || value > 5) return outOfRangeMessage;
     return null;
   }
 
@@ -96,12 +86,12 @@ class EditReviewController extends UpsertFormController {
         pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
         content: ReviewContent(
           rating: rating,
-          content: reviewController.text,
+          content: reviewField.text,
           proof: ParticipationProof(salt: salt!),
         ),
         tags: ReviewTags([
           [kListingRefTag, listing.anchor!],
-          [kReservationRefTag, '1234'],
+          [kReservationRefTag, reservation?.anchor ?? ''],
         ]),
       ),
     );
@@ -109,7 +99,7 @@ class EditReviewController extends UpsertFormController {
 
   @override
   void dispose() {
-    reviewController.dispose();
+    reviewField.dispose();
     super.dispose();
   }
 }
@@ -184,7 +174,7 @@ class _EditReviewState extends State<EditReview> {
                 label: AppLocalizations.of(context)!.reviewMessageLabel,
               ),
               TextFormField(
-                controller: _controller.reviewController,
+                controller: _controller.reviewField.textController,
                 validator: (value) => _controller.validateReview(
                   value,
                   requiredMessage: AppLocalizations.of(context)!.reviewRequired,
