@@ -19,6 +19,32 @@ class EditListingView extends StatefulWidget {
 
 class EditListingViewState extends State<EditListingView> {
   final EditListingController controller = EditListingController();
+  Listing? _newListing;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.a == null) {
+      _newListing = Listing.create(
+        pubKey: getIt<Hostr>().auth.getActiveKey().publicKey,
+        dTag: DateTime.now().millisecondsSinceEpoch.toRadixString(36),
+        title: '',
+        description: '',
+        price: [
+          Price(
+            amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
+            frequency: Frequency.daily,
+          ),
+        ],
+        location: '',
+        type: ListingType.room,
+        active: true,
+        images: [],
+        amenities: Amenities(),
+      );
+      controller.setState(_newListing!);
+    }
+  }
 
   Future<void> _onPopInvoked(bool didPop, dynamic result) async {
     if (didPop) return;
@@ -131,6 +157,8 @@ class EditListingViewState extends State<EditListingView> {
                         Gap.vertical.md(),
                         FormLabel(label: 'Price'),
                         PriceInput(controller: controller),
+                        if (widget.a != null)
+                          ActiveInput(controller: controller),
                         BarterInput(controller: controller),
                         HelpText(
                           'Allowing barter allows users to submit reservation requests below your listed price, which you can then accept or decline.',
@@ -160,28 +188,7 @@ class EditListingViewState extends State<EditListingView> {
       return PopScope(
         canPop: false,
         onPopInvokedWithResult: _onPopInvoked,
-        child: buildListing(
-          context,
-          Listing.create(
-            pubKey: getIt<Hostr>().auth.getActiveKey().publicKey,
-            dTag: DateTime.now().millisecondsSinceEpoch.toRadixString(36),
-            title: '',
-            description: '',
-            price: [
-              Price(
-                amount: Amount(
-                  currency: Currency.BTC,
-                  value: BigInt.from(100000),
-                ),
-                frequency: Frequency.daily,
-              ),
-            ],
-            location: '',
-            type: ListingType.room,
-            images: [],
-            amenities: Amenities(),
-          ),
-        ),
+        child: buildListing(context, _newListing!),
       );
     }
     // else branch

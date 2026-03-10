@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:models/main.dart';
 
-DateTimeRange? ensureStartDateIsBeforeEndDate(DateTimeRange? picked) {
-  if (picked != null && picked.start.isAfter(picked.end)) {
-    return DateTimeRange(start: picked.end, end: picked.start);
-  }
-  return picked;
-}
-
 class SearchFormState {
   final String location;
   final DateTimeRange? availabilityRange;

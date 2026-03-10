@@ -37,6 +37,7 @@ class TrustedEscrowsCubit extends Cubit<TrustedEscrowsState> {
   /// Load trusted escrows once. Subsequent calls are no-ops unless [force] is
   /// true.
   Future<void> load({bool force = false}) async {
+    if (isClosed) return;
     if (!force && (state.loading || state.data != null)) return;
     emit(state.copyWith(loading: true, error: null));
     try {

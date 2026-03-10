@@ -156,7 +156,7 @@ These are identical values in both environments unless you use separate develope
 | `IOS_DISTRIBUTION_CERT_PASSWORD`  | Password set when exporting the `.p12` from Keychain |
 | `IOS_PROVISIONING_PROFILE_BASE64` | `base64 -i hostr_appstore.mobileprovision \| pbcopy` |
 
-> For staging, create a separate App ID (e.g. `com.sudonym.hostr.staging`), a separate provisioning profile, and a separate TestFlight app (or use a different internal group on the same app — either works).
+> Staging and production share the same bundle ID (`com.sudonym.hostr`), the same App Store Distribution certificate, and the same provisioning profile. They differ only in the Dart entrypoint (`main_staging.dart` vs `main_production.dart`), which sets the backend URL. Use separate TestFlight groups (e.g. "Internal — Staging" vs "Internal — Production") to control who receives which build. The CI workflow overrides signing settings in `Release.xcconfig` at build time — locally, the project defaults to Automatic signing for development.
 
 ### Cloud Deploy (per environment)
 

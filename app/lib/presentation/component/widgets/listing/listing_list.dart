@@ -6,8 +6,6 @@ import 'package:hostr/injection.dart';
 import 'package:models/main.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
-import '../ui/form_label.dart';
-
 class ListingsWidget extends StatefulWidget {
   /// When a new id is emitted the list scrolls the matching item into view.
   final ValueNotifier<String?>? scrollToId;
@@ -108,10 +106,13 @@ class _ListingsWidgetState extends State<ListingsWidget> {
           top: 0,
           child: Row(
             children: [
-              FormLabel(
-                label: AppLocalizations.of(
+              Text(
+                AppLocalizations.of(
                   context,
                 )!.searchResultCount(count, hasMore ? 'true' : 'false'),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
             ],
           ),

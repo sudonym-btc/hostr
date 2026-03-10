@@ -24,6 +24,9 @@ class DateRangeButtons extends StatelessWidget {
   /// "Check in / out" with the formatted date range below.
   final bool single;
 
+  final String? startText;
+  final String? endText;
+
   const DateRangeButtons({
     super.key,
     this.controller,
@@ -31,6 +34,8 @@ class DateRangeButtons extends StatelessWidget {
     this.selectedDateRange,
     this.small = false,
     this.single = false,
+    this.startText,
+    this.endText,
   });
 
   DateTimeRange? get _effectiveRange =>
@@ -44,14 +49,13 @@ class DateRangeButtons extends StatelessWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildContent(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     final checkIn = _DateTile(
       icon: Icons.calendar_today,
-      label: 'Check in',
+      label: startText ?? 'Check in',
       value: _effectiveRange != null
           ? formatDate(_effectiveRange!.start)
           : null,
@@ -62,7 +66,7 @@ class DateRangeButtons extends StatelessWidget {
     );
     final checkOut = _DateTile(
       icon: Icons.calendar_today,
-      label: 'Check out',
+      label: endText ?? 'Check out',
       value: _effectiveRange != null ? formatDate(_effectiveRange!.end) : null,
       small: small,
       colorScheme: colorScheme,
@@ -99,6 +103,18 @@ class DateRangeButtons extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(child: checkOut),
       ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller == null) {
+      return _buildContent(context);
+    }
+
+    return ListenableBuilder(
+      listenable: controller!,
+      builder: (context, _) => _buildContent(context),
     );
   }
 }

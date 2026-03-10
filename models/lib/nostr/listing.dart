@@ -11,6 +11,7 @@ import 'package:ndk/ndk.dart';
 mixin ListingTagRead {
   EventTags get tagSource;
 
+  bool get active => tagSource.getTagBool('active', defaultValue: true);
   bool get allowBarter => tagSource.getTagBool('allowBarter');
   int get minStay => tagSource.getTagInt('minStay') ?? 1;
   String? get checkIn => tagSource.getTagValue('checkIn');
@@ -84,6 +85,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
     required String location,
     required ListingType type,
     required Amenities amenities,
+    bool active = true,
     bool allowBarter = false,
     int minStay = 1,
     String checkIn = '15:0',
@@ -100,6 +102,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
       tags: ListingTags(
         (TagBuilder()
               ..add('d', dTag)
+              ..addBool('active', active)
               ..addBool('allowBarter', allowBarter)
               ..addInt('minStay', minStay)
               ..add('checkIn', checkIn)
@@ -126,6 +129,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
   // ── Copy-with ───────────────────────────────────────────────────────
   Listing rebuild({
     // Tag fields
+    bool? active,
     bool? allowBarter,
     int? minStay,
     String? checkIn,
@@ -151,6 +155,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
         .where((t) =>
             t.isNotEmpty &&
             !const {
+              'active',
               'allowBarter',
               'minStay',
               'checkIn',
@@ -171,6 +176,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
       tags: ListingTags(
         (TagBuilder()
               ..addAll(preserved)
+              ..addBool('active', active ?? this.active)
               ..addBool('allowBarter', allowBarter ?? this.allowBarter)
               ..addInt('minStay', minStay ?? this.minStay)
               ..add('checkIn', checkIn ?? this.checkIn ?? '15:0')

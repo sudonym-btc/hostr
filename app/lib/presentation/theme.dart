@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 
 ThemeData getTheme(bool isDark) {
   var darkColorScheme = ColorScheme.fromSeed(
@@ -10,6 +11,16 @@ ThemeData getTheme(bool isDark) {
   final colorScheme = isDark ? darkColorScheme : lightColorScheme;
   final base = isDark ? ThemeData.dark() : ThemeData.light();
   final baseGeneric = base.copyWith(
+    appBarTheme: AppBarTheme(
+      titleSpacing: kDefaultPadding.toDouble(),
+      centerTitle: false,
+      foregroundColor: colorScheme.onSurface,
+      titleTextStyle: base.textTheme.titleLarge?.copyWith(
+        fontSize: 28,
+        fontWeight: FontWeight.w600,
+        color: colorScheme.onSurface,
+      ),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       enabledBorder: UnderlineInputBorder(
         borderSide: BorderSide(
