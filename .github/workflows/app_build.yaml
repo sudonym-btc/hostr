@@ -174,11 +174,13 @@ jobs:
           echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > "$PP_PATH"
 
       - name: Override signing for CI
-        working-directory: app
+        working-directory: app/ios
         run: |
-          echo "CODE_SIGN_STYLE=Manual" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGN_IDENTITY=Apple Distribution" >> ios/Flutter/Release.xcconfig
-          echo "PROVISIONING_PROFILE_SPECIFIER=hostr AppStore" >> ios/Flutter/Release.xcconfig
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "hostr AppStore";/g' Runner.xcodeproj/project.pbxproj
+          echo "── Patched pbxproj signing settings ──"
+          grep -n 'CODE_SIGN_STYLE\|CODE_SIGN_IDENTITY\|PROVISIONING_PROFILE_SPECIFIER' Runner.xcodeproj/project.pbxproj | head -20
 
       - name: Build IPA (staging)
         run: |
@@ -236,11 +238,13 @@ jobs:
           echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > "$PP_PATH"
 
       - name: Override signing for CI
-        working-directory: app
+        working-directory: app/ios
         run: |
-          echo "CODE_SIGN_STYLE=Manual" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGN_IDENTITY=Apple Distribution" >> ios/Flutter/Release.xcconfig
-          echo "PROVISIONING_PROFILE_SPECIFIER=hostr AppStore" >> ios/Flutter/Release.xcconfig
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "hostr AppStore";/g' Runner.xcodeproj/project.pbxproj
+          echo "── Patched pbxproj signing settings ──"
+          grep -n 'CODE_SIGN_STYLE\|CODE_SIGN_IDENTITY\|PROVISIONING_PROFILE_SPECIFIER' Runner.xcodeproj/project.pbxproj | head -20
 
       - name: Build IPA (production)
         run: |
