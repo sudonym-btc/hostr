@@ -1,2 +1,8 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+
+// ── Code-signing defaults (automatic for local dev) ──
+// CI appends manual-signing overrides below before building.
+CODE_SIGN_STYLE=Automatic
+CODE_SIGN_IDENTITY=Apple Development
+PROVISIONING_PROFILE_SPECIFIER=
