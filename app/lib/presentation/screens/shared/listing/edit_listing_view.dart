@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide TimeOfDay;
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
+import 'package:hostr/presentation/forms/search/location_input.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -88,7 +89,7 @@ class EditListingViewState extends State<EditListingView> {
                         TitleInput(controller: controller),
                         Gap.vertical.md(),
                         FormLabel(label: 'Address'),
-                        LocationField(
+                        LocationInput(
                           controller: controller.locationController,
                           hintText: '123 City Road, London',
                           validator: (value) =>
@@ -96,10 +97,6 @@ class EditListingViewState extends State<EditListingView> {
                                 value,
                                 emptyMessage: 'Address is required',
                               ),
-                          featureTypes: null,
-                          h3Mode: LocationFieldH3Mode.addressHierarchy,
-                          debounceDuration: const Duration(milliseconds: 400),
-                          minQueryLength: 3,
                         ),
                         Gap.vertical.md(),
                         FormLabel(label: 'Price'),

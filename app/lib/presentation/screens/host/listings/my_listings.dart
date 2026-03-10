@@ -46,7 +46,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     super.didChangeDependencies();
     if (!_placeholderPrecached) {
       _placeholderPrecached = true;
-      precacheImage(NetworkImage(ImagesInput.placeholderUrl), context);
+      precacheImage(AssetImage(ImagesInput.placeholderAsset), context);
     }
   }
 

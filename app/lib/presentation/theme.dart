@@ -20,6 +20,7 @@ ThemeData getTheme(bool isDark) {
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
+      actionsPadding: EdgeInsets.only(right: kDefaultPadding.toDouble()),
     ),
     inputDecorationTheme: InputDecorationTheme(
       enabledBorder: UnderlineInputBorder(

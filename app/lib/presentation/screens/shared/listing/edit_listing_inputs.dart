@@ -18,9 +18,7 @@ class ImagesInput extends StatelessWidget {
     required this.pubkey,
   });
 
-  static const placeholderUrl =
-      'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85'
-      '?auto=format&fit=crop&w=600&h=400&q=60';
+  static const placeholderAsset = 'assets/images/listing_placeholder.jpg';
 
   @override
   Widget build(BuildContext context) {
@@ -39,8 +37,8 @@ class ImagesInput extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         BlurredImage(
-          child: Image.network(
-            placeholderUrl,
+          child: Image.asset(
+            placeholderAsset,
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => ColoredBox(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,

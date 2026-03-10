@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/logic/forms/form_field_controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
-class LocationController extends ChangeNotifier {
+class LocationController extends FormFieldController {
   final TextEditingController textController;
   final FocusNode focusNode;
 
@@ -11,6 +12,7 @@ class LocationController extends ChangeNotifier {
   bool _isResolvingH3 = false;
   LocationSuggestion? _selectedSuggestion;
   String _lastResolvedText = '';
+  String _originalText = '';
 
   LocationController({String initialText = ''})
     : textController = TextEditingController(text: initialText),
@@ -25,9 +27,23 @@ class LocationController extends ChangeNotifier {
   LocationSuggestion? get selectedSuggestion => _selectedSuggestion;
   String get lastResolvedText => _lastResolvedText;
 
+  // ── FormFieldController overrides ───────────────────────────────
+  @override
+  bool get isDirty => textController.text.trim() != _originalText;
+
+  @override
   bool get isValid => !_isResolvingH3 && _h3Error == null;
+
+  @override
   bool get canSubmit =>
       !_isResolvingH3 && _h3Error == null && _h3Tags.isNotEmpty;
+
+  /// Set the initial/reset state. After this call [isDirty] is `false`.
+  void setState(String text) {
+    _originalText = text;
+    updateTextFromUser(text);
+    clearH3();
+  }
 
   /// Whenever the text diverges from the last resolved value, shed stale
   /// H3 tags so [canSubmit] becomes false until resolution completes.

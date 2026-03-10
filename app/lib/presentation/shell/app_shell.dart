@@ -111,91 +111,108 @@ class _AppShellScreenState extends State<AppShellScreen>
 
   @override
   Widget build(BuildContext context) {
-    return NotificationListener<UserScrollNotification>(
-      onNotification: _onScrollNotification,
-      child: BlocListener<ModeCubit, ModeCubitState>(
-        listener: (context, state) => _showNav(),
-        child: StreamBuilder<AuthState>(
-          stream: getIt<Hostr>().auth.authState,
-          initialData: getIt<Hostr>().auth.authState.value,
-          builder: (context, authSnapshot) {
-            final isLoggedIn = authSnapshot.data == const LoggedIn();
+    return RelayConnectivityBanner(
+      child: NwcConnectivityBanner(
+        child: NotificationListener<UserScrollNotification>(
+          onNotification: _onScrollNotification,
+          child: BlocListener<ModeCubit, ModeCubitState>(
+            listener: (context, state) => _showNav(),
+            child: StreamBuilder<AuthState>(
+              stream: getIt<Hostr>().auth.authState,
+              initialData: getIt<Hostr>().auth.authState.value,
+              builder: (context, authSnapshot) {
+                final isLoggedIn = authSnapshot.data == const LoggedIn();
 
-            return BlocBuilder<ModeCubit, ModeCubitState>(
-              builder: (context, state) {
-                final bottomNavigationBarTheme = Theme.of(
-                  context,
-                ).bottomNavigationBarTheme;
-                final navBg = bottomNavigationBarTheme.backgroundColor!;
+                return BlocBuilder<ModeCubit, ModeCubitState>(
+                  builder: (context, state) {
+                    final bottomNavigationBarTheme = Theme.of(
+                      context,
+                    ).bottomNavigationBarTheme;
+                    final navBg = bottomNavigationBarTheme.backgroundColor!;
 
-                if (!isLoggedIn) {
-                  // Unauthenticated: Search and Sign In
-                  final tabs = [
-                    _navItem(
-                      icon: Icon(Icons.search, size: kIconLg),
-                      label: 'Search',
-                    ),
-                    _navItem(
-                      icon: Icon(Icons.person_outline),
-                      label: 'Sign In',
-                    ),
-                  ];
-                  return AutoTabsScaffold(
-                    key: const ValueKey('unauthTabs'),
-                    extendBody: true,
-                    routes: [SearchRoute(), SignInRoute()],
-                    bottomNavigationBuilder: (context, tabsRouter) =>
-                        _buildBottomNav(context, tabsRouter, tabs, navBg),
-                  );
-                }
+                    if (!isLoggedIn) {
+                      // Unauthenticated: Search and Sign In
+                      final tabs = [
+                        _navItem(
+                          icon: Icon(Icons.search, size: kIconLg),
+                          label: 'Search',
+                        ),
+                        _navItem(
+                          icon: Icon(Icons.person_outline),
+                          label: 'Sign In',
+                        ),
+                      ];
+                      return AutoTabsScaffold(
+                        key: const ValueKey('unauthTabs'),
+                        extendBody: true,
+                        routes: [SearchRoute(), SignInRoute()],
+                        bottomNavigationBuilder: (context, tabsRouter) =>
+                            _buildBottomNav(context, tabsRouter, tabs, navBg),
+                      );
+                    }
 
-                if (state is HostMode) {
-                  final hostTabs = [
-                    _navItem(icon: Icon(Icons.list), label: 'My Listings'),
-                    _navItem(
-                      icon: Icon(Icons.calendar_today),
-                      label: 'Bookings',
-                    ),
-                    _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
-                    _navItem(icon: Icon(Icons.person), label: 'Profile'),
-                  ];
-                  return AutoTabsScaffold(
-                    key: const ValueKey('hostTabs'),
-                    extendBody: true,
-                    routes: [
-                      MyListingsRoute(),
-                      HostingsRoute(),
-                      InboxRoute(),
-                      ProfileRoute(),
-                    ],
-                    bottomNavigationBuilder: (context, tabsRouter) =>
-                        _buildBottomNav(context, tabsRouter, hostTabs, navBg),
-                  );
-                }
-                final otherTabs = [
-                  _navItem(
-                    icon: Icon(Icons.search, size: kIconLg),
-                    label: 'Search',
-                  ),
-                  _navItem(icon: Icon(Icons.travel_explore), label: 'Trips'),
-                  _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
-                  _navItem(icon: Icon(Icons.person), label: 'Profile'),
-                ];
-                return AutoTabsScaffold(
-                  key: const ValueKey('guestTabs'),
-                  extendBody: true,
-                  routes: [
-                    SearchRoute(),
-                    TripsRoute(),
-                    InboxRoute(),
-                    ProfileRoute(),
-                  ],
-                  bottomNavigationBuilder: (context, tabsRouter) =>
-                      _buildBottomNav(context, tabsRouter, otherTabs, navBg),
+                    if (state is HostMode) {
+                      final hostTabs = [
+                        _navItem(icon: Icon(Icons.list), label: 'My Listings'),
+                        _navItem(
+                          icon: Icon(Icons.calendar_today),
+                          label: 'Bookings',
+                        ),
+                        _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
+                        _navItem(icon: Icon(Icons.person), label: 'Profile'),
+                      ];
+                      return AutoTabsScaffold(
+                        key: const ValueKey('hostTabs'),
+                        extendBody: true,
+                        routes: [
+                          MyListingsRoute(),
+                          HostingsRoute(),
+                          InboxRoute(),
+                          ProfileRoute(),
+                        ],
+                        bottomNavigationBuilder: (context, tabsRouter) =>
+                            _buildBottomNav(
+                              context,
+                              tabsRouter,
+                              hostTabs,
+                              navBg,
+                            ),
+                      );
+                    }
+                    final otherTabs = [
+                      _navItem(
+                        icon: Icon(Icons.search, size: kIconLg),
+                        label: 'Search',
+                      ),
+                      _navItem(
+                        icon: Icon(Icons.travel_explore),
+                        label: 'Trips',
+                      ),
+                      _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
+                      _navItem(icon: Icon(Icons.person), label: 'Profile'),
+                    ];
+                    return AutoTabsScaffold(
+                      key: const ValueKey('guestTabs'),
+                      extendBody: true,
+                      routes: [
+                        SearchRoute(),
+                        TripsRoute(),
+                        InboxRoute(),
+                        ProfileRoute(),
+                      ],
+                      bottomNavigationBuilder: (context, tabsRouter) =>
+                          _buildBottomNav(
+                            context,
+                            tabsRouter,
+                            otherTabs,
+                            navBg,
+                          ),
+                    );
+                  },
                 );
               },
-            );
-          },
+            ),
+          ),
         ),
       ),
     );

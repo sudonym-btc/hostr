@@ -12,7 +12,6 @@ import 'package:models/main.dart';
 
 class EditListingController extends UpsertFormController {
   Listing? l;
-  String? _originalLocation;
 
   // ── Sub-controllers ─────────────────────────────────────────────
   final ImageFieldController imageField = ImageFieldController(maxImages: 12);
@@ -39,19 +38,8 @@ class EditListingController extends UpsertFormController {
     registerField(amenityField);
     registerField(activeField);
     registerField(barterField);
-    registerListenable(locationController);
+    registerField(locationController);
   }
-
-  // Location is not a FormFieldController (shared with search), so we
-  // track dirty/canSubmit for it explicitly.
-  @override
-  bool get isDirty =>
-      super.isDirty ||
-      (_originalLocation != null &&
-          locationController.text != _originalLocation);
-
-  @override
-  bool get canSubmit => super.canSubmit && locationController.canSubmit;
 
   // ── State initialisation ────────────────────────────────────────
   void setState(Listing? data) {
@@ -61,9 +49,7 @@ class EditListingController extends UpsertFormController {
     );
     titleField.setState(data?.title ?? '');
     descriptionField.setState(data?.description ?? '');
-    locationController.updateTextFromUser(data?.location ?? '');
-    locationController.clearH3();
-    _originalLocation = data?.location ?? '';
+    locationController.setState(data?.location ?? '');
     amenityField.setState(data?.amenities ?? Amenities());
     activeField.setState(data?.active ?? true);
     barterField.setState(data?.allowBarter ?? false);

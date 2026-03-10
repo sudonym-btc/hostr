@@ -124,8 +124,8 @@ class _SplashProgressView extends StatelessWidget {
             // Logo – same asset as the native splash.
             Image.asset(
               'assets/images/logo/generated/logo_base_1024.png',
-              width: 200,
-              height: 200,
+              width: 100,
+              height: 100,
             ),
             Gap.vertical.lg(),
 
