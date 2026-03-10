@@ -1,9 +1,8 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
+import 'package:hostr/logic/forms/listing_amenity_field_controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 import 'package:models/main.dart';
 
@@ -28,7 +27,7 @@ class ImagesInput extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: ImageUpload(
-        controller: controller.imageController,
+        controller: controller.imageField.cubit,
         pubkey: pubkey,
         placeholder: _listingPlaceholder(context),
       ),
@@ -50,54 +49,12 @@ class ImagesInput extends StatelessWidget {
         ),
         Center(
           child: FilledButton.tonalIcon(
-            onPressed: () => controller.imageController.pickMultipleImages(),
+            onPressed: () => controller.imageField.cubit.pickMultipleImages(),
             icon: const Icon(Icons.add_a_photo_outlined),
             label: Text(AppLocalizations.of(context)!.addImage),
           ),
         ),
       ],
-    );
-  }
-}
-
-class BlurredImage extends StatelessWidget {
-  final Widget child;
-
-  const BlurredImage({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return ColorFiltered(
-      colorFilter: const ColorFilter.matrix(<double>[
-        0.2126,
-        0.7152,
-        0.0722,
-        0,
-        0,
-        0.2126,
-        0.7152,
-        0.0722,
-        0,
-        0,
-        0.2126,
-        0.7152,
-        0.0722,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-        0,
-      ]),
-      child: ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(
-          sigmaX: 10,
-          sigmaY: 10,
-          tileMode: TileMode.mirror,
-        ),
-        child: child,
-      ),
     );
   }
 }
@@ -110,8 +67,8 @@ class TitleInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      controller: controller.titleController,
-      validator: controller.validateTitle,
+      controller: controller.titleField.textController,
+      validator: controller.titleField.validate,
       decoration: const InputDecoration(
         hintText: 'Cozy apartment in the city center',
       ),
@@ -127,16 +84,16 @@ class PriceInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      controller: controller.priceController,
-      validator: controller.validatePrice,
+      controller: controller.priceField.textController,
+      validator: controller.priceField.validatePrice,
       keyboardType: TextInputType.number,
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,
-        _ThousandsSeparatorFormatter(),
+        ThousandsSeparatorFormatter(),
       ],
       decoration: InputDecoration(
         hintText: '10,000',
-        prefixText: '${controller.priceCurrency.prefix} ',
+        prefixText: '${controller.priceField.currency.prefix} ',
         suffixText: '/ day',
       ),
     );
@@ -156,8 +113,8 @@ class BarterInput extends StatelessWidget {
         return SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
           title: Text(AppLocalizations.of(context)!.allowBarter),
-          value: controller.allowBarter,
-          onChanged: controller.setAllowBarter,
+          value: controller.barterField.value,
+          onChanged: controller.barterField.setValue,
         );
       },
     );
@@ -180,8 +137,8 @@ class ActiveInput extends StatelessWidget {
           subtitle: const Text(
             'Turn this off to hide the listing from guests.',
           ),
-          value: controller.active,
-          onChanged: controller.setActive,
+          value: controller.activeField.value,
+          onChanged: controller.activeField.setValue,
         );
       },
     );
@@ -196,8 +153,8 @@ class DescriptionInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      controller: controller.descriptionController,
-      validator: controller.validateDescription,
+      controller: controller.descriptionField.textController,
+      validator: controller.descriptionField.validate,
       minLines: 2,
       maxLines: 10,
       keyboardType: TextInputType.multiline,
@@ -255,8 +212,8 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
 
   @override
   Widget build(BuildContext context) {
-    final options = EditListingController.amenityKeys();
-    final selected = widget.controller.selectedAmenityKeys;
+    final options = ListingAmenityFieldController.amenityKeys();
+    final selected = widget.controller.amenityField.selectedKeys;
     final chipPadding = EdgeInsets.symmetric(
       horizontal: kDefaultPadding.toDouble() / 2,
       vertical: kDefaultPadding.toDouble() / 4,
@@ -282,7 +239,7 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
                 onDeleted: () {
                   setState(() {
                     final next = Set<String>.from(selected)..remove(amenity);
-                    widget.controller.updateSelectedAmenities(next);
+                    widget.controller.amenityField.updateSelected(next);
                   });
                 },
               );
@@ -313,7 +270,7 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
                 onSelected: (selection) {
                   setState(() {
                     final next = Set<String>.from(selected)..add(selection);
-                    widget.controller.updateSelectedAmenities(next);
+                    widget.controller.amenityField.updateSelected(next);
                   });
                   _amenityController.clear();
                   _amenityFocusNode.requestFocus();
@@ -421,46 +378,6 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _ThousandsSeparatorFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(',', '');
-    if (digits.isEmpty) return newValue.copyWith(text: '');
-
-    final formatted = StringBuffer();
-    for (var i = 0; i < digits.length; i++) {
-      final posFromEnd = digits.length - i;
-      if (i > 0 && posFromEnd % 3 == 0) formatted.write(',');
-      formatted.write(digits[i]);
-    }
-
-    final result = formatted.toString();
-
-    // Figure out how many raw digits precede the cursor in the new value.
-    final rawCursor = newValue.selection.end.clamp(0, newValue.text.length);
-    var digitsSeen = 0;
-    for (var i = 0; i < rawCursor && i < newValue.text.length; i++) {
-      if (newValue.text[i] != ',') digitsSeen++;
-    }
-
-    // Walk the formatted string to place the cursor after the same number of digits.
-    var formattedCursor = 0;
-    var counted = 0;
-    for (var i = 0; i < result.length && counted < digitsSeen; i++) {
-      formattedCursor = i + 1;
-      if (result[i] != ',') counted++;
-    }
-
-    return TextEditingValue(
-      text: result,
-      selection: TextSelection.collapsed(offset: formattedCursor),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -32,7 +33,7 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
         EscrowSelectorLoaded(selectedEscrow: selectedEscrow, result: escrows),
       );
     } catch (e, stackTrace) {
-      print(stackTrace);
+      debugPrint('$e\n$stackTrace');
       emit(EscrowSelectorError('Failed to load escrows'));
     }
   }

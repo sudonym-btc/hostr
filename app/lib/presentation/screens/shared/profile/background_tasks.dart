@@ -48,12 +48,11 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
                 try {
                   await Workmanager().initialize(callbackDispatcher);
                 } catch (e) {
-                  print('Error initializing Workmanager: $e');
+                  debugPrint('Error initializing Workmanager: $e');
                   return;
                 }
                 setState(() => workmanagerInitialized = true);
               }
-              print('WorkManager already initialized');
             },
           ),
           Gap.vertical.sm(),
@@ -165,7 +164,6 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
             child: Text(AppLocalizations.of(context)!.cancelAll),
             onPressed: () async {
               await Workmanager().cancelAll();
-              print('Cancel all tasks completed');
             },
           ),
           Gap.vertical.md(),

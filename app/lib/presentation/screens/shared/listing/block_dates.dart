@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
+import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
 import 'package:hostr/presentation/forms/search/date_range_buttons.dart';
 import 'package:hostr/presentation/forms/search/date_range_controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -52,7 +53,7 @@ class _BlockDatesWidgetState extends State<BlockDatesWidget> {
         children: [
           ListenableBuilder(
             listenable: dateRangeController,
-            builder: (context, _) => FilledButton(
+            builder: (context, _) => FutureButton.filled(
               onPressed: dateRangeController.dateRange == null
                   ? null
                   : () async {
