@@ -22,8 +22,8 @@ class MyHttpOverrides extends HttpOverrides {
 
     client.badCertificateCallback =
         (X509Certificate cert, String host, int port) {
-      return true;
-    };
+          return true;
+        };
     return client;
   }
 }

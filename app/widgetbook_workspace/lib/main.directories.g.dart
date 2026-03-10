@@ -198,6 +198,17 @@ final directories = <_widgetbook.WidgetbookNode>[
                     name: 'payment',
                     children: [
                       _widgetbook.WidgetbookComponent(
+                        name: 'OnchainTransactionSheet',
+                        useCases: [
+                          _widgetbook.WidgetbookUseCase(
+                            name: 'Error',
+                            builder:
+                                _widgetbook_workspace_payment_escrow_fund_flow
+                                    .escrowFundError,
+                          ),
+                        ],
+                      ),
+                      _widgetbook.WidgetbookComponent(
                         name: 'PaymentFailureWidget',
                         useCases: [
                           _widgetbook.WidgetbookUseCase(
@@ -243,17 +254,6 @@ final directories = <_widgetbook.WidgetbookNode>[
                           _widgetbook.WidgetbookFolder(
                             name: 'fund',
                             children: [
-                              _widgetbook.WidgetbookComponent(
-                                name: 'EscrowFundFailureWidget',
-                                useCases: [
-                                  _widgetbook.WidgetbookUseCase(
-                                    name: 'Error',
-                                    builder:
-                                        _widgetbook_workspace_payment_escrow_fund_flow
-                                            .escrowFundError,
-                                  ),
-                                ],
-                              ),
                               _widgetbook.WidgetbookComponent(
                                 name: 'EscrowFundProgressWidget',
                                 useCases: [

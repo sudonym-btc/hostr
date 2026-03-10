@@ -11,8 +11,25 @@ class StagingConfig extends Config {
   static const _hostrEscrowPubkey =
       '84d4dd964730c6cd1b901b0bb60a60ca4fb085878efd577b7a3ad60872772c5e';
 
+  static const _grafanaOtlpEndpoint =
+      'https://otlp-gateway-prod-us-east-3.grafana.net/otlp';
+
+  static const _grafanaOtlpHeaders = {
+    'Authorization':
+        'Basic MTU1MzMxMjpnbGNfZXlKdklqb2lNVFk1TkRBMk1TSXNJbTRpT2lKbmNtRm1ZVzVoTFhOMFlXZHBibWNpTENKcklqb2lPWGxWUmtRM1J6VklaR0pxVnpnMVJEWTNZakpSTURoaElpd2liU0k2ZXlKeUlqb2ljSEp2WkMxMWN5MWxZWE4wTFRNaWZYMD0=',
+  };
+
   @override
   List<String> get bootstrapEscrowPubkeys => [_hostrEscrowPubkey];
+
+  @override
+  Telemetry buildTelemetry() => Telemetry(
+    serviceName: 'hostr-app',
+    enableExport: true,
+    otlpEndpoint: _grafanaOtlpEndpoint,
+    otlpHeaders: _grafanaOtlpHeaders,
+  );
+
   @override
   List<String> relays = [];
   @override
