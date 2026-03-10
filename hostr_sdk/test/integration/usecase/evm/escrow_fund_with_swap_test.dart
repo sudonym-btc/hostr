@@ -91,11 +91,14 @@ void main() {
       expect(emittedStates.whereType<OnchainTxConfirmed>(), isNotEmpty);
 
       final completed = operation.state as OnchainTxConfirmed;
-      expect(completed.transactionInformation, isNotNull);
-      final txHash = _extractTxHash(completed.transactionInformation!);
+      final confirmedData = completed.data;
+      expect(confirmedData.transactionInformation, isNotNull);
+      final txHash = _extractTxHash(confirmedData.transactionInformation!);
       expect(txHash, isNotNull);
 
-      final receipt = await hostr.evm.rootstock.awaitReceipt(txHash!);
+      expect(confirmedData.transactionReceipt, isNotNull);
+      final receipt = confirmedData.transactionReceipt!;
+      expect(_extractReceiptTxHash(receipt), equals(txHash));
       expect(_isReceiptSuccessful(receipt), isTrue);
     },
     timeout: const Timeout(Duration(seconds: 60)),
@@ -107,6 +110,16 @@ String? _extractTxHash(TransactionInformation tx) {
   final hash = d.hash?.toString() ?? d.id?.toString();
   if (hash == null || hash.isEmpty) return null;
   return hash;
+}
+
+String? _extractReceiptTxHash(TransactionReceipt receipt) {
+  final dynamic hash = (receipt as dynamic).transactionHash;
+  if (hash == null) return null;
+  if (hash is String) return hash;
+  if (hash is List<int>) return bytesToHex(hash, include0x: true);
+  final normalized = hash.toString();
+  if (normalized.isEmpty) return null;
+  return normalized;
 }
 
 bool _isReceiptSuccessful(TransactionReceipt receipt) {

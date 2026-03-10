@@ -6,6 +6,28 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 
 final getIt = GetIt.instance;
 
+Map<String, String> _parseOtlpHeaders(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return const {};
+
+  final headers = <String, String>{};
+  for (final part in raw.split(',')) {
+    final entry = part.trim();
+    if (entry.isEmpty) continue;
+
+    final separator = entry.indexOf('=');
+    if (separator <= 0) continue;
+
+    final key = Uri.decodeQueryComponent(entry.substring(0, separator).trim());
+    final value =
+        Uri.decodeQueryComponent(entry.substring(separator + 1).trim());
+    if (key.isEmpty || value.isEmpty) continue;
+
+    headers[key] = value;
+  }
+
+  return headers;
+}
+
 Future<void> setupInjection({
   required String relayUrl,
   required String rpcUrl,
@@ -28,6 +50,17 @@ Future<void> setupInjection({
         bootstrapBlossom: [blossomUrl],
         hostrRelay: relayUrl,
         rootstockConfig: _EscrowRootstockConfig(rpcUrl: rpcUrl),
+        telemetry: Telemetry(
+          serviceName: 'hostr-escrow',
+          enableExport:
+              (Platform.environment['OTEL_EXPORTER_OTLP_ENDPOINT'] ?? '')
+                  .trim()
+                  .isNotEmpty,
+          otlpEndpoint: Platform.environment['OTEL_EXPORTER_OTLP_ENDPOINT'],
+          otlpHeaders: _parseOtlpHeaders(
+            Platform.environment['OTEL_EXPORTER_OTLP_HEADERS'],
+          ),
+        ),
       ),
     ),
   );

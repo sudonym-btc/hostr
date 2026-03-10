@@ -48,20 +48,23 @@ class _TripsScreenState extends State<TripsScreen> {
           >(
             stream: _combined,
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
+              final data = snapshot.data;
+              if (data == null) {
                 return const Center(child: AppLoadingIndicator.large());
               }
 
-              final (validations, status) = snapshot.data!;
+              final (validations, status) = data;
+              if (status is StreamStatusIdle ||
+                  status is StreamStatusQuerying) {
+                return const Center(child: AppLoadingIndicator.large());
+              }
+
               final pairs = validations
                   .whereType<Valid<ReservationPairStatus>>()
                   .map((v) => v.event)
                   .toList();
 
               if (pairs.isEmpty) {
-                if (status is! StreamStatusLive) {
-                  return const Center(child: AppLoadingIndicator.large());
-                }
                 return SafeArea(
                   child: CustomPadding(
                     child: Column(

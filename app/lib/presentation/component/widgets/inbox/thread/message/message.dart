@@ -3,7 +3,7 @@ import 'package:hostr/config/constants.dart';
 import 'package:models/main.dart';
 
 class ThreadMessageWidget extends StatelessWidget {
-  final ProfileMetadata sender;
+  final ProfileMetadata? sender;
   final Message item;
   final bool isSentByMe;
 
@@ -22,7 +22,7 @@ class ThreadMessageWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final senderName =
-        sender.metadata.name ?? sender.metadata.displayName ?? '';
+        sender?.metadata.name ?? sender?.metadata.displayName ?? '';
     return Align(
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(

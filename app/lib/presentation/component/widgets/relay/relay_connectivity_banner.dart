@@ -42,7 +42,6 @@ class _RelayConnectivityBannerState extends State<RelayConnectivityBanner> {
           backgroundColor: colorScheme.errorContainer,
           duration: const Duration(days: 1), // persistent until dismissed
           dismissDirection: DismissDirection.down,
-          behavior: SnackBarBehavior.floating,
         ),
       );
     } else if (!state.majorityDisconnected && _snackBarVisible) {

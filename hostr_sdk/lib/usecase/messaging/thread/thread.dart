@@ -54,10 +54,16 @@ class Thread {
     if (state.isClosed) return;
     final keyPair = auth.activeKeyPair;
     if (keyPair == null) return;
+    final nextMessages = messages.list.value;
+    final nextParticipantPubkeys = <String>{
+      for (final message in nextMessages) ...message.pTags,
+      for (final message in nextMessages) message.pubKey,
+    }.toList();
+
     state.add(
       state.value.copyWith(
-        messages: messages.list.value,
-        counterpartyPubkeys: state.value.participantPubkeys
+        messages: nextMessages,
+        counterpartyPubkeys: nextParticipantPubkeys
             .where((pubkey) => pubkey != keyPair.publicKey)
             .toList(),
       ),
@@ -80,6 +86,20 @@ class Thread {
       ],
     );
   });
+
+  Future<Message> replyTextAndWait(String content) =>
+      logger.span('replyTextAndWait', () async {
+        return messaging.broadcastTextAndAwait(
+          content: content.trim(),
+          tags: [
+            [kThreadRefTag, anchor],
+          ],
+          recipientPubkeys: [
+            ...state.value.counterpartyPubkeys,
+            ...addedParticipants,
+          ],
+        );
+      });
 
   Future<List<Future<List<RelayBroadcastResponse>>>>
   replyEvent<T extends Nip01Event>(

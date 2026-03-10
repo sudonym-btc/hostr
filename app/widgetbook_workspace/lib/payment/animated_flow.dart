@@ -7,8 +7,6 @@ import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/out/swap_out.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
@@ -316,6 +314,12 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
           );
         case OnchainError():
           return OnchainTransactionSheet.error(state, title: 'Escrow Failed');
+        case OnchainTxBroadcasting():
+          // TODO: Handle this case.
+          throw UnimplementedError();
+        case OnchainTxSent():
+          // TODO: Handle this case.
+          throw UnimplementedError();
       }
     },
   );

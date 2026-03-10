@@ -14,19 +14,15 @@ class ThreadView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ThreadCubit, ThreadCubitState>(
       builder: (context, state) {
-        final participantsReady = state.participantStates.every(
-          (p) => p.data != null,
-        );
-
-        if (!participantsReady) {
-          return Scaffold(
-            body: SafeArea(child: Center(child: AppLoadingIndicator.large())),
-          );
-        }
-
         return ThreadReadyWidget(
-          participants: state.participantStates.map((e) => e.data!).toList(),
-          counterparties: state.counterpartyStates.map((e) => e.data!).toList(),
+          participants: state.participantStates
+              .map((e) => e.data)
+              .whereType<ProfileMetadata>()
+              .toList(),
+          counterparties: state.counterpartyStates
+              .map((e) => e.data)
+              .whereType<ProfileMetadata>()
+              .toList(),
         );
       },
     );

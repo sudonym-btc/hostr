@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:escrow/daemon/bootstrap.dart';
 import 'package:escrow/daemon/escrow_monitor.dart';
 import 'package:escrow/shared/protocol.dart';
@@ -206,8 +208,17 @@ class DaemonHandler {
       ...thread.addedParticipants,
       ...thread.state.value.participantPubkeys
     ]);
-    await thread.replyText(content);
-    return {'ok': true};
+    try {
+      await thread
+          .replyTextAndWait(content)
+          .timeout(const Duration(seconds: 15));
+      return {'ok': true};
+    } on TimeoutException {
+      throw json_rpc.RpcException(
+        -32002,
+        'Reply was broadcast, but the synced thread did not receive it in time.',
+      );
+    }
   }
 
   // ── Services ────────────────────────────────────────────────────────────

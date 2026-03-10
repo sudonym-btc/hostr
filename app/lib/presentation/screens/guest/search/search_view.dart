@@ -235,9 +235,12 @@ class SearchViewState extends State<SearchView> {
                               ),
                             ),
                             Expanded(
-                              child: ListingsWidget(
-                                scrollToId: _scrollToListingId,
-                                focusedItemId: _focusedListingId,
+                              child: SafeArea(
+                                top: false,
+                                child: ListingsWidget(
+                                  scrollToId: _scrollToListingId,
+                                  focusedItemId: _focusedListingId,
+                                ),
                               ),
                             ),
                           ],

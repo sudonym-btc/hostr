@@ -244,7 +244,14 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
 
         if (state.results.isEmpty) {
           return widget.emptyBuilder?.call() ??
-              Center(child: Text(AppLocalizations.of(context)!.noItems));
+              Center(
+                child: Text(
+                  AppLocalizations.of(context)!.noItems,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              );
         }
 
         final isLoading = state.synching || state.fetching;

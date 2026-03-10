@@ -21,6 +21,7 @@ locals {
   compose_runtime_secret_names = [
     "ESCROW_PRIVATE_KEY",
     "BLOSSOM_DASHBOARD_PASSWORD",
+    "OTEL_EXPORTER_OTLP_HEADERS",
   ]
 }
 

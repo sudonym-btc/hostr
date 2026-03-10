@@ -1,3 +1,5 @@
+import 'package:web3dart/web3dart.dart';
+
 import '../onchain_operation.dart';
 
 // ── Escrow claim recovery data ────────────────────────────────────────────
@@ -15,6 +17,8 @@ class EscrowClaimData extends OnchainOperationData {
     super.gasLimit,
     super.swapId,
     super.txHash,
+    super.transactionInformation,
+    super.transactionReceipt,
     this.errorMessage,
   });
 
@@ -28,6 +32,16 @@ class EscrowClaimData extends OnchainOperationData {
   EscrowClaimData copyWithTxHash(String? txHash) => copyWith(txHash: txHash);
 
   @override
+  EscrowClaimData copyWithTransactionInformation(
+    TransactionInformation? transactionInformation,
+  ) => copyWith(transactionInformation: transactionInformation);
+
+  @override
+  EscrowClaimData copyWithTransactionReceipt(
+    TransactionReceipt? transactionReceipt,
+  ) => copyWith(transactionReceipt: transactionReceipt);
+
+  @override
   EscrowClaimData copyWithGasEstimate({
     required String gasPriceWei,
     required String gasLimit,
@@ -38,6 +52,8 @@ class EscrowClaimData extends OnchainOperationData {
     String? gasLimit,
     String? swapId,
     String? txHash,
+    TransactionInformation? transactionInformation,
+    TransactionReceipt? transactionReceipt,
     String? errorMessage,
   }) => EscrowClaimData(
     tradeId: tradeId,
@@ -48,6 +64,9 @@ class EscrowClaimData extends OnchainOperationData {
     gasLimit: gasLimit ?? this.gasLimit,
     swapId: swapId ?? this.swapId,
     txHash: txHash ?? this.txHash,
+    transactionInformation:
+        transactionInformation ?? this.transactionInformation,
+    transactionReceipt: transactionReceipt ?? this.transactionReceipt,
     errorMessage: errorMessage ?? this.errorMessage,
   );
 
@@ -68,6 +87,12 @@ class EscrowClaimData extends OnchainOperationData {
         gasLimit: json['gasLimit'] as String?,
         swapId: json['swapId'] as String?,
         txHash: json['txHash'] as String?,
+        transactionInformation: deserializeTransactionInformation(
+          json['transactionInformation'] as Map<String, dynamic>?,
+        ),
+        transactionReceipt: deserializeTransactionReceipt(
+          json['transactionReceipt'] as Map<String, dynamic>?,
+        ),
         errorMessage: json['errorMessage'] as String?,
       );
 

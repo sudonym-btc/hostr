@@ -198,6 +198,8 @@ class RootstockSwapInOperation extends SwapInOperation {
   Future<SwapInState?> _checkExistingProgress(
     SwapInData data,
   ) => logger.span('checkExistingProgress', () async {
+    // final lockupTx = await rootstock.awaitTransaction(data.lockupTxHash!);
+
     // ── Check chain for existing lockup (idempotent recovery) ──
     final lockup = await _findLockupOnChain(data);
     if (lockup != null) {

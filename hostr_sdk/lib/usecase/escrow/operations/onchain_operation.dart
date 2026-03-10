@@ -34,6 +34,12 @@ abstract class OnchainOperationData {
   /// The on-chain transaction hash, once broadcast.
   final String? txHash;
 
+  /// Full transaction information, persisted for recovery and consumers.
+  final TransactionInformation? transactionInformation;
+
+  /// Full transaction receipt, persisted once confirmation completes.
+  final TransactionReceipt? transactionReceipt;
+
   const OnchainOperationData({
     required this.accountIndex,
     required this.contractAddress,
@@ -42,6 +48,8 @@ abstract class OnchainOperationData {
     this.gasLimit,
     this.swapId,
     this.txHash,
+    this.transactionInformation,
+    this.transactionReceipt,
   });
 
   /// Unique identifier for this operation (e.g. tradeId).
@@ -49,6 +57,12 @@ abstract class OnchainOperationData {
 
   OnchainOperationData copyWithSwapId(String? swapId);
   OnchainOperationData copyWithTxHash(String? txHash);
+  OnchainOperationData copyWithTransactionInformation(
+    TransactionInformation? transactionInformation,
+  );
+  OnchainOperationData copyWithTransactionReceipt(
+    TransactionReceipt? transactionReceipt,
+  );
   OnchainOperationData copyWithGasEstimate({
     required String gasPriceWei,
     required String gasLimit,
@@ -64,6 +78,12 @@ abstract class OnchainOperationData {
     if (gasLimit != null) 'gasLimit': gasLimit,
     if (swapId != null) 'swapId': swapId,
     if (txHash != null) 'txHash': txHash,
+    if (transactionInformation != null)
+      'transactionInformation': serializeTransactionInformation(
+        transactionInformation!,
+      ),
+    if (transactionReceipt != null)
+      'transactionReceipt': serializeTransactionReceipt(transactionReceipt!),
   };
 
   Map<String, dynamic> toJson();
@@ -220,10 +240,7 @@ class OnchainTxSent extends OnchainOperationState {
 class OnchainTxConfirmed extends OnchainOperationState {
   @override
   final OnchainOperationData data;
-
-  /// The full transaction info — ephemeral (not serialised).
-  final TransactionInformation? transactionInformation;
-  OnchainTxConfirmed(this.data, {this.transactionInformation});
+  OnchainTxConfirmed(this.data);
 
   @override
   String get stateName => 'txConfirmed';
@@ -569,6 +586,7 @@ abstract class OnchainOperation
 
     // Send the transaction.
     final tx = await executeTransaction();
+    data = data.copyWithTransactionInformation(tx);
     final txHash = extractTxHash(tx);
     if (txHash != null) {
       data = data.copyWithTxHash(txHash);
@@ -579,7 +597,7 @@ abstract class OnchainOperation
         'Could not extract tx hash from TransactionInformation, '
         'skipping receipt status check',
       );
-      return OnchainTxConfirmed(data, transactionInformation: tx);
+      return OnchainTxConfirmed(data);
     }
   });
 
@@ -592,13 +610,17 @@ abstract class OnchainOperation
   /// receipt and check success.
   Future<OnchainOperationState> _stepConfirmTx() =>
       logger.span('stepConfirmTx', () async {
-        final data = state.data!;
+        var data = state.data!;
         final txHash = data.txHash!;
+        final transactionInformation =
+            data.transactionInformation ?? await chain.awaitTransaction(txHash);
+        data = data.copyWithTransactionInformation(transactionInformation);
 
         final receipt = await chain.awaitReceipt(txHash);
         if (!isReceiptSuccessful(receipt)) {
           return OnchainError('Transaction reverted: $txHash', data: data);
         }
+        data = data.copyWithTransactionReceipt(receipt);
         onTransactionConfirmed(data, receipt);
         logger.d('$namespace transaction confirmed: $txHash');
         return OnchainTxConfirmed(data);
@@ -781,6 +803,75 @@ abstract class OnchainOperation
         final normalized = status.toString().toLowerCase();
         return normalized == '1' || normalized == '0x1' || normalized == 'true';
       });
+}
+
+Map<String, dynamic> serializeTransactionInformation(
+  TransactionInformation tx,
+) => {
+  if (tx.blockHash != null) 'blockHash': tx.blockHash,
+  if (!tx.blockNumber.isPending)
+    'blockNumber': tx.blockNumber.blockNum.toString(),
+  'from': tx.from.toString(),
+  'gas': tx.gas.toString(),
+  'gasPrice': tx.gasPrice.getInWei.toString(),
+  'hash': tx.hash,
+  'input': bytesToHex(tx.input, include0x: true),
+  'nonce': tx.nonce.toString(),
+  if (tx.to != null) 'to': tx.to.toString(),
+  if (tx.transactionIndex != null)
+    'transactionIndex': tx.transactionIndex.toString(),
+  'value': tx.value.getInWei.toString(),
+  'v': tx.v.toString(),
+  'r': toHexQuantity(tx.r),
+  's': toHexQuantity(tx.s),
+};
+
+Map<String, dynamic> serializeTransactionReceipt(TransactionReceipt receipt) =>
+    {
+      'transactionHash': bytesToHex(receipt.transactionHash, include0x: true),
+      'transactionIndex': toHexQuantity(receipt.transactionIndex),
+      'blockHash': bytesToHex(receipt.blockHash, include0x: true),
+      if (!receipt.blockNumber.isPending)
+        'blockNumber': receipt.blockNumber.blockNum.toString(),
+      if (receipt.from != null) 'from': receipt.from.toString(),
+      if (receipt.to != null) 'to': receipt.to.toString(),
+      'cumulativeGasUsed': toHexQuantity(receipt.cumulativeGasUsed),
+      if (receipt.gasUsed != null) 'gasUsed': toHexQuantity(receipt.gasUsed!),
+      if (receipt.effectiveGasPrice != null)
+        'effectiveGasPrice': receipt.effectiveGasPrice!.getInWei.toString(),
+      if (receipt.contractAddress != null)
+        'contractAddress': receipt.contractAddress.toString(),
+      if (receipt.status != null) 'status': receipt.status! ? '0x1' : '0x0',
+      'logs': receipt.logs.map(serializeFilterEvent).toList(),
+    };
+
+Map<String, dynamic> serializeFilterEvent(FilterEvent event) => {
+  if (event.removed != null) 'removed': event.removed,
+  if (event.logIndex != null) 'logIndex': toHexQuantity(event.logIndex!),
+  if (event.transactionIndex != null)
+    'transactionIndex': toHexQuantity(event.transactionIndex!),
+  if (event.transactionHash != null) 'transactionHash': event.transactionHash,
+  if (event.blockHash != null) 'blockHash': event.blockHash,
+  if (event.blockNum != null) 'blockNumber': toHexQuantity(event.blockNum!),
+  if (event.address != null) 'address': event.address.toString(),
+  if (event.data != null) 'data': event.data,
+  if (event.topics != null) 'topics': event.topics,
+};
+
+TransactionInformation? deserializeTransactionInformation(
+  Map<String, dynamic>? json,
+) => json == null ? null : TransactionInformation.fromMap(json);
+
+TransactionReceipt? deserializeTransactionReceipt(Map<String, dynamic>? json) =>
+    json == null ? null : TransactionReceipt.fromMap(json);
+
+String toHexQuantity(Object value) {
+  final bigint = switch (value) {
+    int v => BigInt.from(v),
+    BigInt v => v,
+    _ => throw ArgumentError('Unsupported quantity type: ${value.runtimeType}'),
+  };
+  return '0x${bigint.toRadixString(16)}';
 }
 
 /// Signal that [stepCheckSwap] cannot make progress because the nested

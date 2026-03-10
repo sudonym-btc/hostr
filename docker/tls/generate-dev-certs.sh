@@ -149,3 +149,12 @@ echo "==> All certificates generated ✓"
 echo "    CA cert:   ${CA_DIR}/ca.crt"
 echo "    CA bundle: ${CA_DIR}/ca-bundle.crt"
 ls -1 "$CERT_DIR"/*.crt 2>/dev/null | sed 's/^/    /'
+
+# ── Store config fingerprint so restart.sh can skip regeneration ──
+# Hash DOMAIN + this script's contents; if neither changes between
+# restarts the existing certs will be kept as-is.
+_self="/scripts/generate-dev-certs.sh"
+if [ -f "$_self" ]; then
+  printf '%s' "$DOMAIN" | cat - "$_self" | sha256sum 2>/dev/null | cut -d' ' -f1 \
+    > "$CA_DIR/.config-hash" || true
+fi

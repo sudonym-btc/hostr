@@ -43,7 +43,6 @@ class _NwcConnectivityBannerState extends State<NwcConnectivityBanner> {
           backgroundColor: colorScheme.errorContainer,
           duration: const Duration(days: 1), // persistent until dismissed
           dismissDirection: DismissDirection.down,
-          behavior: SnackBarBehavior.floating,
         ),
       );
     } else if (!state.walletDisconnected && _snackBarVisible) {
