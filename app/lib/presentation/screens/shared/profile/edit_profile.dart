@@ -39,8 +39,8 @@ class EditProfileViewState extends State<EditProfileView> {
             fit: StackFit.expand,
             children: [
               BlurredImage(
-                child: Image.network(
-                  'https://randomuser.me/api/portraits/men/1.jpg',
+                child: Image.asset(
+                  'assets/images/profile_placeholder.jpg',
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => ColoredBox(
                     color: Theme.of(
