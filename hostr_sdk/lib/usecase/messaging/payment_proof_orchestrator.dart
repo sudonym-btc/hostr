@@ -78,12 +78,14 @@ class PaymentProofOrchestrator {
     // Track when reservations have finished the initial query.
     // Listen to reservations (replay) to mark trades as processed.
     _subscriptions.add(
-      _userSubs.allMyReservations$.stream.replay.listen(_onReservation),
+      _userSubs.allMyReservations$.stream.replayStream.listen(_onReservation),
     );
 
     // Subscribe to payment events via replay so late-starting still gets
     // all previously emitted events.
-    _subscriptions.add(_userSubs.paymentEvents$.replay.listen(_onPaymentEvent));
+    _subscriptions.add(
+      _userSubs.paymentEvents$.replayStream.listen(_onPaymentEvent),
+    );
   });
 
   void _checkAndMarkExistingBuyerReservation(Reservation reservation) =>
@@ -250,7 +252,7 @@ class PaymentProofOrchestrator {
   /// user-level reservation accumulator.
   bool _hasBuyerReservation(String tradeId, String hostPubkey) =>
       _logger.spanSync('_hasBuyerReservation', () {
-        final reservations = _userSubs.allMyReservations$.stream.list.value;
+        final reservations = _userSubs.allMyReservations$.stream.items;
         return reservations.any((r) {
           final rTradeId = r.getDtag();
           return rTradeId == tradeId && r.pubKey != hostPubkey;

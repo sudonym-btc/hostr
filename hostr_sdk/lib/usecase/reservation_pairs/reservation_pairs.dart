@@ -20,7 +20,7 @@ class ReservationPairDeps {
 /// per commitment hash and runs validation over them.
 ///
 /// Follows the same `subscribeVerified` / `queryVerified` API shape used by
-/// [Reviews] via [CanVerify], but operates on [ReservationPairStatus] rather
+/// [Reviews] via [CanVerify], but operates on [ReservationPair] rather
 /// than a single [Nip01Event].
 ///
 /// Validation rules per pair:
@@ -53,12 +53,12 @@ class ReservationPairs {
   /// Unlike [subscribeVerified], the caller owns the [source] lifetime —
   /// passing `closeSourceOnClose: false` (the default) keeps the shared
   /// stream alive when this view is closed.
-  StreamWithStatus<Validation<ReservationPairStatus>> verifyFromSource({
+  StreamWithStatus<List<Validation<ReservationPair>>> verifyFromSource({
     required StreamWithStatus<Reservation> source,
     Duration debounce = const Duration(milliseconds: 350),
     bool closeSourceOnClose = false,
     bool forceValidateSelfSigned = false,
-    bool Function(ReservationPairStatus pair)? forceValidatePredicate,
+    bool Function(ReservationPair pair)? forceValidatePredicate,
   }) => logger.spanSync('verifyFromSource', () {
     return _buildValidatedStream(
       source: source,
@@ -74,11 +74,11 @@ class ReservationPairs {
   /// When [forceValidateSelfSigned] is `true`, buyer-published reservations
   /// are always checked for a valid payment proof — even when a seller
   /// confirmation already exists. This is the mode escrow arbitration uses.
-  StreamWithStatus<Validation<ReservationPairStatus>> subscribeVerified({
+  StreamWithStatus<List<Validation<ReservationPair>>> subscribeVerified({
     required String listingAnchor,
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
-    bool Function(ReservationPairStatus pair)? forceValidatePredicate,
+    bool Function(ReservationPair pair)? forceValidatePredicate,
   }) => logger.spanSync('subscribeVerified', () {
     final source = reservations.subscribe(
       Filter(
@@ -102,11 +102,11 @@ class ReservationPairs {
   /// When [forceValidateSelfSigned] is `true`, buyer-published reservations
   /// are always checked for a valid payment proof — even when a seller
   /// confirmation already exists.
-  StreamWithStatus<Validation<ReservationPairStatus>> queryVerified({
+  StreamWithStatus<List<Validation<ReservationPair>>> queryVerified({
     required String listingAnchor,
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
-    bool Function(ReservationPairStatus pair)? forceValidatePredicate,
+    bool Function(ReservationPair pair)? forceValidatePredicate,
   }) => logger.spanSync('queryVerified', () {
     final source = reservations.query(
       Filter(
@@ -136,8 +136,8 @@ class ReservationPairs {
   ///
   /// This is intentionally static so it can be used in tests or
   /// other contexts without needing the full usecase instance.
-  static Validation<ReservationPairStatus> verifyPair(
-    ReservationPairStatus pair, {
+  static Validation<ReservationPair> verifyPair(
+    ReservationPair pair, {
     bool forceValidateSelfSigned = false,
   }) {
     // 1. Cancelled → Valid (cancellation is a legitimate protocol outcome,
@@ -205,8 +205,8 @@ class ReservationPairs {
   ///
   /// When [forceValidateSelfSigned] is `true` the buyer's escrow proof is
   /// checked regardless of whether a seller confirmation exists.
-  static Future<Validation<ReservationPairStatus>> verifyPairOnChain(
-    ReservationPairStatus pair, {
+  static Future<Validation<ReservationPair>> verifyPairOnChain(
+    ReservationPair pair, {
     bool forceValidateSelfSigned = false,
     EscrowVerification? escrowVerification,
   }) async {
@@ -247,179 +247,58 @@ class ReservationPairs {
 
   // ── Stream plumbing ─────────────────────────────────────────────────
 
-  StreamWithStatus<Validation<ReservationPairStatus>> _buildValidatedStream({
+  StreamWithStatus<List<Validation<ReservationPair>>> _buildValidatedStream({
     required StreamWithStatus<Reservation> source,
     required Duration debounce,
     required bool closeSourceOnClose,
     bool forceValidateSelfSigned = false,
-    bool Function(ReservationPairStatus pair)? forceValidatePredicate,
+    bool Function(ReservationPair pair)? forceValidatePredicate,
   }) {
-    late final StreamSubscription<StreamStatus> statusSub;
-    late final StreamSubscription<List<Reservation>> listSub;
-    late final StreamWithStatus<Validation<ReservationPairStatus>> response;
-    Timer? debounceTimer;
-    var hasValidatedAtLeastOnce = false;
-    var initialQuerySettled = false;
-    var validationRunToken = 0;
-    StreamStatus? latestSourceStatus;
-    List<Reservation> latestRawReservations = const [];
-    Map<String, ReservationPairStatus> latestPairs = const {};
+    final pairs = <String, Validation<ReservationPair>>{};
+    final snapshots = source.asyncMap<List<Validation<ReservationPair>>>((
+      item,
+    ) async {
+      final tradeId = item.getDtag()!;
+      final existing = pairs[tradeId];
+      final updated = existing != null
+          ? existing.event.addReservation(item)
+          : ReservationPair.fromReservation(item);
+      final shouldForceValidate =
+          forceValidatePredicate?.call(updated) ?? forceValidateSelfSigned;
 
-    bool pairHasBothSides(ReservationPairStatus pair) {
-      return pair.sellerReservation != null && pair.buyerReservation != null;
-    }
-
-    bool samePairSnapshot(ReservationPairStatus a, ReservationPairStatus b) {
-      return a.sellerReservation?.id == b.sellerReservation?.id &&
-          a.buyerReservation?.id == b.buyerReservation?.id;
-    }
-
-    Future<void> runValidationNow() async {
-      final snapshot = List<Reservation>.unmodifiable(latestRawReservations);
-      final token = ++validationRunToken;
-
-      // logger.d(
-      //   '[reservation-pairs] validate start '
-      //   'listing=${listing.anchor} '
-      //   'rawReservations=${snapshot.length} '
-      //   'forceValidateSelfSigned=$forceValidateSelfSigned '
-      //   'token=$token',
-      // );
-
-      response.addStatus(StreamStatusQuerying());
-
-      final pairs = Reservations.toReservationPairs(reservations: snapshot);
-
-      final results = <Validation<ReservationPairStatus>>[];
-      for (final entry in pairs.entries) {
-        final tradeId = entry.key;
-        final pair = entry.value;
-
-        final perPairForce =
-            forceValidateSelfSigned ||
-            (forceValidatePredicate?.call(pair) ?? false);
-
-        final validation = await verifyPairOnChain(
-          pair,
-          forceValidateSelfSigned: perPairForce,
-          escrowVerification: escrowVerification,
-        );
-
-        if (validation is Invalid<ReservationPairStatus>) {
-          logger.d(
-            '[reservation-pairs] invalid '
-            'tradeId=$tradeId reason=${validation.reason}',
-          );
-        } else {
-          logger.d('[reservation-pairs] valid tradeId=$tradeId');
-        }
-
-        results.add(validation);
-      }
-
-      if (token != validationRunToken) {
-        // A newer validation run superseded this result.
-        return;
-      }
-
-      response.setSnapshot(results);
-      final invalidCount = results
-          .whereType<Invalid<ReservationPairStatus>>()
-          .length;
-      logger.d(
-        '[reservation-pairs] validate done '
-        'pairs=${results.length} '
-        'valid=${results.length - invalidCount} '
-        'invalid=$invalidCount '
-        'token=$token',
+      pairs[tradeId] = await verifyPairOnChain(
+        updated,
+        forceValidateSelfSigned: shouldForceValidate,
+        escrowVerification: escrowVerification,
       );
-      hasValidatedAtLeastOnce = true;
-      if (latestSourceStatus != null) {
-        response.addStatus(latestSourceStatus!);
-      }
+
+      return pairs.values.toList();
+    });
+
+    if (closeSourceOnClose) {
+      snapshots.onClose = () => source.close();
     }
 
-    void scheduleValidation() {
-      debounceTimer?.cancel();
-      if (debounce == Duration.zero) {
-        unawaited(runValidationNow());
-        return;
-      }
-      debounceTimer = Timer(debounce, () {
-        unawaited(runValidationNow());
-      });
-    }
-
-    response = StreamWithStatus<Validation<ReservationPairStatus>>(
-      onClose: () async {
-        debounceTimer?.cancel();
-        await statusSub.cancel();
-        await listSub.cancel();
-        if (closeSourceOnClose) {
-          await source.close();
-        }
-      },
+    final response = StreamWithStatus<List<Validation<ReservationPair>>>(
+      onClose: () => snapshots.close(),
     );
 
-    statusSub = source.status.listen((status) {
-      latestSourceStatus = status;
-      if (status is StreamStatusError) {
-        response.addStatus(status);
-        return;
-      }
+    final latest = snapshots.items.lastOrNull;
+    if (latest != null) {
+      response.replaceAll([latest]);
+    }
 
-      final isQuerySettled =
-          status is StreamStatusQueryComplete || status is StreamStatusLive;
-      if (!initialQuerySettled && isQuerySettled) {
-        initialQuerySettled = true;
-        debounceTimer?.cancel();
-        // Initial query is done: now we know which pairs have no seller
-        // counterpart and must validate buyer self-signed proofs.
-        unawaited(runValidationNow());
-        return;
-      }
-
-      // Don't advertise "live" until first validation snapshot is done.
-      if (hasValidatedAtLeastOnce) {
-        response.addStatus(status);
-      }
-    }, onError: response.addError);
-
-    listSub = source.list.listen((rawReservations) {
-      latestRawReservations = rawReservations;
-
-      final currentPairs = Reservations.toReservationPairs(
-        reservations: rawReservations,
-      );
-
-      final hasUpdatedSellerBuyerCombo = currentPairs.entries.any((entry) {
-        final pair = entry.value;
-        if (!pairHasBothSides(pair)) {
-          return false;
-        }
-        final previous = latestPairs[entry.key];
-        if (previous == null) {
-          return true;
-        }
-        return !samePairSnapshot(previous, pair);
-      });
-
-      latestPairs = currentPairs;
-
-      // Validate immediately when both buyer/seller snapshots are present for
-      // a pair (so we can decide quickly if on-chain verification is needed).
-      if (hasUpdatedSellerBuyerCombo) {
-        debounceTimer?.cancel();
-        unawaited(runValidationNow());
-        return;
-      }
-
-      // Before initial query completion we postpone buyer-only validation,
-      // because seller confirmations may still arrive in the same query.
-      if (initialQuerySettled) {
-        scheduleValidation();
-      }
-    }, onError: response.addError);
+    response.addSubscription(
+      snapshots.itemsStream.listen((snapshotHistory) {
+        final latest = snapshotHistory.lastOrNull;
+        response.replaceAll(latest != null ? [latest] : const []);
+      }, onError: response.addError),
+    );
+    response.addSubscription(
+      snapshots.status
+          .distinct((a, b) => a.runtimeType == b.runtimeType)
+          .listen(response.addStatus, onError: response.addError),
+    );
 
     return response;
   }

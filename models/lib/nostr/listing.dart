@@ -203,7 +203,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
   static bool isAvailable(
     DateTime start,
     DateTime end,
-    List<ReservationPairStatus> reservationPairs,
+    List<ReservationPair> reservationPairs,
   ) {
     DateTime normalize(DateTime value) {
       return DateTime.utc(value.year, value.month, value.day);

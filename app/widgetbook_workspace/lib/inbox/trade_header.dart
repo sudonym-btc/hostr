@@ -49,8 +49,7 @@ Widget tradeHeaderKnobs(BuildContext context) {
               : null,
           streams: TradeStreams(
             paymentEvents: StreamWithStatus<PaymentEvent>(),
-            reservationStream:
-                StreamWithStatus<Validation<ReservationPairStatus>>(),
+            reservationStream: StreamWithStatus<Validation<ReservationPair>>(),
             transitionsStream: StreamWithStatus<ReservationTransition>(),
             subscriptionsLive: BehaviorSubject<bool>.seeded(false),
           ),

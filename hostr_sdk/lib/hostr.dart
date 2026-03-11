@@ -55,7 +55,7 @@ class Hostr {
   Trade trade(String tradeId) {
     return getIt<Trade>(
       param1: tradeId,
-      param2: messaging.threads.threads[tradeId]!.messages.list.value
+      param2: messaging.threads.threads[tradeId]!.messages.items
           .where((msg) => msg.child is Reservation)
           .map((msg) => msg.child as Reservation)
           .first

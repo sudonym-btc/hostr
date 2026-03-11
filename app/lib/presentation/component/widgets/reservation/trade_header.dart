@@ -40,7 +40,7 @@ class TradeHeaderView extends StatelessWidget {
   String get hostPubKey => tradeState.hostPubKey;
   StreamWithStatus<PaymentEvent> get paymentEventsStream =>
       tradeState.streams.paymentEvents;
-  StreamWithStatus<Validation<ReservationPairStatus>>? get reservationStream =>
+  StreamWithStatus<Validation<ReservationPair>>? get reservationStream =>
       tradeState.streams.reservationStream;
   StreamWithStatus<ReservationTransition>? get transitionsStream =>
       tradeState.streams.transitionsStream;
@@ -102,7 +102,7 @@ class TradeHeaderView extends StatelessWidget {
   Widget _buildSummary(BuildContext context, {required bool showImages}) {
     final availabilityBanner = _buildAvailabilityBanner(context);
     final paymentStatusChip = StreamBuilder<PaymentEvent>(
-      stream: paymentEventsStream.replay,
+      stream: paymentEventsStream.replayStream,
       builder: (context, snapshot) {
         final event = snapshot.data;
         if (event != null) {

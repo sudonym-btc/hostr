@@ -38,7 +38,7 @@ class Threads extends HydratedCubit<List<Message>> {
   final Set<String> _seenIds = {};
 
   StreamWithStatus<Message>? subscription;
-  StreamSubscription<StreamStatus>? _statusSubscription;
+  StreamSubscription? _statusSubscription;
   StreamSubscription<Message>? _messageSubscription;
 
   Threads({
@@ -73,13 +73,15 @@ class Threads extends HydratedCubit<List<Message>> {
       filter: filter,
     );
     _statusSubscription?.cancel();
-    _statusSubscription = subscription!.status.listen((status) {
-      _statusSubject.add(status);
-      logger.d("Thread stats $status");
-      if (status is StreamStatusQueryComplete) {
-        logger.d('Threads query complete');
-      }
-    });
+    _statusSubscription = subscription!.status
+        .distinct((a, b) => a.runtimeType == b.runtimeType)
+        .listen((status) {
+          _statusSubject.add(status);
+          logger.d("Thread stats $status");
+          if (status is StreamStatusQueryComplete) {
+            logger.d('Threads query complete');
+          }
+        });
     _messageSubscription?.cancel();
     _messageSubscription = subscription!.stream.listen(processMessage);
   });
@@ -127,7 +129,7 @@ class Threads extends HydratedCubit<List<Message>> {
   Future<Message> awaitMessageId(String expectedId) =>
       logger.span('awaitMessageId', () async {
         logger.d('Awaiting message with id $expectedId');
-        return subscription!.replay.firstWhere(
+        return subscription!.replayStream.firstWhere(
           (message) => message.id == expectedId,
         );
       });

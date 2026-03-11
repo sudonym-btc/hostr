@@ -50,6 +50,9 @@ class Reservation
   bool get isNegotiation => parsedContent.isNegotiation;
   bool get isCommit => parsedContent.isCommit;
   bool get isCancel => parsedContent.isCancel;
+  bool get isSeller => pubKey == getPubKeyFromAnchor(parsedTags.listingAnchor);
+  bool get isBuyer => !isSeller;
+
   String commitHash() => parsedContent.commitHash();
   String signCommit(KeyPair keyPair) => parsedContent.signCommit(keyPair);
   bool verifyCommit([String? pubkey]) => parsedContent.verifyCommit(pubkey);

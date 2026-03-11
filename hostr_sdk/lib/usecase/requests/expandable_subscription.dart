@@ -46,6 +46,10 @@ class ExpandableSubscription<T extends Nip01Event> {
   /// Dedup: event IDs already piped into [stream].
   final Set<String> _seenIds = {};
 
+  /// Private accumulator for computing `since` timestamps without
+  /// depending on [stream.list].
+  final List<T> _items = [];
+
   /// The filter currently covered by the live subscription.
   Filter? _currentFilter;
 
@@ -57,7 +61,7 @@ class ExpandableSubscription<T extends Nip01Event> {
 
   /// Subscriptions to the filter source.
   StreamSubscription<Filter>? _filterDataSub;
-  StreamSubscription<StreamStatus>? _filterStatusSub;
+  StreamSubscription? _filterStatusSub;
 
   /// Debounce machinery for filter emissions.
   final Duration _debounceDuration;
@@ -100,6 +104,7 @@ class ExpandableSubscription<T extends Nip01Event> {
     await _liveHandle?.cancel();
     await stream.close();
     _seenIds.clear();
+    _items.clear();
     _logger.d('ExpandableSubscription[$_name] closed');
   });
 
@@ -117,6 +122,7 @@ class ExpandableSubscription<T extends Nip01Event> {
     await _liveHandle?.cancel();
     _liveHandle = null;
     _seenIds.clear();
+    _items.clear();
     _currentFilter = null;
     _relayCaughtUp = false;
     _filterSourceLive = false;
@@ -131,30 +137,32 @@ class ExpandableSubscription<T extends Nip01Event> {
     stream.addStatus(StreamStatusQuerying());
 
     // Listen to filter data: each emission is the full accumulated filter.
-    _filterDataSub = filterSource.replay.listen(
+    _filterDataSub = filterSource.replayStream.listen(
       _onFilterEmission,
       onError: stream.addError,
     );
 
     // Listen to filter status: track when source goes live.
-    _filterStatusSub = filterSource.status.listen((status) {
-      if (status is StreamStatusLive && !_filterSourceLive) {
-        _filterSourceLive = true;
-        _logger.d('ExpandableSubscription[$_name] filter source is live');
+    _filterStatusSub = filterSource.status
+        .distinct((a, b) => a.runtimeType == b.runtimeType)
+        .listen((status) {
+          if (status is StreamStatusLive && !_filterSourceLive) {
+            _filterSourceLive = true;
+            _logger.d('ExpandableSubscription[$_name] filter source is live');
 
-        // Discovery can legitimately complete without finding any matching
-        // trade IDs. In that case there is no historical query to run, so the
-        // subscription is already caught up as soon as the source goes live.
-        if (_currentFilter == null && _pendingFilter == null) {
-          _relayCaughtUp = true;
-          if (stream.status.value is! StreamStatusQueryComplete) {
-            stream.addStatus(StreamStatusQueryComplete());
+            // Discovery can legitimately complete without finding any matching
+            // trade IDs. In that case there is no historical query to run, so the
+            // subscription is already caught up as soon as the source goes live.
+            if (_currentFilter == null && _pendingFilter == null) {
+              _relayCaughtUp = true;
+              if (stream.status.value is! StreamStatusQueryComplete) {
+                stream.addStatus(StreamStatusQueryComplete());
+              }
+            }
+
+            _maybeEmitLive();
           }
-        }
-
-        _maybeEmitLive();
-      }
-    });
+        });
   }
 
   void _onFilterEmission(Filter incomingFilter) {
@@ -257,10 +265,8 @@ class ExpandableSubscription<T extends Nip01Event> {
 
     // Set `since` to just after the newest event we've seen to avoid
     // re-fetching events already in the accumulator.
-    if (stream.list.value.isNotEmpty) {
-      final maxCreatedAt = stream.list.value
-          .map((e) => e.createdAt)
-          .reduce(max);
+    if (_items.isNotEmpty) {
+      final maxCreatedAt = _items.map((e) => e.createdAt).reduce(max);
       final nextSince = maxCreatedAt + 1;
       liveFilter.since = liveFilter.since == null
           ? nextSince
@@ -282,6 +288,7 @@ class ExpandableSubscription<T extends Nip01Event> {
 
   void _dedupAdd(T event) {
     if (_seenIds.add(event.id)) {
+      _items.add(event);
       stream.add(event);
     }
   }

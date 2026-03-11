@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:rxdart/rxdart.dart';
 
 import 'gap.dart';
 import 'padding.dart';
@@ -84,12 +83,9 @@ class ListWidgetState<T> extends State<StatusStreamListWidget<T>> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: Rx.merge([
-        widget.stream.stream.map((_) => null),
-        widget.stream.status.map(((_) => null)),
-      ]),
+      stream: widget.stream.itemsStream,
       builder: (context, _) {
-        final items = List<T>.of(widget.stream.list.value);
+        final items = List<T>.of(widget.stream.items);
         if (widget.sort != null) {
           items.sort(widget.sort);
         }

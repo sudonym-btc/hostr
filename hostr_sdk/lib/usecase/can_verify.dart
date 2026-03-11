@@ -72,9 +72,16 @@ mixin CanVerify<T extends Nip01Event, TDeps> on CrudUseCase<T>
 
   StreamWithStatus<T> _queryWithStatus(Filter filter, {required String name}) {
     final combinedFilter = getCombinedFilter(filter, Filter(kinds: [kind]));
-    return StreamWithStatus<T>(
-      queryFn: () =>
-          requests.query<T>(filter: combinedFilter, name: '$T-$name'),
-    );
+    final sws = StreamWithStatus<T>();
+    sws.addStatus(StreamStatusQuerying());
+    final sub = requests
+        .query<T>(filter: combinedFilter, name: '$T-$name')
+        .listen(
+          sws.add,
+          onError: sws.addError,
+          onDone: () => sws.addStatus(StreamStatusQueryComplete()),
+        );
+    sws.addSubscription(sub);
+    return sws;
   }
 }

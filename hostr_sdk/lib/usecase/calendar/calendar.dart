@@ -5,7 +5,6 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
 import '../../util/custom_logger.dart';
-import '../../util/validation_stream.dart';
 import '../listings/listings.dart';
 import '../messaging/user_subscriptions.dart';
 import '../metadata/metadata.dart';
@@ -110,7 +109,7 @@ class Calendar {
     _logger.d('Calendar: subscribed to hosting and trip updates');
 
     _subscriptions.add(
-      _userSubscriptions.myHostings$.list.listen(
+      _userSubscriptions.myHostings$.itemsStream.listen(
         _onHostingSnapshot,
         onError: (e, st) => _logger.w(
           'Calendar: hostings stream error',
@@ -121,7 +120,7 @@ class Calendar {
     );
 
     _subscriptions.add(
-      _userSubscriptions.myTrips$.list.listen(
+      _userSubscriptions.myTrips$.itemsStream.listen(
         _onTripSnapshot,
         onError: (e, st) =>
             _logger.w('Calendar: trips stream error', error: e, stackTrace: st),
@@ -141,9 +140,9 @@ class Calendar {
     _publishedEntries.clear();
   });
 
-  Future<void> _onHosting(Validation<ReservationPairStatus> validation) =>
+  Future<void> _onHosting(Validation<ReservationPair> validation) =>
       _logger.span('_onHosting', () async {
-        if (validation is! Valid<ReservationPairStatus>) return;
+        if (validation is! Valid<ReservationPair>) return;
         final pair = validation.event;
         if (!_isFuture(pair)) return;
 
@@ -171,9 +170,9 @@ class Calendar {
         }
       });
 
-  Future<void> _onTrip(Validation<ReservationPairStatus> validation) =>
+  Future<void> _onTrip(Validation<ReservationPair> validation) =>
       _logger.span('_onTrip', () async {
-        if (validation is! Valid<ReservationPairStatus>) return;
+        if (validation is! Valid<ReservationPair>) return;
         final pair = validation.event;
         if (!_isFuture(pair)) return;
 
@@ -199,20 +198,19 @@ class Calendar {
       });
 
   Future<void> _onHostingSnapshot(
-    List<Validation<ReservationPairStatus>> validations,
+    List<Validation<ReservationPair>> validations,
   ) => _logger.span('_onHostingSnapshot', () async {
     for (final validation in validations) {
       await _onHosting(validation);
     }
   });
 
-  Future<void> _onTripSnapshot(
-    List<Validation<ReservationPairStatus>> validations,
-  ) => _logger.span('_onTripSnapshot', () async {
-    for (final validation in validations) {
-      await _onTrip(validation);
-    }
-  });
+  Future<void> _onTripSnapshot(List<Validation<ReservationPair>> validations) =>
+      _logger.span('_onTripSnapshot', () async {
+        for (final validation in validations) {
+          await _onTrip(validation);
+        }
+      });
 
   Future<void> _publishEntry(CalendarEntry entry) =>
       _logger.span('_publishEntry', () async {
@@ -230,7 +228,7 @@ class Calendar {
 
   CalendarEntry _buildEntry({
     required String tradeId,
-    required ReservationPairStatus pair,
+    required ReservationPair pair,
     required String baseTitle,
   }) {
     final start = pair.start;
@@ -260,7 +258,7 @@ class Calendar {
         }
       });
 
-  String? _resolveGuestPubkey(ReservationPairStatus pair) {
+  String? _resolveGuestPubkey(ReservationPair pair) {
     final tweakedPubkey = pair.buyerReservation?.pubKey;
     final salt = pair.buyerReservation?.salt;
     if (tweakedPubkey == null) return null;
@@ -270,7 +268,7 @@ class Calendar {
         tweakedPubkey;
   }
 
-  bool _isFuture(ReservationPairStatus pair) {
+  bool _isFuture(ReservationPair pair) {
     final start = pair.start;
     final end = pair.end;
     if (start == null || end == null) return false;
@@ -279,7 +277,7 @@ class Calendar {
   }
 
   String _buildTitle({
-    required ReservationPairStatus pair,
+    required ReservationPair pair,
     required String baseTitle,
   }) {
     if (pair.cancelled) {

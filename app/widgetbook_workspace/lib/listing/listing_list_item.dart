@@ -8,7 +8,6 @@ import '../seed_data.dart';
 
 StreamWithStatus<Validation<T>> _emptyValidatedStream<T>() {
   final stream = StreamWithStatus<Validation<T>>();
-  stream.setSnapshot(const []);
   return stream;
 }
 
@@ -26,8 +25,7 @@ Widget listing(BuildContext context) {
 @widgetbook.UseCase(name: 'Pure - date selected', type: ListingListItemView)
 Widget listingPureDateSelected(BuildContext context) {
   final verifiedReviews = _emptyValidatedStream<Review>();
-  final verifiedReservationPairs =
-      _emptyValidatedStream<ReservationPairStatus>();
+  final verifiedReservationPairs = _emptyValidatedStream<ReservationPair>();
 
   return ListingListItemView(
     listing: MOCK_LISTINGS[0],
@@ -48,8 +46,7 @@ Widget listingPureDateSelected(BuildContext context) {
 @widgetbook.UseCase(name: 'Pure - no date selected', type: ListingListItemView)
 Widget listingPureNoDateSelected(BuildContext context) {
   final verifiedReviews = _emptyValidatedStream<Review>();
-  final verifiedReservationPairs =
-      _emptyValidatedStream<ReservationPairStatus>();
+  final verifiedReservationPairs = _emptyValidatedStream<ReservationPair>();
 
   return ListingListItemView(
     listing: MOCK_LISTINGS[0],

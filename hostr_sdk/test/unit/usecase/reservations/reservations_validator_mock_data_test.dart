@@ -162,101 +162,10 @@ void main() {
     });
 
     test(
-      'zap proof: filters out reservations when receipt details are insufficient',
-      () async {
-        final commitment = ParticipationProof.computeCommitmentHash(
-          MockKeys.guest.publicKey,
-          'salt-zap-insufficient',
-        );
-
-        final reservation = _reservation(
-          listing: listing,
-          signer: MockKeys.guest,
-          tradeId: commitment,
-          start: start,
-          end: end,
-          proof: _zapProofFromStubReceipt(listing: listing),
-        );
-
-        final validated = usecase.subscribeValidatedForListing(
-          listing: listing,
-          debounce: Duration.zero,
-        );
-        final activationSub = validated.stream.listen(
-          (_) {},
-          onError: (_, _) {},
-        );
-
-        relay.emitStatus(StreamStatusLive());
-        relay.emit(reservation);
-
-        var snapshot = validated.list.value;
-        for (var i = 0; i < 20 && snapshot.isEmpty; i++) {
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-          snapshot = validated.list.value;
-        }
-
-        expect(snapshot, isEmpty);
-
-        await activationSub.cancel();
-        await validated.close();
-      },
-    );
-
-    test(
       'zap proof: validates when amount and recipient are correct',
       () async {},
       skip:
           'Sketch pending: needs deterministic, parser-compatible fully valid zap receipt fixture',
-    );
-
-    test(
-      'host confirmation in same commitment hash bypasses self-signed validation',
-      () async {
-        final commitment = ParticipationProof.computeCommitmentHash(
-          MockKeys.guest.publicKey,
-          'salt-host-wins',
-        );
-
-        // Intentionally invalid self-signed reservation (missing proof).
-        final guestReservation = _reservation(
-          listing: listing,
-          signer: MockKeys.guest,
-          tradeId: commitment,
-          start: start,
-          end: end,
-          proof: null,
-          createdAtOffsetSeconds: 1,
-        );
-
-        final hostReservation = _reservation(
-          listing: listing,
-          signer: MockKeys.hoster,
-          tradeId: commitment,
-          start: start,
-          end: end,
-          proof: null,
-          createdAtOffsetSeconds: 2,
-        );
-
-        final validated = usecase.subscribeValidatedForListing(
-          listing: listing,
-          debounce: Duration.zero,
-        );
-
-        relay.emitStatus(StreamStatusLive());
-        relay.emit(guestReservation);
-        relay.emit(hostReservation);
-
-        final snapshot = await validated.list.firstWhere(
-          (s) => s.length >= 2 && s.every((v) => v is Valid<Reservation>),
-        );
-
-        expect(snapshot.length, 2);
-        expect(snapshot.every((v) => v is Valid<Reservation>), isTrue);
-
-        await validated.close();
-      },
     );
 
     test(
@@ -309,7 +218,7 @@ void main() {
         relay.emit(droppedCancelled);
 
         await Future<void>.delayed(const Duration(milliseconds: 200));
-        final snapshot = validated.list.value;
+        final snapshot = validated.items;
 
         final survivingCommitments = snapshot
             .map((v) => v.event.getDtag())

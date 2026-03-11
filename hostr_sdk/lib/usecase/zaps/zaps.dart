@@ -43,22 +43,16 @@ class Zaps {
       addressableId: addressableId,
     );
     // var logs = [];
-    return StreamWithStatus<Nip01Event>(
+    final sws = StreamWithStatus<Nip01Event>(
       onClose: () {
         print('Closing zap receipt subscription');
         ndk.requests.closeSubscription(zapResponse.requestId);
       },
-      // queryFn: () {
-      //   return ndk.zaps.fetchZappedReceipts(
-      //     pubKey: pubkey,
-      //     eventId: eventId,
-      //     addressableId: addressableId,
-      //   );
-      // },
-      liveFn: () => zapResponse.stream,
-
-      /// @TODO: cannot add since
     );
+    sws.addStatus(StreamStatusLive());
+    final sub = zapResponse.stream.listen(sws.add, onError: sws.addError);
+    sws.addSubscription(sub);
+    return sws;
   }
 }
 

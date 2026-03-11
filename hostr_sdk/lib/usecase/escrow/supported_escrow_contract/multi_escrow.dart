@@ -409,39 +409,56 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       }
     }
 
-    return StreamWithStatus<EscrowEvent>(
-      queryFn: () => ensureDeployed()
-          .then((_) => contract.client.getLogs(eventFilter))
-          .asStream()
-          .map((logs) {
-            print(
-              'Fetched ${logs.length} logs for filter: ${eventFilter.stringify()}',
-            );
-            logStore.addAll(logs);
-            return logs;
-          })
-          .asyncExpand((logs) => Stream.fromIterable(logs))
-          .where((log) => log.transactionHash != null)
-          .asyncMap(mapper),
-      liveFn: () => contract.client
-          .events(
-            FilterOptions(
-              address: eventFilter.address,
-              topics: eventFilter.topics,
-              fromBlock: logStore.isEmpty
-                  ? BlockNum.current()
-                  : BlockNum.exact(
-                      logStore
-                              .where((e) => e.blockNum != null)
-                              .map((e) => e.blockNum!.toInt())
-                              .reduce(max) +
-                          1,
-                    ),
-            ),
-          )
-          .where((log) => log.transactionHash != null)
-          .asyncMap(mapper),
-    );
+    final sws = StreamWithStatus<EscrowEvent>();
+
+    // Query phase
+    sws.addStatus(StreamStatusQuerying());
+    final querySub = ensureDeployed()
+        .then((_) => contract.client.getLogs(eventFilter))
+        .asStream()
+        .map((logs) {
+          print(
+            'Fetched ${logs.length} logs for filter: ${eventFilter.stringify()}',
+          );
+          logStore.addAll(logs);
+          return logs;
+        })
+        .asyncExpand((logs) => Stream.fromIterable(logs))
+        .where((log) => log.transactionHash != null)
+        .asyncMap(mapper)
+        .listen(
+          sws.add,
+          onDone: () {
+            sws.addStatus(StreamStatusQueryComplete());
+
+            // Live phase
+            sws.addStatus(StreamStatusLive());
+            final liveSub = contract.client
+                .events(
+                  FilterOptions(
+                    address: eventFilter.address,
+                    topics: eventFilter.topics,
+                    fromBlock: logStore.isEmpty
+                        ? BlockNum.current()
+                        : BlockNum.exact(
+                            logStore
+                                    .where((e) => e.blockNum != null)
+                                    .map((e) => e.blockNum!.toInt())
+                                    .reduce(max) +
+                                1,
+                          ),
+                  ),
+                )
+                .where((log) => log.transactionHash != null)
+                .asyncMap(mapper)
+                .listen(sws.add);
+            sws.addSubscription(liveSub);
+          },
+          onError: (e, st) => sws.addStatus(StreamStatusError(e, st)),
+        );
+    sws.addSubscription(querySub);
+
+    return sws;
   });
 
   @override

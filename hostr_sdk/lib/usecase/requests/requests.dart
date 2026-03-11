@@ -110,6 +110,10 @@ class Requests extends RequestsModel {
       },
     );
 
+    // Private accumulator for computing `since` timestamps without
+    // depending on response.list (which may have async delay).
+    final List<T> accumulatedItems = [];
+
     response.addStatus(StreamStatusQuerying());
 
     // Wait for at least one relay to be connected before issuing queries.
@@ -133,9 +137,9 @@ class Requests extends RequestsModel {
             .concatWith([
               Rx.defer(() {
                 final liveFilter = filter.clone();
-                final maxCreatedAt = response.list.value.isEmpty
+                final maxCreatedAt = accumulatedItems.isEmpty
                     ? null
-                    : response.list.value.map((e) => e.createdAt).reduce(max);
+                    : accumulatedItems.map((e) => e.createdAt).reduce(max);
                 final nextSince = maxCreatedAt == null
                     ? null
                     : maxCreatedAt + 1;
@@ -160,7 +164,10 @@ class Requests extends RequestsModel {
             .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
             .where((event) => event != null)
             .cast<T>()
-            .listen(response.add, onError: response.addError);
+            .listen((item) {
+              accumulatedItems.add(item);
+              response.add(item);
+            }, onError: response.addError);
     response.addSubscription(subscription);
 
     return response;

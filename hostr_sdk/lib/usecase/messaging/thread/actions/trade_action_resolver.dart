@@ -1,7 +1,6 @@
 import 'package:models/main.dart';
 
 import '../../../../util/stream_status.dart';
-import '../../../../util/validation_stream.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../state.dart';
 import '../trade.dart';
@@ -58,27 +57,27 @@ class TradeActionResolver {
     required DateTime end,
     required Amount? amount,
     required String ourPubkey,
-    required List<Validation<ReservationPairStatus>> allReservations,
-    required List<Validation<ReservationPairStatus>> ownReservations,
+    required List<Validation<ReservationPair>> allReservations,
+    required List<Validation<ReservationPair>> ownReservations,
     required StreamStatus ownReservationsStatus,
     required List<PaymentEvent> payments,
     required StreamStatus paymentsStatus,
     List<String> addedParticipants = const [],
   }) {
     final validAllListingPairs = allReservations
-        .whereType<Valid<ReservationPairStatus>>()
+        .whereType<Valid<ReservationPair>>()
         .map((v) => v.event)
         .where((p) => !p.cancelled)
         .toList();
 
     final allTradeReservations = ownReservations
-        .whereType<Valid<ReservationPairStatus>>()
+        .whereType<Valid<ReservationPair>>()
         .expand((v) => [v.event.sellerReservation, v.event.buyerReservation])
         .whereType<Reservation>()
         .toList();
 
     final validTradeReservations = ownReservations
-        .whereType<Valid<ReservationPairStatus>>()
+        .whereType<Valid<ReservationPair>>()
         .where((v) => !v.event.cancelled)
         .expand((v) => [v.event.sellerReservation, v.event.buyerReservation])
         .whereType<Reservation>()
@@ -137,13 +136,13 @@ class TradeActionResolver {
 }
 
 TradeAvailability _resolveAvailability({
-  required List<Validation<ReservationPairStatus>> ownReservations,
+  required List<Validation<ReservationPair>> ownReservations,
   required ({bool isBlocked, String? reason}) overlapLock,
 }) {
   if (ownReservations.any((v) => v is Invalid)) {
     return TradeAvailability.invalidReservation;
   }
-  if (ownReservations.whereType<Valid<ReservationPairStatus>>().any(
+  if (ownReservations.whereType<Valid<ReservationPair>>().any(
     (v) => v.event.cancelled,
   )) {
     return TradeAvailability.cancelled;
@@ -153,7 +152,7 @@ TradeAvailability _resolveAvailability({
 }
 
 ({bool isBlocked, String? reason}) resolveOverlapLock({
-  required List<ReservationPairStatus> allListingReservationPairs,
+  required List<ReservationPair> allListingReservationPairs,
   required DateTime startDate,
   required DateTime endDate,
   required String ourReservationDTag,

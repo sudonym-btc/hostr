@@ -82,14 +82,25 @@ class UserSubscriptions {
   /// Validated reservation pairs derived from [allMyReservations$].
   /// Each pair is grouped by trade ID and validated (proof-checked) via
   /// [ReservationPairs.verifyFromSource].
-  late StreamWithStatus<Validation<ReservationPairStatus>>
+  late StreamWithStatus<List<Validation<ReservationPair>>>
   allMyReservationPairs$;
 
+  /// Latest validated reservation pairs flattened from
+  /// [allMyReservationPairs$].
+  ///
+  /// [allMyReservationPairs$] emits full snapshots because a
+  /// [ReservationPair] can be updated in place as more reservations for the
+  /// same trade arrive. Most consumers want the latest current set of pairs,
+  /// not the full history of snapshots, so this stream mirrors the latest
+  /// snapshot via [StreamWithStatus.replaceAll].
+  late StreamWithStatus<Validation<ReservationPair>>
+  allMyReservationPairsCurrent$;
+
   /// Reservation pairs where the current user is the **guest** (not the host).
-  late StreamWithStatus<Validation<ReservationPairStatus>> myTrips$;
+  late StreamWithStatus<Validation<ReservationPair>> myTrips$;
 
   /// Reservation pairs where the current user is the **host**.
-  late StreamWithStatus<Validation<ReservationPairStatus>> myHostings$;
+  late StreamWithStatus<Validation<ReservationPair>> myHostings$;
 
   /// All reservation transitions across every trade the user is in.
   late ExpandableSubscription<ReservationTransition> allTransitions$;
@@ -98,7 +109,8 @@ class UserSubscriptions {
   late StreamWithStatus<Review> myReviews$;
 
   /// Combined payment events (zaps + escrow) across all trades.
-  late DynamicCombinedStreamWithStatus<PaymentEvent> paymentEvents$;
+  final StreamWithStatus<PaymentEvent> paymentEvents$ =
+      StreamWithStatus<PaymentEvent>();
 
   /// Emits `true` once all required streams are live.
   final BehaviorSubject<bool> _isLive = BehaviorSubject.seeded(false);
@@ -110,6 +122,8 @@ class UserSubscriptions {
   final Set<String> _knownSellerPubkeys = {};
   final Set<String> _knownEscrowServiceKeys = {};
   final Set<String> _knownZapTradeIds = {};
+  final List<StreamWithStatus<PaymentEvent>> _paymentSources = [];
+  final List<StreamStatus> _paymentSourceStatuses = [];
 
   final List<StreamSubscription> _discoverySubscriptions = [];
   bool _started = false;
@@ -154,15 +168,14 @@ class UserSubscriptions {
     allMyReservationPairs$ = _reservationPairs.verifyFromSource(
       source: allMyReservations$.stream,
     );
+    allMyReservationPairsCurrent$ = allMyReservationPairs$.currentItems();
 
     // 4a. Filtered views: guest trips vs host bookings
-    myTrips$ = allMyReservationPairs$.where(
+    myTrips$ = allMyReservationPairs$.whereItems(
       (item) => item.event.hostPubkey != myPubkey,
-      closeInner: false,
     );
-    myHostings$ = allMyReservationPairs$.where(
+    myHostings$ = allMyReservationPairs$.whereItems(
       (item) => item.event.hostPubkey == myPubkey,
-      closeInner: false,
     );
 
     // 5. Expandable: transitions by trade ID
@@ -170,9 +183,6 @@ class UserSubscriptions {
       _transitionFilterSource!,
       name: 'user-transitions',
     );
-
-    // 6. Dynamic: combined payment events (zaps + escrow)
-    paymentEvents$ = DynamicCombinedStreamWithStatus<PaymentEvent>();
 
     // Wire up liveness tracking
     _trackLiveness();
@@ -194,11 +204,18 @@ class UserSubscriptions {
 
     await myTrips$.close();
     await myHostings$.close();
+    await allMyReservationPairsCurrent$.close();
     await allMyReservationPairs$.close();
     await allMyReservations$.reset();
     await allTransitions$.reset();
     await myReviews$.reset();
     await paymentEvents$.reset();
+
+    for (final source in _paymentSources) {
+      await source.close();
+    }
+    _paymentSources.clear();
+    _paymentSourceStatuses.clear();
 
     await _reservationFilterSource?.close();
     _reservationFilterSource = null;
@@ -231,7 +248,7 @@ class UserSubscriptions {
 
     // Listen to thread messages for trade IDs and escrow services.
     _discoverySubscriptions.add(
-      _threads.subscription!.replay.listen((message) {
+      _threads.subscription!.replayStream.listen((message) {
         final child = message.child;
         if (child is Reservation) {
           _processReservationRequest(child);
@@ -297,7 +314,7 @@ class UserSubscriptions {
   void _emitTransitionFilter() => _logger.spanSync('_emitTransitionFilter', () {
     if (_knownTradeIds.isEmpty) return;
     final filter = Filter(tags: {'t': _knownTradeIds.toList()});
-    _logger.d('emitting transition filter #t=${_knownTradeIds}');
+    _logger.d('emitting transition filter #t=$_knownTradeIds');
     _transitionFilterSource?.add(filter);
   });
 
@@ -309,25 +326,25 @@ class UserSubscriptions {
       'UserSubscriptions adding zap receipt stream for '
       'seller=$sellerPubkey tradeId=$tradeId',
     );
-    paymentEvents$.combine(
-      _zaps
-          .subscribeZapReceipts(pubkey: sellerPubkey, eventId: tradeId)
-          .asyncMap<PaymentEvent>((event) async {
-            final receipt = ZapReceipt.fromEvent(event);
-            final amountSats = receipt.amountSats;
-            if (amountSats == null) {
-              throw FormatException(
-                'Zap receipt ${event.id} has no parsable amount',
-              );
-            }
-            return ZapFundedEvent(
-              tradeId: receipt.eventId!,
-              event: Nip01EventModel.fromEntity(event),
-              zapReceipt: receipt,
-              amount: BitcoinAmount.fromInt(BitcoinUnit.sat, amountSats),
-            );
-          }, closeInner: true),
+    final zapSource = _zaps.subscribeZapReceipts(
+      pubkey: sellerPubkey,
+      eventId: tradeId,
     );
+    final mapped = zapSource.asyncMap<PaymentEvent>((event) async {
+      final receipt = ZapReceipt.fromEvent(event);
+      final amountSats = receipt.amountSats;
+      if (amountSats == null) {
+        throw FormatException('Zap receipt ${event.id} has no parsable amount');
+      }
+      return ZapFundedEvent(
+        tradeId: receipt.eventId!,
+        event: Nip01EventModel.fromEntity(event),
+        zapReceipt: receipt,
+        amount: BitcoinAmount.fromInt(BitcoinUnit.sat, amountSats),
+      );
+    });
+    mapped.onClose = () => zapSource.close();
+    _addPaymentSource(mapped);
   });
 
   void _maybeAddEscrowStream(
@@ -342,12 +359,37 @@ class UserSubscriptions {
       'UserSubscriptions adding escrow stream for '
       'service=$serviceId thread=$threadAnchor',
     );
-    paymentEvents$.combine(
-      _escrow.checkEscrowStatus(escrowSelected, threadAnchor),
-    );
+    _addPaymentSource(_escrow.checkEscrowStatus(escrowSelected, threadAnchor));
   });
 
   // ── Liveness tracking ─────────────────────────────────────────────────
+
+  /// Adds a payment event source, forwarding its items and status into
+  /// [paymentEvents$]. The source is tracked for cleanup on [reset].
+  void _addPaymentSource(StreamWithStatus<PaymentEvent> source) {
+    _paymentSources.add(source);
+    _paymentSourceStatuses.add(source.status.value);
+    final idx = _paymentSourceStatuses.length - 1;
+
+    // Forward existing items
+    for (final item in source.items) {
+      paymentEvents$.add(item);
+    }
+    // Forward future items
+    paymentEvents$.addSubscription(source.stream.listen(paymentEvents$.add));
+    // Track status
+    paymentEvents$.addSubscription(
+      source.status.distinct((a, b) => a.runtimeType == b.runtimeType).listen((
+        s,
+      ) {
+        _paymentSourceStatuses[idx] = s;
+        paymentEvents$.addStatus(recomputeStatus(_paymentSourceStatuses));
+      }),
+    );
+    paymentEvents$.addStatus(recomputeStatus(_paymentSourceStatuses));
+  }
+
+  // ── Liveness tracking (cont.) ─────────────────────────────────────────
 
   void _trackLiveness() => _logger.spanSync('_trackLiveness', () {
     final streams = <Stream<StreamStatus>>[
