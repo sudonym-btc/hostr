@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826441828763">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826528352568">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 4.1.0">
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../resources/css/retype.css?v=4.1.0.826441828763" rel="stylesheet">
+    <link href="../../../resources/css/retype.css?v=4.1.0.826528352568" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.1.0.826441828763" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.1.0.826528352568" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.1.0.826441828763" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.1.0.826441828763" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.1.0.826528352568" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.1.0.826528352568" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -490,7 +490,7 @@ docs: add release guide</code></pre>
 </table>
 </div>
 <blockquote>
-<p>For staging, create a separate App ID (e.g. <code translate="no" v-pre>com.sudonym.hostr.staging</code>), a separate provisioning profile, and a separate TestFlight app (or use a different internal group on the same app — either works).</p>
+<p>Staging and production share the same bundle ID (<code translate="no" v-pre>com.sudonym.hostr</code>), the same App Store Distribution certificate, and the same provisioning profile. They differ only in the Dart entrypoint (<code translate="no" v-pre>main_staging.dart</code> vs <code translate="no" v-pre>main_production.dart</code>), which sets the backend URL. Use separate TestFlight groups (e.g. &quot;Internal — Staging&quot; vs &quot;Internal — Production&quot;) to control who receives which build. The CI workflow overrides signing settings in <code translate="no" v-pre>Release.xcconfig</code> at build time — locally, the project defaults to Automatic signing for development.</p>
 </blockquote>
 <doc-anchor-target id="cloud-deploy-per-environment">
     <h3>
