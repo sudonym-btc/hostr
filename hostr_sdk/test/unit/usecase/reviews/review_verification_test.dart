@@ -236,7 +236,7 @@ void main() {
       // Wait for subscribe to emit + resolve + verify.
       await Future<void>.delayed(const Duration(milliseconds: 800));
 
-      final snapshot = verified.list.value;
+      final snapshot = verified.items;
       expect(snapshot, hasLength(1));
       expect(snapshot.first, isA<Valid<Review>>());
 
@@ -265,7 +265,7 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 800));
 
-      final snapshot = verified.list.value;
+      final snapshot = verified.items;
       expect(snapshot, hasLength(1));
       expect(snapshot.first, isA<Invalid<Review>>());
       expect(
@@ -316,7 +316,7 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 800));
 
-      final snapshot = verified.list.value;
+      final snapshot = verified.items;
       expect(snapshot, hasLength(1));
       expect(snapshot.first, isA<Invalid<Review>>());
 
@@ -361,7 +361,7 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 800));
 
-      final snapshot = verified.list.value;
+      final snapshot = verified.items;
       expect(snapshot, hasLength(3));
       expect(snapshot.every((v) => v is Valid<Review>), isTrue);
 
@@ -403,7 +403,7 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 800));
 
-      final snapshot = verified.list.value;
+      final snapshot = verified.items;
       expect(snapshot, hasLength(1));
       // The host reservation is cancelled, so validation should
       // report the review based on the senior reservation result.

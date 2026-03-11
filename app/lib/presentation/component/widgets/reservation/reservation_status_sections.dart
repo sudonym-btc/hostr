@@ -4,7 +4,7 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class ReservationStatusSections {
-  static bool isUpcoming(Validation<ReservationPairStatus> item) {
+  static bool isUpcoming(Validation<ReservationPair> item) {
     final now = DateTime.now().toUtc();
     final end = item.event.end;
     if (end == null) return true;
@@ -12,8 +12,8 @@ class ReservationStatusSections {
   }
 
   static int compare(
-    Validation<ReservationPairStatus> a,
-    Validation<ReservationPairStatus> b,
+    Validation<ReservationPair> a,
+    Validation<ReservationPair> b,
   ) {
     final aUpcoming = isUpcoming(a);
     final bUpcoming = isUpcoming(b);
@@ -35,8 +35,8 @@ class ReservationStatusSections {
 
   static Widget? buildHeader(
     BuildContext context,
-    Validation<ReservationPairStatus>? previous,
-    Validation<ReservationPairStatus> current,
+    Validation<ReservationPair>? previous,
+    Validation<ReservationPair> current,
   ) {
     final currentUpcoming = isUpcoming(current);
     final previousUpcoming = previous != null ? isUpcoming(previous) : null;

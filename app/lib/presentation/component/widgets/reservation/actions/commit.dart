@@ -68,9 +68,9 @@ class CommitMenu extends StatelessWidget {
         ]),
         initialData: null,
         builder: (context, transitionsSnapshot) {
-          final transitions = trade.transitions$.list.value;
-          final paymentEvents = trade.payments$.list.value;
-          final reservationValidation = trade.reservationPair$.list.value;
+          final transitions = trade.transitions$.items;
+          final paymentEvents = trade.payments$.items;
+          final reservationValidation = trade.reservationPair$.items;
 
           return ModalBottomSheet(
             title: 'Information',
@@ -85,8 +85,7 @@ class CommitMenu extends StatelessWidget {
                       paymentEvents: paymentEvents,
                       hostPubKey: tradeState.hostPubKey,
                     ),
-                    if (reservationValidation
-                        is Invalid<ReservationPairStatus>) ...[
+                    if (reservationValidation is Invalid<ReservationPair>) ...[
                       Gap.vertical.lg(),
                       _ReservationRecords(
                         validatedReservationPair: reservationValidation.last,
@@ -221,7 +220,7 @@ class CommitMenu extends StatelessWidget {
 }
 
 class _ReservationRecords extends StatelessWidget {
-  final Validation<ReservationPairStatus> validatedReservationPair;
+  final Validation<ReservationPair> validatedReservationPair;
   final Listing listing;
   final String hostPubKey;
 
@@ -234,7 +233,7 @@ class _ReservationRecords extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pair = validatedReservationPair;
-    if (pair is Invalid<ReservationPairStatus>) {
+    if (pair is Invalid<ReservationPair>) {
       final reason = pair.reason;
       return Column(
         mainAxisSize: MainAxisSize.max,

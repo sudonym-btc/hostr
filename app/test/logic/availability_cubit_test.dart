@@ -5,11 +5,11 @@ import 'package:hostr/logic/cubit/availability.cubit.dart';
 import 'package:hostr/logic/cubit/date_range.cubit.dart';
 import 'package:models/main.dart';
 
-ReservationPairStatus _reservationPair({
+ReservationPair _reservationPair({
   required DateTime start,
   required DateTime end,
 }) {
-  return ReservationPairStatus(
+  return ReservationPair(
     sellerReservation: Reservation.create(
       pubKey: 'host-pubkey',
       dTag: 'test-reservation',

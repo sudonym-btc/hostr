@@ -12,7 +12,7 @@ export 'listing.dart';
 export 'message.dart';
 export 'profile_metadata.dart';
 export 'reservation.dart';
-export 'reservation_pair_status.dart';
+export 'reservation_pair.dart';
 export 'reservation_transition.dart';
 export 'review.dart';
 export 'serializable.dart';

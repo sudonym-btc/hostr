@@ -24,42 +24,41 @@ Reservation _reservation({
 
 void main() {
   group('validateStream utility', () {
-    test(
-      'does not emit Live before first validation snapshot completes',
-      () async {
-        final source = StreamWithStatus<Reservation>();
+    test('defers Live until in-flight validation completes', () async {
+      final source = StreamWithStatus<Reservation>();
 
-        final validated = validateStream(
-          source: source,
-          debounce: Duration.zero,
-          validator: (snapshot) async {
-            await Future<void>.delayed(const Duration(milliseconds: 60));
-            return snapshot.map((e) => Valid<Reservation>(e)).toList();
-          },
-        );
+      final validated = validateStream(
+        source: source,
+        validator: (item) async {
+          await Future<void>.delayed(const Duration(milliseconds: 60));
+          return Valid<Reservation>(item);
+        },
+      );
 
-        final statuses = <StreamStatus>[];
-        final statusSub = validated.status.listen(statuses.add);
+      final statuses = <StreamStatus>[];
+      final statusSub = validated.status
+          .distinct((a, b) => a.runtimeType == b.runtimeType)
+          .listen(statuses.add);
 
-        source.addStatus(StreamStatusLive());
-        source.add(
-          _reservation(id: 'r1', pubkey: 'guest-1', tradeId: 'commit-1'),
-        );
+      // Item arrives first (triggering pending++), then Live arrives while
+      // the async validator is still running — asyncMap defers it.
+      source.add(
+        _reservation(id: 'r1', pubkey: 'guest-1', tradeId: 'commit-1'),
+      );
+      source.addStatus(StreamStatusLive());
 
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        expect(statuses.any((s) => s is StreamStatusLive), isFalse);
-        expect(statuses.any((s) => s is StreamStatusQuerying), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(statuses.any((s) => s is StreamStatusLive), isFalse);
 
-        await Future<void>.delayed(const Duration(milliseconds: 80));
-        expect(statuses.any((s) => s is StreamStatusLive), isTrue);
-        expect(validated.list.value.length, 1);
-        expect(validated.list.value.first, isA<Valid<Reservation>>());
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(statuses.any((s) => s is StreamStatusLive), isTrue);
+      expect(validated.items.length, 1);
+      expect(validated.items.first, isA<Valid<Reservation>>());
 
-        await statusSub.cancel();
-        await validated.close();
-        await source.close();
-      },
-    );
+      await statusSub.cancel();
+      await validated.close();
+      await source.close();
+    });
 
     test(
       'emits Invalid results from validator (mock RPC invalid tx details)',
@@ -68,16 +67,11 @@ void main() {
 
         final validated = validateStream(
           source: source,
-          debounce: Duration.zero,
-          validator: (snapshot) async {
-            return snapshot
-                .map(
-                  (e) => Invalid<Reservation>(
-                    e,
-                    'invalid transaction details: recipient mismatch',
-                  ),
-                )
-                .toList();
+          validator: (item) async {
+            return Invalid<Reservation>(
+              item,
+              'invalid transaction details: recipient mismatch',
+            );
           },
         );
 
@@ -87,8 +81,8 @@ void main() {
 
         await Future<void>.delayed(const Duration(milliseconds: 30));
 
-        expect(validated.list.value.length, 1);
-        final item = validated.list.value.single;
+        expect(validated.items.length, 1);
+        final item = validated.items.single;
         expect(item, isA<Invalid<Reservation>>());
         expect(
           (item as Invalid<Reservation>).reason,
@@ -105,7 +99,6 @@ void main() {
 
       final validated = validateStream(
         source: source,
-        debounce: Duration.zero,
         validator: (_) async => throw StateError('validator failed'),
       );
 

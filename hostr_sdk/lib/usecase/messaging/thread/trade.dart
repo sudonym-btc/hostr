@@ -9,7 +9,6 @@ import 'package:rxdart/rxdart.dart';
 import '../../../injection.dart';
 import '../../../util/custom_logger.dart';
 import '../../../util/stream_status.dart';
-import '../../../util/validation_stream.dart';
 import '../../auth/auth.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../listings/listings.dart';
@@ -43,9 +42,7 @@ class Trade extends Cubit<TradeState> {
   final Auth _auth;
   final Listings _listings;
   final MetadataUseCase _metadata;
-  final UserSubscriptions _userSubscriptions;
   final ReservationPairs _reservationPairs;
-  final Threads _threads;
 
   /// Resolved lazily in [start()] from the [Threads] map.
   /// Available when opened from a thread context (negotiation-stage access).
@@ -67,7 +64,7 @@ class Trade extends Cubit<TradeState> {
 
   // ── Filtered streams (from UserSubscriptions) ──────────────────────
 
-  final StreamWithStatus<Validation<ReservationPairStatus>> reservationPair$;
+  final StreamWithStatus<Validation<ReservationPair>> reservationPair$;
   final StreamWithStatus<PaymentEvent> payments$;
   final StreamWithStatus<ReservationTransition> transitions$;
 
@@ -76,7 +73,7 @@ class Trade extends Cubit<TradeState> {
   );
 
   /// Listing-level reservation stream — only started during negotiation.
-  StreamWithStatus<Validation<ReservationPairStatus>>? allListingReservations$;
+  StreamWithStatus<List<Validation<ReservationPair>>>? allListingReservations$;
 
   // ── Internal bookkeeping ───────────────────────────────────────────
 
@@ -100,13 +97,11 @@ class Trade extends Cubit<TradeState> {
        _auth = auth,
        _listings = listings,
        _metadata = metadata,
-       _userSubscriptions = userSubscriptions,
        _reservationPairs = reservationPairs,
-       _threads = threads,
        thread = threads.threads[tradeId],
        hostPubKey = getPubKeyFromAnchor(listingAnchor),
        salt =
-           threads.threads[tradeId]?.messages.list.value
+           threads.threads[tradeId]?.messages.items
                .where((msg) => msg.child is Reservation)
                .map((msg) => msg.child as Reservation)
                .where((res) => res.salt != null)
@@ -118,19 +113,16 @@ class Trade extends Cubit<TradeState> {
            ? TradeRole.host
            : TradeRole.guest,
        // Set up filtered streams from UserSubscriptions.
-       reservationPair$ = userSubscriptions.allMyReservationPairs$.where(
+       reservationPair$ = userSubscriptions.allMyReservationPairs$.whereItems(
          (item) => item.event.tradeId == tradeId,
-         closeInner: false,
        ),
 
        payments$ = userSubscriptions.paymentEvents$.where(
          (event) => event.tradeId == tradeId,
-         closeInner: false,
        ),
 
        transitions$ = userSubscriptions.allTransitions$.stream.where(
          (t) => t.parsedTags.tradeId == tradeId,
-         closeInner: false,
        ),
 
        super(const TradeInitialising()) {
@@ -152,9 +144,9 @@ class Trade extends Cubit<TradeState> {
 
   Future<String?>
   resolveGuestPubkey() => _logger.span('resolveGuestPubkey', () async {
-    String? salt = (await thread!.state.value.reservationRequests.last).salt;
+    String? salt = thread!.state.value.reservationRequests.last.salt;
     String? tweakedPubkey =
-        (await thread!.state.value.reservationRequests.last).recipient;
+        thread!.state.value.reservationRequests.last.recipient;
     print('Pair for trade $tradeId: $salt');
     if (salt == null || tweakedPubkey == null) {
       throw StateError(
@@ -216,34 +208,28 @@ class Trade extends Cubit<TradeState> {
         : Stream<ThreadState?>.value(null);
 
     _combineSubscription =
-        Rx.combineLatest8(
-          reservationPair$.list,
-          reservationPair$.status,
-          payments$.list,
-          payments$.status,
-          transitions$.list,
-          allListingReservations$!.list,
-          allListingReservations$!.status,
+        Rx.combineLatest5(
+          reservationPair$.itemsStream,
+          payments$.itemsStream,
+          transitions$.itemsStream,
+          allListingReservations$!.latestItemsStream,
           threadState$,
           (
-            List<Validation<ReservationPairStatus>> ownRes,
-            StreamStatus ownResStatus,
+            List<Validation<ReservationPair>> ownReservations,
             List<PaymentEvent> payments,
-            StreamStatus paymentsStatus,
             List<ReservationTransition> transitions,
-            List<Validation<ReservationPairStatus>> allListingRes,
-            StreamStatus allListingResStatus,
+            List<Validation<ReservationPair>> allListingReservations,
             ThreadState? threadState,
           ) {
             return _resolve(
               listing: listing,
               hostProfile: hostProfile,
-              ownReservations: ownRes,
-              ownReservationsStatus: ownResStatus,
+              ownReservations: ownReservations,
+              ownReservationsStatus: reservationPair$.status.value,
               payments: payments,
-              paymentsStatus: paymentsStatus,
+              paymentsStatus: payments$.status.value,
               transitions: transitions,
-              allListingReservations: allListingRes,
+              allListingReservations: allListingReservations,
               threadState: threadState,
             );
           },
@@ -262,12 +248,12 @@ class Trade extends Cubit<TradeState> {
   TradeReady _resolve({
     required Listing listing,
     required ProfileMetadata? hostProfile,
-    required List<Validation<ReservationPairStatus>> ownReservations,
+    required List<Validation<ReservationPair>> ownReservations,
     required StreamStatus ownReservationsStatus,
     required List<PaymentEvent> payments,
     required StreamStatus paymentsStatus,
     required List<ReservationTransition> transitions,
-    required List<Validation<ReservationPairStatus>> allListingReservations,
+    required List<Validation<ReservationPair>> allListingReservations,
     required ThreadState? threadState,
   }) => _logger.spanSync('_resolve', () {
     // Derive last reservation request from thread (if available).
@@ -287,7 +273,7 @@ class Trade extends Cubit<TradeState> {
 
     // Compute overlap lock from listing-level reservations.
     final validAllListingPairs = allListingReservations
-        .whereType<Valid<ReservationPairStatus>>()
+        .whereType<Valid<ReservationPair>>()
         .map((v) => v.event)
         .where((p) => !p.cancelled)
         .toList();
@@ -325,30 +311,30 @@ class Trade extends Cubit<TradeState> {
     } else {
       // Extract the reservation pair for commit stage.
       final validPair = ownReservations
-          .whereType<Valid<ReservationPairStatus>>()
+          .whereType<Valid<ReservationPair>>()
           .map((v) => v.event)
           .where((p) => !p.cancelled)
           .firstOrNull;
       final anyPair = ownReservations
-          .whereType<Valid<ReservationPairStatus>>()
+          .whereType<Valid<ReservationPair>>()
           .map((v) => v.event)
           .firstOrNull;
 
       stage = CommitStage(
-        reservationPair: validPair ?? anyPair ?? ReservationPairStatus(),
+        reservationPair: validPair ?? anyPair ?? ReservationPair(),
         payments: payments,
         transitions: transitions,
       );
 
       // Commit actions: cancel, refund, claim, messageEscrow.
       final allTradeReservations = ownReservations
-          .whereType<Valid<ReservationPairStatus>>()
+          .whereType<Valid<ReservationPair>>()
           .expand((v) => [v.event.sellerReservation, v.event.buyerReservation])
           .whereType<Reservation>()
           .toList();
 
       final validTradeReservations = ownReservations
-          .whereType<Valid<ReservationPairStatus>>()
+          .whereType<Valid<ReservationPair>>()
           .where((v) => !v.event.cancelled)
           .expand((v) => [v.event.sellerReservation, v.event.buyerReservation])
           .whereType<Reservation>()
@@ -402,13 +388,13 @@ class Trade extends Cubit<TradeState> {
   });
 
   static TradeAvailability _resolveAvailability({
-    required List<Validation<ReservationPairStatus>> ownReservations,
+    required List<Validation<ReservationPair>> ownReservations,
     required ({bool isBlocked, String? reason}) overlapLock,
   }) {
     if (ownReservations.any((v) => v is Invalid)) {
       return TradeAvailability.invalidReservation;
     }
-    if (ownReservations.whereType<Valid<ReservationPairStatus>>().any(
+    if (ownReservations.whereType<Valid<ReservationPair>>().any(
       (v) => v.event.cancelled,
     )) {
       return TradeAvailability.cancelled;
@@ -420,8 +406,8 @@ class Trade extends Cubit<TradeState> {
   // ── Public API ─────────────────────────────────────────────────────
 
   /// Current reservation pair status list (for action execution).
-  List<Validation<ReservationPairStatus>> get currentReservationPairs =>
-      _bootstrapped ? reservationPair$.list.value : const [];
+  List<Validation<ReservationPair>> get currentReservationPairs =>
+      _bootstrapped ? reservationPair$.items : const [];
 
   Future<KeyPair> activeKeyPair() => _logger.span('activeKeyPair', () async {
     return role == TradeRole.host
@@ -431,7 +417,7 @@ class Trade extends Cubit<TradeState> {
 
   /// Returns the Nostr pubkey of the escrow service used in this trade.
   String? getEscrowPubkey() => _logger.spanSync('getEscrowPubkey', () {
-    final pairs = reservationPair$.list.value;
+    final pairs = reservationPair$.items;
     for (final validation in pairs) {
       final pair = validation.event;
       final reservations = [

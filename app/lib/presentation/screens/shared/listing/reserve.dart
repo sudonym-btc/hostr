@@ -11,7 +11,7 @@ import 'package:models/main.dart';
 
 class Reserve extends StatelessWidget {
   final Listing listing;
-  final List<ReservationPairStatus> reservationPairs;
+  final List<ReservationPair> reservationPairs;
 
   const Reserve({
     super.key,
@@ -96,7 +96,7 @@ class Reserve extends StatelessWidget {
 Future<void> selectDates(
   BuildContext context,
   DateRangeCubit dateRangeCubit,
-  List<ReservationPairStatus> reservationPairs, {
+  List<ReservationPair> reservationPairs, {
   bool enforceContiguousAvailability = true,
 }) async {
   // Clear the initial selection if the previously chosen dates are no longer

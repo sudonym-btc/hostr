@@ -54,7 +54,7 @@ class Thread {
     if (state.isClosed) return;
     final keyPair = auth.activeKeyPair;
     if (keyPair == null) return;
-    final nextMessages = messages.list.value;
+    final nextMessages = messages.items;
     final nextParticipantPubkeys = <String>{
       for (final message in nextMessages) ...message.pTags,
       for (final message in nextMessages) message.pubKey,

@@ -17,7 +17,6 @@ library;
 
 import 'package:hostr_sdk/usecase/reservation_pairs/reservation_pairs.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
-import 'package:hostr_sdk/util/validation_stream.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -183,13 +182,13 @@ void main() {
         seller: MockKeys.hoster,
       );
 
-      final pair = ReservationPairStatus(
+      final pair = ReservationPair(
         sellerReservation: ack,
         buyerReservation: nego,
       );
 
       final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPair>>());
     });
 
     test('seller-only pair (blocked date) → Valid', () {
@@ -202,20 +201,20 @@ void main() {
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
       ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
 
-      final pair = ReservationPairStatus(sellerReservation: ack);
+      final pair = ReservationPair(sellerReservation: ack);
 
       final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPair>>());
     });
 
     test('buyer-only negotiate (no proof) → Invalid', () {
       final buyer = MockKeys.guest;
       final nego = _negotiate(listing: listing, buyer: buyer);
 
-      final pair = ReservationPairStatus(buyerReservation: nego);
+      final pair = ReservationPair(buyerReservation: nego);
 
       final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Invalid<ReservationPairStatus>>());
+      expect(result, isA<Invalid<ReservationPair>>());
     });
 
     test('cancelled by seller → Valid with sellerCancelled flag', () {
@@ -232,13 +231,13 @@ void main() {
         signer: MockKeys.hoster,
       );
 
-      final pair = ReservationPairStatus(
+      final pair = ReservationPair(
         sellerReservation: cancelled,
         buyerReservation: nego,
       );
 
       final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPair>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
     });
 
@@ -247,10 +246,10 @@ void main() {
       final nego = _negotiate(listing: listing, buyer: buyer);
       final cancelled = _cancel(source: nego, listing: listing, signer: buyer);
 
-      final pair = ReservationPairStatus(buyerReservation: cancelled);
+      final pair = ReservationPair(buyerReservation: cancelled);
 
       final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPair>>());
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
 
@@ -268,22 +267,22 @@ void main() {
         signer: buyer,
       );
 
-      final pair = ReservationPairStatus(
+      final pair = ReservationPair(
         sellerReservation: sellerCancelled,
         buyerReservation: buyerCancelled,
       );
 
       final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPair>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
 
     test('empty pair (both null) → Invalid', () {
-      final pair = ReservationPairStatus();
+      final pair = ReservationPair();
 
       final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Invalid<ReservationPairStatus>>());
+      expect(result, isA<Invalid<ReservationPair>>());
       expect((result as Invalid).reason, contains('No reservation found'));
     });
 
@@ -315,9 +314,9 @@ void main() {
           .map((pair) => ReservationPairs.verifyPair(pair))
           .toList();
 
-      final valid = results.whereType<Valid<ReservationPairStatus>>().length;
+      final valid = results.whereType<Valid<ReservationPair>>().length;
       final cancelledValid = results
-          .whereType<Valid<ReservationPairStatus>>()
+          .whereType<Valid<ReservationPair>>()
           .where((v) => v.event.cancelled)
           .length;
 
@@ -355,7 +354,7 @@ void main() {
 
       final results = pairs.values
           .map((pair) => ReservationPairs.verifyPair(pair))
-          .whereType<Valid<ReservationPairStatus>>();
+          .whereType<Valid<ReservationPair>>();
 
       // All verified pairs are Valid; callers filter out cancelled ones.
       final activeCount = results.where((v) => !v.event.cancelled).length;
@@ -374,21 +373,21 @@ void main() {
         seller: MockKeys.hoster,
       );
 
-      final pair = ReservationPairStatus(
+      final pair = ReservationPair(
         sellerReservation: ack,
         buyerReservation: nego,
       );
 
       // Default: seller confirmation makes it valid.
       final defaultResult = ReservationPairs.verifyPair(pair);
-      expect(defaultResult, isA<Valid<ReservationPairStatus>>());
+      expect(defaultResult, isA<Valid<ReservationPair>>());
 
       // Forced: buyer negotiate has no proof → Invalid.
       final forcedResult = ReservationPairs.verifyPair(
         pair,
         forceValidateSelfSigned: true,
       );
-      expect(forcedResult, isA<Invalid<ReservationPairStatus>>());
+      expect(forcedResult, isA<Invalid<ReservationPair>>());
     });
 
     test('forceValidateSelfSigned=true: seller-only pair (blocked date, '
@@ -402,13 +401,13 @@ void main() {
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
       ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
 
-      final pair = ReservationPairStatus(sellerReservation: ack);
+      final pair = ReservationPair(sellerReservation: ack);
 
       final result = ReservationPairs.verifyPair(
         pair,
         forceValidateSelfSigned: true,
       );
-      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPair>>());
     });
 
     test('forceValidateSelfSigned=false: seller-confirmed pair with '
@@ -421,7 +420,7 @@ void main() {
         seller: MockKeys.hoster,
       );
 
-      final pair = ReservationPairStatus(
+      final pair = ReservationPair(
         sellerReservation: ack,
         buyerReservation: nego,
       );
@@ -430,7 +429,7 @@ void main() {
         pair,
         forceValidateSelfSigned: false,
       );
-      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPair>>());
     });
 
     test('forceValidateSelfSigned=true: cancelled pair still Valid', () {
@@ -438,24 +437,24 @@ void main() {
       final nego = _negotiate(listing: listing, buyer: buyer);
       final cancelled = _cancel(source: nego, listing: listing, signer: buyer);
 
-      final pair = ReservationPairStatus(buyerReservation: cancelled);
+      final pair = ReservationPair(buyerReservation: cancelled);
 
       final result = ReservationPairs.verifyPair(
         pair,
         forceValidateSelfSigned: true,
       );
-      expect(result, isA<Valid<ReservationPairStatus>>());
+      expect(result, isA<Valid<ReservationPair>>());
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
 
     test('forceValidateSelfSigned=true: empty pair (both null) → Invalid', () {
-      final pair = ReservationPairStatus();
+      final pair = ReservationPair();
 
       final result = ReservationPairs.verifyPair(
         pair,
         forceValidateSelfSigned: true,
       );
-      expect(result, isA<Invalid<ReservationPairStatus>>());
+      expect(result, isA<Invalid<ReservationPair>>());
       expect((result as Invalid).reason, contains('No reservation found'));
     });
   });

@@ -917,7 +917,7 @@ void main() {
         signer: buyer,
       );
 
-      final status = ReservationPairStatus(buyerReservation: buyerCancel);
+      final status = ReservationPair(buyerReservation: buyerCancel);
 
       expect(status.cancelled, isTrue);
       expect(status.buyerCancelled, isTrue);
@@ -945,7 +945,7 @@ void main() {
         signer: seller,
       );
 
-      final status = ReservationPairStatus(
+      final status = ReservationPair(
         buyerReservation: commit,
         sellerReservation: sellerCancel,
       );
@@ -975,7 +975,7 @@ void main() {
         signer: seller,
       );
 
-      final status = ReservationPairStatus(
+      final status = ReservationPair(
         buyerReservation: buyerCancel,
         sellerReservation: sellerCancel,
       );
@@ -1004,7 +1004,7 @@ void main() {
         seller: seller,
       );
 
-      final status = ReservationPairStatus(
+      final status = ReservationPair(
         buyerReservation: commit,
         sellerReservation: sellerAck,
       );
@@ -1024,7 +1024,7 @@ void main() {
         salt: 'salt-neg-only',
       );
 
-      final status = ReservationPairStatus(buyerReservation: negotiate);
+      final status = ReservationPair(buyerReservation: negotiate);
 
       expect(status.cancelled, isFalse);
       expect(status.isActive, isFalse);
@@ -1236,7 +1236,7 @@ void main() {
       expect(validation.isValid, isTrue);
 
       // ReservationPairStatus shows active
-      var status = ReservationPairStatus(buyerReservation: commit);
+      var status = ReservationPair(buyerReservation: commit);
       expect(status.isActive, isTrue);
       expect(status.stage, ReservationStage.commit);
 
@@ -1247,7 +1247,7 @@ void main() {
         signer: seller,
       );
 
-      status = ReservationPairStatus(
+      status = ReservationPair(
         buyerReservation: commit,
         sellerReservation: sellerCancel,
       );
@@ -1310,7 +1310,7 @@ void main() {
         expect(Reservation.validate(sellerAck).isValid, isTrue);
 
         // ReservationPairStatus shows committed
-        var status = ReservationPairStatus(
+        var status = ReservationPair(
           buyerReservation: negotiate,
           sellerReservation: sellerAck,
         );
@@ -1324,7 +1324,7 @@ void main() {
           signer: buyer,
         );
 
-        status = ReservationPairStatus(
+        status = ReservationPair(
           buyerReservation: buyerCancel,
           sellerReservation: sellerAck,
         );

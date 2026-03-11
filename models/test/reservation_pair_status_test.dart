@@ -29,12 +29,12 @@ void main() {
   group('ReservationPairStatus', () {
     group('cancelled', () {
       test('returns false when both are null', () {
-        final status = ReservationPairStatus();
+        final status = ReservationPair();
         expect(status.cancelled, isFalse);
       });
 
       test('returns false when both are negotiate stage', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.negotiate,
@@ -48,7 +48,7 @@ void main() {
       });
 
       test('returns true when seller has cancel stage', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.cancel,
@@ -64,7 +64,7 @@ void main() {
       });
 
       test('returns true when buyer has cancel stage', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.commit,
@@ -80,7 +80,7 @@ void main() {
       });
 
       test('returns true when cancelled flag is set (legacy)', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.cancel,
@@ -90,7 +90,7 @@ void main() {
       });
 
       test('returns true when only seller is present and cancelled', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.cancel,
@@ -100,7 +100,7 @@ void main() {
       });
 
       test('returns true when only buyer is present and cancelled', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           buyerReservation: _reservation(
             signer: MockKeys.guest,
             stage: ReservationStage.cancel,
@@ -112,12 +112,12 @@ void main() {
 
     group('stage', () {
       test('returns negotiate when both are null', () {
-        final status = ReservationPairStatus();
+        final status = ReservationPair();
         expect(status.stage, ReservationStage.negotiate);
       });
 
       test('returns negotiate when both are negotiating', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.negotiate,
@@ -131,7 +131,7 @@ void main() {
       });
 
       test('returns commit when seller has committed', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.commit,
@@ -145,7 +145,7 @@ void main() {
       });
 
       test('returns commit when buyer has committed', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.negotiate,
@@ -159,7 +159,7 @@ void main() {
       });
 
       test('returns cancel when either cancelled (overrides commit)', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.cancel,
@@ -175,7 +175,7 @@ void main() {
 
     group('start / end', () {
       test('returns null when no reservations', () {
-        final status = ReservationPairStatus();
+        final status = ReservationPair();
         expect(status.start, isNull);
         expect(status.end, isNull);
       });
@@ -183,7 +183,7 @@ void main() {
       test('returns dates from seller when only seller is present', () {
         final s = DateTime.utc(2026, 3, 1);
         final e = DateTime.utc(2026, 3, 5);
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             start: s,
@@ -195,7 +195,7 @@ void main() {
       });
 
       test('prefers committed reservation dates', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.commit,
@@ -216,11 +216,11 @@ void main() {
 
     group('isActive', () {
       test('false when no reservations', () {
-        expect(ReservationPairStatus().isActive, isFalse);
+        expect(ReservationPair().isActive, isFalse);
       });
 
       test('false when only negotiate (no commit)', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.negotiate,
@@ -230,7 +230,7 @@ void main() {
       });
 
       test('true when committed and not cancelled', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.commit,
@@ -240,7 +240,7 @@ void main() {
       });
 
       test('false when committed but cancelled', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.commit,
@@ -256,7 +256,7 @@ void main() {
 
     group('isCompleted', () {
       test('true when end date has passed and not cancelled', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             start: DateTime.utc(2020, 1, 1),
@@ -267,7 +267,7 @@ void main() {
       });
 
       test('false when end date has not passed', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             start: DateTime.utc(2099, 1, 1),
@@ -278,7 +278,7 @@ void main() {
       });
 
       test('false when cancelled even if end date has passed', () {
-        final status = ReservationPairStatus(
+        final status = ReservationPair(
           sellerReservation: _reservation(
             signer: MockKeys.hoster,
             stage: ReservationStage.cancel,

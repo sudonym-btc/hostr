@@ -5,6 +5,7 @@ import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:rxdart/rxdart.dart';
 
 import '../../util/main.dart';
 import '../auth/auth.dart';
@@ -98,27 +99,6 @@ class Reservations extends CrudUseCase<Reservation>
     return grouped;
   }
 
-  StreamWithStatus<Validation<Reservation>> subscribeValidatedForListing({
-    required Listing listing,
-    Duration debounce = const Duration(milliseconds: 350),
-  }) {
-    final source = subscribe(
-      Filter(
-        tags: {
-          kListingRefTag: [listing.anchor!],
-        },
-      ),
-    );
-
-    return validateStream(
-      source: source,
-      debounce: debounce,
-      closeSourceOnClose: true,
-      validator: (snapshot) =>
-          _validateListingSnapshot(listing: listing, reservations: snapshot),
-    );
-  }
-
   StreamWithStatus<Validation<Reservation>> subscribeUncancelledReservations({
     required Listing listing,
     Duration debounce = const Duration(milliseconds: 350),
@@ -131,18 +111,76 @@ class Reservations extends CrudUseCase<Reservation>
       ),
     );
 
-    return validateStream(
+    return _batchValidate(
       source: source,
       debounce: debounce,
-      closeSourceOnClose: true,
-      validator: (snapshot) {
-        final trimmed = _trimCommitmentsWithCancellation(snapshot);
+      validator: (items) {
+        final trimmed = _trimCommitmentsWithCancellation(items);
         return _validateListingSnapshot(
           listing: listing,
           reservations: trimmed,
         );
       },
     );
+  }
+
+  /// Batch-validates all accumulated items whenever the source changes.
+  ///
+  /// Unlike per-item [validateStream], this re-validates the entire batch
+  /// on each change — necessary for reservation validation where the
+  /// validity of one item depends on the presence of others (e.g. host
+  /// confirmations making guest reservations valid).
+  StreamWithStatus<Validation<Reservation>> _batchValidate({
+    required StreamWithStatus<Reservation> source,
+    required Duration debounce,
+    required Future<List<Validation<Reservation>>> Function(
+      List<Reservation> items,
+    )
+    validator,
+  }) {
+    final result = StreamWithStatus<Validation<Reservation>>(
+      onClose: () => source.close(),
+    );
+
+    var pending = false;
+    StreamStatus? deferredStatus;
+
+    void maybeForwardDeferredStatus() {
+      if (!pending && deferredStatus != null) {
+        result.addStatus(deferredStatus!);
+        deferredStatus = null;
+      }
+    }
+
+    result.addSubscription(
+      source.itemsStream.debounceTime(debounce).listen((_) async {
+        pending = true;
+        try {
+          final results = await validator(source.items);
+          result.replaceAll(results);
+        } catch (e, st) {
+          result.addError(e, st);
+        } finally {
+          pending = false;
+          maybeForwardDeferredStatus();
+        }
+      }),
+    );
+
+    result.addSubscription(
+      source.status.distinct((a, b) => a.runtimeType == b.runtimeType).listen((
+        s,
+      ) {
+        if (s is StreamStatusQuerying || s is StreamStatusError) {
+          result.addStatus(s);
+          return;
+        }
+        deferredStatus = s;
+        maybeForwardDeferredStatus();
+      }),
+    );
+
+    return result;
   }
 
   List<Reservation> _trimCommitmentsWithCancellation(
@@ -285,12 +323,12 @@ class Reservations extends CrudUseCase<Reservation>
     return reservations.where((e) => !e.cancelled).toList();
   }
 
-  /// Converts a flat list of reservations into [ReservationPairStatus] objects
+  /// Converts a flat list of reservations into [ReservationPair] objects
   /// grouped by trade id (`d` tag).
   ///
   /// The seller pubkey is derived from each reservation's listing anchor
   /// via [getPubKeyFromAnchor], so no [Listing] object is required.
-  static Map<String, ReservationPairStatus> toReservationPairs({
+  static Map<String, ReservationPair> toReservationPairs({
     required List<Reservation> reservations,
   }) {
     final Map<
@@ -324,7 +362,7 @@ class Reservations extends CrudUseCase<Reservation>
     return pairs.map(
       (hash, pair) => MapEntry(
         hash,
-        ReservationPairStatus(
+        ReservationPair(
           sellerReservation: pair.sellerReservation,
           buyerReservation: pair.buyerReservation,
         ),
@@ -333,8 +371,8 @@ class Reservations extends CrudUseCase<Reservation>
   }
 
   /// Queries all reservations for [listing] and returns them grouped as
-  /// [ReservationPairStatus] by trade id (`d` tag).
-  Future<Map<String, ReservationPairStatus>> queryReservationPairs({
+  /// [ReservationPair] by trade id (`d` tag).
+  Future<Map<String, ReservationPair>> queryReservationPairs({
     required Listing listing,
   }) async {
     final reservations = await getListingReservations(
@@ -389,7 +427,7 @@ class Reservations extends CrudUseCase<Reservation>
 
     _myReservations = response;
 
-    final reservationsStream = messaging.threads.subscription!.replay
+    final reservationsStream = messaging.threads.subscription!.replayStream
         .where(
           (message) =>
               message.child is Reservation &&

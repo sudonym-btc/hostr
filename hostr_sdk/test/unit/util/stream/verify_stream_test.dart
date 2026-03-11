@@ -53,7 +53,7 @@ void main() {
       // Wait for resolve futures to complete.
       await Future<void>.delayed(const Duration(milliseconds: 100));
 
-      final snapshot = verified.list.value;
+      final snapshot = verified.items;
       expect(snapshot, hasLength(2));
 
       final valid = snapshot.whereType<Valid<Reservation>>().toList();
@@ -85,7 +85,9 @@ void main() {
       );
 
       final statuses = <StreamStatus>[];
-      final statusSub = verified.status.listen(statuses.add);
+      final statusSub = verified.status
+          .distinct((a, b) => a.runtimeType == b.runtimeType)
+          .listen(statuses.add);
 
       source.addStatus(StreamStatusQuerying());
       source.add(_reservation(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
@@ -104,7 +106,7 @@ void main() {
 
       // Now Live should have been forwarded.
       expect(statuses.any((s) => s is StreamStatusLive), isTrue);
-      expect(verified.list.value, hasLength(1));
+      expect(verified.items, hasLength(1));
 
       await statusSub.cancel();
       await verified.close();
@@ -128,7 +130,7 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
 
-      final snapshot = verified.list.value;
+      final snapshot = verified.items;
       expect(snapshot, hasLength(1));
       expect(snapshot.first, isA<Invalid<Reservation>>());
       expect(
@@ -159,14 +161,14 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(resolveCount, 1);
-      expect(verified.list.value, hasLength(1));
+      expect(verified.items, hasLength(1));
 
       // Add a second item — r1 should not be re-resolved.
       source.add(_reservation(id: 'r2', pubkey: 'guest', tradeId: 'c2'));
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(resolveCount, 2); // Only r2 was resolved.
-      expect(verified.list.value, hasLength(2));
+      expect(verified.items, hasLength(2));
 
       await verified.close();
       await source.close();
@@ -184,7 +186,8 @@ void main() {
 
       final errorCompleter = Completer<StreamStatusError>();
       final statusSub = verified.status.listen((status) {
-        if (status is StreamStatusError && !errorCompleter.isCompleted) {
+        if (status is StreamStatusError &&
+            !errorCompleter.isCompleted) {
           errorCompleter.complete(status);
         }
       });

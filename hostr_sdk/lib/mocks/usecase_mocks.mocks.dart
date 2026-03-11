@@ -1564,17 +1564,16 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
           as _i8.StreamWithStatus<_i8.Validation<_i11.Reservation>>);
 
   @override
-  _i34.Future<Map<String, _i11.ReservationPairStatus>> queryReservationPairs({
+  _i34.Future<Map<String, _i11.ReservationPair>> queryReservationPairs({
     required _i11.Listing? listing,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#queryReservationPairs, [], {#listing: listing}),
-            returnValue:
-                _i34.Future<Map<String, _i11.ReservationPairStatus>>.value(
-                  <String, _i11.ReservationPairStatus>{},
-                ),
+            returnValue: _i34.Future<Map<String, _i11.ReservationPair>>.value(
+              <String, _i11.ReservationPair>{},
+            ),
           )
-          as _i34.Future<Map<String, _i11.ReservationPairStatus>>);
+          as _i34.Future<Map<String, _i11.ReservationPair>>);
 
   @override
   Map<

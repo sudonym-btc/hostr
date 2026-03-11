@@ -43,12 +43,20 @@ class CrudUseCase<T extends Nip01Event> {
 
   StreamWithStatus<T> query(Filter f, {String? name}) =>
       logger.spanSync('query', () {
-        return StreamWithStatus<T>(
-          queryFn: () => requests.query(
-            filter: getCombinedFilter(f, Filter(kinds: [kind])),
-            name: name != null ? '$T-$name' : '$T',
-          ),
-        );
+        final sws = StreamWithStatus<T>();
+        sws.addStatus(StreamStatusQuerying());
+        final sub = requests
+            .query<T>(
+              filter: getCombinedFilter(f, Filter(kinds: [kind])),
+              name: name != null ? '$T-$name' : '$T',
+            )
+            .listen(
+              sws.add,
+              onError: sws.addError,
+              onDone: () => sws.addStatus(StreamStatusQueryComplete()),
+            );
+        sws.addSubscription(sub);
+        return sws;
       });
 
   /// Creates an [ExpandableSubscription] driven by a [StreamWithStatus]<[Filter]>
@@ -64,7 +72,6 @@ class CrudUseCase<T extends Nip01Event> {
     // Wrap the filter source to merge our kind into every emitted filter.
     final kindMerged = filterSource.map<Filter>(
       (filter) => getCombinedFilter(filter, Filter(kinds: [kind])),
-      closeInner: false,
     );
     return ExpandableSubscription<T>(
       requests: requests,

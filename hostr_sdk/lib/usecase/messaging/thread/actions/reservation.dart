@@ -60,7 +60,7 @@ class ReservationActions {
     final keyPair = await trade.activeKeyPair();
     final r =
         trade.currentReservationPairs
-            .whereType<Valid<ReservationPairStatus>>()
+            .whereType<Valid<ReservationPair>>()
             .where((validation) => !validation.event.cancelled)
             .expand(
               (validation) => [

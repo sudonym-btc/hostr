@@ -1,4 +1,5 @@
 import 'package:models/nostr/main.dart';
+import 'package:models/util/validation_result.dart';
 
 /// Summarises the status of a reservation trade by examining the seller's
 /// and buyer's latest reservation snapshots.
@@ -11,14 +12,39 @@ import 'package:models/nostr/main.dart';
 /// );
 /// if (status.cancelled) { /* one side cancelled */ }
 /// ```
-class ReservationPairStatus {
+class ReservationPair {
   final Reservation? sellerReservation;
   final Reservation? buyerReservation;
+  final Validation<ReservationPair>? sellerReservationValidation;
+  final Validation<ReservationPair>? buyerReservationValidation;
 
-  ReservationPairStatus({
+  ReservationPair({
     this.sellerReservation,
     this.buyerReservation,
+    this.sellerReservationValidation,
+    this.buyerReservationValidation,
   });
+
+  factory ReservationPair.fromReservation(Reservation r) {
+    if (r.isSeller) {
+      return ReservationPair(sellerReservation: r);
+    } else {
+      return ReservationPair(buyerReservation: r);
+    }
+  }
+
+  ReservationPair addReservation(Reservation r) {
+    if (r.isSeller) {
+      return ReservationPair(
+        sellerReservation: r,
+        buyerReservation: buyerReservation,
+      );
+    }
+    return ReservationPair(
+      sellerReservation: sellerReservation,
+      buyerReservation: r,
+    );
+  }
 
   // ── Derived properties ──────────────────────────────────────────────
 

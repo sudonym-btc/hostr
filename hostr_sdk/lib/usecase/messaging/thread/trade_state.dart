@@ -2,7 +2,6 @@ import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../../../util/stream_status.dart';
-import '../../../util/validation_stream.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'actions/trade_action_resolver.dart';
 import 'trade.dart';
@@ -98,7 +97,7 @@ class NegotiationStage extends TradeStage {
 }
 
 class CommitStage extends TradeStage {
-  final ReservationPairStatus reservationPair;
+  final ReservationPair reservationPair;
   final List<PaymentEvent> payments;
   final List<ReservationTransition> transitions;
 
@@ -113,7 +112,7 @@ class CommitStage extends TradeStage {
 
 class TradeStreams {
   final StreamWithStatus<PaymentEvent> paymentEvents;
-  final StreamWithStatus<Validation<ReservationPairStatus>> reservationStream;
+  final StreamWithStatus<Validation<ReservationPair>> reservationStream;
   final StreamWithStatus<ReservationTransition> transitionsStream;
   final ValueStream<bool> subscriptionsLive;
 

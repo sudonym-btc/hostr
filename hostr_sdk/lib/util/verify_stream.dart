@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:ndk/ndk.dart' show Nip01Event;
-import 'package:rxdart/rxdart.dart';
 
 import 'stream_status.dart';
 import 'validation_stream.dart';
@@ -34,44 +33,87 @@ StreamWithStatus<Validation<T>> verifyStream<T extends Nip01Event, TDeps>({
   Duration debounce = const Duration(milliseconds: 50),
   bool closeSourceOnClose = false,
 }) {
+  late final StreamSubscription<T> replaySub;
   late final StreamSubscription<StreamStatus> statusSub;
-  late final StreamSubscription<List<T>> listSub;
 
   // Track which items have been processed (by event id).
   final verified = <String, Validation<T>>{};
   var pendingCount = 0;
   StreamStatus? deferredStatus;
 
-  // Whether the source has emitted items we haven't processed yet
-  // (debounce window hasn't fired).
-  var hasUnprocessedItems = false;
+  // Buffer of items received but not yet dispatched for verification
+  // (waiting for debounce window to close).
+  final pendingItems = <String, T>{};
+  Timer? debounceTimer;
 
   final response = StreamWithStatus<Validation<T>>(
     onClose: () async {
+      debounceTimer?.cancel();
       await statusSub.cancel();
-      await listSub.cancel();
+      await replaySub.cancel();
       if (closeSourceOnClose) {
         await source.close();
       }
     },
   );
 
-  void emitSnapshot() {
-    response.setSnapshot(List.unmodifiable(verified.values.toList()));
-  }
-
   void maybeForwardDeferredStatus() {
-    if (pendingCount == 0 && !hasUnprocessedItems && deferredStatus != null) {
+    if (pendingCount == 0 && pendingItems.isEmpty && deferredStatus != null) {
       response.addStatus(deferredStatus!);
       deferredStatus = null;
     }
   }
 
-  // Listen to raw source stream (pre-debounce) to detect unprocessed items.
-  source.stream.listen((_) {
-    hasUnprocessedItems = true;
-  });
+  void flushPendingItems() {
+    final items = Map<String, T>.of(pendingItems);
+    pendingItems.clear();
 
+    if (items.isEmpty) {
+      maybeForwardDeferredStatus();
+      return;
+    }
+
+    for (final entry in items.entries) {
+      final id = entry.key;
+      final item = entry.value;
+      pendingCount++;
+
+      resolve(item)
+          .then((deps) {
+            verified[id] = verify(item, deps);
+          })
+          .catchError((Object error) {
+            verified[id] = Invalid(item, error.toString());
+          })
+          .whenComplete(() {
+            pendingCount--;
+            response.add(verified[id]!);
+            maybeForwardDeferredStatus();
+          });
+    }
+  }
+
+  // Listen to the raw broadcast stream for immediate synchronous delivery.
+  // We also listen to replayStream so that items already buffered
+  // before verifyStream was created are picked up.
+  void onItem(T item) {
+    final id = item.id;
+    if (verified.containsKey(id) || pendingItems.containsKey(id)) {
+      return; // already processed or already buffered
+    }
+
+    pendingItems[id] = item;
+    debounceTimer?.cancel();
+    debounceTimer = Timer(debounce, flushPendingItems);
+  }
+
+  // source.replayStream replays current items then continues with new
+  // per-item events. This replaces the old separate stream + replay
+  // listeners.
+  replaySub = source.replayStream.listen(onItem, onError: response.addError);
+
+  // Listen to snapshot status changes (distinct by type to avoid
+  // redundant updates from item-only snapshot changes).
   statusSub = source.status.listen((status) {
     if (status is StreamStatusError) {
       response.addStatus(status);
@@ -91,43 +133,6 @@ StreamWithStatus<Validation<T>> verifyStream<T extends Nip01Event, TDeps>({
     }
 
     response.addStatus(status);
-  }, onError: response.addError);
-
-  listSub = source.list.debounceTime(debounce).listen((snapshot) {
-    hasUnprocessedItems = false;
-
-    // Find items not yet processed or with updated content.
-    final newItems = <T>[];
-    for (final item in snapshot) {
-      final id = item.id;
-      if (!verified.containsKey(id)) {
-        newItems.add(item);
-      }
-    }
-
-    if (newItems.isEmpty) {
-      maybeForwardDeferredStatus();
-      return;
-    }
-
-    for (final item in newItems) {
-      final id = item.id;
-      pendingCount++;
-
-      resolve(item)
-          .then((deps) {
-            verified[id] = verify(item, deps);
-          })
-          .catchError((Object error) {
-            verified[id] = Invalid(item, error.toString());
-          })
-          .whenComplete(() {
-            pendingCount--;
-            response.add(verified[id]!);
-            emitSnapshot();
-            maybeForwardDeferredStatus();
-          });
-    }
   }, onError: response.addError);
 
   return response;
