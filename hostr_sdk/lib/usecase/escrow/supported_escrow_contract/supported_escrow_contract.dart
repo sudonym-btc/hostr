@@ -4,6 +4,7 @@ import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../util/main.dart';
+import '../../evm/chain/rootstock/rif_relay/rif_relay.dart';
 
 /// On-chain trade data returned by [SupportedEscrowContract.getTrade].
 class OnChainTrade {
@@ -58,11 +59,13 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   final Contract contract;
   final Web3Client client;
   final EthereumAddress address;
+  final RifRelay? rifRelay;
 
   SupportedEscrowContract({
     required this.contract,
     required this.client,
     required this.address,
+    this.rifRelay,
   });
 
   /// Read the on-chain trade for [tradeId].
@@ -91,6 +94,9 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   depositArgs(ContractFundEscrowParams params);
   Future<TransactionInformation> deposit(ContractFundEscrowParams params);
   Future<TransactionInformation> claim(ContractClaimEscrowParams params);
+  Future<TransactionInformation> claimAndFund(
+    ContractClaimAndFundEscrowParams params,
+  );
   Future<TransactionInformation> release(ContractReleaseEscrowParams params);
 
   StreamWithStatus<EscrowEvent> allEvents(
@@ -201,6 +207,18 @@ class ContractClaimEscrowParams {
   final EthPrivateKey ethKey;
 
   ContractClaimEscrowParams({required this.tradeId, required this.ethKey});
+}
+
+class ContractClaimAndFundEscrowParams {
+  final EthereumAddress swapContract;
+  final ClaimArgs claimArgs;
+  final ContractFundEscrowParams fundParams;
+
+  ContractClaimAndFundEscrowParams({
+    required this.swapContract,
+    required this.claimArgs,
+    required this.fundParams,
+  });
 }
 
 class ContractReleaseEscrowParams {

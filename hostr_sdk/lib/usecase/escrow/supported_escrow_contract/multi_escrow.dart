@@ -47,6 +47,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   MultiEscrowWrapper({
     required super.client,
     required super.address,
+    super.rifRelay,
     required CustomLogger logger,
   }) : logger = logger.scope('multi-escrow'),
        super(
@@ -133,6 +134,64 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       });
 
   @override
+  Future<TransactionInformation> claimAndFund(
+    ContractClaimAndFundEscrowParams params,
+  ) => logger.span('claimAndFund', () async {
+    await ensureDeployed();
+
+    final sender = params.fundParams.ethKey.address;
+    final senderBalance = await client.getBalance(sender);
+    final estimatedMaxGas = params.fundParams.gasEstimate?.gasLimit.toInt();
+    final claimAndFundMaxGas = estimatedMaxGas == null
+        ? null
+        : max(estimatedMaxGas * 2, 500000);
+    logger.i(
+      'claimAndFund sender=${sender.eip55With0x} '
+      'senderBalance=${senderBalance.getInWei} wei '
+      'buyer=${params.fundParams.ethKey.address.eip55With0x} '
+      'seller=${params.fundParams.sellerEvmAddress} '
+      'arbiter=${params.fundParams.arbiterEvmAddress} '
+      'swapContract=${params.swapContract.eip55With0x} '
+      'amount=${params.claimArgs.amount} '
+      'gasPrice=${params.fundParams.gasEstimate?.gasPrice.getInWei} '
+      'estimatedMaxGas=${params.fundParams.gasEstimate?.gasLimit} '
+      'claimAndFundMaxGas=$claimAndFundMaxGas',
+    );
+
+    final transactionHash = await _withDecodedCustomError(() {
+      return contract.claimSwapAndFund(
+        (
+          claimArgs: [
+            params.swapContract,
+            params.claimArgs.preimage,
+            params.claimArgs.amount,
+            params.claimArgs.refundAddress,
+            params.claimArgs.timelock,
+            params.claimArgs.v,
+            params.claimArgs.r,
+            params.claimArgs.s,
+          ],
+          fundArgs: [
+            getBytes32(params.fundParams.tradeId),
+            params.fundParams.ethKey.address,
+            EthereumAddress.fromHex(params.fundParams.sellerEvmAddress),
+            EthereumAddress.fromHex(params.fundParams.arbiterEvmAddress),
+            BigInt.from(params.fundParams.unlockAt),
+            params.fundParams.escrowFee?.getInWei ?? BigInt.zero,
+          ],
+        ),
+        credentials: params.fundParams.ethKey,
+        transaction: Transaction(
+          gasPrice: params.fundParams.gasEstimate?.gasPrice,
+          maxGas: claimAndFundMaxGas,
+        ),
+      );
+    });
+
+    return (await client.getTransactionByHash(transactionHash))!;
+  });
+
+  @override
   arbitrate(ContractArbitrateParams params) =>
       logger.span('arbitrate', () async {
         await ensureDeployed();
@@ -154,7 +213,9 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     // simulates the call as if the sender has enough balance, even when
     // the real on-chain balance is zero.
     try {
-      final function = contract.self.abi.functions[5]; // createTrade
+      final function = contract.self.abi.functions.firstWhere(
+        (f) => f.name == 'createTrade',
+      );
       final (:tradeId, :buyer, :seller, :arbiter, :unlockAt, :escrowFee) =
           depositArgs(params);
       final args = [tradeId, buyer, seller, arbiter, unlockAt, escrowFee];
@@ -253,7 +314,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       logger.span('release', () async {
         await ensureDeployed();
         final transactionHash = await _withDecodedCustomError(() {
-          return contract.releaseToCounterparty((
+          return contract.releaseToCounterparty$2((
             tradeId: getBytes32(params.tradeId),
           ), credentials: params.ethKey);
         });

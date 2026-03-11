@@ -1,9 +1,11 @@
 import 'package:injectable/injectable.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
 import '../../../../util/bitcoin_amount.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../auth/auth.dart';
+import '../../../evm/chain/rootstock/rif_relay/rif_relay.dart';
 import '../../../evm/main.dart';
 import '../../supported_escrow_contract/supported_escrow_contract.dart';
 import '../onchain_operation.dart';
@@ -59,8 +61,17 @@ class EscrowFundOperation extends OnchainOperation {
       EscrowFundData.fromJson(json);
 
   @override
-  Future<GasEstimate> estimateGas() => logger.span('estimateGas', () =>
-      contract.estimateEscrowFundFee(contractParams));
+  // Hardcode the address so that we can use a funded address and force a swap for testing
+  resolveAddress() async {
+    accountIndex = 1;
+    onAddressResolved(accountIndex);
+  }
+
+  @override
+  Future<GasEstimate> estimateGas() => logger.span(
+    'estimateGas',
+    () => contract.estimateEscrowFundFee(contractParams),
+  );
 
   @override
   BitcoinAmount get requiredOnchainValue => params != null
@@ -68,7 +79,24 @@ class EscrowFundOperation extends OnchainOperation {
       : BitcoinAmount.zero();
 
   @override
+  Future<BitcoinAmount> computeSwapDeficit(GasEstimate gasEstimate) =>
+      logger.span('computeSwapDeficit', () async {
+        final forcedSwapAmount = contractParams.amount.roundUp(BitcoinUnit.sat);
+        logger.i(
+          'Forcing escrow funding swap for testing: '
+          '${forcedSwapAmount.getInSats} sats',
+        );
+        return forcedSwapAmount;
+      });
+
+  @override
   String get swapInvoiceDescription => params!.swapInvoiceDescription;
+
+  @override
+  EthereumAddress get swapClaimAddress => contractParams.ethKey.address;
+
+  @override
+  EthereumAddress get swapClaimDestination => contract.address;
 
   @override
   OnchainOperationData buildInitialData() => EscrowFundData(
@@ -86,26 +114,34 @@ class EscrowFundOperation extends OnchainOperation {
   );
 
   @override
-  Future<TransactionInformation> executeTransaction() => logger.span('executeTransaction', () =>
-      contract.deposit(contractParams));
+  Future<TransactionInformation> executeTransaction() =>
+      logger.span('executeTransaction', () => contract.deposit(contractParams));
 
   @override
-  void onAddressResolved(int resolvedAccountIndex) => logger.spanSync('onAddressResolved', () {
-    final evmKey = auth.getActiveEvmKey(accountIndex: resolvedAccountIndex);
-    contractParams = params!.toContractParams(evmKey);
-  });
+  SwapInClaimCallback? get swapClaimCallback => _claimAndFund;
 
   @override
-  void onGasEstimated(GasEstimate estimate) => logger.spanSync('onGasEstimated', () {
-    contractParams = contractParams.withGasEstimate(estimate);
-  });
+  void onAddressResolved(int resolvedAccountIndex) =>
+      logger.spanSync('onAddressResolved', () {
+        final evmKey = auth.getActiveEvmKey(accountIndex: resolvedAccountIndex);
+        contractParams = params!.toContractParams(evmKey);
+      });
 
   @override
-  void onBeforeTransaction(OnchainOperationData data) => logger.spanSync('onBeforeTransaction', () {
-    final fundData = data as EscrowFundData;
-    final evmKey = auth.getActiveEvmKey(accountIndex: fundData.accountIndex);
-    contractParams = fundData.toContractParams(evmKey);
-  });
+  void onGasEstimated(GasEstimate estimate) =>
+      logger.spanSync('onGasEstimated', () {
+        contractParams = contractParams.withGasEstimate(estimate);
+      });
+
+  @override
+  void onBeforeTransaction(OnchainOperationData data) => logger.spanSync(
+    'onBeforeTransaction',
+    () {
+      final fundData = data as EscrowFundData;
+      final evmKey = auth.getActiveEvmKey(accountIndex: fundData.accountIndex);
+      contractParams = fundData.toContractParams(evmKey);
+    },
+  );
 
   @override
   void onTransactionConfirmed(
@@ -126,31 +162,76 @@ class EscrowFundOperation extends OnchainOperation {
     }
   });
 
+  @override
+  OnchainOperationData onNestedSwapFinished(
+    OnchainOperationData data,
+    SwapInState swapState,
+  ) {
+    final claimTxHash = swapState.data?.claimTxHash;
+    if (claimTxHash == null || claimTxHash.isEmpty) {
+      return data;
+    }
+    return data.copyWithTxHash(claimTxHash);
+  }
+
+  Future<String> _claimAndFund(ClaimArgs claimArgs) =>
+      logger.span('claimAndFundSwapClaim', () async {
+        final etherSwap = await chain.getEtherSwapContract();
+        final sender = contractParams.ethKey.address;
+        final senderBalance = await chain.getBalance(sender);
+        logger.i(
+          'Submitting claimAndFund from ${sender.eip55With0x} '
+          'with balance=${senderBalance.getInWei} wei, '
+          'swapContract=${etherSwap.self.address.eip55With0x}, '
+          'tradeId=${contractParams.tradeId}',
+        );
+        final tx = await contract.claimAndFund(
+          ContractClaimAndFundEscrowParams(
+            swapContract: etherSwap.self.address,
+            claimArgs: claimArgs,
+            fundParams: contractParams,
+          ),
+        );
+
+        final txHash = extractTxHash(tx);
+        if (txHash == null) {
+          throw StateError(
+            'Could not extract transaction hash from claimAndFund transaction',
+          );
+        }
+        return txHash;
+      });
+
   // ── Fee estimation (public) ───────────────────────────────────────
 
-  Future<EscrowFundFees> estimateFees() => logger.span('estimateFees', () async {
-    final gasEstimate = await contract.estimateEscrowFundFee(contractParams);
-    final swapDeficit = await computeSwapDeficit(gasEstimate);
-    final swapFees = swapDeficit > BitcoinAmount.zero()
-        ? await chain
-              .swapIn(
-                SwapInParams(
-                  evmKey: contractParams.ethKey,
-                  accountIndex: accountIndex,
-                  amount: swapDeficit,
-                  invoiceDescription: params!.swapInvoiceDescription,
-                ),
-              )
-              .estimateFees()
-        : SwapInFees(
-            estimatedGasFees: BitcoinAmount.zero(),
-            estimatedSwapFees: BitcoinAmount.zero(),
-            estimatedRelayFees: BitcoinAmount.zero(),
-          );
-    return EscrowFundFees(
-      estimatedGasFees: gasEstimate.fee,
-      estimatedSwapFees: swapFees,
-      estimatedEscrowFees: contractParams.escrowFee ?? BitcoinAmount.zero(),
-    );
-  });
+  Future<EscrowFundFees> estimateFees() => logger.span(
+    'estimateFees',
+    () async {
+      final gasEstimate = await contract.estimateEscrowFundFee(contractParams);
+      final swapDeficit = await computeSwapDeficit(gasEstimate);
+      final swapFees = swapDeficit > BitcoinAmount.zero()
+          ? await chain
+                .swapIn(
+                  SwapInParams(
+                    evmKey: contractParams.ethKey,
+                    accountIndex: accountIndex,
+                    amount: swapDeficit,
+                    invoiceDescription: params!.swapInvoiceDescription,
+                    claimAddress: swapClaimAddress,
+                    claimDestination: swapClaimDestination,
+                  ),
+                )
+                .estimateFees()
+          : SwapInFees(
+              estimatedGasFees: BitcoinAmount.zero(),
+              estimatedSwapFees: BitcoinAmount.zero(),
+              estimatedRelayFees: BitcoinAmount.zero(),
+            );
+      return EscrowFundFees(
+        estimatedGasFees: gasEstimate.fee,
+        estimatedSwapFees: swapFees,
+        estimatedEscrowFees: contractParams.escrowFee ?? BitcoinAmount.zero(),
+      );
+    },
+  );
 }

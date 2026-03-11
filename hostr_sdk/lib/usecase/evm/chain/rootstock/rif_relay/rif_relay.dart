@@ -164,6 +164,7 @@ class RifRelay {
   final CustomLogger _logger;
   final Web3Client client;
   final HostrConfig config;
+  final RifRelayConfig rifRelayConfig;
 
   /// Generated Chopper API client for the RIF Relay server.
   final relay_api.RifRelay _api;
@@ -172,11 +173,13 @@ class RifRelay {
   relay_api.PingResponse? _chainInfoCache;
   DateTime? _chainInfoCacheTime;
 
-  RifRelay(this.config, @factoryParam this.client, CustomLogger logger)
-    : _logger = logger.scope('rif-relay'),
-      _api = relay_api.RifRelay.create(
-        baseUrl: Uri.parse(config.rootstockConfig.boltz.rifRelayUrl),
-      );
+  RifRelay(
+    this.config,
+    @factoryParam this.client,
+    @factoryParam this.rifRelayConfig,
+    CustomLogger logger,
+  ) : _logger = logger.scope('rif-relay'),
+      _api = relay_api.RifRelay.create(baseUrl: Uri.parse(rifRelayConfig.url));
 
   // -------------------------------------------------------------------------
   // Chain info (cached)
@@ -314,9 +317,9 @@ class RifRelay {
       gasPrice: effectiveGasPrice.toString(),
       feesReceiver: workerAddress,
       callForwarder: isDeploy
-          ? config.rootstockConfig.boltz.rifSmartWalletFactoryAddress
+          ? rifRelayConfig.smartWalletFactoryAddress
           : smartWalletInfo.address.eip55With0x,
-      callVerifier: config.rootstockConfig.boltz.rifRelayDeployVerifier,
+      callVerifier: rifRelayConfig.deployVerifier,
     );
 
     final relay_api.ForwardRequest request;
@@ -656,8 +659,7 @@ class RifRelay {
       });
 
   SmartWalletFactory _getSmartWalletFactory() {
-    final factoryAddress =
-        config.rootstockConfig.boltz.rifSmartWalletFactoryAddress;
+    final factoryAddress = rifRelayConfig.smartWalletFactoryAddress;
     if (factoryAddress.isEmpty) {
       throw StateError('Missing rifSmartWalletFactoryAddress in Config.');
     }

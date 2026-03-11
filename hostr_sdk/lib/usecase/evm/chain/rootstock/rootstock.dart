@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:http/io_client.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -10,9 +11,12 @@ import '../../../../datasources/boltz/boltz.dart';
 import '../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../injection.dart';
 import '../../../../util/bitcoin_amount.dart';
+import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import '../../../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../../main.dart';
 import 'operations/swap_in/swap_in_operation.dart';
 import 'operations/swap_out/swap_out_operation.dart';
+import 'rif_relay/rif_relay.dart';
 
 @Singleton()
 class Rootstock extends EvmChain {
@@ -26,8 +30,37 @@ class Rootstock extends EvmChain {
   Rootstock({required this.config, required super.auth, required super.logger})
     : super(client: _buildWeb3Client(config.rootstockConfig.rpcUrl));
 
+  RifRelay _rifRelayForSupportedContract(String contractName) {
+    final contractConfig = config.rootstockConfig.supportedContracts
+        .forContractName(contractName);
+    return getIt<RifRelay>(param1: client, param2: contractConfig.rifRelay);
+  }
+
   @override
   Web3Client buildClient() => _buildWeb3Client(config.rootstockConfig.rpcUrl);
+
+  @override
+  SupportedEscrowContract getSupportedEscrowContract(
+    EscrowService escrowService,
+  ) {
+    return getSupportedEscrowContractByName(
+      'MultiEscrow',
+      EthereumAddress.fromHex(escrowService.contractAddress),
+    );
+  }
+
+  @override
+  SupportedEscrowContract getSupportedEscrowContractByName(
+    String contractName,
+    EthereumAddress address,
+  ) {
+    return SupportedEscrowContractRegistry.getSupportedContract(
+      contractName,
+      client,
+      address,
+      rifRelay: _rifRelayForSupportedContract(contractName),
+    )!;
+  }
 
   @override
   Future<({BitcoinAmount min, BitcoinAmount max})> getSwapInLimits() =>

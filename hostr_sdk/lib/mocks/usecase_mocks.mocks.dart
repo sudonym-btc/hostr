@@ -1521,28 +1521,6 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
 
   @override
   _i8.StreamWithStatus<_i8.Validation<_i11.Reservation>>
-  subscribeValidatedForListing({
-    required _i11.Listing? listing,
-    Duration? debounce = const Duration(milliseconds: 350),
-  }) =>
-      (super.noSuchMethod(
-            Invocation.method(#subscribeValidatedForListing, [], {
-              #listing: listing,
-              #debounce: debounce,
-            }),
-            returnValue:
-                _FakeStreamWithStatus_6<_i8.Validation<_i11.Reservation>>(
-                  this,
-                  Invocation.method(#subscribeValidatedForListing, [], {
-                    #listing: listing,
-                    #debounce: debounce,
-                  }),
-                ),
-          )
-          as _i8.StreamWithStatus<_i8.Validation<_i11.Reservation>>);
-
-  @override
-  _i8.StreamWithStatus<_i8.Validation<_i11.Reservation>>
   subscribeUncancelledReservations({
     required _i11.Listing? listing,
     Duration? debounce = const Duration(milliseconds: 350),

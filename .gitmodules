@@ -10,3 +10,6 @@
 [submodule "dependencies/rif-relay-contracts"]
 	path = dependencies/rif-relay-contracts
 	url = git@github.com:rsksmart/rif-relay-contracts.git
+[submodule "dependencies/rif-relay-server"]
+	path = dependencies/rif-relay-server
+	url = https://github.com/rsksmart/rif-relay-server.git

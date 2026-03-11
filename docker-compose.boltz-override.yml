@@ -82,7 +82,9 @@ services:
   rif-relay:
     hostname: rif-relay
     container_name: boltz-rif-relay
-    image: ${RIF_RELAY_IMAGE}
+    build:
+      context: .
+      dockerfile: docker/rif-relay/Dockerfile
     depends_on:
       anvil:
         condition: service_healthy

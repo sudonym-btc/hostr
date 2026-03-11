@@ -100,10 +100,20 @@ abstract class EvmChain {
   SupportedEscrowContract getSupportedEscrowContract(
     EscrowService escrowService,
   ) {
-    return SupportedEscrowContractRegistry.getSupportedContract(
-      'MultiEscrow', // to be replaced with ABI hash or bytecode hash
-      client,
+    return getSupportedEscrowContractByName(
+      'MultiEscrow',
       EthereumAddress.fromHex(escrowService.contractAddress),
+    );
+  }
+
+  SupportedEscrowContract getSupportedEscrowContractByName(
+    String contractName,
+    EthereumAddress address,
+  ) {
+    return SupportedEscrowContractRegistry.getSupportedContract(
+      contractName,
+      client,
+      address,
     )!;
   }
 

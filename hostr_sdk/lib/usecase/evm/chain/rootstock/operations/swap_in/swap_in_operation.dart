@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
+import 'package:eip712/eip712.dart' as eip712;
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
@@ -28,7 +29,10 @@ import '../../rootstock.dart';
 @injectable
 class RootstockSwapInOperation extends SwapInOperation {
   final Rootstock rootstock;
-  late final RifRelay rifRelay = getIt<RifRelay>(param1: rootstock.client);
+  late final RifRelay rifRelay = getIt<RifRelay>(
+    param1: rootstock.client,
+    param2: rootstock.config.rootstockConfig.rifRelay,
+  );
 
   RootstockSwapInOperation({
     required this.rootstock,
@@ -402,10 +406,11 @@ class RootstockSwapInOperation extends SwapInOperation {
     }
 
     // ── 3c. Perform the claim via RIF Relay ──
-    final claimArgs = _claimArgsFromData(claimData);
+    final claimArgs = await _claimArgsFromData(claimData);
     logger.i('Claiming swap ${claimData.boltzId} through relay');
 
-    final tx = await _claim(claimArgs: claimArgs);
+    final tx =
+        await (params.onClaim?.call(claimArgs) ?? _claim(claimArgs: claimArgs));
     logger.i('Claim broadcast for ${claimData.boltzId}: $tx');
     return SwapInClaimed(claimData.copyWith(claimTxHash: tx));
   });
@@ -563,11 +568,13 @@ class RootstockSwapInOperation extends SwapInOperation {
   Future<ReverseResponse> _generateSwapRequest(
     ({List<int> preimage, String hash}) preimage,
   ) => logger.span('generateSwapRequest', () async {
-    final smartWalletInfo = await rifRelay.getSmartWalletAddress(params.evmKey);
-    final claimAddress = smartWalletInfo.address.eip55With0x;
+    final claimAddress =
+        (params.claimAddress ??
+                (await rifRelay.getSmartWalletAddress(params.evmKey)).address)
+            .eip55With0x;
     final description = params.invoiceDescription ?? 'Hostr Reservation';
     logger.i(
-      'Using RIF smart wallet as claim address: $claimAddress, ${params.amount.getInSats} sats',
+      'Using swap claim address: $claimAddress, ${params.amount.getInSats} sats',
     );
     return getIt<BoltzClient>().reverseSubmarine(
       invoiceAmount: params.amount.getInSats.toDouble(),
@@ -610,20 +617,141 @@ class RootstockSwapInOperation extends SwapInOperation {
   /// Builds [ClaimArgs] purely from persisted [SwapInData] — no Boltz
   /// dependency. All parameters needed for the on-chain claim are stored
   /// in the data object.
-  ClaimArgs _claimArgsFromData(SwapInData data) {
-    return (
-      amount: BitcoinAmount.fromBigInt(
-        BitcoinUnit.sat,
-        BigInt.from(data.onchainAmountSat),
-      ).getInWei,
-      preimage: data.preimageBytes,
-      refundAddress: EthereumAddress.fromHex(data.refundAddress!),
-      timelock: BigInt.from(data.timeoutBlockHeight),
+  Future<ClaimArgs> _claimArgsFromData(SwapInData data) async {
+    final etherSwap = await rootstock.getEtherSwapContract();
+    final amount = BitcoinAmount.fromBigInt(
+      BitcoinUnit.sat,
+      BigInt.from(data.onchainAmountSat),
+    ).getInWei;
+    final refundAddress = EthereumAddress.fromHex(data.refundAddress!);
+    final timelock = BigInt.from(data.timeoutBlockHeight);
+    final signature = params.claimDestination != null
+        ? _signClaimAuthorization(
+            preimage: data.preimageBytes,
+            amount: amount,
+            refundAddress: refundAddress,
+            timelock: timelock,
+            destination: params.claimDestination!,
+            etherSwapAddress: etherSwap.self.address,
+          )
+        : null;
 
-      /// EIP-712 signature parts (placeholder zeros — uses 4-param claim overload)
-      v: BigInt.zero,
-      r: Uint8List(32),
-      s: Uint8List(32),
+    if (signature != null) {
+      final preimageHash = Uint8List.fromList(
+        sha256.convert(data.preimageBytes).bytes,
+      );
+      final expectedClaimAddress = params.claimAddress ?? params.evmKey.address;
+
+      final expectedSwapKey = await etherSwap.hashValues((
+        preimageHash: preimageHash,
+        amount: amount,
+        claimAddress: expectedClaimAddress,
+        refundAddress: refundAddress,
+        timelock: timelock,
+      ));
+      final expectedExists = await etherSwap.swaps(($param77: expectedSwapKey));
+
+      final recoveredSwapKey = await etherSwap.hashValues((
+        preimageHash: preimageHash,
+        amount: amount,
+        claimAddress: signature.recoveredAddress,
+        refundAddress: refundAddress,
+        timelock: timelock,
+      ));
+      final recoveredExists = await etherSwap.swaps((
+        $param77: recoveredSwapKey,
+      ));
+
+      logger.i(
+        'EtherSwap lockup lookup: '
+        'expectedClaimAddress=${expectedClaimAddress.eip55With0x} '
+        'exists=$expectedExists, '
+        'recoveredClaimAddress=${signature.recoveredAddress.eip55With0x} '
+        'exists=$recoveredExists, '
+        'preimageHash=${bytesToHex(preimageHash, include0x: true)}',
+      );
+    }
+
+    return (
+      amount: amount,
+      preimage: data.preimageBytes,
+      refundAddress: refundAddress,
+      timelock: timelock,
+      v: signature?.v ?? BigInt.zero,
+      r: signature?.r ?? Uint8List(32),
+      s: signature?.s ?? Uint8List(32),
+    );
+  }
+
+  ({BigInt v, Uint8List r, Uint8List s, EthereumAddress recoveredAddress})
+  _signClaimAuthorization({
+    required Uint8List preimage,
+    required BigInt amount,
+    required EthereumAddress refundAddress,
+    required BigInt timelock,
+    required EthereumAddress destination,
+    required EthereumAddress etherSwapAddress,
+  }) {
+    final typedData = eip712.TypedMessage(
+      types: {
+        eip712.EIP712Domain.type: [
+          const eip712.MessageTypeProperty(name: 'name', type: 'string'),
+          const eip712.MessageTypeProperty(name: 'version', type: 'string'),
+          const eip712.MessageTypeProperty(name: 'chainId', type: 'uint256'),
+          const eip712.MessageTypeProperty(
+            name: 'verifyingContract',
+            type: 'address',
+          ),
+        ],
+        'Claim': const [
+          eip712.MessageTypeProperty(name: 'preimage', type: 'bytes32'),
+          eip712.MessageTypeProperty(name: 'amount', type: 'uint256'),
+          eip712.MessageTypeProperty(name: 'refundAddress', type: 'address'),
+          eip712.MessageTypeProperty(name: 'timelock', type: 'uint256'),
+          eip712.MessageTypeProperty(name: 'destination', type: 'address'),
+        ],
+      },
+      primaryType: 'Claim',
+      domain: eip712.EIP712Domain(
+        name: 'EtherSwap',
+        version: '6',
+        chainId: BigInt.from(rootstock.config.rootstockConfig.chainId),
+        verifyingContract: etherSwapAddress,
+        salt: null,
+      ),
+      message: {
+        'preimage': bytesToHex(preimage, include0x: true),
+        'amount': amount,
+        'refundAddress': refundAddress.eip55With0x,
+        'timelock': timelock,
+        'destination': destination.eip55With0x,
+      },
+    );
+
+    final hash = eip712.hashTypedData(
+      typedData: typedData,
+      version: eip712.TypedDataVersion.v4,
+    );
+    final sig = sign(hash, params.evmKey.privateKey);
+    final r = padUint8ListTo32(unsignedIntToBytes(sig.r));
+    final s = padUint8ListTo32(unsignedIntToBytes(sig.s));
+    final recoveredPubKey = ecRecover(hash, MsgSignature(sig.r, sig.s, sig.v));
+    final recoveredAddress = EthereumAddress(
+      publicKeyToAddress(recoveredPubKey),
+    );
+
+    logger.i(
+      'Prepared EtherSwap claim signature from ${params.evmKey.address.eip55With0x} '
+      'to destination ${destination.eip55With0x} '
+      '(recovered=${recoveredAddress.eip55With0x}, '
+      'expectedClaimAddress=${params.claimAddress?.eip55With0x ?? params.evmKey.address.eip55With0x})',
+    );
+
+    return (
+      v: BigInt.from(sig.v),
+      r: r,
+      s: s,
+      recoveredAddress: recoveredAddress,
     );
   }
 

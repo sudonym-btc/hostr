@@ -145,13 +145,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i301.Verification(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.factoryParam<_i514.RifRelay, _i641.Web3Client, dynamic>(
-      (client, _) => _i514.RifRelay(
-        gh<_i910.HostrConfig>(),
-        client,
-        gh<_i372.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i1014.Requests>(
       () => _i286.InMemoryRequests(
         ndk: gh<_i857.Ndk>(),
@@ -196,6 +189,14 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i608.EscrowFundRegistry>(
       () => _i608.EscrowFundRegistry(gh<_i331.CustomLogger>()),
+    );
+    gh.factoryParam<_i514.RifRelay, _i641.Web3Client, _i910.RifRelayConfig>(
+      (client, rifRelayConfig) => _i514.RifRelay(
+        gh<_i910.HostrConfig>(),
+        client,
+        rifRelayConfig,
+        gh<_i372.CustomLogger>(),
+      ),
     );
     gh.factory<_i350.BoltzClient>(
       () =>

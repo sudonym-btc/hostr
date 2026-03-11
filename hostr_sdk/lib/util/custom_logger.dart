@@ -91,12 +91,28 @@ class CustomLogger extends Logger {
     String name,
     Future<T> Function() fn, {
     Map<String, Object>? attributes,
-  }) {
-    return telemetry.runInSpan(
-      '$_resolvedTag.$name',
-      fn,
-      attributes: attributes,
-    );
+  }) async {
+    final spanName = '$_resolvedTag.$name';
+    final stopwatch = Stopwatch()..start();
+    _logSpanStart(spanName, attributes: attributes);
+
+    try {
+      final result = await telemetry.runInSpan(
+        spanName,
+        fn,
+        attributes: attributes,
+      );
+      _logSpanEnd(spanName, elapsed: stopwatch.elapsed);
+      return result;
+    } catch (error, stackTrace) {
+      _logSpanError(
+        spanName,
+        error: error,
+        stackTrace: stackTrace,
+        elapsed: stopwatch.elapsed,
+      );
+      rethrow;
+    }
   }
 
   /// Synchronous variant of [span].
@@ -105,10 +121,50 @@ class CustomLogger extends Logger {
     T Function() fn, {
     Map<String, Object>? attributes,
   }) {
-    return telemetry.runInSpanSync(
-      '$_resolvedTag.$name',
-      fn,
-      attributes: attributes,
+    final spanName = '$_resolvedTag.$name';
+    final stopwatch = Stopwatch()..start();
+    _logSpanStart(spanName, attributes: attributes);
+
+    try {
+      final result = telemetry.runInSpanSync(
+        spanName,
+        fn,
+        attributes: attributes,
+      );
+      _logSpanEnd(spanName, elapsed: stopwatch.elapsed);
+      return result;
+    } catch (error, stackTrace) {
+      _logSpanError(
+        spanName,
+        error: error,
+        stackTrace: stackTrace,
+        elapsed: stopwatch.elapsed,
+      );
+      rethrow;
+    }
+  }
+
+  void _logSpanStart(String spanName, {Map<String, Object>? attributes}) {
+    final suffix = attributes == null || attributes.isEmpty
+        ? ''
+        : ' attrs=$attributes';
+    super.t('▶ span start: $spanName$suffix');
+  }
+
+  void _logSpanEnd(String spanName, {required Duration elapsed}) {
+    super.t('✓ span end: $spanName (${elapsed.inMilliseconds} ms)');
+  }
+
+  void _logSpanError(
+    String spanName, {
+    required Object error,
+    required StackTrace stackTrace,
+    required Duration elapsed,
+  }) {
+    super.e(
+      '✗ span error: $spanName (${elapsed.inMilliseconds} ms) — $error',
+      error: error,
+      stackTrace: stackTrace,
     );
   }
 

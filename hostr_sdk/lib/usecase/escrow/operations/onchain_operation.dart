@@ -1,3 +1,4 @@
+import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
 import '../../../config.dart';
@@ -451,6 +452,7 @@ abstract class OnchainOperation
     StackTrace? st, {
     String? stepName,
   }) => logger.spanSync('emitError', () {
+    logger.e('Error in step "$stepName": $error', error: error, stackTrace: st);
     if (error is SwapNotReadyException) {
       // Not a real error — the nested swap isn't done yet.
       // Don't emit an error state; the run loop will stop naturally.
@@ -479,6 +481,23 @@ abstract class OnchainOperation
 
   /// Description for the swap-in LN invoice.
   String get swapInvoiceDescription;
+
+  /// Optional override for the Boltz reverse swap claim address.
+  ///
+  /// When set, the nested swap lockup will use this address as the
+  /// EtherSwap `claimAddress`.
+  ///
+  /// For the normal relay flow this is usually the RIF smart wallet. For
+  /// atomic `claimSwapAndFund(...)` flows this must be the signer address
+  /// whose signature will authorize the claim.
+  EthereumAddress? get swapClaimAddress => null;
+
+  /// Optional override for the EtherSwap claim signature destination.
+  ///
+  /// When set, the nested swap will prepare EIP-712 claim signature parts so
+  /// the funds are paid to this destination (`msg.sender`) when the custom
+  /// claim callback executes.
+  EthereumAddress? get swapClaimDestination => null;
 
   /// Deserialise the concrete [OnchainOperationData] subclass from JSON.
   ///
@@ -548,7 +567,7 @@ abstract class OnchainOperation
                 swapState is SwapInClaimTxInMempool ||
                 swapState is SwapInCompleted) {
               logger.i('$namespace: swap ${data.swapId} completed, proceeding');
-              return OnchainTxBroadcast(data);
+              return OnchainTxBroadcast(onNestedSwapFinished(data, swapState));
             }
             if (swapState is SwapInFailed) {
               return OnchainError(
@@ -608,23 +627,28 @@ abstract class OnchainOperation
   /// This step has no busy guard — any process (foreground or
   /// background) can pick it up.  It's purely a read: wait for the
   /// receipt and check success.
-  Future<OnchainOperationState> _stepConfirmTx() =>
-      logger.span('stepConfirmTx', () async {
-        var data = state.data!;
-        final txHash = data.txHash!;
-        final transactionInformation =
-            data.transactionInformation ?? await chain.awaitTransaction(txHash);
-        data = data.copyWithTransactionInformation(transactionInformation);
+  Future<OnchainOperationState> _stepConfirmTx() => logger.span(
+    'stepConfirmTx',
+    () async {
+      var data = state.data!;
+      final txHash = data.txHash!;
+      final transactionInformation =
+          data.transactionInformation ?? await chain.awaitTransaction(txHash);
+      data = data.copyWithTransactionInformation(transactionInformation);
 
-        final receipt = await chain.awaitReceipt(txHash);
-        if (!isReceiptSuccessful(receipt)) {
-          return OnchainError('Transaction reverted: $txHash', data: data);
-        }
-        data = data.copyWithTransactionReceipt(receipt);
-        onTransactionConfirmed(data, receipt);
-        logger.d('$namespace transaction confirmed: $txHash');
-        return OnchainTxConfirmed(data);
-      });
+      final receipt = await chain.awaitReceipt(txHash);
+      logger.i(
+        'Receipt received for $namespace tx $txHash: status=${receipt.status}',
+      );
+      if (!isReceiptSuccessful(receipt)) {
+        return OnchainError('Transaction reverted: $txHash', data: data);
+      }
+      data = data.copyWithTransactionReceipt(receipt);
+      onTransactionConfirmed(data, receipt);
+      logger.d('$namespace transaction confirmed: $txHash');
+      return OnchainTxConfirmed(data);
+    },
+  );
 
   // ── Address resolution ────────────────────────────────────────────
 
@@ -721,6 +745,9 @@ abstract class OnchainOperation
         accountIndex: accountIndex,
         amount: deficit,
         invoiceDescription: swapInvoiceDescription,
+        claimAddress: swapClaimAddress,
+        claimDestination: swapClaimDestination,
+        onClaim: swapClaimCallback,
       ),
     );
     final swapFees = await swapEstimation.estimateFees();
@@ -732,7 +759,10 @@ abstract class OnchainOperation
         accountIndex: accountIndex,
         amount: (deficit + swapFees.totalFees).roundUp(BitcoinUnit.sat),
         invoiceDescription: swapInvoiceDescription,
+        claimAddress: swapClaimAddress,
+        claimDestination: swapClaimDestination,
         parentOperationId: data.operationId,
+        onClaim: swapClaimCallback,
       ),
     );
     swap.onProgress = onProgress;
@@ -776,12 +806,29 @@ abstract class OnchainOperation
       throw StateError('Nested swap-in failed: ${failed.error}');
     }
 
-    return data.copyWithSwapId(swapId);
+    final updatedData = data.copyWithSwapId(swapId);
+    return onNestedSwapFinished(updatedData, swap.state);
   });
 
   /// Called after gas estimation so subclasses can pin the estimate onto
   /// their contract params. Default is a no-op.
   void onGasEstimated(GasEstimate estimate) {}
+
+  /// Optional override for the nested swap claim execution.
+  ///
+  /// When provided, [swapIfNeeded] passes this callback to the nested
+  /// [SwapInOperation] so subclasses can replace the default relay claim
+  /// with a custom action such as atomic `claimSwapAndFund(...)`.
+  SwapInClaimCallback? get swapClaimCallback => null;
+
+  /// Allows subclasses to project information from a completed nested swap
+  /// back onto the parent on-chain operation state.
+  ///
+  /// The default implementation returns [data] unchanged.
+  OnchainOperationData onNestedSwapFinished(
+    OnchainOperationData data,
+    SwapInState swapState,
+  ) => data;
 
   // ── Tx helpers ────────────────────────────────────────────────────
 

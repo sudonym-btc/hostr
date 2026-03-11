@@ -609,7 +609,7 @@ Future<void> _settleForPlan({
     );
     await _assertTxSucceeded(ctx, txHash, threadIndex, 'claim', tradeIdHex);
   } else {
-    final txHash = await contract.releaseToCounterparty(
+    final txHash = await contract.releaseToCounterparty$2(
       (tradeId: tradeId),
       credentials: hostCredentials,
       transaction: Transaction(
