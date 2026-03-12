@@ -57,6 +57,12 @@ if [ "$ENVIRONMENT" = "test" ]; then
     docker compose down --remove-orphans --volumes || true
 fi
 
+# Rebuild local-source images in local/test so restarts always pick up
+# workspace changes for one-shot deployment and relay services.
+if [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; then
+    docker compose build escrow-contract-deploy rif-relay
+fi
+
 # -d with proper depends_on chains (bootstrap → regtest-start → LND/CLN)
 # ensures every container is scheduled after its deps are met.
 # We can't use --wait because it treats one-shot init containers

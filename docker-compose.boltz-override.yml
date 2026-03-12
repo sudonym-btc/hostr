@@ -99,6 +99,7 @@ services:
       - VIRTUAL_PORT=8090
     volumes:
       - ./docker/rif-relay/local.json5:/rif-relay-server/config/local.json5:ro
+      - ./docker/data/escrow:/data:ro
     ports:
       - 8090:8090
     networks:
@@ -118,6 +119,26 @@ services:
 
         # 1. Deploy contracts (same as upstream /start.sh)
         cd /rif-relay-contracts && npx hardhat deploy --network regtest
+
+        # 1b. Auto-allow the escrow contract once the one-shot deploy writes
+        # its deployed address into the shared /data volume.
+        (
+          for i in $$(seq 1 120); do
+            if [ -s /data/contract_addr ]; then
+              ADDRESS=$$(cat /data/contract_addr)
+              echo "Allowing escrow contract $$ADDRESS on verifier allowlists..."
+              cd /rif-relay-contracts
+              if npx hardhat allow-contracts --contract-list "$$ADDRESS" --network regtest; then
+                echo "Escrow contract allowlisted"
+                break
+              fi
+              echo "Allow-contracts failed, will retry..."
+            else
+              echo "Escrow contract address not available yet (attempt $$i/120)..."
+            fi
+            sleep 2
+          done
+        ) &
 
         # 2. Register in background with retry loop
         (

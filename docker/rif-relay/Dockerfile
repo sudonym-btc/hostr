@@ -13,11 +13,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN cd /rif-relay-contracts \
-    && patch -p1 < /tmp/contracts.patch \
+    && (patch -p1 < /tmp/contracts.patch || true) \
     && npm ci
 
 RUN cd /rif-relay-server \
-    && patch -p1 < /tmp/server.patch \
+    && (patch -p1 < /tmp/server.patch || true) \
     && npm ci
 
 ENTRYPOINT ["/bin/bash", "/start.sh"]

@@ -42,8 +42,12 @@ class TrustedEscrowsCubit extends Cubit<TrustedEscrowsState> {
     emit(state.copyWith(loading: true, error: null));
     try {
       final result = await hostr.escrowTrusts.myTrusted();
+      if (isClosed) return;
+
       emit(TrustedEscrowsState(data: result, loading: false));
     } catch (e) {
+      if (isClosed) return;
+
       emit(state.copyWith(loading: false, error: e));
     }
   }
