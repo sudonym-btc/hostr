@@ -125,10 +125,6 @@ class NegotiationWidget extends StatelessWidget {
                 child: EscrowFundFlowWidget(cubit: activeOp),
               );
             },
-            style: FilledButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
             child: SizedBox(
               width: 16,
               height: 16,
@@ -153,10 +149,6 @@ class NegotiationWidget extends StatelessWidget {
                     listingName: tradeState.listing.title,
                   ),
                 ),
-          style: FilledButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
           child: const Text('Pay'),
         );
       },
@@ -166,20 +158,12 @@ class NegotiationWidget extends StatelessWidget {
   Widget _acceptButton(BuildContext context) => FutureButton.outlined(
     key: const ValueKey('trade_action_accept'),
     onPressed: () => context.read<Trade>().execute(TradeAction.accept),
-    style: OutlinedButton.styleFrom(
-      visualDensity: VisualDensity.compact,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    ),
     child: const Text('Accept'),
   );
 
   Widget _counterButton(BuildContext context) => OutlinedButton(
     key: const ValueKey('trade_action_counter'),
     onPressed: () => _showNotImplemented(context),
-    style: OutlinedButton.styleFrom(
-      visualDensity: VisualDensity.compact,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    ),
     child: const Text('Counter'),
   );
 }

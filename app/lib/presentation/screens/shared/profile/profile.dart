@@ -1,5 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
@@ -158,7 +159,25 @@ class ProfileScreen extends StatelessWidget {
                   },
                 ),
               ),
-              Section(title: 'Balance', body: MoneyInFlightWidget()),
+              Section(
+                title: 'Balance',
+                action: IconButton(
+                  icon: const Icon(Icons.key),
+                  tooltip: 'Copy mnemonic',
+                  onPressed: () {
+                    final mnemonic = getIt<Hostr>().auth.getEvmMnemonic().join(
+                      ' ',
+                    );
+                    Clipboard.setData(ClipboardData(text: mnemonic));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Mnemonic copied to clipboard'),
+                      ),
+                    );
+                  },
+                ),
+                body: MoneyInFlightWidget(),
+              ),
               Section(
                 body: StreamBuilder<HostrUserConfig>(
                   stream: getIt<Hostr>().userConfig.stream,
