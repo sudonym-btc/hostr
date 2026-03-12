@@ -14,20 +14,27 @@ import '../supported_escrow_contract/supported_escrow_contract.dart';
 
 /// Common recovery data that every on-chain operation must carry.
 ///
-/// Holds the fields shared across all operations (account index, gas
-/// parameters, swap ID, chain/contract identifiers, tx hash).  Concrete
-/// subclasses ([EscrowFundData], [EscrowClaimData]) add
-/// operation-specific fields and override [operationId].
+/// Holds the fields shared across all operations (account index, encoded call
+/// intent, swap ID, chain/contract identifiers, tx hash).
+/// Most operations now use [OnchainCallData] directly; only specialized flows
+/// like escrow funding need extra persisted fields.
 abstract class OnchainOperationData {
   final int accountIndex;
   final String contractAddress;
   final int chainId;
 
-  /// Gas price (in wei) pinned at estimation time.
-  final String? gasPriceWei;
+  /// Fully-encoded call that this operation intends to execute.
+  ///
+  /// Persisting the intent keeps recovery/data-model drift low because the
+  /// exact calldata, value and pinned gas settings are all stored in one place.
+  final ContractCallIntent? callIntent;
 
-  /// Gas limit pinned at estimation time.
-  final String? gasLimit;
+  /// Chosen execution transport for [callIntent].
+  ///
+  /// `relay` is only used for zero-value calls when the contract has a
+  /// configured RIF relay. `direct` means the sender EOA will broadcast the
+  /// transaction after any required swap-in.
+  final String? transport;
 
   /// The Boltz swap ID of the nested swap-in, if a swap was required.
   final String? swapId;
@@ -45,8 +52,8 @@ abstract class OnchainOperationData {
     required this.accountIndex,
     required this.contractAddress,
     required this.chainId,
-    this.gasPriceWei,
-    this.gasLimit,
+    this.callIntent,
+    this.transport,
     this.swapId,
     this.txHash,
     this.transactionInformation,
@@ -64,10 +71,8 @@ abstract class OnchainOperationData {
   OnchainOperationData copyWithTransactionReceipt(
     TransactionReceipt? transactionReceipt,
   );
-  OnchainOperationData copyWithGasEstimate({
-    required String gasPriceWei,
-    required String gasLimit,
-  });
+  OnchainOperationData copyWithCallIntent(ContractCallIntent? callIntent);
+  OnchainOperationData copyWithTransport(String? transport);
 
   /// Serialise common fields.  Subclasses should spread this into
   /// their own [toJson] via `...super.baseToJson()`.
@@ -75,8 +80,8 @@ abstract class OnchainOperationData {
     'accountIndex': accountIndex,
     'contractAddress': contractAddress,
     'chainId': chainId,
-    if (gasPriceWei != null) 'gasPriceWei': gasPriceWei,
-    if (gasLimit != null) 'gasLimit': gasLimit,
+    if (callIntent != null) 'callIntent': callIntent!.toJson(),
+    if (transport != null) 'transport': transport,
     if (swapId != null) 'swapId': swapId,
     if (txHash != null) 'txHash': txHash,
     if (transactionInformation != null)
@@ -88,6 +93,106 @@ abstract class OnchainOperationData {
   };
 
   Map<String, dynamic> toJson();
+}
+
+class OnchainCallData extends OnchainOperationData {
+  final String operationIdValue;
+  final String? errorMessage;
+
+  const OnchainCallData({
+    required this.operationIdValue,
+    required super.contractAddress,
+    required super.chainId,
+    required super.accountIndex,
+    super.callIntent,
+    super.transport,
+    super.swapId,
+    super.txHash,
+    super.transactionInformation,
+    super.transactionReceipt,
+    this.errorMessage,
+  });
+
+  @override
+  String get operationId => operationIdValue;
+
+  @override
+  OnchainCallData copyWithSwapId(String? swapId) => copyWith(swapId: swapId);
+
+  @override
+  OnchainCallData copyWithTxHash(String? txHash) => copyWith(txHash: txHash);
+
+  @override
+  OnchainCallData copyWithTransactionInformation(
+    TransactionInformation? transactionInformation,
+  ) => copyWith(transactionInformation: transactionInformation);
+
+  @override
+  OnchainCallData copyWithTransactionReceipt(
+    TransactionReceipt? transactionReceipt,
+  ) => copyWith(transactionReceipt: transactionReceipt);
+
+  @override
+  OnchainCallData copyWithCallIntent(ContractCallIntent? callIntent) =>
+      copyWith(callIntent: callIntent);
+
+  @override
+  OnchainCallData copyWithTransport(String? transport) =>
+      copyWith(transport: transport);
+
+  OnchainCallData copyWith({
+    ContractCallIntent? callIntent,
+    String? transport,
+    String? swapId,
+    String? txHash,
+    TransactionInformation? transactionInformation,
+    TransactionReceipt? transactionReceipt,
+    String? errorMessage,
+  }) => OnchainCallData(
+    operationIdValue: operationIdValue,
+    contractAddress: contractAddress,
+    chainId: chainId,
+    accountIndex: accountIndex,
+    callIntent: callIntent ?? this.callIntent,
+    transport: transport ?? this.transport,
+    swapId: swapId ?? this.swapId,
+    txHash: txHash ?? this.txHash,
+    transactionInformation:
+        transactionInformation ?? this.transactionInformation,
+    transactionReceipt: transactionReceipt ?? this.transactionReceipt,
+    errorMessage: errorMessage ?? this.errorMessage,
+  );
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'operationId': operationIdValue,
+    ...baseToJson(),
+    if (errorMessage != null) 'errorMessage': errorMessage,
+  };
+
+  factory OnchainCallData.fromJson(Map<String, dynamic> json) =>
+      OnchainCallData(
+        operationIdValue:
+            (json['operationId'] ?? json['tradeId'] ?? json['id']) as String,
+        contractAddress: json['contractAddress'] as String,
+        chainId: json['chainId'] as int,
+        accountIndex: json['accountIndex'] as int? ?? 0,
+        callIntent: json['callIntent'] != null
+            ? ContractCallIntent.fromJson(
+                json['callIntent'] as Map<String, dynamic>,
+              )
+            : null,
+        transport: json['transport'] as String?,
+        swapId: json['swapId'] as String?,
+        txHash: json['txHash'] as String?,
+        transactionInformation: deserializeTransactionInformation(
+          json['transactionInformation'] as Map<String, dynamic>?,
+        ),
+        transactionReceipt: deserializeTransactionReceipt(
+          json['transactionReceipt'] as Map<String, dynamic>?,
+        ),
+        errorMessage: json['errorMessage'] as String?,
+      );
 }
 
 // ── State hierarchy ─────────────────────────────────────────────────────
@@ -287,6 +392,20 @@ class OnchainError extends OnchainOperationState {
 /// All steps in the on-chain operation lifecycle.
 enum OnchainStep { initialise, checkSwap, broadcastTx, confirmTx }
 
+class OnchainFeeQuote {
+  final GasEstimate gasEstimate;
+  final SwapInFees swapFees;
+  final ContractCallIntent callIntent;
+  final String transport;
+
+  const OnchainFeeQuote({
+    required this.gasEstimate,
+    required this.swapFees,
+    required this.callIntent,
+    required this.transport,
+  });
+}
+
 // ── Base class ──────────────────────────────────────────────────────────
 
 /// Abstract base for any operation that needs to send an on-chain
@@ -464,17 +583,44 @@ abstract class OnchainOperation
 
   // ── Abstract: subclasses must implement ─────────────────────────────
 
-  /// Estimate gas for the concrete contract call.
-  Future<GasEstimate> estimateGas();
-
-  /// The total on-chain value the address needs **beyond** gas.
-  BitcoinAmount get requiredOnchainValue;
-
   /// Optional pre-flight checks (e.g. `canClaim()`).
   Future<void> preflight() async {}
 
-  /// Execute the actual contract call. Returns [TransactionInformation].
-  Future<TransactionInformation> executeTransaction();
+  /// Perform any up-front initialization required before the run loop starts.
+  ///
+  /// Subclasses should prefer overriding this instead of `resolveAddress()` so
+  /// the setup phase is explicit from the outside.
+  Future<void> initialize() => resolveAddress();
+
+  /// Build the direct-call intent for this operation.
+  Future<ContractCallIntent> buildDirectCallIntent();
+
+  /// Build the relayed-call intent for this operation.
+  ///
+  /// Defaults to the same calldata as the direct path. Override when relay
+  /// execution requires different authorization/ABI packaging.
+  Future<ContractCallIntent> buildRelayedCallIntent() =>
+      buildDirectCallIntent();
+
+  Future<ContractCallIntent> buildCallIntent() async {
+    final directIntent = await buildDirectCallIntent();
+    if (!_shouldUseRelayForIntent(directIntent)) {
+      return directIntent;
+    }
+    return buildRelayedCallIntent();
+  }
+
+  Future<GasEstimate> estimateCallIntentFee(ContractCallIntent intent) {
+    final signer = auth.getActiveEvmKey(accountIndex: accountIndex);
+    return _shouldUseRelayForIntent(intent)
+        ? contract.estimateRelayFee(intent, signer)
+        : contract.estimateFee(
+            intent,
+            stateOverrideBalance: intent.value.getInWei > BigInt.zero
+                ? intent.value.getInWei
+                : null,
+          );
+  }
 
   Future<String> broadcastContractCallIntent(
     ContractCallIntent intent,
@@ -497,12 +643,32 @@ abstract class OnchainOperation
     ContractCallIntent intent,
     EthPrivateKey credentials,
   ) => logger.span('submitContractCallIntent', () async {
+    if (_shouldUseRelayForIntent(intent)) {
+      final relay = contract.rifRelay;
+      if (relay == null) {
+        throw StateError(
+          'RIF relay requested for ${intent.methodName} but no relay is configured',
+        );
+      }
+      final txHash =
+          (await relay.relayCall(credentials, intent)).txHash?.toString() ?? '';
+      if (txHash.isEmpty) {
+        throw StateError(
+          'Could not extract transaction hash from relayed ${intent.methodName}',
+        );
+      }
+      return await chain.awaitTransaction(txHash);
+    }
+
     final txHash = await broadcastContractCallIntent(intent, credentials);
     return await chain.awaitTransaction(txHash);
   });
 
   /// Build the initial recovery data for this operation.
-  OnchainOperationData buildInitialData();
+  OnchainOperationData buildInitialData({
+    required ContractCallIntent callIntent,
+    required String transport,
+  });
 
   /// Description for the swap-in LN invoice.
   String get swapInvoiceDescription;
@@ -542,12 +708,60 @@ abstract class OnchainOperation
     TransactionReceipt receipt,
   ) {}
 
+  bool _shouldUseRelayForIntent(ContractCallIntent intent) {
+    return contract.rifRelay != null && intent.isZeroValue;
+  }
+
+  String _transportForIntent(ContractCallIntent intent) =>
+      _shouldUseRelayForIntent(intent) ? 'relay' : 'direct';
+
+  Future<OnchainFeeQuote> estimateOperationFees() =>
+      logger.span('estimateOperationFees', () async {
+        await initialize();
+        final intent = await buildCallIntent();
+        final gasEstimate = await estimateCallIntentFee(intent);
+        final pinnedIntent = intent.copyWith(
+          gasPrice: gasEstimate.gasPrice,
+          maxGas: gasEstimate.gasLimit.toInt(),
+        );
+        final data = buildInitialData(
+          callIntent: pinnedIntent,
+          transport: _transportForIntent(pinnedIntent),
+        );
+        final swapDeficit = await computeSwapDeficit(data, gasEstimate);
+        final swapFees = swapDeficit > BitcoinAmount.zero()
+            ? await chain
+                  .swapIn(
+                    SwapInParams(
+                      evmKey: auth.getActiveEvmKey(accountIndex: accountIndex),
+                      accountIndex: accountIndex,
+                      amount: swapDeficit,
+                      invoiceDescription: swapInvoiceDescription,
+                      claimAddress: swapClaimAddress,
+                      claimDestination: swapClaimDestination,
+                    ),
+                  )
+                  .estimateFees()
+            : SwapInFees(
+                estimatedGasFees: BitcoinAmount.zero(),
+                estimatedSwapFees: BitcoinAmount.zero(),
+                estimatedRelayFees: BitcoinAmount.zero(),
+              );
+
+        return OnchainFeeQuote(
+          gasEstimate: gasEstimate,
+          swapFees: swapFees,
+          callIntent: pinnedIntent,
+          transport: _transportForIntent(pinnedIntent),
+        );
+      });
+
   // ── Entry points ──────────────────────────────────────────────────
 
   /// Start a new operation (resolves address, then runs the loop).
   @override
   Future<void> execute() async {
-    await resolveAddress();
+    await initialize();
     await run();
   }
 
@@ -558,16 +772,20 @@ abstract class OnchainOperation
   Future<OnchainOperationState> _stepInitialise() =>
       logger.span('stepInitialise', () async {
         await preflight();
-        var data = buildInitialData();
+        final intent = await buildCallIntent();
+        final gasEstimate = await estimateCallIntentFee(intent);
+        onGasEstimated(gasEstimate);
+        final pinnedIntent = intent.copyWith(
+          gasPrice: gasEstimate.gasPrice,
+          maxGas: gasEstimate.gasLimit.toInt(),
+        );
+        var data = buildInitialData(
+          callIntent: pinnedIntent,
+          transport: _transportForIntent(pinnedIntent),
+        );
         logger.i(
           '$namespace: initialising ${data.operationId} '
           '(accountIndex: $accountIndex)',
-        );
-        final gasEstimate = await estimateGas();
-        onGasEstimated(gasEstimate);
-        data = data.copyWithGasEstimate(
-          gasPriceWei: gasEstimate.gasPrice.getInWei.toString(),
-          gasLimit: gasEstimate.gasLimit.toString(),
         );
         data = await swapIfNeeded(data, gasEstimate);
         return OnchainTxBroadcast(data);
@@ -629,7 +847,16 @@ abstract class OnchainOperation
     }
 
     // Send the transaction.
-    final tx = await executeTransaction();
+    final intent = data.callIntent;
+    if (intent == null) {
+      throw StateError(
+        '$namespace cannot broadcast without a persisted callIntent',
+      );
+    }
+    final tx = await submitContractCallIntent(
+      intent,
+      auth.getActiveEvmKey(accountIndex: data.accountIndex),
+    );
     data = data.copyWithTransactionInformation(tx);
     final txHash = extractTxHash(tx);
     if (txHash != null) {
@@ -679,39 +906,17 @@ abstract class OnchainOperation
 
   /// Pick the best HD address for this operation.
   ///
-  /// Looks for an already-funded address that can cover
-  /// [requiredOnchainValue]; otherwise picks the next unused address
-  /// (implying a swap-in will be needed).
+  /// Picks the next unused address by default.
+  ///
+  /// Children that need a more specific signer can resolve and assign
+  /// [accountIndex] inside [initialize()], then call [onAddressResolved()].
   Future<void> resolveAddress() => logger.span('resolveAddress', () async {
-    final requiredAmount = requiredOnchainValue;
-    final fundedAddresses = await chain.getAddressesWithBalance();
-
-    int resolvedAccountIndex = 0;
-    bool foundFunded = false;
-
-    for (final entry in fundedAddresses) {
-      if (entry.balance >= requiredAmount) {
-        resolvedAccountIndex = entry.accountIndex;
-        foundFunded = true;
-        logger.i(
-          'Using funded address at index $resolvedAccountIndex '
-          '(balance: ${entry.balance})',
-        );
-        break;
-      }
-    }
-
-    if (!foundFunded) {
-      final (:address, :accountIndex) = await chain.getNextUnusedAddress();
-      resolvedAccountIndex = accountIndex;
-      logger.i(
-        'No funded address found, using fresh address at index '
-        '$resolvedAccountIndex ($address) — will swap in',
-      );
-    }
-
-    accountIndex = resolvedAccountIndex;
-    onAddressResolved(resolvedAccountIndex);
+    final (:address, :accountIndex) = await chain.getNextUnusedAddress();
+    logger.i(
+      'Using fresh address at index $accountIndex ($address) as initial signer',
+    );
+    this.accountIndex = accountIndex;
+    onAddressResolved(accountIndex);
   });
 
   /// Called after [resolveAddress] picks an account index so subclasses
@@ -721,31 +926,45 @@ abstract class OnchainOperation
   // ── Swap deficit ──────────────────────────────────────────────────
 
   /// Check whether the current balance can cover
-  /// [requiredOnchainValue] + gas.
+  /// the transaction value + gas.
   ///
   /// Returns the amount that must be swapped in (zero if sufficient).
-  Future<BitcoinAmount> computeSwapDeficit(GasEstimate gasEstimate) =>
-      logger.span('computeSwapDeficit', () async {
-        final address = auth.getEvmAddress(accountIndex: accountIndex);
-        final balance = await chain.getBalance(address);
-        final shortfall = balance - requiredOnchainValue - gasEstimate.fee;
+  Future<BitcoinAmount> computeSwapDeficit(
+    OnchainOperationData data,
+    GasEstimate gasEstimate,
+  ) => logger.span('computeSwapDeficit', () async {
+    final intent = data.callIntent;
+    if (intent == null) {
+      throw StateError('Cannot compute swap deficit without a callIntent');
+    }
+    if (_shouldUseRelayForIntent(intent)) {
+      logger.i(
+        'Skipping swap deficit computation for relayed zero-value ${intent.methodName}',
+      );
+      return BitcoinAmount.zero();
+    }
 
-        logger.i(
-          'Balance check: have=${balance.getInSats}, '
-          'required=${requiredOnchainValue.getInSats}, '
-          'gas=${gasEstimate.fee.getInSats}, '
-          'shortfall=${shortfall.getInSats}',
-        );
+    final address = auth.getEvmAddress(accountIndex: data.accountIndex);
+    final balance = await chain.getBalance(address);
+    final requiredOnchainValue = BitcoinAmount.inWei(intent.value.getInWei);
+    final shortfall = balance - requiredOnchainValue - gasEstimate.fee;
 
-        if (shortfall < BitcoinAmount.zero()) {
-          final limits = await chain.getSwapInLimits();
-          return BitcoinAmount.max(
-            limits.min,
-            shortfall.abs(),
-          ).roundUp(BitcoinUnit.sat);
-        }
-        return BitcoinAmount.zero();
-      });
+    logger.i(
+      'Balance check: have=${balance.getInSats}, '
+      'required=${requiredOnchainValue.getInSats}, '
+      'gas=${gasEstimate.fee.getInSats}, '
+      'shortfall=${shortfall.getInSats}',
+    );
+
+    if (shortfall < BitcoinAmount.zero()) {
+      final limits = await chain.getSwapInLimits();
+      return BitcoinAmount.max(
+        limits.min,
+        shortfall.abs(),
+      ).roundUp(BitcoinUnit.sat);
+    }
+    return BitcoinAmount.zero();
+  });
 
   // ── Nested swap-in ────────────────────────────────────────────────
 
@@ -758,7 +977,7 @@ abstract class OnchainOperation
     OnchainOperationData data,
     GasEstimate gasEstimate,
   ) => logger.span('swapIfNeeded', () async {
-    final deficit = await computeSwapDeficit(gasEstimate);
+    final deficit = await computeSwapDeficit(data, gasEstimate);
     if (deficit <= BitcoinAmount.zero()) return data;
 
     final evmKey = auth.getActiveEvmKey(accountIndex: accountIndex);

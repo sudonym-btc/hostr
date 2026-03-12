@@ -16,7 +16,7 @@ class EditReviewController extends UpsertFormController {
   final EditReviewSubmit? onUpsert;
   final Listing listing;
   final Reservation? reservation;
-  final String? salt;
+  final ReservationTweakMaterial? tweakMaterial;
 
   int _rating = 5;
   int _originalRating = 5;
@@ -30,7 +30,7 @@ class EditReviewController extends UpsertFormController {
     Review? existingReview,
     required this.listing,
     this.reservation,
-    this.salt,
+    this.tweakMaterial,
   }) {
     registerField(reviewField);
     setState(existingReview);
@@ -87,7 +87,7 @@ class EditReviewController extends UpsertFormController {
         content: ReviewContent(
           rating: rating,
           content: reviewField.text,
-          proof: ParticipationProof(salt: salt!),
+          proof: ParticipationProof(tweakMaterial: tweakMaterial!),
         ),
         tags: ReviewTags([
           [kListingRefTag, listing.anchor!],
@@ -108,7 +108,7 @@ class EditReview extends StatefulWidget {
   final Review? existingReview;
   final Listing listing;
   final Reservation? reservation;
-  final String? salt;
+  final ReservationTweakMaterial? tweakMaterial;
   final VoidCallback? onSaved;
 
   const EditReview({
@@ -117,7 +117,7 @@ class EditReview extends StatefulWidget {
     this.onSaved,
     required this.listing,
     this.reservation,
-    this.salt,
+    this.tweakMaterial,
   });
 
   @override
@@ -134,7 +134,7 @@ class _EditReviewState extends State<EditReview> {
       existingReview: widget.existingReview,
       listing: widget.listing,
       reservation: widget.reservation,
-      salt: widget.salt,
+      tweakMaterial: widget.tweakMaterial,
     );
   }
 

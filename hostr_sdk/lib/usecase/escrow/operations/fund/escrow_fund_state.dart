@@ -33,8 +33,8 @@ class EscrowFundData extends OnchainOperationData {
     required super.chainId,
     required this.unlockAt,
     required super.accountIndex,
-    super.gasPriceWei,
-    super.gasLimit,
+    super.callIntent,
+    super.transport,
     this.escrowFeeWeiHex,
     super.swapId,
     super.txHash,
@@ -63,14 +63,16 @@ class EscrowFundData extends OnchainOperationData {
   ) => copyWith(transactionReceipt: transactionReceipt);
 
   @override
-  EscrowFundData copyWithGasEstimate({
-    required String gasPriceWei,
-    required String gasLimit,
-  }) => copyWith(gasPriceWei: gasPriceWei, gasLimit: gasLimit);
+  EscrowFundData copyWithCallIntent(ContractCallIntent? callIntent) =>
+      copyWith(callIntent: callIntent);
+
+  @override
+  EscrowFundData copyWithTransport(String? transport) =>
+      copyWith(transport: transport);
 
   EscrowFundData copyWith({
-    String? gasPriceWei,
-    String? gasLimit,
+    ContractCallIntent? callIntent,
+    String? transport,
     String? escrowFeeWeiHex,
     String? swapId,
     String? txHash,
@@ -86,8 +88,8 @@ class EscrowFundData extends OnchainOperationData {
     chainId: chainId,
     unlockAt: unlockAt,
     accountIndex: accountIndex,
-    gasPriceWei: gasPriceWei ?? this.gasPriceWei,
-    gasLimit: gasLimit ?? this.gasLimit,
+    callIntent: callIntent ?? this.callIntent,
+    transport: transport ?? this.transport,
     escrowFeeWeiHex: escrowFeeWeiHex ?? this.escrowFeeWeiHex,
     swapId: swapId ?? this.swapId,
     txHash: txHash ?? this.txHash,
@@ -99,18 +101,18 @@ class EscrowFundData extends OnchainOperationData {
 
   /// Reconstruct [ContractFundEscrowParams] for the deposit call.
   ///
-  /// If [gasPriceWei] and [gasLimit] were persisted, the returned params
-  /// carry the original [GasEstimate] so the deposit uses the exact gas
-  /// parameters the swap-in budget was calculated against.
+  /// If [callIntent] carries pinned gas settings, the returned params carry
+  /// the original [GasEstimate] so the deposit uses the exact gas parameters
+  /// the swap-in budget was calculated against.
   ContractFundEscrowParams toContractParams(EthPrivateKey ethKey) {
     GasEstimate? estimate;
+    final gasPriceWei = callIntent?.gasPrice?.getInWei;
+    final gasLimit = callIntent?.maxGas;
     if (gasPriceWei != null && gasLimit != null) {
-      final price = BigInt.parse(gasPriceWei!);
-      final limit = BigInt.parse(gasLimit!);
       estimate = GasEstimate(
-        fee: BitcoinAmount.inWei(price * limit),
-        gasPrice: EtherAmount.inWei(price),
-        gasLimit: limit,
+        fee: BitcoinAmount.inWei(gasPriceWei * BigInt.from(gasLimit)),
+        gasPrice: EtherAmount.inWei(gasPriceWei),
+        gasLimit: BigInt.from(gasLimit),
       );
     }
     return ContractFundEscrowParams(
@@ -150,8 +152,12 @@ class EscrowFundData extends OnchainOperationData {
     chainId: json['chainId'] as int,
     unlockAt: json['unlockAt'] as int,
     accountIndex: json['accountIndex'] as int? ?? 0,
-    gasPriceWei: json['gasPriceWei'] as String?,
-    gasLimit: json['gasLimit'] as String?,
+    callIntent: json['callIntent'] != null
+        ? ContractCallIntent.fromJson(
+            json['callIntent'] as Map<String, dynamic>,
+          )
+        : null,
+    transport: json['transport'] as String?,
     escrowFeeWeiHex:
         json['escrowFeeWeiHex'] as String? ??
         (json['escrowFee'] != null

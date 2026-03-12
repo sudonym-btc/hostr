@@ -33,7 +33,7 @@ class ReservationRequests extends CrudUseCase {
   /// `createReservationRequest`). The returned event is a full [Reservation]
   /// with `stage = negotiate` and a `commit` object.
   ///
-  /// The `recipient` field is automatically set to the salted (tweaked) public
+  /// The `recipient` field is automatically set to the tweaked public
   /// key derived from the active user's private key and the generated salt.
   /// This allows later review verification via [ParticipationProof].
   Future<Reservation> createReservationRequest({
@@ -47,9 +47,13 @@ class ReservationRequests extends CrudUseCase {
 
     logger.d('Creating negotiate reservation with nonce $nonce');
 
-    final recipientKey = saltedKey(
-      key: auth.getActiveKey().privateKey!,
+    final recipientKey = tweakKeyPair(
+      privateKey: auth.getActiveKey().privateKey!,
       salt: salt,
+    );
+    final tweakMaterial = ReservationTweakMaterial(
+      salt: salt,
+      parity: recipientKey.parity,
     );
 
     // should sign as temp key
@@ -62,8 +66,8 @@ class ReservationRequests extends CrudUseCase {
       stage: ReservationStage.negotiate,
       quantity: 1,
       amount: listing.cost(startDate, endDate),
-      salt: salt,
+      tweakMaterial: tweakMaterial,
       recipient: recipientKey.publicKey,
-    ).signAs(recipientKey, Reservation.fromNostrEvent);
+    ).signAs(recipientKey.keyPair, Reservation.fromNostrEvent);
   });
 }

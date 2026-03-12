@@ -65,34 +65,10 @@ class EscrowFundOperation extends OnchainOperation {
       EscrowFundData.fromJson(json);
 
   @override
-  // Hardcode the address so that we can use a funded address and force a swap for testing
-  Future<void> resolveAddress() async {
-    accountIndex = 1;
-    onAddressResolved(accountIndex);
+  Future<void> initialize() async {
+    await super.initialize();
     await _ensureSwapClaimAddress();
   }
-
-  @override
-  Future<GasEstimate> estimateGas() => logger.span(
-    'estimateGas',
-    () => contract.estimateEscrowFundFee(contractParams),
-  );
-
-  @override
-  BitcoinAmount get requiredOnchainValue => params != null
-      ? BitcoinAmount.fromAmount(params!.amount)
-      : BitcoinAmount.zero();
-
-  @override
-  Future<BitcoinAmount> computeSwapDeficit(GasEstimate gasEstimate) =>
-      logger.span('computeSwapDeficit', () async {
-        final forcedSwapAmount = contractParams.amount.roundUp(BitcoinUnit.sat);
-        logger.i(
-          'Forcing escrow funding swap for testing: '
-          '${forcedSwapAmount.getInSats} sats',
-        );
-        return forcedSwapAmount;
-      });
 
   @override
   String get swapInvoiceDescription => params!.swapInvoiceDescription;
@@ -107,7 +83,10 @@ class EscrowFundOperation extends OnchainOperation {
       contract.supportsClaimSwapAndFund ? contract.address : null;
 
   @override
-  OnchainOperationData buildInitialData() => EscrowFundData(
+  OnchainOperationData buildInitialData({
+    required ContractCallIntent callIntent,
+    required String transport,
+  }) => EscrowFundData(
     tradeId: contractParams.tradeId,
     reservedAmountWeiHex: BitcoinAmount.fromAmount(
       params!.amount,
@@ -118,17 +97,14 @@ class EscrowFundOperation extends OnchainOperation {
     chainId: params!.escrowService.chainId,
     unlockAt: contractParams.unlockAt,
     accountIndex: accountIndex,
+    callIntent: callIntent,
+    transport: transport,
     escrowFeeWeiHex: contractParams.escrowFee?.getInWei.toRadixString(16),
   );
 
   @override
-  Future<TransactionInformation> executeTransaction() => logger.span(
-    'executeTransaction',
-    () => submitContractCallIntent(
-      contract.fund(contractParams),
-      contractParams.ethKey,
-    ),
-  );
+  Future<ContractCallIntent> buildDirectCallIntent() async =>
+      contract.fund(contractParams);
 
   @override
   SwapInClaimCallback? get swapClaimCallback =>
@@ -148,23 +124,13 @@ class EscrowFundOperation extends OnchainOperation {
       });
 
   @override
-  void onBeforeTransaction(OnchainOperationData data) => logger.spanSync(
-    'onBeforeTransaction',
-    () {
-      final fundData = data as EscrowFundData;
-      final evmKey = auth.getActiveEvmKey(accountIndex: fundData.accountIndex);
-      contractParams = fundData.toContractParams(evmKey);
-    },
-  );
-
-  @override
   void onTransactionConfirmed(
     OnchainOperationData data,
     TransactionReceipt receipt,
   ) => logger.spanSync('onTransactionConfirmed', () {
     final gasUsed = receipt.gasUsed?.toInt();
-    final estimatedLimit = contractParams.gasEstimate?.gasLimit.toInt();
-    final gasPrice = contractParams.gasEstimate?.gasPrice.getInWei;
+    final estimatedLimit = data.callIntent?.maxGas;
+    final gasPrice = data.callIntent?.gasPrice?.getInWei;
     if (gasUsed != null && estimatedLimit != null && gasPrice != null) {
       final refundGas = estimatedLimit - gasUsed;
       final refundWei = BigInt.from(refundGas) * gasPrice;
@@ -224,18 +190,13 @@ class EscrowFundOperation extends OnchainOperation {
 
   Future<void> _ensureSwapClaimAddress() =>
       logger.span('ensureSwapClaimAddress', () async {
-        if (contract.supportsClaimSwapAndFund && !_usesRelayForClaimAndFund) {
+        if (contract.rifRelay == null ||
+            (contract.supportsClaimSwapAndFund && !_usesRelayForClaimAndFund)) {
           _relaySmartWalletAddress = null;
           return;
         }
 
-        final rifRelay = contract.rifRelay;
-        if (rifRelay == null) {
-          throw StateError(
-            'Missing RIF relay configuration for escrow contract '
-            '${contract.address.eip55With0x}',
-          );
-        }
+        final rifRelay = contract.rifRelay!;
 
         _relaySmartWalletAddress = (await rifRelay.getSmartWalletAddress(
           contractParams.ethKey,
@@ -244,35 +205,14 @@ class EscrowFundOperation extends OnchainOperation {
 
   // ── Fee estimation (public) ───────────────────────────────────────
 
-  Future<EscrowFundFees> estimateFees() => logger.span(
-    'estimateFees',
-    () async {
-      await _ensureSwapClaimAddress();
-      final gasEstimate = await contract.estimateEscrowFundFee(contractParams);
-      final swapDeficit = await computeSwapDeficit(gasEstimate);
-      final swapFees = swapDeficit > BitcoinAmount.zero()
-          ? await chain
-                .swapIn(
-                  SwapInParams(
-                    evmKey: contractParams.ethKey,
-                    accountIndex: accountIndex,
-                    amount: swapDeficit,
-                    invoiceDescription: params!.swapInvoiceDescription,
-                    claimAddress: swapClaimAddress,
-                    claimDestination: swapClaimDestination,
-                  ),
-                )
-                .estimateFees()
-          : SwapInFees(
-              estimatedGasFees: BitcoinAmount.zero(),
-              estimatedSwapFees: BitcoinAmount.zero(),
-              estimatedRelayFees: BitcoinAmount.zero(),
-            );
-      return EscrowFundFees(
-        estimatedGasFees: gasEstimate.fee,
-        estimatedSwapFees: swapFees,
-        estimatedEscrowFees: contractParams.escrowFee ?? BitcoinAmount.zero(),
-      );
-    },
-  );
+  Future<EscrowFundFees> estimateFees() =>
+      logger.span('estimateFees', () async {
+        await _ensureSwapClaimAddress();
+        final quote = await estimateOperationFees();
+        return EscrowFundFees(
+          estimatedGasFees: quote.gasEstimate.fee,
+          estimatedSwapFees: quote.swapFees,
+          estimatedEscrowFees: contractParams.escrowFee ?? BitcoinAmount.zero(),
+        );
+      });
 }

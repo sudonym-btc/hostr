@@ -74,9 +74,13 @@ Future<List<SeedThread>> buildThreads({
       final nonce = sha256
           .convert(utf8.encode('seed-${ctx.seed}-thread-$threadIndex'))
           .toString();
+      final tweakedGuestKey = tweakKeyPair(
+        privateKey: guest.keyPair.privateKey!,
+        salt: nonce,
+      );
 
       final request = Reservation.create(
-        pubKey: guest.keyPair.publicKey,
+        pubKey: tweakedGuestKey.publicKey,
         dTag: nonce,
         listingAnchor: listing.anchor!,
         start: start,
@@ -84,13 +88,13 @@ Future<List<SeedThread>> buildThreads({
         stage: ReservationStage.negotiate,
         quantity: 1,
         amount: listing.cost(start, end),
-        recipient: saltedKey(
-          key: guest.keyPair.privateKey!,
+        recipient: tweakedGuestKey.publicKey,
+        tweakMaterial: ReservationTweakMaterial(
           salt: nonce,
-        ).publicKey,
-        salt: nonce,
+          parity: tweakedGuestKey.parity,
+        ),
         createdAt: ctx.timestampDaysAfter(30 + threadIndex),
-      ).signAs(guest.keyPair, Reservation.fromNostrEvent);
+      ).signAs(tweakedGuestKey.keyPair, Reservation.fromNostrEvent);
 
       threads.add(
         SeedThread(

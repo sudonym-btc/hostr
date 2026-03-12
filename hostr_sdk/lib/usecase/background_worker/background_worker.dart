@@ -306,13 +306,7 @@ class BackgroundWorker {
   });
 
   /// All operation namespaces that should trigger a background task.
-  static const _onchainNamespaces = [
-    'swap_in',
-    'swap_out',
-    'escrow_fund',
-    'escrow_claim',
-    'escrow_release',
-  ];
+  static const _onchainNamespaces = ['swap_in', 'swap_out', 'escrow_fund'];
 
   /// Whether there are any non-terminal onchain operations (swaps, escrow
   /// fund/claim/release, etc.).

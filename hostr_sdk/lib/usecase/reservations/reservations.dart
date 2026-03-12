@@ -477,6 +477,7 @@ class Reservations extends CrudUseCase<Reservation>
       quantity: request.quantity,
       amount: request.amount,
       recipient: request.recipient,
+      tweakMaterial: request.tweakMaterial,
     );
     logger.d('Accepting reservation request: $request');
     return _upsertWithTransition(
@@ -507,6 +508,7 @@ class Reservations extends CrudUseCase<Reservation>
       quantity: negotiateReservation.quantity,
       amount: negotiateReservation.amount,
       recipient: negotiateReservation.recipient,
+      tweakMaterial: negotiateReservation.tweakMaterial,
       proof: proof,
     );
 

@@ -65,7 +65,7 @@ Reservation _negotiate({
     end: e,
     stage: ReservationStage.negotiate,
     quantity: 1,
-    salt: salt,
+    tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
     createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
   ).signAs(buyer, Reservation.fromNostrEvent);
 }
@@ -101,7 +101,7 @@ Reservation _cancel({
     quantity: source.quantity,
     amount: source.amount,
     recipient: source.recipient,
-    salt: source.salt,
+    tweakMaterial: source.tweakMaterial,
     signatures: source.signatures,
     createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
   ).signAs(signer, Reservation.fromNostrEvent);

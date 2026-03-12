@@ -35,7 +35,12 @@ class InboxItemView extends StatelessWidget {
         vertical: 0,
       ),
       leading: ProfileAvatars(profiles: counterparties),
-      title: Text(title),
+      title: Text(
+        title,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+      ),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: _RelativeTimeText(dateTime: lastDateTime),
       onTap: onTap,

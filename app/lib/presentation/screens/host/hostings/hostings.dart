@@ -82,7 +82,6 @@ class HostingsScreenState extends State<HostingsScreen> {
                 ),
               ),
               CustomPadding.only(
-                left: 25,
                 child: TradeHeader(
                   tradeId: pair.tradeId,
                   showActions: false,

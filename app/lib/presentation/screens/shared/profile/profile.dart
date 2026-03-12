@@ -109,7 +109,7 @@ class ProfileScreen extends StatelessWidget {
               ModeToggleWidget(),
               Section(
                 title: AppLocalizations.of(context)!.wallet,
-                action: FilledButton.tonal(
+                action: OutlinedButton(
                   onPressed: () {
                     showAppModal(context, child: AddWalletWidget());
                   },
@@ -119,7 +119,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               Section(
                 title: "Relays",
-                action: FilledButton.tonal(
+                action: OutlinedButton(
                   onPressed: () {
                     showAppModal(
                       context,
@@ -141,7 +141,7 @@ class ProfileScreen extends StatelessWidget {
                   builder: (context, state) {
                     return Section(
                       title: "Escrows",
-                      action: FilledButton.tonal(
+                      action: OutlinedButton(
                         onPressed: () {
                           showTrustEscrowModal(
                             context,

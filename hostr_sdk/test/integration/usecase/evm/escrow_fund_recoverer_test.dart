@@ -48,12 +48,6 @@ void main() {
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
       await hostr.auth.signin(trade.guest.privateKey);
 
-      // Pre-fund so no swap-in is needed — keeps the test fast.
-      await anvil.setBalance(
-        address: hostr.auth.getActiveEvmKey().address.eip55With0x,
-        amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
-      );
-
       final contractAddress = resolveContractAddress();
       final escrowService = harness.seeds.factory
           .buildEscrowServices(contractAddress: contractAddress)
@@ -68,7 +62,17 @@ void main() {
         ),
       );
 
-      await operation.execute();
+      // Pre-fund the resolved signer so no swap-in is needed — keeps the test fast.
+      await operation.initialize();
+      await anvil.setBalance(
+        address: hostr.auth
+            .getActiveEvmKey(accountIndex: operation.accountIndex)
+            .address
+            .eip55With0x,
+        amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
+      );
+
+      await operation.run();
       expect(operation.state, isA<OnchainTxConfirmed>());
 
       // Store should have a terminal entry now.
@@ -88,12 +92,6 @@ void main() {
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
       await hostr.auth.signin(trade.guest.privateKey);
 
-      // Pre-fund so no swap-in is needed.
-      await anvil.setBalance(
-        address: hostr.auth.getActiveEvmKey().address.eip55With0x,
-        amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
-      );
-
       final contractAddress = resolveContractAddress();
       final escrowService = harness.seeds.factory
           .buildEscrowServices(contractAddress: contractAddress)
@@ -108,7 +106,17 @@ void main() {
         ),
       );
 
-      await operation.execute();
+      // Pre-fund the resolved signer so no swap-in is needed.
+      await operation.initialize();
+      await anvil.setBalance(
+        address: hostr.auth
+            .getActiveEvmKey(accountIndex: operation.accountIndex)
+            .address
+            .eip55With0x,
+        amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
+      );
+
+      await operation.run();
       expect(operation.state, isA<OnchainTxConfirmed>());
 
       final completedData =

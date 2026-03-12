@@ -314,7 +314,12 @@ class ListingViewBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(listing.title, style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          listing.title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
         Gap.vertical.custom(kSpace1 / 2),
         Row(
           children: [

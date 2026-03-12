@@ -2,11 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 
 ThemeData getTheme(bool isDark) {
-  var darkColorScheme = ColorScheme.fromSeed(
-    seedColor: Colors.white,
-    brightness: Brightness.dark,
-  );
-  final lightColorScheme = ColorScheme.fromSeed(seedColor: Colors.white);
+  final darkColorScheme =
+      ColorScheme.fromSwatch(
+        primarySwatch: Colors.grey,
+        backgroundColor: Colors.black,
+        cardColor: Colors.black,
+        accentColor: Colors.white,
+        brightness: Brightness.dark,
+      ).copyWith(
+        primary: Colors.white,
+        onPrimary: Colors.black,
+        surface: Colors.black,
+        onSurface: Colors.white,
+        surfaceDim: const Color(0xFF050505),
+        surfaceBright: const Color(0xFF1A1A1A),
+        surfaceContainerLowest: const Color(0xFF000000),
+        surfaceContainerLow: const Color(0xFF0A0A0A),
+        surfaceContainer: const Color(0xFF111111),
+        surfaceContainerHigh: const Color(0xFF181818),
+        surfaceContainerHighest: const Color(0xFF222222),
+        onSurfaceVariant: const Color(0xFFD0D0D0),
+        outline: const Color(0xFF6E6E6E),
+        outlineVariant: const Color(0xFF3A3A3A),
+      );
+  final lightColorScheme =
+      ColorScheme.fromSwatch(
+        primarySwatch: Colors.grey,
+        backgroundColor: Colors.white,
+        cardColor: Colors.white,
+        accentColor: Colors.black,
+        brightness: Brightness.light,
+      ).copyWith(
+        primary: Colors.black,
+        onPrimary: Colors.white,
+        surface: Colors.white,
+        onSurface: Colors.black,
+        surfaceDim: const Color(0xFFF5F5F5),
+        surfaceBright: const Color(0xFFFFFFFF),
+        surfaceContainerLowest: const Color(0xFFFFFFFF),
+        surfaceContainerLow: const Color(0xFFFAFAFA),
+        surfaceContainer: const Color(0xFFF3F3F3),
+        surfaceContainerHigh: const Color(0xFFEDEDED),
+        surfaceContainerHighest: const Color(0xFFE6E6E6),
+        onSurfaceVariant: const Color(0xFF5F5F5F),
+        outline: const Color(0xFF8A8A8A),
+        outlineVariant: const Color(0xFFD8D8D8),
+      );
 
   final colorScheme = isDark ? darkColorScheme : lightColorScheme;
   final base = isDark ? ThemeData.dark() : ThemeData.light();
@@ -15,9 +56,9 @@ ThemeData getTheme(bool isDark) {
       titleSpacing: kDefaultPadding.toDouble(),
       centerTitle: false,
       foregroundColor: colorScheme.onSurface,
-      titleTextStyle: base.textTheme.titleLarge?.copyWith(
+      titleTextStyle: base.textTheme.displayMedium?.copyWith(
         fontSize: 28,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.bold,
         color: colorScheme.onSurface,
       ),
     ),

@@ -260,12 +260,21 @@ class Calendar {
 
   String? _resolveGuestPubkey(ReservationPair pair) {
     final tweakedPubkey = pair.buyerReservation?.pubKey;
-    final salt = pair.buyerReservation?.salt;
-    if (tweakedPubkey == null) return null;
-    if (salt == null || salt.isEmpty) return tweakedPubkey;
+    final tweakMaterial = pair.buyerReservation?.tweakMaterial;
+    final salt = tweakMaterial?.salt;
+    final parity = tweakMaterial?.parity;
+    if (tweakedPubkey == null ||
+        salt == null ||
+        salt.isEmpty ||
+        parity == null) {
+      return null;
+    }
 
-    return unsaltPublicKey(saltedPublicKey: tweakedPubkey, salt: salt) ??
-        tweakedPubkey;
+    return untweakPublicKey(
+      tweakedPublicKey: tweakedPubkey,
+      tweakedPublicKeyParity: parity,
+      salt: salt,
+    );
   }
 
   bool _isFuture(ReservationPair pair) {

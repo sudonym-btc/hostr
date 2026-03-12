@@ -36,11 +36,6 @@ void main() {
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
       await hostr.auth.signin(trade.guest.privateKey);
 
-      await anvil.setBalance(
-        address: hostr.auth.getActiveEvmKey().address.eip55With0x,
-        amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
-      );
-
       final contractAddress = resolveContractAddress();
       final escrowService = harness.seeds.factory
           .buildEscrowServices(contractAddress: contractAddress)
@@ -57,10 +52,19 @@ void main() {
         ),
       );
 
+      await operation.initialize();
+      await anvil.setBalance(
+        address: hostr.auth
+            .getActiveEvmKey(accountIndex: operation.accountIndex)
+            .address
+            .eip55With0x,
+        amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
+      );
+
       final emittedStates = <OnchainOperationState>[operation.state];
       final sub = operation.stream.listen(emittedStates.add);
 
-      await operation.execute();
+      await operation.run();
       emittedStates.add(operation.state);
       await sub.cancel();
 

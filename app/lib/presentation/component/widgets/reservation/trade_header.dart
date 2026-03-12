@@ -146,7 +146,9 @@ class TradeHeaderView extends StatelessWidget {
                     listing.title.toString(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 // Gap.vertical.xs(),

@@ -244,7 +244,10 @@ class PaymentProofOrchestrator {
     if (hostPubkey == myPubkey) {
       return _auth.getActiveKey();
     }
-    return saltedKey(key: _auth.getActiveKey().privateKey!, salt: tradeId);
+    return tweakKeyPair(
+      privateKey: _auth.getActiveKey().privateKey!,
+      salt: tradeId,
+    ).keyPair;
   });
 
   Future<void> reset() => _logger.span('reset', () async {

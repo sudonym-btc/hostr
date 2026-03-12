@@ -12,20 +12,26 @@ class Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPadding(
-        bottom: 0,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      bottom: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
               if (title != null)
                 Text(
                   title!,
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
-              ?action
-            ]),
-            body
-          ],
-        ));
+              ?action,
+            ],
+          ),
+          body,
+        ],
+      ),
+    );
   }
 }

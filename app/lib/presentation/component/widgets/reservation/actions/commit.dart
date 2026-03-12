@@ -204,7 +204,10 @@ class CommitMenu extends StatelessWidget {
                   child: CustomPadding(
                     child: EditReview(
                       listing: tradeState.listing,
-                      salt: 'thread_salt',
+                      tweakMaterial: const ReservationTweakMaterial(
+                        salt: 'thread_salt',
+                        parity: false,
+                      ),
                     ),
                   ),
                 ),

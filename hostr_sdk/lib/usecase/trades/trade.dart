@@ -60,8 +60,6 @@ class Trade extends Cubit<TradeState> {
   /// Our role in this trade.
   final TradeRole role;
 
-  String salt;
-
   // ── Filtered streams (from UserSubscriptions) ──────────────────────
 
   final StreamWithStatus<Validation<ReservationPair>> reservationPair$;
@@ -100,14 +98,6 @@ class Trade extends Cubit<TradeState> {
        _reservationPairs = reservationPairs,
        thread = threads.threads[tradeId],
        hostPubKey = getPubKeyFromAnchor(listingAnchor),
-       salt =
-           threads.threads[tradeId]?.messages.items
-               .where((msg) => msg.child is Reservation)
-               .map((msg) => msg.child as Reservation)
-               .where((res) => res.salt != null)
-               .firstOrNull
-               ?.salt ??
-           '',
        role =
            getPubKeyFromAnchor(listingAnchor) == auth.getActiveKey().publicKey
            ? TradeRole.host
@@ -144,17 +134,22 @@ class Trade extends Cubit<TradeState> {
 
   Future<String?>
   resolveGuestPubkey() => _logger.span('resolveGuestPubkey', () async {
-    String? salt = thread!.state.value.reservationRequests.last.salt;
-    String? tweakedPubkey =
-        thread!.state.value.reservationRequests.last.recipient;
-    print('Pair for trade $tradeId: $salt');
-    if (salt == null || tweakedPubkey == null) {
+    final request = thread!.state.value.reservationRequests.last;
+    final tweakMaterial = request.tweakMaterial;
+    final salt = tweakMaterial?.salt;
+    final parity = tweakMaterial?.parity;
+    final tweakedPubkey = request.recipient;
+    if (salt == null || parity == null || tweakedPubkey == null) {
       throw StateError(
-        'Cannot resolve guest pubkey: missing salt($salt) or tweakedPubkey($tweakedPubkey)',
+        'Cannot resolve guest pubkey: missing tweak material or tweaked pubkey',
       );
     }
 
-    return unsaltPublicKey(saltedPublicKey: tweakedPubkey, salt: salt);
+    return untweakPublicKey(
+      tweakedPublicKey: tweakedPubkey,
+      tweakedPublicKeyParity: parity,
+      salt: salt,
+    );
   });
 
   Future<void> start() => _logger.span('start', () async {
@@ -398,7 +393,10 @@ class Trade extends Cubit<TradeState> {
   Future<KeyPair> activeKeyPair() => _logger.span('activeKeyPair', () async {
     return role == TradeRole.host
         ? _auth.getActiveKey()
-        : saltedKey(key: _auth.getActiveKey().privateKey!, salt: tradeId);
+        : tweakKeyPair(
+            privateKey: _auth.getActiveKey().privateKey!,
+            salt: tradeId,
+          ).keyPair;
   });
 
   /// Returns the Nostr pubkey of the escrow service used in this trade.
