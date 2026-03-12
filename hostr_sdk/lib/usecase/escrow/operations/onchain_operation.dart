@@ -476,6 +476,31 @@ abstract class OnchainOperation
   /// Execute the actual contract call. Returns [TransactionInformation].
   Future<TransactionInformation> executeTransaction();
 
+  Future<String> broadcastContractCallIntent(
+    ContractCallIntent intent,
+    EthPrivateKey credentials,
+  ) => logger.span('broadcastContractCallIntent', () async {
+    try {
+      await contract.ensureDeployed();
+      final chainId = (await chain.getChainId()).toInt();
+      return await chain.client.sendTransaction(
+        credentials,
+        intent.toTransaction(),
+        chainId: chainId,
+      );
+    } catch (error) {
+      throw contract.decodeWriteError(error);
+    }
+  });
+
+  Future<TransactionInformation> submitContractCallIntent(
+    ContractCallIntent intent,
+    EthPrivateKey credentials,
+  ) => logger.span('submitContractCallIntent', () async {
+    final txHash = await broadcastContractCallIntent(intent, credentials);
+    return await chain.awaitTransaction(txHash);
+  });
+
   /// Build the initial recovery data for this operation.
   OnchainOperationData buildInitialData();
 

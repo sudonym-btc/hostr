@@ -1,12 +1,10 @@
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../../../util/stream_status.dart';
-import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import '../../util/stream_status.dart';
+import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'actions/trade_action_resolver.dart';
 import 'trade.dart';
-
-// ── TradeState sealed hierarchy ──────────────────────────────────────
 
 sealed class TradeState {
   const TradeState();
@@ -80,8 +78,6 @@ class TradeError extends TradeState {
   const TradeError(this.message);
 }
 
-// ── TradeStage sealed hierarchy ──────────────────────────────────────
-
 sealed class TradeStage {
   const TradeStage();
 }
@@ -107,8 +103,6 @@ class CommitStage extends TradeStage {
     required this.transitions,
   });
 }
-
-// ── TradeStreams — live stream references for UI detail sheets ────────
 
 class TradeStreams {
   final StreamWithStatus<PaymentEvent> paymentEvents;

@@ -166,7 +166,7 @@ void main() {
       b.addStatus(StreamStatusLive());
       b.add('b1');
 
-      final combined = StreamWithStatus.combine([a, b]);
+      final combined = StreamWithStatus.combineAll([a, b]);
 
       a.add('a2');
 
@@ -179,10 +179,54 @@ void main() {
     });
 
     test('starts live when no sources', () async {
-      final combined = StreamWithStatus.combine<int>([]);
+      final combined = StreamWithStatus.combineAll<int>([]);
 
       expect(combined.status.value, isA<StreamStatusLive>());
 
+      await combined.close();
+    });
+
+    test('combine removes closed sources from status calculation', () async {
+      final combined = StreamWithStatus<String>();
+      final querying = StreamWithStatus<String>();
+      final live = StreamWithStatus<String>();
+
+      querying.addStatus(StreamStatusQuerying());
+      live.addStatus(StreamStatusLive());
+
+      combined.combine(querying);
+      combined.combine(live);
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(combined.status.value, isA<StreamStatusQuerying>());
+
+      await querying.close();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(combined.status.value, isA<StreamStatusLive>());
+
+      await live.close();
+      await combined.close();
+    });
+
+    test('combineAll also detaches closed sources', () async {
+      final querying = StreamWithStatus<String>();
+      final live = StreamWithStatus<String>();
+
+      querying.addStatus(StreamStatusQuerying());
+      live.addStatus(StreamStatusLive());
+
+      final combined = StreamWithStatus.combineAll([querying, live]);
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(combined.status.value, isA<StreamStatusQuerying>());
+
+      await querying.close();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(combined.status.value, isA<StreamStatusLive>());
+
+      await live.close();
       await combined.close();
     });
   });

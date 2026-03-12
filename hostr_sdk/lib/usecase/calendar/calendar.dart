@@ -6,8 +6,8 @@ import 'package:models/main.dart';
 
 import '../../util/custom_logger.dart';
 import '../listings/listings.dart';
-import '../messaging/user_subscriptions.dart';
 import '../metadata/metadata.dart';
+import '../user_subscriptions/user_subscriptions.dart';
 
 abstract class CalendarPort {
   Future<void> ensureCalendar({required String name});

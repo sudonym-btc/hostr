@@ -1,7 +1,7 @@
 import 'package:injectable/injectable.dart';
 
-import '../../../../util/stream_status.dart';
-import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import '../../../util/stream_status.dart';
+import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../trade.dart';
 import 'trade_action_resolver.dart';
 
@@ -49,7 +49,6 @@ class PaymentActions {
           TradeAction.refund,
       ]);
     }
-    // Guest pay action is handled in reservation request actions, as payment is only possible during particular conditions
 
     return actions;
   }

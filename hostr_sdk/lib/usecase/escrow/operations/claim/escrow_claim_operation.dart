@@ -99,8 +99,13 @@ class EscrowClaimOperation extends OnchainOperation {
   );
 
   @override
-  Future<TransactionInformation> executeTransaction() =>
-      logger.span('executeTransaction', () => contract.claim(contractParams));
+  Future<TransactionInformation> executeTransaction() => logger.span(
+    'executeTransaction',
+    () => submitContractCallIntent(
+      contract.claim(contractParams),
+      contractParams.ethKey,
+    ),
+  );
 
   @override
   void onAddressResolved(int resolvedAccountIndex) =>

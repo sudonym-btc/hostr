@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:models/main.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -28,6 +29,13 @@ class MultiEscrowContractException implements Exception {
 }
 
 class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
+  static const List<String> _eventNames = [
+    'TradeCreated',
+    'Arbitrated',
+    'Claimed',
+    'ReleasedToCounterparty',
+  ];
+
   static const Map<String, String> _customErrorSelectors = {
     '0x916da0d1': 'ClaimPeriodNotStarted',
     '0xdff46e2b': 'NoFundsToClaim',
@@ -52,28 +60,175 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   }) : logger = logger.scope('multi-escrow'),
        super(
          contract: MultiEscrow(address: address, client: client),
+         supportsClaimSwapAndFund: true,
        );
 
   @override
-  Future<TransactionInformation> deposit(
-    ContractFundEscrowParams params,
-  ) => logger.span('deposit', () async {
-    await ensureDeployed();
-    String transactionHash = await _withDecodedCustomError(() {
-      return contract.createTrade(
-        depositArgs(params),
-        credentials: params.ethKey,
-        transaction: Transaction(
+  ContractCallIntent fund(ContractFundEscrowParams params) =>
+      logger.spanSync('fund', () {
+        final (:tradeId, :buyer, :seller, :arbiter, :unlockAt, :escrowFee) =
+            fundArgs(params);
+        return buildIntent(
+          functionName: 'createTrade',
+          args: [tradeId, buyer, seller, arbiter, unlockAt, escrowFee],
+          from: params.ethKey.address,
+          methodName: 'createTrade',
           value: params.amount.toEtherAmount(),
           gasPrice: params.gasEstimate?.gasPrice,
           maxGas: params.gasEstimate?.gasLimit.toInt(),
-        ),
-      );
-    });
-    return (await client.getTransactionByHash(
-      transactionHash,
-    ))!; // @todo awaitTransaction should really be added to web3dart client directly, instead of EvmChain class
+        );
+      });
+
+  @override
+  Future<ContractCallIntent> fundRelayed(
+    ContractFundEscrowParams params,
+  ) async => fund(params);
+
+  @override
+  ContractCallIntent claim(ContractClaimEscrowParams params) =>
+      logger.spanSync('claim', () {
+        return buildIntent(
+          functionName: 'claim',
+          args: [getBytes32(params.tradeId)],
+          from: params.ethKey.address,
+          methodName: 'claim',
+        );
+      });
+
+  @override
+  Future<ContractCallIntent> claimRelayed(ContractClaimEscrowParams params) =>
+      logger.span('claimRelayed', () {
+        return buildAuthorizedRelayIntent(
+          tradeId: getBytes32(params.tradeId),
+          ethKey: params.ethKey,
+          authorizationHashFn: contract.hashClaimAuthorization,
+          functionName: 'claim',
+          methodName: 'claimRelayed',
+        );
+      });
+
+  @override
+  ContractCallIntent claimSwapAndFund(
+    ContractClaimAndFundEscrowParams params,
+  ) => logger.spanSync('claimAndFund', () {
+    final sender = params.fundParams.ethKey.address;
+    final estimatedMaxGas = params.fundParams.gasEstimate?.gasLimit.toInt();
+    final claimAndFundMaxGas = estimatedMaxGas == null
+        ? null
+        : max(estimatedMaxGas * 2, 500000);
+    logger.i(
+      'claimAndFund sender=${sender.eip55With0x} '
+      'buyer=${params.fundParams.ethKey.address.eip55With0x} '
+      'seller=${params.fundParams.sellerEvmAddress} '
+      'arbiter=${params.fundParams.arbiterEvmAddress} '
+      'swapContract=${params.swapContract.eip55With0x} '
+      'amount=${params.claimArgs.amount} '
+      'gasPrice=${params.fundParams.gasEstimate?.gasPrice.getInWei} '
+      'estimatedMaxGas=${params.fundParams.gasEstimate?.gasLimit} '
+      'claimAndFundMaxGas=$claimAndFundMaxGas',
+    );
+
+    return buildIntent(
+      functionName: 'claimSwapAndFund',
+      args: [
+        [
+          params.swapContract,
+          params.claimArgs.preimage,
+          params.claimArgs.amount,
+          params.claimArgs.refundAddress,
+          params.claimArgs.timelock,
+          params.claimArgs.v,
+          params.claimArgs.r,
+          params.claimArgs.s,
+        ],
+        [
+          getBytes32(params.fundParams.tradeId),
+          params.fundParams.ethKey.address,
+          EthereumAddress.fromHex(params.fundParams.sellerEvmAddress),
+          EthereumAddress.fromHex(params.fundParams.arbiterEvmAddress),
+          BigInt.from(params.fundParams.unlockAt),
+          params.fundParams.escrowFee?.getInWei ?? BigInt.zero,
+        ],
+      ],
+      from: sender,
+      methodName: 'claimSwapAndFund',
+      gasPrice: params.fundParams.gasEstimate?.gasPrice,
+      maxGas: claimAndFundMaxGas,
+    );
   });
+
+  @override
+  Future<ContractCallIntent> claimSwapAndFundRelayed(
+    ContractClaimAndFundEscrowParams params,
+  ) async => claimSwapAndFund(params);
+
+  @override
+  ContractCallIntent arbitrate(ContractArbitrateParams params) =>
+      logger.spanSync('arbitrate', () {
+        final function = contract.self.abi.functions.firstWhere(
+          (f) => f.name == 'arbitrate',
+        );
+        final (:tradeId, :factor) = arbitrateArgs(params);
+        final data = function.encodeCall([tradeId, factor]);
+        return ContractCallIntent(
+          to: contract.self.address,
+          data: data,
+          value: EtherAmount.zero(),
+          from: params.ethKey.address,
+          methodName: 'arbitrate',
+        );
+      });
+
+  @override
+  ContractCallIntent release(ContractReleaseEscrowParams params) =>
+      logger.spanSync('release', () {
+        return buildIntent(
+          functionName: 'releaseToCounterparty',
+          args: [getBytes32(params.tradeId)],
+          from: params.ethKey.address,
+          methodName: 'releaseToCounterparty',
+        );
+      });
+
+  @override
+  Future<ContractCallIntent> releaseRelayed(
+    ContractReleaseEscrowParams params,
+  ) => logger.span('releaseRelayed', () {
+    return buildAuthorizedRelayIntent(
+      tradeId: getBytes32(params.tradeId),
+      ethKey: params.ethKey,
+      authorizationHashFn: contract.hashReleaseAuthorization,
+      functionName: 'releaseToCounterparty',
+      methodName: 'releaseToCounterpartyRelayed',
+    );
+  });
+
+  @override
+  fundArgs(ContractFundEscrowParams params) =>
+      logger.spanSync('depositArgs', () {
+        return (
+          tradeId: getBytes32(params.tradeId),
+
+          /// Our address derived from our nostr private key
+          buyer: params.ethKey.address,
+
+          /// Seller address derived from their nostr pubkey
+          seller: EthereumAddress.fromHex(params.sellerEvmAddress),
+
+          /// Arbiter public key from their nostr advertisement
+          arbiter: EthereumAddress.fromHex(params.arbiterEvmAddress),
+
+          unlockAt: BigInt.from(params.unlockAt),
+          escrowFee: params.escrowFee?.getInWei ?? BigInt.zero,
+        );
+      });
+
+  @override
+  arbitrateArgs(ContractArbitrateParams params) =>
+      logger.spanSync('arbitrateArgs', () {
+        final scaledForward = BigInt.from((params.forward * 1000).round());
+        return (tradeId: getBytes32(params.tradeId), factor: scaledForward);
+      });
 
   @override
   Future<OnChainTrade?> getTrade(String tradeId) =>
@@ -122,411 +277,209 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       });
 
   @override
-  Future<TransactionInformation> claim(ContractClaimEscrowParams params) =>
-      logger.span('claim', () async {
+  Future<bool> canRelease(ContractReleaseEscrowParams params) =>
+      logger.span('canRelease', () async {
         await ensureDeployed();
-        final transactionHash = await _withDecodedCustomError(() {
-          return contract.claim((
-            tradeId: getBytes32(params.tradeId),
-          ), credentials: params.ethKey);
+        final activeTrade = await _withDecodedCustomError(() {
+          return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
         });
-        return (await client.getTransactionByHash(transactionHash))!;
-      });
 
-  @override
-  Future<TransactionInformation> claimAndFund(
-    ContractClaimAndFundEscrowParams params,
-  ) => logger.span('claimAndFund', () async {
-    await ensureDeployed();
+        if (!activeTrade.isActive) {
+          return false;
+        }
 
-    final sender = params.fundParams.ethKey.address;
-    final senderBalance = await client.getBalance(sender);
-    final estimatedMaxGas = params.fundParams.gasEstimate?.gasLimit.toInt();
-    final claimAndFundMaxGas = estimatedMaxGas == null
-        ? null
-        : max(estimatedMaxGas * 2, 500000);
-    logger.i(
-      'claimAndFund sender=${sender.eip55With0x} '
-      'senderBalance=${senderBalance.getInWei} wei '
-      'buyer=${params.fundParams.ethKey.address.eip55With0x} '
-      'seller=${params.fundParams.sellerEvmAddress} '
-      'arbiter=${params.fundParams.arbiterEvmAddress} '
-      'swapContract=${params.swapContract.eip55With0x} '
-      'amount=${params.claimArgs.amount} '
-      'gasPrice=${params.fundParams.gasEstimate?.gasPrice.getInWei} '
-      'estimatedMaxGas=${params.fundParams.gasEstimate?.gasLimit} '
-      'claimAndFundMaxGas=$claimAndFundMaxGas',
-    );
+        final trade = _extractTrade(activeTrade.trade);
+        if (trade == null) {
+          logger.w('Could not decode active trade for ${params.tradeId}');
+          return false;
+        }
 
-    final transactionHash = await _withDecodedCustomError(() {
-      return contract.claimSwapAndFund(
-        (
-          claimArgs: [
-            params.swapContract,
-            params.claimArgs.preimage,
-            params.claimArgs.amount,
-            params.claimArgs.refundAddress,
-            params.claimArgs.timelock,
-            params.claimArgs.v,
-            params.claimArgs.r,
-            params.claimArgs.s,
-          ],
-          fundArgs: [
-            getBytes32(params.fundParams.tradeId),
-            params.fundParams.ethKey.address,
-            EthereumAddress.fromHex(params.fundParams.sellerEvmAddress),
-            EthereumAddress.fromHex(params.fundParams.arbiterEvmAddress),
-            BigInt.from(params.fundParams.unlockAt),
-            params.fundParams.escrowFee?.getInWei ?? BigInt.zero,
-          ],
-        ),
-        credentials: params.fundParams.ethKey,
-        transaction: Transaction(
-          gasPrice: params.fundParams.gasEstimate?.gasPrice,
-          maxGas: claimAndFundMaxGas,
-        ),
-      );
-    });
-
-    return (await client.getTransactionByHash(transactionHash))!;
-  });
-
-  @override
-  arbitrate(ContractArbitrateParams params) =>
-      logger.span('arbitrate', () async {
-        await ensureDeployed();
-        return await _withDecodedCustomError(() {
-          return contract.arbitrate(
-            arbitrateArgs(params),
-            credentials: params.ethKey,
-          );
-        });
-      });
-
-  @override
-  Future<GasEstimate> estimateEscrowFundFee(
-    ContractFundEscrowParams params,
-  ) => logger.span('estimateEscrowFundFee', () async {
-    final gasPrice = await client.getGasPrice();
-
-    // Use eth_estimateGas with state overrides (3rd param) so the node
-    // simulates the call as if the sender has enough balance, even when
-    // the real on-chain balance is zero.
-    try {
-      final function = contract.self.abi.functions.firstWhere(
-        (f) => f.name == 'createTrade',
-      );
-      final (:tradeId, :buyer, :seller, :arbiter, :unlockAt, :escrowFee) =
-          depositArgs(params);
-      final args = [tradeId, buyer, seller, arbiter, unlockAt, escrowFee];
-      final calldata = function.encodeCall(args);
-      final sender = params.ethKey.address;
-      final value = params.amount.toEtherAmount();
-
-      // 10 million RBTC — far more than any real deposit.
-      final fakeBalance =
-          '0x${(BigInt.from(10) * BigInt.from(10).pow(24)).toRadixString(16)}';
-
-      final gasHex = await client.makeRPCCall<String>('eth_estimateGas', [
-        {
-          'from': sender.eip55With0x,
-          'to': contract.self.address.eip55With0x,
-          'data': bytesToHex(calldata, include0x: true),
-          'value': '0x${value.getInWei.toRadixString(16)}',
-        },
-        'latest',
-        {
-          sender.eip55With0x: {'balance': fakeBalance},
-        },
-      ]);
-
-      final gasLimit = BigInt.parse(gasHex.substring(2), radix: 16);
-      return GasEstimate(
-        fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
-        gasPrice: gasPrice,
-        gasLimit: gasLimit,
-      );
-    } catch (e) {
-      logger.w(
-        'estimateEscrowFundFee: state-override estimation failed, '
-        'falling back to hardcoded gas limit. Error: $e',
-      );
-      final gasLimit = BigInt.from(200000);
-      return GasEstimate(
-        fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
-        gasPrice: gasPrice,
-        gasLimit: gasLimit,
-      );
-    }
-  });
-
-  @override
-  Future<GasEstimate> estimateClaimFee(ContractClaimEscrowParams params) =>
-      logger.span('estimateClaimFee', () async {
-        final gasPrice = await contract.client.getGasPrice();
-        final gasLimit = BigInt.from(200000);
-        return GasEstimate(
-          fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
-          gasPrice: gasPrice,
-          gasLimit: gasLimit,
-        );
-      });
-
-  @override
-  Future<GasEstimate> estimateReleaseFee(ContractReleaseEscrowParams params) =>
-      logger.span('estimateReleaseFee', () async {
-        final gasPrice = await contract.client.getGasPrice();
-        final gasLimit = BigInt.from(200000);
-        return GasEstimate(
-          fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
-          gasPrice: gasPrice,
-          gasLimit: gasLimit,
-        );
-      });
-
-  @override
-  Future<bool> canRelease(ContractReleaseEscrowParams params) => logger.span(
-    'canRelease',
-    () async {
-      await ensureDeployed();
-      final activeTrade = await _withDecodedCustomError(() {
-        return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
-      });
-
-      if (!activeTrade.isActive) {
-        return false;
-      }
-
-      final trade = _extractTrade(activeTrade.trade);
-      if (trade == null) {
-        logger.w('Could not decode active trade for ${params.tradeId}');
-        return false;
-      }
-
-      // Release is available as long as the trade is active.
-      // Only the seller (depositor) can release, but that's enforced on-chain.
-      return true;
-    },
-  );
-
-  @override
-  Future<TransactionInformation> release(ContractReleaseEscrowParams params) =>
-      logger.span('release', () async {
-        await ensureDeployed();
-        final transactionHash = await _withDecodedCustomError(() {
-          return contract.releaseToCounterparty$2((
-            tradeId: getBytes32(params.tradeId),
-          ), credentials: params.ethKey);
-        });
-        return (await client.getTransactionByHash(transactionHash))!;
-      });
-
-  @override
-  depositArgs(ContractFundEscrowParams params) =>
-      logger.spanSync('depositArgs', () {
-        return (
-          tradeId: getBytes32(params.tradeId),
-
-          /// Our address derived from our nostr private key
-          buyer: params.ethKey.address,
-
-          /// Seller address derived from their nostr pubkey
-          seller: EthereumAddress.fromHex(params.sellerEvmAddress),
-
-          /// Arbiter public key from their nostr advertisement
-          arbiter: EthereumAddress.fromHex(params.arbiterEvmAddress),
-
-          unlockAt: BigInt.from(params.unlockAt),
-          escrowFee: params.escrowFee?.getInWei ?? BigInt.zero,
-        );
-      });
-
-  @override
-  arbitrateArgs(ContractArbitrateParams params) =>
-      logger.spanSync('arbitrateArgs', () {
-        final scaledForward = BigInt.from((params.forward * 1000).round());
-        return (tradeId: getBytes32(params.tradeId), factor: scaledForward);
+        final actor = params.ethKey.address;
+        return actor == trade.buyer || actor == trade.seller;
       });
 
   @override
   StreamWithStatus<EscrowEvent> allEvents(
     ContractEventsParams params,
-    EscrowServiceSelected? selectedEscrow,
-  ) => logger.spanSync('allEvents', () {
+    EscrowServiceSelected? selectedEscrow, {
+    bool includeLive = true,
+  }) => logger.spanSync('allEvents', () {
+    final eventNamesByTopic = _eventNamesByTopic();
+    final eventFilter = _buildEventFilter(params, eventNamesByTopic.keys);
     logger.d(
       'Subscribing to events for trade id at address: ${params.tradeId}, ${contract.self.address}',
     );
-    final List<String> eventNames = [
-      'TradeCreated',
-      'Arbitrated',
-      'Claimed',
-      'ReleasedToCounterparty',
+
+    final logStore = <FilterEvent>[];
+
+    return StreamWithStatus<EscrowEvent>.query(
+      query: () => ensureDeployed()
+          .then((_) => contract.client.getLogs(eventFilter))
+          .asStream()
+          .doOnData((logs) {
+            logger.d(
+              'Fetched ${logs.length} logs for filter: ${eventFilter.stringify()}',
+            );
+            logStore.addAll(logs);
+          })
+          .asyncExpand((logs) => Stream.fromIterable(logs))
+          .where((log) => log.transactionHash != null)
+          .asyncMap(
+            (log) => _mapEscrowEvent(log, eventNamesByTopic, selectedEscrow),
+          ),
+      live: includeLive == true
+          ? () => contract.client
+                .events(
+                  FilterOptions(
+                    address: eventFilter.address,
+                    topics: eventFilter.topics,
+                    fromBlock: _nextLiveBlock(logStore),
+                  ),
+                )
+                .where((log) => log.transactionHash != null)
+                .asyncMap(
+                  (log) =>
+                      _mapEscrowEvent(log, eventNamesByTopic, selectedEscrow),
+                )
+          : null,
+    );
+  });
+
+  Map<String, String> _eventNamesByTopic() => {
+    for (final name in _eventNames) _eventTopic(name): name,
+  };
+
+  FilterOptions _buildEventFilter(
+    ContractEventsParams params,
+    Iterable<String> eventTopics,
+  ) {
+    final topics = <List<String?>>[
+      [...eventTopics],
     ];
-    final Map<String, String> eventToSignature = {};
 
-    for (final e in eventNames) {
-      final event = contract.self.events.firstWhere((x) => x.name == e);
-      eventToSignature[e] = bytesToHex(
-        event.signature,
-        padToEvenLength: true,
-        include0x: true,
-      );
-    }
-
-    String indexedAddressTopic(EthereumAddress address) {
-      return '0x${address.without0x.padLeft(64, '0')}';
-    }
-
-    final List<List<String?>> topics = [
-      [...eventToSignature.values],
-    ];
     if (params.tradeId != null) {
-      topics.add([
-        bytesToHex(
-          getBytes32(params.tradeId!),
-          padToEvenLength: true,
-          include0x: true,
-        ),
-      ]);
+      topics.add([_tradeIdTopic(params.tradeId!)]);
     }
     if (params.arbiterEvmAddress != null) {
       if (params.tradeId == null) {
-        // Wildcard topic1 so topic2 can match arbiter.
         topics.add([]);
       }
-      topics.add([indexedAddressTopic(params.arbiterEvmAddress!)]);
+      topics.add([_indexedAddressTopic(params.arbiterEvmAddress!)]);
     }
 
-    final eventFilter = FilterOptions(
+    return FilterOptions(
       address: contract.self.address,
       topics: topics,
       fromBlock: BlockNum.genesis(),
     );
+  }
 
-    List<FilterEvent> logStore = [];
-    Future<EscrowEvent> mapper(FilterEvent log) async {
-      final receipt = await contract.client.getTransactionByHash(
-        log.transactionHash!,
-      );
-      final block = await contract.client.getBlockInformation(
-        blockNumber: receipt!.blockNumber.toString(),
-      );
-      if (log.topics![0] == eventToSignature['TradeCreated']) {
-        final decoded = contract.self.events
-            .firstWhere((e) => e.name == 'TradeCreated')
-            .decodeResults(log.topics!, log.data!);
-        final tradeCreated = TradeCreated(decoded, log);
+  Future<EscrowEvent> _mapEscrowEvent(
+    FilterEvent log,
+    Map<String, String> eventNamesByTopic,
+    EscrowServiceSelected? selectedEscrow,
+  ) async {
+    final block = await _blockForLog(log);
+    final txHash = log.transactionHash!;
+
+    switch (eventNamesByTopic[log.topics?.first]) {
+      case 'TradeCreated':
+        final tradeCreated = TradeCreated(
+          _decodeEvent('TradeCreated', log),
+          log,
+        );
+        final trade = await contract.trades(
+          ($param25: tradeCreated.tradeId),
+          atBlock: log.blockNum != null
+              ? BlockNum.exact(log.blockNum!.toInt())
+              : null,
+        );
         return EscrowFundedEvent(
           tradeId: bytesToHex(tradeCreated.tradeId),
           block: block,
           escrowService: selectedEscrow,
-          transactionHash: log.transactionHash!,
-          amount: BitcoinAmount.fromBigInt(
-            BitcoinUnit.wei,
-            receipt.value.getInWei,
-          ),
+          transactionHash: txHash,
+          amount: BitcoinAmount.fromBigInt(BitcoinUnit.wei, trade.amount),
           unlockAt: tradeCreated.unlockAt.toInt(),
-        ); // @todo: return TradeCreatedEvent with decoded params
-      } else if (log.topics![0] == eventToSignature['Arbitrated']) {
-        final decoded = contract.self.events
-            .firstWhere((e) => e.name == 'Arbitrated')
-            .decodeResults(log.topics!, log.data!);
-        final arb = Arbitrated(decoded, log);
+        );
+      case 'Arbitrated':
+        final arb = Arbitrated(_decodeEvent('Arbitrated', log), log);
         return EscrowArbitratedEvent(
           tradeId: bytesToHex(arb.tradeId),
           block: block,
           escrowService: selectedEscrow,
-          transactionHash: log.transactionHash!,
+          transactionHash: txHash,
           forwarded: arb.fractionForwarded.toInt() / 1000,
         );
-      } else if (log.topics![0] == eventToSignature['ReleasedToCounterparty']) {
-        final decoded = contract.self.events
-            .firstWhere((e) => e.name == 'ReleasedToCounterparty')
-            .decodeResults(log.topics!, log.data!);
+      case 'ReleasedToCounterparty':
+        final released = ReleasedToCounterparty(
+          _decodeEvent('ReleasedToCounterparty', log),
+          log,
+        );
         return EscrowReleasedEvent(
-          tradeId: bytesToHex(ReleasedToCounterparty(decoded, log).tradeId),
+          tradeId: bytesToHex(released.tradeId),
           block: block,
           escrowService: selectedEscrow,
-          transactionHash: log.transactionHash!,
+          transactionHash: txHash,
         );
-      } else if (log.topics![0] == eventToSignature['Claimed']) {
-        final decoded = contract.self.events
-            .firstWhere((e) => e.name == 'Claimed')
-            .decodeResults(log.topics!, log.data!);
+      case 'Claimed':
+        final claimed = Claimed(_decodeEvent('Claimed', log), log);
         return EscrowClaimedEvent(
-          tradeId: bytesToHex(Claimed(decoded, log).tradeId),
+          tradeId: bytesToHex(claimed.tradeId),
           block: block,
           escrowService: selectedEscrow,
-          transactionHash: log.transactionHash!,
+          transactionHash: txHash,
         );
-      } else {
-        // @todo: decode trade id here
-        logger.w('Unknown event found in allEvents stream: ${log.topics![0]}');
+      default:
+        logger.w(
+          'Unknown event found in allEvents stream: ${log.topics?.first}',
+        );
         return UnknownEscrowEvent(
           tradeId: '',
           block: block,
           escrowService: selectedEscrow,
         );
-      }
     }
-
-    final sws = StreamWithStatus<EscrowEvent>();
-
-    // Query phase
-    sws.addStatus(StreamStatusQuerying());
-    final querySub = ensureDeployed()
-        .then((_) => contract.client.getLogs(eventFilter))
-        .asStream()
-        .map((logs) {
-          print(
-            'Fetched ${logs.length} logs for filter: ${eventFilter.stringify()}',
-          );
-          logStore.addAll(logs);
-          return logs;
-        })
-        .asyncExpand((logs) => Stream.fromIterable(logs))
-        .where((log) => log.transactionHash != null)
-        .asyncMap(mapper)
-        .listen(
-          sws.add,
-          onDone: () {
-            sws.addStatus(StreamStatusQueryComplete());
-
-            // Live phase
-            sws.addStatus(StreamStatusLive());
-            final liveSub = contract.client
-                .events(
-                  FilterOptions(
-                    address: eventFilter.address,
-                    topics: eventFilter.topics,
-                    fromBlock: logStore.isEmpty
-                        ? BlockNum.current()
-                        : BlockNum.exact(
-                            logStore
-                                    .where((e) => e.blockNum != null)
-                                    .map((e) => e.blockNum!.toInt())
-                                    .reduce(max) +
-                                1,
-                          ),
-                  ),
-                )
-                .where((log) => log.transactionHash != null)
-                .asyncMap(mapper)
-                .listen(sws.add);
-            sws.addSubscription(liveSub);
-          },
-          onError: (e, st) => sws.addStatus(StreamStatusError(e, st)),
-        );
-    sws.addSubscription(querySub);
-
-    return sws;
-  });
-
-  @override
-  listTrades(ContractListTradesParams params) {
-    // TODO: implement listTrades
-    throw UnimplementedError();
   }
+
+  Future<BlockInformation> _blockForLog(FilterEvent log) async {
+    final receipt = await contract.client.getTransactionByHash(
+      log.transactionHash!,
+    );
+    return contract.client.getBlockInformation(
+      blockNumber: receipt!.blockNumber.toString(),
+    );
+  }
+
+  List<dynamic> _decodeEvent(String eventName, FilterEvent log) => contract
+      .self
+      .events
+      .firstWhere((event) => event.name == eventName)
+      .decodeResults(log.topics!, log.data!);
+
+  BlockNum _nextLiveBlock(List<FilterEvent> logStore) {
+    final blockNumbers = logStore
+        .where((event) => event.blockNum != null)
+        .map((event) => event.blockNum!.toInt());
+    if (blockNumbers.isEmpty) {
+      return BlockNum.current();
+    }
+    return BlockNum.exact(blockNumbers.reduce(max) + 1);
+  }
+
+  String _eventTopic(String eventName) => bytesToHex(
+    contract.self.events
+        .firstWhere((event) => event.name == eventName)
+        .signature,
+    padToEvenLength: true,
+    include0x: true,
+  );
+
+  String _tradeIdTopic(String tradeId) =>
+      bytesToHex(getBytes32(tradeId), padToEvenLength: true, include0x: true);
+
+  String _indexedAddressTopic(EthereumAddress address) =>
+      '0x${address.without0x.padLeft(64, '0')}';
 
   Trades? _extractTrade(dynamic trade) => logger.spanSync('_extractTrade', () {
     if (trade is Trades) {
@@ -555,6 +508,16 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           rethrow;
         }
       });
+
+  @override
+  Object decodeWriteError(Object error) {
+    final decoded = _decodeCustomError(error);
+    if (decoded != null) {
+      logger.w(decoded.toString());
+      return decoded;
+    }
+    return error;
+  }
 
   MultiEscrowContractException? _decodeCustomError(Object error) =>
       logger.spanSync('_decodeCustomError', () {

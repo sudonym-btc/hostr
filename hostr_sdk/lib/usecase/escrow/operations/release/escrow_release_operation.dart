@@ -15,6 +15,8 @@ class EscrowReleaseOperation extends OnchainOperation {
   final EscrowReleaseParams params;
   late ContractReleaseEscrowParams contractParams;
 
+  bool get _usesRelayForRelease => contract.rifRelay != null;
+
   EscrowReleaseOperation(
     Auth auth,
     Evm evm,
@@ -80,14 +82,6 @@ class EscrowReleaseOperation extends OnchainOperation {
   String get swapInvoiceDescription => 'Hostr Escrow Release';
 
   @override
-  Future<void> preflight() => logger.span('preflight', () async {
-    final canRelease = await contract.canRelease(contractParams);
-    if (!canRelease) {
-      throw StateError('Release is not available. Trade must still be active.');
-    }
-  });
-
-  @override
   OnchainOperationData buildInitialData() => EscrowReleaseData(
     tradeId: params.tradeId,
     contractAddress: params.escrowService!.contractAddress,
@@ -97,7 +91,26 @@ class EscrowReleaseOperation extends OnchainOperation {
 
   @override
   Future<TransactionInformation> executeTransaction() =>
-      logger.span('executeTransaction', () => contract.release(contractParams));
+      logger.span('executeTransaction', () async {
+        final intent = _usesRelayForRelease
+            ? await contract.releaseRelayed(contractParams)
+            : contract.release(contractParams);
+        final txHash = _usesRelayForRelease
+            ? ((await contract.rifRelay!.relayCall(
+                    contractParams.ethKey,
+                    intent,
+                  )).txHash?.toString() ??
+                  '')
+            : await broadcastContractCallIntent(intent, contractParams.ethKey);
+
+        if (txHash.isEmpty) {
+          throw StateError(
+            'Could not extract transaction hash from release transaction',
+          );
+        }
+
+        return chain.awaitTransaction(txHash);
+      });
 
   @override
   void onAddressResolved(int resolvedAccountIndex) =>

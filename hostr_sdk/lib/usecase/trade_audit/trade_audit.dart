@@ -115,7 +115,7 @@ class TradeAuditResult {
       if (party.escrowVerification != null) {
         final ev = party.escrowVerification!;
         buf.writeln(
-          '  escrow: ${ev.isValid ? "✓ verified on-chain (amount=${ev.trade?.value.getInWei} wei)" : "✗ ${ev.reason}"}',
+          '  escrow: ${ev.isValid ? "✓ verified on-chain (amount=${ev.fundedEvent?.amount} wei)" : "✗ ${ev.reason}"}',
         );
       }
       buf.writeln();

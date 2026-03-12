@@ -272,6 +272,14 @@ class ReservationPairs {
         escrowVerification: escrowVerification,
       );
 
+      if (pairs[tradeId] is Invalid) {
+        logger.w(
+          'Pair for trade $tradeId is invalid: ${(pairs[tradeId] as Invalid).reason}',
+        );
+      } else {
+        logger.d('Pair for trade $tradeId is valid');
+      }
+
       return pairs.values.toList();
     });
 
@@ -289,10 +297,10 @@ class ReservationPairs {
     }
 
     response.addSubscription(
-      snapshots.itemsStream.listen((snapshotHistory) {
-        final latest = snapshotHistory.lastOrNull;
-        response.replaceAll(latest != null ? [latest] : const []);
-      }, onError: response.addError),
+      snapshots.latestItemsStream.listen(
+        (latest) => response.replaceAll([latest]),
+        onError: response.addError,
+      ),
     );
     response.addSubscription(
       snapshots.status

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:wallet/wallet.dart';
@@ -5,6 +7,9 @@ import 'package:web3dart/web3dart.dart';
 
 import '../../../util/main.dart';
 import '../../evm/chain/rootstock/rif_relay/rif_relay.dart';
+import '../../evm/contract_call_intent.dart';
+
+export '../../evm/contract_call_intent.dart';
 
 /// On-chain trade data returned by [SupportedEscrowContract.getTrade].
 class OnChainTrade {
@@ -55,17 +60,72 @@ class GasEstimate {
       'gasPrice=${gasPrice.getInWei}, gasLimit=$gasLimit)';
 }
 
+typedef AuthorizationHashFn =
+    Future<Uint8List> Function(
+      ({Uint8List tradeId, dynamic relayFeeQuote}) args,
+    );
+
 abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
+  static final EthereumAddress _zeroAddress = EthereumAddress.fromHex(
+    '0x0000000000000000000000000000000000000000',
+  );
+  static final List<dynamic> zeroedRelayFeeQuote = [
+    _zeroAddress,
+    BigInt.zero,
+    BigInt.zero,
+  ];
+
   final Contract contract;
   final Web3Client client;
   final EthereumAddress address;
   final RifRelay? rifRelay;
+  final bool supportsClaimSwapAndFund;
 
   SupportedEscrowContract({
     required this.contract,
     required this.client,
     required this.address,
     this.rifRelay,
+    this.supportsClaimSwapAndFund = false,
+  });
+
+  /// Public API
+  Future<GasEstimate> estimateEscrowFundFee(ContractFundEscrowParams params) =>
+      estimateFee(fund(params), stateOverrideBalance: params.amount.getInWei);
+
+  Future<GasEstimate> estimateClaimFee(ContractClaimEscrowParams params) =>
+      estimateFee(claim(params));
+
+  Future<GasEstimate> estimateReleaseFee(ContractReleaseEscrowParams params) =>
+      estimateFee(release(params));
+
+  Future<bool> canClaim(ContractClaimEscrowParams params);
+  Future<bool> canRelease(ContractReleaseEscrowParams params);
+
+  ContractCallIntent fund(ContractFundEscrowParams params);
+  Future<ContractCallIntent> fundRelayed(
+    ContractFundEscrowParams params,
+  ) async => fund(params);
+  ContractCallIntent claim(ContractClaimEscrowParams params);
+  Future<ContractCallIntent> claimRelayed(
+    ContractClaimEscrowParams params,
+  ) async => claim(params);
+  ContractCallIntent claimSwapAndFund(ContractClaimAndFundEscrowParams params);
+  Future<ContractCallIntent> claimSwapAndFundRelayed(
+    ContractClaimAndFundEscrowParams params,
+  ) async => claimSwapAndFund(params);
+  ContractCallIntent release(ContractReleaseEscrowParams params);
+  Future<ContractCallIntent> releaseRelayed(
+    ContractReleaseEscrowParams params,
+  ) async => release(params);
+  ContractCallIntent arbitrate(ContractArbitrateParams params);
+
+  Object decodeWriteError(Object error) => error;
+
+  StreamWithStatus<EscrowEvent> allEvents(
+    ContractEventsParams params,
+    EscrowServiceSelected? selectedEscrow, {
+    bool includeLive = true,
   });
 
   /// Read the on-chain trade for [tradeId].
@@ -84,29 +144,154 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     }
   }
 
-  Future<GasEstimate> estimateEscrowFundFee(ContractFundEscrowParams params);
-  Future<GasEstimate> estimateClaimFee(ContractClaimEscrowParams params);
-  Future<GasEstimate> estimateReleaseFee(ContractReleaseEscrowParams params);
+  List<dynamic> relayFeeQuote({BigInt? deadline}) => [
+    _zeroAddress,
+    BigInt.zero,
+    deadline ?? BigInt.zero,
+  ];
 
-  Future<bool> canClaim(ContractClaimEscrowParams params);
-  Future<bool> canRelease(ContractReleaseEscrowParams params);
+  Uint8List packSignature(Uint8List hash, EthPrivateKey key) {
+    final sig = sign(hash, key.privateKey);
+    final r = padUint8ListTo32(unsignedIntToBytes(sig.r));
+    final s = padUint8ListTo32(unsignedIntToBytes(sig.s));
+    final v = Uint8List.fromList([sig.v]);
 
-  depositArgs(ContractFundEscrowParams params);
-  Future<TransactionInformation> deposit(ContractFundEscrowParams params);
-  Future<TransactionInformation> claim(ContractClaimEscrowParams params);
-  Future<TransactionInformation> claimAndFund(
-    ContractClaimAndFundEscrowParams params,
-  );
-  Future<TransactionInformation> release(ContractReleaseEscrowParams params);
+    final packedSignature = Uint8List(65);
+    packedSignature.setRange(0, 32, r);
+    packedSignature.setRange(32, 64, s);
+    packedSignature.setRange(64, 65, v);
+    return packedSignature;
+  }
 
-  StreamWithStatus<EscrowEvent> allEvents(
-    ContractEventsParams params,
-    EscrowServiceSelected? selectedEscrow,
-  );
+  Future<GasEstimate> estimateFee(
+    ContractCallIntent intent, {
+    BigInt? stateOverrideBalance,
+  }) async {
+    final gasPrice = await contract.client.getGasPrice();
 
+    try {
+      final call = <String, dynamic>{
+        if (intent.from != null) 'from': intent.from!.eip55With0x,
+        'to': contract.self.address.eip55With0x,
+        'data': bytesToHex(intent.data, include0x: true),
+        'value': '0x${intent.value.getInWei.toRadixString(16)}',
+      };
+      final rpcArgs = <dynamic>[call, 'latest'];
+
+      if (stateOverrideBalance != null && intent.from != null) {
+        rpcArgs.add({
+          intent.from!.eip55With0x: {
+            'balance': '0x${stateOverrideBalance.toRadixString(16)}',
+          },
+        });
+      }
+
+      final gasHex = await client.makeRPCCall<String>(
+        'eth_estimateGas',
+        rpcArgs,
+      );
+      final gasLimit = BigInt.parse(gasHex.substring(2), radix: 16);
+      return GasEstimate(
+        fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
+        gasPrice: gasPrice,
+        gasLimit: gasLimit,
+      );
+    } catch (_) {
+      final gasLimit = BigInt.from(intent.maxGas ?? 200000);
+      return GasEstimate(
+        fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
+        gasPrice: gasPrice,
+        gasLimit: gasLimit,
+      );
+    }
+  }
+
+  Future<GasEstimate> estimateRelayFee(
+    ContractCallIntent intent,
+    EthPrivateKey ethKey,
+  ) async {
+    final relay = rifRelay;
+    if (relay == null) {
+      return estimateFee(intent);
+    }
+
+    try {
+      final estimate = await relay.estimateRelayCall(ethKey, intent);
+      final gasLimit =
+          BigInt.tryParse(estimate.estimation ?? '') ??
+          BigInt.from(intent.maxGas ?? 200000);
+      final gasPriceWei =
+          BigInt.tryParse(estimate.gasPrice ?? '') ?? BigInt.zero;
+      final relayFeeWei =
+          BigInt.tryParse(estimate.requiredTokenAmount ?? '') ?? BigInt.zero;
+
+      return GasEstimate(
+        fee: BitcoinAmount.inWei(relayFeeWei),
+        gasPrice: EtherAmount.inWei(gasPriceWei),
+        gasLimit: gasLimit,
+      );
+    } catch (_) {
+      return estimateFee(intent);
+    }
+  }
+
+  ContractCallIntent buildIntent({
+    required String functionName,
+    required List<dynamic> args,
+    required EthereumAddress from,
+    required String methodName,
+    EtherAmount? value,
+    EtherAmount? gasPrice,
+    int? maxGas,
+  }) {
+    final function = contract.self.abi.functions.firstWhere(
+      (f) => f.name == functionName && f.parameters.length == args.length,
+    );
+    final data = function.encodeCall(args);
+    return ContractCallIntent(
+      to: contract.self.address,
+      data: data,
+      value: value ?? EtherAmount.zero(),
+      gasPrice: gasPrice,
+      maxGas: maxGas,
+      from: from,
+      methodName: methodName,
+    );
+  }
+
+  Future<ContractCallIntent> buildAuthorizedRelayIntent({
+    required Uint8List tradeId,
+    required EthPrivateKey ethKey,
+    required AuthorizationHashFn authorizationHashFn,
+    required String functionName,
+    required String methodName,
+  }) async {
+    final feeQuote = relayFeeQuote(
+      deadline: BigInt.from(
+        DateTime.now()
+                .toUtc()
+                .add(const Duration(minutes: 10))
+                .millisecondsSinceEpoch ~/
+            1000,
+      ),
+    );
+
+    final authorizationHash = await authorizationHashFn((
+      tradeId: tradeId,
+      relayFeeQuote: feeQuote,
+    ));
+    final packedSignature = packSignature(authorizationHash, ethKey);
+
+    return buildIntent(
+      functionName: functionName,
+      args: [tradeId, feeQuote, packedSignature],
+      from: ethKey.address,
+      methodName: methodName,
+    );
+  }
+
+  fundArgs(ContractFundEscrowParams params);
   arbitrateArgs(ContractArbitrateParams params);
-  arbitrate(ContractArbitrateParams params);
-  listTrades(ContractListTradesParams params);
 }
 
 class SupportedEscrowContractFactory {

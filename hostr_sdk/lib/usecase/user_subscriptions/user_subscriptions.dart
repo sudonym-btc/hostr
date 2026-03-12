@@ -9,13 +9,13 @@ import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../escrow/escrow.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import '../messaging/threads.dart';
 import '../requests/requests.dart';
 import '../reservation_pairs/reservation_pairs.dart';
 import '../reservation_transitions/reservation_transitions.dart';
 import '../reservations/reservations.dart';
 import '../reviews/reviews.dart';
 import '../zaps/zaps.dart';
-import 'threads.dart';
 
 /// User-scoped subscription manager.
 ///
@@ -85,14 +85,7 @@ class UserSubscriptions {
   late StreamWithStatus<List<Validation<ReservationPair>>>
   allMyReservationPairs$;
 
-  /// Latest validated reservation pairs flattened from
-  /// [allMyReservationPairs$].
-  ///
-  /// [allMyReservationPairs$] emits full snapshots because a
-  /// [ReservationPair] can be updated in place as more reservations for the
-  /// same trade arrive. Most consumers want the latest current set of pairs,
-  /// not the full history of snapshots, so this stream mirrors the latest
-  /// snapshot via [StreamWithStatus.replaceAll].
+  /// Latest validated reservation pairs flattened from [allMyReservationPairs$].
   late StreamWithStatus<Validation<ReservationPair>>
   allMyReservationPairsCurrent$;
 
@@ -116,31 +109,18 @@ class UserSubscriptions {
   final BehaviorSubject<bool> _isLive = BehaviorSubject.seeded(false);
   ValueStream<bool> get isLive => _isLive;
 
-  // ── Discovery state ───────────────────────────────────────────────────
-
   final Set<String> _knownTradeIds = {};
   final Set<String> _knownSellerPubkeys = {};
   final Set<String> _knownEscrowServiceKeys = {};
   final Set<String> _knownZapTradeIds = {};
   final List<StreamWithStatus<PaymentEvent>> _paymentSources = [];
-  final List<StreamStatus> _paymentSourceStatuses = [];
 
   final List<StreamSubscription> _discoverySubscriptions = [];
   bool _started = false;
 
-  // ── Filter sources ────────────────────────────────────────────────────
-
-  /// Filter source for reservations: emits the accumulated d-tag filter
-  /// as trade IDs are discovered. Goes live when threads go live.
   StreamWithStatus<Filter>? _reservationFilterSource;
-
-  /// Filter source for transitions: emits the accumulated #t filter
-  /// as trade IDs are discovered. Goes live when threads go live.
   StreamWithStatus<Filter>? _transitionFilterSource;
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────
-
-  /// Start all user-scoped subscriptions. Call after login.
   void start() => _logger.spanSync('start', () {
     if (_started) return;
     _started = true;
@@ -148,29 +128,24 @@ class UserSubscriptions {
     final myPubkey = _auth.getActiveKey().publicKey;
     _logger.d('UserSubscriptions starting for $myPubkey');
 
-    // 1. Static: my reviews (never needs filter expansion)
     myReviews$ = _reviews.subscribe(
       Filter(authors: [myPubkey]),
       name: 'user-reviews',
     );
 
-    // 2. Create filter sources — initially idle, fed by discovery engine.
     _reservationFilterSource = StreamWithStatus<Filter>();
     _transitionFilterSource = StreamWithStatus<Filter>();
 
-    // 3. Expandable: reservations by trade ID (d-tag)
     allMyReservations$ = _reservations.expandableSubscribe(
       _reservationFilterSource!,
       name: 'user-reservations',
     );
 
-    // 4. Validated pairs from the raw reservations stream
     allMyReservationPairs$ = _reservationPairs.verifyFromSource(
       source: allMyReservations$.stream,
     );
     allMyReservationPairsCurrent$ = allMyReservationPairs$.currentItems();
 
-    // 4a. Filtered views: guest trips vs host bookings
     myTrips$ = allMyReservationPairs$.whereItems(
       (item) => item.event.hostPubkey != myPubkey,
     );
@@ -178,20 +153,15 @@ class UserSubscriptions {
       (item) => item.event.hostPubkey == myPubkey,
     );
 
-    // 5. Expandable: transitions by trade ID
     allTransitions$ = _transitions.expandableSubscribe(
       _transitionFilterSource!,
       name: 'user-transitions',
     );
 
-    // Wire up liveness tracking
     _trackLiveness();
-
-    // Discover existing threads and listen for new ones
     _startDiscoveryEngine();
   });
 
-  /// Tear down everything. Call on logout.
   Future<void> reset() => _logger.span('reset', () async {
     if (!_started) return;
     _started = false;
@@ -215,7 +185,6 @@ class UserSubscriptions {
       await source.close();
     }
     _paymentSources.clear();
-    _paymentSourceStatuses.clear();
 
     await _reservationFilterSource?.close();
     _reservationFilterSource = null;
@@ -239,14 +208,9 @@ class UserSubscriptions {
     await _isLive.close();
   });
 
-  // ── Discovery engine ──────────────────────────────────────────────────
-
-  /// Watches all threads for trade-related data and emits filters on the
-  /// filter sources as new trade IDs are discovered.
   void _startDiscoveryEngine() => _logger.spanSync('_startDiscoveryEngine', () {
     _logger.d("processing threads");
 
-    // Listen to thread messages for trade IDs and escrow services.
     _discoverySubscriptions.add(
       _threads.subscription!.replayStream.listen((message) {
         final child = message.child;
@@ -258,8 +222,6 @@ class UserSubscriptions {
       }),
     );
 
-    // When threads go live, mark filter sources live. This is the signal
-    // that all trade IDs that exist have been discovered.
     _discoverySubscriptions.add(
       _threads.status.whereType<StreamStatusLive>().take(1).listen((_) {
         _logger.d('Threads live — marking filter sources live');
@@ -275,7 +237,6 @@ class UserSubscriptions {
 
         bool tradeIdsChanged = false;
 
-        // Extract trade IDs from reservation requests
         final tradeId = reservation.getDtag();
         if (tradeId != null &&
             tradeId.isNotEmpty &&
@@ -292,16 +253,12 @@ class UserSubscriptions {
           }
         }
 
-        // Emit updated filters if new trade IDs were discovered
         if (tradeIdsChanged) {
           _emitReservationFilter();
           _emitTransitionFilter();
         }
       });
 
-  // ── Filter emission ───────────────────────────────────────────────────
-
-  /// Emits the accumulated reservation filter (by d-tag) on the filter source.
   void _emitReservationFilter() =>
       _logger.spanSync('_emitReservationFilter', () {
         if (_knownTradeIds.isEmpty) return;
@@ -310,7 +267,6 @@ class UserSubscriptions {
         _reservationFilterSource?.add(filter);
       });
 
-  /// Emits the accumulated transition filter (by #t tag) on the filter source.
   void _emitTransitionFilter() => _logger.spanSync('_emitTransitionFilter', () {
     if (_knownTradeIds.isEmpty) return;
     final filter = Filter(tags: {'t': _knownTradeIds.toList()});
@@ -362,34 +318,10 @@ class UserSubscriptions {
     _addPaymentSource(_escrow.checkEscrowStatus(escrowSelected, threadAnchor));
   });
 
-  // ── Liveness tracking ─────────────────────────────────────────────────
-
-  /// Adds a payment event source, forwarding its items and status into
-  /// [paymentEvents$]. The source is tracked for cleanup on [reset].
   void _addPaymentSource(StreamWithStatus<PaymentEvent> source) {
     _paymentSources.add(source);
-    _paymentSourceStatuses.add(source.status.value);
-    final idx = _paymentSourceStatuses.length - 1;
-
-    // Forward existing items
-    for (final item in source.items) {
-      paymentEvents$.add(item);
-    }
-    // Forward future items
-    paymentEvents$.addSubscription(source.stream.listen(paymentEvents$.add));
-    // Track status
-    paymentEvents$.addSubscription(
-      source.status.distinct((a, b) => a.runtimeType == b.runtimeType).listen((
-        s,
-      ) {
-        _paymentSourceStatuses[idx] = s;
-        paymentEvents$.addStatus(recomputeStatus(_paymentSourceStatuses));
-      }),
-    );
-    paymentEvents$.addStatus(recomputeStatus(_paymentSourceStatuses));
+    paymentEvents$.combine(source);
   }
-
-  // ── Liveness tracking (cont.) ─────────────────────────────────────────
 
   void _trackLiveness() => _logger.spanSync('_trackLiveness', () {
     final streams = <Stream<StreamStatus>>[

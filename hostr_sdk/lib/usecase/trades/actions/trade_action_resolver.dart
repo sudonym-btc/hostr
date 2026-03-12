@@ -1,14 +1,12 @@
 import 'package:models/main.dart';
 
-import '../../../../util/stream_status.dart';
-import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import '../state.dart';
+import '../../../util/stream_status.dart';
+import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import '../../messaging/thread/state.dart';
 import '../trade.dart';
 import 'payment.dart';
 import 'reservation.dart';
 import 'reservation_request.dart';
-
-// enum ThreadHeaderSource { reservation, reservationRequest, listing }
 
 enum TradeAction {
   cancel,
@@ -46,8 +44,6 @@ class TradeResolution {
 }
 
 class TradeActionResolver {
-  /// Pure function: derives available actions from concrete stream emissions.
-  /// All inputs are plain values so this can be composed inside combineLatest.
   static TradeResolution resolve({
     required ThreadState threadState,
     required Listing listing,
@@ -89,6 +85,7 @@ class TradeActionResolver {
       startDate: start,
       endDate: end,
     );
+    final hasPayment = payments.isNotEmpty;
 
     final resolvedActions = <TradeAction>[];
 
@@ -106,8 +103,9 @@ class TradeActionResolver {
       ),
     );
 
-    // Only emit reservation-request actions if we have no reservation yet.
-    if (ownReservationsStatus is StreamStatusLive && ownReservations.isEmpty) {
+    if (ownReservationsStatus is StreamStatusLive &&
+        ownReservations.isEmpty &&
+        !hasPayment) {
       resolvedActions.addAll(
         ReservationRequestActions.resolve(
           threadState.reservationRequests,
@@ -218,12 +216,5 @@ bool _overlapsRange({
     bEnd = temp;
   }
 
-  final aEffectiveEnd = aEnd.isAtSameMomentAs(aStart)
-      ? aEnd.add(const Duration(days: 1))
-      : aEnd;
-  final bEffectiveEnd = bEnd.isAtSameMomentAs(bStart)
-      ? bEnd.add(const Duration(days: 1))
-      : bEnd;
-
-  return aStart.isBefore(bEffectiveEnd) && aEffectiveEnd.isAfter(bStart);
+  return !(aEnd.isBefore(bStart) || bEnd.isBefore(aStart));
 }

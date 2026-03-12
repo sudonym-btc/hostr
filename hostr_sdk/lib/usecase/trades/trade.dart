@@ -6,23 +6,23 @@ import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../../../injection.dart';
-import '../../../util/custom_logger.dart';
-import '../../../util/stream_status.dart';
-import '../../auth/auth.dart';
-import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import '../../listings/listings.dart';
-import '../../metadata/metadata.dart';
-import '../../reservation_pairs/reservation_pairs.dart';
-import '../../reservations/reservations.dart';
-import '../threads.dart';
-import '../user_subscriptions.dart';
+import '../../injection.dart';
+import '../../util/custom_logger.dart';
+import '../../util/stream_status.dart';
+import '../auth/auth.dart';
+import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import '../listings/listings.dart';
+import '../messaging/thread/state.dart';
+import '../messaging/thread/thread.dart';
+import '../messaging/threads.dart';
+import '../metadata/metadata.dart';
+import '../reservation_pairs/reservation_pairs.dart';
+import '../reservations/reservations.dart';
+import '../user_subscriptions/user_subscriptions.dart';
 import 'actions/payment.dart';
 import 'actions/reservation.dart';
 import 'actions/reservation_request.dart';
 import 'actions/trade_action_resolver.dart';
-import 'state.dart';
-import 'thread.dart';
 import 'trade_state.dart';
 
 /// Role of the local user in a trade.
@@ -112,21 +112,16 @@ class Trade extends Cubit<TradeState> {
            getPubKeyFromAnchor(listingAnchor) == auth.getActiveKey().publicKey
            ? TradeRole.host
            : TradeRole.guest,
-       // Set up filtered streams from UserSubscriptions.
        reservationPair$ = userSubscriptions.allMyReservationPairs$.whereItems(
          (item) => item.event.tradeId == tradeId,
        ),
-
        payments$ = userSubscriptions.paymentEvents$.where(
          (event) => event.tradeId == tradeId,
        ),
-
        transitions$ = userSubscriptions.allTransitions$.stream.where(
          (t) => t.parsedTags.tradeId == tradeId,
        ),
-
        super(const TradeInitialising()) {
-    // Update subscriptionsLive$ based on the status of the combined streams.
     _subscriptions.add(
       Rx.combineLatest3(
         reservationPair$.status,
@@ -134,6 +129,11 @@ class Trade extends Cubit<TradeState> {
         transitions$.status,
         (a, b, c) => [a, b, c],
       ).listen((statuses) {
+        print(
+          'ReservationPair status: ${reservationPair$.status.value}, '
+          'Payments status: ${payments$.status.value}, '
+          'Transitions status: ${transitions$.status.value}',
+        );
         final allLive = statuses.every((s) => s is StreamStatusLive);
         if (allLive && !(subscriptionsLive$.value)) {
           subscriptionsLive$.sink.add(true);
@@ -157,15 +157,10 @@ class Trade extends Cubit<TradeState> {
     return unsaltPublicKey(saltedPublicKey: tweakedPubkey, salt: salt);
   });
 
-  // ── Lifecycle ──────────────────────────────────────────────────────
-
-  /// Bootstrap the trade: fetch listing + profile, set up filtered streams,
-  /// then wire the reactive combine pipeline.
   Future<void> start() => _logger.span('start', () async {
     if (_bootstrapped || isClosed) return;
     _bootstrapped = true;
 
-    // Fetch listing.
     final fetchedListing = await _listings.getOneByAnchor(listingAnchor);
     if (fetchedListing == null) {
       _logger.w('Cannot start trade $tradeId: listing unavailable');
@@ -174,22 +169,15 @@ class Trade extends Cubit<TradeState> {
     }
     _listing = fetchedListing;
 
-    // Fetch host profile (optional — UI can handle null gracefully).
     _hostProfile = await _metadata.loadMetadata(hostPubKey);
 
-    // Wire the reactive pipeline.
     _wirePipeline();
   });
 
-  /// The core reactive pipeline. Combines all relevant streams and emits
-  /// [TradeReady] with the resolved stage and actions on every change.
   void _wirePipeline() => _logger.spanSync('_wirePipeline', () {
     final listing = _listing!;
     final hostProfile = _hostProfile;
 
-    // Start the listing-level reservation subscription (needed for overlap
-    // check during negotiation). It's always running so the combine has a
-    // stable input; the cost is one extra Nostr subscription.
     allListingReservations$ = _reservationPairs.subscribeVerified(
       listingAnchor: listingAnchor,
       forceValidatePredicate: (pair) {
@@ -200,9 +188,6 @@ class Trade extends Cubit<TradeState> {
       },
     );
 
-    // Build the list of streams to combine. If we have a thread, include
-    // its state (for reservation requests in negotiation). Otherwise use
-    // a single-value stream.
     final threadState$ = thread != null
         ? thread!.state.stream.startWith(thread!.state.value)
         : Stream<ThreadState?>.value(null);
@@ -283,6 +268,7 @@ class Trade extends Cubit<TradeState> {
       startDate: start,
       endDate: end,
     );
+    final hasPayment = payments.isNotEmpty;
 
     // Determine stage + resolve actions.
     final bool isNegotiation =
@@ -298,7 +284,7 @@ class Trade extends Cubit<TradeState> {
       );
 
       // Negotiation actions: pay / counter / accept.
-      if (threadState != null) {
+      if (threadState != null && !hasPayment) {
         resolvedActions.addAll(
           ReservationRequestActions.resolve(
             reservationRequests,

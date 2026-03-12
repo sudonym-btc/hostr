@@ -4,8 +4,6 @@ import 'package:models/main.dart';
 import '../trade.dart';
 import 'trade_action_resolver.dart';
 
-/// Resolves available trade actions based on negotiate-stage [Reservation]s
-/// (formerly `ReservationRequest`s).
 @injectable
 class ReservationRequestActions {
   final Trade trade;

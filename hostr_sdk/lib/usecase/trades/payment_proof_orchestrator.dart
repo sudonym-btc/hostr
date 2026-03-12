@@ -12,11 +12,11 @@ import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../listings/listings.dart';
+import '../messaging/thread/thread.dart';
+import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
 import '../reservations/reservations.dart';
-import 'thread/thread.dart';
-import 'threads.dart';
-import 'user_subscriptions.dart';
+import '../user_subscriptions/user_subscriptions.dart';
 
 /// Long-running singleton that watches the user-level payment and reservation
 /// streams and auto-publishes payment proof (self-signed buyer reservation)
@@ -38,10 +38,7 @@ class PaymentProofOrchestrator {
   final MetadataUseCase _metadata;
   final CustomLogger _logger;
 
-  /// Trade IDs that already have a buyer reservation — don't re-publish.
   final Set<String> _processedTradeIds = {};
-
-  /// Trade IDs currently being processed (in-flight proof publication).
   final Set<String> _inFlightTradeIds = {};
 
   final List<StreamSubscription> _subscriptions = [];
@@ -63,26 +60,15 @@ class PaymentProofOrchestrator {
        _metadata = metadata,
        _logger = logger.scope('payment-proof');
 
-  /// Start watching. Call after [UserSubscriptions.start].
-  ///
-  /// Immediately subscribes to zap-receipt and escrow-event **replay**
-  /// streams so that events emitted before this call are not lost.
-  /// Proof publication is gated on [allMyReservations$] finishing its
-  /// initial load so we can check whether a buyer reservation already
-  /// exists before publishing.
   void start() => _logger.spanSync('start', () {
     if (_started) return;
     _started = true;
     _logger.d('PaymentProofOrchestrator starting');
 
-    // Track when reservations have finished the initial query.
-    // Listen to reservations (replay) to mark trades as processed.
     _subscriptions.add(
       _userSubs.allMyReservations$.stream.replayStream.listen(_onReservation),
     );
 
-    // Subscribe to payment events via replay so late-starting still gets
-    // all previously emitted events.
     _subscriptions.add(
       _userSubs.paymentEvents$.replayStream.listen(_onPaymentEvent),
     );
@@ -95,8 +81,6 @@ class PaymentProofOrchestrator {
         final tradeId = reservation.getDtag();
         if (tradeId == null || tradeId.isEmpty) return;
 
-        // A committed reservation from someone other than the listing host
-        // is a buyer reservation — mark as processed.
         final listingAnchor = reservation.parsedTags.listingAnchor;
         final hostPubkey = getPubKeyFromAnchor(listingAnchor);
         if (reservation.pubKey != hostPubkey) {
@@ -122,14 +106,10 @@ class PaymentProofOrchestrator {
     required String tradeId,
     required PaymentFundedEvent funded,
   }) => _logger.span('_handleFundedEvent', () async {
-    // Re-check after seeding — another funded event may have triggered
-    // publication while we were waiting.
     if (_processedTradeIds.contains(tradeId)) return;
     if (_inFlightTradeIds.contains(tradeId)) return;
 
     _logger.d('PaymentProofOrchestrator: handling payment $tradeId $funded');
-    // Wait for reservations to finish loading so we can reliably check
-    // whether a buyer reservation already exists before publishing.
     await _userSubs.allMyReservations$.stream.status
         .whereType<StreamStatusLive>()
         .first;
@@ -137,12 +117,9 @@ class PaymentProofOrchestrator {
       'PaymentProofOrchestrator: finished all reservations fetch $funded',
     );
 
-    // Re-check after await — reservations may have been marked processed
-    // while we were waiting for the stream to go live.
     if (_processedTradeIds.contains(tradeId)) return;
     if (_inFlightTradeIds.contains(tradeId)) return;
 
-    // Find the thread for this trade.
     final thread = _findThreadForTrade(tradeId);
     if (thread == null) {
       _logger.d('PaymentProofOrchestrator: no thread found for trade $tradeId');
@@ -155,7 +132,6 @@ class PaymentProofOrchestrator {
     final lastRequest = state.lastReservationRequest;
     final listingAnchor = lastRequest.parsedTags.listingAnchor;
 
-    // Only guests publish payment proof — hosts don't.
     final myPubkey = _auth.getActiveKey().publicKey;
     final hostPubkey = getPubKeyFromAnchor(listingAnchor);
     if (myPubkey == hostPubkey) {
@@ -164,7 +140,6 @@ class PaymentProofOrchestrator {
       return;
     }
 
-    // Check if a buyer reservation already exists.
     if (_hasBuyerReservation(tradeId, hostPubkey)) {
       _processedTradeIds.add(tradeId);
       return;
@@ -185,8 +160,7 @@ class PaymentProofOrchestrator {
       final profile = await _metadata.loadMetadata(listing.pubKey);
       if (profile == null) {
         _logger.w(
-          'PaymentProofOrchestrator: profile unavailable for '
-          '${listing.pubKey}',
+          'PaymentProofOrchestrator: profile unavailable for ${listing.pubKey}',
         );
         return;
       }
@@ -218,7 +192,6 @@ class PaymentProofOrchestrator {
         proof: proof,
       );
 
-      // Fire a "Trip booked!" notification so the user knows immediately.
       try {
         final show = getIt<HostrConfig>().showNotification;
         if (show != null) {
@@ -233,14 +206,12 @@ class PaymentProofOrchestrator {
       }
 
       _logger.d(
-        'PaymentProofOrchestrator: published buyer reservation '
-        '${reservation.id} for trade $tradeId',
+        'PaymentProofOrchestrator: published buyer reservation ${reservation.id} for trade $tradeId',
       );
       _processedTradeIds.add(tradeId);
     } catch (e, st) {
       _logger.e(
-        'PaymentProofOrchestrator: failed to publish proof '
-        'for $tradeId: $e',
+        'PaymentProofOrchestrator: failed to publish proof for $tradeId: $e',
       );
       _logger.d('$st');
     } finally {
@@ -248,8 +219,6 @@ class PaymentProofOrchestrator {
     }
   });
 
-  /// Checks if a buyer reservation already exists for [tradeId] in the
-  /// user-level reservation accumulator.
   bool _hasBuyerReservation(String tradeId, String hostPubkey) =>
       _logger.spanSync('_hasBuyerReservation', () {
         final reservations = _userSubs.allMyReservations$.stream.items;
@@ -259,7 +228,6 @@ class PaymentProofOrchestrator {
         });
       });
 
-  /// Finds the [Thread] whose trade matches [tradeId].
   Thread? _findThreadForTrade(String tradeId) =>
       _logger.spanSync('_findThreadForTrade', () {
         if (!_threads.threads.containsKey(tradeId)) {
@@ -268,8 +236,6 @@ class PaymentProofOrchestrator {
         return _threads.threads[tradeId];
       });
 
-  /// Derives the salted key pair for a guest's self-signed reservation,
-  /// mirroring [Trade.activeKeyPair].
   KeyPair _deriveKeyPair({
     required String hostPubkey,
     required String tradeId,

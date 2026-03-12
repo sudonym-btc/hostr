@@ -1,8 +1,8 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
-import '../../../../util/main.dart';
-import '../../../reservations/reservations.dart';
+import '../../../util/main.dart';
+import '../../reservations/reservations.dart';
 import '../trade.dart';
 import 'trade_action_resolver.dart';
 
@@ -25,8 +25,6 @@ class ReservationActions {
       reservations: reservations,
     );
 
-    // Use allReservations (includes cancelled) for escrow checks,
-    // so messageEscrow is available even after cancellation.
     final escrowReservations = allReservations ?? reservations;
 
     final hasUsedEscrow = escrowReservations.any(
