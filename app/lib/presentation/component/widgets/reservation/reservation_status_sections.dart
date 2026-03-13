@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class ReservationStatusSections {
@@ -51,7 +50,7 @@ class ReservationStatusSections {
         currentUpcoming ? 'Upcoming' : 'Past',
         style: Theme.of(
           context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
       ),
     );
   }

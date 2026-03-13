@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
@@ -5,7 +6,6 @@ import 'package:ndk/ndk.dart';
 import '../../datasources/anvil/anvil.dart';
 import '../../datasources/lnbits/lnbits.dart';
 import '../../util/contract_address.dart';
-import '../../util/derive_evm_key.dart';
 import 'seed_context.dart';
 import 'seed_factory.dart';
 import 'seed_pipeline_config.dart';

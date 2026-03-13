@@ -207,6 +207,22 @@ void main() {
       expect(result, isA<Valid<ReservationPair>>());
     });
 
+    test('seller-only pair derives listing anchor and host pubkey', () {
+      final ack = Reservation.create(
+        pubKey: MockKeys.hoster.publicKey,
+        dTag: 'blocked-anchor',
+        listingAnchor: listing.anchor!,
+        start: DateTime(2026, 3, 1),
+        end: DateTime(2026, 3, 5),
+        createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
+      ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
+
+      final pair = ReservationPair(sellerReservation: ack);
+
+      expect(pair.listingAnchor, listing.anchor);
+      expect(pair.hostPubkey, listing.pubKey);
+    });
+
     test('buyer-only negotiate (no proof) → Invalid', () {
       final buyer = MockKeys.guest;
       final nego = _negotiate(listing: listing, buyer: buyer);

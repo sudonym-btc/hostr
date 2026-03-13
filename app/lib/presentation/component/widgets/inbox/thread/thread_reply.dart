@@ -28,6 +28,8 @@ class ThreadReplyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isEmpty = controller.text.trim().isEmpty;
+    final isEnabled = !isLoading && !isEmpty;
+    final theme = Theme.of(context);
 
     return TextField(
       onChanged: onChanged,
@@ -49,8 +51,14 @@ class ThreadReplyView extends StatelessWidget {
         ),
         suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         suffixIcon: IconButton.filled(
-          onPressed: isLoading || isEmpty ? null : onSend,
-          icon: const Icon(Icons.send_rounded, size: 16),
+          onPressed: isEnabled ? onSend : null,
+          icon: Icon(
+            Icons.send_rounded,
+            size: 16,
+            color: isEnabled
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
     );

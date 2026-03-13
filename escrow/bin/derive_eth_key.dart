@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:hostr_sdk/util/derive_evm_key.dart';
+import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 
 /// Derives the EVM private key from a Nostr private key (hex) using the same
 /// BIP-44 path the daemon uses: m/44'/60'/0'/0/0

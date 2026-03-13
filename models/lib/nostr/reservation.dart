@@ -23,6 +23,39 @@ class ReservationTags extends EventTags
   ReservationTags(super.tags);
 }
 
+class ReservationExpectedAmount {
+  final Amount listingPrice;
+  final Amount? negotiatedAmount;
+  final Amount expectedAmount;
+  final bool hasOffListAmount;
+  final bool isBelowListing;
+  final bool sellerCommitOk;
+  final bool barterEnabled;
+  final bool usesNegotiatedAmount;
+
+  const ReservationExpectedAmount({
+    required this.listingPrice,
+    required this.negotiatedAmount,
+    required this.expectedAmount,
+    required this.hasOffListAmount,
+    required this.isBelowListing,
+    required this.sellerCommitOk,
+    required this.barterEnabled,
+    required this.usesNegotiatedAmount,
+  });
+
+  String? get overrideFailureReason {
+    if (!hasOffListAmount) return null;
+    if (!sellerCommitOk) {
+      return 'Missing valid host commitment for negotiated amount';
+    }
+    if (isBelowListing && !barterEnabled) {
+      return 'Listing does not allow below-listing barter';
+    }
+    return null;
+  }
+}
+
 class Reservation
     extends JsonContentNostrEvent<ReservationContent, ReservationTags> {
   static const Object _unset = Object();
@@ -56,6 +89,34 @@ class Reservation
   String commitHash() => parsedContent.commitHash();
   String signCommit(KeyPair keyPair) => parsedContent.signCommit(keyPair);
   bool verifyCommit([String? pubkey]) => parsedContent.verifyCommit(pubkey);
+
+  ReservationExpectedAmount resolveExpectedAmount({required Listing listing}) {
+    final listingAuthor = getPubKeyFromAnchor(parsedTags.listingAnchor);
+    final listingPrice = listing.cost(start, end);
+    final negotiatedAmount = amount;
+    final hasOffListAmount = negotiatedAmount != null &&
+        negotiatedAmount.currency == listingPrice.currency &&
+        negotiatedAmount.value != listingPrice.value;
+    final isBelowListing = negotiatedAmount != null &&
+        negotiatedAmount.currency == listingPrice.currency &&
+        negotiatedAmount.value < listingPrice.value;
+    final sellerCommitOk =
+        !hasOffListAmount ? true : verifyCommit(listingAuthor);
+    final barterEnabled = !isBelowListing || listing.allowBarter;
+    final usesNegotiatedAmount =
+        hasOffListAmount && sellerCommitOk && barterEnabled;
+
+    return ReservationExpectedAmount(
+      listingPrice: listingPrice,
+      negotiatedAmount: negotiatedAmount,
+      expectedAmount: usesNegotiatedAmount ? negotiatedAmount : listingPrice,
+      hasOffListAmount: hasOffListAmount,
+      isBelowListing: isBelowListing,
+      sellerCommitOk: sellerCommitOk,
+      barterEnabled: barterEnabled,
+      usesNegotiatedAmount: usesNegotiatedAmount,
+    );
+  }
 
   Reservation(
       {required super.pubKey,
@@ -253,10 +314,31 @@ class Reservation
       final zapProof = proof.zapProof!;
       final receipt = ZapReceipt.fromEvent(zapProof.receipt);
 
-      final expected =
-          proof.listing.cost(reservation.start, reservation.end).value.toInt();
-      final amountOk =
-          receipt.amountSats != null && receipt.amountSats! >= expected;
+      final expectedAmount = reservation.resolveExpectedAmount(
+        listing: proof.listing,
+      );
+
+      if (expectedAmount.hasOffListAmount) {
+        if (expectedAmount.isBelowListing) {
+          setField(
+            'barterEnabled',
+            expectedAmount.barterEnabled,
+            expectedAmount.barterEnabled
+                ? null
+                : 'Listing does not allow below-listing barter',
+          );
+        }
+        setField(
+          'sellerCommit',
+          expectedAmount.sellerCommitOk,
+          expectedAmount.sellerCommitOk
+              ? null
+              : 'Missing valid host commitment for negotiated amount',
+        );
+      }
+
+      final amountOk = receipt.amountSats != null &&
+          receipt.amountSats! >= expectedAmount.expectedAmount.value.toInt();
       setField(
         'zapAmount',
         amountOk,

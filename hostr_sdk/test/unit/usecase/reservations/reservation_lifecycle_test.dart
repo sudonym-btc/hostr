@@ -12,7 +12,7 @@
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/util/derive_evm_key.dart';
+import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01EventModel, Nip01Utils;
@@ -103,7 +103,6 @@ Reservation _commitReservation({
     stage: ReservationStage.commit,
     quantity: negotiate.quantity,
     amount: negotiate.amount,
-    tweakMaterial: negotiate.tweakMaterial,
     proof: proof,
     signatures: signatures ?? const {},
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
@@ -367,7 +366,7 @@ void main() {
       expect(h1, isNot(equals(h2)));
     });
 
-    test('salt is preserved through negotiate → commit transition', () {
+    test('salt is not carried into published commit transition', () {
       final listing = _listing(allowSelfSignedReservation: true);
       const salt = 'buyer-keeps-this';
       final negotiate = _negotiateReservation(
@@ -383,8 +382,8 @@ void main() {
         proof: _escrowPaymentProof(listing: listing),
       );
 
-      // Tweak material is still accessible in the committed reservation
-      expect(commit.tweakMaterial?.salt, salt);
+      // Published commit reservations no longer carry tweak material.
+      expect(commit.tweakMaterial, isNull);
 
       // Trade id (d-tag) matches across negotiate and commit
       expect(commit.getDtag(), negotiate.getDtag());

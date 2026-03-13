@@ -199,6 +199,7 @@ class Hostr {
       id: notification.operationId.hashCode,
       title: 'Hostr',
       body: notification.body,
+      payload: notification.payload,
     );
   }
 

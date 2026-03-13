@@ -179,22 +179,27 @@ class EscrowVerification {
         );
       }
 
-      // Compute the expected cost from the listing.
-      final expectedAmount = proof.listing.cost(
-        reservation.start,
-        reservation.end,
+      final expectedAmount = reservation.resolveExpectedAmount(
+        listing: proof.listing,
       );
 
       // The on-chain amount is in wei. Compare against the expected amount.
       // We accept >= because escrowFee may be included in the deposit.
       final onChainWei = fundedEvent.amount;
-      final expectedWei = BitcoinAmount.fromAmount(expectedAmount);
+      final expectedWei = BitcoinAmount.fromAmount(
+        expectedAmount.expectedAmount,
+      );
 
       if (onChainWei < expectedWei) {
+        final expectedAmountLabel = expectedAmount.usesNegotiatedAmount
+            ? 'negotiated'
+            : 'listing';
+        final overrideReason = expectedAmount.overrideFailureReason;
         return EscrowVerificationResult.invalid(
           'Onchain escrowed amount (${onChainWei.getInSats} sats) is less than expected '
-          '(${expectedWei.getInSats} sats) for ${reservation.start} – '
-          '${reservation.end}',
+          '$expectedAmountLabel amount (${expectedWei.getInSats} sats) for '
+          '${reservation.start} – ${reservation.end}'
+          '${overrideReason != null ? ' ($overrideReason)' : ''}',
         );
       }
 

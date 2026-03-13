@@ -17,6 +17,7 @@ import '../messaging/thread/thread.dart';
 import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
 import '../reservation_pairs/reservation_pairs.dart';
+import '../reservation_requests/reservation_requests.dart';
 import '../reservations/reservations.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'actions/payment.dart';
@@ -245,7 +246,7 @@ class Trade extends Cubit<TradeState> {
     final start = lastRequest?.start ?? DateTime.now();
     final end = lastRequest?.end ?? DateTime.now();
     final amount = lastRequest?.amount;
-    final ourPubkey = _auth.getActiveKey().publicKey;
+    final ourPubkey = _resolveNegotiationPubkey(reservationRequests);
     final participantPubkeys = [
       ...?threadState?.participantPubkeys,
       ...?thread?.addedParticipants,
@@ -273,9 +274,16 @@ class Trade extends Cubit<TradeState> {
     final resolvedActions = <TradeAction>[];
 
     if (isNegotiation) {
+      final policy = ReservationRequestActions.resolvePolicy(
+        reservationRequests,
+        listing,
+        ourPubkey,
+        role,
+      );
       stage = NegotiationStage(
         reservationRequests: reservationRequests,
         overlapLock: overlapLock,
+        policy: policy,
       );
 
       // Negotiation actions: pay / counter / accept.
@@ -395,9 +403,116 @@ class Trade extends Cubit<TradeState> {
         ? _auth.getActiveKey()
         : tweakKeyPair(
             privateKey: _auth.getActiveKey().privateKey!,
-            salt: tradeId,
+            salt: _tradeSaltFromThread() ?? tradeId,
           ).keyPair;
   });
+
+  String _resolveNegotiationPubkey(List<Reservation> reservationRequests) {
+    if (role == TradeRole.host) {
+      return _auth.getActiveKey().publicKey;
+    }
+
+    final salt =
+        reservationRequests.lastOrNull?.tweakMaterial?.salt ??
+        reservationRequests
+            .where((request) => request.tweakMaterial != null)
+            .map((request) => request.tweakMaterial!.salt)
+            .lastOrNull;
+
+    if (salt == null) {
+      return _auth.getActiveKey().publicKey;
+    }
+
+    return tweakKeyPair(
+      privateKey: _auth.getActiveKey().privateKey!,
+      salt: salt,
+    ).publicKey;
+  }
+
+  String? _tradeSaltFromThread() {
+    final requests = thread?.state.value.reservationRequests;
+    if (requests == null || requests.isEmpty) return null;
+    return requests.lastOrNull?.tweakMaterial?.salt ??
+        requests
+            .where((request) => request.tweakMaterial != null)
+            .map((request) => request.tweakMaterial!.salt)
+            .lastOrNull;
+  }
+
+  Future<void> counter(Amount amount) => _logger.span('counter', () async {
+    final current = state;
+    if (current is! TradeReady || current.stage is! NegotiationStage) {
+      throw StateError('Trade is not in negotiation stage');
+    }
+
+    final negotiationStage = current.stage as NegotiationStage;
+    final policy = negotiationStage.policy;
+    final lastRequest = negotiationStage.reservationRequests.lastOrNull;
+    if (lastRequest == null) {
+      throw StateError('No reservation request available to counter');
+    }
+    if (!policy.canCounter) {
+      throw StateError('Counter offer is not available for this trade');
+    }
+
+    final min = policy.counterMin;
+    final max = policy.counterMax;
+    if (min != null &&
+        amount.currency == min.currency &&
+        amount.value < min.value) {
+      throw StateError('Counter amount is below the allowed minimum');
+    }
+    if (max != null &&
+        amount.currency == max.currency &&
+        amount.value > max.value) {
+      throw StateError('Counter amount is above the allowed maximum');
+    }
+
+    final event = await getIt<ReservationRequests>().createCounterOffer(
+      listing: current.listing,
+      previousRequest: lastRequest,
+      amount: amount,
+      signerKeyPair: await activeKeyPair(),
+    );
+
+    await thread!.replyEvent(event);
+  });
+
+  Future<void> acceptLatestOffer() => _logger.span(
+    'acceptLatestOffer',
+    () async {
+      final current = state;
+      if (current is! TradeReady || current.stage is! NegotiationStage) {
+        throw StateError('Trade is not in negotiation stage');
+      }
+      if (role != TradeRole.host) {
+        throw StateError('Only the host can accept reservation requests');
+      }
+
+      final negotiationStage = current.stage as NegotiationStage;
+      final lastRequest = negotiationStage.reservationRequests.lastOrNull;
+      if (lastRequest == null) {
+        throw StateError('No reservation request available to accept');
+      }
+      if (!current.actions.contains(TradeAction.accept)) {
+        throw StateError('Accept action is not available for this trade');
+      }
+
+      final acceptedAmount = lastRequest.amount;
+      if (acceptedAmount == null) {
+        throw StateError('Cannot accept a reservation request without amount');
+      }
+
+      final event = await getIt<ReservationRequests>().createCounterOffer(
+        listing: current.listing,
+        previousRequest: lastRequest,
+        amount: acceptedAmount,
+        signerKeyPair: await activeKeyPair(),
+      );
+
+      await thread!.replyEvent(event);
+    },
+  );
 
   /// Returns the Nostr pubkey of the escrow service used in this trade.
   String? getEscrowPubkey() => _logger.spanSync('getEscrowPubkey', () {
@@ -443,6 +558,8 @@ class Trade extends Cubit<TradeState> {
       case TradeAction.refund:
         throw UnimplementedError('Trade refund/redeem is not implemented yet.');
       case TradeAction.accept:
+        await acceptLatestOffer();
+        return;
       case TradeAction.counter:
       case TradeAction.pay:
       case TradeAction.review:

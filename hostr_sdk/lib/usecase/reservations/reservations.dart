@@ -485,7 +485,6 @@ class Reservations extends CrudUseCase<Reservation>
       quantity: request.quantity,
       amount: request.amount,
       recipient: request.recipient,
-      tweakMaterial: request.tweakMaterial,
     );
     logger.d('Accepting reservation request: $request');
     return _upsertWithTransition(
@@ -504,11 +503,12 @@ class Reservations extends CrudUseCase<Reservation>
   }) async {
     final tradeId = negotiateReservation.getDtag();
     final threadAnchor = negotiateReservation.getFirstTag(kThreadRefTag);
+    final listingAnchor = negotiateReservation.parsedTags.listingAnchor;
 
     final reservation = Reservation.create(
       pubKey: activeKeyPair.publicKey,
       dTag: tradeId!,
-      listingAnchor: proof.listing.anchor!,
+      listingAnchor: listingAnchor,
       threadAnchor: threadAnchor,
       start: negotiateReservation.start,
       end: negotiateReservation.end,
@@ -516,8 +516,8 @@ class Reservations extends CrudUseCase<Reservation>
       quantity: negotiateReservation.quantity,
       amount: negotiateReservation.amount,
       recipient: negotiateReservation.recipient,
-      tweakMaterial: negotiateReservation.tweakMaterial,
       proof: proof,
+      signatures: negotiateReservation.signatures,
     );
 
     final signedReservation = reservation.signAs(

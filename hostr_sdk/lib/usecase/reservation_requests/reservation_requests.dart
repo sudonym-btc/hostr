@@ -1,6 +1,7 @@
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
@@ -37,6 +38,7 @@ class ReservationRequests extends CrudUseCase {
     required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
+    Amount? amount,
   }) => logger.span('createReservationRequest', () async {
     final accountIndex = await _auth.reserveNextTradeIndex();
     final nonce = _auth.getTradeId(accountIndex: accountIndex);
@@ -65,9 +67,44 @@ class ReservationRequests extends CrudUseCase {
       end: endDate,
       stage: ReservationStage.negotiate,
       quantity: 1,
-      amount: listing.cost(startDate, endDate),
+      amount: amount ?? listing.cost(startDate, endDate),
       tweakMaterial: tweakMaterial,
       recipient: recipientKey.publicKey,
     ).signAs(recipientKey.keyPair, Reservation.fromNostrEvent);
+  });
+
+  Future<Reservation> createCounterOffer({
+    required Listing listing,
+    required Reservation previousRequest,
+    required Amount amount,
+    required KeyPair signerKeyPair,
+  }) => logger.span('createCounterOffer', () async {
+    final listingAnchor = previousRequest.parsedTags.listingAnchor;
+
+    var counterOffer = Reservation.create(
+      pubKey: signerKeyPair.publicKey,
+      dTag: previousRequest.getDtag()!,
+      listingAnchor: listingAnchor,
+      threadAnchor: previousRequest.getFirstTag(kThreadRefTag),
+      start: previousRequest.start,
+      end: previousRequest.end,
+      stage: ReservationStage.negotiate,
+      quantity: previousRequest.quantity,
+      amount: amount,
+      tweakMaterial: previousRequest.tweakMaterial,
+      recipient: previousRequest.recipient,
+    );
+
+    if (signerKeyPair.publicKey == getPubKeyFromAnchor(listingAnchor)) {
+      counterOffer = counterOffer.copy(
+        content: counterOffer.parsedContent.copyWith(
+          signatures: {
+            signerKeyPair.publicKey: counterOffer.signCommit(signerKeyPair),
+          },
+        ),
+      );
+    }
+
+    return counterOffer.signAs(signerKeyPair, Reservation.fromNostrEvent);
   });
 }

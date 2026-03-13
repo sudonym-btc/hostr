@@ -3095,12 +3095,14 @@ class MockReservationRequests extends _i1.Mock
     required _i10.Listing? listing,
     required DateTime? startDate,
     required DateTime? endDate,
+    _i10.Amount? amount,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#createReservationRequest, [], {
               #listing: listing,
               #startDate: startDate,
               #endDate: endDate,
+              #amount: amount,
             }),
             returnValue: _i28.Future<_i10.Reservation>.value(
               _FakeReservation_27(
@@ -3109,6 +3111,7 @@ class MockReservationRequests extends _i1.Mock
                   #listing: listing,
                   #startDate: startDate,
                   #endDate: endDate,
+                  #amount: amount,
                 }),
               ),
             ),

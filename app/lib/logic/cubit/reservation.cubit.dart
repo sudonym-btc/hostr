@@ -33,6 +33,7 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
     required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
+    Amount? amount,
     required Function(Reservation reservation) onSuccess,
   }) async {
     emit(ReservationCubitState(status: ReservationCubitStatus.loading));
@@ -42,6 +43,7 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
         listing: listing,
         startDate: startDate,
         endDate: endDate,
+        amount: amount,
       );
       await hostr.messaging.broadcastEventAndWait(
         event: result,

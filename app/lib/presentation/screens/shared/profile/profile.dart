@@ -7,7 +7,6 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/escrow/escrow_services_modal.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
-import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
@@ -122,19 +121,19 @@ class ProfileScreen extends StatelessWidget {
               ),
               Section(
                 title: "Relays",
-                action: OutlinedButton(
-                  onPressed: () {
-                    showAppModal(
-                      context,
-                      child: RelayFlowWidget(
-                        onClose: () {
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                    );
-                  },
-                  child: Text(AppLocalizations.of(context)!.connect),
-                ),
+                // action: OutlinedButton(
+                //   onPressed: () {
+                //     showAppModal(
+                //       context,
+                //       child: RelayFlowWidget(
+                //         onClose: () {
+                //           Navigator.of(context).pop();
+                //         },
+                //       ),
+                //     );
+                //   },
+                //   child: Text(AppLocalizations.of(context)!.connect),
+                // ),
                 body: RelayListWidget(),
               ),
               BlocProvider(
@@ -144,18 +143,18 @@ class ProfileScreen extends StatelessWidget {
                   builder: (context, state) {
                     return Section(
                       title: "Escrows",
-                      action: OutlinedButton(
-                        onPressed: () {
-                          showTrustEscrowModal(
-                            context,
-                            trustedPubkeys: state.pubkeys,
-                            onTrusted: () {
-                              context.read<TrustedEscrowsCubit>().refresh();
-                            },
-                          );
-                        },
-                        child: Text(AppLocalizations.of(context)!.add),
-                      ),
+                      // action: OutlinedButton(
+                      //   onPressed: () {
+                      //     showTrustEscrowModal(
+                      //       context,
+                      //       trustedPubkeys: state.pubkeys,
+                      //       onTrusted: () {
+                      //         context.read<TrustedEscrowsCubit>().refresh();
+                      //       },
+                      //     );
+                      //   },
+                      //   child: Text(AppLocalizations.of(context)!.add),
+                      // ),
                       body: _buildTrustedEscrowsBody(context, state),
                     );
                   },

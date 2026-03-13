@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:models/main.dart';
 
 class ThreadHeaderWidget extends StatelessWidget {
@@ -21,7 +22,6 @@ class ThreadHeaderWidget extends StatelessWidget {
       fontWeight: FontWeight.bold,
       color: Theme.of(context).colorScheme.onSurface,
     );
-    final subtitleStyle = Theme.of(context).textTheme.bodyMedium;
 
     return ListTile(
       contentPadding: EdgeInsets.all(0),
@@ -117,12 +117,20 @@ class ProfileAvatars extends StatelessWidget {
                         : null,
                     child: CircleAvatar(
                       radius: 20,
-                      backgroundImage: counterparty.metadata.picture != null
-                          ? NetworkImage(counterparty.metadata.picture!)
-                          : null,
-                      child: counterparty.metadata.picture == null
-                          ? Text(counterparty.metadata.name?[0] ?? '')
-                          : null,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      child: counterparty.metadata.picture != null
+                          ? ClipOval(
+                              child: BlossomImage(
+                                image: counterparty.metadata.picture!,
+                                pubkey: counterparty.pubKey,
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Text(counterparty.metadata.name?[0] ?? ''),
                     ),
                   ),
                 ),

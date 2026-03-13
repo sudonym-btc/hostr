@@ -9,10 +9,14 @@ import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/es
 import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 class NegotiationWidget extends StatelessWidget {
   final TradeReady tradeState;
   const NegotiationWidget({super.key, required this.tradeState});
+
+  NegotiationStage get negotiationStage => tradeState.stage as NegotiationStage;
+  NegotiationPolicy get policy => negotiationStage.policy;
 
   @override
   Widget build(BuildContext context) {
@@ -20,55 +24,117 @@ class NegotiationWidget extends StatelessWidget {
     final hasCounter = tradeState.actions.contains(TradeAction.counter);
     final hasPay = tradeState.actions.contains(TradeAction.pay);
     final hasAccept = tradeState.actions.contains(TradeAction.accept);
+    final registry = getIt<Hostr>().escrowFundRegistry;
     return CustomPadding(
       top: 0,
       bottom: 0.5,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  formatAmount(tradeState.amount!, exact: false),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: constraints.maxWidth * 0.6,
-                ),
-                child: Wrap(
-                  spacing: kSpace2,
-                  runSpacing: kSpace2,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    if (hasCancel) _cancelButton(context),
-                    if (hasCounter) _counterButton(context),
-                    if (hasPay)
-                      _payButton(context)
-                    else if (hasAccept)
-                      _acceptButton(context),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      formatAmount(tradeState.amount!, exact: false),
+                      style: Theme.of(context).textTheme.titleLarge!.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth * 0.6,
+                    ),
+                    child: StreamBuilder<EscrowFundOperation?>(
+                      stream: registry.watchTrade(tradeState.tradeId),
+                      initialData: registry.hasActiveFund(tradeState.tradeId)
+                          ? null
+                          : null,
+                      builder: (context, snapshot) {
+                        final activeOp = snapshot.data;
+                        return Wrap(
+                          spacing: kSpace2,
+                          runSpacing: kSpace2,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            if (_statusMessage != null)
+                              _statusChip(context, message: _statusMessage!),
+                            if (hasCancel) _cancelButton(context),
+                            if (hasCounter && activeOp == null)
+                              _counterButton(context),
+                            if (hasPay)
+                              _payButton(context, activeOp: activeOp)
+                            else if (hasAccept)
+                              _acceptButton(context),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? get _statusMessage {
+    final latestOffer = policy.latestOffer;
+    final listingPrice = policy.listingPrice;
+    if (latestOffer == null || listingPrice == null) {
+      return null;
+    }
+
+    final latestAmount = latestOffer.amount;
+    final isBelowListing =
+        latestAmount != null &&
+        latestAmount.currency == listingPrice.currency &&
+        latestAmount.value < listingPrice.value;
+    final isAtListingPrice =
+        latestAmount != null &&
+        latestAmount.currency == listingPrice.currency &&
+        latestAmount.value == listingPrice.value;
+
+    switch (tradeState.role) {
+      case TradeRole.guest:
+        if (policy.latestOfferSentByUs && isBelowListing) {
+          return 'Awaiting host response';
+        }
+        return null;
+      case TradeRole.host:
+        if (isAtListingPrice || policy.latestOfferAcceptsPrevious) {
+          return 'Awaiting payment';
+        }
+        if (policy.latestOfferSentByUs) {
+          return 'Awaiting guest response';
+        }
+        return null;
+    }
+  }
+
+  Widget _statusChip(BuildContext context, {required String message}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
       ),
     );
   }
 
   // ─── Button helpers ────────────────────────────────────────────────
-
-  void _showNotImplemented(BuildContext context) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context)!.actionNotImplementedYet),
-        ),
-      );
 
   Widget _cancelButton(BuildContext context) => OutlinedButton(
     key: const ValueKey('trade_action_cancel'),
@@ -107,55 +173,45 @@ class NegotiationWidget extends StatelessWidget {
     child: const Text('Cancel'),
   );
 
-  Widget _payButton(BuildContext context) {
-    final registry = getIt<Hostr>().escrowFundRegistry;
-    return StreamBuilder<EscrowFundOperation?>(
-      stream: registry.watchTrade(tradeState.tradeId),
-      initialData: registry.hasActiveFund(tradeState.tradeId)
-          ? null // will resolve on first stream emit
-          : null,
-      builder: (context, snapshot) {
-        final activeOp = snapshot.data;
-        if (activeOp != null) {
-          return FilledButton(
-            key: const ValueKey('trade_action_pay'),
-            onPressed: () {
-              showAppModal(
-                context,
-                child: EscrowFundFlowWidget(cubit: activeOp),
-              );
-            },
-            child: SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Theme.of(context).colorScheme.onPrimary,
+  Widget _payButton(
+    BuildContext context, {
+    required EscrowFundOperation? activeOp,
+  }) {
+    if (activeOp != null) {
+      return FilledButton(
+        key: const ValueKey('trade_action_pay'),
+        onPressed: () {
+          showAppModal(context, child: EscrowFundFlowWidget(cubit: activeOp));
+        },
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Theme.of(context).colorScheme.onPrimary,
+          ),
+        ),
+      );
+    }
+    return FilledButton(
+      key: const ValueKey('trade_action_pay'),
+      onPressed: tradeState.hostProfile == null
+          ? null
+          : () => showAppModal(
+              context,
+              child: EscrowFundWidget(
+                counterparty: tradeState.hostProfile!,
+                negotiateReservation: (tradeState.stage as NegotiationStage)
+                    .reservationRequests
+                    .last,
+                listingName: tradeState.listing.title,
               ),
             ),
-          );
-        }
-        return FilledButton(
-          key: const ValueKey('trade_action_pay'),
-          onPressed: tradeState.hostProfile == null
-              ? null
-              : () => showAppModal(
-                  context,
-                  child: EscrowFundWidget(
-                    counterparty: tradeState.hostProfile!,
-                    negotiateReservation: (tradeState.stage as NegotiationStage)
-                        .reservationRequests
-                        .last,
-                    listingName: tradeState.listing.title,
-                  ),
-                ),
-          child: const Text('Pay'),
-        );
-      },
+      child: const Text('Pay'),
     );
   }
 
-  Widget _acceptButton(BuildContext context) => FutureButton.outlined(
+  Widget _acceptButton(BuildContext context) => FutureButton.filled(
     key: const ValueKey('trade_action_accept'),
     onPressed: () => context.read<Trade>().execute(TradeAction.accept),
     child: const Text('Accept'),
@@ -163,7 +219,109 @@ class NegotiationWidget extends StatelessWidget {
 
   Widget _counterButton(BuildContext context) => OutlinedButton(
     key: const ValueKey('trade_action_counter'),
-    onPressed: () => _showNotImplemented(context),
+    onPressed: () => _showCounterOfferSheet(context),
     child: const Text('Counter'),
   );
+
+  void _showCounterOfferSheet(BuildContext context) {
+    final submitCounter = context.read<Trade>().counter;
+    showAppModal(
+      context,
+      child: _CounterOfferSheet(
+        initialAmount: policy.counterMin ?? tradeState.amount!,
+        minAmount: policy.counterMin,
+        maxAmount: policy.counterMax,
+        onSubmit: submitCounter,
+      ),
+    );
+  }
+}
+
+class _CounterOfferSheet extends StatefulWidget {
+  final Amount initialAmount;
+  final Amount? minAmount;
+  final Amount? maxAmount;
+  final Future<void> Function(Amount amount) onSubmit;
+
+  const _CounterOfferSheet({
+    required this.initialAmount,
+    required this.onSubmit,
+    this.minAmount,
+    this.maxAmount,
+  });
+
+  @override
+  State<_CounterOfferSheet> createState() => _CounterOfferSheetState();
+}
+
+class _CounterOfferSheetState extends State<_CounterOfferSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _amountFieldKey = GlobalKey<FormFieldState<Amount>>();
+  late Amount _amount;
+
+  @override
+  void initState() {
+    super.initState();
+    _amount = widget.initialAmount;
+  }
+
+  bool get _isValid => _validateAmount(_amount) == null;
+
+  String? _validateAmount(Amount? amount) {
+    if (amount == null) {
+      return 'Please enter a counter amount';
+    }
+    if (widget.minAmount != null && amount.value < widget.minAmount!.value) {
+      return 'Amount must be at least ${formatAmount(widget.minAmount!)}';
+    }
+    if (widget.maxAmount != null && amount.value > widget.maxAmount!.value) {
+      return 'Amount must be at most ${formatAmount(widget.maxAmount!)}';
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+    await widget.onSubmit(_amount);
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ModalBottomSheet(
+      title: 'Counter offer',
+      content: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.always,
+        onChanged: () {
+          final amount = _amountFieldKey.currentState?.value;
+          if (amount != null) {
+            setState(() => _amount = amount);
+          } else {
+            setState(() {});
+          }
+        },
+        child: AmountInputWidget(
+          key: _amountFieldKey,
+          initialValue: _amount,
+          min: widget.minAmount,
+          max: widget.maxAmount,
+        ),
+      ),
+      buttons: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FutureButton.filled(
+            onPressed: _isValid ? _submit : null,
+            child: const Text('Counter'),
+          ),
+        ],
+      ),
+    );
+  }
 }

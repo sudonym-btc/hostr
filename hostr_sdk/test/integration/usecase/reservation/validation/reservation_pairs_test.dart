@@ -127,7 +127,7 @@ Reservation _buildNegotiate({
     quantity: 1,
     amount: Amount(
       currency: Currency.BTC,
-      value: customAmount ?? BigInt.from(100000),
+      value: customAmount ?? listing.cost(start, end).value,
     ),
     tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
     createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,

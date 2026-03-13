@@ -62,65 +62,65 @@ class EditListingViewState extends State<EditListingView> {
           }
         },
       ),
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Form(
-          key: controller.formKey,
-          child: CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                stretch: true,
-                expandedHeight: MediaQuery.of(context).size.height / 4,
-                flexibleSpace: FlexibleSpaceBar(
-                  background: ImagesInput(
-                    controller: controller,
-                    pubkey: l.pubKey,
-                  ),
+      body: Form(
+        key: controller.formKey,
+        child: CustomScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            SliverAppBar(
+              stretch: true,
+              expandedHeight: MediaQuery.of(context).size.height / 4,
+              flexibleSpace: FlexibleSpaceBar(
+                background: ImagesInput(
+                  controller: controller,
+                  pubkey: l.pubKey,
                 ),
               ),
-              SliverList(
-                delegate: SliverChildListDelegate([
-                  CustomPadding(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FormLabel(label: 'Title'),
-                        TitleInput(controller: controller),
+            ),
+            SliverList(
+              delegate: SliverChildListDelegate([
+                CustomPadding(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FormLabel(label: 'Title'),
+                      TitleInput(controller: controller),
+                      Gap.vertical.md(),
+                      FormLabel(label: 'Address'),
+                      LocationInput(
+                        controller: controller.locationController,
+                        hintText: '123 City Road, London',
+                        validator: (value) =>
+                            controller.locationController.validateText(
+                              value,
+                              emptyMessage: 'Address is required',
+                            ),
+                      ),
+                      Gap.vertical.md(),
+                      FormLabel(label: 'Price'),
+                      PriceInput(controller: controller),
+                      BarterInput(controller: controller),
+                      HelpText(
+                        'Allowing barter allows users to submit reservation requests below your listed price, which you can then accept or decline.',
+                      ),
+                      Gap.vertical.md(),
+                      FormLabel(label: 'Amenities'),
+                      Gap.vertical.md(),
+                      AmenitiesInput(controller: controller),
+                      Gap.vertical.md(),
+                      FormLabel(label: 'Description'),
+                      DescriptionInput(controller: controller),
+                      if (widget.a != null) ...[
                         Gap.vertical.md(),
-                        FormLabel(label: 'Address'),
-                        LocationInput(
-                          controller: controller.locationController,
-                          hintText: '123 City Road, London',
-                          validator: (value) =>
-                              controller.locationController.validateText(
-                                value,
-                                emptyMessage: 'Address is required',
-                              ),
-                        ),
-                        Gap.vertical.md(),
-                        FormLabel(label: 'Price'),
-                        PriceInput(controller: controller),
-                        if (widget.a != null)
-                          ActiveInput(controller: controller),
-                        BarterInput(controller: controller),
-                        HelpText(
-                          'Allowing barter allows users to submit reservation requests below your listed price, which you can then accept or decline.',
-                        ),
-                        Gap.vertical.md(),
-                        FormLabel(label: 'Amenities'),
-                        Gap.vertical.md(),
-                        AmenitiesInput(controller: controller),
-                        Gap.vertical.md(),
-                        FormLabel(label: 'Description'),
-                        DescriptionInput(controller: controller),
+                        ActiveInput(controller: controller),
+                        Gap.vertical.lg(),
                       ],
-                    ),
+                    ],
                   ),
-                ]),
-              ),
-            ],
-          ),
+                ),
+              ]),
+            ),
+          ],
         ),
       ),
     );

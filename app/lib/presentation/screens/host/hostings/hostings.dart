@@ -49,48 +49,76 @@ class HostingsScreenState extends State<HostingsScreen> {
         builder: (item) {
           final pair = item.event;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CustomPadding.horizontal.lg(
-                child: Row(
-                  children: [
-                    Text(
-                      'Hosting ',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    FutureBuilder(
-                      future: getIt<Hostr>()
-                          .trade(pair.tradeId)
-                          .resolveGuestPubkey(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const CircularProgressIndicator();
-                        }
-                        if (snapshot.hasError) {
-                          return const Icon(Icons.error);
-                        }
-                        final guestPubkey = snapshot.data;
-                        if (guestPubkey == null) {
-                          return const SizedBox.shrink();
-                        }
-                        return ProfileChipWidget(id: guestPubkey);
-                      },
-                    ),
-                  ],
-                ),
+          return CustomPadding.horizontal.lg(
+            child: CustomPadding.vertical.md(
+              child: FutureBuilder<String?>(
+                future: getIt<Hostr>().trade(pair.tradeId).resolveGuestPubkey(),
+                builder: (context, snapshot) {
+                  final guestPubkey = snapshot.data;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          switch (snapshot.connectionState) {
+                            ConnectionState.waiting => const Align(
+                              alignment: Alignment.centerLeft,
+                              child: AppLoadingIndicator.small(),
+                            ),
+                            _ when snapshot.hasError => const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Icon(Icons.error_outline, size: 18),
+                            ),
+                            _ when guestPubkey == null =>
+                              const SizedBox.shrink(),
+                            _ => ProfileProvider(
+                              pubkey: guestPubkey,
+                              builder: (context, profileSnapshot) {
+                                final guestName =
+                                    profileSnapshot.data?.metadata.getName() ??
+                                    guestPubkey.substring(0, 8);
+                                return Text(
+                                  guestName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                );
+                              },
+                            ),
+                          },
+
+                          Text(
+                            ' hosted at ',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                      Gap.vertical.md(),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TradeHeader(
+                          tradeId: pair.tradeId,
+                          showActions: false,
+                          showImages: true,
+                          compact: true,
+                          onTap: () => AutoRouter.of(
+                            context,
+                          ).push(ThreadRoute(anchor: pair.tradeId)),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
-              CustomPadding.only(
-                child: TradeHeader(
-                  tradeId: pair.tradeId,
-                  showActions: false,
-                  onTap: () => AutoRouter.of(
-                    context,
-                  ).push(ThreadRoute(anchor: pair.tradeId)),
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),

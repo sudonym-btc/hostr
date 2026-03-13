@@ -312,8 +312,9 @@ class UserSubscriptions {
 
     _discoverySubscriptions.add(
       messages$.stream.listen(
-        (_) {
+        (message) {
           if (!_isLive.value) return;
+          if (message.pubKey == _auth.getActiveKey().publicKey) return;
           unawaited(_emitCurrentHeartbeat(reason: 'message-received'));
         },
         onError: (Object e, StackTrace st) {

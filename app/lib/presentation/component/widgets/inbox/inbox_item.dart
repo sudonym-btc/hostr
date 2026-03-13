@@ -99,7 +99,7 @@ class InboxItem extends StatelessWidget {
                   : '') +
               (lastMessage?.child is Reservation &&
                       (lastMessage?.child as Reservation).isNegotiation
-                  ? 'Reservation Request'
+                  ? 'Reservation Proposal'
                   : lastMessage?.content ?? '');
 
           return InboxItemView(

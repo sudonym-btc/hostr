@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../evm/evm.dart';
@@ -11,11 +12,15 @@ import '../evm/operations/auto_withdraw/auto_withdraw_service.dart';
 import '../evm/operations/operation_state_store.dart';
 import '../heartbeat/heartbeat.dart';
 import '../listings/listings.dart';
+import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
+import '../trades/trade.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 /// A single notification to show or update in the OS notification tray.
 class BackgroundNotification {
+  static const String fallbackPayload = 'hostr://root';
+
   /// Stable identifier for this notification — used to update the same OS
   /// notification across progressive state changes (e.g. swap → deposit).
   final String operationId;
@@ -23,7 +28,15 @@ class BackgroundNotification {
   /// Human-readable body text.
   final String body;
 
-  const BackgroundNotification({required this.operationId, required this.body});
+  /// Opaque deep-link payload forwarded to the app when the user taps the
+  /// notification.
+  final String payload;
+
+  const BackgroundNotification({
+    required this.operationId,
+    required this.body,
+    this.payload = fallbackPayload,
+  });
 }
 
 /// Callback for real-time notification updates during background recovery.
@@ -33,11 +46,14 @@ typedef OnBackgroundProgress =
 /// Result of a single background worker run, containing all notifications
 /// that should be surfaced to the user.
 class BackgroundWorkerResult {
-  final List<String> notifications;
+  final List<BackgroundNotification> notificationDetails;
 
-  const BackgroundWorkerResult({this.notifications = const []});
+  const BackgroundWorkerResult({this.notificationDetails = const []});
 
-  bool get hasNotifications => notifications.isNotEmpty;
+  List<String> get notifications =>
+      notificationDetails.map((notification) => notification.body).toList();
+
+  bool get hasNotifications => notificationDetails.isNotEmpty;
 }
 
 enum _BackgroundWorkerMode { run, watch }
@@ -46,11 +62,13 @@ class _BackgroundSignal {
   final String id;
   final String body;
   final int createdAt;
+  final String payload;
 
   const _BackgroundSignal({
     required this.id,
     required this.body,
     required this.createdAt,
+    this.payload = BackgroundNotification.fallbackPayload,
   });
 }
 
@@ -151,17 +169,17 @@ class BackgroundWorker {
           await _start(mode: _BackgroundWorkerMode.run, onProgress: onProgress);
         }
 
-        final notifications = <String>[];
+        final notifications = <BackgroundNotification>[];
         final notificationSub = _notifications.replayStream.listen((
           notification,
         ) {
-          notifications.add(notification.body);
+          notifications.add(notification);
         });
 
         try {
           await _waitUntilReady();
           await _maintenanceFuture;
-          return BackgroundWorkerResult(notifications: notifications);
+          return BackgroundWorkerResult(notificationDetails: notifications);
         } finally {
           await notificationSub.cancel();
           if (startedHere && _mode == _BackgroundWorkerMode.run) {
@@ -381,14 +399,17 @@ class BackgroundWorker {
   Future<_BackgroundSignal?> _signalFromMessage(Message message) async {
     final myPubkey = auth.getActiveKey().publicKey;
     if (message.pubKey == myPubkey) return null;
-    if (message.child is Reservation) return null;
+    if (message.child is EscrowServiceSelected) return null;
     if (!_isAfterHeartbeatBoundary(message.createdAt)) return null;
 
     final senderName = await _resolveDisplayName(message.pubKey);
+    final threadId = Threads.threadIdentifierForMessage(message);
     return _BackgroundSignal(
       id: 'message:${message.id}',
-      body: '$senderName sent you a message',
+      body:
+          '$senderName sent you a ${message.child is Reservation ? 'reservation proposal' : 'message'}',
       createdAt: message.createdAt,
+      payload: _threadPayload(threadId),
     );
   }
 
@@ -405,7 +426,8 @@ class BackgroundWorker {
       if (guestReservation.pubKey == myPubkey) continue;
       if (!_isAfterHeartbeatBoundary(guestReservation.createdAt)) continue;
 
-      final guestName = await _resolveDisplayName(guestReservation.pubKey);
+      final guestPubkey = await _resolveHostingGuestPubkey(pair);
+      final guestName = await _resolveDisplayName(guestPubkey);
       final title = await _resolveListingTitle(
         pair.listingAnchor,
         fallback: 'your listing',
@@ -417,6 +439,7 @@ class BackgroundWorker {
             id: 'hosting-cancel:${guestReservation.id}',
             body: '$guestName cancelled a reservation',
             createdAt: guestReservation.createdAt,
+            payload: _threadPayload(pair.tradeId),
           ),
         );
       } else {
@@ -425,12 +448,32 @@ class BackgroundWorker {
             id: 'hosting-reservation:${guestReservation.id}',
             body: '$guestName reserved $title',
             createdAt: guestReservation.createdAt,
+            payload: _threadPayload(pair.tradeId),
           ),
         );
       }
     }
 
     return signals;
+  }
+
+  Future<String> _resolveHostingGuestPubkey(ReservationPair pair) async {
+    final fallback = pair.buyerReservation?.pubKey;
+    if (fallback == null) {
+      throw StateError(
+        'Cannot resolve guest pubkey without a buyer reservation',
+      );
+    }
+
+    try {
+      final trade = getIt<Trade>(
+        param1: pair.tradeId,
+        param2: pair.listingAnchor,
+      );
+      return await trade.resolveGuestPubkey() ?? fallback;
+    } catch (_) {
+      return fallback;
+    }
   }
 
   Future<List<_BackgroundSignal>> _signalsFromTrips(
@@ -462,6 +505,7 @@ class BackgroundWorker {
             id: 'trip-cancel:${sellerReservation.id}',
             body: '$hostName cancelled a reservation',
             createdAt: sellerReservation.createdAt,
+            payload: _threadPayload(pair.tradeId),
           ),
         );
       } else {
@@ -470,6 +514,7 @@ class BackgroundWorker {
             id: 'trip-confirm:${sellerReservation.id}',
             body: '$hostName confirmed your stay at $title',
             createdAt: sellerReservation.createdAt,
+            payload: _threadPayload(pair.tradeId),
           ),
         );
       }
@@ -496,6 +541,7 @@ class BackgroundWorker {
     final notification = BackgroundNotification(
       operationId: signal.id,
       body: signal.body,
+      payload: signal.payload,
     );
 
     _notifications.add(notification);
@@ -544,7 +590,7 @@ class BackgroundWorker {
     OnBackgroundProgress? onProgress,
   }) => logger.span('recoverOnchainOperations', () async {
     logger.i('starting onchain recovery');
-    final notifications = <String>[];
+    final notifications = <BackgroundNotification>[];
 
     if (auth.activeKeyPair == null) {
       logger.d('no active key pair, skipping');
@@ -555,7 +601,7 @@ class BackgroundWorker {
       await evm.recoverStaleOperations(
         isBackground: true,
         onProgress: (notification) {
-          notifications.add(notification.body);
+          notifications.add(notification);
           onProgress?.call(notification);
         },
       );
@@ -569,8 +615,11 @@ class BackgroundWorker {
       'onchain recovery completed '
       'with ${notifications.length} notifications',
     );
-    return BackgroundWorkerResult(notifications: notifications);
+    return BackgroundWorkerResult(notificationDetails: notifications);
   });
+
+  String _threadPayload(String threadId) =>
+      Uri(scheme: 'hostr', host: 'thread', pathSegments: [threadId]).toString();
 
   static const _onchainNamespaces = ['swap_in', 'swap_out', 'escrow_fund'];
 

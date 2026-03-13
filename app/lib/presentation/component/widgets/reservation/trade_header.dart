@@ -17,12 +17,16 @@ import 'payment_status_chip.dart';
 class TradeHeaderView extends StatelessWidget {
   final TradeReady tradeState;
   final bool showActions;
+  final bool showImages;
+  final bool compact;
   final VoidCallback? onTap;
 
   const TradeHeaderView({
     super.key,
     required this.tradeState,
     this.showActions = true,
+    this.showImages = true,
+    this.compact = false,
     this.onTap,
   });
 
@@ -100,6 +104,7 @@ class TradeHeaderView extends StatelessWidget {
   };
 
   Widget _buildSummary(BuildContext context, {required bool showImages}) {
+    final theme = Theme.of(context);
     final availabilityBanner = _buildAvailabilityBanner(context);
     final paymentStatusChip = StreamBuilder<PaymentEvent>(
       stream: paymentEventsStream.replayStream,
@@ -117,27 +122,30 @@ class TradeHeaderView extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 75),
-            child: SizedBox(
-              width: 75,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8.0),
-                child: listing.images.isNotEmpty
-                    ? BlossomImage(
-                        image: listing.images.first,
-                        pubkey: listing.pubKey,
-                        fit: BoxFit.cover,
-                      )
-                    : const SizedBox.shrink(),
+          if (showImages) ...[
+            ConstrainedBox(
+              constraints: BoxConstraints(minHeight: compact ? 60 : 75),
+              child: SizedBox(
+                width: compact ? 60 : 75,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8.0),
+                  child: listing.images.isNotEmpty
+                      ? BlossomImage(
+                          image: listing.images.first,
+                          pubkey: listing.pubKey,
+                          fit: BoxFit.cover,
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ),
             ),
-          ),
-          Gap.horizontal.md(),
+            Gap.horizontal.md(),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -146,20 +154,30 @@ class TradeHeaderView extends StatelessWidget {
                     listing.title.toString(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: compact
+                        ? theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          )
+                        : theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                   ),
                 ),
-                // Gap.vertical.xs(),
+                if (!compact) Gap.vertical.xs(),
                 Text(
                   formatDateRangeShort(
                     DateTimeRange(start: start, end: end),
                     Localizations.localeOf(context),
                   ),
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: compact
+                      ? theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        )
+                      : theme.textTheme.bodyMedium,
                 ),
-                if (statusBanners.isNotEmpty) Gap.vertical.sm(),
+                if (statusBanners.isNotEmpty)
+                  SizedBox(height: compact ? kSpace1 : kSpace2),
                 if (statusBanners.isNotEmpty)
                   Wrap(
                     spacing: kSpace2,
@@ -196,7 +214,11 @@ class TradeHeaderView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CustomPadding(child: _buildSummary(context, showImages: true)),
+                compact
+                    ? _buildSummary(context, showImages: showImages)
+                    : CustomPadding(
+                        child: _buildSummary(context, showImages: showImages),
+                      ),
                 if (showActions && tradeState.stage is NegotiationStage)
                   NegotiationWidget(tradeState: tradeState),
               ],
@@ -211,11 +233,15 @@ class TradeHeaderView extends StatelessWidget {
 class TradeHeader extends StatelessWidget {
   final String tradeId;
   final bool showActions;
+  final bool showImages;
+  final bool compact;
   final VoidCallback? onTap;
   const TradeHeader({
     super.key,
     required this.tradeId,
     this.showActions = true,
+    this.showImages = true,
+    this.compact = false,
     this.onTap,
   });
   @override
@@ -229,6 +255,8 @@ class TradeHeader extends StatelessWidget {
               return TradeHeaderView(
                 tradeState: tradeState,
                 showActions: showActions,
+                showImages: showImages,
+                compact: compact,
                 onTap: onTap,
               );
             case TradeInitialising():

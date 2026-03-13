@@ -82,13 +82,41 @@ sealed class TradeStage {
   const TradeStage();
 }
 
+class NegotiationPolicy {
+  final Reservation? latestOffer;
+  final Reservation? lastOfferByUs;
+  final Reservation? lastOfferByThem;
+  final Amount? listingPrice;
+  final bool latestOfferSentByUs;
+  final bool latestOfferAcceptsPrevious;
+  final bool canPay;
+  final bool canCounter;
+  final Amount? counterMin;
+  final Amount? counterMax;
+
+  const NegotiationPolicy({
+    required this.latestOffer,
+    required this.lastOfferByUs,
+    required this.lastOfferByThem,
+    required this.listingPrice,
+    required this.latestOfferSentByUs,
+    required this.latestOfferAcceptsPrevious,
+    required this.canPay,
+    required this.canCounter,
+    required this.counterMin,
+    required this.counterMax,
+  });
+}
+
 class NegotiationStage extends TradeStage {
   final List<Reservation> reservationRequests;
   final ({bool isBlocked, String? reason}) overlapLock;
+  final NegotiationPolicy policy;
 
   const NegotiationStage({
     required this.reservationRequests,
     required this.overlapLock,
+    required this.policy,
   });
 }
 

@@ -184,6 +184,7 @@ class PaymentProofOrchestrator {
       final activeKeyPair = _deriveKeyPair(
         hostPubkey: listing.pubKey,
         tradeId: tradeId,
+        lastRequest: lastRequest,
       );
 
       final reservation = await _reservations.createSelfSigned(
@@ -199,6 +200,7 @@ class PaymentProofOrchestrator {
             id: tradeId.hashCode,
             title: 'Hostr',
             body: 'Trip booked! 🎉',
+            payload: _threadPayload(thread.anchor),
           );
         }
       } catch (e) {
@@ -236,9 +238,13 @@ class PaymentProofOrchestrator {
         return _threads.threads[tradeId];
       });
 
+  String _threadPayload(String threadId) =>
+      Uri(scheme: 'hostr', host: 'thread', pathSegments: [threadId]).toString();
+
   KeyPair _deriveKeyPair({
     required String hostPubkey,
     required String tradeId,
+    required Reservation lastRequest,
   }) => _logger.spanSync('_deriveKeyPair', () {
     final myPubkey = _auth.getActiveKey().publicKey;
     if (hostPubkey == myPubkey) {
@@ -246,7 +252,7 @@ class PaymentProofOrchestrator {
     }
     return tweakKeyPair(
       privateKey: _auth.getActiveKey().privateKey!,
-      salt: tradeId,
+      salt: lastRequest.tweakMaterial?.salt ?? tradeId,
     ).keyPair;
   });
 
