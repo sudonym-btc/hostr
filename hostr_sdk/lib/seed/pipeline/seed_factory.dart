@@ -223,6 +223,7 @@ class SeedFactory {
       quantity: thread.request.quantity,
       amount: thread.request.amount,
       recipient: thread.request.recipient,
+      tweakMaterial: thread.request.tweakMaterial,
       proof: proof,
       createdAt: _ctx.timestampDaysAfter(80),
     ).signAs(thread.guest.keyPair, Reservation.fromNostrEvent);

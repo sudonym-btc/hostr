@@ -85,6 +85,19 @@ class TagBuilder {
     return this;
   }
 
+  /// Encodes each [CancellationPolicy] as
+  /// `["cancellationPolicy", "secondsBeforeStart", "refundFraction"]`.
+  TagBuilder addCancellationPolicies(List<CancellationPolicy> policies) {
+    for (final policy in policies) {
+      _tags.add([
+        'cancellationPolicy',
+        policy.durationBeforeStart.inSeconds.toString(),
+        policy.refundFraction.toString(),
+      ]);
+    }
+    return this;
+  }
+
   // ── Amenity helpers ─────────────────────────────────────────────────
 
   /// Adds boolean amenity tags (only when true).

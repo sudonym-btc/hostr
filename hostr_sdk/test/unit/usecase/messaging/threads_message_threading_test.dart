@@ -4,39 +4,30 @@ library;
 import 'dart:async';
 
 import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/testing/in_memory_hydrated_storage.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/messaging/thread.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
-import 'package:hostr_sdk/usecase/payments/payments.dart';
-import 'package:hostr_sdk/usecase/requests/requests.dart';
+import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/util/main.dart';
-import 'package:hydrated_bloc/hydrated_bloc.dart' as hydrated;
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
-import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
-class _FakeRequests extends Fake implements Requests {
-  final StreamWithStatus<Message> _source = StreamWithStatus<Message>();
+class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
+  @override
+  final StreamWithStatus<Message> messages$ = StreamWithStatus<Message>();
 
   @override
-  StreamWithStatus<T> subscribe<T extends Nip01Event>({
-    required Filter filter,
-    List<String>? relays,
-    String? name,
-  }) {
-    return _source as StreamWithStatus<T>;
-  }
+  bool get started => true;
 
-  void emit(Message event) => _source.add(event);
+  void emit(Message event) => messages$.add(event);
 
-  void emitStatus(StreamStatus status) => _source.addStatus(status);
+  void emitStatus(StreamStatus status) => messages$.addStatus(status);
 
-  Future<void> close() => _source.close();
+  Future<void> close() => messages$.close();
 }
 
 class _FakeMessaging extends Fake implements Messaging {
@@ -66,8 +57,6 @@ class _FakeMessaging extends Fake implements Messaging {
     );
   }
 }
-
-class _FakePayments extends Fake implements Payments {}
 
 class _FakeAuth extends Fake implements Auth {
   @override
@@ -102,16 +91,12 @@ Future<void> _pump() async {
 
 void main() {
   late Threads threads;
-  late _FakeRequests requests;
+  late _FakeUserSubscriptions userSubscriptions;
   late _FakeAuth auth;
   late _FakeMessaging messaging;
 
-  setUpAll(() {
-    hydrated.HydratedBloc.storage = InMemoryHydratedStorage();
-  });
-
   setUp(() async {
-    requests = _FakeRequests();
+    userSubscriptions = _FakeUserSubscriptions();
     auth = _FakeAuth();
     messaging = _FakeMessaging();
 
@@ -127,10 +112,8 @@ void main() {
 
     threads = Threads(
       messaging: messaging,
-      requests: requests,
-      auth: auth,
+      userSubscriptions: userSubscriptions,
       logger: CustomLogger(),
-      payments: _FakePayments(),
     );
   });
 
@@ -149,8 +132,8 @@ void main() {
 
       await threads.sync();
 
-      requests.emitStatus(StreamStatusLive());
-      requests.emit(
+      userSubscriptions.emitStatus(StreamStatusLive());
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-1',
           sender: MockKeys.guest.publicKey,
@@ -165,7 +148,7 @@ void main() {
       expect(threads.threads.containsKey('thread-a'), isTrue);
       expect(threads.threads['thread-a']!.state.value.messages.length, 1);
 
-      requests.emit(
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-2',
           sender: MockKeys.hoster.publicKey,
@@ -179,7 +162,7 @@ void main() {
       expect(threads.threads.length, 1);
       expect(threads.threads['thread-a']!.state.value.messages.length, 2);
 
-      requests.emit(
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-3',
           sender: MockKeys.guest.publicKey,
@@ -203,7 +186,7 @@ void main() {
     () async {
       await threads.sync();
 
-      requests.emit(
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-4',
           sender: MockKeys.guest.publicKey,
@@ -212,7 +195,7 @@ void main() {
           createdAt: 110,
         ),
       );
-      requests.emit(
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-5',
           sender: MockKeys.hoster.publicKey,
@@ -242,8 +225,8 @@ void main() {
       createdAt: 110,
     );
 
-    requests.emit(message);
-    requests.emit(message);
+    userSubscriptions.emit(message);
+    userSubscriptions.emit(message);
     await _pump();
 
     expect(threads.state.length, 1);

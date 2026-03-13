@@ -30,21 +30,23 @@ class ReservationPairDeps {
 ///    [Reservation.validate].
 @Singleton()
 class ReservationPairs {
-  final Reservations reservations;
-  final CustomLogger logger;
-  final Evm evm;
+  final Reservations _reservations;
+  final CustomLogger _logger;
+  final Evm _evm;
 
   /// Lazily constructed on-chain escrow verifier.
   late final EscrowVerification escrowVerification = EscrowVerification(
-    evm: evm,
-    logger: logger,
+    evm: _evm,
+    logger: _logger,
   );
 
   ReservationPairs({
-    required this.reservations,
+    required Reservations reservations,
     required CustomLogger logger,
-    required this.evm,
-  }) : logger = logger.scope('reservation-pairs');
+    required Evm evm,
+  }) : _reservations = reservations,
+       _logger = logger.scope('reservation-pairs'),
+       _evm = evm;
 
   // ── Public API ──────────────────────────────────────────────────────
 
@@ -59,7 +61,7 @@ class ReservationPairs {
     bool closeSourceOnClose = false,
     bool forceValidateSelfSigned = false,
     bool Function(ReservationPair pair)? forceValidatePredicate,
-  }) => logger.spanSync('verifyFromSource', () {
+  }) => _logger.spanSync('verifyFromSource', () {
     return _buildValidatedStream(
       source: source,
       debounce: debounce,
@@ -79,8 +81,8 @@ class ReservationPairs {
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
     bool Function(ReservationPair pair)? forceValidatePredicate,
-  }) => logger.spanSync('subscribeVerified', () {
-    final source = reservations.subscribe(
+  }) => _logger.spanSync('subscribeVerified', () {
+    final source = _reservations.subscribe(
       Filter(
         tags: {
           kListingRefTag: [listingAnchor],
@@ -107,8 +109,8 @@ class ReservationPairs {
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
     bool Function(ReservationPair pair)? forceValidatePredicate,
-  }) => logger.spanSync('queryVerified', () {
-    final source = reservations.query(
+  }) => _logger.spanSync('queryVerified', () {
+    final source = _reservations.query(
       Filter(
         tags: {
           kListingRefTag: [listingAnchor],
@@ -273,11 +275,11 @@ class ReservationPairs {
       );
 
       if (pairs[tradeId] is Invalid) {
-        logger.w(
+        _logger.w(
           'Pair for trade $tradeId is invalid: ${(pairs[tradeId] as Invalid).reason}',
         );
       } else {
-        logger.d('Pair for trade $tradeId is valid');
+        _logger.d('Pair for trade $tradeId is valid');
       }
 
       return pairs.values.toList();

@@ -37,11 +37,14 @@ class EscrowVerificationResult {
 /// anchors, etc.) — that is handled by [Reservation.validate]. This class
 /// only handles the EVM on-chain portion.
 class EscrowVerification {
-  final Evm evm;
-  final CustomLogger logger;
+  final Evm _evm;
+  final CustomLogger _logger;
+  Evm get evm => _evm;
+  CustomLogger get logger => _logger;
 
-  EscrowVerification({required this.evm, required CustomLogger logger})
-    : logger = logger.scope('escrow-verify');
+  EscrowVerification({required Evm evm, required CustomLogger logger})
+    : _evm = evm,
+      _logger = logger.scope('escrow-verify');
 
   /// Verify the on-chain escrow for [reservation] against [listing].
   ///

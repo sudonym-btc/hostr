@@ -1,7 +1,6 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
-import '../../util/main.dart';
 import '../can_verify.dart';
 import '../crud.usecase.dart';
 import '../listings/listings.dart';
@@ -17,15 +16,17 @@ class ReviewDeps {
 
 @Singleton()
 class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
-  final Reservations reservations;
-  final Listings listings;
+  final Reservations _reservations;
+  final Listings _listings;
 
   Reviews({
     required super.requests,
     required super.logger,
-    required this.reservations,
-    required this.listings,
-  }) : super(kind: Review.kinds[0]);
+    required Reservations reservations,
+    required Listings listings,
+  }) : _reservations = reservations,
+       _listings = listings,
+       super(kind: Review.kinds[0]);
 
   @override
   Future<ReviewDeps> resolve(Review review) => logger.span('resolve', () async {
@@ -33,10 +34,10 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
     // reviews resolve concurrently, these merge into 1 findByTag query +
     // 1 getOne batch query.
     final results = await Future.wait([
-      reservations.getListingReservations(
+      _reservations.getListingReservations(
         listingAnchor: review.parsedTags.listingAnchor,
       ),
-      listings.getOneByAnchor(review.parsedTags.listingAnchor),
+      _listings.getOneByAnchor(review.parsedTags.listingAnchor),
     ]);
 
     var candidateReservations = results[0] as List<Reservation>;

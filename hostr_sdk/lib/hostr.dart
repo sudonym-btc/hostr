@@ -27,6 +27,7 @@ class Hostr {
   ReservationPairs get reservationPairs => getIt<ReservationPairs>();
   ReservationTransitions get reservationTransitions =>
       getIt<ReservationTransitions>();
+  GiftWraps get giftWraps => getIt<GiftWraps>();
   EscrowUseCase get escrow => getIt<EscrowUseCase>();
   Escrows get escrows => getIt<Escrows>();
   EscrowTrusts get escrowTrusts => getIt<EscrowTrusts>();
@@ -47,6 +48,7 @@ class Hostr {
   OperationStateStore get operationStateStore => getIt<OperationStateStore>();
   EscrowFundRegistry get escrowFundRegistry => getIt<EscrowFundRegistry>();
   BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
+  Heartbeats get heartbeats => getIt<Heartbeats>();
   UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();
   PaymentProofOrchestrator get paymentProofOrchestrator =>
       getIt<PaymentProofOrchestrator>();
@@ -119,24 +121,6 @@ class Hostr {
           pubkey: pubkey,
         );
 
-        await messaging.threads.sync();
-
-        // Start user-scoped Nostr subscriptions and the payment-proof
-        // orchestrator. UserSubscriptions must start first so its streams
-        // are live before the orchestrator subscribes to them.
-        userSubscriptions.start();
-        paymentProofOrchestrator.start();
-
-        // Ensure the user's profile has an EVM address tag.
-        metadata.ensureEvmAddress();
-
-        // Ensure the user's blossom server list includes the bootstrap servers.
-        // Await this during login to avoid races where media upload happens
-        // before the list is visible/available.
-        await blossom.ensureBlossomServer(pubkey);
-
-        nwc.start();
-
         // Ensure the user's escrow method list includes EVM.
         escrowMethods.ensureEscrowMethod();
 
@@ -144,19 +128,28 @@ class Hostr {
         if (config.bootstrapEscrowPubkeys.isNotEmpty) {
           escrowTrusts.ensureEscrowTrust(config.bootstrapEscrowPubkeys);
         }
+        // Start user-scoped Nostr subscriptions and the payment-proof
+        // orchestrator. UserSubscriptions must start first so its streams
+        // are live before the orchestrator subscribes to them.
+        await userSubscriptions.start();
+        paymentProofOrchestrator.start();
+        // Ensure the user's profile has an EVM address tag.
+        metadata.ensureEvmAddress();
+        nwc.start();
+
+        // Ensure the user's blossom server list includes the bootstrap servers.
+        // Await this during login to avoid races where media upload happens
+        // before the list is visible/available.
+        await blossom.ensureBlossomServer(pubkey);
+        await backgroundWorker.watch(onProgress: _onProgressFromConfig());
 
         // Reset the EVM balance subscription for the new user's address.
         evm.resetBalance();
 
-        // Recover any stale swaps (claims/refunds) from previous sessions.
-        evm.recoverStaleOperations(onProgress: _onProgressFromConfig());
-
-        // Start auto-withdrawing EVM balances to Lightning.
-        autoWithdraw.start();
-
         await calendar.start();
       } else {
         logger.i('User logged out');
+        await backgroundWorker.stop();
         await calendar.stop();
         autoWithdraw.stop();
         await paymentProofOrchestrator.reset();
@@ -213,6 +206,7 @@ class Hostr {
     _authInitialized = false;
     _connected = false;
     await _stopAuthListener();
+    await backgroundWorker.stop();
     await calendar.stop();
     await autoWithdraw.stop();
     await paymentProofOrchestrator.reset();

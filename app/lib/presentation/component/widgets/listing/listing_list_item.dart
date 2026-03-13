@@ -99,6 +99,23 @@ class ListingListItemView extends StatelessWidget {
                           (items) =>
                               items.whereType<Valid<ReservationPair>>().length,
                         ),
+                    averageReviewRating: verifiedReviews.itemsStream.map((
+                      items,
+                    ) {
+                      final reviews = items
+                          .whereType<Valid<Review>>()
+                          .map((validation) => validation.event)
+                          .toList();
+                      if (reviews.isEmpty) {
+                        return 0.0;
+                      }
+
+                      final total = reviews.fold<double>(
+                        0,
+                        (sum, review) => sum + review.rating,
+                      );
+                      return total / reviews.length;
+                    }),
                     reviewCount: verifiedReviews.itemsStream.map(
                       (items) => items.whereType<Valid<Review>>().length,
                     ),

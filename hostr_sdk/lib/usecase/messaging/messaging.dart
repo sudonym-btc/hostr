@@ -10,22 +10,24 @@ import 'threads.dart';
 
 @Singleton()
 class Messaging {
-  final Ndk ndk;
-  final Requests requests;
-  final CustomLogger logger;
+  final Ndk _ndk;
+  final Requests _requests;
+  final CustomLogger _logger;
   Threads get threads => getIt<Threads>();
-  Messaging(this.ndk, this.requests, CustomLogger logger)
-    : logger = logger.scope('messaging');
+  Messaging(Ndk ndk, Requests requests, CustomLogger logger)
+    : _ndk = ndk,
+      _requests = requests,
+      _logger = logger.scope('messaging');
 
   Future<Nip01Event> getRumour(
     String content,
     List<List<String>> tags,
     List<String> recipientPubkeys,
-  ) => logger.span('getRumour', () async {
-    logger.d(
+  ) => _logger.span('getRumour', () async {
+    _logger.d(
       'Creating rumor with content: $content, tags: $tags, recipientPubkeys: $recipientPubkeys',
     );
-    return ndk.giftWrap.createRumor(
+    return _ndk.giftWrap.createRumor(
       content: content,
       kind: kNostrKindDM,
       tags: [
@@ -39,7 +41,7 @@ class Messaging {
     required String content,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
-  }) => logger.span('broadcastTextAndAwait', () async {
+  }) => _logger.span('broadcastTextAndAwait', () async {
     return broadcastEventAndWait(
       event: await getRumour(content, tags, recipientPubkeys),
       tags: tags,
@@ -51,16 +53,16 @@ class Messaging {
     required String content,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
-  }) => logger.span('broadcastText', () async {
-    logger.d(
+  }) => _logger.span('broadcastText', () async {
+    _logger.d(
       'Broadcasting text: $content to $recipientPubkeys with tags: $tags',
     );
     final rumor = await getRumour(content, tags, recipientPubkeys);
 
-    final broadcasts = [...recipientPubkeys, ndk.accounts.getPublicKey()!]
+    final broadcasts = [...recipientPubkeys, _ndk.accounts.getPublicKey()!]
         .map(
-          (pubkey) async => requests.broadcast(
-            event: await ndk.giftWrap.toGiftWrap(
+          (pubkey) async => _requests.broadcast(
+            event: await _ndk.giftWrap.toGiftWrap(
               rumor: rumor,
               recipientPubkey: pubkey,
             ),
@@ -74,7 +76,7 @@ class Messaging {
     required Nip01Event event,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
-  }) => logger.span('broadcastEventAndWait', () async {
+  }) => _logger.span('broadcastEventAndWait', () async {
     final rumor = await getRumour(event.toString(), tags, recipientPubkeys);
     broadcastEvent(
       event: event,
@@ -90,7 +92,7 @@ class Messaging {
     required Nip01Event event,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
-  }) => logger.span('broadcastEvent', () async {
+  }) => _logger.span('broadcastEvent', () async {
     return broadcastText(
       content: event.toString(),
       tags: tags,

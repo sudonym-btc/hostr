@@ -17,19 +17,23 @@ import '../storage/storage.dart';
 
 @Singleton()
 class Auth {
-  final Ndk ndk;
+  final Ndk _ndk;
   final CustomLogger _logger;
-  final AuthStorage authStorage;
+  final AuthStorage _authStorage;
+  Ndk get ndk => _ndk;
+  AuthStorage get authStorage => _authStorage;
   final BehaviorSubject<AuthState> _authStateContoller =
       BehaviorSubject<AuthState>.seeded(AuthInitial());
   ValueStream<AuthState> get authState => _authStateContoller;
   KeyPair? activeKeyPair;
 
   Auth({
-    required this.ndk,
-    required this.authStorage,
+    required Ndk ndk,
+    required AuthStorage authStorage,
     required CustomLogger logger,
-  }) : _logger = logger;
+  }) : _ndk = ndk,
+       _authStorage = authStorage,
+       _logger = logger;
 
   /// Generates a new key pair and stores it, clearing any previous keys.
   Future<void> signup() => _logger.span('signup', () async {

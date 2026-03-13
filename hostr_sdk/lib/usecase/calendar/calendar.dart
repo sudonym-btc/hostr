@@ -259,7 +259,8 @@ class Calendar {
       });
 
   String? _resolveGuestPubkey(ReservationPair pair) {
-    final tweakedPubkey = pair.buyerReservation?.pubKey;
+    final tweakedPubkey =
+        pair.buyerReservation?.recipient ?? pair.buyerReservation?.pubKey;
     final tweakMaterial = pair.buyerReservation?.tweakMaterial;
     final salt = tweakMaterial?.salt;
     final parity = tweakMaterial?.parity;

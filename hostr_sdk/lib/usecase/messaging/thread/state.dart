@@ -5,6 +5,8 @@ class ThreadState {
   final String anchor;
   final List<Message> messages;
   final List<String> counterpartyPubkeys;
+  final bool read;
+  final bool received;
 
   /// Cached sorted copy of [messages], recomputed only when messages change.
   final List<Message> sortedMessages;
@@ -105,6 +107,8 @@ class ThreadState {
     required this.anchor,
     required this.messages,
     required this.counterpartyPubkeys,
+    this.read = false,
+    this.received = false,
     List<Message>? sortedMessages,
     List<String>? participantPubkeys,
   }) : sortedMessages = sortedMessages ?? _computeSortedMessages(messages),
@@ -120,6 +124,8 @@ class ThreadState {
       anchor: anchor,
       messages: const [],
       counterpartyPubkeys: [],
+      read: false,
+      received: false,
       sortedMessages: const [],
       participantPubkeys: const [],
     );
@@ -135,6 +141,8 @@ class ThreadState {
   ThreadState copyWith({
     List<Message>? messages,
     List<String>? counterpartyPubkeys,
+    bool? read,
+    bool? received,
   }) {
     final newMessages = messages ?? this.messages;
     final messagesChanged = !identical(newMessages, this.messages);
@@ -143,6 +151,8 @@ class ThreadState {
       anchor: anchor,
       messages: newMessages,
       counterpartyPubkeys: counterpartyPubkeys ?? this.counterpartyPubkeys,
+      read: read ?? this.read,
+      received: received ?? this.received,
       sortedMessages: messagesChanged ? null : sortedMessages,
       participantPubkeys: messagesChanged ? null : participantPubkeys,
     );

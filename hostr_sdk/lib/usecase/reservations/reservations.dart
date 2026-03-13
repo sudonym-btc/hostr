@@ -31,20 +31,28 @@ class ReservationDeps {
 @Singleton()
 class Reservations extends CrudUseCase<Reservation>
     implements CanVerify<Reservation, ReservationDeps> {
-  final Messaging messaging;
-  final Auth auth;
-  final ReservationTransitions transitions;
-  final Listings listings;
+  final Messaging _messaging;
+  final Auth _auth;
+  final ReservationTransitions _transitions;
+  final Listings _listings;
+  Messaging get messaging => _messaging;
+  Auth get auth => _auth;
+  ReservationTransitions get transitions => _transitions;
+  Listings get listings => _listings;
   StreamWithStatus<Reservation>? _myReservations;
   StreamSubscription<Reservation>? _myReservationsSubscription;
   Reservations({
     required super.requests,
     required super.logger,
-    required this.messaging,
-    required this.auth,
-    required this.transitions,
-    required this.listings,
-  }) : super(kind: Reservation.kinds[0]);
+    required Messaging messaging,
+    required Auth auth,
+    required ReservationTransitions transitions,
+    required Listings listings,
+  }) : _messaging = messaging,
+       _auth = auth,
+       _transitions = transitions,
+       _listings = listings,
+       super(kind: Reservation.kinds[0]);
 
   /// Query all reservations for a given trade id (d-tag).
   Future<List<Reservation>> getByTradeId(String tradeId) {
@@ -427,7 +435,7 @@ class Reservations extends CrudUseCase<Reservation>
 
     _myReservations = response;
 
-    final reservationsStream = messaging.threads.subscription!.replayStream
+    final reservationsStream = messaging.threads.messages$.replayStream
         .where(
           (message) =>
               message.child is Reservation &&

@@ -48,12 +48,9 @@ class ThreadReplyView extends StatelessWidget {
           right: 64,
         ),
         suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        suffixIcon: Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: IconButton.filled(
-            onPressed: isLoading || isEmpty ? null : onSend,
-            icon: const Icon(Icons.send_rounded, size: 16),
-          ),
+        suffixIcon: IconButton.filled(
+          onPressed: isLoading || isEmpty ? null : onSend,
+          icon: const Icon(Icons.send_rounded, size: 16),
         ),
       ),
     );

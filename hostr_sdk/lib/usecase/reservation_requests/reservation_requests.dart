@@ -1,7 +1,6 @@
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Ndk;
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 import '../auth/auth.dart';
@@ -12,14 +11,13 @@ import '../crud.usecase.dart';
 /// now produces [Reservation] instances with `stage = negotiate`.
 @Singleton()
 class ReservationRequests extends CrudUseCase {
-  final Ndk ndk;
-  final Auth auth;
+  final Auth _auth;
   ReservationRequests({
     required super.requests,
     required super.logger,
-    required this.ndk,
-    required this.auth,
-  }) : super(kind: Reservation.kinds[0]);
+    required Auth auth,
+  }) : _auth = auth,
+       super(kind: Reservation.kinds[0]);
 
   static String getReservationRequestId({
     required Listing listing,
@@ -48,7 +46,7 @@ class ReservationRequests extends CrudUseCase {
     logger.d('Creating negotiate reservation with nonce $nonce');
 
     final recipientKey = tweakKeyPair(
-      privateKey: auth.getActiveKey().privateKey!,
+      privateKey: _auth.getActiveKey().privateKey!,
       salt: salt,
     );
     final tweakMaterial = ReservationTweakMaterial(

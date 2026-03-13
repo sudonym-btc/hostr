@@ -11,6 +11,8 @@ export 'escrow_methods/escrows_methods.dart';
 export 'escrow_trusts/escrow_trusts.dart';
 export 'escrows/escrows.dart';
 export 'evm/main.dart';
+export 'gift_wraps/main.dart';
+export 'heartbeat/main.dart';
 export 'listings/listings.dart';
 export 'location/location.dart';
 export 'messaging/main.dart';

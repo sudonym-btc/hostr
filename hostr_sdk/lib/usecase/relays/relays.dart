@@ -13,39 +13,48 @@ import '../storage/storage.dart';
 
 @Singleton(env: Env.allButTestAndMock)
 class Relays {
-  final CustomLogger logger;
-  final Ndk ndk;
-  final RelayStorage relayStorage;
+  final CustomLogger _logger;
+  final Ndk _ndk;
+  final RelayStorage _relayStorage;
+  CustomLogger get logger => _logger;
+  Ndk get ndk => _ndk;
+  RelayStorage get relayStorage => _relayStorage;
 
-  Relays({required this.ndk, required this.relayStorage, required this.logger});
+  Relays({
+    required Ndk ndk,
+    required RelayStorage relayStorage,
+    required CustomLogger logger,
+  }) : _ndk = ndk,
+       _relayStorage = relayStorage,
+       _logger = logger;
 
-  Future<void> add(String url) => logger.span('add', () async {
-    logger.d('Adding relay: $url');
-    return ndk.relays
+  Future<void> add(String url) => _logger.span('add', () async {
+    _logger.d('Adding relay: $url');
+    return _ndk.relays
         .connectRelay(dirtyUrl: url, connectionSource: ConnectionSource.seed)
         .then((value) async {
-          logger.i('Connected to relay: $url success: ${value.first}');
+          _logger.i('Connected to relay: $url success: ${value.first}');
           if (value.first == true) {
-            await relayStorage.add(url);
+            await _relayStorage.add(url);
           } else {
             throw Exception(value.second);
           }
         });
   });
 
-  Future<void> remove(String url) => logger.span('remove', () async {
-    logger.d('Removing relay: $url');
+  Future<void> remove(String url) => _logger.span('remove', () async {
+    _logger.d('Removing relay: $url');
 
-    List<RelayConnectivity<dynamic>> relays = ndk.relays.connectedRelays;
+    List<RelayConnectivity<dynamic>> relays = _ndk.relays.connectedRelays;
     for (var relay in relays) {
       if (relay.url == url) {
         await relay.close();
       }
     }
-    await relayStorage.remove(url);
+    await _relayStorage.remove(url);
   });
 
-  Future<void> connect() => logger.span('connect', () async {
+  Future<void> connect() => _logger.span('connect', () async {
     final config = getIt<HostrConfig>();
     final configured = config.bootstrapRelays;
 
@@ -63,7 +72,7 @@ class Relays {
 
     await Future.wait(
       configured.map(
-        (url) => ndk.relays.connectRelay(
+        (url) => _ndk.relays.connectRelay(
           dirtyUrl: url,
           connectionSource: ConnectionSource.seed,
         ),
@@ -79,12 +88,12 @@ class Relays {
   /// queries that would otherwise silently return empty results.
   ///
   /// Safe to call from multiple places — all callers share the same future.
-  Future<void> ensureConnected() => logger.span('ensureConnected', () async {
-    logger.d('Ensuring relay connectivity…');
+  Future<void> ensureConnected() => _logger.span('ensureConnected', () async {
+    _logger.d('Ensuring relay connectivity…');
     return _waitForConnection();
   });
 
-  Future<void> _waitForConnection() => logger.span(
+  Future<void> _waitForConnection() => _logger.span(
     '_waitForConnection',
     () async {
       const timeout = Duration(seconds: 30);
@@ -93,18 +102,18 @@ class Relays {
       // Poll until at least one relay is connected or we exceed the timeout.
       final deadline = DateTime.now().add(timeout);
       while (DateTime.now().isBefore(deadline)) {
-        if (ndk.relays.connectedRelays.isNotEmpty) {
+        if (_ndk.relays.connectedRelays.isNotEmpty) {
           return;
         }
         getIt<HostrConfig>().bootstrapRelays.map(
-          (e) => ndk.relays.isRelayConnecting(e)
-              ? ndk.relays.reconnectRelay(
+          (e) => _ndk.relays.isRelayConnecting(e)
+              ? _ndk.relays.reconnectRelay(
                   e,
                   connectionSource: ConnectionSource.seed,
                 )
               : null,
         );
-        logger.d('Checking relay connectivity…');
+        _logger.d('Checking relay connectivity…');
         await Future.delayed(pollInterval);
       }
       throw Exception('Timed out waiting for relay connection after $timeout');
@@ -112,7 +121,7 @@ class Relays {
   );
 
   Stream<Map<String, RelayConnectivity<dynamic>>> connectivity() {
-    return ndk.relays.relayConnectivityChanges;
+    return _ndk.relays.relayConnectivityChanges;
   }
 
   /// Fetches the user's NIP-65 relay list and connects to any relays
