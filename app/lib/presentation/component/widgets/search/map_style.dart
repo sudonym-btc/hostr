@@ -93,7 +93,7 @@ String getMapStyle(BuildContext context, bool isDarkMode) {
   {
     "featureType": "road.highway",
     "elementType": "geometry.stroke",
-    "stylers": [{ "color": "$land" }, { "weight": 0.2 }]
+    "stylers": [{ "color": "$land" }, { "weight": 1 }]
   },
   {
     "featureType": "road.highway",
@@ -116,7 +116,7 @@ String getMapStyle(BuildContext context, bool isDarkMode) {
   {
     "featureType": "administrative",
     "elementType": "geometry.stroke",
-    "stylers": [{ "color": "$outline" }, { "weight": 1.2 }]
+    "stylers": [{ "color": "$outline" }, { "weight": 1 }]
   },
   {
     "featureType": "administrative.land_parcel",

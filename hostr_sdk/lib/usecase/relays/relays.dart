@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:injectable/injectable.dart';
 import 'package:ndk/entities.dart';
@@ -10,6 +9,7 @@ import '../../injection.dart';
 import '../../util/main.dart';
 import '../requests/requests.dart';
 import '../storage/storage.dart';
+import 'relay_preflight.dart';
 
 @Singleton(env: Env.allButTestAndMock)
 class Relays {
@@ -58,17 +58,11 @@ class Relays {
     final config = getIt<HostrConfig>();
     final configured = config.bootstrapRelays;
 
-    try {
-      // First attempt a connection without NDK. NDK will error after 4 seconds and prevent future reconnects for a long timeout.
-      // However, debug mode over wireless can result in network access being locked for 20+ seconds, so we want to use a longer than NDK timeout to attempt connection.
-      // https://www.reddit.com/r/iOSProgramming/comments/1nvksc7/network_requests_are_failing_for_first_30_seconds/?utm_source=chatgpt.com
-
-      final sw = Stopwatch()..start();
-      final ws = await WebSocket.connect(configured.first);
-      sw.stop();
-      await ws.close();
-    } catch (_) {}
     if (configured.isEmpty) return;
+
+    // On native platforms we warm up the first relay socket before delegating
+    // to NDK. On web this is a no-op because dart:io WebSocket is unavailable.
+    await warmUpRelayConnection(configured.first);
 
     await Future.wait(
       configured.map(

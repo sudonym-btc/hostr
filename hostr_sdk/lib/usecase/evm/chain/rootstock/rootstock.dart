@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:http/io_client.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
@@ -11,6 +8,7 @@ import '../../../../datasources/boltz/boltz.dart';
 import '../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../injection.dart';
 import '../../../../util/bitcoin_amount.dart';
+import '../../../../util/http_client_factory.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../../main.dart';
@@ -22,10 +20,8 @@ import 'rif_relay/rif_relay.dart';
 class Rootstock extends EvmChain {
   final HostrConfig config;
 
-  static Web3Client _buildWeb3Client(String rpcUrl) => Web3Client(
-    rpcUrl,
-    IOClient(HttpClient()..idleTimeout = const Duration(seconds: 10)),
-  );
+  static Web3Client _buildWeb3Client(String rpcUrl) =>
+      Web3Client(rpcUrl, createPlatformHttpClient());
 
   Rootstock({required this.config, required super.auth, required super.logger})
     : super(client: _buildWeb3Client(config.rootstockConfig.rpcUrl));

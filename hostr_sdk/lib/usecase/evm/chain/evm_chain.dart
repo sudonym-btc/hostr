@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:http/http.dart' as http;
@@ -10,6 +9,7 @@ import 'package:web3dart/web3dart.dart';
 import '../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../util/bitcoin_amount.dart';
 import '../../../util/custom_logger.dart';
+import '../../../util/network_error.dart';
 import '../../auth/auth.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
@@ -65,7 +65,7 @@ abstract class EvmChain {
 
   bool _isTransientRpcError(Object error) =>
       error is http.ClientException ||
-      error is SocketException ||
+      isPlatformSocketException(error) ||
       error is TimeoutException;
 
   Future<T> _callRpcWithRetry<T>(
