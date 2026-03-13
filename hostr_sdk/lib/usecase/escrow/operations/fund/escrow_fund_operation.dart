@@ -15,14 +15,11 @@ import 'escrow_fund_state.dart';
 @injectable
 class EscrowFundOperation extends OnchainOperation {
   final EscrowFundParams? params;
-  late ContractFundEscrowParams contractParams;
   EthereumAddress? _relaySmartWalletAddress;
+  GasEstimate? _gasEstimate;
 
   @override
   String get tradeId => params!.negotiateReservation.getDtag()!;
-
-  bool get _usesRelayForClaimAndFund =>
-      contract.supportsClaimSwapAndFund && contract.rifRelay != null;
 
   EscrowFundOperation(
     Auth auth,
@@ -33,9 +30,6 @@ class EscrowFundOperation extends OnchainOperation {
     if (params != null) {
       chain = evm.getChainForEscrowService(params!.escrowService);
       contract = chain.getSupportedEscrowContract(params!.escrowService);
-      contractParams = params!.toContractParams(
-        auth.getActiveEvmKey(accountIndex: accountIndex),
-      );
     }
   }
 
@@ -54,9 +48,6 @@ class EscrowFundOperation extends OnchainOperation {
     final data = initialState.data;
     if (data is EscrowFundData) {
       accountIndex = data.accountIndex;
-      contractParams = data.toContractParams(
-        auth.getActiveEvmKey(accountIndex: accountIndex),
-      );
     }
   }
 
@@ -80,8 +71,8 @@ class EscrowFundOperation extends OnchainOperation {
 
   @override
   EthereumAddress get swapClaimAddress => contract.supportsClaimSwapAndFund
-      ? contractParams.ethKey.address
-      : (_relaySmartWalletAddress ?? contractParams.ethKey.address);
+      ? _activeEthKey().address
+      : (_relaySmartWalletAddress ?? _activeEthKey().address);
 
   @override
   EthereumAddress? get swapClaimDestination =>
@@ -91,41 +82,32 @@ class EscrowFundOperation extends OnchainOperation {
   OnchainOperationData buildInitialData({
     required ContractCallIntent callIntent,
     required String transport,
-  }) => EscrowFundData(
-    tradeId: contractParams.tradeId,
-    reservedAmountWeiHex: BitcoinAmount.fromAmount(
-      params!.amount,
-    ).getInWei.toRadixString(16),
-    sellerEvmAddress: contractParams.sellerEvmAddress,
-    arbiterEvmAddress: contractParams.arbiterEvmAddress,
-    contractAddress: params!.escrowService.contractAddress,
-    chainId: params!.escrowService.chainId,
-    unlockAt: contractParams.unlockAt,
-    accountIndex: accountIndex,
-    callIntent: callIntent,
-    transport: transport,
-    escrowFeeWeiHex: contractParams.escrowFee?.getInWei.toRadixString(16),
-  );
+  }) {
+    final params = _requireParams();
+    return EscrowFundData(
+      tradeId: params.negotiateReservation.getDtag()!,
+      contractAddress: params.escrowService.contractAddress,
+      chainId: params.escrowService.chainId,
+      accountIndex: accountIndex,
+      callIntent: callIntent,
+      transport: transport,
+    );
+  }
 
   @override
-  Future<ContractCallIntent> buildDirectCallIntent() async =>
-      contract.fund(contractParams);
+  Future<ContractCallIntent> buildDirectCallIntent() async {
+    final params = _requireParams();
+    return contract.fund(_buildFundArgs(params));
+  }
 
   @override
   SwapInClaimCallback? get swapClaimCallback =>
       contract.supportsClaimSwapAndFund ? _claimAndFund : null;
 
   @override
-  void onAddressResolved(int resolvedAccountIndex) =>
-      logger.spanSync('onAddressResolved', () {
-        final evmKey = auth.getActiveEvmKey(accountIndex: resolvedAccountIndex);
-        contractParams = params!.toContractParams(evmKey);
-      });
-
-  @override
   void onGasEstimated(GasEstimate estimate) =>
       logger.spanSync('onGasEstimated', () {
-        contractParams = contractParams.withGasEstimate(estimate);
+        _gasEstimate = estimate;
       });
 
   @override
@@ -161,29 +143,33 @@ class EscrowFundOperation extends OnchainOperation {
 
   Future<String> _claimAndFund(ClaimArgs claimArgs) =>
       logger.span('claimAndFundSwapClaim', () async {
+        final params = _requireParams();
+        final fundArgs = _buildFundArgs(params);
+        final ethKey = fundArgs.ethKey;
         final etherSwap = await chain.getEtherSwapContract();
-        final sender = contractParams.ethKey.address;
+        final sender = ethKey.address;
         final senderBalance = await chain.getBalance(sender);
         final intent = contract.claimSwapAndFund(
-          ContractClaimAndFundEscrowParams(
+          ClaimSwapAndFundArgs(
             swapContract: etherSwap.self.address,
             claimArgs: claimArgs,
-            fundParams: contractParams,
+            fundArgs: fundArgs,
           ),
         );
         logger.i(
           'Submitting claimAndFund from ${sender.eip55With0x} '
           'with balance=${senderBalance.getInWei} wei, '
           'swapContract=${etherSwap.self.address.eip55With0x}, '
-          'tradeId=${contractParams.tradeId}',
+          'tradeId=${fundArgs.tradeId}',
         );
-        final txHash = _usesRelayForClaimAndFund
+        final usesRelayForClaimAndFund = _usesRelayForClaimAndFund();
+        final txHash = usesRelayForClaimAndFund
             ? ((await contract.rifRelay!.relayCall(
-                    contractParams.ethKey,
+                    ethKey,
                     intent,
                   )).txHash?.toString() ??
                   '')
-            : await broadcastContractCallIntent(intent, contractParams.ethKey);
+            : await broadcastContractCallIntent(intent, ethKey);
 
         if (txHash.isEmpty) {
           throw StateError(
@@ -195,8 +181,8 @@ class EscrowFundOperation extends OnchainOperation {
 
   Future<void> _ensureSwapClaimAddress() =>
       logger.span('ensureSwapClaimAddress', () async {
-        if (contract.rifRelay == null ||
-            (contract.supportsClaimSwapAndFund && !_usesRelayForClaimAndFund)) {
+        final ethKey = _activeEthKey();
+        if (!_usesRelayForClaimAndFund()) {
           _relaySmartWalletAddress = null;
           return;
         }
@@ -204,7 +190,7 @@ class EscrowFundOperation extends OnchainOperation {
         final rifRelay = contract.rifRelay!;
 
         _relaySmartWalletAddress = (await rifRelay.getSmartWalletAddress(
-          contractParams.ethKey,
+          ethKey,
         )).address;
       });
 
@@ -212,12 +198,47 @@ class EscrowFundOperation extends OnchainOperation {
 
   Future<EscrowFundFees> estimateFees() =>
       logger.span('estimateFees', () async {
+        final params = _requireParams();
+        final fundArgs = _buildFundArgs(params);
         await _ensureSwapClaimAddress();
         final quote = await estimateOperationFees();
         return EscrowFundFees(
           estimatedGasFees: quote.gasEstimate.fee,
           estimatedSwapFees: quote.swapFees,
-          estimatedEscrowFees: contractParams.escrowFee ?? BitcoinAmount.zero(),
+          estimatedEscrowFees: fundArgs.escrowFee ?? BitcoinAmount.zero(),
         );
       });
+
+  EscrowFundParams _requireParams() {
+    final params = this.params;
+    if (params == null) {
+      throw StateError(
+        'EscrowFundOperation params are unavailable in recovery',
+      );
+    }
+    return params;
+  }
+
+  EthPrivateKey _activeEthKey() =>
+      auth.getActiveEvmKey(accountIndex: accountIndex);
+
+  FundArgs _buildFundArgs(EscrowFundParams params) {
+    final amount = BitcoinAmount.fromAmount(params.amount);
+    return FundArgs(
+      tradeId: params.negotiateReservation.getDtag()!,
+      amount: amount,
+      sellerEvmAddress: params.sellerProfile.evmAddress!,
+      arbiterEvmAddress: params.escrowService.evmAddress,
+      unlockAt: params.negotiateReservation.end.millisecondsSinceEpoch ~/ 1000,
+      escrowFee: BitcoinAmount.fromInt(
+        BitcoinUnit.sat,
+        params.escrowService.escrowFee(amount.getInSats.toInt()),
+      ),
+      ethKey: _activeEthKey(),
+      gasEstimate: _gasEstimate,
+    );
+  }
+
+  bool _usesRelayForClaimAndFund() =>
+      contract.supportsClaimSwapAndFund && contract.rifRelay != null;
 }

@@ -17,6 +17,7 @@ class Evm {
   final CustomLogger _logger;
   final Rootstock _rootstock;
   CustomLogger get logger => _logger;
+  Rootstock get rootstock => _rootstock;
 
   BehaviorSubject<BitcoinAmount>? _balanceSubject;
   StreamSubscription<BitcoinAmount>? _balanceSubscription;

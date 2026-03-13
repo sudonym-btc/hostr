@@ -10,7 +10,6 @@ import 'escrow_claim_models.dart';
 @injectable
 class EscrowClaimOperation extends OnchainOperation {
   final EscrowClaimParams params;
-  late ContractClaimEscrowParams contractParams;
 
   @override
   String get tradeId => params.tradeId;
@@ -23,9 +22,6 @@ class EscrowClaimOperation extends OnchainOperation {
   ) : super(auth, evm, logger, const OnchainInitialised()) {
     chain = evm.getChainForEscrowService(params.escrowService!);
     contract = chain.getSupportedEscrowContract(params.escrowService!);
-    contractParams = params.toContractParams(
-      auth.getActiveEvmKey(accountIndex: accountIndex),
-    );
   }
 
   // ── OnchainOperation overrides ────────────────────────────────────
@@ -42,7 +38,7 @@ class EscrowClaimOperation extends OnchainOperation {
 
   @override
   Future<void> preflight() => logger.span('preflight', () async {
-    final canClaim = await contract.canClaim(contractParams);
+    final canClaim = await contract.canClaim(tradeId: params.tradeId);
     if (!canClaim) {
       throw StateError(
         'Claim is not available yet. Trade must still be active and '
@@ -50,9 +46,6 @@ class EscrowClaimOperation extends OnchainOperation {
       );
     }
   });
-
-  @override
-  Future<void> initialize() => super.initialize();
 
   @override
   OnchainOperationData buildInitialData({
@@ -68,18 +61,14 @@ class EscrowClaimOperation extends OnchainOperation {
   );
 
   @override
-  Future<ContractCallIntent> buildDirectCallIntent() async =>
-      contract.claim(contractParams);
+  Future<ContractCallIntent> buildDirectCallIntent() async => contract.claim(
+    tradeId: params.tradeId,
+    ethKey: auth.getActiveEvmKey(accountIndex: accountIndex),
+  );
 
   @override
-  Future<ContractCallIntent> buildRelayedCallIntent() =>
-      contract.claimRelayed(contractParams);
-
-  @override
-  void onAddressResolved(int resolvedAccountIndex) =>
-      logger.spanSync('onAddressResolved', () {
-        contractParams = params.toContractParams(
-          auth.getActiveEvmKey(accountIndex: resolvedAccountIndex),
-        );
-      });
+  Future<ContractCallIntent> buildRelayedCallIntent() => contract.claimRelayed(
+    tradeId: params.tradeId,
+    ethKey: auth.getActiveEvmKey(accountIndex: accountIndex),
+  );
 }

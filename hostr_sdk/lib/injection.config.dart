@@ -22,6 +22,10 @@ import 'package:hostr_sdk/usecase/badge_definitions/badge_definitions.dart'
     as _i978;
 import 'package:hostr_sdk/usecase/blossom/blossom.dart' as _i824;
 import 'package:hostr_sdk/usecase/calendar/calendar.dart' as _i733;
+import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart'
+    as _i1200;
+import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys_impl.dart'
+    as _i1201;
 import 'package:hostr_sdk/usecase/escrow/escrow.dart' as _i376;
 import 'package:hostr_sdk/usecase/escrow/operations/claim/escrow_claim_models.dart'
     as _i676;
@@ -388,6 +392,14 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         transitions: gh<_i826.ReservationTransitions>(),
         listings: gh<_i906.Listings>(),
+      ),
+    );
+    gh.singleton<_i1200.DeterministicKeys>(
+      () => _i1201.DeterministicKeysImpl(
+        auth: gh<_i1000.Auth>(),
+        evm: gh<_i305.Evm>(),
+        reservations: gh<_i326.Reservations>(),
+        logger: gh<_i372.CustomLogger>(),
       ),
     );
     gh.singleton<_i1045.Zaps>(

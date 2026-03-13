@@ -162,14 +162,8 @@ void main() {
     final store = getIt<OperationStateStore>();
     final fakeData = EscrowFundData(
       tradeId: 'fake-trade-id',
-      reservedAmountWeiHex: BigInt.from(100000).toRadixString(16),
-      sellerEvmAddress: '0x0000000000000000000000000000000000000001',
-      arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
       contractAddress: resolveContractAddress(),
       chainId: 33,
-      unlockAt:
-          DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch ~/
-          1000,
       accountIndex: 0,
       swapId: 'nonexistent-swap-id',
     );

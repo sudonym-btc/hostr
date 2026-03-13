@@ -60,6 +60,47 @@ class GasEstimate {
       'gasPrice=${gasPrice.getInWei}, gasLimit=$gasLimit)';
 }
 
+class FundArgs {
+  final String tradeId;
+  final BitcoinAmount amount;
+  final String sellerEvmAddress;
+  final String arbiterEvmAddress;
+  final int unlockAt;
+  final BitcoinAmount? escrowFee;
+  final EthPrivateKey ethKey;
+  final GasEstimate? gasEstimate;
+
+  const FundArgs({
+    required this.tradeId,
+    required this.amount,
+    required this.sellerEvmAddress,
+    required this.arbiterEvmAddress,
+    required this.unlockAt,
+    this.escrowFee,
+    required this.ethKey,
+    this.gasEstimate,
+  });
+}
+
+class ClaimSwapAndFundArgs {
+  final EthereumAddress swapContract;
+  final ClaimArgs claimArgs;
+  final FundArgs fundArgs;
+
+  const ClaimSwapAndFundArgs({
+    required this.swapContract,
+    required this.claimArgs,
+    required this.fundArgs,
+  });
+}
+
+class ReleaseArgs {
+  final String tradeId;
+  final EthPrivateKey ethKey;
+
+  const ReleaseArgs({required this.tradeId, required this.ethKey});
+}
+
 typedef AuthorizationHashFn =
     Future<Uint8List> Function(
       ({Uint8List tradeId, dynamic relayFeeQuote}) args,
@@ -90,35 +131,42 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   });
 
   /// Public API
-  Future<GasEstimate> estimateEscrowFundFee(ContractFundEscrowParams params) =>
-      estimateFee(fund(params), stateOverrideBalance: params.amount.getInWei);
+  Future<GasEstimate> estimateEscrowFundFee(FundArgs args) =>
+      estimateFee(fund(args), stateOverrideBalance: args.amount.getInWei);
 
-  Future<GasEstimate> estimateClaimFee(ContractClaimEscrowParams params) =>
-      estimateFee(claim(params));
+  Future<GasEstimate> estimateClaimFee({
+    required String tradeId,
+    required EthPrivateKey ethKey,
+  }) => estimateFee(claim(tradeId: tradeId, ethKey: ethKey));
 
-  Future<GasEstimate> estimateReleaseFee(ContractReleaseEscrowParams params) =>
-      estimateFee(release(params));
+  Future<GasEstimate> estimateReleaseFee(ReleaseArgs args) =>
+      estimateFee(release(args));
 
-  Future<bool> canClaim(ContractClaimEscrowParams params);
-  Future<bool> canRelease(ContractReleaseEscrowParams params);
+  Future<bool> canClaim({required String tradeId});
+  Future<bool> canRelease(ReleaseArgs args);
 
-  ContractCallIntent fund(ContractFundEscrowParams params);
-  Future<ContractCallIntent> fundRelayed(
-    ContractFundEscrowParams params,
-  ) async => fund(params);
-  ContractCallIntent claim(ContractClaimEscrowParams params);
-  Future<ContractCallIntent> claimRelayed(
-    ContractClaimEscrowParams params,
-  ) async => claim(params);
-  ContractCallIntent claimSwapAndFund(ContractClaimAndFundEscrowParams params);
+  ContractCallIntent fund(FundArgs args);
+  Future<ContractCallIntent> fundRelayed(FundArgs args) async => fund(args);
+  ContractCallIntent claim({
+    required String tradeId,
+    required EthPrivateKey ethKey,
+  });
+  Future<ContractCallIntent> claimRelayed({
+    required String tradeId,
+    required EthPrivateKey ethKey,
+  }) async => claim(tradeId: tradeId, ethKey: ethKey);
+  ContractCallIntent claimSwapAndFund(ClaimSwapAndFundArgs args);
   Future<ContractCallIntent> claimSwapAndFundRelayed(
-    ContractClaimAndFundEscrowParams params,
-  ) async => claimSwapAndFund(params);
-  ContractCallIntent release(ContractReleaseEscrowParams params);
-  Future<ContractCallIntent> releaseRelayed(
-    ContractReleaseEscrowParams params,
-  ) async => release(params);
-  ContractCallIntent arbitrate(ContractArbitrateParams params);
+    ClaimSwapAndFundArgs args,
+  ) async => claimSwapAndFund(args);
+  ContractCallIntent release(ReleaseArgs args);
+  Future<ContractCallIntent> releaseRelayed(ReleaseArgs args) async =>
+      release(args);
+  ContractCallIntent arbitrate({
+    required String tradeId,
+    required double forward,
+    required EthPrivateKey ethKey,
+  });
 
   Object decodeWriteError(Object error) => error;
 
@@ -289,9 +337,6 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
       methodName: methodName,
     );
   }
-
-  fundArgs(ContractFundEscrowParams params);
-  arbitrateArgs(ContractArbitrateParams params);
 }
 
 class SupportedEscrowContractFactory {
@@ -321,18 +366,6 @@ class ContractEventsParams {
       'seller=$sellerEvmAddress, arbiter=$arbiterEvmAddress)';
 }
 
-class ContractArbitrateParams {
-  final String tradeId;
-  final double forward;
-  final EthPrivateKey ethKey;
-
-  ContractArbitrateParams({
-    required this.tradeId,
-    required this.forward,
-    required this.ethKey,
-  });
-}
-
 class ContractListTradesParams {
   final String? buyerEvmAddress;
   final String? sellerEvmAddress;
@@ -343,74 +376,6 @@ class ContractListTradesParams {
     this.sellerEvmAddress,
     this.arbiterEvmAddress,
   });
-}
-
-class ContractFundEscrowParams {
-  final String tradeId;
-  final BitcoinAmount amount;
-  final String sellerEvmAddress;
-  final String arbiterEvmAddress;
-  final EthPrivateKey ethKey;
-  final int unlockAt;
-
-  /// Flat escrow fee. Stored as a [BitcoinAmount] so it can be losslessly
-  /// converted to wei when encoding the on-chain `createTrade` call.
-  final BitcoinAmount? escrowFee;
-
-  /// Gas parameters pinned at estimation time. When set, the deposit
-  /// transaction uses these exact values instead of re-querying the node.
-  final GasEstimate? gasEstimate;
-
-  ContractFundEscrowParams({
-    required this.tradeId,
-    required this.amount,
-    required this.sellerEvmAddress,
-    required this.arbiterEvmAddress,
-    required this.ethKey,
-    required this.unlockAt,
-    this.escrowFee,
-    this.gasEstimate,
-  });
-
-  /// Returns a copy with pinned [gasEstimate].
-  ContractFundEscrowParams withGasEstimate(GasEstimate estimate) {
-    return ContractFundEscrowParams(
-      tradeId: tradeId,
-      amount: amount,
-      sellerEvmAddress: sellerEvmAddress,
-      arbiterEvmAddress: arbiterEvmAddress,
-      ethKey: ethKey,
-      unlockAt: unlockAt,
-      escrowFee: escrowFee,
-      gasEstimate: estimate,
-    );
-  }
-}
-
-class ContractClaimEscrowParams {
-  final String tradeId;
-  final EthPrivateKey ethKey;
-
-  ContractClaimEscrowParams({required this.tradeId, required this.ethKey});
-}
-
-class ContractClaimAndFundEscrowParams {
-  final EthereumAddress swapContract;
-  final ClaimArgs claimArgs;
-  final ContractFundEscrowParams fundParams;
-
-  ContractClaimAndFundEscrowParams({
-    required this.swapContract,
-    required this.claimArgs,
-    required this.fundParams,
-  });
-}
-
-class ContractReleaseEscrowParams {
-  final String tradeId;
-  final EthPrivateKey ethKey;
-
-  ContractReleaseEscrowParams({required this.tradeId, required this.ethKey});
 }
 
 abstract class PaymentEvent {

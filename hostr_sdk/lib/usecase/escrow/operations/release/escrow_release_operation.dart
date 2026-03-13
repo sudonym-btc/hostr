@@ -10,7 +10,6 @@ import 'escrow_release_models.dart';
 @injectable
 class EscrowReleaseOperation extends OnchainOperation {
   final EscrowReleaseParams params;
-  late ContractReleaseEscrowParams contractParams;
 
   @override
   String get tradeId => params.tradeId;
@@ -23,9 +22,6 @@ class EscrowReleaseOperation extends OnchainOperation {
   ) : super(auth, evm, logger, const OnchainInitialised()) {
     chain = evm.getChainForEscrowService(params.escrowService!);
     contract = chain.getSupportedEscrowContract(params.escrowService!);
-    contractParams = params.toContractParams(
-      auth.getActiveEvmKey(accountIndex: accountIndex),
-    );
   }
 
   // ── OnchainOperation overrides ────────────────────────────────────
@@ -41,9 +37,6 @@ class EscrowReleaseOperation extends OnchainOperation {
   String get swapInvoiceDescription => 'Hostr Escrow Release';
 
   @override
-  Future<void> initialize() => super.initialize();
-
-  @override
   OnchainOperationData buildInitialData({
     required ContractCallIntent callIntent,
     required String transport,
@@ -57,18 +50,19 @@ class EscrowReleaseOperation extends OnchainOperation {
   );
 
   @override
-  Future<ContractCallIntent> buildDirectCallIntent() async =>
-      contract.release(contractParams);
+  Future<ContractCallIntent> buildDirectCallIntent() async => contract.release(
+    ReleaseArgs(
+      tradeId: params.tradeId,
+      ethKey: auth.getActiveEvmKey(accountIndex: accountIndex),
+    ),
+  );
 
   @override
   Future<ContractCallIntent> buildRelayedCallIntent() =>
-      contract.releaseRelayed(contractParams);
-
-  @override
-  void onAddressResolved(int resolvedAccountIndex) =>
-      logger.spanSync('onAddressResolved', () {
-        contractParams = params.toContractParams(
-          auth.getActiveEvmKey(accountIndex: resolvedAccountIndex),
-        );
-      });
+      contract.releaseRelayed(
+        ReleaseArgs(
+          tradeId: params.tradeId,
+          ethKey: auth.getActiveEvmKey(accountIndex: accountIndex),
+        ),
+      );
 }

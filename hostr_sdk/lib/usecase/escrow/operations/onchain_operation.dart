@@ -921,7 +921,7 @@ abstract class OnchainOperation
 
   /// Called after [resolveAddress] picks an account index so subclasses
   /// can update their contract params with the resolved key.
-  void onAddressResolved(int resolvedAccountIndex);
+  void onAddressResolved(int resolvedAccountIndex) {}
 
   // ── Swap deficit ──────────────────────────────────────────────────
 

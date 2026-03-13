@@ -21,13 +21,22 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   final StreamWithStatus<Message> messages$ = StreamWithStatus<Message>();
 
   @override
+  final StreamWithStatus<ReceivedHeartbeat> latestHeartbeats$ =
+      StreamWithStatus<ReceivedHeartbeat>();
+
+  @override
   bool get started => true;
 
   void emit(Message event) => messages$.add(event);
 
   void emitStatus(StreamStatus status) => messages$.addStatus(status);
 
-  Future<void> close() => messages$.close();
+  void emitHeartbeat(ReceivedHeartbeat event) => latestHeartbeats$.add(event);
+
+  Future<void> close() async {
+    await messages$.close();
+    await latestHeartbeats$.close();
+  }
 }
 
 class _FakeMessaging extends Fake implements Messaging {
@@ -107,11 +116,11 @@ void main() {
         logger: CustomLogger(),
         auth: auth,
         messaging: messaging,
+        userSubscriptions: userSubscriptions,
       );
     });
 
     threads = Threads(
-      messaging: messaging,
       userSubscriptions: userSubscriptions,
       logger: CustomLogger(),
     );
@@ -129,8 +138,6 @@ void main() {
       final sub = threads.threadStream.listen((thread) {
         createdAnchors.add(thread.anchor);
       });
-
-      await threads.sync();
 
       userSubscriptions.emitStatus(StreamStatusLive());
       userSubscriptions.emit(
@@ -184,8 +191,6 @@ void main() {
   test(
     'creates a new thread when a new thread tag appears in stream',
     () async {
-      await threads.sync();
-
       userSubscriptions.emit(
         _textMessage(
           id: 'm-4',
@@ -215,8 +220,6 @@ void main() {
   );
 
   test('ignores duplicate message ids from stream', () async {
-    await threads.sync();
-
     final message = _textMessage(
       id: 'm-dup',
       sender: MockKeys.guest.publicKey,
@@ -242,6 +245,7 @@ void main() {
         logger: CustomLogger(),
         auth: auth,
         messaging: messaging,
+        userSubscriptions: userSubscriptions,
       );
 
       thread.messages.add(

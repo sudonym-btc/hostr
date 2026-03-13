@@ -1,7 +1,5 @@
-import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
-import '../../../../util/bitcoin_amount.dart';
 import '../../supported_escrow_contract/supported_escrow_contract.dart';
 import '../onchain_operation.dart';
 
@@ -13,29 +11,16 @@ import '../onchain_operation.dart';
 /// every state from [EscrowFundSwapProgress] onward.
 class EscrowFundData extends OnchainOperationData {
   final String tradeId;
-  final String reservedAmountWeiHex;
-  final String sellerEvmAddress;
-  final String arbiterEvmAddress;
-  final int unlockAt;
-
-  /// The escrow fee as a wei hex string, persisted so the deposit call uses
-  /// the same value that was included in the gas estimation calldata.
-  final String? escrowFeeWeiHex;
 
   final String? errorMessage;
 
   const EscrowFundData({
     required this.tradeId,
-    required this.reservedAmountWeiHex,
-    required this.sellerEvmAddress,
-    required this.arbiterEvmAddress,
     required super.contractAddress,
     required super.chainId,
-    required this.unlockAt,
     required super.accountIndex,
     super.callIntent,
     super.transport,
-    this.escrowFeeWeiHex,
     super.swapId,
     super.txHash,
     super.transactionInformation,
@@ -73,7 +58,6 @@ class EscrowFundData extends OnchainOperationData {
   EscrowFundData copyWith({
     ContractCallIntent? callIntent,
     String? transport,
-    String? escrowFeeWeiHex,
     String? swapId,
     String? txHash,
     TransactionInformation? transactionInformation,
@@ -81,16 +65,11 @@ class EscrowFundData extends OnchainOperationData {
     String? errorMessage,
   }) => EscrowFundData(
     tradeId: tradeId,
-    reservedAmountWeiHex: reservedAmountWeiHex,
-    sellerEvmAddress: sellerEvmAddress,
-    arbiterEvmAddress: arbiterEvmAddress,
     contractAddress: contractAddress,
     chainId: chainId,
-    unlockAt: unlockAt,
     accountIndex: accountIndex,
     callIntent: callIntent ?? this.callIntent,
     transport: transport ?? this.transport,
-    escrowFeeWeiHex: escrowFeeWeiHex ?? this.escrowFeeWeiHex,
     swapId: swapId ?? this.swapId,
     txHash: txHash ?? this.txHash,
     transactionInformation:
@@ -99,58 +78,17 @@ class EscrowFundData extends OnchainOperationData {
     errorMessage: errorMessage ?? this.errorMessage,
   );
 
-  /// Reconstruct [ContractFundEscrowParams] for the deposit call.
-  ///
-  /// If [callIntent] carries pinned gas settings, the returned params carry
-  /// the original [GasEstimate] so the deposit uses the exact gas parameters
-  /// the swap-in budget was calculated against.
-  ContractFundEscrowParams toContractParams(EthPrivateKey ethKey) {
-    GasEstimate? estimate;
-    final gasPriceWei = callIntent?.gasPrice?.getInWei;
-    final gasLimit = callIntent?.maxGas;
-    if (gasPriceWei != null && gasLimit != null) {
-      estimate = GasEstimate(
-        fee: BitcoinAmount.inWei(gasPriceWei * BigInt.from(gasLimit)),
-        gasPrice: EtherAmount.inWei(gasPriceWei),
-        gasLimit: BigInt.from(gasLimit),
-      );
-    }
-    return ContractFundEscrowParams(
-      tradeId: tradeId,
-      amount: BitcoinAmount.inWei(
-        BigInt.parse(reservedAmountWeiHex, radix: 16),
-      ),
-      sellerEvmAddress: sellerEvmAddress,
-      arbiterEvmAddress: arbiterEvmAddress,
-      ethKey: ethKey,
-      unlockAt: unlockAt,
-      escrowFee: escrowFeeWeiHex != null
-          ? BitcoinAmount.inWei(BigInt.parse(escrowFeeWeiHex!, radix: 16))
-          : null,
-      gasEstimate: estimate,
-    );
-  }
-
   @override
   Map<String, dynamic> toJson() => {
     'tradeId': tradeId,
-    'reservedAmountWeiHex': reservedAmountWeiHex,
-    'sellerEvmAddress': sellerEvmAddress,
-    'arbiterEvmAddress': arbiterEvmAddress,
     ...super.baseToJson(),
-    'unlockAt': unlockAt,
-    if (escrowFeeWeiHex != null) 'escrowFeeWeiHex': escrowFeeWeiHex,
     if (errorMessage != null) 'errorMessage': errorMessage,
   };
 
   factory EscrowFundData.fromJson(Map<String, dynamic> json) => EscrowFundData(
     tradeId: json['tradeId'] as String,
-    reservedAmountWeiHex: json['reservedAmountWeiHex'] as String,
-    sellerEvmAddress: json['sellerEvmAddress'] as String,
-    arbiterEvmAddress: json['arbiterEvmAddress'] as String,
     contractAddress: json['contractAddress'] as String,
     chainId: json['chainId'] as int,
-    unlockAt: json['unlockAt'] as int,
     accountIndex: json['accountIndex'] as int? ?? 0,
     callIntent: json['callIntent'] != null
         ? ContractCallIntent.fromJson(
@@ -158,14 +96,6 @@ class EscrowFundData extends OnchainOperationData {
           )
         : null,
     transport: json['transport'] as String?,
-    escrowFeeWeiHex:
-        json['escrowFeeWeiHex'] as String? ??
-        (json['escrowFee'] != null
-            ? BitcoinAmount.fromInt(
-                BitcoinUnit.sat,
-                json['escrowFee'] as int,
-              ).getInWei.toRadixString(16)
-            : null),
     swapId: json['swapId'] as String?,
     txHash: json['txHash'] as String?,
     transactionInformation: deserializeTransactionInformation(

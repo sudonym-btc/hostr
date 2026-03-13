@@ -84,17 +84,10 @@ List<String> deriveEvmMnemonicWords(String nostrPrivateKeyHex) {
   return bip.entropyToMnemonic(entropy);
 }
 
-/// Returns the BIP-39 mnemonic derived from a Nostr private key (hex).
-///
-/// This is a deterministic synthetic mnemonic derived from the resolved
-/// active Nostr private key. Importing it into MetaMask will produce the
-/// same EVM addresses the app derives for that Nostr identity.
 String deriveEvmMnemonic(String nostrPrivateKeyHex) {
   return deriveEvmMnemonicWords(nostrPrivateKeyHex).join(' ');
 }
 
-/// Derives the Nostr private key at [accountIndex] from a BIP-39 mnemonic,
-/// following NIP-06: `m/44'/1237'/<account>'/0/0`.
 String deriveNostrPrivateKeyFromMnemonic(
   String mnemonicSentence, {
   int accountIndex = 0,
@@ -108,13 +101,6 @@ String deriveNostrPrivateKeyFromMnemonic(
   return derived.key.toRadixString(16).padLeft(64, '0');
 }
 
-/// Derives a BIP-44 EVM private key from a Nostr private key (hex).
-///
-/// Derivation: active Nostr private key → synthetic mnemonic →
-///   PBKDF2 seed → BIP-32 master → m/44'/60'/0'/0/{accountIndex}
-///
-/// This is MetaMask-compatible: pasting the mnemonic into MetaMask
-/// will show the same addresses.
 EthPrivateKey deriveEvmKey(String nostrPrivateKeyHex, {int accountIndex = 0}) {
   final master = _deriveAppMaster(nostrPrivateKeyHex);
   final derived = _deriveChild(master, _evmPathPrefix, accountIndex);
@@ -122,13 +108,11 @@ EthPrivateKey deriveEvmKey(String nostrPrivateKeyHex, {int accountIndex = 0}) {
   return EthPrivateKey.fromHex(keyHex);
 }
 
-/// Derives a deterministic trade ID from the active Nostr private key.
 String deriveTradeId(String nostrPrivateKeyHex, {int accountIndex = 0}) {
   final master = _deriveAppMaster(nostrPrivateKeyHex);
   return _deriveHashedChildHex(master, _tradeIdPathPrefix, accountIndex);
 }
 
-/// Derives a deterministic salt from the active Nostr private key.
 String deriveTradeSalt(String nostrPrivateKeyHex, {int accountIndex = 0}) {
   final master = _deriveAppMaster(nostrPrivateKeyHex);
   return _deriveHashedChildHex(master, _tradeSaltPathPrefix, accountIndex);

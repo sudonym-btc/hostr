@@ -64,170 +64,152 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
        );
 
   @override
-  ContractCallIntent fund(ContractFundEscrowParams params) =>
-      logger.spanSync('fund', () {
-        final (:tradeId, :buyer, :seller, :arbiter, :unlockAt, :escrowFee) =
-            fundArgs(params);
-        return buildIntent(
-          functionName: 'createTrade',
-          args: [tradeId, buyer, seller, arbiter, unlockAt, escrowFee],
-          from: params.ethKey.address,
-          methodName: 'createTrade',
-          value: params.amount.toEtherAmount(),
-          gasPrice: params.gasEstimate?.gasPrice,
-          maxGas: params.gasEstimate?.gasLimit.toInt(),
-        );
-      });
-
-  @override
-  Future<ContractCallIntent> fundRelayed(
-    ContractFundEscrowParams params,
-  ) async => fund(params);
-
-  @override
-  ContractCallIntent claim(ContractClaimEscrowParams params) =>
-      logger.spanSync('claim', () {
-        return buildIntent(
-          functionName: 'claim',
-          args: [getBytes32(params.tradeId)],
-          from: params.ethKey.address,
-          methodName: 'claim',
-        );
-      });
-
-  @override
-  Future<ContractCallIntent> claimRelayed(ContractClaimEscrowParams params) =>
-      logger.span('claimRelayed', () {
-        return buildAuthorizedRelayIntent(
-          tradeId: getBytes32(params.tradeId),
-          ethKey: params.ethKey,
-          authorizationHashFn: contract.hashClaimAuthorization,
-          functionName: 'claim',
-          methodName: 'claimRelayed',
-        );
-      });
-
-  @override
-  ContractCallIntent claimSwapAndFund(
-    ContractClaimAndFundEscrowParams params,
-  ) => logger.spanSync('claimAndFund', () {
-    final sender = params.fundParams.ethKey.address;
-    final estimatedMaxGas = params.fundParams.gasEstimate?.gasLimit.toInt();
-    final claimAndFundMaxGas = estimatedMaxGas == null
-        ? null
-        : max(estimatedMaxGas * 2, 500000);
-    logger.i(
-      'claimAndFund sender=${sender.eip55With0x} '
-      'buyer=${params.fundParams.ethKey.address.eip55With0x} '
-      'seller=${params.fundParams.sellerEvmAddress} '
-      'arbiter=${params.fundParams.arbiterEvmAddress} '
-      'swapContract=${params.swapContract.eip55With0x} '
-      'amount=${params.claimArgs.amount} '
-      'gasPrice=${params.fundParams.gasEstimate?.gasPrice.getInWei} '
-      'estimatedMaxGas=${params.fundParams.gasEstimate?.gasLimit} '
-      'claimAndFundMaxGas=$claimAndFundMaxGas',
-    );
-
+  ContractCallIntent fund(FundArgs args) => logger.spanSync('fund', () {
     return buildIntent(
-      functionName: 'claimSwapAndFund',
+      functionName: 'createTrade',
       args: [
-        [
-          params.swapContract,
-          params.claimArgs.preimage,
-          params.claimArgs.amount,
-          params.claimArgs.refundAddress,
-          params.claimArgs.timelock,
-          params.claimArgs.v,
-          params.claimArgs.r,
-          params.claimArgs.s,
-        ],
-        [
-          getBytes32(params.fundParams.tradeId),
-          params.fundParams.ethKey.address,
-          EthereumAddress.fromHex(params.fundParams.sellerEvmAddress),
-          EthereumAddress.fromHex(params.fundParams.arbiterEvmAddress),
-          BigInt.from(params.fundParams.unlockAt),
-          params.fundParams.escrowFee?.getInWei ?? BigInt.zero,
-        ],
+        getBytes32(args.tradeId),
+        args.ethKey.address,
+        EthereumAddress.fromHex(args.sellerEvmAddress),
+        EthereumAddress.fromHex(args.arbiterEvmAddress),
+        BigInt.from(args.unlockAt),
+        args.escrowFee?.getInWei ?? BigInt.zero,
       ],
-      from: sender,
-      methodName: 'claimSwapAndFund',
-      gasPrice: params.fundParams.gasEstimate?.gasPrice,
-      maxGas: claimAndFundMaxGas,
+      from: args.ethKey.address,
+      methodName: 'createTrade',
+      value: args.amount.toEtherAmount(),
+      gasPrice: args.gasEstimate?.gasPrice,
+      maxGas: args.gasEstimate?.gasLimit.toInt(),
     );
   });
 
   @override
-  Future<ContractCallIntent> claimSwapAndFundRelayed(
-    ContractClaimAndFundEscrowParams params,
-  ) async => claimSwapAndFund(params);
+  Future<ContractCallIntent> fundRelayed(FundArgs args) async => fund(args);
 
   @override
-  ContractCallIntent arbitrate(ContractArbitrateParams params) =>
-      logger.spanSync('arbitrate', () {
-        final function = contract.self.abi.functions.firstWhere(
-          (f) => f.name == 'arbitrate',
+  ContractCallIntent claim({
+    required String tradeId,
+    required EthPrivateKey ethKey,
+  }) => logger.spanSync('claim', () {
+    return buildIntent(
+      functionName: 'claim',
+      args: [getBytes32(tradeId)],
+      from: ethKey.address,
+      methodName: 'claim',
+    );
+  });
+
+  @override
+  Future<ContractCallIntent> claimRelayed({
+    required String tradeId,
+    required EthPrivateKey ethKey,
+  }) => logger.span('claimRelayed', () {
+    return buildAuthorizedRelayIntent(
+      tradeId: getBytes32(tradeId),
+      ethKey: ethKey,
+      authorizationHashFn: contract.hashClaimAuthorization,
+      functionName: 'claim',
+      methodName: 'claimRelayed',
+    );
+  });
+
+  @override
+  ContractCallIntent claimSwapAndFund(ClaimSwapAndFundArgs args) =>
+      logger.spanSync('claimAndFund', () {
+        final sender = args.fundArgs.ethKey.address;
+        final estimatedMaxGas = args.fundArgs.gasEstimate?.gasLimit.toInt();
+        final claimAndFundMaxGas = estimatedMaxGas == null
+            ? null
+            : max(estimatedMaxGas * 2, 500000);
+        logger.i(
+          'claimAndFund sender=${sender.eip55With0x} '
+          'buyer=${args.fundArgs.ethKey.address.eip55With0x} '
+          'seller=${args.fundArgs.sellerEvmAddress} '
+          'arbiter=${args.fundArgs.arbiterEvmAddress} '
+          'swapContract=${args.swapContract.eip55With0x} '
+          'amount=${args.claimArgs.amount} '
+          'gasPrice=${args.fundArgs.gasEstimate?.gasPrice.getInWei} '
+          'estimatedMaxGas=${args.fundArgs.gasEstimate?.gasLimit} '
+          'claimAndFundMaxGas=$claimAndFundMaxGas',
         );
-        final (:tradeId, :factor) = arbitrateArgs(params);
-        final data = function.encodeCall([tradeId, factor]);
-        return ContractCallIntent(
-          to: contract.self.address,
-          data: data,
-          value: EtherAmount.zero(),
-          from: params.ethKey.address,
-          methodName: 'arbitrate',
+
+        return buildIntent(
+          functionName: 'claimSwapAndFund',
+          args: [
+            [
+              args.swapContract,
+              args.claimArgs.preimage,
+              args.claimArgs.amount,
+              args.claimArgs.refundAddress,
+              args.claimArgs.timelock,
+              args.claimArgs.v,
+              args.claimArgs.r,
+              args.claimArgs.s,
+            ],
+            [
+              getBytes32(args.fundArgs.tradeId),
+              args.fundArgs.ethKey.address,
+              EthereumAddress.fromHex(args.fundArgs.sellerEvmAddress),
+              EthereumAddress.fromHex(args.fundArgs.arbiterEvmAddress),
+              BigInt.from(args.fundArgs.unlockAt),
+              args.fundArgs.escrowFee?.getInWei ?? BigInt.zero,
+            ],
+          ],
+          from: sender,
+          methodName: 'claimSwapAndFund',
+          gasPrice: args.fundArgs.gasEstimate?.gasPrice,
+          maxGas: claimAndFundMaxGas,
         );
       });
 
   @override
-  ContractCallIntent release(ContractReleaseEscrowParams params) =>
+  Future<ContractCallIntent> claimSwapAndFundRelayed(
+    ClaimSwapAndFundArgs args,
+  ) async => claimSwapAndFund(args);
+
+  @override
+  ContractCallIntent arbitrate({
+    required String tradeId,
+    required double forward,
+    required EthPrivateKey ethKey,
+  }) => logger.spanSync('arbitrate', () {
+    final function = contract.self.abi.functions.firstWhere(
+      (f) => f.name == 'arbitrate',
+    );
+    final data = function.encodeCall([
+      getBytes32(tradeId),
+      BigInt.from((forward * 1000).round()),
+    ]);
+    return ContractCallIntent(
+      to: contract.self.address,
+      data: data,
+      value: EtherAmount.zero(),
+      from: ethKey.address,
+      methodName: 'arbitrate',
+    );
+  });
+
+  @override
+  ContractCallIntent release(ReleaseArgs args) =>
       logger.spanSync('release', () {
         return buildIntent(
           functionName: 'releaseToCounterparty',
-          args: [getBytes32(params.tradeId)],
-          from: params.ethKey.address,
+          args: [getBytes32(args.tradeId)],
+          from: args.ethKey.address,
           methodName: 'releaseToCounterparty',
         );
       });
 
   @override
-  Future<ContractCallIntent> releaseRelayed(
-    ContractReleaseEscrowParams params,
-  ) => logger.span('releaseRelayed', () {
-    return buildAuthorizedRelayIntent(
-      tradeId: getBytes32(params.tradeId),
-      ethKey: params.ethKey,
-      authorizationHashFn: contract.hashReleaseAuthorization,
-      functionName: 'releaseToCounterparty',
-      methodName: 'releaseToCounterpartyRelayed',
-    );
-  });
-
-  @override
-  fundArgs(ContractFundEscrowParams params) =>
-      logger.spanSync('depositArgs', () {
-        return (
-          tradeId: getBytes32(params.tradeId),
-
-          /// Our address derived from our nostr private key
-          buyer: params.ethKey.address,
-
-          /// Seller address derived from their nostr pubkey
-          seller: EthereumAddress.fromHex(params.sellerEvmAddress),
-
-          /// Arbiter public key from their nostr advertisement
-          arbiter: EthereumAddress.fromHex(params.arbiterEvmAddress),
-
-          unlockAt: BigInt.from(params.unlockAt),
-          escrowFee: params.escrowFee?.getInWei ?? BigInt.zero,
+  Future<ContractCallIntent> releaseRelayed(ReleaseArgs args) =>
+      logger.span('releaseRelayed', () {
+        return buildAuthorizedRelayIntent(
+          tradeId: getBytes32(args.tradeId),
+          ethKey: args.ethKey,
+          authorizationHashFn: contract.hashReleaseAuthorization,
+          functionName: 'releaseToCounterparty',
+          methodName: 'releaseToCounterpartyRelayed',
         );
-      });
-
-  @override
-  arbitrateArgs(ContractArbitrateParams params) =>
-      logger.spanSync('arbitrateArgs', () {
-        final scaledForward = BigInt.from((params.forward * 1000).round());
-        return (tradeId: getBytes32(params.tradeId), factor: scaledForward);
       });
 
   @override
@@ -255,11 +237,11 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       });
 
   @override
-  Future<bool> canClaim(ContractClaimEscrowParams params) =>
+  Future<bool> canClaim({required String tradeId}) =>
       logger.span('canClaim', () async {
         await ensureDeployed();
         final activeTrade = await _withDecodedCustomError(() {
-          return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
+          return contract.activeTrade((tradeId: getBytes32(tradeId)));
         });
 
         if (!activeTrade.isActive) {
@@ -268,7 +250,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
         final trade = _extractTrade(activeTrade.trade);
         if (trade == null) {
-          logger.w('Could not decode active trade for ${params.tradeId}');
+          logger.w('Could not decode active trade for $tradeId');
           return false;
         }
 
@@ -277,11 +259,11 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       });
 
   @override
-  Future<bool> canRelease(ContractReleaseEscrowParams params) =>
+  Future<bool> canRelease(ReleaseArgs args) =>
       logger.span('canRelease', () async {
         await ensureDeployed();
         final activeTrade = await _withDecodedCustomError(() {
-          return contract.activeTrade((tradeId: getBytes32(params.tradeId)));
+          return contract.activeTrade((tradeId: getBytes32(args.tradeId)));
         });
 
         if (!activeTrade.isActive) {
@@ -290,11 +272,11 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
         final trade = _extractTrade(activeTrade.trade);
         if (trade == null) {
-          logger.w('Could not decode active trade for ${params.tradeId}');
+          logger.w('Could not decode active trade for ${args.tradeId}');
           return false;
         }
 
-        final actor = params.ethKey.address;
+        final actor = args.ethKey.address;
         return actor == trade.buyer || actor == trade.seller;
       });
 

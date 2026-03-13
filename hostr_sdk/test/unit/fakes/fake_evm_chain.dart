@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:hostr_sdk/datasources/contracts/boltz/EtherSwap.g.dart';
+import 'package:hostr_sdk/datasources/swagger_generated/rif_relay.swagger.dart'
+  as relay_api;
 import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
 import 'package:hostr_sdk/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
@@ -114,18 +116,15 @@ class FakeRifRelay extends Fake implements RifRelay {
   FakeRifRelay(this._chain);
 
   @override
-  Future<String> relayClaimTransaction({
-    required EthPrivateKey signer,
-    required EtherSwap etherSwap,
-    required Uint8List preimage,
-    required BigInt amountWei,
-    required EthereumAddress refundAddress,
-    required BigInt timeoutBlockHeight,
-  }) async {
+  Future<relay_api.RelayPost$Response> relayClaim(
+    EtherSwap etherSwap,
+    EthPrivateKey signer,
+    ClaimArgs args,
+  ) async {
     final result = _chain.claimResult;
     if (result == null) {
       throw Exception('Claim relay failed (test)');
     }
-    return result;
+    return relay_api.RelayPost$Response(txHash: result);
   }
 }

@@ -14,7 +14,9 @@ import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';
 
+import '../../injection.dart';
 import '../../util/main.dart';
+import '../deterministic_keys/deterministic_keys.dart';
 import '../storage/storage.dart';
 
 @Singleton()
@@ -47,6 +49,8 @@ class Auth {
   String? get activeMnemonic => isMnemonicBacked ? _authRecord?.secret : null;
 
   int? get activeNostrAccountIndex => _authRecord?.nostrAccountIndex;
+
+  int get storedMaxAccountIndex => _authRecord?.maxAccountIndex ?? -1;
 
   /// Generates a new mnemonic and stores it, clearing any previous keys.
   Future<void> signup() => _logger.span('signup', () async {
@@ -148,124 +152,66 @@ class Auth {
   // HD wallet – EVM key derivation
   // ---------------------------------------------------------------------------
 
+  DeterministicKeys get _deterministicKeys => getIt<DeterministicKeys>();
+
   /// Returns the BIP-44 derived EVM private key at [accountIndex].
   EthPrivateKey getActiveEvmKey({int accountIndex = 0}) {
-    return _deriveEvmKey(accountIndex);
+    return _deterministicKeys.getActiveEvmKey(accountIndex: accountIndex);
   }
 
   /// Returns the EVM address at [accountIndex] without exposing the key.
   bip.EthereumAddress getEvmAddress({int accountIndex = 0}) {
-    return _deriveEvmKey(accountIndex).address;
+    return _deterministicKeys.getEvmAddress(accountIndex: accountIndex);
   }
 
   /// Scans HD account indices 0..[maxScan] to find the one whose address
   /// matches [address]. Throws [StateError] if no match is found.
   int? tryFindEvmAccountIndex(bip.EthereumAddress address, {int maxScan = 20}) {
-    final upperBound = _scanUpperBound(maxScan);
-    for (var i = 0; i < upperBound; i++) {
-      final derived = getEvmAddress(accountIndex: i);
-      if (derived == address) return i;
-    }
-    return null;
+    return _deterministicKeys.tryFindEvmAccountIndex(address, maxScan: maxScan);
   }
 
   int findEvmAccountIndex(bip.EthereumAddress address, {int maxScan = 20}) =>
-      _logger.spanSync('findEvmAccountIndex', () {
-        final index = tryFindEvmAccountIndex(address, maxScan: maxScan);
-        if (index != null) {
-          return index;
-        }
-        final upperBound = _scanUpperBound(maxScan);
-        throw StateError(
-          'No HD account index (0..$upperBound) matches address '
-          '${address.eip55With0x}',
-        );
-      });
+      _deterministicKeys.findEvmAccountIndex(address, maxScan: maxScan);
 
   /// Returns the 24-word synthetic mnemonic derived from the active Nostr
   /// private key. Paste this into MetaMask to see all derived EVM addresses.
   List<String> getEvmMnemonic() => _logger.spanSync('getEvmMnemonic', () {
-    return deriveEvmMnemonicWords(getActiveKey().privateKey!);
+    return _deterministicKeys.getEvmMnemonic();
   });
 
   String getTradeId({required int accountIndex}) =>
       _logger.spanSync('getTradeId', () {
-        return deriveTradeId(
-          getActiveKey().privateKey!,
-          accountIndex: accountIndex,
-        );
+        return _deterministicKeys.getTradeId(accountIndex: accountIndex);
       });
 
   String getTradeSalt({required int accountIndex}) =>
       _logger.spanSync('getTradeSalt', () {
-        return deriveTradeSalt(
-          getActiveKey().privateKey!,
-          accountIndex: accountIndex,
-        );
+        return _deterministicKeys.getTradeSalt(accountIndex: accountIndex);
       });
 
   Future<int> reserveNextTradeIndex() =>
-      _logger.span('reserveNextTradeIndex', () async {
-        final record = _requireRecord();
-        final nextIndex = record.nextTradeIndex;
-        if (!record.reservedTradeIndices.contains(nextIndex)) {
-          record.reservedTradeIndices.add(nextIndex);
-          record.reservedTradeIndices.sort();
-          await authStorage.set([jsonEncode(record.toJson())]);
-          _authRecord = record;
-        }
-        return nextIndex;
-      });
+      _deterministicKeys.reserveNextTradeIndex();
 
   int findTradeAccountIndexByTradeId(String tradeId, {int maxScan = 128}) =>
-      _logger.spanSync('findTradeAccountIndexByTradeId', () {
-        final index = tryFindTradeAccountIndexByTradeId(
-          tradeId,
-          maxScan: maxScan,
-        );
-        if (index != null) {
-          return index;
-        }
-        throw StateError('No trade account index matches tradeId $tradeId');
-      });
+      _deterministicKeys.findTradeAccountIndexByTradeId(
+        tradeId,
+        maxScan: maxScan,
+      );
 
-  int? tryFindTradeAccountIndexByTradeId(String tradeId, {int maxScan = 128}) {
-    final candidates = _authRecord?.reservedTradeIndices ?? const <int>[];
-    for (final index in candidates) {
-      if (getTradeId(accountIndex: index) == tradeId) {
-        return index;
-      }
-    }
-    return null;
-  }
+  int? tryFindTradeAccountIndexByTradeId(String tradeId, {int maxScan = 128}) =>
+      _deterministicKeys.tryFindTradeAccountIndexByTradeId(
+        tradeId,
+        maxScan: maxScan,
+      );
 
   int findTradeAccountIndexBySalt(String salt, {int maxScan = 128}) =>
-      _logger.spanSync('findTradeAccountIndexBySalt', () {
-        final index = tryFindTradeAccountIndexBySalt(salt, maxScan: maxScan);
-        if (index != null) {
-          return index;
-        }
-        throw StateError('No trade account index matches salt $salt');
-      });
+      _deterministicKeys.findTradeAccountIndexBySalt(salt, maxScan: maxScan);
 
-  int? tryFindTradeAccountIndexBySalt(String salt, {int maxScan = 128}) {
-    final candidates = _authRecord?.reservedTradeIndices ?? const <int>[];
-    for (final index in candidates) {
-      if (getTradeSalt(accountIndex: index) == salt) {
-        return index;
-      }
-    }
-    return null;
-  }
+  int? tryFindTradeAccountIndexBySalt(String salt, {int maxScan = 128}) =>
+      _deterministicKeys.tryFindTradeAccountIndexBySalt(salt, maxScan: maxScan);
 
-  List<int> getReservedTradeIndices() => List<int>.unmodifiable(
-    _authRecord?.reservedTradeIndices ?? const <int>[],
-  );
-
-  /// Derives the EVM private key at [accountIndex] from the Nostr key.
-  EthPrivateKey _deriveEvmKey(int accountIndex) {
-    return deriveEvmKey(getActiveKey().privateKey!, accountIndex: accountIndex);
-  }
+  List<int> getReservedTradeIndices() =>
+      _deterministicKeys.getReservedTradeIndices();
 
   // ---------------------------------------------------------------------------
 
@@ -281,14 +227,6 @@ class Auth {
 
   Future<void> dispose() async {
     await _authStateContoller.close();
-  }
-
-  _AuthRecord _requireRecord() {
-    final record = _authRecord;
-    if (record == null) {
-      throw StateError('No active auth record');
-    }
-    return record;
   }
 
   _AuthRecord _buildAuthRecord(String input, {int nostrAccountIndex = 0}) {
@@ -307,7 +245,7 @@ class Auth {
         credentialType: 'mnemonic',
         secret: normalized,
         nostrAccountIndex: nostrAccountIndex,
-        reservedTradeIndices: const [],
+        maxAccountIndex: -1,
       );
     }
 
@@ -316,7 +254,7 @@ class Auth {
       version: _recordVersion,
       credentialType: 'private_key',
       secret: privateKey,
-      reservedTradeIndices: const [],
+      maxAccountIndex: -1,
     );
   }
 
@@ -409,14 +347,6 @@ class Auth {
     );
   });
 
-  int _scanUpperBound(int maxScan) {
-    final record = _authRecord;
-    final maxReserved = record?.reservedTradeIndices.isEmpty == false
-        ? record!.reservedTradeIndices.reduce((a, b) => a > b ? a : b) + 1
-        : 0;
-    return maxScan > maxReserved ? maxScan : maxReserved + 1;
-  }
-
   bool _isHex(String str) {
     return RegExp(r'^[0-9a-fA-F]+$').hasMatch(str);
   }
@@ -449,28 +379,22 @@ class _AuthRecord {
   final String credentialType;
   final String secret;
   final int? nostrAccountIndex;
-  final List<int> reservedTradeIndices;
+  final int maxAccountIndex;
 
   const _AuthRecord({
     required this.version,
     required this.credentialType,
     required this.secret,
     this.nostrAccountIndex,
-    this.reservedTradeIndices = const [],
+    this.maxAccountIndex = -1,
   });
-
-  int get nextTradeIndex {
-    if (reservedTradeIndices.isEmpty) return 0;
-    final maxIndex = reservedTradeIndices.reduce((a, b) => a > b ? a : b);
-    return maxIndex + 1;
-  }
 
   Map<String, dynamic> toJson() => {
     'version': version,
     'credentialType': credentialType,
     'secret': secret,
     if (nostrAccountIndex != null) 'nostrAccountIndex': nostrAccountIndex,
-    'reservedTradeIndices': reservedTradeIndices,
+    'maxAccountIndex': maxAccountIndex,
   };
 
   static _AuthRecord? fromStorage(List<String> raw) {
@@ -482,13 +406,16 @@ class _AuthRecord {
         final reserved =
             (decoded['reservedTradeIndices'] as List<dynamic>? ?? const [])
                 .map((e) => e as int)
-                .toList(growable: true);
+                .toList(growable: false);
+        final maxAccountIndex =
+            decoded['maxAccountIndex'] as int? ??
+            (reserved.isEmpty ? -1 : reserved.reduce((a, b) => a > b ? a : b));
         return _AuthRecord(
           version: decoded['version'] as int? ?? 1,
           credentialType: decoded['credentialType'] as String? ?? 'private_key',
           secret: decoded['secret'] as String,
           nostrAccountIndex: decoded['nostrAccountIndex'] as int?,
-          reservedTradeIndices: reserved,
+          maxAccountIndex: maxAccountIndex,
         );
       }
     } catch (_) {
@@ -499,7 +426,7 @@ class _AuthRecord {
       version: 1,
       credentialType: 'private_key',
       secret: first,
-      reservedTradeIndices: const [],
+      maxAccountIndex: -1,
     );
   }
 }
