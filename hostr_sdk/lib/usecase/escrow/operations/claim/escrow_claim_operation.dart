@@ -12,6 +12,9 @@ class EscrowClaimOperation extends OnchainOperation {
   final EscrowClaimParams params;
   late ContractClaimEscrowParams contractParams;
 
+  @override
+  String get tradeId => params.tradeId;
+
   EscrowClaimOperation(
     Auth auth,
     Evm evm,
@@ -20,9 +23,6 @@ class EscrowClaimOperation extends OnchainOperation {
   ) : super(auth, evm, logger, const OnchainInitialised()) {
     chain = evm.getChainForEscrowService(params.escrowService!);
     contract = chain.getSupportedEscrowContract(params.escrowService!);
-    if (params.evmAddress != null) {
-      accountIndex = auth.findEvmAccountIndex(params.evmAddress!);
-    }
     contractParams = params.toContractParams(
       auth.getActiveEvmKey(accountIndex: accountIndex),
     );
@@ -52,24 +52,7 @@ class EscrowClaimOperation extends OnchainOperation {
   });
 
   @override
-  Future<void> initialize() => logger.span('initialize', () async {
-    if (params.evmAddress != null) return;
-
-    final trade = await contract.getTrade(params.tradeId);
-    if (trade != null) {
-      for (final candidate in [trade.buyer, trade.seller]) {
-        try {
-          accountIndex = auth.findEvmAccountIndex(candidate);
-          onAddressResolved(accountIndex);
-          return;
-        } on StateError catch (_) {
-          continue;
-        }
-      }
-    }
-
-    await super.initialize();
-  });
+  Future<void> initialize() => super.initialize();
 
   @override
   OnchainOperationData buildInitialData({

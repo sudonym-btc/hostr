@@ -35,12 +35,14 @@ class ProfileScreen extends StatelessWidget {
                 icon: const Icon(Icons.key),
                 tooltip: 'Back up keys',
                 onPressed: () {
-                  final keyPair = getIt<Hostr>().auth.activeKeyPair!;
+                  final auth = getIt<Hostr>().auth;
+                  final keyPair = auth.activeKeyPair!;
                   showAppModal(
                     context,
                     child: BackupKeyWidget(
                       publicKeyHex: keyPair.publicKey,
                       privateKeyHex: keyPair.privateKey!,
+                      mnemonic: auth.activeMnemonic,
                     ),
                   );
                 },

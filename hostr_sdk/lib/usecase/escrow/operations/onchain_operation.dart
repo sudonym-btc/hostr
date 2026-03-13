@@ -906,18 +906,18 @@ abstract class OnchainOperation
 
   /// Pick the best HD address for this operation.
   ///
-  /// Picks the next unused address by default.
-  ///
-  /// Children that need a more specific signer can resolve and assign
-  /// [accountIndex] inside [initialize()], then call [onAddressResolved()].
+  /// Picks the trade-bound deterministic account if available, else falls
+  /// back to account index 0.
   Future<void> resolveAddress() => logger.span('resolveAddress', () async {
-    final (:address, :accountIndex) = await chain.getNextUnusedAddress();
+    final accountIndex = auth.tryFindTradeAccountIndexByTradeId(tradeId) ?? 0;
     logger.i(
-      'Using fresh address at index $accountIndex ($address) as initial signer',
+      'Using trade signer account index $accountIndex for trade $tradeId',
     );
     this.accountIndex = accountIndex;
     onAddressResolved(accountIndex);
   });
+
+  String get tradeId;
 
   /// Called after [resolveAddress] picks an account index so subclasses
   /// can update their contract params with the resolved key.

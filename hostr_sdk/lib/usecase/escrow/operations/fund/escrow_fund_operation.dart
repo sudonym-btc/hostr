@@ -18,6 +18,9 @@ class EscrowFundOperation extends OnchainOperation {
   late ContractFundEscrowParams contractParams;
   EthereumAddress? _relaySmartWalletAddress;
 
+  @override
+  String get tradeId => params!.negotiateReservation.getDtag()!;
+
   bool get _usesRelayForClaimAndFund =>
       contract.supportsClaimSwapAndFund && contract.rifRelay != null;
 
@@ -30,7 +33,9 @@ class EscrowFundOperation extends OnchainOperation {
     if (params != null) {
       chain = evm.getChainForEscrowService(params!.escrowService);
       contract = chain.getSupportedEscrowContract(params!.escrowService);
-      contractParams = params!.toContractParams(auth.getActiveEvmKey());
+      contractParams = params!.toContractParams(
+        auth.getActiveEvmKey(accountIndex: accountIndex),
+      );
     }
   }
 

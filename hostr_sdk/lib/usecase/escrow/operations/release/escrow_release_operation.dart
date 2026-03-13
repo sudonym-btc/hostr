@@ -12,6 +12,9 @@ class EscrowReleaseOperation extends OnchainOperation {
   final EscrowReleaseParams params;
   late ContractReleaseEscrowParams contractParams;
 
+  @override
+  String get tradeId => params.tradeId;
+
   EscrowReleaseOperation(
     Auth auth,
     Evm evm,
@@ -20,9 +23,6 @@ class EscrowReleaseOperation extends OnchainOperation {
   ) : super(auth, evm, logger, const OnchainInitialised()) {
     chain = evm.getChainForEscrowService(params.escrowService!);
     contract = chain.getSupportedEscrowContract(params.escrowService!);
-    if (params.evmAddress != null) {
-      accountIndex = auth.findEvmAccountIndex(params.evmAddress!);
-    }
     contractParams = params.toContractParams(
       auth.getActiveEvmKey(accountIndex: accountIndex),
     );
@@ -41,24 +41,7 @@ class EscrowReleaseOperation extends OnchainOperation {
   String get swapInvoiceDescription => 'Hostr Escrow Release';
 
   @override
-  Future<void> initialize() => logger.span('initialize', () async {
-    if (params.evmAddress != null) return;
-
-    final trade = await contract.getTrade(params.tradeId);
-    if (trade != null) {
-      for (final candidate in [trade.buyer, trade.seller]) {
-        try {
-          accountIndex = auth.findEvmAccountIndex(candidate);
-          onAddressResolved(accountIndex);
-          return;
-        } on StateError catch (_) {
-          continue;
-        }
-      }
-    }
-
-    throw StateError('No matching EVM account found for release.');
-  });
+  Future<void> initialize() => super.initialize();
 
   @override
   OnchainOperationData buildInitialData({

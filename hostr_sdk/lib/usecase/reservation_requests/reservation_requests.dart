@@ -1,7 +1,6 @@
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
@@ -39,11 +38,14 @@ class ReservationRequests extends CrudUseCase {
     required DateTime startDate,
     required DateTime endDate,
   }) => logger.span('createReservationRequest', () async {
-    // Generate random nonce for this reservation request
-    final nonce = Helpers.getSecureRandomHex(32);
-    final salt = Helpers.getSecureRandomHex(32);
+    final accountIndex = await _auth.reserveNextTradeIndex();
+    final nonce = _auth.getTradeId(accountIndex: accountIndex);
+    final salt = _auth.getTradeSalt(accountIndex: accountIndex);
 
-    logger.d('Creating negotiate reservation with nonce $nonce');
+    logger.d(
+      'Creating negotiate reservation with deterministic tradeId $nonce '
+      'at account index $accountIndex',
+    );
 
     final recipientKey = tweakKeyPair(
       privateKey: _auth.getActiveKey().privateKey!,

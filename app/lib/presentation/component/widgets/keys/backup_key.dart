@@ -25,20 +25,23 @@ import 'package:ndk/shared/nips/nip01/helpers.dart';
 class BackupKeyWidget extends StatelessWidget {
   final String publicKeyHex;
   final String privateKeyHex;
+  final String? mnemonic;
 
   const BackupKeyWidget({
     super.key,
     required this.publicKeyHex,
     required this.privateKeyHex,
+    this.mnemonic,
   });
 
   @override
   Widget build(BuildContext context) {
     final npub = Helpers.encodeBech32(publicKeyHex, 'npub');
     final nsec = Helpers.encodeBech32(privateKeyHex, 'nsec');
-    final entropyBytes = hex.decode(privateKeyHex);
-    final mnemonic = Mnemonic(entropyBytes, Language.english);
-    final words = mnemonic.sentence.split(' ');
+    final recoverySentence =
+        mnemonic ??
+        Mnemonic(hex.decode(privateKeyHex), Language.english).sentence;
+    final words = recoverySentence.split(' ');
 
     return ModalBottomSheet(
       buttons: Row(
@@ -64,34 +67,30 @@ class BackupKeyWidget extends StatelessWidget {
             sensitive: true,
           ),
           Gap.vertical.custom(kSpace5),
-          // Text(
-          //   'Recovery words',
-          //   style: Theme.of(context).textTheme.titleMedium,
-          // ),
-          // Gap.vertical.sm(),
-          // _MnemonicGrid(words: words),
-          // Gap.vertical.xs(),
-          // Align(
-          //   alignment: Alignment.centerRight,
-          //   child: TextButton.icon(
-          //     icon: const Icon(Icons.copy, size: kIconSm),
-          //     label: Text(AppLocalizations.of(context)!.copyWords),
-          //     onPressed: () {
-          //       Clipboard.setData(
-          //         ClipboardData(text: mnemonic.sentence),
-          //       );
-          //       ScaffoldMessenger.of(context).showSnackBar(
-          //         SnackBar(
-          //           content: Text(
-          //             AppLocalizations.of(
-          //               context,
-          //             )!.recoveryWordsCopied,
-          //           ),
-          //         ),
-          //       );
-          //     },
-          //   ),
-          // ),
+          Text(
+            'Recovery words',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          Gap.vertical.sm(),
+          _MnemonicGrid(words: words),
+          Gap.vertical.xs(),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              icon: const Icon(Icons.copy, size: kIconSm),
+              label: Text(AppLocalizations.of(context)!.copyWords),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: recoverySentence));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      AppLocalizations.of(context)!.recoveryWordsCopied,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
