@@ -1,3 +1,5 @@
+concurrency: 1
+
 tags:
   unit:
     description: Fast, isolated tests with no docker/network dependencies.

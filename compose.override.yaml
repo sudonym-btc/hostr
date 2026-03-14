@@ -4,11 +4,10 @@
 # stack and a Hostr-specific override layer for that dependency.
 
 include:
-  - path:
-      - ./dependencies/boltz-regtest/docker-compose.yml
-      - ./dependencies/boltz-regtest/compose.hostr.override.yaml
+  - path: ./dependencies/boltz-regtest/docker-compose.yml
     env_file:
       - ./dependencies/boltz-regtest/.env
+  - path: ./compose.boltz.override.yaml
 
 services:
   rif-relay:

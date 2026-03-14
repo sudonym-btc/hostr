@@ -23,6 +23,74 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INFRA_DIR="$ROOT_DIR/infrastructure"
 BOOTSTRAP_DIR="$INFRA_DIR/bootstrap"
 
+sync_maps_api_key_env() {
+  local target_env="$1"
+  local env_file=""
+
+  case "$target_env" in
+    staging)
+      env_file="$ROOT_DIR/.env.staging"
+      ;;
+    production)
+      env_file="$ROOT_DIR/.env.prod"
+      ;;
+    *)
+      echo "Unsupported environment for GOOGLE_MAPS_API_KEY sync: $target_env" >&2
+      return 64
+      ;;
+  esac
+
+  local key_file="$INFRA_DIR/_local_outputs/$target_env/maps_api_key.txt"
+
+  if [[ ! -f "$key_file" ]]; then
+    echo "Maps API key file not found, skipping env sync: $key_file" >&2
+    return 0
+  fi
+
+  if [[ ! -f "$env_file" ]]; then
+    echo "Env file not found, skipping GOOGLE_MAPS_API_KEY sync: $env_file" >&2
+    return 0
+  fi
+
+  local key_value
+  key_value="$(tr -d '\r\n' < "$key_file")"
+
+  if [[ -z "$key_value" ]]; then
+    echo "Maps API key file is empty, skipping env sync: $key_file" >&2
+    return 0
+  fi
+
+  node - "$env_file" "$key_value" <<'NODE'
+const fs = require('fs');
+
+const [envFile, keyValue] = process.argv.slice(2);
+const key = 'GOOGLE_MAPS_API_KEY';
+
+const content = fs.readFileSync(envFile, 'utf8');
+const lines = content.split(/\r?\n/);
+let replaced = false;
+
+for (let i = 0; i < lines.length; i += 1) {
+  if (lines[i].startsWith(`${key}=`)) {
+    lines[i] = `${key}=${keyValue}`;
+    replaced = true;
+    break;
+  }
+}
+
+if (!replaced) {
+  if (lines.length > 0 && lines[lines.length - 1] !== '') {
+    lines.push('');
+  }
+  lines.push(`${key}=${keyValue}`);
+}
+
+fs.writeFileSync(envFile, `${lines.join('\n').replace(/\n*$/, '')}\n`);
+NODE
+
+  echo "Synced GOOGLE_MAPS_API_KEY to $env_file"
+}
+
 # Resolve state bucket name from bootstrap state or env var.
 TF_STATE_BUCKET="${TF_STATE_BUCKET:-}"
 if [[ -z "$TF_STATE_BUCKET" ]]; then
@@ -46,6 +114,8 @@ terraform init -reconfigure \
 terraform apply \
   -var-file="var/shared.tfvars" \
   -var-file="var/${TARGET_ENV}.tfvars"
+
+sync_maps_api_key_env "$TARGET_ENV"
 
 PROJECT_ID="$(terraform output -raw project_id)"
 VM_NAME="$(terraform output -raw compose_vm_name)"

@@ -37,7 +37,10 @@ class StagingConfig extends Config {
   @override
   RootstockConfig rootstock = StagingRootstockConfig();
   @override
-  String get googleMapsApiKey => 'AIzaSyDbIij_LkLDQTePfWnoLo5bmqhDKS2xXbU';
+  String get googleMapsApiKey => requiredBuildConfig(
+    'GOOGLE_MAPS_API_KEY',
+    const String.fromEnvironment('GOOGLE_MAPS_API_KEY'),
+  );
 }
 
 class StagingRootstockConfig extends RootstockConfig {

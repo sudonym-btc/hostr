@@ -20,7 +20,10 @@ class ProductionConfig extends Config {
   @override
   RootstockConfig rootstock = ProductionRootstockConfig();
   @override
-  String get googleMapsApiKey => ''; // TODO: deploy production maps infra and set key
+  String get googleMapsApiKey => requiredBuildConfig(
+    'GOOGLE_MAPS_API_KEY',
+    const String.fromEnvironment('GOOGLE_MAPS_API_KEY'),
+  );
 }
 
 class ProductionRootstockConfig extends RootstockConfig {

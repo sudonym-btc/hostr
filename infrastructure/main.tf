@@ -99,6 +99,16 @@ resource "google_project_service" "maps_places" {
   ]
 }
 
+resource "google_project_service" "maps_javascript" {
+  project = var.project_id
+  service = "maps-backend.googleapis.com"
+
+  depends_on = [
+    google_project_iam_member.service_usage_admin,
+    google_project_iam_member.quota_administrator,
+  ]
+}
+
 resource "google_apikeys_key" "maps_api_key" {
   provider = google-beta
   project  = var.project_id
@@ -113,10 +123,15 @@ resource "google_apikeys_key" "maps_api_key" {
     api_targets {
       service = "places.googleapis.com"
     }
+    api_targets {
+      service = "maps-backend.googleapis.com"
+    }
   }
 
   depends_on = [
     google_project_service.maps,
+    google_project_service.maps_places,
+    google_project_service.maps_javascript,
     google_project_service.api_keys,
   ]
 }
@@ -153,6 +168,8 @@ resource "google_apikeys_key" "maps_ios_key" {
 
   depends_on = [
     google_project_service.maps,
+    google_project_service.maps_places,
+    google_project_service.maps_javascript,
     google_project_service.api_keys,
     google_project_service.maps_ios,
   ]
