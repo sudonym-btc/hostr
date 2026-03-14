@@ -1,0 +1,55 @@
+# Local/test overrides loaded automatically by `docker compose`.
+#
+# This file keeps Hostr's own local deltas while including the Boltz regtest
+# stack and a Hostr-specific override layer for that dependency.
+
+include:
+  - path:
+      - ./dependencies/boltz-regtest/docker-compose.yml
+      - ./dependencies/boltz-regtest/compose.hostr.override.yaml
+    env_file:
+      - ./dependencies/boltz-regtest/.env
+
+services:
+  rif-relay:
+    depends_on:
+      anvil:
+        condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf localhost:8090/chain-info | grep -q '\"ready\":true'"]
+      timeout: 2s
+      retries: 200
+      interval: 3s
+      start_period: 20s
+    volumes:
+      - ./dependencies/rif-relay-contracts/contract-addresses.json:/rif-relay-contracts/contract-addresses.json
+      - ./escrow/contracts/contract-addresses.json:/escrow-contracts/contract-addresses.json:ro
+
+  escrow-contract-deploy:
+    depends_on:
+      rif-relay:
+        condition: service_started
+        required: false
+
+  landing-page:
+    volumes:
+      - ./landing-page/index.html:/usr/share/nginx/html/index.html:ro
+      - ./landing-page/assets:/usr/share/nginx/html/assets:ro
+
+  escrow:
+    depends_on:
+      escrow-contract-deploy:
+        condition: service_completed_successfully
+      anvil:
+        condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
+    volumes:
+      - ./escrow/lib:/workspace/escrow/lib
+      - ./escrow/bin:/workspace/escrow/bin
+    entrypoint:
+      - sh
+      - -c
+      - exec docker/entrypoint.sh

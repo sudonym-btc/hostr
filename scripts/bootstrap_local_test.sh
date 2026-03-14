@@ -44,7 +44,7 @@ bootstrap_local_test() {
     # wait_for_boltz_api
 
     # All container health checks and regtest-start completion are
-    # enforced by depends_on conditions in docker-compose.yml, so
+    # enforced by depends_on conditions in compose.yaml, so
     # bootstrap only needs to open the lightning channels.
     setup_channels
 }

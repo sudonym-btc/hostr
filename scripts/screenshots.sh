@@ -149,19 +149,16 @@ echo ""
 
 cd "$APP_DIR"
 
-# ── Resolve escrow contract address via Dart helper (host-side) ─────────────
-if ! escrow_contract_address_output=$(ESCROW_CONTRACT_ADDRESS="${ESCROW_CONTRACT_ADDRESS:-}" dart run "$REPO_ROOT/hostr_sdk/lib/util/contract_address.dart" 2>&1); then
-  echo "❌ Failed to resolve escrow contract address via Dart helper."
-  echo "$escrow_contract_address_output"
-  exit 1
-fi
+"$REPO_ROOT/scripts/sync-contract-env.sh" local
 
-ESCROW_CONTRACT_ADDRESS=$(printf '%s\n' "$escrow_contract_address_output" | grep -oE '0x[a-fA-F0-9]{40}' | tail -1 || true)
+set -a
+source "$REPO_ROOT/.env"
+source "$REPO_ROOT/.env.local"
+set +a
 
 if [[ -z "$ESCROW_CONTRACT_ADDRESS" ]]; then
   echo "❌ Could not resolve escrow contract address."
-  echo "$escrow_contract_address_output"
-  echo "   Set ESCROW_CONTRACT_ADDRESS or ensure escrow/contracts/contract-addresses.json exists."
+  echo "   Set ESCROW_CONTRACT_ADDRESS in .env.local or re-run scripts/sync-contract-env.sh local."
   exit 1
 fi
 echo "📝 Contract address: $ESCROW_CONTRACT_ADDRESS"
@@ -198,10 +195,10 @@ for device_name in "${DEVICES[@]}"; do
   # The test_driver reads SCREENSHOT_DEVICE to route output into the right
   # subdirectory (screenshots/<slug>/*.png).
   echo "   🏃 Running screenshot suite…"
-    if SCREENSHOT_DEVICE="$slug" ESCROW_CONTRACT_ADDRESS="$ESCROW_CONTRACT_ADDRESS" flutter drive \
+    if SCREENSHOT_DEVICE="$slug" flutter drive \
       --driver=test_driver/screenshot_test.dart \
       --target=integration_test/screenshots.dart \
-      --dart-define=ESCROW_CONTRACT_ADDRESS="$ESCROW_CONTRACT_ADDRESS" \
+      --dart-define-from-file="$REPO_ROOT/.env.local" \
       -d "$udid" \
       --no-pub 2>&1 | sed 's/^/   /'; then
     echo "   ✅ Done"

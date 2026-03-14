@@ -6,16 +6,11 @@ import 'base.config.dart';
 
 @Injectable(as: Config, env: [Env.prod])
 class ProductionConfig extends Config {
-  /// Hostr escrow daemon's Nostr pubkey.
-  /// Derived from the ESCROW_PRIVATE_KEY in production Secret Manager.
-  /// TODO: run ./scripts/escrow-pubkey.sh hostr-production-d3ba05b4
-  static const _hostrEscrowPubkey =
-      ''; // Set after enabling Secret Manager API on production
-
   @override
-  List<String> get bootstrapEscrowPubkeys => [
-    if (_hostrEscrowPubkey.isNotEmpty) _hostrEscrowPubkey,
-  ];
+  List<String> get bootstrapEscrowPubkeys => buildConfigList(
+    'HOSTR_BOOTSTRAP_ESCROW_PUBKEY',
+    const String.fromEnvironment('HOSTR_BOOTSTRAP_ESCROW_PUBKEY'),
+  );
   @override
   List<String> relays = ['wss://relay.damus.io'];
   @override
@@ -38,13 +33,13 @@ class ProductionRootstockConfig extends RootstockConfig {
   BoltzConfig get boltz => ProductionBoltzConfig();
 
   @override
-  RifRelayConfig get rifRelay => ProductionRifRelayConfig();
+  RifRelayConfig get rifRelay => EnvBackedRifRelayConfig();
 
   @override
   RootstockSupportedContractsConfig get supportedContracts =>
       DefaultRootstockSupportedContractsConfig(
         multiEscrow: DefaultSupportedEscrowContractConfig(
-          rifRelay: ProductionRifRelayConfig(),
+          rifRelay: EnvBackedRifRelayConfig(),
         ),
       );
 }
@@ -52,19 +47,4 @@ class ProductionRootstockConfig extends RootstockConfig {
 class ProductionBoltzConfig extends BoltzConfig {
   @override
   String get apiUrl => 'https://api.boltz.exchange/v2';
-}
-
-class ProductionRifRelayConfig extends RifRelayConfig {
-  @override
-  String get url => 'https://boltz.mainnet.relay.rifcomputing.net';
-
-  @override
-  String get callVerifier => '0xe221608F3FaBbeDfFb7537F8a9001e80654f55C8';
-
-  @override
-  String get deployVerifier => '0xc0F5bEF6b20Be41174F826684c663a8635c6A081';
-
-  @override
-  String get smartWalletFactoryAddress =>
-      '0x44944a80861120B58cc48B066d57cDAf5eC213dd';
 }

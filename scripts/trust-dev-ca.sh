@@ -19,11 +19,24 @@ if [[ "$OSTYPE" == darwin* ]]; then
   # `security find-certificate -Z` outputs SHA-1 hashes; compute SHA-1 to match.
   CA_SHA1=$(openssl x509 -in "$CA_CERT" -noout -fingerprint -sha1 2>/dev/null \
     | sed 's/.*=//' | tr -d ':')
-  if security find-certificate -a -Z /Library/Keychains/System.keychain 2>/dev/null \
-     | grep -qi "$CA_SHA1"; then
+  EXISTING_HOSTR_SHAS=$(security find-certificate -a -c "Hostr Development CA" -Z /Library/Keychains/System.keychain 2>/dev/null \
+    | awk '/SHA-1 hash:/ { print $3 }')
+
+  if printf '%s\n' "$EXISTING_HOSTR_SHAS" | grep -qi "^${CA_SHA1}$"; then
     echo "✓ Hostr dev CA already trusted in system keychain"
   else
-    echo "→ Adding Hostr dev CA to macOS system keychain (requires sudo)..."
+    if [ -n "$EXISTING_HOSTR_SHAS" ]; then
+      echo "→ Replacing stale Hostr dev CA in macOS system keychain..."
+      while IFS= read -r existing_sha; do
+        [ -n "$existing_sha" ] || continue
+        sudo security delete-certificate -Z "$existing_sha" -t /Library/Keychains/System.keychain 2>/dev/null || true
+      done <<EOF
+$EXISTING_HOSTR_SHAS
+EOF
+    else
+      echo "→ Adding Hostr dev CA to macOS system keychain (requires sudo)..."
+    fi
+
     sudo security add-trusted-cert -d -r trustRoot \
       -k /Library/Keychains/System.keychain "$CA_CERT"
     echo "✓ Hostr dev CA trusted — browsers will show green lock for *.hostr.development"

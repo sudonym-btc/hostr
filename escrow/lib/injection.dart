@@ -6,6 +6,14 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 
 final getIt = GetIt.instance;
 
+String _readRequiredEnv(String key) {
+  final value = Platform.environment[key]?.trim();
+  if (value == null || value.isEmpty) {
+    throw StateError('Missing required environment variable: $key');
+  }
+  return value;
+}
+
 Map<String, String> _parseOtlpHeaders(String? raw) {
   if (raw == null || raw.trim().isEmpty) return const {};
 
@@ -110,15 +118,17 @@ class _EscrowBoltzConfig extends BoltzConfig {
 
 class _EscrowRifRelayConfig extends RifRelayConfig {
   @override
-  String get callVerifier => '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
+  String get callVerifier =>
+      _readRequiredEnv('RIF_RELAY_RELAY_VERIFIER_ADDRESS');
 
   @override
-  String get deployVerifier => '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+  String get deployVerifier =>
+      _readRequiredEnv('RIF_RELAY_DEPLOY_VERIFIER_ADDRESS');
 
   @override
-  String get url => 'https://rifrelay.hostr.development';
+  String get url => _readRequiredEnv('RIF_RELAY_URL');
 
   @override
   String get smartWalletFactoryAddress =>
-      '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE';
+      _readRequiredEnv('RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS');
 }

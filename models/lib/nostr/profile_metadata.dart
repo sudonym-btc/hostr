@@ -37,11 +37,4 @@ class ProfileMetadata extends Event {
     );
     return ProfileMetadata.fromNostrEvent(rebuilt);
   }
-
-  @Deprecated('Use withEvmAddress instead — this mutates tags without '
-      'recomputing the event id, causing relay rejection.')
-  setEvmAddress(String address) {
-    this.tags.removeWhere((t) => t[0] == 'i' && t[1] == 'evm:address');
-    this.tags.add(['i', 'evm:address', address]);
-  }
 }

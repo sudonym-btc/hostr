@@ -218,7 +218,7 @@ at deploy time. Required keys are:
 - `BLOSSOM_DASHBOARD_PASSWORD`
 
 Non-sensitive runtime values (`DOMAIN`, `LETSENCRYPT_EMAIL`, `RPC_URL`,
-`ESCROW_CONTRACT_ADDR`) are sourced from `.env.staging` / `.env.prod`.
+`ESCROW_CONTRACT_ADDRESS`) are sourced from `.env.staging` / `.env.prod`.
 
 See [.doc/infrastructure/README.md](../infrastructure/README.md) for the
 `hostr-fetch-secrets` flow and example commands.

@@ -70,6 +70,9 @@
         "type": "dart",
         "request": "launch",
         "program": "${workspaceFolder:root}/app/test/logic",
+        "toolArgs": [
+          "--dart-define-from-file=${workspaceFolder:root}/.env.test"
+        ],
         "args": [
           "--name",
           ".*"  // This regex pattern matches all test names
@@ -92,6 +95,9 @@
         "request": "launch",
         "type": "dart",
         "program": "${workspaceFolder:root}/app/lib/main_development.dart",
+        "toolArgs": [
+          "--dart-define-from-file=${workspaceFolder:root}/.env.local"
+        ],
         // "toolArgs": [
         //   "--no-start-paused"
         // ],
@@ -105,6 +111,9 @@
         "request": "launch",
         "type": "dart",
         "program": "${workspaceFolder:root}/app/lib/main_development.dart",
+        "toolArgs": [
+          "--dart-define-from-file=${workspaceFolder:root}/.env.local"
+        ],
         "flutterMode": "profile"
       },
       {
@@ -112,6 +121,9 @@
         "request": "launch",
         "type": "dart",
         "program": "${workspaceFolder:root}/app/lib/main_development.dart",
+        "toolArgs": [
+          "--dart-define-from-file=${workspaceFolder:root}/.env.local"
+        ],
         "flutterMode": "release"
       },
       {
@@ -119,12 +131,18 @@
         "request": "launch",
         "type": "dart",
         "program": "${workspaceFolder:root}/app/lib/main_staging.dart",
+        "toolArgs": [
+          "--dart-define-from-file=${workspaceFolder:root}/.env.staging"
+        ]
       },
       {
         "name": "production",
         "request": "launch",
         "type": "dart",
         "program": "${workspaceFolder:root}/app/lib/main_production.dart",
+        "toolArgs": [
+          "--dart-define-from-file=${workspaceFolder:root}/.env.prod"
+        ]
       }
     ]
   }

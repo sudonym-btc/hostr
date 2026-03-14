@@ -1,0 +1,128 @@
+# Hosted overrides for staging/production.
+#
+# Use alongside the base compose file:
+#   docker compose -f compose.yaml -f compose.hosted.yaml ...
+
+services:
+  tls-init:
+    entrypoint: ["true"]
+    restart: "no"
+
+  escrow-contract-deploy:
+    profiles:
+      - never
+
+  anvil:
+    profiles:
+      - never
+
+  bootstrap:
+    profiles:
+      - never
+
+  acme-companion:
+    image: nginxproxy/acme-companion
+    depends_on:
+      nginx-proxy:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/certs:/etc/nginx/certs
+      - ./docker/vhost.d:/etc/nginx/vhost.d
+      - acme-html:/usr/share/nginx/html
+    environment:
+      - DEFAULT_EMAIL=${LETSENCRYPT_EMAIL:-admin@hostr.cc}
+      - NGINX_PROXY_CONTAINER=hostr-nginx-proxy-1
+    restart: unless-stopped
+
+  nginx-proxy:
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./docker/certs:/etc/nginx/certs
+      - ./docker/vhost.d:/etc/nginx/vhost.d
+      - ./docker/nginx-proxy.conf:/etc/nginx/conf.d/zzz_upload.conf:ro
+      - acme-html:/usr/share/nginx/html
+
+  relay:
+    environment:
+      - LETSENCRYPT_HOST=relay.${DOMAIN}
+
+  blossom:
+    environment:
+      - LETSENCRYPT_HOST=blossom.${DOMAIN}
+
+  landing-page:
+    environment:
+      - LETSENCRYPT_HOST=landing.${DOMAIN},${DOMAIN}
+
+  rif-relay:
+    environment:
+      LETSENCRYPT_HOST: rifrelay.${DOMAIN}
+      NODE_ENV: mainnet
+      RIF_RELAY_MODE: hosted
+      RIF_RELAY_ADDRESS_KEY: ${RIF_RELAY_ADDRESS_KEY:-mainnet.30}
+      RIF_RELAY_RSK_NODE_URL: ${RIF_RELAY_RSK_NODE_URL:-https://public-node.rsk.co}
+      RIF_RELAY_HUB_ADDRESS: ${RIF_RELAY_HUB_ADDRESS}
+      RIF_RELAY_DEPLOY_VERIFIER_ADDRESS: ${RIF_RELAY_DEPLOY_VERIFIER_ADDRESS}
+      RIF_RELAY_RELAY_VERIFIER_ADDRESS: ${RIF_RELAY_RELAY_VERIFIER_ADDRESS}
+      RIF_RELAY_WORKER_MIN_BALANCE: ${RIF_RELAY_WORKER_MIN_BALANCE:-100000000000000}
+      RIF_RELAY_WORKER_TARGET_BALANCE: ${RIF_RELAY_WORKER_TARGET_BALANCE:-100000000000000}
+      REGISTER_STAKE: ${RIF_RELAY_REGISTER_STAKE:-0.0001}
+      REGISTER_FUNDS: ${RIF_RELAY_REGISTER_FUNDS:-0.02}
+      REGISTER_GAS_PRICE: ${RIF_RELAY_REGISTER_GAS_PRICE:-60000000}
+      REGISTER_UNSTAKE_DELAY: ${RIF_RELAY_REGISTER_UNSTAKE_DELAY:-1000}
+    restart: unless-stopped
+    networks:
+      - default
+    profiles:
+      - staging
+      - prod
+
+  rif-relay-register:
+    build:
+      context: .
+      dockerfile: docker/rif-relay/Dockerfile
+    depends_on:
+      rif-relay:
+        condition: service_healthy
+    environment:
+      NODE_ENV: mainnet
+      RIF_RELAY_PUBLIC_URL: https://rifrelay.${DOMAIN}
+      RIF_RELAY_ADDRESS_KEY: ${RIF_RELAY_ADDRESS_KEY:-mainnet.30}
+      RIF_RELAY_RSK_NODE_URL: ${RIF_RELAY_RSK_NODE_URL:-https://public-node.rsk.co}
+      RIF_RELAY_HUB_ADDRESS: ${RIF_RELAY_HUB_ADDRESS}
+      RIF_RELAY_DEPLOY_VERIFIER_ADDRESS: ${RIF_RELAY_DEPLOY_VERIFIER_ADDRESS}
+      RIF_RELAY_RELAY_VERIFIER_ADDRESS: ${RIF_RELAY_RELAY_VERIFIER_ADDRESS}
+      RIF_RELAY_FEES_RECEIVER: ${RIF_RELAY_FEES_RECEIVER:-0x0000000000000000000000000000000000000000}
+      RIF_RELAY_WORKER_MIN_BALANCE: ${RIF_RELAY_WORKER_MIN_BALANCE:-100000000000000}
+      RIF_RELAY_WORKER_TARGET_BALANCE: ${RIF_RELAY_WORKER_TARGET_BALANCE:-100000000000000}
+      RIF_RELAY_INITIAL_BLOCK_TO_SCAN: ${RIF_RELAY_INITIAL_BLOCK_TO_SCAN:-1}
+      RIF_RELAY_LOG_LEVEL: ${RIF_RELAY_LOG_LEVEL:-2}
+      REGISTER_PRIVATE_KEY: ${RIF_RELAY_ADMIN_PRIVATE_KEY}
+      REGISTER_STAKE: ${RIF_RELAY_REGISTER_STAKE:-0.0001}
+      REGISTER_FUNDS: ${RIF_RELAY_REGISTER_FUNDS:-0.02}
+      REGISTER_GAS_PRICE: ${RIF_RELAY_REGISTER_GAS_PRICE:-60000000}
+      REGISTER_UNSTAKE_DELAY: ${RIF_RELAY_REGISTER_UNSTAKE_DELAY:-1000}
+    entrypoint:
+      - /bin/bash
+      - /register.sh
+    restart: "no"
+    networks:
+      - default
+    profiles:
+      - relay-admin
+
+  escrow:
+    depends_on:
+      nginx-proxy:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ./docker/data/escrow:/data:ro
+
+  seed-relay:
+    profiles:
+      - never
+
+volumes:
+  acme-html:

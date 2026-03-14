@@ -9,7 +9,7 @@ Infrastructure is split into **two Terraform stacks**:
 
 The compute stack deploys a **single Compute Engine VM** that runs Docker Compose
 for staging/production services (`relay`, `blossom`, `escrow`) with
-`docker-compose.prod-override.yml` (Let's Encrypt via `acme-companion`).
+`compose.hosted.yaml` (Let's Encrypt via `acme-companion`).
 
 ## Fresh setup in a new GCP account
 
@@ -105,7 +105,7 @@ Terraform creates the required Secret Manager secret containers for:
 - `OTEL_EXPORTER_OTLP_HEADERS`
 
 Non-sensitive runtime values like `DOMAIN`, `LETSENCRYPT_EMAIL`, `RPC_URL`, and
-`ESCROW_CONTRACT_ADDR` are read from `.env.staging` / `.env.prod`.
+`ESCROW_CONTRACT_ADDRESS` is read from `.env.staging` / `.env.prod`.
 
 `OTEL_EXPORTER_OTLP_ENDPOINT` is also non-sensitive and can live in
 `.env.staging` / `.env.prod`, while the auth header stays in Secret Manager.
@@ -178,10 +178,10 @@ static const _hostrEscrowPubkey = '<pubkey-from-above>';
 #### 4. Deploy the contract and set the address
 
 Deploy the MultiEscrow contract to Rootstock (see the escrow README), then set
-`ESCROW_CONTRACT_ADDR` in `.env.staging` or `.env.prod`:
+`ESCROW_CONTRACT_ADDRESS` in `.env.staging` or `.env.prod`:
 
 ```
-ESCROW_CONTRACT_ADDR=0x<deployed-address>
+ESCROW_CONTRACT_ADDRESS=0x<deployed-address>
 ```
 
 This value is **not** a secret — it's committed to the repo in the env file.
@@ -192,17 +192,17 @@ The VM startup/deploy script:
 
 1. Pulls the repo branch.
 2. Fetches secrets from Secret Manager into `/opt/hostr/.env.runtime`.
-3. Writes `ESCROW_CONTRACT_ADDR` to `docker/data/escrow/contract_addr`.
+3. Merges `.env` and `.env.<env>` with Secret Manager values into `/opt/hostr/.env.runtime`.
 4. Runs:
 
 ```bash
 docker compose \
     --env-file /opt/hostr/.env.runtime \
     --profile <staging|prod> \
-    -f docker-compose.yml \
-    -f docker-compose.prod-override.yml \
+  -f compose.yaml \
+  -f compose.hosted.yaml \
     up -d --build --remove-orphans
 ```
 
-So TLS is always deployed through `docker-compose.prod-override.yml` in
+So TLS is always deployed through `compose.hosted.yaml` in
 staging/production.

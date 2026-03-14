@@ -47,7 +47,7 @@ This gives you the flexibility to run different relays for different escrow prod
 
 ### Local development
 
-Local dev already runs a Boltz-flavored relay container in [docker-compose.boltz-override.yml](docker-compose.boltz-override.yml).
+Local dev already runs a Boltz-flavored relay container through [compose.override.yaml](compose.override.yaml).
 
 At startup it currently:
 

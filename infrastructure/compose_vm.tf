@@ -127,6 +127,20 @@ resource "google_compute_disk" "blossom_data" {
   depends_on = [google_project_service.compute]
 }
 
+resource "google_compute_disk" "rif_relay_data" {
+  name    = "${local.project_base_name}-rif-relay-data"
+  project = var.project_id
+  zone    = var.compose_zone
+  type    = "pd-balanced"
+  size    = var.rif_relay_disk_size_gb
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.compute]
+}
+
 resource "google_compute_instance" "compose_vm" {
   name         = "${local.project_base_name}-compose"
   project      = var.project_id
@@ -150,6 +164,11 @@ resource "google_compute_instance" "compose_vm" {
   attached_disk {
     source      = google_compute_disk.blossom_data.self_link
     device_name = "blossom-data"
+  }
+
+  attached_disk {
+    source      = google_compute_disk.rif_relay_data.self_link
+    device_name = "rif-relay-data"
   }
 
   network_interface {
