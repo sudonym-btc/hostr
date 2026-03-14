@@ -96,6 +96,12 @@ flutter:
     - assets/images/logo/
     - assets/images/logo/generated/
     - assets/images/nostr_clients/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/inter/Inter-Variable.ttf
+        - asset: assets/fonts/inter/Inter-Italic-Variable.ttf
+          style: italic
 
 dependency_overrides:
   intl: ^0.20.2

@@ -10,6 +10,8 @@ set -euo pipefail
 # Usage:
 #   ./scripts/screenshots.sh                   # all configured devices
 #   DEVICES="iPhone 17 Pro Max" ./scripts/screenshots.sh  # override
+#   CHROME_SCREENSHOTS=0 ./scripts/screenshots.sh          # skip Chrome
+#   CHROME_WINDOW_SIZE=1600,1200 ./scripts/screenshots.sh  # resize Chrome
 #   RECORD_VIDEO=1 ./scripts/screenshots.sh    # also record screen video
 #
 # Output:  app/screenshots/<device_slug>/light/*.png
@@ -21,6 +23,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_DIR="$REPO_ROOT/app"
 RECORD_VIDEO="${RECORD_VIDEO:-0}"
+CHROME_SCREENSHOTS="${CHROME_SCREENSHOTS:-1}"
+CHROME_WINDOW_SIZE="${CHROME_WINDOW_SIZE:-1440,1024}"
 
 # ── Device list (override with DEVICES env var) ─────────────────────────────
 # Each entry must match an available `xcrun simctl list devices` name.
@@ -140,6 +144,29 @@ sync_landing_page_screenshots() {
   echo "   🖼️  Synced dark screenshots to landing-page/assets/screenshot/"
 }
 
+run_chrome_screenshots() {
+  local slug="chrome"
+
+  echo "🌐 Chrome → screenshots/$slug/"
+  echo "   Window size: $CHROME_WINDOW_SIZE"
+  echo "   🏃 Running screenshot suite…"
+
+  if SCREENSHOT_DEVICE="$slug" flutter drive \
+    --driver=test_driver/screenshot_test.dart \
+    --target=integration_test/screenshots.dart \
+    --dart-define-from-file="$REPO_ROOT/.env.local" \
+    -d chrome \
+    --web-browser-flag="--window-size=$CHROME_WINDOW_SIZE" \
+    --no-pub 2>&1 | sed 's/^/   /'; then
+    echo "   ✅ Done"
+  else
+    echo "   ❌ Flutter drive failed for Chrome"
+    FAILED+=("Chrome")
+  fi
+
+  echo ""
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────
 
 echo ""
@@ -220,6 +247,10 @@ for device_name in "${DEVICES[@]}"; do
   echo ""
 done
 
+if [[ "$CHROME_SCREENSHOTS" == "1" ]]; then
+  run_chrome_screenshots
+fi
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -257,4 +288,19 @@ for device_name in "${DEVICES[@]}"; do
     fi
   fi
 done
+
+if [[ "$CHROME_SCREENSHOTS" == "1" ]]; then
+  dir="screenshots/chrome"
+  if [[ -d "$dir" ]]; then
+    count=$(find "$dir" -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
+    echo "  📁 app/$dir/ ($count screenshots)"
+    for mode in light dark; do
+      if [[ -d "$dir/$mode" ]]; then
+        mode_count=$(find "$dir/$mode" -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
+        echo "     $mode/ ($mode_count)"
+        find "$dir/$mode" -name '*.png' -exec basename {} \; 2>/dev/null | sort | sed 's/^/       /'
+      fi
+    done
+  fi
+fi
 echo ""
