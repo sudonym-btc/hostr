@@ -31,16 +31,33 @@ RUN python3 - <<'PY'
 from pathlib import Path
 import os
 import re
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 key = os.environ['GOOGLE_MAPS_API_KEY']
 index = Path('web/index.html')
 text = index.read_text()
-text, count = re.subn(
-    r'<script src="https://maps.googleapis.com/maps/api/js\?key=[^"]+"></script>',
-    f'<script async src="https://maps.googleapis.com/maps/api/js?key={key}&loading=async"></script>',
-    text,
-    count=1,
-)
+pattern = r'<script(?P<attrs>[^>]*)src="(?P<src>https://maps.googleapis.com/maps/api/js\?[^"]+)"(?P<tail>[^>]*)></script>'
+
+def rewrite(match):
+    src = match.group('src')
+    parsed = urlparse(src)
+    params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    params['key'] = key
+    params['loading'] = 'async'
+
+    libraries = [lib for lib in params.get('libraries', '').split(',') if lib]
+    if 'marker' not in libraries:
+        libraries.append('marker')
+    params['libraries'] = ','.join(libraries)
+
+    new_src = urlunparse(parsed._replace(query=urlencode(params)))
+    attrs = match.group('attrs')
+    tail = match.group('tail')
+    if ' async' not in f'{attrs}{tail}':
+        attrs = f'{attrs} async'
+    return f'<script{attrs}src="{new_src}"{tail}></script>'
+
+text, count = re.subn(pattern, rewrite, text, count=1)
 if count != 1:
     raise SystemExit('Failed to rewrite Google Maps script tag in web/index.html')
 index.write_text(text)

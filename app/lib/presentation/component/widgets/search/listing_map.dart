@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/injection.dart';
@@ -61,9 +62,6 @@ class ListingMap extends StatefulWidget {
   /// Whether to auto-fit camera to marker bounds whenever markers change.
   final bool autoFitBounds;
 
-  /// Zoom used when only one marker is visible.
-  ///
-  /// This avoids unstable `newLatLngBounds` behaviour for single-point bounds
   /// (especially when large [fitBoundsPadding] is used in short map viewports).
   final double singleMarkerZoom;
 
@@ -144,10 +142,14 @@ class ListingMap extends StatefulWidget {
 }
 
 class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
+  static const _kMercatorLatitudeLimit = 85.05112878;
+  static const _kLongitudeRestrictionEpsilon = 0.000001;
+
   final Completer<GoogleMapController> _controller = Completer();
   final Map<String, Marker> _markers = {};
   bool _mapReady = false;
   int _syncGeneration = 0;
+  bool _isClampingCamera = false;
 
   /// Currently highlighted rendered marker id (accent colour).
   String? _focusedMarkerId;
@@ -172,12 +174,48 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   /// Debounce timer for camera-idle re-clusters.
   Timer? _cameraIdleDebounce;
 
+  String _currentMapStyle() {
+    return getMapStyle(
+      context,
+      Theme.of(context).brightness == Brightness.dark,
+    );
+  }
+
+  Future<void> _applyWebMapStyleFallback(GoogleMapController controller) async {
+    if (!kIsWeb) return;
+
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
+
+    // ignore: deprecated_member_use
+    await controller.setMapStyle(_currentMapStyle());
+  }
+
+  Future<void> _debugLogMapStyle(GoogleMapController controller) async {
+    if (!kDebugMode) return;
+
+    final style = _currentMapStyle();
+    debugPrint('ListingMap style JSON:\n$style');
+
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      final styleError = await controller.getStyleError();
+      debugPrint('ListingMap style error: ${styleError ?? 'none'}');
+    } catch (error, stackTrace) {
+      debugPrint('ListingMap style debug failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
   // ── Map lifecycle ───────────────────────────────────────────────────
 
   void _onMapCreated(GoogleMapController controller) {
     if (!_controller.isCompleted && mounted) {
+      controller.setMapStyle(getMapStyle(context, true));
       _controller.complete(controller);
       _mapReady = true;
+      unawaited(_applyWebMapStyleFallback(controller));
+      unawaited(_debugLogMapStyle(controller));
       _syncMarkers();
     }
   }
@@ -462,6 +500,84 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       const Duration(milliseconds: 300),
       () => unawaited(_onCameraIdle()),
     );
+  }
+
+  void _onCameraMove(CameraPosition position) {
+    final clampedLatitude = _clampCenterLatitudeForViewport(
+      position.target.latitude,
+      position.zoom,
+    );
+    if ((clampedLatitude - position.target.latitude).abs() < 0.000001) return;
+    unawaited(_clampVerticalCameraPosition(position, clampedLatitude));
+  }
+
+  Size _viewportSize() {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    return renderBox?.size ?? MediaQuery.sizeOf(context);
+  }
+
+  double _minimumZoomForViewport() {
+    final viewportHeight = _viewportSize().height;
+    if (viewportHeight <= 0) return 1.0;
+
+    final requiredZoom = log(viewportHeight / 256) / ln2;
+    return max(1.0, requiredZoom);
+  }
+
+  double _latitudeToWorldY(double latitude) {
+    final sinValue = sin(latitude * pi / 180).clamp(-0.9999, 0.9999);
+    return 0.5 - log((1 + sinValue) / (1 - sinValue)) / (4 * pi);
+  }
+
+  double _worldYToLatitude(double worldY) {
+    final mercator = pi * (1 - (2 * worldY));
+    final sinhMercator = (exp(mercator) - exp(-mercator)) / 2;
+    return atan(sinhMercator) * 180 / pi;
+  }
+
+  double _clampCenterLatitudeForViewport(double latitude, double zoom) {
+    final viewportHeight = _viewportSize().height;
+    if (viewportHeight <= 0) {
+      return latitude.clamp(-_kMercatorLatitudeLimit, _kMercatorLatitudeLimit);
+    }
+
+    final effectiveZoom = max(zoom, _minimumZoomForViewport());
+    final worldHeight = 256 * pow(2, effectiveZoom).toDouble();
+    final halfViewportWorld = min(viewportHeight / 2, worldHeight / 2);
+
+    final minCenterWorldY = halfViewportWorld / worldHeight;
+    final maxCenterWorldY = 1 - minCenterWorldY;
+    final worldY = _latitudeToWorldY(
+      latitude,
+    ).clamp(minCenterWorldY, maxCenterWorldY);
+
+    return _worldYToLatitude(worldY);
+  }
+
+  Future<void> _clampVerticalCameraPosition(
+    CameraPosition position,
+    double clampedLatitude,
+  ) async {
+    if (_isClampingCamera || !_mapReady || !_controller.isCompleted) return;
+
+    _isClampingCamera = true;
+    try {
+      final controller = await _controller.future;
+      if (!mounted) return;
+
+      await controller.moveCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: LatLng(clampedLatitude, position.target.longitude),
+            zoom: position.zoom,
+            tilt: position.tilt,
+            bearing: position.bearing,
+          ),
+        ),
+      );
+    } finally {
+      _isClampingCamera = false;
+    }
   }
 
   /// Greedy nearest-neighbour clustering: each incoming marker joins the
@@ -749,20 +865,41 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final defaultCamera = CameraPosition(target: LatLng(0, 0), zoom: 1);
+    final cameraTargetBounds = kIsWeb
+        ? CameraTargetBounds(
+            LatLngBounds(
+              southwest: const LatLng(
+                -_kMercatorLatitudeLimit,
+                -180 + _kLongitudeRestrictionEpsilon,
+              ),
+              northeast: const LatLng(
+                _kMercatorLatitudeLimit,
+                180 - _kLongitudeRestrictionEpsilon,
+              ),
+            ),
+          )
+        : CameraTargetBounds.unbounded;
 
     return GoogleMap(
       style: getMapStyle(context, isDarkMode),
       onMapCreated: _onMapCreated,
+      onCameraMove: widget.interactive && kIsWeb ? _onCameraMove : null,
       onCameraIdle: widget.interactive && widget.enableClustering
           ? _onCameraIdleDebounced
           : null,
       initialCameraPosition: widget.initialCamera ?? defaultCamera,
       markers: _markers.values.toSet(),
       // Controls
+      mapToolbarEnabled: false,
       zoomControlsEnabled: false,
-      minMaxZoomPreference: const MinMaxZoomPreference(1, 17),
+      webCameraControlEnabled: false,
+      cameraTargetBounds: cameraTargetBounds,
+      minMaxZoomPreference: kIsWeb
+          ? MinMaxZoomPreference(_minimumZoomForViewport(), 17)
+          : MinMaxZoomPreference.unbounded,
       myLocationEnabled: false,
       myLocationButtonEnabled: false,
+      mapType: MapType.normal,
       // Interactivity
       scrollGesturesEnabled: widget.interactive,
       zoomGesturesEnabled: widget.interactive,

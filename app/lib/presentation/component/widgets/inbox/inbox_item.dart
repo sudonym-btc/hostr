@@ -20,6 +20,7 @@ class InboxItemView extends StatelessWidget {
   final bool sentByUs;
   final bool read;
   final bool received;
+  final bool selected;
   final VoidCallback? onTap;
 
   const InboxItemView({
@@ -31,12 +32,18 @@ class InboxItemView extends StatelessWidget {
     this.sentByUs = false,
     this.read = false,
     this.received = false,
+    this.selected = false,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ListTile(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      tileColor: selected
+          ? theme.colorScheme.surfaceContainerHighest
+          : Colors.transparent,
       contentPadding: EdgeInsets.symmetric(
         horizontal: kDefaultPadding.toDouble(),
         vertical: 0,
@@ -44,9 +51,9 @@ class InboxItemView extends StatelessWidget {
       leading: ProfileAvatars(profiles: counterparties),
       title: Text(
         title,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
       ),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Column(
@@ -71,8 +78,9 @@ class InboxItemView extends StatelessWidget {
 
 class InboxItem extends StatelessWidget {
   final Thread thread;
+  final bool selected;
 
-  const InboxItem({super.key, required this.thread});
+  const InboxItem({super.key, required this.thread, this.selected = false});
 
   @override
   Widget build(BuildContext context) {
@@ -107,13 +115,19 @@ class InboxItem extends StatelessWidget {
             title: title,
             subtitle: subtitle,
             lastDateTime: lastDateTime,
+            selected: selected,
             sentByUs:
                 lastMessage?.pubKey ==
                 getIt<Hostr>().auth.getActiveKey().publicKey,
             read: state.threadState.read,
             received: state.threadState.received,
             onTap: () {
-              AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
+              final router = AutoRouter.of(context);
+              if (context.routeData.name == ThreadRoute.name) {
+                router.replace(ThreadRoute(anchor: thread.anchor));
+                return;
+              }
+              router.push(ThreadRoute(anchor: thread.anchor));
             },
           );
         },
