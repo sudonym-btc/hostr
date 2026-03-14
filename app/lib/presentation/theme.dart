@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 
+const _appFontFamily = 'Inter';
+
 ThemeData getTheme(bool isDark) {
   final darkColorScheme =
       ColorScheme.fromSwatch(
@@ -55,12 +57,24 @@ ThemeData getTheme(bool isDark) {
 
   final colorScheme = isDark ? darkColorScheme : lightColorScheme;
   final base = isDark ? ThemeData.dark() : ThemeData.light();
+  final textTheme = base.textTheme.apply(
+    fontFamily: _appFontFamily,
+    bodyColor: colorScheme.onSurface,
+    displayColor: colorScheme.onSurface,
+  );
+  final primaryTextTheme = base.primaryTextTheme.apply(
+    fontFamily: _appFontFamily,
+    bodyColor: colorScheme.onPrimary,
+    displayColor: colorScheme.onPrimary,
+  );
   final baseGeneric = base.copyWith(
+    textTheme: textTheme,
+    primaryTextTheme: primaryTextTheme,
     appBarTheme: AppBarTheme(
       titleSpacing: kDefaultPadding.toDouble(),
       centerTitle: false,
       foregroundColor: colorScheme.onSurface,
-      titleTextStyle: base.textTheme.displayMedium?.copyWith(
+      titleTextStyle: textTheme.displayMedium?.copyWith(
         fontSize: 28,
         fontWeight: FontWeight.bold,
         color: colorScheme.onSurface,

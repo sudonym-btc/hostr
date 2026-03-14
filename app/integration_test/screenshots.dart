@@ -18,12 +18,9 @@
 ///   ./scripts/screenshots.sh
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/app.dart';
-import 'package:hostr/config/http_overrides.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
@@ -33,6 +30,9 @@ import 'package:hostr_sdk/testing/integration_test_harness.dart';
 import 'package:hostr_sdk/usecase/requests/in_memory.requests.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail_image_network/mocktail_image_network.dart';
+
+import 'support/http_overrides_stub.dart'
+    if (dart.library.io) 'support/http_overrides_io.dart';
 
 // ── Seed configuration ──────────────────────────────────────────────────────
 // Small dataset — just enough for every screenshot page.
@@ -158,7 +158,7 @@ void main() {
   // nginx-proxy don't fail with CERTIFICATE_VERIFY_FAILED.
   // main_development.dart does this for the normal app; integration tests
   // bypass that entrypoint so we must set it here.
-  HttpOverrides.global = MyHttpOverrides();
+  configureTestHttpOverrides();
 
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 

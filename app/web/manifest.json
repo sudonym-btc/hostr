@@ -1,11 +1,11 @@
 {
-    "name": "flutter_application_1",
-    "short_name": "flutter_application_1",
+    "name": "Hostr",
+    "short_name": "Hostr",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
     "theme_color": "#29539B",
-    "description": "A new Flutter project.",
+    "description": "Nostr client focused on short-term accommodation",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
