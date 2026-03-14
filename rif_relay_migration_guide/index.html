@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.2.0.826783000421">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.2.0">
+
+    <!-- Primary Meta Tags -->
+    <title>Custom RIF Relay Migration Guide</title>
+    <meta name="title" content="Custom RIF Relay Migration Guide">
+    <meta name="description" content="This guide lays out the migration plan for moving hostr from the Boltz-hosted relay flow to a self-hosted, escrow-specific RIF Relay stack on Rootstock.">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="/rif_relay_migration_guide/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="/rif_relay_migration_guide/">
+    <meta property="og:title" content="Custom RIF Relay Migration Guide">
+    <meta property="og:description" content="This guide lays out the migration plan for moving hostr from the Boltz-hosted relay flow to a self-hosted, escrow-specific RIF Relay stack on Rootstock.">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../resources/css/retype.css?v=4.2.0.826783000421" rel="stylesheet">
+
+    <script data-cfasync="false" src="../resources/js/config.js?v=4.2.0.826783000421" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../resources/js/retype.js?v=4.2.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../resources/js/lunr.js?v=4.2.0.826783000421" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../resources/js/prism.js?v=4.2.0.826783000421" defer></script>
+    <link href="../resources/css/katex.css?v=4.2.0" rel="stylesheet">
+    <script id="katex-js" data-cfasync="false" src="../resources/js/katex.js?v=4.2.0" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="../" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 dark:hidden md:inline-block" src="../app/assets/images/logo/logo.svg">
+                            <img class="max-h-10 hidden dark:inline-block" src="../app/assets/images/logo/logo.svg">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../.doc/guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../.doc/guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <!-- Page content  -->
+<doc-anchor-target id="custom-rif-relay-migration-guide" class="break-words">
+    <h1>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#custom-rif-relay-migration-guide">#</doc-anchor-trigger>
+        <span>Custom RIF Relay Migration Guide</span>
+    </h1>
+</doc-anchor-target>
+<p>This guide lays out the migration plan for moving hostr from the Boltz-hosted relay flow to a self-hosted, escrow-specific RIF Relay stack on Rootstock.</p>
+<p>It is intentionally opinionated:</p>
+<ul>
+<li>one relay instance should serve one escrow wrapper / escrow family;</li>
+<li>verifier policy should be owned by hostr, not by Boltz;</li>
+<li>contract addresses should be tracked in-repo;</li>
+<li>contract logic should absorb as much business complexity as possible so the relay stays simple.</li>
+</ul>
+<hr>
+<doc-anchor-target id="1-target-architecture">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#1-target-architecture">#</doc-anchor-trigger>
+        <span>1. Target architecture</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="goal">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#goal">#</doc-anchor-trigger>
+        <span>Goal</span>
+    </h3>
+</doc-anchor-target>
+<p>Replace the current dependency on Boltz-hosted relay infrastructure with a hostr-owned relay stack that:</p>
+<ul>
+<li>sponsors gas for hostr escrow actions;</li>
+<li>can be tied to a specific escrow wrapper contract;</li>
+<li>can evolve as <code translate="no" v-pre>MultiEscrow.sol</code> evolves;</li>
+<li>can later support multiple escrow wrappers, each with its own relay/verifier policy.</li>
+</ul>
+<doc-anchor-target id="recommended-shape">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-shape">#</doc-anchor-trigger>
+        <span>Recommended shape</span>
+    </h3>
+</doc-anchor-target>
+<p>For each escrow wrapper family, deploy:</p>
+<ol>
+<li>one <code translate="no" v-pre>RelayHub</code> stack;</li>
+<li>one smart-wallet factory;</li>
+<li>one deploy verifier;</li>
+<li>one relay verifier;</li>
+<li>one relay server;</li>
+<li>one escrow wrapper contract (or one family of compatible contracts).</li>
+</ol>
+<p>In practice, the key coupling is:</p>
+<ul>
+<li><strong>client</strong> knows which relay URL + verifier + factory to use;</li>
+<li><strong>verifier</strong> knows which target contracts and methods it will sponsor;</li>
+<li><strong>escrow wrapper</strong> exposes the exact atomic methods the relay is allowed to execute.</li>
+</ul>
+<p>This gives you the flexibility to run different relays for different escrow products without turning one relay into a universal gas sponsor.</p>
+<hr>
+<doc-anchor-target id="2-current-state-in-this-repo">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#2-current-state-in-this-repo">#</doc-anchor-trigger>
+        <span>2. Current state in this repo</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="local-development">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#local-development">#</doc-anchor-trigger>
+        <span>Local development</span>
+    </h3>
+</doc-anchor-target>
+<p>Local dev already runs a Boltz-flavored relay container in <a href="../docker-compose.boltz-override.yml">docker-compose.boltz-override.yml</a>.</p>
+<p>At startup it currently:</p>
+<ol>
+<li>deploys RIF relay contracts on Anvil;</li>
+<li>starts the relay server;</li>
+<li>runs registration.</li>
+</ol>
+<p>The local relay config override is in <a href="docker/rif-relay/local.json5">docker/rif-relay/local.json5</a>.</p>
+<doc-anchor-target id="contract-deployment-tooling">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#contract-deployment-tooling">#</doc-anchor-trigger>
+        <span>Contract deployment tooling</span>
+    </h3>
+</doc-anchor-target>
+<p>The relay contracts repo at <a href="dependencies/rif-relay-contracts">dependencies/rif-relay-contracts</a> already contains:</p>
+<ul>
+<li>a custom Hardhat <code translate="no" v-pre>deploy</code> task in <a href="dependencies/rif-relay-contracts/hardhat.config.ts">dependencies/rif-relay-contracts/hardhat.config.ts</a>;</li>
+<li>mutable allowlist tasks:
+<ul>
+<li><code translate="no" v-pre>allow-contracts</code></li>
+<li><code translate="no" v-pre>allowed-contracts</code></li>
+<li><code translate="no" v-pre>remove-contracts</code></li>
+</ul>
+</li>
+<li>disk-based address tracking in <code translate="no" v-pre>contract-addresses.json</code> via <a href="dependencies/rif-relay-contracts/tasks/deploy.ts">dependencies/rif-relay-contracts/tasks/deploy.ts</a>.</li>
+</ul>
+<doc-anchor-target id="client-config-today">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#client-config-today">#</doc-anchor-trigger>
+        <span>Client config today</span>
+    </h3>
+</doc-anchor-target>
+<p>Today the escrow app hardcodes relay/factory/verifier addresses in <a href="escrow/lib/injection.dart">escrow/lib/injection.dart</a>.</p>
+<p>That means any verifier/factory redeploy requires a client config update.</p>
+<hr>
+<doc-anchor-target id="3-proposed-hostr-migration-plan">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#3-proposed-hostr-migration-plan">#</doc-anchor-trigger>
+        <span>3. Proposed hostr migration plan</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="phase-1--fork-the-boltz-verifier-path">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-1--fork-the-boltz-verifier-path">#</doc-anchor-trigger>
+        <span>Phase 1 — fork the Boltz verifier path</span>
+    </h3>
+</doc-anchor-target>
+<p>Create a hostr-specific relay contract package by forking the Boltz-style verifier path.</p>
+<p>Do <strong>not</strong> start from a completely open verifier.</p>
+<p>Instead:</p>
+<ul>
+<li>keep the existing RIF relay server model;</li>
+<li>keep the smart-wallet deployment/relay flow;</li>
+<li>replace Boltz claim-specific validation with escrow-specific validation.</li>
+</ul>
+<doc-anchor-target id="phase-2--add-a-hostr-escrow-wrapper-contract">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-2--add-a-hostr-escrow-wrapper-contract">#</doc-anchor-trigger>
+        <span>Phase 2 — add a hostr escrow wrapper contract</span>
+    </h3>
+</doc-anchor-target>
+<p>Do not point the relay directly at raw <code translate="no" v-pre>MultiEscrow</code> until the interface is stable.</p>
+<p>Instead, introduce a wrapper / adapter contract with a narrow purpose, for example:</p>
+<ul>
+<li><code translate="no" v-pre>HostrEscrowRelayAdapter</code></li>
+<li><code translate="no" v-pre>EscrowSponsoredActions</code></li>
+<li><code translate="no" v-pre>MultiEscrowRelayedFacade</code></li>
+</ul>
+<p>This wrapper should expose only the atomic methods you want to sponsor.</p>
+<p>Examples:</p>
+<ul>
+<li><code translate="no" v-pre>claimAndCreateTrade(...)</code></li>
+<li><code translate="no" v-pre>fundTrade(...)</code></li>
+<li><code translate="no" v-pre>releaseTrade(...)</code></li>
+<li><code translate="no" v-pre>claimTimeout(...)</code></li>
+<li><code translate="no" v-pre>arbitrateTrade(...)</code></li>
+</ul>
+<p>The wrapper is what the verifier allowlists.</p>
+<p>This is the cleanest way to satisfy requirement (1):</p>
+<blockquote>
+<p>the relay instance is tied directly to my escrow contract wrapper, so different escrow contracts can use different relays.</p>
+</blockquote>
+<doc-anchor-target id="phase-3--switch-the-sdk-from-boltz-addresses-to-hostr-addresses">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-3--switch-the-sdk-from-boltz-addresses-to-hostr-addresses">#</doc-anchor-trigger>
+        <span>Phase 3 — switch the SDK from Boltz addresses to hostr addresses</span>
+    </h3>
+</doc-anchor-target>
+<p>Update hostr config so the relay URL, deploy verifier, relay verifier, and smart-wallet factory point to hostr-owned addresses.</p>
+<p>Primary touchpoints:</p>
+<ul>
+<li><a href="../hostr_sdk/lib/config.dart">hostr_sdk/lib/config.dart</a></li>
+<li><a href="../hostr_sdk/lib/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart">hostr_sdk/lib/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart</a></li>
+<li><a href="escrow/lib/injection.dart">escrow/lib/injection.dart</a></li>
+</ul>
+<doc-anchor-target id="phase-4--move-business-logic-on-chain">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#phase-4--move-business-logic-on-chain">#</doc-anchor-trigger>
+        <span>Phase 4 — move business logic on-chain</span>
+    </h3>
+</doc-anchor-target>
+<p>The relay should not orchestrate multi-step backend behavior.</p>
+<p>Instead, the contract wrapper should do the atomic unit of work in one call.</p>
+<p>Good:</p>
+<ul>
+<li>one relayed call to <code translate="no" v-pre>claimAndCreateTrade(...)</code></li>
+<li>one relayed call to <code translate="no" v-pre>releaseTrade(...)</code></li>
+</ul>
+<p>Bad:</p>
+<ul>
+<li>relay claims funds in one call, then backend separately funds escrow in a second step.</li>
+</ul>
+<hr>
+<doc-anchor-target id="4-private-key-plan">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#4-private-key-plan">#</doc-anchor-trigger>
+        <span>4. Private key plan</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="short-answer">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#short-answer">#</doc-anchor-trigger>
+        <span>Short answer</span>
+    </h2>
+</doc-anchor-target>
+<p>You can reuse <code translate="no" v-pre>ESCROW_PRIVATE_KEY</code> for <strong>deployer / verifier-owner / registration-owner</strong> duties, but <strong>not for every relay identity</strong>.</p>
+<doc-anchor-target id="important-distinction">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#important-distinction">#</doc-anchor-trigger>
+        <span>Important distinction</span>
+    </h3>
+</doc-anchor-target>
+<p>RIF Relay involves multiple keys / identities:</p>
+<ol>
+<li><p><strong>deployer / admin / verifier owner</strong></p>
+<ul>
+<li>deploys contracts;</li>
+<li>owns verifier allowlist state;</li>
+<li>runs <code translate="no" v-pre>allow-contracts</code> / <code translate="no" v-pre>remove-contracts</code>;</li>
+<li>may be the same EOA as your existing <code translate="no" v-pre>ESCROW_PRIVATE_KEY</code>.</li>
+</ul>
+</li>
+<li><p><strong>relay owner used during registration</strong></p>
+<ul>
+<li>funds / stakes the relay manager;</li>
+<li>can also be the same EOA as <code translate="no" v-pre>ESCROW_PRIVATE_KEY</code> if you insist.</li>
+</ul>
+</li>
+<li><p><strong>relay manager + relay worker keys</strong></p>
+<ul>
+<li>used by the running relay server;</li>
+<li>generated / managed inside the relay server workdir;</li>
+<li>these are not the same identity as the escrow admin key.</li>
+</ul>
+</li>
+</ol>
+<p>So the realistic plan is:</p>
+<ul>
+<li>keep <strong>one external high-value secret</strong>: <code translate="no" v-pre>ESCROW_PRIVATE_KEY</code>;</li>
+<li>let the server manage its own manager/worker operational keys inside its persistent workdir.</li>
+</ul>
+<doc-anchor-target id="recommendation">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommendation">#</doc-anchor-trigger>
+        <span>Recommendation</span>
+    </h3>
+</doc-anchor-target>
+<p>Use <code translate="no" v-pre>ESCROW_PRIVATE_KEY</code> only for:</p>
+<ul>
+<li>contract deployment;</li>
+<li>verifier ownership;</li>
+<li>allowlist updates;</li>
+<li>relay registration ownership.</li>
+</ul>
+<p>Do <strong>not</strong> try to force the relay worker key to equal the escrow admin key.</p>
+<p>That would collapse admin authority and hot operational signing into one secret, which is a bad production setup.</p>
+<hr>
+<doc-anchor-target id="5-funding-model">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#5-funding-model">#</doc-anchor-trigger>
+        <span>5. Funding model</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="important-correction">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#important-correction">#</doc-anchor-trigger>
+        <span>Important correction</span>
+    </h2>
+</doc-anchor-target>
+<p>The relay does <strong>not</strong> automatically become self-sustaining just because it collects fees.</p>
+<p>Why:</p>
+<ul>
+<li>the <strong>relay worker</strong> pays gas in RBTC up front;</li>
+<li>the <strong>relay manager</strong> must keep workers topped up;</li>
+<li>fee reimbursement may be delayed, incomplete, zero, or intentionally subsidized;</li>
+<li>failed / rejected / low-fee / mispriced transactions can still burn operational balance.</li>
+</ul>
+<p>RIF Relay docs are explicit that workers must maintain native balance and that the manager replenishes them.</p>
+<doc-anchor-target id="what-stays-funded-over-time">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#what-stays-funded-over-time">#</doc-anchor-trigger>
+        <span>What stays funded over time</span>
+    </h3>
+</doc-anchor-target>
+<p>Three balances matter:</p>
+<ol>
+<li><p><strong>stake on the RelayHub</strong></p>
+<ul>
+<li>required for registration;</li>
+<li>not day-to-day spendable gas balance.</li>
+</ul>
+</li>
+<li><p><strong>relay manager RBTC balance</strong></p>
+<ul>
+<li>used to replenish workers.</li>
+</ul>
+</li>
+<li><p><strong>relay worker RBTC balance</strong></p>
+<ul>
+<li>directly pays transaction gas.</li>
+</ul>
+</li>
+</ol>
+<doc-anchor-target id="production-funding-rule">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#production-funding-rule">#</doc-anchor-trigger>
+        <span>Production funding rule</span>
+    </h3>
+</doc-anchor-target>
+<p>Treat the relay like a hot operational wallet with revenue, not like a perpetual motion machine.</p>
+<p>You should assume you need:</p>
+<ul>
+<li>initial funding before first registration;</li>
+<li>occasional top-ups;</li>
+<li>monitoring / alerts when manager or worker balance drops.</li>
+</ul>
+<doc-anchor-target id="recommended-hostr-funding-policy">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-hostr-funding-policy">#</doc-anchor-trigger>
+        <span>Recommended hostr funding policy</span>
+    </h3>
+</doc-anchor-target>
+<p>For initial rollout:</p>
+<ul>
+<li>subsidize all hostr-sponsored transactions;</li>
+<li>set verifier policy so only hostr-approved methods are relayed;</li>
+<li>monitor fees collected, but do not assume break-even immediately.</li>
+</ul>
+<p>Later, once economics are clear, you can decide whether to:</p>
+<ul>
+<li>keep zero-fee sponsorship;</li>
+<li>charge users in-protocol;</li>
+<li>or reclaim costs inside escrow business logic.</li>
+</ul>
+<doc-anchor-target id="how-the-relay-decides-what-fee-to-charge">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#how-the-relay-decides-what-fee-to-charge">#</doc-anchor-trigger>
+        <span>How the relay decides what fee to charge</span>
+    </h3>
+</doc-anchor-target>
+<p>If you do <strong>not</strong> want to subsidize transactions, your relay needs to quote a fee that is intended to cover gas, but it does <strong>not</strong> need to include profit.</p>
+<p>At a high level, the fee charged by the relay is driven by:</p>
+<ol>
+<li>the server-side gas assumptions;</li>
+<li>the server-side fee markup configuration;</li>
+<li>the final <code translate="no" v-pre>tokenAmount</code> included in the signed relay request;</li>
+<li>the <code translate="no" v-pre>tokenContract</code> used for reimbursement.</li>
+</ol>
+<p>In RIF Relay terms, the reimbursed amount is the <code translate="no" v-pre>tokenAmount</code> on the request. Even though the field is called <code translate="no" v-pre>tokenAmount</code>, it is also used for native-coin reimbursement when <code translate="no" v-pre>tokenContract == address(0)</code>.</p>
+<p>For hostr, the target policy should be:</p>
+<ul>
+<li><strong>no subsidy by default</strong>;</li>
+<li><strong>minimal markup</strong>;</li>
+<li>fees set to approximately cover the relay&#x27;s gas spend and operational slippage.</li>
+</ul>
+<p>That means you should configure the relay so the estimated reimbursement is roughly:</p>
+<div class="math"><pre translate="no">	ext{required fee} \approx \text{gas used} \times \text{gas price} + \text{safety buffer}</pre></div>
+<p>with the safety buffer being small but non-zero.</p>
+<p>Practically, this means:</p>
+<ul>
+<li>do not set the relay&#x27;s fee percentage to zero unless you intentionally want sponsorship;</li>
+<li>do not set it high enough to target profit extraction;</li>
+<li>do keep enough spread to survive mild gas estimation error and block-to-block gas price movement.</li>
+</ul>
+<doc-anchor-target id="where-that-fee-shows-up-in-the-flow">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#where-that-fee-shows-up-in-the-flow">#</doc-anchor-trigger>
+        <span>Where that fee shows up in the flow</span>
+    </h3>
+</doc-anchor-target>
+<p>The normal flow is:</p>
+<ol>
+<li>client asks the relay for an estimate;</li>
+<li>relay calculates the required reimbursement amount;</li>
+<li>client signs a request containing that <code translate="no" v-pre>tokenAmount</code>;</li>
+<li>relay executes the transaction;</li>
+<li>if execution succeeds, the smart wallet pays <code translate="no" v-pre>tokenAmount</code> to <code translate="no" v-pre>feesReceiver</code> inside the same on-chain transaction.</li>
+</ol>
+<p>So the relay does <strong>not</strong> just &quot;charge later&quot; off-chain. The reimbursement amount is part of the signed on-chain request.</p>
+<doc-anchor-target id="when-reimbursement-happens">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#when-reimbursement-happens">#</doc-anchor-trigger>
+        <span>When reimbursement happens</span>
+    </h3>
+</doc-anchor-target>
+<p>Reimbursement happens <strong>during the same relayed transaction</strong>, not in a later settlement cycle.</p>
+<p>More specifically:</p>
+<ul>
+<li>on the <strong>deploy path</strong>, the wallet is created, performs the requested call, and then pays the relay fee;</li>
+<li>on the <strong>relay path</strong>, the already-deployed smart wallet performs the requested call, and then pays the relay fee.</li>
+</ul>
+<p>This ordering matters:</p>
+<ul>
+<li>the worker pays gas to submit the transaction up front;</li>
+<li>the wallet reimburses the configured fee <strong>after</strong> the downstream call runs;</li>
+<li>any remaining balance is then returned according to the wallet logic.</li>
+</ul>
+<p>So from your perspective as relay operator:</p>
+<ul>
+<li><strong>gas spend happens first operationally</strong>;</li>
+<li><strong>fee reimbursement happens in the successful on-chain execution path</strong>.</li>
+</ul>
+<doc-anchor-target id="who-gets-reimbursed">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#who-gets-reimbursed">#</doc-anchor-trigger>
+        <span>Who gets reimbursed</span>
+    </h3>
+</doc-anchor-target>
+<p>The reimbursement is sent to the request&#x27;s <code translate="no" v-pre>feesReceiver</code> address.</p>
+<p>In practice, that is the relay-side fee recipient exposed by <code translate="no" v-pre>/chain-info</code>.</p>
+<p>That address may be:</p>
+<ul>
+<li>the worker EOA directly; or</li>
+<li>a collector / fee receiver contract, depending on your relay setup.</li>
+</ul>
+<p>For hostr, the simpler initial setup is:</p>
+<ul>
+<li>reimburse to the relay-controlled fee receiver;</li>
+<li>periodically inspect balances and sweep if needed.</li>
+</ul>
+<doc-anchor-target id="important-caveat-on-failed-transactions">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#important-caveat-on-failed-transactions">#</doc-anchor-trigger>
+        <span>Important caveat on failed transactions</span>
+    </h3>
+</doc-anchor-target>
+<p>You are <strong>not</strong> guaranteed reimbursement for every attempted relay.</p>
+<p>The important operational rule is:</p>
+<ul>
+<li>if the relayed transaction succeeds, the reimbursement path is expected to run in that same transaction;</li>
+<li>if the transaction reverts or fails before fee payment completes, the relay worker may still have burned gas without being reimbursed.</li>
+</ul>
+<p>This is exactly why prefunding is still required even when your relay is configured to charge fees.</p>
+<doc-anchor-target id="hostr-recommendation">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#hostr-recommendation">#</doc-anchor-trigger>
+        <span>Hostr recommendation</span>
+    </h3>
+</doc-anchor-target>
+<p>For hostr production, the funding policy should be:</p>
+<ul>
+<li>charge fees that aim for <strong>cost recovery, not profit</strong>;</li>
+<li>treat reimbursement as <strong>same-transaction recovery on success</strong>;</li>
+<li>keep manager/worker RBTC balances high enough to survive failed relays and volatility;</li>
+<li>review actual realized reimbursement versus gas spend before tightening margins.</li>
+</ul>
+<doc-anchor-target id="funding-runbook">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#funding-runbook">#</doc-anchor-trigger>
+        <span>Funding runbook</span>
+    </h3>
+</doc-anchor-target>
+<p>When the relay server is running, inspect <code translate="no" v-pre>/chain-info</code> to get:</p>
+<ul>
+<li><code translate="no" v-pre>relayManagerAddress</code></li>
+<li><code translate="no" v-pre>relayWorkerAddress</code></li>
+<li><code translate="no" v-pre>feesReceiver</code></li>
+</ul>
+<p>Operational runbook:</p>
+<ol>
+<li>send RBTC to the relay manager;</li>
+<li>ensure registration stake is present;</li>
+<li>verify the worker gets replenished;</li>
+<li>monitor <code translate="no" v-pre>ready</code> status.</li>
+</ol>
+<doc-anchor-target id="readme-level-rule">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#readme-level-rule">#</doc-anchor-trigger>
+        <span>README-level rule</span>
+    </h3>
+</doc-anchor-target>
+<p><strong>Do not rely on fees alone to keep the relay solvent.</strong></p>
+<p>Assume periodic funding is required.</p>
+<hr>
+<doc-anchor-target id="6-deployment-and-address-tracking">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#6-deployment-and-address-tracking">#</doc-anchor-trigger>
+        <span>6. Deployment and address tracking</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="recommended-source-of-truth">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-source-of-truth">#</doc-anchor-trigger>
+        <span>Recommended source of truth</span>
+    </h3>
+</doc-anchor-target>
+<p>Commit relay contract addresses in-repo.</p>
+<p>Recommended files:</p>
+<ul>
+<li><code translate="no" v-pre>dependencies/rif-relay-contracts/contract-addresses.json</code></li>
+<li>optionally a hostr-owned normalized copy such as:
+<ul>
+<li><code translate="no" v-pre>infrastructure/rif-relay/mainnet.json</code></li>
+<li><code translate="no" v-pre>infrastructure/rif-relay/testnet.json</code></li>
+</ul>
+</li>
+</ul>
+<doc-anchor-target id="recommended-production-process">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-production-process">#</doc-anchor-trigger>
+        <span>Recommended production process</span>
+    </h3>
+</doc-anchor-target>
+<p>Initial deploys should be run manually from a trusted operator machine.</p>
+<doc-anchor-target id="testnet">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#testnet">#</doc-anchor-trigger>
+        <span>Testnet</span>
+    </h4>
+</doc-anchor-target>
+<div id="testnet-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd dependencies/rif-relay-contracts
+export PK=0x...
+npx hardhat deploy --network testnet</code></pre>
+</doc-codeblock></div>
+<doc-anchor-target id="mainnet">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#mainnet">#</doc-anchor-trigger>
+        <span>Mainnet</span>
+    </h4>
+</doc-anchor-target>
+<div id="mainnet-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd dependencies/rif-relay-contracts
+export PK=0x...
+npx hardhat deploy --network mainnet</code></pre>
+</doc-codeblock></div>
+<p>Then:</p>
+<ol>
+<li>commit the resulting address file;</li>
+<li>update client config with the hostr relay URL / verifier / factory addresses;</li>
+<li>deploy the relay server container using those addresses.</li>
+</ol>
+<doc-anchor-target id="ci-recommendation">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#ci-recommendation">#</doc-anchor-trigger>
+        <span>CI recommendation</span>
+    </h3>
+</doc-anchor-target>
+<p>For now:</p>
+<ul>
+<li><strong>do not</strong> let CI deploy relay contracts automatically;</li>
+<li><strong>do</strong> let CI build and deploy the server/container and client code;</li>
+<li>keep deploys as a manual ops step until the contract surface stabilizes.</li>
+</ul>
+<p>That matches your current stage of development.</p>
+<hr>
+<doc-anchor-target id="7-verifier-design">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#7-verifier-design">#</doc-anchor-trigger>
+        <span>7. Verifier design</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="what-the-verifier-should-do">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#what-the-verifier-should-do">#</doc-anchor-trigger>
+        <span>What the verifier should do</span>
+    </h2>
+</doc-anchor-target>
+<p>The hostr verifier should be broader than Boltz’s claim-only verifier, but still policy-driven.</p>
+<p>Recommended policy model:</p>
+<ul>
+<li>allowlisted target contract addresses;</li>
+<li>allowlisted method selectors per contract;</li>
+<li>optional method-level constraints;</li>
+<li>optional fee / value / gas bounds;</li>
+<li>no arbitrary target execution.</li>
+</ul>
+<doc-anchor-target id="suggested-verifier-shape">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#suggested-verifier-shape">#</doc-anchor-trigger>
+        <span>Suggested verifier shape</span>
+    </h3>
+</doc-anchor-target>
+<p>At a high level, the verifier should validate:</p>
+<ol>
+<li>target contract is allowlisted;</li>
+<li>selector is approved for that contract;</li>
+<li>for payable methods, <code translate="no" v-pre>value</code> fits policy;</li>
+<li>for release/arbitrate/claim methods, the request shape is valid;</li>
+<li>optional anti-griefing checks pass.</li>
+</ol>
+<doc-anchor-target id="suggested-storage-layout">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#suggested-storage-layout">#</doc-anchor-trigger>
+        <span>Suggested storage layout</span>
+    </h3>
+</doc-anchor-target>
+<div id="suggested-storage-layout-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-solidity"><code v-pre class="language-solidity">mapping(address =&gt; bool) public allowedContracts;
+mapping(address =&gt; mapping(bytes4 =&gt; bool)) public allowedSelectors;
+mapping(address =&gt; mapping(bytes4 =&gt; MethodPolicy)) public methodPolicies;</code></pre>
+</doc-codeblock></div>
+<p>Where <code translate="no" v-pre>MethodPolicy</code> could include fields like:</p>
+<ul>
+<li><code translate="no" v-pre>bool enabled</code></li>
+<li><code translate="no" v-pre>bool payableAllowed</code></li>
+<li><code translate="no" v-pre>uint256 maxValue</code></li>
+<li><code translate="no" v-pre>uint256 maxGasLimit</code></li>
+<li><code translate="no" v-pre>bool requireTradeExists</code></li>
+<li><code translate="no" v-pre>bool requireTrustedWrapper</code></li>
+</ul>
+<doc-anchor-target id="what-not-to-do">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#what-not-to-do">#</doc-anchor-trigger>
+        <span>What not to do</span>
+    </h3>
+</doc-anchor-target>
+<p>Do <strong>not</strong> build a verifier that just says:</p>
+<blockquote>
+<p>any signed call is fine, pay the gas.</p>
+</blockquote>
+<p>That turns the relay into a generic gas sponsor and makes griefing much easier.</p>
+<hr>
+<doc-anchor-target id="8-verifier-update-process">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#8-verifier-update-process">#</doc-anchor-trigger>
+        <span>8. Verifier update process</span>
+    </h2>
+</doc-anchor-target>
+<p>This is the most important operational distinction.</p>
+<doc-anchor-target id="a-allowlist--config-only-change">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#a-allowlist--config-only-change">#</doc-anchor-trigger>
+        <span>A. Allowlist / config-only change</span>
+    </h2>
+</doc-anchor-target>
+<p>Examples:</p>
+<ul>
+<li>add a new escrow wrapper address;</li>
+<li>remove an old wrapper address;</li>
+<li>add an additional supported contract.</li>
+</ul>
+<p>Use the existing tasks in <a href="dependencies/rif-relay-contracts/hardhat.config.ts">dependencies/rif-relay-contracts/hardhat.config.ts</a>:</p>
+<div id="a-allowlist--config-only-change-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">npx hardhat allow-contracts --contract-list &quot;0xYourWrapper&quot; --network testnet
+npx hardhat allow-contracts --contract-list &quot;0xYourWrapper&quot; --network mainnet</code></pre>
+</doc-codeblock></div>
+<p>This does <strong>not</strong> require:</p>
+<ul>
+<li>verifier redeploy;</li>
+<li>relay server redeploy;</li>
+<li>client config update.</li>
+</ul>
+<doc-anchor-target id="b-verifier-logic-change">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#b-verifier-logic-change">#</doc-anchor-trigger>
+        <span>B. Verifier logic change</span>
+    </h2>
+</doc-anchor-target>
+<p>Examples:</p>
+<ul>
+<li>new supported method selectors;</li>
+<li>new validation rules;</li>
+<li>new fee logic;</li>
+<li>new anti-griefing rules.</li>
+</ul>
+<p>This <strong>does</strong> require:</p>
+<ol>
+<li>compile and deploy a new verifier;</li>
+<li>record new verifier addresses;</li>
+<li>update client config to point to the new verifier(s);</li>
+<li>roll out the app / server config.</li>
+</ol>
+<doc-anchor-target id="recommended-versioning-policy">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-versioning-policy">#</doc-anchor-trigger>
+        <span>Recommended versioning policy</span>
+    </h3>
+</doc-anchor-target>
+<p>Use explicit verifier versions:</p>
+<ul>
+<li><code translate="no" v-pre>HostrEscrowDeployVerifierV1</code></li>
+<li><code translate="no" v-pre>HostrEscrowRelayVerifierV1</code></li>
+<li><code translate="no" v-pre>HostrEscrowDeployVerifierV2</code></li>
+<li><code translate="no" v-pre>HostrEscrowRelayVerifierV2</code></li>
+</ul>
+<p>Do not mutate verifier semantics invisibly.</p>
+<doc-anchor-target id="recommended-development-rule">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-development-rule">#</doc-anchor-trigger>
+        <span>Recommended development rule</span>
+    </h3>
+</doc-anchor-target>
+<p>During rapid development:</p>
+<ul>
+<li>expect frequent verifier redeploys on local dev and testnet;</li>
+<li>minimize mainnet verifier changes until wrapper method names stabilize.</li>
+</ul>
+<doc-anchor-target id="stable-interface-strategy">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#stable-interface-strategy">#</doc-anchor-trigger>
+        <span>Stable interface strategy</span>
+    </h3>
+</doc-anchor-target>
+<p>To reduce verifier churn, freeze a small relayed method surface early.</p>
+<p>For example, only sponsor wrapper methods like:</p>
+<ul>
+<li><code translate="no" v-pre>relayedCreateTrade(...)</code></li>
+<li><code translate="no" v-pre>relayedRelease(...)</code></li>
+<li><code translate="no" v-pre>relayedClaim(...)</code></li>
+<li><code translate="no" v-pre>relayedArbitrate(...)</code></li>
+</ul>
+<p>Then let internal implementation behind those methods evolve without changing selectors.</p>
+<hr>
+<doc-anchor-target id="9-how-multiescrowsol-needs-to-change">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#9-how-multiescrowsol-needs-to-change">#</doc-anchor-trigger>
+        <span>9. How <code translate="no" v-pre>MultiEscrow.sol</code> needs to change</span>
+    </h2>
+</doc-anchor-target>
+<p>Your current contract in <a href="escrow/contracts/contracts/multiescrow.sol">escrow/contracts/contracts/MultiEscrow.sol</a> is not relay-ready yet.</p>
+<doc-anchor-target id="current-blockers">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#current-blockers">#</doc-anchor-trigger>
+        <span>Current blockers</span>
+    </h3>
+</doc-anchor-target>
+<doc-anchor-target id="1-direct-msgsender-role-checks">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#1-direct-msgsender-role-checks">#</doc-anchor-trigger>
+        <span>1. Direct <code translate="no" v-pre>msg.sender</code> role checks</span>
+    </h4>
+</doc-anchor-target>
+<p>Current methods compare <code translate="no" v-pre>msg.sender</code> directly to stored buyer/seller/arbiter addresses.</p>
+<p>Examples:</p>
+<ul>
+<li><code translate="no" v-pre>onlyArbiter(...)</code></li>
+<li><code translate="no" v-pre>releaseToCounterparty(...)</code></li>
+</ul>
+<p>Under RIF Relay, the target contract sees the <strong>smart wallet</strong> as <code translate="no" v-pre>msg.sender</code>, not the user EOA.</p>
+<p>So the current direct role checks will fail unless the trade stores smart-wallet addresses instead of EOAs.</p>
+<doc-anchor-target id="2-no-relayed-identity-abstraction">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#2-no-relayed-identity-abstraction">#</doc-anchor-trigger>
+        <span>2. No relayed identity abstraction</span>
+    </h4>
+</doc-anchor-target>
+<p><code translate="no" v-pre>MultiEscrow</code> currently has no way to interpret:</p>
+<ul>
+<li>smart wallet owner;</li>
+<li>wrapper-authorized caller;</li>
+<li>or signed user intent.</li>
+</ul>
+<doc-anchor-target id="3-no-wrapper-specific-sponsored-entrypoints">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#3-no-wrapper-specific-sponsored-entrypoints">#</doc-anchor-trigger>
+        <span>3. No wrapper-specific sponsored entrypoints</span>
+    </h4>
+</doc-anchor-target>
+<p>The contract currently exposes raw business methods only.</p>
+<p>That makes verifier policy and future compatibility harder.</p>
+<doc-anchor-target id="recommended-changes">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-changes">#</doc-anchor-trigger>
+        <span>Recommended changes</span>
+    </h3>
+</doc-anchor-target>
+<doc-anchor-target id="option-a--wrapper-contract-owns-relayed-entrypoints-recommended">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#option-a--wrapper-contract-owns-relayed-entrypoints-recommended">#</doc-anchor-trigger>
+        <span>Option A — wrapper contract owns relayed entrypoints (recommended)</span>
+    </h4>
+</doc-anchor-target>
+<p>Keep <code translate="no" v-pre>MultiEscrow</code> mostly simple.</p>
+<p>Add a separate wrapper contract that:</p>
+<ul>
+<li>receives relayed calls;</li>
+<li>resolves identity rules;</li>
+<li>forwards into <code translate="no" v-pre>MultiEscrow</code>.</li>
+</ul>
+<p>This is the cleanest option.</p>
+<doc-anchor-target id="option-b--make-multiescrow-smart-wallet-aware">
+    <h4>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#option-b--make-multiescrow-smart-wallet-aware">#</doc-anchor-trigger>
+        <span>Option B — make <code translate="no" v-pre>MultiEscrow</code> smart-wallet aware</span>
+    </h4>
+</doc-anchor-target>
+<p>If you want <code translate="no" v-pre>MultiEscrow</code> itself to be the relayed target, add:</p>
+<ol>
+<li>a trusted factory / wallet model;</li>
+<li>a helper to resolve whether <code translate="no" v-pre>msg.sender</code> is:
+<ul>
+<li>the direct EOA, or</li>
+<li>a smart wallet whose owner hash matches the expected user;</li>
+</ul>
+</li>
+<li>role checks that use that helper instead of raw <code translate="no" v-pre>msg.sender</code> equality.</li>
+</ol>
+<p>Because RIF smart wallets expose <code translate="no" v-pre>getOwner()</code>, you can design an adapter check around wallet ownership if needed.</p>
+<doc-anchor-target id="minimum-recommended-product-interface">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#minimum-recommended-product-interface">#</doc-anchor-trigger>
+        <span>Minimum recommended product interface</span>
+    </h3>
+</doc-anchor-target>
+<p>Whether the wrapper sits outside <code translate="no" v-pre>MultiEscrow</code> or inside it, define stable sponsored entrypoints such as:</p>
+<ul>
+<li><code translate="no" v-pre>createTradeRelayed(...)</code></li>
+<li><code translate="no" v-pre>releaseToCounterpartyRelayed(...)</code></li>
+<li><code translate="no" v-pre>claimRelayed(...)</code></li>
+<li><code translate="no" v-pre>arbitrateRelayed(...)</code></li>
+<li><code translate="no" v-pre>claimAndCreateTradeRelayed(...)</code></li>
+</ul>
+<doc-anchor-target id="payable-flow-considerations">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#payable-flow-considerations">#</doc-anchor-trigger>
+        <span>Payable flow considerations</span>
+    </h3>
+</doc-anchor-target>
+<p>If a relayed method needs to fund a trade, then:</p>
+<ul>
+<li>the method must be payable;</li>
+<li>the wallet / wrapper flow must be able to forward value;</li>
+<li>the contract must not assume the caller EOA itself holds RBTC.</li>
+</ul>
+<doc-anchor-target id="recommended-contract-design-rule">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#recommended-contract-design-rule">#</doc-anchor-trigger>
+        <span>Recommended contract design rule</span>
+    </h3>
+</doc-anchor-target>
+<p>Preserve selector stability.</p>
+<p>Even if internal trade struct logic changes, try to keep the sponsored entrypoint selectors stable so verifier/client churn stays low.</p>
+<hr>
+<doc-anchor-target id="10-recommended-hostr-directory--ownership-plan">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#10-recommended-hostr-directory--ownership-plan">#</doc-anchor-trigger>
+        <span>10. Recommended hostr directory / ownership plan</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="contracts">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#contracts">#</doc-anchor-trigger>
+        <span>Contracts</span>
+    </h3>
+</doc-anchor-target>
+<p>Recommended additions:</p>
+<ul>
+<li><code translate="no" v-pre>dependencies/rif-relay-contracts/contracts/verifier/HostrEscrowDeployVerifier.sol</code></li>
+<li><code translate="no" v-pre>dependencies/rif-relay-contracts/contracts/verifier/HostrEscrowRelayVerifier.sol</code></li>
+<li><code translate="no" v-pre>escrow/contracts/contracts/HostrEscrowRelayAdapter.sol</code></li>
+</ul>
+<doc-anchor-target id="config">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#config">#</doc-anchor-trigger>
+        <span>Config</span>
+    </h3>
+</doc-anchor-target>
+<p>Recommended additions:</p>
+<ul>
+<li><code translate="no" v-pre>docker/rif-relay/testnet.json5</code></li>
+<li><code translate="no" v-pre>docker/rif-relay/mainnet.json5</code></li>
+<li><code translate="no" v-pre>infrastructure/rif-relay/README.md</code> only if later needed</li>
+</ul>
+<doc-anchor-target id="client-config">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#client-config">#</doc-anchor-trigger>
+        <span>Client config</span>
+    </h3>
+</doc-anchor-target>
+<p>Recommended change:</p>
+<ul>
+<li>stop treating hostr relay addresses as implicit Boltz config;</li>
+<li>either rename config fields later, or keep the field names temporarily but point them at hostr-owned infrastructure.</li>
+</ul>
+<hr>
+<doc-anchor-target id="11-rollout-plan">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#11-rollout-plan">#</doc-anchor-trigger>
+        <span>11. Rollout plan</span>
+    </h2>
+</doc-anchor-target>
+<doc-anchor-target id="step-1--contract-fork">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#step-1--contract-fork">#</doc-anchor-trigger>
+        <span>Step 1 — contract fork</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>fork Boltz verifier logic into hostr verifier contracts;</li>
+<li>remove <code translate="no" v-pre>BoltzUtils.validateClaim(...)</code> dependency;</li>
+<li>add contract + selector allowlist logic.</li>
+</ul>
+<doc-anchor-target id="step-2--wrapper-contract">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#step-2--wrapper-contract">#</doc-anchor-trigger>
+        <span>Step 2 — wrapper contract</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>introduce a relayed escrow wrapper;</li>
+<li>freeze initial sponsored method selectors.</li>
+</ul>
+<doc-anchor-target id="step-3--local-dev">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#step-3--local-dev">#</doc-anchor-trigger>
+        <span>Step 3 — local dev</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>replace the Boltz verifier deployment path in local Anvil with hostr verifier deployment;</li>
+<li>point <a href="escrow/lib/injection.dart">escrow/lib/injection.dart</a> at local hostr verifier addresses.</li>
+</ul>
+<doc-anchor-target id="step-4--testnet">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#step-4--testnet">#</doc-anchor-trigger>
+        <span>Step 4 — testnet</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>deploy relay contracts to Rootstock testnet;</li>
+<li>deploy wrapper + <code translate="no" v-pre>MultiEscrow</code> testnet versions;</li>
+<li>run <code translate="no" v-pre>allow-contracts</code> for the wrapper;</li>
+<li>start hostr relay server;</li>
+<li>update client testnet config.</li>
+</ul>
+<doc-anchor-target id="step-5--mainnet">
+    <h3>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#step-5--mainnet">#</doc-anchor-trigger>
+        <span>Step 5 — mainnet</span>
+    </h3>
+</doc-anchor-target>
+<ul>
+<li>manual deploy from operator machine;</li>
+<li>commit address records;</li>
+<li>update production config;</li>
+<li>fund manager/stake;</li>
+<li>start relay server;</li>
+<li>monitor readiness and balances.</li>
+</ul>
+<hr>
+<doc-anchor-target id="12-decisions-to-lock-now">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#12-decisions-to-lock-now">#</doc-anchor-trigger>
+        <span>12. Decisions to lock now</span>
+    </h2>
+</doc-anchor-target>
+<p>To avoid churn, lock these decisions before implementation:</p>
+<ol>
+<li><p><strong>One relay per escrow wrapper family?</strong></p>
+<ul>
+<li>recommended: yes.</li>
+</ul>
+</li>
+<li><p><strong>Use the same admin key as <code translate="no" v-pre>ESCROW_PRIVATE_KEY</code>?</strong></p>
+<ul>
+<li>acceptable for deploy / ownership / registration;</li>
+<li>not for worker hot keys.</li>
+</ul>
+</li>
+<li><p><strong>Use a wrapper instead of relaying directly into raw <code translate="no" v-pre>MultiEscrow</code>?</strong></p>
+<ul>
+<li>recommended: yes.</li>
+</ul>
+</li>
+<li><p><strong>Allow arbitrary transactions?</strong></p>
+<ul>
+<li>recommended: no.</li>
+</ul>
+</li>
+<li><p><strong>Assume fees keep the relay solvent automatically?</strong></p>
+<ul>
+<li>recommended: no.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<doc-anchor-target id="13-immediate-next-implementation-tasks">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#13-immediate-next-implementation-tasks">#</doc-anchor-trigger>
+        <span>13. Immediate next implementation tasks</span>
+    </h2>
+</doc-anchor-target>
+<ol>
+<li>create <code translate="no" v-pre>HostrEscrowDeployVerifier.sol</code>;</li>
+<li>create <code translate="no" v-pre>HostrEscrowRelayVerifier.sol</code>;</li>
+<li>define the initial sponsored selector set;</li>
+<li>design <code translate="no" v-pre>HostrEscrowRelayAdapter.sol</code>;</li>
+<li>decide how buyer/seller/arbiter identity maps to smart wallets;</li>
+<li>add testnet/mainnet relay config files;</li>
+<li>add committed address tracking for hostr-owned relay deployments;</li>
+<li>switch the SDK from Boltz relay addresses to hostr-owned addresses.</li>
+</ol>
+<hr>
+<doc-anchor-target id="14-bottom-line">
+    <h2>
+        <doc-anchor-trigger class="header-anchor-trigger" to="#14-bottom-line">#</doc-anchor-trigger>
+        <span>14. Bottom line</span>
+    </h2>
+</doc-anchor-target>
+<p>The right mental model is:</p>
+<ul>
+<li><strong>self-host the relay server</strong>;</li>
+<li><strong>own the verifier policy</strong>;</li>
+<li><strong>tie each relay to a stable escrow wrapper</strong>;</li>
+<li><strong>keep admin key reuse limited to deploy/ownership duties</strong>;</li>
+<li><strong>expect ongoing funding and monitoring</strong>;</li>
+<li><strong>treat verifier logic changes as versioned contract upgrades</strong>;</li>
+<li><strong>treat contract allowlist changes as normal on-chain admin operations</strong>.</li>
+</ul>
+<p>That gives you a production path that is much closer to Boltz operationally, but under hostr control.</p>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../models/native/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">Bundled H​3 native binaries</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../audit/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">Hostr App — Visual & Logic Audit</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+    <script data-cfasync="false">window.__DOCS__ = { "title": "Custom RIF Relay Migration Guide", level: 1, icon: "file", hasPrism: true, hasMermaid: false, hasMath: true, tocDepth: 23 }</script>
+</body>
+</html>

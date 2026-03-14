@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826528352568">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.2.0.826783000421">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.1.0">
+    <meta name="generator" content="Retype 4.2.0">
 
     <!-- Primary Meta Tags -->
     <title>TODO: NIP-17 Read Receipts &amp; Chat Liveness</title>
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../../../resources/css/retype.css?v=4.1.0.826528352568" rel="stylesheet">
+    <link href="../../../../../resources/css/retype.css?v=4.2.0.826783000421" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../../../resources/js/config.js?v=4.1.0.826528352568" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../../../../../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../../../resources/js/lunr.js?v=4.1.0.826528352568" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../../../resources/js/prism.js?v=4.1.0.826528352568" defer></script>
+    <script data-cfasync="false" src="../../../../../resources/js/config.js?v=4.2.0.826783000421" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../../resources/js/retype.js?v=4.2.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../../resources/js/lunr.js?v=4.2.0.826783000421" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../../resources/js/prism.js?v=4.2.0.826783000421" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -244,15 +244,20 @@ received.</p>
 <li><p><strong>Create <code translate="no" v-pre>ReceivedHeartbeat</code> service</strong> in <code translate="no" v-pre>usecase/messaging/received_heartbeat.dart</code>.</p>
 <ul>
 <li>Inject <code translate="no" v-pre>Ndk</code>, <code translate="no" v-pre>Auth</code>, <code translate="no" v-pre>Requests</code>.</li>
-<li>On each <code translate="no" v-pre>Threads.processMessage()</code> call (or debounced after a batch),publish/replace a <code translate="no" v-pre>kind 10017</code> event signed by the active keypair.</li>
-<li>Randomise <code translate="no" v-pre>created_at</code> by up to ±30 seconds to limit metadata leakage(as discussed in PR #2000).</li>
+<li>On each <code translate="no" v-pre>Threads.processMessage()</code> call (or debounced after a batch),
+publish/replace a <code translate="no" v-pre>kind 10017</code> event signed by the active keypair.</li>
+<li>Randomise <code translate="no" v-pre>created_at</code> by up to ±30 seconds to limit metadata leakage
+(as discussed in PR #2000).</li>
 </ul>
 </li>
 <li><p><strong>Query counterparty heartbeats</strong> in <code translate="no" v-pre>Thread</code>:</p>
 <ul>
-<li>When opening a thread, subscribe to <code translate="no" v-pre>kind 10017</code> from the counterpartypubkey.</li>
+<li>When opening a thread, subscribe to <code translate="no" v-pre>kind 10017</code> from the counterparty
+pubkey.</li>
 <li>Expose a <code translate="no" v-pre>Stream&lt;DateTime?&gt; lastReceivedAt</code> on <code translate="no" v-pre>Thread</code>.</li>
-<li>In the UI, compare each outgoing message&#x27;s <code translate="no" v-pre>created_at</code> against<code translate="no" v-pre>lastReceivedAt</code>. If <code translate="no" v-pre>lastReceivedAt &gt;= message.created_at</code> → show asingle-check (✓) &quot;delivered&quot; indicator.</li>
+<li>In the UI, compare each outgoing message&#x27;s <code translate="no" v-pre>created_at</code> against
+<code translate="no" v-pre>lastReceivedAt</code>. If <code translate="no" v-pre>lastReceivedAt &gt;= message.created_at</code> → show a
+single-check (✓) &quot;delivered&quot; indicator.</li>
 </ul>
 </li>
 <li><p><strong>Debounce publishing</strong> — don&#x27;t publish a new <code translate="no" v-pre>10017</code> on every single
@@ -330,22 +335,26 @@ False positives (message falsely shown as seen) are possible but benign.</p>
 <li><p><strong>Create <code translate="no" v-pre>SeenStatus</code> service</strong> in <code translate="no" v-pre>usecase/messaging/seen_status.dart</code>.</p>
 <ul>
 <li>Track <code translate="no" v-pre>Map&lt;String, int&gt; lastSeenTimestampByThread</code> (thread ID → unix ts).</li>
-<li>When the user scrolls to / views a message in the UI, update thetimestamp for that thread.</li>
+<li>When the user scrolls to / views a message in the UI, update the
+timestamp for that thread.</li>
 </ul>
 </li>
 <li><p><strong>Broadcast seen timestamp to counterparty:</strong></p>
 <ul>
 <li>Debounce (e.g. 3 seconds after last scroll).</li>
 <li>Create a <code translate="no" v-pre>kind 16</code> rumor with a <code translate="no" v-pre>seen_until</code> tag.</li>
-<li>Gift-wrap and send via the same <code translate="no" v-pre>Messaging.broadcastText</code> path to thecounterparty&#x27;s <code translate="no" v-pre>10050</code> relays.</li>
-<li>Set a short <code translate="no" v-pre>expiration</code> tag on the gift wrap (e.g. 7 days) to avoidrelay bloat.</li>
+<li>Gift-wrap and send via the same <code translate="no" v-pre>Messaging.broadcastText</code> path to the
+counterparty&#x27;s <code translate="no" v-pre>10050</code> relays.</li>
+<li>Set a short <code translate="no" v-pre>expiration</code> tag on the gift wrap (e.g. 7 days) to avoid
+relay bloat.</li>
 </ul>
 </li>
 <li><p><strong>Receive and display counterparty&#x27;s seen status:</strong></p>
 <ul>
 <li>In <code translate="no" v-pre>Thread</code>, listen for incoming <code translate="no" v-pre>kind 16</code> events with <code translate="no" v-pre>seen_until</code> tag.</li>
 <li>Expose <code translate="no" v-pre>Stream&lt;int?&gt; counterpartySeenUntil</code> on <code translate="no" v-pre>Thread</code>.</li>
-<li>UI: for each outgoing message, if <code translate="no" v-pre>message.created_at &lt;= counterpartySeenUntil</code>→ show double-check ✓✓.</li>
+<li>UI: for each outgoing message, if <code translate="no" v-pre>message.created_at &lt;= counterpartySeenUntil</code>
+→ show double-check ✓✓.</li>
 </ul>
 </li>
 <li><p><strong>Cross-client sync (own devices):</strong></p>
@@ -428,14 +437,16 @@ the current thread are inside the bloom filter. If yes → show &quot;typing…&
 <li><p><strong>Subscribe to counterparty typing events:</strong></p>
 <ul>
 <li>In <code translate="no" v-pre>Thread</code>, subscribe to <code translate="no" v-pre>kind 10018</code> from the counterparty pubkey.</li>
-<li>On receive, check if your last 3 thread message IDs appear in the bloomfilter → if yes, set <code translate="no" v-pre>isCounterpartyTyping = true</code>.</li>
+<li>On receive, check if your last 3 thread message IDs appear in the bloom
+filter → if yes, set <code translate="no" v-pre>isCounterpartyTyping = true</code>.</li>
 <li>Auto-expire after 15 seconds with no new event.</li>
 </ul>
 </li>
 <li><p><strong>Privacy considerations:</strong></p>
 <ul>
 <li>This is <strong>opt-in</strong>. Users should be able to disable it in settings.</li>
-<li>The bloom filter prevents leaking exact conversation identity to relayoperators while still allowing the counterparty to match.</li>
+<li>The bloom filter prevents leaking exact conversation identity to relay
+operators while still allowing the counterparty to match.</li>
 </ul>
 </li>
 <li><p><strong>Files to create/modify:</strong></p>

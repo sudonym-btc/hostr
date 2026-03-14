@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.1.0.826528352568">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.2.0.826783000421">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.1.0">
+    <meta name="generator" content="Retype 4.2.0">
 
     <!-- Primary Meta Tags -->
     <title>TODO: EVM Auto-Withdrawal via Swap-Out</title>
@@ -27,12 +27,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../../../../../resources/css/retype.css?v=4.1.0.826528352568" rel="stylesheet">
+    <link href="../../../../../../../resources/css/retype.css?v=4.2.0.826783000421" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../../../../../resources/js/config.js?v=4.1.0.826528352568" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../../../../../../../resources/js/retype.js?v=4.1.0" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../../../../../resources/js/lunr.js?v=4.1.0.826528352568" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../../../../../resources/js/prism.js?v=4.1.0.826528352568" defer></script>
+    <script data-cfasync="false" src="../../../../../../../resources/js/config.js?v=4.2.0.826783000421" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../../../../resources/js/retype.js?v=4.2.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../../../../resources/js/lunr.js?v=4.2.0.826783000421" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../../../../resources/js/prism.js?v=4.2.0.826783000421" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -610,8 +610,10 @@ getIt&lt;AutoWithdrawService&gt;().checkNow();</code></pre>
     </h2>
 </doc-anchor-target>
 <ol>
-<li><strong>Unit test <code translate="no" v-pre>EscrowLockRegistry</code></strong> — acquire, release, concurrent locks,idempotent release, stream emissions.</li>
-<li><strong>Unit test <code translate="no" v-pre>AutoWithdrawService</code></strong> — mock <code translate="no" v-pre>Evm</code>, <code translate="no" v-pre>SwapStore</code>,<code translate="no" v-pre>EscrowLockRegistry</code>. Verify each gate independently:
+<li><strong>Unit test <code translate="no" v-pre>EscrowLockRegistry</code></strong> — acquire, release, concurrent locks,
+idempotent release, stream emissions.</li>
+<li><strong>Unit test <code translate="no" v-pre>AutoWithdrawService</code></strong> — mock <code translate="no" v-pre>Evm</code>, <code translate="no" v-pre>SwapStore</code>,
+<code translate="no" v-pre>EscrowLockRegistry</code>. Verify each gate independently:
 <ul>
 <li>Skips when disabled</li>
 <li>Skips when lock held</li>
@@ -621,8 +623,10 @@ getIt&lt;AutoWithdrawService&gt;().checkNow();</code></pre>
 <li>Proceeds and calls <code translate="no" v-pre>swapOutAll()</code> when all gates pass</li>
 </ul>
 </li>
-<li><strong>Integration test</strong> — with mock <code translate="no" v-pre>EvmChain</code>, simulate balance appearingafter escrow claim → verify swap-out is triggered after debounce.</li>
-<li><strong>Race condition test</strong> — start escrow fund and auto-withdrawsimultaneously, verify lock prevents collision.</li>
+<li><strong>Integration test</strong> — with mock <code translate="no" v-pre>EvmChain</code>, simulate balance appearing
+after escrow claim → verify swap-out is triggered after debounce.</li>
+<li><strong>Race condition test</strong> — start escrow fund and auto-withdraw
+simultaneously, verify lock prevents collision.</li>
 </ol>
 
                 
