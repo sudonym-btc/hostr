@@ -55,5 +55,5 @@ class DevelopmentRifRelayConfig extends RifRelayConfig {
   String get deployVerifier => '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
   @override
   String get smartWalletFactoryAddress =>
-      '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE';
+      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
 }

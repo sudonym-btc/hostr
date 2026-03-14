@@ -4,12 +4,21 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENVIRONMENT="${1:-local}"
+RIF_RELAY_MODE="${2:-regtest-fast}"
 ENV_FILE="$REPO_ROOT/.env.$ENVIRONMENT"
 
 case "$ENVIRONMENT" in
     local|test|staging|prod) ;;
     *)
-        echo "Usage: $0 [local|test|staging|prod]"
+        echo "Usage: $0 [local|test|staging|prod] [regtest-fast|regtest-managed]"
+        exit 64
+        ;;
+esac
+
+case "$RIF_RELAY_MODE" in
+    regtest-fast|regtest-managed) ;;
+    *)
+        echo "Usage: $0 [local|test|staging|prod] [regtest-fast|regtest-managed]"
         exit 64
         ;;
 esac
@@ -50,11 +59,27 @@ if [[ "${COMPOSE_FILE:-}" == *"dependencies/boltz-regtest/docker-compose.yml"* ]
 fi
 set +a
 
+if [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; then
+    case ":${COMPOSE_FILE:-}:" in
+        *:docker-compose.rif-relay-managed-override.yml:*) ;;
+        *)
+            if [ "$RIF_RELAY_MODE" = "regtest-managed" ]; then
+                COMPOSE_FILE="${COMPOSE_FILE}:docker-compose.rif-relay-managed-override.yml"
+            fi
+            ;;
+    esac
+fi
+
 docker network inspect shared_network >/dev/null 2>&1 || docker network create shared_network
 
 cd "$REPO_ROOT"
 if [ "$ENVIRONMENT" = "test" ]; then
     docker compose down --remove-orphans --volumes || true
+fi
+
+compose_up_args=(-d --remove-orphans --yes)
+if { [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; } && [ "$RIF_RELAY_MODE" = "regtest-managed" ]; then
+    compose_up_args+=(--scale rif-relay=0)
 fi
 
 # Rebuild local-source images in local/test so restarts always pick up
@@ -67,7 +92,7 @@ fi
 # ensures every container is scheduled after its deps are met.
 # We can't use --wait because it treats one-shot init containers
 # (tls-init, alby-init, lnbits-init, etc.) that exit 0 as failures.
-docker compose up -d --remove-orphans --yes
+docker compose up "${compose_up_args[@]}"
 
 # Block until tls-init finishes so the CA cert is available for trust
 # and for containers that mount it.

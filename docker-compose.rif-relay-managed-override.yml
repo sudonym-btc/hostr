@@ -1,0 +1,26 @@
+services:
+  # Overrides the regtest-fast relay behavior from docker-compose.boltz-override.yml
+  # and restores a production-style startup flow while still using the local
+  # regtest/Anvil RPC from `.env`.
+  rif-relay:
+    profiles:
+      - relay-managed
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8090/status >/dev/null"]
+      timeout: 2s
+      retries: 30
+      interval: 10s
+      start_period: 20s
+    entrypoint:
+      - /bin/bash
+      - -lc
+    command:
+      - export RIF_RELAY_WORKDIR=/srv/app/environment && /write_local_config.sh && cd /rif-relay-server && npm run start
+
+  # In managed mode, escrow deployment must not block on the relay because the
+  # relay itself depends on the relay contracts already existing.
+  escrow-contract-deploy:
+    depends_on:
+      rif-relay:
+        condition: service_started
+        required: false

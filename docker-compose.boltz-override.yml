@@ -80,32 +80,15 @@ services:
   # --- RIF Relay ---
   # Needed by hostr for RSK gas-less meta-transactions.
   rif-relay:
-    hostname: rif-relay
-    container_name: boltz-rif-relay
-    build:
-      context: .
-      dockerfile: docker/rif-relay/Dockerfile
-    depends_on:
-      anvil:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf localhost:8090/chain-info | grep -q '\"ready\":true'"]
       timeout: 2s
       retries: 200
       interval: 3s
       start_period: 20s
-    environment:
-      - VIRTUAL_HOST=rifrelay.${DOMAIN}
-      - VIRTUAL_PORT=8090
     volumes:
-      - ./docker/rif-relay/local.json5:/rif-relay-server/config/local.json5:ro
       - ./docker/data/escrow:/data:ro
-    ports:
-      - 8090:8090
-    networks:
-      - default
-      - shared_network
-    profiles: ["default", "ci"]
+      - ./escrow/contracts/contract-addresses.json:/escrow-contracts/contract-addresses.json:ro
     # Override the default /start.sh entrypoint to add retry logic for
     # registration.  The upstream script sleeps only 15s then fires a
     # single register attempt — if the server isn't listening yet the
@@ -117,15 +100,26 @@ services:
         cleanup() { echo 'SIGINT/SIGTERM received'; exit 0; }
         trap cleanup SIGINT SIGTERM
 
+        cat >/rif-relay-server/config/local.json5 <<EOF
+        {
+          blockchain: {
+            rskNodeUrl: "$$RPC_URL",
+          },
+          register: {
+            funds: "$$REGISTER_FUNDS",
+          },
+        }
+        EOF
+
         # 1. Deploy contracts (same as upstream /start.sh)
         cd /rif-relay-contracts && npx hardhat deploy --network regtest
 
-        # 1b. Auto-allow the escrow contract once the one-shot deploy writes
-        # its deployed address into the shared /data volume.
+        # 1b. Auto-allow the escrow contract once the local escrow deploy task
+        # updates the canonical escrow contract address file.
         (
           for i in $$(seq 1 120); do
-            if [ -s /data/contract_addr ]; then
-              ADDRESS=$$(cat /data/contract_addr)
+            ADDRESS=$$(node -e "const fs=require('fs');const p='/escrow-contracts/contract-addresses.json';if(!fs.existsSync(p)){process.exit(2)};const j=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(j['regtest.33']?.MultiEscrow||''));" 2>/dev/null || true)
+            if [ -n "$$ADDRESS" ]; then
               echo "Allowing escrow contract $$ADDRESS on verifier allowlists..."
               cd /rif-relay-contracts
               if npx hardhat allow-contracts --contract-list "$$ADDRESS" --network regtest; then
@@ -134,7 +128,7 @@ services:
               fi
               echo "Allow-contracts failed, will retry..."
             else
-              echo "Escrow contract address not available yet (attempt $$i/120)..."
+              echo "Escrow contract address not available yet in contract-addresses.json (attempt $$i/120)..."
             fi
             sleep 2
           done

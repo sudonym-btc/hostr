@@ -13,7 +13,7 @@
 /// Prerequisites:
 ///   - Anvil running on https://anvil.hostr.development (chain-id 33)
 ///   - Nostr relay at wss://relay.hostr.development
-///   - MultiEscrow contract deployed (docker/data/escrow/contract_addr file)
+///   - MultiEscrow contract deployed in escrow/contracts/contract-addresses.json
 /// Run: `cd hostr_sdk && dart test test/integration/reservation_pairs_test.dart`
 @Tags(['integration', 'docker'])
 library;

@@ -1,5 +1,6 @@
 import "@nomicfoundation/hardhat-toolbox";
-import { HardhatUserConfig } from "hardhat/config";
+import { HardhatUserConfig, task } from "hardhat/config";
+import { deployEscrow } from "./task/deploy";
 
 const config: HardhatUserConfig = {
   solidity: "0.8.28",
@@ -46,5 +47,11 @@ const config: HardhatUserConfig = {
     },
   },
 };
+
+task("deploy", "Deploys MultiEscrow and updates contract-addresses.json").setAction(
+  async (_, hre) => {
+    await deployEscrow(hre);
+  },
+);
 
 export default config;

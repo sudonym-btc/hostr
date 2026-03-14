@@ -9,10 +9,12 @@ npx hardhat help
 npx hardhat test
 REPORT_GAS=true npx hardhat test
 npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Escrow.ts --network localhost
+npx hardhat deploy --network localhost
 ```
 
-Run the node in docker-compose for ease-of-use.
+Run the node in docker-compose for ease-of-use. The `deploy` task updates
+`contract-addresses.json` with the deployed `MultiEscrow` address keyed by
+`${network}.${chainId}`.
 If the contract is changed, re-run ./scripts/compile_abis.sh.
 
 npx hardhat run task/fund.ts --network localhost

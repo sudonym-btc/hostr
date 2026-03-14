@@ -56,7 +56,7 @@ class SeedPipeline {
   /// Creates a pipeline.
   ///
   /// When [contractAddress] is omitted the constructor reads it from
-  /// `docker/data/escrow/contract_addr`.
+  /// `escrow/contracts/contract-addresses.json`.
   SeedPipeline({required this.config, String? contractAddress})
     : _ctx = SeedContext(
         seed: config.seed,

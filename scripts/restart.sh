@@ -4,11 +4,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENVIRONMENT="${1:-local}"
+RIF_RELAY_MODE="${2:-regtest-fast}"
 
 case "$ENVIRONMENT" in
     local|test|staging|prod) ;;
     *)
-        echo "Usage: $0 [local|test|staging|prod]"
+        echo "Usage: $0 [local|test|staging|prod] [regtest-fast|regtest-managed]"
+        exit 64
+        ;;
+esac
+
+case "$RIF_RELAY_MODE" in
+    regtest-fast|regtest-managed) ;;
+    *)
+        echo "Usage: $0 [local|test|staging|prod] [regtest-fast|regtest-managed]"
         exit 64
         ;;
 esac
@@ -97,7 +106,7 @@ restart_hostr() {
             docker compose pull --platform "${DOCKER_DEFAULT_PLATFORM:-linux/arm64}" boltz-backend boltz-backend-nginx boltz-client 2>/dev/null || true)
     fi
 
-    "$SCRIPT_DIR/start.sh" "$ENVIRONMENT"
+    "$SCRIPT_DIR/start.sh" "$ENVIRONMENT" "$RIF_RELAY_MODE"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

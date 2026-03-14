@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RIF_RELAY_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$RIF_RELAY_SCRIPT_DIR/../.." && pwd)"
+LOCAL_ENV_FILE="$RIF_RELAY_SCRIPT_DIR/local.env.sh"
+CONTRACT_ADDRESSES_FILE="$REPO_ROOT/dependencies/rif-relay-contracts/contract-addresses.json"
+ESCROW_CONTRACT_ADDRESSES_FILE_DEFAULT="$REPO_ROOT/escrow/contracts/contract-addresses.json"
+RIF_RELAY_WORKDIR_ADDRESSES_FILE="$REPO_ROOT/docker/data/rif-relay/contract-addresses.json"
+DEV_CA_CERT_FILE="$REPO_ROOT/docker/tls/ca/ca.crt"
+
+usage_env() {
+    echo "Usage: $1 [local|test|staging|prod]"
+}
+
+load_managed_relay_env() {
+    local environment="${1:-test}"
+    local env_file="$REPO_ROOT/.env.$environment"
+    local runtime_env_file="$REPO_ROOT/.env.runtime"
+
+    case "$environment" in
+        local|test|staging|prod) ;;
+        *)
+            usage_env "${2:-$0}"
+            exit 64
+            ;;
+    esac
+
+    if [ ! -f "$env_file" ] && { [ "$environment" != "staging" ] && [ "$environment" != "prod" ]; }; then
+        echo "Missing env file: $env_file"
+        exit 66
+    fi
+
+    set -a
+    source "$REPO_ROOT/.env"
+    if [ -f "$runtime_env_file" ] && { [ "$environment" = "staging" ] || [ "$environment" = "prod" ]; }; then
+        source "$runtime_env_file"
+    elif [ -f "$env_file" ]; then
+        source "$env_file"
+    fi
+    if { [ "$environment" = "local" ] || [ "$environment" = "test" ]; } && [ -f "$LOCAL_ENV_FILE" ]; then
+        source "$LOCAL_ENV_FILE"
+    fi
+    if [[ "${COMPOSE_FILE:-}" == *"dependencies/boltz-regtest/docker-compose.yml"* ]] && [ -f "$REPO_ROOT/dependencies/boltz-regtest/.env" ]; then
+        local selected_compose_file="${COMPOSE_FILE:-}"
+        local selected_compose_profiles="${COMPOSE_PROFILES:-}"
+        local selected_docker_default_platform="${DOCKER_DEFAULT_PLATFORM:-}"
+        source "$REPO_ROOT/dependencies/boltz-regtest/.env"
+        COMPOSE_FILE="$selected_compose_file"
+        if [ -n "$selected_compose_profiles" ]; then
+            COMPOSE_PROFILES="$selected_compose_profiles"
+        fi
+        if [ -n "$selected_docker_default_platform" ]; then
+            LND_PLATFORM="$selected_docker_default_platform"
+        fi
+    fi
+    set +a
+
+    if [ "$environment" = "local" ] || [ "$environment" = "test" ]; then
+        case ":${COMPOSE_FILE:-}:" in
+            *:docker-compose.rif-relay-managed-override.yml:*) ;;
+            *) COMPOSE_FILE="${COMPOSE_FILE}:docker-compose.rif-relay-managed-override.yml" ;;
+        esac
+
+        case ",${COMPOSE_PROFILES:-}," in
+            *,relay-managed,*) ;;
+            *) COMPOSE_PROFILES="${COMPOSE_PROFILES:+$COMPOSE_PROFILES,}relay-managed" ;;
+        esac
+    else
+        case ":${COMPOSE_FILE:-}:" in
+            *:docker-compose.prod-override.yml:*) ;;
+            *) COMPOSE_FILE="${COMPOSE_FILE}:docker-compose.prod-override.yml" ;;
+        esac
+    fi
+
+    cd "$REPO_ROOT"
+}
+
+relay_network_name() {
+    if [ -n "${RIF_RELAY_NETWORK:-}" ]; then
+        printf '%s\n' "$RIF_RELAY_NETWORK"
+        return
+    fi
+
+    case "${1:-test}" in
+        local|test) printf 'regtest\n' ;;
+        staging|prod) printf 'mainnet\n' ;;
+        *) printf 'regtest\n' ;;
+    esac
+}
+
+relay_address_key() {
+    if [ -n "${RIF_RELAY_ADDRESS_KEY:-}" ]; then
+        printf '%s\n' "$RIF_RELAY_ADDRESS_KEY"
+        return
+    fi
+
+    case "$(relay_network_name "${1:-test}")" in
+        regtest) printf 'regtest.33\n' ;;
+        testnet) printf 'testnet.31\n' ;;
+        mainnet) printf 'mainnet.30\n' ;;
+        *) printf 'regtest.33\n' ;;
+    esac
+}
+
+relay_deploy_flags() {
+    if [ -n "${RIF_RELAY_DEPLOY_FLAGS:-}" ]; then
+        printf '%s\n' "$RIF_RELAY_DEPLOY_FLAGS"
+    else
+        printf '%s\n' '--relay-hub --boltz-smart-wallet'
+    fi
+}
+
+ensure_contract_addresses_file() {
+    mkdir -p "$(dirname "$CONTRACT_ADDRESSES_FILE")"
+    if [ ! -f "$CONTRACT_ADDRESSES_FILE" ]; then
+        printf '{}\n' >"$CONTRACT_ADDRESSES_FILE"
+    fi
+}
+
+sync_contract_addresses_into_workdir() {
+    ensure_contract_addresses_file
+    mkdir -p "$(dirname "$RIF_RELAY_WORKDIR_ADDRESSES_FILE")"
+    cp "$CONTRACT_ADDRESSES_FILE" "$RIF_RELAY_WORKDIR_ADDRESSES_FILE"
+}
+
+get_boltz_verifier_list() {
+    local address_key
+    address_key="$(relay_address_key "${1:-test}")"
+
+    if [ -n "${RIF_RELAY_DEPLOY_VERIFIER_ADDRESS:-}" ] && [ -n "${RIF_RELAY_RELAY_VERIFIER_ADDRESS:-}" ]; then
+        printf '%s,%s\n' "$RIF_RELAY_DEPLOY_VERIFIER_ADDRESS" "$RIF_RELAY_RELAY_VERIFIER_ADDRESS"
+        return
+    fi
+
+    ensure_contract_addresses_file
+    node -e '
+const fs = require("fs");
+const file = process.argv[1];
+const key = process.argv[2] || "regtest.33";
+const json = JSON.parse(fs.readFileSync(file, "utf8"));
+const entry = json[key] || {};
+const list = [entry.BoltzDeployVerifier, entry.BoltzRelayVerifier].filter(Boolean);
+if (list.length !== 2) {
+  console.error(`Missing Boltz verifier addresses for ${key} in ${file}`);
+  process.exit(1);
+}
+process.stdout.write(list.join(","));
+' "$CONTRACT_ADDRESSES_FILE" "$address_key"
+}
+
+resolve_escrow_contract_address() {
+    if [ -n "${ESCROW_CONTRACT_ADDRESS:-}" ]; then
+        printf '%s\n' "$ESCROW_CONTRACT_ADDRESS"
+        return
+    fi
+
+    local escrow_contract_addresses_file="${ESCROW_CONTRACT_ADDRESSES_FILE:-$ESCROW_CONTRACT_ADDRESSES_FILE_DEFAULT}"
+    local address_key="${ESCROW_CONTRACT_ADDRESS_KEY:-$(relay_address_key "${1:-test}")}"
+
+    if [ ! -f "$escrow_contract_addresses_file" ]; then
+        echo "Could not resolve escrow contract address. Missing $escrow_contract_addresses_file." >&2
+        exit 66
+    fi
+
+    node -e '
+const fs = require("fs");
+const file = process.argv[1];
+const key = process.argv[2] || "regtest.33";
+const json = JSON.parse(fs.readFileSync(file, "utf8"));
+const address = json[key]?.MultiEscrow;
+if (!address) {
+  console.error(`Missing MultiEscrow address for ${key} in ${file}`);
+  process.exit(1);
+}
+process.stdout.write(String(address));
+' "$escrow_contract_addresses_file" "$address_key"
+}
+
+compose_run_rif_relay() {
+    local command="$1"
+    shift || true
+    ensure_contract_addresses_file
+    sync_contract_addresses_into_workdir
+    local extra_args=()
+    if [ -f "$DEV_CA_CERT_FILE" ]; then
+        extra_args+=(
+            -v "$DEV_CA_CERT_FILE:/tmp/hostr-dev-ca.crt:ro"
+            -e NODE_EXTRA_CA_CERTS=/tmp/hostr-dev-ca.crt
+        )
+    fi
+    docker compose run --rm --no-deps \
+        -v "$CONTRACT_ADDRESSES_FILE:/rif-relay-contracts/contract-addresses.json" \
+        "${extra_args[@]}" \
+        "$@" --entrypoint /bin/bash rif-relay -lc "$command"
+}

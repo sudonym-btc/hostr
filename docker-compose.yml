@@ -148,6 +148,63 @@ services:
       - staging
       - prod
 
+  # RIF Relay base definition for local/test workflows.
+  # Override files select between:
+  # - regtest-fast: deploy + allowlist + register on startup
+  # - regtest-managed: production-style startup against the RPC from `.env`
+  rif-relay:
+    hostname: rif-relay
+    container_name: hostr-rif-relay
+    build:
+      context: .
+      dockerfile: docker/rif-relay/Dockerfile
+    depends_on:
+      anvil:
+        condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8090/status >/dev/null"]
+      timeout: 2s
+      retries: 30
+      interval: 10s
+      start_period: 20s
+    environment:
+      - VIRTUAL_HOST=rifrelay.${DOMAIN}
+      - VIRTUAL_PORT=8090
+      - NODE_ENV=development
+      - RPC_URL=${RPC_URL}
+      - RIF_RELAY_PUBLIC_URL=https://rifrelay.${DOMAIN}
+      - RIF_RELAY_ADDRESS_KEY=${RIF_RELAY_ADDRESS_KEY:-regtest.33}
+      - RIF_RELAY_ADDRESS_FILE=/srv/app/environment/contract-addresses.json
+      - RIF_RELAY_RSK_NODE_URL=${RPC_URL}
+      - RIF_RELAY_FEES_RECEIVER=${RIF_RELAY_FEES_RECEIVER:-0x0000000000000000000000000000000000000000}
+      - RIF_RELAY_INITIAL_BLOCK_TO_SCAN=${RIF_RELAY_INITIAL_BLOCK_TO_SCAN:-1}
+      - RIF_RELAY_LOG_LEVEL=${RIF_RELAY_LOG_LEVEL:-2}
+      - RIF_RELAY_DISABLE_SPONSORED_TX=${RIF_RELAY_DISABLE_SPONSORED_TX:-false}
+      - RIF_RELAY_GAS_FEE_PERCENTAGE=${RIF_RELAY_GAS_FEE_PERCENTAGE:-0}
+      - REGISTER_STAKE=${RIF_RELAY_REGISTER_STAKE:-0.0001}
+      - REGISTER_FUNDS=${RIF_RELAY_REGISTER_FUNDS:-100}
+      - REGISTER_GAS_PRICE=${RIF_RELAY_REGISTER_GAS_PRICE:-60000000}
+      - REGISTER_UNSTAKE_DELAY=${RIF_RELAY_REGISTER_UNSTAKE_DELAY:-1000}
+    volumes:
+      - ./docker/data/rif-relay:/srv/app/environment
+      - ./docker/data/escrow:/data:ro
+    ports:
+      - 8090:8090
+    networks:
+      - default
+      - shared_network
+    profiles:
+      - local
+      - test
+      - ci
+    entrypoint:
+      - /bin/bash
+      - -lc
+    command:
+      - export RIF_RELAY_WORKDIR=/srv/app/environment && /write_local_config.sh && cd /rif-relay-server && npm run start
+
   landing-page:
     build:
       context: ./landing-page
@@ -196,7 +253,7 @@ services:
       anvil:
         condition: service_healthy
     volumes:
-      - ./docker/data/escrow:/data
+      - ./escrow/contracts/contract-addresses.json:/usr/src/app/contract-addresses.json
     environment:
       - RPC_URL=http://anvil:8545
       # Anvil Account 2 – Account 0 is reserved for rif-relay contract deployment & registration
@@ -205,7 +262,7 @@ services:
       [
         "sh",
         "-lc",
-        "set -eu && printf 'y\n' | npm exec -- hardhat ignition deploy ignition/modules/Escrow.ts --network localhost && ADDRESS=$$(node -e \"const fs=require('fs');const p='ignition/deployments/chain-33/deployed_addresses.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const k=Object.keys(j).find((x)=>x.toLowerCase().includes('multiescrow'));if(!k){process.exit(2)};process.stdout.write(String(j[k]||''));\") && test -n \"$$ADDRESS\" && echo \"$$ADDRESS\" > /data/contract_addr && echo \"Escrow contract deployed at $$ADDRESS\"",
+        "set -eu && npm exec -- hardhat deploy --network localhost",
       ]
     restart: "no"
     profiles:
@@ -228,19 +285,21 @@ services:
       - PRIVATE_KEY=${ESCROW_PRIVATE_KEY}
       - RPC_URL=${RPC_URL}
       - CONTRACT_ADDR=${ESCROW_CONTRACT_ADDR:-}
+      - ESCROW_CONTRACT_ADDRESS_KEY=${ESCROW_CONTRACT_ADDRESS_KEY:-regtest.33}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
-    # Read the deployed contract address into CONTRACT_ADDR when it was not
-    # provided via env (local/test profiles where escrow-contract-deploy
-    # writes the address to /data/contract_addr at runtime).
+    # Read the deployed contract address from the canonical escrow contract
+    # address file when it was not provided explicitly via env.
     entrypoint:
-      [
-        "sh",
-        "-c",
-        "if [ -z \"$$CONTRACT_ADDR\" ] && [ -f /data/contract_addr ]; then export CONTRACT_ADDR=$$(cat /data/contract_addr); fi && exec docker/entrypoint.sh",
-      ]
+      - sh
+      - -c
+      - >
+          if [ -z "$$CONTRACT_ADDR" ] && [ -f /contracts/contract-addresses.json ]; then
+            export CONTRACT_ADDR=$$(node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/contracts/contract-addresses.json','utf8'));process.stdout.write(String(j[process.env.ESCROW_CONTRACT_ADDRESS_KEY || 'regtest.33']?.MultiEscrow || '')); ");
+          fi && exec docker/entrypoint.sh
     volumes:
       - ./docker/data/escrow:/data:ro
+      - ./escrow/contracts/contract-addresses.json:/contracts/contract-addresses.json:ro
       - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
     networks:
       - default
@@ -253,7 +312,6 @@ services:
 
   # Shared bitcoin node
   hostrbitcoind:
-    container_name: hostrbitcoind
     image: bitcoin/bitcoin
     healthcheck:
       test:
