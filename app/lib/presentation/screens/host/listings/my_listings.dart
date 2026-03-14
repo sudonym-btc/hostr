@@ -4,9 +4,8 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/status_stream_list.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -64,8 +63,9 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(AppLocalizations.of(context)!.myListings),
+          actionsPadding: EdgeInsets.only(right: kDefaultPadding.toDouble()),
           actions: [
-            IconButton.filledTonal(
+            IconButton.outlined(
               icon: Icon(Icons.add),
               onPressed: () {
                 AutoRouter.of(context).pushPath('edit-listing/new');

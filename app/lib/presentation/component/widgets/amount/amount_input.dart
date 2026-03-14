@@ -115,6 +115,7 @@ class AmountInputWidget extends FormField<Amount> {
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         mainAxisExtent: 64,
+                        mainAxisSpacing: 12,
                       ),
                       itemCount: 12,
                       itemBuilder: (context, index) {
@@ -126,13 +127,13 @@ class AmountInputWidget extends FormField<Amount> {
                                 ?.copyWith(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.onPrimary,
+                                  ).colorScheme.onSurface,
                                 ),
                           );
                         } else if (index == 11) {
                           buttonContent = Icon(
                             Icons.backspace,
-                            color: Theme.of(context).colorScheme.onPrimary,
+                            color: Theme.of(context).colorScheme.onSurface,
                           );
                         } else {
                           buttonContent =
@@ -140,6 +141,7 @@ class AmountInputWidget extends FormField<Amount> {
                         }
 
                         return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: () {
                             // For BTC, we edit in sats (the display unit),
                             // so use the raw integer value directly.
@@ -183,10 +185,6 @@ class AmountInputWidget extends FormField<Amount> {
                                   decimal: newValue,
                                   currency: field.value!.currency,
                                 );
-                              }
-                              if (amountInput.max != null &&
-                                  newAmount.value > amountInput.max!.value) {
-                                return;
                               }
                               field.didChange(newAmount);
                               return;
@@ -238,13 +236,17 @@ class AmountInputWidget extends FormField<Amount> {
                               }
                             }
                           },
-                          child: MaterialButton(
-                            onPressed: null,
-                            color: Theme.of(context).colorScheme.primary,
-                            textColor: Theme.of(context).colorScheme.onPrimary,
-                            padding: EdgeInsets.all(16),
-                            shape: CircleBorder(),
-                            child: buttonContent,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Center(child: buttonContent),
+                            ),
                           ),
                         );
                       },

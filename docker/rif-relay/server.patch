@@ -1,0 +1,218 @@
+diff --git a/config/default.json5 b/config/default.json5
+index b2d355c..52ec78b 100644
+--- a/config/default.json5
++++ b/config/default.json5
+@@ -5,12 +5,12 @@
+     Server 
+   */
+   app: {
+-    url: "http://127.0.0.1", // URL where the relay server will be deployed, it could be localhost or the IP of the host machine.
++    url: "http://127.0.0.1:8090", // URL where the relay server will be deployed, it could be localhost or the IP of the host machine.
+     port: 8090, // port where the relay server will be hosted.
+     devMode: false, // indicates to the server if we are in development mode or not.
+     customReplenish: false, // set if the server uses a custom replenish function or not.
+ 
+-    logLevel: 4 /* The log level for the relay server. Available levels:
++    logLevel: 1 /* The log level for the relay server. Available levels:
+       {
+         TRACE: 0;
+         DEBUG: 1;
+@@ -58,7 +58,7 @@
+     Blockchain node
+   */
+   blockchain: {
+-    rskNodeUrl: "http://127.0.0.1:4444", //  RSK node endpoint URL, where the RSK node is located.
++    rskNodeUrl: "http://anvil:8545", //  RSK node endpoint URL, where the RSK node is located.
+     gasPriceFactor: 1,
+     alertedBlockDelay: 0,
+     minAlertedDelayMS: 0,
+@@ -85,9 +85,9 @@
+     Relay contracts addresses
+   */
+   contracts: {
+-    relayHubAddress: "0x0000000000000000000000000000000000000000", // relay hub contract address, you can retrieve this from the contract summary.
+-    relayVerifierAddress: "0x0000000000000000000000000000000000000000", // relay verifier contract address, you can retrieve this from the contract summary.
+-    deployVerifierAddress: "0x0000000000000000000000000000000000000000", // deploy verifier contract address, you can retrieve this from the contract summary.
++    relayHubAddress: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", // relay hub contract address, you can retrieve this from the contract summary.
++    relayVerifierAddress: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707", // relay verifier contract address, you can retrieve this from the contract summary.
++    deployVerifierAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9", // deploy verifier contract address, you can retrieve this from the contract summary.
+     feesReceiver: "0x0000000000000000000000000000000000000000",
+     trustedVerifiers: [],
+   },
+
+diff --git a/src/Utils.ts b/src/Utils.ts
+index 4f3e29a..1d3e76f 100644
+--- a/src/Utils.ts
++++ b/src/Utils.ts
+@@ -127,6 +127,7 @@ export const deployTransactionRequestShape = {
+       from: ow.string,
+       to: ow.string,
+       value: ow.string,
++      gas: ow.string,
+       nonce: ow.string,
+       data: ow.string,
+       tokenContract: ow.string,
+
+diff --git a/src/deployRequestEncoding.ts b/src/deployRequestEncoding.ts
+new file mode 100644
+--- /dev/null
++++ b/src/deployRequestEncoding.ts
+@@ -0,0 +1,78 @@
++import { PopulatedTransaction, utils } from 'ethers';
++import type { HttpEnvelopingRequest } from './definitions';
++
++const deployCallInterface = new utils.Interface([
++  'function deployCall(((address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,uint256 index,bytes data) request,(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier) relayData) deployRequest, bytes signature)',
++]);
++
++const deployVerifierInterface = new utils.Interface([
++  'function verifyRelayedCall(((address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,uint256 index,bytes data) request,(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier) relayData) relayRequest, bytes signature) returns (bytes context)',
++]);
++
++function buildDeployRequestValue(envelopingTransaction: HttpEnvelopingRequest) {
++  const relayRequest = envelopingTransaction.relayRequest as HttpEnvelopingRequest['relayRequest'] & {
++    request: {
++      relayHub: string;
++      from: string;
++      to: string;
++      tokenContract: string;
++      recoverer: string;
++      value: string;
++      gas: string;
++      nonce: string;
++      tokenAmount: string;
++      tokenGas: string;
++      validUntilTime: number;
++      index: number;
++      data: string;
++    };
++  };
++  const { request, relayData } = relayRequest;
++
++  return [
++    [
++      request.relayHub,
++      request.from,
++      request.to,
++      request.tokenContract,
++      request.recoverer,
++      request.value,
++      request.gas,
++      request.nonce,
++      request.tokenAmount,
++      request.tokenGas,
++      request.validUntilTime,
++      request.index,
++      request.data,
++    ],
++    [
++      relayData.gasPrice,
++      relayData.feesReceiver,
++      relayData.callForwarder,
++      relayData.callVerifier,
++    ],
++  ];
++}
++
++export function populateDeployCallTransaction(
++  envelopingTransaction: HttpEnvelopingRequest
++): PopulatedTransaction {
++  return {
++    to: envelopingTransaction.metadata.relayHubAddress,
++    data: deployCallInterface.encodeFunctionData('deployCall', [
++      buildDeployRequestValue(envelopingTransaction),
++      envelopingTransaction.metadata.signature,
++    ]),
++  };
++}
++
++export function populateDeployVerifierTransaction(
++  verifier: string,
++  envelopingTransaction: HttpEnvelopingRequest,
++  from: string
++): PopulatedTransaction {
++  return {
++    to: verifier,
++    from,
++    data: deployVerifierInterface.encodeFunctionData('verifyRelayedCall', [
++      buildDeployRequestValue(envelopingTransaction),
++      envelopingTransaction.metadata.signature,
++    ]),
++  };
++}
+
+diff --git a/src/RelayServer.ts b/src/RelayServer.ts
+index 2609892..9282dea 100644
+--- a/src/RelayServer.ts
++++ b/src/RelayServer.ts
+@@ -63,6 +63,10 @@ import {
+   registerEventHandlers,
+ } from './events';
+ import { SERVER_VERSION as version } from './version';
+ import type { HttpEnvelopingRequest } from './definitions';
++import {
++  populateDeployCallTransaction,
++  populateDeployVerifierTransaction,
++} from './deployRequestEncoding';
+@@ -352,11 +356,11 @@ export class RelayServer extends EventEmitter {
+     try {
+       let verifyMethod: PopulatedTransaction;
+       if (isDeployTransaction(envelopingTransaction)) {
+-        verifyMethod = await (
+-          verifierContract as IDeployVerifier
+-        ).populateTransaction.verifyRelayedCall(
+-          envelopingTransaction.relayRequest,
+-          envelopingTransaction.metadata.signature,
+-          { from: this.workerAddress }
++        verifyMethod = populateDeployVerifierTransaction(
++          verifier,
++          envelopingTransaction,
++          this.workerAddress
+         );
+       } else {
+         verifyMethod = await (
+@@ -405,10 +409,15 @@ export class RelayServer extends EventEmitter {
+ 
+     // Actual maximum gas needed to  send the relay transaction
+-    const initialGasEstimation = await standardMaxPossibleGasEstimation(
+-      envelopingTransaction,
+-      this.workerAddress
+-    );
++    const initialGasEstimation = isDeployTransaction(envelopingTransaction)
++      ? await this.transactionManager.attemptEstimateGas(
++          'deployCall',
++          populateDeployCallTransaction(envelopingTransaction),
++          this.workerAddress
++        )
++      : await standardMaxPossibleGasEstimation(
++          envelopingTransaction,
++          this.workerAddress
++        );
+     log.debug(
+       `Gas estimation before fees:  ${initialGasEstimation.toString()}`
+     );
+@@ -465,7 +474,15 @@ export class RelayServer extends EventEmitter {
+ 
+     let initialGasEstimation: BigNumber;
+-    if (signature === SERVER_SIGNATURE_REQUIRED) {
++    if (isDeployRequest(relayRequest)) {
++      initialGasEstimation = signature === SERVER_SIGNATURE_REQUIRED
++        ? BigNumber.from(this.config.blockchain.defaultGasLimit)
++        : await this.transactionManager.attemptEstimateGas(
++            'deployCall',
++            populateDeployCallTransaction(envelopingRequest),
++            this.workerAddress
++          );
++    } else if (signature === SERVER_SIGNATURE_REQUIRED) {
+       const { workersKeyManager } = this.transactionManager;
+       const signer = workersKeyManager.getWallet(this.workerAddress);
+       initialGasEstimation = await estimateRelayMaxPossibleGasNoSignature(
+@@ -564,7 +581,7 @@ export class RelayServer extends EventEmitter {
+     } = envelopingTransaction;
+ 
+     const method = isDeployRequest(relayRequest)
+-      ? await relayHub.populateTransaction.deployCall(relayRequest, signature)
++      ? populateDeployCallTransaction(envelopingTransaction)
+       : await relayHub.populateTransaction.relayCall(
+           relayRequest as RelayRequest,
+           signature

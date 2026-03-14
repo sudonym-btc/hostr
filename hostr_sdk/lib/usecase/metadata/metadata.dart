@@ -11,14 +11,16 @@ import '../crud.usecase.dart';
 class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   static const Duration metadataLoadTimeout = Duration(seconds: 40);
 
-  Auth auth;
-  final Ndk ndk;
+  final Auth _auth;
+  final Ndk _ndk;
   MetadataUseCase({
-    required this.auth,
-    required this.ndk,
+    required Auth auth,
+    required Ndk ndk,
     required super.requests,
     required super.logger,
-  }) : super(kind: Metadata.kKind);
+  }) : _auth = auth,
+       _ndk = ndk,
+       super(kind: Metadata.kKind);
 
   Future<ProfileMetadata?> loadMetadata(
     String pubkey,
@@ -43,7 +45,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     // Fallback to local NDK cache when the relay query returns no results.
     // This helps in cases where metadata exists locally but is temporarily
     // unavailable from the current relay query path.
-    final cachedMetadatas = await ndk.requests
+    final cachedMetadatas = await _ndk.requests
         .query(
           name: 'Metadata-load-cache-$pubkey',
           filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 20),
@@ -69,7 +71,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   /// Ensures the current user's profile has an EVM address tag.
   /// Only broadcasts an update if the tag is missing.
   Future<void> ensureEvmAddress() => logger.span('ensureEvmAddress', () async {
-    final metadata = await loadMetadata(auth.activeKeyPair!.publicKey);
+    final metadata = await loadMetadata(_auth.activeKeyPair!.publicKey);
     if (metadata == null) return; // No profile yet — nothing to patch.
 
     try {
@@ -78,7 +80,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
       // evmAddress getter throws if the tag is absent.
     }
 
-    final updated = metadata.withEvmAddress(auth.getEvmAddress().eip55With0x);
+    final updated = metadata.withEvmAddress(_auth.getEvmAddress().eip55With0x);
     await requests.broadcast(event: updated);
     notifyUpdate(updated);
   });

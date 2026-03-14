@@ -3,8 +3,7 @@ library;
 import 'dart:convert';
 
 import 'package:bech32/bech32.dart';
-import 'package:dio/dio.dart';
-import 'package:hostr/injection.dart';
+import 'package:http/http.dart' as http;
 
 import 'bech32.dart';
 import 'types.dart';
@@ -39,10 +38,12 @@ Uri decodeUri(String encodedUrl) {
   if (lud17prefixes.contains(decodedUri.scheme)) {
     /// If the non-bech32 LNURL is a Tor address, the port has to be http instead of https for the clearnet LNURL so check if the host ends with '.onion' or '.onion.'
     decodedUri = decodedUri.replace(
-        scheme: decodedUri.host.endsWith('onion') ||
-                decodedUri.host.endsWith('onion.')
-            ? 'http'
-            : 'https');
+      scheme:
+          decodedUri.host.endsWith('onion') ||
+              decodedUri.host.endsWith('onion.')
+          ? 'http'
+          : 'https',
+    );
   } else {
     /// Try to parse the input as a lnUrl. Will throw an error if it fails.
     final lnUrl = findLnUrl(encodedUrl);
@@ -66,69 +67,64 @@ Future<LNURLParseResult> getParams(String encodedUrl) async {
   final decodedUri = decodeUri(encodedUrl);
   try {
     /// Call the lnurl to get a response
-    final res = await getIt<Dio>().get(decodedUri.toString());
+    final res = await http.get(decodedUri);
 
-    /// If there's an error then throw it
-    if (res.statusCode! >= 300) {
-      throw res.data;
+    final data = jsonDecode(res.body);
+    if (data is! Map<String, dynamic>) {
+      throw Exception('LNURL response was not a JSON object');
     }
 
-    if (res.data['status'] == 'ERROR') {
+    /// If there's an error then throw it
+    if (res.statusCode >= 300) {
+      throw data;
+    }
+
+    if (data['status'] == 'ERROR') {
       return LNURLParseResult(
         error: LNURLErrorResponse.fromJson({
-          ...res.data,
-          ...{
-            'domain': decodedUri.host,
-            'url': decodedUri.toString(),
-          }
+          ...data,
+          ...{'domain': decodedUri.host, 'url': decodedUri.toString()},
         }),
       );
     }
 
     /// If it contains a callback then add the domain as a key
-    if (res.data['callback'] != null) {
-      res.data['domain'] = Uri.parse(res.data['callback']).host;
+    if (data['callback'] != null) {
+      data['domain'] = Uri.parse(data['callback'] as String).host;
     }
 
-    if (res.data['tag'] == null) {
+    if (data['tag'] == null) {
       throw Exception('Response was missing a tag');
     }
 
-    switch (res.data['tag']) {
+    switch (data['tag']) {
       case 'withdrawRequest':
         return LNURLParseResult(
-          withdrawalParams: LNURLWithdrawParams.fromJson(res.data),
+          withdrawalParams: LNURLWithdrawParams.fromJson(data),
         );
 
       case 'payRequest':
-        return LNURLParseResult(
-          payParams: LNURLPayParams.fromJson(res.data),
-        );
+        return LNURLParseResult(payParams: LNURLPayParams.fromJson(data));
 
       case 'channelRequest':
         return LNURLParseResult(
-          channelParams: LNURLChannelParams.fromJson(res.data),
+          channelParams: LNURLChannelParams.fromJson(data),
         );
 
       case 'login':
-        return LNURLParseResult(
-          authParams: LNURLAuthParams.fromJson(res.data),
-        );
+        return LNURLParseResult(authParams: LNURLAuthParams.fromJson(data));
 
       default:
-        if (res.data['status'] == 'ERROR') {
+        if (data['status'] == 'ERROR') {
           return LNURLParseResult(
             error: LNURLErrorResponse.fromJson({
-              ...res.data,
-              ...{
-                'domain': decodedUri.host,
-                'url': decodedUri.toString(),
-              }
+              ...data,
+              ...{'domain': decodedUri.host, 'url': decodedUri.toString()},
             }),
           );
         }
 
-        throw Exception('Unknown tag: ${res.data['tag']}');
+        throw Exception('Unknown tag: ${data['tag']}');
     }
   } catch (e) {
     return LNURLParseResult(

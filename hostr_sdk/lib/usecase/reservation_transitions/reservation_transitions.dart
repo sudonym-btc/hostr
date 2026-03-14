@@ -3,7 +3,6 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import '../../util/main.dart';
-import '../auth/auth.dart';
 import '../crud.usecase.dart';
 
 /// CRUD use-case for [ReservationTransition] events (kind 32126).
@@ -13,15 +12,14 @@ import '../crud.usecase.dart';
 /// relays and auditing clients can reconstruct the full history.
 @Singleton()
 class ReservationTransitions extends CrudUseCase<ReservationTransition> {
-  final Ndk ndk;
-  final Auth auth;
+  final Ndk _ndk;
 
   ReservationTransitions({
     required super.requests,
     required super.logger,
-    required this.ndk,
-    required this.auth,
-  }) : super(kind: ReservationTransition.kinds[0]);
+    required Ndk ndk,
+  }) : _ndk = ndk,
+       super(kind: ReservationTransition.kinds[0]);
 
   /// Broadcast a transition event and return it.
   ///
@@ -53,17 +51,16 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
     ];
 
     final transition = ReservationTransition.fromNostrEvent(
-      await ndk.accounts.sign(
+      await _ndk.accounts.sign(
         Nip01Event(
           kind: kNostrKindReservationTransition,
-          pubKey: ndk.accounts.getPublicKey()!,
+          pubKey: _ndk.accounts.getPublicKey()!,
           tags: tags,
           content: ReservationTransitionContent(
             transitionType: transitionType,
             fromStage: fromStage,
             toStage: toStage,
-            commitTermsHash:
-                commitTermsHash ?? reservation.commitHash(),
+            commitTermsHash: commitTermsHash ?? reservation.commitHash(),
             reason: reason,
             updatedFields: updatedFields,
           ).toString(),

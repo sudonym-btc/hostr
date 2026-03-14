@@ -75,8 +75,32 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
   Future<void> pickMultipleImages({int limit = 10}) async {
     emit(ImageLoading());
     try {
+      final remainingSlots = maxImages == null
+          ? null
+          : (maxImages! - images.length).clamp(0, maxImages!);
+      final effectiveLimit = remainingSlots == null
+          ? limit
+          : limit.clamp(0, remainingSlots);
+
+      if (effectiveLimit <= 0) {
+        emit(ImageLoaded());
+        return;
+      }
+
+      if (effectiveLimit == 1) {
+        final XFile? pickedImage = await _picker.pickImage(
+          source: ImageSource.gallery,
+        );
+        if (pickedImage != null) {
+          addImages([CustomImage.file(pickedImage)]);
+        } else {
+          emit(ImageLoaded());
+        }
+        return;
+      }
+
       final List<XFile> pickedImages = await _picker.pickMultiImage(
-        limit: limit,
+        limit: effectiveLimit,
       );
       addImages(pickedImages.map((e) => CustomImage.file(e)).toList());
     } catch (e) {

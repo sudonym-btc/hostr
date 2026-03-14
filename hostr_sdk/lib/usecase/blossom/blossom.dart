@@ -14,14 +14,16 @@ import '../../util/main.dart';
 class BlossomUseCase {
   final Ndk _ndk;
   final HostrConfig _config;
-  final CustomLogger logger;
+  final CustomLogger _logger;
+  CustomLogger get logger => _logger;
 
   BlossomUseCase({
     required Ndk ndk,
     required HostrConfig config,
-    required this.logger,
+    required CustomLogger logger,
   }) : _ndk = ndk,
-       _config = config;
+       _config = config,
+       _logger = logger;
 
   // ---------------------------------------------------------------------------
   // ensureBlossomServer
@@ -33,11 +35,11 @@ class BlossomUseCase {
   /// bootstrap servers in their published NIP-10063 list.
   Future<void> ensureBlossomServer(
     String pubkey,
-  ) => logger.span('ensureBlossomServer', () async {
+  ) => _logger.span('ensureBlossomServer', () async {
     final blossomList = await _ndk.blossomUserServerList.getUserServerList(
       pubkeys: [pubkey],
     );
-    logger.d('Blossom list: $blossomList');
+    _logger.d('Blossom list: $blossomList');
 
     final mergedUrls = {
       ...blossomList ?? [],
@@ -46,13 +48,13 @@ class BlossomUseCase {
 
     // Nothing to publish when no servers are configured (e.g. test env).
     if (mergedUrls.isEmpty) {
-      logger.d('Blossom: no servers to publish, skipping.');
+      _logger.d('Blossom: no servers to publish, skipping.');
       return;
     }
 
     final broadcastResponse = await _ndk.blossomUserServerList
         .publishUserServerList(serverUrlsOrdered: mergedUrls);
-    logger.d(
+    _logger.d(
       'Blossom list publish response: ${broadcastResponse[0].broadcastSuccessful}',
     );
 

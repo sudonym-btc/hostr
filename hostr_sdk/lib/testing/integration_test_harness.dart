@@ -286,6 +286,17 @@ class _DevelopmentRootstockConfig extends RootstockConfig {
 
   @override
   BoltzConfig get boltz => _DevelopmentBoltzConfig();
+
+  @override
+  RifRelayConfig get rifRelay => _DevelopmentRifRelayConfig();
+
+  @override
+  RootstockSupportedContractsConfig get supportedContracts =>
+      DefaultRootstockSupportedContractsConfig(
+        multiEscrow: DefaultSupportedEscrowContractConfig(
+          rifRelay: _DevelopmentRifRelayConfig(),
+        ),
+      );
 }
 
 class _DevelopmentBoltzConfig extends BoltzConfig {
@@ -293,19 +304,21 @@ class _DevelopmentBoltzConfig extends BoltzConfig {
 
   @override
   String get apiUrl => 'https://boltz.hostr.development/v2';
+}
+
+class _DevelopmentRifRelayConfig extends RifRelayConfig {
+  _DevelopmentRifRelayConfig();
 
   @override
-  String get rifRelayUrl => 'https://rifrelay.hostr.development';
+  String get url => 'https://rifrelay.hostr.development';
 
   @override
-  String get rifRelayCallVerifier =>
-      '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
+  String get callVerifier => '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
 
   @override
-  String get rifRelayDeployVerifier =>
-      '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+  String get deployVerifier => '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
 
   @override
-  String get rifSmartWalletFactoryAddress =>
+  String get smartWalletFactoryAddress =>
       '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE';
 }

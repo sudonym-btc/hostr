@@ -3,9 +3,6 @@ import 'package:models/main.dart';
 
 import '../../injection.dart';
 import '../../util/main.dart';
-import '../auth/auth.dart';
-import '../escrow_trusts/escrow_trusts.dart';
-import '../escrows/escrows.dart';
 import '../evm/evm.dart';
 import 'operations/claim/escrow_claim_models.dart';
 import 'operations/claim/escrow_claim_operation.dart';
@@ -18,49 +15,45 @@ import 'supported_escrow_contract/supported_escrow_contract.dart';
 
 @Singleton()
 class EscrowUseCase {
-  final CustomLogger logger;
-  final Auth auth;
-  final Escrows escrows;
-  final EscrowTrusts escrowTrusts;
-  final Evm evm;
-  final EscrowFundRegistry escrowFundRegistry;
+  final CustomLogger _logger;
+  final Evm _evm;
+  final EscrowFundRegistry _escrowFundRegistry;
 
   EscrowUseCase({
     required CustomLogger logger,
-    required this.auth,
-    required this.escrows,
-    required this.escrowTrusts,
-    required this.evm,
-    required this.escrowFundRegistry,
-  }) : logger = logger.scope('escrow');
+    required Evm evm,
+    required EscrowFundRegistry escrowFundRegistry,
+  }) : _evm = evm,
+       _escrowFundRegistry = escrowFundRegistry,
+       _logger = logger.scope('escrow');
 
   EscrowFundOperation fund(EscrowFundParams params) =>
-      logger.spanSync('fund', () {
+      _logger.spanSync('fund', () {
         final operation = getIt<EscrowFundOperation>(param1: params);
         final tradeId = params.negotiateReservation.getDtag();
         if (tradeId != null) {
-          escrowFundRegistry.register(tradeId, operation);
+          _escrowFundRegistry.register(tradeId, operation);
         }
         return operation;
       });
 
   EscrowClaimOperation claim(EscrowClaimParams params) =>
-      logger.spanSync('claim', () {
+      _logger.spanSync('claim', () {
         return getIt<EscrowClaimOperation>(param1: params);
       });
 
   EscrowReleaseOperation release(EscrowReleaseParams params) =>
-      logger.spanSync('release', () {
+      _logger.spanSync('release', () {
         return getIt<EscrowReleaseOperation>(param1: params);
       });
 
   StreamWithStatus<EscrowEvent> checkEscrowStatus(
     EscrowServiceSelected selectedEscrow,
     String tradeId,
-  ) => logger.spanSync('checkEscrowStatus', () {
-    logger.i('Checking escrow status for reservation: $tradeId');
+  ) => _logger.spanSync('checkEscrowStatus', () {
+    _logger.i('Checking escrow status for reservation: $tradeId');
 
-    final contract = evm
+    final contract = _evm
         .getChainForEscrowService(selectedEscrow.service)
         .getSupportedEscrowContract(selectedEscrow.service);
 
@@ -76,7 +69,7 @@ class EscrowUseCase {
       if (event is EscrowReleasedEvent ||
           event is EscrowClaimedEvent ||
           event is EscrowArbitratedEvent) {
-        logger.d(
+        _logger.d(
           'Terminal escrow event received for $tradeId — closing stream',
         );
         source.close();

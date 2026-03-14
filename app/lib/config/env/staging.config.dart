@@ -51,24 +51,35 @@ class StagingRootstockConfig extends RootstockConfig {
 
   @override
   BoltzConfig get boltz => ProductionBoltzConfig();
+
+  @override
+  RifRelayConfig get rifRelay => ProductionRifRelayConfig();
+
+  @override
+  RootstockSupportedContractsConfig get supportedContracts =>
+      DefaultRootstockSupportedContractsConfig(
+        multiEscrow: DefaultSupportedEscrowContractConfig(
+          rifRelay: ProductionRifRelayConfig(),
+        ),
+      );
 }
 
 class ProductionBoltzConfig extends BoltzConfig {
   @override
   String get apiUrl => 'https://api.boltz.exchange/v2';
+}
+
+class ProductionRifRelayConfig extends RifRelayConfig {
+  @override
+  String get url => 'https://boltz.mainnet.relay.rifcomputing.net';
 
   @override
-  String get rifRelayUrl => 'https://boltz.mainnet.relay.rifcomputing.net';
+  String get callVerifier => '0xe221608F3FaBbeDfFb7537F8a9001e80654f55C8';
 
   @override
-  String get rifRelayCallVerifier =>
-      '0xe221608F3FaBbeDfFb7537F8a9001e80654f55C8';
+  String get deployVerifier => '0xc0F5bEF6b20Be41174F826684c663a8635c6A081';
 
   @override
-  String get rifRelayDeployVerifier =>
-      '0xc0F5bEF6b20Be41174F826684c663a8635c6A081';
-
-  @override
-  String get rifSmartWalletFactoryAddress =>
+  String get smartWalletFactoryAddress =>
       '0x44944a80861120B58cc48B066d57cDAf5eC213dd';
 }

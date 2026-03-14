@@ -53,8 +53,13 @@ class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
     ParticipationProof proof,
   ) {
     final recipient = reservation.recipient;
-    if (recipient == null) return false;
-    return proof.verifyTweakedPubKey(reviewerPubKey, recipient);
+    final tweakMaterial = reservation.tweakMaterial;
+    if (recipient == null || tweakMaterial == null) return false;
+    return proof.verifyTweakedPubKey(
+      pubKey: reviewerPubKey,
+      tweakedPubKey: recipient,
+      tweakMaterial: tweakMaterial,
+    );
   }
 }
 
@@ -68,7 +73,7 @@ class ReviewContent extends EventContent {
 
   /// Proof that the reviewer (guest) was a participant in the reservation
   /// When revealed here, only this specific reservation can be linked to the reviewer
-  /// since the salt is unique per reservation
+  /// since the tweak material is unique per reservation
   final ParticipationProof proof;
 
   ReviewContent({

@@ -16,7 +16,7 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = isSentByMe
-        ? Theme.of(context).colorScheme.onPrimaryContainer
+        ? Theme.of(context).colorScheme.onSecondary
         : Theme.of(context).colorScheme.onSurface;
 
     return Align(

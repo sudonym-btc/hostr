@@ -5,15 +5,20 @@ import '../../datasources/storage.dart';
 import '../auth/auth.dart';
 
 abstract class StringListStorage {
-  final Storage<List<String>> storage;
-  final List<String> defaults;
-  final Auth auth;
+  final Storage<List<String>> _storage;
+  final List<String> _defaults;
+  final Auth _auth;
+  Storage<List<String>> get storage => _storage;
+  List<String> get defaults => _defaults;
+  Auth get auth => _auth;
 
   StringListStorage({
-    required this.storage,
-    this.defaults = const [],
-    required this.auth,
-  });
+    required Storage<List<String>> storage,
+    List<String> defaults = const [],
+    required Auth auth,
+  }) : _storage = storage,
+       _defaults = defaults,
+       _auth = auth;
 
   String? _currentUserKey() => auth.getActiveKey().publicKey;
 

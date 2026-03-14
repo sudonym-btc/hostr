@@ -41,6 +41,18 @@ Widget tradeHeaderKnobs(BuildContext context) {
           stage: const NegotiationStage(
             reservationRequests: [],
             overlapLock: (isBlocked: false, reason: null),
+            policy: NegotiationPolicy(
+              latestOffer: null,
+              lastOfferByUs: null,
+              lastOfferByThem: null,
+              listingPrice: null,
+              latestOfferSentByUs: false,
+              latestOfferAcceptsPrevious: false,
+              canPay: false,
+              canCounter: false,
+              counterMin: null,
+              counterMax: null,
+            ),
           ),
           actions: const [],
           availability: availability,

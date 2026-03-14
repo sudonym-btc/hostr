@@ -7,18 +7,19 @@ import '../../util/custom_logger.dart';
 
 @Singleton()
 class Location {
-  final CustomLogger logger;
+  final CustomLogger _logger;
+  CustomLogger get logger => _logger;
   final http.Client _client = http.Client();
   final Map<String, LocationPolygonResult> _polygonCache = {};
 
-  Location({required this.logger});
+  Location({required CustomLogger logger}) : _logger = logger;
 
   Future<List<LocationSuggestion>> suggestions(
     String input, {
     int limit = 5,
     bool preferBroadResults = true,
     Set<String>? featureTypes,
-  }) => logger.span('suggestions', () async {
+  }) => _logger.span('suggestions', () async {
     final query = input.trim();
     if (query.isEmpty) return [];
 
@@ -76,7 +77,7 @@ class Location {
   Future<LocationPolygonResult> polygon(
     String location, {
     Set<String>? featureTypes,
-  }) => logger.span('polygon', () async {
+  }) => _logger.span('polygon', () async {
     final query = location.trim();
     if (query.isEmpty) {
       throw ArgumentError('Location must not be empty');

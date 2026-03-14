@@ -2,7 +2,7 @@ export 'bitcoin_amount.dart';
 export 'bloc_x.dart';
 export 'contract_address.dart';
 export 'custom_logger.dart';
-export 'derive_evm_key.dart';
+export 'deterministic_key_derivation.dart';
 export 'evm_signature.dart';
 export 'ndk_filter.dart';
 export 'stream_status.dart';

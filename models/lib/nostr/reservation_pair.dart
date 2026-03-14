@@ -54,7 +54,7 @@ class ReservationPair {
 
   String get listingAnchor {
     return (buyerReservation?.parsedTags.listingAnchor ??
-        buyerReservation?.parsedTags.listingAnchor)!;
+        sellerReservation?.parsedTags.listingAnchor)!;
   }
 
   String get hostPubkey => getPubKeyFromAnchor(listingAnchor);

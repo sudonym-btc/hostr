@@ -115,7 +115,7 @@ class TradeAuditResult {
       if (party.escrowVerification != null) {
         final ev = party.escrowVerification!;
         buf.writeln(
-          '  escrow: ${ev.isValid ? "✓ verified on-chain (amount=${ev.trade?.value.getInWei} wei)" : "✗ ${ev.reason}"}',
+          '  escrow: ${ev.isValid ? "✓ verified on-chain (amount=${ev.fundedEvent?.amount} wei)" : "✗ ${ev.reason}"}',
         );
       }
       buf.writeln();
@@ -136,11 +136,16 @@ class TradeAuditResult {
 /// with a one-sentence fault analysis.
 @Singleton()
 class TradeAudit {
-  final Reservations reservations;
-  final ReservationTransitions transitions;
-  final Listings listings;
-  final CustomLogger logger;
-  final Evm evm;
+  final Reservations _reservations;
+  final ReservationTransitions _transitions;
+  final Listings _listings;
+  final CustomLogger _logger;
+  final Evm _evm;
+  Reservations get reservations => _reservations;
+  ReservationTransitions get transitions => _transitions;
+  Listings get listings => _listings;
+  CustomLogger get logger => _logger;
+  Evm get evm => _evm;
 
   /// Lazily constructed on-chain escrow verifier.
   late final EscrowVerification escrowVerification = EscrowVerification(
@@ -149,12 +154,16 @@ class TradeAudit {
   );
 
   TradeAudit({
-    required this.reservations,
-    required this.transitions,
-    required this.listings,
-    required this.logger,
-    required this.evm,
-  });
+    required Reservations reservations,
+    required ReservationTransitions transitions,
+    required Listings listings,
+    required CustomLogger logger,
+    required Evm evm,
+  }) : _reservations = reservations,
+       _transitions = transitions,
+       _listings = listings,
+       _logger = logger,
+       _evm = evm;
 
   /// Run the full audit for [tradeId] and return a structured result.
   Future<TradeAuditResult> audit(

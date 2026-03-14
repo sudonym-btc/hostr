@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
@@ -5,7 +6,6 @@ import 'package:ndk/ndk.dart';
 import '../../datasources/anvil/anvil.dart';
 import '../../datasources/lnbits/lnbits.dart';
 import '../../util/contract_address.dart';
-import '../../util/derive_evm_key.dart';
 import 'seed_context.dart';
 import 'seed_factory.dart';
 import 'seed_pipeline_config.dart';
@@ -56,7 +56,7 @@ class SeedPipeline {
   /// Creates a pipeline.
   ///
   /// When [contractAddress] is omitted the constructor reads it from
-  /// `docker/data/escrow/contract_addr`.
+  /// `escrow/contracts/contract-addresses.json`.
   SeedPipeline({required this.config, String? contractAddress})
     : _ctx = SeedContext(
         seed: config.seed,

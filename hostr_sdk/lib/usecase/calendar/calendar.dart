@@ -6,8 +6,8 @@ import 'package:models/main.dart';
 
 import '../../util/custom_logger.dart';
 import '../listings/listings.dart';
-import '../messaging/user_subscriptions.dart';
 import '../metadata/metadata.dart';
+import '../user_subscriptions/user_subscriptions.dart';
 
 abstract class CalendarPort {
   Future<void> ensureCalendar({required String name});
@@ -259,13 +259,23 @@ class Calendar {
       });
 
   String? _resolveGuestPubkey(ReservationPair pair) {
-    final tweakedPubkey = pair.buyerReservation?.pubKey;
-    final salt = pair.buyerReservation?.salt;
-    if (tweakedPubkey == null) return null;
-    if (salt == null || salt.isEmpty) return tweakedPubkey;
+    final tweakedPubkey =
+        pair.buyerReservation?.recipient ?? pair.buyerReservation?.pubKey;
+    final tweakMaterial = pair.buyerReservation?.tweakMaterial;
+    final salt = tweakMaterial?.salt;
+    final parity = tweakMaterial?.parity;
+    if (tweakedPubkey == null ||
+        salt == null ||
+        salt.isEmpty ||
+        parity == null) {
+      return null;
+    }
 
-    return unsaltPublicKey(saltedPublicKey: tweakedPubkey, salt: salt) ??
-        tweakedPubkey;
+    return untweakPublicKey(
+      tweakedPublicKey: tweakedPubkey,
+      tweakedPublicKeyParity: parity,
+      salt: salt,
+    );
   }
 
   bool _isFuture(ReservationPair pair) {

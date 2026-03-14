@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
-import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
 enum _ThreadReplyStatus { initial, loading, success, error }
 
@@ -29,36 +28,39 @@ class ThreadReplyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isEmpty = controller.text.trim().isEmpty;
+    final isEnabled = !isLoading && !isEmpty;
+    final theme = Theme.of(context);
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: TextField(
-            onChanged: onChanged,
-            controller: controller,
-            maxLines: 3,
-            minLines: 1,
-            autofocus: false,
-            // style: Theme.of(context).textTheme.bodySmall,
-            decoration: InputDecoration(
-              hintText: hintText,
-              // hintStyle: Theme.of(context).textTheme.bodySmall,
-              label: label != null
-                  ? Text(label!, style: Theme.of(context).textTheme.bodySmall)
-                  : null,
-              errorText: errorText,
-            ),
+    return TextField(
+      onChanged: onChanged,
+      controller: controller,
+      maxLines: 3,
+      minLines: 1,
+      autofocus: false,
+      decoration: InputDecoration(
+        hintText: hintText,
+        label: label != null
+            ? Text(label!, style: Theme.of(context).textTheme.bodySmall)
+            : null,
+        errorText: errorText,
+        contentPadding: const EdgeInsets.only(
+          left: 16,
+          top: 12,
+          bottom: 12,
+          right: 64,
+        ),
+        suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        suffixIcon: IconButton.filled(
+          onPressed: isEnabled ? onSend : null,
+          icon: Icon(
+            Icons.send_rounded,
+            size: 16,
+            color: isEnabled
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        Gap.horizontal.sm(),
-        IconButton.filled(
-          onPressed: isLoading || isEmpty ? null : onSend,
-          icon: const Icon(Icons.send_rounded, size: kDefaultFontSize),
-          // child: Text(AppLocalizations.of(context)!.send),
-        ),
-      ],
+      ),
     );
   }
 }

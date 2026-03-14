@@ -8,6 +8,7 @@ if [ -f /tls/ca.crt ]; then
 fi
 
 # ── Start the daemon (PID 1, foreground) ─────────────────────────────────
-# CONTRACT_ADDR must be set in the environment by the orchestrator
-# (docker-compose, k8s, etc.) — we never read it from a file here.
+# The daemon resolves the escrow contract address from
+# `escrow/contracts/contract-addresses.json` (or an explicit
+# `ESCROW_CONTRACT_ADDRESS` override) before starting.
 exec dart run bin/daemon.dart

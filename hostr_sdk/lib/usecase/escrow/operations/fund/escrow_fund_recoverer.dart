@@ -6,7 +6,6 @@ import '../../../auth/auth.dart';
 import '../../../background_worker/background_worker.dart';
 import '../../../evm/evm.dart';
 import '../../../evm/operations/operation_state_store.dart';
-import '../../supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../onchain_operation.dart';
 import 'escrow_fund_operation.dart';
 import 'escrow_fund_registry.dart';
@@ -97,18 +96,10 @@ class EscrowFundRecoverer {
 
     // Resolve the chain and escrow contract from persisted data.
     final chain = await _evm.getClientForChainId(data.chainId);
-    final contract = SupportedEscrowContractRegistry.getSupportedContract(
+    final contract = chain.getSupportedEscrowContractByName(
       'MultiEscrow',
-      chain.client,
       EthereumAddress.fromHex(data.contractAddress),
     );
-
-    if (contract == null) {
-      _logger.e(
-        'EscrowFundRecoverer: no contract found for ${data.contractAddress}',
-      );
-      return false;
-    }
 
     final cubit = EscrowFundOperation.forRecovery(
       _auth,

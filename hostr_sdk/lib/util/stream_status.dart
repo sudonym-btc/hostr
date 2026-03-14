@@ -44,7 +44,7 @@ enum StreamPhase { querying, queryComplete, live, error, idle }
 ///
 /// - [where]    — filtered child (does not own parent).
 /// - [asyncMap] — async-transformed child (does not own parent).
-/// - [combine]  — merge multiple streams into a new combined stream.
+/// - [combineAll]  — merge multiple streams into a new combined stream.
 class StreamWithStatus<T> {
   Function? onClose;
 
@@ -52,6 +52,8 @@ class StreamWithStatus<T> {
   final BehaviorSubject<StreamStatus> _status;
   List<T> _items;
   final List<StreamSubscription> _subs = [];
+  final Map<int, StreamStatus> _combinedSourceStatuses = {};
+  int _nextCombinedSourceId = 0;
 
   // ── Constructors ──────────────────────────────────────────────────
 
@@ -226,34 +228,64 @@ class StreamWithStatus<T> {
   /// Items from all sources are collected. Per-item events are forwarded.
   /// Status is recomputed from all sources via [recomputeStatus].
   /// Closing the combined stream does **not** close the sources.
-  static StreamWithStatus<T> combine<T>(List<StreamWithStatus<T>> sources) {
+  static StreamWithStatus<T> combineAll<T>(List<StreamWithStatus<T>> sources) {
     final combined = StreamWithStatus<T>();
-    final statuses = <StreamStatus>[];
 
-    for (var i = 0; i < sources.length; i++) {
-      final source = sources[i];
-      combined._items = List.unmodifiable([
-        ...combined._items,
-        ...source.items,
-      ]);
-      combined._subs.add(source.stream.listen(combined.add));
+    for (final source in sources) {
+      combined.combine(source);
+    }
 
-      statuses.add(source.status.value);
-      final idx = i;
-      combined._subs.add(
-        source.status.distinct((a, b) => a.runtimeType == b.runtimeType).listen(
-          (s) {
-            statuses[idx] = s;
-            combined.addStatus(recomputeStatus(statuses));
-          },
-        ),
+    if (sources.isEmpty) {
+      combined.addStatus(StreamStatusLive());
+    }
+
+    return combined;
+  }
+
+  /// Merges [source] into this stream, forwarding its current items,
+  /// future per-item events, and lifecycle status.
+  ///
+  /// This is the in-place counterpart to [combineAll]. It lets additional
+  /// sources be attached over time, while still detaching closed children so
+  /// they do not permanently hold the parent in a stale state.
+  void combine(StreamWithStatus<T> source) {
+    final sourceId = _nextCombinedSourceId++;
+    _combinedSourceStatuses[sourceId] = source.status.value;
+
+    _items = List.unmodifiable([..._items, ...source.items]);
+    addStatus(recomputeStatus(_combinedSourceStatuses.values));
+
+    var detached = false;
+
+    void detach() {
+      if (detached) return;
+      detached = true;
+      _combinedSourceStatuses.remove(sourceId);
+      addStatus(
+        _combinedSourceStatuses.isEmpty
+            ? StreamStatusLive()
+            : recomputeStatus(_combinedSourceStatuses.values),
       );
     }
 
-    combined.addStatus(
-      sources.isEmpty ? StreamStatusLive() : recomputeStatus(statuses),
-    );
-    return combined;
+    late final StreamSubscription<T> dataSub;
+    late final StreamSubscription<StreamStatus> statusSub;
+
+    dataSub = source.stream.listen(add, onError: addError, onDone: detach);
+
+    statusSub = source.status
+        .distinct((a, b) => a.runtimeType == b.runtimeType)
+        .listen(
+          (s) {
+            _combinedSourceStatuses[sourceId] = s;
+            addStatus(recomputeStatus(_combinedSourceStatuses.values));
+          },
+          onError: addError,
+          onDone: detach,
+        );
+
+    _subs.add(dataSub);
+    _subs.add(statusSub);
   }
 
   /// Returns a child that accumulates per-item events with [accumulator],
@@ -294,6 +326,7 @@ class StreamWithStatus<T> {
     }
     _subs.clear();
     _items = const [];
+    _combinedSourceStatuses.clear();
     if (!_status.isClosed) _status.add(StreamStatusIdle());
     await onClose?.call();
     onClose = null;
@@ -305,6 +338,7 @@ class StreamWithStatus<T> {
       await sub.cancel();
     }
     _subs.clear();
+    _combinedSourceStatuses.clear();
     await onClose?.call();
     await _perItem.close();
     await _status.close();

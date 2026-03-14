@@ -1,0 +1,289 @@
+diff --git a/hardhat.config.ts b/hardhat.config.ts
+index 0115432..162c704 100644
+--- a/hardhat.config.ts
++++ b/hardhat.config.ts
+@@ -54,7 +54,7 @@ if (PK) {
+   sharedNetworkConfig.accounts = [PK];
+ } else {
+   sharedNetworkConfig.accounts = {
+-    mnemonic: MNEMONIC || DEFAULT_MNEMONIC,
++    mnemonic: 'test test test test test test test test test test test junk' || MNEMONIC || DEFAULT_MNEMONIC,
+   };
+ }
+ 
+@@ -79,7 +79,7 @@ const config: HardhatUserConfig = {
+   },
+   networks: {
+     regtest: {
+-      url: 'http://localhost:4444',
++      url: 'http://anvil:8545',
+       chainId: 33,
+     },
+     testnet: {
+
+diff --git a/contracts/utils/BoltzUtils.sol b/contracts/utils/BoltzUtils.sol
+index d9abdf8..614cc99 100644
+--- a/contracts/utils/BoltzUtils.sol
++++ b/contracts/utils/BoltzUtils.sol
+@@ -20,6 +20,19 @@ library BoltzUtils {
+     }
+   }
+ 
++    function claimAmountOrZero(
++        bytes calldata data,
++        address to,
++        address contractAddr
++    ) internal returns (uint256) {
++        bytes4 signature = toBytes4(data, 0);
++
++        if (
++            signature != _EXTERNAL_SIGNATURE && signature != _PUBLIC_SIGNATURE
++        ) {
++            return 0;
++        }
++
++        return validateClaim(data, to, contractAddr);
++    }
++
+   function toBytes4(
+     bytes memory input,
+     uint256 offset
+diff --git a/contracts/verifier/BoltzRelayVerifier.sol b/contracts/verifier/BoltzRelayVerifier.sol
+index b120df6..a423c53 100644
+--- a/contracts/verifier/BoltzRelayVerifier.sol
++++ b/contracts/verifier/BoltzRelayVerifier.sol
+@@ -74,11 +74,11 @@ contract BoltzRelayVerifier is
+             ),
+           "Token balance too low"
+         );
+       } else {
+-                uint256 amount = BoltzUtils.validateClaim(
++                uint256 amount = BoltzUtils.claimAmountOrZero(
+           relayRequest.request.data,
+           relayRequest.request.to,
+           relayRequest.relayData.callForwarder
+         );
+ 
+         require(
+diff --git a/contracts/verifier/BoltzDeployVerifier.sol b/contracts/verifier/BoltzDeployVerifier.sol
+index 3d7105c..f776132 100644
+--- a/contracts/verifier/BoltzDeployVerifier.sol
++++ b/contracts/verifier/BoltzDeployVerifier.sol
+@@ -64,11 +64,11 @@ contract BoltzDeployVerifier is
+             ),
+           "Token balance too low"
+         );
+       } else {
+-                uint256 amount = BoltzUtils.validateClaim(
++                uint256 amount = BoltzUtils.claimAmountOrZero(
+           relayRequest.request.data,
+           relayRequest.request.to,
+           contractAddr
+         );
+ 
+         require(
+
+diff --git a/contracts/interfaces/IForwarder.sol b/contracts/interfaces/IForwarder.sol
+index a379996..d7f7d21 100644
+--- a/contracts/interfaces/IForwarder.sol
++++ b/contracts/interfaces/IForwarder.sol
+@@ -23,6 +23,7 @@ interface IForwarder {
+     address tokenContract;
+     address recoverer; // only used in SmartWallet deploy requests
+     uint256 value;
++        uint256 gas;
+     uint256 nonce;
+     uint256 tokenAmount;
+     uint256 tokenGas;
+
+diff --git a/contracts/factory/BaseSmartWalletFactory.sol b/contracts/factory/BaseSmartWalletFactory.sol
+index 66af24c..b05d577 100644
+--- a/contracts/factory/BaseSmartWalletFactory.sol
++++ b/contracts/factory/BaseSmartWalletFactory.sol
+@@ -163,7 +163,7 @@ abstract contract BaseSmartWalletFactory is ICreateCustomSmartWalletFactory {
+     return
+       abi.encodePacked(
+         keccak256(
+-                    "RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)"
++                    "RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)"
+         ),
+         abi.encode(
+           req.relayHub,
+@@ -173,6 +173,7 @@ abstract contract BaseSmartWalletFactory is ICreateCustomSmartWalletFactory {
+           req.tokenContract,
+           req.recoverer,
+           req.value,
++                    req.gas,
+           req.nonce,
+           req.tokenAmount,
+           req.tokenGas,
+
+diff --git a/contracts/factory/CustomSmartWalletFactory.sol b/contracts/factory/CustomSmartWalletFactory.sol
+index ba01450..f5e2c0c 100644
+--- a/contracts/factory/CustomSmartWalletFactory.sol
++++ b/contracts/factory/CustomSmartWalletFactory.sol
+@@ -304,7 +304,7 @@ contract CustomSmartWalletFactory is
+     return
+       abi.encodePacked(
+         keccak256(
+-                    "RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)"
++                    "RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,address feesReceiver,address callForwarder,address callVerifier)"
+         ),
+         abi.encode(
+           req.relayHub,
+@@ -314,6 +314,7 @@ contract CustomSmartWalletFactory is
+           req.tokenContract,
+           req.recoverer,
+           req.value,
++                    req.gas,
+           req.nonce,
+           req.tokenAmount,
+           req.tokenGas,
+
+diff --git a/contracts/factory/BoltzSmartWalletFactory.sol b/contracts/factory/BoltzSmartWalletFactory.sol
+index 4157427..bf4ef51 100644
+--- a/contracts/factory/BoltzSmartWalletFactory.sol
++++ b/contracts/factory/BoltzSmartWalletFactory.sol
+@@ -42,7 +42,7 @@ contract BoltzSmartWalletFactory is
+       "Invalid signature"
+     );
+ 
+-        //c07adbdc  => initialize(address owner,address tokenContract,address feesReceiver,uint256 tokenAmount,uint256 tokenGas,address to,uint256 value,bytes calldata data)
++        //88903efe  => initialize(address owner,address tokenContract,address feesReceiver,uint256 tokenAmount,uint256 tokenGas,address to,uint256 value,uint256 gasLimit,bytes calldata data)
+     bytes memory initData = abi.encodeWithSelector(
+-            hex"c07adbdc",
++            hex"88903efe",
+       owner,
+       address(0), // This "gas-funded" call does not pay with tokens
+       address(0),
+@@ -50,6 +50,7 @@ contract BoltzSmartWalletFactory is
+       0,
+       0, //No token transfer,
+       address(0),
++            0,
+       0,
+       ""
+     );
+@@ -79,7 +80,7 @@ contract BoltzSmartWalletFactory is
+     );
+     _nonces[req.from]++;
+ 
+-        //c07adbdc  => initialize(address owner,address tokenContract,address feesReceiver,uint256 tokenAmount,uint256 tokenGas,address to,uint256 value,bytes calldata data)
++        //88903efe  => initialize(address owner,address tokenContract,address feesReceiver,uint256 tokenAmount,uint256 tokenGas,address to,uint256 value,uint256 gasLimit,bytes calldata data)
+     _deploy(
+       getCreationBytecode(),
+       keccak256(
+@@ -87,14 +88,15 @@ contract BoltzSmartWalletFactory is
+         abi.encodePacked(req.from, req.recoverer, req.index) // salt
+       ),
+       abi.encodeWithSelector(
+-                hex"c07adbdc",
++                hex"88903efe",
+         req.from,
+         req.tokenContract,
+         feesReceiver,
+         req.tokenAmount,
+         req.tokenGas,
+         req.to,
+         req.value,
++                req.gas,
+         req.data
+       )
+     );
+
+diff --git a/contracts/factory/MinimalBoltzSmartWalletFactory.sol b/contracts/factory/MinimalBoltzSmartWalletFactory.sol
+index d7c78d7..86c619b 100644
+--- a/contracts/factory/MinimalBoltzSmartWalletFactory.sol
++++ b/contracts/factory/MinimalBoltzSmartWalletFactory.sol
+@@ -37,7 +37,7 @@ contract MinimalBoltzSmartWalletFactory is
+     );
+     _nonces[req.from]++;
+ 
+-        // 3d326736  => initialize(address owner,address feesReceiver,uint256 tokenAmount,uint256 tokenGas,address to,bytes calldata data)
++        // 9f18fa5a  => initialize(address owner,address feesReceiver,uint256 tokenAmount,uint256 tokenGas,address to,uint256 gasLimit,bytes calldata data)
+     _deploy(
+       getCreationBytecode(),
+       keccak256(
+@@ -45,12 +45,13 @@ contract MinimalBoltzSmartWalletFactory is
+         abi.encodePacked(req.from, req.recoverer, req.index) // salt
+       ),
+       abi.encodeWithSelector(
+-                hex"3d326736",
++                hex"9f18fa5a",
+         req.from,
+         feesReceiver,
+         req.tokenAmount,
+         req.tokenGas,
+         req.to,
++                req.gas,
+         req.data
+       )
+     );
+
+diff --git a/contracts/smartwallet/BoltzSmartWallet.sol b/contracts/smartwallet/BoltzSmartWallet.sol
+index 86f08b0..3c7bc34 100644
+--- a/contracts/smartwallet/BoltzSmartWallet.sol
++++ b/contracts/smartwallet/BoltzSmartWallet.sol
+@@ -63,6 +63,7 @@ contract BoltzSmartWallet is BaseSmartWallet {
+    * @param tokenGas - Gas limit of payment
+    * @param to - Destination contract to execute
+    * @param value - Value to send to destination contract
++     * @param gasLimit - Gas limit to forward to destination contract execution
+    * @param data - Data to be execute by destination contract
+    */
+   function initialize(
+@@ -73,6 +74,7 @@ contract BoltzSmartWallet is BaseSmartWallet {
+     uint256 tokenGas,
+     address to,
+     uint256 value,
++        uint256 gasLimit,
+     bytes calldata data
+   ) external {
+     require(getOwner() == bytes32(0), "Already initialized");
+@@ -84,7 +86,11 @@ contract BoltzSmartWallet is BaseSmartWallet {
+     bytes memory ret;
+     // Although this check isn't strictly necessary, it's included to improve the transaction estimation
+     if (to != address(0)) {
+-            (success, ret) = to.call{value: value}(data);
++            if (gasLimit == 0) {
++                (success, ret) = to.call{value: value}(data);
++            } else {
++                (success, ret) = to.call{gas: gasLimit, value: value}(data);
++            }
+       if (!success) {
+         if (ret.length == 0) revert("Unable to execute");
+         assembly {
+
+diff --git a/contracts/smartwallet/MinimalBoltzSmartWallet.sol b/contracts/smartwallet/MinimalBoltzSmartWallet.sol
+index e6328f7..7c5c173 100644
+--- a/contracts/smartwallet/MinimalBoltzSmartWallet.sol
++++ b/contracts/smartwallet/MinimalBoltzSmartWallet.sol
+@@ -16,6 +16,7 @@ contract MinimalBoltzSmartWallet {
+    * @param feesAmount - Amount to pay
+    * @param feesGas - Gas limit of payment
+    * @param to - Destination contract to execute
++     * @param gasLimit - Gas limit to forward to destination contract execution
+    * @param data - Data to be execute by destination contract
+    */
+   function initialize(
+@@ -24,6 +25,7 @@ contract MinimalBoltzSmartWallet {
+     uint256 feesAmount,
+     uint256 feesGas,
+     address to,
++        uint256 gasLimit,
+     bytes calldata data
+   ) external {
+     require(!_isInitialized, "Already initialized");
+@@ -35,7 +37,11 @@ contract MinimalBoltzSmartWallet {
+     bytes memory ret;
+     // Although this check isn't strictly necessary, it's included to improve the transaction estimation
+     if (to != address(0)) {
+-            (success, ret) = to.call(data);
++            if (gasLimit == 0) {
++                (success, ret) = to.call(data);
++            } else {
++                (success, ret) = to.call{gas: gasLimit}(data);
++            }
+       if (!success) {
+         if (ret.length == 0) revert("Unable to execute");
+         assembly {

@@ -23,6 +23,11 @@ locals {
     "BLOSSOM_DASHBOARD_PASSWORD",
     "OTEL_EXPORTER_OTLP_HEADERS",
   ]
+
+  # Stored in Secret Manager for bootstrap/admin workflows only.
+  # Intentionally not included in `compose_runtime_secret_names`, so it is not
+  # fetched onto the long-lived compose VM during normal deploys.
+  rif_relay_admin_secret_name = "RIF_RELAY_ADMIN_PRIVATE_KEY"
 }
 
 resource "google_secret_manager_secret" "compose_runtime" {
@@ -46,6 +51,34 @@ resource "google_secret_manager_secret_version" "compose_runtime_seed" {
 
   secret      = google_secret_manager_secret.compose_runtime[each.key].id
   secret_data = var.compose_runtime_secret_values[each.key]
+}
+
+resource "google_secret_manager_secret" "rif_relay_admin_private_key" {
+  project   = var.project_id
+  secret_id = local.rif_relay_admin_secret_name
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.secretmanager]
+}
+
+resource "google_secret_manager_secret_version" "rif_relay_admin_private_key_seed" {
+  count = trimspace(
+    lookup(
+      nonsensitive(var.compose_runtime_secret_values),
+      local.rif_relay_admin_secret_name,
+      ""
+    )
+  ) != "" ? 1 : 0
+
+  secret = google_secret_manager_secret.rif_relay_admin_private_key.id
+  secret_data = lookup(
+    var.compose_runtime_secret_values,
+    local.rif_relay_admin_secret_name,
+    ""
+  )
 }
 
 resource "google_service_account" "compose_vm" {

@@ -26,7 +26,10 @@ class RootstockSwapOutOperation extends SwapOutOperation {
   final Nwc nwc;
   final SwapOutQuoteService quoteService;
   final Payments payments;
-  late final RifRelay rifRelay = getIt<RifRelay>(param1: rootstock.client);
+  late final RifRelay rifRelay = getIt<RifRelay>(
+    param1: rootstock.client,
+    param2: rootstock.config.rootstockConfig.rifRelay,
+  );
 
   RootstockSwapOutOperation({
     required this.rootstock,

@@ -24,6 +24,9 @@ mixin ListingTagRead {
   bool get allowSelfSignedReservation =>
       tagSource.getTagBool('allowSelfSignedReservation');
   List<Price> get prices => tagSource.getTagPrices();
+  List<CancellationPolicy> get cancellationPolicies =>
+      tagSource.getTagCancellationPolicies();
+  List<CancellationPolicy> get cancellationPolicy => cancellationPolicies;
   Amenities get amenities => Amenities.fromTags(tagSource.tags);
 }
 
@@ -93,6 +96,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
     int quantity = 1,
     bool requiresEscrow = false,
     bool allowSelfSignedReservation = false,
+    List<CancellationPolicy> cancellationPolicy = const [],
     List<List<String>> extraTags = const [],
     int? createdAt,
   }) {
@@ -114,6 +118,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
               ..addBool(
                   'allowSelfSignedReservation', allowSelfSignedReservation)
               ..addPrices(price)
+              ..addCancellationPolicies(cancellationPolicy)
               ..addAmenities(amenities)
               ..addAll(extraTags))
             .build(),
@@ -140,6 +145,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
     bool? requiresEscrow,
     bool? allowSelfSignedReservation,
     List<Price>? prices,
+    List<CancellationPolicy>? cancellationPolicy,
     Amenities? amenities,
     // Content fields
     String? title,
@@ -166,6 +172,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
               'requiresEscrow',
               'allowSelfSignedReservation',
               'price',
+              'cancellationPolicy',
               'amenity',
             }.contains(t.first))
         .toList();
@@ -188,6 +195,8 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
               ..addBool('allowSelfSignedReservation',
                   allowSelfSignedReservation ?? this.allowSelfSignedReservation)
               ..addPrices(prices ?? this.prices)
+              ..addCancellationPolicies(
+                  cancellationPolicy ?? this.cancellationPolicy)
               ..addAmenities(amenities ?? this.amenities)
               ..addAll(extraTags ?? const []))
             .build(),
@@ -301,6 +310,27 @@ class TimeOfDay {
   String toString() {
     return '$hour:$minute';
   }
+}
+
+class CancellationPolicy {
+  final Duration durationBeforeStart;
+  final double refundFraction;
+
+  const CancellationPolicy({
+    required this.durationBeforeStart,
+    required this.refundFraction,
+  })  : assert(refundFraction >= 0),
+        assert(refundFraction <= 1);
+
+  @override
+  bool operator ==(Object other) {
+    return other is CancellationPolicy &&
+        other.durationBeforeStart == durationBeforeStart &&
+        other.refundFraction == refundFraction;
+  }
+
+  @override
+  int get hashCode => Object.hash(durationBeforeStart, refundFraction);
 }
 
 enum ListingType { room, house, apartment, villa, hotel, hostel, resort }

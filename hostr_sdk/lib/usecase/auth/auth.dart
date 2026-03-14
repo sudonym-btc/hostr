@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:convert/convert.dart' as convert;
+import 'package:bip39_mnemonic/bip39_mnemonic.dart';
+import 'package:convert/convert.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/bip340.dart';
@@ -12,40 +14,70 @@ import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';
 
+import '../../injection.dart';
 import '../../util/main.dart';
+import '../deterministic_keys/deterministic_keys.dart';
 import '../storage/storage.dart';
 
 @Singleton()
 class Auth {
-  final Ndk ndk;
+  final Ndk _ndk;
   final CustomLogger _logger;
-  final AuthStorage authStorage;
+  final AuthStorage _authStorage;
+  static const _recordVersion = 1;
+  Ndk get ndk => _ndk;
+  AuthStorage get authStorage => _authStorage;
   final BehaviorSubject<AuthState> _authStateContoller =
       BehaviorSubject<AuthState>.seeded(AuthInitial());
   ValueStream<AuthState> get authState => _authStateContoller;
   KeyPair? activeKeyPair;
+  ResolvedNostrIdentity? _activeIdentity;
+  _AuthRecord? _authRecord;
 
   Auth({
-    required this.ndk,
-    required this.authStorage,
+    required Ndk ndk,
+    required AuthStorage authStorage,
     required CustomLogger logger,
-  }) : _logger = logger;
+  }) : _ndk = ndk,
+       _authStorage = authStorage,
+       _logger = logger;
 
-  /// Generates a new key pair and stores it, clearing any previous keys.
+  ResolvedNostrIdentity? get activeIdentity => _activeIdentity;
+
+  bool get isMnemonicBacked => _authRecord?.credentialType == 'mnemonic';
+
+  String? get activeMnemonic => isMnemonicBacked ? _authRecord?.secret : null;
+
+  int? get activeNostrAccountIndex => _authRecord?.nostrAccountIndex;
+
+  int get storedMaxAccountIndex => _authRecord?.maxAccountIndex ?? -1;
+
+  /// Generates a new mnemonic and stores it, clearing any previous keys.
   Future<void> signup() => _logger.span('signup', () async {
     _logger.i('AuthService.signup');
     await logout();
-    await signin(Bip340.generatePrivateKey().privateKey!);
+    final entropy = Helpers.getSecureRandomHex(32);
+    final words = bip.entropyToMnemonic(
+      Uint8List.fromList(hex.decode(entropy)),
+    );
+    await signin(words.join(' '));
   });
 
-  /// Imports a private key (hex or nsec) and stores it.
+  /// Imports a private key (hex or nsec) or a mnemonic and stores it.
   Future<void> signin(String input) => _logger.span('signin', () async {
     _logger.i('AuthService.signin');
-    final privateKey = _parseAndValidateKey(input);
-    await authStorage.set([privateKey]);
+    final record = _buildAuthRecord(input);
+    await authStorage.set([jsonEncode(record.toJson())]);
     await _loadActiveKeyPair();
     ensureNdkAccountsMatch();
     _syncAuthState();
+  });
+
+  ResolvedNostrIdentity previewResolvedIdentity(
+    String input, {
+    int nostrAccountIndex = 0,
+  }) => _logger.spanSync('previewResolvedIdentity', () {
+    return _resolveIdentity(input, nostrAccountIndex: nostrAccountIndex);
   });
 
   /// Wipes key storage and secure storage.
@@ -95,10 +127,18 @@ class Auth {
 
   Future<void> _loadActiveKeyPair() =>
       _logger.span('_loadActiveKeyPair', () async {
-        final privateKey = await authStorage.get();
-        activeKeyPair = privateKey.isEmpty
-            ? null
-            : Bip340.fromPrivateKey(privateKey[0]);
+        final stored = await authStorage.get();
+        final record = _AuthRecord.fromStorage(stored);
+        _authRecord = record;
+        if (record == null) {
+          activeKeyPair = null;
+          _activeIdentity = null;
+          return;
+        }
+
+        final resolved = _resolveIdentityFromRecord(record);
+        _activeIdentity = resolved;
+        activeKeyPair = Bip340.fromPrivateKey(resolved.privateKeyHex);
       });
 
   KeyPair getActiveKey() {
@@ -112,48 +152,66 @@ class Auth {
   // HD wallet – EVM key derivation
   // ---------------------------------------------------------------------------
 
+  DeterministicKeys get _deterministicKeys => getIt<DeterministicKeys>();
+
   /// Returns the BIP-44 derived EVM private key at [accountIndex].
-  ///
-  /// Derivation: nsec bytes → BIP-39 mnemonic (entropy-to-words) →
-  ///   PBKDF2 seed → BIP-32 master → m/44'/60'/0'/0/{accountIndex}
-  ///
-  /// This is MetaMask-compatible: pasting [getEvmMnemonic] into MetaMask
-  /// will show the same addresses.
   EthPrivateKey getActiveEvmKey({int accountIndex = 0}) {
-    return _deriveEvmKey(accountIndex);
+    return _deterministicKeys.getActiveEvmKey(accountIndex: accountIndex);
   }
 
   /// Returns the EVM address at [accountIndex] without exposing the key.
   bip.EthereumAddress getEvmAddress({int accountIndex = 0}) {
-    return _deriveEvmKey(accountIndex).address;
+    return _deterministicKeys.getEvmAddress(accountIndex: accountIndex);
   }
 
   /// Scans HD account indices 0..[maxScan] to find the one whose address
   /// matches [address]. Throws [StateError] if no match is found.
-  int findEvmAccountIndex(bip.EthereumAddress address, {int maxScan = 20}) =>
-      _logger.spanSync('findEvmAccountIndex', () {
-        for (var i = 0; i < maxScan; i++) {
-          final derived = getEvmAddress(accountIndex: i);
-          if (derived == address) return i;
-        }
-        throw StateError(
-          'No HD account index (0..$maxScan) matches address '
-          '${address.eip55With0x}',
-        );
-      });
+  int? tryFindEvmAccountIndex(bip.EthereumAddress address, {int maxScan = 20}) {
+    return _deterministicKeys.tryFindEvmAccountIndex(address, maxScan: maxScan);
+  }
 
-  /// Returns the 24-word BIP-39 mnemonic derived from the Nostr private key
-  /// entropy. Paste this into MetaMask to see all derived EVM addresses.
+  int findEvmAccountIndex(bip.EthereumAddress address, {int maxScan = 20}) =>
+      _deterministicKeys.findEvmAccountIndex(address, maxScan: maxScan);
+
+  /// Returns the 24-word synthetic mnemonic derived from the active Nostr
+  /// private key. Paste this into MetaMask to see all derived EVM addresses.
   List<String> getEvmMnemonic() => _logger.spanSync('getEvmMnemonic', () {
-    final nsecHex = getActiveKey().privateKey!;
-    final entropy = Uint8List.fromList(convert.hex.decode(nsecHex));
-    return bip.entropyToMnemonic(entropy);
+    return _deterministicKeys.getEvmMnemonic();
   });
 
-  /// Derives the EVM private key at [accountIndex] from the Nostr key.
-  EthPrivateKey _deriveEvmKey(int accountIndex) {
-    return deriveEvmKey(getActiveKey().privateKey!, accountIndex: accountIndex);
-  }
+  String getTradeId({required int accountIndex}) =>
+      _logger.spanSync('getTradeId', () {
+        return _deterministicKeys.getTradeId(accountIndex: accountIndex);
+      });
+
+  String getTradeSalt({required int accountIndex}) =>
+      _logger.spanSync('getTradeSalt', () {
+        return _deterministicKeys.getTradeSalt(accountIndex: accountIndex);
+      });
+
+  Future<int> reserveNextTradeIndex() =>
+      _deterministicKeys.reserveNextTradeIndex();
+
+  int findTradeAccountIndexByTradeId(String tradeId, {int maxScan = 128}) =>
+      _deterministicKeys.findTradeAccountIndexByTradeId(
+        tradeId,
+        maxScan: maxScan,
+      );
+
+  int? tryFindTradeAccountIndexByTradeId(String tradeId, {int maxScan = 128}) =>
+      _deterministicKeys.tryFindTradeAccountIndexByTradeId(
+        tradeId,
+        maxScan: maxScan,
+      );
+
+  int findTradeAccountIndexBySalt(String salt, {int maxScan = 128}) =>
+      _deterministicKeys.findTradeAccountIndexBySalt(salt, maxScan: maxScan);
+
+  int? tryFindTradeAccountIndexBySalt(String salt, {int maxScan = 128}) =>
+      _deterministicKeys.tryFindTradeAccountIndexBySalt(salt, maxScan: maxScan);
+
+  List<int> getReservedTradeIndices() =>
+      _deterministicKeys.getReservedTradeIndices();
 
   // ---------------------------------------------------------------------------
 
@@ -171,37 +229,205 @@ class Auth {
     await _authStateContoller.close();
   }
 
+  _AuthRecord _buildAuthRecord(String input, {int nostrAccountIndex = 0}) {
+    final trimmed = input.trim();
+    final wordCount = trimmed
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .length;
+    if (wordCount == 12 || wordCount == 24) {
+      final normalized = Mnemonic.fromSentence(
+        trimmed,
+        Language.english,
+      ).sentence;
+      return _AuthRecord(
+        version: _recordVersion,
+        credentialType: 'mnemonic',
+        secret: normalized,
+        nostrAccountIndex: nostrAccountIndex,
+        maxAccountIndex: -1,
+      );
+    }
+
+    final privateKey = _parseAndValidateKey(trimmed);
+    return _AuthRecord(
+      version: _recordVersion,
+      credentialType: 'private_key',
+      secret: privateKey,
+      maxAccountIndex: -1,
+    );
+  }
+
+  ResolvedNostrIdentity _resolveIdentity(
+    String input, {
+    int nostrAccountIndex = 0,
+  }) => _logger.spanSync('_resolveIdentity', () {
+    final trimmed = input.trim();
+    final words = trimmed
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.length == 12 || words.length == 24) {
+      final normalized = Mnemonic.fromSentence(
+        trimmed,
+        Language.english,
+      ).sentence;
+      final privateKeyHex = deriveNostrPrivateKeyFromMnemonic(
+        normalized,
+        accountIndex: nostrAccountIndex,
+      );
+      final keyPair = Bip340.fromPrivateKey(privateKeyHex);
+      return ResolvedNostrIdentity(
+        privateKeyHex: privateKeyHex,
+        publicKeyHex: keyPair.publicKey,
+        sourceType: 'mnemonic',
+        nostrAccountIndex: nostrAccountIndex,
+      );
+    }
+
+    final privateKeyHex = _parseAndValidateKey(trimmed);
+    final keyPair = Bip340.fromPrivateKey(privateKeyHex);
+    return ResolvedNostrIdentity(
+      privateKeyHex: privateKeyHex,
+      publicKeyHex: keyPair.publicKey,
+      sourceType: 'private_key',
+    );
+  });
+
+  ResolvedNostrIdentity _resolveIdentityFromRecord(_AuthRecord record) {
+    if (record.credentialType == 'mnemonic') {
+      final privateKeyHex = deriveNostrPrivateKeyFromMnemonic(
+        record.secret,
+        accountIndex: record.nostrAccountIndex ?? 0,
+      );
+      final keyPair = Bip340.fromPrivateKey(privateKeyHex);
+      return ResolvedNostrIdentity(
+        privateKeyHex: privateKeyHex,
+        publicKeyHex: keyPair.publicKey,
+        sourceType: record.credentialType,
+        nostrAccountIndex: record.nostrAccountIndex,
+      );
+    }
+
+    final privateKeyHex = _parseAndValidateKey(record.secret);
+    final keyPair = Bip340.fromPrivateKey(privateKeyHex);
+    return ResolvedNostrIdentity(
+      privateKeyHex: privateKeyHex,
+      publicKeyHex: keyPair.publicKey,
+      sourceType: record.credentialType,
+      nostrAccountIndex: record.nostrAccountIndex,
+    );
+  }
+
   /// Validates and returns a 64-char hex private key.
   ///
   /// Accepts:
   /// - 64-char hex private key
   /// - nsec1… bech32-encoded private key
-  String _parseAndValidateKey(String input) =>
-      _logger.spanSync('_parseAndValidateKey', () {
-        final trimmed = input.trim();
+  String _parseAndValidateKey(
+    String input,
+  ) => _logger.spanSync('_parseAndValidateKey', () {
+    final trimmed = input.trim();
 
-        // Raw hex
-        if (trimmed.length == 64 && _isHex(trimmed)) {
-          return trimmed;
-        }
+    if (trimmed.length == 64 && _isHex(trimmed)) {
+      return trimmed.toLowerCase();
+    }
 
-        // nsec bech32
-        if (trimmed.startsWith('nsec1')) {
-          final decoded = Helpers.decodeBech32(trimmed);
-          final hex = decoded[0];
-          if (hex.isNotEmpty && hex.length == 64 && _isHex(hex)) {
-            return hex;
-          }
-          throw Exception('Invalid nsec key');
-        }
+    if (trimmed.startsWith('nsec1')) {
+      final decoded = Helpers.decodeBech32(trimmed);
+      final hex = decoded[0];
+      if (hex.isNotEmpty && hex.length == 64 && _isHex(hex)) {
+        return hex.toLowerCase();
+      }
+      throw Exception('Invalid nsec key');
+    }
 
-        throw Exception(
-          'Invalid key format. Expected nsec or 64-char hex private key',
-        );
-      });
+    throw Exception(
+      'Invalid key format. Expected mnemonic, nsec or 64-char hex private key',
+    );
+  });
 
   bool _isHex(String str) {
     return RegExp(r'^[0-9a-fA-F]+$').hasMatch(str);
+  }
+}
+
+class ResolvedNostrIdentity extends Equatable {
+  final String privateKeyHex;
+  final String publicKeyHex;
+  final String sourceType;
+  final int? nostrAccountIndex;
+
+  const ResolvedNostrIdentity({
+    required this.privateKeyHex,
+    required this.publicKeyHex,
+    required this.sourceType,
+    this.nostrAccountIndex,
+  });
+
+  @override
+  List<Object?> get props => [
+    privateKeyHex,
+    publicKeyHex,
+    sourceType,
+    nostrAccountIndex,
+  ];
+}
+
+class _AuthRecord {
+  final int version;
+  final String credentialType;
+  final String secret;
+  final int? nostrAccountIndex;
+  final int maxAccountIndex;
+
+  const _AuthRecord({
+    required this.version,
+    required this.credentialType,
+    required this.secret,
+    this.nostrAccountIndex,
+    this.maxAccountIndex = -1,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'version': version,
+    'credentialType': credentialType,
+    'secret': secret,
+    if (nostrAccountIndex != null) 'nostrAccountIndex': nostrAccountIndex,
+    'maxAccountIndex': maxAccountIndex,
+  };
+
+  static _AuthRecord? fromStorage(List<String> raw) {
+    if (raw.isEmpty) return null;
+    final first = raw.first;
+    try {
+      final decoded = jsonDecode(first);
+      if (decoded is Map<String, dynamic>) {
+        final reserved =
+            (decoded['reservedTradeIndices'] as List<dynamic>? ?? const [])
+                .map((e) => e as int)
+                .toList(growable: false);
+        final maxAccountIndex =
+            decoded['maxAccountIndex'] as int? ??
+            (reserved.isEmpty ? -1 : reserved.reduce((a, b) => a > b ? a : b));
+        return _AuthRecord(
+          version: decoded['version'] as int? ?? 1,
+          credentialType: decoded['credentialType'] as String? ?? 'private_key',
+          secret: decoded['secret'] as String,
+          nostrAccountIndex: decoded['nostrAccountIndex'] as int?,
+          maxAccountIndex: maxAccountIndex,
+        );
+      }
+    } catch (_) {
+      // fall through to raw-key migration below
+    }
+
+    return _AuthRecord(
+      version: 1,
+      credentialType: 'private_key',
+      secret: first,
+      maxAccountIndex: -1,
+    );
   }
 }
 

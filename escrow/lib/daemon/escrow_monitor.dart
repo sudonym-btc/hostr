@@ -171,7 +171,7 @@ class EscrowMonitor {
   // ── Nostr thread messages ─────────────────────────────────────────────────
 
   void _startThreadListener() {
-    hostr.messaging.threads.sync();
+    hostr.userSubscriptions.start();
     _threadSub = hostr.messaging.threads.threadStream.listen(
       (thread) {
         print('[monitor] New/updated thread: ${thread.anchor}');

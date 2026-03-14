@@ -36,29 +36,41 @@ class MockRootstockConfig extends RootstockConfig {
   @override
   BoltzConfig get boltz => MockBoltzConfig();
   @override
+  RifRelayConfig get rifRelay => MockRifRelayConfig();
+  @override
+  RootstockSupportedContractsConfig get supportedContracts =>
+      DefaultRootstockSupportedContractsConfig(
+        multiEscrow: DefaultSupportedEscrowContractConfig(
+          rifRelay: MockRifRelayConfig(),
+        ),
+      );
+  @override
   String get rpcUrl => 'http://localhost:8545';
 }
 
 class MockBoltzConfig extends BoltzConfig {
-  @override
-  // TODO: implement rifRelayCallVerifier
-  String get rifRelayCallVerifier => throw UnimplementedError();
-
-  @override
-  // TODO: implement rifRelayDeployVerifier
-  String get rifRelayDeployVerifier => throw UnimplementedError();
-
-  @override
-  // TODO: implement rifRelayUrl
-  String get rifRelayUrl => throw UnimplementedError();
-
-  @override
-  // TODO: implement rifSmartWalletFactoryAddress
-  String get rifSmartWalletFactoryAddress => throw UnimplementedError();
   @override
   String get apiUrl => 'https://api.testnet.boltz.exchange/v2';
 
   @override
   // TODO: implement wsUrl
   String get wsUrl => throw UnimplementedError();
+}
+
+class MockRifRelayConfig extends RifRelayConfig {
+  @override
+  // TODO: implement rifRelayCallVerifier
+  String get callVerifier => throw UnimplementedError();
+
+  @override
+  // TODO: implement rifRelayDeployVerifier
+  String get deployVerifier => throw UnimplementedError();
+
+  @override
+  // TODO: implement rifRelayUrl
+  String get url => throw UnimplementedError();
+
+  @override
+  // TODO: implement rifSmartWalletFactoryAddress
+  String get smartWalletFactoryAddress => throw UnimplementedError();
 }

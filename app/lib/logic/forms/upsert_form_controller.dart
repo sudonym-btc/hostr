@@ -24,6 +24,10 @@ abstract class UpsertFormController extends ChangeNotifier {
   bool get isSaving => _saving;
   bool get isReady => _ready;
 
+  void _handleDependencyChanged() {
+    notifyListeners();
+  }
+
   /// Whether at least one registered field has unsaved changes.
   bool get isDirty => _fields.any((f) => f.isDirty);
 
@@ -46,6 +50,7 @@ abstract class UpsertFormController extends ChangeNotifier {
   @protected
   void registerField(FormFieldController field) {
     _fields.add(field);
+    field.addListener(_handleDependencyChanged);
   }
 
   /// Register an additional [Listenable] (e.g. a [ValueNotifier]) that
@@ -54,6 +59,7 @@ abstract class UpsertFormController extends ChangeNotifier {
   @protected
   void registerListenable(Listenable listenable) {
     _extraListenables.add(listenable);
+    listenable.addListener(_handleDependencyChanged);
   }
 
   @protected
@@ -84,5 +90,16 @@ abstract class UpsertFormController extends ChangeNotifier {
       _saving = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    for (final field in _fields) {
+      field.removeListener(_handleDependencyChanged);
+    }
+    for (final listenable in _extraListenables) {
+      listenable.removeListener(_handleDependencyChanged);
+    }
+    super.dispose();
   }
 }

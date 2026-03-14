@@ -1,7 +1,3 @@
-import 'dart:io';
-
-import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hostr/injection.config.dart';
@@ -16,26 +12,6 @@ void configureInjection(String environment) {
   debugPrint('Setting up injection for $environment');
 
   getIt.init(environment: environment);
-
-  // Configure Dio and allow self-signed certificates only outside production.
-  final Dio dio = getIt<Dio>();
-  if (environment != Env.prod) {
-    final adapter = dio.httpClientAdapter;
-    if (adapter is IOHttpClientAdapter) {
-      adapter.createHttpClient = () {
-        final HttpClient client = HttpClient();
-        client.badCertificateCallback =
-            (X509Certificate cert, String host, int port) => true;
-        return client;
-      };
-    }
-  }
-}
-
-@module
-abstract class DioModule {
-  @lazySingleton
-  Dio dio() => Dio();
 }
 
 abstract class Env {

@@ -79,7 +79,7 @@ variable "compose_source_ranges" {
 }
 
 variable "compose_runtime_secret_values" {
-  description = "Optional map to seed Secret Manager values (ESCROW_PRIVATE_KEY, BLOSSOM_DASHBOARD_PASSWORD)."
+  description = "Optional map to seed Secret Manager values (for example ESCROW_PRIVATE_KEY, BLOSSOM_DASHBOARD_PASSWORD, OTEL_EXPORTER_OTLP_HEADERS, RIF_RELAY_ADMIN_PRIVATE_KEY). The RIF relay admin key is stored for bootstrap/admin use and is not fetched onto the runtime compose VM by default."
   type        = map(string)
   sensitive   = true
   default     = {}

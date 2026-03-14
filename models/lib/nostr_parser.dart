@@ -26,6 +26,14 @@ T parser<T extends Nip01Event>(Nip01Event event) {
       return ReservationTransition.fromNostrEvent(event) as T;
     } else if (Message.kinds.contains(eventKind)) {
       return Message.safeFromNostrEvent(event) as T;
+    } else if (ReceivedHeartbeat.kinds.contains(eventKind)) {
+      return ReceivedHeartbeat.fromNostrEvent(event) as T;
+    } else if (SeenStatus.kinds.contains(eventKind)) {
+      return SeenStatus.fromNostrEvent(event) as T;
+    } else if (TypingIndicator.kinds.contains(eventKind)) {
+      return TypingIndicator.fromNostrEvent(event) as T;
+    } else if (SeenMessages.kinds.contains(eventKind)) {
+      return SeenMessages.fromNostrEvent(event) as T;
     } else if (EscrowServiceSelected.kinds.contains(eventKind)) {
       return EscrowServiceSelected.fromNostrEvent(event) as T;
     } else if (EscrowService.kinds.contains(eventKind)) {

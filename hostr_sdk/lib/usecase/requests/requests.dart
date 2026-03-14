@@ -70,9 +70,10 @@ class LiveSubscriptionHandle {
 
 @Singleton(env: Env.allButTestAndMock)
 class Requests extends RequestsModel {
-  final Ndk ndk;
+  final Ndk _ndk;
   final bool useCache = false;
   final CustomLogger _logger;
+  Ndk get ndk => _ndk;
   bool _loggedFirstQuery = false;
 
   /// In-flight query dedup: filter key → broadcast stream.
@@ -84,8 +85,9 @@ class Requests extends RequestsModel {
   /// dependency (Relays → Requests for MockRelays).
   Relays get _relays => getIt<Relays>();
 
-  Requests({required this.ndk, required CustomLogger logger})
-    : _logger = logger.scope('requests') {
+  Requests({required Ndk ndk, required CustomLogger logger})
+    : _ndk = ndk,
+      _logger = logger.scope('requests') {
     Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
   }
 
@@ -161,7 +163,7 @@ class Requests extends RequestsModel {
                     .stream;
               }),
             ])
-            .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
+            .map(safeParser<T>)
             .where((event) => event != null)
             .cast<T>()
             .listen((item) {
@@ -190,7 +192,7 @@ class Requests extends RequestsModel {
     // If there's already an in-flight query for this exact filter, share it.
     if (_inFlightQueries.containsKey(key)) {
       return _inFlightQueries[key]!
-          .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
+          .map(safeParser<T>)
           .where((event) => event != null)
           .cast<T>();
     }
@@ -239,10 +241,7 @@ class Requests extends RequestsModel {
 
     _inFlightQueries[key] = source;
 
-    return source
-        .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
-        .where((event) => event != null)
-        .cast<T>();
+    return source.map(safeParser<T>).where((event) => event != null).cast<T>();
   });
 
   // @TODO: There must be a better way to do this
@@ -300,7 +299,7 @@ class Requests extends RequestsModel {
                     .stream,
               );
             })
-            .asyncMap((event) async => safeParserWithGiftWrap<T>(event, ndk))
+            .map(safeParser<T>)
             .where((event) => event != null)
             .cast<T>()
             .listen(onData, onError: onError);

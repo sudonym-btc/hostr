@@ -40,9 +40,9 @@ class TrustedEscrowListItemWidget extends StatelessWidget {
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
-      trailing: onRemove == null
-          ? null
-          : IconButton(icon: const Icon(Icons.close), onPressed: onRemove),
+      // trailing: onRemove == null
+      //     ? null
+      //     : IconButton(icon: const Icon(Icons.close), onPressed: onRemove),
     );
   }
 }

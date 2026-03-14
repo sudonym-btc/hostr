@@ -11,10 +11,11 @@ output "compose_vm_zone" {
 }
 
 output "compose_runtime_secret_names" {
-  value = [
-    "ESCROW_PRIVATE_KEY",
-    "BLOSSOM_DASHBOARD_PASSWORD",
-  ]
+  value = local.compose_runtime_secret_names
+}
+
+output "rif_relay_admin_secret_name" {
+  value = local.rif_relay_admin_secret_name
 }
 
 output "static_ip" {

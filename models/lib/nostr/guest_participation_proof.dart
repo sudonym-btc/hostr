@@ -15,12 +15,14 @@ import 'package:models/main.dart';
 ///   (each has a unique random salt)
 /// - No host proof needed; host publishes the reservation directly
 class ParticipationProof {
-  /// Random salt unique to this reservation
-  /// When revealed in a review, combined with guest pubkey to verify participation
-  final String salt;
+  /// Tweak material unique to this reservation.
+  /// When revealed in a review, its `salt` is combined with the guest pubkey
+  /// to verify participation and its `parity` is used for deterministic
+  /// untweaking.
+  final ReservationTweakMaterial tweakMaterial;
 
   ParticipationProof({
-    required this.salt,
+    required this.tweakMaterial,
   });
 
   /// Compute the guest commitment hash for verification
@@ -34,23 +36,34 @@ class ParticipationProof {
 
   /// Verify this proof matches the given commitment hash
   bool verify(String guestPubKey, String commitmentHash) {
-    return computeCommitmentHash(guestPubKey, salt) == commitmentHash;
+    return computeCommitmentHash(guestPubKey, tweakMaterial.salt) ==
+        commitmentHash;
   }
 
-  bool verifyTweakedPubKey(String pubKey, String pubKeyWithTeak) {
-    return verifyPubKeyWithTeak(
-        pubKey: pubKey, salt: salt, pubKeyWithTeak: pubKeyWithTeak);
+  bool verifyTweakedPubKey({
+    required String pubKey,
+    required String tweakedPubKey,
+    required ReservationTweakMaterial tweakMaterial,
+  }) {
+    return verifyTweakedPublicKey(
+      publicKey: pubKey,
+      salt: tweakMaterial.salt,
+      tweakedPublicKey: tweakedPubKey,
+      tweakedPublicKeyParity: tweakMaterial.parity,
+    );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      "salt": salt,
+      "tweakMaterial": tweakMaterial.toJson(),
     };
   }
 
   static ParticipationProof fromJson(Map<String, dynamic> json) {
     return ParticipationProof(
-      salt: json["salt"],
+      tweakMaterial: ReservationTweakMaterial.fromJson(
+        json["tweakMaterial"] as Map<String, dynamic>,
+      ),
     );
   }
 }

@@ -10,10 +10,14 @@ import '../util/main.dart';
 import 'requests/requests.dart';
 
 class CrudUseCase<T extends Nip01Event> {
-  final CustomLogger logger;
-  final Requests requests;
-  final int kind;
-  final int? draftKind;
+  final CustomLogger _logger;
+  final Requests _requests;
+  final int _kind;
+  final int? _draftKind;
+  CustomLogger get logger => _logger;
+  Requests get requests => _requests;
+  int get kind => _kind;
+  int? get draftKind => _draftKind;
 
   /// Broadcast stream that emits whenever an entity is created, updated,
   /// or deleted through this use case. Consumers can listen to this to
@@ -22,11 +26,14 @@ class CrudUseCase<T extends Nip01Event> {
   Stream<T> get updates => _updates.stream;
 
   CrudUseCase({
-    required this.requests,
-    required this.kind,
-    this.draftKind,
+    required Requests requests,
+    required int kind,
+    int? draftKind,
     required CustomLogger logger,
-  }) : logger = logger.scope('$T');
+  }) : _requests = requests,
+       _kind = kind,
+       _draftKind = draftKind,
+       _logger = logger.scope('$T');
 
   /// Notify listeners that an entity was mutated. Call this from external
   /// code (e.g. controllers that bypass [create]/[upsert]/[delete]) to

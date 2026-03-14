@@ -9,7 +9,7 @@ import 'package:hostr/route/auth_gated_action.dart';
 import 'package:hostr/router.dart';
 import 'package:models/main.dart';
 
-class Reserve extends StatelessWidget {
+class Reserve extends StatefulWidget {
   final Listing listing;
   final List<ReservationPair> reservationPairs;
 
@@ -18,6 +18,47 @@ class Reserve extends StatelessWidget {
     required this.listing,
     required this.reservationPairs,
   });
+
+  @override
+  State<Reserve> createState() => _ReserveState();
+}
+
+class _ReserveState extends State<Reserve> {
+  Amount? _customAmount;
+  String? _customAmountRangeKey;
+
+  String _rangeKey(DateTimeRange range) {
+    return '${range.start.millisecondsSinceEpoch}:${range.end.millisecondsSinceEpoch}';
+  }
+
+  Amount _listingAmountFor(DateTimeRange range) {
+    return widget.listing.cost(range.start, range.end);
+  }
+
+  Amount _effectiveAmountFor(DateTimeRange range) {
+    final key = _rangeKey(range);
+    if (_customAmount != null && _customAmountRangeKey == key) {
+      return _customAmount!;
+    }
+    return _listingAmountFor(range);
+  }
+
+  Future<void> _editAmount(BuildContext context, DateTimeRange range) async {
+    final listingAmount = _listingAmountFor(range);
+    final updated = await AmountEditorBottomSheet.show(
+      context,
+      initialAmount: _effectiveAmountFor(range),
+      minAmount: Amount(currency: listingAmount.currency, value: BigInt.one),
+      maxAmount: listingAmount,
+    );
+
+    if (updated == null || !mounted) return;
+
+    setState(() {
+      _customAmount = updated;
+      _customAmountRangeKey = _rangeKey(range);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,21 +79,39 @@ class Reserve extends StatelessWidget {
                     onTap: () => selectDates(
                       context,
                       context.read<DateRangeCubit>(),
-                      reservationPairs,
+                      widget.reservationPairs,
                       enforceContiguousAvailability: true,
                     ),
                   ),
                   if (dateState.dateRange != null) ...[
                     const SizedBox(width: 12),
-                    Text(
-                      formatAmount(
-                        listing.cost(
-                          dateState.dateRange!.start,
-                          dateState.dateRange!.end,
-                        ),
-                        exact: false,
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              formatAmount(
+                                _effectiveAmountFor(dateState.dateRange!),
+                                exact: false,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          if (widget.listing.allowBarter)
+                            IconButton(
+                              tooltip: 'Edit amount',
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.only(left: 6),
+                              iconSize: 18,
+                              onPressed: () =>
+                                  _editAmount(context, dateState.dateRange!),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                        ],
                       ),
-                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ],
                 ],
@@ -61,18 +120,20 @@ class Reserve extends StatelessWidget {
             const SizedBox(width: 12),
             BlocBuilder<ReservationCubit, ReservationCubitState>(
               builder: (context, state) {
+                final dateRange = dateState.dateRange;
                 return FilledButton(
                   onPressed:
                       state.status == ReservationCubitStatus.loading ||
-                          dateState.dateRange == null
+                          dateRange == null
                       ? null
                       : () => authGatedAction(context, () async {
                           await context
                               .read<ReservationCubit>()
                               .createReservationRequest(
-                                listing: listing,
-                                startDate: dateState.dateRange!.start,
-                                endDate: dateState.dateRange!.end,
+                                listing: widget.listing,
+                                startDate: dateRange.start,
+                                endDate: dateRange.end,
+                                amount: _effectiveAmountFor(dateRange),
                                 onSuccess: (reservation) {
                                   AutoRouter.of(context).push(
                                     ThreadRoute(anchor: reservation.getDtag()!),

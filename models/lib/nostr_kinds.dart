@@ -13,6 +13,7 @@ const kNostrKindEscrowServiceSelected = 30302;
 
 const kNostrKindProfile = 0;
 const kNostrKindDM = 14;
+const kNostrKindSeenStatus = 16;
 const kNostrKindReaction = 7;
 const kNostrKindZapRequest = 9734;
 const kNostrKindZapReceipt = 9735;
@@ -23,6 +24,10 @@ const kNostrKindSeal = 13;
 
 /// A gift wrap event is a kind:1059 event that wraps any other event. tags SHOULD include any information needed to route the event to its intended recipient, including the recipient's p tag
 const kNostrKindGiftWrap = 1059;
+
+const kNostrKindReceivedHeartbeat = 10017;
+const kNostrKindTypingIndicator = 10018;
+const kNostrKindSeenMessages = 30010;
 
 const kNostrKindNWCInfo = 13194;
 const kNostrKindNWCRequest = 23194;

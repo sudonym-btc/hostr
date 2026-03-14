@@ -13,7 +13,7 @@
 /// Prerequisites:
 ///   - Anvil running on https://anvil.hostr.development (chain-id 33)
 ///   - Nostr relay at wss://relay.hostr.development
-///   - MultiEscrow contract deployed (docker/data/escrow/contract_addr file)
+///   - MultiEscrow contract deployed in escrow/contracts/contract-addresses.json
 /// Run: `cd hostr_sdk && dart test test/integration/reservation_pairs_test.dart`
 @Tags(['integration', 'docker'])
 library;
@@ -127,9 +127,9 @@ Reservation _buildNegotiate({
     quantity: 1,
     amount: Amount(
       currency: Currency.BTC,
-      value: customAmount ?? BigInt.from(100000),
+      value: customAmount ?? listing.cost(start, end).value,
     ),
-    salt: salt,
+    tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
     createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
   ).signAs(buyer, Reservation.fromNostrEvent);
 }
@@ -168,7 +168,7 @@ Reservation _buildSelfSignedCommit({
     stage: ReservationStage.commit,
     quantity: negotiate.quantity,
     amount: negotiate.amount,
-    salt: negotiate.salt,
+    tweakMaterial: negotiate.tweakMaterial,
     proof: proof,
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
   ).signAs(buyer, Reservation.fromNostrEvent);
@@ -190,7 +190,7 @@ Reservation _buildCancel({
     quantity: source.quantity,
     amount: source.amount,
     recipient: source.recipient,
-    salt: source.salt,
+    tweakMaterial: source.tweakMaterial,
     signatures: source.signatures,
     createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
   ).signAs(signer, Reservation.fromNostrEvent);

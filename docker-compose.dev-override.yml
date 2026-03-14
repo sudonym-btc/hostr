@@ -18,8 +18,10 @@ services:
       - ./hostr_sdk:/workspace/hostr_sdk
       - ./models:/workspace/models
     entrypoint:
-      [
-        "sh",
-        "-c",
-        "cd /workspace/escrow && dart pub get && if [ -z \"$$CONTRACT_ADDR\" ] && [ -f /data/contract_addr ]; then export CONTRACT_ADDR=$$(cat /data/contract_addr); fi && exec docker/entrypoint.sh",
-      ]
+      - sh
+      - -c
+      - >
+          cd /workspace/escrow && dart pub get &&
+          if [ -z "$$CONTRACT_ADDR" ] && [ -f /workspace/escrow/contracts/contract-addresses.json ]; then
+            export CONTRACT_ADDR=$$(node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/workspace/escrow/contracts/contract-addresses.json','utf8'));process.stdout.write(String(j[process.env.ESCROW_CONTRACT_ADDRESS_KEY || 'regtest.33']?.MultiEscrow || '')); ");
+          fi && exec docker/entrypoint.sh

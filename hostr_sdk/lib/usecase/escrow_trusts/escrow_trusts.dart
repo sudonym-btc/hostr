@@ -7,12 +7,13 @@ import '../crud.usecase.dart';
 
 @Singleton()
 class EscrowTrusts extends CrudUseCase<EscrowTrust> {
-  final Auth auth;
+  final Auth _auth;
   EscrowTrusts({
     required super.requests,
     required super.logger,
-    required this.auth,
-  }) : super(kind: EscrowTrust.kinds[0]);
+    required Auth auth,
+  }) : _auth = auth,
+       super(kind: EscrowTrust.kinds[0]);
 
   Future<EscrowTrust?> trusted(String pubkey) =>
       logger.span('trusted', () async {
@@ -20,7 +21,7 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
       });
 
   Future<EscrowTrust?> myTrusted() => logger.span('myTrusted', () async {
-    String pubkey = auth.activeKeyPair!.publicKey;
+    String pubkey = _auth.activeKeyPair!.publicKey;
     return trusted(pubkey);
   });
 
@@ -32,7 +33,7 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
   ) => logger.span('ensureEscrowTrust', () async {
     if (escrowPubkeys.isEmpty) return;
 
-    final keyPair = auth.activeKeyPair;
+    final keyPair = _auth.activeKeyPair;
     if (keyPair == null) return;
 
     final pubkey = keyPair.publicKey;

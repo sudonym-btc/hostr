@@ -154,7 +154,7 @@ fi
   --env-file /opt/hostr/.env.runtime \
   --profile "$${COMPOSE_PROFILE}" \
   -f docker-compose.yml \
-  -f docker-compose.prod-tls.yml \
+  -f docker-compose.prod-override.yml \
   up -d --build --remove-orphans
 EOS
 chmod +x /usr/local/bin/hostr-deploy

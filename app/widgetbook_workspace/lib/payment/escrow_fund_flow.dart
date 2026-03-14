@@ -3,8 +3,6 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/onchain_operation.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 // ── Mock data ────────────────────────────────────────────────────────────
@@ -23,12 +21,8 @@ const _mockSwapInData = SwapInData(
 
 const _mockEscrowFundData = EscrowFundData(
   tradeId: 'mock-trade-001',
-  reservedAmountWeiHex: '0xC350',
-  sellerEvmAddress: '0x0000000000000000000000000000000000000001',
-  arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
   contractAddress: '0x0000000000000000000000000000000000000003',
   chainId: 31,
-  unlockAt: 1700000000,
   accountIndex: 0,
 );
 

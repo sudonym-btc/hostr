@@ -9,7 +9,7 @@ Infrastructure is split into **two Terraform stacks**:
 
 The compute stack deploys a **single Compute Engine VM** that runs Docker Compose
 for staging/production services (`relay`, `blossom`, `escrow`) with
-`docker-compose.prod-tls.yml` (Let's Encrypt via `acme-companion`).
+`docker-compose.prod-override.yml` (Let's Encrypt via `acme-companion`).
 
 ## Fresh setup in a new GCP account
 
@@ -200,9 +200,9 @@ docker compose \
     --env-file /opt/hostr/.env.runtime \
     --profile <staging|prod> \
     -f docker-compose.yml \
-    -f docker-compose.prod-tls.yml \
+    -f docker-compose.prod-override.yml \
     up -d --build --remove-orphans
 ```
 
-So TLS is always deployed through `docker-compose.prod-tls.yml` in
+So TLS is always deployed through `docker-compose.prod-override.yml` in
 staging/production.

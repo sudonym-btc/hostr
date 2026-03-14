@@ -21,6 +21,7 @@ class ThreadMessageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final senderName =
         sender?.metadata.name ?? sender?.metadata.displayName ?? '';
     return Align(
@@ -47,8 +48,8 @@ class ThreadMessageWidget extends StatelessWidget {
               item.content,
               style: TextStyle(
                 color: isSentByMe
-                    ? Theme.of(context).colorScheme.onPrimaryContainer
-                    : Theme.of(context).colorScheme.onSurface,
+                    ? colorScheme.onSecondary
+                    : colorScheme.onSurface,
               ),
             ),
           ),
@@ -70,12 +71,13 @@ class MessageContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: EdgeInsets.all(kDefaultPadding / 3),
       decoration: BoxDecoration(
         color: isSentByMe
-            ? Theme.of(context).colorScheme.primaryContainer
-            : Theme.of(context).colorScheme.surfaceContainerHigh,
+            ? colorScheme.secondary
+            : colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(kDefaultPadding / 3),
       ),
       child: child,

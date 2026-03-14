@@ -1,9 +1,7 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 
+import '../../../util/deterministic_key_derivation.dart';
 import '../seed_context.dart';
 import '../seed_pipeline_config.dart';
 import '../seed_pipeline_models.dart';
@@ -41,6 +39,7 @@ Future<List<SeedThread>> buildThreads({
     final threadCount =
         guest.spec?.threadCount ?? config.reservationRequestsPerGuest;
     final stageSpec = guest.spec?.threadStages ?? config.threadStages;
+    var guestTradeIndex = 0;
 
     for (var i = 0; i < threadCount; i++) {
       threadIndex++;
@@ -59,6 +58,14 @@ Future<List<SeedThread>> buildThreads({
         continue;
       }
 
+      final privateKey = guest.keyPair.privateKey!;
+      final tradeId = deriveTradeId(privateKey, accountIndex: guestTradeIndex);
+      final tradeSalt = deriveTradeSalt(
+        privateKey,
+        accountIndex: guestTradeIndex,
+      );
+      guestTradeIndex++;
+
       final isFutureReservation = ctx.pickByRatio(0.5);
       final stayDays = 1 + ctx.random.nextInt(6);
       late final DateTime start;
@@ -71,26 +78,27 @@ Future<List<SeedThread>> buildThreads({
         start = end.subtract(Duration(days: stayDays));
       }
 
-      final nonce = sha256
-          .convert(utf8.encode('seed-${ctx.seed}-thread-$threadIndex'))
-          .toString();
+      final tweakedGuestKey = tweakKeyPair(
+        privateKey: privateKey,
+        salt: tradeSalt,
+      );
 
       final request = Reservation.create(
-        pubKey: guest.keyPair.publicKey,
-        dTag: nonce,
+        pubKey: tweakedGuestKey.publicKey,
+        dTag: tradeId,
         listingAnchor: listing.anchor!,
         start: start,
         end: end,
         stage: ReservationStage.negotiate,
         quantity: 1,
         amount: listing.cost(start, end),
-        recipient: saltedKey(
-          key: guest.keyPair.privateKey!,
-          salt: nonce,
-        ).publicKey,
-        salt: nonce,
+        recipient: tweakedGuestKey.publicKey,
+        tweakMaterial: ReservationTweakMaterial(
+          salt: tradeSalt,
+          parity: tweakedGuestKey.parity,
+        ),
         createdAt: ctx.timestampDaysAfter(30 + threadIndex),
-      ).signAs(guest.keyPair, Reservation.fromNostrEvent);
+      ).signAs(tweakedGuestKey.keyPair, Reservation.fromNostrEvent);
 
       threads.add(
         SeedThread(
@@ -98,7 +106,7 @@ Future<List<SeedThread>> buildThreads({
           guest: guest,
           listing: listing,
           request: request,
-          id: nonce,
+          id: tradeId,
           start: start,
           end: end,
           stageSpec: stageSpec,

@@ -1,7 +1,6 @@
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
 import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -16,8 +15,6 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 // ── Fakes ──────────────────────────────────────────────────────────────
-
-class _FakeAuth extends Fake implements Auth {}
 
 class _FakeAccounts extends Fake implements Accounts {
   @override
@@ -105,7 +102,6 @@ void main() {
       requests: relay,
       logger: CustomLogger(),
       ndk: _FakeNdk(),
-      auth: _FakeAuth(),
     );
   });
 
