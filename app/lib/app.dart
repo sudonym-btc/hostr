@@ -10,6 +10,7 @@ import 'package:hostr/background_task_type.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/route/nostr_link_handler.dart';
+import 'package:hostr/route/notification_deep_link_handler.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:workmanager/workmanager.dart';
@@ -26,13 +27,18 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late final AppRouter _appRouter;
   late final NostrLinkHandler _nostrLinkHandler;
+  late final NotificationDeepLinkHandler _notificationDeepLinkHandler;
 
   @override
   void initState() {
     super.initState();
     _appRouter = widget.appRouter ?? AppRouter();
     _nostrLinkHandler = NostrLinkHandler(router: _appRouter);
+    _notificationDeepLinkHandler = NotificationDeepLinkHandler(
+      router: _appRouter,
+    );
     _nostrLinkHandler.init();
+    _notificationDeepLinkHandler.init();
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -40,6 +46,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _nostrLinkHandler.dispose();
+    _notificationDeepLinkHandler.dispose();
     super.dispose();
   }
 

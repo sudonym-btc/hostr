@@ -16,7 +16,7 @@ class InboxScreen extends StatelessWidget {
       body: SafeArea(
         top: false,
         child: StreamBuilder(
-          stream: getIt<Hostr>().messaging.threads.stream,
+          stream: getIt<Hostr>().messaging.threads.messages$.itemsStream,
           builder: (context, snapshot) {
             final threads =
                 getIt<Hostr>().messaging.threads.threads.values.toList()..sort(

@@ -87,7 +87,18 @@ class EditProfileViewState extends State<EditProfileView> {
               ),
             ),
             Gap.vertical.md(),
-            FormLabel(label: 'Nostr address'),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: FormLabel(label: 'Nostr address')),
+                Text(
+                  'Optional',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
             VerificationInput.nip05(
               controller: controller.nip05Field.textController,
               validator: controller.nip05Field.validate,
@@ -114,7 +125,10 @@ class EditProfileViewState extends State<EditProfileView> {
       child: Form(
         key: controller.formKey,
         child: Scaffold(
-          appBar: AppBar(title: Text(AppLocalizations.of(context)!.profile)),
+          appBar: AppBar(
+            title: Text(AppLocalizations.of(context)!.profile),
+            titleSpacing: 0,
+          ),
           body: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => FocusScope.of(context).unfocus(),

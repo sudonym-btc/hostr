@@ -1,17 +1,18 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:bip39_mnemonic/bip39_mnemonic.dart';
+import 'package:convert/convert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 @RoutePage()
@@ -88,20 +89,26 @@ class SignInScreenState extends State<SignInScreen> {
 
   Future<void> _handleSignup() async {
     setState(() => _error = null);
-    // Generate key pair first, show backup modal, THEN sign in.
-    final keyPair = Bip340.generatePrivateKey();
+    final mnemonic = Mnemonic(
+      hex.decode(Helpers.getSecureRandomHex(32)),
+      Language.english,
+    );
+    final identity = getIt<Hostr>().auth.previewResolvedIdentity(
+      mnemonic.sentence,
+    );
     await showAppModal(
       context,
       isDismissible: false,
       child: BackupKeyWidget(
-        publicKeyHex: keyPair.publicKey,
-        privateKeyHex: keyPair.privateKey!,
+        publicKeyHex: identity.publicKeyHex,
+        privateKeyHex: identity.privateKeyHex,
+        mnemonic: mnemonic.sentence,
       ),
     );
     if (!mounted) return;
     final router = AutoRouter.of(context);
     try {
-      await context.read<AuthCubit>().signin(keyPair.privateKey!);
+      await context.read<AuthCubit>().signin(mnemonic.sentence);
     } catch (_) {
       return;
     }

@@ -145,11 +145,9 @@ class DaemonHandler {
     }
 
     final txHash = await contract.arbitrate(
-      ContractArbitrateParams(
-        tradeId: tradeId,
-        forward: forward,
-        ethKey: hostr.auth.getActiveEvmKey(accountIndex: accountIndex),
-      ),
+      tradeId: tradeId,
+      forward: forward,
+      ethKey: hostr.auth.getActiveEvmKey(accountIndex: accountIndex),
     );
     return {'txHash': '$txHash'};
   }

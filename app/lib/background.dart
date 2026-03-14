@@ -58,11 +58,13 @@ Future<bool> executeBackgroundTask(
     logger.d(
       'Background worker completed: ${result.notifications.length} notifications',
     );
-    for (int i = 0; i < result.notifications.length; i++) {
+    for (int i = 0; i < result.notificationDetails.length; i++) {
+      final notification = result.notificationDetails[i];
       await FlutterLocalNotificationsPlugin().show(
         id: 2 + i,
         title: 'Hostr',
-        body: result.notifications[i],
+        body: notification.body,
+        payload: notification.payload,
       );
     }
 

@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/router.dart';
@@ -16,6 +17,9 @@ class InboxItemView extends StatelessWidget {
   final String title;
   final String subtitle;
   final DateTime lastDateTime;
+  final bool sentByUs;
+  final bool read;
+  final bool received;
   final VoidCallback? onTap;
 
   const InboxItemView({
@@ -24,6 +28,9 @@ class InboxItemView extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.lastDateTime,
+    this.sentByUs = false,
+    this.read = false,
+    this.received = false,
     this.onTap,
   });
 
@@ -35,9 +42,28 @@ class InboxItemView extends StatelessWidget {
         vertical: 0,
       ),
       leading: ProfileAvatars(profiles: counterparties),
-      title: Text(title),
+      title: Text(
+        title,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+      ),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: _RelativeTimeText(dateTime: lastDateTime),
+      trailing: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _RelativeTimeText(dateTime: lastDateTime),
+          if (sentByUs && received)
+            Icon(
+              Icons.done,
+              size: 16,
+              color: read
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).hintColor,
+            ),
+        ],
+      ),
       onTap: onTap,
     );
   }
@@ -67,12 +93,13 @@ class InboxItem extends StatelessWidget {
 
           final subtitle =
               (lastMessage != null &&
-                      lastMessage.pubKey == thread.auth.activeKeyPair!.publicKey
+                      lastMessage.pubKey ==
+                          getIt<Hostr>().auth.getActiveKey().publicKey
                   ? 'You: '
                   : '') +
               (lastMessage?.child is Reservation &&
                       (lastMessage?.child as Reservation).isNegotiation
-                  ? 'Reservation Request'
+                  ? 'Reservation Proposal'
                   : lastMessage?.content ?? '');
 
           return InboxItemView(
@@ -80,6 +107,11 @@ class InboxItem extends StatelessWidget {
             title: title,
             subtitle: subtitle,
             lastDateTime: lastDateTime,
+            sentByUs:
+                lastMessage?.pubKey ==
+                getIt<Hostr>().auth.getActiveKey().publicKey,
+            read: state.threadState.read,
+            received: state.threadState.received,
             onTap: () {
               AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
             },

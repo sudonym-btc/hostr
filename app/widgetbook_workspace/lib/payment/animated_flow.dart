@@ -114,12 +114,8 @@ const _mockSwapOutData = SwapOutData(
 
 const _mockEscrowFundData = EscrowFundData(
   tradeId: 'mock-trade-001',
-  reservedAmountWeiHex: '0xC350',
-  sellerEvmAddress: '0x0000000000000000000000000000000000000001',
-  arbiterEvmAddress: '0x0000000000000000000000000000000000000002',
   contractAddress: '0x0000000000000000000000000000000000000003',
   chainId: 31,
-  unlockAt: 1700000000,
   accountIndex: 0,
 );
 

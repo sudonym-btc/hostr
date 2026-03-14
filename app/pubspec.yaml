@@ -37,7 +37,6 @@ dependencies:
   wallet: ^0.0.18
   logger: ^2.6.2
   http: ^1.6.0
-  dio: ^5.9.1
   intl: ^0.20.2
   uuid: ^4.5.2
   # NIP04 deps

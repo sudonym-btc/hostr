@@ -7,12 +7,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hostr/background_task_type.dart';
 import 'package:hostr/data/sources/h3_engine.dart';
+import 'package:hostr/data/sources/operations_db.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/route/notification_deep_link_handler.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqlite3/sqlite3.dart' as native_sqlite3;
 import 'package:workmanager/workmanager.dart';
 
 import 'injection.dart';
@@ -54,10 +54,7 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
   log.d('configureInjection: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
-  final dbDir = await getApplicationSupportDirectory();
-  final operationsDb = native_sqlite3.sqlite3.open(
-    '${dbDir.path}/hostr_operations.db',
-  );
+  final operationsDb = await openOperationsDb();
   log.d('openOperationsDb: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
@@ -72,6 +69,7 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
                   id: id,
                   title: title,
                   body: body,
+                  payload: payload,
                 ),
       ),
       environment: env,
@@ -173,8 +171,16 @@ Future<void> setupNotifications() async {
   );
   await flutterLocalNotificationsPlugin.initialize(
     settings: initializationSettings,
-    onDidReceiveNotificationResponse: notificationTapBackground,
+    onDidReceiveNotificationResponse: handleNotificationResponse,
+    onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
   );
+
+  final launchDetails = await flutterLocalNotificationsPlugin
+      .getNotificationAppLaunchDetails();
+  final launchPayload = launchDetails?.notificationResponse?.payload;
+  if (launchPayload != null && launchPayload.isNotEmpty) {
+    dispatchNotificationPayload(launchPayload);
+  }
 }
 
 const String _environmentPrefsKey = 'hostr.env';

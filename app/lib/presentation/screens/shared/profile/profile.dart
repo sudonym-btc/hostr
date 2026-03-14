@@ -1,12 +1,12 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/escrow/escrow_services_modal.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
-import 'package:hostr/presentation/component/widgets/flow/relay/relay_flow.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
@@ -34,12 +34,14 @@ class ProfileScreen extends StatelessWidget {
                 icon: const Icon(Icons.key),
                 tooltip: 'Back up keys',
                 onPressed: () {
-                  final keyPair = getIt<Hostr>().auth.activeKeyPair!;
+                  final auth = getIt<Hostr>().auth;
+                  final keyPair = auth.activeKeyPair!;
                   showAppModal(
                     context,
                     child: BackupKeyWidget(
                       publicKeyHex: keyPair.publicKey,
                       privateKeyHex: keyPair.privateKey!,
+                      mnemonic: auth.activeMnemonic,
                     ),
                   );
                 },
@@ -109,7 +111,7 @@ class ProfileScreen extends StatelessWidget {
               ModeToggleWidget(),
               Section(
                 title: AppLocalizations.of(context)!.wallet,
-                action: FilledButton.tonal(
+                action: OutlinedButton(
                   onPressed: () {
                     showAppModal(context, child: AddWalletWidget());
                   },
@@ -119,19 +121,19 @@ class ProfileScreen extends StatelessWidget {
               ),
               Section(
                 title: "Relays",
-                action: FilledButton.tonal(
-                  onPressed: () {
-                    showAppModal(
-                      context,
-                      child: RelayFlowWidget(
-                        onClose: () {
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                    );
-                  },
-                  child: Text(AppLocalizations.of(context)!.connect),
-                ),
+                // action: OutlinedButton(
+                //   onPressed: () {
+                //     showAppModal(
+                //       context,
+                //       child: RelayFlowWidget(
+                //         onClose: () {
+                //           Navigator.of(context).pop();
+                //         },
+                //       ),
+                //     );
+                //   },
+                //   child: Text(AppLocalizations.of(context)!.connect),
+                // ),
                 body: RelayListWidget(),
               ),
               BlocProvider(
@@ -141,24 +143,42 @@ class ProfileScreen extends StatelessWidget {
                   builder: (context, state) {
                     return Section(
                       title: "Escrows",
-                      action: FilledButton.tonal(
-                        onPressed: () {
-                          showTrustEscrowModal(
-                            context,
-                            trustedPubkeys: state.pubkeys,
-                            onTrusted: () {
-                              context.read<TrustedEscrowsCubit>().refresh();
-                            },
-                          );
-                        },
-                        child: Text(AppLocalizations.of(context)!.add),
-                      ),
+                      // action: OutlinedButton(
+                      //   onPressed: () {
+                      //     showTrustEscrowModal(
+                      //       context,
+                      //       trustedPubkeys: state.pubkeys,
+                      //       onTrusted: () {
+                      //         context.read<TrustedEscrowsCubit>().refresh();
+                      //       },
+                      //     );
+                      //   },
+                      //   child: Text(AppLocalizations.of(context)!.add),
+                      // ),
                       body: _buildTrustedEscrowsBody(context, state),
                     );
                   },
                 ),
               ),
-              Section(title: 'Balance', body: MoneyInFlightWidget()),
+              Section(
+                title: 'Balance',
+                action: IconButton(
+                  icon: const Icon(Icons.key),
+                  tooltip: 'Copy mnemonic',
+                  onPressed: () {
+                    final mnemonic = getIt<Hostr>().auth.getEvmMnemonic().join(
+                      ' ',
+                    );
+                    Clipboard.setData(ClipboardData(text: mnemonic));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Mnemonic copied to clipboard'),
+                      ),
+                    );
+                  },
+                ),
+                body: MoneyInFlightWidget(),
+              ),
               Section(
                 body: StreamBuilder<HostrUserConfig>(
                   stream: getIt<Hostr>().userConfig.stream,

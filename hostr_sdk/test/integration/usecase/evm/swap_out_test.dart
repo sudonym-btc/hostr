@@ -35,13 +35,11 @@ void main() {
   late IntegrationTestHarness harness;
 
   setUp(() async {
-    final sw = Stopwatch()..start();
     harness = await IntegrationTestHarness.create(
       name: 'hostr_swap_out_it',
       logLevel: Level.warning,
       cleanHydratedStorage: true,
     );
-    _printElapsed('setUp', sw);
   });
 
   tearDownAll(() {
@@ -49,15 +47,12 @@ void main() {
   });
 
   tearDown(() async {
-    final sw = Stopwatch()..start();
     await harness.dispose();
-    _printElapsed('tearDown', sw);
   });
 
   test(
     'swap out emits expected state flow when NWC is connected',
     () async {
-      final sw = Stopwatch()..start();
       final hostr = harness.hostr;
 
       await harness.signInAndConnectNwc(
@@ -65,8 +60,6 @@ void main() {
         appNamePrefix: 'swap-out-it',
       );
 
-      print('Connected to NWC: ${sw.elapsed}');
-      sw.reset();
       final swapOut = hostr.evm.rootstock.swapOutAll().first;
 
       final emittedStates = <SwapOutState>[swapOut.state];
@@ -86,7 +79,6 @@ void main() {
       // StreamController (sync: false in Bloc 9) delivers stream events via
       // microtasks, so `emittedStates.last` may lag behind.
       expect(swapOut.state, isA<SwapOutCompleted>());
-      _printElapsed('test: NWC connected', sw);
     },
     timeout: const Timeout(Duration(seconds: 25)),
   );

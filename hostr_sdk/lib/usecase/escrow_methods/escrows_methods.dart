@@ -8,13 +8,15 @@ import '../crud.usecase.dart';
 
 @Singleton()
 class EscrowMethods extends CrudUseCase<EscrowMethod> {
-  final Auth auth;
+  final Auth _auth;
+  Auth get auth => _auth;
 
   EscrowMethods({
     required super.requests,
     required super.logger,
-    required this.auth,
-  }) : super(kind: EscrowMethod.kinds[0]);
+    required Auth auth,
+  }) : _auth = auth,
+       super(kind: EscrowMethod.kinds[0]);
 
   /// The set of escrow method type names this client natively supports.
   /// Used locally to avoid querying the relay for our own advertised methods.

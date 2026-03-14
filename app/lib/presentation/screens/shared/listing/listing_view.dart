@@ -227,6 +227,23 @@ class _ListingViewState extends State<ListingView> {
                                           .whereType<Valid<ReservationPair>>()
                                           .length,
                                     ),
+                                averageReviewRating: _verifiedReviews!
+                                    .itemsStream
+                                    .map((items) {
+                                      final reviews = items
+                                          .whereType<Valid<Review>>()
+                                          .map((validation) => validation.event)
+                                          .toList();
+                                      if (reviews.isEmpty) {
+                                        return 0.0;
+                                      }
+
+                                      final total = reviews.fold<double>(
+                                        0,
+                                        (sum, review) => sum + review.rating,
+                                      );
+                                      return total / reviews.length;
+                                    }),
                                 reviewCount: _verifiedReviews!.itemsStream.map(
                                   (items) =>
                                       items.whereType<Valid<Review>>().length,
@@ -299,6 +316,7 @@ class ListingViewBody extends StatelessWidget {
     VoidCallback onCancel,
   ) {
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
       title: Text(
         formatDateRangeShort(
           DateTimeRange(start: reservation.start, end: reservation.end),
@@ -314,7 +332,12 @@ class ListingViewBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(listing.title, style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          listing.title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
         Gap.vertical.custom(kSpace1 / 2),
         Row(
           children: [
@@ -340,31 +363,34 @@ class ListingViewBody extends StatelessWidget {
         ListingLocationMapSection(listing: listing),
         if (isOwner) ...[
           Gap.vertical.lg(),
-          Text(
-            AppLocalizations.of(context)!.blockedDates,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          if (blockedReservations.isEmpty)
-            Text(
-              AppLocalizations.of(context)!.noBlockedDates,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            )
-          else
-            ListView.builder(
-              itemCount: blockedReservations.length,
-              itemBuilder: (context, index) => _buildBlockedReservationTile(
-                context,
-                blockedReservations[index],
-                () => onCancelBlockedReservation(blockedReservations[index]),
-              ),
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
+          Section(
+            horizontalPadding: false,
+            action: OutlinedButton(
+              onPressed: onBlockDates,
+              child: Text(AppLocalizations.of(context)!.blockDates),
             ),
-          FilledButton(
-            onPressed: onBlockDates,
-            child: Text(AppLocalizations.of(context)!.blockDates),
+            body: blockedReservations.isEmpty
+                ? Text(
+                    AppLocalizations.of(context)!.noBlockedDates,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 0),
+                    itemCount: blockedReservations.length,
+                    itemBuilder: (context, index) =>
+                        _buildBlockedReservationTile(
+                          context,
+                          blockedReservations[index],
+                          () => onCancelBlockedReservation(
+                            blockedReservations[index],
+                          ),
+                        ),
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                  ),
+            title: AppLocalizations.of(context)!.blockedDates,
           ),
         ],
         reviewsListWidget,

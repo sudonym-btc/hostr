@@ -1,8 +1,8 @@
 import 'package:models/main.dart';
-import 'package:web3dart/web3dart.dart';
 
 import '../../util/main.dart';
 import '../evm/evm.dart';
+import 'supported_escrow_contract/supported_escrow_contract.dart';
 
 /// Result of on-chain escrow verification for a single reservation.
 class EscrowVerificationResult {
@@ -10,19 +10,19 @@ class EscrowVerificationResult {
   final String? reason;
 
   /// The on-chain trade data, if found.
-  final TransactionInformation? trade;
+  final EscrowFundedEvent? fundedEvent;
 
-  const EscrowVerificationResult.valid({this.trade})
+  const EscrowVerificationResult.valid({this.fundedEvent})
     : isValid = true,
       reason = null;
 
   const EscrowVerificationResult.invalid(this.reason)
     : isValid = false,
-      trade = null;
+      fundedEvent = null;
 
   @override
   String toString() => isValid
-      ? 'EscrowVerificationResult(valid, amount=${trade?.value.getInWei} wei)'
+      ? 'EscrowVerificationResult(valid, amount=${fundedEvent?.amount} wei)'
       : 'EscrowVerificationResult(invalid: $reason)';
 }
 
@@ -37,16 +37,19 @@ class EscrowVerificationResult {
 /// anchors, etc.) — that is handled by [Reservation.validate]. This class
 /// only handles the EVM on-chain portion.
 class EscrowVerification {
-  final Evm evm;
-  final CustomLogger logger;
+  final Evm _evm;
+  final CustomLogger _logger;
+  Evm get evm => _evm;
+  CustomLogger get logger => _logger;
 
-  EscrowVerification({required this.evm, required CustomLogger logger})
-    : logger = logger.scope('escrow-verify');
+  EscrowVerification({required Evm evm, required CustomLogger logger})
+    : _evm = evm,
+      _logger = logger.scope('escrow-verify');
 
   /// Verify the on-chain escrow for [reservation] against [listing].
   ///
   /// Returns [EscrowVerificationResult.valid] when the on-chain trade
-  /// exists, is active, and the escrowed amount covers the reservation cost.
+  /// was created, and the escrowed amount covers the reservation cost.
   ///
   /// Returns [EscrowVerificationResult.invalid] with a reason string when
   /// any check fails or no escrow proof is present.
@@ -141,48 +144,73 @@ class EscrowVerification {
         'Reservation has no trade id (d-tag)',
       );
     }
-
-    final fundTx = await contract.client.getTransactionByHash(
-      escrowProof.txHash,
-    );
-    if (fundTx == null) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof transaction not found on chain: ${escrowProof.txHash}',
-      );
-    }
-    if (fundTx.to != contract.address) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof transaction was sent to ${fundTx.to}, expected ${contract.address}',
-      );
-    }
-
-    // Compute the expected cost from the listing.
-    final expectedAmount = proof.listing.cost(
-      reservation.start,
-      reservation.end,
-    );
-
-    // The on-chain amount is in wei. Compare against the expected amount.
-    // We accept >= because escrowFee may be included in the deposit.
-    final onChainWei = BitcoinAmount.fromBigInt(
-      BitcoinUnit.wei,
-      fundTx.value.getInWei,
-    );
-    final expectedWei = BitcoinAmount.fromAmount(expectedAmount);
-
-    if (onChainWei < expectedWei) {
-      return EscrowVerificationResult.invalid(
-        'Onchain escrowed amount (${onChainWei.getInSats} sats) is less than expected '
-        '(${expectedWei.getInSats} sats) for ${reservation.start} – '
-        '${reservation.end}',
-      );
-    }
-
     logger.d(
-      'Escrow verified for trade $tradeId: on-chain=$onChainWei wei, '
-      'expected=$expectedWei wei',
+      'Verifying escrow for trade $tradeId on chain ${chain} with contract ${contract}',
     );
+    final events = contract.allEvents(
+      ContractEventsParams(tradeId: tradeId),
+      null,
+      includeLive: false,
+    );
+    try {
+      final status = await events.status.firstWhere(
+        (status) =>
+            status is StreamStatusQueryComplete ||
+            status is StreamStatusLive ||
+            status is StreamStatusError,
+      );
+      if (status is StreamStatusError) {
+        return EscrowVerificationResult.invalid(
+          'Failed to query escrow logs for trade $tradeId: ${status.error}',
+        );
+      }
 
-    return EscrowVerificationResult.valid(trade: fundTx);
+      EscrowFundedEvent? fundedEvent;
+      for (final event in events.items) {
+        if (event is EscrowFundedEvent &&
+            event.transactionHash == escrowProof.txHash) {
+          fundedEvent = event;
+          break;
+        }
+      }
+      if (fundedEvent == null) {
+        return EscrowVerificationResult.invalid(
+          'Escrow logs do not contain a funding event for trade $tradeId in ${escrowProof.txHash}',
+        );
+      }
+
+      final expectedAmount = reservation.resolveExpectedAmount(
+        listing: proof.listing,
+      );
+
+      // The on-chain amount is in wei. Compare against the expected amount.
+      // We accept >= because escrowFee may be included in the deposit.
+      final onChainWei = fundedEvent.amount;
+      final expectedWei = BitcoinAmount.fromAmount(
+        expectedAmount.expectedAmount,
+      );
+
+      if (onChainWei < expectedWei) {
+        final expectedAmountLabel = expectedAmount.usesNegotiatedAmount
+            ? 'negotiated'
+            : 'listing';
+        final overrideReason = expectedAmount.overrideFailureReason;
+        return EscrowVerificationResult.invalid(
+          'Onchain escrowed amount (${onChainWei.getInSats} sats) is less than expected '
+          '$expectedAmountLabel amount (${expectedWei.getInSats} sats) for '
+          '${reservation.start} – ${reservation.end}'
+          '${overrideReason != null ? ' ($overrideReason)' : ''}',
+        );
+      }
+
+      logger.d(
+        'Escrow verified for trade $tradeId: funded event ${fundedEvent.transactionHash}, '
+        'on-chain=${onChainWei.getInSats} sats, expected=${expectedWei.getInSats} sats',
+      );
+
+      return EscrowVerificationResult.valid(fundedEvent: fundedEvent);
+    } finally {
+      await events.close();
+    }
   });
 }

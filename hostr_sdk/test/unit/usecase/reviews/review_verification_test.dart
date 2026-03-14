@@ -103,6 +103,7 @@ Reservation _reservation({
   ReservationStage stage = ReservationStage.negotiate,
   int createdAtOffsetSeconds = 0,
   String? recipient,
+  ReservationTweakMaterial? tweakMaterial,
 }) {
   return Reservation.create(
     pubKey: signer.publicKey,
@@ -113,6 +114,7 @@ Reservation _reservation({
     proof: proof,
     stage: stage,
     recipient: recipient,
+    tweakMaterial: tweakMaterial,
     createdAt:
         DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000 +
         createdAtOffsetSeconds,
@@ -122,7 +124,7 @@ Reservation _reservation({
 Review _review({
   required KeyPair signer,
   required Listing listing,
-  required String salt,
+  required ReservationTweakMaterial tweakMaterial,
 }) {
   return Review(
     pubKey: signer.publicKey,
@@ -133,7 +135,7 @@ Review _review({
     content: ReviewContent(
       rating: 5,
       content: 'Great stay!',
-      proof: ParticipationProof(salt: salt),
+      proof: ParticipationProof(tweakMaterial: tweakMaterial),
     ),
   ).signAs(signer, Review.fromNostrEvent);
 }
@@ -196,23 +198,28 @@ void main() {
 
     test('valid review with host-confirmed reservation', () async {
       final salt = 'salt-host-confirmed';
+      final tweakMaterial = ReservationTweakMaterial(salt: salt, parity: true);
       final commitment = ParticipationProof.computeCommitmentHash(
         MockKeys.guest.publicKey,
         salt,
       );
 
       // Host published the reservation (auto-valid, no payment proof needed).
-      final tweakedRecipient = saltedKey(
-        key: MockKeys.guest.privateKey!,
+      final tweakedKey = tweakKeyPair(
+        privateKey: MockKeys.guest.privateKey!,
         salt: salt,
-      ).publicKey;
+      );
       final hostReservation = _reservation(
         listing: listing,
         signer: MockKeys.hoster,
         tradeId: commitment,
         start: DateTime(2026, 2, 1),
         end: DateTime(2026, 2, 3),
-        recipient: tweakedRecipient,
+        recipient: tweakedKey.publicKey,
+        tweakMaterial: ReservationTweakMaterial(
+          salt: salt,
+          parity: tweakedKey.parity,
+        ),
       );
       fakeRequests.events.add(hostReservation);
 
@@ -220,7 +227,7 @@ void main() {
       final review = _review(
         signer: MockKeys.guest,
         listing: listing,
-        salt: salt,
+        tweakMaterial: tweakMaterial.copyWith(parity: tweakedKey.parity),
       );
       fakeRequests.events.add(review);
 
@@ -250,7 +257,7 @@ void main() {
       final review = _review(
         signer: MockKeys.guest,
         listing: listing,
-        salt: salt,
+        tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
       );
       fakeRequests.events.add(review);
 
@@ -301,7 +308,10 @@ void main() {
       final review = _review(
         signer: MockKeys.guest,
         listing: listing,
-        salt: reviewSalt,
+        tweakMaterial: ReservationTweakMaterial(
+          salt: reviewSalt,
+          parity: false,
+        ),
       );
       fakeRequests.events.add(review);
 
@@ -331,10 +341,10 @@ void main() {
           MockKeys.guest.publicKey,
           salt,
         );
-        final tweakedRecipient = saltedKey(
-          key: MockKeys.guest.privateKey!,
+        final tweakedRecipient = tweakKeyPair(
+          privateKey: MockKeys.guest.privateKey!,
           salt: salt,
-        ).publicKey;
+        );
         fakeRequests.events.add(
           _reservation(
             listing: listing,
@@ -342,11 +352,22 @@ void main() {
             tradeId: commitment,
             start: DateTime(2026, 3, 1),
             end: DateTime(2026, 3, 5),
-            recipient: tweakedRecipient,
+            recipient: tweakedRecipient.publicKey,
+            tweakMaterial: ReservationTweakMaterial(
+              salt: salt,
+              parity: tweakedRecipient.parity,
+            ),
           ),
         );
         fakeRequests.events.add(
-          _review(signer: MockKeys.guest, listing: listing, salt: salt),
+          _review(
+            signer: MockKeys.guest,
+            listing: listing,
+            tweakMaterial: ReservationTweakMaterial(
+              salt: salt,
+              parity: tweakedRecipient.parity,
+            ),
+          ),
         );
       }
 
@@ -389,7 +410,11 @@ void main() {
       );
 
       fakeRequests.events.add(
-        _review(signer: MockKeys.guest, listing: listing, salt: salt),
+        _review(
+          signer: MockKeys.guest,
+          listing: listing,
+          tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
+        ),
       );
 
       final verified = reviews.subscribeVerified(

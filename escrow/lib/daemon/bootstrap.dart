@@ -51,9 +51,11 @@ Future<DaemonContext> bootstrap() async {
   final String blossomUrl = Platform.environment['BLOSSOM_URL'] ??
       'https://blossom.hostr.development';
   final String environment = Platform.environment['ENV'] ?? 'dev';
-  final String? contractAddress = Platform.environment['CONTRACT_ADDR'];
-  if (contractAddress == null || contractAddress.isEmpty) {
-    print('[daemon] CONTRACT_ADDR is not set. Exiting.');
+  late final String contractAddress;
+  try {
+    contractAddress = resolveContractAddress();
+  } on Object catch (error) {
+    print('[daemon] Failed to resolve escrow contract address: $error');
     exit(1);
   }
 

@@ -107,14 +107,56 @@ abstract class EvmConfig {
 
 abstract class RootstockConfig extends EvmConfig {
   BoltzConfig get boltz;
+  RifRelayConfig get rifRelay;
+  RootstockSupportedContractsConfig get supportedContracts;
 }
 
 abstract class BoltzConfig {
   String get apiUrl;
   String get wsUrl => '${apiUrl.replaceFirst('http', 'ws')}/ws';
+}
 
-  String get rifRelayUrl;
-  String get rifRelayCallVerifier;
-  String get rifRelayDeployVerifier;
-  String get rifSmartWalletFactoryAddress;
+abstract class RifRelayConfig {
+  String get url;
+  String get callVerifier;
+  String get deployVerifier;
+  String get smartWalletFactoryAddress;
+}
+
+abstract class SupportedEscrowContractConfig {
+  RifRelayConfig get rifRelay;
+}
+
+class DefaultSupportedEscrowContractConfig
+    implements SupportedEscrowContractConfig {
+  @override
+  final RifRelayConfig rifRelay;
+
+  DefaultSupportedEscrowContractConfig({required this.rifRelay});
+}
+
+abstract class RootstockSupportedContractsConfig {
+  SupportedEscrowContractConfig get multiEscrow;
+
+  SupportedEscrowContractConfig forContractName(String contractName);
+}
+
+class DefaultRootstockSupportedContractsConfig
+    implements RootstockSupportedContractsConfig {
+  @override
+  final SupportedEscrowContractConfig multiEscrow;
+
+  DefaultRootstockSupportedContractsConfig({required this.multiEscrow});
+
+  @override
+  SupportedEscrowContractConfig forContractName(String contractName) {
+    switch (contractName) {
+      case 'MultiEscrow':
+        return multiEscrow;
+    }
+
+    throw StateError(
+      'Unsupported Rootstock escrow contract config: $contractName',
+    );
+  }
 }

@@ -9,4 +9,7 @@
 	url = git@github.com:hzrd149/blossom-server.git
 [submodule "dependencies/rif-relay-contracts"]
 	path = dependencies/rif-relay-contracts
-	url = git@github.com:rsksmart/rif-relay-contracts.git
+	url = git@github.com:sudonym-btc/rif-relay-contracts.git
+[submodule "dependencies/rif-relay-server"]
+	path = dependencies/rif-relay-server
+	url = git@github.com:sudonym-btc/rif-relay-server.git

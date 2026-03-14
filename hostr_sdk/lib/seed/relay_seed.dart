@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
+
 import '../util/contract_address.dart';
-import '../util/derive_evm_key.dart';
 import 'broadcast_isolate.dart';
 import 'pipeline/seed_pipeline.dart';
 import 'pipeline/seed_pipeline_config.dart';

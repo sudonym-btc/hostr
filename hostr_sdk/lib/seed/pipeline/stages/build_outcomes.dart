@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
@@ -7,7 +8,6 @@ import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../usecase/payments/constants.dart';
-import '../../../util/derive_evm_key.dart';
 import '../seed_context.dart';
 import '../seed_pipeline_config.dart';
 import '../seed_pipeline_models.dart';
@@ -385,6 +385,17 @@ Future<void> buildOutcomes({
 
     thread.selfSigned = plan.selfSigned;
 
+    final requestTweakMaterial = thread.request.tweakMaterial;
+    final buyerSigningKey = requestTweakMaterial != null
+        ? tweakKeyPair(
+            privateKey: thread.guest.keyPair.privateKey!,
+            salt: requestTweakMaterial.salt,
+          ).keyPair
+        : thread.guest.keyPair;
+    final reservationSigner = plan.selfSigned
+        ? buyerSigningKey
+        : thread.host.keyPair;
+
     String? invalidReason;
     final mutatedProof = _maybeCorruptPaymentProof(
       ctx: ctx,
@@ -394,7 +405,7 @@ Future<void> buildOutcomes({
     );
 
     final reservation = Reservation.create(
-      pubKey: thread.guest.keyPair.publicKey,
+      pubKey: reservationSigner.publicKey,
       dTag: thread.request.getDtag()!,
       listingAnchor: thread.listing.anchor!,
       threadAnchor: thread.request.getDtag()!,
@@ -411,7 +422,7 @@ Future<void> buildOutcomes({
         if (plan.selfSigned) ['selfSigned', 'true'],
       ],
       createdAt: ctx.timestampDaysAfter(31 + plan.index + 1),
-    ).signAs(thread.guest.keyPair, Reservation.fromNostrEvent);
+    ).signAs(reservationSigner, Reservation.fromNostrEvent);
 
     thread.reservation = reservation;
     thread.invalidReservationReason = invalidReason;
@@ -609,7 +620,7 @@ Future<void> _settleForPlan({
     );
     await _assertTxSucceeded(ctx, txHash, threadIndex, 'claim', tradeIdHex);
   } else {
-    final txHash = await contract.releaseToCounterparty(
+    final txHash = await contract.releaseToCounterparty$2(
       (tradeId: tradeId),
       credentials: hostCredentials,
       transaction: Transaction(

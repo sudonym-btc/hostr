@@ -1,9 +1,13 @@
 name: Build & Deploy
 
+run-name: >-
+  Build & Deploy ·
+  ${{ github.event_name == 'workflow_dispatch' && format('{0} → {1}', inputs.variant, inputs.track) || 'staging → internal' }}
+
 # Called automatically by CI after semantic-release publishes a new version,
 # or triggered manually to deploy a specific variant to a specific track.
 on:
-  workflow_call:          # invoked from ci.yaml after a release
+  workflow_call:          # invoked from ci.yaml after a release (staging/internal only)
   workflow_dispatch:
     inputs:
       variant:
@@ -24,11 +28,61 @@ on:
           - alpha
           - beta
           - production
+      confirm_production_release:
+        description: 'Required for manual production variant releases'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: app-build-${{ github.event_name }}-${{ github.event_name == 'workflow_dispatch' && inputs.variant || 'staging' }}-${{ github.event_name == 'workflow_dispatch' && inputs.track || 'internal' }}
+  cancel-in-progress: false
 
 jobs:
+  validate_release_request:
+    name: Validate release request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce safe release rules
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          VARIANT: ${{ github.event_name == 'workflow_dispatch' && inputs.variant || 'staging' }}
+          TRACK: ${{ github.event_name == 'workflow_dispatch' && inputs.track || 'internal' }}
+          CONFIRM_PRODUCTION_RELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_production_release || false }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            if [[ "$VARIANT" != "staging" || "$TRACK" != "internal" ]]; then
+              echo "::error::Automatic releases are limited to staging/internal."
+              exit 1
+            fi
+
+            echo "Automatic release validated: staging/internal only."
+            exit 0
+          fi
+
+          if [[ "$VARIANT" == "staging" && "$TRACK" != "internal" ]]; then
+            echo "::error::Staging builds may only be released to the internal track/group."
+            exit 1
+          fi
+
+          if [[ "$VARIANT" != "production" && "$TRACK" == "production" ]]; then
+            echo "::error::Only the production variant may target the production track."
+            exit 1
+          fi
+
+          if [[ "$VARIANT" == "production" && "$CONFIRM_PRODUCTION_RELEASE" != "true" ]]; then
+            echo "::error::Manual production releases require confirm_production_release=true."
+            exit 1
+          fi
+
+          echo "Manual release validated: $VARIANT -> $TRACK"
+
   # ── Android — Staging (internal track, points to staging.hostr.network) ─────
   build_android_staging:
     name: Android — Staging
+    needs: validate_release_request
     runs-on: ubuntu-latest
     environment: staging
     # On workflow_call: always build staging. On manual: only when variant=staging.
@@ -85,10 +139,11 @@ jobs:
   # ── Android — Production (points to hostr.network) ──────────────────────────
   build_android_production:
     name: Android — Production
+    needs: validate_release_request
     runs-on: ubuntu-latest
     environment: production
-    # On workflow_call: always build prod. On manual: only when variant=production.
-    if: github.event_name != 'workflow_dispatch' || inputs.variant == 'production'
+    # Production releases are manual-only and require explicit confirmation.
+    if: github.event_name == 'workflow_dispatch' && inputs.variant == 'production' && inputs.confirm_production_release
     steps:
       - uses: actions/checkout@v4
         with:
@@ -141,6 +196,7 @@ jobs:
   # ── iOS — Staging (TestFlight staging group, points to staging.hostr.network)
   build_ios_staging:
     name: iOS — Staging
+    needs: validate_release_request
     runs-on: macos-latest
     environment: staging
     if: github.event_name != 'workflow_dispatch' || inputs.variant == 'staging'
@@ -205,9 +261,11 @@ jobs:
   # ── iOS — Production (TestFlight production group, points to hostr.network) ─
   build_ios_production:
     name: iOS — Production
+    needs: validate_release_request
     runs-on: macos-latest
     environment: production
-    if: github.event_name != 'workflow_dispatch' || inputs.variant == 'production'
+    # Production releases are manual-only and require explicit confirmation.
+    if: github.event_name == 'workflow_dispatch' && inputs.variant == 'production' && inputs.confirm_production_release
     steps:
       - uses: actions/checkout@v4
         with:

@@ -14,11 +14,13 @@ class _Subscription<T extends Nip01Event> {
   final String id;
   final Filter filter;
   final StreamWithStatus<T> response;
+  final void Function(Nip01Event event) emit;
 
   _Subscription({
     required this.id,
     required this.filter,
     required this.response,
+    required this.emit,
   });
 }
 
@@ -33,14 +35,16 @@ class _Subscription<T extends Nip01Event> {
 /// Seed data via [seedEvents] or [addEvent].
 @Singleton(as: Requests, env: [Env.test, Env.mock])
 class InMemoryRequests extends Requests implements RequestsModel {
+  final Ndk _ndk;
   @override
-  final Ndk ndk;
+  Ndk get ndk => _ndk;
   final List<Nip01Event> _events = [];
   final List<_Subscription> _subscriptions = [];
   int _subCounter = 0;
 
-  InMemoryRequests({required this.ndk, required super.logger})
-    : super(ndk: ndk);
+  InMemoryRequests({required Ndk ndk, required super.logger})
+    : _ndk = ndk,
+      super(ndk: ndk);
 
   /// Add an event to the in-memory store and notify active subscriptions.
   void addEvent(Nip01Event event) {
@@ -66,7 +70,7 @@ class InMemoryRequests extends Requests implements RequestsModel {
     // Notify matching subscriptions
     for (var sub in _subscriptions) {
       if (matchEvent(event, sub.filter)) {
-        sub.response.add(event as dynamic);
+        sub.emit(event);
       }
     }
   }
@@ -88,6 +92,12 @@ class InMemoryRequests extends Requests implements RequestsModel {
       id: subId,
       filter: filter,
       response: response,
+      emit: (event) {
+        final parsedEvent = safeParser<T>(event);
+        if (parsedEvent != null) {
+          response.add(parsedEvent);
+        }
+      },
     );
 
     _subscriptions.add(subscription);
@@ -100,9 +110,10 @@ class InMemoryRequests extends Requests implements RequestsModel {
     final initialFuture = () async {
       final List<T> parsedEvents = [];
       for (final event in initialEvents) {
-        final parsedEvent = await parserWithGiftWrap<T>(event, ndk);
-        response.add(parsedEvent);
-        parsedEvents.add(parsedEvent);
+        final parsedEvent = safeParser<T>(event);
+        if (parsedEvent != null) {
+          parsedEvents.add(parsedEvent);
+        }
       }
       return parsedEvents;
     }();
@@ -127,8 +138,10 @@ class InMemoryRequests extends Requests implements RequestsModel {
     final snapshot = List<Nip01Event>.of(_events);
     for (var event in snapshot) {
       if (matchEvent(event, filter)) {
-        final parsedEvent = await parserWithGiftWrap<T>(event, ndk);
-        yield parsedEvent;
+        final parsedEvent = safeParser<T>(event);
+        if (parsedEvent != null) {
+          yield parsedEvent;
+        }
       }
     }
   }
@@ -184,6 +197,12 @@ class InMemoryRequests extends Requests implements RequestsModel {
       id: subId,
       filter: filter,
       response: response,
+      emit: (event) {
+        final parsedEvent = safeParser<T>(event);
+        if (parsedEvent != null) {
+          response.add(parsedEvent);
+        }
+      },
     );
     _subscriptions.add(subscription);
 

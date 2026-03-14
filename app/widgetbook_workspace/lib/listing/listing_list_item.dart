@@ -11,6 +11,11 @@ StreamWithStatus<Validation<T>> _emptyValidatedStream<T>() {
   return stream;
 }
 
+StreamWithStatus<List<Validation<T>>> _emptyValidatedSnapshotStream<T>() {
+  final stream = StreamWithStatus<List<Validation<T>>>();
+  return stream;
+}
+
 @widgetbook.UseCase(name: 'Default', type: ListingListItemWidget)
 Widget listing(BuildContext context) {
   return ListingListItemWidget(
@@ -25,7 +30,8 @@ Widget listing(BuildContext context) {
 @widgetbook.UseCase(name: 'Pure - date selected', type: ListingListItemView)
 Widget listingPureDateSelected(BuildContext context) {
   final verifiedReviews = _emptyValidatedStream<Review>();
-  final verifiedReservationPairs = _emptyValidatedStream<ReservationPair>();
+  final verifiedReservationPairs =
+      _emptyValidatedSnapshotStream<ReservationPair>();
 
   return ListingListItemView(
     listing: MOCK_LISTINGS[0],
@@ -46,7 +52,8 @@ Widget listingPureDateSelected(BuildContext context) {
 @widgetbook.UseCase(name: 'Pure - no date selected', type: ListingListItemView)
 Widget listingPureNoDateSelected(BuildContext context) {
   final verifiedReviews = _emptyValidatedStream<Review>();
-  final verifiedReservationPairs = _emptyValidatedStream<ReservationPair>();
+  final verifiedReservationPairs =
+      _emptyValidatedSnapshotStream<ReservationPair>();
 
   return ListingListItemView(
     listing: MOCK_LISTINGS[0],

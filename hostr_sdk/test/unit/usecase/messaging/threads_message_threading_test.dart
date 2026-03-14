@@ -4,39 +4,39 @@ library;
 import 'dart:async';
 
 import 'package:hostr_sdk/injection.dart';
-import 'package:hostr_sdk/testing/in_memory_hydrated_storage.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/messaging/thread.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
-import 'package:hostr_sdk/usecase/payments/payments.dart';
-import 'package:hostr_sdk/usecase/requests/requests.dart';
+import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/util/main.dart';
-import 'package:hydrated_bloc/hydrated_bloc.dart' as hydrated;
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
-import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
-class _FakeRequests extends Fake implements Requests {
-  final StreamWithStatus<Message> _source = StreamWithStatus<Message>();
+class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
+  @override
+  final StreamWithStatus<Message> messages$ = StreamWithStatus<Message>();
 
   @override
-  StreamWithStatus<T> subscribe<T extends Nip01Event>({
-    required Filter filter,
-    List<String>? relays,
-    String? name,
-  }) {
-    return _source as StreamWithStatus<T>;
+  final StreamWithStatus<ReceivedHeartbeat> latestHeartbeats$ =
+      StreamWithStatus<ReceivedHeartbeat>();
+
+  @override
+  bool get started => true;
+
+  void emit(Message event) => messages$.add(event);
+
+  void emitStatus(StreamStatus status) => messages$.addStatus(status);
+
+  void emitHeartbeat(ReceivedHeartbeat event) => latestHeartbeats$.add(event);
+
+  Future<void> close() async {
+    await messages$.close();
+    await latestHeartbeats$.close();
   }
-
-  void emit(Message event) => _source.add(event);
-
-  void emitStatus(StreamStatus status) => _source.addStatus(status);
-
-  Future<void> close() => _source.close();
 }
 
 class _FakeMessaging extends Fake implements Messaging {
@@ -66,8 +66,6 @@ class _FakeMessaging extends Fake implements Messaging {
     );
   }
 }
-
-class _FakePayments extends Fake implements Payments {}
 
 class _FakeAuth extends Fake implements Auth {
   @override
@@ -102,16 +100,12 @@ Future<void> _pump() async {
 
 void main() {
   late Threads threads;
-  late _FakeRequests requests;
+  late _FakeUserSubscriptions userSubscriptions;
   late _FakeAuth auth;
   late _FakeMessaging messaging;
 
-  setUpAll(() {
-    hydrated.HydratedBloc.storage = InMemoryHydratedStorage();
-  });
-
   setUp(() async {
-    requests = _FakeRequests();
+    userSubscriptions = _FakeUserSubscriptions();
     auth = _FakeAuth();
     messaging = _FakeMessaging();
 
@@ -122,15 +116,13 @@ void main() {
         logger: CustomLogger(),
         auth: auth,
         messaging: messaging,
+        userSubscriptions: userSubscriptions,
       );
     });
 
     threads = Threads(
-      messaging: messaging,
-      requests: requests,
-      auth: auth,
+      userSubscriptions: userSubscriptions,
       logger: CustomLogger(),
-      payments: _FakePayments(),
     );
   });
 
@@ -147,10 +139,8 @@ void main() {
         createdAnchors.add(thread.anchor);
       });
 
-      await threads.sync();
-
-      requests.emitStatus(StreamStatusLive());
-      requests.emit(
+      userSubscriptions.emitStatus(StreamStatusLive());
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-1',
           sender: MockKeys.guest.publicKey,
@@ -165,7 +155,7 @@ void main() {
       expect(threads.threads.containsKey('thread-a'), isTrue);
       expect(threads.threads['thread-a']!.state.value.messages.length, 1);
 
-      requests.emit(
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-2',
           sender: MockKeys.hoster.publicKey,
@@ -179,7 +169,7 @@ void main() {
       expect(threads.threads.length, 1);
       expect(threads.threads['thread-a']!.state.value.messages.length, 2);
 
-      requests.emit(
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-3',
           sender: MockKeys.guest.publicKey,
@@ -201,9 +191,7 @@ void main() {
   test(
     'creates a new thread when a new thread tag appears in stream',
     () async {
-      await threads.sync();
-
-      requests.emit(
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-4',
           sender: MockKeys.guest.publicKey,
@@ -212,7 +200,7 @@ void main() {
           createdAt: 110,
         ),
       );
-      requests.emit(
+      userSubscriptions.emit(
         _textMessage(
           id: 'm-5',
           sender: MockKeys.hoster.publicKey,
@@ -232,8 +220,6 @@ void main() {
   );
 
   test('ignores duplicate message ids from stream', () async {
-    await threads.sync();
-
     final message = _textMessage(
       id: 'm-dup',
       sender: MockKeys.guest.publicKey,
@@ -242,8 +228,8 @@ void main() {
       createdAt: 110,
     );
 
-    requests.emit(message);
-    requests.emit(message);
+    userSubscriptions.emit(message);
+    userSubscriptions.emit(message);
     await _pump();
 
     expect(threads.state.length, 1);
@@ -259,6 +245,7 @@ void main() {
         logger: CustomLogger(),
         auth: auth,
         messaging: messaging,
+        userSubscriptions: userSubscriptions,
       );
 
       thread.messages.add(

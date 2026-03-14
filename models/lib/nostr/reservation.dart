@@ -23,6 +23,39 @@ class ReservationTags extends EventTags
   ReservationTags(super.tags);
 }
 
+class ReservationExpectedAmount {
+  final Amount listingPrice;
+  final Amount? negotiatedAmount;
+  final Amount expectedAmount;
+  final bool hasOffListAmount;
+  final bool isBelowListing;
+  final bool sellerCommitOk;
+  final bool barterEnabled;
+  final bool usesNegotiatedAmount;
+
+  const ReservationExpectedAmount({
+    required this.listingPrice,
+    required this.negotiatedAmount,
+    required this.expectedAmount,
+    required this.hasOffListAmount,
+    required this.isBelowListing,
+    required this.sellerCommitOk,
+    required this.barterEnabled,
+    required this.usesNegotiatedAmount,
+  });
+
+  String? get overrideFailureReason {
+    if (!hasOffListAmount) return null;
+    if (!sellerCommitOk) {
+      return 'Missing valid host commitment for negotiated amount';
+    }
+    if (isBelowListing && !barterEnabled) {
+      return 'Listing does not allow below-listing barter';
+    }
+    return null;
+  }
+}
+
 class Reservation
     extends JsonContentNostrEvent<ReservationContent, ReservationTags> {
   static const Object _unset = Object();
@@ -41,7 +74,7 @@ class Reservation
   DateTime get end => parsedContent.end;
   bool get cancelled => stage == ReservationStage.cancel;
   PaymentProof? get proof => parsedContent.proof;
-  String? get salt => parsedContent.salt;
+  ReservationTweakMaterial? get tweakMaterial => parsedContent.tweakMaterial;
   ReservationStage get stage => parsedContent.stage;
   int get quantity => parsedContent.quantity;
   Amount? get amount => parsedContent.amount;
@@ -56,6 +89,34 @@ class Reservation
   String commitHash() => parsedContent.commitHash();
   String signCommit(KeyPair keyPair) => parsedContent.signCommit(keyPair);
   bool verifyCommit([String? pubkey]) => parsedContent.verifyCommit(pubkey);
+
+  ReservationExpectedAmount resolveExpectedAmount({required Listing listing}) {
+    final listingAuthor = getPubKeyFromAnchor(parsedTags.listingAnchor);
+    final listingPrice = listing.cost(start, end);
+    final negotiatedAmount = amount;
+    final hasOffListAmount = negotiatedAmount != null &&
+        negotiatedAmount.currency == listingPrice.currency &&
+        negotiatedAmount.value != listingPrice.value;
+    final isBelowListing = negotiatedAmount != null &&
+        negotiatedAmount.currency == listingPrice.currency &&
+        negotiatedAmount.value < listingPrice.value;
+    final sellerCommitOk =
+        !hasOffListAmount ? true : verifyCommit(listingAuthor);
+    final barterEnabled = !isBelowListing || listing.allowBarter;
+    final usesNegotiatedAmount =
+        hasOffListAmount && sellerCommitOk && barterEnabled;
+
+    return ReservationExpectedAmount(
+      listingPrice: listingPrice,
+      negotiatedAmount: negotiatedAmount,
+      expectedAmount: usesNegotiatedAmount ? negotiatedAmount : listingPrice,
+      hasOffListAmount: hasOffListAmount,
+      isBelowListing: isBelowListing,
+      sellerCommitOk: sellerCommitOk,
+      barterEnabled: barterEnabled,
+      usesNegotiatedAmount: usesNegotiatedAmount,
+    );
+  }
 
   Reservation(
       {required super.pubKey,
@@ -88,7 +149,7 @@ class Reservation
     int quantity = 1,
     Amount? amount,
     String? recipient,
-    String? salt,
+    ReservationTweakMaterial? tweakMaterial,
     PaymentProof? proof,
     Map<String, String> signatures = const {},
     // Tag fields
@@ -117,7 +178,7 @@ class Reservation
         quantity: quantity,
         amount: amount,
         recipient: recipient,
-        salt: salt,
+        tweakMaterial: tweakMaterial,
         proof: proof,
         signatures: signatures,
       ),
@@ -253,10 +314,31 @@ class Reservation
       final zapProof = proof.zapProof!;
       final receipt = ZapReceipt.fromEvent(zapProof.receipt);
 
-      final expected =
-          proof.listing.cost(reservation.start, reservation.end).value.toInt();
-      final amountOk =
-          receipt.amountSats != null && receipt.amountSats! >= expected;
+      final expectedAmount = reservation.resolveExpectedAmount(
+        listing: proof.listing,
+      );
+
+      if (expectedAmount.hasOffListAmount) {
+        if (expectedAmount.isBelowListing) {
+          setField(
+            'barterEnabled',
+            expectedAmount.barterEnabled,
+            expectedAmount.barterEnabled
+                ? null
+                : 'Listing does not allow below-listing barter',
+          );
+        }
+        setField(
+          'sellerCommit',
+          expectedAmount.sellerCommitOk,
+          expectedAmount.sellerCommitOk
+              ? null
+              : 'Missing valid host commitment for negotiated amount',
+        );
+      }
+
+      final amountOk = receipt.amountSats != null &&
+          receipt.amountSats! >= expectedAmount.expectedAmount.value.toInt();
       setField(
         'zapAmount',
         amountOk,
@@ -325,8 +407,7 @@ class ReservationContent extends EventContent with CommitTerms {
   final PaymentProof? proof;
 
   /// Private recipient witness used to derive recipient commitments.
-  /// Keep this for negotiate/private flows; omit from public commit events.
-  final String? salt;
+  final ReservationTweakMaterial? tweakMaterial;
 
   /// The lifecycle stage of this reservation snapshot.
   final ReservationStage stage;
@@ -356,7 +437,7 @@ class ReservationContent extends EventContent with CommitTerms {
     required this.start,
     required this.end,
     this.proof,
-    this.salt,
+    this.tweakMaterial,
     this.stage = ReservationStage.negotiate,
     this.quantity = 1,
     this.amount,
@@ -368,7 +449,7 @@ class ReservationContent extends EventContent with CommitTerms {
     required DateTime start,
     required DateTime end,
     PaymentProof? proof,
-    String? salt,
+    ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
     Amount? amount,
     String? recipient,
@@ -378,7 +459,7 @@ class ReservationContent extends EventContent with CommitTerms {
       start: start,
       end: end,
       proof: proof,
-      salt: salt,
+      tweakMaterial: tweakMaterial,
       stage: ReservationStage.negotiate,
       quantity: quantity,
       amount: amount,
@@ -391,7 +472,7 @@ class ReservationContent extends EventContent with CommitTerms {
     required DateTime start,
     required DateTime end,
     PaymentProof? proof,
-    String? salt,
+    ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
     Amount? amount,
     String? recipient,
@@ -401,7 +482,7 @@ class ReservationContent extends EventContent with CommitTerms {
       start: start,
       end: end,
       proof: proof,
-      salt: salt,
+      tweakMaterial: tweakMaterial,
       stage: ReservationStage.commit,
       quantity: quantity,
       amount: amount,
@@ -414,7 +495,7 @@ class ReservationContent extends EventContent with CommitTerms {
     required DateTime start,
     required DateTime end,
     PaymentProof? proof,
-    String? salt,
+    ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
     Amount? amount,
     String? recipient,
@@ -424,7 +505,7 @@ class ReservationContent extends EventContent with CommitTerms {
       start: start,
       end: end,
       proof: proof,
-      salt: salt,
+      tweakMaterial: tweakMaterial,
       stage: ReservationStage.cancel,
       quantity: quantity,
       amount: amount,
@@ -439,7 +520,7 @@ class ReservationContent extends EventContent with CommitTerms {
       "start": start.toUtc().toIso8601String(),
       "end": end.toUtc().toIso8601String(),
       "proof": proof?.toJson(),
-      if (salt != null) "salt": salt,
+      if (tweakMaterial != null) "tweakMaterial": tweakMaterial!.toJson(),
       "stage": stage.name,
       "quantity": quantity,
       if (amount != null) "amount": amount!.toJson(),
@@ -453,7 +534,7 @@ class ReservationContent extends EventContent with CommitTerms {
     DateTime? start,
     DateTime? end,
     PaymentProof? proof,
-    String? salt,
+    ReservationTweakMaterial? tweakMaterial,
     ReservationStage? stage,
     int? quantity,
     Amount? amount,
@@ -464,7 +545,7 @@ class ReservationContent extends EventContent with CommitTerms {
       start: start ?? this.start,
       end: end ?? this.end,
       proof: proof ?? this.proof,
-      salt: salt ?? this.salt,
+      tweakMaterial: tweakMaterial ?? this.tweakMaterial,
       stage: stage ?? this.stage,
       quantity: quantity ?? this.quantity,
       amount: amount ?? this.amount,
@@ -474,24 +555,19 @@ class ReservationContent extends EventContent with CommitTerms {
   }
 
   static ReservationContent fromJson(Map<String, dynamic> json) {
-    final stageStr = json["stage"] as String?;
-    // Backward compat: if stage is missing, fall back to cancelled bool.
-    final cancelled = json["cancelled"] == true;
-    final stage = stageStr != null
-        ? ReservationStage.values.firstWhere(
-            (e) => e.name == stageStr,
-            orElse: () => cancelled
-                ? ReservationStage.cancel
-                : ReservationStage.negotiate,
-          )
-        : (cancelled ? ReservationStage.cancel : ReservationStage.negotiate);
+    final stage = ReservationStage.values.firstWhere(
+      (e) => e.name == json["stage"],
+    );
     final sigs = json["signatures"] as Map<String, dynamic>?;
+    final tweakMaterialJson = json["tweakMaterial"] as Map<String, dynamic>?;
     return ReservationContent(
       start: DateTime.parse(json["start"]),
       end: DateTime.parse(json["end"]),
       proof:
           json["proof"] != null ? PaymentProof.fromJson(json["proof"]) : null,
-      salt: json["salt"] as String?,
+      tweakMaterial: tweakMaterialJson != null
+          ? ReservationTweakMaterial.fromJson(tweakMaterialJson)
+          : null,
       stage: stage,
       quantity: json["quantity"] as int? ?? 1,
       amount: json["amount"] != null ? Amount.fromJson(json["amount"]) : null,
@@ -508,6 +584,40 @@ class ReservationContent extends EventContent with CommitTerms {
 
   /// Whether this reservation is a cancellation.
   bool get isCancel => stage == ReservationStage.cancel;
+}
+
+class ReservationTweakMaterial {
+  const ReservationTweakMaterial({
+    required this.salt,
+    required this.parity,
+  });
+
+  final String salt;
+  final bool parity;
+
+  Map<String, dynamic> toJson() {
+    return {
+      "salt": salt,
+      "parity": parity,
+    };
+  }
+
+  ReservationTweakMaterial copyWith({
+    String? salt,
+    bool? parity,
+  }) {
+    return ReservationTweakMaterial(
+      salt: salt ?? this.salt,
+      parity: parity ?? this.parity,
+    );
+  }
+
+  static ReservationTweakMaterial fromJson(Map<String, dynamic> json) {
+    return ReservationTweakMaterial(
+      salt: json["salt"] as String,
+      parity: json["parity"] as bool,
+    );
+  }
 }
 
 class PaymentProof {

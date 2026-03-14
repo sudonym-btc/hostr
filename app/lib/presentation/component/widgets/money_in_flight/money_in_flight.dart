@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
@@ -67,21 +66,6 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                               ),
                               exact: false,
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 20),
-                            tooltip: 'Copy mnemonic',
-                            onPressed: () {
-                              final mnemonic = getIt<Hostr>().auth
-                                  .getEvmMnemonic()
-                                  .join(' ');
-                              Clipboard.setData(ClipboardData(text: mnemonic));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Mnemonic copied to clipboard'),
-                                ),
-                              );
-                            },
                           ),
                           if (snapshot.data!.getInSats > BigInt.zero)
                             FilledButton.tonal(

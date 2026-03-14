@@ -22,6 +22,7 @@ Widget threadViewScenario(BuildContext context) {
     messaging: getIt<Hostr>().messaging,
     logger: CustomLogger(),
     auth: getIt<Hostr>().auth,
+    userSubscriptions: getIt<Hostr>().userSubscriptions,
   );
   thread.messages.add(scenario.requestMessage);
 

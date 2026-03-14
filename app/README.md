@@ -46,7 +46,7 @@ From VS Code, choose the corresponding launch/entrypoint; from CLI, select the f
 
 ## Notes
 
-- Non‑prod environments allow self‑signed TLS via `Dio` and global `HttpOverrides` for local testing.
+- Non‑prod environments allow self‑signed TLS via global `HttpOverrides` for local testing.
 - Generated files (`*.g.dart`, `swagger_generated`) are excluded from analysis in `analysis_options.yaml`.
 
 ## Troubleshooting

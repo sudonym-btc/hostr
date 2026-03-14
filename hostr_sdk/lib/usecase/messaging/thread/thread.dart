@@ -9,14 +9,16 @@ import 'package:rxdart/rxdart.dart';
 import '../../../util/custom_logger.dart';
 import '../../../util/stream_status.dart';
 import '../../auth/auth.dart';
+import '../../user_subscriptions/user_subscriptions.dart';
 import '../messaging.dart';
 import 'state.dart';
 
 @Injectable()
 class Thread {
-  final CustomLogger logger;
-  final Messaging messaging;
-  final Auth auth;
+  final CustomLogger _logger;
+  final Messaging _messaging;
+  final Auth _auth;
+  final UserSubscriptions _userSubscriptions;
   final BehaviorSubject<ThreadState> state;
   final List<StreamSubscription> _stateSubscriptions = [];
 
@@ -34,9 +36,13 @@ class Thread {
   Thread(
     @factoryParam this.anchor, {
     required CustomLogger logger,
-    required this.auth,
-    required this.messaging,
-  }) : logger = logger.scope('thread'),
+    required Auth auth,
+    required Messaging messaging,
+    required UserSubscriptions userSubscriptions,
+  }) : _auth = auth,
+       _messaging = messaging,
+       _userSubscriptions = userSubscriptions,
+       _logger = logger.scope('thread'),
        state = BehaviorSubject<ThreadState>.seeded(
          ThreadState.initial(
            ourPubkey: auth.activeKeyPair!.publicKey,
@@ -48,11 +54,16 @@ class Thread {
         _emitState();
       }),
     );
+    _stateSubscriptions.add(
+      _userSubscriptions.latestHeartbeats$.itemsStream.listen((_) {
+        _emitState();
+      }),
+    );
   }
 
-  void _emitState() => logger.spanSync('_emitState', () {
+  void _emitState() => _logger.spanSync('_emitState', () {
     if (state.isClosed) return;
-    final keyPair = auth.activeKeyPair;
+    final keyPair = _auth.activeKeyPair;
     if (keyPair == null) return;
     final nextMessages = messages.items;
     final nextParticipantPubkeys = <String>{
@@ -66,16 +77,44 @@ class Thread {
         counterpartyPubkeys: nextParticipantPubkeys
             .where((pubkey) => pubkey != keyPair.publicKey)
             .toList(),
+        received: _computeReceived(
+          messages: nextMessages,
+          counterpartyPubkeys: nextParticipantPubkeys
+              .where((pubkey) => pubkey != keyPair.publicKey)
+              .toList(),
+        ),
       ),
     );
   });
+
+  bool _computeReceived({
+    required List<Message> messages,
+    required List<String> counterpartyPubkeys,
+  }) {
+    if (messages.isEmpty || counterpartyPubkeys.isEmpty) {
+      return false;
+    }
+
+    final latestMessageCreatedAt = messages
+        .map((message) => message.createdAt)
+        .reduce((a, b) => a > b ? a : b);
+    final latestHeartbeats = {
+      for (final heartbeat in _userSubscriptions.latestHeartbeats$.items)
+        heartbeat.pubKey: heartbeat,
+    };
+
+    return counterpartyPubkeys.every((pubkey) {
+      final heartbeat = latestHeartbeats[pubkey];
+      return heartbeat != null && heartbeat.createdAt >= latestMessageCreatedAt;
+    });
+  }
 
   List<String> addedParticipants = [];
 
   Future<List<Future<List<RelayBroadcastResponse>>>> replyText(
     String content,
-  ) => logger.span('replyText', () async {
-    return messaging.broadcastText(
+  ) => _logger.span('replyText', () async {
+    return _messaging.broadcastText(
       content: content.trim(),
       tags: [
         [kThreadRefTag, anchor],
@@ -88,8 +127,8 @@ class Thread {
   });
 
   Future<Message> replyTextAndWait(String content) =>
-      logger.span('replyTextAndWait', () async {
-        return messaging.broadcastTextAndAwait(
+      _logger.span('replyTextAndWait', () async {
+        return _messaging.broadcastTextAndAwait(
           content: content.trim(),
           tags: [
             [kThreadRefTag, anchor],
@@ -105,8 +144,8 @@ class Thread {
   replyEvent<T extends Nip01Event>(
     T event, {
     List<List<String>> tags = const [],
-  }) => logger.span('replyEvent', () async {
-    return messaging.broadcastEvent(
+  }) => _logger.span('replyEvent', () async {
+    return _messaging.broadcastEvent(
       event: event,
       tags: [
         [kThreadRefTag, anchor],
@@ -119,7 +158,7 @@ class Thread {
     );
   });
 
-  Future<void> close() => logger.span('close', () async {
+  Future<void> close() => _logger.span('close', () async {
     for (final s in _stateSubscriptions) {
       await s.cancel();
     }

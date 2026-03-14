@@ -203,6 +203,27 @@ class EventTags {
         .toList();
   }
 
+  /// Parse cancellation policy tags encoded as
+  /// `["cancellationPolicy", "secondsBeforeStart", "refundFraction"]`.
+  List<CancellationPolicy> getTagCancellationPolicies() {
+    return tags
+        .where((t) => t.length >= 3 && t[0] == 'cancellationPolicy')
+        .map((t) {
+          final secondsBeforeStart = int.tryParse(t[1]);
+          final refundFraction = double.tryParse(t[2]);
+          if (secondsBeforeStart == null || refundFraction == null) {
+            return null;
+          }
+
+          return CancellationPolicy(
+            durationBeforeStart: Duration(seconds: secondsBeforeStart),
+            refundFraction: refundFraction,
+          );
+        })
+        .whereType<CancellationPolicy>()
+        .toList();
+  }
+
   // ── Amenity read helpers ────────────────────────────────────────────
 
   /// Whether an amenity tag exists for [name].
