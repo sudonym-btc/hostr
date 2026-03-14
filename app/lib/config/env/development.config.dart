@@ -22,7 +22,10 @@ class DevelopmentConfig extends Config {
   String get hostrRelay => 'wss://relay.hostr.development';
 
   @override
-  String get googleMapsApiKey => 'AIzaSyDbIij_LkLDQTePfWnoLo5bmqhDKS2xXbU';
+  String get googleMapsApiKey => requiredBuildConfig(
+    'GOOGLE_MAPS_API_KEY',
+    const String.fromEnvironment('GOOGLE_MAPS_API_KEY'),
+  );
 }
 
 class DevelopmentRootstockConfig extends RootstockConfig {

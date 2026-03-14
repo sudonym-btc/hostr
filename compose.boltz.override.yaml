@@ -1,0 +1,220 @@
+# Hostr-specific overrides for the included Boltz regtest stack.
+# Paths in this file are relative to the Hostr repo root.
+
+services:
+  cleanup:
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        echo "hostr override: ensuring volume dirs exist with correct ownership"
+        dirs=(.bitcoin .elements .lightning-1 .lightning-2 .lnd-1 .lnd-2 .lnd-3 .boltz-backend .boltz-client .arkd .fulmine)
+        for d in "$${dirs[@]}"; do
+          mkdir -p "/root/$$d"
+          find "/root/$$d" -not -type s -exec chown ${UID:-1000}:${GID:-1000} {} + 2>/dev/null || true
+        done
+        echo "done"
+
+  bitcoind:
+    networks:
+      - default
+
+  elementsd:
+    healthcheck:
+      start_period: 10s
+
+  cln-1:
+    networks:
+      - default
+
+  cln-2:
+    networks:
+      - default
+
+  anvil:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    environment:
+      - VIRTUAL_HOST=anvil.${DOMAIN}
+      - VIRTUAL_PORT=8545
+    networks:
+      - default
+
+  boltz-backend:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    healthcheck:
+      start_period: 45s
+
+  boltz-backend-nginx:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    environment:
+      - VIRTUAL_HOST=boltz.${DOMAIN}
+      - VIRTUAL_PORT=9001
+    networks:
+      - default
+
+  boltz-client:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    profiles: ['never']
+
+  esplora:
+    profiles: ['never']
+
+  otterscan:
+    environment:
+      - VIRTUAL_HOST=otterscan.${DOMAIN}
+      - VIRTUAL_PORT=80
+    networks:
+      - default
+    profiles: ['local']
+
+  redis:
+    volumes:
+      - ./dependencies/boltz-regtest/redis/cache.conf:/usr/local/etc/redis/redis.conf:ro
+
+  electrs:
+    profiles: ['default', 'backend-dev', 'webapp-ci']
+    deploy:
+      replicas: 0
+
+  electrs-liquid:
+    profiles: ['default', 'backend-dev', 'webapp-ci']
+    deploy:
+      replicas: 0
+
+  lnd-1:
+    platform: ${LND_PLATFORM:-linux/arm64}
+    networks:
+      - default
+    command:
+      - --listen=0.0.0.0:9735
+      - --rpclisten=0.0.0.0:10009
+      - --restlisten=0.0.0.0:8081
+      - --bitcoin.timelockdelta=18
+      - --bitcoin.active
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind
+      - --bitcoind.zmqpubrawtx=bitcoind:29000
+      - --bitcoind.zmqpubrawblock=bitcoind:29001
+      - --bitcoind.rpccookie=/app/bitcoin/regtest/.cookie
+      - --noseedbackup
+      - --protocol.wumbo-channels
+      - --lnddir=/app/lnd
+      - --maxpendingchannels=10
+
+  lnd-2:
+    platform: ${LND_PLATFORM:-linux/arm64}
+    networks:
+      - default
+    command:
+      - --listen=0.0.0.0:9735
+      - --rpclisten=0.0.0.0:10009
+      - --restlisten=0.0.0.0:8081
+      - --bitcoin.timelockdelta=18
+      - --bitcoin.active
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind
+      - --bitcoind.zmqpubrawtx=bitcoind:29000
+      - --bitcoind.zmqpubrawblock=bitcoind:29001
+      - --bitcoind.rpccookie=/app/bitcoin/regtest/.cookie
+      - --noseedbackup
+      - --protocol.wumbo-channels
+      - --lnddir=/app/lnd
+      - --maxpendingchannels=10
+
+  lnd-3:
+    platform: ${LND_PLATFORM:-linux/arm64}
+    networks:
+      - default
+
+volumes:
+  boltz-data:
+    name: boltz-backend-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/backend
+  boltz-client-data:
+    name: boltz-client-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/boltz-client
+  bitcoin-data:
+    name: boltz-bitcoind-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/bitcoind
+  elements-data:
+    name: boltz-elements-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/elements
+  cln1-data:
+    name: boltz-cln1-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/cln1
+  cln2-data:
+    name: boltz-cln2-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/cln2
+  lnd1-data:
+    name: boltz-lnd1-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/lnd1
+  lnd2-data:
+    name: boltz-lnd2-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/lnd2
+  lnd3-data:
+    name: boltz-lnd3-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/lnd3
+  nginx-data:
+    name: boltz-nginx-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/backend-nginx/
+  arkd-data:
+    name: arkd-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/arkd
+  fulmine-data:
+    name: fulmine-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./dependencies/boltz-regtest/data/fulmine
+
+networks:
+  default:
+    driver: bridge
