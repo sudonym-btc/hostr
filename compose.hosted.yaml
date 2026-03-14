@@ -55,6 +55,10 @@ services:
     environment:
       - LETSENCRYPT_HOST=landing.${DOMAIN},${DOMAIN}
 
+  app:
+    environment:
+      - LETSENCRYPT_HOST=app.${DOMAIN}
+
   rif-relay:
     environment:
       LETSENCRYPT_HOST: rifrelay.${DOMAIN}

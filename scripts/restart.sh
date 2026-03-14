@@ -44,9 +44,12 @@ restart_hostr() {
     (cd "$REPO_ROOT/dependencies/boltz-regtest" && git clean -fdx data/) || true
 
 
-    # Rebuild local-source images in local/test so restarts always pick up
-    # workspace changes for one-shot deployment and relay services.
-    if [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; then
+    # Rebuild local-source images so restarts always pick up workspace
+    # changes. Only local needs the web app image.
+    if [ "$ENVIRONMENT" = "local" ]; then
+        (hostr_load_env "$REPO_ROOT" "$ENVIRONMENT"; cd "$REPO_ROOT" && \
+            hostr_compose_cmd "$ENVIRONMENT" build app escrow-contract-deploy rif-relay)
+    elif [ "$ENVIRONMENT" = "test" ]; then
         (hostr_load_env "$REPO_ROOT" "$ENVIRONMENT"; cd "$REPO_ROOT" && \
             hostr_compose_cmd "$ENVIRONMENT" build escrow-contract-deploy rif-relay)
     fi
