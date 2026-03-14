@@ -1,0 +1,66 @@
+FROM ghcr.io/cirruslabs/flutter:stable AS build
+
+WORKDIR /workspace
+
+ARG APP_PROFILE=local
+ARG GOOGLE_MAPS_API_KEY
+ARG HOSTR_BOOTSTRAP_ESCROW_PUBKEY=
+ARG RIF_RELAY_URL
+ARG RIF_RELAY_RELAY_VERIFIER_ADDRESS
+ARG RIF_RELAY_DEPLOY_VERIFIER_ADDRESS
+ARG RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS
+
+ENV APP_PROFILE=$APP_PROFILE \
+    GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY \
+    HOSTR_BOOTSTRAP_ESCROW_PUBKEY=$HOSTR_BOOTSTRAP_ESCROW_PUBKEY \
+    RIF_RELAY_URL=$RIF_RELAY_URL \
+    RIF_RELAY_RELAY_VERIFIER_ADDRESS=$RIF_RELAY_RELAY_VERIFIER_ADDRESS \
+    RIF_RELAY_DEPLOY_VERIFIER_ADDRESS=$RIF_RELAY_DEPLOY_VERIFIER_ADDRESS \
+    RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS=$RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS
+
+COPY models /workspace/models
+COPY hostr_sdk /workspace/hostr_sdk
+COPY app /workspace/app
+
+WORKDIR /workspace/app
+
+RUN flutter config --enable-web
+RUN flutter pub get
+
+RUN python3 - <<'PY'
+from pathlib import Path
+import os
+import re
+
+key = os.environ['GOOGLE_MAPS_API_KEY']
+index = Path('web/index.html')
+text = index.read_text()
+text, count = re.subn(
+    r'<script src="https://maps.googleapis.com/maps/api/js\?key=[^"]+"></script>',
+    f'<script async src="https://maps.googleapis.com/maps/api/js?key={key}&loading=async"></script>',
+    text,
+    count=1,
+)
+if count != 1:
+    raise SystemExit('Failed to rewrite Google Maps script tag in web/index.html')
+index.write_text(text)
+PY
+
+RUN case "$APP_PROFILE" in \
+    *prod*|*production*) FLUTTER_TARGET="lib/main_production.dart" ;; \
+    *staging*) FLUTTER_TARGET="lib/main_staging.dart" ;; \
+    *) FLUTTER_TARGET="lib/main_development.dart" ;; \
+    esac \
+    && flutter build web --release \
+    --target="$FLUTTER_TARGET" \
+    --dart-define=GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY" \
+    --dart-define=HOSTR_BOOTSTRAP_ESCROW_PUBKEY="$HOSTR_BOOTSTRAP_ESCROW_PUBKEY" \
+    --dart-define=RIF_RELAY_URL="$RIF_RELAY_URL" \
+    --dart-define=RIF_RELAY_RELAY_VERIFIER_ADDRESS="$RIF_RELAY_RELAY_VERIFIER_ADDRESS" \
+    --dart-define=RIF_RELAY_DEPLOY_VERIFIER_ADDRESS="$RIF_RELAY_DEPLOY_VERIFIER_ADDRESS" \
+    --dart-define=RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS="$RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS"
+
+FROM nginx:1.27-alpine AS runtime
+
+COPY app/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /workspace/app/build/web /usr/share/nginx/html

@@ -75,6 +75,7 @@ services:
         aliases:
           - relay.${DOMAIN}
           - blossom.${DOMAIN}
+          - app.${DOMAIN}
           - landing.${DOMAIN}
           - telemetry.${DOMAIN}
           - ${DOMAIN}
@@ -191,6 +192,28 @@ services:
       - VIRTUAL_PORT=80
     ports:
       - "${LANDING_PAGE_PORT:-8091}:80"
+    networks:
+      - default
+    profiles:
+      - local
+      - staging
+      - prod
+
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.web
+      args:
+        APP_PROFILE: ${COMPOSE_PROFILES:-local}
+        GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+        HOSTR_BOOTSTRAP_ESCROW_PUBKEY: ${HOSTR_BOOTSTRAP_ESCROW_PUBKEY:-}
+        RIF_RELAY_URL: ${RIF_RELAY_URL}
+        RIF_RELAY_RELAY_VERIFIER_ADDRESS: ${RIF_RELAY_RELAY_VERIFIER_ADDRESS}
+        RIF_RELAY_DEPLOY_VERIFIER_ADDRESS: ${RIF_RELAY_DEPLOY_VERIFIER_ADDRESS}
+        RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS: ${RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS}
+    environment:
+      - VIRTUAL_HOST=app.${DOMAIN}
+      - VIRTUAL_PORT=80
     networks:
       - default
     profiles:

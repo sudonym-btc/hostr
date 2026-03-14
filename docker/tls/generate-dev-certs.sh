@@ -117,6 +117,9 @@ generate_cert "alby2.${DOMAIN}" \
 generate_cert "landing.${DOMAIN}" \
   "DNS:landing.${DOMAIN},DNS:${DOMAIN},DNS:landing-page,DNS:localhost,IP:127.0.0.1"
 
+generate_cert "app.${DOMAIN}" \
+  "DNS:app.${DOMAIN},DNS:app,DNS:localhost,IP:127.0.0.1"
+
 # nginx-proxy looks for <VIRTUAL_HOST>.crt — symlink the bare domain
 # to the landing cert (which already carries DNS:${DOMAIN} as a SAN).
 ln -sf "landing.${DOMAIN}.crt" "$CERT_DIR/${DOMAIN}.crt"
