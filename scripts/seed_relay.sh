@@ -1,21 +1,25 @@
 #!/bin/bash
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENVIRONMENT="${HOSTR_ENVIRONMENT:-local}"
+ENV_FILE="$REPO_ROOT/.env.$ENVIRONMENT"
 
 reset_relay() {
     echo "Resetting relay container and state..."
 
     # Stop and remove only the relay container.
-    (cd "$REPO_ROOT" && docker-compose stop relay >/dev/null 2>&1 || true)
-    (cd "$REPO_ROOT" && docker-compose rm -f relay >/dev/null 2>&1 || true)
+    (cd "$REPO_ROOT" && docker compose stop relay >/dev/null 2>&1 || true)
+    (cd "$REPO_ROOT" && docker compose rm -f relay >/dev/null 2>&1 || true)
 
     # Remove relay DB state.
     rm -rf "$REPO_ROOT/docker/data/relay"
     mkdir -p "$REPO_ROOT/docker/data/relay"
 
     # Start a fresh relay container.
-    (cd "$REPO_ROOT" && docker-compose up -d relay)
+    (cd "$REPO_ROOT" && docker compose up -d relay)
 
     # Wait until the relay is actually accepting connections.
     echo "Waiting for relay to become ready..."
@@ -47,13 +51,31 @@ seed_relay() {
 
     mkdir -p "$log_dir"
     echo "Writing seed logs to: $log_file"
+
+    if [ ! -f "$ENV_FILE" ]; then
+        echo "Missing env file: $ENV_FILE"
+        return 66
+    fi
+
+    "$SCRIPT_DIR/sync-contract-env.sh" "$ENVIRONMENT" >/dev/null 2>&1 || true
+    set -a
+    if { [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; } && [ -f "$REPO_ROOT/dependencies/boltz-regtest/.env" ]; then
+        source "$REPO_ROOT/dependencies/boltz-regtest/.env"
+    fi
+    source "$REPO_ROOT/.env"
+    source "$ENV_FILE"
+    set +a
     
     reset_relay
 
     (
         set -o pipefail
-        cd "$REPO_ROOT/hostr_sdk" && \
-        dart run bin/seed.dart "${extra_args[@]}" 2>&1 | tee "$log_file"
+        cd "$REPO_ROOT/hostr_sdk"
+        if [ "${#extra_args[@]}" -gt 0 ]; then
+            dart run bin/seed.dart "${extra_args[@]}" 2>&1 | tee "$log_file"
+        else
+            dart run bin/seed.dart 2>&1 | tee "$log_file"
+        fi
     )
     # NIP-05 domain IDs are fixed by the lnbits-init Docker service at startup.
     # No post-seed fixup needed.

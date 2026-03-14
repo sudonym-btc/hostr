@@ -189,13 +189,13 @@ jobs:
         working-directory: app
 
       - name: Run tests
-        run: flutter test --coverage
+        run: flutter test --coverage --dart-define-from-file=../.env.test
         working-directory: app
 
       - name: Build Widgetbook (compile check)
         run: |
           flutter pub get
-          flutter build web --no-wasm-dry-run
+          flutter build web --no-wasm-dry-run --dart-define-from-file=../../.env.test
         working-directory: app/widgetbook_workspace
 
   # ── 4. Escrow daemon checks ───────────────────────────────────────────────

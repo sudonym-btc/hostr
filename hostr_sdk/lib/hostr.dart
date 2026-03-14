@@ -176,16 +176,6 @@ class Hostr {
     await relays.ensureConnected();
   }
 
-  /// Legacy single-call entry point. Calls [initAuth] then [connect].
-  @Deprecated('Use initAuth() + connect() instead')
-  Future<void> start() async {
-    await initAuth();
-    await connect();
-    if (auth.activeKeyPair != null) {
-      await calendar.start();
-    }
-  }
-
   Future<void> _stopAuthListener() async {
     await _authStateSubscription?.cancel();
   }

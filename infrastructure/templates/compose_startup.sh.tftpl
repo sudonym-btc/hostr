@@ -3,13 +3,20 @@ set -euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y ca-certificates curl git jq docker.io docker-compose
-systemctl enable --now docker
+apt-get install -y ca-certificates curl git gnupg jq
 
-# Install Docker Compose v2 standalone binary (preferred over legacy apt v1)
-install -d -m 0755 /usr/local/bin
-curl -fsSL "https://github.com/docker/compose/releases/download/v2.33.1/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
+install -d -m 0755 /etc/apt/keyrings
+curl -fsSL "https://download.docker.com/linux/$$(. /etc/os-release && echo "$${ID}")/gpg" \
+  | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+
+cat >/etc/apt/sources.list.d/docker.list <<EOF
+deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$$(. /etc/os-release && echo "$${ID}") $$(. /etc/os-release && echo "$${VERSION_CODENAME}") stable
+EOF
+
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+systemctl enable --now docker
 
 if id -u ubuntu >/dev/null 2>&1; then
   usermod -aG docker ubuntu || true
@@ -35,6 +42,7 @@ mount_disk() {
 # ── Mount persistent data disks ──────────────────────────────────────
 mount_disk /dev/disk/by-id/google-relay-data   /mnt/relay-data
 mount_disk /dev/disk/by-id/google-blossom-data /mnt/blossom-data
+mount_disk /dev/disk/by-id/google-rif-relay-data /mnt/rif-relay-data
 
 # ── Clone repo ────────────────────────────────────────────────────────
 mkdir -p /opt
@@ -47,11 +55,14 @@ fi
 chown -R 1000:1000 /mnt/relay-data
 # blossom runs as uid=1000
 chown -R 1000:1000 /mnt/blossom-data
+# rif-relay runs as appuser uid=1000 and persists txstore/worker state here
+chown -R 1000:1000 /mnt/rif-relay-data
 
 # Symlink compose volume mount paths to the persistent disks
 mkdir -p /opt/hostr/docker/data
 rm -rf /opt/hostr/docker/data/relay   && ln -sfn /mnt/relay-data   /opt/hostr/docker/data/relay
 rm -rf /opt/hostr/docker/data/blossom && ln -sfn /mnt/blossom-data /opt/hostr/docker/data/blossom
+rm -rf /opt/hostr/docker/data/rif-relay && ln -sfn /mnt/rif-relay-data /opt/hostr/docker/data/rif-relay
 
 # Small data (escrow, certs, vhost.d) stays on the boot disk — trivial size
 mkdir -p /opt/hostr/docker/data/escrow /opt/hostr/docker/certs /opt/hostr/docker/vhost.d
@@ -105,11 +116,6 @@ while IFS= read -r secret_name; do
 done <<'SECRETS'
 ${join("\n", secret_names)}
 SECRETS
-
-mkdir -p /opt/hostr/docker/data/escrow
-if grep -q '^ESCROW_CONTRACT_ADDR=' "$${ENV_FILE}"; then
-  grep '^ESCROW_CONTRACT_ADDR=' "$${ENV_FILE}" | sed 's/^ESCROW_CONTRACT_ADDR=//' > /opt/hostr/docker/data/escrow/contract_addr
-fi
 EOS
 chmod +x /usr/local/bin/hostr-fetch-secrets
 
@@ -138,23 +144,11 @@ git checkout "${repo_branch}"
 git pull --ff-only origin "${repo_branch}"
 
 /usr/local/bin/hostr-fetch-secrets "$${TARGET_ENV}"
-
-docker network inspect shared_network >/dev/null 2>&1 || docker network create shared_network
-
-if docker compose version >/dev/null 2>&1; then
-  COMPOSE_BIN=(docker compose)
-elif command -v docker-compose >/dev/null 2>&1; then
-  COMPOSE_BIN=(docker-compose)
-else
-  echo "No docker compose command found" >&2
-  exit 127
-fi
-
-"$${COMPOSE_BIN[@]}" \
+docker compose \
   --env-file /opt/hostr/.env.runtime \
   --profile "$${COMPOSE_PROFILE}" \
-  -f docker-compose.yml \
-  -f docker-compose.prod-override.yml \
+  -f compose.yaml \
+  -f compose.hosted.yaml \
   up -d --build --remove-orphans
 EOS
 chmod +x /usr/local/bin/hostr-deploy

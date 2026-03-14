@@ -60,6 +60,12 @@ variable "blossom_disk_size_gb" {
   default     = 10
 }
 
+variable "rif_relay_disk_size_gb" {
+  description = "Persistent disk size (GB) for rif-relay-server workdir state. Survives VM recreation."
+  type        = number
+  default     = 10
+}
+
 variable "compose_repo_clone_url" {
   description = "Git URL used by the VM to clone the hostr repo for docker compose deployment."
   type        = string

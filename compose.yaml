@@ -23,7 +23,6 @@ x-templates:
       - exec lnd --alias=Alby --tlsextradomain=lnd1 --tlsextradomain=lnd2 --lnddir=/lnd --datadir=/lnd --adminmacaroonpath=/lnd/data/chain/bitcoin/regtest/admin.macaroon --tlscertpath=/lnd/tls.cert --tlskeypath=/lnd/tls.key --noseedbackup --rpclisten=0.0.0.0:${LIGHTNING_RPC_PORT} --restlisten=0.0.0.0:${LIGHTNING_REST_PORT} --tlsextraip=0.0.0.0 --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT} --bitcoind.rpcuser=${BITCOIN_RPC_USER} --bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD} --bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT} --bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT} --maxpendingchannels=10
     networks:
       - default
-      - shared_network
 
   albyhub-base: &albyhub-base
     platform: linux/amd64
@@ -39,9 +38,6 @@ x-templates:
       - default
 
 services:
-  # ── TLS Certificate Authority (dev) ──────────────────────────────
-  # Generates a root CA and per-service certificates signed by it.
-  # In production, replace with Let's Encrypt via acme-companion.
   tls-init:
     image: alpine:3.20
     volumes:
@@ -82,7 +78,6 @@ services:
           - landing.${DOMAIN}
           - telemetry.${DOMAIN}
           - ${DOMAIN}
-          # Dev-only aliases (lnbits, alby) — active only in local/test profiles
           - lnbits1.${DOMAIN}
           - lnbits2.${DOMAIN}
           - alby1.${DOMAIN}
@@ -91,7 +86,6 @@ services:
           - boltz.${DOMAIN}
           - rifrelay.${DOMAIN}
 
-  # NOSTR Relay
   relay:
     container_name: relay
     image: scsibug/nostr-rs-relay:latest
@@ -126,7 +120,6 @@ services:
       - staging
       - prod
 
-  # Nostr Blossom file server
   blossom:
     container_name: blossom
     image: ghcr.io/hzrd149/blossom-server:latest
@@ -148,10 +141,6 @@ services:
       - staging
       - prod
 
-  # RIF Relay base definition for local/test workflows.
-  # Override files select between:
-  # - regtest-fast: deploy + allowlist + register on startup
-  # - regtest-managed: production-style startup against the RPC from `.env`
   rif-relay:
     hostname: rif-relay
     container_name: hostr-rif-relay
@@ -159,8 +148,6 @@ services:
       context: .
       dockerfile: docker/rif-relay/Dockerfile
     depends_on:
-      anvil:
-        condition: service_healthy
       nginx-proxy:
         condition: service_healthy
     healthcheck:
@@ -170,23 +157,23 @@ services:
       interval: 10s
       start_period: 20s
     environment:
-      - VIRTUAL_HOST=rifrelay.${DOMAIN}
-      - VIRTUAL_PORT=8090
-      - NODE_ENV=development
-      - RPC_URL=${RPC_URL}
-      - RIF_RELAY_PUBLIC_URL=https://rifrelay.${DOMAIN}
-      - RIF_RELAY_ADDRESS_KEY=${RIF_RELAY_ADDRESS_KEY:-regtest.33}
-      - RIF_RELAY_ADDRESS_FILE=/srv/app/environment/contract-addresses.json
-      - RIF_RELAY_RSK_NODE_URL=${RPC_URL}
-      - RIF_RELAY_FEES_RECEIVER=${RIF_RELAY_FEES_RECEIVER:-0x0000000000000000000000000000000000000000}
-      - RIF_RELAY_INITIAL_BLOCK_TO_SCAN=${RIF_RELAY_INITIAL_BLOCK_TO_SCAN:-1}
-      - RIF_RELAY_LOG_LEVEL=${RIF_RELAY_LOG_LEVEL:-2}
-      - RIF_RELAY_DISABLE_SPONSORED_TX=${RIF_RELAY_DISABLE_SPONSORED_TX:-false}
-      - RIF_RELAY_GAS_FEE_PERCENTAGE=${RIF_RELAY_GAS_FEE_PERCENTAGE:-0}
-      - REGISTER_STAKE=${RIF_RELAY_REGISTER_STAKE:-0.0001}
-      - REGISTER_FUNDS=${RIF_RELAY_REGISTER_FUNDS:-100}
-      - REGISTER_GAS_PRICE=${RIF_RELAY_REGISTER_GAS_PRICE:-60000000}
-      - REGISTER_UNSTAKE_DELAY=${RIF_RELAY_REGISTER_UNSTAKE_DELAY:-1000}
+      VIRTUAL_HOST: rifrelay.${DOMAIN}
+      VIRTUAL_PORT: 8090
+      NODE_ENV: development
+      RPC_URL: ${RPC_URL}
+      RIF_RELAY_MODE: ${RIF_RELAY_MODE:-regtest-managed}
+      RIF_RELAY_PUBLIC_URL: https://rifrelay.${DOMAIN}
+      RIF_RELAY_ADDRESS_KEY: ${RIF_RELAY_ADDRESS_KEY:-regtest.33}
+      RIF_RELAY_ADDRESS_FILE: /srv/app/environment/contract-addresses.json
+      RIF_RELAY_FEES_RECEIVER: ${RIF_RELAY_FEES_RECEIVER:-0x0000000000000000000000000000000000000000}
+      RIF_RELAY_INITIAL_BLOCK_TO_SCAN: ${RIF_RELAY_INITIAL_BLOCK_TO_SCAN:-1}
+      RIF_RELAY_LOG_LEVEL: ${RIF_RELAY_LOG_LEVEL:-2}
+      RIF_RELAY_DISABLE_SPONSORED_TX: ${RIF_RELAY_DISABLE_SPONSORED_TX:-false}
+      RIF_RELAY_GAS_FEE_PERCENTAGE: ${RIF_RELAY_GAS_FEE_PERCENTAGE:-0}
+      REGISTER_STAKE: ${RIF_RELAY_REGISTER_STAKE:-0.0001}
+      REGISTER_FUNDS: ${RIF_RELAY_REGISTER_FUNDS:-100}
+      REGISTER_GAS_PRICE: ${RIF_RELAY_REGISTER_GAS_PRICE:-60000000}
+      REGISTER_UNSTAKE_DELAY: ${RIF_RELAY_REGISTER_UNSTAKE_DELAY:-1000}
     volumes:
       - ./docker/data/rif-relay:/srv/app/environment
       - ./docker/data/escrow:/data:ro
@@ -194,16 +181,6 @@ services:
       - 8090:8090
     networks:
       - default
-      - shared_network
-    profiles:
-      - local
-      - test
-      - ci
-    entrypoint:
-      - /bin/bash
-      - -lc
-    command:
-      - export RIF_RELAY_WORKDIR=/srv/app/environment && /write_local_config.sh && cd /rif-relay-server && npm run start
 
   landing-page:
     build:
@@ -221,12 +198,6 @@ services:
       - staging
       - prod
 
-  # OpenTelemetry trace collection + local Grafana dashboard.
-  #
-  # grafana/otel-lgtm bundles Grafana + Tempo + Loki + Mimir + OTel Collector.
-  # - Grafana UI at https://telemetry.${DOMAIN}
-  # - OTLP/HTTP ingestion at https://telemetry.${DOMAIN}/v1/traces
-  #   via docker/vhost.d/telemetry.hostr.development
   telemetry:
     image: grafana/otel-lgtm:0.8.1
     environment:
@@ -244,7 +215,6 @@ services:
       - local
       - test
 
-  # Escrow client which watches nostr & chain to facilitate escrow transactions
   escrow-contract-deploy:
     build:
       context: ./escrow/contracts
@@ -256,7 +226,6 @@ services:
       - ./escrow/contracts/contract-addresses.json:/usr/src/app/contract-addresses.json
     environment:
       - RPC_URL=http://anvil:8545
-      # Anvil Account 2 – Account 0 is reserved for rif-relay contract deployment & registration
       - DEPLOYER_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
     command:
       [
@@ -274,28 +243,26 @@ services:
       context: .
       dockerfile: escrow/Dockerfile
     depends_on:
-      escrow-contract-deploy:
-        condition: service_completed_successfully
-      anvil:
-        condition: service_healthy
       nginx-proxy:
         condition: service_healthy
     environment:
       - NOSTR_RELAY=wss://relay.${DOMAIN}
       - PRIVATE_KEY=${ESCROW_PRIVATE_KEY}
       - RPC_URL=${RPC_URL}
-      - CONTRACT_ADDR=${ESCROW_CONTRACT_ADDR:-}
+      - ESCROW_CONTRACT_ADDRESS=${ESCROW_CONTRACT_ADDRESS:-}
       - ESCROW_CONTRACT_ADDRESS_KEY=${ESCROW_CONTRACT_ADDRESS_KEY:-regtest.33}
+      - RIF_RELAY_URL=${RIF_RELAY_URL:-}
+      - RIF_RELAY_RELAY_VERIFIER_ADDRESS=${RIF_RELAY_RELAY_VERIFIER_ADDRESS:-}
+      - RIF_RELAY_DEPLOY_VERIFIER_ADDRESS=${RIF_RELAY_DEPLOY_VERIFIER_ADDRESS:-}
+      - RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS=${RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS:-}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
-    # Read the deployed contract address from the canonical escrow contract
-    # address file when it was not provided explicitly via env.
     entrypoint:
       - sh
       - -c
       - >
-          if [ -z "$$CONTRACT_ADDR" ] && [ -f /contracts/contract-addresses.json ]; then
-            export CONTRACT_ADDR=$$(node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/contracts/contract-addresses.json','utf8'));process.stdout.write(String(j[process.env.ESCROW_CONTRACT_ADDRESS_KEY || 'regtest.33']?.MultiEscrow || '')); ");
+          if [ -z "$$ESCROW_CONTRACT_ADDRESS" ] && [ -f /contracts/contract-addresses.json ]; then
+            export ESCROW_CONTRACT_ADDRESS=$$(node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/contracts/contract-addresses.json','utf8'));process.stdout.write(String(j[process.env.ESCROW_CONTRACT_ADDRESS_KEY || 'regtest.33']?.MultiEscrow || '')); ");
           fi && exec docker/entrypoint.sh
     volumes:
       - ./docker/data/escrow:/data:ro
@@ -303,14 +270,12 @@ services:
       - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
     networks:
       - default
-      - shared_network
     profiles:
       - test
       - local
       - staging
       - prod
 
-  # Shared bitcoin node
   hostrbitcoind:
     image: bitcoin/bitcoin
     healthcheck:
@@ -352,7 +317,6 @@ services:
       - ./docker/data/bitcoin:/home/bitcoin/.bitcoin
     networks:
       - default
-      - shared_network
     profiles:
       - local
       - test
@@ -397,7 +361,6 @@ services:
       - LNBITS_ADMIN_EXTENSIONS="lnurlp,nostrnip5"
       - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp,nostrnip5"
       - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp,nostrnip5"
-
     volumes:
       - ./docker/data/lightning_data/1:/app/lnd
       - ./docker/data/lnbits/1:/app/data
@@ -431,7 +394,6 @@ services:
       - LNBITS_ADMIN_EXTENSIONS="lnurlp,nostrnip5"
       - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp,nostrnip5"
       - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp,nostrnip5"
-
     volumes:
       - ./docker/data/lightning_data/2:/app/lnd
       - ./docker/data/lnbits/2:/app/data
@@ -542,11 +504,6 @@ services:
       - local
       - test
 
-  # ── LNbits init ──────────────────────────────────────────────────────────
-  # Runs once after both LNbits containers are healthy.
-  # Handles: first-install, extension enabling, NIP-05 domain creation, and
-  # renaming the random domain ID to the fixed value in SQLite so the
-  # committed nginx vhost.d files never need to change.
   lnbits-init:
     image: python:3.12-alpine
     depends_on:
@@ -573,9 +530,6 @@ services:
       - local
       - test
 
-  # ── AlbyHub init ──────────────────────────────────────────────────────────
-  # Runs once after both AlbyHub containers are healthy.
-  # Handles: first-time password setup, wallet start, and unlock.
   alby-init:
     image: python:3.12-alpine
     depends_on:
@@ -630,5 +584,3 @@ volumes:
 networks:
   default:
     driver: bridge
-  shared_network:
-    external: true

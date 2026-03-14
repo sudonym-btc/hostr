@@ -13,10 +13,20 @@ usage_env() {
     echo "Usage: $1 [local|test|staging|prod]"
 }
 
+compose_cmd() {
+    if [ "${HOSTR_ENVIRONMENT:-test}" = "staging" ] || [ "${HOSTR_ENVIRONMENT:-test}" = "prod" ]; then
+        docker compose -f compose.yaml -f compose.hosted.yaml "$@"
+    else
+        docker compose "$@"
+    fi
+}
+
 load_managed_relay_env() {
     local environment="${1:-test}"
     local env_file="$REPO_ROOT/.env.$environment"
     local runtime_env_file="$REPO_ROOT/.env.runtime"
+    HOSTR_ENVIRONMENT="$environment"
+    export HOSTR_ENVIRONMENT
 
     case "$environment" in
         local|test|staging|prod) ;;
@@ -32,6 +42,9 @@ load_managed_relay_env() {
     fi
 
     set -a
+    if { [ "$environment" = "local" ] || [ "$environment" = "test" ]; } && [ -f "$REPO_ROOT/dependencies/boltz-regtest/.env" ]; then
+        source "$REPO_ROOT/dependencies/boltz-regtest/.env"
+    fi
     source "$REPO_ROOT/.env"
     if [ -f "$runtime_env_file" ] && { [ "$environment" = "staging" ] || [ "$environment" = "prod" ]; }; then
         source "$runtime_env_file"
@@ -41,36 +54,10 @@ load_managed_relay_env() {
     if { [ "$environment" = "local" ] || [ "$environment" = "test" ]; } && [ -f "$LOCAL_ENV_FILE" ]; then
         source "$LOCAL_ENV_FILE"
     fi
-    if [[ "${COMPOSE_FILE:-}" == *"dependencies/boltz-regtest/docker-compose.yml"* ]] && [ -f "$REPO_ROOT/dependencies/boltz-regtest/.env" ]; then
-        local selected_compose_file="${COMPOSE_FILE:-}"
-        local selected_compose_profiles="${COMPOSE_PROFILES:-}"
-        local selected_docker_default_platform="${DOCKER_DEFAULT_PLATFORM:-}"
-        source "$REPO_ROOT/dependencies/boltz-regtest/.env"
-        COMPOSE_FILE="$selected_compose_file"
-        if [ -n "$selected_compose_profiles" ]; then
-            COMPOSE_PROFILES="$selected_compose_profiles"
-        fi
-        if [ -n "$selected_docker_default_platform" ]; then
-            LND_PLATFORM="$selected_docker_default_platform"
-        fi
-    fi
     set +a
 
     if [ "$environment" = "local" ] || [ "$environment" = "test" ]; then
-        case ":${COMPOSE_FILE:-}:" in
-            *:docker-compose.rif-relay-managed-override.yml:*) ;;
-            *) COMPOSE_FILE="${COMPOSE_FILE}:docker-compose.rif-relay-managed-override.yml" ;;
-        esac
-
-        case ",${COMPOSE_PROFILES:-}," in
-            *,relay-managed,*) ;;
-            *) COMPOSE_PROFILES="${COMPOSE_PROFILES:+$COMPOSE_PROFILES,}relay-managed" ;;
-        esac
-    else
-        case ":${COMPOSE_FILE:-}:" in
-            *:docker-compose.prod-override.yml:*) ;;
-            *) COMPOSE_FILE="${COMPOSE_FILE}:docker-compose.prod-override.yml" ;;
-        esac
+        export RIF_RELAY_MODE=regtest-managed
     fi
 
     cd "$REPO_ROOT"
@@ -189,7 +176,7 @@ compose_run_rif_relay() {
             -e NODE_EXTRA_CA_CERTS=/tmp/hostr-dev-ca.crt
         )
     fi
-    docker compose run --rm --no-deps \
+    compose_cmd run --rm --no-deps \
         -v "$CONTRACT_ADDRESSES_FILE:/rif-relay-contracts/contract-addresses.json" \
         "${extra_args[@]}" \
         "$@" --entrypoint /bin/bash rif-relay -lc "$command"

@@ -1,6 +1,5 @@
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
-import 'package:models/stubs/keypairs.dart';
 
 import '../../../injection.dart';
 import 'base.config.dart';
@@ -11,7 +10,10 @@ class DevelopmentConfig extends Config {
   RootstockConfig rootstock = DevelopmentRootstockConfig();
 
   @override
-  List<String> get bootstrapEscrowPubkeys => [MockKeys.escrow.publicKey];
+  List<String> get bootstrapEscrowPubkeys => buildConfigList(
+    'HOSTR_BOOTSTRAP_ESCROW_PUBKEY',
+    const String.fromEnvironment('HOSTR_BOOTSTRAP_ESCROW_PUBKEY'),
+  );
 
   @override
   String get hostrBlossom => 'https://blossom.hostr.development';
@@ -29,12 +31,12 @@ class DevelopmentRootstockConfig extends RootstockConfig {
   @override
   BoltzConfig get boltz => DevelopmentBoltzConfig();
   @override
-  RifRelayConfig get rifRelay => DevelopmentRifRelayConfig();
+  RifRelayConfig get rifRelay => EnvBackedRifRelayConfig();
   @override
   RootstockSupportedContractsConfig get supportedContracts =>
       DefaultRootstockSupportedContractsConfig(
         multiEscrow: DefaultSupportedEscrowContractConfig(
-          rifRelay: DevelopmentRifRelayConfig(),
+          rifRelay: EnvBackedRifRelayConfig(),
         ),
       );
   @override
@@ -44,16 +46,4 @@ class DevelopmentRootstockConfig extends RootstockConfig {
 class DevelopmentBoltzConfig extends BoltzConfig {
   @override
   String apiUrl = 'https://boltz.hostr.development/v2';
-}
-
-class DevelopmentRifRelayConfig extends RifRelayConfig {
-  @override
-  String get url => 'https://rifrelay.hostr.development';
-  @override
-  String get callVerifier => '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
-  @override
-  String get deployVerifier => '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
-  @override
-  String get smartWalletFactoryAddress =>
-      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
 }

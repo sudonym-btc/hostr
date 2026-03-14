@@ -217,6 +217,74 @@ sync_nodes() {
     wait_all_pids "${pids[@]}"
 }
 
+reconnect_expected_peers() {
+    local pids=()
+
+    # Use explicit Lightning peer ports for hostr LND nodes. Their RPC port is
+    # different and persisted channels may survive container restarts with no
+    # active peer sessions until we reconnect on the P2P port.
+    connect_peer "LND1" "$LND2_PUB" "lnd2:9735" & pids+=($!)
+    {
+        connect_peer "LND1" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
+        connect_peer "LND2" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
+    } & pids+=($!)
+    {
+        connect_peer "LND1" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
+        connect_peer "LND2" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
+    } & pids+=($!)
+    connect_peer "LND1" "$BOLTZ_LND3_PUB" "${BOLTZ_LND3_HOST}" & pids+=($!)
+    {
+        connect_peer "LND1" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
+        connect_peer "LND2" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
+    } & pids+=($!)
+    {
+        connect_peer "LND1" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
+        connect_peer "LND2" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
+    } & pids+=($!)
+    wait_all_pids "${pids[@]}"
+
+    # Re-run the full reconnection pass after sync to recover peers that may
+    # briefly drop during catch-up.
+    sync_nodes "LND1" "LND2" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
+               "lightning-cli-sim 1" "lightning-cli-sim 2"
+
+    pids=()
+    {
+        connect_peer "LND1" "$LND2_PUB" "lnd2:9735"
+        connect_peer "LND1" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
+        connect_peer "LND1" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
+        connect_peer "LND1" "$BOLTZ_LND3_PUB" "${BOLTZ_LND3_HOST}"
+        connect_peer "LND1" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
+        connect_peer "LND1" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
+    } & pids+=($!)
+    {
+        connect_peer "LND2" "$LND1_PUB" "lnd1:9735"
+        connect_peer "LND2" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
+        connect_peer "LND2" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
+        connect_peer "LND2" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
+        connect_peer "LND2" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
+    } & pids+=($!)
+    wait_all_pids "${pids[@]}"
+}
+
+wait_for_expected_hostr_channels() {
+    local pids=()
+
+    wait_for_channel "LND1" "$LND2_PUB" & pids+=($!)
+    wait_for_channel "LND2" "$LND1_PUB" & pids+=($!)
+    wait_for_channel "LND1" "$BOLTZ_LND1_PUB" & pids+=($!)
+    wait_for_channel "LND2" "$BOLTZ_LND1_PUB" & pids+=($!)
+    wait_for_channel "LND1" "$BOLTZ_LND2_PUB" & pids+=($!)
+    wait_for_channel "LND2" "$BOLTZ_LND2_PUB" & pids+=($!)
+    wait_for_channel "LND1" "$BOLTZ_LND3_PUB" & pids+=($!)
+    wait_for_channel "LND1" "$BOLTZ_CLN1_PUB" & pids+=($!)
+    wait_for_channel "LND2" "$BOLTZ_CLN1_PUB" & pids+=($!)
+    wait_for_channel "LND1" "$BOLTZ_CLN2_PUB" & pids+=($!)
+    wait_for_channel "LND2" "$BOLTZ_CLN2_PUB" & pids+=($!)
+
+    wait_all_pids "${pids[@]}"
+}
+
 # ── Main entry point ────────────────────────────────────────────────────
 
 setup_channels() {
@@ -265,8 +333,15 @@ setup_channels() {
         fi
     fi
 
-    # ── Phase 2: Early-out if channels already exist ──────────────────
+    # ── Phase 2: Collect pubkeys & reconnect persisted peers ──────────
+    BOLTZ_LND1_PUB=$(lncli-sim 1 getinfo | jq -r .identity_pubkey)
+    BOLTZ_LND2_PUB=$(lncli-sim 2 getinfo | jq -r .identity_pubkey)
+    BOLTZ_LND3_PUB=$(lncli-sim 3 getinfo | jq -r .identity_pubkey)
+    BOLTZ_CLN1_PUB=$(lightning-cli-sim 1 getinfo | jq -r .id)
+    BOLTZ_CLN2_PUB=$(lightning-cli-sim 2 getinfo | jq -r .id)
+
     sync_nodes "LND1" "LND2"
+    reconnect_expected_peers
 
     local lnd1_channels
     local lnd2_channels
@@ -281,71 +356,26 @@ setup_channels() {
     done
 
     if [ "$lnd1_channels" -gt 0 ] && [ "$lnd2_channels" -gt 0 ]; then
-        echo "Channels already exist. Skipping channel creation."
+        echo "Channels already exist. Waiting for persisted channels to reactivate."
+        wait_for_expected_hostr_channels
+        echo "Persisted channels are active. Skipping channel creation."
         return 0
     fi
 
     echo "No channels found. Creating all lightning channels..."
 
-    # ── Phase 3: Collect pubkeys & connect every peer ─────────────────
-    BOLTZ_LND1_PUB=$(lncli-sim 1 getinfo | jq -r .identity_pubkey)
-    BOLTZ_LND2_PUB=$(lncli-sim 2 getinfo | jq -r .identity_pubkey)
-    BOLTZ_LND3_PUB=$(lncli-sim 3 getinfo | jq -r .identity_pubkey)
-    BOLTZ_CLN1_PUB=$(lightning-cli-sim 1 getinfo | jq -r .id)
-    BOLTZ_CLN2_PUB=$(lightning-cli-sim 2 getinfo | jq -r .id)
+    # ── Phase 3: Connect every peer before opening channels ───────────
 
     # Ensure all nodes (including CLN) have caught up with the blocks mined
     # during funding, otherwise CLN will silently drop incoming LN handshakes.
     sync_nodes "LND1" "LND2" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
                "lightning-cli-sim 1" "lightning-cli-sim 2"
 
-    # Serialize connections to the same target node — CLN drops one of two
-    # simultaneous inbound handshakes.  Different targets run in parallel.
-    pids=()
-    connect_peer "LND1" "$LND2_PUB" "lnd2" & pids+=($!)
-    {
-        connect_peer "LND1" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
-        connect_peer "LND2" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
-    } & pids+=($!)
-    {
-        connect_peer "LND1" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
-        connect_peer "LND2" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
-    } & pids+=($!)
-    connect_peer "LND1" "$BOLTZ_LND3_PUB" "${BOLTZ_LND3_HOST}" & pids+=($!)
-    {
-        connect_peer "LND1" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
-        connect_peer "LND2" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
-    } & pids+=($!)
-    {
-        connect_peer "LND1" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
-        connect_peer "LND2" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
-    } & pids+=($!)
-    wait_all_pids "${pids[@]}"
+    reconnect_expected_peers
 
     # ── Phase 4: Sync all nodes after peer connections ──────────────────
     sync_nodes "LND1" "LND2" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
                "lightning-cli-sim 1" "lightning-cli-sim 2"
-
-    # Re-verify peers are still connected — regtest-start mines blocks that
-    # can cause CLN nodes to drop peers while catching up.
-    echo "Re-verifying peer connections before opening channels..."
-    pids=()
-    {
-        connect_peer "LND1" "$LND2_PUB" "lnd2"
-        connect_peer "LND1" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
-        connect_peer "LND1" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
-        connect_peer "LND1" "$BOLTZ_LND3_PUB" "${BOLTZ_LND3_HOST}"
-        connect_peer "LND1" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
-        connect_peer "LND1" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
-    } & pids+=($!)
-    {
-        connect_peer "LND2" "$LND1_PUB" "lnd1"
-        connect_peer "LND2" "$BOLTZ_LND1_PUB" "${BOLTZ_LND1_HOST}"
-        connect_peer "LND2" "$BOLTZ_LND2_PUB" "${BOLTZ_LND2_HOST}"
-        connect_peer "LND2" "$BOLTZ_CLN1_PUB" "${BOLTZ_CLN1_HOST}"
-        connect_peer "LND2" "$BOLTZ_CLN2_PUB" "${BOLTZ_CLN2_HOST}"
-    } & pids+=($!)
-    wait_all_pids "${pids[@]}"
 
     # ── Phase 5: Batch 1 — all 10 outbound opens from hostr LND ──────
     # LND1↔LND2 (2) + LND1/2 → boltz LND1/LND2/CLN1/CLN2 (8) + LND1 → boltz LND3 (1) = 11.

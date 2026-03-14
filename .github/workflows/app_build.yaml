@@ -124,6 +124,7 @@ jobs:
           flutter build appbundle \
             --build-number=$BUILD_NUMBER \
             -t lib/main_staging.dart \
+            --dart-define-from-file=../.env.staging \
             --release
         working-directory: app
 
@@ -181,6 +182,7 @@ jobs:
           flutter build appbundle \
             --build-number=$BUILD_NUMBER \
             -t lib/main_production.dart \
+            --dart-define-from-file=../.env.prod \
             --release
         working-directory: app
 
@@ -242,6 +244,7 @@ jobs:
         run: |
           flutter build ipa \
             -t lib/main_staging.dart \
+            --dart-define-from-file=../.env.staging \
             --release \
             --build-number=$BUILD_NUMBER \
             --export-options-plist=ios/ExportOptions.plist
@@ -308,6 +311,7 @@ jobs:
         run: |
           flutter build ipa \
             -t lib/main_production.dart \
+            --dart-define-from-file=../.env.prod \
             --release \
             --build-number=$BUILD_NUMBER \
             --export-options-plist=ios/ExportOptions.plist

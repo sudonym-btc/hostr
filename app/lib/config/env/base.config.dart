@@ -46,6 +46,47 @@ abstract class Config {
   }
 }
 
+String requiredBuildConfig(String key, String value) {
+  if (value.trim().isEmpty) {
+    throw StateError('Missing required build config: $key');
+  }
+  return value;
+}
+
+List<String> buildConfigList(String key, String value) {
+  return value
+      .split(',')
+      .map((entry) => entry.trim())
+      .where((entry) => entry.isNotEmpty)
+      .toList(growable: false);
+}
+
+class EnvBackedRifRelayConfig extends RifRelayConfig {
+  @override
+  String get url => requiredBuildConfig(
+    'RIF_RELAY_URL',
+    const String.fromEnvironment('RIF_RELAY_URL'),
+  );
+
+  @override
+  String get callVerifier => requiredBuildConfig(
+    'RIF_RELAY_RELAY_VERIFIER_ADDRESS',
+    const String.fromEnvironment('RIF_RELAY_RELAY_VERIFIER_ADDRESS'),
+  );
+
+  @override
+  String get deployVerifier => requiredBuildConfig(
+    'RIF_RELAY_DEPLOY_VERIFIER_ADDRESS',
+    const String.fromEnvironment('RIF_RELAY_DEPLOY_VERIFIER_ADDRESS'),
+  );
+
+  @override
+  String get smartWalletFactoryAddress => requiredBuildConfig(
+    'RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS',
+    const String.fromEnvironment('RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS'),
+  );
+}
+
 class InMemoryKeyValueStorage implements KeyValueStorage {
   final Map<String, dynamic> _state = {};
 
