@@ -181,3 +181,18 @@ compose_run_rif_relay() {
         "${extra_args[@]}" \
         "$@" --entrypoint /bin/bash rif-relay -lc "$command"
 }
+
+relay_admin_private_key() {
+    local private_key="${RIF_RELAY_ADMIN_PRIVATE_KEY:-${REGISTER_PRIVATE_KEY:-}}"
+
+    if [ -z "$private_key" ]; then
+        echo "Set RIF_RELAY_ADMIN_PRIVATE_KEY or REGISTER_PRIVATE_KEY before running ${1:-$0}" >&2
+        return 64
+    fi
+
+    printf '%s\n' "$private_key"
+}
+
+relay_wind_down_workdir() {
+    printf '%s\n' "${RIF_RELAY_WIND_DOWN_WORKDIR:-/srv/app/environment}"
+}

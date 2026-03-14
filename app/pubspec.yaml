@@ -21,7 +21,8 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  google_maps_flutter: ^2.14.2
+  google_maps_flutter: ^2.15.0
+  google_maps_flutter_web: ^0.6.1
   sliding_up_panel: ^2.0.0+1
   hydrated_bloc: ^10.1.1
   flutter_bloc: ^9.1.1

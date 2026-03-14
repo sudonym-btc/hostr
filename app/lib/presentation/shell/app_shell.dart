@@ -8,7 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/app.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/router.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 /// The main navigation shell of the app.
@@ -69,9 +69,19 @@ class _AppShellScreenState extends State<AppShellScreen>
   Widget _buildBottomNav(
     BuildContext context,
     TabsRouter tabsRouter,
-    List<BottomNavigationBarItem> items,
+    List<AppNavigationDestination> destinations,
     Color navBg,
   ) {
+    final items = [
+      for (final destination in destinations)
+        _navItem(
+          icon: Icon(
+            destination.icon,
+            size: destination.label == 'Search' ? kIconLg : kIconMd,
+          ),
+          label: destination.label,
+        ),
+    ];
     final borderRadius = BorderRadius.circular(0);
 
     return SizeTransition(
@@ -113,105 +123,70 @@ class _AppShellScreenState extends State<AppShellScreen>
   Widget build(BuildContext context) {
     return RelayConnectivityBanner(
       child: NwcConnectivityBanner(
-        child: NotificationListener<UserScrollNotification>(
-          onNotification: _onScrollNotification,
-          child: BlocListener<ModeCubit, ModeCubitState>(
-            listener: (context, state) => _showNav(),
-            child: StreamBuilder<AuthState>(
-              stream: getIt<Hostr>().auth.authState,
-              initialData: getIt<Hostr>().auth.authState.value,
-              builder: (context, authSnapshot) {
-                final isLoggedIn = authSnapshot.data == const LoggedIn();
+        child: BlocListener<ModeCubit, ModeCubitState>(
+          listener: (context, state) => _showNav(),
+          child: StreamBuilder<AuthState>(
+            stream: getIt<Hostr>().auth.authState,
+            initialData: getIt<Hostr>().auth.authState.value,
+            builder: (context, authSnapshot) {
+              final isLoggedIn = authSnapshot.data == const LoggedIn();
 
-                return BlocBuilder<ModeCubit, ModeCubitState>(
-                  builder: (context, state) {
-                    final bottomNavigationBarTheme = Theme.of(
-                      context,
-                    ).bottomNavigationBarTheme;
-                    final navBg = bottomNavigationBarTheme.backgroundColor!;
+              return BlocBuilder<ModeCubit, ModeCubitState>(
+                builder: (context, state) {
+                  final destinations = buildAppNavigationDestinations(
+                    isLoggedIn: isLoggedIn,
+                    modeState: state,
+                  );
 
-                    if (!isLoggedIn) {
-                      // Unauthenticated: Search and Sign In
-                      final tabs = [
-                        _navItem(
-                          icon: Icon(Icons.search, size: kIconLg),
-                          label: 'Search',
-                        ),
-                        _navItem(
-                          icon: Icon(Icons.person_outline),
-                          label: 'Sign In',
-                        ),
-                      ];
-                      return AutoTabsScaffold(
-                        key: const ValueKey('unauthTabs'),
-                        extendBody: true,
-                        routes: [SearchRoute(), SignInRoute()],
-                        bottomNavigationBuilder: (context, tabsRouter) =>
-                            _buildBottomNav(context, tabsRouter, tabs, navBg),
+                  return AutoTabsRouter.builder(
+                    key: ValueKey('tabs_${isLoggedIn}_${state.runtimeType}'),
+                    routes: [
+                      for (final destination in destinations) destination.route,
+                    ],
+                    builder: (context, children, tabsRouter) {
+                      final child = IndexedStack(
+                        index: tabsRouter.activeIndex,
+                        children: children,
                       );
-                    }
+                      final layout = AppLayoutSpec.of(context);
+                      final bottomNavigationBarTheme = Theme.of(
+                        context,
+                      ).bottomNavigationBarTheme;
+                      final navBg = bottomNavigationBarTheme.backgroundColor!;
 
-                    if (state is HostMode) {
-                      final hostTabs = [
-                        _navItem(icon: Icon(Icons.list), label: 'My Listings'),
-                        _navItem(
-                          icon: Icon(Icons.calendar_today),
-                          label: 'Bookings',
-                        ),
-                        _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
-                        _navItem(icon: Icon(Icons.person), label: 'Profile'),
-                      ];
-                      return AutoTabsScaffold(
-                        key: const ValueKey('hostTabs'),
-                        extendBody: true,
-                        routes: [
-                          MyListingsRoute(),
-                          HostingsRoute(),
-                          InboxRoute(),
-                          ProfileRoute(),
-                        ],
-                        bottomNavigationBuilder: (context, tabsRouter) =>
-                            _buildBottomNav(
-                              context,
-                              tabsRouter,
-                              hostTabs,
-                              navBg,
-                            ),
-                      );
-                    }
-                    final otherTabs = [
-                      _navItem(
-                        icon: Icon(Icons.search, size: kIconLg),
-                        label: 'Search',
-                      ),
-                      _navItem(
-                        icon: Icon(Icons.travel_explore),
-                        label: 'Trips',
-                      ),
-                      _navItem(icon: Icon(Icons.inbox), label: 'Inbox'),
-                      _navItem(icon: Icon(Icons.person), label: 'Profile'),
-                    ];
-                    return AutoTabsScaffold(
-                      key: const ValueKey('guestTabs'),
-                      extendBody: true,
-                      routes: [
-                        SearchRoute(),
-                        TripsRoute(),
-                        InboxRoute(),
-                        ProfileRoute(),
-                      ],
-                      bottomNavigationBuilder: (context, tabsRouter) =>
-                          _buildBottomNav(
-                            context,
-                            tabsRouter,
-                            otherTabs,
-                            navBg,
+                      if (layout.showsSidebarNavigation) {
+                        return AppWideNavigationScaffold(
+                          destinations: destinations,
+                          selectedIndex: min(
+                            destinations.length - 1,
+                            tabsRouter.activeIndex,
                           ),
-                    );
-                  },
-                );
-              },
-            ),
+                          onDestinationSelected: (index) {
+                            _showNav();
+                            tabsRouter.setActiveIndex(index);
+                          },
+                          child: child,
+                        );
+                      }
+
+                      return Scaffold(
+                        extendBody: true,
+                        body: NotificationListener<UserScrollNotification>(
+                          onNotification: _onScrollNotification,
+                          child: child,
+                        ),
+                        bottomNavigationBar: _buildBottomNav(
+                          context,
+                          tabsRouter,
+                          destinations,
+                          navBg,
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            },
           ),
         ),
       ),

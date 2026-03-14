@@ -9,12 +9,15 @@ import 'package:hostr/presentation/main.dart';
 import 'package:models/main.dart';
 
 class ThreadView extends StatelessWidget {
-  const ThreadView({super.key});
+  final bool embedded;
+
+  const ThreadView({super.key, this.embedded = false});
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ThreadCubit, ThreadCubitState>(
       builder: (context, state) {
         return ThreadReadyWidget(
+          embedded: embedded,
           participants: state.participantStates
               .map((e) => e.data)
               .whereType<ProfileMetadata>()
@@ -32,56 +35,76 @@ class ThreadView extends StatelessWidget {
 class ThreadReadyWidget extends StatelessWidget {
   final List<ProfileMetadata> participants;
   final List<ProfileMetadata> counterparties;
+  final bool embedded;
 
   const ThreadReadyWidget({
     super.key,
     required this.participants,
     required this.counterparties,
+    this.embedded = false,
   });
+
+  Widget _buildContent(BuildContext context, Color appBarColor) {
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Column(
+        children: [
+          Material(
+            color: appBarColor,
+            child: SafeArea(
+              top: false,
+              bottom: false,
+              child: AppBar(
+                titleSpacing: 0,
+                surfaceTintColor: Colors.transparent,
+                backgroundColor: appBarColor,
+                title: ThreadHeaderWidget(
+                  counterparties: counterparties,
+                  onCounterpartyTap: (profile) =>
+                      ProfilePopup.show(context, profile.pubKey),
+                ),
+              ),
+            ),
+          ),
+          if (context.read<ThreadCubit>().thread.isTradeCandidate)
+            Material(
+              color: appBarColor,
+              child: TradeHeader(
+                tradeId: context.read<ThreadCubit>().thread.anchor,
+              ),
+            ),
+          Expanded(child: ThreadContent(participants: participants)),
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(
+                context,
+              ).bottom.clamp(0, double.infinity),
+            ),
+            child: SafeArea(
+              top: false,
+              child: CustomPadding.vertical.sm(
+                child: CustomPadding.horizontal.lg(child: ThreadReplyWidget()),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final appBarColor = Theme.of(context).colorScheme.surfaceContainerHigh;
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-        appBar: AppBar(
-          titleSpacing: 0,
-          surfaceTintColor: Colors.transparent,
-          backgroundColor: appBarColor,
-          title: ThreadHeaderWidget(
-            counterparties: counterparties,
-            onCounterpartyTap: (profile) =>
-                ProfilePopup.show(context, profile.pubKey),
-          ),
-        ),
-        bottomNavigationBar: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(
-              context,
-            ).bottom.clamp(0, double.infinity),
-          ),
-          child: SafeArea(
-            top: false,
-            child: CustomPadding.vertical.sm(
-              child: CustomPadding.horizontal.lg(child: ThreadReplyWidget()),
-            ),
-          ),
-        ),
-        body: Column(
-          children: [
-            if (context.read<ThreadCubit>().thread.isTradeCandidate)
-              Material(
-                color: appBarColor,
-                child: TradeHeader(
-                  tradeId: context.read<ThreadCubit>().thread.anchor,
-                ),
-              ),
-            Expanded(child: ThreadContent(participants: participants)),
-          ],
-        ),
-      ),
+    if (embedded) {
+      return ColoredBox(
+        color: Theme.of(context).bottomAppBarTheme.color ?? Colors.transparent,
+        child: _buildContent(context, appBarColor),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).bottomAppBarTheme.color,
+      body: _buildContent(context, appBarColor),
     );
   }
 }

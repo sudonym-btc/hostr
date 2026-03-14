@@ -13,7 +13,14 @@ class ListingsWidget extends StatefulWidget {
   /// Written by the list when a user scroll comes to rest on an item.
   final ValueNotifier<String?>? focusedItemId;
 
-  const ListingsWidget({super.key, this.scrollToId, this.focusedItemId});
+  final bool reserveBottomNavigationBarSpace;
+
+  const ListingsWidget({
+    super.key,
+    this.scrollToId,
+    this.focusedItemId,
+    this.reserveBottomNavigationBarSpace = true,
+  });
 
   @override
   State<ListingsWidget> createState() => _ListingsWidgetState();
@@ -97,7 +104,7 @@ class _ListingsWidgetState extends State<ListingsWidget> {
       },
       child: ListWidget<Listing>(
         loadNextOnBottom: true,
-        reserveBottomNavigationBarSpace: true,
+        reserveBottomNavigationBarSpace: widget.reserveBottomNavigationBarSpace,
         scrollToId: widget.scrollToId,
         focusedItemId: widget.focusedItemId,
         itemPositionsListener: _itemPositionsListener,
