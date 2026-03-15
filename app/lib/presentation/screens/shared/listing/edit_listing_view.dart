@@ -3,6 +3,7 @@ import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'package:hostr/presentation/forms/search/location_input.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -20,6 +21,15 @@ class EditListingView extends StatefulWidget {
 class EditListingViewState extends State<EditListingView> {
   final EditListingController controller = EditListingController();
   Listing? _newListing;
+
+  Widget wrapPage(Widget child) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SizedBox.expand(
+        child: AppConstrainedBody(padding: EdgeInsets.zero, child: child),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -131,7 +141,7 @@ class EditListingViewState extends State<EditListingView> {
     if (widget.a == null) {
       return UnsavedChangesGuard(
         isDirty: () => controller.isDirty,
-        child: buildListing(context, _newListing!),
+        child: wrapPage(buildListing(context, _newListing!)),
       );
     }
     return ListingProvider(
@@ -143,13 +153,13 @@ class EditListingViewState extends State<EditListingView> {
       },
       builder: (context, state) {
         if (state.data == null) {
-          return const Scaffold(
-            body: Center(child: AppLoadingIndicator.large()),
+          return wrapPage(
+            const Scaffold(body: Center(child: AppLoadingIndicator.large())),
           );
         }
         return UnsavedChangesGuard(
           isDirty: () => controller.isDirty,
-          child: buildListing(context, state.data!),
+          child: wrapPage(buildListing(context, state.data!)),
         );
       },
     );

@@ -50,6 +50,7 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
               ? CircleAvatar(
                   backgroundImage: NetworkImage(
                     snapshot.data!.metadata.picture!,
+                    webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                   ),
                 )
               : CircleAvatar(backgroundColor: Colors.grey),

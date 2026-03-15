@@ -155,18 +155,7 @@ class _AppShellScreenState extends State<AppShellScreen>
                       final navBg = bottomNavigationBarTheme.backgroundColor!;
 
                       if (layout.showsSidebarNavigation) {
-                        return AppWideNavigationScaffold(
-                          destinations: destinations,
-                          selectedIndex: min(
-                            destinations.length - 1,
-                            tabsRouter.activeIndex,
-                          ),
-                          onDestinationSelected: (index) {
-                            _showNav();
-                            tabsRouter.setActiveIndex(index);
-                          },
-                          child: child,
-                        );
+                        return child;
                       }
 
                       return Scaffold(

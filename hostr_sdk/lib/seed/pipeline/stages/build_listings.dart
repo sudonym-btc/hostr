@@ -383,7 +383,6 @@ const Map<_ListingTheme, List<String>> _themeImageUrls = {
     'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1200&h=800&q=80',
     'https://images.unsplash.com/photo-1470246973918-29a93221c455?auto=format&fit=crop&w=1200&h=800&q=80',
     'https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=1200&h=800&q=80',
-    'https://images.unsplash.com/photo-1499696010181-024a06f4f8a9?auto=format&fit=crop&w=1200&h=800&q=80',
     'https://images.unsplash.com/photo-1473116763249-2faaef81ccda?auto=format&fit=crop&w=1200&h=800&q=80',
     'https://images.unsplash.com/photo-1459535653751-d571815e906b?auto=format&fit=crop&w=1200&h=800&q=80',
     'https://images.unsplash.com/photo-1472224371017-08207f84aaae?auto=format&fit=crop&w=1200&h=800&q=80',

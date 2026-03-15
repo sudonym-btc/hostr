@@ -24,7 +24,10 @@ class TrustedEscrowListItemWidget extends StatelessWidget {
       onTap: onTap,
       leading: CircleAvatar(
         backgroundImage: metadata?.picture != null
-            ? NetworkImage(metadata!.picture!)
+            ? NetworkImage(
+                metadata!.picture!,
+                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+              )
             : null,
         child: metadata?.picture == null
             ? Text(

@@ -29,7 +29,12 @@ class RelayListItemView extends StatelessWidget {
       contentPadding: EdgeInsets.all(0),
       leading: CircleAvatar(
         backgroundColor: isConnected ? Colors.green : Colors.orange,
-        foregroundImage: iconUrl != null ? Image.network(iconUrl!).image : null,
+        foregroundImage: iconUrl != null
+            ? NetworkImage(
+                iconUrl!,
+                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+              )
+            : null,
       ),
       trailing: canRemove
           ? IconButton(icon: Icon(Icons.close), onPressed: onRemove)

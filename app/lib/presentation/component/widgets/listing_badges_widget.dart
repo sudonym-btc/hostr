@@ -130,6 +130,7 @@ class BadgeChip extends StatelessWidget {
                       width: 20,
                       height: 20,
                       fit: BoxFit.cover,
+                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                       frameBuilder:
                           (context, child, frame, wasSynchronouslyLoaded) {
                             final loaded =
@@ -234,6 +235,7 @@ class BadgeDetailsSheet extends StatelessWidget {
                       width: kIconHero,
                       height: kIconHero,
                       fit: BoxFit.cover,
+                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                       frameBuilder:
                           (context, child, frame, wasSynchronouslyLoaded) {
                             final loaded =

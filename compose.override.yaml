@@ -10,6 +10,10 @@ include:
   - path: ./compose.boltz.override.yaml
 
 services:
+  app:
+    volumes:
+      - ./app/build/web:/usr/share/nginx/html:ro
+
   rif-relay:
     depends_on:
       anvil:

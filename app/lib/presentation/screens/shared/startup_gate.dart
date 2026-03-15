@@ -54,9 +54,9 @@ class _StartupGateBody extends StatelessWidget {
         if (!state.hasMetadata) {
           if (popOnComplete) {
             context.router.popUntilRoot();
-            context.router.replace(const AppShellRoute());
+            context.router.replace(const WideViewportShellRoute());
           } else {
-            context.router.replace(const AppShellRoute());
+            context.router.replace(const WideViewportShellRoute());
           }
           context.router.push(EditProfileRoute());
           return;
@@ -64,9 +64,9 @@ class _StartupGateBody extends StatelessWidget {
 
         if (popOnComplete) {
           context.router.popUntilRoot();
-          context.router.replace(const AppShellRoute());
+          context.router.replace(const WideViewportShellRoute());
         } else {
-          context.router.replace(const AppShellRoute());
+          context.router.replace(const WideViewportShellRoute());
         }
       },
       builder: (context, state) {

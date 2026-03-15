@@ -39,6 +39,7 @@ class BlossomImage extends StatelessWidget {
       alignment: alignment ?? Alignment.center,
       width: width,
       height: height,
+      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         final loaded = wasSynchronouslyLoaded || frame != null;
         return SizedBox(

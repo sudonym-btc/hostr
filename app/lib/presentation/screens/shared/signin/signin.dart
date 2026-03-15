@@ -11,6 +11,7 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
@@ -129,86 +130,89 @@ class SignInScreenState extends State<SignInScreen> {
       body: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
           return SafeArea(
-            child: CustomPadding(
-              child: Column(
-                children: [
-                  const Spacer(flex: 2),
-                  // ── Logo ──
-                  Image.asset(
-                    'assets/images/logo/generated/logo_base_1024.png',
-                    width: 120,
-                    height: 120,
-                  ),
-                  Gap.vertical.custom(40),
-                  // ── Private key field ──
-                  TextFormField(
-                    key: const ValueKey('key'),
-                    controller: _controller,
-                    onChanged: (value) {
-                      setState(() {
-                        _private = value;
-                        _error = null;
-                      });
-                    },
-                    maxLines: null,
-                    decoration: InputDecoration(
-                      hintText: 'nsec',
-                      errorText: _error,
-                      prefixIcon: const Icon(Icons.key),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.paste),
-                        onPressed: () async {
-                          final data = await Clipboard.getData(
-                            Clipboard.kTextPlain,
-                          );
-                          if (data?.text != null) {
-                            _controller.text = data!.text!;
-                            setState(() {
-                              _private = data.text!;
-                              _error = null;
-                            });
-                          }
-                        },
-                      ),
+            child: AppConstrainedBody(
+              maxWidth: kAppFormMaxWidth,
+              child: CustomPadding(
+                child: Column(
+                  children: [
+                    const Spacer(flex: 2),
+                    // ── Logo ──
+                    Image.asset(
+                      'assets/images/logo/generated/logo_base_1024.png',
+                      width: 120,
+                      height: 120,
                     ),
-                  ),
-                  Gap.vertical.custom(kSpace5),
-                  // ── Sign In button ──
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      key: const ValueKey('login'),
-                      onPressed: _isValidInput ? _handleSignin : null,
-                      child: Text(l10n.signIn),
-                    ),
-                  ),
-                  Gap.vertical.md(),
-                  // ── OR divider ──
-                  Row(
-                    children: [
-                      const Expanded(child: SizedBox.shrink()),
-                      CustomPadding.horizontal.md(
-                        child: Text(
-                          'OR',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                    Gap.vertical.custom(40),
+                    // ── Private key field ──
+                    TextFormField(
+                      key: const ValueKey('key'),
+                      controller: _controller,
+                      onChanged: (value) {
+                        setState(() {
+                          _private = value;
+                          _error = null;
+                        });
+                      },
+                      maxLines: null,
+                      decoration: InputDecoration(
+                        hintText: 'nsec',
+                        errorText: _error,
+                        prefixIcon: const Icon(Icons.key),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.paste),
+                          onPressed: () async {
+                            final data = await Clipboard.getData(
+                              Clipboard.kTextPlain,
+                            );
+                            if (data?.text != null) {
+                              _controller.text = data!.text!;
+                              setState(() {
+                                _private = data.text!;
+                                _error = null;
+                              });
+                            }
+                          },
                         ),
                       ),
-                      const Expanded(child: SizedBox.shrink()),
-                    ],
-                  ),
-                  Gap.vertical.md(),
-                  // ── Sign Up button ──
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: _handleSignup,
-                      child: Text(l10n.signUp),
                     ),
-                  ),
-                  const Spacer(flex: 3),
-                ],
+                    Gap.vertical.custom(kSpace5),
+                    // ── Sign In button ──
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        key: const ValueKey('login'),
+                        onPressed: _isValidInput ? _handleSignin : null,
+                        child: Text(l10n.signIn),
+                      ),
+                    ),
+                    Gap.vertical.md(),
+                    // ── OR divider ──
+                    Row(
+                      children: [
+                        const Expanded(child: SizedBox.shrink()),
+                        CustomPadding.horizontal.md(
+                          child: Text(
+                            'OR',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        const Expanded(child: SizedBox.shrink()),
+                      ],
+                    ),
+                    Gap.vertical.md(),
+                    // ── Sign Up button ──
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: _handleSignup,
+                        child: Text(l10n.signUp),
+                      ),
+                    ),
+                    const Spacer(flex: 3),
+                  ],
+                ),
               ),
             ),
           );
