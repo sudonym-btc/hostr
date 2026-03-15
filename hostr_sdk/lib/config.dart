@@ -1,7 +1,6 @@
+import 'package:models/secp256k1.dart';
 import 'package:ndk/ndk.dart';
 import 'package:sqlite3/common.dart';
-
-// import 'package:ndk_rust_verifier/ndk_rust_verifier.dart';
 
 import 'datasources/operations_database.dart';
 import 'datasources/storage.dart';
@@ -9,14 +8,33 @@ import 'usecase/calendar/calendar.dart';
 import 'util/custom_logger.dart';
 import 'util/telemetry.dart';
 
-/// Returns [RustEventVerifier] when the native library is available,
-/// otherwise falls back to the pure-Dart [Bip340EventVerifier].
 EventVerifier _defaultEventVerifier() {
-  // try {
-  //   return RustEventVerifier();
-  // } catch (_) {
-  return Bip340EventVerifier();
-  // }
+  return CoinlibVerifier();
+}
+
+/// Fast secp256k1-backed BIP-340 verifier.
+///
+/// This uses the shared `models` secp256k1 engine, which can use a fast
+/// backend when available and otherwise falls back to the pure-Dart verifier.
+class CoinlibVerifier implements EventVerifier {
+  CoinlibVerifier();
+
+  @override
+  Future<bool> verify(Nip01Event event) async {
+    if (event.sig == null) {
+      return false;
+    }
+
+    if (!Nip01Utils.isIdValid(event)) {
+      return false;
+    }
+
+    return verifySchnorrSignature(
+      publicKey: event.pubKey,
+      message: event.id,
+      signature: event.sig!,
+    );
+  }
 }
 
 /// Test-only verifier that accepts every event immediately.

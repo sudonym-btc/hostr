@@ -5,4 +5,5 @@ export 'nostr/main.dart';
 export 'nostr_kinds.dart';
 export 'nostr_parser.dart';
 export 'price.dart';
+export 'secp256k1.dart';
 export 'util/main.dart';

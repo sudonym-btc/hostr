@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:models/bip340.dart';
+import 'package:models/secp256k1.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:pointycastle/ecc/api.dart';
 
@@ -41,6 +44,8 @@ class Bip341TweakedKeyPair {
   String? get privateKey => keyPair.privateKey;
 }
 
+Future<void> loadBip341Backend() => loadSecp256k1Backend();
+
 /// Tweaks a private key using a BIP341-style additive tweak derived from [salt].
 ///
 /// The returned keypair is normalized for BIP340 Schnorr signing, while [parity]
@@ -49,6 +54,19 @@ Bip341TweakedKeyPair tweakKeyPair({
   required String privateKey,
   required String salt,
 }) {
+  primeSecp256k1Backend();
+  final tweakBytes = _scalarToBytes(_deriveTweakFromSalt(salt));
+  final coinlibTweaked = tweakKeyPairWithFastSecp256k1(
+    privateKey: privateKey,
+    tweak32: tweakBytes,
+  );
+  if (coinlibTweaked != null) {
+    return Bip341TweakedKeyPair(
+      keyPair: Bip340.fromPrivateKey(coinlibTweaked.privateKeyHex),
+      parity: coinlibTweaked.parity,
+    );
+  }
+
   final parentScalar = _parseScalar(privateKey);
   final canonicalParentScalar = _normalizeScalarToEvenY(parentScalar);
   final basePoint = (_secp256k1.G * canonicalParentScalar)!;
@@ -80,6 +98,19 @@ Bip341TweakedPublicKey tweakPublicKey({
   required String publicKey,
   required String salt,
 }) {
+  primeSecp256k1Backend();
+  final tweakBytes = _scalarToBytes(_deriveTweakFromSalt(salt));
+  final coinlibTweaked = tweakPublicKeyWithFastSecp256k1(
+    publicKey: publicKey,
+    tweak32: tweakBytes,
+  );
+  if (coinlibTweaked != null) {
+    return Bip341TweakedPublicKey(
+      publicKey: coinlibTweaked.publicKeyHex,
+      parity: coinlibTweaked.parity,
+    );
+  }
+
   final basePoint = _xOnlyPubKeyToPoint(publicKey, oddY: false);
   final tweak = _deriveTweakFromSalt(salt);
   final tweakPoint = (_secp256k1.G * tweak)!;
@@ -102,6 +133,17 @@ String? untweakPublicKey({
   required bool tweakedPublicKeyParity,
   required String salt,
 }) {
+  primeSecp256k1Backend();
+  final tweakBytes = _scalarToBytes(_deriveTweakFromSalt(salt));
+  final coinlibUntweaked = untweakPublicKeyWithFastSecp256k1(
+    tweakedPublicKey: tweakedPublicKey,
+    tweakedPublicKeyParity: tweakedPublicKeyParity,
+    tweak32: tweakBytes,
+  );
+  if (coinlibUntweaked != null) {
+    return coinlibUntweaked;
+  }
+
   final tweak = _deriveTweakFromSalt(salt);
   final tweakPoint = (_secp256k1.G * tweak)!;
   final tweakedPoint = _xOnlyPubKeyToPoint(
@@ -122,6 +164,18 @@ bool verifyTweakedPublicKey({
   required String tweakedPublicKey,
   required bool tweakedPublicKeyParity,
 }) {
+  primeSecp256k1Backend();
+  final tweakBytes = _scalarToBytes(_deriveTweakFromSalt(salt));
+  final coinlibVerified = verifyTweakedPublicKeyWithFastSecp256k1(
+    publicKey: publicKey,
+    tweak32: tweakBytes,
+    tweakedPublicKey: tweakedPublicKey,
+    tweakedPublicKeyParity: tweakedPublicKeyParity,
+  );
+  if (coinlibVerified != null) {
+    return coinlibVerified;
+  }
+
   final tweaked = tweakPublicKey(publicKey: publicKey, salt: salt);
   return tweaked.publicKey == tweakedPublicKey.toLowerCase() &&
       tweaked.parity == tweakedPublicKeyParity;
@@ -152,6 +206,16 @@ BigInt _deriveTweakFromSalt(String salt) {
   }
 
   return tweak;
+}
+
+Uint8List _scalarToBytes(BigInt value) {
+  final bytes = Uint8List(32);
+  var remaining = value;
+  for (var i = 31; i >= 0; i--) {
+    bytes[i] = (remaining & BigInt.from(0xff)).toInt();
+    remaining >>= 8;
+  }
+  return bytes;
 }
 
 ECPoint _xOnlyPubKeyToPoint(String pubKey, {required bool oddY}) {

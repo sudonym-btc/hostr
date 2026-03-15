@@ -1,6 +1,6 @@
 .codegpt
 boltz-dart
-
+.dart_tool/
 # Compiled source #
 ###################
 *.com
