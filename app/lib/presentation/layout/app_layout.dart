@@ -180,6 +180,12 @@ class AppWideNavigationScaffold extends StatelessWidget {
     required this.child,
   });
 
+  String _navbarLogoAssetForTheme(Brightness brightness) {
+    return brightness == Brightness.dark
+        ? 'assets/images/logo/generated/logo_navbar_dark_512.png'
+        : 'assets/images/logo/generated/logo_navbar_light_512.png';
+  }
+
   @override
   Widget build(BuildContext context) {
     final layout = AppLayoutSpec.of(context);
@@ -207,25 +213,23 @@ class AppWideNavigationScaffold extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(bottom: kSpace5),
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.asset(
-                                'assets/images/logo/generated/logo_base_1024.png',
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            const SizedBox(width: kSpace3),
-                            Text(
-                              'Hostr',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
+                        child: Semantics(
+                          label: 'Hostr',
+                          child: Image.asset(
+                            _navbarLogoAssetForTheme(theme.brightness),
+                            width: 132,
+                            height: 44,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.centerLeft,
+                            errorBuilder: (_, __, ___) {
+                              return Text(
+                                'Hostr',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                       Expanded(

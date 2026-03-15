@@ -95,10 +95,12 @@ class UserSubscriptions {
   allMyReservationPairsCurrent$;
 
   /// Reservation pairs where the current user is the **guest** (not the host).
-  late StreamWithStatus<Validation<ReservationPair>> myTrips$;
+  final StreamWithStatus<Validation<ReservationPair>> myTrips$ =
+      StreamWithStatus<Validation<ReservationPair>>();
 
   /// Reservation pairs where the current user is the **host**.
-  late StreamWithStatus<Validation<ReservationPair>> myHostings$;
+  final StreamWithStatus<Validation<ReservationPair>> myHostings$ =
+      StreamWithStatus<Validation<ReservationPair>>();
 
   /// All reservation transitions across every trade the user is in.
   late ExpandableSubscription<ReservationTransition> allTransitions$;
@@ -202,11 +204,17 @@ class UserSubscriptions {
     );
     allMyReservationPairsCurrent$ = allMyReservationPairs$.currentItems();
 
-    myTrips$ = allMyReservationPairs$.whereItems(
-      (item) => item.event.hostPubkey != myPubkey,
+    _bindDerivedReservationPairs(
+      target: myTrips$,
+      source: allMyReservationPairs$.whereItems(
+        (item) => item.event.hostPubkey != myPubkey,
+      ),
     );
-    myHostings$ = allMyReservationPairs$.whereItems(
-      (item) => item.event.hostPubkey == myPubkey,
+    _bindDerivedReservationPairs(
+      target: myHostings$,
+      source: allMyReservationPairs$.whereItems(
+        (item) => item.event.hostPubkey == myPubkey,
+      ),
     );
 
     allTransitions$ = _transitions.expandableSubscribe(
@@ -248,8 +256,8 @@ class UserSubscriptions {
 
     await giftwraps$.close();
     _parsedGiftwraps$ = null;
-    await myTrips$.close();
-    await myHostings$.close();
+    await myTrips$.reset();
+    await myHostings$.reset();
     await allMyReservationPairsCurrent$.close();
     await allMyReservationPairs$.close();
     await allMyReservations$.reset();
@@ -292,8 +300,30 @@ class UserSubscriptions {
     await messages$.close();
     await paymentEvents$.close();
     await latestHeartbeats$.close();
+    await myTrips$.close();
+    await myHostings$.close();
     await _isLive.close();
   });
+
+  void _bindDerivedReservationPairs({
+    required StreamWithStatus<Validation<ReservationPair>> target,
+    required StreamWithStatus<Validation<ReservationPair>> source,
+  }) {
+    target.addSubscription(
+      source.itemsStream.listen(target.replaceAll, onError: target.addError),
+    );
+    target.addSubscription(
+      source.status.listen(target.addStatus, onError: target.addError),
+    );
+
+    final previousOnClose = target.onClose;
+    target.onClose = () async {
+      if (previousOnClose != null) {
+        await Future.sync(() => previousOnClose());
+      }
+      await source.close();
+    };
+  }
 
   void _startDiscoveryEngine() => _logger.spanSync('_startDiscoveryEngine', () {
     _logger.d("processing threads");

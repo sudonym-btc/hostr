@@ -6,6 +6,7 @@ import '../../../auth/auth.dart';
 import '../../../background_worker/background_worker.dart';
 import '../../../evm/evm.dart';
 import '../../../evm/operations/operation_state_store.dart';
+import '../../../trade_account_allocator/trade_account_allocator.dart';
 import '../onchain_operation.dart';
 import 'escrow_fund_operation.dart';
 import 'escrow_fund_registry.dart';
@@ -25,6 +26,7 @@ import 'escrow_fund_state.dart';
 class EscrowFundRecoverer {
   final OperationStateStore _store;
   final Auth _auth;
+  final TradeAccountAllocator _tradeAccountAllocator;
   final Evm _evm;
   final CustomLogger _logger;
   final EscrowFundRegistry _registry;
@@ -32,6 +34,7 @@ class EscrowFundRecoverer {
   EscrowFundRecoverer(
     this._store,
     this._auth,
+    this._tradeAccountAllocator,
     this._evm,
     CustomLogger logger,
     this._registry,
@@ -103,6 +106,7 @@ class EscrowFundRecoverer {
 
     final cubit = EscrowFundOperation.forRecovery(
       _auth,
+      _tradeAccountAllocator,
       _evm,
       _logger,
       recoveryChain: chain,

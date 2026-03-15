@@ -5,6 +5,7 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
+import '../trade_account_allocator/trade_account_allocator.dart';
 
 /// Use-case for creating negotiate-stage [Reservation] events (formerly
 /// "reservation requests"). The class name is kept for DI compatibility but
@@ -12,11 +13,14 @@ import '../crud.usecase.dart';
 @Singleton()
 class ReservationRequests extends CrudUseCase {
   final Auth _auth;
+  final TradeAccountAllocator _tradeAccountAllocator;
   ReservationRequests({
     required super.requests,
     required super.logger,
     required Auth auth,
+    required TradeAccountAllocator tradeAccountAllocator,
   }) : _auth = auth,
+       _tradeAccountAllocator = tradeAccountAllocator,
        super(kind: Reservation.kinds[0]);
 
   static String getReservationRequestId({
@@ -40,9 +44,9 @@ class ReservationRequests extends CrudUseCase {
     required DateTime endDate,
     Amount? amount,
   }) => logger.span('createReservationRequest', () async {
-    final accountIndex = await _auth.reserveNextTradeIndex();
-    final nonce = _auth.getTradeId(accountIndex: accountIndex);
-    final salt = _auth.getTradeSalt(accountIndex: accountIndex);
+    final accountIndex = await _tradeAccountAllocator.reserveNextTradeIndex();
+    final nonce = await _auth.hd.getTradeId(accountIndex: accountIndex);
+    final salt = await _auth.hd.getTradeSalt(accountIndex: accountIndex);
 
     logger.d(
       'Creating negotiate reservation with deterministic tradeId $nonce '

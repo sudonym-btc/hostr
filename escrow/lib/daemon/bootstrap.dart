@@ -76,7 +76,7 @@ Future<DaemonContext> bootstrap() async {
     tags: EventTags([]),
     content: EscrowServiceContent(
       pubkey: hostr.auth.activeKeyPair!.publicKey,
-      evmAddress: hostr.auth.getActiveEvmKey().address.eip55With0x,
+      evmAddress: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
       contractAddress: contractAddress,
       contractBytecodeHash: sha256
           .convert(await web3client

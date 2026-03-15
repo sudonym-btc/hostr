@@ -23,6 +23,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
@@ -201,10 +202,11 @@ Reservation _buildCancel({
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Builds a mock [EscrowService] pointing at the local Anvil contract.
-EscrowService _buildEscrowService() {
+Future<EscrowService> _buildEscrowService() async {
   return MOCK_ESCROWS(
     contractAddress: _contractAddress,
-    evmAddress: deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
+    evmAddress:
+        (await deriveEvmKey(MockKeys.escrow.privateKey!)).address.eip55With0x,
   ).first;
 }
 
@@ -612,14 +614,14 @@ void main() {
           allowSelfSignedReservation: true,
           requiresEscrow: true,
         );
-        escrowService = _buildEscrowService();
+        escrowService = await _buildEscrowService();
         escrowTrust = _buildEscrowTrust(host: host);
         escrowMethod = _buildEscrowMethod(host: host);
 
         hosterProfile = _buildProfileEvent(
           key: host,
           lud16: 'host@hostr.development',
-          evmAddress: deriveEvmKey(host.privateKey!).address.eip55With0x,
+          evmAddress: (await deriveEvmKey(host.privateKey!)).address.eip55With0x,
         );
       });
 
@@ -631,7 +633,7 @@ void main() {
         'self-signed commit with real escrow deposit → Valid',
         () async {
           // Fund buyer's EVM address
-          final buyerEvm = deriveEvmKey(buyer.privateKey!);
+          final buyerEvm = await deriveEvmKey(buyer.privateKey!);
           await harness.anvil.setBalance(
             address: buyerEvm.address.eip55With0x,
             amountWei: _twoEthWei,
@@ -660,8 +662,8 @@ void main() {
             EthereumAddress.fromHex(_contractAddress),
           );
 
-          final sellerEvm = deriveEvmKey(host.privateKey!);
-          final arbiterEvm = deriveEvmKey(MockKeys.escrow.privateKey!);
+          final sellerEvm = await deriveEvmKey(host.privateKey!);
+          final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
           final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
           final depositAmount = EtherAmount.fromBigInt(
@@ -724,7 +726,7 @@ void main() {
       test(
         'EscrowProof.validate checks tx exists on chain',
         () async {
-          final buyerEvm = deriveEvmKey(buyer.privateKey!);
+          final buyerEvm = await deriveEvmKey(buyer.privateKey!);
           await harness.anvil.setBalance(
             address: buyerEvm.address.eip55With0x,
             amountWei: _twoEthWei,
@@ -751,8 +753,8 @@ void main() {
             EthereumAddress.fromHex(_contractAddress),
           );
 
-          final sellerEvm = deriveEvmKey(host.privateKey!);
-          final arbiterEvm = deriveEvmKey(MockKeys.escrow.privateKey!);
+          final sellerEvm = await deriveEvmKey(host.privateKey!);
+          final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
           final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
           final depositAmount = EtherAmount.fromBigInt(
@@ -809,7 +811,7 @@ void main() {
       test(
         'escrow deposit with wrong amount — tx exists but amount mismatch',
         () async {
-          final buyerEvm = deriveEvmKey(buyer2.privateKey!);
+          final buyerEvm = await deriveEvmKey(buyer2.privateKey!);
           await harness.anvil.setBalance(
             address: buyerEvm.address.eip55With0x,
             amountWei: _twoEthWei,
@@ -835,8 +837,8 @@ void main() {
             EthereumAddress.fromHex(_contractAddress),
           );
 
-          final sellerEvm = deriveEvmKey(host.privateKey!);
-          final arbiterEvm = deriveEvmKey(MockKeys.escrow.privateKey!);
+          final sellerEvm = await deriveEvmKey(host.privateKey!);
+          final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
           final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
           // Deposit only 1 wei — intentionally wrong amount
@@ -1475,8 +1477,8 @@ void main() {
       expect(result.fields['proof']?.ok, isFalse);
     });
 
-    test('buyer with escrow proof → valid (current implementation)', () {
-      final escrowService = _buildEscrowService();
+    test('buyer with escrow proof → valid (current implementation)', () async {
+      final escrowService = await _buildEscrowService();
       final escrowTrust = _buildEscrowTrust(host: host);
       final escrowMethod = _buildEscrowMethod(host: host);
       final hosterProfile = _buildProfileEvent(key: host);

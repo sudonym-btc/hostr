@@ -4,7 +4,6 @@ library;
 import 'dart:math';
 
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:logger/logger.dart';
 import 'package:test/test.dart';
 
@@ -42,7 +41,7 @@ void main() {
 
         final swapIn = evm.rootstock.swapIn(
           SwapInParams(
-            evmKey: hostr.auth.getActiveEvmKey(),
+            evmKey: await hostr.auth.hd.getActiveEvmKey(),
             accountIndex: 0,
             amount: amount,
           ),

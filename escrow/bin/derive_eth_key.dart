@@ -12,7 +12,7 @@ import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 ///   PRIVATE_KEY=<nsec_hex> dart run bin/derive_eth_key.dart
 ///
 /// Outputs the 0x-prefixed ETH private key on stdout (no newline).
-void main(List<String> args) {
+Future<void> main(List<String> args) async {
   final nsecHex =
       args.isNotEmpty ? args.first : Platform.environment['PRIVATE_KEY'];
 
@@ -22,7 +22,7 @@ void main(List<String> args) {
     exit(1);
   }
 
-  final ethKey = deriveEvmKey(nsecHex);
+  final ethKey = await deriveEvmKey(nsecHex);
   // Output just the hex key, 0x-prefixed, for piping into other tools.
   stdout.write('0x${ethKey.privateKeyInt.toRadixString(16).padLeft(64, '0')}');
 }

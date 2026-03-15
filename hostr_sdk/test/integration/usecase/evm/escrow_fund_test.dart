@@ -37,9 +37,10 @@ void main() {
       await hostr.auth.signin(trade.guest.privateKey);
 
       final contractAddress = resolveContractAddress();
-      final escrowService = harness.seeds.factory
-          .buildEscrowServices(contractAddress: contractAddress)
-          .first;
+      final escrowService =
+          (await harness.seeds.factory.buildEscrowServices(
+            contractAddress: contractAddress,
+          )).first;
       final negotiateReservation = trade.negotiateReservation;
       final sellerProfile = trade.sellerProfile;
 
@@ -54,8 +55,8 @@ void main() {
 
       await operation.initialize();
       await anvil.setBalance(
-        address: hostr.auth
-            .getActiveEvmKey(accountIndex: operation.accountIndex)
+        address: (await hostr.auth.hd
+                .getActiveEvmKey(accountIndex: operation.accountIndex))
             .address
             .eip55With0x,
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,

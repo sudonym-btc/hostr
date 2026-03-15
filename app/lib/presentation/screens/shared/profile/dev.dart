@@ -19,14 +19,14 @@ class DevWidget extends StatelessWidget {
       children: [
         BackgroundTasks(),
         FilledButton(
-          onPressed: () {
+          onPressed: () async {
             showAppModal(
               context,
               child: SwapInFlowWidget(
                 cubit: getIt<Hostr>().evm.supportedEvmChains[0].swapIn(
                   SwapInParams(
                     amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000),
-                    evmKey: getIt<Hostr>().auth.getActiveEvmKey(),
+                    evmKey: await getIt<Hostr>().auth.hd.getActiveEvmKey(),
                     accountIndex: 0,
                   ),
                 )..estimateFees(),

@@ -27,6 +27,7 @@ export 'reservation_requests/reservation_requests.dart';
 export 'reservation_transitions/reservation_transitions.dart';
 export 'reservations/reservations.dart';
 export 'reviews/reviews.dart';
+export 'trade_account_allocator/trade_account_allocator.dart';
 export 'trade_audit/trade_audit.dart';
 export 'trades/main.dart';
 export 'user_config/main.dart';

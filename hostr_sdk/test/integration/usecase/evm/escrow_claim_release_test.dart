@@ -39,7 +39,7 @@ void main() {
       );
       await hostr.auth.signin(trade.guest.privateKey);
 
-      final escrowService = _resolveEscrowService(harness);
+      final escrowService = await _resolveEscrowService(harness);
       final tradeId = trade.negotiateReservation.getDtag()!;
       await _fundTradeWithoutSwap(
         harness: harness,
@@ -102,7 +102,7 @@ void main() {
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
       await hostr.auth.signin(trade.guest.privateKey);
 
-      final escrowService = _resolveEscrowService(harness);
+      final escrowService = await _resolveEscrowService(harness);
       final tradeId = trade.negotiateReservation.getDtag()!;
       await _fundTradeWithoutSwap(
         harness: harness,
@@ -151,11 +151,11 @@ void main() {
   );
 }
 
-EscrowService _resolveEscrowService(IntegrationTestHarness harness) {
+Future<EscrowService> _resolveEscrowService(IntegrationTestHarness harness) async {
   final contractAddress = resolveContractAddress();
-  return harness.seeds.factory
-      .buildEscrowServices(contractAddress: contractAddress)
-      .first;
+  return (await harness.seeds.factory.buildEscrowServices(
+    contractAddress: contractAddress,
+  )).first;
 }
 
 Future<void> _fundTradeWithoutSwap({
@@ -175,8 +175,8 @@ Future<void> _fundTradeWithoutSwap({
 
   await operation.initialize();
   await harness.anvil.setBalance(
-    address: hostr.auth
-        .getActiveEvmKey(accountIndex: operation.accountIndex)
+    address: (await hostr.auth.hd
+        .getActiveEvmKey(accountIndex: operation.accountIndex))
         .address
         .eip55With0x,
     amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,

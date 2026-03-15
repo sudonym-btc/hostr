@@ -67,14 +67,7 @@ class Reservations extends CrudUseCase<Reservation>
     required String listingAnchor,
   }) {
     logger.d('Fetching reservations for listing: $listingAnchor');
-    return list(
-      Filter(
-        kinds: Reservation.kinds,
-        tags: {
-          kListingRefTag: [listingAnchor],
-        },
-      ),
-    ).then((reservations) {
+    return findByTag(kListingRefTag, listingAnchor).then((reservations) {
       logger.d('Found ${reservations.length} reservations');
       return reservations;
     });

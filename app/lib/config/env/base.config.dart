@@ -12,6 +12,10 @@ abstract class Config {
   RootstockConfig get rootstock;
   List<String> get bootstrapEscrowPubkeys => [];
   bool get useSecureKeyValueStorage => true;
+  bool get trustAllNdkEventsForTesting => const bool.fromEnvironment(
+    'HOSTR_TRUST_ALL_NDK_EVENTS',
+    defaultValue: true,
+  );
   String get googleMapsApiKey;
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
@@ -22,6 +26,7 @@ abstract class Config {
     CustomLogger? logger,
     CommonDatabase? operationsDb,
     ShowNotification? showNotification,
+    ConfigureCryptography? configureCryptography,
   }) {
     final log = logger ?? CustomLogger();
 
@@ -38,10 +43,14 @@ abstract class Config {
       storage: useSecureKeyValueStorage
           ? SecureKeyValueStorage()
           : InMemoryKeyValueStorage(),
+      eventVerifier: trustAllNdkEventsForTesting
+          ? const TrustAllEventVerifier()
+          : null,
       logs: log,
       telemetry: buildTelemetry(),
       calendarPort: EventideCalendarPort(logger: log),
       showNotification: showNotification,
+      configureCryptography: configureCryptography,
     );
   }
 }

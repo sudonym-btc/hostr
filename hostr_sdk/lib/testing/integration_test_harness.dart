@@ -13,6 +13,7 @@ import '../datasources/main.dart';
 import '../hostr.dart';
 import '../injection.dart';
 import '../seed/seed.dart';
+import '../util/deterministic_key_derivation.dart';
 import '../util/main.dart';
 import 'in_memory_hydrated_storage.dart';
 
@@ -131,8 +132,8 @@ class IntegrationTestHarness {
     await Future.wait([
       anvil.setAutomine(true),
       ...fundKeys.map(
-        (key) => anvil.setBalance(
-          address: deriveEvmKey(key.privateKey!).address.eip55With0x,
+        (key) async => anvil.setBalance(
+          address: (await deriveEvmKey(key.privateKey!)).address.eip55With0x,
           amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
         ),
       ),

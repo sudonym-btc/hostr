@@ -147,12 +147,12 @@ _SeedIdentity _identityForUser(SeedUser user, int seed) {
 
 // ─── Profile building ───────────────────────────────────────────────────────
 
-List<ProfileMetadata> buildProfiles({
+Future<List<ProfileMetadata>> buildProfiles({
   required SeedContext ctx,
   required List<SeedUser> users,
-}) {
-  return users
-      .map((user) {
+}) async {
+  return Future.wait(
+    users.map((user) async {
         final identity = _identityForUser(user, ctx.seed);
         final metadata = Metadata(
           pubKey: user.keyPair.publicKey,
@@ -172,10 +172,11 @@ List<ProfileMetadata> buildProfiles({
 
         final tags = List<List<String>>.from(metadata.tags);
         if (user.hasEvm) {
+          final evmKey = await deriveEvmKey(user.keyPair.privateKey!);
           tags.add([
             'i',
             'evm:address',
-            deriveEvmKey(user.keyPair.privateKey!).address.eip55With0x,
+            evmKey.address.eip55With0x,
           ]);
         }
 
@@ -193,11 +194,11 @@ List<ProfileMetadata> buildProfiles({
         );
 
         return ProfileMetadata.fromNostrEvent(signed);
-      })
-      .toList(growable: false);
+      }),
+    );
 }
 
-ProfileMetadata buildEscrowProfile({required SeedContext ctx}) {
+Future<ProfileMetadata> buildEscrowProfile({required SeedContext ctx}) async {
   final metadata = Metadata(
     pubKey: MockKeys.escrow.publicKey,
     name: 'Hostr Escrow',
@@ -208,11 +209,13 @@ ProfileMetadata buildEscrowProfile({required SeedContext ctx}) {
         'https://wp.decrypt.co/wp-content/uploads/2019/03/bitcoin-logo-bitboy.png',
   ).toEvent();
 
+  final escrowEvmKey = await deriveEvmKey(MockKeys.escrow.privateKey!);
+
   final tags = List<List<String>>.from(metadata.tags)
     ..add([
       'i',
       'evm:address',
-      deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
+      escrowEvmKey.address.eip55With0x,
     ]);
 
   final event = Nip01Event(
@@ -233,10 +236,13 @@ ProfileMetadata buildEscrowProfile({required SeedContext ctx}) {
 
 // ─── Escrow trust / method lists ────────────────────────────────────────────
 
-List<EscrowService> buildEscrowServices({required String contractAddress}) {
+Future<List<EscrowService>> buildEscrowServices({
+  required String contractAddress,
+}) async {
+  final escrowEvmKey = await deriveEvmKey(MockKeys.escrow.privateKey!);
   return MOCK_ESCROWS(
     contractAddress: contractAddress,
-    evmAddress: deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
+    evmAddress: escrowEvmKey.address.eip55With0x,
   ).toList(growable: false);
 }
 

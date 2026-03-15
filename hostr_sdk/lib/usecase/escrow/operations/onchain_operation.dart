@@ -8,6 +8,7 @@ import '../../../util/bloc_x.dart';
 import '../../../util/custom_logger.dart';
 import '../../auth/auth.dart';
 import '../../evm/main.dart';
+import '../../trade_account_allocator/trade_account_allocator.dart';
 import '../supported_escrow_contract/supported_escrow_contract.dart';
 
 // ── Data base class ─────────────────────────────────────────────────────
@@ -425,6 +426,7 @@ abstract class OnchainOperation
   // ── Dependencies ────────────────────────────────────────────────────
 
   final Auth auth;
+  final TradeAccountAllocator tradeAccountAllocator;
   final Evm evm;
   late final EvmChain chain;
   late final SupportedEscrowContract contract;
@@ -441,6 +443,7 @@ abstract class OnchainOperation
 
   OnchainOperation(
     this.auth,
+    this.tradeAccountAllocator,
     this.evm,
     CustomLogger logger,
     OnchainOperationState initialState,
@@ -611,15 +614,17 @@ abstract class OnchainOperation
   }
 
   Future<GasEstimate> estimateCallIntentFee(ContractCallIntent intent) {
-    final signer = auth.getActiveEvmKey(accountIndex: accountIndex);
-    return _shouldUseRelayForIntent(intent)
-        ? contract.estimateRelayFee(intent, signer)
-        : contract.estimateFee(
-            intent,
-            stateOverrideBalance: intent.value.getInWei > BigInt.zero
-                ? intent.value.getInWei
-                : null,
-          );
+    return logger.span('estimateCallIntentFee', () async {
+      final signer = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
+      return _shouldUseRelayForIntent(intent)
+          ? contract.estimateRelayFee(intent, signer)
+          : contract.estimateFee(
+              intent,
+              stateOverrideBalance: intent.value.getInWei > BigInt.zero
+                  ? intent.value.getInWei
+                  : null,
+            );
+    });
   }
 
   Future<String> broadcastContractCallIntent(
@@ -733,7 +738,9 @@ abstract class OnchainOperation
             ? await chain
                   .swapIn(
                     SwapInParams(
-                      evmKey: auth.getActiveEvmKey(accountIndex: accountIndex),
+                      evmKey: await auth.hd.getActiveEvmKey(
+                        accountIndex: accountIndex,
+                      ),
                       accountIndex: accountIndex,
                       amount: swapDeficit,
                       invoiceDescription: swapInvoiceDescription,
@@ -855,7 +862,7 @@ abstract class OnchainOperation
     }
     final tx = await submitContractCallIntent(
       intent,
-      auth.getActiveEvmKey(accountIndex: data.accountIndex),
+      await auth.hd.getActiveEvmKey(accountIndex: data.accountIndex),
     );
     data = data.copyWithTransactionInformation(tx);
     final txHash = extractTxHash(tx);
@@ -909,7 +916,11 @@ abstract class OnchainOperation
   /// Picks the trade-bound deterministic account if available, else falls
   /// back to account index 0.
   Future<void> resolveAddress() => logger.span('resolveAddress', () async {
-    final accountIndex = auth.tryFindTradeAccountIndexByTradeId(tradeId) ?? 0;
+    final accountIndex =
+        (await tradeAccountAllocator.tryFindTradeAccountIndexByTradeId(
+          tradeId,
+        )) ??
+        0;
     logger.i(
       'Using trade signer account index $accountIndex for trade $tradeId',
     );
@@ -944,7 +955,9 @@ abstract class OnchainOperation
       return BitcoinAmount.zero();
     }
 
-    final address = auth.getEvmAddress(accountIndex: data.accountIndex);
+    final address = await auth.hd.getEvmAddress(
+      accountIndex: data.accountIndex,
+    );
     final balance = await chain.getBalance(address);
     final requiredOnchainValue = BitcoinAmount.inWei(intent.value.getInWei);
     final shortfall = balance - requiredOnchainValue - gasEstimate.fee;
@@ -980,7 +993,7 @@ abstract class OnchainOperation
     final deficit = await computeSwapDeficit(data, gasEstimate);
     if (deficit <= BitcoinAmount.zero()) return data;
 
-    final evmKey = auth.getActiveEvmKey(accountIndex: accountIndex);
+    final evmKey = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
 
     // First pass: estimate swap fees.
     SwapInOperation swapEstimation = chain.swapIn(

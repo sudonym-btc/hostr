@@ -30,7 +30,7 @@ StreamWithStatus<Validation<T>> verifyStream<T extends Nip01Event, TDeps>({
   required StreamWithStatus<T> source,
   required Future<TDeps> Function(T item) resolve,
   required Validation<T> Function(T item, TDeps deps) verify,
-  Duration debounce = const Duration(milliseconds: 50),
+  Duration debounce = const Duration(milliseconds: 1000),
   bool closeSourceOnClose = false,
 }) {
   late final StreamSubscription<T> replaySub;

@@ -68,7 +68,8 @@ class RelayListItemWidgetState extends State<RelayListItemWidget> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+    // @todo: why do we need to poll here?  Should we subscribe to connectivity changes instead?
+    _timer = Timer.periodic(Duration(seconds: 10), (timer) {
       setState(() {});
     });
   }

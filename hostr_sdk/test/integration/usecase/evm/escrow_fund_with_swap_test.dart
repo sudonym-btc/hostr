@@ -45,9 +45,10 @@ void main() {
       // RIF Relay → EVM) before depositing to the escrow contract.
 
       final contractAddress = resolveContractAddress();
-      final escrowService = harness.seeds.factory
-          .buildEscrowServices(contractAddress: contractAddress)
-          .first;
+      final escrowService =
+          (await harness.seeds.factory.buildEscrowServices(
+            contractAddress: contractAddress,
+          )).first;
       final negotiateReservation = trade.negotiateReservation;
       final sellerProfile = trade.sellerProfile;
 
@@ -69,7 +70,7 @@ void main() {
 
       // --- Log the balance of the funding address after the operation ---
       final completedData = operation.state.data!;
-      final fundingAddress = hostr.auth.getEvmAddress(
+      final fundingAddress = await hostr.auth.hd.getEvmAddress(
         accountIndex: completedData.accountIndex,
       );
       final balanceAfter = await hostr.evm.rootstock.getBalance(fundingAddress);

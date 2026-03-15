@@ -19,6 +19,17 @@ EventVerifier _defaultEventVerifier() {
   // }
 }
 
+/// Test-only verifier that accepts every event immediately.
+///
+/// Useful for profiling whether time is being spent in NDK signature
+/// verification versus downstream subscription handling.
+class TrustAllEventVerifier implements EventVerifier {
+  const TrustAllEventVerifier();
+
+  @override
+  Future<bool> verify(Nip01Event event) async => true;
+}
+
 /// Platform-agnostic notification callback.
 ///
 /// Mirrors the signature of `FlutterLocalNotificationsPlugin.show()` so the
@@ -31,6 +42,13 @@ typedef ShowNotification =
       String? body,
       String? payload,
     });
+
+/// Optional bootstrap hook for selecting the active `cryptography` backend.
+///
+/// The Flutter app can set `Cryptography.instance` from
+/// `package:cryptography_flutter` here while the SDK remains free of any
+/// Flutter dependency.
+typedef ConfigureCryptography = void Function();
 
 class HostrConfig {
   final List<String> bootstrapRelays;
@@ -45,11 +63,16 @@ class HostrConfig {
   final CustomLogger logger;
   final Telemetry telemetry;
   final CalendarPort? calendarPort;
+  final EventVerifier eventVerifier;
 
   /// Optional callback the SDK invokes to show OS notifications (swap
   /// progress, deposit confirmed, etc.).  When `null`, the SDK silently
   /// skips notification delivery — the operation still completes.
   final ShowNotification? showNotification;
+
+  /// Optional bootstrap hook for choosing the active `cryptography` backend
+  /// before the SDK starts constructing services.
+  final ConfigureCryptography? configureCryptography;
 
   /// Minimum EVM balance (in sats) per address before auto-withdrawal
   /// triggers.  Must be above typical swap-out fees to avoid losing money
@@ -65,6 +88,8 @@ class HostrConfig {
     this.autoWithdrawMinimumSats = 10000,
     this.calendarPort,
     this.showNotification,
+    this.configureCryptography,
+    EventVerifier? eventVerifier,
     KeyValueStorage? storage,
     CommonDatabase? operationsDb,
     NdkConfig? ndk,
@@ -75,10 +100,11 @@ class HostrConfig {
        storage = HostrSDKStorage.fromKeyValue(
          storage ?? InMemoryKeyValueStorage(),
        ),
+       eventVerifier = eventVerifier ?? _defaultEventVerifier(),
        ndkConfig =
            ndk ??
            NdkConfig(
-             eventVerifier: _defaultEventVerifier(),
+             eventVerifier: eventVerifier ?? _defaultEventVerifier(),
              cache: MemCacheManager(),
              fetchedRangesEnabled: true,
              engine: NdkEngine.JIT,

@@ -171,11 +171,13 @@ class ProfileScreen extends StatelessWidget {
                   action: IconButton(
                     icon: const Icon(Icons.key),
                     tooltip: 'Copy mnemonic',
-                    onPressed: () {
-                      final mnemonic = getIt<Hostr>().auth
-                          .getEvmMnemonic()
-                          .join(' ');
+                    onPressed: () async {
+                      final mnemonic =
+                          (await getIt<Hostr>().auth.hd.getEvmMnemonic()).join(
+                            ' ',
+                          );
                       Clipboard.setData(ClipboardData(text: mnemonic));
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Mnemonic copied to clipboard'),

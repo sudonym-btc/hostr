@@ -12,7 +12,6 @@
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01EventModel, Nip01Utils;
@@ -188,7 +187,7 @@ ReservationTransition _transition({
 PaymentProof _escrowPaymentProof({required Listing listing}) {
   final escrowService = MOCK_ESCROWS(
     contractAddress: '0xDEAD',
-    evmAddress: deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
+    evmAddress: '0x000000000000000000000000000000000000bEEF',
   ).first;
   // Build minimal EscrowTrust & EscrowMethod from signed events.
   final trustEvent = Nip01Utils.signWithPrivateKey(
