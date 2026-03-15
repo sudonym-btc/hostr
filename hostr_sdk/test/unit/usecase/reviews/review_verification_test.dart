@@ -199,10 +199,6 @@ void main() {
     test('valid review with host-confirmed reservation', () async {
       final salt = 'salt-host-confirmed';
       final tweakMaterial = ReservationTweakMaterial(salt: salt, parity: true);
-      final commitment = ParticipationProof.computeCommitmentHash(
-        MockKeys.guest.publicKey,
-        salt,
-      );
 
       // Host published the reservation (auto-valid, no payment proof needed).
       final tweakedKey = tweakKeyPair(
@@ -212,14 +208,10 @@ void main() {
       final hostReservation = _reservation(
         listing: listing,
         signer: MockKeys.hoster,
-        tradeId: commitment,
+        tradeId: 'trade-host-confirmed',
         start: DateTime(2026, 2, 1),
         end: DateTime(2026, 2, 3),
         recipient: tweakedKey.publicKey,
-        tweakMaterial: ReservationTweakMaterial(
-          salt: salt,
-          parity: tweakedKey.parity,
-        ),
       );
       fakeRequests.events.add(hostReservation);
 

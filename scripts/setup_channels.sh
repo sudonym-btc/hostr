@@ -154,7 +154,7 @@ connect_peer() {
 wait_for_peer_online() {
     local cmd_name=$1
     local pubkey=$2
-    local max_attempts=15
+    local max_attempts=5
     local attempt=0
 
     while [ $attempt -lt $max_attempts ]; do

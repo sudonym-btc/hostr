@@ -5,6 +5,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/profile/verification/verification_input.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/screens/shared/profile/edit_profile.controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
@@ -120,43 +121,49 @@ class EditProfileViewState extends State<EditProfileView> {
 
   @override
   Widget build(BuildContext context) {
-    return UnsavedChangesGuard(
-      isDirty: () => controller.isDirty,
-      child: Form(
-        key: controller.formKey,
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(AppLocalizations.of(context)!.profile),
-            titleSpacing: 0,
-          ),
-          body: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: ProfileProvider(
-              pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-              onDone: (metadata) => controller.setState(metadata),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: AppLoadingIndicator.large());
+    final scaffold = ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SizedBox.expand(
+        child: AppConstrainedBody(
+          padding: EdgeInsets.zero,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(AppLocalizations.of(context)!.profile),
+              titleSpacing: 0,
+            ),
+            body: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: ProfileProvider(
+                pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+                onDone: (metadata) => controller.setState(metadata),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: AppLoadingIndicator.large());
+                  }
+                  if (snapshot.connectionState == ConnectionState.done) {
+                    return ListView(children: buildFormFields());
+                  }
+                  return Text(AppLocalizations.of(context)!.errorLabel);
+                },
+              ),
+            ),
+            bottomNavigationBar: SaveBottomBar(
+              controller: controller,
+              onSave: () async {
+                final saved = await controller.save();
+                if (saved && context.mounted) {
+                  Navigator.of(context).pop();
                 }
-                if (snapshot.connectionState == ConnectionState.done) {
-                  return ListView(children: buildFormFields());
-                }
-                return Text(AppLocalizations.of(context)!.errorLabel);
               },
             ),
           ),
-          bottomNavigationBar: SaveBottomBar(
-            controller: controller,
-            onSave: () async {
-              final saved = await controller.save();
-              if (saved && context.mounted) {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
         ),
       ),
+    );
+    return UnsavedChangesGuard(
+      isDirty: () => controller.isDirty,
+      child: Form(key: controller.formKey, child: scaffold),
     );
   }
 }

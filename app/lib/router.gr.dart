@@ -463,3 +463,19 @@ class TripsRoute extends PageRouteInfo<void> {
     },
   );
 }
+
+/// generated route for
+/// [WideViewportShellScreen]
+class WideViewportShellRoute extends PageRouteInfo<void> {
+  const WideViewportShellRoute({List<PageRouteInfo>? children})
+    : super(WideViewportShellRoute.name, initialChildren: children);
+
+  static const String name = 'WideViewportShellRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const WideViewportShellScreen();
+    },
+  );
+}

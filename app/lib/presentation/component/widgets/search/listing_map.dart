@@ -879,9 +879,8 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
             ),
           )
         : CameraTargetBounds.unbounded;
-
     return GoogleMap(
-      style: getMapStyle(context, isDarkMode),
+      // style: getMapStyle(context, isDarkMode),
       onMapCreated: _onMapCreated,
       onCameraMove: widget.interactive && kIsWeb ? _onCameraMove : null,
       onCameraIdle: widget.interactive && widget.enableClustering

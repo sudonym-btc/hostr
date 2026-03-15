@@ -14,7 +14,9 @@ const kAppWideContentMaxWidth = 1600.0;
 const kAppSidebarWidth = 280.0;
 const kAppSidebarCollapsedWidth = 96.0;
 const kAppSearchListPaneWidth = 460.0;
-const kAppInboxListPaneWidth = 380.0;
+const kAppInboxListPaneWidth = 460.0;
+const kAppProfileMaxWidth = 460.0;
+const kAppFormMaxWidth = 460.0;
 
 enum AppViewportSize { compact, medium, expanded }
 
@@ -122,6 +124,48 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
   ];
 }
 
+String resolveAppNavigationRouteName({
+  required String currentRouteName,
+  required bool isLoggedIn,
+  required ModeCubitState modeState,
+}) {
+  switch (currentRouteName) {
+    case EditProfileRoute.name:
+      return ProfileRoute.name;
+    case EditListingRoute.name:
+      return isLoggedIn && modeState is HostMode
+          ? MyListingsRoute.name
+          : SearchRoute.name;
+    case ListingRoute.name:
+      return isLoggedIn && modeState is HostMode
+          ? MyListingsRoute.name
+          : SearchRoute.name;
+    case FiltersRoute.name:
+      return SearchRoute.name;
+    case ThreadRoute.name:
+      return InboxRoute.name;
+    default:
+      return currentRouteName;
+  }
+}
+
+int resolveAppNavigationIndex({
+  required String currentRouteName,
+  required List<AppNavigationDestination> destinations,
+  required bool isLoggedIn,
+  required ModeCubitState modeState,
+}) {
+  final targetRouteName = resolveAppNavigationRouteName(
+    currentRouteName: currentRouteName,
+    isLoggedIn: isLoggedIn,
+    modeState: modeState,
+  );
+  final selectedIndex = destinations.indexWhere(
+    (destination) => destination.route.routeName == targetRouteName,
+  );
+  return selectedIndex < 0 ? 0 : selectedIndex;
+}
+
 class AppWideNavigationScaffold extends StatelessWidget {
   final List<AppNavigationDestination> destinations;
   final int selectedIndex;
@@ -157,14 +201,7 @@ class AppWideNavigationScaffold extends StatelessWidget {
                 Container(
                   width: navWidth,
                   padding: const EdgeInsets.all(kSpace4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    border: Border(
-                      right: BorderSide(
-                        color: theme.colorScheme.outlineVariant,
-                      ),
-                    ),
-                  ),
+                  color: theme.colorScheme.surfaceContainerLow,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -237,10 +274,10 @@ class _AppWideNavigationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final backgroundColor = selected
-        ? theme.colorScheme.primaryContainer
+        ? theme.colorScheme.primary
         : Colors.transparent;
     final foregroundColor = selected
-        ? theme.colorScheme.onPrimaryContainer
+        ? theme.colorScheme.onPrimary
         : theme.colorScheme.onSurfaceVariant;
 
     return Material(

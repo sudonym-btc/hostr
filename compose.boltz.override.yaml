@@ -43,7 +43,7 @@ services:
   boltz-backend:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
     healthcheck:
-      start_period: 45s
+      start_period: 60s
 
   boltz-backend-nginx:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}

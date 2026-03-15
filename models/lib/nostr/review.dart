@@ -53,12 +53,11 @@ class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
     ParticipationProof proof,
   ) {
     final recipient = reservation.recipient;
-    final tweakMaterial = reservation.tweakMaterial;
-    if (recipient == null || tweakMaterial == null) return false;
+    if (recipient == null) return false;
     return proof.verifyTweakedPubKey(
       pubKey: reviewerPubKey,
       tweakedPubKey: recipient,
-      tweakMaterial: tweakMaterial,
+      tweakMaterial: proof.tweakMaterial,
     );
   }
 }

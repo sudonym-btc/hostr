@@ -199,7 +199,10 @@ class ImagePreloader {
 
     _preloadingUrls.add(url);
     try {
-      final provider = NetworkImage(url);
+      final provider = NetworkImage(
+        url,
+        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+      );
       final stream = provider.resolve(ImageConfiguration.empty);
       final completer = Completer<void>();
 
@@ -229,7 +232,13 @@ class ImagePreloader {
   /// Calls [precacheImage] for a single URL, catching errors silently.
   void _precacheSingle(String url, BuildContext context) {
     if (!(context as Element).mounted) return;
-    precacheImage(NetworkImage(url), context)
+    precacheImage(
+          NetworkImage(
+            url,
+            webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+          ),
+          context,
+        )
         .then((_) {
           _preloadedUrls.add(url);
         })
