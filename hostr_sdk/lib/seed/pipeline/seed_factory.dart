@@ -60,13 +60,13 @@ class SeedFactory {
   List<SeedUser> buildUsers() =>
       stage_users.buildUsers(ctx: _ctx, config: config);
 
-  List<ProfileMetadata> buildProfiles(List<SeedUser> users) =>
+  Future<List<ProfileMetadata>> buildProfiles(List<SeedUser> users) =>
       stage_profiles.buildProfiles(ctx: _ctx, users: users);
 
-  ProfileMetadata buildEscrowProfile() =>
+  Future<ProfileMetadata> buildEscrowProfile() =>
       stage_profiles.buildEscrowProfile(ctx: _ctx);
 
-  List<EscrowService> buildEscrowServices({String? contractAddress}) =>
+  Future<List<EscrowService>> buildEscrowServices({String? contractAddress}) =>
       stage_profiles.buildEscrowServices(
         contractAddress: contractAddress ?? _ctx.contractAddress,
       );
@@ -129,8 +129,8 @@ class SeedFactory {
     final hosts = users.where((u) => u.isHost).toList(growable: false);
     final guests = users.where((u) => !u.isHost).toList(growable: false);
 
-    final profiles = [...buildProfiles(users), buildEscrowProfile()];
-    final escrowServices = buildEscrowServices();
+    final profiles = [...await buildProfiles(users), await buildEscrowProfile()];
+    final escrowServices = await buildEscrowServices();
     final escrowTrusts = await buildEscrowTrusts(users);
     final escrowMethods = await buildEscrowMethods(users);
 

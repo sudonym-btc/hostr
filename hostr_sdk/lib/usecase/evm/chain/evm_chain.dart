@@ -289,8 +289,13 @@ abstract class EvmChain {
     for (var offset = 0; ; offset += batchSize) {
       // Derive a batch of addresses.
       final indices = List.generate(batchSize, (i) => offset + i);
-      final addresses = indices.map(
-        (i) => (index: i, address: auth.getEvmAddress(accountIndex: i)),
+      final addresses = await Future.wait(
+        indices.map((i) async {
+          return (
+            index: i,
+            address: await auth.hd.getEvmAddress(accountIndex: i),
+          );
+        }),
       );
 
       // Fire nonce + balance queries for every address in the batch at once.
@@ -343,8 +348,13 @@ abstract class EvmChain {
     for (var offset = 0; offset < _maxScanIndex; offset += batchSize) {
       final count = min(batchSize, _maxScanIndex - offset);
       final indices = List.generate(count, (i) => offset + i);
-      final addresses = indices.map(
-        (i) => (index: i, address: auth.getEvmAddress(accountIndex: i)),
+      final addresses = await Future.wait(
+        indices.map((i) async {
+          return (
+            index: i,
+            address: await auth.hd.getEvmAddress(accountIndex: i),
+          );
+        }),
       );
 
       final results = await Future.wait(
@@ -384,19 +394,19 @@ abstract class EvmChain {
 
   /// Emits the total balance across all used addresses on each new block.
   Stream<BitcoinAmount> subscribeTotalBalance() async* {
-    try {
-      yield await getTotalBalance();
-    } catch (e) {
-      logger.w('Failed initial total balance fetch: $e');
-    }
+    // try {
+    //   yield await getTotalBalance();
+    // } catch (e) {
+    //   logger.w('Failed initial total balance fetch: $e');
+    // }
 
-    await for (final _ in _newBlocks()) {
-      try {
-        yield await getTotalBalance();
-      } catch (e) {
-        logger.w('Failed to fetch total balance on new block: $e');
-      }
-    }
+    // await for (final _ in _newBlocks()) {
+    //   try {
+    //     yield await getTotalBalance();
+    //   } catch (e) {
+    //     logger.w('Failed to fetch total balance on new block: $e');
+    //   }
+    // }
   }
 
   Future<EtherSwap> getEtherSwapContract();
@@ -405,14 +415,15 @@ abstract class EvmChain {
 
   SwapInOperation swapIn(SwapInParams params);
 
-  List<SwapOutOperation> swapOutAll();
+  Future<List<SwapOutOperation>> swapOutAll();
 
   /// Async version that scans all HD-derived addresses for non-zero balances
   /// and returns one [SwapOutOperation] per funded address.
   ///
   /// Subclasses should override to provide chain-specific implementations.
   /// The default falls back to [swapOutAll] (account 0 only).
-  Future<List<SwapOutOperation>> swapOutAllAddresses() async => swapOutAll();
+  Future<List<SwapOutOperation>> swapOutAllAddresses() async =>
+      await swapOutAll();
 
   Future<List<dynamic>> call(
     ContractAbi abi,

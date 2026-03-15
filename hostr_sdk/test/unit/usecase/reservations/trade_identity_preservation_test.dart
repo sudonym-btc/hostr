@@ -4,12 +4,14 @@ library;
 import 'dart:async';
 
 import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart';
 import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
+import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
@@ -51,19 +53,28 @@ class _FakeAuth extends Fake implements Auth {
   _FakeAuth(this._activeKeyPair);
 
   final KeyPair _activeKeyPair;
+  final DeterministicKeys _hd = _FakeDeterministicKeys();
 
   @override
   KeyPair getActiveKey() => _activeKeyPair;
 
   @override
-  Future<int> reserveNextTradeIndex() async => 7;
+  DeterministicKeys get hd => _hd;
+}
+
+class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
+  @override
+  Future<String> getTradeId({required int accountIndex}) async =>
+      'trade-id-$accountIndex';
 
   @override
-  String getTradeId({required int accountIndex}) => 'trade-id-$accountIndex';
-
-  @override
-  String getTradeSalt({required int accountIndex}) =>
+  Future<String> getTradeSalt({required int accountIndex}) async =>
       'trade-salt-$accountIndex';
+}
+
+class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
+  @override
+  Future<int> reserveNextTradeIndex() async => 7;
 }
 
 class _FakeMessaging extends Fake implements Messaging {}
@@ -157,16 +168,19 @@ void main() {
   late ReservationRequests reservationRequests;
   late Reservations reservations;
   late _FakeReservationTransitions transitions;
+  late _FakeTradeAccountAllocator tradeAccountAllocator;
 
   setUp(() {
     requests = _FakeRequests();
     auth = _FakeAuth(MockKeys.guest);
     transitions = _FakeReservationTransitions();
+    tradeAccountAllocator = _FakeTradeAccountAllocator();
 
     reservationRequests = ReservationRequests(
       requests: requests,
       logger: CustomLogger(),
       auth: auth,
+      tradeAccountAllocator: tradeAccountAllocator,
     );
 
     reservations = Reservations(

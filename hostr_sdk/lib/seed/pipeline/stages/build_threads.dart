@@ -59,8 +59,11 @@ Future<List<SeedThread>> buildThreads({
       }
 
       final privateKey = guest.keyPair.privateKey!;
-      final tradeId = deriveTradeId(privateKey, accountIndex: guestTradeIndex);
-      final tradeSalt = deriveTradeSalt(
+      final tradeId = await deriveTradeId(
+        privateKey,
+        accountIndex: guestTradeIndex,
+      );
+      final tradeSalt = await deriveTradeSalt(
         privateKey,
         accountIndex: guestTradeIndex,
       );

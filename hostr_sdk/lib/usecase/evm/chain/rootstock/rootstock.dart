@@ -109,13 +109,13 @@ class Rootstock extends EvmChain {
       getIt<RootstockSwapInOperation>(param1: params);
 
   @override
-  List<RootstockSwapOutOperation> swapOutAll() {
+  Future<List<RootstockSwapOutOperation>> swapOutAll() async {
     // Synchronously build a single operation for account 0 as a fallback.
     // The caller should prefer swapOutAllAddresses() for multi-address sweeps.
     return [
       getIt<RootstockSwapOutOperation>(
         param1: SwapOutParams(
-          evmKey: auth.getActiveEvmKey(),
+          evmKey: await auth.hd.getActiveEvmKey(),
           accountIndex: 0,
           amount: null,
         ),
@@ -129,34 +129,21 @@ class Rootstock extends EvmChain {
   /// that holds a non-zero balance.  If no used address has funds, falls back
   /// to a single operation targeting account index 0.
   @override
-  Future<List<RootstockSwapOutOperation>> swapOutAllAddresses() => logger.span(
-    'swapOutAllAddresses',
-    () async {
-      final funded = await getAddressesWithBalance();
-
-      if (funded.isEmpty) {
-        // Nothing found – return single op for account 0 (will fail gracefully
-        // with an insufficient-balance error during execution).
-        return [
-          getIt<RootstockSwapOutOperation>(
-            param1: SwapOutParams(
-              evmKey: auth.getActiveEvmKey(accountIndex: 0),
-              accountIndex: 0,
-              amount: null,
-            ),
-          ),
-        ];
-      }
-
-      return funded.map((entry) {
-        return getIt<RootstockSwapOutOperation>(
-          param1: SwapOutParams(
-            evmKey: auth.getActiveEvmKey(accountIndex: entry.accountIndex),
-            accountIndex: entry.accountIndex,
-            amount: null,
-          ),
+  Future<List<RootstockSwapOutOperation>> swapOutAllAddresses() =>
+      logger.span('swapOutAllAddresses', () async {
+        final funded = await getAddressesWithBalance();
+        return Future.wait(
+          funded.map((entry) async {
+            return getIt<RootstockSwapOutOperation>(
+              param1: SwapOutParams(
+                evmKey: await auth.hd.getActiveEvmKey(
+                  accountIndex: entry.accountIndex,
+                ),
+                accountIndex: entry.accountIndex,
+                amount: null,
+              ),
+            );
+          }),
         );
-      }).toList();
-    },
-  );
+      });
 }

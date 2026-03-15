@@ -75,12 +75,12 @@ class SeedPipeline {
 
   List<SeedUser> buildUsers() => factory.buildUsers();
 
-  List<ProfileMetadata> buildProfiles(List<SeedUser> users) =>
+  Future<List<ProfileMetadata>> buildProfiles(List<SeedUser> users) =>
       factory.buildProfiles(users);
 
-  ProfileMetadata buildEscrowProfile() => factory.buildEscrowProfile();
+  Future<ProfileMetadata> buildEscrowProfile() => factory.buildEscrowProfile();
 
-  List<EscrowService> buildEscrowServices() => factory.buildEscrowServices();
+  Future<List<EscrowService>> buildEscrowServices() => factory.buildEscrowServices();
 
   Future<List<EscrowTrust>> buildEscrowTrusts(List<SeedUser> users) =>
       factory.buildEscrowTrusts(users);
@@ -193,12 +193,15 @@ class SeedPipeline {
 
       // ── Profiles + escrow config ─────────────────────────────────────
 
-      final profiles = [...buildProfiles(users), buildEscrowProfile()];
+      final profiles = [
+        ...await buildProfiles(users),
+        await buildEscrowProfile(),
+      ];
       _emitAll(s, profiles);
 
       final profileByPubkey = {for (final p in profiles) p.pubKey: p};
 
-      final escrowServices = buildEscrowServices();
+      final escrowServices = await buildEscrowServices();
       final escrowTrusts = await buildEscrowTrusts(users);
       final escrowMethods = await buildEscrowMethods(users);
       final trustByPubkey = {for (final t in escrowTrusts) t.pubKey: t};
@@ -399,7 +402,13 @@ class SeedPipeline {
     };
 
     final addressByKey = {
-      for (final pk in privateKeys) pk: deriveEvmKey(pk).address.eip55With0x,
+      for (final entry in await Future.wait(
+        privateKeys.map((pk) async {
+          final evmKey = await deriveEvmKey(pk);
+          return MapEntry(pk, evmKey.address.eip55With0x);
+        }),
+      ))
+        entry.key: entry.value,
     };
     final seen = <String>{};
     final uniqueEntries = addressByKey.entries

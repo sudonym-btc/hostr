@@ -18,7 +18,11 @@ These files ship through the Flutter asset bundle and are available on iOS, Andr
 - `assets/images/logo/generated/logo_base_1024.png`
 - `assets/images/logo/generated/logo_ios_dark_transparent_1024.png`
 - `assets/images/logo/generated/logo_ios_tinted_grayscale_1024.png`
+- `assets/images/logo/generated/logo_navbar_dark_512.png`
+- `assets/images/logo/generated/logo_navbar_light_512.png`
 - `assets/images/logo/generated/logo_notification_white_1024.png`
+- `assets/images/logo/generated/logo_startup_dark_512.png`
+- `assets/images/logo/generated/logo_startup_light_512.png`
 - `assets/images/nostr_clients/damus.png`
 - `assets/images/nostr_clients/primal.svg`
 

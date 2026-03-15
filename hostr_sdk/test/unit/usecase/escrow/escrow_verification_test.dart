@@ -48,10 +48,7 @@ class _FakeEvm extends Fake implements Evm {
   EvmChain getChainForEscrowService(EscrowService service) => chain;
 }
 
-Listing _listing({
-  bool allowBarter = true,
-  int pricePerNightSats = 100000,
-}) {
+Listing _listing({bool allowBarter = true, int pricePerNightSats = 100000}) {
   return Listing.create(
     pubKey: MockKeys.hoster.publicKey,
     dTag: 'listing-escrow-verify',
@@ -80,7 +77,7 @@ Listing _listing({
 EscrowService _escrowService() {
   return MOCK_ESCROWS(
     contractAddress: '0x000000000000000000000000000000000000dEaD',
-    evmAddress: deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
+    evmAddress: '0x000000000000000000000000000000000000bEEF',
   ).first;
 }
 
@@ -203,65 +200,71 @@ StreamWithStatus<EscrowEvent> _eventsSource(EscrowFundedEvent fundedEvent) {
 }
 
 void main() {
-  test('uses seller-signed negotiated amount when validating escrow funding', () async {
-    final listing = _listing();
-    const txHash = '0xnegotiated';
-    final proof = _paymentProof(listing: listing, txHash: txHash);
-    final reservation = _reservation(
-      listing: listing,
-      amount: Amount(currency: Currency.BTC, value: BigInt.from(80000)),
-      proof: proof,
-      includeSellerSignature: true,
-    );
+  test(
+    'uses seller-signed negotiated amount when validating escrow funding',
+    () async {
+      final listing = _listing();
+      const txHash = '0xnegotiated';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: Amount(currency: Currency.BTC, value: BigInt.from(80000)),
+        proof: proof,
+        includeSellerSignature: true,
+      );
 
-    final contract = _FakeSupportedEscrowContract(
-      _eventsSource(
-        _fundedEvent(
-          tradeId: reservation.getDtag()!,
-          txHash: txHash,
-          amountSats: 80000,
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 80000,
+          ),
         ),
-      ),
-    );
-    final verification = EscrowVerification(
-      evm: _FakeEvm(_FakeEvmChain(contract)),
-      logger: CustomLogger(),
-    );
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeEvmChain(contract)),
+        logger: CustomLogger(),
+      );
 
-    final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(reservation: reservation);
 
-    expect(result.isValid, isTrue);
-    expect(result.fundedEvent, isNotNull);
-  });
+      expect(result.isValid, isTrue);
+      expect(result.fundedEvent, isNotNull);
+    },
+  );
 
-  test('falls back to listing amount when negotiated amount lacks seller signature', () async {
-    final listing = _listing();
-    const txHash = '0xlisting';
-    final proof = _paymentProof(listing: listing, txHash: txHash);
-    final reservation = _reservation(
-      listing: listing,
-      amount: Amount(currency: Currency.BTC, value: BigInt.from(80000)),
-      proof: proof,
-    );
+  test(
+    'falls back to listing amount when negotiated amount lacks seller signature',
+    () async {
+      final listing = _listing();
+      const txHash = '0xlisting';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: Amount(currency: Currency.BTC, value: BigInt.from(80000)),
+        proof: proof,
+      );
 
-    final contract = _FakeSupportedEscrowContract(
-      _eventsSource(
-        _fundedEvent(
-          tradeId: reservation.getDtag()!,
-          txHash: txHash,
-          amountSats: 80000,
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 80000,
+          ),
         ),
-      ),
-    );
-    final verification = EscrowVerification(
-      evm: _FakeEvm(_FakeEvmChain(contract)),
-      logger: CustomLogger(),
-    );
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeEvmChain(contract)),
+        logger: CustomLogger(),
+      );
 
-    final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(reservation: reservation);
 
-    expect(result.isValid, isFalse);
-    expect(result.reason, contains('listing amount'));
-    expect(result.reason, contains('Missing valid host commitment'));
-  });
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('listing amount'));
+      expect(result.reason, contains('Missing valid host commitment'));
+    },
+  );
 }

@@ -60,7 +60,7 @@ void main() {
         appNamePrefix: 'swap-out-it',
       );
 
-      final swapOut = hostr.evm.rootstock.swapOutAll().first;
+      final swapOut = (await hostr.evm.rootstock.swapOutAll()).first;
 
       final emittedStates = <SwapOutState>[swapOut.state];
       final sub = swapOut.stream.listen(emittedStates.add);
@@ -91,12 +91,14 @@ void main() {
       await harness.hostr.auth.signin(MockKeys.guest.privateKey!);
 
       await harness.anvil.setBalance(
-        address: harness.hostr.auth.getActiveEvmKey().address.eip55With0x,
+        address: (await harness.hostr.auth.hd.getActiveEvmKey())
+          .address
+          .eip55With0x,
         amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
       );
 
       // ── Attempt 1: submit an invalid invoice → swap fails ──────────
-      final swapOut1 = harness.hostr.evm.rootstock.swapOutAll().first;
+      final swapOut1 = (await harness.hostr.evm.rootstock.swapOutAll()).first;
       final states1 = <SwapOutState>[swapOut1.state];
       final sub1 = swapOut1.stream.listen(states1.add);
 

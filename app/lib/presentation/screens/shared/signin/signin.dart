@@ -89,20 +89,25 @@ class SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _handleSignup() async {
-    setState(() => _error = null);
+    print('signup start ${DateTime.now()}');
+    // setState(() => _error = null);
     final mnemonic = Mnemonic(
       hex.decode(Helpers.getSecureRandomHex(32)),
       Language.english,
     );
-    final identity = getIt<Hostr>().auth.previewResolvedIdentity(
+    print('signup middle ${DateTime.now()}');
+
+    final identity = await getIt<Hostr>().auth.previewResolvedIdentity(
       mnemonic.sentence,
     );
+    print('signup end ${DateTime.now()}');
+
     await showAppModal(
       context,
       isDismissible: false,
       child: BackupKeyWidget(
-        publicKeyHex: identity.publicKeyHex,
-        privateKeyHex: identity.privateKeyHex,
+        publicKeyHex: identity.publicKeyHex!,
+        privateKeyHex: identity.privateKeyHex!,
         mnemonic: mnemonic.sentence,
       ),
     );

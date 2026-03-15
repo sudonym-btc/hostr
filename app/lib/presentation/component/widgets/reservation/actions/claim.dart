@@ -32,7 +32,7 @@ class ClaimWidget extends StatelessWidget {
     //     builder: (context, state) {
     //       return FutureBuilder<bool>(
     //         future: contract.canClaim(
-    //           claimParams.toContractParams(hostr.auth.getActiveEvmKey()),
+    //           claimParams.toContractParams(hostr.auth.hd.getActiveEvmKey()),
     //         ),
     //         builder: (context, snapshot) {
     //           print(

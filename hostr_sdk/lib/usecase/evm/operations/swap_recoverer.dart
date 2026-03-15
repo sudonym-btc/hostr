@@ -98,7 +98,9 @@ class SwapRecoverer {
     OnBackgroundProgress? onProgress,
   }) => _logger.span('_recoverSwapIn', () async {
     final data = state.data!;
-    final evmKey = _auth.getActiveEvmKey(accountIndex: data.accountIndex);
+    final evmKey = await _auth.hd.getActiveEvmKey(
+      accountIndex: data.accountIndex,
+    );
 
     final cubit = rootstock_swap_in.RootstockSwapInOperation(
       rootstock: getIt<Rootstock>(),
@@ -134,7 +136,9 @@ class SwapRecoverer {
     bool isBackground = false,
   }) => _logger.span('_recoverSwapOut', () async {
     final data = state.data!;
-    final evmKey = _auth.getActiveEvmKey(accountIndex: data.accountIndex);
+    final evmKey = await _auth.hd.getActiveEvmKey(
+      accountIndex: data.accountIndex,
+    );
 
     final cubit = rootstock_swap_out.RootstockSwapOutOperation(
       rootstock: getIt<Rootstock>(),

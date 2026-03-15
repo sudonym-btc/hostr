@@ -43,34 +43,33 @@ class KeysWidgetState extends State<KeysWidget> {
               ),
               ListTile(
                 title: Text(AppLocalizations.of(context)!.evmAddress),
-                subtitle: Text(
-                  getIt<Hostr>().auth.getActiveEvmKey().address.eip55With0x,
+                subtitle: FutureBuilder<EthPrivateKey>(
+                  future: getIt<Hostr>().auth.hd.getActiveEvmKey(),
+                  builder: (context, snapshot) =>
+                      Text(snapshot.data?.address.eip55With0x ?? '...'),
                 ),
-                onTap: () {
+                onTap: () async {
+                  final evmKey = await getIt<Hostr>().auth.hd.getActiveEvmKey();
                   Clipboard.setData(
-                    ClipboardData(
-                      text: getIt<Hostr>().auth
-                          .getActiveEvmKey()
-                          .address
-                          .eip55With0x,
-                    ),
+                    ClipboardData(text: evmKey.address.eip55With0x),
                   );
                 },
               ),
               ListTile(
                 title: Text(AppLocalizations.of(context)!.evmPrivateKey),
-                subtitle: Text(
-                  bytesToHex(
-                    (getIt<Hostr>().auth.getActiveEvmKey().privateKey),
+                subtitle: FutureBuilder<EthPrivateKey>(
+                  future: getIt<Hostr>().auth.hd.getActiveEvmKey(),
+                  builder: (context, snapshot) => Text(
+                    snapshot.data == null
+                        ? '...'
+                        : bytesToHex(snapshot.data!.privateKey),
                   ),
                 ),
-                onTap: () {
+                onTap: () async {
+                  final evmKey = await getIt<Hostr>().auth.hd.getActiveEvmKey();
                   Clipboard.setData(
                     ClipboardData(
-                      text: bytesToHex(
-                        getIt<Hostr>().auth.getActiveEvmKey().privateKey,
-                        include0x: true,
-                      ),
+                      text: bytesToHex(evmKey.privateKey, include0x: true),
                     ),
                   );
                 },

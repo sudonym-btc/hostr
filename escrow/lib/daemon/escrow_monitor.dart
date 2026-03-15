@@ -102,21 +102,23 @@ class EscrowMonitor {
   // ── Contract events ───────────────────────────────────────────────────────
 
   void _startContractListener() {
-    final streamer = contract.allEvents(
-      ContractEventsParams(
-        arbiterEvmAddress: hostr.auth.getActiveEvmKey().address,
-      ),
-      null,
-    );
+    hostr.auth.hd.getActiveEvmKey().then((evmKey) {
+      final streamer = contract.allEvents(
+        ContractEventsParams(
+          arbiterEvmAddress: evmKey.address,
+        ),
+        null,
+      );
 
-    streamer.status.listen((status) {
-      print('[monitor] Contract event stream status: $status');
+      streamer.status.listen((status) {
+        print('[monitor] Contract event stream status: $status');
+      });
+
+      _eventSub = streamer.stream.listen(
+        _onEscrowEvent,
+        onError: (e, st) => print('[monitor] Contract event error: $e'),
+      );
     });
-
-    _eventSub = streamer.stream.listen(
-      _onEscrowEvent,
-      onError: (e, st) => print('[monitor] Contract event error: $e'),
-    );
   }
 
   void _onEscrowEvent(EscrowEvent event) {

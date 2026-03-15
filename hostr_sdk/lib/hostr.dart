@@ -13,6 +13,7 @@ class Hostr {
   final CustomLogger logger;
   Hostr({required this.config, String environment = Env.prod})
     : logger = config.logger {
+    config.configureCryptography?.call();
     configureInjection(environment, config: config);
   }
   Ndk get ndk => getIt<Ndk>();
@@ -38,6 +39,8 @@ class Hostr {
   ReservationRequests get reservationRequests => getIt<ReservationRequests>();
   Payments get payments => getIt<Payments>();
   Reviews get reviews => getIt<Reviews>();
+  TradeAccountAllocator get tradeAccountAllocator =>
+      getIt<TradeAccountAllocator>();
   TradeAudit get tradeAudit => getIt<TradeAudit>();
   Evm get evm => getIt<Evm>();
   Relays get relays => getIt<Relays>();

@@ -80,7 +80,8 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
       // evmAddress getter throws if the tag is absent.
     }
 
-    final updated = metadata.withEvmAddress(_auth.getEvmAddress().eip55With0x);
+    final address = await _auth.hd.getEvmAddress();
+    final updated = metadata.withEvmAddress(address.eip55With0x);
     await requests.broadcast(event: updated);
     notifyUpdate(updated);
   });

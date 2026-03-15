@@ -232,7 +232,7 @@ Future<void> buildOutcomes({
       }
       await Future.wait(
         guestNonces.keys.map((privKey) async {
-          final addr = deriveEvmKey(privKey).address;
+          final addr = (await deriveEvmKey(privKey)).address;
           guestNonces[privKey] = await ctx.retryChainCall(
             (c) =>
                 c.getTransactionCount(addr, atBlock: const BlockNum.pending()),
@@ -296,7 +296,7 @@ Future<void> buildOutcomes({
       }
       await Future.wait(
         settlerNonces.keys.map((privKey) async {
-          final addr = deriveEvmKey(privKey).address;
+          final addr = (await deriveEvmKey(privKey)).address;
           settlerNonces[privKey] = await ctx.retryChainCall(
             (c) =>
                 c.getTransactionCount(addr, atBlock: const BlockNum.pending()),
@@ -474,7 +474,7 @@ EscrowProof _buildBogusEscrowProof({
 EscrowService _buildBogusEscrowService(SeedContext ctx) {
   final content = EscrowServiceContent(
     pubkey: MockKeys.escrow.publicKey,
-    evmAddress: deriveEvmKey(MockKeys.escrow.privateKey!).address.eip55With0x,
+    evmAddress: _randomHex(ctx, 40),
     contractAddress: _randomHex(ctx, 40),
     contractBytecodeHash: _randomHex(ctx, 64),
     chainId: 1000 + ctx.random.nextInt(8000),
@@ -524,10 +524,10 @@ Future<void> _createTradeForPlan({
   final tradeId = getBytes32(tradeIdHex);
   final amountWei = request.amount!.value * BigInt.from(10).pow(10);
 
-  final guestCredentials = deriveEvmKey(guest.keyPair.privateKey!);
+  final guestCredentials = await deriveEvmKey(guest.keyPair.privateKey!);
   final buyer = guestCredentials.address;
-  final seller = deriveEvmKey(host.keyPair.privateKey!).address;
-  final arbiter = deriveEvmKey(MockKeys.escrow.privateKey!).address;
+  final seller = (await deriveEvmKey(host.keyPair.privateKey!)).address;
+  final arbiter = (await deriveEvmKey(MockKeys.escrow.privateKey!)).address;
 
   final unlockAtSeconds = request.end.toUtc().millisecondsSinceEpoch ~/ 1000;
   final unlockAt = BigInt.from(unlockAtSeconds);
@@ -587,8 +587,8 @@ Future<void> _settleForPlan({
   final tradeIdHex = request.getDtag() ?? '';
   final tradeId = getBytes32(tradeIdHex);
 
-  final hostCredentials = deriveEvmKey(host.keyPair.privateKey!);
-  final arbiterCredentials = deriveEvmKey(MockKeys.escrow.privateKey!);
+  final hostCredentials = await deriveEvmKey(host.keyPair.privateKey!);
+  final arbiterCredentials = await deriveEvmKey(MockKeys.escrow.privateKey!);
 
   if (plan.escrowOutcome == EscrowOutcome.arbitrated) {
     final txHash = await contract.arbitrate(

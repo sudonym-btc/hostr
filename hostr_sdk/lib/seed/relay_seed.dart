@@ -103,7 +103,7 @@ class RelaySeeder {
       print(
         'Summary: ${const JsonEncoder.withIndent("  ").convert(data.summary.toJson())}',
       );
-      _printPipelineUsersByRole(data);
+      await _printPipelineUsersByRole(data);
 
       print('Seeded $broadcastCount events.');
 
@@ -187,14 +187,14 @@ class RelaySeeder {
     }
   }
 
-  void _printPipelineUsersByRole(SeedPipelineData data) {
+  Future<void> _printPipelineUsersByRole(SeedPipelineData data) async {
     final users = data.users;
     final userByPubkey = {for (final u in users) u.keyPair.publicKey: u};
 
-    Map<String, dynamic> userSummary(SeedUser user) {
+    Future<Map<String, dynamic>> userSummary(SeedUser user) async {
       final privateKey = user.keyPair.privateKey;
       final evmAddress = user.hasEvm && privateKey != null
-          ? deriveEvmKey(privateKey).address.eip55With0x
+          ? (await deriveEvmKey(privateKey)).address.eip55With0x
           : null;
 
       return {
@@ -206,16 +206,23 @@ class RelaySeeder {
       };
     }
 
+    final guestEntries = await Future.wait(
+      users.where((u) => !u.isHost).where((u) => u.keyPair.privateKey != null).map(
+        (u) async => MapEntry(u.keyPair.privateKey!, await userSummary(u)),
+      ),
+    );
+    final hostEntries = await Future.wait(
+      users.where((u) => u.isHost).where((u) => u.keyPair.privateKey != null).map(
+        (u) async => MapEntry(u.keyPair.privateKey!, await userSummary(u)),
+      ),
+    );
+
     final grouped = {
       'guest': {
-        for (final u in users.where((u) => !u.isHost))
-          if (u.keyPair.privateKey != null)
-            u.keyPair.privateKey!: userSummary(u),
+        for (final entry in guestEntries) entry.key: entry.value,
       },
       'host': {
-        for (final u in users.where((u) => u.isHost))
-          if (u.keyPair.privateKey != null)
-            u.keyPair.privateKey!: userSummary(u),
+        for (final entry in hostEntries) entry.key: entry.value,
       },
     };
 

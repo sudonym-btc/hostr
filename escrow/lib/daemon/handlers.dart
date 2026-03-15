@@ -134,20 +134,20 @@ class DaemonHandler {
     final arbiterAddress = onChain.arbiter;
     final int accountIndex;
     try {
-      accountIndex = hostr.auth.findEvmAccountIndex(arbiterAddress);
+      accountIndex = await hostr.auth.hd.findEvmAccountIndex(arbiterAddress);
     } catch (_) {
       throw json_rpc.RpcException(
         -32001,
         'We are not the arbiter for this trade. '
         'On-chain arbiter: ${arbiterAddress.eip55With0x}, '
-        'our address: ${hostr.auth.getActiveEvmKey().address.eip55With0x}',
+        'our address: ${(await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x}',
       );
     }
 
     final txHash = await contract.arbitrate(
       tradeId: tradeId,
       forward: forward,
-      ethKey: hostr.auth.getActiveEvmKey(accountIndex: accountIndex),
+      ethKey: await hostr.auth.hd.getActiveEvmKey(accountIndex: accountIndex),
     );
     return {'txHash': '$txHash'};
   }
@@ -366,10 +366,11 @@ class DaemonHandler {
 
   // ── EVM Key Info ──────────────────────────────────────────────────────────
 
-  Map<String, dynamic> _getEvmMnemonic(json_rpc.Parameters params) {
-    final nsecHex = hostr.auth.activeKeyPair!.privateKey!;
-    final mnemonic = deriveEvmMnemonic(nsecHex);
-    final evmAddress = hostr.auth.getActiveEvmKey().address.eip55With0x;
+  Future<Map<String, dynamic>> _getEvmMnemonic(
+      json_rpc.Parameters params) async {
+    final mnemonic = (await hostr.auth.hd.getEvmMnemonic()).join(' ');
+    final evmAddress =
+        (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x;
     return {
       'mnemonic': mnemonic,
       'evmAddress': evmAddress,

@@ -3,6 +3,7 @@ import 'package:injectable/injectable.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../auth/auth.dart';
 import '../../../evm/main.dart';
+import '../../../trade_account_allocator/trade_account_allocator.dart';
 import '../../supported_escrow_contract/supported_escrow_contract.dart';
 import '../onchain_operation.dart';
 import 'escrow_claim_models.dart';
@@ -16,10 +17,17 @@ class EscrowClaimOperation extends OnchainOperation {
 
   EscrowClaimOperation(
     Auth auth,
+    TradeAccountAllocator tradeAccountAllocator,
     Evm evm,
     CustomLogger logger,
     @factoryParam this.params,
-  ) : super(auth, evm, logger, const OnchainInitialised()) {
+  ) : super(
+        auth,
+        tradeAccountAllocator,
+        evm,
+        logger,
+        const OnchainInitialised(),
+      ) {
     chain = evm.getChainForEscrowService(params.escrowService!);
     contract = chain.getSupportedEscrowContract(params.escrowService!);
   }
@@ -63,12 +71,13 @@ class EscrowClaimOperation extends OnchainOperation {
   @override
   Future<ContractCallIntent> buildDirectCallIntent() async => contract.claim(
     tradeId: params.tradeId,
-    ethKey: auth.getActiveEvmKey(accountIndex: accountIndex),
+    ethKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
   );
 
   @override
-  Future<ContractCallIntent> buildRelayedCallIntent() => contract.claimRelayed(
-    tradeId: params.tradeId,
-    ethKey: auth.getActiveEvmKey(accountIndex: accountIndex),
-  );
+  Future<ContractCallIntent> buildRelayedCallIntent() async =>
+      contract.claimRelayed(
+        tradeId: params.tradeId,
+        ethKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
+      );
 }

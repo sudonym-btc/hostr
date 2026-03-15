@@ -59,7 +59,7 @@ void main() {
 
       final swapIn = hostr.evm.rootstock.swapIn(
         SwapInParams(
-          evmKey: hostr.auth.getActiveEvmKey(),
+          evmKey: await hostr.auth.hd.getActiveEvmKey(),
           accountIndex: 0,
           amount: amount,
         ),
@@ -94,7 +94,7 @@ void main() {
 
       final swapIn = hostr.evm.rootstock.swapIn(
         SwapInParams(
-          evmKey: hostr.auth.getActiveEvmKey(),
+          evmKey: await hostr.auth.hd.getActiveEvmKey(),
           accountIndex: 0,
           amount: amount,
         ),

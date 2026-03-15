@@ -70,7 +70,7 @@ class TestSeedHelper {
       setupLnbits: setupLnbits,
     );
 
-    final profile = _factory.buildProfiles([user]).first;
+    final profile = (await _factory.buildProfiles([user])).first;
 
     SeedThread? thread;
     if (withThread && listing != null) {
@@ -191,7 +191,7 @@ class TestSeedHelper {
       ),
     );
 
-    final profile = _factory.buildProfiles([user]).first;
+    final profile = (await _factory.buildProfiles([user])).first;
     final listings = _factory.buildListings([user]);
 
     return TestHost(user: user, profile: profile, listings: listings);

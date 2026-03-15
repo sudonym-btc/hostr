@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cryptography/cryptography.dart';
+import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -63,6 +65,9 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
       config: getIt<Config>().buildHostrConfig(
         logger: logger,
         operationsDb: operationsDb,
+        configureCryptography: () {
+          Cryptography.instance = FlutterCryptography.defaultInstance;
+        },
         showNotification:
             ({required int id, String? title, String? body, String? payload}) =>
                 FlutterLocalNotificationsPlugin().show(
