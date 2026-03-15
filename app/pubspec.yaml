@@ -45,6 +45,7 @@ dependencies:
   # NIP04 deps
   pointycastle: ^4.0.0
   crypto: ^3.0.7
+  coinlib_flutter: ^4.0.0
   chopper: ^8.5.0
   json_annotation: ^4.10.0
   qr_flutter: ^4.1.0
@@ -108,3 +109,7 @@ flutter:
 
 dependency_overrides:
   intl: ^0.20.2
+  pointycastle: ^4.0.0
+  js: ^0.7.2
+  google_maps_flutter_web:
+    path: ../dependencies/google_maps_flutter_web

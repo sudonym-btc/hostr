@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/router.dart';
 
 const kAppCompactBreakpoint = 900.0;
@@ -180,12 +181,6 @@ class AppWideNavigationScaffold extends StatelessWidget {
     required this.child,
   });
 
-  String _navbarLogoAssetForTheme(Brightness brightness) {
-    return brightness == Brightness.dark
-        ? 'assets/images/logo/generated/logo_navbar_dark_512.png'
-        : 'assets/images/logo/generated/logo_navbar_light_512.png';
-  }
-
   @override
   Widget build(BuildContext context) {
     final layout = AppLayoutSpec.of(context);
@@ -206,49 +201,29 @@ class AppWideNavigationScaffold extends StatelessWidget {
               children: [
                 Container(
                   width: navWidth,
-                  padding: const EdgeInsets.all(kSpace4),
                   color: theme.colorScheme.surfaceContainerLow,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: kSpace5),
-                        child: Semantics(
-                          label: 'Hostr',
-                          child: Image.asset(
-                            _navbarLogoAssetForTheme(theme.brightness),
-                            width: 132,
-                            height: 44,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.centerLeft,
-                            errorBuilder: (_, __, ___) {
-                              return Text(
-                                'Hostr',
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                  child: CustomPadding.vertical.lg(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: destinations.length,
+                            itemBuilder: (context, index) {
+                              final destination = destinations[index];
+                              return _AppWideNavigationItem(
+                                label: destination.label,
+                                icon: destination.icon,
+                                selected: index == safeSelectedIndex,
+                                onTap: () => onDestinationSelected(index),
                               );
                             },
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: kSpace2),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: destinations.length,
-                          itemBuilder: (context, index) {
-                            final destination = destinations[index];
-                            return _AppWideNavigationItem(
-                              label: destination.label,
-                              icon: destination.icon,
-                              selected: index == safeSelectedIndex,
-                              onTap: () => onDestinationSelected(index),
-                            );
-                          },
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: kSpace2),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 Expanded(child: child),
@@ -286,9 +261,9 @@ class _AppWideNavigationItem extends StatelessWidget {
 
     return Material(
       color: backgroundColor,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(kSpace2),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(kSpace2),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(

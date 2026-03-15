@@ -273,6 +273,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.11.1"
+  coinlib:
+    dependency: transitive
+    description:
+      name: coinlib
+      sha256: "3515ed24055081f914b5c8afcd7c1e0421238d527a838ec5841997df9415608f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.1.0"
+  coinlib_flutter:
+    dependency: "direct main"
+    description:
+      name: coinlib_flutter
+      sha256: "15f385bd11559087e11df73acfdc45d34fef54c7a19b20b598572c7ba9d9d112"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.0"
   collection:
     dependency: transitive
     description:
@@ -337,6 +353,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.2"
+  dart_base_x:
+    dependency: transitive
+    description:
+      name: dart_base_x
+      sha256: c8af4f6a6518daab4aa85bb27ee148221644e80446bb44117052b6f4674cdb23
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   dart_style:
     dependency: transitive
     description:
@@ -738,10 +762,9 @@ packages:
   google_maps_flutter_web:
     dependency: "direct main"
     description:
-      name: google_maps_flutter_web
-      sha256: "2321d24f8bce2d01c441b9fd7835a6032ea44b3f0bfcf93bcebd9740fb5a85cd"
-      url: "https://pub.dev"
-    source: hosted
+      path: "../dependencies/google_maps_flutter_web"
+      relative: true
+    source: path
     version: "0.6.1"
   graphs:
     dependency: transitive
@@ -799,6 +822,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.0"
+  hex:
+    dependency: transitive
+    description:
+      name: hex
+      sha256: "4e7cd54e4b59ba026432a6be2dd9d96e4c5205725194997193bf871703b82c4a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   hive_ce:
     dependency: "direct main"
     description:
@@ -996,7 +1027,7 @@ packages:
     source: hosted
     version: "0.6.1"
   js:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: js
       sha256: "53385261521cc4a0c4658fd0ad07a7d14591cf8fc33abbceae306ddb974888dc"
@@ -1919,6 +1950,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.18"
+  wasm_interop:
+    dependency: transitive
+    description:
+      name: wasm_interop
+      sha256: b1b378f07a4cf0103c25faf34d9a64d2c3312135b9efb47e0ec116ec3b14e48f
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.1"
   watcher:
     dependency: transitive
     description:

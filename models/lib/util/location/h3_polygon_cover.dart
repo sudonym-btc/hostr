@@ -7,6 +7,9 @@ import 'package:logger/logger.dart';
 import 'h3_library_path_stub.dart'
     if (dart.library.io) 'h3_library_path_io.dart';
 import 'h3_tag.dart';
+import 'polygon_simplification.dart';
+
+typedef _PolygonInput = PolygonInputGeometry;
 
 List<Map<String, Object>> _fromGeoJsonTagsSerializablePayload(
   Map<String, dynamic> payload,
@@ -39,6 +42,8 @@ class H3PolygonCover {
   H3PolygonCover(this._h3);
 
   final Logger _logger = Logger();
+  final PolygonSimplification _polygonSimplification =
+      const PolygonSimplification();
   int _minH3Resolution = 0;
   int _maxH3Resolution = 15;
   int _refinementProgressLogEvery = 100;
@@ -200,9 +205,10 @@ class H3PolygonCover {
     bool kIsWeb = false,
   }) async {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'fromGeoJsonTagsInBackground requires isolates and is not supported on web.',
+      _logger.w(
+        'H3 background cover requested on web; falling back to current isolate.',
       );
+      return fromGeoJsonTags(geoJson: geoJson, maxH3Tags: maxH3Tags);
     }
 
     final useProcess = shouldUseProcessH3Library();
@@ -233,10 +239,12 @@ class H3PolygonCover {
           )
           .toList(growable: false);
     } catch (e, st) {
-      _logger.e('H3 background cover failed', error: e, stackTrace: st);
-      throw StateError(
-        'H3 background cover failed to run in isolate: ${e.toString()}',
+      _logger.w(
+        'H3 background cover failed; falling back to current isolate.',
+        error: e,
+        stackTrace: st,
       );
+      return fromGeoJsonTags(geoJson: geoJson, maxH3Tags: maxH3Tags);
     }
   }
 
@@ -338,6 +346,25 @@ class H3PolygonCover {
       polygon: polygon,
       maxH3Cells: maxH3Cells,
     );
+    final simplification = _polygonSimplification.simplify(
+      polygon: polygon,
+      toleranceKm: _estimateSimplificationToleranceKm(initialProbeResolution),
+      minHoleAreaKm2: _minimumHoleAreaKm2(initialProbeResolution),
+    );
+    final polygonForCover = simplification.geometry;
+
+    if (simplification.changed) {
+      _logger.i(
+        'H3 $name: simplified polygon '
+        'outer=${polygon.outer.length}->${polygonForCover.outer.length}, '
+        'holes=${polygon.holes.length}->${polygonForCover.holes.length}, '
+        'holeVertices=${simplification.originalHoleVertices}->${simplification.simplifiedHoleVertices}, '
+        'droppedHoles=${simplification.droppedHoles}, '
+        'toleranceKm=${simplification.toleranceKm.toStringAsFixed(4)}, '
+        'minHoleAreaKm2=${simplification.minHoleAreaKm2.toStringAsFixed(4)}',
+      );
+    }
+
     _logger.i(
       'H3 $name: initial probe resolution=$initialProbeResolution '
       '(instead of $_maxH3Resolution for safety)',
@@ -346,7 +373,7 @@ class H3PolygonCover {
     for (var resolution = initialProbeResolution;
         resolution >= _minH3Resolution;
         resolution--) {
-      cells = _polygonToCellsAtResolution(polygon, resolution);
+      cells = _polygonToCellsAtResolution(polygonForCover, resolution);
       selectedResolution = resolution;
       _logger.i('H3 $name: probe res=$resolution -> cells=${cells.length}');
       if (cells.length <= maxH3Cells) {
@@ -363,11 +390,11 @@ class H3PolygonCover {
 
     final queue = _MaxScoredCellHeap();
     for (final cell in cells) {
-      if (_cellTouchesBoundary(cell, polygon, stats: stats)) {
+      if (_cellTouchesBoundary(cell, polygonForCover, stats: stats)) {
         queue.push(
           _ScoredCell(
             cell: cell,
-            score: _wasteScore(cell, polygon, stats: stats),
+            score: _wasteScore(cell, polygonForCover, stats: stats),
           ),
         );
         stats.queuePushes += 1;
@@ -427,11 +454,11 @@ class H3PolygonCover {
       stats.refinements += 1;
 
       for (final child in children) {
-        if (_cellTouchesBoundary(child, polygon, stats: stats)) {
+        if (_cellTouchesBoundary(child, polygonForCover, stats: stats)) {
           queue.push(
             _ScoredCell(
               cell: child,
-              score: _wasteScore(child, polygon, stats: stats),
+              score: _wasteScore(child, polygonForCover, stats: stats),
             ),
           );
           stats.queuePushes += 1;
@@ -458,6 +485,26 @@ class H3PolygonCover {
     );
 
     return cells;
+  }
+
+  double _estimateSimplificationToleranceKm(int resolution) {
+    final avgHexAreaKm2 = _h3.getHexagonAreaAvg(resolution, H3MetricUnits.km);
+    if (avgHexAreaKm2 <= 0) {
+      return 0;
+    }
+
+    final edgeLengthKm = math.sqrt(
+      (2 * avgHexAreaKm2) / (3 * math.sqrt(3)),
+    );
+    return math.max(0.025, math.min(edgeLengthKm * 0.35, 5.0));
+  }
+
+  double _minimumHoleAreaKm2(int resolution) {
+    final avgHexAreaKm2 = _h3.getHexagonAreaAvg(resolution, H3MetricUnits.km);
+    if (avgHexAreaKm2 <= 0) {
+      return 0;
+    }
+    return avgHexAreaKm2 * 0.5;
   }
 
   int _selectInitialProbeResolution({
@@ -783,13 +830,6 @@ class H3PolygonCover {
 
     return coords;
   }
-}
-
-class _PolygonInput {
-  const _PolygonInput({required this.outer, required this.holes});
-
-  final List<GeoCoord> outer;
-  final List<List<GeoCoord>> holes;
 }
 
 class _ScoredCell {

@@ -8,17 +8,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hostr/background_task_type.dart';
-import 'package:hostr/data/sources/h3_engine.dart';
 import 'package:hostr/data/sources/operations_db.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/route/notification_deep_link_handler.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:models/main.dart'
+    show H3Engine, describeH3BackendSelection, describeSecp256k1Backend;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'injection.dart';
 import 'setup/hydrated_storage.dart';
+import 'setup/runtime_backends.dart';
 
 final logger = CustomLogger(tag: 'app');
 
@@ -52,8 +54,18 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
   log.d('persistEnv + hydratedStorage: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
+  configureOptimalRuntimeBackends();
+  log.d('configureRuntimeBackends: ${sw.elapsedMilliseconds}ms');
+
+  sw.reset();
   configureInjection(env);
   log.d('configureInjection: ${sw.elapsedMilliseconds}ms');
+
+  sw.reset();
+  getIt<H3Engine>();
+  validateFlutterRuntimeBackends();
+  log.i('runtime backend h3: ${describeH3BackendSelection()}');
+  log.d('primeH3Engine: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
   final operationsDb = await openOperationsDb();
@@ -85,10 +97,7 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
   sw.reset();
   await getIt<Hostr>().initAuth();
   log.d('initAuth: ${sw.elapsedMilliseconds}ms');
-
-  sw.reset();
-  configureFlutterH3Runtime();
-  log.d('H3 runtime: ${sw.elapsedMilliseconds}ms');
+  log.i('runtime backend secp256k1: ${describeSecp256k1Backend()}');
 
   total.stop();
   log.d('TOTAL: ${total.elapsedMilliseconds}ms (env=$env)');

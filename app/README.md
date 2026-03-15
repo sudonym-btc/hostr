@@ -40,8 +40,8 @@ From VS Code, choose the corresponding launch/entrypoint; from CLI, select the f
 - Tests: `flutter test` for unit/widget; integration screenshots live in `integration_test/screenshot.dart`.
 - Icons (single source of truth = `assets/images/logo/logo.svg`):
   - Run `./bin/generate_icons.sh` to generate:
-    - Launcher icon source PNGs (including Android adaptive + monochrome, iOS dark/tinted variants)
-    - Android notification small icons at `android/app/src/main/res/drawable-*/app_icon.png`
+    - Canonical 1024px launcher source PNGs (main padded icon, Android adaptive foreground + monochrome, iOS dark/tinted variants)
+    - Themed navbar icon assets without the lower wordmark text
   - Then run `dart run flutter_launcher_icons` to regenerate platform launcher icons.
 
 ## Notes

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:convert/convert.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/bip341.dart' show loadBip341Backend;
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -94,6 +95,7 @@ class Auth {
   });
 
   Future<void> init() => _logger.span('init', () async {
+    await loadBip341Backend();
     await _loadActiveKeyPair();
     ensureNdkAccountsMatch();
     _syncAuthState();
