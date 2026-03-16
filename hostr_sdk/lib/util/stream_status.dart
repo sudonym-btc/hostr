@@ -168,8 +168,23 @@ class StreamWithStatus<T> {
   StreamWithStatus<T> where(bool Function(T) test) {
     final child = StreamWithStatus<T>();
     child._items = List.unmodifiable(_items.where(test).toList());
-    child._subs.add(stream.where(test).listen(child.add));
-    child._subs.add(status.listen(child.addStatus));
+    child._subs.add(
+      itemsStream.listen((items) {
+        child.replaceAll(items.where(test).toList());
+      }, onError: child.addError),
+    );
+    child._subs.add(
+      stream.where(test).listen((item) {
+        if (!child._perItem.isClosed) {
+          child._perItem.add(item);
+        }
+      }, onError: child.addError),
+    );
+    child._subs.add(
+      status
+          .distinct((a, b) => a.runtimeType == b.runtimeType)
+          .listen(child.addStatus, onError: child.addError),
+    );
     return child;
   }
 
@@ -179,8 +194,23 @@ class StreamWithStatus<T> {
   StreamWithStatus<R> map<R>(R Function(T) fn) {
     final child = StreamWithStatus<R>();
     child._items = List.unmodifiable(_items.map(fn).toList());
-    child._subs.add(stream.map(fn).listen(child.add));
-    child._subs.add(status.listen(child.addStatus));
+    child._subs.add(
+      itemsStream.listen((items) {
+        child.replaceAll(items.map(fn).toList());
+      }, onError: child.addError),
+    );
+    child._subs.add(
+      stream.map(fn).listen((item) {
+        if (!child._perItem.isClosed) {
+          child._perItem.add(item);
+        }
+      }, onError: child.addError),
+    );
+    child._subs.add(
+      status
+          .distinct((a, b) => a.runtimeType == b.runtimeType)
+          .listen(child.addStatus, onError: child.addError),
+    );
     return child;
   }
 
@@ -384,6 +414,55 @@ extension StreamWithStatusListX<T> on StreamWithStatus<List<T>> {
 
     current.addSubscription(
       latestItemsStream.listen(current.replaceAll, onError: current.addError),
+    );
+    current.addSubscription(
+      status
+          .distinct((a, b) => a.runtimeType == b.runtimeType)
+          .listen(current.addStatus, onError: current.addError),
+    );
+
+    return current;
+  }
+
+  /// Exposes the latest snapshot's items as a deduplicated current-items
+  /// stream keyed by [keyOf].
+  ///
+  /// - [items] always contains the most recent snapshot, deduplicated by key.
+  /// - [stream] emits only items whose keyed value is new or changed compared
+  ///   with the previous snapshot.
+  StreamWithStatus<T> currentItemsBy<K>(K Function(T item) keyOf) {
+    final current = StreamWithStatus<T>();
+
+    Map<K, T> latestByKey = {
+      for (final item in items.lastOrNull ?? <T>[]) keyOf(item): item,
+    };
+
+    if (latestByKey.isNotEmpty) {
+      current.replaceAll(latestByKey.values.toList());
+    }
+
+    void syncLatest(List<T> latest) {
+      final nextByKey = <K, T>{for (final item in latest) keyOf(item): item};
+      final changed = <T>[];
+
+      for (final entry in nextByKey.entries) {
+        if (latestByKey[entry.key] != entry.value) {
+          changed.add(entry.value);
+        }
+      }
+
+      latestByKey = nextByKey;
+      current.replaceAll(nextByKey.values.toList());
+
+      for (final item in changed) {
+        if (!current._perItem.isClosed) {
+          current._perItem.add(item);
+        }
+      }
+    }
+
+    current.addSubscription(
+      latestItemsStream.listen(syncLatest, onError: current.addError),
     );
     current.addSubscription(
       status

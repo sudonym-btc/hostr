@@ -190,7 +190,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
   List<ReservationPair> _latestAvailabilityPairs = const [];
 
   @override
-  initState() {
+  void initState() {
     super.initState();
     assert(
       widget.listing.anchor != null,
@@ -199,7 +199,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     _verifiedPairs = getIt<Hostr>().reservationPairs.queryVerified(
       listingAnchor: widget.listing.anchor!,
     );
-    _verifiedReviews = getIt<Hostr>().reviews.subscribeVerified(
+    _verifiedReviews = getIt<Hostr>().reviews.queryVerified(
       filter: Filter(
         tags: {
           kListingRefTag: [widget.listing.anchor!],

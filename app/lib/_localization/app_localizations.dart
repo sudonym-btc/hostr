@@ -472,6 +472,12 @@ abstract class AppLocalizations {
   /// **'No trips yet'**
   String get noTripsYet;
 
+  /// No description provided for @noReviewsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No reviews yet'**
+  String get noReviewsYet;
+
   /// No description provided for @noMessagesYet.
   ///
   /// In en, this message translates to:
@@ -1041,6 +1047,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No profile set up yet'**
   String get noProfileSetUpYet;
+
+  /// No description provided for @setupYourProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your profile'**
+  String get setupYourProfile;
 
   /// No description provided for @youMightWantToJotThisDown.
   ///

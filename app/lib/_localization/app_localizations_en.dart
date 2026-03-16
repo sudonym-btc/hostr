@@ -199,6 +199,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noTripsYet => 'No trips yet';
 
   @override
+  String get noReviewsYet => 'No reviews yet';
+
+  @override
   String get noMessagesYet => 'No messages yet';
 
   @override
@@ -504,6 +507,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noProfileSetUpYet => 'No profile set up yet';
+
+  @override
+  String get setupYourProfile => 'Set up your profile';
 
   @override
   String get youMightWantToJotThisDown => 'You might want to jot this down';

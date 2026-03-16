@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/inbox/inbox_item.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 class InboxThreadList extends StatelessWidget {
@@ -21,13 +23,15 @@ class InboxThreadList extends StatelessWidget {
             ),
           );
         if (threads.isEmpty) {
-          return Center(
-            child: Text(
-              AppLocalizations.of(context)!.noMessagesYet,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          return EmtyResultsWidget(
+            leading: Icon(
+              Icons.inbox_outlined,
+              size: kIconHero,
+              color: Theme.of(context).colorScheme.primary,
             ),
+            title: AppLocalizations.of(context)!.noMessagesYet,
+            subtitle:
+                'Your conversations with guests and hosts will appear here.',
           );
         }
 

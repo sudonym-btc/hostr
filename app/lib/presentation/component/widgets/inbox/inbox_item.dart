@@ -41,7 +41,6 @@ class InboxItemView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ListTile(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       tileColor: selected
           ? theme.colorScheme.surfaceContainerHighest
           : Colors.transparent,

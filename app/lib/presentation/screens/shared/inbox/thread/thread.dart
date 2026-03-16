@@ -18,12 +18,13 @@ class ThreadScreen extends StatelessWidget {
     final layout = AppLayoutSpec.of(context);
 
     return BlocProvider<ThreadCubit>(
+      key: ValueKey(anchor),
       create: (_) => ThreadCubit(
         thread: getIt<Hostr>().messaging.threads.threads[anchor]!,
       ),
       child: layout.showsInboxSplit
-          ? const ThreadView(embedded: true)
-          : const ThreadView(),
+          ? ThreadView(key: ValueKey('embedded-$anchor'), embedded: true)
+          : ThreadView(key: ValueKey('full-$anchor')),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:coinlib/coinlib.dart' as coinlib;
 import 'package:convert/convert.dart' as convert;
+import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';
 import 'package:webcrypto/webcrypto.dart' as wc;
@@ -126,6 +127,7 @@ class DeterministicKeyDerivation {
 
   Future<coinlib.HDPrivateKey> deriveAppMaster() {
     return _appMasterFuture ??= () async {
+      await loadSecp256k1Backend();
       final words = await deriveAccountMnemonicWords();
       final seed = await _mnemonicToSeed(words);
       return coinlib.HDPrivateKey.fromSeed(seed);
@@ -209,6 +211,7 @@ Future<String> deriveNostrPrivateKeyFromMnemonic(
   String mnemonicSentence, {
   int accountIndex = 0,
 }) async {
+  await loadSecp256k1Backend();
   final words = mnemonicSentence.trim().split(RegExp(r'\s+'));
   final seed = await _mnemonicToSeed(words);
   final master = coinlib.HDPrivateKey.fromSeed(seed);

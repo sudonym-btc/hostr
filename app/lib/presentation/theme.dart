@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 
+import 'app_spacing_theme.dart';
+
 const _appFontFamily = 'Inter';
 
 ThemeData getTheme(bool isDark) {
@@ -70,7 +72,9 @@ ThemeData getTheme(bool isDark) {
   final baseGeneric = base.copyWith(
     textTheme: textTheme,
     primaryTextTheme: primaryTextTheme,
+    extensions: const <ThemeExtension<dynamic>>[AppSpacingTheme()],
     appBarTheme: AppBarTheme(
+      leadingWidth: kDefaultPadding.toDouble(),
       titleSpacing: kDefaultPadding.toDouble(),
       centerTitle: false,
       foregroundColor: colorScheme.onSurface,

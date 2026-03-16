@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -98,11 +98,13 @@ class ImageUpload extends StatelessWidget {
                       return Stack(
                         fit: StackFit.expand,
                         children: [
-                          if (image.file != null)
-                            Image.file(
-                              File(image.file!.path),
-                              fit: BoxFit.cover,
+                          if (image.previewBytes != null)
+                            _LocalImagePreview(
+                              bytes: image.previewBytes!,
+                              filePath: image.file?.path,
                             ),
+                          if (image.previewBytes == null && image.file != null)
+                            const Center(child: AppLoadingIndicator.small()),
                           if (image.file == null && image.path != null)
                             BlossomImage(image: image.path!, pubkey: pubkey),
                           if (uploading)
@@ -166,6 +168,35 @@ class ImageUpload extends StatelessWidget {
         icon: const Icon(Icons.add_a_photo_outlined),
         label: Text(AppLocalizations.of(context)!.addImage),
       ),
+    );
+  }
+}
+
+class _LocalImagePreview extends StatelessWidget {
+  final Uint8List bytes;
+  final String? filePath;
+
+  const _LocalImagePreview({required this.bytes, this.filePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.memory(
+      bytes,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) {
+        final path = filePath;
+        if (path != null && path.isNotEmpty) {
+          return Image.network(
+            path,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                const ImageLoadError(message: 'Preview unavailable'),
+          );
+        }
+
+        return const ImageLoadError(message: 'Preview unavailable');
+      },
     );
   }
 }

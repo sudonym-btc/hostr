@@ -14,12 +14,14 @@ class ListingsWidget extends StatefulWidget {
   final ValueNotifier<String?>? focusedItemId;
 
   final bool reserveBottomNavigationBarSpace;
+  final Widget Function()? emptyBuilder;
 
   const ListingsWidget({
     super.key,
     this.scrollToId,
     this.focusedItemId,
     this.reserveBottomNavigationBarSpace = true,
+    this.emptyBuilder,
   });
 
   @override
@@ -105,6 +107,7 @@ class _ListingsWidgetState extends State<ListingsWidget> {
       child: ListWidget<Listing>(
         loadNextOnBottom: true,
         reserveBottomNavigationBarSpace: widget.reserveBottomNavigationBarSpace,
+        emptyBuilder: widget.emptyBuilder,
         scrollToId: widget.scrollToId,
         focusedItemId: widget.focusedItemId,
         itemPositionsListener: _itemPositionsListener,

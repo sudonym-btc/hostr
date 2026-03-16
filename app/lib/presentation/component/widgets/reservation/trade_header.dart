@@ -260,9 +260,9 @@ class TradeHeader extends StatelessWidget {
                 onTap: onTap,
               );
             case TradeInitialising():
-              return const ShimmerPlaceholder(
-                loading: true,
-                child: SizedBox(height: 100),
+              return const SizedBox(
+                height: 100,
+                child: Center(child: AppLoadingIndicator.medium()),
               );
             case TradeError():
               return Text(tradeState.message);

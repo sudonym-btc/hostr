@@ -4,8 +4,6 @@ PODS:
   - coinlib_flutter (0.5.0):
     - Flutter
     - FlutterMacOS
-  - cryptography_flutter (0.0.1):
-    - Flutter
   - eventide (1.0.0):
     - Flutter
   - Flutter (1.0.0)
@@ -40,13 +38,15 @@ PODS:
     - FlutterMacOS
   - url_launcher_ios (0.0.1):
     - Flutter
+  - webcrypto (0.1.1):
+    - Flutter
+    - FlutterMacOS
   - workmanager_apple (0.0.1):
     - Flutter
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
   - coinlib_flutter (from `.symlinks/plugins/coinlib_flutter/darwin`)
-  - cryptography_flutter (from `.symlinks/plugins/cryptography_flutter/ios`)
   - eventide (from `.symlinks/plugins/eventide/ios`)
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
@@ -59,6 +59,7 @@ DEPENDENCIES:
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
+  - webcrypto (from `.symlinks/plugins/webcrypto/darwin`)
   - workmanager_apple (from `.symlinks/plugins/workmanager_apple/ios`)
 
 SPEC REPOS:
@@ -71,8 +72,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/app_links/ios"
   coinlib_flutter:
     :path: ".symlinks/plugins/coinlib_flutter/darwin"
-  cryptography_flutter:
-    :path: ".symlinks/plugins/cryptography_flutter/ios"
   eventide:
     :path: ".symlinks/plugins/eventide/ios"
   Flutter:
@@ -97,13 +96,14 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
+  webcrypto:
+    :path: ".symlinks/plugins/webcrypto/darwin"
   workmanager_apple:
     :path: ".symlinks/plugins/workmanager_apple/ios"
 
 SPEC CHECKSUMS:
   app_links: a754cbec3c255bd4bbb4d236ecc06f28cd9a7ce8
   coinlib_flutter: f6021acfc7efe2da4bb8393ab948235197ec1385
-  cryptography_flutter: 4868d92d3e47f91f0bc321e63e6fa0387f365f11
   eventide: f55e9e0ac5dc1ea4a1ba4d2e6974316a695a1b8a
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_local_notifications: a5a732f069baa862e728d839dd2ebb904737effb
@@ -118,6 +118,7 @@ SPEC CHECKSUMS:
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
+  webcrypto: a5f5eb3e375cf0a99993e207e97cdcab5c94ce2e
   workmanager_apple: 904529ae31e97fc5be632cf628507652294a0778
 
 PODFILE CHECKSUM: 7f6ed2864b8c73c271ca9d2a5b3cd8004ee42409

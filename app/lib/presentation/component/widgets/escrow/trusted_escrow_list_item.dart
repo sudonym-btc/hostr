@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:models/main.dart';
 
 class TrustedEscrowListItemWidget extends StatelessWidget {
@@ -16,26 +17,28 @@ class TrustedEscrowListItemWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final metadata = profile?.metadata;
-    final title = metadata?.name ?? metadata?.displayName ?? 'Username';
+    final title = metadata?.getName() ?? 'Unnamed';
     final subtitle = metadata?.nip05 ?? '';
 
     return ListTile(
       contentPadding: EdgeInsets.all(0),
       onTap: onTap,
       leading: CircleAvatar(
-        backgroundImage: metadata?.picture != null
-            ? NetworkImage(
-                metadata!.picture!,
-                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+        radius: 20,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: metadata?.picture != null
+            ? ClipOval(
+                child: BlossomImage(
+                  image: metadata!.picture!,
+                  pubkey: profile!.pubKey,
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.cover,
+                ),
               )
-            : null,
-        child: metadata?.picture == null
-            ? Text(
-                (title.isNotEmpty ? title[0] : '?').toUpperCase(),
-                style: Theme.of(context).textTheme.titleMedium,
-              )
-            : null,
+            : Icon(Icons.security),
       ),
+
       title: Text(title),
       subtitle: Text(
         subtitle,

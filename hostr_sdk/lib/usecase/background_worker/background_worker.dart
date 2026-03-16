@@ -321,10 +321,12 @@ class BackgroundWorker {
   void _bindHostingsProcessor() {
     _mirrorStatus(userSubscriptions.myHostings$, myHostingsProcessor$);
     myHostingsProcessor$.addSubscription(
-      userSubscriptions.myHostings$.itemsStream
-          .asyncMap(_signalsFromHostings)
+      userSubscriptions.myHostings$.replayStream
+          .asyncMap(_signalFromHosting)
+          .where((signal) => signal != null)
+          .cast<_BackgroundSignal>()
           .listen(
-            myHostingsProcessor$.addAll,
+            myHostingsProcessor$.add,
             onError: myHostingsProcessor$.addError,
           ),
     );
@@ -333,12 +335,11 @@ class BackgroundWorker {
   void _bindTripsProcessor() {
     _mirrorStatus(userSubscriptions.myTrips$, myTripsProcessor$);
     myTripsProcessor$.addSubscription(
-      userSubscriptions.myTrips$.itemsStream
-          .asyncMap(_signalsFromTrips)
-          .listen(
-            myTripsProcessor$.addAll,
-            onError: myTripsProcessor$.addError,
-          ),
+      userSubscriptions.myTrips$.replayStream
+          .asyncMap(_signalFromTrip)
+          .where((signal) => signal != null)
+          .cast<_BackgroundSignal>()
+          .listen(myTripsProcessor$.add, onError: myTripsProcessor$.addError),
     );
   }
 
@@ -413,48 +414,38 @@ class BackgroundWorker {
     );
   }
 
-  Future<List<_BackgroundSignal>> _signalsFromHostings(
-    List<Validation<ReservationPair>> validations,
+  Future<_BackgroundSignal?> _signalFromHosting(
+    Validation<ReservationPair> validation,
   ) async {
     final myPubkey = auth.getActiveKey().publicKey;
-    final signals = <_BackgroundSignal>[];
+    final pair = validation.event;
+    final guestReservation = pair.buyerReservation;
+    if (guestReservation == null) return null;
+    if (guestReservation.pubKey == myPubkey) return null;
+    if (!_isAfterHeartbeatBoundary(guestReservation.createdAt)) return null;
 
-    for (final validation in validations) {
-      final pair = validation.event;
-      final guestReservation = pair.buyerReservation;
-      if (guestReservation == null) continue;
-      if (guestReservation.pubKey == myPubkey) continue;
-      if (!_isAfterHeartbeatBoundary(guestReservation.createdAt)) continue;
+    final guestPubkey = await _resolveHostingGuestPubkey(pair);
+    final guestName = await _resolveDisplayName(guestPubkey);
+    final title = await _resolveListingTitle(
+      pair.listingAnchor,
+      fallback: 'your listing',
+    );
 
-      final guestPubkey = await _resolveHostingGuestPubkey(pair);
-      final guestName = await _resolveDisplayName(guestPubkey);
-      final title = await _resolveListingTitle(
-        pair.listingAnchor,
-        fallback: 'your listing',
+    if (guestReservation.cancelled) {
+      return _BackgroundSignal(
+        id: 'hosting-cancel:${guestReservation.id}',
+        body: '$guestName cancelled a reservation',
+        createdAt: guestReservation.createdAt,
+        payload: _threadPayload(pair.tradeId),
       );
-
-      if (guestReservation.cancelled) {
-        signals.add(
-          _BackgroundSignal(
-            id: 'hosting-cancel:${guestReservation.id}',
-            body: '$guestName cancelled a reservation',
-            createdAt: guestReservation.createdAt,
-            payload: _threadPayload(pair.tradeId),
-          ),
-        );
-      } else {
-        signals.add(
-          _BackgroundSignal(
-            id: 'hosting-reservation:${guestReservation.id}',
-            body: '$guestName reserved $title',
-            createdAt: guestReservation.createdAt,
-            payload: _threadPayload(pair.tradeId),
-          ),
-        );
-      }
     }
 
-    return signals;
+    return _BackgroundSignal(
+      id: 'hosting-reservation:${guestReservation.id}',
+      body: '$guestName reserved $title',
+      createdAt: guestReservation.createdAt,
+      payload: _threadPayload(pair.tradeId),
+    );
   }
 
   Future<String> _resolveHostingGuestPubkey(ReservationPair pair) async {
@@ -476,51 +467,41 @@ class BackgroundWorker {
     }
   }
 
-  Future<List<_BackgroundSignal>> _signalsFromTrips(
-    List<Validation<ReservationPair>> validations,
+  Future<_BackgroundSignal?> _signalFromTrip(
+    Validation<ReservationPair> validation,
   ) async {
     final myPubkey = auth.getActiveKey().publicKey;
-    final signals = <_BackgroundSignal>[];
+    final pair = validation.event;
+    final sellerReservation = pair.sellerReservation;
+    if (sellerReservation == null) return null;
+    if (sellerReservation.pubKey == myPubkey) return null;
+    if (!_isAfterHeartbeatBoundary(sellerReservation.createdAt)) return null;
 
-    for (final validation in validations) {
-      final pair = validation.event;
-      final sellerReservation = pair.sellerReservation;
-      if (sellerReservation == null) continue;
-      if (sellerReservation.pubKey == myPubkey) continue;
-      if (!_isAfterHeartbeatBoundary(sellerReservation.createdAt)) continue;
-
-      if (!sellerReservation.cancelled && !sellerReservation.isCommit) {
-        continue;
-      }
-
-      final hostName = await _resolveDisplayName(sellerReservation.pubKey);
-      final title = await _resolveListingTitle(
-        pair.listingAnchor,
-        fallback: 'your stay',
-      );
-
-      if (sellerReservation.cancelled) {
-        signals.add(
-          _BackgroundSignal(
-            id: 'trip-cancel:${sellerReservation.id}',
-            body: '$hostName cancelled a reservation',
-            createdAt: sellerReservation.createdAt,
-            payload: _threadPayload(pair.tradeId),
-          ),
-        );
-      } else {
-        signals.add(
-          _BackgroundSignal(
-            id: 'trip-confirm:${sellerReservation.id}',
-            body: '$hostName confirmed your stay at $title',
-            createdAt: sellerReservation.createdAt,
-            payload: _threadPayload(pair.tradeId),
-          ),
-        );
-      }
+    if (!sellerReservation.cancelled && !sellerReservation.isCommit) {
+      return null;
     }
 
-    return signals;
+    final hostName = await _resolveDisplayName(sellerReservation.pubKey);
+    final title = await _resolveListingTitle(
+      pair.listingAnchor,
+      fallback: 'your stay',
+    );
+
+    if (sellerReservation.cancelled) {
+      return _BackgroundSignal(
+        id: 'trip-cancel:${sellerReservation.id}',
+        body: '$hostName cancelled a reservation',
+        createdAt: sellerReservation.createdAt,
+        payload: _threadPayload(pair.tradeId),
+      );
+    }
+
+    return _BackgroundSignal(
+      id: 'trip-confirm:${sellerReservation.id}',
+      body: '$hostName confirmed your stay at $title',
+      createdAt: sellerReservation.createdAt,
+      payload: _threadPayload(pair.tradeId),
+    );
   }
 
   void _mirrorStatus<T>(

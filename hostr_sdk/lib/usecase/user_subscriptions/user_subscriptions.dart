@@ -95,12 +95,10 @@ class UserSubscriptions {
   allMyReservationPairsCurrent$;
 
   /// Reservation pairs where the current user is the **guest** (not the host).
-  final StreamWithStatus<Validation<ReservationPair>> myTrips$ =
-      StreamWithStatus<Validation<ReservationPair>>();
+  late StreamWithStatus<Validation<ReservationPair>> myTrips$;
 
   /// Reservation pairs where the current user is the **host**.
-  final StreamWithStatus<Validation<ReservationPair>> myHostings$ =
-      StreamWithStatus<Validation<ReservationPair>>();
+  late StreamWithStatus<Validation<ReservationPair>> myHostings$;
 
   /// All reservation transitions across every trade the user is in.
   late ExpandableSubscription<ReservationTransition> allTransitions$;
@@ -218,19 +216,15 @@ class UserSubscriptions {
     allMyReservationPairs$ = _reservationPairs.verifyFromSource(
       source: allMyReservations$.stream,
     );
-    allMyReservationPairsCurrent$ = allMyReservationPairs$.currentItems();
-
-    _bindDerivedReservationPairs(
-      target: myTrips$,
-      source: allMyReservationPairs$.whereItems(
-        (item) => item.event.hostPubkey != myPubkey,
-      ),
+    allMyReservationPairsCurrent$ = allMyReservationPairs$.currentItemsBy(
+      (item) => item.event.tradeId,
     );
-    _bindDerivedReservationPairs(
-      target: myHostings$,
-      source: allMyReservationPairs$.whereItems(
-        (item) => item.event.hostPubkey == myPubkey,
-      ),
+
+    myTrips$ = allMyReservationPairsCurrent$.where(
+      (item) => item.event.hostPubkey != myPubkey,
+    );
+    myHostings$ = allMyReservationPairsCurrent$.where(
+      (item) => item.event.hostPubkey == myPubkey,
     );
 
     allTransitions$ = _transitions.expandableSubscribe(
@@ -272,8 +266,8 @@ class UserSubscriptions {
 
     await giftwraps$.close();
     _parsedGiftwraps$ = null;
-    await myTrips$.reset();
-    await myHostings$.reset();
+    await myTrips$.close();
+    await myHostings$.close();
     await allMyReservationPairsCurrent$.close();
     await allMyReservationPairs$.close();
     await allMyReservations$.reset();
@@ -316,30 +310,8 @@ class UserSubscriptions {
     await messages$.close();
     await paymentEvents$.close();
     await latestHeartbeats$.close();
-    await myTrips$.close();
-    await myHostings$.close();
     await _isLive.close();
   });
-
-  void _bindDerivedReservationPairs({
-    required StreamWithStatus<Validation<ReservationPair>> target,
-    required StreamWithStatus<Validation<ReservationPair>> source,
-  }) {
-    target.addSubscription(
-      source.itemsStream.listen(target.replaceAll, onError: target.addError),
-    );
-    target.addSubscription(
-      source.status.listen(target.addStatus, onError: target.addError),
-    );
-
-    final previousOnClose = target.onClose;
-    target.onClose = () async {
-      if (previousOnClose != null) {
-        await Future.sync(() => previousOnClose());
-      }
-      await source.close();
-    };
-  }
 
   void _startDiscoveryEngine() => _logger.spanSync('_startDiscoveryEngine', () {
     _logger.d("processing threads");

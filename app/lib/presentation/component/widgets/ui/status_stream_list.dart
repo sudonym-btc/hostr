@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
-import 'gap.dart';
-import 'padding.dart';
+import 'emty_results.dart';
 
 class StatusStreamListWidget<T> extends StatefulWidget {
   final StreamWithStatus<T> stream;
   final Widget Function(T) builder;
+  final Key? Function(T item)? itemKeyBuilder;
   final int Function(T a, T b)? sort;
   final Widget? Function(BuildContext context, T? previous, T current)?
   sectionHeaderBuilder;
@@ -27,6 +28,7 @@ class StatusStreamListWidget<T> extends StatefulWidget {
   const StatusStreamListWidget({
     super.key,
     required this.builder,
+    this.itemKeyBuilder,
     this.sort,
     this.sectionHeaderBuilder,
     this.emptyBuilder,
@@ -41,30 +43,22 @@ class StatusStreamListWidget<T> extends StatefulWidget {
 
   static Widget empty(
     BuildContext context, {
+    Widget? leading,
     required String title,
     String? subtitle,
     Widget? action,
   }) {
-    return SafeArea(
-      child: CustomPadding(
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            Gap.vertical.xs(),
-            if (subtitle != null) Text(subtitle),
-            Gap.vertical.lg(),
-            ?action,
-          ],
-        ),
-      ),
+    return EmtyResultsWidget(
+      leading:
+          leading ??
+          Icon(
+            Icons.inbox_outlined,
+            size: kIconHero,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+      title: title,
+      subtitle: subtitle,
+      action: action,
     );
   }
 }
@@ -119,15 +113,19 @@ class ListWidgetState<T> extends State<StatusStreamListWidget<T>> {
               previous,
               current,
             );
+            final child = sectionHeader == null
+                ? widget.builder(current)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [sectionHeader, widget.builder(current)],
+                  );
+            final key = widget.itemKeyBuilder?.call(current);
 
-            if (sectionHeader == null) {
-              return widget.builder(current);
+            if (key == null) {
+              return child;
             }
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [sectionHeader, widget.builder(current)],
-            );
+            return KeyedSubtree(key: key, child: child);
           },
         );
       },

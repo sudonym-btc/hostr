@@ -154,13 +154,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i301.Verification(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.singleton<_i1014.Requests>(
-      () => _i286.InMemoryRequests(
-        ndk: gh<_i857.Ndk>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-      registerFor: {_test, _mock},
-    );
     gh.singleton<_i259.AuthIdentityResolver>(
       () => _i259.AuthIdentityResolver(logger: gh<_i331.CustomLogger>()),
     );
@@ -182,13 +175,6 @@ extension GetItInjectableX on _i174.GetIt {
         identityResolver: gh<_i259.AuthIdentityResolver>(),
       ),
     );
-    gh.singleton<_i1014.Requests>(
-      () => _i1014.Requests(
-        ndk: gh<_i857.Ndk>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-      registerFor: {_dev, _staging, _prod},
-    );
     gh.singleton<_i218.RelayStorage>(
       () => _i218.RelayStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
     );
@@ -203,23 +189,13 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i92.BadgeAwards>(
-      () => _i92.BadgeAwards(
-        requests: gh<_i1014.Requests>(),
+    gh.singleton<_i1014.Requests>(
+      () => _i286.InMemoryRequests(
+        ndk: gh<_i857.Ndk>(),
+        auth: gh<_i1000.Auth>(),
         logger: gh<_i372.CustomLogger>(),
       ),
-    );
-    gh.singleton<_i978.BadgeDefinitions>(
-      () => _i978.BadgeDefinitions(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i906.Listings>(
-      () => _i906.Listings(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
+      registerFor: {_test, _mock},
     );
     gh.singleton<_i608.EscrowFundRegistry>(
       () => _i608.EscrowFundRegistry(gh<_i331.CustomLogger>()),
@@ -263,13 +239,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i372.CustomLogger>(),
       ),
     );
-    gh.singleton<_i1019.Messaging>(
-      () => _i1019.Messaging(
-        gh<_i857.Ndk>(),
-        gh<_i1014.Requests>(),
-        gh<_i331.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i883.Relays>(
       () => _i883.Relays(
         ndk: gh<_i857.Ndk>(),
@@ -286,26 +255,13 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i445.EscrowMethods>(
-      () => _i445.EscrowMethods(
-        requests: gh<_i1014.Requests>(),
+    gh.singleton<_i1014.Requests>(
+      () => _i1014.Requests(
+        ndk: gh<_i857.Ndk>(),
         logger: gh<_i372.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
       ),
-    );
-    gh.singleton<_i943.EscrowTrusts>(
-      () => _i943.EscrowTrusts(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        auth: gh<_i1000.Auth>(),
-      ),
-    );
-    gh.singleton<_i175.Heartbeats>(
-      () => _i175.Heartbeats(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        auth: gh<_i1000.Auth>(),
-      ),
+      registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i826.ReservationTransitions>(
       () => _i826.ReservationTransitions(
@@ -363,12 +319,22 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i331.CustomLogger>(),
       ),
     );
-    gh.singleton<_i303.Escrows>(
-      () => _i303.Escrows(
+    gh.singleton<_i92.BadgeAwards>(
+      () => _i92.BadgeAwards(
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
-        escrowMethods: gh<_i445.EscrowMethods>(),
-        escrowTrusts: gh<_i943.EscrowTrusts>(),
+      ),
+    );
+    gh.singleton<_i978.BadgeDefinitions>(
+      () => _i978.BadgeDefinitions(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i906.Listings>(
+      () => _i906.Listings(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
       ),
     );
     gh.factory<_i613.NwcCubit>(
@@ -376,6 +342,34 @@ extension GetItInjectableX on _i174.GetIt {
         nwc: gh<_i588.Nwc>(),
         logger: gh<_i331.CustomLogger>(),
         url: gh<String>(),
+      ),
+    );
+    gh.singleton<_i1019.Messaging>(
+      () => _i1019.Messaging(
+        gh<_i857.Ndk>(),
+        gh<_i1014.Requests>(),
+        gh<_i331.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i445.EscrowMethods>(
+      () => _i445.EscrowMethods(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i331.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
+      ),
+    );
+    gh.singleton<_i943.EscrowTrusts>(
+      () => _i943.EscrowTrusts(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i331.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
+      ),
+    );
+    gh.singleton<_i175.Heartbeats>(
+      () => _i175.Heartbeats(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
       ),
     );
     gh.factoryParam<_i363.LnurlPayOperation, _i24.LnurlPayParameters, dynamic>(
@@ -434,6 +428,14 @@ extension GetItInjectableX on _i174.GetIt {
         listings: gh<_i906.Listings>(),
         logger: gh<_i372.CustomLogger>(),
         evm: gh<_i305.Evm>(),
+      ),
+    );
+    gh.singleton<_i303.Escrows>(
+      () => _i303.Escrows(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        escrowMethods: gh<_i445.EscrowMethods>(),
+        escrowTrusts: gh<_i943.EscrowTrusts>(),
       ),
     );
     gh.singleton<_i226.Payments>(

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 
 class SearchBoxWidget extends StatelessWidget {
   final FilterState filterState;
@@ -17,21 +18,27 @@ class SearchBoxWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayoutSpec.of(context);
+    final isWide = layout.showsSearchSplit;
     final hasActiveFilter =
         filterState.filter != null || filterState.location.trim().isNotEmpty;
     final hasDateRange = dateRangeState.dateRange != null;
+    final borderRadius = BorderRadius.circular(isWide ? 0 : 50);
+
     return Opacity(
-      opacity: 0.85,
+      opacity: isWide ? 1 : 0.85,
       child: Material(
-        elevation: 2.0, // Set the elevation
-        color: Theme.of(context).scaffoldBackgroundColor,
-        shadowColor: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: BorderRadius.circular(
-          50,
-        ), // Perfectly round border radius
+        elevation: isWide ? 0 : 2.0,
+        color: isWide
+            ? Colors.transparent
+            : Theme.of(context).scaffoldBackgroundColor,
+        shadowColor: isWide
+            ? Colors.transparent
+            : Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: borderRadius,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(50),
+          borderRadius: borderRadius,
           child: ListTile(
             minVerticalPadding: 0,
             leading: Icon(Icons.search),

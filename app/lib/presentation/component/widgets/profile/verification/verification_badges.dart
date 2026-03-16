@@ -317,11 +317,10 @@ class VerificationTile extends StatelessWidget {
                     color: subtitleColor ?? theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              if (chipRow != null)
-                CustomPadding.only(
-                  top: kSpace1,
-                  child: Wrap(spacing: 4, runSpacing: 4, children: chipRow!),
-                ),
+              if (chipRow != null) ...[
+                Gap.vertical.xs(),
+                Wrap(spacing: 4, runSpacing: 4, children: chipRow!),
+              ],
             ],
           ),
         ),

@@ -130,15 +130,18 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
     }
   }
 
-  // ── Snap-to-item after user scroll ────────────────────────────────
+  // ── Update focused item after user scroll ─────────────────────────
 
   void _onScrollOffsetChanged(double _) {
     if (_isProgrammaticScroll) return;
     _snapTimer?.cancel();
-    _snapTimer = Timer(const Duration(milliseconds: 50), _snapToNearestItem);
+    _snapTimer = Timer(
+      const Duration(milliseconds: 50),
+      _emitNearestFocusedItem,
+    );
   }
 
-  void _snapToNearestItem() {
+  void _emitNearestFocusedItem() {
     if (!mounted || !_itemScrollController.isAttached) return;
 
     final positions = _itemPositionsListener.itemPositions.value;
@@ -172,17 +175,8 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
 
     if (snapIndex > maxIndex || snapIndex < 0) return;
 
-    // Emit immediately so the map starts animating in parallel with the snap.
+    // Emit the nearest visible item without forcing the list to snap.
     _emitFocusedItem(snapIndex, headerCount, cubit);
-
-    _isProgrammaticScroll = true;
-    _itemScrollController
-        .scrollTo(
-          index: snapIndex,
-          duration: kAnimationDuration,
-          curve: kAnimationCurve,
-        )
-        .whenComplete(() => _isProgrammaticScroll = false);
   }
 
   void _emitFocusedItem(int listIndex, int headerCount, ListCubit<T> cubit) {

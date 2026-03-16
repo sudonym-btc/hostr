@@ -207,23 +207,25 @@ class RelaySeeder {
     }
 
     final guestEntries = await Future.wait(
-      users.where((u) => !u.isHost).where((u) => u.keyPair.privateKey != null).map(
-        (u) async => MapEntry(u.keyPair.privateKey!, await userSummary(u)),
-      ),
+      users
+          .where((u) => !u.isHost)
+          .where((u) => u.keyPair.privateKey != null)
+          .map(
+            (u) async => MapEntry(u.keyPair.privateKey!, await userSummary(u)),
+          ),
     );
     final hostEntries = await Future.wait(
-      users.where((u) => u.isHost).where((u) => u.keyPair.privateKey != null).map(
-        (u) async => MapEntry(u.keyPair.privateKey!, await userSummary(u)),
-      ),
+      users
+          .where((u) => u.isHost)
+          .where((u) => u.keyPair.privateKey != null)
+          .map(
+            (u) async => MapEntry(u.keyPair.privateKey!, await userSummary(u)),
+          ),
     );
 
     final grouped = {
-      'guest': {
-        for (final entry in guestEntries) entry.key: entry.value,
-      },
-      'host': {
-        for (final entry in hostEntries) entry.key: entry.value,
-      },
+      'guest': {for (final entry in guestEntries) entry.key: entry.value},
+      'host': {for (final entry in hostEntries) entry.key: entry.value},
     };
 
     for (final reservation in data.reservations) {

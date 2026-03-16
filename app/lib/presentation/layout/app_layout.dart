@@ -17,6 +17,8 @@ const kAppSearchListPaneWidth = 460.0;
 const kAppInboxListPaneWidth = 460.0;
 const kAppProfileMaxWidth = 460.0;
 const kAppFormMaxWidth = 460.0;
+const kAppPanelLargeWidth = 760.0;
+
 const kAppPanelRadius = 16.0;
 const kAppPanelGap = kSpace5;
 const kAppPagePadding = EdgeInsets.fromLTRB(kSpace5, kSpace4, kSpace5, kSpace4);
@@ -213,39 +215,30 @@ class AppWideNavigationScaffold extends StatelessWidget {
                 children: [
                   SizedBox(
                     width: navWidth,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        kSpace4,
-                        kSpace4,
-                        kSpace3,
-                        kSpace4,
-                      ),
-                      child: AppPanel(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: kSpace3,
-                          vertical: kSpace4,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: ListView.separated(
-                                itemCount: destinations.length,
-                                itemBuilder: (context, index) {
-                                  final destination = destinations[index];
-                                  return _AppWideNavigationItem(
-                                    label: destination.label,
-                                    icon: destination.icon,
-                                    selected: index == safeSelectedIndex,
-                                    onTap: () => onDestinationSelected(index),
-                                  );
-                                },
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(height: kSpace2),
-                              ),
+                    child: AppPanel(
+                      color: Colors.transparent,
+                      padding: const EdgeInsets.all(kSpace5),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: ListView.separated(
+                              padding: EdgeInsets.zero,
+                              itemCount: destinations.length,
+                              itemBuilder: (context, index) {
+                                final destination = destinations[index];
+                                return _AppWideNavigationItem(
+                                  label: destination.label,
+                                  icon: destination.icon,
+                                  selected: index == safeSelectedIndex,
+                                  onTap: () => onDestinationSelected(index),
+                                );
+                              },
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: kSpace2),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -277,10 +270,10 @@ class _AppWideNavigationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final backgroundColor = selected
-        ? theme.colorScheme.primary
+        ? theme.colorScheme.surfaceContainerHighest
         : Colors.transparent;
     final foregroundColor = selected
-        ? theme.colorScheme.onPrimary
+        ? theme.colorScheme.onSurface
         : theme.colorScheme.onSurfaceVariant;
 
     return Material(

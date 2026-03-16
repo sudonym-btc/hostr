@@ -14,8 +14,10 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import 'block_dates.dart';
+import 'blocked_reservations.dart';
 import 'listing_error_view.dart';
 import 'listing_location_map.dart';
+import 'reviews.dart' as listing_sections;
 
 class ListingView extends StatefulWidget {
   final String a;
@@ -51,7 +53,7 @@ class _ListingViewState extends State<ListingView> {
     if (_reviewsAnchor == anchor) return;
     _verifiedReviews?.close();
     _reviewsAnchor = anchor;
-    _verifiedReviews = getIt<Hostr>().reviews.subscribeVerified(
+    _verifiedReviews = getIt<Hostr>().reviews.queryVerified(
       filter: Filter(
         tags: {
           kListingRefTag: [anchor],
@@ -102,10 +104,24 @@ class _ListingViewState extends State<ListingView> {
             stream: _verifiedReviews!.itemsStream,
             builder: (context, snapshot) {
               final items = snapshot.data ?? [];
+              final reviewsStatus = _verifiedReviews!.status.value;
+              final reviewsLoading =
+                  reviewsStatus is StreamStatusIdle ||
+                  reviewsStatus is StreamStatusQuerying;
               if (items.isEmpty) {
-                return snapshot.connectionState == ConnectionState.waiting
+                return reviewsLoading ||
+                        snapshot.connectionState == ConnectionState.waiting
                     ? const Center(child: AppLoadingIndicator.large())
-                    : const SizedBox.shrink();
+                    : EmtyResultsWidget(
+                        leading: Icon(
+                          Icons.rate_review_outlined,
+                          size: kIconHero,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        title: AppLocalizations.of(context)!.noReviewsYet,
+                        subtitle:
+                            'Be the first guest to share feedback for this listing.',
+                      );
               }
               return Column(
                 children: [
@@ -180,12 +196,6 @@ class _ListingViewState extends State<ListingView> {
                       : Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Divider(
-                              height: 1,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
                             SafeArea(
                               top: false,
                               child: CustomPadding.only(
@@ -313,7 +323,6 @@ class _ListingViewState extends State<ListingView> {
 }
 
 class ListingViewBody extends StatelessWidget {
-  static const _wideDetailsPaneWidth = 760.0;
   static const _wideCarouselAspectRatio = 16 / 9;
 
   final Listing listing;
@@ -345,50 +354,49 @@ class ListingViewBody extends StatelessWidget {
     required this.onBlockDates,
   });
 
-  Widget _buildBlockedReservationTile(
-    BuildContext context,
-    Reservation reservation,
-    VoidCallback onCancel,
-  ) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-      title: Text(
-        formatDateRangeShort(
-          DateTimeRange(start: reservation.start, end: reservation.end),
-          Localizations.localeOf(context),
-        ),
-      ),
-      trailing: IconButton(icon: const Icon(Icons.cancel), onPressed: onCancel),
+  Widget _buildHeroCarousel() {
+    return PreloadListingImages(
+      listing: listing,
+      child: ListingCarousel(listing: listing),
     );
   }
 
-  Widget _buildWideCarousel() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: AspectRatio(
-        aspectRatio: _wideCarouselAspectRatio,
-        child: PreloadListingImages(
-          listing: listing,
-          child: ListingCarousel(listing: listing),
-        ),
-      ),
+  SliverAppBar _buildHeroAppBar(BuildContext context) {
+    return SliverAppBar(
+      stretch: true,
+      pinned: true,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      iconTheme: const IconThemeData(color: Colors.white),
+      actionsIconTheme: const IconThemeData(color: Colors.white),
+      actions: [
+        if (isOwner)
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () {
+              context.router.navigate(
+                EditListingRoute(a: listing.anchor ?? listing.id),
+              );
+            },
+          ),
+      ],
+      expandedHeight: kAppPanelLargeWidth / _wideCarouselAspectRatio,
+      flexibleSpace: FlexibleSpaceBar(background: _buildHeroCarousel()),
     );
   }
 
   Widget _buildDetailsContent(BuildContext context) {
-    final isWideLayout = AppLayoutSpec.of(context).showsSearchSplit;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isWideLayout) ...[_buildWideCarousel(), Gap.vertical.lg()],
         Text(
           listing.title,
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
-        Gap.vertical.custom(kSpace1 / 2),
+        Gap.vertical.xs(),
         Row(
           children: [
             Text(
@@ -413,44 +421,13 @@ class ListingViewBody extends StatelessWidget {
         ListingLocationMapSection(listing: listing),
         if (isOwner) ...[
           Gap.vertical.lg(),
-          Section(
-            horizontalPadding: false,
-            action: OutlinedButton(
-              onPressed: onBlockDates,
-              child: Text(AppLocalizations.of(context)!.blockDates),
-            ),
-            body: blockedReservations.isEmpty
-                ? Text(
-                    AppLocalizations.of(context)!.noBlockedDates,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 0),
-                    itemCount: blockedReservations.length,
-                    itemBuilder: (context, index) =>
-                        _buildBlockedReservationTile(
-                          context,
-                          blockedReservations[index],
-                          () => onCancelBlockedReservation(
-                            blockedReservations[index],
-                          ),
-                        ),
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                  ),
-            title: AppLocalizations.of(context)!.blockedDates,
+          BlockedReservations(
+            blockedReservations: blockedReservations,
+            onCancelBlockedReservation: onCancelBlockedReservation,
+            onBlockDates: onBlockDates,
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildReviewsContent(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [reviewsListWidget],
     );
   }
 
@@ -460,7 +437,9 @@ class ListingViewBody extends StatelessWidget {
       children: [
         _buildDetailsContent(context),
         Gap.vertical.lg(),
-        reviewsListWidget,
+        listing_sections.ListingReviewsSection(
+          reviewsListWidget: reviewsListWidget,
+        ),
       ],
     );
   }
@@ -468,31 +447,27 @@ class ListingViewBody extends StatelessWidget {
   Widget _buildWideLayout(BuildContext context) {
     return AppSplitPage(
       maxWidth: kAppWideContentMaxWidth,
-      primaryWidth: _wideDetailsPaneWidth,
+      primaryWidth: kAppPanelLargeWidth,
       primary: AppPanelScaffold(
-        appBar: AppBar(
-          actions: [
-            if (isOwner)
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  context.router.navigate(
-                    EditListingRoute(a: listing.anchor ?? listing.id),
-                  );
-                },
+        body: CustomScrollView(
+          slivers: [
+            _buildHeroAppBar(context),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: kAppPanelPadding,
+                child: _buildDetailsContent(context),
               ),
+            ),
           ],
-        ),
-        body: SingleChildScrollView(
-          padding: kAppPanelPadding,
-          child: _buildDetailsContent(context),
         ),
         bottomBar: reserveBottomBar,
       ),
       secondary: AppPanel(
         child: SingleChildScrollView(
-          padding: kAppPanelPadding,
-          child: _buildReviewsContent(context),
+          padding: const EdgeInsets.fromLTRB(kSpace5, 0, kSpace5, kSpace5),
+          child: listing_sections.ListingReviewsSection(
+            reviewsListWidget: reviewsListWidget,
+          ),
         ),
       ),
     );
