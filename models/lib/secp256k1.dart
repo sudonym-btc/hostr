@@ -75,6 +75,28 @@ Future<bool> verifySchnorrSignature({
   return Bip340.verify(message, signature, publicKey);
 }
 
+/// Signs a [message] (hex-encoded event id) with a [privateKey] (32-byte hex)
+/// using BIP-340 Schnorr signatures.
+///
+/// Uses the fast native secp256k1 backend when loaded, otherwise falls back to
+/// the pure-Dart `Bip340.sign()` implementation.
+String signSchnorr({
+  required String privateKey,
+  required String message,
+}) {
+  if (_fastBackendLoaded) {
+    try {
+      final privKey = ECPrivateKey.fromHex(privateKey);
+      final sig = SchnorrSignature.sign(privKey, hexToBytes(message));
+      return bytesToHex(sig.data);
+    } catch (_) {
+      // Fall through to the pure-Dart signer below.
+    }
+  }
+
+  return Bip340.sign(message, privateKey);
+}
+
 class Secp256k1TweakedKeyPairResult {
   const Secp256k1TweakedKeyPairResult({
     required this.privateKeyHex,

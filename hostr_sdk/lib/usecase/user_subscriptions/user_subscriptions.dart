@@ -161,6 +161,22 @@ class UserSubscriptions {
     );
     giftwraps$ = StreamWithStatus<Message>(onClose: _parsedGiftwraps$!.close);
     giftwraps$.addSubscription(
+      _parsedGiftwraps$!.replayStream.listen((event) {
+        if (event is Message) {
+          _logger.d(
+            'Inbox parsed message id=${event.id} thread=${event.parsedTags.threadAnchor} '
+            'child=${event.child.runtimeType}',
+          );
+          return;
+        }
+
+        _logger.w(
+          'Dropping parsed giftwrap event id=${event.id} kind=${event.kind} '
+          'type=${event.runtimeType} because inbox expects Message',
+        );
+      }, onError: giftwraps$.addError),
+    );
+    giftwraps$.addSubscription(
       _parsedGiftwraps$!.replayStream.whereType<Message>().listen(
         giftwraps$.add,
         onError: giftwraps$.addError,

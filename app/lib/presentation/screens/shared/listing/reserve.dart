@@ -174,15 +174,7 @@ Future<void> selectDates(
       ? currentRange
       : null;
 
-  final picked = await showDateRangePicker(
-    builder: (context, child) {
-      return MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(padding: MediaQuery.of(context).padding.copyWith(bottom: 0)),
-        child: Theme(data: Theme.of(context), child: child!),
-      );
-    },
+  final picked = await showResponsiveDateRangePicker(
     context: context,
     firstDate: DateTime.now(),
     lastDate: DateTime.now().add(Duration(days: 365)),

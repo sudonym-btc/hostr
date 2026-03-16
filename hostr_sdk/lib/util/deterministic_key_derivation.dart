@@ -1,10 +1,11 @@
 import 'dart:convert' show utf8;
 import 'dart:typed_data';
 
+import 'package:coinlib/coinlib.dart' as coinlib;
 import 'package:convert/convert.dart' as convert;
-import 'package:cryptography/cryptography.dart';
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';
+import 'package:webcrypto/webcrypto.dart' as wc;
 
 /// BIP-44 derivation path prefix for EVM (Ethereum / Rootstock).
 const _evmPathPrefix = "m/44'/60'/0'/0";
@@ -17,26 +18,18 @@ const _bip39SeedSaltPrefix = 'mnemonic';
 const _bip39SeedIterations = 2048;
 const _bip39SeedBits = 512;
 
-final _sha256Async = Sha256();
-final _hmacSha256Async = Hmac.sha256();
-final _pbkdf2HmacSha512Async = Pbkdf2(
-  macAlgorithm: Hmac.sha512(),
-  iterations: _bip39SeedIterations,
-  bits: _bip39SeedBits,
-);
-
 Future<Uint8List> _hmacSha256Bytes(List<int> key, List<int> input) async {
-  final mac = await _hmacSha256Async.calculateMac(
-    input,
-    secretKey: SecretKey(key),
-    nonce: const [],
+  final hmacKey = await wc.HmacSecretKey.importRawKey(
+    Uint8List.fromList(key),
+    wc.Hash.sha256,
   );
-  return Uint8List.fromList(mac.bytes);
+  final mac = await hmacKey.signBytes(Uint8List.fromList(input));
+  return Uint8List.fromList(mac);
 }
 
 Future<String> _sha256Hex(List<int> input) async {
-  final hash = await _sha256Async.hash(input);
-  return convert.hex.encode(hash.bytes);
+  final hash = await wc.Hash.sha256.digestBytes(Uint8List.fromList(input));
+  return convert.hex.encode(hash);
 }
 
 Future<Uint8List> _hkdfSha256({
@@ -68,38 +61,16 @@ Future<Uint8List> _mnemonicToSeed(
   List<String> words, {
   String passphrase = '',
 }) async {
-  final derivedKey = await _pbkdf2HmacSha512Async.deriveKeyFromPassword(
-    password: words.join(' '),
-    nonce: _bip39MnemonicSalt(passphrase: passphrase),
+  final password = utf8.encode(words.join(' '));
+  final salt = Uint8List.fromList(_bip39MnemonicSalt(passphrase: passphrase));
+  final key = await wc.Pbkdf2SecretKey.importRawKey(password);
+  final derived = await key.deriveBits(
+    _bip39SeedBits,
+    wc.Hash.sha512,
+    salt,
+    _bip39SeedIterations,
   );
-  return Uint8List.fromList(await derivedKey.extractBytes());
-}
-
-bip.ExtendedPrivateKey _deriveChild(
-  bip.ExtendedPrivateKey master,
-  String path,
-  int accountIndex,
-) {
-  return master.forPath('$path/$accountIndex') as bip.ExtendedPrivateKey;
-}
-
-Uint8List _childKeyBytes(
-  bip.ExtendedPrivateKey master,
-  String path,
-  int accountIndex,
-) {
-  final child = _deriveChild(master, path, accountIndex);
-  final keyHex = child.key.toRadixString(16).padLeft(64, '0');
-  return Uint8List.fromList(convert.hex.decode(keyHex));
-}
-
-Future<String> _deriveHashedChildHex(
-  bip.ExtendedPrivateKey master,
-  String path,
-  int accountIndex,
-) async {
-  final bytes = _childKeyBytes(master, path, accountIndex);
-  return _sha256Hex(bytes);
+  return Uint8List.fromList(derived);
 }
 
 class DeterministicKeyDerivation {
@@ -108,12 +79,31 @@ class DeterministicKeyDerivation {
   Future<Uint8List>? _appEntropyFuture;
   Future<List<String>>? _evmMnemonicWordsFuture;
   Future<String>? _evmMnemonicFuture;
-  Future<bip.ExtendedPrivateKey>? _appMasterFuture;
+  Future<coinlib.HDPrivateKey>? _appMasterFuture;
+
+  /// Cache for [HDPrivateKey] at each BIP-32 path prefix so that
+  /// deriving a new account index only walks one additional child level
+  /// instead of re-traversing the entire path from the master key.
+  final Map<String, coinlib.HDPrivateKey> _pathPrefixKeys = {};
   final Map<int, Future<EthPrivateKey>> _evmKeyFutures = {};
+  final Map<int, Future<bip.EthereumAddress>> _evmAddressFutures = {};
   final Map<int, Future<String>> _tradeIdFutures = {};
   final Map<int, Future<String>> _tradeSaltFutures = {};
 
   DeterministicKeyDerivation(this.nostrPrivateKeyHex);
+
+  /// Returns the [HDPrivateKey] at [pathPrefix], caching it so that
+  /// subsequent calls with a different [accountIndex] only need to derive
+  /// one more child level instead of re-walking the entire path.
+  coinlib.HDPrivateKey _prefixKey(
+    coinlib.HDPrivateKey master,
+    String pathPrefix,
+  ) {
+    return _pathPrefixKeys.putIfAbsent(
+      pathPrefix,
+      () => master.derivePath(pathPrefix),
+    );
+  }
 
   Future<Uint8List> deriveAppEntropy() {
     return _appEntropyFuture ??= _deriveAppEntropyFromPrivateKey(
@@ -121,56 +111,70 @@ class DeterministicKeyDerivation {
     );
   }
 
-  Future<List<String>> deriveEvmMnemonicWords() {
+  Future<List<String>> deriveAccountMnemonicWords() {
     return _evmMnemonicWordsFuture ??= () async {
       final entropy = await deriveAppEntropy();
       return bip.entropyToMnemonic(entropy);
     }();
   }
 
-  Future<String> deriveEvmMnemonic() {
+  Future<String> deriveAccountMnemonic() {
     return _evmMnemonicFuture ??= () async {
-      return (await deriveEvmMnemonicWords()).join(' ');
+      return (await deriveAccountMnemonicWords()).join(' ');
     }();
   }
 
-  Future<bip.ExtendedPrivateKey> deriveAppMaster() {
+  Future<coinlib.HDPrivateKey> deriveAppMaster() {
     return _appMasterFuture ??= () async {
-      final words = await deriveEvmMnemonicWords();
+      final words = await deriveAccountMnemonicWords();
       final seed = await _mnemonicToSeed(words);
-      return bip.ExtendedPrivateKey.master(seed, bip.xprv);
+      return coinlib.HDPrivateKey.fromSeed(seed);
     }();
   }
 
   Future<EthPrivateKey> deriveEvmKey({int accountIndex = 0}) {
     return _evmKeyFutures.putIfAbsent(accountIndex, () async {
-      final derived = _deriveChild(
-        await deriveAppMaster(),
-        _evmPathPrefix,
-        accountIndex,
-      );
-      final keyHex = derived.key.toRadixString(16).padLeft(64, '0');
+      final master = await deriveAppMaster();
+      final parent = _prefixKey(master, _evmPathPrefix);
+      final derived = parent.derive(accountIndex);
+      final keyHex = convert.hex.encode(derived.privateKey.data);
       return EthPrivateKey.fromHex(keyHex);
+    });
+  }
+
+  Future<bip.EthereumAddress> deriveEvmAddress({int accountIndex = 0}) {
+    return _evmAddressFutures.putIfAbsent(accountIndex, () async {
+      final master = await deriveAppMaster();
+      final parent = _prefixKey(master, _evmPathPrefix);
+      final derived = parent.derive(accountIndex);
+      // Use coinlib (native/WASM secp256k1) for the EC point multiplication
+      // instead of going through EthPrivateKey.address which uses
+      // pointycastle's pure-Dart implementation (~260 ms on web).
+      final uncompressedPub = coinlib.ECPrivateKey(
+        derived.privateKey.data,
+        compressed: false,
+      ).pubkey.data; // 65 bytes (0x04 ‖ x ‖ y)
+      // keccak256(pubBytes[1:]) → last 20 bytes = address
+      final addressBytes = publicKeyToAddress(uncompressedPub.sublist(1));
+      return bip.EthereumAddress(addressBytes);
     });
   }
 
   Future<String> deriveTradeId({int accountIndex = 0}) {
     return _tradeIdFutures.putIfAbsent(accountIndex, () async {
-      return _deriveHashedChildHex(
-        await deriveAppMaster(),
-        _tradeIdPathPrefix,
-        accountIndex,
-      );
+      final master = await deriveAppMaster();
+      final parent = _prefixKey(master, _tradeIdPathPrefix);
+      final child = parent.derive(accountIndex);
+      return _sha256Hex(child.privateKey.data);
     });
   }
 
   Future<String> deriveTradeSalt({int accountIndex = 0}) {
     return _tradeSaltFutures.putIfAbsent(accountIndex, () async {
-      return _deriveHashedChildHex(
-        await deriveAppMaster(),
-        _tradeSaltPathPrefix,
-        accountIndex,
-      );
+      final master = await deriveAppMaster();
+      final parent = _prefixKey(master, _tradeSaltPathPrefix);
+      final child = parent.derive(accountIndex);
+      return _sha256Hex(child.privateKey.data);
     });
   }
 }
@@ -191,12 +195,14 @@ DeterministicKeyDerivation _forPrivateKey(String nostrPrivateKeyHex) {
   return DeterministicKeyDerivation(nostrPrivateKeyHex);
 }
 
-Future<List<String>> deriveEvmMnemonicWords(String nostrPrivateKeyHex) async {
-  return _forPrivateKey(nostrPrivateKeyHex).deriveEvmMnemonicWords();
+Future<List<String>> deriveAccountMnemonicWords(
+  String nostrPrivateKeyHex,
+) async {
+  return _forPrivateKey(nostrPrivateKeyHex).deriveAccountMnemonicWords();
 }
 
-Future<String> deriveEvmMnemonic(String nostrPrivateKeyHex) async {
-  return _forPrivateKey(nostrPrivateKeyHex).deriveEvmMnemonic();
+Future<String> deriveAccountMnemonic(String nostrPrivateKeyHex) async {
+  return _forPrivateKey(nostrPrivateKeyHex).deriveAccountMnemonic();
 }
 
 Future<String> deriveNostrPrivateKeyFromMnemonic(
@@ -205,11 +211,9 @@ Future<String> deriveNostrPrivateKeyFromMnemonic(
 }) async {
   final words = mnemonicSentence.trim().split(RegExp(r'\s+'));
   final seed = await _mnemonicToSeed(words);
-  final master = bip.ExtendedPrivateKey.master(seed, bip.xprv);
-  final derived =
-      master.forPath("$_nostrPathPrefix/$accountIndex'/0/0")
-          as bip.ExtendedPrivateKey;
-  return derived.key.toRadixString(16).padLeft(64, '0');
+  final master = coinlib.HDPrivateKey.fromSeed(seed);
+  final derived = master.derivePath("$_nostrPathPrefix/$accountIndex'/0/0");
+  return convert.hex.encode(derived.privateKey.data);
 }
 
 Future<EthPrivateKey> deriveEvmKey(

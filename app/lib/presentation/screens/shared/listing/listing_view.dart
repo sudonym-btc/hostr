@@ -7,6 +7,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -126,31 +127,35 @@ class _ListingViewState extends State<ListingView> {
           return RepositoryProvider<StreamWithStatus<Reservation>?>.value(
             value: _listingReservationsStream,
             child: Scaffold(
-              bottomNavigationBar: isOwner
-                  ? null
-                  : BottomAppBar(
-                      child: CustomPadding.horizontal.lg(
-                        child: StreamBuilder<List<Validation<ReservationPair>>>(
-                          stream: _verifiedPairs!.latestItemsStream,
-                          builder: (context, snapshot) {
-                            final reservationPairs =
-                                (snapshot.data ??
-                                        const <Validation<ReservationPair>>[])
-                                    .whereType<Valid<ReservationPair>>()
-                                    .map((e) => e.event)
-                                    .toList();
+              bottomNavigationBar: StreamBuilder<List<Reservation>>(
+                stream: _listingReservationsStream!.itemsStream,
+                builder: (context, reservationsSnapshot) {
+                  final isWideLayout = AppLayoutSpec.of(
+                    context,
+                  ).showsSearchSplit;
+                  if (isOwner || isWideLayout) return const SizedBox.shrink();
 
-                            return Reserve(
-                              listing: state.data!,
-                              reservationPairs: reservationPairs,
-                            );
-                          },
-                        ),
+                  final allReservations =
+                      reservationsSnapshot.data ?? const <Reservation>[];
+                  final reservationPairs = Reservations.toReservationPairs(
+                    reservations: allReservations,
+                  );
+
+                  return BottomAppBar(
+                    child: CustomPadding.horizontal.lg(
+                      child: Reserve(
+                        listing: state.data!,
+                        reservationPairs: reservationPairs.values.toList(),
                       ),
                     ),
+                  );
+                },
+              ),
               body: StreamBuilder<List<Reservation>>(
                 stream: _listingReservationsStream!.itemsStream,
                 builder: (context, reservationsSnapshot) {
+                  final layout = AppLayoutSpec.of(context);
+                  final isWideLayout = layout.showsSearchSplit;
                   final allReservations =
                       reservationsSnapshot.data ?? const <Reservation>[];
 
@@ -169,6 +174,90 @@ class _ListingViewState extends State<ListingView> {
                           reservations: allReservations,
                         )
                       : const <String, ReservationPair>{};
+
+                  final reserveBottomBar = isOwner
+                      ? null
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Divider(
+                              height: 1,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                            SafeArea(
+                              top: false,
+                              child: CustomPadding.only(
+                                top: kSpace3,
+                                bottom: kSpace3,
+                                left: kSpace6,
+                                right: kSpace6,
+                                child: Reserve(
+                                  listing: state.data!,
+                                  reservationPairs: reservationPairs.values
+                                      .toList(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+
+                  final listingBody = ListingViewBody(
+                    listing: state.data!,
+                    selectedDateRange: widget.dateRange,
+                    isOwner: isOwner,
+                    hostedByText: AppLocalizations.of(context)!.hostedBy,
+                    hostWidget: ProfileChipWidget(id: state.data!.pubKey),
+                    reviewsSummaryWidget: ReviewsReservationsWidget(
+                      reservationCount: _verifiedPairs!.latestItemsStream.map(
+                        (items) =>
+                            items.whereType<Valid<ReservationPair>>().length,
+                      ),
+                      averageReviewRating: _verifiedReviews!.itemsStream.map((
+                        items,
+                      ) {
+                        final reviews = items
+                            .whereType<Valid<Review>>()
+                            .map((validation) => validation.event)
+                            .toList();
+                        if (reviews.isEmpty) {
+                          return 0.0;
+                        }
+
+                        final total = reviews.fold<double>(
+                          0,
+                          (sum, review) => sum + review.rating,
+                        );
+                        return total / reviews.length;
+                      }),
+                      reviewCount: _verifiedReviews!.itemsStream.map(
+                        (items) => items.whereType<Valid<Review>>().length,
+                      ),
+                    ),
+                    reviewsListWidget: reviewsListWidget,
+                    reserveBottomBar: isWideLayout ? reserveBottomBar : null,
+                    blockedReservations: blockedReservations,
+                    reservationPairs: reservationPairs,
+                    onCancelBlockedReservation: (reservation) async {
+                      await getIt<Hostr>().reservations.cancel(
+                        reservation,
+                        getIt<Hostr>().auth.getActiveKey(),
+                      );
+                    },
+                    onBlockDates: () {
+                      showAppModal(
+                        context,
+                        child: BlockDatesWidget(
+                          listingAnchor: state.data!.anchor!,
+                        ),
+                      );
+                    },
+                  );
+
+                  if (isWideLayout) {
+                    return SafeArea(top: false, child: listingBody);
+                  }
 
                   return CustomScrollView(
                     slivers: [
@@ -208,66 +297,7 @@ class _ListingViewState extends State<ListingView> {
                       ),
                       SliverList(
                         delegate: SliverChildListDelegate([
-                          CustomPadding(
-                            child: ListingViewBody(
-                              listing: state.data!,
-                              selectedDateRange: widget.dateRange,
-                              isOwner: isOwner,
-                              hostedByText: AppLocalizations.of(
-                                context,
-                              )!.hostedBy,
-                              hostWidget: ProfileChipWidget(
-                                id: state.data!.pubKey,
-                              ),
-                              reviewsSummaryWidget: ReviewsReservationsWidget(
-                                reservationCount: _verifiedPairs!
-                                    .latestItemsStream
-                                    .map(
-                                      (items) => items
-                                          .whereType<Valid<ReservationPair>>()
-                                          .length,
-                                    ),
-                                averageReviewRating: _verifiedReviews!
-                                    .itemsStream
-                                    .map((items) {
-                                      final reviews = items
-                                          .whereType<Valid<Review>>()
-                                          .map((validation) => validation.event)
-                                          .toList();
-                                      if (reviews.isEmpty) {
-                                        return 0.0;
-                                      }
-
-                                      final total = reviews.fold<double>(
-                                        0,
-                                        (sum, review) => sum + review.rating,
-                                      );
-                                      return total / reviews.length;
-                                    }),
-                                reviewCount: _verifiedReviews!.itemsStream.map(
-                                  (items) =>
-                                      items.whereType<Valid<Review>>().length,
-                                ),
-                              ),
-                              reviewsListWidget: reviewsListWidget,
-                              blockedReservations: blockedReservations,
-                              reservationPairs: reservationPairs,
-                              onCancelBlockedReservation: (reservation) async {
-                                await getIt<Hostr>().reservations.cancel(
-                                  reservation,
-                                  getIt<Hostr>().auth.getActiveKey(),
-                                );
-                              },
-                              onBlockDates: () {
-                                showAppModal(
-                                  context,
-                                  child: BlockDatesWidget(
-                                    listingAnchor: state.data!.anchor!,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
+                          CustomPadding(child: listingBody),
                         ]),
                       ),
                     ],
@@ -283,6 +313,9 @@ class _ListingViewState extends State<ListingView> {
 }
 
 class ListingViewBody extends StatelessWidget {
+  static const _wideDetailsPaneWidth = 760.0;
+  static const _wideCarouselAspectRatio = 16 / 9;
+
   final Listing listing;
   final DateTimeRange? selectedDateRange;
   final bool isOwner;
@@ -290,6 +323,7 @@ class ListingViewBody extends StatelessWidget {
   final Widget hostWidget;
   final Widget reviewsSummaryWidget;
   final Widget reviewsListWidget;
+  final Widget? reserveBottomBar;
   final List<Reservation> blockedReservations;
   final Map<String, ReservationPair> reservationPairs;
   final ValueChanged<Reservation> onCancelBlockedReservation;
@@ -304,6 +338,7 @@ class ListingViewBody extends StatelessWidget {
     required this.hostWidget,
     required this.reviewsSummaryWidget,
     required this.reviewsListWidget,
+    this.reserveBottomBar,
     required this.blockedReservations,
     required this.reservationPairs,
     required this.onCancelBlockedReservation,
@@ -327,11 +362,26 @@ class ListingViewBody extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildWideCarousel() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: AspectRatio(
+        aspectRatio: _wideCarouselAspectRatio,
+        child: PreloadListingImages(
+          listing: listing,
+          child: ListingCarousel(listing: listing),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailsContent(BuildContext context) {
+    final isWideLayout = AppLayoutSpec.of(context).showsSearchSplit;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (isWideLayout) ...[_buildWideCarousel(), Gap.vertical.lg()],
         Text(
           listing.title,
           style: Theme.of(
@@ -393,9 +443,67 @@ class ListingViewBody extends StatelessWidget {
             title: AppLocalizations.of(context)!.blockedDates,
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildReviewsContent(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [reviewsListWidget],
+    );
+  }
+
+  Widget _buildCompactLayout(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDetailsContent(context),
+        Gap.vertical.lg(),
         reviewsListWidget,
       ],
     );
+  }
+
+  Widget _buildWideLayout(BuildContext context) {
+    return AppSplitPage(
+      maxWidth: kAppWideContentMaxWidth,
+      primaryWidth: _wideDetailsPaneWidth,
+      primary: AppPanelScaffold(
+        appBar: AppBar(
+          actions: [
+            if (isOwner)
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () {
+                  context.router.navigate(
+                    EditListingRoute(a: listing.anchor ?? listing.id),
+                  );
+                },
+              ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          padding: kAppPanelPadding,
+          child: _buildDetailsContent(context),
+        ),
+        bottomBar: reserveBottomBar,
+      ),
+      secondary: AppPanel(
+        child: SingleChildScrollView(
+          padding: kAppPanelPadding,
+          child: _buildReviewsContent(context),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayoutSpec.of(context);
+    return layout.showsSearchSplit
+        ? _buildWideLayout(context)
+        : _buildCompactLayout(context);
   }
 }
 

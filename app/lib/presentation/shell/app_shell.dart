@@ -9,6 +9,7 @@ import 'package:hostr/app.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
+import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 /// The main navigation shell of the app.
@@ -77,7 +78,9 @@ class _AppShellScreenState extends State<AppShellScreen>
         _navItem(
           icon: Icon(
             destination.icon,
-            size: destination.label == 'Search' ? kIconLg : kIconMd,
+            size: destination.route.routeName == SearchRoute.name
+                ? kIconLg
+                : kIconMd,
           ),
           label: destination.label,
         ),

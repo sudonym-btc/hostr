@@ -2,6 +2,7 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
+import '../../config.dart' show CoinlibEventSigner;
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
 
@@ -41,7 +42,7 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
       Filter(kinds: EscrowTrust.kinds, authors: [pubkey]),
     );
 
-    final signer = Bip340EventSigner(
+    final signer = CoinlibEventSigner(
       privateKey: keyPair.privateKey,
       publicKey: pubkey,
     );
@@ -62,11 +63,7 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
         nip51.addElement('p', pk, false);
       }
       final event = await nip51.toEvent(signer);
-      final signed = Nip01Utils.signWithPrivateKey(
-        privateKey: keyPair.privateKey!,
-        event: event,
-      );
-      await upsert(EscrowTrust.fromNostrEvent(signed));
+      await upsert(EscrowTrust.fromNostrEvent(event));
     } else {
       // No trust list exists — create one with the bootstrap escrow pubkeys
       final list = Nip51List(
@@ -80,11 +77,7 @@ class EscrowTrusts extends CrudUseCase<EscrowTrust> {
       }
 
       final event = await list.toEvent(signer);
-      final signed = Nip01Utils.signWithPrivateKey(
-        privateKey: keyPair.privateKey!,
-        event: event,
-      );
-      await upsert(EscrowTrust.fromNostrEvent(signed));
+      await upsert(EscrowTrust.fromNostrEvent(event));
     }
     logger.i(
       'Ensured escrow trust for $pubkey with ${escrowPubkeys.length} provider(s)',

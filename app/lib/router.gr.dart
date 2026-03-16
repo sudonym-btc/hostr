@@ -356,10 +356,15 @@ class StartupGateRoute extends PageRouteInfo<StartupGateRouteArgs> {
   StartupGateRoute({
     Key? key,
     bool popOnComplete = false,
+    String? nextPath,
     List<PageRouteInfo>? children,
   }) : super(
          StartupGateRoute.name,
-         args: StartupGateRouteArgs(key: key, popOnComplete: popOnComplete),
+         args: StartupGateRouteArgs(
+           key: key,
+           popOnComplete: popOnComplete,
+           nextPath: nextPath,
+         ),
          initialChildren: children,
        );
 
@@ -374,32 +379,57 @@ class StartupGateRoute extends PageRouteInfo<StartupGateRouteArgs> {
       return StartupGateScreen(
         key: args.key,
         popOnComplete: args.popOnComplete,
+        nextPath: args.nextPath,
       );
     },
   );
 }
 
 class StartupGateRouteArgs {
-  const StartupGateRouteArgs({this.key, this.popOnComplete = false});
+  const StartupGateRouteArgs({
+    this.key,
+    this.popOnComplete = false,
+    this.nextPath,
+  });
 
   final Key? key;
 
   final bool popOnComplete;
 
+  final String? nextPath;
+
   @override
   String toString() {
-    return 'StartupGateRouteArgs{key: $key, popOnComplete: $popOnComplete}';
+    return 'StartupGateRouteArgs{key: $key, popOnComplete: $popOnComplete, nextPath: $nextPath}';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     if (other is! StartupGateRouteArgs) return false;
-    return key == other.key && popOnComplete == other.popOnComplete;
+    return key == other.key &&
+        popOnComplete == other.popOnComplete &&
+        nextPath == other.nextPath;
   }
 
   @override
-  int get hashCode => key.hashCode ^ popOnComplete.hashCode;
+  int get hashCode => key.hashCode ^ popOnComplete.hashCode ^ nextPath.hashCode;
+}
+
+/// generated route for
+/// [StartupShellScreen]
+class StartupShellRoute extends PageRouteInfo<void> {
+  const StartupShellRoute({List<PageRouteInfo>? children})
+    : super(StartupShellRoute.name, initialChildren: children);
+
+  static const String name = 'StartupShellRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const StartupShellScreen();
+    },
+  );
 }
 
 /// generated route for

@@ -5,6 +5,7 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 
 class AuthGuard extends AutoRouteGuard {
   CustomLogger logger = CustomLogger();
+
   @override
   void onNavigation(NavigationResolver resolver, StackRouter router) async {
     logger.d('AuthGuard');
@@ -14,14 +15,28 @@ class AuthGuard extends AutoRouteGuard {
       return;
     }
     logger.d('AuthGuard logged out');
+    final nextPath = _routeMatchToPath(resolver.route);
     router.push(
       SignInRoute(
         onSuccess: () {
           logger.d('AuthGuard: sign-in complete, routing through startup gate');
-          // Replace with startup gate which will navigate to AppShellRoute when done.
-          router.replaceAll([StartupGateRoute()]);
+          router.replaceAll([StartupGateRoute(nextPath: nextPath)]);
         },
       ),
     );
   }
+}
+
+String _routeMatchToPath(RouteMatch route) {
+  final queryParameters = route.queryParams.rawMap.isEmpty
+      ? null
+      : route.queryParams.rawMap.map(
+          (key, value) => MapEntry(key, value.toString()),
+        );
+
+  return Uri(
+    path: '/${route.fullPath}',
+    queryParameters: queryParameters,
+    fragment: route.fragment.isEmpty ? null : route.fragment,
+  ).toString();
 }

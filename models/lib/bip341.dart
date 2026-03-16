@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:models/bip340.dart';
 import 'package:models/secp256k1.dart';
+import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:pointycastle/ecc/api.dart';
 
@@ -61,8 +62,21 @@ Bip341TweakedKeyPair tweakKeyPair({
     tweak32: tweakBytes,
   );
   if (coinlibTweaked != null) {
+    final privKeyHr = Helpers.encodeBech32(
+      coinlibTweaked.privateKeyHex,
+      'nsec',
+    );
+    final pubKeyHr = Helpers.encodeBech32(
+      coinlibTweaked.publicKeyHex,
+      'npub',
+    );
     return Bip341TweakedKeyPair(
-      keyPair: Bip340.fromPrivateKey(coinlibTweaked.privateKeyHex),
+      keyPair: KeyPair(
+        coinlibTweaked.privateKeyHex,
+        coinlibTweaked.publicKeyHex,
+        privKeyHr,
+        pubKeyHr,
+      ),
       parity: coinlibTweaked.parity,
     );
   }

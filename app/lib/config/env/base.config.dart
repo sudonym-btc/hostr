@@ -22,7 +22,6 @@ abstract class Config {
     CustomLogger? logger,
     CommonDatabase? operationsDb,
     ShowNotification? showNotification,
-    ConfigureCryptography? configureCryptography,
   }) {
     final log = logger ?? CustomLogger();
 
@@ -43,7 +42,6 @@ abstract class Config {
       telemetry: buildTelemetry(),
       calendarPort: EventideCalendarPort(logger: log),
       showNotification: showNotification,
-      configureCryptography: configureCryptography,
     );
   }
 }

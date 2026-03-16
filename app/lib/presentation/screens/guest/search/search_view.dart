@@ -213,47 +213,37 @@ class SearchViewState extends State<SearchView> {
   }
 
   Widget _buildWideLayout(BuildContext context) {
-    return AppConstrainedBody(
+    return AppSplitPage(
       maxWidth: kAppWideContentMaxWidth,
-      padding: const EdgeInsets.fromLTRB(kSpace5, kSpace5, kSpace5, kSpace4),
-      child: AppTwoPane(
-        primaryWidth: kAppSearchListPaneWidth,
-        primary: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildSearchBox(context),
-            const SizedBox(height: kSpace4),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Material(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  child: SafeArea(
-                    top: false,
-                    bottom: false,
-                    child: ListingsWidget(
-                      scrollToId: _scrollToListingId,
-                      focusedItemId: _focusedListingId,
-                      reserveBottomNavigationBarSpace: false,
-                    ),
-                  ),
+      padding: kAppPagePaddingWithHeader,
+      primaryWidth: kAppSearchListPaneWidth,
+      primary: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildSearchBox(context),
+          const SizedBox(height: kSpace4),
+          Expanded(
+            child: AppPanel(
+              child: SafeArea(
+                top: false,
+                bottom: false,
+                child: ListingsWidget(
+                  scrollToId: _scrollToListingId,
+                  focusedItemId: _focusedListingId,
+                  reserveBottomNavigationBarSpace: false,
                 ),
               ),
             ),
-          ],
-        ),
-        secondary: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: Material(
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: SearchMapWidget(
-              onMarkerTap: (id) {
-                _focusedListingId.value = id;
-                _scrollToListingId.value = id;
-              },
-              animateToId: _focusedListingId,
-            ),
           ),
+        ],
+      ),
+      secondary: AppPanel(
+        child: SearchMapWidget(
+          onMarkerTap: (id) {
+            _focusedListingId.value = id;
+            _scrollToListingId.value = id;
+          },
+          animateToId: _focusedListingId,
         ),
       ),
     );

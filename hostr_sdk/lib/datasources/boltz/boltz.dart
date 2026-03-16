@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:chopper/chopper.dart';
 import 'package:injectable/injectable.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../config.dart';
 import '../../util/main.dart';
@@ -234,7 +234,7 @@ class BoltzClient {
     int maxReconnectAttempts = 5,
   }) {
     final controller = StreamController<SwapStatus>.broadcast();
-    WebSocket? socket;
+    WebSocketChannel? channel;
     StreamSubscription<dynamic>? socketSub;
     int reconnectAttempts = 0;
     bool intentionallyClosed = false;
@@ -251,11 +251,11 @@ class BoltzClient {
       }
       socketSub = null;
       try {
-        await socket?.close();
+        await channel?.sink.close();
       } catch (_) {
         // Ignore late close errors from an already-closing websocket.
       }
-      socket = null;
+      channel = null;
     }
 
     Future<void> connect() async {
@@ -265,13 +265,14 @@ class BoltzClient {
         logger.d(
           'Connecting to Boltz WS for swap $id (attempt ${reconnectAttempts + 1})',
         );
-        socket = await WebSocket.connect(wsUrl);
+        channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+        await channel!.ready;
         if (intentionallyClosed || controller.isClosed) {
           await closeSocket();
           return;
         }
         reconnectAttempts = 0; // Reset on successful connect
-        socket!.add(
+        channel!.sink.add(
           jsonEncode({
             'op': 'subscribe',
             'channel': 'swap.update',
@@ -279,7 +280,7 @@ class BoltzClient {
           }),
         );
 
-        socketSub = socket!.listen(
+        socketSub = channel!.stream.listen(
           (data) {
             final msg = _tryParseMessage(data);
             if (msg == null || msg['event'] != 'update') return;

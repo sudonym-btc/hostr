@@ -4,7 +4,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/router.dart';
 
 const kAppCompactBreakpoint = 900.0;
@@ -18,6 +17,16 @@ const kAppSearchListPaneWidth = 460.0;
 const kAppInboxListPaneWidth = 460.0;
 const kAppProfileMaxWidth = 460.0;
 const kAppFormMaxWidth = 460.0;
+const kAppPanelRadius = 16.0;
+const kAppPanelGap = kSpace5;
+const kAppPagePadding = EdgeInsets.fromLTRB(kSpace5, kSpace4, kSpace5, kSpace4);
+const kAppPagePaddingWithHeader = EdgeInsets.fromLTRB(
+  kSpace5,
+  kSpace5,
+  kSpace5,
+  kSpace4,
+);
+const kAppPanelPadding = EdgeInsets.all(kSpace5);
 
 enum AppViewportSize { compact, medium, expanded }
 
@@ -64,8 +73,8 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
   if (!isLoggedIn) {
     return [
       const AppNavigationDestination(
-        label: 'Search',
-        icon: Icons.search,
+        label: 'Explore',
+        icon: Icons.travel_explore,
         route: SearchRoute(),
       ),
       AppNavigationDestination(
@@ -103,13 +112,13 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
 
   return [
     const AppNavigationDestination(
-      label: 'Search',
-      icon: Icons.search,
+      label: 'Explore',
+      icon: Icons.travel_explore,
       route: SearchRoute(),
     ),
     const AppNavigationDestination(
       label: 'Trips',
-      icon: Icons.travel_explore,
+      icon: Icons.flight,
       route: TripsRoute(),
     ),
     const AppNavigationDestination(
@@ -192,42 +201,57 @@ class AppWideNavigationScaffold extends StatelessWidget {
     );
 
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: layout.shellMaxWidth),
-            child: Row(
-              children: [
-                Container(
-                  width: navWidth,
-                  color: theme.colorScheme.surfaceContainerLow,
-                  child: CustomPadding.vertical.lg(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: destinations.length,
-                            itemBuilder: (context, index) {
-                              final destination = destinations[index];
-                              return _AppWideNavigationItem(
-                                label: destination.label,
-                                icon: destination.icon,
-                                selected: index == safeSelectedIndex,
-                                onTap: () => onDestinationSelected(index),
-                              );
-                            },
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: kSpace2),
-                          ),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: ColoredBox(
+        color: theme.scaffoldBackgroundColor,
+        child: SafeArea(
+          bottom: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: layout.shellMaxWidth),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: navWidth,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        kSpace4,
+                        kSpace4,
+                        kSpace3,
+                        kSpace4,
+                      ),
+                      child: AppPanel(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: kSpace3,
+                          vertical: kSpace4,
                         ),
-                      ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: ListView.separated(
+                                itemCount: destinations.length,
+                                itemBuilder: (context, index) {
+                                  final destination = destinations[index];
+                                  return _AppWideNavigationItem(
+                                    label: destination.label,
+                                    icon: destination.icon,
+                                    selected: index == safeSelectedIndex,
+                                    onTap: () => onDestinationSelected(index),
+                                  );
+                                },
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: kSpace2),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                Expanded(child: child),
-              ],
+                  Expanded(child: child),
+                ],
+              ),
             ),
           ),
         ),
@@ -307,6 +331,31 @@ class AppConstrainedBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return AppPageGutter(
+      maxWidth: maxWidth,
+      padding: padding,
+      alignment: alignment,
+      child: child,
+    );
+  }
+}
+
+class AppPageGutter extends StatelessWidget {
+  final Widget child;
+  final double? maxWidth;
+  final EdgeInsetsGeometry padding;
+  final AlignmentGeometry alignment;
+
+  const AppPageGutter({
+    super.key,
+    required this.child,
+    this.maxWidth,
+    this.padding = kAppPagePadding,
+    this.alignment = Alignment.topCenter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final layout = AppLayoutSpec.of(context);
     return Align(
       alignment: alignment,
@@ -315,6 +364,154 @@ class AppConstrainedBody extends StatelessWidget {
           maxWidth: maxWidth ?? layout.contentMaxWidth,
         ),
         child: Padding(padding: padding, child: child),
+      ),
+    );
+  }
+}
+
+class AppPanel extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final Color? color;
+  final double radius;
+
+  const AppPanel({
+    super.key,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+    this.color,
+    this.radius = kAppPanelRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Material(
+        color: color ?? Theme.of(context).colorScheme.surfaceContainerLow,
+        child: Padding(padding: padding, child: child),
+      ),
+    );
+  }
+}
+
+class AppPanelScaffold extends StatelessWidget {
+  final PreferredSizeWidget? appBar;
+  final Widget body;
+  final Widget? bottomBar;
+  final Color? color;
+  final double radius;
+
+  const AppPanelScaffold({
+    super.key,
+    this.appBar,
+    required this.body,
+    this.bottomBar,
+    this.color,
+    this.radius = kAppPanelRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AppPanel(
+      color: color,
+      radius: radius,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (appBar != null)
+            Theme(
+              data: theme.copyWith(
+                appBarTheme: theme.appBarTheme.copyWith(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  surfaceTintColor: Colors.transparent,
+                ),
+              ),
+              child: appBar!,
+            ),
+          Expanded(child: body),
+          if (bottomBar != null) bottomBar!,
+        ],
+      ),
+    );
+  }
+}
+
+class AppSinglePanePage extends StatelessWidget {
+  final Widget child;
+  final double? maxWidth;
+  final EdgeInsetsGeometry padding;
+  final AlignmentGeometry alignment;
+  final bool usePanel;
+  final EdgeInsetsGeometry panelPadding;
+  final Color? panelColor;
+  final double panelRadius;
+
+  const AppSinglePanePage({
+    super.key,
+    required this.child,
+    this.maxWidth,
+    this.padding = kAppPagePadding,
+    this.alignment = Alignment.topCenter,
+    this.usePanel = true,
+    this.panelPadding = EdgeInsets.zero,
+    this.panelColor,
+    this.panelRadius = kAppPanelRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPageGutter(
+      maxWidth: maxWidth,
+      padding: padding,
+      alignment: alignment,
+      child: usePanel
+          ? AppPanel(
+              padding: panelPadding,
+              color: panelColor,
+              radius: panelRadius,
+              child: child,
+            )
+          : child,
+    );
+  }
+}
+
+class AppSplitPage extends StatelessWidget {
+  final Widget primary;
+  final Widget secondary;
+  final double primaryWidth;
+  final double gap;
+  final double? maxWidth;
+  final EdgeInsetsGeometry padding;
+  final AlignmentGeometry alignment;
+
+  const AppSplitPage({
+    super.key,
+    required this.primary,
+    required this.secondary,
+    this.primaryWidth = kAppSearchListPaneWidth,
+    this.gap = kAppPanelGap,
+    this.maxWidth = kAppWideContentMaxWidth,
+    this.padding = kAppPagePadding,
+    this.alignment = Alignment.topCenter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPageGutter(
+      maxWidth: maxWidth,
+      padding: padding,
+      alignment: alignment,
+      child: AppTwoPane(
+        primaryWidth: primaryWidth,
+        gap: gap,
+        primary: primary,
+        secondary: secondary,
       ),
     );
   }

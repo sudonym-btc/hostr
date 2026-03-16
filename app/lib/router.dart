@@ -7,7 +7,6 @@ import 'presentation/screens/host/hostings/hostings.dart';
 
 part 'router.gr.dart';
 
-/// Central application router configuration.
 @AutoRouterConfig(replaceInRouteName: 'Screen,Route')
 class AppRouter extends RootStackRouter {
   @override
@@ -17,71 +16,76 @@ class AppRouter extends RootStackRouter {
       initial: true,
       children: [
         AutoRoute(page: SignInRoute.page, path: 'signin'),
-        AutoRoute(page: StartupGateRoute.page, path: 'startup', initial: true),
+        AutoRoute(page: StartupGateRoute.page, path: 'startup'),
         AutoRoute(
-          page: WideViewportShellRoute.page,
+          page: StartupShellRoute.page,
           path: '',
+          initial: true,
           children: [
             AutoRoute(
-              page: AppShellRoute.page,
+              page: WideViewportShellRoute.page,
               initial: true,
               path: '',
               children: [
-                /// Public routes
                 AutoRoute(
-                  page: SearchRoute.page,
+                  page: AppShellRoute.page,
                   initial: true,
-                  path: 'search',
+                  path: '',
                   children: [
-                    AutoRoute(page: FiltersRoute.page, path: 'filters'),
+                    /// Public routes
+                    AutoRoute(
+                      page: SearchRoute.page,
+                      initial: true,
+                      path: 'search',
+                      children: [
+                        AutoRoute(page: FiltersRoute.page, path: 'filters'),
+                      ],
+                    ),
+                    AutoRoute(page: SignInRoute.page, path: 'signin'),
+
+                    /// Signed in routes
+                    AutoRoute(
+                      page: ProfileRoute.page,
+                      path: 'profile',
+                      guards: [AuthGuard()],
+                    ),
+                    AutoRoute(
+                      page: TripsRoute.page,
+                      path: 'trips',
+                      guards: [AuthGuard()],
+                    ),
+                    AutoRoute(
+                      page: InboxRoute.page,
+                      path: 'inbox',
+                      guards: [AuthGuard()],
+                      children: [
+                        AutoRoute(page: ThreadRoute.page, path: ':anchor'),
+                      ],
+                    ),
+                    AutoRoute(
+                      page: MyListingsRoute.page,
+                      path: 'my-listings',
+                      guards: [AuthGuard()],
+                    ),
+                    AutoRoute(
+                      page: HostingsRoute.page,
+                      path: 'hostings',
+                      guards: [AuthGuard()],
+                    ),
                   ],
                 ),
-                AutoRoute(page: SignInRoute.page, path: 'signin'),
-
-                /// Signed in routes
+                AutoRoute(page: ListingRoute.page, path: 'listing/:a'),
                 AutoRoute(
-                  page: ProfileRoute.page,
-                  path: 'profile',
-                  guards: [AuthGuard()],
+                  page: EditListingRoute.page,
+                  path: 'edit-listing/:a?',
+                  guards: [],
                 ),
                 AutoRoute(
-                  page: TripsRoute.page,
-                  path: 'trips',
-                  guards: [AuthGuard()],
-                ),
-                AutoRoute(
-                  page: InboxRoute.page,
-                  path: 'inbox',
-                  guards: [AuthGuard()],
-                  children: [],
-                ),
-                AutoRoute(
-                  page: MyListingsRoute.page,
-                  path: 'my-listings',
-                  guards: [AuthGuard()],
-                ),
-                AutoRoute(
-                  page: HostingsRoute.page,
-                  path: 'hostings',
+                  page: EditProfileRoute.page,
+                  path: 'edit-profile',
                   guards: [AuthGuard()],
                 ),
               ],
-            ),
-            AutoRoute(page: ListingRoute.page, path: 'listing/:a'),
-            AutoRoute(
-              page: ThreadRoute.page,
-              guards: [AuthGuard()],
-              path: 'inbox/:id',
-            ),
-            AutoRoute(
-              page: EditListingRoute.page,
-              path: 'edit-listing/:a?',
-              guards: [],
-            ),
-            AutoRoute(
-              page: EditProfileRoute.page,
-              path: 'edit-profile',
-              guards: [AuthGuard()],
             ),
           ],
         ),
