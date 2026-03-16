@@ -3,7 +3,7 @@ import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'package:hostr/presentation/forms/search/location_input.dart';
-import 'package:hostr/presentation/layout/app_layout.dart';
+import 'package:hostr/presentation/layout/app_layout.dart' as app_layout;
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -23,10 +23,19 @@ class EditListingViewState extends State<EditListingView> {
   Listing? _newListing;
 
   Widget wrapPage(Widget child) {
+    final layout = app_layout.AppLayoutSpec.of(context);
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SizedBox.expand(
-        child: AppConstrainedBody(padding: EdgeInsets.zero, child: child),
+        child: layout.showsSidebarNavigation
+            ? app_layout.AppSinglePanePage(
+                maxWidth: app_layout.kAppWideContentMaxWidth,
+                child: child,
+              )
+            : app_layout.AppConstrainedBody(
+                padding: EdgeInsets.zero,
+                child: child,
+              ),
       ),
     );
   }

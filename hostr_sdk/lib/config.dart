@@ -1,5 +1,6 @@
 import 'package:models/secp256k1.dart';
 import 'package:ndk/ndk.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:sqlite3/common.dart';
 
 import 'datasources/operations_database.dart';
@@ -37,6 +38,85 @@ class CoinlibVerifier implements EventVerifier {
   }
 }
 
+/// Fast secp256k1-backed BIP-340 event signer.
+///
+/// Uses the shared `models` secp256k1 engine (native/WASM via coinlib)
+/// for Schnorr signing instead of the pure-Dart `bip340` package.
+///
+/// NIP-04 and NIP-44 encrypt/decrypt are delegated to the default NDK
+/// [Bip340EventSigner] because they are not on the hot path.
+class CoinlibEventSigner implements EventSigner {
+  CoinlibEventSigner({required this.privateKey, required this.publicKey})
+    : _delegate = Bip340EventSigner(
+        privateKey: privateKey,
+        publicKey: publicKey,
+      );
+
+  final String? privateKey;
+  final String publicKey;
+  final Bip340EventSigner _delegate;
+
+  @override
+  Future<Nip01Event> sign(Nip01Event event) async {
+    if (privateKey == null || privateKey!.isEmpty) {
+      throw Exception('Private key is required for signing');
+    }
+    final sig = signSchnorr(privateKey: privateKey!, message: event.id);
+    return event.copyWith(sig: sig);
+  }
+
+  @override
+  String getPublicKey() => publicKey;
+
+  @override
+  bool canSign() => privateKey != null && privateKey!.isNotEmpty;
+
+  @override
+  Future<String?> decrypt(String msg, String destPubKey, {String? id}) =>
+      _delegate.decrypt(msg, destPubKey, id: id);
+
+  @override
+  Future<String?> encrypt(String msg, String destPubKey, {String? id}) =>
+      _delegate.encrypt(msg, destPubKey, id: id);
+
+  @override
+  Future<String?> encryptNip44({
+    required String plaintext,
+    required String recipientPubKey,
+  }) => _delegate.encryptNip44(
+    plaintext: plaintext,
+    recipientPubKey: recipientPubKey,
+  );
+
+  @override
+  Future<String?> decryptNip44({
+    required String ciphertext,
+    required String senderPubKey,
+  }) => _delegate.decryptNip44(
+    ciphertext: ciphertext,
+    senderPubKey: senderPubKey,
+  );
+
+  final _pendingRequestsController =
+      BehaviorSubject<List<PendingSignerRequest>>.seeded([]);
+
+  @override
+  Stream<List<PendingSignerRequest>> get pendingRequestsStream =>
+      _pendingRequestsController.stream;
+
+  @override
+  List<PendingSignerRequest> get pendingRequests => [];
+
+  @override
+  bool cancelRequest(String requestId) => false;
+
+  @override
+  Future<void> dispose() async {
+    await _delegate.dispose();
+    await _pendingRequestsController.close();
+  }
+}
+
 /// Test-only verifier that accepts every event immediately.
 ///
 /// Useful for profiling whether time is being spent in NDK signature
@@ -61,13 +141,6 @@ typedef ShowNotification =
       String? payload,
     });
 
-/// Optional bootstrap hook for selecting the active `cryptography` backend.
-///
-/// The Flutter app can set `Cryptography.instance` from
-/// `package:cryptography_flutter` here while the SDK remains free of any
-/// Flutter dependency.
-typedef ConfigureCryptography = void Function();
-
 class HostrConfig {
   final List<String> bootstrapRelays;
   final List<String> bootstrapBlossom;
@@ -88,10 +161,6 @@ class HostrConfig {
   /// skips notification delivery — the operation still completes.
   final ShowNotification? showNotification;
 
-  /// Optional bootstrap hook for choosing the active `cryptography` backend
-  /// before the SDK starts constructing services.
-  final ConfigureCryptography? configureCryptography;
-
   /// Minimum EVM balance (in sats) per address before auto-withdrawal
   /// triggers.  Must be above typical swap-out fees to avoid losing money
   /// on small amounts.
@@ -106,7 +175,6 @@ class HostrConfig {
     this.autoWithdrawMinimumSats = 10000,
     this.calendarPort,
     this.showNotification,
-    this.configureCryptography,
     EventVerifier? eventVerifier,
     KeyValueStorage? storage,
     CommonDatabase? operationsDb,

@@ -121,44 +121,62 @@ class EditProfileViewState extends State<EditProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayoutSpec.of(context);
+    final body = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: ProfileProvider(
+        pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+        onDone: (metadata) => controller.setState(metadata),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: AppLoadingIndicator.large());
+          }
+          if (snapshot.connectionState == ConnectionState.done) {
+            return ListView(children: buildFormFields());
+          }
+          return Text(AppLocalizations.of(context)!.errorLabel);
+        },
+      ),
+    );
+    final bottomBar = SaveBottomBar(
+      controller: controller,
+      onSave: () async {
+        final saved = await controller.save();
+        if (saved && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+    );
+    final page = Scaffold(
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context)!.profile),
+        titleSpacing: 0,
+      ),
+      body: body,
+      bottomNavigationBar: bottomBar,
+    );
     final scaffold = ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SizedBox.expand(
-        child: AppConstrainedBody(
-          padding: EdgeInsets.zero,
-          child: Scaffold(
-            appBar: AppBar(
-              title: Text(AppLocalizations.of(context)!.profile),
-              titleSpacing: 0,
-            ),
-            body: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => FocusScope.of(context).unfocus(),
-              child: ProfileProvider(
-                pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-                onDone: (metadata) => controller.setState(metadata),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: AppLoadingIndicator.large());
-                  }
-                  if (snapshot.connectionState == ConnectionState.done) {
-                    return ListView(children: buildFormFields());
-                  }
-                  return Text(AppLocalizations.of(context)!.errorLabel);
-                },
+        child: layout.showsSidebarNavigation
+            ? AppSinglePanePage(
+                maxWidth: kAppFormMaxWidth,
+                usePanel: false,
+                child: AppPanelScaffold(
+                  appBar: AppBar(
+                    title: Text(AppLocalizations.of(context)!.profile),
+                    titleSpacing: 0,
+                  ),
+                  body: body,
+                  bottomBar: bottomBar,
+                ),
+              )
+            : AppConstrainedBody(
+                maxWidth: kAppFormMaxWidth,
+                padding: EdgeInsets.zero,
+                child: page,
               ),
-            ),
-            bottomNavigationBar: SaveBottomBar(
-              controller: controller,
-              onSave: () async {
-                final saved = await controller.save();
-                if (saved && context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
-          ),
-        ),
       ),
     );
     return UnsavedChangesGuard(

@@ -394,19 +394,19 @@ abstract class EvmChain {
 
   /// Emits the total balance across all used addresses on each new block.
   Stream<BitcoinAmount> subscribeTotalBalance() async* {
-    // try {
-    //   yield await getTotalBalance();
-    // } catch (e) {
-    //   logger.w('Failed initial total balance fetch: $e');
-    // }
+    try {
+      yield await getTotalBalance();
+    } catch (e) {
+      logger.w('Failed initial total balance fetch: $e');
+    }
 
-    // await for (final _ in _newBlocks()) {
-    //   try {
-    //     yield await getTotalBalance();
-    //   } catch (e) {
-    //     logger.w('Failed to fetch total balance on new block: $e');
-    //   }
-    // }
+    await for (final _ in _newBlocks()) {
+      try {
+        yield await getTotalBalance();
+      } catch (e) {
+        logger.w('Failed to fetch total balance on new block: $e');
+      }
+    }
   }
 
   Future<EtherSwap> getEtherSwapContract();

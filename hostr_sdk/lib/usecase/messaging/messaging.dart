@@ -37,16 +37,32 @@ class Messaging {
     );
   });
 
+  Future<List<Future<List<RelayBroadcastResponse>>>> _broadcastRumour(
+    Nip01Event rumor,
+    List<String> recipientPubkeys,
+  ) => _logger.span('_broadcastRumour', () async {
+    final pubkeys = {...recipientPubkeys, _ndk.accounts.getPublicKey()!};
+
+    return pubkeys
+        .map(
+          (pubkey) async => _requests.broadcast(
+            event: await _ndk.giftWrap.toGiftWrap(
+              rumor: rumor,
+              recipientPubkey: pubkey,
+            ),
+          ),
+        )
+        .toList();
+  });
+
   Future<Message> broadcastTextAndAwait({
     required String content,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
   }) => _logger.span('broadcastTextAndAwait', () async {
-    return broadcastEventAndWait(
-      event: await getRumour(content, tags, recipientPubkeys),
-      tags: tags,
-      recipientPubkeys: recipientPubkeys,
-    );
+    final rumor = await getRumour(content, tags, recipientPubkeys);
+    await _broadcastRumour(rumor, recipientPubkeys);
+    return threads.awaitMessageId(rumor.id);
   });
 
   Future<List<Future<List<RelayBroadcastResponse>>>> broadcastText({
@@ -58,18 +74,7 @@ class Messaging {
       'Broadcasting text: $content to $recipientPubkeys with tags: $tags',
     );
     final rumor = await getRumour(content, tags, recipientPubkeys);
-
-    final broadcasts = [...recipientPubkeys, _ndk.accounts.getPublicKey()!]
-        .map(
-          (pubkey) async => _requests.broadcast(
-            event: await _ndk.giftWrap.toGiftWrap(
-              rumor: rumor,
-              recipientPubkey: pubkey,
-            ),
-          ),
-        )
-        .toList();
-    return broadcasts;
+    return _broadcastRumour(rumor, recipientPubkeys);
   });
 
   Future<Message> broadcastEventAndWait({
@@ -78,13 +83,7 @@ class Messaging {
     required List<String> recipientPubkeys,
   }) => _logger.span('broadcastEventAndWait', () async {
     final rumor = await getRumour(event.toString(), tags, recipientPubkeys);
-    broadcastEvent(
-      event: event,
-      tags: tags,
-      recipientPubkeys: recipientPubkeys,
-    );
-
-    // Need to get the wrapped event here
+    await _broadcastRumour(rumor, recipientPubkeys);
     return threads.awaitMessageId(rumor.id);
   });
 

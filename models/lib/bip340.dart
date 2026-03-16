@@ -1,6 +1,9 @@
 import 'package:bip340/bip340.dart' as bip340;
+import 'package:coinlib/coinlib.dart' as coinlib;
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+
+import 'secp256k1.dart' show isFastSecp256k1BackendLoaded;
 
 class Bip340 {
   /// [message] is a hex string
@@ -23,6 +26,13 @@ class Bip340 {
   /// [privateKey] is a 32-bytes hex-encoded string
   /// returns the public key in form of 32-bytes hex-encoded string
   static String getPublicKey(String privateKey) {
+    if (isFastSecp256k1BackendLoaded()) {
+      try {
+        return coinlib.ECPrivateKey.fromHex(privateKey).pubkey.xhex;
+      } catch (_) {
+        // Fall through to pure-Dart.
+      }
+    }
     return bip340.getPublicKey(privateKey);
   }
 

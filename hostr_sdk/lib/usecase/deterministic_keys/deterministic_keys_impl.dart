@@ -35,8 +35,7 @@ class DeterministicKeysImpl implements DeterministicKeys {
   @override
   Future<bip.EthereumAddress> getEvmAddress({int accountIndex = 0}) {
     return _logger.span('getEvmAddressAsync', () async {
-      final key = await getActiveEvmKey(accountIndex: accountIndex);
-      return key.address;
+      return _activeDerivation().deriveEvmAddress(accountIndex: accountIndex);
     });
   }
 
@@ -72,7 +71,7 @@ class DeterministicKeysImpl implements DeterministicKeys {
   @override
   Future<List<String>> getEvmMnemonic() {
     return _logger.span('getEvmMnemonicAsync', () async {
-      return _activeDerivation().deriveEvmMnemonicWords();
+      return _activeDerivation().deriveAccountMnemonicWords();
     });
   }
 

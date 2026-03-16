@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:hostr_sdk/config.dart' show CoinlibEventSigner;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -326,5 +327,7 @@ void _ensureLoggedInAsSender({required Ndk ndk, required SeedUser sender}) {
     return;
   }
 
-  ndk.accounts.loginPrivateKey(pubkey: pubkey, privkey: privkey);
+  ndk.accounts.loginExternalSigner(
+    signer: CoinlibEventSigner(privateKey: privkey, publicKey: pubkey),
+  );
 }

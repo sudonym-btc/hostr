@@ -30,7 +30,7 @@ class Heartbeats extends CrudUseCase<ReceivedHeartbeat> {
       pubKey: keyPair.publicKey,
       createdAt: createdAt,
       extraTags: extraTags,
-    ).signAs(keyPair, ReceivedHeartbeat.fromNostrEvent);
+    );
 
     await upsert(heartbeat);
     return heartbeat;

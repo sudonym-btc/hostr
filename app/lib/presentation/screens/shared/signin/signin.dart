@@ -19,6 +19,7 @@ import 'package:ndk/shared/nips/nip01/helpers.dart';
 @RoutePage()
 class SignInScreen extends StatefulWidget {
   final Function? onSuccess;
+
   // ignore: use_key_in_widget_constructors
   const SignInScreen({this.onSuccess});
 
@@ -37,17 +38,14 @@ class SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
-  /// Returns true if the current input looks like a valid nsec, hex key, or mnemonic.
   bool get _isValidInput {
     final trimmed = _private.trim();
     if (trimmed.isEmpty) return false;
 
-    // 64-char hex
     if (trimmed.length == 64 && RegExp(r'^[0-9a-fA-F]+$').hasMatch(trimmed)) {
       return true;
     }
 
-    // nsec bech32
     if (trimmed.startsWith('nsec1')) {
       try {
         final decoded = Helpers.decodeBech32(trimmed);
@@ -57,7 +55,6 @@ class SignInScreenState extends State<SignInScreen> {
       }
     }
 
-    // 12 or 24-word mnemonic
     final words = trimmed.split(RegExp(r'\s+'));
     if (words.length == 12 || words.length == 24) {
       try {
@@ -90,7 +87,6 @@ class SignInScreenState extends State<SignInScreen> {
 
   Future<void> _handleSignup() async {
     print('signup start ${DateTime.now()}');
-    // setState(() => _error = null);
     final mnemonic = Mnemonic(
       hex.decode(Helpers.getSecureRandomHex(32)),
       Language.english,
@@ -125,101 +121,104 @@ class SignInScreenState extends State<SignInScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildContent(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+
+    return CustomPadding(
+      child: Column(
+        children: [
+          const Spacer(flex: 2),
+          Image.asset(
+            'assets/images/logo/generated/logo_base_1024.png',
+            width: 120,
+            height: 120,
+          ),
+          Gap.vertical.custom(40),
+          TextFormField(
+            key: const ValueKey('key'),
+            controller: _controller,
+            onChanged: (value) {
+              setState(() {
+                _private = value;
+                _error = null;
+              });
+            },
+            maxLines: null,
+            decoration: InputDecoration(
+              hintText: 'nsec',
+              errorText: _error,
+              prefixIcon: const Icon(Icons.key),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.paste),
+                onPressed: () async {
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  if (data?.text != null) {
+                    _controller.text = data!.text!;
+                    setState(() {
+                      _private = data.text!;
+                      _error = null;
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+          Gap.vertical.custom(kSpace5),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const ValueKey('login'),
+              onPressed: _isValidInput ? _handleSignin : null,
+              child: Text(l10n.signIn),
+            ),
+          ),
+          Gap.vertical.md(),
+          Row(
+            children: [
+              const Expanded(child: SizedBox.shrink()),
+              CustomPadding.horizontal.md(
+                child: Text(
+                  'OR',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+          Gap.vertical.md(),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: _handleSignup,
+              child: Text(l10n.signUp),
+            ),
+          ),
+          const Spacer(flex: 3),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayoutSpec.of(context);
 
     return Scaffold(
       appBar: AppBar(),
       body: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
+          final content = _buildContent(context);
+
           return SafeArea(
-            child: AppConstrainedBody(
-              maxWidth: kAppFormMaxWidth,
-              child: CustomPadding(
-                child: Column(
-                  children: [
-                    const Spacer(flex: 2),
-                    // ── Logo ──
-                    Image.asset(
-                      'assets/images/logo/generated/logo_base_1024.png',
-                      width: 120,
-                      height: 120,
-                    ),
-                    Gap.vertical.custom(40),
-                    // ── Private key field ──
-                    TextFormField(
-                      key: const ValueKey('key'),
-                      controller: _controller,
-                      onChanged: (value) {
-                        setState(() {
-                          _private = value;
-                          _error = null;
-                        });
-                      },
-                      maxLines: null,
-                      decoration: InputDecoration(
-                        hintText: 'nsec',
-                        errorText: _error,
-                        prefixIcon: const Icon(Icons.key),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.paste),
-                          onPressed: () async {
-                            final data = await Clipboard.getData(
-                              Clipboard.kTextPlain,
-                            );
-                            if (data?.text != null) {
-                              _controller.text = data!.text!;
-                              setState(() {
-                                _private = data.text!;
-                                _error = null;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    Gap.vertical.custom(kSpace5),
-                    // ── Sign In button ──
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        key: const ValueKey('login'),
-                        onPressed: _isValidInput ? _handleSignin : null,
-                        child: Text(l10n.signIn),
-                      ),
-                    ),
-                    Gap.vertical.md(),
-                    // ── OR divider ──
-                    Row(
-                      children: [
-                        const Expanded(child: SizedBox.shrink()),
-                        CustomPadding.horizontal.md(
-                          child: Text(
-                            'OR',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        const Expanded(child: SizedBox.shrink()),
-                      ],
-                    ),
-                    Gap.vertical.md(),
-                    // ── Sign Up button ──
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: _handleSignup,
-                        child: Text(l10n.signUp),
-                      ),
-                    ),
-                    const Spacer(flex: 3),
-                  ],
-                ),
-              ),
-            ),
+            child: layout.showsSidebarNavigation
+                ? AppSinglePanePage(maxWidth: kAppFormMaxWidth, child: content)
+                : AppConstrainedBody(
+                    maxWidth: kAppFormMaxWidth,
+                    child: content,
+                  ),
           );
         },
       ),

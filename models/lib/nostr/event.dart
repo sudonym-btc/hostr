@@ -48,11 +48,9 @@ abstract class Event<TagsType extends EventTags> extends Nip01Event {
     KeyPair key,
     T Function(Nip01Event signed) fromNostrEvent,
   ) {
-    final signed = Nip01Utils.signWithPrivateKey(
-      event: this,
-      privateKey: key.privateKey!,
-    );
-    return fromNostrEvent(signed);
+    final id = Nip01Utils.calculateId(this);
+    final sig = signSchnorr(privateKey: key.privateKey!, message: id);
+    return fromNostrEvent(copyWith(id: id, sig: sig, validSig: true));
   }
 
   bool valid() {

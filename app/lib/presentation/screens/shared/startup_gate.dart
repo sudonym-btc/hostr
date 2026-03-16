@@ -16,22 +16,92 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 /// messages, then automatically navigates to [AppShellRoute]
 /// (or [EditProfileRoute] when no profile exists).
 @RoutePage()
-class StartupGateScreen extends StatelessWidget {
-  final bool popOnComplete;
-  const StartupGateScreen({super.key, this.popOnComplete = false});
+class StartupShellScreen extends StatelessWidget {
+  const StartupShellScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => StartupGateCubit(hostr: getIt<Hostr>())..run(),
-      child: _StartupGateBody(popOnComplete: popOnComplete),
+      child: const _StartupShellBody(),
+    );
+  }
+}
+
+@RoutePage()
+class StartupGateScreen extends StatelessWidget {
+  final bool popOnComplete;
+  final String? nextPath;
+
+  const StartupGateScreen({
+    super.key,
+    this.popOnComplete = false,
+    this.nextPath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => StartupGateCubit(hostr: getIt<Hostr>())..run(),
+      child: _StartupGateBody(popOnComplete: popOnComplete, nextPath: nextPath),
+    );
+  }
+}
+
+Future<void> _applyStartupReadyEffects(
+  BuildContext context,
+  StartupGateReady state,
+) async {
+  if (!state.isHost) {
+    return;
+  }
+
+  try {
+    await context.read<ModeCubit>().setHost();
+  } catch (_) {}
+}
+
+class _StartupShellBody extends StatelessWidget {
+  const _StartupShellBody();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<StartupGateCubit, StartupGateState>(
+      listener: (context, state) async {
+        if (state is! StartupGateReady) return;
+
+        await _applyStartupReadyEffects(context, state);
+        if (!context.mounted) return;
+
+        if (!state.hasMetadata) {
+          context.router.replacePath('/edit-profile');
+        }
+      },
+      builder: (context, state) {
+        return switch (state) {
+          StartupGateError(:final message) => _ErrorView(
+            message: message,
+            onRetry: () {
+              context.read<StartupGateCubit>().reset();
+              context.read<StartupGateCubit>().run();
+            },
+          ),
+          StartupGateReady() => const AutoRouter(),
+          StartupGateInProgress() => _SplashProgressView(state: state),
+          _ => const _SplashProgressView(
+            state: StartupGateInProgress(currentStep: StartupStep.relay),
+          ),
+        };
+      },
     );
   }
 }
 
 class _StartupGateBody extends StatelessWidget {
   final bool popOnComplete;
-  const _StartupGateBody({required this.popOnComplete});
+  final String? nextPath;
+
+  const _StartupGateBody({required this.popOnComplete, this.nextPath});
 
   @override
   Widget build(BuildContext context) {
@@ -43,31 +113,18 @@ class _StartupGateBody extends StatelessWidget {
         await Future.delayed(const Duration(milliseconds: 1500));
         if (!context.mounted) return;
 
-        if (state.isHost) {
-          try {
-            await context.read<ModeCubit>().setHost();
-          } catch (_) {}
-        }
-
+        await _applyStartupReadyEffects(context, state);
         if (!context.mounted) return;
 
-        if (!state.hasMetadata) {
-          if (popOnComplete) {
-            context.router.popUntilRoot();
-            context.router.replace(const WideViewportShellRoute());
-          } else {
-            context.router.replace(const WideViewportShellRoute());
-          }
-          context.router.push(EditProfileRoute());
+        if (popOnComplete) {
+          context.router.pop();
           return;
         }
 
-        if (popOnComplete) {
-          context.router.popUntilRoot();
-          context.router.replace(const WideViewportShellRoute());
-        } else {
-          context.router.replace(const WideViewportShellRoute());
-        }
+        final targetPath = state.hasMetadata
+            ? (nextPath ?? '/')
+            : '/edit-profile';
+        context.router.replacePath(targetPath);
       },
       builder: (context, state) {
         return switch (state) {

@@ -1,6 +1,11 @@
 PODS:
   - app_links (7.0.0):
     - Flutter
+  - coinlib_flutter (0.5.0):
+    - Flutter
+    - FlutterMacOS
+  - cryptography_flutter (0.0.1):
+    - Flutter
   - eventide (1.0.0):
     - Flutter
   - Flutter (1.0.0)
@@ -40,6 +45,8 @@ PODS:
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
+  - coinlib_flutter (from `.symlinks/plugins/coinlib_flutter/darwin`)
+  - cryptography_flutter (from `.symlinks/plugins/cryptography_flutter/ios`)
   - eventide (from `.symlinks/plugins/eventide/ios`)
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
@@ -62,6 +69,10 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   app_links:
     :path: ".symlinks/plugins/app_links/ios"
+  coinlib_flutter:
+    :path: ".symlinks/plugins/coinlib_flutter/darwin"
+  cryptography_flutter:
+    :path: ".symlinks/plugins/cryptography_flutter/ios"
   eventide:
     :path: ".symlinks/plugins/eventide/ios"
   Flutter:
@@ -91,6 +102,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   app_links: a754cbec3c255bd4bbb4d236ecc06f28cd9a7ce8
+  coinlib_flutter: f6021acfc7efe2da4bb8393ab948235197ec1385
+  cryptography_flutter: 4868d92d3e47f91f0bc321e63e6fa0387f365f11
   eventide: f55e9e0ac5dc1ea4a1ba4d2e6974316a695a1b8a
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_local_notifications: a5a732f069baa862e728d839dd2ebb904737effb

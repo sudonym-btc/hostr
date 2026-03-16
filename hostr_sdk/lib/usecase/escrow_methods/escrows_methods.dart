@@ -1,8 +1,8 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart'
-    show Bip340EventSigner, Filter, Nip01Utils, Nip51List;
+import 'package:ndk/ndk.dart' show Filter, Nip01Utils, Nip51List;
 
+import '../../config.dart' show CoinlibEventSigner;
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
 
@@ -30,7 +30,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
     if (keyPair == null) return null;
 
     final pubkey = keyPair.publicKey;
-    final signer = Bip340EventSigner(
+    final signer = CoinlibEventSigner(
       privateKey: keyPair.privateKey,
       publicKey: pubkey,
     );
@@ -65,7 +65,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       Filter(kinds: EscrowMethod.kinds, authors: [pubkey]),
     );
 
-    final signer = Bip340EventSigner(
+    final signer = CoinlibEventSigner(
       privateKey: keyPair.privateKey,
       publicKey: pubkey,
     );
@@ -80,11 +80,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       // Add EVM to the existing list and republish
       nip51.addElement('t', EscrowType.EVM.name, false);
       final event = await nip51.toEvent(signer);
-      final signed = Nip01Utils.signWithPrivateKey(
-        privateKey: keyPair.privateKey!,
-        event: event,
-      );
-      await upsert(EscrowMethod.fromNostrEvent(signed));
+      await upsert(EscrowMethod.fromNostrEvent(event));
     } else {
       // No escrow method list exists – create one with EVM
       final list = Nip51List(
@@ -95,11 +91,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       )..addElement('t', EscrowType.EVM.name, false);
 
       final event = await list.toEvent(signer);
-      final signed = Nip01Utils.signWithPrivateKey(
-        privateKey: keyPair.privateKey!,
-        event: event,
-      );
-      await upsert(EscrowMethod.fromNostrEvent(signed));
+      await upsert(EscrowMethod.fromNostrEvent(event));
     }
     logger.i('Ensured EVM escrow method for $pubkey');
   }

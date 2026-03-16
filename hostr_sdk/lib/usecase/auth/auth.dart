@@ -12,6 +12,7 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' as bip;
 
+import '../../config.dart' show CoinlibEventSigner;
 import '../../injection.dart';
 import '../../util/main.dart';
 import '../deterministic_keys/deterministic_keys.dart';
@@ -108,28 +109,32 @@ class Auth {
   });
 
   /// Restores NDK login using the stored key, if any.
-  bool ensureNdkAccountsMatch() =>
-      _logger.spanSync('ensureNdkAccountsMatch', () {
-        if (activeKeyPair == null) {
-          final pubkeys = ndk.accounts.accounts.keys.toList(growable: false);
-          for (final pubkey in pubkeys) {
-            ndk.accounts.removeAccount(pubkey: pubkey);
-          }
-        } else {
-          final pubkey = activeKeyPair!.publicKey;
-          final privkey = activeKeyPair!.privateKey!;
-          final alreadyLoggedIn =
-              ndk.accounts.accounts.containsKey(pubkey) ||
-              ndk.accounts.getPublicKey() == pubkey;
-
-          if (!alreadyLoggedIn) {
-            _logger.i('Restoring NDK account for stored key');
-            ndk.accounts.loginPrivateKey(privkey: privkey, pubkey: pubkey);
-          }
+  bool ensureNdkAccountsMatch() => _logger.spanSync(
+    'ensureNdkAccountsMatch',
+    () {
+      if (activeKeyPair == null) {
+        final pubkeys = ndk.accounts.accounts.keys.toList(growable: false);
+        for (final pubkey in pubkeys) {
+          ndk.accounts.removeAccount(pubkey: pubkey);
         }
+      } else {
+        final pubkey = activeKeyPair!.publicKey;
+        final privkey = activeKeyPair!.privateKey!;
+        final alreadyLoggedIn =
+            ndk.accounts.accounts.containsKey(pubkey) ||
+            ndk.accounts.getPublicKey() == pubkey;
 
-        return true;
-      });
+        if (!alreadyLoggedIn) {
+          _logger.i('Restoring NDK account for stored key');
+          ndk.accounts.loginExternalSigner(
+            signer: CoinlibEventSigner(privateKey: privkey, publicKey: pubkey),
+          );
+        }
+      }
+
+      return true;
+    },
+  );
 
   Future<void> _loadActiveKeyPair() =>
       _logger.span('_loadActiveKeyPair', () async {

@@ -7,6 +7,7 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/main.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -123,11 +124,15 @@ class InboxItem extends StatelessWidget {
             received: state.threadState.received,
             onTap: () {
               final router = AutoRouter.of(context);
-              if (context.routeData.name == ThreadRoute.name) {
-                router.replace(ThreadRoute(anchor: thread.anchor));
+              if (AppLayoutSpec.of(context).showsInboxSplit) {
+                router.navigate(
+                  InboxRoute(children: [ThreadRoute(anchor: thread.anchor)]),
+                );
                 return;
               }
-              router.push(ThreadRoute(anchor: thread.anchor));
+              router.navigate(
+                InboxRoute(children: [ThreadRoute(anchor: thread.anchor)]),
+              );
             },
           );
         },

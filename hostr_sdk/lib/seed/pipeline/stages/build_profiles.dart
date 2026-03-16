@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/config.dart' show CoinlibEventSigner;
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
@@ -260,7 +261,7 @@ Future<List<EscrowTrust>> buildEscrowTrusts({
     )..addElement('p', MockKeys.escrow.publicKey, false);
 
     final listEvent = await list.toEvent(
-      Bip340EventSigner(
+      CoinlibEventSigner(
         privateKey: user.keyPair.privateKey,
         publicKey: user.keyPair.publicKey,
       ),
@@ -292,7 +293,7 @@ Future<List<EscrowMethod>> buildEscrowMethods({
           ..addElement('c', 'MultiEscrow', false);
 
     final listEvent = await list.toEvent(
-      Bip340EventSigner(
+      CoinlibEventSigner(
         privateKey: user.keyPair.privateKey,
         publicKey: user.keyPair.publicKey,
       ),

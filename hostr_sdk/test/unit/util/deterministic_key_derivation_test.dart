@@ -1,6 +1,7 @@
 @Tags(['unit'])
 library;
 
+import 'package:coinlib/coinlib.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:test/test.dart';
 
@@ -9,6 +10,8 @@ void main() {
       'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
   const nostrPrivateKeyHex =
       '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
+
+  setUpAll(loadCoinlib);
 
   group('deterministic key derivation', () {
     test('caches important derivation futures', () {
@@ -20,15 +23,15 @@ void main() {
       );
       expect(
         identical(
-          derivation.deriveEvmMnemonicWords(),
-          derivation.deriveEvmMnemonicWords(),
+          derivation.deriveAccountMnemonicWords(),
+          derivation.deriveAccountMnemonicWords(),
         ),
         isTrue,
       );
       expect(
         identical(
-          derivation.deriveEvmMnemonic(),
-          derivation.deriveEvmMnemonic(),
+          derivation.deriveAccountMnemonic(),
+          derivation.deriveAccountMnemonic(),
         ),
         isTrue,
       );
@@ -63,8 +66,8 @@ void main() {
       final derivation = DeterministicKeyDerivation(nostrPrivateKeyHex);
 
       expect(
-        await derivation.deriveEvmMnemonicWords(),
-        await deriveEvmMnemonicWords(nostrPrivateKeyHex),
+        await derivation.deriveAccountMnemonicWords(),
+        await deriveAccountMnemonicWords(nostrPrivateKeyHex),
       );
       expect(
         await derivation.deriveTradeId(accountIndex: 2),
