@@ -17,10 +17,10 @@ class SearchMapWidget extends StatefulWidget {
   /// Called with the listing id when a price marker is tapped.
   final ValueChanged<String>? onMarkerTap;
 
-  /// When a new id is written the map animates the camera to that pin.
-  final ValueNotifier<String?>? animateToId;
+  /// Shared map controller.
+  final ListingMapController controller;
 
-  SearchMapWidget({super.key, this.onMarkerTap, this.animateToId});
+  SearchMapWidget({super.key, required this.controller, this.onMarkerTap});
 
   @override
   State<StatefulWidget> createState() {
@@ -29,7 +29,6 @@ class SearchMapWidget extends StatefulWidget {
 }
 
 class _SearchMapWidgetState extends State<SearchMapWidget> {
-  List<ListingMarkerData> _markerData = [];
   StreamSubscription<ListCubitState<Listing>>? _listSubscription;
 
   @override
@@ -64,7 +63,7 @@ class _SearchMapWidgetState extends State<SearchMapWidget> {
         ListingMarkerData(id: item.id, h3Tag: h3Tag, priceText: priceText),
       );
     }
-    if (mounted) setState(() => _markerData = data);
+    widget.controller.setListings(data);
   }
 
   @override
@@ -78,9 +77,8 @@ class _SearchMapWidgetState extends State<SearchMapWidget> {
     return Stack(
       children: [
         ListingMap(
-          listings: _markerData,
+          controller: widget.controller,
           onMarkerTap: widget.onMarkerTap,
-          animateToId: widget.animateToId,
           showArrows: false,
         ),
         Positioned(

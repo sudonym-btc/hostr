@@ -21,6 +21,7 @@ class SearchView extends StatefulWidget {
 class SearchViewState extends State<SearchView> {
   final ValueNotifier<String?> _scrollToListingId = ValueNotifier(null);
   final ValueNotifier<String?> _focusedListingId = ValueNotifier(null);
+  final ListingMapController _listingMapController = ListingMapController();
   double? _cachedHeight;
 
   // Panel drag state – replaces DraggableScrollableSheet which is
@@ -33,6 +34,7 @@ class SearchViewState extends State<SearchView> {
   @override
   void initState() {
     super.initState();
+    _focusedListingId.addListener(_handleFocusedListingChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<ListCubit<Listing>>().next();
@@ -41,9 +43,21 @@ class SearchViewState extends State<SearchView> {
 
   @override
   void dispose() {
+    _focusedListingId.removeListener(_handleFocusedListingChanged);
+    _listingMapController.dispose();
     _scrollToListingId.dispose();
     _focusedListingId.dispose();
     super.dispose();
+  }
+
+  void _handleFocusedListingChanged() {
+    final listingId = _focusedListingId.value;
+    if (listingId == null) {
+      _listingMapController.focusAll();
+      return;
+    }
+
+    _listingMapController.select(listingId);
   }
 
   void _resetPanel() {
@@ -126,11 +140,11 @@ class SearchViewState extends State<SearchView> {
               child: Stack(
                 children: [
                   SearchMapWidget(
+                    controller: _listingMapController,
                     onMarkerTap: (id) {
                       _focusedListingId.value = id;
                       _scrollToListingId.value = id;
                     },
-                    animateToId: _focusedListingId,
                   ),
                   SafeArea(
                     child: CustomPadding(
@@ -199,6 +213,25 @@ class SearchViewState extends State<SearchView> {
                   child: SafeArea(
                     top: false,
                     child: ListingsWidget(
+                      emptyBuilder: () => EmtyResultsWidget(
+                        leading: Icon(
+                          Icons.search_off_rounded,
+                          size: kIconHero,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        title: 'No results found',
+                        subtitle:
+                            'Try adjusting your dates or clearing filters to see more stays.',
+                        action: FilledButton.tonal(
+                          onPressed: () {
+                            context.read<DateRangeCubit>().updateDateRange(
+                              null,
+                            );
+                            context.read<FilterCubit>().clear();
+                          },
+                          child: Text('Clear filters'),
+                        ),
+                      ),
                       scrollToId: _scrollToListingId,
                       focusedItemId: _focusedListingId,
                     ),
@@ -217,33 +250,52 @@ class SearchViewState extends State<SearchView> {
       maxWidth: kAppWideContentMaxWidth,
       padding: kAppPagePaddingWithHeader,
       primaryWidth: kAppSearchListPaneWidth,
-      primary: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildSearchBox(context),
-          const SizedBox(height: kSpace4),
-          Expanded(
-            child: AppPanel(
-              child: SafeArea(
-                top: false,
-                bottom: false,
-                child: ListingsWidget(
-                  scrollToId: _scrollToListingId,
-                  focusedItemId: _focusedListingId,
-                  reserveBottomNavigationBarSpace: false,
+      primary: AppPanel(
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildSearchBox(context),
+              const SizedBox(height: kSpace4),
+              Expanded(
+                child: SafeArea(
+                  bottom: false,
+                  child: ListingsWidget(
+                    emptyBuilder: () => EmtyResultsWidget(
+                      leading: Icon(
+                        Icons.search_off_rounded,
+                        size: kIconHero,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: 'No results found',
+                      subtitle:
+                          'Try adjusting your dates or clearing filters to see more stays.',
+                      action: FilledButton.tonal(
+                        onPressed: () {
+                          context.read<DateRangeCubit>().updateDateRange(null);
+                          context.read<FilterCubit>().clear();
+                        },
+                        child: Text('Clear filters'),
+                      ),
+                    ),
+                    scrollToId: _scrollToListingId,
+                    focusedItemId: _focusedListingId,
+                    reserveBottomNavigationBarSpace: false,
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
       secondary: AppPanel(
         child: SearchMapWidget(
+          controller: _listingMapController,
           onMarkerTap: (id) {
             _focusedListingId.value = id;
             _scrollToListingId.value = id;
           },
-          animateToId: _focusedListingId,
         ),
       ),
     );
@@ -268,6 +320,7 @@ class SearchViewState extends State<SearchView> {
             child: BlocListener<FilterCubit, FilterState>(
               listener: (context, state) {
                 _focusedListingId.value = null;
+                _listingMapController.focusAll();
                 if (!layout.showsSearchSplit) {
                   _resetPanel();
                 }

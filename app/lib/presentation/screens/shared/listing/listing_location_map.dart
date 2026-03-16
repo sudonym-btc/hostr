@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/presentation/component/widgets/search/listing_map.dart';
 import 'package:models/main.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -36,12 +35,7 @@ class ListingLocationMapSection extends StatelessWidget {
           final h3 = getIt<H3Engine>();
           final center = h3.polygonCover.centerForTag(h3Tag);
           if (center == null) return;
-          openInMaps(
-            context,
-            center.latitude,
-            center.longitude,
-            listing.title,
-          );
+          openInMaps(context, center.latitude, center.longitude, listing.title);
         },
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -50,7 +44,7 @@ class ListingLocationMapSection extends StatelessWidget {
             width: double.infinity,
             child: IgnorePointer(
               child: ListingMap(
-                listings: [
+                initialListings: [
                   ListingMarkerData(
                     id: listing.id,
                     h3Tag: h3Tag,
@@ -71,12 +65,7 @@ class ListingLocationMapSection extends StatelessWidget {
 }
 
 /// Opens the given coordinates in the platform's maps app.
-void openInMaps(
-  BuildContext context,
-  double lat,
-  double lng,
-  String title,
-) {
+void openInMaps(BuildContext context, double lat, double lng, String title) {
   final encodedTitle = Uri.encodeComponent(title);
   final platform = defaultTargetPlatform;
 
@@ -106,10 +95,7 @@ void openInMaps(
               title: const Text('Google Maps'),
               onTap: () {
                 Navigator.pop(ctx);
-                launchUrl(
-                  googleMapsUri,
-                  mode: LaunchMode.externalApplication,
-                );
+                launchUrl(googleMapsUri, mode: LaunchMode.externalApplication);
               },
             ),
           ],

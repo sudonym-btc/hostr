@@ -84,7 +84,7 @@ class _ReserveState extends State<Reserve> {
                     ),
                   ),
                   if (dateState.dateRange != null) ...[
-                    const SizedBox(width: 12),
+                    Gap.horizontal.sm(),
                     Flexible(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,

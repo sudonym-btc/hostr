@@ -161,6 +161,7 @@ class _TrustEscrowModalContentState extends State<_TrustEscrowModalContent> {
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
+                    radius: 40,
                     backgroundColor: Theme.of(
                       context,
                     ).colorScheme.surfaceContainerHighest,
@@ -169,12 +170,12 @@ class _TrustEscrowModalContentState extends State<_TrustEscrowModalContent> {
                             child: BlossomImage(
                               image: picture,
                               pubkey: pubkey,
-                              width: 40,
-                              height: 40,
+                              width: 80,
+                              height: 80,
                               fit: BoxFit.cover,
                             ),
                           )
-                        : const Icon(Icons.security),
+                        : Icon(Icons.security),
                   ),
                   title: Text(
                     label,

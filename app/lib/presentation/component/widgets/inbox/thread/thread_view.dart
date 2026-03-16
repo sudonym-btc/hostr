@@ -97,7 +97,7 @@ class ThreadReadyWidget extends StatelessWidget {
     final appBarColor = Theme.of(context).colorScheme.surfaceContainerHigh;
     if (embedded) {
       return ColoredBox(
-        color: Theme.of(context).bottomAppBarTheme.color ?? Colors.transparent,
+        color: Colors.transparent,
         child: _buildContent(context, appBarColor),
       );
     }

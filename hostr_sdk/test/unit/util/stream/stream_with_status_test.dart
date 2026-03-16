@@ -140,6 +140,22 @@ void main() {
       await source.close();
     });
 
+    test('where() stays in sync with replaceAll()', () async {
+      final source = StreamWithStatus<int>();
+      final even = source.where((i) => i.isEven);
+
+      source.replaceAll([1, 2, 3, 4]);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(even.items, [2, 4]);
+
+      source.replaceAll([2, 6]);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(even.items, [2, 6]);
+
+      await even.close();
+      await source.close();
+    });
+
     test('map() transforms items', () async {
       final source = StreamWithStatus<int>();
       final doubled = source.map<int>((i) => i * 2);
@@ -264,6 +280,54 @@ void main() {
       await current.close();
       await source.close();
     });
+
+    test('currentItemsBy emits only changed keyed items', () async {
+      final source = StreamWithStatus<List<int>>();
+      final current = source.currentItemsBy((item) => item % 10);
+      final seen = <int>[];
+
+      final sub = current.stream.listen(seen.add);
+
+      source.add([11, 22]);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(current.items, [11, 22]);
+      expect(seen, [11, 22]);
+
+      source.add([11, 23, 34]);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(current.items, [11, 23, 34]);
+      expect(seen, [11, 22, 23, 34]);
+
+      source.add([11, 23, 34]);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(current.items, [11, 23, 34]);
+      expect(seen, [11, 22, 23, 34]);
+
+      await sub.cancel();
+      await current.close();
+      await source.close();
+    });
+
+    test(
+      'currentItemsBy and where do not duplicate items across snapshots',
+      () async {
+        final source = StreamWithStatus<List<int>>();
+        final current = source.currentItemsBy((item) => item);
+        final filtered = current.where((item) => item.isEven);
+
+        source.add([2]);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(filtered.items, [2]);
+
+        source.add([2, 4]);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(filtered.items, [2, 4]);
+
+        await filtered.close();
+        await current.close();
+        await source.close();
+      },
+    );
 
     test('whereItems filters within the latest snapshot', () async {
       final source = StreamWithStatus<List<int>>();

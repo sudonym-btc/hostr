@@ -38,30 +38,62 @@ class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
   double? _fullHeight;
   final GlobalKey _wrapKey = GlobalKey();
 
-  // 3 rows × ~32 px chip + 2 × 4 px run spacing
-  static const double _runSpacing = 4.0;
-  static const double _collapsedMaxHeight = 3 * 32.0 + 2 * _runSpacing;
-
   @override
   void initState() {
     super.initState();
-    // Measure the unconstrained Wrap height after the first frame.
+    _scheduleOverflowMeasurement();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scheduleOverflowMeasurement();
+  }
+
+  @override
+  void didUpdateWidget(covariant AmenityTagsWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.amenities != widget.amenities) {
+      _scheduleOverflowMeasurement();
+    }
+  }
+
+  void _scheduleOverflowMeasurement() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final box = _wrapKey.currentContext?.findRenderObject() as RenderBox?;
-      if (box != null &&
-          box.hasSize &&
-          box.size.height > _collapsedMaxHeight + 2) {
-        setState(() {
-          _overflows = true;
-          _fullHeight = box.size.height;
-        });
+      _measureOverflow();
+    });
+  }
+
+  double _collapsedMaxHeight(BuildContext context) {
+    final spacing = AppSpacing.of(context);
+    return 3 * spacing.chipRowHeight + 2 * spacing.chipRunSpacing;
+  }
+
+  void _measureOverflow() {
+    final box = _wrapKey.currentContext?.findRenderObject() as RenderBox?;
+    final collapsedMaxHeight = _collapsedMaxHeight(context);
+    final nextFullHeight = box?.hasSize == true ? box!.size.height : null;
+    final nextOverflows =
+        nextFullHeight != null && nextFullHeight > collapsedMaxHeight + 2;
+
+    if (_overflows == nextOverflows && _fullHeight == nextFullHeight) {
+      return;
+    }
+
+    setState(() {
+      _overflows = nextOverflows;
+      _fullHeight = nextFullHeight;
+      if (!nextOverflows) {
+        _expanded = false;
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppSpacing.of(context);
+    final collapsedMaxHeight = _collapsedMaxHeight(context);
     final amenitiesMap = widget.amenities.toMap();
     final amenityKeys = amenitiesMap.keys
         .where((key) => amenitiesMap[key] == true)
@@ -71,8 +103,8 @@ class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
 
     final wrap = Wrap(
       key: _wrapKey,
-      spacing: 8.0,
-      runSpacing: _runSpacing,
+      spacing: spacing.chipSpacing,
+      runSpacing: spacing.chipRunSpacing,
       children: amenityKeys.map((amenity) {
         return Chip(
           label: Text(convertToTitleCase(amenity)),
@@ -93,15 +125,15 @@ class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
           decoration: const BoxDecoration(),
           constraints: BoxConstraints(
             maxHeight: (_overflows && !_expanded)
-                ? _collapsedMaxHeight
-                : (_fullHeight ?? _collapsedMaxHeight),
+                ? collapsedMaxHeight
+                : (_fullHeight ?? collapsedMaxHeight),
           ),
           child: wrap,
         ),
         if (_overflows)
           TextButton(
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.only(top: 6),
+              padding: EdgeInsets.only(top: spacing.xs * 0.75),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,

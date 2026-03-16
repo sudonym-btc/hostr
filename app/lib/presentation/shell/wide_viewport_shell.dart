@@ -34,6 +34,9 @@ class WideViewportShellScreen extends StatelessWidget {
             return AutoRouter(
               builder: (context, child) {
                 final router = AutoRouter.of(context);
+                final tabsRouter = context.innerRouterOf<TabsRouter>(
+                  AppShellRoute.name,
+                );
                 final selectedIndex = resolveAppNavigationIndex(
                   currentRouteName: router.topRoute.name,
                   destinations: destinations,
@@ -41,10 +44,34 @@ class WideViewportShellScreen extends StatelessWidget {
                   modeState: modeState,
                 );
 
+                if (tabsRouter != null &&
+                    tabsRouter.activeIndex != selectedIndex) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    final latestTabsRouter = context.innerRouterOf<TabsRouter>(
+                      AppShellRoute.name,
+                    );
+                    if (latestTabsRouter == null) return;
+                    if (latestTabsRouter.activeIndex == selectedIndex) return;
+                    router.replaceAll([
+                      AppShellRoute(
+                        children: [destinations[selectedIndex].route],
+                      ),
+                    ]);
+                  });
+                }
+
                 return AppWideNavigationScaffold(
                   destinations: destinations,
                   selectedIndex: selectedIndex,
                   onDestinationSelected: (index) {
+                    final tabsRouter = context.innerRouterOf<TabsRouter>(
+                      AppShellRoute.name,
+                    );
+                    if (tabsRouter != null) {
+                      tabsRouter.setActiveIndex(index);
+                      return;
+                    }
+
                     router.replaceAll([
                       AppShellRoute(children: [destinations[index].route]),
                     ]);

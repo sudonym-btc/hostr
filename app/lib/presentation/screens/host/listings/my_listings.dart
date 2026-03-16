@@ -7,6 +7,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/status_stream_list.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -58,39 +59,73 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayoutSpec.of(context);
+    final content = SafeArea(
+      child: ListWidget<Listing>(
+        emptyBuilder: () => StatusStreamListWidget.empty(
+          context,
+          leading: Icon(
+            Icons.house_outlined,
+            size: kIconHero,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          title: 'Ready to list your place?',
+          subtitle:
+              'Create a listing to start welcoming guests to your property today!',
+          action: FilledButton.tonal(
+            onPressed: () {
+              AutoRouter.of(context).pushPath('edit-listing/new');
+            },
+            child: Text('Create a listing'),
+          ),
+        ),
+
+        builder: (el) => ListingListItemWidget(listing: el),
+      ),
+    );
+
     return BlocProvider.value(
       value: _listCubit,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(AppLocalizations.of(context)!.myListings),
-          actionsPadding: EdgeInsets.only(right: kDefaultPadding.toDouble()),
-          actions: [
-            IconButton.outlined(
-              icon: Icon(Icons.add),
-              onPressed: () {
-                AutoRouter.of(context).pushPath('edit-listing/new');
-              },
-            ),
-          ],
-        ),
-        body: SafeArea(
-          child: ListWidget<Listing>(
-            emptyBuilder: () => StatusStreamListWidget.empty(
-              context,
-              title: 'Ready to list your place?',
-              subtitle:
-                  'Create a listing to start welcoming guests to your property today!',
-              action: FilledButton.tonal(
-                onPressed: () {
-                  AutoRouter.of(context).pushPath('edit-listing/new');
-                },
-                child: Text('Create a listing'),
+        appBar: layout.showsSidebarNavigation
+            ? null
+            : AppBar(
+                title: Text(AppLocalizations.of(context)!.myListings),
+                actionsPadding: EdgeInsets.only(
+                  right: kDefaultPadding.toDouble(),
+                ),
+                actions: [
+                  IconButton.outlined(
+                    icon: Icon(Icons.add),
+                    onPressed: () {
+                      AutoRouter.of(context).pushPath('edit-listing/new');
+                    },
+                  ),
+                ],
               ),
-            ),
-
-            builder: (el) => ListingListItemWidget(listing: el),
-          ),
-        ),
+        body: layout.showsSidebarNavigation
+            ? AppSinglePanePage(
+                maxWidth: kAppWideContentMaxWidth,
+                usePanel: false,
+                child: AppPanelScaffold(
+                  appBar: AppBar(
+                    title: Text(AppLocalizations.of(context)!.myListings),
+                    actionsPadding: EdgeInsets.only(
+                      right: kDefaultPadding.toDouble(),
+                    ),
+                    actions: [
+                      IconButton.outlined(
+                        icon: Icon(Icons.add),
+                        onPressed: () {
+                          AutoRouter.of(context).pushPath('edit-listing/new');
+                        },
+                      ),
+                    ],
+                  ),
+                  body: content,
+                ),
+              )
+            : content,
       ),
     );
   }

@@ -142,7 +142,7 @@ class _AppShellScreenState extends State<AppShellScreen>
                   );
 
                   return AutoTabsRouter.builder(
-                    key: ValueKey('tabs_${isLoggedIn}_${state.runtimeType}'),
+                    key: ValueKey('tabs_$isLoggedIn'),
                     routes: [
                       for (final destination in destinations) destination.route,
                     ],

@@ -10,6 +10,7 @@ import 'package:hostr/presentation/screens/shared/profile/edit_profile.controlle
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../listing/image_picker.dart';
+import 'profile_panes.dart';
 
 @RoutePage()
 class EditProfileScreen extends StatelessWidget {
@@ -160,16 +161,19 @@ class EditProfileViewState extends State<EditProfileView> {
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SizedBox.expand(
         child: layout.showsSidebarNavigation
-            ? AppSinglePanePage(
-                maxWidth: kAppFormMaxWidth,
-                usePanel: false,
-                child: AppPanelScaffold(
+            ? AppSplitPage(
+                maxWidth: kAppWideContentMaxWidth,
+                primaryWidth: kAppFormMaxWidth,
+                primary: AppPanelScaffold(
                   appBar: AppBar(
                     title: Text(AppLocalizations.of(context)!.profile),
                     titleSpacing: 0,
                   ),
                   body: body,
                   bottomBar: bottomBar,
+                ),
+                secondary: const AppPanel(
+                  child: SingleChildScrollView(child: ProfileDetailsSection()),
                 ),
               )
             : AppConstrainedBody(

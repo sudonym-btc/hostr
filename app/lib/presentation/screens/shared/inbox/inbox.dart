@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/inbox/inbox_thread_list.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 
@@ -22,34 +23,15 @@ class InboxScreen extends StatelessWidget {
             : null;
 
         final placeholder = AppPanel(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.forum_outlined,
-                    size: kIconHero,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: kSpace4),
-                  Text(
-                    'Select a conversation',
-                    style: Theme.of(context).textTheme.titleLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: kSpace2),
-                  Text(
-                    'Messages stay visible alongside the selected thread on wide layouts.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+          child: EmtyResultsWidget(
+            leading: Icon(
+              Icons.forum_outlined,
+              size: kIconHero,
+              color: Theme.of(context).colorScheme.primary,
             ),
+            title: 'Select a conversation',
+            subtitle:
+                'Messages stay visible alongside the selected thread on wide layouts.',
           ),
         );
 

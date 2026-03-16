@@ -3,6 +3,7 @@ library;
 
 import 'package:coinlib/coinlib.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
+import 'package:models/secp256k1.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -13,7 +14,25 @@ void main() {
 
   setUpAll(loadCoinlib);
 
+  tearDown(() {
+    setSecp256k1LoaderOverride(null);
+  });
+
   group('deterministic key derivation', () {
+    test('derivation loads secp256k1 backend on demand', () async {
+      var loadCount = 0;
+      setSecp256k1LoaderOverride(() async {
+        loadCount++;
+        await loadCoinlib();
+      }, label: 'test loader');
+
+      final key = await deriveEvmKey(nostrPrivateKeyHex, accountIndex: 1);
+
+      expect(key.address.eip55With0x, isNotEmpty);
+      expect(loadCount, 1);
+      expect(isFastSecp256k1BackendLoaded(), isTrue);
+    });
+
     test('caches important derivation futures', () {
       final derivation = DeterministicKeyDerivation(nostrPrivateKeyHex);
 

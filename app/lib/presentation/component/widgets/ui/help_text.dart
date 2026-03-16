@@ -17,7 +17,7 @@ class HelpText extends StatelessWidget {
       text,
       overflow: overflow,
       maxLines: maxLines,
-      style: Theme.of(context).textTheme.bodySmall!.copyWith(
+      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );

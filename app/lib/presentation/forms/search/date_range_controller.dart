@@ -33,7 +33,7 @@ Future<DateTimeRange?> showResponsiveDateRangePicker({
 
       return Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
+          constraints: const BoxConstraints(maxWidth: 360, maxHeight: 720),
           child: normalizedChild,
         ),
       );

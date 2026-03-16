@@ -10,10 +10,28 @@ final _logger = CustomLogger();
 class CustomImage {
   final String? path;
   final XFile? file;
+  final Uint8List? previewBytes;
 
-  CustomImage({this.path, this.file});
-  CustomImage.file(this.file) : path = null;
-  CustomImage.path(this.path) : file = null;
+  CustomImage({this.path, this.file, this.previewBytes});
+  CustomImage.file(this.file, {this.previewBytes}) : path = null;
+  CustomImage.path(this.path) : file = null, previewBytes = null;
+
+  CustomImage copyWith({
+    String? path,
+    XFile? file,
+    Uint8List? previewBytes,
+    bool clearPath = false,
+    bool clearFile = false,
+    bool clearPreviewBytes = false,
+  }) {
+    return CustomImage(
+      path: clearPath ? null : (path ?? this.path),
+      file: clearFile ? null : (file ?? this.file),
+      previewBytes: clearPreviewBytes
+          ? null
+          : (previewBytes ?? this.previewBytes),
+    );
+  }
 }
 
 abstract class ImagePickerState {}
@@ -151,6 +169,9 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
     _failedIndices.clear();
     this.images.clear();
     this.images.addAll(images);
+    for (var i = 0; i < this.images.length; i++) {
+      _ensurePreviewBytes(i);
+    }
     _notifySubmitChanged();
     emit(ImageLoaded());
   }
@@ -176,6 +197,10 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
 
     emit(ImageLoaded());
 
+    for (var i = 0; i < images.length; i++) {
+      _ensurePreviewBytes(i);
+    }
+
     // Kick off uploads for any newly added local files.
     for (var i = 0; i < images.length; i++) {
       if (images[i].file != null && !_uploadingIndices.contains(i)) {
@@ -195,7 +220,15 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
 
     try {
       _logger.d('Uploading image $index to Blossom: ${image.file!.path}');
-      final data = await image.file!.readAsBytes();
+      final data = image.previewBytes ?? await image.file!.readAsBytes();
+
+      if (index < images.length &&
+          images[index].file?.path == image.file!.path &&
+          images[index].previewBytes == null) {
+        images[index] = images[index].copyWith(previewBytes: data);
+        if (!isClosed) emit(ImageLoaded());
+      }
+
       _logger.d('Image data size: ${data.length} bytes');
       final results = await getIt<Hostr>().blossom.uploadBlob(data: data);
       _logger.d('Blossom upload returned ${results.length} result(s)');
@@ -219,7 +252,7 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
       // Guard: the image list may have been mutated while we were uploading.
       if (index < images.length &&
           images[index].file?.path == image.file!.path) {
-        images[index] = CustomImage(path: hash, file: image.file);
+        images[index] = images[index].copyWith(path: hash);
       }
     } catch (e, st) {
       _logger.e('Failed to upload image $index', error: e, stackTrace: st);
@@ -236,6 +269,27 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
     if (!_failedIndices.containsKey(index)) return;
     _failedIndices.remove(index);
     _uploadSingle(index);
+  }
+
+  Future<void> _ensurePreviewBytes(int index) async {
+    if (index >= images.length) return;
+    final image = images[index];
+    if (image.file == null || image.previewBytes != null) return;
+
+    try {
+      final bytes = await image.file!.readAsBytes();
+      if (index < images.length &&
+          images[index].file?.path == image.file!.path) {
+        images[index] = image.copyWith(previewBytes: bytes);
+        if (!isClosed) emit(ImageLoaded());
+      }
+    } catch (e, st) {
+      _logger.w(
+        'Failed to read image preview bytes for ${image.file!.path}',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   /// Notifies the [notifier] so form controllers can react to submit-ability

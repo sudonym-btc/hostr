@@ -42,9 +42,12 @@ class InMemoryRequests extends Requests implements RequestsModel {
   final List<_Subscription> _subscriptions = [];
   int _subCounter = 0;
 
-  InMemoryRequests({required Ndk ndk, required super.logger})
-    : _ndk = ndk,
-      super(ndk: ndk);
+  InMemoryRequests({
+    required super.ndk,
+    required super.auth,
+    required super.logger,
+  }) : _ndk = ndk,
+       super();
 
   /// Add an event to the in-memory store and notify active subscriptions.
   void addEvent(Nip01Event event) {

@@ -21,7 +21,6 @@ class RelayListWidgetState extends State<RelayListWidget> {
 
     return Column(
       children: [
-        Gap.vertical.md(),
         FutureBuilder<List<String>>(
           future: hostr.relays.relayStorage.get(),
           builder: (context, storedSnapshot) {

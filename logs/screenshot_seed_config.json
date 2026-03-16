@@ -1,0 +1,16 @@
+{
+  "seed": 42,
+  "userCount": 8,
+  "hostRatio": 0.5,
+  "listingsPerHostAvg": 2.0,
+  "reservationRequestsPerGuest": 10,
+  "invalidReservationRate": 0,
+  "fundProfiles": true,
+  "setupLnbits": true,
+  "messagesPerThreadAvg": 4,
+  "completedRatio": 0.5,
+  "paidViaEscrowRatio": 1.0,
+  "paidViaEscrowArbitrateRatio": 0.15,
+  "paidViaEscrowClaimedRatio": 0.7,
+  "reviewRatio": 1.0
+}

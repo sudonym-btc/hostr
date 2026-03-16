@@ -207,7 +207,7 @@ class SignInScreenState extends State<SignInScreen> {
     final layout = AppLayoutSpec.of(context);
 
     return Scaffold(
-      appBar: AppBar(),
+      // appBar: AppBar(),
       body: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
           final content = _buildContent(context);

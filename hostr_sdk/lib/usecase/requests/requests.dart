@@ -10,8 +10,10 @@ import 'package:ndk/shared/logger/log_event.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../../config.dart' show CoinlibEventSigner;
 import '../../injection.dart';
 import '../../util/main.dart';
+import '../auth/auth.dart';
 import '../relays/relays.dart';
 
 export 'expandable_subscription.dart';
@@ -71,6 +73,7 @@ class LiveSubscriptionHandle {
 @Singleton(env: Env.allButTestAndMock)
 class Requests extends RequestsModel {
   final Ndk _ndk;
+  final Auth _auth;
   final bool useCache = false;
   final CustomLogger _logger;
   Ndk get ndk => _ndk;
@@ -85,8 +88,9 @@ class Requests extends RequestsModel {
   /// dependency (Relays → Requests for MockRelays).
   Relays get _relays => getIt<Relays>();
 
-  Requests({required Ndk ndk, required CustomLogger logger})
+  Requests({required Ndk ndk, required CustomLogger logger, required Auth auth})
     : _ndk = ndk,
+      _auth = auth,
       _logger = logger.scope('requests') {
     Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
   }
@@ -263,8 +267,25 @@ class Requests extends RequestsModel {
   Future<List<RelayBroadcastResponse>> broadcast({
     required Nip01Event event,
     List<String>? relays,
-  }) {
-    return ndk.broadcast.broadcast(nostrEvent: event).broadcastDoneFuture;
+  }) async {
+    var eventToBroadcast = event;
+
+    if (event.sig == null) {
+      final keyPair = _auth.activeKeyPair;
+      if (keyPair != null &&
+          keyPair.privateKey != null &&
+          event.pubKey == keyPair.publicKey) {
+        final signer = CoinlibEventSigner(
+          privateKey: keyPair.privateKey,
+          publicKey: keyPair.publicKey,
+        );
+        eventToBroadcast = await signer.sign(event);
+      }
+    }
+
+    return ndk.broadcast
+        .broadcast(nostrEvent: eventToBroadcast, specificRelays: relays)
+        .broadcastDoneFuture;
   }
 
   /// Opens a live-only NDK subscription (no query phase) and forwards

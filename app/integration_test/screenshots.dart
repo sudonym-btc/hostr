@@ -1,8 +1,9 @@
-/// Deterministic screenshot generator using [SeedPipeline].
+/// Deterministic screenshot generator backed by pre-seeded relay data.
 ///
-/// Runs the full seed pipeline (including on-chain escrow outcomes) against
-/// the local Docker infrastructure (Anvil), then feeds every generated event
-/// into [InMemoryRequests] so the app renders realistic data.
+/// The screenshot shell script resets and seeds the local relay/chain stack
+/// before launching this test. This file only derives the deterministic login
+/// key + listing anchor locally, then drives the real app against that seeded
+/// infrastructure.
 ///
 /// **Requirements:** Docker must be running with at least `anvil` and
 /// `escrow-contract-deploy` services up so the contract address can be
@@ -27,9 +28,9 @@ import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/testing/integration_test_harness.dart';
-import 'package:hostr_sdk/usecase/requests/in_memory.requests.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail_image_network/mocktail_image_network.dart';
+import 'package:models/main.dart' show Listing;
 
 import 'support/http_overrides_stub.dart'
     if (dart.library.io) 'support/http_overrides_io.dart';
@@ -70,9 +71,20 @@ Future<void> _settle(
   }
 }
 
-Future<SeedPipelineData> _runSeedPipeline() async {
-  final seeder = RelaySeeder();
-  return seeder.runPipeline(config: _config);
+typedef _ScreenshotFixture = ({SeedUser guest, Listing listing});
+
+_ScreenshotFixture _buildFixture() {
+  final factory = SeedFactory(config: _config);
+  final users = factory.buildUsers();
+  final hosts = users.where((user) => user.isHost).toList(growable: false);
+  final guests = users.where((user) => !user.isHost).toList(growable: false);
+  final listings = factory.buildListings(hosts);
+
+  if (guests.isEmpty || listings.isEmpty) {
+    throw StateError('Screenshot fixture generation produced no guest/listing');
+  }
+
+  return (guest: guests.first, listing: listings.first);
 }
 
 /// Take screenshots for every page in [mode] ("light" or "dark").
@@ -82,7 +94,7 @@ Future<void> _takeScreenshots(
   WidgetTester tester,
   IntegrationTestWidgetsFlutterBinding binding,
   AppRouter appRouter,
-  SeedPipelineData data,
+  Listing listing,
   String mode,
 ) async {
   // ── 0. Profile ────────────────────────────────────────────
@@ -96,7 +108,7 @@ Future<void> _takeScreenshots(
   await binding.takeScreenshot('screenshots/$mode/search.png');
 
   // ── 2. Listing detail ───────────────────────────────────────────
-  appRouter.navigate(ListingRoute(a: data.listings.first.anchor!));
+  appRouter.navigate(ListingRoute(a: listing.anchor!));
   await _settle(tester, frames: 6);
   await binding.takeScreenshot('screenshots/$mode/listing.png');
 
@@ -163,16 +175,10 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('screenshot suite', (tester) async {
-    final data = await _runSeedPipeline();
+    final fixture = _buildFixture();
 
     // ── Bootstrap ───────────────────────────────────────────────────────
-    await initCore(Env.test);
-    await initApp();
-
-    final requests = getIt<Hostr>().requests as InMemoryRequests;
-    requests.seedEvents(data.allEvents);
-
-    final guest = data.users.firstWhere((u) => !u.isHost);
+    await initCore(Env.dev);
 
     // Re-use the app's Hostr singleton so NWC connections land on the same
     // instance the UI reads from.
@@ -210,7 +216,7 @@ void main() {
 
       // ── Log in as the seeded guest ────────────────────────────────
       final keyField = find.byKey(const ValueKey('key'));
-      await tester.enterText(keyField, guest.keyPair.privateKey!);
+      await tester.enterText(keyField, fixture.guest.keyPair.privateKey!);
       await tester.pump();
       final loginButton = find.byKey(const ValueKey('login'));
       await tester.tap(loginButton);
@@ -218,20 +224,32 @@ void main() {
 
       // ── Connect NWC wallet for the signed-in user ─────────────────
       await harness.connectNwc(
-        user: guest.keyPair,
+        user: fixture.guest.keyPair,
         appNamePrefix: 'screenshots',
       );
       await _settle(tester, frames: 6); // let the NWC cubit propagate
 
       // ── Light mode screenshots ────────────────────────────────────
-      await _takeScreenshots(tester, binding, appRouter, data, 'light');
+      await _takeScreenshots(
+        tester,
+        binding,
+        appRouter,
+        fixture.listing,
+        'light',
+      );
 
       // ── Switch to dark mode ───────────────────────────────────────
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
       await _settle(tester, frames: 4); // let the theme rebuild
 
       // ── Dark mode screenshots ────────────────────────────────────
-      await _takeScreenshots(tester, binding, appRouter, data, 'dark');
+      await _takeScreenshots(
+        tester,
+        binding,
+        appRouter,
+        fixture.listing,
+        'dark',
+      );
 
       // Clean up the test value.
       tester.platformDispatcher.clearPlatformBrightnessTestValue();

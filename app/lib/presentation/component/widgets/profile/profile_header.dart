@@ -62,25 +62,21 @@ class _ProfileHeaderWidgetState extends State<ProfileHeaderWidget> {
     }
 
     if (widget.profile == null) {
-      return CustomPadding(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(radius: 40, child: Icon(Icons.person, size: kIconXl)),
-            Gap.vertical.md(),
-            Text(
-              AppLocalizations.of(context)!.noProfileSetUpYet,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            Gap.vertical.custom(kSpace3),
-            if (widget.onEditProfile != null)
-              FilledButton.icon(
+      return EmtyResultsWidget(
+        leading: CircleAvatar(
+          radius: 40,
+          child: Icon(Icons.person_outline, size: kIconXl),
+        ),
+        title: AppLocalizations.of(context)!.setupYourProfile,
+        subtitle:
+            'Add your name, photo, and bio so others can get to know you.',
+        action: widget.onEditProfile == null
+            ? null
+            : FilledButton.icon(
                 onPressed: widget.onEditProfile,
                 icon: const Icon(Icons.edit),
                 label: Text(AppLocalizations.of(context)!.editProfile),
               ),
-          ],
-        ),
       );
     }
 

@@ -29,7 +29,7 @@ class EditListingViewState extends State<EditListingView> {
       child: SizedBox.expand(
         child: layout.showsSidebarNavigation
             ? app_layout.AppSinglePanePage(
-                maxWidth: app_layout.kAppWideContentMaxWidth,
+                maxWidth: app_layout.kAppPanelLargeWidth,
                 child: child,
               )
             : app_layout.AppConstrainedBody(

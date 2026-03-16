@@ -20,6 +20,7 @@ ENV APP_PROFILE=$APP_PROFILE \
 
 COPY models /workspace/models
 COPY hostr_sdk /workspace/hostr_sdk
+COPY dependencies/google_maps_flutter_web /workspace/dependencies/google_maps_flutter_web
 COPY app /workspace/app
 
 WORKDIR /workspace/app

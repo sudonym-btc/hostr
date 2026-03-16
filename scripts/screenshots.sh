@@ -4,8 +4,8 @@ set -euo pipefail
 # ─── Hostr Screenshot Generator ─────────────────────────────────────────────
 #
 # Generates deterministic screenshots for every configured device.
-# Data is seeded via SeedFactory into in-memory TestRequests — no relay,
-# chain, or Docker needed.
+# Data is seeded into the local relay/chain stack before capture so every
+# device sees the same deterministic dataset.
 #
 # Usage:
 #   ./scripts/screenshots.sh                   # all configured devices
@@ -25,6 +25,9 @@ APP_DIR="$REPO_ROOT/app"
 RECORD_VIDEO="${RECORD_VIDEO:-0}"
 CHROME_SCREENSHOTS="${CHROME_SCREENSHOTS:-1}"
 CHROME_WINDOW_SIZE="${CHROME_WINDOW_SIZE:-1440,1024}"
+CHROMEDRIVER_AUTOSTART="${CHROMEDRIVER_AUTOSTART:-1}"
+CHROMEDRIVER_PORT="${CHROMEDRIVER_PORT:-4444}"
+CHROMEDRIVER_LOG="${CHROMEDRIVER_LOG:-$REPO_ROOT/logs/chromedriver.log}"
 
 # ── Device list (override with DEVICES env var) ─────────────────────────────
 # Each entry must match an available `xcrun simctl list devices` name.
@@ -104,6 +107,9 @@ grant_permissions() {
 # Start recording the simulator screen (background process).
 # Sets VIDEO_PID for stop_recording to use.
 VIDEO_PID=""
+CHROMEDRIVER_PID=""
+CHROMEDRIVER_STARTED=0
+
 start_recording() {
   local udid="$1"
   local output_path="$2"
@@ -121,6 +127,131 @@ stop_recording() {
     echo "   🎬 Recording saved"
     VIDEO_PID=""
   fi
+}
+
+webdriver_ready() {
+  curl -fsS "http://127.0.0.1:$CHROMEDRIVER_PORT/status" >/dev/null 2>&1
+}
+
+find_chromedriver() {
+  local candidate=""
+
+  if [[ -n "${CHROMEDRIVER_BIN:-}" ]] && [[ -x "$CHROMEDRIVER_BIN" ]]; then
+    echo "$CHROMEDRIVER_BIN"
+    return 0
+  fi
+
+  candidate="$(command -v chromedriver 2>/dev/null || true)"
+  if [[ -n "$candidate" ]] && [[ -x "$candidate" ]]; then
+    echo "$candidate"
+    return 0
+  fi
+
+  for candidate in \
+    "$REPO_ROOT/node_modules/.bin/chromedriver" \
+    "$APP_DIR/node_modules/.bin/chromedriver"
+  do
+    if [[ -x "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+ensure_chromedriver() {
+  local chromedriver_bin=""
+
+  if webdriver_ready; then
+    echo "   🚗 Using existing WebDriver server on port $CHROMEDRIVER_PORT"
+    return 0
+  fi
+
+  if [[ "$CHROMEDRIVER_AUTOSTART" != "1" ]]; then
+    echo "   ❌ No WebDriver server is listening on port $CHROMEDRIVER_PORT"
+    echo "   Start ChromeDriver manually or set CHROMEDRIVER_AUTOSTART=1."
+    return 1
+  fi
+
+  chromedriver_bin="$(find_chromedriver)" || {
+    echo "   ❌ ChromeDriver is not installed."
+    echo "   Install it with Homebrew: brew install --cask chromedriver"
+    echo "   Or set CHROMEDRIVER_BIN to an existing ChromeDriver binary."
+    return 1
+  }
+
+  mkdir -p "$(dirname "$CHROMEDRIVER_LOG")"
+
+  echo "   🚗 Starting ChromeDriver on port $CHROMEDRIVER_PORT…"
+  "$chromedriver_bin" --port="$CHROMEDRIVER_PORT" >"$CHROMEDRIVER_LOG" 2>&1 &
+  CHROMEDRIVER_PID=$!
+
+  for _ in {1..20}; do
+    if webdriver_ready; then
+      CHROMEDRIVER_STARTED=1
+      echo "   ✅ ChromeDriver ready"
+      return 0
+    fi
+
+    if ! kill -0 "$CHROMEDRIVER_PID" 2>/dev/null; then
+      break
+    fi
+
+    sleep 1
+  done
+
+  echo "   ❌ ChromeDriver failed to start. Recent log output:"
+  tail -n 20 "$CHROMEDRIVER_LOG" 2>/dev/null | sed 's/^/      /' || true
+  return 1
+}
+
+stop_chromedriver() {
+  if [[ "$CHROMEDRIVER_STARTED" == "1" ]] \
+    && [[ -n "$CHROMEDRIVER_PID" ]] \
+    && kill -0 "$CHROMEDRIVER_PID" 2>/dev/null; then
+    kill "$CHROMEDRIVER_PID" 2>/dev/null || true
+    wait "$CHROMEDRIVER_PID" 2>/dev/null || true
+    CHROMEDRIVER_PID=""
+    CHROMEDRIVER_STARTED=0
+  fi
+}
+
+cleanup() {
+  stop_recording
+  stop_chromedriver
+}
+
+trap cleanup EXIT
+
+seed_screenshot_relay() {
+  local config_file="$REPO_ROOT/logs/screenshot_seed_config.json"
+
+  mkdir -p "$(dirname "$config_file")"
+
+  cat >"$config_file" <<'JSON'
+{
+  "seed": 42,
+  "userCount": 8,
+  "hostRatio": 0.5,
+  "listingsPerHostAvg": 2.0,
+  "reservationRequestsPerGuest": 10,
+  "invalidReservationRate": 0,
+  "fundProfiles": true,
+  "setupLnbits": true,
+  "messagesPerThreadAvg": 4,
+  "completedRatio": 0.5,
+  "paidViaEscrowRatio": 1.0,
+  "paidViaEscrowArbitrateRatio": 0.15,
+  "paidViaEscrowClaimedRatio": 0.7,
+  "reviewRatio": 1.0
+}
+JSON
+
+  # echo "🌱 Seeding relay for screenshots…"
+  # "$REPO_ROOT/scripts/seed_relay.sh" --config-file="$config_file" \
+  #   2>&1 | sed 's/^/   /'
+  # echo ""
 }
 
 sync_landing_page_screenshots() {
@@ -149,6 +280,13 @@ run_chrome_screenshots() {
 
   echo "🌐 Chrome → screenshots/$slug/"
   echo "   Window size: $CHROME_WINDOW_SIZE"
+
+  if ! ensure_chromedriver; then
+    FAILED+=("Chrome")
+    echo ""
+    return 1
+  fi
+
   echo "   🏃 Running screenshot suite…"
 
   if SCREENSHOT_DEVICE="$slug" flutter drive \
@@ -190,6 +328,8 @@ if [[ -z "$ESCROW_CONTRACT_ADDRESS" ]]; then
 fi
 echo "📝 Contract address: $ESCROW_CONTRACT_ADDRESS"
 echo ""
+
+seed_screenshot_relay
 
 FAILED=()
 

@@ -5,44 +5,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/search/listing_map_controller.dart';
 import 'package:hostr/presentation/component/widgets/search/map_style.dart';
 import 'package:hostr/presentation/component/widgets/search/price_marker.dart';
 import 'package:models/main.dart';
 
-/// Data object describing a single marker to place on a [ListingMap].
-///
-/// [id] is used for marker identity and the [onMarkerTap] callback.
-/// [h3Tag] is resolved to lat/lng via [H3Engine].
-/// [priceText] is rendered on the pill label (pass `null` to skip).
-/// [enabled] can be toggled in the future (e.g. availability) to switch
-/// the marker to a disabled colour.
-class ListingMarkerData {
-  final String id;
-  final String h3Tag;
-  final String? priceText;
-  final bool enabled;
-
-  const ListingMarkerData({
-    required this.id,
-    required this.h3Tag,
-    this.priceText,
-    this.enabled = true,
-  });
-}
+export 'listing_map_controller.dart';
 
 /// A reusable Google Map that displays price-pill markers for listings.
 ///
-/// **Search page** — pass an updating [listings] list, leave [interactive]
-/// true (the default), and provide [onMarkerTap] to scroll to the clicked
-/// listing.
-///
-/// **Listing detail page** — pass a single-element [listings] list, set
-/// [interactive] to `false` to lock zoom / scroll / tilt / rotate, and
-/// optionally set [showArrows] to `false` for plain round pills.
+/// Pass a [ListingMapController] to imperatively manage selection, viewport,
+/// and marker data. If omitted, an internal controller is created and seeded
+/// from [initialListings].
 class ListingMap extends StatefulWidget {
-  /// Markers to render. The widget diffs against the previous list
-  /// automatically.
-  final List<ListingMarkerData> listings;
+  /// Optional external controller.
+  final ListingMapController? controller;
+
+  /// Initial listings used only when [controller] is omitted.
+  final List<ListingMarkerData> initialListings;
 
   /// Called with the listing [id] when a marker is tapped.
   final ValueChanged<String>? onMarkerTap;
@@ -62,11 +42,8 @@ class ListingMap extends StatefulWidget {
   /// Whether to auto-fit camera to marker bounds whenever markers change.
   final bool autoFitBounds;
 
-  /// (especially when large [fitBoundsPadding] is used in short map viewports).
+  /// Zoom used when only one marker is visible.
   final double singleMarkerZoom;
-
-  /// When a new id is written the map animates the camera to that marker.
-  final ValueNotifier<String?>? animateToId;
 
   /// Whether nearby markers should be grouped into cluster markers.
   final bool enableClustering;
@@ -107,7 +84,8 @@ class ListingMap extends StatefulWidget {
 
   const ListingMap({
     super.key,
-    required this.listings,
+    this.controller,
+    this.initialListings = const [],
     this.onMarkerTap,
     this.interactive = true,
     this.showArrows = true,
@@ -115,7 +93,6 @@ class ListingMap extends StatefulWidget {
     this.fitBoundsPadding = 120,
     this.autoFitBounds = true,
     this.singleMarkerZoom = 13,
-    this.animateToId,
     this.enableClustering = true,
     this.pillBackgroundColor,
     this.pillBorderColor,
@@ -144,25 +121,26 @@ class ListingMap extends StatefulWidget {
 class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   static const _kMercatorLatitudeLimit = 85.05112878;
   static const _kLongitudeRestrictionEpsilon = 0.000001;
+  static const _kResizeViewportDebounce = Duration(milliseconds: 150);
 
-  final Completer<GoogleMapController> _controller = Completer();
+  final Completer<GoogleMapController> _googleMapController = Completer();
   final Map<String, Marker> _markers = {};
+  final Map<String, _MarkerMeta> _markerMeta = {};
+  final Map<String, String> _groupIdByListingId = {};
+
+  late final ListingMapController _internalController;
+
   bool _mapReady = false;
-  int _syncGeneration = 0;
   bool _isClampingCamera = false;
+  int _syncGeneration = 0;
+  int _cameraOperationGeneration = 0;
+  int _handledMarkersRevision = -1;
+  int _handledViewportRevision = -1;
+  bool _didRunInitialDependencySync = false;
+  bool _hasScheduledPostFrameViewportIntent = false;
 
   /// Currently highlighted rendered marker id (accent colour).
   String? _focusedMarkerId;
-
-  /// The last listing id requested by the list so grouped markers can
-  /// preserve focus even when the marker set is rebuilt.
-  String? _focusedListingId;
-
-  /// Per-marker metadata needed to rebuild icons when focus changes.
-  final Map<String, _MarkerMeta> _markerMeta = {};
-
-  /// Maps each listing id to the rendered marker id that represents it.
-  final Map<String, String> _groupIdByListingId = {};
 
   /// Cached resolved listings so we can re-cluster on zoom without
   /// re-resolving every H3 tag.
@@ -171,8 +149,15 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   /// Last zoom level used to cluster, so we can detect meaningful changes.
   double? _lastClusterZoom;
 
+  Size? _lastViewportSize;
+
   /// Debounce timer for camera-idle re-clusters.
   Timer? _cameraIdleDebounce;
+
+  Timer? _viewportResizeDebounce;
+
+  ListingMapController get _listingMapController =>
+      widget.controller ?? _internalController;
 
   String _currentMapStyle() {
     return getMapStyle(
@@ -200,12 +185,19 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   // ── Map lifecycle ───────────────────────────────────────────────────
 
   void _onMapCreated(GoogleMapController controller) {
-    if (!_controller.isCompleted && mounted) {
-      _controller.complete(controller);
-      _mapReady = true;
-      unawaited(_debugLogMapStyle(controller));
-      _syncMarkers();
+    if (_googleMapController.isCompleted || !mounted) return;
+
+    _googleMapController.complete(controller);
+    _mapReady = true;
+    unawaited(_debugLogMapStyle(controller));
+
+    if (_listingMapController.selectedListingId == null &&
+        _listingMapController.listings.isNotEmpty) {
+      _listingMapController.focusAll();
     }
+
+    unawaited(_syncMarkers(applyViewportIntent: true));
+    _schedulePostFrameViewportIntent();
   }
 
   // ── Marker syncing ─────────────────────────────────────────────────
@@ -213,18 +205,34 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant ListingMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.animateToId != widget.animateToId) {
-      oldWidget.animateToId?.removeListener(_onAnimateToId);
-      widget.animateToId?.addListener(_onAnimateToId);
+
+    final oldController = oldWidget.controller ?? _internalController;
+    final nextController = _listingMapController;
+
+    if (oldController != nextController) {
+      oldController.removeListener(_onControllerChanged);
+      nextController.addListener(_onControllerChanged);
+      _handledMarkersRevision = -1;
+      _handledViewportRevision = -1;
+      _focusedMarkerId = null;
+      unawaited(_handleControllerChange());
+      return;
     }
-    if (_mapReady) _syncMarkers();
+
+    if (widget.controller == null &&
+        !listEquals(oldWidget.initialListings, widget.initialListings)) {
+      _internalController.setListings(widget.initialListings);
+      return;
+    }
+
+    unawaited(_syncMarkers(applyViewportIntent: _mapReady));
   }
 
-  Future<void> _syncMarkers() async {
+  Future<void> _syncMarkers({required bool applyViewportIntent}) async {
     final h3 = getIt<H3Engine>();
 
     final resolvedListings = <_ResolvedListingMarker>[];
-    for (final data in widget.listings) {
+    for (final data in _listingMapController.listings) {
       final center = h3.polygonCover.centerForTag(data.h3Tag);
       if (center == null) continue;
 
@@ -238,31 +246,15 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       );
     }
 
-    // Detect whether this is a pagination append (all previous ids still
-    // present) vs a fresh query (some old ids disappeared).  When it's a
-    // fresh query we clear focus so that fitBounds fires for the new results.
-    if (_focusedListingId != null) {
-      final newIds = {for (final l in resolvedListings) l.id};
-      final oldIds = {for (final l in _resolvedListings) l.id};
-      final isSupersetOfOld = oldIds.every(newIds.contains);
-      if (!isSupersetOfOld) {
-        _focusedListingId = null;
-        _focusedMarkerId = null;
-      }
-    }
-
     _resolvedListings = resolvedListings;
-    _lastClusterZoom = null; // force fresh cluster
+    _lastClusterZoom = null;
 
-    // When a marker is focused (user tapped a pill) skip camera-fit so
-    // that pagination appending new items doesn't jerk the view away.
-    final shouldFit = widget.autoFitBounds && _focusedListingId == null;
-    await _recluster(fitBounds: shouldFit);
+    await _recluster(applyViewportIntent: applyViewportIntent);
   }
 
   /// Re-clusters the cached [_resolvedListings] using the current camera
   /// zoom level and rebuilds the marker set.
-  Future<void> _recluster({bool fitBounds = false}) async {
+  Future<void> _recluster({required bool applyViewportIntent}) async {
     final generation = ++_syncGeneration;
     final theme = Theme.of(context);
     final dpr = MediaQuery.of(context).devicePixelRatio;
@@ -283,14 +275,15 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       }
     }
 
-    final desiredFocusedMarkerId = _focusedListingId == null
+    final selectedListingId = _listingMapController.selectedListingId;
+    final desiredFocusedMarkerId = selectedListingId == null
         ? _focusedMarkerId
-        : nextGroupIdByListingId[_focusedListingId!];
+        : nextGroupIdByListingId[selectedListingId];
 
     // Build a lookup from listing id → original marker data so text
     // builders can access the full item.
     final dataById = <String, ListingMarkerData>{
-      for (final d in widget.listings) d.id: d,
+      for (final d in _listingMapController.listings) d.id: d,
     };
 
     for (final group in groups.values) {
@@ -372,7 +365,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
         markerId: MarkerId(group.markerId),
         position: group.position,
         icon: icon,
-        zIndex: isFocused ? 1 : 0,
+        zIndexInt: isFocused ? 1 : 0,
         anchor: Offset(0.5, widget.showArrows ? 1.0 : 0.5),
         consumeTapEvents: true,
         onTap: () => unawaited(_handleMarkerTap(group.markerId)),
@@ -396,14 +389,11 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
               nextMarkers.containsKey(desiredFocusedMarkerId)
           ? desiredFocusedMarkerId
           : null;
-      if (_focusedListingId != null &&
-          !nextGroupIdByListingId.containsKey(_focusedListingId)) {
-        _focusedListingId = null;
-      }
     });
 
-    if (fitBounds && generation == _syncGeneration) {
-      _fitBounds(generation: generation);
+    if (applyViewportIntent && generation == _syncGeneration) {
+      await _applyViewportIntent();
+      _schedulePostFrameViewportIntent();
     }
   }
 
@@ -422,8 +412,8 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     double lngSpan;
 
     // Prefer the actual visible region from the live camera.
-    if (_mapReady && _controller.isCompleted) {
-      final controller = await _controller.future;
+    if (_mapReady && _googleMapController.isCompleted) {
+      final controller = await _googleMapController.future;
       final visibleRegion = await controller.getVisibleRegion();
       latSpan =
           (visibleRegion.northeast.latitude - visibleRegion.southwest.latitude)
@@ -467,10 +457,10 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
   /// Called by [onCameraIdle] — re-clusters if the zoom changed enough.
   Future<void> _onCameraIdle() async {
-    if (!_mapReady || !_controller.isCompleted) return;
+    if (!_mapReady || !_googleMapController.isCompleted) return;
     if (_resolvedListings.length < 2) return;
 
-    final controller = await _controller.future;
+    final controller = await _googleMapController.future;
     final zoom = (await controller.getZoomLevel());
 
     // Only re-cluster when zoom moved by ≥ 0.5 stops (avoids thrashing
@@ -479,7 +469,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       return;
     }
     _lastClusterZoom = zoom;
-    await _recluster();
+    await _recluster(applyViewportIntent: false);
   }
 
   void _onCameraIdleDebounced() {
@@ -500,8 +490,16 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   }
 
   Size _viewportSize() {
-    final renderBox = context.findRenderObject() as RenderBox?;
-    return renderBox?.size ?? MediaQuery.sizeOf(context);
+    final viewportSize = _lastViewportSize;
+    if (viewportSize != null &&
+        viewportSize.width.isFinite &&
+        viewportSize.height.isFinite &&
+        viewportSize.width > 0 &&
+        viewportSize.height > 0) {
+      return viewportSize;
+    }
+
+    return MediaQuery.sizeOf(context);
   }
 
   double _minimumZoomForViewport() {
@@ -509,7 +507,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     if (viewportHeight <= 0) return 1.0;
 
     final requiredZoom = log(viewportHeight / 256) / ln2;
-    return max(1.0, requiredZoom);
+    return max(2.0, requiredZoom);
   }
 
   double _latitudeToWorldY(double latitude) {
@@ -546,11 +544,13 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     CameraPosition position,
     double clampedLatitude,
   ) async {
-    if (_isClampingCamera || !_mapReady || !_controller.isCompleted) return;
+    if (_isClampingCamera || !_mapReady || !_googleMapController.isCompleted) {
+      return;
+    }
 
     _isClampingCamera = true;
     try {
-      final controller = await _controller.future;
+      final controller = await _googleMapController.future;
       if (!mounted) return;
 
       await controller.moveCamera(
@@ -613,43 +613,49 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
   // ── Camera helpers ─────────────────────────────────────────────────
 
-  Future<void> _fitBounds({required int generation}) async {
-    if (generation != _syncGeneration) return;
-    if (_markers.isEmpty) return;
-    final controller = await _controller.future;
-    if (generation != _syncGeneration) return;
+  Future<void> _fitBounds({required int operationId}) async {
+    final positions = _viewportTargetPositions();
+    if (positions.isEmpty || _isStaleCameraOperation(operationId)) return;
 
-    if (_markers.length == 1) {
-      final marker = _markers.values.first;
+    final controller = await _googleMapController.future;
+    if (_isStaleCameraOperation(operationId)) return;
+
+    if (positions.length == 1) {
+      final target = positions.first;
       await controller.moveCamera(
         CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: marker.position,
-            zoom: widget.singleMarkerZoom,
-          ),
+          CameraPosition(target: target, zoom: widget.singleMarkerZoom),
         ),
       );
       return;
     }
 
-    final bounds = _calculateBounds();
+    final bounds = _calculateBounds(positions);
     await controller.animateCamera(
       CameraUpdate.newLatLngBounds(bounds, widget.fitBoundsPadding),
     );
   }
 
-  LatLngBounds _calculateBounds() {
-    double minLat = _markers.values
-        .map((p) => p.position.latitude)
+  List<LatLng> _viewportTargetPositions() {
+    if (_resolvedListings.isNotEmpty) {
+      return _resolvedListings.map((listing) => listing.position).toList();
+    }
+
+    return _markers.values.map((marker) => marker.position).toList();
+  }
+
+  LatLngBounds _calculateBounds(List<LatLng> positions) {
+    double minLat = positions
+        .map((p) => p.latitude)
         .reduce((a, b) => a < b ? a : b);
-    double maxLat = _markers.values
-        .map((p) => p.position.latitude)
+    double maxLat = positions
+        .map((p) => p.latitude)
         .reduce((a, b) => a > b ? a : b);
-    double minLng = _markers.values
-        .map((p) => p.position.longitude)
+    double minLng = positions
+        .map((p) => p.longitude)
         .reduce((a, b) => a < b ? a : b);
-    double maxLng = _markers.values
-        .map((p) => p.position.longitude)
+    double maxLng = positions
+        .map((p) => p.longitude)
         .reduce((a, b) => a > b ? a : b);
 
     const double minPadding = 0.005;
@@ -672,42 +678,158 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    widget.animateToId?.addListener(_onAnimateToId);
+    _internalController = ListingMapController(
+      initialListings: widget.initialListings,
+    );
+    _listingMapController.addListener(_onControllerChanged);
+    _handledMarkersRevision = _listingMapController.markersRevision;
+    _handledViewportRevision = _listingMapController.viewportRevision;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didRunInitialDependencySync) return;
+
+    _didRunInitialDependencySync = true;
+    unawaited(_syncMarkers(applyViewportIntent: false));
   }
 
   @override
   void dispose() {
     _cameraIdleDebounce?.cancel();
-    widget.animateToId?.removeListener(_onAnimateToId);
+    _viewportResizeDebounce?.cancel();
+    _listingMapController.removeListener(_onControllerChanged);
+    if (widget.controller == null) {
+      _internalController.dispose();
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  Future<void> _onAnimateToId() async {
-    final listingId = widget.animateToId?.value;
-    if (listingId == null) {
-      // External signal to clear focus (e.g. search filter changed).
-      _focusedListingId = null;
-      _focusedMarkerId = null;
+  void _onControllerChanged() {
+    unawaited(_handleControllerChange());
+  }
+
+  Future<void> _handleControllerChange() async {
+    final controller = _listingMapController;
+    final markersChanged =
+        _handledMarkersRevision != controller.markersRevision;
+    final viewportChanged =
+        _handledViewportRevision != controller.viewportRevision;
+
+    _handledMarkersRevision = controller.markersRevision;
+    _handledViewportRevision = controller.viewportRevision;
+
+    if (markersChanged) {
+      await _syncMarkers(
+        applyViewportIntent: widget.autoFitBounds || _mapReady,
+      );
       return;
     }
-    if (!_mapReady) return;
 
-    _focusedListingId = listingId;
+    if (viewportChanged) {
+      await _applyViewportIntent();
+    }
+  }
 
+  Future<void> _applyViewportIntent() async {
+    if (!_mapReady || !_googleMapController.isCompleted || !mounted) return;
+
+    final operationId = ++_cameraOperationGeneration;
+    final viewportMode = _listingMapController.viewportMode;
+    final selectedListingId = _listingMapController.selectedListingId;
+
+    switch (viewportMode) {
+      case ListingMapViewportMode.focusAll:
+        await _focusAll(operationId);
+        return;
+      case ListingMapViewportMode.selected:
+        if (selectedListingId == null) {
+          await _focusAll(operationId);
+          return;
+        }
+        await _focusListing(selectedListingId, operationId);
+        return;
+      case ListingMapViewportMode.idle:
+        return;
+    }
+  }
+
+  void _schedulePostFrameViewportIntent() {
+    if (_hasScheduledPostFrameViewportIntent || !mounted) return;
+
+    _hasScheduledPostFrameViewportIntent = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hasScheduledPostFrameViewportIntent = false;
+      if (!mounted) return;
+      unawaited(_applyViewportIntent());
+    });
+  }
+
+  bool _isStaleCameraOperation(int operationId) {
+    return !mounted || operationId != _cameraOperationGeneration;
+  }
+
+  Future<void> _focusAll(int operationId) async {
+    if (_markers.isEmpty) return;
+
+    await _clearFocus();
+    if (_isStaleCameraOperation(operationId)) return;
+
+    await _fitBounds(operationId: operationId);
+  }
+
+  Future<void> _focusListing(String listingId, int operationId) async {
     final markerId = _groupIdByListingId[listingId];
     if (markerId == null) return;
 
     final marker = _markers[markerId];
     if (marker == null) return;
 
-    // Swap highlight colours.
-    await _updateFocus(markerId, sourceListingId: listingId);
+    await _updateFocus(markerId);
+    if (_isStaleCameraOperation(operationId)) return;
 
-    final controller = await _controller.future;
-    if (!mounted) return;
+    final controller = await _googleMapController.future;
+    if (_isStaleCameraOperation(operationId)) return;
 
     await controller.animateCamera(CameraUpdate.newLatLng(marker.position));
+  }
+
+  Future<void> _clearFocus() async {
+    final oldId = _focusedMarkerId;
+    _focusedMarkerId = null;
+
+    if (oldId != null && _markers.containsKey(oldId)) {
+      await _rebuildMarkerIcon(oldId);
+    }
+  }
+
+  Future<void> _refocusForResize() async {
+    if (!_mapReady || !_googleMapController.isCompleted || !mounted) return;
+
+    final selectedListingId = _listingMapController.selectedListingId;
+    final operationId = ++_cameraOperationGeneration;
+
+    if (selectedListingId != null) {
+      await _focusListing(selectedListingId, operationId);
+      return;
+    }
+
+    await _focusAll(operationId);
+  }
+
+  void _scheduleResizeViewportRefresh(Size size) {
+    if (!size.width.isFinite || !size.height.isFinite) return;
+    if (size.width <= 0 || size.height <= 0) return;
+    if (_lastViewportSize == size) return;
+
+    _lastViewportSize = size;
+    _viewportResizeDebounce?.cancel();
+    _viewportResizeDebounce = Timer(
+      _kResizeViewportDebounce,
+      () => unawaited(_refocusForResize()),
+    );
   }
 
   /// Rebuilds a single marker icon using the same colour / label
@@ -757,7 +879,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
     // ── Resolve label (mirrors _recluster) ───────────────────
     final dataById = <String, ListingMarkerData>{
-      for (final d in widget.listings) d.id: d,
+      for (final d in _listingMapController.listings) d.id: d,
     };
 
     final String label;
@@ -793,7 +915,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
         markerId: MarkerId(id),
         position: meta.position,
         icon: icon,
-        zIndex: isFocused ? 1 : 0,
+        zIndexInt: isFocused ? 1 : 0,
         anchor: Offset(0.5, widget.showArrows ? 1.0 : 0.5),
         consumeTapEvents: true,
         onTap: () => unawaited(_handleMarkerTap(id)),
@@ -806,21 +928,19 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     if (meta == null) return;
 
     if (meta.memberIds.length == 1) {
-      await _updateFocus(markerId, sourceListingId: meta.memberIds.single);
-      widget.onMarkerTap?.call(meta.memberIds.single);
+      final listingId = meta.memberIds.single;
+      _listingMapController.select(listingId);
+      widget.onMarkerTap?.call(listingId);
       return;
     }
 
-    _focusedListingId = null;
+    _listingMapController.deselect();
     await _updateFocus(markerId);
   }
 
   /// Switches the focused marker: restores the old one to its default
   /// style, highlights the new one with the focused style.
-  Future<void> _updateFocus(String newId, {String? sourceListingId}) async {
-    if (sourceListingId != null) {
-      _focusedListingId = sourceListingId;
-    }
+  Future<void> _updateFocus(String newId) async {
     if (newId == _focusedMarkerId) return;
 
     final oldId = _focusedMarkerId;
@@ -841,7 +961,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   void didChangePlatformBrightness() {
     PriceMarkerBuilder.clearCache();
     if (_mapReady) {
-      unawaited(_syncMarkers());
+      unawaited(_syncMarkers(applyViewportIntent: true));
       return;
     }
     setState(() {});
@@ -867,31 +987,41 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
             ),
           )
         : CameraTargetBounds.unbounded;
-    return GoogleMap(
-      style: getMapStyle(context, isDarkMode),
-      onMapCreated: _onMapCreated,
-      onCameraMove: widget.interactive && kIsWeb ? _onCameraMove : null,
-      onCameraIdle: widget.interactive && widget.enableClustering
-          ? _onCameraIdleDebounced
-          : null,
-      initialCameraPosition: widget.initialCamera ?? defaultCamera,
-      markers: _markers.values.toSet(),
-      // Controls
-      mapToolbarEnabled: false,
-      zoomControlsEnabled: false,
-      webCameraControlEnabled: false,
-      cameraTargetBounds: cameraTargetBounds,
-      minMaxZoomPreference: kIsWeb
-          ? MinMaxZoomPreference(_minimumZoomForViewport(), 17)
-          : MinMaxZoomPreference.unbounded,
-      myLocationEnabled: false,
-      myLocationButtonEnabled: false,
-      mapType: MapType.normal,
-      // Interactivity
-      scrollGesturesEnabled: widget.interactive,
-      zoomGesturesEnabled: widget.interactive,
-      tiltGesturesEnabled: widget.interactive,
-      rotateGesturesEnabled: widget.interactive,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final nextViewportSize = constraints.biggest;
+        if (nextViewportSize.width.isFinite &&
+            nextViewportSize.height.isFinite &&
+            nextViewportSize.width > 0 &&
+            nextViewportSize.height > 0) {
+          _lastViewportSize = nextViewportSize;
+        }
+        _scheduleResizeViewportRefresh(constraints.biggest);
+        return GoogleMap(
+          style: getMapStyle(context, isDarkMode),
+          onMapCreated: _onMapCreated,
+          onCameraMove: widget.interactive && kIsWeb ? _onCameraMove : null,
+          onCameraIdle: widget.interactive && widget.enableClustering
+              ? _onCameraIdleDebounced
+              : null,
+          initialCameraPosition: widget.initialCamera ?? defaultCamera,
+          markers: _markers.values.toSet(),
+          mapToolbarEnabled: false,
+          zoomControlsEnabled: false,
+          webCameraControlEnabled: false,
+          cameraTargetBounds: cameraTargetBounds,
+          minMaxZoomPreference: kIsWeb
+              ? MinMaxZoomPreference(_minimumZoomForViewport(), 17)
+              : MinMaxZoomPreference.unbounded,
+          myLocationEnabled: false,
+          myLocationButtonEnabled: false,
+          mapType: MapType.normal,
+          scrollGesturesEnabled: widget.interactive,
+          zoomGesturesEnabled: widget.interactive,
+          tiltGesturesEnabled: widget.interactive,
+          rotateGesturesEnabled: widget.interactive,
+        );
+      },
     );
   }
 }
