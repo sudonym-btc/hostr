@@ -28,14 +28,11 @@ class EditListingViewState extends State<EditListingView> {
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SizedBox.expand(
         child: layout.showsSidebarNavigation
-            ? app_layout.AppSinglePanePage(
+            ? app_layout.AppPageGutter(
                 maxWidth: app_layout.kAppPanelLargeWidth,
-                child: child,
+                child: app_layout.AppPane(child: child),
               )
-            : app_layout.AppConstrainedBody(
-                padding: EdgeInsets.zero,
-                child: child,
-              ),
+            : app_layout.AppPageGutter(padding: EdgeInsets.zero, child: child),
       ),
     );
   }

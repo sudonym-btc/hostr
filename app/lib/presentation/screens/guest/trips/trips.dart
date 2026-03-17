@@ -31,7 +31,6 @@ class _TripsScreenState extends State<TripsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
     final content = StatusStreamListWidget(
       stream: getIt<Hostr>().userSubscriptions.myTrips$,
       itemKeyBuilder: (item) => ValueKey(item.event.tradeId),
@@ -64,22 +63,19 @@ class _TripsScreenState extends State<TripsScreen> {
       },
     );
 
-    return Scaffold(
-      appBar: layout.showsSidebarNavigation
-          ? null
-          : AppBar(title: Text(AppLocalizations.of(context)!.trips)),
-      body: layout.showsSidebarNavigation
-          ? AppSinglePanePage(
-              maxWidth: kAppWideContentMaxWidth,
-              usePanel: false,
-              child: AppPanelScaffold(
-                appBar: AppBar(
-                  title: Text(AppLocalizations.of(context)!.trips),
-                ),
-                body: content,
-              ),
-            )
-          : content,
+    return AppPageGutter(
+      maxWidth: kAppWideContentMaxWidth,
+      padding: EdgeInsets.zero,
+      child: AppPaneLayout(
+        panes: [
+          AppPane(
+            flex: 1,
+            appBar: AppBar(title: Text(AppLocalizations.of(context)!.trips)),
+            promoteChromeWhenStacked: true,
+            child: content,
+          ),
+        ],
+      ),
     );
   }
 }

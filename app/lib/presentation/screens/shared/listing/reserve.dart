@@ -7,16 +7,17 @@ import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/forms/main.dart';
 import 'package:hostr/route/auth_gated_action.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class Reserve extends StatefulWidget {
   final Listing listing;
-  final List<ReservationPair> reservationPairs;
+  final StreamWithStatus<List<Validation<ReservationPair>>> verifiedPairsStream;
 
   const Reserve({
     super.key,
     required this.listing,
-    required this.reservationPairs,
+    required this.verifiedPairsStream,
   });
 
   @override
@@ -62,94 +63,112 @@ class _ReserveState extends State<Reserve> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<DateRangeCubit, DateRangeState>(
-      builder: (context, dateState) => BlocProvider<ReservationCubit>(
-        create: (context) => ReservationCubit(),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DateRangeButtons(
-                    small: true,
-                    single: true,
-                    selectedDateRange: dateState.dateRange,
-                    onTap: () => selectDates(
-                      context,
-                      context.read<DateRangeCubit>(),
-                      widget.reservationPairs,
-                      enforceContiguousAvailability: true,
-                    ),
-                  ),
-                  if (dateState.dateRange != null) ...[
-                    Gap.horizontal.sm(),
-                    Flexible(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              formatAmount(
-                                _effectiveAmountFor(dateState.dateRange!),
-                                exact: false,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          if (widget.listing.allowBarter)
-                            IconButton(
-                              tooltip: 'Edit amount',
-                              visualDensity: VisualDensity.compact,
-                              constraints: const BoxConstraints(),
-                              padding: const EdgeInsets.only(left: 6),
-                              iconSize: 18,
-                              onPressed: () =>
-                                  _editAmount(context, dateState.dateRange!),
-                              icon: const Icon(Icons.edit_outlined),
-                            ),
-                        ],
+    return StreamBuilder<List<Validation<ReservationPair>>>(
+      stream: widget.verifiedPairsStream.latestItemsStream,
+      builder: (context, reservationPairsSnapshot) {
+        final reservationPairs =
+            (reservationPairsSnapshot.data ??
+                    const <Validation<ReservationPair>>[])
+                .whereType<Valid<ReservationPair>>()
+                .map((validated) => validated.event)
+                .toList(growable: false);
+
+        return BlocBuilder<DateRangeCubit, DateRangeState>(
+          builder: (context, dateState) => BlocProvider<ReservationCubit>(
+            create: (context) => ReservationCubit(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DateRangeButtons(
+                        small: true,
+                        single: true,
+                        selectedDateRange: dateState.dateRange,
+                        onTap: () => selectDates(
+                          context,
+                          context.read<DateRangeCubit>(),
+                          reservationPairs,
+                          enforceContiguousAvailability: true,
+                        ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            BlocBuilder<ReservationCubit, ReservationCubitState>(
-              builder: (context, state) {
-                final dateRange = dateState.dateRange;
-                return FilledButton(
-                  onPressed:
-                      state.status == ReservationCubitStatus.loading ||
-                          dateRange == null
-                      ? null
-                      : () => authGatedAction(context, () async {
-                          await context
-                              .read<ReservationCubit>()
-                              .createReservationRequest(
-                                listing: widget.listing,
-                                startDate: dateRange.start,
-                                endDate: dateRange.end,
-                                amount: _effectiveAmountFor(dateRange),
-                                onSuccess: (reservation) {
-                                  AutoRouter.of(context).push(
-                                    ThreadRoute(anchor: reservation.getDtag()!),
+                      if (dateState.dateRange != null) ...[
+                        Gap.horizontal.sm(),
+                        Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  formatAmount(
+                                    _effectiveAmountFor(dateState.dateRange!),
+                                    exact: false,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                              ),
+                              if (widget.listing.allowBarter)
+                                IconButton(
+                                  tooltip: 'Edit amount',
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.only(left: 6),
+                                  iconSize: 18,
+                                  onPressed: () => _editAmount(
+                                    context,
+                                    dateState.dateRange!,
+                                  ),
+                                  icon: const Icon(Icons.edit_outlined),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                BlocBuilder<ReservationCubit, ReservationCubitState>(
+                  builder: (context, state) {
+                    final dateRange = dateState.dateRange;
+                    return FilledButton(
+                      onPressed:
+                          state.status == ReservationCubitStatus.loading ||
+                              dateRange == null
+                          ? null
+                          : () => authGatedAction(context, () async {
+                              await context
+                                  .read<ReservationCubit>()
+                                  .createReservationRequest(
+                                    listing: widget.listing,
+                                    startDate: dateRange.start,
+                                    endDate: dateRange.end,
+                                    amount: _effectiveAmountFor(dateRange),
+                                    onSuccess: (reservation) {
+                                      AutoRouter.of(context).push(
+                                        ThreadRoute(
+                                          anchor: reservation.getDtag()!,
+                                        ),
+                                      );
+                                    },
                                   );
-                                },
-                              );
-                        }),
-                  child: state.status == ReservationCubitStatus.loading
-                      ? const AppLoadingIndicator.small()
-                      : Text(AppLocalizations.of(context)!.reserve),
-                );
-              },
+                            }),
+                      child: state.status == ReservationCubitStatus.loading
+                          ? const AppLoadingIndicator.small()
+                          : Text(AppLocalizations.of(context)!.reserve),
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

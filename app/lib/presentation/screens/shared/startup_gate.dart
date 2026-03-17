@@ -52,6 +52,8 @@ Future<void> _applyStartupReadyEffects(
   BuildContext context,
   StartupGateReady state,
 ) async {
+  await context.read<AuthCubit>().get();
+
   if (!state.isHost) {
     return;
   }

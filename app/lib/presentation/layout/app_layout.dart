@@ -19,8 +19,9 @@ const kAppProfileMaxWidth = 460.0;
 const kAppFormMaxWidth = 460.0;
 const kAppPanelLargeWidth = 760.0;
 
-const kAppPanelRadius = 16.0;
-const kAppPanelGap = kSpace5;
+const kAppPanelRadius = 0.0;
+const kAppNavBarItemRadius = 0.0;
+const kAppPanelGap = 0.0;
 const kAppPagePadding = EdgeInsets.fromLTRB(kSpace5, kSpace4, kSpace5, kSpace4);
 const kAppPagePaddingWithHeader = EdgeInsets.fromLTRB(
   kSpace5,
@@ -217,7 +218,7 @@ class AppWideNavigationScaffold extends StatelessWidget {
                     width: navWidth,
                     child: AppPanel(
                       color: Colors.transparent,
-                      padding: const EdgeInsets.all(kSpace5),
+                      // padding: const EdgeInsets.all(kSpace5),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -278,9 +279,9 @@ class _AppWideNavigationItem extends StatelessWidget {
 
     return Material(
       color: backgroundColor,
-      borderRadius: BorderRadius.circular(kSpace2),
+      borderRadius: BorderRadius.circular(kAppNavBarItemRadius),
       child: InkWell(
-        borderRadius: BorderRadius.circular(kSpace2),
+        borderRadius: BorderRadius.circular(kAppNavBarItemRadius),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(
@@ -308,55 +309,35 @@ class _AppWideNavigationItem extends StatelessWidget {
   }
 }
 
-class AppConstrainedBody extends StatelessWidget {
-  final Widget child;
-  final double? maxWidth;
-  final EdgeInsetsGeometry padding;
-  final AlignmentGeometry alignment;
-
-  const AppConstrainedBody({
-    super.key,
-    required this.child,
-    this.maxWidth,
-    this.padding = const EdgeInsets.all(kSpace5),
-    this.alignment = Alignment.topCenter,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppPageGutter(
-      maxWidth: maxWidth,
-      padding: padding,
-      alignment: alignment,
-      child: child,
-    );
-  }
-}
-
 class AppPageGutter extends StatelessWidget {
   final Widget child;
   final double? maxWidth;
-  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? padding;
   final AlignmentGeometry alignment;
 
   const AppPageGutter({
     super.key,
     required this.child,
     this.maxWidth,
-    this.padding = kAppPagePadding,
+    this.padding,
     this.alignment = Alignment.topCenter,
   });
 
   @override
   Widget build(BuildContext context) {
     final layout = AppLayoutSpec.of(context);
+    final resolvedPadding =
+        padding ??
+        (layout.size == AppViewportSize.compact
+            ? EdgeInsets.zero
+            : kAppPagePadding);
     return Align(
       alignment: alignment,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: maxWidth ?? layout.contentMaxWidth,
         ),
-        child: Padding(padding: padding, child: child),
+        child: Padding(padding: resolvedPadding, child: child),
       ),
     );
   }
@@ -367,6 +348,7 @@ class AppPanel extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final Color? color;
   final double radius;
+  final AppPanelTone tone;
 
   const AppPanel({
     super.key,
@@ -374,164 +356,246 @@ class AppPanel extends StatelessWidget {
     this.padding = EdgeInsets.zero,
     this.color,
     this.radius = kAppPanelRadius,
+    this.tone = AppPanelTone.secondary,
   });
+
+  const AppPanel.primary({
+    super.key,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+    this.color,
+    this.radius = kAppPanelRadius,
+  }) : tone = AppPanelTone.primary;
+
+  const AppPanel.secondary({
+    super.key,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+    this.color,
+    this.radius = kAppPanelRadius,
+  }) : tone = AppPanelTone.secondary;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final resolvedColor =
+        color ??
+        switch (tone) {
+          AppPanelTone.primary => theme.colorScheme.surfaceContainerHigh,
+          AppPanelTone.secondary => theme.colorScheme.surfaceContainer,
+        };
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Material(
-        color: color ?? Theme.of(context).colorScheme.surfaceContainerLow,
+        color: resolvedColor,
         child: Padding(padding: padding, child: child),
       ),
     );
   }
 }
 
-class AppPanelScaffold extends StatelessWidget {
+enum AppPanelTone { primary, secondary }
+
+enum AppPaneContentAlignment { start, center }
+
+class AppPane extends StatelessWidget {
+  final int? flex;
+  final double? width;
   final PreferredSizeWidget? appBar;
-  final Widget body;
-  final Widget? bottomBar;
-  final Color? color;
-  final double radius;
-
-  const AppPanelScaffold({
-    super.key,
-    this.appBar,
-    required this.body,
-    this.bottomBar,
-    this.color,
-    this.radius = kAppPanelRadius,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return AppPanel(
-      color: color,
-      radius: radius,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (appBar != null)
-            Theme(
-              data: theme.copyWith(
-                appBarTheme: theme.appBarTheme.copyWith(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  surfaceTintColor: Colors.transparent,
-                ),
-              ),
-              child: appBar!,
-            ),
-          Expanded(child: body),
-          if (bottomBar != null) bottomBar!,
-        ],
-      ),
-    );
-  }
-}
-
-class AppSinglePanePage extends StatelessWidget {
+  final SliverAppBar Function(BuildContext context)?
+  promotedSliverAppBarBuilder;
   final Widget child;
-  final double? maxWidth;
+  final Widget? bottomBar;
+  final bool promoteChromeWhenStacked;
+  final bool showWhenStacked;
+  final Color? color;
+  final AppPanelTone panelTone;
+  final double radius;
   final EdgeInsetsGeometry padding;
-  final AlignmentGeometry alignment;
+  final double? maxWidth;
+  final AppPaneContentAlignment alignment;
   final bool usePanel;
-  final EdgeInsetsGeometry panelPadding;
-  final Color? panelColor;
-  final double panelRadius;
 
-  const AppSinglePanePage({
+  const AppPane({
     super.key,
+    this.flex,
+    this.width,
+    this.appBar,
+    this.promotedSliverAppBarBuilder,
     required this.child,
+    this.bottomBar,
+    this.promoteChromeWhenStacked = false,
+    this.showWhenStacked = true,
+    this.color,
+    this.panelTone = AppPanelTone.secondary,
+    this.radius = kAppPanelRadius,
+    this.padding = EdgeInsets.zero,
     this.maxWidth,
-    this.padding = kAppPagePadding,
-    this.alignment = Alignment.topCenter,
+    this.alignment = AppPaneContentAlignment.start,
     this.usePanel = true,
-    this.panelPadding = EdgeInsets.zero,
-    this.panelColor,
-    this.panelRadius = kAppPanelRadius,
-  });
+  }) : assert(
+         flex == null || width == null,
+         'AppPane cannot define both flex and width.',
+       );
 
-  @override
-  Widget build(BuildContext context) {
-    return AppPageGutter(
-      maxWidth: maxWidth,
-      padding: padding,
-      alignment: alignment,
-      child: usePanel
-          ? AppPanel(
-              padding: panelPadding,
-              color: panelColor,
-              radius: panelRadius,
-              child: child,
-            )
-          : child,
-    );
-  }
-}
+  AlignmentGeometry get _contentAlignment => switch (alignment) {
+    AppPaneContentAlignment.start => Alignment.topLeft,
+    AppPaneContentAlignment.center => Alignment.topCenter,
+  };
 
-class AppSplitPage extends StatelessWidget {
-  final Widget primary;
-  final Widget secondary;
-  final double primaryWidth;
-  final double gap;
-  final double? maxWidth;
-  final EdgeInsetsGeometry padding;
-  final AlignmentGeometry alignment;
-
-  const AppSplitPage({
-    super.key,
-    required this.primary,
-    required this.secondary,
-    this.primaryWidth = kAppSearchListPaneWidth,
-    this.gap = kAppPanelGap,
-    this.maxWidth = kAppWideContentMaxWidth,
-    this.padding = kAppPagePadding,
-    this.alignment = Alignment.topCenter,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppPageGutter(
-      maxWidth: maxWidth,
-      padding: padding,
-      alignment: alignment,
-      child: AppTwoPane(
-        primaryWidth: primaryWidth,
-        gap: gap,
-        primary: primary,
-        secondary: secondary,
+  Widget _buildAppBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        appBarTheme: theme.appBarTheme.copyWith(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+        ),
       ),
+      child: appBar!,
     );
+  }
+
+  Widget buildPane({
+    required BuildContext context,
+    bool includeAppBar = true,
+    bool includeBottomBar = true,
+  }) {
+    Widget buildPaneBody(BoxConstraints constraints) {
+      final content = Padding(
+        padding: padding,
+        child: Align(
+          alignment: _contentAlignment,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
+            child: child,
+          ),
+        ),
+      );
+
+      final paneChildren = <Widget>[
+        if (includeAppBar && appBar != null) _buildAppBar(context),
+        constraints.hasBoundedHeight ? Expanded(child: content) : content,
+        if (includeBottomBar && bottomBar != null) bottomBar!,
+      ];
+
+      return Column(
+        mainAxisSize: constraints.hasBoundedHeight
+            ? MainAxisSize.max
+            : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: paneChildren,
+      );
+    }
+
+    final body = LayoutBuilder(
+      builder: (context, constraints) {
+        return buildPaneBody(constraints);
+      },
+    );
+
+    if (!usePanel) {
+      return body;
+    }
+
+    if (color != null) {
+      return AppPanel(color: color, radius: radius, child: body);
+    }
+
+    return switch (panelTone) {
+      AppPanelTone.primary => AppPanel.primary(radius: radius, child: body),
+      AppPanelTone.secondary => AppPanel.secondary(radius: radius, child: body),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return buildPane(context: context);
   }
 }
 
-class AppTwoPane extends StatelessWidget {
-  final Widget primary;
-  final Widget secondary;
-  final double primaryWidth;
+class AppPaneLayout extends StatelessWidget {
+  final List<AppPane> panes;
   final double gap;
 
-  const AppTwoPane({
+  const AppPaneLayout({
     super.key,
-    required this.primary,
-    required this.secondary,
-    this.primaryWidth = kAppSearchListPaneWidth,
-    this.gap = kSpace5,
+    required this.panes,
+    this.gap = kAppPanelGap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final layout = AppLayoutSpec.of(context);
+    final isHorizontal = layout.isExpanded;
+    final stackedPanes = panes.where((pane) => pane.showWhenStacked).toList();
+
+    if (isHorizontal) {
+      final children = <Widget>[];
+
+      for (var i = 0; i < panes.length; i++) {
+        final pane = panes[i];
+        final paneChild = pane.width != null
+            ? SizedBox(width: pane.width, child: pane)
+            : Expanded(flex: pane.flex ?? 1, child: pane);
+        children.add(paneChild);
+        if (i < panes.length - 1) {
+          children.add(SizedBox(width: gap));
+        }
+      }
+
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      );
+    }
+
+    final promotedPane = stackedPanes
+        .where((pane) => pane.promoteChromeWhenStacked)
+        .firstOrNull;
+    final promotedSliverAppBar = promotedPane?.promotedSliverAppBarBuilder;
+
+    final children = <Widget>[];
+    for (var i = 0; i < stackedPanes.length; i++) {
+      final pane = stackedPanes[i];
+      final suppressChrome = identical(pane, promotedPane);
+      children.add(
+        pane.buildPane(
+          context: context,
+          includeAppBar: !suppressChrome,
+          includeBottomBar: !suppressChrome,
+        ),
+      );
+      if (i < stackedPanes.length - 1) {
+        children.add(SizedBox(height: gap));
+      }
+    }
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(width: primaryWidth, child: primary),
-        SizedBox(width: gap),
-        Expanded(child: secondary),
+        if (promotedSliverAppBar == null && promotedPane?.appBar != null)
+          promotedPane!._buildAppBar(context),
+        Expanded(
+          child: promotedSliverAppBar != null
+              ? CustomScrollView(
+                  slivers: [
+                    promotedSliverAppBar(context),
+                    SliverList(delegate: SliverChildListDelegate(children)),
+                  ],
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: children,
+                  ),
+                ),
+        ),
+        if (promotedPane?.bottomBar != null) promotedPane!.bottomBar!,
       ],
     );
   }

@@ -1,11 +1,16 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+
+bool _usesStandaloneWideRoute(String routeName) {
+  return routeName == ListingRoute.name ||
+      routeName == EditListingRoute.name ||
+      routeName == EditProfileRoute.name;
+}
 
 @RoutePage()
 class WideViewportShellScreen extends StatelessWidget {
@@ -18,11 +23,9 @@ class WideViewportShellScreen extends StatelessWidget {
       return const AutoRouter();
     }
 
-    return StreamBuilder<AuthState>(
-      stream: getIt<Hostr>().auth.authState,
-      initialData: getIt<Hostr>().auth.authState.value,
-      builder: (context, authSnapshot) {
-        final isLoggedIn = authSnapshot.data == const LoggedIn();
+    return BlocBuilder<AuthCubit, AuthState>(
+      builder: (context, authState) {
+        final isLoggedIn = authState == const LoggedIn();
 
         return BlocBuilder<ModeCubit, ModeCubitState>(
           builder: (context, modeState) {
@@ -34,11 +37,12 @@ class WideViewportShellScreen extends StatelessWidget {
             return AutoRouter(
               builder: (context, child) {
                 final router = AutoRouter.of(context);
+                final currentRouteName = router.topRoute.name;
                 final tabsRouter = context.innerRouterOf<TabsRouter>(
                   AppShellRoute.name,
                 );
                 final selectedIndex = resolveAppNavigationIndex(
-                  currentRouteName: router.topRoute.name,
+                  currentRouteName: currentRouteName,
                   destinations: destinations,
                   isLoggedIn: isLoggedIn,
                   modeState: modeState,
@@ -64,6 +68,13 @@ class WideViewportShellScreen extends StatelessWidget {
                   destinations: destinations,
                   selectedIndex: selectedIndex,
                   onDestinationSelected: (index) {
+                    if (_usesStandaloneWideRoute(currentRouteName)) {
+                      router.replaceAll([
+                        AppShellRoute(children: [destinations[index].route]),
+                      ]);
+                      return;
+                    }
+
                     final tabsRouter = context.innerRouterOf<TabsRouter>(
                       AppShellRoute.name,
                     );

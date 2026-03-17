@@ -24,7 +24,9 @@ class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AuthCubit>.value(value: AuthCubit()),
+        BlocProvider<AuthCubit>.value(
+          value: AuthCubit(initialState: getIt<Hostr>().auth.authState.value),
+        ),
         BlocProvider<ModeCubit>(
           create: (context) =>
               ModeCubit(configStore: getIt<Hostr>().userConfig)..load(),

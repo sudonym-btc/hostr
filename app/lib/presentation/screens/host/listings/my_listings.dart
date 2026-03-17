@@ -59,8 +59,8 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
     final content = SafeArea(
+      top: false,
       child: ListWidget<Listing>(
         emptyBuilder: () => StatusStreamListWidget.empty(
           context,
@@ -86,10 +86,14 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
 
     return BlocProvider.value(
       value: _listCubit,
-      child: Scaffold(
-        appBar: layout.showsSidebarNavigation
-            ? null
-            : AppBar(
+      child: AppPageGutter(
+        maxWidth: kAppWideContentMaxWidth,
+        padding: EdgeInsets.zero,
+        child: AppPaneLayout(
+          panes: [
+            AppPane(
+              flex: 1,
+              appBar: AppBar(
                 title: Text(AppLocalizations.of(context)!.myListings),
                 actionsPadding: EdgeInsets.only(
                   right: kDefaultPadding.toDouble(),
@@ -103,29 +107,11 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                   ),
                 ],
               ),
-        body: layout.showsSidebarNavigation
-            ? AppSinglePanePage(
-                maxWidth: kAppWideContentMaxWidth,
-                usePanel: false,
-                child: AppPanelScaffold(
-                  appBar: AppBar(
-                    title: Text(AppLocalizations.of(context)!.myListings),
-                    actionsPadding: EdgeInsets.only(
-                      right: kDefaultPadding.toDouble(),
-                    ),
-                    actions: [
-                      IconButton.outlined(
-                        icon: Icon(Icons.add),
-                        onPressed: () {
-                          AutoRouter.of(context).pushPath('edit-listing/new');
-                        },
-                      ),
-                    ],
-                  ),
-                  body: content,
-                ),
-              )
-            : content,
+              promoteChromeWhenStacked: true,
+              child: content,
+            ),
+          ],
+        ),
       ),
     );
   }

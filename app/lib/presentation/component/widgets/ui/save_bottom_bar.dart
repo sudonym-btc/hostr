@@ -6,8 +6,8 @@ import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 
 /// A standardised save button for forms backed by [UpsertFormController].
 ///
-/// Renders inside a [BottomAppBar] with a right-aligned [FilledButton] that
-/// is disabled when the form cannot submit or has no changes.
+/// Renders as a bottom action bar with a right-aligned [FilledButton] that is
+/// disabled when the form cannot submit or has no changes.
 class SaveBottomBar extends StatelessWidget {
   final UpsertFormController controller;
   final VoidCallback onSave;
@@ -20,27 +20,34 @@ class SaveBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomAppBar(
-      child: CustomPadding(
-        top: 0,
-        bottom: 0,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            ListenableBuilder(
-              listenable: controller.submitListenable,
-              builder: (context, _) {
-                return FilledButton(
-                  onPressed: controller.canSubmit && controller.isDirty
-                      ? onSave
-                      : null,
-                  child: controller.isSaving
-                      ? const AppLoadingIndicator.small()
-                      : Text(AppLocalizations.of(context)!.save),
-                );
-              },
-            ),
-          ],
+    final theme = Theme.of(context);
+
+    return Material(
+      color:
+          theme.bottomAppBarTheme.color ?? theme.colorScheme.surfaceContainer,
+      child: SafeArea(
+        top: false,
+        child: CustomPadding(
+          top: 0,
+          bottom: 0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ListenableBuilder(
+                listenable: controller.submitListenable,
+                builder: (context, _) {
+                  return FilledButton(
+                    onPressed: controller.canSubmit && controller.isDirty
+                        ? onSave
+                        : null,
+                    child: controller.isSaving
+                        ? const AppLoadingIndicator.small()
+                        : Text(AppLocalizations.of(context)!.save),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

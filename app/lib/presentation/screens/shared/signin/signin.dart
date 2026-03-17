@@ -214,11 +214,18 @@ class SignInScreenState extends State<SignInScreen> {
 
           return SafeArea(
             child: layout.showsSidebarNavigation
-                ? AppSinglePanePage(maxWidth: kAppFormMaxWidth, child: content)
-                : AppConstrainedBody(
-                    maxWidth: kAppFormMaxWidth,
-                    child: content,
-                  ),
+                ? AppPageGutter(
+                    maxWidth: kAppWideContentMaxWidth,
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: kAppFormMaxWidth,
+                      child: AppPane(
+                        alignment: AppPaneContentAlignment.start,
+                        child: content,
+                      ),
+                    ),
+                  )
+                : AppPageGutter(maxWidth: kAppFormMaxWidth, child: content),
           );
         },
       ),

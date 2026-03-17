@@ -10,7 +10,6 @@ import 'package:hostr/presentation/screens/shared/profile/edit_profile.controlle
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../listing/image_picker.dart';
-import 'profile_panes.dart';
 
 @RoutePage()
 class EditProfileScreen extends StatelessWidget {
@@ -122,22 +121,26 @@ class EditProfileViewState extends State<EditProfileView> {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
     final body = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => FocusScope.of(context).unfocus(),
-      child: ProfileProvider(
-        pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-        onDone: (metadata) => controller.setState(metadata),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: AppLoadingIndicator.large());
-          }
-          if (snapshot.connectionState == ConnectionState.done) {
-            return ListView(children: buildFormFields());
-          }
-          return Text(AppLocalizations.of(context)!.errorLabel);
-        },
+      child: LayoutBuilder(
+        builder: (context, constraints) => ProfileProvider(
+          pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+          onDone: (metadata) => controller.setState(metadata),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: AppLoadingIndicator.large());
+            }
+            if (snapshot.connectionState == ConnectionState.done) {
+              final fields = buildFormFields();
+              return constraints.hasBoundedHeight
+                  ? ListView(children: fields)
+                  : Column(mainAxisSize: MainAxisSize.min, children: fields);
+            }
+            return Text(AppLocalizations.of(context)!.errorLabel);
+          },
+        ),
       ),
     );
     final bottomBar = SaveBottomBar(
@@ -149,43 +152,30 @@ class EditProfileViewState extends State<EditProfileView> {
         }
       },
     );
-    final page = Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.profile),
-        titleSpacing: 0,
-      ),
-      body: body,
-      bottomNavigationBar: bottomBar,
-    );
-    final scaffold = ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SizedBox.expand(
-        child: layout.showsSidebarNavigation
-            ? AppSplitPage(
-                maxWidth: kAppWideContentMaxWidth,
-                primaryWidth: kAppFormMaxWidth,
-                primary: AppPanelScaffold(
-                  appBar: AppBar(
-                    title: Text(AppLocalizations.of(context)!.profile),
-                    titleSpacing: 0,
-                  ),
-                  body: body,
-                  bottomBar: bottomBar,
-                ),
-                secondary: const AppPanel(
-                  child: SingleChildScrollView(child: ProfileDetailsSection()),
-                ),
-              )
-            : AppConstrainedBody(
-                maxWidth: kAppFormMaxWidth,
-                padding: EdgeInsets.zero,
-                child: page,
-              ),
-      ),
-    );
+
     return UnsavedChangesGuard(
       isDirty: () => controller.isDirty,
-      child: Form(key: controller.formKey, child: scaffold),
+      child: Form(
+        key: controller.formKey,
+        child: AppPageGutter(
+          maxWidth: kAppWideContentMaxWidth,
+          padding: EdgeInsets.zero,
+          child: AppPaneLayout(
+            panes: [
+              AppPane(
+                width: kAppFormMaxWidth,
+                appBar: AppBar(
+                  title: Text(AppLocalizations.of(context)!.profile),
+                  titleSpacing: 0,
+                ),
+                bottomBar: bottomBar,
+                promoteChromeWhenStacked: true,
+                child: body,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

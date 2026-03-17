@@ -77,14 +77,12 @@ class _ExternalReviewSegment extends StatefulWidget {
 }
 
 class _ExternalReviewSegmentState extends State<_ExternalReviewSegment> {
-  late final StreamSubscription<int> _sub;
-  late final StreamSubscription<double> _averageSub;
+  StreamSubscription<int>? _sub;
+  StreamSubscription<double>? _averageSub;
   int? _count;
   double? _averageRating;
 
-  @override
-  void initState() {
-    super.initState();
+  void _bindStreams() {
     _sub = widget.countStream.listen((c) {
       if (mounted) setState(() => _count = c);
     });
@@ -94,9 +92,28 @@ class _ExternalReviewSegmentState extends State<_ExternalReviewSegment> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _bindStreams();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ExternalReviewSegment oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.countStream != widget.countStream ||
+        oldWidget.averageRatingStream != widget.averageRatingStream) {
+      _sub?.cancel();
+      _averageSub?.cancel();
+      _count = null;
+      _averageRating = null;
+      _bindStreams();
+    }
+  }
+
+  @override
   void dispose() {
-    _sub.cancel();
-    _averageSub.cancel();
+    _sub?.cancel();
+    _averageSub?.cancel();
     super.dispose();
   }
 
@@ -132,20 +149,34 @@ class _ExternalCountSegment extends StatefulWidget {
 }
 
 class _ExternalCountSegmentState extends State<_ExternalCountSegment> {
-  late final StreamSubscription<int> _sub;
+  StreamSubscription<int>? _sub;
   int? _count;
 
-  @override
-  void initState() {
-    super.initState();
+  void _bindStream() {
     _sub = widget.countStream.listen((c) {
       if (mounted) setState(() => _count = c);
     });
   }
 
   @override
+  void initState() {
+    super.initState();
+    _bindStream();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ExternalCountSegment oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.countStream != widget.countStream) {
+      _sub?.cancel();
+      _count = null;
+      _bindStream();
+    }
+  }
+
+  @override
   void dispose() {
-    _sub.cancel();
+    _sub?.cancel();
     super.dispose();
   }
 
