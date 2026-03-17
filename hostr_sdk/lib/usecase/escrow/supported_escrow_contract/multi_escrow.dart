@@ -1,12 +1,12 @@
 import 'dart:math';
 
 import 'package:models/main.dart';
-import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../datasources/contracts/escrow/MultiEscrow.g.dart';
 import '../../../util/main.dart';
+import '../../evm/chain/evm_chain.dart';
 import '../../payments/constants.dart';
 import 'supported_escrow_contract.dart';
 
@@ -52,10 +52,14 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   };
 
   final CustomLogger logger;
+  final EvmChain? chain;
+  final Map<String, _CachedTradeEvents> _tradeEvents = {};
+
   MultiEscrowWrapper({
     required super.client,
     required super.address,
     super.rifRelay,
+    this.chain,
     required CustomLogger logger,
   }) : logger = logger.scope('multi-escrow'),
        super(
@@ -285,43 +289,73 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     ContractEventsParams params,
     EscrowServiceSelected? selectedEscrow, {
     bool includeLive = true,
+    bool batch = true,
   }) => logger.spanSync('allEvents', () {
     final eventNamesByTopic = _eventNamesByTopic();
-    final eventFilter = _buildEventFilter(params, eventNamesByTopic.keys);
+    final cachedTrade = params.tradeId != null
+        ? _tradeEvents[params.tradeId!]
+        : null;
+
+    if (params.tradeId != null && cachedTrade?.isTerminal == true) {
+      logger.d('Returning cached terminal events for trade ${params.tradeId}');
+      return StreamWithStatus<EscrowEvent>.query(
+        query: () => Stream.fromIterable(cachedTrade!.events),
+      );
+    }
+
+    final eventFilter = _buildEventFilter(
+      params,
+      eventNamesByTopic.keys,
+      fromBlock: _effectiveFromBlock(cachedTrade),
+    );
     logger.d(
       'Subscribing to events for trade id at address: ${params.tradeId}, ${contract.self.address}',
     );
 
+    final cachedEvents = cachedTrade?.events ?? const <EscrowEvent>[];
     final logStore = <FilterEvent>[];
 
     return StreamWithStatus<EscrowEvent>.query(
-      query: () => ensureDeployed()
-          .then((_) => contract.client.getLogs(eventFilter))
-          .asStream()
-          .doOnData((logs) {
-            logger.d(
-              'Fetched ${logs.length} logs for filter: ${eventFilter.stringify()}',
-            );
-            logStore.addAll(logs);
-          })
-          .asyncExpand((logs) => Stream.fromIterable(logs))
-          .where((log) => log.transactionHash != null)
-          .asyncMap(
-            (log) => _mapEscrowEvent(log, eventNamesByTopic, selectedEscrow),
-          ),
+      query: () async* {
+        for (final event in cachedEvents) {
+          yield event;
+        }
+
+        await ensureDeployed();
+        final logs = await _getLogs(eventFilter, params: params, batch: batch);
+        logger.d(
+          'Fetched ${logs.length} logs for filter: ${eventFilter.stringify()}',
+        );
+        logStore.addAll(logs);
+
+        for (final log in logs) {
+          if (log.transactionHash == null) continue;
+          yield await _mapAndCacheEscrowEvent(
+            log,
+            eventNamesByTopic,
+            selectedEscrow,
+          );
+        }
+      },
       live: includeLive == true
           ? () => contract.client
                 .events(
                   FilterOptions(
                     address: eventFilter.address,
                     topics: eventFilter.topics,
-                    fromBlock: _nextLiveBlock(logStore),
+                    fromBlock: _nextLiveBlock(
+                      logStore,
+                      cachedHighestSeenBlock: cachedTrade?.highestSeenBlock,
+                    ),
                   ),
                 )
                 .where((log) => log.transactionHash != null)
                 .asyncMap(
-                  (log) =>
-                      _mapEscrowEvent(log, eventNamesByTopic, selectedEscrow),
+                  (log) => _mapAndCacheEscrowEvent(
+                    log,
+                    eventNamesByTopic,
+                    selectedEscrow,
+                  ),
                 )
           : null,
     );
@@ -333,8 +367,9 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   FilterOptions _buildEventFilter(
     ContractEventsParams params,
-    Iterable<String> eventTopics,
-  ) {
+    Iterable<String> eventTopics, {
+    BlockNum? fromBlock,
+  }) {
     final topics = <List<String?>>[
       [...eventTopics],
     ];
@@ -352,8 +387,55 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     return FilterOptions(
       address: contract.self.address,
       topics: topics,
-      fromBlock: BlockNum.genesis(),
+      fromBlock: fromBlock ?? BlockNum.genesis(),
     );
+  }
+
+  Future<List<FilterEvent>> _getLogs(
+    FilterOptions eventFilter, {
+    required ContractEventsParams params,
+    required bool batch,
+  }) {
+    final currentChain = chain;
+    final tradeId = params.tradeId;
+    if (currentChain == null || tradeId == null) {
+      return contract.client.getLogs(eventFilter);
+    }
+
+    return currentChain.getLogs(
+      eventFilter,
+      batch: batch,
+      batchHint: EvmLogsBatchHint(
+        requestKey: _logsRequestKey(eventFilter),
+        dynamicTopicIndex: 1,
+      ),
+    );
+  }
+
+  String _logsRequestKey(FilterOptions filter) {
+    final topics = filter.topics ?? const <List<String?>>[];
+    final normalizedTopics = <String>[];
+    for (var i = 0; i < topics.length; i++) {
+      if (i == 1) {
+        normalizedTopics.add('<batched-trade-id>');
+      } else {
+        normalizedTopics.add(topics[i].join('|'));
+      }
+    }
+
+    return [
+      contract.self.address.eip55With0x,
+      '${filter.fromBlock}',
+      '${filter.toBlock}',
+      ...normalizedTopics,
+    ].join('::');
+  }
+
+  BlockNum _effectiveFromBlock(_CachedTradeEvents? cachedTrade) {
+    if (cachedTrade?.highestSeenBlock == null) {
+      return BlockNum.genesis();
+    }
+    return BlockNum.exact(cachedTrade!.highestSeenBlock! + 1);
   }
 
   Future<EscrowEvent> _mapEscrowEvent(
@@ -424,6 +506,61 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     }
   }
 
+  Future<EscrowEvent> _mapAndCacheEscrowEvent(
+    FilterEvent log,
+    Map<String, String> eventNamesByTopic,
+    EscrowServiceSelected? selectedEscrow,
+  ) async {
+    final event = await _mapEscrowEvent(log, eventNamesByTopic, selectedEscrow);
+    _recordTradeEvent(event, log.blockNum?.toInt());
+    return event;
+  }
+
+  void _recordTradeEvent(EscrowEvent event, int? blockNum) {
+    final tradeId = event.tradeId;
+    if (tradeId.isEmpty) return;
+
+    final previous = _tradeEvents[tradeId];
+    final mergedEvents = _mergeEvents(previous?.events ?? const [], event);
+    final highestSeenBlock = [previous?.highestSeenBlock, blockNum]
+        .whereType<int>()
+        .fold<int?>(null, (maxSoFar, value) {
+          if (maxSoFar == null) return value;
+          return max(maxSoFar, value);
+        });
+
+    final isTerminal =
+        previous?.isTerminal == true ||
+        event is EscrowReleasedEvent ||
+        event is EscrowClaimedEvent ||
+        event is EscrowArbitratedEvent;
+
+    _tradeEvents[tradeId] = _CachedTradeEvents(
+      events: mergedEvents,
+      highestSeenBlock: highestSeenBlock,
+      isTerminal: isTerminal,
+    );
+  }
+
+  List<EscrowEvent> _mergeEvents(List<EscrowEvent> existing, EscrowEvent next) {
+    final identity = _eventIdentity(next);
+    if (existing.any((event) => _eventIdentity(event) == identity)) {
+      return existing;
+    }
+    return [...existing, next];
+  }
+
+  String _eventIdentity(EscrowEvent event) {
+    final txHash = switch (event) {
+      EscrowFundedEvent funded => funded.transactionHash,
+      EscrowReleasedEvent released => released.transactionHash,
+      EscrowArbitratedEvent arbitrated => arbitrated.transactionHash,
+      EscrowClaimedEvent claimed => claimed.transactionHash,
+      _ => '',
+    };
+    return '${event.runtimeType}:${event.tradeId}:$txHash';
+  }
+
   Future<BlockInformation> _blockForLog(FilterEvent log) async {
     final receipt = await contract.client.getTransactionByHash(
       log.transactionHash!,
@@ -439,14 +576,29 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       .firstWhere((event) => event.name == eventName)
       .decodeResults(log.topics!, log.data!);
 
-  BlockNum _nextLiveBlock(List<FilterEvent> logStore) {
+  BlockNum _nextLiveBlock(
+    List<FilterEvent> logStore, {
+    int? cachedHighestSeenBlock,
+  }) {
     final blockNumbers = logStore
         .where((event) => event.blockNum != null)
         .map((event) => event.blockNum!.toInt());
-    if (blockNumbers.isEmpty) {
+    if (blockNumbers.isEmpty && cachedHighestSeenBlock == null) {
       return BlockNum.current();
     }
-    return BlockNum.exact(blockNumbers.reduce(max) + 1);
+
+    var highestSeenBlock = cachedHighestSeenBlock;
+    for (final blockNumber in blockNumbers) {
+      highestSeenBlock = highestSeenBlock == null
+          ? blockNumber
+          : max(highestSeenBlock, blockNumber);
+    }
+
+    if (highestSeenBlock == null) {
+      return BlockNum.current();
+    }
+
+    return BlockNum.exact(highestSeenBlock + 1);
   }
 
   String _eventTopic(String eventName) => bytesToHex(
@@ -523,6 +675,18 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           originalError: error,
         );
       });
+}
+
+class _CachedTradeEvents {
+  final List<EscrowEvent> events;
+  final int? highestSeenBlock;
+  final bool isTerminal;
+
+  const _CachedTradeEvents({
+    required this.events,
+    required this.highestSeenBlock,
+    required this.isTerminal,
+  });
 }
 
 extension on FilterOptions {

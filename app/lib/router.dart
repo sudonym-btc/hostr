@@ -31,9 +31,7 @@ class AppRouter extends RootStackRouter {
         includePrefixMatches: includePrefixMatches,
         deepLinkTransformer: deepLinkTransformer,
       ),
-      routeInformationProvider: routeInfoProvider(
-        neglectWhen: neglectWhen,
-      ),
+      routeInformationProvider: routeInfoProvider(neglectWhen: neglectWhen),
       backButtonDispatcher: RootBackButtonDispatcher(),
       routerDelegate: delegate(
         reevaluateListenable: reevaluateListenable,
@@ -53,8 +51,13 @@ class AppRouter extends RootStackRouter {
       page: RootRoute.page,
       initial: true,
       children: [
-        AutoRoute(page: SignInRoute.page, path: 'signin'),
-        AutoRoute(page: StartupGateRoute.page, path: 'startup'),
+        CustomRoute(
+          page: StartupGateRoute.page,
+          path: 'startup',
+          transitionsBuilder: TransitionsBuilders.fadeIn,
+          duration: const Duration(milliseconds: 250),
+          reverseDuration: const Duration(milliseconds: 250),
+        ),
         AutoRoute(
           page: StartupShellRoute.page,
           path: '',

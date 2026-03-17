@@ -45,8 +45,13 @@ Stream<double> buildAverageReviewRatingStream(
 
 class ListingReviewsList extends StatelessWidget {
   final StreamWithStatus<Validation<Review>> reviewsStream;
+  final Stream<List<Validation<Review>>>? itemsStream;
 
-  const ListingReviewsList({super.key, required this.reviewsStream});
+  const ListingReviewsList({
+    super.key,
+    required this.reviewsStream,
+    this.itemsStream,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +62,7 @@ class ListingReviewsList extends StatelessWidget {
             : null;
 
         return StreamBuilder<List<Validation<Review>>>(
-          stream: reviewsStream.itemsStream,
+          stream: itemsStream ?? reviewsStream.itemsStream,
           builder: (context, snapshot) {
             final items = snapshot.data ?? [];
             final reviewsStatus = reviewsStream.status.value;

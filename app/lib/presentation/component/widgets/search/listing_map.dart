@@ -159,29 +159,6 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   ListingMapController get _listingMapController =>
       widget.controller ?? _internalController;
 
-  String _currentMapStyle() {
-    return getMapStyle(
-      context,
-      Theme.of(context).brightness == Brightness.dark,
-    );
-  }
-
-  Future<void> _debugLogMapStyle(GoogleMapController controller) async {
-    if (!kDebugMode) return;
-
-    final style = _currentMapStyle();
-    debugPrint('ListingMap style JSON:\n$style');
-
-    try {
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      final styleError = await controller.getStyleError();
-      debugPrint('ListingMap style error: ${styleError ?? 'none'}');
-    } catch (error, stackTrace) {
-      debugPrint('ListingMap style debug failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-    }
-  }
-
   // ── Map lifecycle ───────────────────────────────────────────────────
 
   void _onMapCreated(GoogleMapController controller) {
@@ -189,7 +166,6 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
     _googleMapController.complete(controller);
     _mapReady = true;
-    unawaited(_debugLogMapStyle(controller));
 
     if (_listingMapController.selectedListingId == null &&
         _listingMapController.listings.isNotEmpty) {

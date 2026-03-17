@@ -55,7 +55,12 @@ abstract class Event<TagsType extends EventTags> extends Nip01Event {
 
   bool valid() {
     if (sig == null) return false;
-    return Bip340.verify(id, sig!, pubKey);
+    if (!Nip01Utils.isIdValid(this)) return false;
+    return verifySchnorrSignatureSync(
+      publicKey: pubKey,
+      message: id,
+      signature: sig!,
+    );
   }
 
   Nip01EventModel get model => Nip01EventModel.fromEntity(this);

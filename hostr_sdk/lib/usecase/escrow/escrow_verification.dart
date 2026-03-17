@@ -147,6 +147,7 @@ class EscrowVerification {
     logger.d(
       'Verifying escrow for trade $tradeId on chain ${chain} with contract ${contract}',
     );
+
     final events = contract.allEvents(
       ContractEventsParams(tradeId: tradeId),
       null,

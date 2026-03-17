@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
@@ -8,17 +9,76 @@ import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 
-class ImageUpload extends StatelessWidget {
+class ImageUpload extends StatefulWidget {
   final ImagePickerCubit controller;
   final String pubkey;
   final Widget? placeholder;
+  final List<String> allowedFileTypes;
 
   const ImageUpload({
     super.key,
     required this.controller,
     required this.pubkey,
     this.placeholder,
+    this.allowedFileTypes = ImagePickerCubit.defaultAllowedFileTypes,
   });
+
+  @override
+  State<ImageUpload> createState() => _ImageUploadState();
+}
+
+class _ImageUploadState extends State<ImageUpload> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  static final Set<PointerDeviceKind> _dragDevices = {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+    PointerDeviceKind.unknown,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 1);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickMultipleImages(BuildContext context) {
+    return context.read<ImagePickerCubit>().pickMultipleImages(
+      allowedFileTypes: widget.allowedFileTypes,
+    );
+  }
+
+  void _clampPage(int itemCount) {
+    if (itemCount <= 0) {
+      _currentPage = 0;
+      return;
+    }
+    final maxPage = itemCount - 1;
+    if (_currentPage <= maxPage) {
+      return;
+    }
+
+    final targetPage = maxPage;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients) {
+        return;
+      }
+      _pageController.jumpToPage(targetPage);
+      if (_currentPage != targetPage) {
+        setState(() => _currentPage = targetPage);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +107,7 @@ class ImageUpload extends StatelessWidget {
     // }
 
     return BlocProvider.value(
-      value: controller,
+      value: widget.controller,
       child: BlocConsumer<ImagePickerCubit, ImagePickerState>(
         listener: (context, state) {
           if (state is ImageError) {
@@ -60,95 +120,122 @@ class ImageUpload extends StatelessWidget {
           }
         },
         builder: (context, state) {
-          final images = controller.images;
+          final images = widget.controller.images;
           final atMax =
-              controller.maxImages != null &&
-              images.length >= controller.maxImages!;
+              widget.controller.maxImages != null &&
+              images.length >= widget.controller.maxImages!;
+          final itemCount = atMax ? images.length : images.length + 1;
+          _clampPage(itemCount);
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Expanded(
-                  child: PageView.builder(
-                    controller: PageController(viewportFraction: 1),
-                    pageSnapping: true,
-                    itemCount: atMax ? images.length : images.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index >= images.length) {
-                        return CustomPadding.horizontal.xs(
-                          child: Material(
-                            color: Theme.of(context).colorScheme.surface,
-                            child: InkWell(
-                              onTap: () => context
-                                  .read<ImagePickerCubit>()
-                                  .pickMultipleImages(),
-                              child: Container(
-                                alignment: Alignment.center,
-                                child:
-                                    placeholder ?? _defaultPlaceholder(context),
+                  child: ScrollConfiguration(
+                    behavior: const MaterialScrollBehavior().copyWith(
+                      dragDevices: _dragDevices,
+                    ),
+                    child: PageView.builder(
+                      key: const PageStorageKey<String>(
+                        'image-upload-carousel',
+                      ),
+                      controller: _pageController,
+                      pageSnapping: true,
+                      physics: const PageScrollPhysics(),
+                      itemCount: itemCount,
+                      onPageChanged: (page) {
+                        if (_currentPage != page) {
+                          setState(() => _currentPage = page);
+                        }
+                      },
+                      itemBuilder: (context, index) {
+                        if (index >= images.length) {
+                          return CustomPadding.horizontal.xs(
+                            child: Material(
+                              color: Theme.of(context).colorScheme.surface,
+                              child: InkWell(
+                                onTap: () => _pickMultipleImages(context),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  child:
+                                      widget.placeholder ??
+                                      _defaultPlaceholder(context),
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }
+                          );
+                        }
 
-                      final image = images[index];
-                      final uploading = controller.isImageUploading(index);
-                      final error = controller.imageError(index);
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (image.previewBytes != null)
-                            _LocalImagePreview(
-                              bytes: image.previewBytes!,
-                              filePath: image.file?.path,
-                            ),
-                          if (image.previewBytes == null && image.file != null)
-                            const Center(child: AppLoadingIndicator.small()),
-                          if (image.file == null && image.path != null)
-                            BlossomImage(image: image.path!, pubkey: pubkey),
-                          if (uploading)
-                            Positioned.fill(
-                              child: const _UploadShimmerOverlay(),
-                            ),
-                          if (error != null)
-                            Positioned.fill(
-                              child: _UploadErrorOverlay(
-                                error: error,
-                                onRetry: () => context
-                                    .read<ImagePickerCubit>()
-                                    .retryUpload(index),
+                        final image = images[index];
+                        final uploading = widget.controller.isImageUploading(
+                          index,
+                        );
+                        final error = widget.controller.imageError(index);
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (image.previewBytes != null)
+                              _LocalImagePreview(
+                                bytes: image.previewBytes!,
+                                filePath: image.file?.path,
                               ),
-                            ),
-                          Positioned(
-                            top: kSpace2,
-                            right: kSpace3,
-                            child: SafeArea(
-                              bottom: false,
-                              left: false,
-                              child: GestureDetector(
-                                onTap: () => context
-                                    .read<ImagePickerCubit>()
-                                    .removeImage(index),
-                                child: CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.surface,
-                                  child: Icon(
-                                    Icons.close,
-                                    size: kIconSm,
-                                    color: Theme.of(
+                            if (image.previewBytes == null &&
+                                image.file != null)
+                              const IgnorePointer(
+                                child: Center(
+                                  child: AppLoadingIndicator.small(),
+                                ),
+                              ),
+                            if (image.file == null && image.path != null)
+                              BlossomImage(
+                                image: image.path!,
+                                pubkey: widget.pubkey,
+                              ),
+                            if (uploading)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: const _UploadShimmerOverlay(),
+                                ),
+                              ),
+                            if (error != null)
+                              Positioned.fill(
+                                child: _UploadErrorOverlay(
+                                  error: error,
+                                  onRetry: () => context
+                                      .read<ImagePickerCubit>()
+                                      .retryUpload(index),
+                                ),
+                              ),
+                            Positioned(
+                              top: kSpace2,
+                              right: kSpace3,
+                              child: SafeArea(
+                                bottom: false,
+                                left: false,
+                                child: GestureDetector(
+                                  onTap: () => context
+                                      .read<ImagePickerCubit>()
+                                      .removeImage(index),
+                                  child: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: Theme.of(
                                       context,
-                                    ).colorScheme.onSurface,
+                                    ).colorScheme.surface,
+                                    child: Icon(
+                                      Icons.close,
+                                      size: kIconSm,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
                 // SizedBox(height: kDefaultPadding.toDouble()),
@@ -164,7 +251,7 @@ class ImageUpload extends StatelessWidget {
   Widget _defaultPlaceholder(BuildContext context) {
     return Center(
       child: FilledButton.tonalIcon(
-        onPressed: () => context.read<ImagePickerCubit>().pickMultipleImages(),
+        onPressed: () => _pickMultipleImages(context),
         icon: const Icon(Icons.add_a_photo_outlined),
         label: Text(AppLocalizations.of(context)!.addImage),
       ),
