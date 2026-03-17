@@ -75,6 +75,24 @@ Future<bool> verifySchnorrSignature({
   return Bip340.verify(message, signature, publicKey);
 }
 
+bool verifySchnorrSignatureSync({
+  required String publicKey,
+  required String message,
+  required String signature,
+}) {
+  if (_fastBackendLoaded) {
+    try {
+      final schnorrSignature = SchnorrSignature.fromHex(signature);
+      final schnorrPublicKey = ECPublicKey.fromXOnlyHex(publicKey);
+      return schnorrSignature.verify(schnorrPublicKey, hexToBytes(message));
+    } catch (_) {
+      // Fall through to the pure-Dart verifier below.
+    }
+  }
+
+  return Bip340.verify(message, signature, publicKey);
+}
+
 /// Signs a [message] (hex-encoded event id) with a [privateKey] (32-byte hex)
 /// using BIP-340 Schnorr signatures.
 ///

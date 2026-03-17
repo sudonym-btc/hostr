@@ -8,7 +8,9 @@ import '../../../../datasources/boltz/boltz.dart';
 import '../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../injection.dart';
 import '../../../../util/bitcoin_amount.dart';
+import '../../../../util/custom_logger.dart';
 import '../../../../util/http_client_factory.dart';
+import '../../../escrow/supported_escrow_contract/multi_escrow.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../../main.dart';
@@ -19,6 +21,8 @@ import 'rif_relay/rif_relay.dart';
 @Singleton()
 class Rootstock extends EvmChain {
   final HostrConfig config;
+  final Map<String, SupportedEscrowContract> _supportedContractCache = {};
+  int _supportedContractCacheGeneration = -1;
 
   static Web3Client _buildWeb3Client(String rpcUrl) =>
       Web3Client(rpcUrl, createPlatformHttpClient());
@@ -50,12 +54,31 @@ class Rootstock extends EvmChain {
     String contractName,
     EthereumAddress address,
   ) {
-    return SupportedEscrowContractRegistry.getSupportedContract(
-      contractName,
-      client,
-      address,
-      rifRelay: _rifRelayForSupportedContract(contractName),
-    )!;
+    if (_supportedContractCacheGeneration != clientGeneration) {
+      _supportedContractCache.clear();
+      _supportedContractCacheGeneration = clientGeneration;
+    }
+
+    final cacheKey = '$contractName:${address.eip55With0x}';
+    return _supportedContractCache.putIfAbsent(cacheKey, () {
+      final rifRelay = _rifRelayForSupportedContract(contractName);
+      if (contractName == 'MultiEscrow') {
+        return MultiEscrowWrapper(
+          chain: this,
+          client: client,
+          address: address,
+          rifRelay: rifRelay,
+          logger: getIt<CustomLogger>(),
+        );
+      }
+
+      return SupportedEscrowContractRegistry.getSupportedContract(
+        contractName,
+        client,
+        address,
+        rifRelay: rifRelay,
+      )!;
+    });
   }
 
   @override

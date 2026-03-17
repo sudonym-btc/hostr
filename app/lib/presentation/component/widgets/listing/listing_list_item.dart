@@ -4,19 +4,17 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/component/providers/nostr/listing_dependencies.provider.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
 import 'package:hostr/router.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 import 'price_tag.dart';
 
 class ListingListItemView extends StatelessWidget {
-  final Listing listing;
+  final ListingDependencies dependencies;
   final bool showPrice;
   final bool showFeedback;
   final bool smallImage;
@@ -25,15 +23,9 @@ class ListingListItemView extends StatelessWidget {
   final Widget? availabilityWidget;
   final VoidCallback? onTap;
 
-  /// Optional validated-reservation-pair count stream.
-  /// When supplied, the stays count shows only verified pairs.
-  final StreamWithStatus<Validation<Review>> verifiedReviews;
-  final StreamWithStatus<List<Validation<ReservationPair>>>
-  verifiedReservationPairs;
-
   const ListingListItemView({
     super.key,
-    required this.listing,
+    required this.dependencies,
     required this.showPrice,
     required this.showFeedback,
     required this.smallImage,
@@ -41,9 +33,9 @@ class ListingListItemView extends StatelessWidget {
     required this.showAvailability,
     this.availabilityWidget,
     this.onTap,
-    required this.verifiedReviews,
-    required this.verifiedReservationPairs,
   });
+
+  Listing get listing => dependencies.listing;
 
   Widget _buildImage() {
     return SmallListingCarousel(height: 200, listing: listing);
@@ -94,31 +86,9 @@ class ListingListItemView extends StatelessWidget {
                   const Spacer(),
                   if (showPrice) Gap.horizontal.md(),
                   ReviewsReservationsWidget(
-                    reservationCount: verifiedReservationPairs.latestItemsStream
-                        .map(
-                          (items) =>
-                              items.whereType<Valid<ReservationPair>>().length,
-                        ),
-                    averageReviewRating: verifiedReviews.itemsStream.map((
-                      items,
-                    ) {
-                      final reviews = items
-                          .whereType<Valid<Review>>()
-                          .map((validation) => validation.event)
-                          .toList();
-                      if (reviews.isEmpty) {
-                        return 0.0;
-                      }
-
-                      final total = reviews.fold<double>(
-                        0,
-                        (sum, review) => sum + review.rating,
-                      );
-                      return total / reviews.length;
-                    }),
-                    reviewCount: verifiedReviews.itemsStream.map(
-                      (items) => items.whereType<Valid<Review>>().length,
-                    ),
+                    reservationCount: dependencies.reservationCount,
+                    averageReviewRating: dependencies.averageReviewRating,
+                    reviewCount: dependencies.reviewCount,
                   ),
                 ],
               ],
@@ -147,7 +117,7 @@ class ListingListItemView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildImage(),
-                  Gap.vertical.sm(),
+                  Gap.vertical.xs(),
                   _buildDetails(context),
                 ],
               ),
@@ -181,10 +151,9 @@ class ListingListItemWidget extends StatefulWidget {
 class ListingListItemWidgetState extends State<ListingListItemWidget> {
   ListingListItemWidgetState();
 
-  late final StreamWithStatus<List<Validation<ReservationPair>>> _verifiedPairs;
   StreamSubscription<List<Validation<ReservationPair>>>?
   _verifiedPairsSubscription;
-  late final StreamWithStatus<Validation<Review>> _verifiedReviews;
+  late final ListingDependencies _listingDependencies;
   AvailabilityCubit? _availabilityCubit;
   DateRangeCubit? _localDateRangeCubit;
   List<ReservationPair> _latestAvailabilityPairs = const [];
@@ -196,28 +165,18 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
       widget.listing.anchor != null,
       'ListingListItemWidget requires a listing with a non-null anchor',
     );
-    _verifiedPairs = getIt<Hostr>().reservationPairs.queryVerified(
-      listingAnchor: widget.listing.anchor!,
-    );
-    _verifiedReviews = getIt<Hostr>().reviews.queryVerified(
-      filter: Filter(
-        tags: {
-          kListingRefTag: [widget.listing.anchor!],
-        },
-      ),
-    );
+    _listingDependencies = ListingDependencies.forListing(widget.listing);
 
-    _verifiedPairsSubscription = _verifiedPairs.latestItemsStream.listen((
-      items,
-    ) {
-      final availabilityPairs = items
-          .whereType<Valid<ReservationPair>>()
-          .map((validated) => validated.event)
-          .toList();
+    _verifiedPairsSubscription = _listingDependencies.reservationPairItems
+        .listen((items) {
+          final availabilityPairs = items
+              .whereType<Valid<ReservationPair>>()
+              .map((validated) => validated.event)
+              .toList();
 
-      _latestAvailabilityPairs = availabilityPairs;
-      _availabilityCubit?.updateReservationPairs(availabilityPairs);
-    });
+          _latestAvailabilityPairs = availabilityPairs;
+          _availabilityCubit?.updateReservationPairs(availabilityPairs);
+        });
   }
 
   @override
@@ -242,8 +201,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
   @override
   void dispose() {
     _verifiedPairsSubscription?.cancel();
-    _verifiedPairs.close();
-    _verifiedReviews.close();
+    _listingDependencies.close();
     _availabilityCubit?.close();
     _localDateRangeCubit?.close();
     super.dispose();
@@ -296,37 +254,38 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     final showAvailability =
         _availabilityCubit?.dateRangeCubit.state.dateRange != null;
 
-    return PreloadListingImages(
-      listing: widget.listing,
-      child: ListingListItemView(
+    return ListingDependenciesProvider(
+      dependencies: _listingDependencies,
+      child: PreloadListingImages(
         listing: widget.listing,
-        showPrice: widget.showPrice,
-        showFeedback: widget.showFeedback,
-        smallImage: widget.smallImage,
-        bottom: widget.bottom,
-        showAvailability: showAvailability,
-        availabilityWidget: showAvailability
-            ? _buildAvailabilityText(context)
-            : null,
-        verifiedReservationPairs: _verifiedPairs,
-        verifiedReviews: _verifiedReviews,
-        onTap: widget.listing.anchor != null
-            ? () {
-                DateTimeRange? dr = widget.dateRange;
-                if (dr == null) {
-                  try {
-                    dr = context.read<DateRangeCubit>().state.dateRange;
-                  } catch (_) {}
+        child: ListingListItemView(
+          dependencies: _listingDependencies,
+          showPrice: widget.showPrice,
+          showFeedback: widget.showFeedback,
+          smallImage: widget.smallImage,
+          bottom: widget.bottom,
+          showAvailability: showAvailability,
+          availabilityWidget: showAvailability
+              ? _buildAvailabilityText(context)
+              : null,
+          onTap: widget.listing.anchor != null
+              ? () {
+                  DateTimeRange? dr = widget.dateRange;
+                  if (dr == null) {
+                    try {
+                      dr = context.read<DateRangeCubit>().state.dateRange;
+                    } catch (_) {}
+                  }
+                  AutoRouter.of(context).push(
+                    ListingRoute(
+                      a: widget.listing.anchor!,
+                      dateRangeStart: dr?.start.toUtc().toIso8601String(),
+                      dateRangeEnd: dr?.end.toUtc().toIso8601String(),
+                    ),
+                  );
                 }
-                AutoRouter.of(context).push(
-                  ListingRoute(
-                    a: widget.listing.anchor!,
-                    dateRangeStart: dr?.start.toUtc().toIso8601String(),
-                    dateRangeEnd: dr?.end.toUtc().toIso8601String(),
-                  ),
-                );
-              }
-            : null,
+              : null,
+        ),
       ),
     );
   }

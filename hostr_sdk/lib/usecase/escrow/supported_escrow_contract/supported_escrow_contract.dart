@@ -174,6 +174,7 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     ContractEventsParams params,
     EscrowServiceSelected? selectedEscrow, {
     bool includeLive = true,
+    bool batch = true,
   });
 
   /// Read the on-chain trade for [tradeId].

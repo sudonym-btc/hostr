@@ -50,8 +50,6 @@ class InboxScreen extends StatelessWidget {
                               color: Theme.of(context).colorScheme.primary,
                             ),
                             title: 'Select a conversation',
-                            subtitle:
-                                'Messages stay visible alongside the selected thread on wide layouts.',
                           ),
                   ),
                 ],

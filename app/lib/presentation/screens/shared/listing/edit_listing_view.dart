@@ -22,21 +22,6 @@ class EditListingViewState extends State<EditListingView> {
   final EditListingController controller = EditListingController();
   Listing? _newListing;
 
-  Widget wrapPage(Widget child) {
-    final layout = app_layout.AppLayoutSpec.of(context);
-    return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SizedBox.expand(
-        child: layout.showsSidebarNavigation
-            ? app_layout.AppPageGutter(
-                maxWidth: app_layout.kAppPanelLargeWidth,
-                child: app_layout.AppPane(child: child),
-              )
-            : app_layout.AppPageGutter(padding: EdgeInsets.zero, child: child),
-      ),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
@@ -62,82 +47,113 @@ class EditListingViewState extends State<EditListingView> {
     }
   }
 
-  Scaffold buildListing(BuildContext context, Listing l) {
+  SliverAppBar _buildHeroSliverAppBar(BuildContext context, Listing listing) {
+    return SliverAppBar(
+      stretch: true,
+      expandedHeight: MediaQuery.of(context).size.height / 3,
+      flexibleSpace: FlexibleSpaceBar(
+        background: ImagesInput(controller: controller, pubkey: listing.pubKey),
+      ),
+    );
+  }
+
+  Widget _buildFormContent(BuildContext context) {
+    return CustomPadding(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FormLabel(label: 'Title'),
+          TitleInput(controller: controller),
+          Gap.vertical.md(),
+          FormLabel(label: 'Address'),
+          LocationInput(
+            controller: controller.locationController,
+            hintText: '123 City Road, London',
+            validator: (value) => controller.locationController.validateText(
+              value,
+              emptyMessage: 'Address is required',
+            ),
+          ),
+          Gap.vertical.md(),
+          FormLabel(label: 'Price'),
+          PriceInput(controller: controller),
+          BarterInput(controller: controller),
+          HelpText(
+            'Allowing barter allows users to submit reservation requests below your listed price, which you can then accept or decline.',
+          ),
+          Gap.vertical.md(),
+          FormLabel(label: 'Amenities'),
+          Gap.vertical.md(),
+          AmenitiesInput(controller: controller),
+          Gap.vertical.md(),
+          FormLabel(label: 'Description'),
+          DescriptionInput(controller: controller),
+          if (widget.a != null) ...[
+            Gap.vertical.md(),
+            ActiveInput(controller: controller),
+            Gap.vertical.lg(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListingPane(BuildContext context, Listing listing) {
     if (controller.l == null ||
-        (l.getDtag() != null && controller.l?.getDtag() != l.getDtag())) {
-      controller.setState(l);
+        (listing.getDtag() != null &&
+            controller.l?.getDtag() != listing.getDtag())) {
+      controller.setState(listing);
     }
 
-    return Scaffold(
-      bottomNavigationBar: SaveBottomBar(
-        controller: controller,
-        onSave: () async {
-          final saved = await controller.save();
-          if (saved && context.mounted) {
-            Navigator.of(context).pop();
-          }
-        },
-      ),
-      body: Form(
-        key: controller.formKey,
-        child: CustomScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          slivers: [
-            SliverAppBar(
-              stretch: true,
-              expandedHeight: MediaQuery.of(context).size.height / 4,
-              flexibleSpace: FlexibleSpaceBar(
-                background: ImagesInput(
-                  controller: controller,
-                  pubkey: l.pubKey,
-                ),
+    final bottomBar = SaveBottomBar(
+      controller: controller,
+      onSave: () async {
+        final saved = await controller.save();
+        if (saved && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+    );
+
+    return Form(
+      key: controller.formKey,
+      child: app_layout.AppPageGutter(
+        maxWidth: app_layout.kAppWideContentMaxWidth,
+        padding: EdgeInsets.zero,
+        child: app_layout.AppPaneLayout(
+          panes: [
+            app_layout.AppPane(
+              panelTone: app_layout.AppPanelTone.primary,
+              promotedSliverAppBarBuilder: (context) =>
+                  _buildHeroSliverAppBar(context, listing),
+              bottomBar: bottomBar,
+              promoteChromeWhenStacked: true,
+              child: CustomScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                slivers: [
+                  _buildHeroSliverAppBar(context, listing),
+                  SliverToBoxAdapter(child: _buildFormContent(context)),
+                ],
               ),
-            ),
-            SliverList(
-              delegate: SliverChildListDelegate([
-                CustomPadding(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      FormLabel(label: 'Title'),
-                      TitleInput(controller: controller),
-                      Gap.vertical.md(),
-                      FormLabel(label: 'Address'),
-                      LocationInput(
-                        controller: controller.locationController,
-                        hintText: '123 City Road, London',
-                        validator: (value) =>
-                            controller.locationController.validateText(
-                              value,
-                              emptyMessage: 'Address is required',
-                            ),
-                      ),
-                      Gap.vertical.md(),
-                      FormLabel(label: 'Price'),
-                      PriceInput(controller: controller),
-                      BarterInput(controller: controller),
-                      HelpText(
-                        'Allowing barter allows users to submit reservation requests below your listed price, which you can then accept or decline.',
-                      ),
-                      Gap.vertical.md(),
-                      FormLabel(label: 'Amenities'),
-                      Gap.vertical.md(),
-                      AmenitiesInput(controller: controller),
-                      Gap.vertical.md(),
-                      FormLabel(label: 'Description'),
-                      DescriptionInput(controller: controller),
-                      if (widget.a != null) ...[
-                        Gap.vertical.md(),
-                        ActiveInput(controller: controller),
-                        Gap.vertical.lg(),
-                      ],
-                    ],
-                  ),
-                ),
-              ]),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingPane() {
+    return app_layout.AppPageGutter(
+      maxWidth: app_layout.kAppWideContentMaxWidth,
+      padding: EdgeInsets.zero,
+      child: app_layout.AppPaneLayout(
+        panes: [
+          app_layout.AppPane(
+            panelTone: app_layout.AppPanelTone.primary,
+            child: const Center(child: AppLoadingIndicator.large()),
+          ),
+        ],
       ),
     );
   }
@@ -147,7 +163,7 @@ class EditListingViewState extends State<EditListingView> {
     if (widget.a == null) {
       return UnsavedChangesGuard(
         isDirty: () => controller.isDirty,
-        child: wrapPage(buildListing(context, _newListing!)),
+        child: _buildListingPane(context, _newListing!),
       );
     }
     return ListingProvider(
@@ -159,13 +175,11 @@ class EditListingViewState extends State<EditListingView> {
       },
       builder: (context, state) {
         if (state.data == null) {
-          return wrapPage(
-            const Scaffold(body: Center(child: AppLoadingIndicator.large())),
-          );
+          return _buildLoadingPane();
         }
         return UnsavedChangesGuard(
           isDirty: () => controller.isDirty,
-          child: wrapPage(buildListing(context, state.data!)),
+          child: _buildListingPane(context, state.data!),
         );
       },
     );

@@ -30,11 +30,20 @@ abstract class EvmChain {
 
   int _clientGeneration = 0;
 
+  /// Exposes the current transport generation so callers caching
+  /// chain-scoped helpers can invalidate them when the underlying
+  /// [Web3Client] is rebuilt.
+  int get clientGeneration => _clientGeneration;
+
   /// Number of consecutive RPC failures before the client is rebuilt.
   static const int maxConsecutiveFailures = 3;
 
   /// Maximum poll interval during backoff (caps exponential growth).
   static const Duration maxPollInterval = Duration(seconds: 60);
+  static const Duration _getLogsDebounce = Duration(milliseconds: 16);
+
+  final Map<String, List<_GetLogsRequest>> _getLogsQueues = {};
+  final Map<String, Timer?> _getLogsTimers = {};
 
   EvmChain({
     required Web3Client client,
@@ -94,7 +103,137 @@ abstract class EvmChain {
   });
 
   Future<void> dispose() async {
+    for (final timer in _getLogsTimers.values) {
+      timer?.cancel();
+    }
+    _getLogsTimers.clear();
+    _getLogsQueues.clear();
     client.dispose();
+  }
+
+  Future<List<FilterEvent>> getLogs(
+    FilterOptions filter, {
+    bool batch = true,
+    EvmLogsBatchHint? batchHint,
+  }) => logger.span('getLogs', () async {
+    if (!batch || batchHint == null || !batchHint.canBatch) {
+      return _getLogsDirect(filter);
+    }
+
+    final topicValues = _batchedTopicValues(
+      filter: filter,
+      dynamicTopicIndex: batchHint.dynamicTopicIndex,
+    );
+
+    if (topicValues.isEmpty) {
+      return _getLogsDirect(filter);
+    }
+
+    final completer = Completer<List<FilterEvent>>();
+    final request = _GetLogsRequest(
+      filter: filter,
+      completer: completer,
+      dynamicTopicIndex: batchHint.dynamicTopicIndex,
+      topicValues: topicValues,
+    );
+
+    _getLogsQueues.putIfAbsent(batchHint.requestKey, () => []).add(request);
+    _getLogsTimers[batchHint.requestKey]?.cancel();
+    _getLogsTimers[batchHint.requestKey] = Timer(
+      _getLogsDebounce,
+      () => _flushGetLogsQueue(batchHint.requestKey),
+    );
+
+    return completer.future;
+  });
+
+  Future<List<FilterEvent>> _getLogsDirect(FilterOptions filter) {
+    return _callRpcWithRetry(
+      'getLogs(${_stringifyFilterOptions(filter)})',
+      (client) => client.getLogs(filter),
+    );
+  }
+
+  List<String> _batchedTopicValues({
+    required FilterOptions filter,
+    required int dynamicTopicIndex,
+  }) {
+    final topics = filter.topics;
+    if (topics == null || dynamicTopicIndex >= topics.length) {
+      return const [];
+    }
+
+    return topics[dynamicTopicIndex].whereType<String>().toList(
+      growable: false,
+    );
+  }
+
+  void _flushGetLogsQueue(String requestKey) {
+    final queue = _getLogsQueues.remove(requestKey);
+    _getLogsTimers.remove(requestKey)?.cancel();
+    if (queue == null || queue.isEmpty) return;
+
+    final first = queue.first;
+    final mergedValues = queue
+        .expand((request) => request.topicValues)
+        .toSet()
+        .toList(growable: false);
+
+    final mergedTopics = <List<String?>>[];
+    final firstTopics = first.filter.topics ?? const <List<String?>>[];
+    for (var i = 0; i < firstTopics.length; i++) {
+      if (i == first.dynamicTopicIndex) {
+        mergedTopics.add(mergedValues);
+      } else {
+        mergedTopics.add(List<String?>.from(firstTopics[i]));
+      }
+    }
+
+    final mergedFilter = FilterOptions(
+      address: first.filter.address,
+      topics: mergedTopics,
+      fromBlock: first.filter.fromBlock,
+      toBlock: first.filter.toBlock,
+    );
+
+    logger.d(
+      'getLogs batch: ${queue.length} requests merged into 1 RPC call '
+      'with ${mergedValues.length} distinct topic value(s) for '
+      '${_stringifyFilterOptions(mergedFilter)}',
+    );
+
+    _getLogsDirect(mergedFilter)
+        .then((logs) {
+          for (final request in queue) {
+            if (request.completer.isCompleted) continue;
+            final matched = logs
+                .where((log) {
+                  final logTopics = log.topics;
+                  if (logTopics == null ||
+                      request.dynamicTopicIndex >= logTopics.length) {
+                    return false;
+                  }
+                  return request.topicValues.contains(
+                    logTopics[request.dynamicTopicIndex],
+                  );
+                })
+                .toList(growable: false);
+            request.completer.complete(matched);
+          }
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          for (final request in queue) {
+            if (!request.completer.isCompleted) {
+              request.completer.completeError(error, stackTrace);
+            }
+          }
+        });
+  }
+
+  String _stringifyFilterOptions(FilterOptions filter) {
+    return 'FilterOptions(address: ${filter.address?.eip55With0x}, '
+        'topics: ${filter.topics}, fromBlock: ${filter.fromBlock}, '
+        'toBlock: ${filter.toBlock})';
   }
 
   SupportedEscrowContract getSupportedEscrowContract(
@@ -440,6 +579,32 @@ abstract class EvmChain {
       ),
     );
   }
+}
+
+class EvmLogsBatchHint {
+  final String requestKey;
+  final int dynamicTopicIndex;
+  final bool canBatch;
+
+  const EvmLogsBatchHint({
+    required this.requestKey,
+    required this.dynamicTopicIndex,
+    this.canBatch = true,
+  });
+}
+
+class _GetLogsRequest {
+  final FilterOptions filter;
+  final Completer<List<FilterEvent>> completer;
+  final int dynamicTopicIndex;
+  final List<String> topicValues;
+
+  _GetLogsRequest({
+    required this.filter,
+    required this.completer,
+    required this.dynamicTopicIndex,
+    required this.topicValues,
+  });
 }
 
 double convertWeiToSatoshi(BigInt wei) {

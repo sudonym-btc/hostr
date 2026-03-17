@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/providers/nostr/listing_dependencies.provider.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
@@ -31,130 +32,106 @@ class ListingView extends StatefulWidget {
 }
 
 class _ListingViewState extends State<ListingView> {
-  StreamWithStatus<Validation<Review>>? _verifiedReviews;
-  StreamWithStatus<List<Validation<ReservationPair>>>? _verifiedPairs;
-  String? _reviewsAnchor;
-  String? _pairsAnchor;
-  Stream<int>? _reviewCountStream;
-  Stream<double>? _averageReviewRatingStream;
-  Stream<int>? _reservationCountStream;
-
-  void _ensureVerifiedReviews(String anchor) {
-    if (_reviewsAnchor == anchor) return;
-    _verifiedReviews?.close();
-    _reviewsAnchor = anchor;
-    final reviewsStream = listing_sections.subscribeVerifiedListingReviews(
-      anchor,
-    );
-    _verifiedReviews = reviewsStream;
-    _reviewCountStream = listing_sections.buildReviewCountStream(reviewsStream);
-    _averageReviewRatingStream = listing_sections
-        .buildAverageReviewRatingStream(reviewsStream);
-  }
-
-  void _ensureVerifiedPairs(Listing listing) {
-    final anchor = listing.anchor!;
-    if (_pairsAnchor == anchor) return;
-    _verifiedPairs?.close();
-    _pairsAnchor = anchor;
-    final verifiedPairs = getIt<Hostr>().reservationPairs.subscribeVerified(
-      listingAnchor: anchor,
-    );
-    _verifiedPairs = verifiedPairs;
-    _reservationCountStream = verifiedPairs.latestItemsStream.map(
-      (items) => items.whereType<Valid<ReservationPair>>().length,
-    );
-  }
-
-  @override
-  void dispose() {
-    _verifiedReviews?.close();
-    _verifiedPairs?.close();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocProvider<DateRangeCubit>(
       create: (context) => DateRangeCubit()..updateDateRange(widget.dateRange),
-      child: ListingProvider(
-        a: widget.a,
-        builder: (context, state) {
-          if (state is EntityCubitStateError<Listing>) {
-            return ListingErrorView(error: state.error);
-          }
+      child: _buildBody(context),
+    );
+  }
 
-          if (state.data == null) {
-            return Scaffold(body: Center(child: AppLoadingIndicator.large()));
-          }
+  Widget _buildBody(BuildContext context) {
+    return ListingProvider(
+      a: widget.a,
+      builder: (context, state) {
+        if (state is EntityCubitStateError<Listing>) {
+          return ListingErrorView(error: state.error);
+        }
 
-          final activeKeyPair = getIt<Hostr>().auth.activeKeyPair;
-          final isOwner =
-              activeKeyPair != null &&
-              state.data!.pubKey == activeKeyPair.publicKey;
+        if (state.data == null) {
+          return Scaffold(body: Center(child: AppLoadingIndicator.large()));
+        }
 
-          _ensureVerifiedReviews(state.data!.anchor!);
-          _ensureVerifiedPairs(state.data!);
+        return ListingDependenciesProvider(
+          listing: state.data!,
+          child: _ListingViewContent(dateRange: widget.dateRange),
+        );
+      },
+    );
+  }
+}
 
-          final reviewsListWidget = listing_sections.ListingReviewsList(
-            reviewsStream: _verifiedReviews!,
-          );
+class _ListingViewContent extends StatelessWidget {
+  final DateTimeRange? dateRange;
 
-          final reserveBottomBar = isOwner
-              ? null
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SafeArea(
-                      top: false,
-                      child: CustomPadding.only(
-                        top: kSpace3,
-                        bottom: kSpace3,
-                        left: kSpace6,
-                        right: kSpace6,
-                        child: Reserve(
-                          listing: state.data!,
-                          verifiedPairsStream: _verifiedPairs!,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
+  const _ListingViewContent({required this.dateRange});
 
-          return Scaffold(
-            body: SafeArea(
-              top: false,
-              child: ListingViewBody(
-                listing: state.data!,
-                selectedDateRange: widget.dateRange,
-                isOwner: isOwner,
-                hostedByText: AppLocalizations.of(context)!.hostedBy,
-                hostWidget: ProfileChipWidget(id: state.data!.pubKey),
-                reviewsSummaryWidget: ReviewsReservationsWidget(
-                  reservationCount: _reservationCountStream!,
-                  averageReviewRating: _averageReviewRatingStream!,
-                  reviewCount: _reviewCountStream!,
+  @override
+  Widget build(BuildContext context) {
+    final dependencies = ListingDependenciesProvider.of(context);
+    final listing = dependencies.listing;
+    final activeKeyPair = getIt<Hostr>().auth.activeKeyPair;
+    final isOwner =
+        activeKeyPair != null && listing.pubKey == activeKeyPair.publicKey;
+
+    final reviewsListWidget = listing_sections.ListingReviewsList(
+      reviewsStream: dependencies.verifiedReviews,
+      itemsStream: dependencies.reviewItems,
+    );
+
+    final reserveBottomBar = isOwner
+        ? null
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SafeArea(
+                top: false,
+                child: CustomPadding.only(
+                  top: kSpace3,
+                  bottom: kSpace3,
+                  left: kSpace6,
+                  right: kSpace6,
+                  child: Reserve(
+                    listing: listing,
+                    reservationPairItemsStream:
+                        dependencies.reservationPairItems,
+                  ),
                 ),
-                reviewsListWidget: reviewsListWidget,
-                reserveBottomBar: reserveBottomBar,
-                verifiedPairsStream: _verifiedPairs!,
-                hostKeyPair: activeKeyPair,
-                onCancelBlockedReservation: (reservation) async {
-                  await getIt<Hostr>().reservations.cancel(
-                    reservation,
-                    getIt<Hostr>().auth.getActiveKey(),
-                  );
-                },
-                onBlockDates: () {
-                  showAppModal(
-                    context,
-                    child: BlockDatesWidget(listingAnchor: state.data!.anchor!),
-                  );
-                },
               ),
-            ),
+            ],
           );
-        },
+
+    return Scaffold(
+      body: SafeArea(
+        top: false,
+        child: ListingViewBody(
+          listing: listing,
+          selectedDateRange: dateRange,
+          isOwner: isOwner,
+          hostedByText: AppLocalizations.of(context)!.hostedBy,
+          hostWidget: ProfileChipWidget(id: listing.pubKey),
+          reviewsSummaryWidget: ReviewsReservationsWidget(
+            reservationCount: dependencies.reservationCount,
+            averageReviewRating: dependencies.averageReviewRating,
+            reviewCount: dependencies.reviewCount,
+          ),
+          reviewsListWidget: reviewsListWidget,
+          reserveBottomBar: reserveBottomBar,
+          verifiedPairsStream: dependencies.verifiedReservationPairs,
+          hostKeyPair: activeKeyPair,
+          onCancelBlockedReservation: (reservation) async {
+            await getIt<Hostr>().reservations.cancel(
+              reservation,
+              getIt<Hostr>().auth.getActiveKey(),
+            );
+          },
+          onBlockDates: () {
+            showAppModal(
+              context,
+              child: BlockDatesWidget(listingAnchor: listing.anchor!),
+            );
+          },
+        ),
       ),
     );
   }
@@ -273,7 +250,9 @@ class ListingViewBody extends StatelessWidget {
         if (isOwner) ...[
           Gap.vertical.lg(),
           BlockedReservations(
-            verifiedPairsStream: verifiedPairsStream,
+            reservationPairItemsStream: ListingDependenciesProvider.of(
+              context,
+            ).reservationPairItems,
             hostKeyPair: hostKeyPair,
             onCancelBlockedReservation: onCancelBlockedReservation,
             onBlockDates: onBlockDates,

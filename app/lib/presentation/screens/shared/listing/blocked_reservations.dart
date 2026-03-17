@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class BlockedReservations extends StatelessWidget {
-  final StreamWithStatus<List<Validation<ReservationPair>>> verifiedPairsStream;
+  final Stream<List<Validation<ReservationPair>>> reservationPairItemsStream;
   final KeyPair? hostKeyPair;
   final ValueChanged<Reservation> onCancelBlockedReservation;
   final VoidCallback onBlockDates;
 
   const BlockedReservations({
     super.key,
-    required this.verifiedPairsStream,
+    required this.reservationPairItemsStream,
     required this.hostKeyPair,
     required this.onCancelBlockedReservation,
     required this.onBlockDates,
@@ -69,7 +68,7 @@ class BlockedReservations extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Validation<ReservationPair>>>(
-      stream: verifiedPairsStream.latestItemsStream,
+      stream: reservationPairItemsStream,
       builder: (context, snapshot) {
         final blockedReservations = _buildBlockedReservations(
           snapshot.data ?? const <Validation<ReservationPair>>[],

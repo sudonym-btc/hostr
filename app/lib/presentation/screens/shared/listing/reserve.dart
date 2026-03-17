@@ -7,17 +7,16 @@ import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/forms/main.dart';
 import 'package:hostr/route/auth_gated_action.dart';
 import 'package:hostr/router.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class Reserve extends StatefulWidget {
   final Listing listing;
-  final StreamWithStatus<List<Validation<ReservationPair>>> verifiedPairsStream;
+  final Stream<List<Validation<ReservationPair>>> reservationPairItemsStream;
 
   const Reserve({
     super.key,
     required this.listing,
-    required this.verifiedPairsStream,
+    required this.reservationPairItemsStream,
   });
 
   @override
@@ -64,7 +63,7 @@ class _ReserveState extends State<Reserve> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Validation<ReservationPair>>>(
-      stream: widget.verifiedPairsStream.latestItemsStream,
+      stream: widget.reservationPairItemsStream,
       builder: (context, reservationPairsSnapshot) {
         final reservationPairs =
             (reservationPairsSnapshot.data ??

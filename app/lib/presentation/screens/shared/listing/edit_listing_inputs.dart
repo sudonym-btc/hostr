@@ -47,7 +47,9 @@ class ImagesInput extends StatelessWidget {
         ),
         Center(
           child: FilledButton.tonalIcon(
-            onPressed: () => controller.imageField.cubit.pickMultipleImages(),
+            onPressed: () => controller.imageField.cubit.pickMultipleImages(
+              allowedFileTypes: ImagePickerCubit.defaultAllowedFileTypes,
+            ),
             icon: const Icon(Icons.add_a_photo_outlined),
             label: Text(AppLocalizations.of(context)!.addImage),
           ),
