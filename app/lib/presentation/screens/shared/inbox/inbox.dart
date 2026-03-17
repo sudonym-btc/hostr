@@ -13,7 +13,6 @@ class InboxScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
     return AutoRouter(
       builder: (context, child) {
         final router = AutoRouter.of(context);
@@ -22,40 +21,42 @@ class InboxScreen extends StatelessWidget {
             ? router.topMatch.params.optString('anchor')
             : null;
 
-        final placeholder = AppPanel(
-          child: EmtyResultsWidget(
-            leading: Icon(
-              Icons.forum_outlined,
-              size: kIconHero,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            title: 'Select a conversation',
-            subtitle:
-                'Messages stay visible alongside the selected thread on wide layouts.',
-          ),
-        );
-
         return Scaffold(
-          appBar: layout.showsInboxSplit || hasSelectedThread
-              ? null
-              : AppBar(title: Text(AppLocalizations.of(context)!.inbox)),
           body: SafeArea(
             top: false,
-            child: layout.showsInboxSplit
-                ? AppSplitPage(
-                    maxWidth: kAppWideContentMaxWidth,
-                    primaryWidth: kAppInboxListPaneWidth,
-                    primary: AppPanelScaffold(
-                      appBar: AppBar(
-                        title: Text(AppLocalizations.of(context)!.inbox),
-                      ),
-                      body: InboxThreadList(selectedAnchor: selectedAnchor),
+            child: AppPageGutter(
+              maxWidth: kAppWideContentMaxWidth,
+              padding: EdgeInsets.zero,
+              child: AppPaneLayout(
+                panes: [
+                  AppPane(
+                    width: kAppInboxListPaneWidth,
+                    panelTone: AppPanelTone.primary,
+                    appBar: AppBar(
+                      title: Text(AppLocalizations.of(context)!.inbox),
                     ),
-                    secondary: hasSelectedThread
-                        ? AppPanel(child: child)
-                        : placeholder,
-                  )
-                : (hasSelectedThread ? child : const InboxThreadList()),
+                    promoteChromeWhenStacked: true,
+                    child: InboxThreadList(selectedAnchor: selectedAnchor),
+                  ),
+                  AppPane(
+                    flex: 1,
+                    showWhenStacked: false,
+                    child: hasSelectedThread
+                        ? child
+                        : EmtyResultsWidget(
+                            leading: Icon(
+                              Icons.forum_outlined,
+                              size: kIconHero,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            title: 'Select a conversation',
+                            subtitle:
+                                'Messages stay visible alongside the selected thread on wide layouts.',
+                          ),
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       },

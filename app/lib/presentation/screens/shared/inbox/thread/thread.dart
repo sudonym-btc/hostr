@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_view.dart';
-import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 @RoutePage()
@@ -15,16 +14,12 @@ class ThreadScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
-
     return BlocProvider<ThreadCubit>(
       key: ValueKey(anchor),
       create: (_) => ThreadCubit(
         thread: getIt<Hostr>().messaging.threads.threads[anchor]!,
       ),
-      child: layout.showsInboxSplit
-          ? ThreadView(key: ValueKey('embedded-$anchor'), embedded: true)
-          : ThreadView(key: ValueKey('full-$anchor')),
+      child: ThreadView(key: ValueKey('embedded-$anchor'), embedded: true),
     );
   }
 }

@@ -61,7 +61,7 @@ class ListingListItemView extends StatelessWidget {
             context,
           ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
-        Gap.vertical.sm(),
+        Gap.vertical.xxs(),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -73,11 +73,11 @@ class ListingListItemView extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            Gap.vertical.sm(),
+            Gap.vertical.xs(),
             if (showAvailability && availabilityWidget != null)
               availabilityWidget!,
             if (showAvailability && availabilityWidget != null)
-              Gap.vertical.sm(),
+              Gap.vertical.xs(),
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               mainAxisSize: MainAxisSize.max,

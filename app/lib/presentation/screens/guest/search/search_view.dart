@@ -103,6 +103,11 @@ class SearchViewState extends State<SearchView> {
     );
   }
 
+  void _clearFilters(BuildContext context) {
+    context.read<DateRangeCubit>().updateDateRange(null);
+    context.read<FilterCubit>().clear();
+  }
+
   Widget _buildSearchBox(BuildContext context) {
     return BlocBuilder<FilterCubit, FilterState>(
       builder: (context, filterState) {
@@ -116,6 +121,35 @@ class SearchViewState extends State<SearchView> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildEmptyResults(BuildContext context) {
+    return EmtyResultsWidget(
+      leading: Icon(
+        Icons.search_off_rounded,
+        size: kIconHero,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      title: 'No results found',
+      subtitle:
+          'Try adjusting your dates or clearing filters to see more stays.',
+      action: FilledButton.tonal(
+        onPressed: () => _clearFilters(context),
+        child: Text('Clear filters'),
+      ),
+    );
+  }
+
+  Widget _buildListings(
+    BuildContext context, {
+    bool reserveBottomNavigationBarSpace = true,
+  }) {
+    return ListingsWidget(
+      emptyBuilder: () => _buildEmptyResults(context),
+      scrollToId: _scrollToListingId,
+      focusedItemId: _focusedListingId,
+      reserveBottomNavigationBarSpace: reserveBottomNavigationBarSpace,
     );
   }
 
@@ -210,32 +244,7 @@ class SearchViewState extends State<SearchView> {
                   ),
                 ),
                 Expanded(
-                  child: SafeArea(
-                    top: false,
-                    child: ListingsWidget(
-                      emptyBuilder: () => EmtyResultsWidget(
-                        leading: Icon(
-                          Icons.search_off_rounded,
-                          size: kIconHero,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        title: 'No results found',
-                        subtitle:
-                            'Try adjusting your dates or clearing filters to see more stays.',
-                        action: FilledButton.tonal(
-                          onPressed: () {
-                            context.read<DateRangeCubit>().updateDateRange(
-                              null,
-                            );
-                            context.read<FilterCubit>().clear();
-                          },
-                          child: Text('Clear filters'),
-                        ),
-                      ),
-                      scrollToId: _scrollToListingId,
-                      focusedItemId: _focusedListingId,
-                    ),
-                  ),
+                  child: SafeArea(top: false, child: _buildListings(context)),
                 ),
               ],
             ),
@@ -246,57 +255,45 @@ class SearchViewState extends State<SearchView> {
   }
 
   Widget _buildWideLayout(BuildContext context) {
-    return AppSplitPage(
+    return AppPageGutter(
       maxWidth: kAppWideContentMaxWidth,
-      padding: kAppPagePaddingWithHeader,
-      primaryWidth: kAppSearchListPaneWidth,
-      primary: AppPanel(
-        child: SafeArea(
-          top: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildSearchBox(context),
-              const SizedBox(height: kSpace4),
-              Expanded(
-                child: SafeArea(
-                  bottom: false,
-                  child: ListingsWidget(
-                    emptyBuilder: () => EmtyResultsWidget(
-                      leading: Icon(
-                        Icons.search_off_rounded,
-                        size: kIconHero,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      title: 'No results found',
-                      subtitle:
-                          'Try adjusting your dates or clearing filters to see more stays.',
-                      action: FilledButton.tonal(
-                        onPressed: () {
-                          context.read<DateRangeCubit>().updateDateRange(null);
-                          context.read<FilterCubit>().clear();
-                        },
-                        child: Text('Clear filters'),
+      padding: EdgeInsets.zero,
+      child: AppPaneLayout(
+        panes: [
+          AppPane(
+            flex: 2,
+            panelTone: AppPanelTone.primary,
+            child: SafeArea(
+              top: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSearchBox(context),
+                  Gap.vertical.sm(),
+                  Expanded(
+                    child: SafeArea(
+                      bottom: false,
+                      child: _buildListings(
+                        context,
+                        reserveBottomNavigationBarSpace: false,
                       ),
                     ),
-                    scrollToId: _scrollToListingId,
-                    focusedItemId: _focusedListingId,
-                    reserveBottomNavigationBarSpace: false,
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
-      secondary: AppPanel(
-        child: SearchMapWidget(
-          controller: _listingMapController,
-          onMarkerTap: (id) {
-            _focusedListingId.value = id;
-            _scrollToListingId.value = id;
-          },
-        ),
+          AppPane(
+            flex: 3,
+            child: SearchMapWidget(
+              controller: _listingMapController,
+              onMarkerTap: (id) {
+                _focusedListingId.value = id;
+                _scrollToListingId.value = id;
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -325,12 +322,9 @@ class SearchViewState extends State<SearchView> {
                   _resetPanel();
                 }
               },
-              child: Scaffold(
-                resizeToAvoidBottomInset: false,
-                body: layout.showsSearchSplit
-                    ? _buildWideLayout(context)
-                    : _buildCompactLayout(context, constraints),
-              ),
+              child: layout.showsSearchSplit
+                  ? _buildWideLayout(context)
+                  : _buildCompactLayout(context, constraints),
             ),
           ),
         );

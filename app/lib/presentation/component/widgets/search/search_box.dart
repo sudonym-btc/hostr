@@ -25,16 +25,16 @@ class SearchBoxWidget extends StatelessWidget {
     final hasDateRange = dateRangeState.dateRange != null;
     final borderRadius = BorderRadius.circular(isWide ? 0 : 50);
 
+    final color = isWide
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : Theme.of(context).scaffoldBackgroundColor;
+
     return Opacity(
       opacity: isWide ? 1 : 0.85,
       child: Material(
         elevation: isWide ? 0 : 2.0,
-        color: isWide
-            ? Colors.transparent
-            : Theme.of(context).scaffoldBackgroundColor,
-        shadowColor: isWide
-            ? Colors.transparent
-            : Theme.of(context).scaffoldBackgroundColor,
+        color: color,
+        shadowColor: color,
         borderRadius: borderRadius,
         child: InkWell(
           onTap: onTap,

@@ -31,7 +31,6 @@ class HostingsScreenState extends State<HostingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
     final content = StatusStreamListWidget(
       stream: getIt<Hostr>().userSubscriptions.myHostings$,
       itemKeyBuilder: (item) => ValueKey(item.event.tradeId),
@@ -129,20 +128,19 @@ class HostingsScreenState extends State<HostingsScreen> {
       },
     );
 
-    return Scaffold(
-      appBar: layout.showsSidebarNavigation
-          ? null
-          : AppBar(title: Text('Bookings')),
-      body: layout.showsSidebarNavigation
-          ? AppSinglePanePage(
-              maxWidth: kAppWideContentMaxWidth,
-              usePanel: false,
-              child: AppPanelScaffold(
-                appBar: AppBar(title: Text('Bookings')),
-                body: content,
-              ),
-            )
-          : content,
+    return AppPageGutter(
+      maxWidth: kAppWideContentMaxWidth,
+      padding: EdgeInsets.zero,
+      child: AppPaneLayout(
+        panes: [
+          AppPane(
+            flex: 1,
+            appBar: AppBar(title: Text('Bookings')),
+            promoteChromeWhenStacked: true,
+            child: content,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,6 +1,8 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/route/app_route_path_codec.dart';
 import 'package:hostr/route/main.dart';
 
 import 'presentation/screens/host/hostings/hostings.dart';
@@ -9,6 +11,42 @@ part 'router.gr.dart';
 
 @AutoRouterConfig(replaceInRouteName: 'Screen,Route')
 class AppRouter extends RootStackRouter {
+  @override
+  RouterConfig<UrlState> config({
+    DeepLinkTransformer? deepLinkTransformer,
+    DeepLinkBuilder? deepLinkBuilder,
+    String? navRestorationScopeId,
+    WidgetBuilder? placeholder,
+    NavigatorObserversBuilder navigatorObservers =
+        AutoRouterDelegate.defaultNavigatorObserversBuilder,
+    bool includePrefixMatches = !kIsWeb,
+    bool Function(String? location)? neglectWhen,
+    bool rebuildStackOnDeepLink = false,
+    Listenable? reevaluateListenable,
+    Clip clipBehavior = Clip.hardEdge,
+  }) {
+    return RouterConfig(
+      routeInformationParser: AppDefaultRouteParser(
+        matcher,
+        includePrefixMatches: includePrefixMatches,
+        deepLinkTransformer: deepLinkTransformer,
+      ),
+      routeInformationProvider: routeInfoProvider(
+        neglectWhen: neglectWhen,
+      ),
+      backButtonDispatcher: RootBackButtonDispatcher(),
+      routerDelegate: delegate(
+        reevaluateListenable: reevaluateListenable,
+        rebuildStackOnDeepLink: rebuildStackOnDeepLink,
+        navRestorationScopeId: navRestorationScopeId,
+        navigatorObservers: navigatorObservers,
+        placeholder: placeholder,
+        deepLinkBuilder: deepLinkBuilder,
+        clipBehavior: clipBehavior,
+      ),
+    );
+  }
+
   @override
   List<AutoRoute> get routes => [
     AutoRoute(

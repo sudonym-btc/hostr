@@ -47,9 +47,9 @@ class AuthCubit extends Cubit<AuthState> {
 
   /// Executes signin: delegates to workflow, updates state.
   Future<void> signin(String input) async {
+    emit(LoggedOut());
     try {
       await getIt<Hostr>().auth.signin(input);
-      emit(LoggedIn());
     } catch (e) {
       logger.e('Signin failed: $e');
       emit(LoggedOut());

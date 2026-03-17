@@ -44,7 +44,21 @@ class ThreadReadyWidget extends StatelessWidget {
     this.embedded = false,
   });
 
+  bool _hasImpliedBackAction(BuildContext context) {
+    final route = ModalRoute.of(context);
+    if (route?.impliesAppBarDismissal ?? false) {
+      return true;
+    }
+
+    return Navigator.maybeOf(context)?.canPop() ?? false;
+  }
+
   Widget _buildContent(BuildContext context, Color appBarColor) {
+    final theme = Theme.of(context);
+    final hasImpliedBackAction = _hasImpliedBackAction(context);
+    final reservedLeadingWidth =
+        theme.appBarTheme.leadingWidth ?? AppSpacing.of(context).sm;
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Column(
@@ -55,6 +69,11 @@ class ThreadReadyWidget extends StatelessWidget {
               top: false,
               bottom: false,
               child: AppBar(
+                automaticallyImplyLeading: hasImpliedBackAction,
+                leading: hasImpliedBackAction
+                    ? null
+                    : SizedBox(width: reservedLeadingWidth),
+                leadingWidth: reservedLeadingWidth,
                 titleSpacing: 0,
                 surfaceTintColor: Colors.transparent,
                 backgroundColor: appBarColor,

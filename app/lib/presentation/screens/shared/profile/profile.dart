@@ -87,35 +87,24 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
     final onEditProfile = _buildEditProfileHandler(context);
-    final content = CustomScrollView(
-      slivers: [
-        if (!layout.showsSidebarNavigation)
-          SliverAppBar(pinned: true, actions: _buildActions(context)),
-        SliverToBoxAdapter(
-          child: ProfileSummarySection(onEditProfile: onEditProfile),
-        ),
-        const SliverToBoxAdapter(child: ProfileDetailsSection()),
-      ],
-    );
 
     return Scaffold(
-      body: layout.showsSidebarNavigation
-          ? AppSplitPage(
-              maxWidth: kAppWideContentMaxWidth,
-              primaryWidth: kAppProfileMaxWidth,
-              primary: AppPanelScaffold(
-                appBar: AppBar(actions: _buildActions(context)),
-                body: SingleChildScrollView(
-                  child: ProfileSummarySection(onEditProfile: onEditProfile),
-                ),
-              ),
-              secondary: const AppPanel(
-                child: SingleChildScrollView(child: ProfileDetailsSection()),
-              ),
-            )
-          : AppConstrainedBody(padding: EdgeInsets.zero, child: content),
+      body: AppPageGutter(
+        maxWidth: kAppWideContentMaxWidth,
+        padding: EdgeInsets.zero,
+        child: AppPaneLayout(
+          panes: [
+            AppPane(
+              width: kAppProfileMaxWidth,
+              panelTone: AppPanelTone.primary,
+              appBar: AppBar(actions: _buildActions(context)),
+              child: ProfileSummarySection(onEditProfile: onEditProfile),
+            ),
+            const AppPane(flex: 1, child: ProfileDetailsSection()),
+          ],
+        ),
+      ),
     );
   }
 }

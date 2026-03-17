@@ -98,6 +98,16 @@ class _ListingsWidgetState extends State<ListingsWidget> {
     }
   }
 
+  Future<void> _loadNext() async {
+    final cubit = context.read<ListCubit<Listing>>();
+    final state = cubit.state;
+    if (state.fetching || state.synching || state.hasMore == false) {
+      return;
+    }
+
+    await cubit.next();
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<ListCubit<Listing>, ListCubitState>(

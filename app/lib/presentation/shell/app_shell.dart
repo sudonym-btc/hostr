@@ -7,7 +7,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/app.dart';
 import 'package:hostr/export.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -40,7 +39,7 @@ class _AppShellScreenState extends State<AppShellScreen>
   @override
   void initState() {
     super.initState();
-    _authSub = getIt<Hostr>().auth.authState.listen((_) => _showNav());
+    _authSub = context.read<AuthCubit>().stream.listen((_) => _showNav());
     _popSub = MyObserver.onPop.listen((_) => _showNav());
   }
 
@@ -128,11 +127,9 @@ class _AppShellScreenState extends State<AppShellScreen>
       child: NwcConnectivityBanner(
         child: BlocListener<ModeCubit, ModeCubitState>(
           listener: (context, state) => _showNav(),
-          child: StreamBuilder<AuthState>(
-            stream: getIt<Hostr>().auth.authState,
-            initialData: getIt<Hostr>().auth.authState.value,
-            builder: (context, authSnapshot) {
-              final isLoggedIn = authSnapshot.data == const LoggedIn();
+          child: BlocBuilder<AuthCubit, AuthState>(
+            builder: (context, authState) {
+              final isLoggedIn = authState == const LoggedIn();
 
               return BlocBuilder<ModeCubit, ModeCubitState>(
                 builder: (context, state) {
