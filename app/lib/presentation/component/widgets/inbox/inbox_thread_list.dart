@@ -8,8 +8,13 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 
 class InboxThreadList extends StatelessWidget {
   final String? selectedAnchor;
+  final ValueChanged<String> onThreadSelected;
 
-  const InboxThreadList({super.key, this.selectedAnchor});
+  const InboxThreadList({
+    super.key,
+    this.selectedAnchor,
+    required this.onThreadSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +47,7 @@ class InboxThreadList extends StatelessWidget {
                 key: ValueKey(thread.anchor),
                 thread: thread,
                 selected: thread.anchor == selectedAnchor,
+                onSelect: onThreadSelected,
               ),
           ],
         );

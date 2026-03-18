@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
-import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
 
 class ProfileChipWidget extends StatelessWidget {
   final String id;
@@ -32,33 +32,11 @@ class ProfileChipWidget extends StatelessWidget {
               onTap: () => ProfilePopup.show(context, id),
               child: Chip(
                 shape: const StadiumBorder(),
-                avatar: picture != null
-                    ? CircleAvatar(
-                        child: ClipOval(
-                          child: BlossomImage(
-                            image: picture,
-                            pubkey: id,
-                            width: 32,
-                            height: 32,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      )
-                    : CircleAvatar(
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainer,
-                        child: Text(
-                          (snapshot.data?.metadata.getName() ?? '?')
-                              .characters
-                              .first
-                              .toUpperCase(),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                        ),
-                      ),
+                avatar: AppAvatar.sm(
+                  image: picture,
+                  pubkey: id,
+                  label: snapshot.data?.metadata.getName() ?? '?',
+                ),
                 label: Text(
                   name,
                   overflow: TextOverflow.ellipsis,

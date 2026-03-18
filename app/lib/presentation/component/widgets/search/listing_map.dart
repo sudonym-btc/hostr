@@ -351,6 +351,25 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     if (!mounted || generation != _syncGeneration) return;
 
     setState(() {
+      // Retain stale marker entries with a no-op onTap so that the
+      // google_maps_flutter platform channel can still resolve their IDs
+      // if a tap fires between the JS-side and Dart-side cleanup.
+      // Only markers that were *visible* (i.e. real) get this treatment;
+      // entries that were already invisible from a prior cycle are dropped
+      // so stale markers don't accumulate indefinitely.
+      final staleIds = _markers.keys
+          .where((id) => !nextMarkers.containsKey(id))
+          .toList();
+      for (final id in staleIds) {
+        final stale = _markers[id];
+        if (stale != null && stale.visible) {
+          nextMarkers[id] = stale.copyWith(
+            visibleParam: false,
+            onTapParam: () {},
+          );
+        }
+      }
+
       _markers
         ..clear()
         ..addAll(nextMarkers);
@@ -362,7 +381,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
         ..addAll(nextGroupIdByListingId);
       _focusedMarkerId =
           desiredFocusedMarkerId != null &&
-              nextMarkers.containsKey(desiredFocusedMarkerId)
+              nextMarkerMeta.containsKey(desiredFocusedMarkerId)
           ? desiredFocusedMarkerId
           : null;
     });
@@ -885,6 +904,11 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     );
 
     if (!mounted) return;
+
+    // Re-validate after the async gap: a concurrent _recluster may have
+    // removed this marker from _markerMeta.  Inserting a visible marker
+    // without a meta entry would silently swallow future taps on it.
+    if (_markerMeta[id] == null) return;
 
     setState(() {
       _markers[id] = Marker(

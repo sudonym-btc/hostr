@@ -3,6 +3,8 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
+import 'profile_verification_controller.dart';
+
 // ─── NIP-05 Badge ──────────────────────────────────────────────
 
 /// Displays NIP-05 verification status.
@@ -198,6 +200,141 @@ class Lud16Badge extends StatelessWidget {
       iconColor: colorScheme.outline,
       title: lud16!,
       chipRow: chips,
+    );
+  }
+}
+
+class VerifiedNip05Badge extends StatefulWidget {
+  final String? nip05;
+  final String pubkey;
+  final bool inline;
+  final bool hideWhenEmpty;
+
+  const VerifiedNip05Badge({
+    super.key,
+    this.nip05,
+    required this.pubkey,
+    this.inline = false,
+    this.hideWhenEmpty = false,
+  });
+
+  @override
+  State<VerifiedNip05Badge> createState() => _VerifiedNip05BadgeState();
+}
+
+class _VerifiedNip05BadgeState extends State<VerifiedNip05Badge> {
+  final ProfileVerificationController _verification =
+      ProfileVerificationController();
+
+  @override
+  void initState() {
+    super.initState();
+    _verification.addListener(_onChanged);
+    _verify();
+  }
+
+  @override
+  void didUpdateWidget(covariant VerifiedNip05Badge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.nip05 != widget.nip05 || oldWidget.pubkey != widget.pubkey) {
+      _verify();
+    }
+  }
+
+  @override
+  void dispose() {
+    _verification
+      ..removeListener(_onChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _verify() {
+    _verification.verifyNip05Only(
+      nip05: widget.nip05 ?? '',
+      pubkey: widget.pubkey,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Nip05Badge(
+      nip05: widget.nip05,
+      result: _verification.nip05Result,
+      loading: _verification.nip05Loading,
+      inline: widget.inline,
+      hideWhenEmpty: widget.hideWhenEmpty,
+    );
+  }
+}
+
+class VerifiedLud16Badge extends StatefulWidget {
+  final String? lud16;
+  final bool inline;
+  final bool hideWhenEmpty;
+
+  const VerifiedLud16Badge({
+    super.key,
+    this.lud16,
+    this.inline = false,
+    this.hideWhenEmpty = false,
+  });
+
+  @override
+  State<VerifiedLud16Badge> createState() => _VerifiedLud16BadgeState();
+}
+
+class _VerifiedLud16BadgeState extends State<VerifiedLud16Badge> {
+  final ProfileVerificationController _verification =
+      ProfileVerificationController();
+
+  @override
+  void initState() {
+    super.initState();
+    _verification.addListener(_onChanged);
+    _verify();
+  }
+
+  @override
+  void didUpdateWidget(covariant VerifiedLud16Badge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.lud16 != widget.lud16) {
+      _verify();
+    }
+  }
+
+  @override
+  void dispose() {
+    _verification
+      ..removeListener(_onChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _verify() {
+    _verification.verifyLud16Only(lud16: widget.lud16 ?? '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Lud16Badge(
+      lud16: widget.lud16,
+      result: _verification.lud16Result,
+      loading: _verification.lud16Loading,
+      inline: widget.inline,
+      hideWhenEmpty: widget.hideWhenEmpty,
     );
   }
 }

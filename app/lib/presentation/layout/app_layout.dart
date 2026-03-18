@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/app_spacing_theme.dart';
 import 'package:hostr/router.dart';
 
 const kAppCompactBreakpoint = 900.0;
@@ -22,7 +23,7 @@ const kAppPanelLargeWidth = 760.0;
 const kAppPanelRadius = 0.0;
 const kAppNavBarItemRadius = 0.0;
 const kAppPanelGap = 0.0;
-const kAppPagePadding = EdgeInsets.fromLTRB(kSpace5, kSpace4, kSpace5, kSpace4);
+const kAppPagePadding = EdgeInsets.zero;
 const kAppPagePaddingWithHeader = EdgeInsets.fromLTRB(
   kSpace5,
   kSpace5,
@@ -315,12 +316,18 @@ class AppPageGutter extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final AlignmentGeometry alignment;
 
+  /// When `true`, the child is centered within the available space on
+  /// expanded viewports while still constrained by [maxWidth].
+  /// On compact viewports the default [alignment] is used.
+  final bool centerContent;
+
   const AppPageGutter({
     super.key,
     required this.child,
     this.maxWidth,
     this.padding,
     this.alignment = Alignment.topCenter,
+    this.centerContent = false,
   });
 
   @override
@@ -331,8 +338,11 @@ class AppPageGutter extends StatelessWidget {
         (layout.size == AppViewportSize.compact
             ? EdgeInsets.zero
             : kAppPagePadding);
+    final resolvedAlignment = (centerContent && layout.isExpanded)
+        ? Alignment.center
+        : alignment;
     return Align(
-      alignment: alignment,
+      alignment: resolvedAlignment,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: maxWidth ?? layout.contentMaxWidth,
@@ -402,9 +412,8 @@ enum AppPaneContentAlignment { start, center }
 class AppPane extends StatelessWidget {
   final int? flex;
   final double? width;
-  final PreferredSizeWidget? appBar;
-  final SliverAppBar Function(BuildContext context)?
-  promotedSliverAppBarBuilder;
+  final PreferredSizeWidget Function(BuildContext context)? appBarBuilder;
+  final SliverAppBar Function(BuildContext context)? sliverAppBarBuilder;
   final Widget child;
   final Widget? bottomBar;
   final bool promoteChromeWhenStacked;
@@ -421,11 +430,11 @@ class AppPane extends StatelessWidget {
     super.key,
     this.flex,
     this.width,
-    this.appBar,
-    this.promotedSliverAppBarBuilder,
+    this.appBarBuilder,
+    this.sliverAppBarBuilder,
     required this.child,
     this.bottomBar,
-    this.promoteChromeWhenStacked = false,
+    this.promoteChromeWhenStacked = true,
     this.showWhenStacked = true,
     this.color,
     this.panelTone = AppPanelTone.secondary,
@@ -446,6 +455,7 @@ class AppPane extends StatelessWidget {
 
   Widget _buildAppBar(BuildContext context) {
     final theme = Theme.of(context);
+    final hPad = AppSpacing.of(context).md;
     return Theme(
       data: theme.copyWith(
         appBarTheme: theme.appBarTheme.copyWith(
@@ -453,9 +463,53 @@ class AppPane extends StatelessWidget {
           elevation: 0,
           scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
+          titleSpacing: hPad,
+          actionsPadding: EdgeInsets.only(right: hPad),
         ),
       ),
-      child: appBar!,
+      child: appBarBuilder!(context),
+    );
+  }
+
+  SliverAppBar _buildSliverAppBar(BuildContext context) {
+    final hPad = AppSpacing.of(context).md;
+    final bar = sliverAppBarBuilder!(context);
+    return SliverAppBar(
+      key: bar.key,
+      leading: bar.leading,
+      automaticallyImplyLeading: bar.automaticallyImplyLeading,
+      title: bar.title,
+      actions: bar.actions != null
+          ? [...bar.actions!, SizedBox(width: hPad)]
+          : null,
+      flexibleSpace: bar.flexibleSpace,
+      bottom: bar.bottom,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      shadowColor: bar.shadowColor,
+      surfaceTintColor: Colors.transparent,
+      backgroundColor: Colors.transparent,
+      foregroundColor: bar.foregroundColor,
+      iconTheme: bar.iconTheme,
+      actionsIconTheme: bar.actionsIconTheme,
+      primary: bar.primary,
+      centerTitle: bar.centerTitle,
+      excludeHeaderSemantics: bar.excludeHeaderSemantics,
+      titleSpacing: hPad,
+      collapsedHeight: bar.collapsedHeight,
+      expandedHeight: bar.expandedHeight,
+      floating: bar.floating,
+      pinned: bar.pinned,
+      snap: bar.snap,
+      stretch: bar.stretch,
+      stretchTriggerOffset: bar.stretchTriggerOffset,
+      onStretchTrigger: bar.onStretchTrigger,
+      shape: bar.shape,
+      toolbarHeight: bar.toolbarHeight,
+      toolbarTextStyle: bar.toolbarTextStyle,
+      titleTextStyle: bar.titleTextStyle,
+      forceMaterialTransparency: bar.forceMaterialTransparency,
+      clipBehavior: bar.clipBehavior,
     );
   }
 
@@ -476,9 +530,27 @@ class AppPane extends StatelessWidget {
         ),
       );
 
+      final useSliverChrome =
+          includeAppBar &&
+          sliverAppBarBuilder != null &&
+          constraints.hasBoundedHeight;
+
+      final bodyContent = useSliverChrome
+          ? CustomScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              slivers: [
+                _buildSliverAppBar(context),
+                SliverToBoxAdapter(child: content),
+              ],
+            )
+          : content;
+
       final paneChildren = <Widget>[
-        if (includeAppBar && appBar != null) _buildAppBar(context),
-        constraints.hasBoundedHeight ? Expanded(child: content) : content,
+        if (!useSliverChrome && includeAppBar && appBarBuilder != null)
+          _buildAppBar(context),
+        constraints.hasBoundedHeight
+            ? Expanded(child: bodyContent)
+            : bodyContent,
         if (includeBottomBar && bottomBar != null) bottomBar!,
       ];
 
@@ -556,7 +628,7 @@ class AppPaneLayout extends StatelessWidget {
     final promotedPane = stackedPanes
         .where((pane) => pane.promoteChromeWhenStacked)
         .firstOrNull;
-    final promotedSliverAppBar = promotedPane?.promotedSliverAppBarBuilder;
+    final promotedSliverAppBar = promotedPane?.sliverAppBarBuilder;
 
     final children = <Widget>[];
     for (var i = 0; i < stackedPanes.length; i++) {
@@ -577,13 +649,13 @@ class AppPaneLayout extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (promotedSliverAppBar == null && promotedPane?.appBar != null)
+        if (promotedSliverAppBar == null && promotedPane?.appBarBuilder != null)
           promotedPane!._buildAppBar(context),
         Expanded(
           child: promotedSliverAppBar != null
               ? CustomScrollView(
                   slivers: [
-                    promotedSliverAppBar(context),
+                    promotedPane!._buildSliverAppBar(context),
                     SliverList(delegate: SliverChildListDelegate(children)),
                   ],
                 )
@@ -598,5 +670,31 @@ class AppPaneLayout extends StatelessWidget {
         if (promotedPane?.bottomBar != null) promotedPane!.bottomBar!,
       ],
     );
+  }
+}
+
+/// A layout-level widget that renders different subtrees for expanded
+/// (side-by-side) and compact (stacked) viewports.
+///
+/// Use this when two viewport modes require fundamentally different widget
+/// trees that cannot be expressed as a single declarative [AppPaneLayout].
+class AppAdaptiveView extends StatelessWidget {
+  /// Builder for expanded (wide, side-by-side) viewports.
+  final WidgetBuilder expanded;
+
+  /// Builder for compact (narrow, stacked) viewports.
+  final WidgetBuilder compact;
+
+  const AppAdaptiveView({
+    super.key,
+    required this.expanded,
+    required this.compact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppLayoutSpec.of(context).isExpanded
+        ? expanded(context)
+        : compact(context);
   }
 }

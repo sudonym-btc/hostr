@@ -6,10 +6,11 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/zap/zap_list.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/stubs/keypairs.dart';
 
 class ZapUsWidget extends StatelessWidget {
   const ZapUsWidget({super.key});
+
+  static const _tipsAddress = 'tips@lnbits1.hostr.development';
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +35,7 @@ class ZapUsWidget extends StatelessWidget {
                   child: Text(AppLocalizations.of(context)!.zapUs),
                   onPressed: () {
                     final params = ZapPayParameters(
-                      to: 'tips@lnbits1.hostr.development',
+                      to: _tipsAddress,
                       amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
                     );
                     showAppModal(
@@ -50,7 +51,7 @@ class ZapUsWidget extends StatelessWidget {
             Row(
               children: [
                 ZapListWidget(
-                  pubkey: MockKeys.hoster.publicKey,
+                  lud16: _tipsAddress,
                   builder: (p0) => Text(p0.pubKey!),
                 ),
               ],

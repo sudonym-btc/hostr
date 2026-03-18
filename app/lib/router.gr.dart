@@ -308,112 +308,18 @@ class SearchRoute extends PageRouteInfo<void> {
 
 /// generated route for
 /// [SignInScreen]
-class SignInRoute extends PageRouteInfo<SignInRouteArgs> {
-  SignInRoute({Function? onSuccess, List<PageRouteInfo>? children})
-    : super(
-        SignInRoute.name,
-        args: SignInRouteArgs(onSuccess: onSuccess),
-        initialChildren: children,
-      );
+class SignInRoute extends PageRouteInfo<void> {
+  const SignInRoute({List<PageRouteInfo>? children})
+    : super(SignInRoute.name, initialChildren: children);
 
   static const String name = 'SignInRoute';
 
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      final args = data.argsAs<SignInRouteArgs>(
-        orElse: () => const SignInRouteArgs(),
-      );
-      return SignInScreen(onSuccess: args.onSuccess);
+      return const SignInScreen();
     },
   );
-}
-
-class SignInRouteArgs {
-  const SignInRouteArgs({this.onSuccess});
-
-  final Function? onSuccess;
-
-  @override
-  String toString() {
-    return 'SignInRouteArgs{onSuccess: $onSuccess}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! SignInRouteArgs) return false;
-    return onSuccess == other.onSuccess;
-  }
-
-  @override
-  int get hashCode => onSuccess.hashCode;
-}
-
-/// generated route for
-/// [StartupGateScreen]
-class StartupGateRoute extends PageRouteInfo<StartupGateRouteArgs> {
-  StartupGateRoute({
-    Key? key,
-    bool popOnComplete = false,
-    String? nextPath,
-    List<PageRouteInfo>? children,
-  }) : super(
-         StartupGateRoute.name,
-         args: StartupGateRouteArgs(
-           key: key,
-           popOnComplete: popOnComplete,
-           nextPath: nextPath,
-         ),
-         initialChildren: children,
-       );
-
-  static const String name = 'StartupGateRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      final args = data.argsAs<StartupGateRouteArgs>(
-        orElse: () => const StartupGateRouteArgs(),
-      );
-      return StartupGateScreen(
-        key: args.key,
-        popOnComplete: args.popOnComplete,
-        nextPath: args.nextPath,
-      );
-    },
-  );
-}
-
-class StartupGateRouteArgs {
-  const StartupGateRouteArgs({
-    this.key,
-    this.popOnComplete = false,
-    this.nextPath,
-  });
-
-  final Key? key;
-
-  final bool popOnComplete;
-
-  final String? nextPath;
-
-  @override
-  String toString() {
-    return 'StartupGateRouteArgs{key: $key, popOnComplete: $popOnComplete, nextPath: $nextPath}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! StartupGateRouteArgs) return false;
-    return key == other.key &&
-        popOnComplete == other.popOnComplete &&
-        nextPath == other.nextPath;
-  }
-
-  @override
-  int get hashCode => key.hashCode ^ popOnComplete.hashCode ^ nextPath.hashCode;
 }
 
 /// generated route for
@@ -428,6 +334,22 @@ class StartupShellRoute extends PageRouteInfo<void> {
     name,
     builder: (data) {
       return const StartupShellScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [TabShellScreen]
+class TabShellRoute extends PageRouteInfo<void> {
+  const TabShellRoute({List<PageRouteInfo>? children})
+    : super(TabShellRoute.name, initialChildren: children);
+
+  static const String name = 'TabShellRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const TabShellScreen();
     },
   );
 }
@@ -490,22 +412,6 @@ class TripsRoute extends PageRouteInfo<void> {
     name,
     builder: (data) {
       return const TripsScreen();
-    },
-  );
-}
-
-/// generated route for
-/// [WideViewportShellScreen]
-class WideViewportShellRoute extends PageRouteInfo<void> {
-  const WideViewportShellRoute({List<PageRouteInfo>? children})
-    : super(WideViewportShellRoute.name, initialChildren: children);
-
-  static const String name = 'WideViewportShellRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      return const WideViewportShellScreen();
     },
   );
 }

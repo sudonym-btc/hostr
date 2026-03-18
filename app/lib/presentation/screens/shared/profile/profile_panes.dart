@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,39 +9,68 @@ import 'package:hostr/presentation/component/widgets/escrow/escrow_services_moda
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
+import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
 import 'package:hostr/presentation/main.dart';
+import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 import 'dev.dart';
 import 'mode_toggle.dart';
 import 'zap_us.dart';
 
 class ProfileSummarySection extends StatelessWidget {
-  final VoidCallback? onEditProfile;
-
-  const ProfileSummarySection({super.key, this.onEditProfile});
+  final ProfileMetadata? profile;
+  const ProfileSummarySection({super.key, this.profile});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ProfileProvider(
-          pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-          builder: (context, snapshot) => ProfileHeaderWidget(
-            profile: snapshot.data,
-            isLoading: snapshot.connectionState != ConnectionState.done,
-            onEditProfile: onEditProfile,
-          ),
-        ),
-        const ModeToggleWidget(),
+        profile == null
+            ? EmtyResultsWidget(
+                title: AppLocalizations.of(context)!.setupYourProfile,
+                subtitle:
+                    'Add your name, photo, and bio so others can get to know you.',
+                action: FilledButton.icon(
+                  onPressed: () {
+                    AutoRouter.of(context).navigate(EditProfileRoute());
+                  },
+                  icon: const Icon(Icons.edit),
+                  label: Text(AppLocalizations.of(context)!.editProfile),
+                ),
+              )
+            : CustomPadding(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const ModeToggleWidget(),
+
+                    if ((profile!.metadata.about ?? '').isNotEmpty) ...[
+                      Gap.vertical.xs(),
+                      Text(
+                        profile!.metadata.about!,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+
+                    ProfilePopupContent(
+                      profile: profile,
+                      pubkey: profile!.pubKey,
+                    ),
+                  ],
+                ),
+              ),
       ],
     );
   }
 }
 
-class ProfileDetailsSection extends StatelessWidget {
-  const ProfileDetailsSection({super.key});
+class ProfileSettingsSection extends StatelessWidget {
+  const ProfileSettingsSection({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -1,3 +1,5 @@
+export 'app_avatar.dart';
+export 'app_list_item.dart';
 export 'app_loading_indicator.dart';
 export 'asymptotic_progress_bar.dart';
 export 'blurred_image.dart';

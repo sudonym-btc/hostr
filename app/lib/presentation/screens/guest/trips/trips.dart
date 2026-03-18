@@ -70,7 +70,10 @@ class _TripsScreenState extends State<TripsScreen> {
         panes: [
           AppPane(
             flex: 1,
-            appBar: AppBar(title: Text(AppLocalizations.of(context)!.trips)),
+            appBarBuilder: (context) => AppBar(
+              automaticallyImplyLeading: false,
+              title: Text(AppLocalizations.of(context)!.trips),
+            ),
             promoteChromeWhenStacked: true,
             child: content,
           ),

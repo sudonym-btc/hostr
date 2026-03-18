@@ -93,11 +93,9 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
           panes: [
             AppPane(
               flex: 1,
-              appBar: AppBar(
+              appBarBuilder: (context) => AppBar(
+                automaticallyImplyLeading: false,
                 title: Text(AppLocalizations.of(context)!.myListings),
-                actionsPadding: EdgeInsets.only(
-                  right: kDefaultPadding.toDouble(),
-                ),
                 actions: [
                   IconButton.outlined(
                     icon: Icon(Icons.add),

@@ -28,8 +28,8 @@ class SearchViewState extends State<SearchView> {
   // incompatible with ScrollablePositionedList (no external ScrollController).
   double _panelFraction = 0;
   bool _isDragging = false;
-  late double _minFraction;
-  late double _maxFraction;
+  double? _minFraction;
+  double? _maxFraction;
 
   @override
   void initState() {
@@ -61,8 +61,9 @@ class SearchViewState extends State<SearchView> {
   }
 
   void _resetPanel() {
+    if (_minFraction == null) return;
     setState(() {
-      _panelFraction = _minFraction;
+      _panelFraction = _minFraction!;
       _isDragging = false;
     });
   }
@@ -73,17 +74,17 @@ class SearchViewState extends State<SearchView> {
     setState(() {
       _isDragging = true;
       _panelFraction = (_panelFraction - details.delta.dy / totalHeight).clamp(
-        _minFraction,
-        _maxFraction,
+        _minFraction!,
+        _maxFraction!,
       );
     });
   }
 
   void _onPanelDragEnd(DragEndDetails details) {
-    final mid = (_minFraction + _maxFraction) / 2;
+    final mid = (_minFraction! + _maxFraction!) / 2;
     setState(() {
       _isDragging = false;
-      _panelFraction = _panelFraction > mid ? _maxFraction : _minFraction;
+      _panelFraction = _panelFraction > mid ? _maxFraction! : _minFraction!;
     });
   }
 
@@ -108,7 +109,7 @@ class SearchViewState extends State<SearchView> {
     context.read<FilterCubit>().clear();
   }
 
-  Widget _buildSearchBox(BuildContext context) {
+  Widget _buildSearchBox(BuildContext context, {bool embedded = false}) {
     return BlocBuilder<FilterCubit, FilterState>(
       builder: (context, filterState) {
         return BlocBuilder<DateRangeCubit, DateRangeState>(
@@ -117,6 +118,7 @@ class SearchViewState extends State<SearchView> {
               filterState: filterState,
               dateRangeState: dateRangeState,
               onTap: () => _showFiltersModal(context),
+              embedded: embedded,
             );
           },
         );
@@ -163,7 +165,7 @@ class SearchViewState extends State<SearchView> {
         (totalHeight - listingStartHeight) * panelStopFraction;
     _minFraction = listingStartHeight / totalHeight;
     _maxFraction = panelMaxHeight / totalHeight;
-    if (_panelFraction == 0) _panelFraction = _minFraction;
+    if (_panelFraction == 0) _panelFraction = _minFraction!;
 
     return Stack(
       children: [
@@ -268,8 +270,7 @@ class SearchViewState extends State<SearchView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildSearchBox(context),
-                  Gap.vertical.sm(),
+                  _buildSearchBox(context, embedded: true),
                   Expanded(
                     child: SafeArea(
                       bottom: false,
@@ -300,35 +301,31 @@ class SearchViewState extends State<SearchView> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final layout = AppLayoutSpec.of(context);
-
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider.value(value: BlocProvider.of<DateRangeCubit>(context)),
-            BlocProvider.value(value: BlocProvider.of<FilterCubit>(context)),
-            BlocProvider.value(
-              value: BlocProvider.of<PostResultFilterCubit<Listing>>(context),
-            ),
-          ],
-          child: BlocProvider(
-            create: (context) => MapViewCubit(),
-            child: BlocListener<FilterCubit, FilterState>(
-              listener: (context, state) {
-                _focusedListingId.value = null;
-                _listingMapController.focusAll();
-                if (!layout.showsSearchSplit) {
-                  _resetPanel();
-                }
-              },
-              child: layout.showsSearchSplit
-                  ? _buildWideLayout(context)
-                  : _buildCompactLayout(context, constraints),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: BlocProvider.of<DateRangeCubit>(context)),
+        BlocProvider.value(value: BlocProvider.of<FilterCubit>(context)),
+        BlocProvider.value(
+          value: BlocProvider.of<PostResultFilterCubit<Listing>>(context),
+        ),
+      ],
+      child: BlocProvider(
+        create: (context) => MapViewCubit(),
+        child: BlocListener<FilterCubit, FilterState>(
+          listener: (context, state) {
+            _focusedListingId.value = null;
+            _listingMapController.focusAll();
+            _resetPanel();
+          },
+          child: AppAdaptiveView(
+            expanded: (_) => _buildWideLayout(context),
+            compact: (_) => LayoutBuilder(
+              builder: (context, constraints) =>
+                  _buildCompactLayout(context, constraints),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

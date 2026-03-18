@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_list_item.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:ndk/entities.dart';
 
@@ -25,10 +26,9 @@ class RelayListItemView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.all(0),
-      leading: CircleAvatar(
-        backgroundColor: isConnected ? Colors.green : Colors.orange,
+    return AppListItem(
+      leading: AppListItemAvatar.status(
+        color: isConnected ? Colors.green : Colors.orange,
         foregroundImage: iconUrl != null
             ? NetworkImage(
                 iconUrl!,

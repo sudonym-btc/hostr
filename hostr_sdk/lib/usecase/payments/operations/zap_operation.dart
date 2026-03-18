@@ -8,9 +8,8 @@ import 'package:ndk/domain_layer/repositories/lnurl_transport.dart';
 import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 import 'package:ndk/ndk.dart' hide Zaps;
 
-import '../../../hostr.dart';
-import '../../../injection.dart';
 import '../../../util/stream_status.dart';
+import '../../auth/auth.dart';
 import '../../zaps/zaps.dart';
 import 'pay_models.dart';
 import 'pay_operation.dart';
@@ -27,6 +26,8 @@ class ZapPayOperation
           ZapCompletedDetails
         > {
   final Zaps zaps;
+  final Auth auth;
+  final List<String> bootstrapRelays;
   final LnurlTransport lnurlTransport = LnurlTransportHttpImpl(
     HttpRequestDS(http.Client()),
   );
@@ -40,6 +41,8 @@ class ZapPayOperation
   ZapPayOperation({
     required super.params,
     required this.zaps,
+    required this.auth,
+    required this.bootstrapRelays,
     required super.nwc,
     required super.logger,
   });
@@ -90,7 +93,7 @@ class ZapPayOperation
 
     _zapReceiptId ??= 'hostr-zap-${DateTime.now().microsecondsSinceEpoch}';
 
-    final activeKeyPair = getIt<Hostr>().auth.activeKeyPair;
+    final activeKeyPair = auth.activeKeyPair;
     if (activeKeyPair == null || activeKeyPair.privateKey == null) {
       throw Exception('Cannot create zap request without active signing key');
     }
@@ -303,7 +306,7 @@ class ZapPayOperation
   List<String> _relayTags() {
     final relays = <String>{};
 
-    for (final relay in getIt<Hostr>().config.bootstrapRelays) {
+    for (final relay in bootstrapRelays) {
       final url = relay.trim();
       if (!(url.startsWith('ws://') || url.startsWith('wss://'))) {
         continue;

@@ -6,7 +6,6 @@ import 'package:hostr/presentation/component/providers/nostr/profile.provider.da
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/profile/verification/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
@@ -31,93 +30,18 @@ class ProfilePopup extends StatefulWidget {
 }
 
 class _ProfilePopupState extends State<ProfilePopup> {
-  final _verification = ProfileVerificationController();
-  ProfileMetadata? _profile;
-
-  @override
-  void initState() {
-    super.initState();
-    _verification.addListener(_onChanged);
-  }
-
-  @override
-  void dispose() {
-    _verification
-      ..removeListener(_onChanged)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _onChanged() {
-    if (mounted) setState(() {});
-  }
-
-  void _onProfileLoaded(ProfileMetadata? profile) {
-    if (profile == null || _profile != null) return;
-    _profile = profile;
-    _verification.verify(profile);
-  }
-
   @override
   Widget build(BuildContext context) {
     return ProfileProvider(
       pubkey: widget.pubkey,
-      onDone: _onProfileLoaded,
       builder: (context, snapshot) {
         final profile = snapshot.data;
-        final metadata = profile?.metadata;
 
         return ModalBottomSheet(
-          leading: CircleAvatar(
-            radius: 36,
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest,
-            child: metadata?.picture != null
-                ? ClipOval(
-                    child: BlossomImage(
-                      image: metadata!.picture!,
-                      pubkey: widget.pubkey,
-                      width: 72,
-                      height: 72,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                : Text(
-                    (metadata?.name ?? '?').characters.first.toUpperCase(),
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-          ),
-          title: metadata?.name ?? metadata?.displayName ?? 'Unknown',
-          subtitle: metadata?.about,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // const Divider(height: 1),
-              Gap.vertical.custom(kSpace3),
-
-              // NIP-05 verification
-              Nip05Badge(
-                nip05: metadata?.nip05,
-                result: _verification.nip05Result,
-                loading: _verification.nip05Loading,
-              ),
-
-              Gap.vertical.sm(),
-
-              // LUD-16 verification
-              Lud16Badge(
-                lud16: metadata?.lud16,
-                result: _verification.lud16Result,
-                loading: _verification.lud16Loading,
-              ),
-
-              Gap.vertical.md(),
-
-              // Pubkey (truncated, copyable)
-              _PubkeyRow(pubkey: widget.pubkey),
-            ],
-          ),
+          leading: ProfilePopupAvatar(profile: profile),
+          title: ProfilePopupTitle(profile),
+          subtitle: profile?.metadata.about,
+          content: ProfilePopupContent(profile: profile, pubkey: widget.pubkey),
           buttons: Align(
             alignment: Alignment.centerRight,
             child: TextButton(
@@ -127,6 +51,65 @@ class _ProfilePopupState extends State<ProfilePopup> {
           ),
         );
       },
+    );
+  }
+}
+
+class ProfilePopupAvatar extends StatelessWidget {
+  final ProfileMetadata? profile;
+
+  const ProfilePopupAvatar({super.key, required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    final metadata = profile?.metadata;
+    return AppAvatar.lg(
+      image: metadata?.picture,
+      pubkey: profile?.pubKey,
+      label: metadata?.getName() ?? '?',
+    );
+  }
+}
+
+String ProfilePopupTitle(ProfileMetadata? profile) {
+  final metadata = profile?.metadata;
+  return metadata?.getName() ?? 'Unknown';
+}
+
+class ProfilePopupContent extends StatelessWidget {
+  final ProfileMetadata? profile;
+  final String pubkey;
+
+  const ProfilePopupContent({
+    super.key,
+    required this.profile,
+    required this.pubkey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final metadata = profile?.metadata;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Gap.vertical.sm(),
+        VerifiedNip05Badge(
+          nip05: metadata?.nip05,
+          pubkey: profile!.pubKey,
+          inline: false,
+          hideWhenEmpty: false,
+        ),
+        Gap.vertical.sm(),
+        VerifiedLud16Badge(
+          lud16: metadata?.lud16,
+          inline: false,
+          hideWhenEmpty: false,
+        ),
+        Gap.vertical.sm(),
+        _PubkeyRow(pubkey: pubkey),
+      ],
     );
   }
 }

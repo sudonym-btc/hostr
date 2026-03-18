@@ -4,14 +4,14 @@ import 'gap.dart';
 import 'padding.dart';
 
 class EmtyResultsWidget extends StatelessWidget {
-  final Widget leading;
+  final Widget? leading;
   final String title;
   final String? subtitle;
   final Widget? action;
 
   const EmtyResultsWidget({
     super.key,
-    required this.leading,
+    this.leading,
     required this.title,
     this.subtitle,
     this.action,
@@ -28,8 +28,7 @@ class EmtyResultsWidget extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                leading,
-                Gap.vertical.lg(),
+                if (leading != null) ...[leading!, Gap.vertical.lg()],
                 Text(
                   title,
                   textAlign: TextAlign.center,

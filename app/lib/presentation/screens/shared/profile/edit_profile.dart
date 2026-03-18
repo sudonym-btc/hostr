@@ -7,6 +7,8 @@ import 'package:hostr/presentation/component/widgets/profile/verification/verifi
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/screens/shared/profile/edit_profile.controller.dart';
+import 'package:hostr/route/pending_navigation.dart';
+import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../listing/image_picker.dart';
@@ -17,7 +19,7 @@ class EditProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EditProfileView();
+    return const EditProfileView();
   }
 }
 
@@ -27,6 +29,16 @@ class EditProfileView extends StatefulWidget {
   @override
   State<StatefulWidget> createState() => EditProfileViewState();
 }
+
+BlurredImage noImageSetPlaceholder(BuildContext context) => BlurredImage(
+  child: Image.asset(
+    'assets/images/profile_placeholder.jpg',
+    fit: BoxFit.cover,
+    errorBuilder: (_, _, _) => ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    ),
+  ),
+);
 
 class EditProfileViewState extends State<EditProfileView> {
   final EditProfileController controller = EditProfileController();
@@ -39,17 +51,7 @@ class EditProfileViewState extends State<EditProfileView> {
           placeholder: Stack(
             fit: StackFit.expand,
             children: [
-              BlurredImage(
-                child: Image.asset(
-                  'assets/images/profile_placeholder.jpg',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => ColoredBox(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                  ),
-                ),
-              ),
+              noImageSetPlaceholder(context),
               Center(
                 child: FilledButton.tonalIcon(
                   onPressed: () =>
@@ -152,7 +154,17 @@ class EditProfileViewState extends State<EditProfileView> {
       onSave: () async {
         final saved = await controller.save();
         if (saved && context.mounted) {
-          Navigator.of(context).pop();
+          final target = getIt<PendingNavigation>().consume();
+          if (target != null) {
+            context.router.root.navigate(target);
+          } else {
+            final popped = await context.router.maybePop();
+            if (!popped && context.mounted) {
+              // Fallback: if nothing to pop to (e.g. EditProfile was
+              // navigated-to rather than pushed), go to profile tab.
+              context.router.root.navigate(ProfileRoute());
+            }
+          }
         }
       },
     );
@@ -168,12 +180,9 @@ class EditProfileViewState extends State<EditProfileView> {
             panes: [
               AppPane(
                 width: kAppFormMaxWidth,
-                appBar: AppBar(
-                  title: Text(AppLocalizations.of(context)!.profile),
-                  titleSpacing: 0,
-                ),
+                appBarBuilder: (context) =>
+                    AppBar(title: Text(AppLocalizations.of(context)!.profile)),
                 bottomBar: bottomBar,
-                promoteChromeWhenStacked: true,
                 child: body,
               ),
             ],

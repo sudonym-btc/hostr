@@ -60,6 +60,14 @@ class _ReserveState extends State<Reserve> {
     });
   }
 
+  PageRouteInfo _reservePendingRoute(DateTimeRange? dateRange) {
+    return ListingRoute(
+      a: widget.listing.anchor ?? widget.listing.id,
+      dateRangeStart: dateRange?.start.toIso8601String(),
+      dateRangeEnd: dateRange?.end.toIso8601String(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Validation<ReservationPair>>>(
@@ -140,23 +148,27 @@ class _ReserveState extends State<Reserve> {
                           state.status == ReservationCubitStatus.loading ||
                               dateRange == null
                           ? null
-                          : () => authGatedAction(context, () async {
-                              await context
-                                  .read<ReservationCubit>()
-                                  .createReservationRequest(
-                                    listing: widget.listing,
-                                    startDate: dateRange.start,
-                                    endDate: dateRange.end,
-                                    amount: _effectiveAmountFor(dateRange),
-                                    onSuccess: (reservation) {
-                                      AutoRouter.of(context).push(
-                                        ThreadRoute(
-                                          anchor: reservation.getDtag()!,
-                                        ),
-                                      );
-                                    },
-                                  );
-                            }),
+                          : () => authGatedAction(
+                              context,
+                              pendingRoute: _reservePendingRoute(dateRange),
+                              action: () async {
+                                await context
+                                    .read<ReservationCubit>()
+                                    .createReservationRequest(
+                                      listing: widget.listing,
+                                      startDate: dateRange.start,
+                                      endDate: dateRange.end,
+                                      amount: _effectiveAmountFor(dateRange),
+                                      onSuccess: (reservation) {
+                                        AutoRouter.of(context).push(
+                                          ThreadRoute(
+                                            anchor: reservation.getDtag()!,
+                                          ),
+                                        );
+                                      },
+                                    );
+                              },
+                            ),
                       child: state.status == ReservationCubitStatus.loading
                           ? const AppLoadingIndicator.small()
                           : Text(AppLocalizations.of(context)!.reserve),

@@ -3,36 +3,39 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/layout/app_layout.dart';
 
 class SearchBoxWidget extends StatelessWidget {
   final FilterState filterState;
   final DateRangeState dateRangeState;
   final VoidCallback? onTap;
+
+  /// When `true`, renders flat (no elevation, square corners) for use inside
+  /// a panel. When `false`, renders as a floating pill with shadow.
+  final bool embedded;
+
   const SearchBoxWidget({
     super.key,
     required this.filterState,
     required this.dateRangeState,
     this.onTap,
+    this.embedded = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
-    final isWide = layout.showsSearchSplit;
     final hasActiveFilter =
         filterState.filter != null || filterState.location.trim().isNotEmpty;
     final hasDateRange = dateRangeState.dateRange != null;
-    final borderRadius = BorderRadius.circular(isWide ? 0 : 50);
+    final borderRadius = BorderRadius.circular(embedded ? 0 : 50);
 
-    final color = isWide
+    final color = embedded
         ? Theme.of(context).colorScheme.surfaceContainerHighest
         : Theme.of(context).scaffoldBackgroundColor;
 
     return Opacity(
-      opacity: isWide ? 1 : 0.85,
+      opacity: embedded ? 1 : 0.85,
       child: Material(
-        elevation: isWide ? 0 : 2.0,
+        elevation: embedded ? 0 : 2.0,
         color: color,
         shadowColor: color,
         borderRadius: borderRadius,
