@@ -34,6 +34,10 @@ services:
 
   anvil:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    # Auto-mine every 3 s so the relay server sees new blocks and becomes ready.
+    # Without this, Anvil only mines on-demand and the relay stays NOT-READY
+    # because its polling loop skips rounds when the block number hasn't changed.
+    entrypoint: anvil --host 0.0.0.0 --chain-id 33 --block-time 3
     environment:
       - VIRTUAL_HOST=anvil.${DOMAIN}
       - VIRTUAL_PORT=8545

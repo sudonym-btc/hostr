@@ -20,13 +20,15 @@ class DevWidget extends StatelessWidget {
         BackgroundTasks(),
         FilledButton(
           onPressed: () async {
+            final evmKey = await getIt<Hostr>().auth.hd.getActiveEvmKey();
+            if (!context.mounted) return;
             showAppModal(
               context,
-              child: SwapInFlowWidget(
+              builder: (_) => SwapInFlowWidget(
                 cubit: getIt<Hostr>().evm.supportedEvmChains[0].swapIn(
                   SwapInParams(
                     amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000),
-                    evmKey: await getIt<Hostr>().auth.hd.getActiveEvmKey(),
+                    evmKey: evmKey,
                     accountIndex: 0,
                   ),
                 )..estimateFees(),

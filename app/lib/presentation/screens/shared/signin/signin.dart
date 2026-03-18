@@ -4,7 +4,6 @@ import 'package:convert/convert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
@@ -90,7 +89,7 @@ class SignInScreenState extends State<SignInScreen> {
     await showAppModal(
       context,
       isDismissible: false,
-      child: BackupKeyWidget(
+      builder: (_) => BackupKeyWidget(
         publicKeyHex: identity.publicKeyHex!,
         privateKeyHex: identity.privateKeyHex!,
         mnemonic: mnemonic.sentence,
@@ -111,13 +110,12 @@ class SignInScreenState extends State<SignInScreen> {
     return CustomPadding(
       child: Column(
         children: [
-          const Spacer(flex: 2),
           Image.asset(
             'assets/images/logo/generated/logo_base_1024.png',
             width: 120,
             height: 120,
           ),
-          Gap.vertical.custom(40),
+          Gap.vertical.lg(),
           TextFormField(
             key: const ValueKey('key'),
             controller: _controller,
@@ -147,7 +145,7 @@ class SignInScreenState extends State<SignInScreen> {
               ),
             ),
           ),
-          Gap.vertical.custom(kSpace5),
+          Gap.vertical.sm(),
           Row(
             children: [
               Expanded(
@@ -166,7 +164,6 @@ class SignInScreenState extends State<SignInScreen> {
               ),
             ],
           ),
-          const Spacer(flex: 3),
         ],
       ),
     );
@@ -174,13 +171,27 @@ class SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // appBar: AppBar(),
-      body: SafeArea(
-        child: AppPageGutter(
-          maxWidth: kAppFormMaxWidth,
-          centerContent: true,
-          child: _buildContent(context),
+    return SafeArea(
+      child: AppPageGutter(
+        child: AppPaneLayout(
+          panes: [
+            AppPane(
+              panelTone: AppPanelTone.primary,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: kAppFormMaxWidth),
+                      child: _buildContent(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

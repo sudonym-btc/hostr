@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:intl/intl.dart';
 import 'package:models/main.dart';
 
@@ -236,17 +238,11 @@ class AmountInputWidget extends FormField<Amount> {
                               }
                             }
                           },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Center(child: buttonContent),
-                            ),
+                          child: AppSurface(
+                            steps: 2,
+                            shape: const CircleBorder(),
+                            padding: const EdgeInsets.all(16),
+                            child: Center(child: buttonContent),
                           ),
                         );
                       },
@@ -281,9 +277,8 @@ class AmountEditorBottomSheet extends StatefulWidget {
     Amount? minAmount,
     Amount? maxAmount,
   }) {
-    return showModalBottomSheet<Amount>(
-      context: context,
-      isScrollControlled: true,
+    return showAppModal<Amount>(
+      context,
       builder: (_) => AmountEditorBottomSheet(
         initialAmount: initialAmount,
         minAmount: minAmount,

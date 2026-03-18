@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/logic/main.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 
 class SearchBoxWidget extends StatelessWidget {
   final FilterState filterState;
@@ -29,7 +30,7 @@ class SearchBoxWidget extends StatelessWidget {
     final borderRadius = BorderRadius.circular(embedded ? 0 : 50);
 
     final color = embedded
-        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        ? AppPaneTheme.stepped(context, 2)
         : Theme.of(context).scaffoldBackgroundColor;
 
     return Opacity(
@@ -37,7 +38,7 @@ class SearchBoxWidget extends StatelessWidget {
       child: Material(
         elevation: embedded ? 0 : 2.0,
         color: color,
-        shadowColor: color,
+        shadowColor: embedded ? Colors.transparent : color,
         borderRadius: borderRadius,
         child: InkWell(
           onTap: onTap,

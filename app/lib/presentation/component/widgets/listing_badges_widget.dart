@@ -185,7 +185,7 @@ class BadgeChip extends StatelessWidget {
   void _showBadgeDetails(BuildContext context, BadgeDefinition? definition) {
     showAppModal(
       context,
-      child: BadgeDetailsSheet(award: award, definition: definition),
+      builder: (_) => BadgeDetailsSheet(award: award, definition: definition),
     );
   }
 }

@@ -33,29 +33,19 @@ class _SearchFormState extends State<SearchForm> {
     return Form(
       key: widget.controller.formKey,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CustomPadding(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FormLabel(label: 'Where are you going?'),
-                Gap.vertical.md(),
-                AreaLocationInput(
-                  controller: widget.controller.locationController,
-                ),
-                Gap.vertical.lg(),
-                FormLabel(label: 'When?'),
-                Gap.vertical.md(),
+          FormLabel(label: 'Where are you going?'),
+          Gap.vertical.md(),
+          AreaLocationInput(controller: widget.controller.locationController),
+          Gap.vertical.lg(),
+          FormLabel(label: 'When?'),
+          Gap.vertical.md(),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: DateRangeButtons(
-                    controller: widget.controller.dateRangeController,
-                  ),
-                ),
-              ],
+          SizedBox(
+            width: double.infinity,
+            child: DateRangeButtons(
+              controller: widget.controller.dateRangeController,
             ),
           ),
         ],

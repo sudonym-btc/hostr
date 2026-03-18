@@ -14,7 +14,7 @@ import 'package:models/main.dart';
 void showEscrowServicesModal(BuildContext context, String pubkey) {
   showAppModal(
     context,
-    child: BlocProvider(
+    builder: (_) => BlocProvider(
       create: (_) =>
           EscrowServicesCubit(hostr: getIt<Hostr>(), pubkey: pubkey)..load(),
       child: _EscrowServicesModalContent(pubkey: pubkey),
@@ -37,7 +37,7 @@ void showTrustEscrowModal(
 }) {
   showAppModal(
     context,
-    child: BlocProvider(
+    builder: (_) => BlocProvider(
       create: (_) => DiscoverEscrowServicesCubit(hostr: getIt<Hostr>())..load(),
       child: _TrustEscrowModalContent(
         trustedPubkeys: trustedPubkeys,

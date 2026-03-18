@@ -78,7 +78,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                                 if (ops.isNotEmpty) {
                                   showAppModal(
                                     context,
-                                    child: SwapOutFlowWidget(cubit: ops.first),
+                                    builder: (_) => SwapOutFlowWidget(cubit: ops.first),
                                   );
                                 }
                               },

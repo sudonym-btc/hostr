@@ -371,11 +371,11 @@ class LocationFieldState extends State<LocationField> {
           physics: const ClampingScrollPhysics(),
           itemCount: _placeList.length,
           itemBuilder: (context, index) {
+            final selected = _placeList[index];
             return ListTile(
               dense: true,
-              title: Text(_placeList[index].displayName),
+              title: Text(selected.displayName),
               onTap: () async {
-                final selected = _placeList[index];
                 _isSelectingSuggestion = true;
                 // Avoid context ancestor lookup after async gaps.
                 FocusManager.instance.primaryFocus?.unfocus();

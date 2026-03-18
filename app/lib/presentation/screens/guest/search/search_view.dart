@@ -91,7 +91,7 @@ class SearchViewState extends State<SearchView> {
   Future<void> _showFiltersModal(BuildContext context) async {
     await showAppModal(
       context,
-      child: MultiBlocProvider(
+      builder: (_) => MultiBlocProvider(
         providers: [
           BlocProvider.value(value: BlocProvider.of<DateRangeCubit>(context)),
           BlocProvider.value(value: BlocProvider.of<FilterCubit>(context)),
@@ -99,7 +99,7 @@ class SearchViewState extends State<SearchView> {
             value: BlocProvider.of<PostResultFilterCubit<Listing>>(context),
           ),
         ],
-        child: const FiltersScreen(asBottomSheet: true),
+        child: const FiltersScreen(),
       ),
     );
   }

@@ -156,13 +156,15 @@ class EditProfileViewState extends State<EditProfileView> {
         if (saved && context.mounted) {
           final target = getIt<PendingNavigation>().consume();
           if (target != null) {
-            context.router.root.navigate(target);
+            context.router.root.navigate(wrapInTabShellIfNeeded(target));
           } else {
             final popped = await context.router.maybePop();
             if (!popped && context.mounted) {
               // Fallback: if nothing to pop to (e.g. EditProfile was
               // navigated-to rather than pushed), go to profile tab.
-              context.router.root.navigate(ProfileRoute());
+              context.router.root.navigate(
+                TabShellRoute(children: [ProfileRoute()]),
+              );
             }
           }
         }

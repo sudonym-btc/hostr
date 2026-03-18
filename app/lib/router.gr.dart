@@ -90,46 +90,18 @@ class EditProfileRoute extends PageRouteInfo<void> {
 
 /// generated route for
 /// [FiltersScreen]
-class FiltersRoute extends PageRouteInfo<FiltersRouteArgs> {
-  FiltersRoute({bool asBottomSheet = false, List<PageRouteInfo>? children})
-    : super(
-        FiltersRoute.name,
-        args: FiltersRouteArgs(asBottomSheet: asBottomSheet),
-        initialChildren: children,
-      );
+class FiltersRoute extends PageRouteInfo<void> {
+  const FiltersRoute({List<PageRouteInfo>? children})
+    : super(FiltersRoute.name, initialChildren: children);
 
   static const String name = 'FiltersRoute';
 
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      final args = data.argsAs<FiltersRouteArgs>(
-        orElse: () => const FiltersRouteArgs(),
-      );
-      return FiltersScreen(asBottomSheet: args.asBottomSheet);
+      return FiltersScreen();
     },
   );
-}
-
-class FiltersRouteArgs {
-  const FiltersRouteArgs({this.asBottomSheet = false});
-
-  final bool asBottomSheet;
-
-  @override
-  String toString() {
-    return 'FiltersRouteArgs{asBottomSheet: $asBottomSheet}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! FiltersRouteArgs) return false;
-    return asBottomSheet == other.asBottomSheet;
-  }
-
-  @override
-  int get hashCode => asBottomSheet.hashCode;
 }
 
 /// generated route for

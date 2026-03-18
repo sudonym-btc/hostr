@@ -21,47 +21,45 @@ class InboxScreen extends StatelessWidget {
             ? router.topMatch.params.optString('anchor')
             : null;
 
-        return Scaffold(
-          body: SafeArea(
-            top: false,
-            child: AppPageGutter(
-              maxWidth: kAppWideContentMaxWidth,
-              padding: EdgeInsets.zero,
-              child: AppPaneLayout(
-                panes: [
-                  AppPane(
-                    flex: 2,
-                    panelTone: AppPanelTone.primary,
-                    appBarBuilder: (context) => AppBar(
-                      automaticallyImplyLeading: false,
-                      title: Text(AppLocalizations.of(context)!.inbox),
-                    ),
-                    promoteChromeWhenStacked: true,
-                    child: InboxThreadList(
-                      selectedAnchor: selectedAnchor,
-                      onThreadSelected: (anchor) {
-                        router.navigate(
-                          InboxRoute(children: [ThreadRoute(anchor: anchor)]),
-                        );
-                      },
-                    ),
+        return SafeArea(
+          top: false,
+          child: AppPageGutter(
+            maxWidth: kAppWideContentMaxWidth,
+            padding: EdgeInsets.zero,
+            child: AppPaneLayout(
+              panes: [
+                AppPane(
+                  flex: 2,
+                  panelTone: AppPanelTone.primary,
+                  appBarBuilder: (context) => AppBar(
+                    automaticallyImplyLeading: false,
+                    title: Text(AppLocalizations.of(context)!.inbox),
                   ),
-                  AppPane(
-                    flex: 3,
-                    showWhenStacked: false,
-                    child: hasSelectedThread
-                        ? child
-                        : EmtyResultsWidget(
-                            leading: Icon(
-                              Icons.forum_outlined,
-                              size: kIconHero,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            title: 'Select a conversation',
+                  promoteChromeWhenStacked: true,
+                  child: InboxThreadList(
+                    selectedAnchor: selectedAnchor,
+                    onThreadSelected: (anchor) {
+                      router.navigate(
+                        InboxRoute(children: [ThreadRoute(anchor: anchor)]),
+                      );
+                    },
+                  ),
+                ),
+                AppPane(
+                  flex: 3,
+                  showWhenStacked: false,
+                  child: hasSelectedThread
+                      ? child
+                      : EmtyResultsWidget(
+                          leading: Icon(
+                            Icons.forum_outlined,
+                            size: kIconHero,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
-                  ),
-                ],
-              ),
+                          title: 'Select a conversation',
+                        ),
+                ),
+              ],
             ),
           ),
         );

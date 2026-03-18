@@ -2,7 +2,7 @@
 
 [info]
 relay_url = "wss://relay.hostr.network/"
-name = "Hostr relay"
+name = "Hostr"
 description = "Hostr production relay."
 
 [network]

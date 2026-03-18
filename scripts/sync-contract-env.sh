@@ -153,7 +153,7 @@ const nextValues = {
     `rif-relay relay verifier for ${rifRelayAddressKey} in ${rifRelayFile}`,
   ),
   RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS: requireAddress(
-    rifRelayEntry.BoltzSmartWalletFactory || rifRelayEntry.MinimalBoltzSmartWalletFactory,
+    rifRelayEntry.SmartWalletFactory || rifRelayEntry.BoltzSmartWalletFactory || rifRelayEntry.MinimalBoltzSmartWalletFactory,
     `rif-relay smart wallet factory for ${rifRelayAddressKey} in ${rifRelayFile}`,
   ),
 };

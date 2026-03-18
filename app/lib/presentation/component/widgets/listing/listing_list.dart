@@ -115,7 +115,9 @@ class _ListingsWidgetState extends State<ListingsWidget> {
         stickyHeader: AppLayoutSpec.of(context).isExpanded,
         resultCountBuilder: (count, hasMore) => Container(
           color: AppPaneTheme.of(context),
-          child: CustomPadding(
+          child: CustomPadding.symmetric(
+            horizontal: Spacing.lg,
+            vertical: Spacing.sm,
             // bottom: 0,
             // top: 0,
             child: Row(

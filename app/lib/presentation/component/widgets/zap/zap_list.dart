@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/app_spacing_theme.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:hostr/presentation/component/widgets/zap/zap_receipt.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:http/http.dart' as http;
 import 'package:ndk/data_layer/data_sources/http_request.dart';
@@ -40,7 +40,10 @@ class ZapListWidget extends StatefulWidget {
 
 class ZapListWidgetState extends State<ZapListWidget> {
   Stream<ZapReceipt>? _zapStream;
+  final List<ZapReceipt> _zaps = [];
+  StreamSubscription<ZapReceipt>? _subscription;
   bool _resolving = false;
+  bool _done = false;
   String? _error;
 
   @override
@@ -92,6 +95,17 @@ class ZapListWidgetState extends State<ZapListWidget> {
       eventId: widget.eventId,
     );
     _zapStream = sws.stream.map((event) => ZapReceipt.fromEvent(event));
+    _subscription = _zapStream!.listen(
+      (zap) => setState(() => _zaps.add(zap)),
+      onError: (e) => setState(() => _error = e.toString()),
+      onDone: () => setState(() => _done = true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -104,24 +118,16 @@ class ZapListWidgetState extends State<ZapListWidget> {
       return const AppLoadingIndicator.medium();
     }
 
-    return StreamBuilder(
-      stream: _zapStream,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return ZapReceiptWidget(zap: snapshot.data!);
-        } else {
-          if (snapshot.hasError) {
-            return Text(
-              AppLocalizations.of(
-                context,
-              )!.errorWithDetails(snapshot.error.toString()),
-            );
-          } else if (snapshot.connectionState == ConnectionState.done) {
-            return Container();
-          }
-          return const AppLoadingIndicator.medium();
-        }
-      },
+    if (_zaps.isEmpty) {
+      if (_done) return const SizedBox.shrink();
+      return const AppLoadingIndicator.medium();
+    }
+
+    final spacing = AppSpacing.of(context);
+    return Wrap(
+      spacing: spacing.chipSpacing,
+      runSpacing: spacing.chipRunSpacing,
+      children: _zaps.map((zap) => widget.builder(zap)).toList(),
     );
   }
 }

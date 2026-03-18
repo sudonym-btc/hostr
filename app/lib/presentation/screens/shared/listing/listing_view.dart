@@ -49,7 +49,14 @@ class _ListingViewState extends State<ListingView> {
         }
 
         if (state.data == null) {
-          return Scaffold(body: Center(child: AppLoadingIndicator.large()));
+          return AppPaneLayout(
+            panes: [
+              AppPane(
+                usePanel: false,
+                child: Center(child: AppLoadingIndicator.large()),
+              ),
+            ],
+          );
         }
 
         return ListingDependenciesProvider(
@@ -101,37 +108,35 @@ class _ListingViewContent extends StatelessWidget {
             ],
           );
 
-    return Scaffold(
-      body: SafeArea(
-        top: false,
-        child: ListingViewBody(
-          listing: listing,
-          selectedDateRange: dateRange,
-          isOwner: isOwner,
-          hostedByText: AppLocalizations.of(context)!.hostedBy,
-          hostWidget: ProfileChipWidget(id: listing.pubKey),
-          reviewsSummaryWidget: ReviewsReservationsWidget(
-            reservationCount: dependencies.reservationCount,
-            averageReviewRating: dependencies.averageReviewRating,
-            reviewCount: dependencies.reviewCount,
-          ),
-          reviewsListWidget: reviewsListWidget,
-          reserveBottomBar: reserveBottomBar,
-          verifiedPairsStream: dependencies.verifiedReservationPairs,
-          hostKeyPair: activeKeyPair,
-          onCancelBlockedReservation: (reservation) async {
-            await getIt<Hostr>().reservations.cancel(
-              reservation,
-              getIt<Hostr>().auth.getActiveKey(),
-            );
-          },
-          onBlockDates: () {
-            showAppModal(
-              context,
-              child: BlockDatesWidget(listingAnchor: listing.anchor!),
-            );
-          },
+    return SafeArea(
+      top: false,
+      child: ListingViewBody(
+        listing: listing,
+        selectedDateRange: dateRange,
+        isOwner: isOwner,
+        hostedByText: AppLocalizations.of(context)!.hostedBy,
+        hostWidget: ProfileChipWidget(id: listing.pubKey),
+        reviewsSummaryWidget: ReviewsReservationsWidget(
+          reservationCount: dependencies.reservationCount,
+          averageReviewRating: dependencies.averageReviewRating,
+          reviewCount: dependencies.reviewCount,
         ),
+        reviewsListWidget: reviewsListWidget,
+        reserveBottomBar: reserveBottomBar,
+        verifiedPairsStream: dependencies.verifiedReservationPairs,
+        hostKeyPair: activeKeyPair,
+        onCancelBlockedReservation: (reservation) async {
+          await getIt<Hostr>().reservations.cancel(
+            reservation,
+            getIt<Hostr>().auth.getActiveKey(),
+          );
+        },
+        onBlockDates: () {
+          showAppModal(
+            context,
+            builder: (_) => BlockDatesWidget(listingAnchor: listing.anchor!),
+          );
+        },
       ),
     );
   }
@@ -233,7 +238,7 @@ class ListingViewBody extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            Gap.horizontal.sm(),
+            Gap.horizontal.xs(),
             Flexible(child: hostWidget),
           ],
         ),

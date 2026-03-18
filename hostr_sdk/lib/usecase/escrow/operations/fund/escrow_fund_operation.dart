@@ -142,6 +142,23 @@ class EscrowFundOperation extends OnchainOperation {
         '(~${BitcoinAmount.inWei(refundWei).getInSats} sats)',
       );
     }
+
+    // Verify the receipt contains at least one log from the escrow contract.
+    // A successful transaction that emits no escrow logs means the inner
+    // call was silently dropped (e.g. the relay wallet factory did not
+    // forward the call data).
+    final escrowAddress = contract.address;
+    final hasEscrowLog = receipt.logs.any(
+      (log) => log.address == escrowAddress,
+    );
+    if (!hasEscrowLog) {
+      final txHash = data.txHash ?? 'unknown';
+      throw StateError(
+        'Transaction $txHash succeeded but contained no logs from the '
+        'escrow contract (${escrowAddress.eip55With0x}). '
+        'The funding call was likely not forwarded by the relay wallet.',
+      );
+    }
   });
 
   @override

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/component/widgets/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/forms/main.dart';
 import 'package:hostr/presentation/forms/search/location_controller.dart';
 import 'package:models/main.dart';
@@ -11,10 +11,8 @@ import 'package:ndk/ndk.dart';
 
 @RoutePage()
 class FiltersScreen extends StatefulWidget {
-  final bool asBottomSheet;
-
   // ignore: use_key_in_widget_constructors
-  const FiltersScreen({this.asBottomSheet = false});
+  const FiltersScreen();
 
   @override
   State<FiltersScreen> createState() => _FiltersScreenState();
@@ -47,42 +45,32 @@ class _FiltersScreenState extends State<FiltersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final content = SafeArea(
-      child: SingleChildScrollView(
+    return ModalBottomSheet(
+      // title: AppLocalizations.of(context)!.search,
+      content: SingleChildScrollView(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            SearchForm(controller: _controller),
-            CustomPadding(
-              top: 0,
-              child: Row(
-                children: [
-                  if (_hasActiveFilters)
-                    TextButton(
-                      onPressed: _clear,
-                      child: Text(AppLocalizations.of(context)!.clear),
-                    ),
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: _controller.canSubmit ? _submit : null,
-                    child: Text(AppLocalizations.of(context)!.search),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          children: [SearchForm(controller: _controller)],
         ),
       ),
+      buttons: Row(
+        children: [
+          if (_hasActiveFilters)
+            TextButton(
+              onPressed: _clear,
+              child: Text(AppLocalizations.of(context)!.clear),
+            ),
+          const Spacer(),
+          FilledButton(
+            onPressed: _controller.canSubmit ? _submit : null,
+            child: Text(AppLocalizations.of(context)!.search),
+          ),
+        ],
+      ),
     );
-
-    if (widget.asBottomSheet) {
-      return content;
-    }
-
-    return Scaffold(body: content);
   }
 
   void _submit() {
