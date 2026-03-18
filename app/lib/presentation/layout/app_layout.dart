@@ -353,6 +353,34 @@ class AppPageGutter extends StatelessWidget {
   }
 }
 
+/// Provides the resolved background [Color] of the nearest [AppPanel]
+/// ancestor to its descendants.
+///
+/// Widgets like [SaveBottomBar], custom app bars, or reply inputs can call
+/// [AppPaneTheme.of] to inherit the enclosing pane's background colour
+/// instead of hard-coding a colour token.
+class AppPaneTheme extends InheritedWidget {
+  /// The resolved background colour of the enclosing panel.
+  final Color color;
+
+  const AppPaneTheme({super.key, required this.color, required super.child});
+
+  /// Returns the [AppPaneTheme] from the nearest ancestor, or `null`
+  /// if no panel is above this widget.
+  static AppPaneTheme? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<AppPaneTheme>();
+  }
+
+  /// Returns the resolved panel colour, falling back to
+  /// [ColorScheme.surface] when no [AppPanel] is above this widget.
+  static Color of(BuildContext context) {
+    return maybeOf(context)?.color ?? Theme.of(context).colorScheme.surface;
+  }
+
+  @override
+  bool updateShouldNotify(AppPaneTheme oldWidget) => color != oldWidget.color;
+}
+
 class AppPanel extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -385,21 +413,36 @@ class AppPanel extends StatelessWidget {
     this.radius = kAppPanelRadius,
   }) : tone = AppPanelTone.secondary;
 
+  /// Resolves the effective background colour for the given [tone]
+  /// and optional explicit [color] override.
+  static Color resolveColor(
+    BuildContext context, {
+    Color? color,
+    AppPanelTone tone = AppPanelTone.secondary,
+  }) {
+    return color ??
+        switch (tone) {
+          AppPanelTone.primary => Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHigh,
+          AppPanelTone.secondary => Theme.of(
+            context,
+          ).colorScheme.surfaceContainer,
+        };
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final resolvedColor =
-        color ??
-        switch (tone) {
-          AppPanelTone.primary => theme.colorScheme.surfaceContainerHigh,
-          AppPanelTone.secondary => theme.colorScheme.surfaceContainer,
-        };
+    final resolvedColor = resolveColor(context, color: color, tone: tone);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: Material(
+      child: AppPaneTheme(
         color: resolvedColor,
-        child: Padding(padding: padding, child: child),
+        child: Material(
+          color: resolvedColor,
+          child: Padding(padding: padding, child: child),
+        ),
       ),
     );
   }
@@ -593,10 +636,19 @@ class AppPaneLayout extends StatelessWidget {
   final List<AppPane> panes;
   final double gap;
 
+  /// The total flex denominator for the horizontal layout.
+  ///
+  /// When set, if the sum of pane flex values is less than [totalFlex],
+  /// the remaining flex is filled with empty space.  This lets a single
+  /// pane occupy a fraction of the row — e.g. `totalFlex: 5` with one
+  /// `flex: 2` pane gives it 2/5 of the width.
+  final int? totalFlex;
+
   const AppPaneLayout({
     super.key,
     required this.panes,
     this.gap = kAppPanelGap,
+    this.totalFlex,
   });
 
   @override
@@ -608,15 +660,21 @@ class AppPaneLayout extends StatelessWidget {
     if (isHorizontal) {
       final children = <Widget>[];
 
+      var flexSum = 0;
       for (var i = 0; i < panes.length; i++) {
         final pane = panes[i];
         final paneChild = pane.width != null
             ? SizedBox(width: pane.width, child: pane)
             : Expanded(flex: pane.flex ?? 1, child: pane);
+        if (pane.width == null) flexSum += pane.flex ?? 1;
         children.add(paneChild);
         if (i < panes.length - 1) {
           children.add(SizedBox(width: gap));
         }
+      }
+
+      if (totalFlex != null && flexSum < totalFlex!) {
+        children.add(Spacer(flex: totalFlex! - flexSum));
       }
 
       return Row(

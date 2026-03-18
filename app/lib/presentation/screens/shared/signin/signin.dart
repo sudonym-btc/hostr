@@ -107,7 +107,6 @@ class SignInScreenState extends State<SignInScreen> {
 
   Widget _buildContent(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
 
     return CustomPadding(
       child: Column(
@@ -149,36 +148,23 @@ class SignInScreenState extends State<SignInScreen> {
             ),
           ),
           Gap.vertical.custom(kSpace5),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              key: const ValueKey('login'),
-              onPressed: _isValidInput ? _handleSignin : null,
-              child: Text(l10n.signIn),
-            ),
-          ),
-          Gap.vertical.md(),
           Row(
             children: [
-              const Expanded(child: SizedBox.shrink()),
-              CustomPadding.horizontal.md(
-                child: Text(
-                  'OR',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              Expanded(
+                child: FilledButton(
+                  key: const ValueKey('login'),
+                  onPressed: _isValidInput ? _handleSignin : null,
+                  child: Text(l10n.signIn),
                 ),
               ),
-              const Expanded(child: SizedBox.shrink()),
+              Gap.horizontal.sm(),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _handleSignup,
+                  child: Text(l10n.signUp),
+                ),
+              ),
             ],
-          ),
-          Gap.vertical.md(),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: _handleSignup,
-              child: Text(l10n.signUp),
-            ),
           ),
           const Spacer(flex: 3),
         ],
