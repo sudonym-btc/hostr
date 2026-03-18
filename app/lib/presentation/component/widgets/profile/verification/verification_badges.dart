@@ -52,7 +52,7 @@ class Nip05Badge extends StatelessWidget {
       return VerificationTile(
         icon: Icons.badge_outlined,
         iconColor: colorScheme.outline,
-        title: 'NIP-05',
+        title: 'Nostr address',
         subtitle: 'Not set',
       );
     }

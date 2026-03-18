@@ -31,6 +31,8 @@ class _ImageUploadState extends State<ImageUpload> {
   late final PageController _pageController;
   int _currentPage = 0;
 
+  bool get _isSingleImageMode => widget.controller.maxImages == 1;
+
   static final Set<PointerDeviceKind> _dragDevices = {
     PointerDeviceKind.touch,
     PointerDeviceKind.mouse,
@@ -126,115 +128,117 @@ class _ImageUploadState extends State<ImageUpload> {
               images.length >= widget.controller.maxImages!;
           final itemCount = atMax ? images.length : images.length + 1;
           _clampPage(itemCount);
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: ScrollConfiguration(
-                    behavior: const MaterialScrollBehavior().copyWith(
-                      dragDevices: _dragDevices,
-                    ),
-                    child: PageView.builder(
-                      key: const PageStorageKey<String>(
-                        'image-upload-carousel',
-                      ),
-                      controller: _pageController,
-                      pageSnapping: true,
-                      physics: const PageScrollPhysics(),
-                      itemCount: itemCount,
-                      onPageChanged: (page) {
-                        if (_currentPage != page) {
-                          setState(() => _currentPage = page);
-                        }
-                      },
-                      itemBuilder: (context, index) {
-                        if (index >= images.length) {
-                          return CustomPadding.horizontal.xs(
-                            child: Material(
-                              color: Theme.of(context).colorScheme.surface,
-                              child: InkWell(
-                                onTap: () => _pickMultipleImages(context),
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  child:
-                                      widget.placeholder ??
-                                      _defaultPlaceholder(context),
-                                ),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: ScrollConfiguration(
+                  behavior: const MaterialScrollBehavior().copyWith(
+                    dragDevices: _dragDevices,
+                  ),
+                  child: PageView.builder(
+                    key: const PageStorageKey<String>('image-upload-carousel'),
+                    controller: _pageController,
+                    pageSnapping: true,
+                    physics: const PageScrollPhysics(),
+                    padEnds: !_isSingleImageMode,
+                    itemCount: itemCount,
+                    onPageChanged: (page) {
+                      if (_currentPage != page) {
+                        setState(() => _currentPage = page);
+                      }
+                    },
+                    itemBuilder: (context, index) {
+                      if (index >= images.length) {
+                        final placeholder = Material(
+                          color: Theme.of(context).colorScheme.surface,
+                          child: InkWell(
+                            onTap: () => _pickMultipleImages(context),
+                            child: Container(
+                              alignment: Alignment.center,
+                              child:
+                                  widget.placeholder ??
+                                  _defaultPlaceholder(context),
+                            ),
+                          ),
+                        );
+                        return _isSingleImageMode
+                            ? placeholder
+                            : CustomPadding.horizontal.xs(child: placeholder);
+                      }
+
+                      final image = images[index];
+                      final uploading = widget.controller.isImageUploading(
+                        index,
+                      );
+                      final error = widget.controller.imageError(index);
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (image.previewBytes != null)
+                            _LocalImagePreview(
+                              bytes: image.previewBytes!,
+                              filePath: image.file?.path,
+                            ),
+                          if (image.previewBytes == null && image.file != null)
+                            const IgnorePointer(
+                              child: Center(child: AppLoadingIndicator.small()),
+                            ),
+                          if (image.file == null && image.path != null)
+                            BlossomImage(
+                              image: image.path!,
+                              pubkey: widget.pubkey,
+                            ),
+                          if (uploading)
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: const _UploadShimmerOverlay(),
                               ),
                             ),
-                          );
-                        }
-
-                        final image = images[index];
-                        final uploading = widget.controller.isImageUploading(
-                          index,
-                        );
-                        final error = widget.controller.imageError(index);
-                        return Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            if (image.previewBytes != null)
-                              _LocalImagePreview(
-                                bytes: image.previewBytes!,
-                                filePath: image.file?.path,
+                          if (error != null)
+                            Positioned.fill(
+                              child: _UploadErrorOverlay(
+                                error: error,
+                                onRetry: () => context
+                                    .read<ImagePickerCubit>()
+                                    .retryUpload(index),
                               ),
-                            if (image.previewBytes == null &&
-                                image.file != null)
-                              const IgnorePointer(
-                                child: Center(
-                                  child: AppLoadingIndicator.small(),
-                                ),
-                              ),
-                            if (image.file == null && image.path != null)
-                              BlossomImage(
-                                image: image.path!,
-                                pubkey: widget.pubkey,
-                              ),
-                            if (uploading)
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  child: const _UploadShimmerOverlay(),
-                                ),
-                              ),
-                            if (error != null)
-                              Positioned.fill(
-                                child: _UploadErrorOverlay(
-                                  error: error,
-                                  onRetry: () => context
-                                      .read<ImagePickerCubit>()
-                                      .retryUpload(index),
-                                ),
-                              ),
-                            Positioned(
-                              top: kSpace2,
-                              right: kSpace3,
-                              child: SafeArea(
-                                bottom: false,
-                                left: false,
-                                child: GestureDetector(
-                                  onTap: () => context
-                                      .read<ImagePickerCubit>()
-                                      .removeImage(index),
-                                  child: AppAvatar.sm(
-                                    icon: Icons.close,
+                            ),
+                          Positioned(
+                            top: kSpace2,
+                            right: kSpace3,
+                            child: SafeArea(
+                              bottom: false,
+                              left: false,
+                              child: GestureDetector(
+                                onTap: () => context
+                                    .read<ImagePickerCubit>()
+                                    .removeImage(index),
+                                child: IconTheme(
+                                  data: IconThemeData(
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.surface,
                                   ),
+                                  child: AppAvatar.sm(
+                                    icon: Icons.close,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                  ),
                                 ),
                               ),
                             ),
-                          ],
-                        );
-                      },
-                    ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
-                // SizedBox(height: kDefaultPadding.toDouble()),
-                // buildButtons(context),
-              ],
-            ),
+              ),
+              // SizedBox(height: kDefaultPadding.toDouble()),
+              // buildButtons(context),
+            ],
           );
         },
       ),

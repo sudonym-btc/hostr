@@ -30,7 +30,6 @@ class InboxScreen extends StatelessWidget {
               panes: [
                 AppPane(
                   flex: 2,
-                  panelTone: AppPanelTone.primary,
                   appBarBuilder: (context) => AppBar(
                     automaticallyImplyLeading: false,
                     title: Text(AppLocalizations.of(context)!.inbox),

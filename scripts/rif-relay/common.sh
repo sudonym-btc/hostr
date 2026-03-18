@@ -182,8 +182,83 @@ compose_run_rif_relay() {
         "$@" --entrypoint /bin/bash rif-relay -lc "$command"
 }
 
+relay_admin_private_key_secret_name() {
+    printf '%s\n' "${RIF_RELAY_ADMIN_PRIVATE_KEY_SECRET_NAME:-RIF_RELAY_ADMIN_PRIVATE_KEY}"
+}
+
+relay_default_gcloud_project_id_for_environment() {
+    local environment="${1:-${HOSTR_ENVIRONMENT:-}}"
+    local tfvars_file=""
+
+    case "$environment" in
+        staging)
+            tfvars_file="$REPO_ROOT/infrastructure/var/staging.tfvars"
+            ;;
+        prod)
+            tfvars_file="$REPO_ROOT/infrastructure/var/production.tfvars"
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+
+    if [ -f "$tfvars_file" ]; then
+        awk -F '"' '/^[[:space:]]*project_id[[:space:]]*=/{print $2; exit}' "$tfvars_file"
+    fi
+}
+
+relay_gcloud_project_id() {
+    local project_id="${RIF_RELAY_ADMIN_PRIVATE_KEY_GCP_PROJECT:-${GOOGLE_CLOUD_PROJECT:-${GCLOUD_PROJECT:-${GCP_PROJECT:-${PROJECT_ID:-}}}}}"
+
+    if [ -n "$project_id" ]; then
+        printf '%s\n' "$project_id"
+        return
+    fi
+
+    project_id="$(relay_default_gcloud_project_id_for_environment)"
+    if [ -n "$project_id" ]; then
+        printf '%s\n' "$project_id"
+        return
+    fi
+
+    if command -v gcloud >/dev/null 2>&1; then
+        project_id="$(gcloud config get-value project 2>/dev/null || true)"
+        project_id="${project_id//$'\r'/}"
+        project_id="${project_id//$'\n'/}"
+    fi
+
+    printf '%s\n' "$project_id"
+}
+
+relay_admin_private_key_from_gcloud() {
+    local script_name="${1:-$0}"
+    local secret_name
+    local project_id
+
+    secret_name="$(relay_admin_private_key_secret_name)"
+    project_id="$(relay_gcloud_project_id)"
+
+    if ! command -v gcloud >/dev/null 2>&1; then
+        echo "gcloud CLI is required to fetch $secret_name for ${script_name}" >&2
+        return 69
+    fi
+
+    if [ -z "$project_id" ]; then
+        echo "Set RIF_RELAY_ADMIN_PRIVATE_KEY_GCP_PROJECT, GOOGLE_CLOUD_PROJECT, GCLOUD_PROJECT, GCP_PROJECT, or PROJECT_ID before running ${script_name}" >&2
+        return 69
+    fi
+
+    gcloud secrets versions access latest \
+        --secret="$secret_name" \
+        --project="$project_id" | tr -d '\r\n'
+}
+
 relay_admin_private_key() {
     local private_key="${RIF_RELAY_ADMIN_PRIVATE_KEY:-${REGISTER_PRIVATE_KEY:-}}"
+
+    if [ -z "$private_key" ] && { [ "${HOSTR_ENVIRONMENT:-}" = "staging" ] || [ "${HOSTR_ENVIRONMENT:-}" = "prod" ]; }; then
+        private_key="$(relay_admin_private_key_from_gcloud "${1:-$0}")" || return $?
+    fi
 
     if [ -z "$private_key" ]; then
         echo "Set RIF_RELAY_ADMIN_PRIVATE_KEY or REGISTER_PRIVATE_KEY before running ${1:-$0}" >&2

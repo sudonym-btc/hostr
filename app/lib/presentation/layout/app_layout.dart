@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
@@ -178,136 +176,6 @@ int resolveAppNavigationIndex({
     (destination) => destination.route.routeName == targetRouteName,
   );
   return selectedIndex < 0 ? 0 : selectedIndex;
-}
-
-class AppWideNavigationScaffold extends StatelessWidget {
-  final List<AppNavigationDestination> destinations;
-  final int selectedIndex;
-  final ValueChanged<int> onDestinationSelected;
-  final Widget child;
-
-  const AppWideNavigationScaffold({
-    super.key,
-    required this.destinations,
-    required this.selectedIndex,
-    required this.onDestinationSelected,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
-    final theme = Theme.of(context);
-    final navWidth = kAppSidebarWidth;
-    final safeSelectedIndex = min(
-      max(0, selectedIndex),
-      max(0, destinations.length - 1),
-    );
-
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: ColoredBox(
-        color: theme.scaffoldBackgroundColor,
-        child: SafeArea(
-          bottom: false,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: layout.shellMaxWidth),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: navWidth,
-                    child: AppPanel(
-                      color: Colors.transparent,
-                      // padding: const EdgeInsets.all(kSpace5),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: ListView.separated(
-                              padding: EdgeInsets.zero,
-                              itemCount: destinations.length,
-                              itemBuilder: (context, index) {
-                                final destination = destinations[index];
-                                return _AppWideNavigationItem(
-                                  label: destination.label,
-                                  icon: destination.icon,
-                                  selected: index == safeSelectedIndex,
-                                  onTap: () => onDestinationSelected(index),
-                                );
-                              },
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(height: kSpace2),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Expanded(child: child),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AppWideNavigationItem extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _AppWideNavigationItem({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final backgroundColor = selected
-        ? theme.colorScheme.surfaceContainerHighest
-        : Colors.transparent;
-    final foregroundColor = selected
-        ? theme.colorScheme.onSurface
-        : theme.colorScheme.onSurfaceVariant;
-
-    return Material(
-      color: backgroundColor,
-      borderRadius: BorderRadius.circular(kAppNavBarItemRadius),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(kAppNavBarItemRadius),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: kSpace4,
-            vertical: kSpace3,
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: foregroundColor),
-              const SizedBox(width: kSpace3),
-              Expanded(
-                child: Text(
-                  label,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: foregroundColor,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class AppPageGutter extends StatelessWidget {
@@ -510,6 +378,26 @@ class AppPanel extends StatelessWidget {
 
 enum AppPanelTone { primary, secondary }
 
+/// Controls how [AppPaneLayout] assigns background colours to panes on
+/// expanded (web) viewports.
+enum AppPaneColorMode {
+  /// Assigns decreasing surface-container tones by pane index.
+  /// First pane → [surfaceContainerHigh], second → [surfaceContainer], etc.
+  autoStepped,
+
+  /// All panes are transparent — no background is applied by the layout.
+  flat,
+}
+
+/// Controls the stacked (compact / mobile) viewport background behaviour.
+enum AppPaneStackMode {
+  /// Panes are transparent; the single [Scaffold] background shows through.
+  flat,
+
+  /// Each pane paints the same stepped colour it would receive on web.
+  tinted,
+}
+
 enum AppPaneContentAlignment { start, center }
 
 class AppPane extends StatelessWidget {
@@ -522,12 +410,21 @@ class AppPane extends StatelessWidget {
   final bool promoteChromeWhenStacked;
   final bool showWhenStacked;
   final Color? color;
-  final AppPanelTone panelTone;
   final double radius;
   final EdgeInsetsGeometry padding;
   final double? maxWidth;
   final AppPaneContentAlignment alignment;
   final bool usePanel;
+
+  /// When `true` and the pane has bounded height (expanded viewport),
+  /// its content is wrapped in a [SingleChildScrollView] so it scrolls
+  /// independently.
+  ///
+  /// Leave `false` (the default) for panes that manage their own
+  /// scrolling (e.g. contain a [ListView]) or use [Expanded] internally.
+  /// Panes with a [sliverAppBarBuilder] are always scrollable regardless
+  /// of this flag.
+  final bool scrollable;
 
   const AppPane({
     super.key,
@@ -540,12 +437,12 @@ class AppPane extends StatelessWidget {
     this.promoteChromeWhenStacked = true,
     this.showWhenStacked = true,
     this.color,
-    this.panelTone = AppPanelTone.secondary,
     this.radius = kAppPanelRadius,
     this.padding = EdgeInsets.zero,
     this.maxWidth,
     this.alignment = AppPaneContentAlignment.start,
     this.usePanel = true,
+    this.scrollable = false,
   }) : assert(
          flex == null || width == null,
          'AppPane cannot define both flex and width.',
@@ -620,6 +517,7 @@ class AppPane extends StatelessWidget {
     required BuildContext context,
     bool includeAppBar = true,
     bool includeBottomBar = true,
+    Color? assignedColor,
   }) {
     Widget buildPaneBody(BoxConstraints constraints) {
       final content = Padding(
@@ -638,15 +536,25 @@ class AppPane extends StatelessWidget {
           sliverAppBarBuilder != null &&
           constraints.hasBoundedHeight;
 
-      final bodyContent = useSliverChrome
-          ? CustomScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              slivers: [
-                _buildSliverAppBar(context),
-                SliverToBoxAdapter(child: content),
-              ],
-            )
-          : content;
+      final Widget bodyContent;
+      if (useSliverChrome) {
+        bodyContent = CustomScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            _buildSliverAppBar(context),
+            SliverToBoxAdapter(child: content),
+          ],
+        );
+      } else if (scrollable && constraints.hasBoundedHeight) {
+        // Opt-in: wrap in a scroll view so this pane scrolls
+        // independently on expanded viewports.
+        bodyContent = SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: content,
+        );
+      } else {
+        bodyContent = content;
+      }
 
       final paneChildren = <Widget>[
         if (!useSliverChrome && includeAppBar && appBarBuilder != null)
@@ -672,23 +580,34 @@ class AppPane extends StatelessWidget {
       },
     );
 
-    if (!usePanel) {
+    final resolvedColor = color ?? assignedColor;
+
+    if (!usePanel || resolvedColor == null) {
+      // Inject AppPaneTheme even without a visual panel so descendants
+      // can call AppPaneTheme.of(context) / .stepped().
+      if (resolvedColor != null) {
+        return AppPaneTheme(color: resolvedColor, child: body);
+      }
       return body;
     }
 
-    if (color != null) {
-      return AppPanel(color: color, radius: radius, child: body);
-    }
-
-    return switch (panelTone) {
-      AppPanelTone.primary => AppPanel.primary(radius: radius, child: body),
-      AppPanelTone.secondary => AppPanel.secondary(radius: radius, child: body),
-    };
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: AppPaneTheme(
+        color: resolvedColor,
+        child: Material(color: resolvedColor, child: body),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return buildPane(context: context);
+    // Standalone usage (outside AppPaneLayout): default to primary tone.
+    return buildPane(
+      context: context,
+      assignedColor:
+          color ?? Theme.of(context).colorScheme.surfaceContainerHigh,
+    );
   }
 }
 
@@ -704,44 +623,91 @@ class AppPaneLayout extends StatelessWidget {
   /// `flex: 2` pane gives it 2/5 of the width.
   final int? totalFlex;
 
+  /// How pane background colours are assigned on expanded (web) viewports.
+  final AppPaneColorMode colorMode;
+
+  /// How pane backgrounds behave when stacked on compact (mobile) viewports.
+  final AppPaneStackMode stackMode;
+
   const AppPaneLayout({
     super.key,
     required this.panes,
     this.gap = kAppPanelGap,
     this.totalFlex,
+    this.colorMode = AppPaneColorMode.autoStepped,
+    this.stackMode = AppPaneStackMode.flat,
   });
+
+  /// Resolves the background colour for the pane at [index].
+  ///
+  /// Returns `null` when [colorMode] is [AppPaneColorMode.flat].
+  Color? _resolveColor(BuildContext context, int index) {
+    switch (colorMode) {
+      case AppPaneColorMode.autoStepped:
+        final scale = AppPaneTheme._scale(context);
+        // One step below the shell (surfaceContainerHighest) and descend.
+        final level = (scale.length - 2 - index).clamp(0, scale.length - 1);
+        return scale[level];
+      case AppPaneColorMode.flat:
+        return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final layout = AppLayoutSpec.of(context);
-    final isHorizontal = layout.isExpanded;
-    final stackedPanes = panes.where((pane) => pane.showWhenStacked).toList();
+    return layout.isExpanded
+        ? _buildHorizontal(context)
+        : _buildStacked(context);
+  }
 
-    if (isHorizontal) {
-      final children = <Widget>[];
+  // ---------------------------------------------------------------------------
+  // Expanded (web) — side-by-side, each pane scrolls independently.
+  // ---------------------------------------------------------------------------
 
-      var flexSum = 0;
-      for (var i = 0; i < panes.length; i++) {
-        final pane = panes[i];
-        final paneChild = pane.width != null
-            ? SizedBox(width: pane.width, child: pane)
-            : Expanded(flex: pane.flex ?? 1, child: pane);
-        if (pane.width == null) flexSum += pane.flex ?? 1;
-        children.add(paneChild);
-        if (i < panes.length - 1) {
-          children.add(SizedBox(width: gap));
-        }
+  Widget _buildHorizontal(BuildContext context) {
+    final children = <Widget>[];
+    var flexSum = 0;
+
+    for (var i = 0; i < panes.length; i++) {
+      final pane = panes[i];
+      final assignedColor = _resolveColor(context, i);
+      final paneWidget = pane.buildPane(
+        context: context,
+        assignedColor: assignedColor,
+      );
+
+      if (pane.width != null) {
+        children.add(SizedBox(width: pane.width, child: paneWidget));
+      } else {
+        children.add(Expanded(flex: pane.flex ?? 1, child: paneWidget));
+        flexSum += pane.flex ?? 1;
       }
-
-      if (totalFlex != null && flexSum < totalFlex!) {
-        children.add(Spacer(flex: totalFlex! - flexSum));
+      if (i < panes.length - 1) {
+        children.add(SizedBox(width: gap));
       }
+    }
 
-      return Row(
+    if (totalFlex != null && flexSum < totalFlex!) {
+      children.add(Spacer(flex: totalFlex! - flexSum));
+    }
+
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: children,
-      );
-    }
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Compact (mobile) — stacked vertically in a single scroll container.
+  // ---------------------------------------------------------------------------
+
+  Widget _buildStacked(BuildContext context) {
+    final stackedPanes = panes.where((pane) => pane.showWhenStacked).toList();
+    final useTinted = stackMode == AppPaneStackMode.tinted;
 
     final promotedPane = stackedPanes
         .where((pane) => pane.promoteChromeWhenStacked)
@@ -752,11 +718,20 @@ class AppPaneLayout extends StatelessWidget {
     for (var i = 0; i < stackedPanes.length; i++) {
       final pane = stackedPanes[i];
       final suppressChrome = identical(pane, promotedPane);
+
+      // In tinted mode, assign the same stepped colour as on web.
+      Color? stackedColor;
+      if (useTinted) {
+        final originalIndex = panes.indexOf(pane);
+        stackedColor = _resolveColor(context, originalIndex);
+      }
+
       children.add(
         pane.buildPane(
           context: context,
           includeAppBar: !suppressChrome,
           includeBottomBar: !suppressChrome,
+          assignedColor: stackedColor,
         ),
       );
       if (i < stackedPanes.length - 1) {
@@ -764,32 +739,49 @@ class AppPaneLayout extends StatelessWidget {
       }
     }
 
-    return Scaffold(
-      body: Column(
+    Widget body;
+
+    if (promotedSliverAppBar != null) {
+      body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (promotedSliverAppBar == null &&
-              promotedPane?.appBarBuilder != null)
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                promotedPane!._buildSliverAppBar(context),
+                SliverList(delegate: SliverChildListDelegate(children)),
+              ],
+            ),
+          ),
+          if (promotedPane.bottomBar != null) promotedPane.bottomBar!,
+        ],
+      );
+    } else {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (promotedPane?.appBarBuilder != null)
             promotedPane!._buildAppBar(context),
           Expanded(
-            child: promotedSliverAppBar != null
-                ? CustomScrollView(
-                    slivers: [
-                      promotedPane!._buildSliverAppBar(context),
-                      SliverList(delegate: SliverChildListDelegate(children)),
-                    ],
-                  )
-                : SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: children,
-                    ),
-                  ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
+            ),
           ),
           if (promotedPane?.bottomBar != null) promotedPane!.bottomBar!,
         ],
-      ),
+      );
+    }
+
+    // Inject a baseline AppPaneTheme so descendants always have a reference.
+    // Wrap in Material so ink effects (InkWell, etc.) work without a Scaffold.
+    final surfaceColor = Theme.of(context).colorScheme.surface;
+    return AppPaneTheme(
+      color: surfaceColor,
+      child: Material(color: surfaceColor, child: body),
     );
   }
 }

@@ -10,7 +10,7 @@ load_managed_relay_env "$ENVIRONMENT" "$0"
 ADMIN_PRIVATE_KEY="$(relay_admin_private_key "$0")"
 WORKDIR="$(relay_wind_down_workdir)"
 
-compose_run_rif_relay 'node <<"NODE"
+compose_run_rif_relay 'cd /rif-relay-server && node <<"NODE"
 const fs = require("fs");
 const path = require("path");
 const { BigNumber, Contract, Wallet, providers, utils, constants } = require("ethers");

@@ -264,7 +264,6 @@ class SearchViewState extends State<SearchView> {
         panes: [
           AppPane(
             flex: 2,
-            panelTone: AppPanelTone.primary,
             child: SafeArea(
               top: false,
               child: Column(
