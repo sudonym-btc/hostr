@@ -67,7 +67,7 @@ class NostrWalletConnectConnectionTileView extends StatelessWidget {
     if (state == NostrWalletConnectConnectionUiState.connected) {
       return ListTile(
         contentPadding: EdgeInsets.all(0),
-        leading: CircleAvatar(backgroundColor: avatarColor ?? Colors.orange),
+        leading: AppAvatar.md(color: avatarColor ?? Colors.orange),
         trailing: trailing,
         title: Text(alias ?? 'Unknown wallet'),
         subtitle: Text(

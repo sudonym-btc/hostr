@@ -28,8 +28,6 @@ class SaveBottomBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: CustomPadding(
-          top: 0,
-          bottom: 0,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [

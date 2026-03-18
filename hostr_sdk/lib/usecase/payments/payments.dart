@@ -4,6 +4,7 @@ import 'package:ndk/data_layer/data_sources/http_request.dart';
 import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
 import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 
+import '../../config.dart';
 import '../../util/custom_logger.dart';
 import '../auth/auth.dart';
 import '../metadata/metadata.dart';
@@ -22,6 +23,7 @@ class Payments {
   late final Nwc _nwc;
   final MetadataUseCase _metadata;
   final Auth _auth;
+  final HostrConfig _config;
 
   Payments({
     required Zaps zaps,
@@ -29,10 +31,12 @@ class Payments {
     required CustomLogger logger,
     required MetadataUseCase metadata,
     required Auth auth,
+    required HostrConfig config,
   }) : _zaps = zaps,
        _nwc = nwc,
        _metadata = metadata,
        _auth = auth,
+       _config = config,
        _logger = logger.scope('payments');
 
   Future<String?> getMyInvoice(
@@ -118,6 +122,8 @@ class Payments {
         params: params,
         nwc: _nwc,
         zaps: _zaps,
+        auth: _auth,
+        bootstrapRelays: _config.bootstrapRelays,
         logger: _logger,
       );
     } else {

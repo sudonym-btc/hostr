@@ -41,6 +41,11 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
 
   final Widget Function()? emptyBuilder;
 
+  /// When `true` the [resultCountBuilder] header is placed above the
+  /// scrollable list so it stays visible while scrolling. When `false`
+  /// (the default) the header scrolls with the list items.
+  final bool stickyHeader;
+
   const ListWidget({
     super.key,
     required this.builder,
@@ -53,6 +58,7 @@ class ListWidget<T extends Nip01Event> extends StatefulWidget {
     this.resultCountBuilder,
     this.itemPositionsListener,
     this.focusedItemId,
+    this.stickyHeader = false,
   });
 
   @override
@@ -72,6 +78,14 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
   StreamSubscription<double>? _offsetSub;
   Timer? _snapTimer;
   bool _isProgrammaticScroll = false;
+
+  /// Number of non-data items at the top of the list. When [stickyHeader]
+  /// is active the header lives outside the `ScrollablePositionedList` so
+  /// this is 0; otherwise 1 when a [resultCountBuilder] is provided.
+  int get _headerCount {
+    if (widget.resultCountBuilder == null) return 0;
+    return widget.stickyHeader ? 0 : 1;
+  }
 
   @override
   void initState() {
@@ -110,8 +124,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
 
     final cubit = context.read<ListCubit<T>>();
     final results = cubit.state.results;
-    final hasHeader = widget.resultCountBuilder != null;
-    final headerCount = hasHeader ? 1 : 0;
+    final headerCount = _headerCount;
 
     final dataIndex = results.indexWhere((item) => item.id == id);
     if (dataIndex < 0) return;
@@ -155,8 +168,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
     final topItem = visible.first;
 
     final cubit = context.read<ListCubit<T>>();
-    final hasHeader = widget.resultCountBuilder != null;
-    final headerCount = hasHeader ? 1 : 0;
+    final headerCount = _headerCount;
     final maxIndex = headerCount + cubit.state.results.length - 1;
 
     // Already well-aligned – just notify the focused item.
@@ -196,8 +208,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
 
     final cubit = context.read<ListCubit<T>>();
     final state = cubit.state;
-    final hasHeader = widget.resultCountBuilder != null;
-    final headerCount = hasHeader ? 1 : 0;
+    final headerCount = _headerCount;
     final totalItems = headerCount + state.results.length;
 
     // Check if the last data item (or near-last) is visible.
@@ -250,14 +261,16 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
 
         final isLoading = state.synching || state.fetching;
         final hasResultCountHeader = widget.resultCountBuilder != null;
-        final headerCount = hasResultCountHeader ? 1 : 0;
+        final useSticky = widget.stickyHeader && hasResultCountHeader;
+        // When sticky, the header lives outside the list so items start at 0.
+        final headerCount = (hasResultCountHeader && !useSticky) ? 1 : 0;
         final itemCount =
             headerCount + state.results.length + (isLoading ? 1 : 0);
         final bottomInset = widget.reserveBottomNavigationBarSpace
             ? MediaQuery.paddingOf(context).bottom + kBottomNavigationBarHeight
             : 0.0;
 
-        return ScrollablePositionedList.builder(
+        final list = ScrollablePositionedList.builder(
           physics: const AlwaysScrollableScrollPhysics(),
           itemScrollController: _itemScrollController,
           itemPositionsListener: _itemPositionsListener,
@@ -268,8 +281,8 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
           ),
           itemCount: itemCount,
           itemBuilder: (context, index) {
-            // Result count header as first scrollable item
-            if (hasResultCountHeader && index == 0) {
+            // Result count header as first scrollable item (non-sticky mode)
+            if (hasResultCountHeader && !useSticky && index == 0) {
               return widget.resultCountBuilder!(
                 state.results.length,
                 state.hasMore ?? false,
@@ -296,6 +309,19 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
                   : widget.builder(item),
             );
           },
+        );
+
+        if (!useSticky) return list;
+
+        // Sticky mode: header sits above the scrollable list.
+        return Column(
+          children: [
+            widget.resultCountBuilder!(
+              state.results.length,
+              state.hasMore ?? false,
+            ),
+            Expanded(child: list),
+          ],
         );
       },
     );

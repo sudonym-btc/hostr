@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_list_item.dart';
 import 'package:models/main.dart';
 
 class EscrowListItemWidget extends StatefulWidget {
@@ -15,9 +16,8 @@ class EscrowListItemWidgetState extends State<EscrowListItemWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.all(0),
-      leading: Icon(Icons.handshake),
+    return AppListItem(
+      leading: AppListItemAvatar.icon(Icons.handshake),
       title: Text(AppLocalizations.of(context)!.escrow),
       subtitle: Text(AppLocalizations.of(context)!.escrow),
       trailing: Checkbox(

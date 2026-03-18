@@ -216,18 +216,11 @@ class _ImageUploadState extends State<ImageUpload> {
                                   onTap: () => context
                                       .read<ImagePickerCubit>()
                                       .removeImage(index),
-                                  child: CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: Theme.of(
+                                  child: AppAvatar.sm(
+                                    icon: Icons.close,
+                                    color: Theme.of(
                                       context,
                                     ).colorScheme.surface,
-                                    child: Icon(
-                                      Icons.close,
-                                      size: kIconSm,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                    ),
                                   ),
                                 ),
                               ),

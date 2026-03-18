@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
 import 'package:models/main.dart';
 
 class ThreadHeaderWidget extends StatelessWidget {
@@ -115,22 +115,10 @@ class ProfileAvatars extends StatelessWidget {
                     onTap: onProfileTap != null
                         ? () => onProfileTap!(counterparty)
                         : null,
-                    child: CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      child: counterparty.metadata.picture != null
-                          ? ClipOval(
-                              child: BlossomImage(
-                                image: counterparty.metadata.picture!,
-                                pubkey: counterparty.pubKey,
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          : Text(counterparty.metadata.name?[0] ?? ''),
+                    child: AppAvatar.md(
+                      image: counterparty.metadata.picture,
+                      pubkey: counterparty.pubKey,
+                      label: counterparty.metadata.name ?? '',
                     ),
                   ),
                 ),

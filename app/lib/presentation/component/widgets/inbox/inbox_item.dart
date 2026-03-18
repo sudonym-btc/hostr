@@ -1,14 +1,11 @@
 import 'dart:async';
 
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/main.dart';
-import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -40,10 +37,8 @@ class InboxItemView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListTile(
-      tileColor: selected
-          ? theme.colorScheme.surfaceContainerHighest
-          : Colors.transparent,
+    return AppListItem(
+      selected: selected,
       contentPadding: EdgeInsets.symmetric(
         horizontal: kDefaultPadding.toDouble(),
         vertical: 0,
@@ -79,8 +74,14 @@ class InboxItemView extends StatelessWidget {
 class InboxItem extends StatelessWidget {
   final Thread thread;
   final bool selected;
+  final ValueChanged<String> onSelect;
 
-  const InboxItem({super.key, required this.thread, this.selected = false});
+  const InboxItem({
+    super.key,
+    required this.thread,
+    this.selected = false,
+    required this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -121,18 +122,7 @@ class InboxItem extends StatelessWidget {
                 getIt<Hostr>().auth.getActiveKey().publicKey,
             read: state.threadState.read,
             received: state.threadState.received,
-            onTap: () {
-              final router = AutoRouter.of(context);
-              if (AppLayoutSpec.of(context).showsInboxSplit) {
-                router.navigate(
-                  InboxRoute(children: [ThreadRoute(anchor: thread.anchor)]),
-                );
-                return;
-              }
-              router.navigate(
-                InboxRoute(children: [ThreadRoute(anchor: thread.anchor)]),
-              );
-            },
+            onTap: () => onSelect(thread.anchor),
           );
         },
       ),

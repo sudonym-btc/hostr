@@ -7,16 +7,22 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/app.dart';
 import 'package:hostr/export.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
-/// The main navigation shell of the app.
+/// The navigation-chrome shell of the app.
 ///
-/// Provides the bottom navigation bar and switches between different
-/// [AutoTabsScaffold] configurations based on auth state and user mode
-/// (guest vs host). This is not a screen with its own content — it is
-/// the structural wrapper that hosts tab screens like Search, Trips, etc.
+/// Wraps all content that appears after the startup gate. Renders:
+///   • a sidebar on wide viewports (always visible, even for standalone routes)
+///   • a bottom navigation bar on compact viewports (only when the active
+///     child is [TabShellRoute] — hidden for standalone routes like listing
+///     detail or edit-profile)
+///
+/// Tab persistence is handled by the child [TabShellScreen], which manages
+/// an [AutoTabsRouter] + [IndexedStack]. This screen only owns navigation
+/// chrome and delegates tab switching to that inner router.
 @RoutePage()
 class AppShellScreen extends StatefulWidget {
   const AppShellScreen({super.key});
@@ -28,6 +34,7 @@ class AppShellScreen extends StatefulWidget {
 class _AppShellScreenState extends State<AppShellScreen>
     with SingleTickerProviderStateMixin {
   static const _itemTopPadding = kDefaultPadding / 2;
+
   late final AnimationController _navController = AnimationController(
     vsync: this,
     duration: kAnimationDuration,
@@ -39,7 +46,7 @@ class _AppShellScreenState extends State<AppShellScreen>
   @override
   void initState() {
     super.initState();
-    _authSub = context.read<AuthCubit>().stream.listen((_) => _showNav());
+    _authSub = getIt<Hostr>().auth.authState.listen((_) => _showNav());
     _popSub = MyObserver.onPop.listen((_) => _showNav());
   }
 
@@ -54,6 +61,10 @@ class _AppShellScreenState extends State<AppShellScreen>
   void _showNav() {
     if (mounted) _navController.forward();
   }
+
+  // ---------------------------------------------------------------------------
+  // Bottom nav helpers (compact viewports)
+  // ---------------------------------------------------------------------------
 
   BottomNavigationBarItem _navItem({
     required Widget icon,
@@ -84,7 +95,6 @@ class _AppShellScreenState extends State<AppShellScreen>
           label: destination.label,
         ),
     ];
-    final borderRadius = BorderRadius.circular(0);
 
     return SizeTransition(
       sizeFactor: CurvedAnimation(
@@ -93,7 +103,7 @@ class _AppShellScreenState extends State<AppShellScreen>
       ),
       axisAlignment: -1.0, // pin to top so it collapses downward
       child: ClipRRect(
-        borderRadius: borderRadius,
+        borderRadius: BorderRadius.circular(0),
         child: Container(
           color: navBg,
           child: BottomNavigationBar(
@@ -121,42 +131,94 @@ class _AppShellScreenState extends State<AppShellScreen>
     return false;
   }
 
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  /// Navigate to a tab destination. Always goes through [TabShellRoute] so
+  /// the inner [AutoTabsRouter] handles persistence.
+  void _selectDestination(
+    StackRouter router,
+    List<AppNavigationDestination> destinations,
+    int index,
+  ) {
+    _navController.forward();
+    router.navigate(TabShellRoute(children: [destinations[index].route]));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     return RelayConnectivityBanner(
       child: NwcConnectivityBanner(
         child: BlocListener<ModeCubit, ModeCubitState>(
           listener: (context, state) => _showNav(),
-          child: BlocBuilder<AuthCubit, AuthState>(
-            builder: (context, authState) {
-              final isLoggedIn = authState == const LoggedIn();
+          child: StreamBuilder<AuthState>(
+            stream: getIt<Hostr>().auth.authState,
+            initialData: getIt<Hostr>().auth.authState.value,
+            builder: (context, snapshot) {
+              final isLoggedIn = snapshot.data == const LoggedIn();
 
               return BlocBuilder<ModeCubit, ModeCubitState>(
-                builder: (context, state) {
+                builder: (context, modeState) {
                   final destinations = buildAppNavigationDestinations(
                     isLoggedIn: isLoggedIn,
-                    modeState: state,
+                    modeState: modeState,
                   );
 
-                  return AutoTabsRouter.builder(
-                    key: ValueKey('tabs_$isLoggedIn'),
-                    routes: [
-                      for (final destination in destinations) destination.route,
-                    ],
-                    builder: (context, children, tabsRouter) {
-                      final child = IndexedStack(
-                        index: tabsRouter.activeIndex,
-                        children: children,
-                      );
+                  return AutoRouter(
+                    builder: (context, child) {
+                      final router = AutoRouter.of(context);
+                      final topRouteName = router.topRoute.name;
                       final layout = AppLayoutSpec.of(context);
-                      final bottomNavigationBarTheme = Theme.of(
-                        context,
-                      ).bottomNavigationBarTheme;
-                      final navBg = bottomNavigationBarTheme.backgroundColor!;
 
+                      final isOnTabs = topRouteName == TabShellRoute.name;
+
+                      // Use the deepest route segment for nav-index
+                      // resolution. currentSegments traverses the full
+                      // route hierarchy including pending children, so
+                      // it works on the very first frame — before the
+                      // TabShellScreen widget has built its
+                      // AutoTabsRouter.
+                      final segments = router.currentSegments;
+                      final currentRouteName = segments.isNotEmpty
+                          ? segments.last.name
+                          : topRouteName;
+
+                      final selectedIndex = resolveAppNavigationIndex(
+                        currentRouteName: currentRouteName,
+                        destinations: destinations,
+                        isLoggedIn: isLoggedIn,
+                        modeState: modeState,
+                      );
+
+                      // --- Wide viewport: sidebar always visible ------------
                       if (layout.showsSidebarNavigation) {
-                        return child;
+                        return AppWideNavigationScaffold(
+                          destinations: destinations,
+                          selectedIndex: selectedIndex,
+                          onDestinationSelected: (index) {
+                            _selectDestination(router, destinations, index);
+                          },
+                          child: child,
+                        );
                       }
+
+                      // --- Compact viewport ---------------------------------
+                      // Show bottom nav only when on a tab route.
+                      if (!isOnTabs) return child;
+
+                      final tabsRouter = context.innerRouterOf<TabsRouter>(
+                        TabShellRoute.name,
+                      );
+                      if (tabsRouter == null) return child;
+
+                      final navBg = Theme.of(
+                        context,
+                      ).bottomNavigationBarTheme.backgroundColor!;
 
                       return Scaffold(
                         extendBody: true,

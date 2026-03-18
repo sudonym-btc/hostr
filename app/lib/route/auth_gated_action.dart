@@ -1,43 +1,35 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/route/pending_navigation.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 /// Executes [action] immediately if the user is authenticated.
-/// Otherwise pushes the sign-in → startup gate flow and then
-/// executes [action] once complete.
+/// Otherwise stores the [pendingRoute] in [PendingNavigation] and
+/// pushes the sign-in screen.
 ///
-/// The current page stays in the navigation stack so the user
-/// returns to it naturally after authenticating.
+/// After authentication (and profile completion if needed), the startup
+/// gate will consume the pending route and navigate there.
 ///
 /// Usage:
 /// ```dart
-/// authGatedAction(context, () async {
+/// authGatedAction(context, pendingRoute: ListingRoute(...), action: () async {
 ///   await doSomethingThatRequiresAuth();
 /// });
 /// ```
 Future<void> authGatedAction(
-  BuildContext context,
-  Future<void> Function() action,
-) async {
+  BuildContext context, {
+  required PageRouteInfo pendingRoute,
+  required Future<void> Function() action,
+}) async {
   final hostr = getIt<Hostr>();
   if (hostr.auth.authState.value == const LoggedIn()) {
     await action();
     return;
   }
 
-  // User is not authenticated — push sign-in.
-  // The listing / current page stays in the stack.
   if (!context.mounted) return;
-  AutoRouter.of(context).push(
-    SignInRoute(
-      onSuccess: () {
-        // After sign-in, replace sign-in with the startup gate.
-        // StartupGate will pop back when `popOnComplete` is true,
-        // returning the user to their original page.
-        AutoRouter.of(context).replace(StartupGateRoute(popOnComplete: true));
-      },
-    ),
-  );
+  getIt<PendingNavigation>().set(pendingRoute);
+  AutoRouter.of(context).push(SignInRoute());
 }

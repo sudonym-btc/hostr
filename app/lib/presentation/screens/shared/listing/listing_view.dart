@@ -208,9 +208,9 @@ class ListingViewBody extends StatelessWidget {
   }
 
   Widget _buildPrimaryContent(BuildContext context) {
-    return _BoundedListingPrimaryContent(
-      heroAppBarBuilder: _buildPrimarySliverAppBar,
-      detailsBuilder: _buildDetailsContent,
+    return Padding(
+      padding: kAppPanelPadding,
+      child: _buildDetailsContent(context),
     );
   }
 
@@ -272,9 +272,8 @@ class ListingViewBody extends StatelessWidget {
           AppPane(
             flex: 2,
             panelTone: AppPanelTone.primary,
-            promotedSliverAppBarBuilder: _buildPrimarySliverAppBar,
+            sliverAppBarBuilder: _buildPrimarySliverAppBar,
             bottomBar: reserveBottomBar,
-            promoteChromeWhenStacked: true,
             child: _buildPrimaryContent(context),
           ),
           AppPane(
@@ -290,42 +289,6 @@ class ListingViewBody extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _BoundedListingPrimaryContent extends StatelessWidget {
-  final SliverAppBar Function(BuildContext context) heroAppBarBuilder;
-  final Widget Function(BuildContext context) detailsBuilder;
-
-  const _BoundedListingPrimaryContent({
-    required this.heroAppBarBuilder,
-    required this.detailsBuilder,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.hasBoundedHeight) {
-          return CustomScrollView(
-            slivers: [
-              heroAppBarBuilder(context),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: kAppPanelPadding,
-                  child: detailsBuilder(context),
-                ),
-              ),
-            ],
-          );
-        }
-
-        return Padding(
-          padding: kAppPanelPadding,
-          child: detailsBuilder(context),
-        );
-      },
     );
   }
 }

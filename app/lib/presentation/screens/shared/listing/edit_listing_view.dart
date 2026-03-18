@@ -50,7 +50,7 @@ class EditListingViewState extends State<EditListingView> {
   SliverAppBar _buildHeroSliverAppBar(BuildContext context, Listing listing) {
     return SliverAppBar(
       stretch: true,
-      expandedHeight: MediaQuery.of(context).size.height / 3,
+      expandedHeight: MediaQuery.of(context).size.height / 4,
       flexibleSpace: FlexibleSpaceBar(
         background: ImagesInput(controller: controller, pubkey: listing.pubKey),
       ),
@@ -124,18 +124,11 @@ class EditListingViewState extends State<EditListingView> {
           panes: [
             app_layout.AppPane(
               panelTone: app_layout.AppPanelTone.primary,
-              promotedSliverAppBarBuilder: (context) =>
+              sliverAppBarBuilder: (context) =>
                   _buildHeroSliverAppBar(context, listing),
               bottomBar: bottomBar,
               promoteChromeWhenStacked: true,
-              child: CustomScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                slivers: [
-                  _buildHeroSliverAppBar(context, listing),
-                  SliverToBoxAdapter(child: _buildFormContent(context)),
-                ],
-              ),
+              child: _buildFormContent(context),
             ),
           ],
         ),

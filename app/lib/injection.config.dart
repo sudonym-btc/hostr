@@ -21,6 +21,7 @@ import 'package:hostr/data/sources/h3_engine.dart' as _i175;
 import 'package:hostr/data/sources/image_preloader.dart' as _i776;
 import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
+import 'package:hostr/route/pending_navigation.dart' as _i240;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:models/util/location/h3.dart' as _i854;
 
@@ -38,6 +39,7 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     gh.factory<_i640.ModeStorage>(() => _i640.ModeStorage());
+    gh.singleton<_i240.PendingNavigation>(() => _i240.PendingNavigation());
     gh.lazySingleton<_i776.ImagePreloader>(() => _i776.ImagePreloader());
     gh.factory<_i467.Config>(() => _i292.TestConfig(), registerFor: {_test});
     gh.factory<_i467.Config>(() => _i331.MockConfig(), registerFor: {_mock});

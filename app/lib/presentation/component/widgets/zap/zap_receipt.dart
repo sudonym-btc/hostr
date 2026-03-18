@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/providers/main.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -25,6 +26,7 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
               currency: Currency.BTC,
               value: BigInt.from(widget.zap.amountSats!),
             ),
+            exact: false,
           ),
         ),
         avatar: Icon(Icons.flash_on),
@@ -46,14 +48,11 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
               ),
             ),
           ),
-          avatar: snapshot.data?.metadata.picture != null
-              ? CircleAvatar(
-                  backgroundImage: NetworkImage(
-                    snapshot.data!.metadata.picture!,
-                    webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                  ),
-                )
-              : CircleAvatar(backgroundColor: Colors.grey),
+          avatar: AppAvatar.sm(
+            image: snapshot.data?.metadata.picture,
+            pubkey: widget.zap.sender,
+            label: snapshot.data?.metadata.getName(),
+          ),
         );
       },
     );

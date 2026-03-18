@@ -5,7 +5,6 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
-import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -280,23 +279,10 @@ class _MessageProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final picture = profile?.metadata.picture;
-    final avatar = CircleAvatar(
-      radius: 14,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: picture == null
-          ? Text(
-              name.isNotEmpty ? name[0].toUpperCase() : '?',
-              style: Theme.of(context).textTheme.labelSmall,
-            )
-          : ClipOval(
-              child: BlossomImage(
-                image: picture,
-                pubkey: profile!.pubKey,
-                width: 28,
-                height: 28,
-                fit: BoxFit.cover,
-              ),
-            ),
+    final avatar = AppAvatar.xs(
+      image: picture,
+      pubkey: profile?.pubKey,
+      label: name.isNotEmpty ? name : '?',
     );
     final label = Text(
       '$name · ${formatDateLong(timestamp)}',

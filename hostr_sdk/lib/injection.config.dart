@@ -445,6 +445,7 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i331.CustomLogger>(),
         metadata: gh<_i149.MetadataUseCase>(),
         auth: gh<_i1000.Auth>(),
+        config: gh<_i910.HostrConfig>(),
       ),
     );
     gh.singleton<_i660.Reviews>(

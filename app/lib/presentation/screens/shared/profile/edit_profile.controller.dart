@@ -79,6 +79,7 @@ class EditProfileController extends UpsertFormController {
       getIt<Hostr>().auth.activeKeyPair!.publicKey,
     );
     if (updated != null) {
+      setState(updated);
       getIt<Hostr>().metadata.notifyUpdate(updated);
     }
   }

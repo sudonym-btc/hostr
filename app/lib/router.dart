@@ -51,25 +51,25 @@ class AppRouter extends RootStackRouter {
       page: RootRoute.page,
       initial: true,
       children: [
-        CustomRoute(
-          page: StartupGateRoute.page,
-          path: 'startup',
-          transitionsBuilder: TransitionsBuilders.fadeIn,
-          duration: const Duration(milliseconds: 250),
-          reverseDuration: const Duration(milliseconds: 250),
-        ),
         AutoRoute(
           page: StartupShellRoute.page,
           path: '',
           initial: true,
           children: [
+            /// Navigation-chrome shell.
+            ///
+            /// Always renders the sidebar on wide viewports (even for
+            /// standalone routes). On compact viewports the bottom nav
+            /// is shown only when [TabShellRoute] is the active child.
             AutoRoute(
-              page: WideViewportShellRoute.page,
+              page: AppShellRoute.page,
               initial: true,
               path: '',
               children: [
+                /// Tab persistence layer — [IndexedStack] of destination
+                /// routes. Zero navigation chrome of its own.
                 AutoRoute(
-                  page: AppShellRoute.page,
+                  page: TabShellRoute.page,
                   initial: true,
                   path: '',
                   children: [
@@ -115,11 +115,14 @@ class AppRouter extends RootStackRouter {
                     ),
                   ],
                 ),
+
+                /// Standalone routes — rendered inside AppShellRoute so they
+                /// get the sidebar on wide viewports, but outside TabShellRoute
+                /// so the tab IndexedStack is not involved.
                 AutoRoute(page: ListingRoute.page, path: 'listing/:a'),
                 AutoRoute(
                   page: EditListingRoute.page,
                   path: 'edit-listing/:a?',
-                  guards: [],
                 ),
                 AutoRoute(
                   page: EditProfileRoute.page,

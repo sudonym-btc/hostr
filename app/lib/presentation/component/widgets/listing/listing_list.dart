@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:models/main.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -98,16 +99,6 @@ class _ListingsWidgetState extends State<ListingsWidget> {
     }
   }
 
-  Future<void> _loadNext() async {
-    final cubit = context.read<ListCubit<Listing>>();
-    final state = cubit.state;
-    if (state.fetching || state.synching || state.hasMore == false) {
-      return;
-    }
-
-    await cubit.next();
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocListener<ListCubit<Listing>, ListCubitState>(
@@ -121,20 +112,24 @@ class _ListingsWidgetState extends State<ListingsWidget> {
         scrollToId: widget.scrollToId,
         focusedItemId: widget.focusedItemId,
         itemPositionsListener: _itemPositionsListener,
-        resultCountBuilder: (count, hasMore) => CustomPadding(
-          bottom: 0,
-          top: 0,
-          child: Row(
-            children: [
-              Text(
-                AppLocalizations.of(
-                  context,
-                )!.searchResultCount(count, hasMore ? 'true' : 'false'),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ],
+        stickyHeader: AppLayoutSpec.of(context).isExpanded,
+        resultCountBuilder: (count, hasMore) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          child: CustomPadding(
+            // bottom: 0,
+            // top: 0,
+            child: Row(
+              children: [
+                Text(
+                  AppLocalizations.of(
+                    context,
+                  )!.searchResultCount(count, hasMore ? 'true' : 'false'),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         builder: (el) {

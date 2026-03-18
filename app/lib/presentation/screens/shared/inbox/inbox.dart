@@ -30,16 +30,24 @@ class InboxScreen extends StatelessWidget {
               child: AppPaneLayout(
                 panes: [
                   AppPane(
-                    width: kAppInboxListPaneWidth,
+                    flex: 2,
                     panelTone: AppPanelTone.primary,
-                    appBar: AppBar(
+                    appBarBuilder: (context) => AppBar(
+                      automaticallyImplyLeading: false,
                       title: Text(AppLocalizations.of(context)!.inbox),
                     ),
                     promoteChromeWhenStacked: true,
-                    child: InboxThreadList(selectedAnchor: selectedAnchor),
+                    child: InboxThreadList(
+                      selectedAnchor: selectedAnchor,
+                      onThreadSelected: (anchor) {
+                        router.navigate(
+                          InboxRoute(children: [ThreadRoute(anchor: anchor)]),
+                        );
+                      },
+                    ),
                   ),
                   AppPane(
-                    flex: 1,
+                    flex: 3,
                     showWhenStacked: false,
                     child: hasSelectedThread
                         ? child

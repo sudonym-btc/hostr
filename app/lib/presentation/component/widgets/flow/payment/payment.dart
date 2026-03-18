@@ -136,6 +136,7 @@ class PaymentConfirmWidget extends StatelessWidget {
                   if (isReady) {
                     final cubit = context.read<PayOperation>();
                     await cubit.finalize();
+                    if (cubit.state is PayFailed) return;
                     await cubit.complete();
                   } else if (isCallbackComplete) {
                     context.read<PayOperation>().complete();
@@ -327,7 +328,22 @@ class PaymentFailureWidget extends StatelessWidget {
     return ModalBottomSheet(
       type: ModalBottomSheetType.error,
       title: AppLocalizations.of(context)!.paymentFailedTitle,
-      content: Text(AppLocalizations.of(context)!.paymentFailed),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(AppLocalizations.of(context)!.paymentFailed),
+          if (state.error.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              state.error,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

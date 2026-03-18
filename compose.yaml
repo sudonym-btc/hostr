@@ -373,6 +373,13 @@ services:
         condition: service_healthy
     ports:
       - "${LNBITS_1_PORT}:5000"
+    entrypoint: ["/ca-trust-entrypoint.sh"]
+    command:
+      [
+        "sh",
+        "-c",
+        "uv run lnbits --port 5000 --host 0.0.0.0 --forwarded-allow-ips='*'",
+      ]
     environment:
       - VIRTUAL_HOST=lnbits1.${DOMAIN}
       - VIRTUAL_PORT=5000
@@ -387,6 +394,8 @@ services:
     volumes:
       - ./docker/data/lightning_data/1:/app/lnd
       - ./docker/data/lnbits/1:/app/data
+      - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
+      - ./docker/tls/ca-trust-entrypoint.sh:/ca-trust-entrypoint.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/5000'"]
       interval: 2s
@@ -406,6 +415,13 @@ services:
         condition: service_healthy
     ports:
       - "${LNBITS_2_PORT}:5000"
+    entrypoint: ["/ca-trust-entrypoint.sh"]
+    command:
+      [
+        "sh",
+        "-c",
+        "uv run lnbits --port 5000 --host 0.0.0.0 --forwarded-allow-ips='*'",
+      ]
     environment:
       - VIRTUAL_HOST=lnbits2.${DOMAIN}
       - VIRTUAL_PORT=5000
@@ -420,6 +436,8 @@ services:
     volumes:
       - ./docker/data/lightning_data/2:/app/lnd
       - ./docker/data/lnbits/2:/app/data
+      - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
+      - ./docker/tls/ca-trust-entrypoint.sh:/ca-trust-entrypoint.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/5000'"]
       interval: 2s

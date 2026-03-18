@@ -135,7 +135,10 @@ class HostingsScreenState extends State<HostingsScreen> {
         panes: [
           AppPane(
             flex: 1,
-            appBar: AppBar(title: Text('Bookings')),
+            appBarBuilder: (context) => AppBar(
+              automaticallyImplyLeading: false,
+              title: Text('Bookings'),
+            ),
             promoteChromeWhenStacked: true,
             child: content,
           ),

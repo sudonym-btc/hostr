@@ -3,25 +3,19 @@ import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:convert/convert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 @RoutePage()
 class SignInScreen extends StatefulWidget {
-  final Function? onSuccess;
-
-  // ignore: use_key_in_widget_constructors
-  const SignInScreen({this.onSuccess});
+  const SignInScreen({super.key});
 
   @override
   State<StatefulWidget> createState() => SignInScreenState();
@@ -70,19 +64,14 @@ class SignInScreenState extends State<SignInScreen> {
 
   Future<void> _handleSignin() async {
     setState(() => _error = null);
-    final router = AutoRouter.of(context);
     try {
-      await context.read<AuthCubit>().signin(_private);
+      await getIt<Hostr>().auth.signin(_private);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
       return;
     }
-    if (!mounted) return;
-    if (widget.onSuccess != null) {
-      widget.onSuccess!();
-    } else {
-      router.replaceAll([StartupGateRoute()]);
-    }
+    // Don't navigate — the startup gate detects LoggedIn, re-bootstraps,
+    // and consumes PendingNavigation when ready.
   }
 
   Future<void> _handleSignup() async {
@@ -108,17 +97,12 @@ class SignInScreenState extends State<SignInScreen> {
       ),
     );
     if (!mounted) return;
-    final router = AutoRouter.of(context);
     try {
-      await context.read<AuthCubit>().signin(mnemonic.sentence);
+      await getIt<Hostr>().auth.signin(mnemonic.sentence);
     } catch (_) {
       return;
     }
-    if (widget.onSuccess != null) {
-      widget.onSuccess!();
-    } else {
-      router.replaceAll([StartupGateRoute()]);
-    }
+    // Don't navigate — the startup gate handles post-auth routing.
   }
 
   Widget _buildContent(BuildContext context) {
@@ -204,30 +188,14 @@ class SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
-
     return Scaffold(
       // appBar: AppBar(),
-      body: BlocBuilder<AuthCubit, AuthState>(
-        builder: (context, state) {
-          final content = _buildContent(context);
-
-          return SafeArea(
-            child: layout.showsSidebarNavigation
-                ? AppPageGutter(
-                    maxWidth: kAppWideContentMaxWidth,
-                    alignment: Alignment.center,
-                    child: SizedBox(
-                      width: kAppFormMaxWidth,
-                      child: AppPane(
-                        alignment: AppPaneContentAlignment.start,
-                        child: content,
-                      ),
-                    ),
-                  )
-                : AppPageGutter(maxWidth: kAppFormMaxWidth, child: content),
-          );
-        },
+      body: SafeArea(
+        child: AppPageGutter(
+          maxWidth: kAppFormMaxWidth,
+          centerContent: true,
+          child: _buildContent(context),
+        ),
       ),
     );
   }

@@ -6,7 +6,6 @@ import 'package:hostr/logic/cubit/escrow_services.cubit.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -160,22 +159,11 @@ class _TrustEscrowModalContentState extends State<_TrustEscrowModalContent> {
 
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    child: picture != null
-                        ? ClipOval(
-                            child: BlossomImage(
-                              image: picture,
-                              pubkey: pubkey,
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Icon(Icons.security),
+                  leading: AppAvatar.xl(
+                    image: picture,
+                    pubkey: pubkey,
+                    label: label,
+                    icon: Icons.security,
                   ),
                   title: Text(
                     label,
