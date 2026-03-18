@@ -39,8 +39,7 @@ class TestSeedHelper {
        ),
        _nextUserIndex = 1000; // offset to avoid collisions with seeder
 
-  /// Create from an existing [SeedFactory] (e.g. when you want to share
-  /// the same context / config as a [SeedPipeline]).
+  /// Create from an existing [SeedFactory].
   TestSeedHelper.fromFactory(SeedFactory factory)
     : _factory = factory,
       _nextUserIndex = 1000;

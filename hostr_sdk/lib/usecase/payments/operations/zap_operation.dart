@@ -1,15 +1,11 @@
 import 'dart:async';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
-import 'package:http/http.dart' as http;
-import 'package:ndk/data_layer/data_sources/http_request.dart';
-import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
-import 'package:ndk/domain_layer/repositories/lnurl_transport.dart';
-import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 import 'package:ndk/ndk.dart' hide Zaps;
 
 import '../../../util/stream_status.dart';
 import '../../auth/auth.dart';
+import '../../lnurl/lnurl.dart';
 import '../../zaps/zaps.dart';
 import 'pay_models.dart';
 import 'pay_operation.dart';
@@ -28,10 +24,7 @@ class ZapPayOperation
   final Zaps zaps;
   final Auth auth;
   final List<String> bootstrapRelays;
-  final LnurlTransport lnurlTransport = LnurlTransportHttpImpl(
-    HttpRequestDS(http.Client()),
-  );
-  late final Lnurl lnurl = Lnurl(transport: lnurlTransport);
+  final LnurlUseCase lnurl;
 
   StreamWithStatus<Nip01Event>? _zapReceiptStream;
   StreamSubscription<Nip01Event>? _zapReceiptSubscription;
@@ -43,6 +36,7 @@ class ZapPayOperation
     required this.zaps,
     required this.auth,
     required this.bootstrapRelays,
+    required this.lnurl,
     required super.nwc,
     required super.logger,
   });
@@ -139,7 +133,7 @@ class ZapPayOperation
   @override
   Future<ZapResolvedDetails> resolver() async {
     final lnurlParams = await lnurl.getLnurlResponse(
-      Lnurl.getLud16LinkFromLud16(state.params.to)!,
+      lnurl.getLud16LinkFromLud16(state.params.to)!,
     );
     // @todo: verify nostr pubkey same as in params
 

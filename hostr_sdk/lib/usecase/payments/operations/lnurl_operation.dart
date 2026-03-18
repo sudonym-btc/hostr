@@ -1,7 +1,9 @@
+import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../injection.dart';
 import '../../../util/main.dart';
+import '../../lnurl/lnurl.dart';
 import 'pay_models.dart';
 import 'pay_operation.dart';
 import 'pay_state.dart';
@@ -15,42 +17,34 @@ class LnurlPayOperation
           LightningCallbackDetails,
           LightningCompletedDetails
         > {
+  final LnurlUseCase lnurl;
+
   LnurlPayOperation({
     @factoryParam required super.params,
+    required this.lnurl,
     required super.nwc,
     required super.logger,
   });
 
-  /// Converts Lightning Address (email format) to LNURL.
-  String emailToLnUrl(String email) {
-    final user = email.split('@')[0];
-    final domain = email.split('@')[1];
-    return 'lnurlp://$domain/.well-known/lnurlp/$user';
-  }
-
   @override
   Future<LnUrlResolvedDetails> resolver() async {
-    throw UnimplementedError('LNURL resolver not implemented yet');
-    // // Convert lightning address to lnurl if needed
-    // final lnurl = isEmail(state.params.to)
-    //     ? emailToLnUrl(state.params.to)
-    //     : state.params.to;
+    // Resolve the LUD-16 address to an LNURL-pay link
+    final lud16Link = lnurl.getLud16LinkFromLud16(state.params.to);
+    if (lud16Link == null) {
+      throw Exception('Invalid lightning address: ${state.params.to}');
+    }
 
-    // // Fetch the lnurl params from the remote host
-    // final lnurlParams = await getParams(lnurl);
+    final lnurlResponse = await lnurl.getLnurlResponse(lud16Link);
+    if (lnurlResponse == null || lnurlResponse.callback == null) {
+      throw Exception('Failed to resolve LNURL parameters');
+    }
 
-    // if (lnurlParams.error != null) {
-    //   throw Exception(lnurlParams.error!.reason);
-    // }
-
-    // final lnurlPayParams = lnurlParams.payParams!;
-
-    // return LnUrlResolvedDetails(
-    //   callback: lnurlPayParams.callback,
-    //   minAmount: lnurlPayParams.minSendable,
-    //   maxAmount: lnurlPayParams.maxSendable,
-    //   commentAllowed: 0,
-    // );
+    return LnUrlResolvedDetails(
+      response: lnurlResponse,
+      minAmount: lnurlResponse.minSendable!,
+      maxAmount: lnurlResponse.maxSendable!,
+      commentAllowed: lnurlResponse.commentAllowed ?? 0,
+    );
   }
 
   /// Validates that amount is within LNURL limits.
@@ -72,21 +66,20 @@ class LnurlPayOperation
     if (state is! PayResolved<LnUrlResolvedDetails>) {
       throw Exception('Cannot call LNURL callback before payment is resolved');
     }
-    throw UnimplementedError('LNURL callback not implemented yet');
     final resolvedState = state as PayResolved<LnUrlResolvedDetails>;
-    // final callbackUri = Uri.parse(resolvedState.details.callback).replace(
-    //   queryParameters: {
-    //     'amount': state.params.amount!.getInMSats.toString(),
-    //     if (state.params.comment != null && state.params.comment!.isNotEmpty)
-    //       'comment': state.params.comment,
-    //   },
-    // );
 
-    // final response = await getIt<Dio>().get(callbackUri.toString());
+    final invoiceResponse = await lnurl.fetchInvoice(
+      lnurlResponse: resolvedState.details.response,
+      amountSats: state.params.amount!.getInSats.toInt(),
+      comment: state.params.comment,
+    );
+    if (invoiceResponse == null || invoiceResponse.invoice.isEmpty) {
+      throw Exception('Failed to fetch invoice from LNURL callback');
+    }
 
-    // final invoice = response.data['pr'] as String;
-
-    // return LightningCallbackDetails(invoice: Bolt11PaymentRequest(invoice));
+    return LightningCallbackDetails(
+      invoice: Bolt11PaymentRequest(invoiceResponse.invoice),
+    );
   }
 
   @override

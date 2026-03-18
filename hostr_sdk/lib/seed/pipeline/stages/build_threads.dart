@@ -16,24 +16,19 @@ import '../seed_pipeline_models.dart';
 /// so the outcome stage knows how far to progress each one.
 ///
 /// When [now] is provided it is used as the reference timestamp for
-/// reservation date calculations, avoiding the need for a live chain
-/// connection.  If omitted the stage falls back to
-/// `ctx.chainClient().getBlockInformation()`.
+/// reservation date calculations.
 Future<List<SeedThread>> buildThreads({
   required SeedContext ctx,
   required SeedPipelineConfig config,
   required List<SeedUser> hosts,
   required List<SeedUser> guests,
   required List<Listing> listings,
-  DateTime? now,
+  required DateTime now,
 }) async {
   final threads = <SeedThread>[];
   var threadIndex = 0;
 
-  // Use the caller-supplied timestamp when available so that tests
-  // can run without a live EVM node.
-  final chainNow =
-      now ?? (await ctx.chainClient().getBlockInformation()).timestamp.toUtc();
+  final chainNow = now;
 
   for (final guest in guests) {
     final threadCount =

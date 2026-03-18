@@ -55,26 +55,36 @@ class AnvilClient {
     required String method,
     List<dynamic> params = const [],
   }) async {
-    final request = await _httpClient.postUrl(rpcUri);
-    request.headers.contentType = ContentType.json;
-    request.write(
-      jsonEncode({
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': method,
-        'params': params,
-      }),
-    );
+    // Retry once on connection errors (stale keep-alive after idle).
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final request = await _httpClient.postUrl(rpcUri);
+        request.headers.contentType = ContentType.json;
+        request.write(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 1,
+            'method': method,
+            'params': params,
+          }),
+        );
 
-    final response = await request.close();
-    final body = await utf8.decodeStream(response);
+        final response = await request.close();
+        final body = await utf8.decodeStream(response);
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      return false;
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          return false;
+        }
+
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        return decoded['error'] == null;
+      } on HttpException {
+        if (attempt > 0) rethrow;
+      } on SocketException {
+        if (attempt > 0) rethrow;
+      }
     }
-
-    final decoded = jsonDecode(body) as Map<String, dynamic>;
-    return decoded['error'] == null;
+    return false;
   }
 
   Future<bool> _setBalanceWithMethod({

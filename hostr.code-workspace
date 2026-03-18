@@ -83,6 +83,9 @@
         "request": "launch",
         "type": "dart",
         "program": "${workspaceFolder:root}/app/lib/main_mock.dart",
+        "toolArgs": [
+          "--dart-define-from-file=${workspaceFolder:root}/.env.local"
+        ],
       },
       {
         "name": "widgetbook",

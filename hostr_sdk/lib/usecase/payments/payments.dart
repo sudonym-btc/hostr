@@ -1,12 +1,9 @@
-import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
-import 'package:ndk/data_layer/data_sources/http_request.dart';
-import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
-import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 
 import '../../config.dart';
 import '../../util/custom_logger.dart';
 import '../auth/auth.dart';
+import '../lnurl/lnurl.dart';
 import '../metadata/metadata.dart';
 import '../nwc/nwc.dart';
 import '../zaps/zaps.dart';
@@ -21,6 +18,7 @@ class Payments {
   final CustomLogger _logger;
   late final Zaps _zaps;
   late final Nwc _nwc;
+  final LnurlUseCase _lnurl;
   final MetadataUseCase _metadata;
   final Auth _auth;
   final HostrConfig _config;
@@ -28,12 +26,14 @@ class Payments {
   Payments({
     required Zaps zaps,
     required Nwc nwc,
+    required LnurlUseCase lnurl,
     required CustomLogger logger,
     required MetadataUseCase metadata,
     required Auth auth,
     required HostrConfig config,
   }) : _zaps = zaps,
        _nwc = nwc,
+       _lnurl = lnurl,
        _metadata = metadata,
        _auth = auth,
        _config = config,
@@ -78,23 +78,20 @@ class Payments {
         return null;
       }
 
-      final lud16Link = Lnurl.getLud16LinkFromLud16(lud16);
+      final lud16Link = _lnurl.getLud16LinkFromLud16(lud16);
       if (lud16Link == null) {
         _logger.w('Failed to parse LUD16 address: $lud16');
         return null;
       }
 
-      final lnurl = Lnurl(
-        transport: LnurlTransportHttpImpl(HttpRequestDS(http.Client())),
-      );
-      final lnurlResponse = await lnurl.getLnurlResponse(lud16Link);
+      final lnurlResponse = await _lnurl.getLnurlResponse(lud16Link);
       if (lnurlResponse == null || lnurlResponse.callback == null) {
         _logger.w('LNURL response invalid for $lud16');
         return null;
       }
 
       // @todo check allows comment
-      final invoiceResponse = await lnurl.fetchInvoice(
+      final invoiceResponse = await _lnurl.fetchInvoice(
         lnurlResponse: lnurlResponse,
         amountSats: amountSats,
         comment: description,
@@ -116,13 +113,19 @@ class Payments {
     if (params is Bolt11PayParameters) {
       return Bolt11PayOperation(params: params, nwc: _nwc, logger: _logger);
     } else if (params is LnurlPayParameters) {
-      return LnurlPayOperation(params: params, nwc: _nwc, logger: _logger);
+      return LnurlPayOperation(
+        params: params,
+        lnurl: _lnurl,
+        nwc: _nwc,
+        logger: _logger,
+      );
     } else if (params is ZapPayParameters) {
       return ZapPayOperation(
         params: params,
         nwc: _nwc,
         zaps: _zaps,
         auth: _auth,
+        lnurl: _lnurl,
         bootstrapRelays: _config.bootstrapRelays,
         logger: _logger,
       );
