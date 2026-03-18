@@ -177,9 +177,11 @@ class EditProfileViewState extends State<EditProfileView> {
           maxWidth: kAppWideContentMaxWidth,
           padding: EdgeInsets.zero,
           child: AppPaneLayout(
+            totalFlex: 5,
             panes: [
               AppPane(
-                width: kAppFormMaxWidth,
+                flex: 2,
+                panelTone: AppPanelTone.primary,
                 appBarBuilder: (context) =>
                     AppBar(title: Text(AppLocalizations.of(context)!.profile)),
                 bottomBar: bottomBar,

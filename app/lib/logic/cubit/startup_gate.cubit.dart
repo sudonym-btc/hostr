@@ -7,10 +7,10 @@ import 'package:ndk/ndk.dart' show Filter;
 
 /// Describes each step of the startup bootstrap process.
 enum StartupStep {
-  relay('Connecting to relays…'),
-  relayList('Fetching relay list…'),
-  metadata('Loading profile…'),
-  messages('Syncing messages…');
+  relay('Connecting to relays'),
+  relayList('Fetching relay list'),
+  metadata('Loading profile'),
+  messages('Syncing messages');
 
   final String label;
   const StartupStep(this.label);

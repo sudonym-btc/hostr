@@ -3,6 +3,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 
 /// A standardised save button for forms backed by [UpsertFormController].
 ///
@@ -20,11 +21,8 @@ class SaveBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Material(
-      color:
-          theme.bottomAppBarTheme.color ?? theme.colorScheme.surfaceContainer,
+      color: AppPaneTheme.of(context),
       child: SafeArea(
         top: false,
         child: CustomPadding(

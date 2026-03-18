@@ -5,6 +5,7 @@ import 'package:hostr/presentation/component/widgets/inbox/thread/thread_content
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_reply.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_header.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:models/main.dart';
 
@@ -113,7 +114,7 @@ class ThreadReadyWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appBarColor = Theme.of(context).colorScheme.surfaceContainerHigh;
+    final appBarColor = AppPaneTheme.of(context);
     if (embedded) {
       return ColoredBox(
         color: Colors.transparent,
@@ -122,7 +123,7 @@ class ThreadReadyWidget extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: Theme.of(context).bottomAppBarTheme.color,
+      backgroundColor: appBarColor,
       body: _buildContent(context, appBarColor),
     );
   }
