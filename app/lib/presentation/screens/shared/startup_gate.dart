@@ -89,6 +89,27 @@ Future<void> _applyStartupReadyEffects(
 
 final _gateLog = CustomLogger().scope('startup-gate');
 
+/// Route names that live inside [TabShellRoute].
+const _tabRouteNames = {
+  SearchRoute.name,
+  SignInRoute.name,
+  ProfileRoute.name,
+  TripsRoute.name,
+  InboxRoute.name,
+  MyListingsRoute.name,
+  HostingsRoute.name,
+};
+
+/// Wraps [route] in [TabShellRoute] when it is a known tab-level route so
+/// that [AppShellScreen] sees `topRouteName == TabShellRoute.name` and
+/// renders the bottom navigation bar on compact viewports.
+PageRouteInfo wrapInTabShellIfNeeded(PageRouteInfo route) {
+  if (_tabRouteNames.contains(route.routeName)) {
+    return TabShellRoute(children: [route]);
+  }
+  return route;
+}
+
 /// Consumes the [PendingNavigation] target (if any) and navigates there.
 /// If nothing is pending, falls through to the default tab content.
 void _consumeAndNavigate(BuildContext context) {
@@ -97,7 +118,7 @@ void _consumeAndNavigate(BuildContext context) {
     'StartupGate._consumeAndNavigate: target=${target?.routeName ?? 'null'}',
   );
   if (target != null) {
-    context.router.root.navigate(target);
+    context.router.root.navigate(wrapInTabShellIfNeeded(target));
   }
 }
 
@@ -142,8 +163,12 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
           // Profile incomplete — navigate to edit-profile.
           // Using navigate() (not push()) so auto_route properly nests
           // EditProfileRoute under AppShellRoute in the route tree.
-          // PendingNavigation still holds the original target; EditProfile
-          // will consume it on save and navigate there directly.
+          // Set ProfileRoute as the pending target so that after save,
+          // EditProfile.onSave consumes it and lands on the profile tab
+          // instead of trying to pop into an empty stack.
+          if (!getIt<PendingNavigation>().hasPending) {
+            getIt<PendingNavigation>().set(ProfileRoute());
+          }
           _gateLog.d(
             'StartupGate: navigating to EditProfileRoute (no metadata)',
           );

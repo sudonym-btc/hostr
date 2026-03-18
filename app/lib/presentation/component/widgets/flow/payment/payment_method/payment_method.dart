@@ -36,7 +36,7 @@ class PaymentMethodWidget extends StatelessWidget {
                 onPressed: () {
                   showAppModal(
                     context,
-                    child: PaymentFlowWidget(
+                    builder: (_) => PaymentFlowWidget(
                       cubit: getIt<Hostr>().payments.pay(
                         ZapPayParameters(
                           to: counterparty.metadata.lud16!,
@@ -55,7 +55,7 @@ class PaymentMethodWidget extends StatelessWidget {
                   Navigator.of(context).pop();
                   showAppModal(
                     context,
-                    child: EscrowFundWidget(
+                    builder: (_) => EscrowFundWidget(
                       counterparty: counterparty,
                       negotiateReservation: negotiateReservation,
                       listingName: listingName,

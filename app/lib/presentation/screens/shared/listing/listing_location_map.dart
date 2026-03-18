@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:models/main.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -76,17 +77,18 @@ void openInMaps(BuildContext context, double lat, double lng, String title) {
     final googleMapsUri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
     );
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
+    showAppModal(
+      context,
+      builder: (_) => ModalBottomSheet(
+        title: 'Open in Maps',
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.map),
               title: const Text('Apple Maps'),
               onTap: () {
-                Navigator.pop(ctx);
+                Navigator.pop(context);
                 launchUrl(appleMapsUri, mode: LaunchMode.externalApplication);
               },
             ),
@@ -94,7 +96,7 @@ void openInMaps(BuildContext context, double lat, double lng, String title) {
               leading: const Icon(Icons.map_outlined),
               title: const Text('Google Maps'),
               onTap: () {
-                Navigator.pop(ctx);
+                Navigator.pop(context);
                 launchUrl(googleMapsUri, mode: LaunchMode.externalApplication);
               },
             ),

@@ -8,6 +8,7 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
 import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -118,12 +119,10 @@ class NegotiationWidget extends StatelessWidget {
   }
 
   Widget _statusChip(BuildContext context, {required String message}) {
-    return Container(
+    return AppSurface(
+      steps: 1,
+      borderRadius: BorderRadius.circular(999),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
       child: Text(
         message,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -141,7 +140,7 @@ class NegotiationWidget extends StatelessWidget {
     onPressed: () {
       showAppModal(
         context,
-        child: ModalBottomSheet(
+        builder: (_) => ModalBottomSheet(
           title: AppLocalizations.of(context)!.cancelReservation,
           subtitle: AppLocalizations.of(context)!.areYouSure,
           content: const SizedBox.shrink(),
@@ -181,7 +180,10 @@ class NegotiationWidget extends StatelessWidget {
       return FilledButton(
         key: const ValueKey('trade_action_pay'),
         onPressed: () {
-          showAppModal(context, child: EscrowFundFlowWidget(cubit: activeOp));
+          showAppModal(
+            context,
+            builder: (_) => EscrowFundFlowWidget(cubit: activeOp),
+          );
         },
         child: SizedBox(
           width: 16,
@@ -199,7 +201,7 @@ class NegotiationWidget extends StatelessWidget {
           ? null
           : () => showAppModal(
               context,
-              child: EscrowFundWidget(
+              builder: (_) => EscrowFundWidget(
                 counterparty: tradeState.hostProfile!,
                 negotiateReservation: (tradeState.stage as NegotiationStage)
                     .reservationRequests
@@ -227,7 +229,7 @@ class NegotiationWidget extends StatelessWidget {
     final submitCounter = context.read<Trade>().counter;
     showAppModal(
       context,
-      child: _CounterOfferSheet(
+      builder: (_) => _CounterOfferSheet(
         initialAmount: policy.counterMin ?? tradeState.amount!,
         minAmount: policy.counterMin,
         maxAmount: policy.counterMax,

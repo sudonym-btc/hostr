@@ -377,8 +377,68 @@ class AppPaneTheme extends InheritedWidget {
     return maybeOf(context)?.color ?? Theme.of(context).colorScheme.surface;
   }
 
+  /// The ordered neutral surface-container scale from lowest to highest.
+  static List<Color> _scale(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return [
+      cs.surfaceContainerLowest,
+      cs.surfaceContainerLow,
+      cs.surfaceContainer,
+      cs.surfaceContainerHigh,
+      cs.surfaceContainerHighest,
+    ];
+  }
+
+  /// Returns the colour [steps] above the current pane on the neutral
+  /// surface-container scale. Clamps at `surfaceContainerHighest`.
+  static Color stepped(BuildContext context, [int steps = 1]) {
+    final current = of(context);
+    final scale = _scale(context);
+    final idx = scale.indexOf(current);
+    if (idx == -1) return scale.last;
+    return scale[(idx + steps).clamp(0, scale.length - 1)];
+  }
+
   @override
   bool updateShouldNotify(AppPaneTheme oldWidget) => color != oldWidget.color;
+}
+
+/// A surface that is [steps] levels above its nearest [AppPaneTheme]
+/// ancestor on the neutral surface-container scale.
+///
+/// Re-injects an [AppPaneTheme] at the resolved level so descendants
+/// can stack further.
+class AppSurface extends StatelessWidget {
+  final Widget child;
+  final int steps;
+  final BorderRadiusGeometry? borderRadius;
+  final ShapeBorder? shape;
+  final EdgeInsetsGeometry? padding;
+
+  const AppSurface({
+    super.key,
+    required this.child,
+    this.steps = 1,
+    this.borderRadius,
+    this.shape,
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = AppPaneTheme.stepped(context, steps);
+    return AppPaneTheme(
+      color: color,
+      child: Material(
+        color: color,
+        borderRadius: shape == null ? borderRadius : null,
+        shape: shape,
+        child: padding != null
+            ? Padding(padding: padding!, child: child)
+            : child,
+      ),
+    );
+  }
 }
 
 class AppPanel extends StatelessWidget {
@@ -498,7 +558,7 @@ class AppPane extends StatelessWidget {
 
   Widget _buildAppBar(BuildContext context) {
     final theme = Theme.of(context);
-    final hPad = AppSpacing.of(context).md;
+    final hPad = AppSpacing.of(context).lg;
     return Theme(
       data: theme.copyWith(
         appBarTheme: theme.appBarTheme.copyWith(
@@ -515,7 +575,7 @@ class AppPane extends StatelessWidget {
   }
 
   SliverAppBar _buildSliverAppBar(BuildContext context) {
-    final hPad = AppSpacing.of(context).md;
+    final hPad = AppSpacing.of(context).lg;
     final bar = sliverAppBarBuilder!(context);
     return SliverAppBar(
       key: bar.key,
@@ -704,29 +764,32 @@ class AppPaneLayout extends StatelessWidget {
       }
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (promotedSliverAppBar == null && promotedPane?.appBarBuilder != null)
-          promotedPane!._buildAppBar(context),
-        Expanded(
-          child: promotedSliverAppBar != null
-              ? CustomScrollView(
-                  slivers: [
-                    promotedPane!._buildSliverAppBar(context),
-                    SliverList(delegate: SliverChildListDelegate(children)),
-                  ],
-                )
-              : SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: children,
+    return Scaffold(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (promotedSliverAppBar == null &&
+              promotedPane?.appBarBuilder != null)
+            promotedPane!._buildAppBar(context),
+          Expanded(
+            child: promotedSliverAppBar != null
+                ? CustomScrollView(
+                    slivers: [
+                      promotedPane!._buildSliverAppBar(context),
+                      SliverList(delegate: SliverChildListDelegate(children)),
+                    ],
+                  )
+                : SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
                   ),
-                ),
-        ),
-        if (promotedPane?.bottomBar != null) promotedPane!.bottomBar!,
-      ],
+          ),
+          if (promotedPane?.bottomBar != null) promotedPane!.bottomBar!,
+        ],
+      ),
     );
   }
 }

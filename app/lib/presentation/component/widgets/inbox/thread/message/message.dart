@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:models/main.dart';
 
 class ThreadMessageWidget extends StatelessWidget {
@@ -72,15 +73,16 @@ class MessageContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: EdgeInsets.all(kDefaultPadding / 3),
-      decoration: BoxDecoration(
-        color: isSentByMe
-            ? colorScheme.secondary
-            : colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(kDefaultPadding / 3),
+    final color = isSentByMe
+        ? colorScheme.secondary
+        : AppPaneTheme.stepped(context);
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(kDefaultPadding / 3),
+      child: Padding(
+        padding: EdgeInsets.all(kDefaultPadding / 3),
+        child: child,
       ),
-      child: child,
     );
   }
 }

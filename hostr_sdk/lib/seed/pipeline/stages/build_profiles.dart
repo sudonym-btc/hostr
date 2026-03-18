@@ -154,56 +154,52 @@ Future<List<ProfileMetadata>> buildProfiles({
 }) async {
   return Future.wait(
     users.map((user) async {
-        final identity = _identityForUser(user, ctx.seed);
-        final metadata = Metadata(
-          pubKey: user.keyPair.publicKey,
-          name: identity.fullName,
-          displayName: identity.displayName,
-          about: user.isHost
-              ? '${identity.displayName} hosts thoughtfully designed stays and has welcomed guests since ${2015 + (user.index % 9)}.'
-              : '${identity.displayName} is an avid traveler who loves local neighborhoods, great coffee, and easy check-ins.',
-          lud16: user.isHost
-              ? 'host${user.index + 1}@lnbits1.hostr.development'
-              : 'guest${user.index + 1}@lnbits2.hostr.development',
-          nip05: user.isHost
-              ? 'host${user.index + 1}@lnbits1.hostr.development'
-              : 'guest${user.index + 1}@lnbits2.hostr.development',
-          picture: identity.pictureUrl,
-        ).toEvent();
+      final identity = _identityForUser(user, ctx.seed);
+      final metadata = Metadata(
+        pubKey: user.keyPair.publicKey,
+        name: identity.fullName,
+        displayName: identity.displayName,
+        about: user.isHost
+            ? '${identity.displayName} hosts thoughtfully designed stays and has welcomed guests since ${2015 + (user.index % 9)}.'
+            : '${identity.displayName} is an avid traveler who loves local neighborhoods, great coffee, and easy check-ins.',
+        lud16: user.isHost
+            ? 'host${user.index + 1}@lnbits1.hostr.development'
+            : 'guest${user.index + 1}@lnbits2.hostr.development',
+        nip05: user.isHost
+            ? 'host${user.index + 1}@lnbits1.hostr.development'
+            : 'guest${user.index + 1}@lnbits2.hostr.development',
+        picture: identity.pictureUrl,
+      ).toEvent();
 
-        final tags = List<List<String>>.from(metadata.tags);
-        if (user.hasEvm) {
-          final evmKey = await deriveEvmKey(user.keyPair.privateKey!);
-          tags.add([
-            'i',
-            'evm:address',
-            evmKey.address.eip55With0x,
-          ]);
-        }
+      final tags = List<List<String>>.from(metadata.tags);
+      if (user.hasEvm) {
+        final evmKey = await deriveEvmKey(user.keyPair.privateKey!);
+        tags.add(['i', 'evm:address', evmKey.address.eip55With0x]);
+      }
 
-        final event = Nip01Event(
-          pubKey: metadata.pubKey,
-          kind: metadata.kind,
-          tags: tags,
-          content: metadata.content,
-          createdAt: ctx.timestampDaysAfter(user.index + 1),
-        );
+      final event = Nip01Event(
+        pubKey: metadata.pubKey,
+        kind: metadata.kind,
+        tags: tags,
+        content: metadata.content,
+        createdAt: ctx.timestampDaysAfter(user.index + 1),
+      );
 
-        final signed = Nip01Utils.signWithPrivateKey(
-          privateKey: user.keyPair.privateKey!,
-          event: event,
-        );
+      final signed = Nip01Utils.signWithPrivateKey(
+        privateKey: user.keyPair.privateKey!,
+        event: event,
+      );
 
-        return ProfileMetadata.fromNostrEvent(signed);
-      }),
-    );
+      return ProfileMetadata.fromNostrEvent(signed);
+    }),
+  );
 }
 
 Future<ProfileMetadata> buildEscrowProfile({required SeedContext ctx}) async {
   final metadata = Metadata(
     pubKey: MockKeys.escrow.publicKey,
-    name: 'Hostr Escrow',
-    displayName: 'Hostr Escrow',
+    name: 'Hostr',
+    displayName: 'Hostr',
     about: 'Provides cheap escrow services for nostr',
     nip05: 'escrow@hostr.development',
     picture:
@@ -213,11 +209,7 @@ Future<ProfileMetadata> buildEscrowProfile({required SeedContext ctx}) async {
   final escrowEvmKey = await deriveEvmKey(MockKeys.escrow.privateKey!);
 
   final tags = List<List<String>>.from(metadata.tags)
-    ..add([
-      'i',
-      'evm:address',
-      escrowEvmKey.address.eip55With0x,
-    ]);
+    ..add(['i', 'evm:address', escrowEvmKey.address.eip55With0x]);
 
   final event = Nip01Event(
     pubKey: metadata.pubKey,

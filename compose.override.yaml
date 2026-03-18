@@ -20,6 +20,10 @@ services:
         condition: service_healthy
       nginx-proxy:
         condition: service_healthy
+    environment:
+      # Anvil's base fee is ~1 gwei; the default 60000000 (0.06 gwei) from
+      # compose.yaml is an RSK-appropriate value that gets rejected by Anvil.
+      REGISTER_GAS_PRICE: ${RIF_RELAY_REGISTER_GAS_PRICE:-3000000000}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf localhost:8090/chain-info | grep -q '\"ready\":true'"]
       timeout: 2s

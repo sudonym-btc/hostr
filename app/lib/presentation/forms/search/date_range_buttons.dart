@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/core/main.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 
 import 'date_range_controller.dart';
 
@@ -163,8 +164,7 @@ class _DateTile extends StatelessWidget {
             color: colorScheme.onSurfaceVariant,
           );
 
-    return Material(
-      color: colorScheme.surfaceContainerHigh,
+    return AppSurface(
       borderRadius: radius,
       child: InkWell(
         onTap: onTap,

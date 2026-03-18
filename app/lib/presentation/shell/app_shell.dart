@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/app.dart';
 import 'package:hostr/export.dart';
@@ -121,12 +120,14 @@ class _AppShellScreenState extends State<AppShellScreen>
     );
   }
 
-  bool _onScrollNotification(UserScrollNotification notification) {
-    final direction = notification.direction;
-    if (direction == ScrollDirection.reverse) {
-      _navController.reverse();
-    } else if (direction == ScrollDirection.forward) {
-      _navController.forward();
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta ?? 0;
+      if (delta > 0) {
+        _navController.reverse();
+      } else if (delta < 0) {
+        _navController.forward();
+      }
     }
     return false;
   }
@@ -222,7 +223,7 @@ class _AppShellScreenState extends State<AppShellScreen>
 
                       return Scaffold(
                         extendBody: true,
-                        body: NotificationListener<UserScrollNotification>(
+                        body: NotificationListener<ScrollNotification>(
                           onNotification: _onScrollNotification,
                           child: child,
                         ),

@@ -133,7 +133,7 @@ class CustomPadding extends StatelessWidget {
       if (useRawValues) {
         return value;
       }
-      return value * spacing.defaultPadding;
+      return value * spacing.lg;
     }
 
     return Padding(

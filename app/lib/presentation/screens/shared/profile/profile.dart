@@ -29,7 +29,7 @@ class ProfileScreen extends StatelessWidget {
           final keyPair = auth.activeKeyPair!;
           showAppModal(
             context,
-            child: BackupKeyWidget(
+            builder: (_) => BackupKeyWidget(
               publicKeyHex: keyPair.publicKey,
               privateKeyHex: keyPair.privateKey!,
               mnemonic: auth.activeMnemonic,
@@ -48,7 +48,7 @@ class ProfileScreen extends StatelessWidget {
         tooltip: AppLocalizations.of(context)!.logout,
         color: Theme.of(context).colorScheme.error,
         onPressed: () {
-          showAppModal(context, child: logoutModal(context));
+          showAppModal(context, builder: (_) => logoutModal(context));
         },
       ),
     ];

@@ -10,6 +10,7 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
 import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -81,7 +82,7 @@ class ProfileSettingsSection extends StatelessWidget {
           title: AppLocalizations.of(context)!.wallet,
           action: OutlinedButton(
             onPressed: () {
-              showAppModal(context, child: AddWalletWidget());
+              showAppModal(context, builder: (_) => AddWalletWidget());
             },
             child: Text(AppLocalizations.of(context)!.connect),
           ),
@@ -138,9 +139,17 @@ class ProfileSettingsSection extends StatelessWidget {
             },
           ),
         ),
-        const ZapUsWidget(),
-        if (const bool.fromEnvironment('dart.vm.product') == false)
-          const DevWidget(),
+        if (AppLayoutSpec.of(context).isExpanded) const Spacer(),
+        Container(
+          color: AppPaneTheme.stepped(context, 1),
+          child: Column(
+            children: [
+              const ZapUsWidget(),
+              if (const bool.fromEnvironment('dart.vm.product') == false)
+                const DevWidget(),
+            ],
+          ),
+        ),
       ],
     );
   }

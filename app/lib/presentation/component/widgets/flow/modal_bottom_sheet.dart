@@ -6,7 +6,7 @@ enum ModalBottomSheetType { error, normal, success }
 
 Future<T?> showAppModal<T>(
   BuildContext context, {
-  required Widget child,
+  required WidgetBuilder builder,
   bool isScrollControlled = true,
   bool useSafeArea = true,
   bool isDismissible = true,
@@ -15,7 +15,7 @@ Future<T?> showAppModal<T>(
   isScrollControlled: isScrollControlled,
   useSafeArea: useSafeArea,
   isDismissible: isDismissible,
-  builder: (_) => child,
+  builder: builder,
 );
 
 class ModalBottomSheet extends StatelessWidget {
@@ -80,7 +80,7 @@ class ModalBottomSheet extends StatelessWidget {
                       textAlign: TextAlign.start,
                     ),
                   ],
-                  Gap.vertical.md(),
+                  if (title != null && subtitle != null) Gap.vertical.md(),
                   ?content,
                   if (buttons != null) ...[
                     Gap.vertical.custom(kSpace5),

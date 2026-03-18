@@ -60,7 +60,7 @@ class CommitMenu extends StatelessWidget {
     final trade = context.read<Trade>();
     showAppModal(
       context,
-      child: StreamBuilder<dynamic>(
+      builder: (_) => StreamBuilder<dynamic>(
         stream: Rx.merge([
           trade.transitions$.stream.map((_) => null),
           trade.payments$.stream.map((_) => null),
@@ -115,7 +115,7 @@ class CommitMenu extends StatelessWidget {
                 icon: Icons.cancel_outlined,
                 onTap: () => showAppModal(
                   context,
-                  child: ModalBottomSheet(
+                  builder: (_) => ModalBottomSheet(
                     title: AppLocalizations.of(context)!.cancelReservation,
                     subtitle: AppLocalizations.of(context)!.areYouSure,
                     content: const SizedBox.shrink(),
@@ -172,7 +172,7 @@ class CommitMenu extends StatelessWidget {
                   );
                   showAppModal(
                     context,
-                    child: ReleaseFlowWidget(cubit: releaseOp),
+                    builder: (_) => ReleaseFlowWidget(cubit: releaseOp),
                   );
                 },
               );
@@ -192,7 +192,7 @@ class CommitMenu extends StatelessWidget {
                       tradeId: trade.tradeId,
                     ),
                   );
-                  showAppModal(context, child: ClaimFlowWidget(cubit: claimOp));
+                  showAppModal(context, builder: (_) => ClaimFlowWidget(cubit: claimOp));
                 },
               );
             case TradeAction.review:
@@ -201,7 +201,7 @@ class CommitMenu extends StatelessWidget {
                 icon: Icons.star_outline,
                 onTap: () => showAppModal(
                   context,
-                  child: CustomPadding(
+                  builder: (_) => CustomPadding(
                     child: EditReview(
                       listing: tradeState.listing,
                       tweakMaterial: const ReservationTweakMaterial(

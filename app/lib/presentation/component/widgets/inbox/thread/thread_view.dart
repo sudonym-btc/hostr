@@ -60,6 +60,8 @@ class ThreadReadyWidget extends StatelessWidget {
     final reservedLeadingWidth =
         theme.appBarTheme.leadingWidth ?? AppSpacing.of(context).sm;
 
+    final appBarColor = AppPaneTheme.stepped(context, 2);
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Column(

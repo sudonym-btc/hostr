@@ -38,6 +38,8 @@ write_regtest_fast_config() {
         '  },' \
         '  blockchain: {' \
         '    rskNodeUrl: "'"${RPC_URL:-}"'",' \
+        '    confirmationsNeeded: 1,' \
+        '    successfulRoundsForReady: 0,' \
         '  },' \
         '  register: {' \
         '    funds: "'"${REGISTER_FUNDS:-}"'",' \
@@ -46,21 +48,39 @@ write_regtest_fast_config() {
         >/rif-relay-server/config/local.json5
 }
 
-allowlist_escrow_contract() {
-    for i in $(seq 1 120); do
-        local address
-        address="$(node -e "const fs=require('fs');const p='/escrow-contracts/contract-addresses.json';if(!fs.existsSync(p)){process.exit(2)};const j=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(j['regtest.33']?.MultiEscrow||''));" 2>/dev/null || true)"
+allowlist_escrow_on_boltz_verifiers() {
+    local boltz_verifiers
+    boltz_verifiers="$(node -e "
+      const fs=require('fs');
+      const p='$RIF_RELAY_WORKDIR/contract-addresses.json';
+      const j=JSON.parse(fs.readFileSync(p,'utf8'));
+      const c=j['regtest.33']||{};
+      const v=[c.BoltzDeployVerifier,c.BoltzRelayVerifier].filter(Boolean);
+      process.stdout.write(v.join(','));
+    " 2>/dev/null || true)"
 
-        if [[ -n "$address" ]]; then
-            echo "Allowing escrow contract $address on verifier allowlists..."
+    if [[ -z "$boltz_verifiers" ]]; then
+        echo "Boltz verifier addresses not found — skipping allowlist"
+        return 0
+    fi
+
+    for i in $(seq 1 120); do
+        local escrow_addr
+        escrow_addr="$(node -e "const fs=require('fs');const p='/escrow-contracts/contract-addresses.json';if(!fs.existsSync(p)){process.exit(2)};const j=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(j['regtest.33']?.MultiEscrow||''));" 2>/dev/null || true)"
+
+        if [[ -n "$escrow_addr" ]]; then
+            echo "Allowlisting escrow $escrow_addr on verifiers $boltz_verifiers…"
             cd /rif-relay-contracts
-            if npx hardhat allow-contracts --contract-list "$address" --network regtest; then
-                echo 'Escrow contract allowlisted'
+            if npx hardhat allow-contracts \
+                --contract-list "$escrow_addr" \
+                --verifier-list "$boltz_verifiers" \
+                --network regtest; then
+                echo 'Escrow contract allowlisted on Boltz verifiers'
                 return 0
             fi
-            echo 'Allow-contracts failed, will retry...'
+            echo 'Allow-contracts failed, will retry…'
         else
-            echo "Escrow contract address not available yet in contract-addresses.json (attempt $i/120)..."
+            echo "Escrow contract address not available yet (attempt $i/120)…"
         fi
 
         sleep 2
@@ -98,10 +118,23 @@ start_regtest_fast() {
     write_regtest_fast_config
 
     cd /rif-relay-contracts
-    npx hardhat deploy --network regtest
+    # Deploy the relay hub (+ penalizer) and the Boltz smart-wallet family
+    # (BoltzSmartWallet + BoltzSmartWalletFactory + BoltzDeployVerifier +
+    # BoltzRelayVerifier).  The Boltz factory forwards req.data during
+    # deploy, which is required for claimAndFund-style relay calls.
+    npx hardhat deploy --relay-hub --boltz-smart-wallet --network regtest
     sync_deployed_addresses
 
-    allowlist_escrow_contract &
+    # The Boltz verifiers enforce a destination-contract allowlist.
+    # Allowlist the MultiEscrow so relayed calls targeting it are accepted.
+    # We pass --verifier-list explicitly so the hardhat task doesn't try to
+    # load every verifier family from the manifest (only Boltz is deployed).
+    # This is the same mechanism used for mainnet allowlisting.
+    #
+    # The escrow contract is deployed by a separate container that starts
+    # *after* rif-relay, so we run this in the background with retries.
+    allowlist_escrow_on_boltz_verifiers &
+
     register_relay_when_ready &
 
     cd /rif-relay-server
