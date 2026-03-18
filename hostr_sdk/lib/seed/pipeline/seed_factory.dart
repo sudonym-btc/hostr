@@ -30,9 +30,9 @@ import 'stages/build_users.dart' as stage_users;
 /// testRequests.seedEvents(data.allEvents);
 /// ```
 ///
-/// For the full infrastructure-backed seeder (EVM funding, LNbits setup,
-/// on-chain escrow trades) use [SeedPipeline] instead — it delegates to
-/// this factory for the pure-data stages and layers infrastructure on top.
+/// For the full pipeline with outcome resolution (EVM trades, zap
+/// receipts, etc.) use [Seeder] — it delegates to this factory for
+/// the pure-data stages and routes chain ops through [SeedSink].
 class SeedFactory {
   final SeedPipelineConfig config;
   final SeedContext _ctx;
@@ -43,14 +43,9 @@ class SeedFactory {
   }) : _ctx = SeedContext(
          seed: config.seed,
          contractAddress: contractAddress,
-         rpcUrl: 'unused', // never called — all stages are pure data
          userCount: config.userCount + config.userOverrides.length,
          reservationRequestsPerGuest: config.reservationRequestsPerGuest,
        );
-
-  /// Internal constructor used by [SeedPipeline] to share its [SeedContext].
-  SeedFactory.fromContext({required this.config, required SeedContext ctx})
-    : _ctx = ctx;
 
   /// Expose the context for advanced callers (key derivation, timestamps).
   SeedContext get context => _ctx;
@@ -129,7 +124,10 @@ class SeedFactory {
     final hosts = users.where((u) => u.isHost).toList(growable: false);
     final guests = users.where((u) => !u.isHost).toList(growable: false);
 
-    final profiles = [...await buildProfiles(users), await buildEscrowProfile()];
+    final profiles = [
+      ...await buildProfiles(users),
+      await buildEscrowProfile(),
+    ];
     final escrowServices = await buildEscrowServices();
     final escrowTrusts = await buildEscrowTrusts(users);
     final escrowMethods = await buildEscrowMethods(users);

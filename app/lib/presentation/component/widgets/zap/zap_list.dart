@@ -6,10 +6,6 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/app_spacing_theme.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:http/http.dart' as http;
-import 'package:ndk/data_layer/data_sources/http_request.dart';
-import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
-import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
 import 'package:ndk/ndk.dart';
 
 /// Displays a list of zap receipts for a given pubkey or lightning address.
@@ -59,7 +55,8 @@ class ZapListWidgetState extends State<ZapListWidget> {
   Future<void> _resolveLud16() async {
     setState(() => _resolving = true);
     try {
-      final lud16Link = Lnurl.getLud16LinkFromLud16(widget.lud16!);
+      final lnurl = getIt<Hostr>().lnurl;
+      final lud16Link = lnurl.getLud16LinkFromLud16(widget.lud16!);
       if (lud16Link == null) {
         setState(() {
           _error = 'Invalid lightning address: ${widget.lud16}';
@@ -67,9 +64,6 @@ class ZapListWidgetState extends State<ZapListWidget> {
         });
         return;
       }
-      final lnurl = Lnurl(
-        transport: LnurlTransportHttpImpl(HttpRequestDS(http.Client())),
-      );
       final response = await lnurl.getLnurlResponse(lud16Link);
       final nostrPubkey = response?.nostrPubkey;
       if (nostrPubkey == null || nostrPubkey.isEmpty) {

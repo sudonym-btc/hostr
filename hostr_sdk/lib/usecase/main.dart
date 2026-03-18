@@ -15,6 +15,7 @@ export 'evm/main.dart';
 export 'gift_wraps/main.dart';
 export 'heartbeat/main.dart';
 export 'listings/listings.dart';
+export 'lnurl/lnurl.dart';
 export 'location/location.dart';
 export 'messaging/main.dart';
 export 'metadata/metadata.dart';

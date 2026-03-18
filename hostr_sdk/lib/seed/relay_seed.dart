@@ -3,11 +3,13 @@ import 'dart:io';
 
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 
+import '../datasources/lnbits/lnbits.dart';
 import '../util/contract_address.dart';
 import 'broadcast_isolate.dart';
-import 'pipeline/seed_pipeline.dart';
 import 'pipeline/seed_pipeline_config.dart';
 import 'pipeline/seed_pipeline_models.dart';
+import 'pipeline/seeder.dart';
+import 'pipeline/sink/infrastructure_sink.dart';
 
 class RelaySeeder {
   /// Run the seed pipeline with the given [SeedPipelineConfig].
@@ -24,6 +26,7 @@ class RelaySeeder {
     print('Using contract address: $contractAddress');
 
     BroadcastIsolate? broadcaster;
+    InfrastructureSink? sink;
     try {
       final sw = Stopwatch()..start();
 
@@ -37,29 +40,6 @@ class RelaySeeder {
         maxAttempts: _broadcastMaxAttempts,
       );
       print('Broadcast isolate ready. [${sw.elapsedMilliseconds} ms]');
-
-      final pipeline = SeedPipeline(
-        config: config,
-        contractAddress: contractAddress,
-      );
-
-      // Returns immediately — pipeline runs in a microtask.
-      // All subjects are ReplaySubjects, so nothing is lost before we
-      // subscribe.
-      final streams = pipeline.run();
-
-      // ── Side-effect listeners (log-only) ─────────────────────────────
-      streams.userFunded.listen((r) {
-        print('[funded] ${r.address} — ${r.amountWei} wei');
-      });
-
-      streams.chainTx.listen((r) {
-        print('[chain] ${r.action} tx=${r.txHash}');
-      });
-
-      streams.nip05Created.listen((r) {
-        print('[nip05] ${r.username}@${r.domain}');
-      });
 
       // ── Track broadcast results on main isolate ──────────────────────
       sw.reset();
@@ -81,11 +61,34 @@ class RelaySeeder {
         }
       });
 
-      // ── Feed events to the broadcast isolate as they arrive ──────────
-      int nextIndex = 0;
-      await for (final event in streams.events) {
-        broadcaster.submit(nextIndex++, event);
-      }
+      // ── Create Seeder + InfrastructureSink ────────────────────────────
+      final lnbitsConfig = config.setupLnbits
+          ? LnbitsSetupConfig.fromEnvironment(
+              lnbits1BaseUrl: config.lnbits1BaseUrl,
+              lnbits2BaseUrl: config.lnbits2BaseUrl,
+              lnbitsAdminEmail: config.lnbitsAdminEmail,
+              lnbitsAdminPassword: config.lnbitsAdminPassword,
+              lnbitsExtensionName: config.lnbitsExtensionName,
+              lnbitsNostrPrivateKey: config.lnbitsNostrPrivateKey,
+            )
+          : null;
+
+      sink = InfrastructureSink(
+        rpcUrl: config.rpcUrl,
+        contractAddress: contractAddress,
+        broadcaster: broadcaster,
+        lnbitsConfig: lnbitsConfig,
+      );
+
+      final seeder = Seeder(config: config, contractAddress: contractAddress);
+
+      // ── Run pipeline ─────────────────────────────────────────────────
+      // Enable auto-mining so each tx is mined immediately.  Without
+      // this, Anvil may be in interval-mining mode (from a prior run's
+      // finally block), causing delayed receipts, mempool pile-ups, and
+      // TradeIdAlreadyExists reverts from orphaned txs of crashed runs.
+      await sink.enableAutomine();
+      final data = await seeder.seed(sink);
 
       // All events have been queued — tell the isolate to finish up.
       final finished = await broadcaster.finish();
@@ -99,7 +102,6 @@ class RelaySeeder {
       );
 
       // ── Summary ──────────────────────────────────────────────────────
-      final data = await streams.done.first;
       print(
         'Summary: ${const JsonEncoder.withIndent("  ").convert(data.summary.toJson())}',
       );
@@ -107,8 +109,16 @@ class RelaySeeder {
 
       print('Seeded $broadcastCount events.');
 
-      return streams.done.first;
+      return data;
     } finally {
+      // Restore interval mining so the node doesn't burn CPU spinning
+      // on empty blocks while idle.
+      try {
+        await sink?.disableAutomine();
+      } catch (_) {
+        // Best-effort — node may already be unreachable.
+      }
+      sink?.close();
       if (broadcaster != null) {
         try {
           await broadcaster.finish();

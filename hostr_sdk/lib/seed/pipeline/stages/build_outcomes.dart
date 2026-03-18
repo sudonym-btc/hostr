@@ -1,38 +1,23 @@
-import 'dart:typed_data';
-
-import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
-import 'package:wallet/wallet.dart';
-import 'package:web3dart/web3dart.dart';
 
-import '../../../usecase/payments/constants.dart';
 import '../seed_context.dart';
 import '../seed_pipeline_config.dart';
 import '../seed_pipeline_models.dart';
 
-/// Stage 5: Resolve outcomes for threads based on each thread's
-/// [ThreadStageSpec].
+/// Pure outcome-planning and event-construction helpers.
 ///
-/// This stage mutates the [SeedThread] objects in place, filling in:
-///   - [SeedThread.reservation]
-///   - [SeedThread.zapReceipt]
-///   - [SeedThread.paidViaEscrow]
-///   - [SeedThread.escrowOutcome]
-///   - [SeedThread.selfSigned]
-///
-/// Threads whose [ThreadStageSpec.completedRatio] causes them to be
-/// skipped remain in pending state.
+/// **No I/O, no network, no chain.**  Everything that previously touched
+/// `Web3Client`, nonce assignment, or receipt polling has been moved into
+/// [Seeder] + [SeedSink] / [InfrastructureSink].
 
-/// Phase 0 of outcome resolution — deterministic, synchronous, no I/O.
+// ─── Outcome planning (Phase 0) ─────────────────────────────────────────────
+
+/// Deterministic, synchronous outcome planning — no I/O.
 ///
 /// Consumes [SeedContext.random] to assign each thread a planned outcome
-/// (escrow vs zap, settlement type, self-signed flag). The RNG call
-/// sequence is identical to the old inline Phase 0, so seed stability
-/// is preserved.
-///
-/// Pass the returned list directly into [buildOutcomes].
+/// (escrow vs zap, settlement type, self-signed flag).
 List<SeedOutcomePlan> buildOutcomePlans({
   required SeedContext ctx,
   required List<SeedThread> threads,
@@ -83,353 +68,172 @@ List<SeedOutcomePlan> buildOutcomePlans({
   return plans;
 }
 
-Future<void> buildOutcomes({
+// ─── Zap receipt construction ───────────────────────────────────────────────
+
+/// Build a deterministic zap receipt (kind 9735) for a thread.
+///
+/// Pure — no chain or relay interaction.
+Nip01Event buildZapReceipt({
   required SeedContext ctx,
-  required List<SeedThread> threads,
+  required int threadIndex,
+  required String tradeId,
+  required Reservation request,
+  required Listing listing,
+  required SeedUser host,
+  required SeedUser guest,
+  required ProfileMetadata? hostProfile,
+}) {
+  final amountMsats = request.amount!.value * BigInt.from(1000);
+  final lnurl = hostProfile != null
+      ? Metadata.fromEvent(hostProfile).lud16
+      : null;
+
+  final zapRequest = Nip01Utils.signWithPrivateKey(
+    privateKey: guest.keyPair.privateKey!,
+    event: Nip01Event(
+      pubKey: guest.keyPair.publicKey,
+      kind: kNostrKindZapRequest,
+      tags: [
+        ['p', host.keyPair.publicKey],
+        ['amount', amountMsats.toString()],
+        ['e', tradeId],
+        ['l', listing.anchor!],
+        if (lnurl != null) ['lnurl', lnurl],
+      ],
+      content: 'Seed zap request',
+      createdAt: ctx.timestampDaysAfter(31 + threadIndex),
+    ),
+  );
+
+  return Nip01Utils.signWithPrivateKey(
+    privateKey: host.keyPair.privateKey!,
+    event: Nip01Event(
+      pubKey: host.keyPair.publicKey,
+      kind: kNostrKindZapReceipt,
+      tags: [
+        ['bolt11', 'lnbc-seed-$threadIndex'],
+        ['preimage', 'seed-preimage-$threadIndex'],
+        ['amount', amountMsats.toString()],
+        ['p', host.keyPair.publicKey],
+        ['P', guest.keyPair.publicKey],
+        ['e', zapRequest.getEId()!],
+        ['l', listing.anchor!],
+        if (lnurl != null) ['lnurl', lnurl],
+        ['description', Nip01EventModel.fromEntity(zapRequest).toJsonString()],
+      ],
+      content: 'Seed zap payment',
+      createdAt: ctx.timestampDaysAfter(32 + threadIndex),
+    ),
+  );
+}
+
+// ─── Reservation construction ───────────────────────────────────────────────
+
+/// Build a signed reservation event for a completed outcome plan.
+///
+/// Call after `SeedSink.submitTrade()` / `SeedSink.settleTrade()` have
+/// populated [SeedOutcomePlan.createTxHash].  This function is pure —
+/// it never touches the chain.
+Reservation buildReservationForPlan({
+  required SeedContext ctx,
+  required SeedOutcomePlan plan,
   required Map<String, ProfileMetadata> profileByPubkey,
   required EscrowService escrowService,
   required Map<String, EscrowTrust> trustByPubkey,
   required Map<String, EscrowMethod> methodByPubkey,
   required double invalidReservationRate,
-  required List<SeedOutcomePlan> plans,
-  DateTime? chainNow,
-}) async {
-  final sw = Stopwatch()..start();
+}) {
+  final thread = plan.thread;
+  final hostProfile = profileByPubkey[thread.host.keyPair.publicKey];
+  PaymentProof? proof;
 
-  // Use provided chainNow or fetch from chain.
-  chainNow ??= (await ctx.retryChainCall(
-    (c) => c.getBlockInformation(),
-  )).timestamp.toUtc();
-
-  // ── Phase 1: Zap paths (no RPC, pure event construction) ──
-  for (final plan in plans.where((p) => !p.useEscrow)) {
-    final hostProfile = profileByPubkey[plan.thread.host.keyPair.publicKey];
-    final tradeId = plan.thread.request.getDtag() ?? '';
-    plan.thread.zapReceipt = _buildZapReceipt(
-      ctx: ctx,
-      threadIndex: plan.index + 1,
-      tradeId: tradeId,
-      request: plan.thread.request,
-      listing: plan.thread.listing,
-      host: plan.thread.host,
-      guest: plan.thread.guest,
-      hostProfile: hostProfile,
-    );
-  }
-
-  // ── Phase 2: Create escrow trades — parallel by guest (nonce-safe) ──
-  final allEscrowPlans = plans.where((p) => p.useEscrow).toList();
-
-  print(
-    '[seed][escrow] Phase 1 (zaps): '
-    '${sw.elapsedMilliseconds} ms',
-  );
-
-  // ── Phase 2a: Batch log scan to discover already-created and
-  //    already-settled trades. Runs unconditionally so that plans
-  //    originally assigned to the zap path can be promoted to escrow
-  //    when a prior seed run left an on-chain trade for the same
-  //    deterministic tradeId.
-  final contract = ctx.multiEscrowContract(escrowService.contractAddress);
-
-  final createdTrades = <String, String>{}; // tradeIdHex → txHash
-  final settledTrades = <String>{}; // tradeIdHex set
-
-  await Future.wait([
-    // Scan TradeCreated logs.
-    () async {
-      final event = contract.self.event('TradeCreated');
-      final filter = FilterOptions.events(
-        contract: contract.self,
-        event: event,
-        fromBlock: const BlockNum.genesis(),
-      );
-      final logs = await ctx.retryChainCall((c) => c.getLogs(filter));
-      for (final log in logs) {
-        final decoded = event.decodeResults(log.topics!, log.data!);
-        final idHex = _bytesToHex(decoded[0] as Uint8List);
-        if (log.transactionHash != null) {
-          createdTrades[idHex] = log.transactionHash!;
-        }
-      }
-    }(),
-    // Scan all settlement event types in parallel.
-    for (final eventName in ['Claimed', 'Arbitrated', 'ReleasedToCounterparty'])
-      () async {
-        final event = contract.self.event(eventName);
-        final filter = FilterOptions.events(
-          contract: contract.self,
-          event: event,
-          fromBlock: const BlockNum.genesis(),
-        );
-        final logs = await ctx.retryChainCall((c) => c.getLogs(filter));
-        for (final log in logs) {
-          final decoded = event.decodeResults(log.topics!, log.data!);
-          settledTrades.add(_bytesToHex(decoded[0] as Uint8List));
-        }
-      }(),
-  ]);
-
-  print(
-    '[seed][escrow] Log scan: ${createdTrades.length} created, '
-    '${settledTrades.length} settled on-chain.',
-  );
-
-  // Mark ALL plans whose trades already exist on-chain — including
-  // plans on the zap path whose tradeId has an on-chain trade from a
-  // prior seed run. These get promoted to the escrow path so the
-  // reservation proof matches the on-chain state.
-  for (final plan in plans) {
-    final tradeIdHex = plan.thread.request.getDtag() ?? '';
-    final existingTxHash = createdTrades[tradeIdHex];
-    if (existingTxHash != null) {
-      if (!plan.useEscrow) {
-        // Promote zap-path plan to escrow path — an on-chain trade
-        // exists from a prior seed run.
-        plan.useEscrow = true;
-        plan.trust ??= trustByPubkey[plan.thread.host.keyPair.publicKey];
-        plan.method ??= methodByPubkey[plan.thread.host.keyPair.publicKey];
-        plan.escrowOutcome ??= settledTrades.contains(tradeIdHex)
-            ? EscrowOutcome.claimedByHost
-            : null;
-        print(
-          '[seed][escrow] thread=${plan.index + 1} '
-          'tradeId=$tradeIdHex PROMOTED to escrow path '
-          '(on-chain trade found from prior run, '
-          'fundTx=$existingTxHash)',
-        );
-      }
-      plan.tradeAlreadyExisted = true;
-      plan.createTxHash = existingTxHash;
-      // Only needs settlement if created but NOT yet settled.
-      plan.needsSettlement = !settledTrades.contains(tradeIdHex);
-      if (plan.useEscrow) {
-        final status = plan.needsSettlement ? 'active' : 'settled';
-        print(
-          '[seed][escrow] thread=${plan.index + 1} '
-          'tradeId=$tradeIdHex SKIPPED createTrade '
-          '(already exists [$status], fundTx=$existingTxHash)',
-        );
-      }
-    }
-  }
-
-  if (allEscrowPlans.isNotEmpty || plans.any((p) => p.useEscrow)) {
-    // ── Phase 2b: Assign nonces only for plans that need a tx.
-    //    Only plans with trust+method can actually send create txs.
-    //    Re-compute escrowPlans to include any promoted plans.
-    final activeEscrowPlans = plans
-        .where((p) => p.useEscrow && p.trust != null && p.method != null)
-        .toList();
-    final plansToCreate = activeEscrowPlans
-        .where((p) => !p.tradeAlreadyExisted)
-        .toList();
-
-    if (plansToCreate.isNotEmpty) {
-      final guestNonces = <String, int>{};
-      for (final plan in plansToCreate) {
-        guestNonces.putIfAbsent(plan.thread.guest.keyPair.privateKey!, () => 0);
-      }
-      await Future.wait(
-        guestNonces.keys.map((privKey) async {
-          final addr = (await deriveEvmKey(privKey)).address;
-          guestNonces[privKey] = await ctx.retryChainCall(
-            (c) =>
-                c.getTransactionCount(addr, atBlock: const BlockNum.pending()),
-          );
-        }),
-      );
-      for (final plan in plansToCreate) {
-        final key = plan.thread.guest.keyPair.privateKey!;
-        plan.assignedCreateNonce = guestNonces[key]!;
-        guestNonces[key] = guestNonces[key]! + 1;
-      }
-
-      final createGasPrice = await ctx.retryChainCall((c) => c.getGasPrice());
-      print(
-        '[seed][escrow] Creating ${plansToCreate.length} trades across '
-        '${guestNonces.length} guest(s) fully in parallel...',
-      );
-
-      await Future.wait(
-        plansToCreate.map(
-          (plan) => _createTradeForPlan(
-            ctx: ctx,
-            plan: plan,
-            escrowService: escrowService,
-            gasPrice: createGasPrice,
-          ),
-        ),
-      );
-    }
-
-    // ── Phase 3: Settle trades ──
-    // Settlement status is already known from the batch log scan,
-    // so no per-trade re-verification is needed.
-    final actuallyToSettle = activeEscrowPlans
-        .where((p) => p.needsSettlement)
-        .toList();
-
-    if (actuallyToSettle.isNotEmpty) {
-      // 3b: Ensure chain time is past all claimedByHost unlock times
-      //     before dispatching (one wait covers every plan).
-      final claimedPlans = actuallyToSettle
-          .where((p) => p.escrowOutcome == EscrowOutcome.claimedByHost)
-          .toList();
-      if (claimedPlans.isNotEmpty) {
-        var maxUnlock = 0;
-        for (final plan in claimedPlans) {
-          final unlockSec =
-              plan.thread.request.end.toUtc().millisecondsSinceEpoch ~/ 1000;
-          if (unlockSec > maxUnlock) maxUnlock = unlockSec;
-        }
-        await ctx.waitForChainTimePast(targetEpochSeconds: maxUnlock);
-      }
-
-      // 3c: Assign nonces only for plans that will actually send a tx.
-      final settlerNonces = <String, int>{};
-      for (final plan in actuallyToSettle) {
-        final settlerKey = plan.escrowOutcome == EscrowOutcome.arbitrated
-            ? MockKeys.escrow.privateKey!
-            : plan.thread.host.keyPair.privateKey!;
-        settlerNonces.putIfAbsent(settlerKey, () => 0);
-      }
-      await Future.wait(
-        settlerNonces.keys.map((privKey) async {
-          final addr = (await deriveEvmKey(privKey)).address;
-          settlerNonces[privKey] = await ctx.retryChainCall(
-            (c) =>
-                c.getTransactionCount(addr, atBlock: const BlockNum.pending()),
-          );
-        }),
-      );
-      for (final plan in actuallyToSettle) {
-        final settlerKey = plan.escrowOutcome == EscrowOutcome.arbitrated
-            ? MockKeys.escrow.privateKey!
-            : plan.thread.host.keyPair.privateKey!;
-        plan.assignedSettleNonce = settlerNonces[settlerKey]!;
-        settlerNonces[settlerKey] = settlerNonces[settlerKey]! + 1;
-      }
-
-      final settleGasPrice = await ctx.retryChainCall((c) => c.getGasPrice());
-      print(
-        '[seed][escrow] Settling ${actuallyToSettle.length} trades across '
-        '${settlerNonces.length} sender(s) fully in parallel...',
-      );
-
-      await Future.wait(
-        actuallyToSettle.map(
-          (plan) => _settleForPlan(
-            ctx: ctx,
-            plan: plan,
-            escrowService: escrowService,
-            gasPrice: settleGasPrice,
-          ),
-        ),
-      );
-    }
-  }
-
-  // Mark escrow-path threads.
-  for (final plan in plans.where((p) => p.useEscrow)) {
-    plan.thread.paidViaEscrow = true;
-    plan.thread.escrowOutcome = plan.escrowOutcome;
-  }
-
-  // ── Phase 4: Build reservation events (no RPC) ──
-  for (final plan in plans) {
-    final thread = plan.thread;
-    final hostProfile = profileByPubkey[thread.host.keyPair.publicKey];
-    PaymentProof? proof;
-
-    if (plan.useEscrow && plan.createTxHash != null) {
-      final trust = plan.trust ?? trustByPubkey[thread.host.keyPair.publicKey];
-      final method =
-          plan.method ?? methodByPubkey[thread.host.keyPair.publicKey];
-      if (trust != null && method != null) {
-        proof = PaymentProof(
-          hoster: hostProfile!,
-          listing: thread.listing,
-          zapProof: null,
-          escrowProof: EscrowProof(
-            txHash: plan.createTxHash!,
-            escrowService: escrowService,
-            hostsTrustedEscrows: trust,
-            hostsEscrowMethods: method,
-          ),
-        );
-      } else {
-        print(
-          '[seed][escrow] WARNING thread=${plan.index + 1}: '
-          'has createTxHash but missing trust/method for host '
-          '${thread.host.keyPair.publicKey} — escrow proof omitted',
-        );
-      }
-    } else if (plan.useEscrow && plan.createTxHash == null) {
-      print(
-        '[seed][escrow] WARNING thread=${plan.index + 1}: '
-        'useEscrow=true but createTxHash is null — no on-chain '
-        'trade found and no creation was attempted '
-        '(trust=${plan.trust != null}, method=${plan.method != null})',
-      );
-    } else if (!plan.useEscrow) {
+  if (plan.useEscrow && plan.createTxHash != null) {
+    final trust = plan.trust ?? trustByPubkey[thread.host.keyPair.publicKey];
+    final method = plan.method ?? methodByPubkey[thread.host.keyPair.publicKey];
+    if (trust != null && method != null) {
       proof = PaymentProof(
         hoster: hostProfile!,
         listing: thread.listing,
-        zapProof: thread.zapReceipt != null
-            ? ZapProof(receipt: Nip01EventModel.fromEntity(thread.zapReceipt!))
-            : null,
-        escrowProof: null,
+        zapProof: null,
+        escrowProof: EscrowProof(
+          txHash: plan.createTxHash!,
+          escrowService: escrowService,
+          hostsTrustedEscrows: trust,
+          hostsEscrowMethods: method,
+        ),
+      );
+    } else {
+      print(
+        '[seed][escrow] WARNING thread=${plan.index + 1}: '
+        'has createTxHash but missing trust/method for host '
+        '${thread.host.keyPair.publicKey} — escrow proof omitted',
       );
     }
-
-    thread.selfSigned = plan.selfSigned;
-
-    final requestTweakMaterial = thread.request.tweakMaterial;
-    final buyerSigningKey = requestTweakMaterial != null
-        ? tweakKeyPair(
-            privateKey: thread.guest.keyPair.privateKey!,
-            salt: requestTweakMaterial.salt,
-          ).keyPair
-        : thread.guest.keyPair;
-    final reservationSigner = plan.selfSigned
-        ? buyerSigningKey
-        : thread.host.keyPair;
-
-    String? invalidReason;
-    final mutatedProof = _maybeCorruptPaymentProof(
-      ctx: ctx,
-      invalidReservationRate: invalidReservationRate,
-      proof: proof,
-      onInvalid: (reason) => invalidReason = reason,
+  } else if (plan.useEscrow && plan.createTxHash == null) {
+    print(
+      '[seed][escrow] WARNING thread=${plan.index + 1}: '
+      'useEscrow=true but createTxHash is null — no on-chain '
+      'trade found and no creation was attempted '
+      '(trust=${plan.trust != null}, method=${plan.method != null})',
     );
-
-    final reservation = Reservation.create(
-      pubKey: reservationSigner.publicKey,
-      dTag: thread.request.getDtag()!,
-      listingAnchor: thread.listing.anchor!,
-      threadAnchor: thread.request.getDtag()!,
-      start: thread.start,
-      end: thread.end,
-      stage: ReservationStage.commit,
-      quantity: thread.request.quantity,
-      amount: thread.request.amount,
-      recipient: thread.request.recipient,
-      proof: mutatedProof,
-      extraTags: [
-        if (plan.escrowOutcome != null)
-          ['escrowOutcome', plan.escrowOutcome!.name],
-        if (plan.selfSigned) ['selfSigned', 'true'],
-      ],
-      createdAt: ctx.timestampDaysAfter(31 + plan.index + 1),
-    ).signAs(reservationSigner, Reservation.fromNostrEvent);
-
-    thread.reservation = reservation;
-    thread.invalidReservationReason = invalidReason;
+  } else if (!plan.useEscrow) {
+    proof = PaymentProof(
+      hoster: hostProfile!,
+      listing: thread.listing,
+      zapProof: thread.zapReceipt != null
+          ? ZapProof(receipt: Nip01EventModel.fromEntity(thread.zapReceipt!))
+          : null,
+      escrowProof: null,
+    );
   }
+
+  thread.selfSigned = plan.selfSigned;
+
+  final requestTweakMaterial = thread.request.tweakMaterial;
+  final buyerSigningKey = requestTweakMaterial != null
+      ? tweakKeyPair(
+          privateKey: thread.guest.keyPair.privateKey!,
+          salt: requestTweakMaterial.salt,
+        ).keyPair
+      : thread.guest.keyPair;
+  final reservationSigner = plan.selfSigned
+      ? buyerSigningKey
+      : thread.host.keyPair;
+
+  String? invalidReason;
+  final mutatedProof = _maybeCorruptPaymentProof(
+    ctx: ctx,
+    invalidReservationRate: invalidReservationRate,
+    proof: proof,
+    onInvalid: (reason) => invalidReason = reason,
+  );
+
+  final reservation = Reservation.create(
+    pubKey: reservationSigner.publicKey,
+    dTag: thread.request.getDtag()!,
+    listingAnchor: thread.listing.anchor!,
+    threadAnchor: thread.request.getDtag()!,
+    start: thread.start,
+    end: thread.end,
+    stage: ReservationStage.commit,
+    quantity: thread.request.quantity,
+    amount: thread.request.amount,
+    recipient: thread.request.recipient,
+    proof: mutatedProof,
+    extraTags: [
+      if (plan.escrowOutcome != null)
+        ['escrowOutcome', plan.escrowOutcome!.name],
+      if (plan.selfSigned) ['selfSigned', 'true'],
+    ],
+    createdAt: ctx.timestampDaysAfter(31 + plan.index + 1),
+  ).signAs(reservationSigner, Reservation.fromNostrEvent);
+
+  thread.reservation = reservation;
+  thread.invalidReservationReason = invalidReason;
+  return reservation;
 }
 
-// ─── Plan model — see SeedOutcomePlan in seed_pipeline_models.dart ──────────
+// ─── Proof corruption ───────────────────────────────────────────────────────
 
 PaymentProof? _maybeCorruptPaymentProof({
   required SeedContext ctx,
@@ -502,239 +306,6 @@ String _randomHex(SeedContext ctx, int length) {
     buffer.write(alphabet[ctx.random.nextInt(alphabet.length)]);
   }
   return buffer.toString();
-}
-
-// ─── Escrow trade creation (phase 2) ────────────────────────────────────────
-
-/// Only called for plans where the trade does NOT already exist on-chain.
-/// Existence is pre-checked in phase 2a so nonces are gap-free.
-Future<void> _createTradeForPlan({
-  required SeedContext ctx,
-  required SeedOutcomePlan plan,
-  required EscrowService escrowService,
-  required EtherAmount gasPrice,
-}) async {
-  final contract = ctx.multiEscrowContract(escrowService.contractAddress);
-  final request = plan.thread.request;
-  final guest = plan.thread.guest;
-  final host = plan.thread.host;
-  final threadIndex = plan.index + 1;
-
-  final tradeIdHex = request.getDtag() ?? '';
-  final tradeId = getBytes32(tradeIdHex);
-  final amountWei = request.amount!.value * BigInt.from(10).pow(10);
-
-  final guestCredentials = await deriveEvmKey(guest.keyPair.privateKey!);
-  final buyer = guestCredentials.address;
-  final seller = (await deriveEvmKey(host.keyPair.privateKey!)).address;
-  final arbiter = (await deriveEvmKey(MockKeys.escrow.privateKey!)).address;
-
-  final unlockAtSeconds = request.end.toUtc().millisecondsSinceEpoch ~/ 1000;
-  final unlockAt = BigInt.from(unlockAtSeconds);
-
-  plan.createTxHash = await contract.createTrade(
-    (
-      tradeId: tradeId,
-      buyer: buyer,
-      seller: seller,
-      arbiter: arbiter,
-      unlockAt: unlockAt,
-      escrowFee: BigInt.zero,
-    ),
-    credentials: guestCredentials,
-    transaction: Transaction(
-      nonce: plan.assignedCreateNonce,
-      value: EtherAmount.inWei(amountWei),
-      maxGas: 450000,
-      gasPrice: gasPrice,
-    ),
-  );
-
-  print(
-    '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
-    'outcome=${plan.escrowOutcome!.name} '
-    'fundTx=${plan.createTxHash} amountWei=$amountWei '
-    'unlockAt=$unlockAtSeconds '
-    'buyer=${buyer.eip55With0x} seller=${seller.eip55With0x} '
-    'arbiter=${arbiter.eip55With0x}',
-  );
-  await _assertTxSucceeded(
-    ctx,
-    plan.createTxHash!,
-    threadIndex,
-    'createTrade',
-    tradeIdHex,
-  );
-  // Freshly created trades are always active.
-  plan.needsSettlement = true;
-}
-
-// ─── Escrow settlement (phase 3) ────────────────────────────────────────────
-
-/// Only called for plans verified as active in phase 3a.
-/// Chain time is guaranteed past all unlock times by phase 3b.
-Future<void> _settleForPlan({
-  required SeedContext ctx,
-  required SeedOutcomePlan plan,
-  required EscrowService escrowService,
-  required EtherAmount gasPrice,
-}) async {
-  final contract = ctx.multiEscrowContract(escrowService.contractAddress);
-  final request = plan.thread.request;
-  final host = plan.thread.host;
-  final threadIndex = plan.index + 1;
-
-  final tradeIdHex = request.getDtag() ?? '';
-  final tradeId = getBytes32(tradeIdHex);
-
-  final hostCredentials = await deriveEvmKey(host.keyPair.privateKey!);
-  final arbiterCredentials = await deriveEvmKey(MockKeys.escrow.privateKey!);
-
-  if (plan.escrowOutcome == EscrowOutcome.arbitrated) {
-    final txHash = await contract.arbitrate(
-      (tradeId: tradeId, factor: BigInt.from(700)),
-      credentials: arbiterCredentials,
-      transaction: Transaction(
-        nonce: plan.assignedSettleNonce,
-        maxGas: 250000,
-        gasPrice: gasPrice,
-      ),
-    );
-    print(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
-      'arbitrateTx=$txHash factor=700',
-    );
-    await _assertTxSucceeded(ctx, txHash, threadIndex, 'arbitrate', tradeIdHex);
-  } else if (plan.escrowOutcome == EscrowOutcome.claimedByHost) {
-    final txHash = await contract.claim(
-      (tradeId: tradeId),
-      credentials: hostCredentials,
-      transaction: Transaction(
-        nonce: plan.assignedSettleNonce,
-        maxGas: 250000,
-        gasPrice: gasPrice,
-      ),
-    );
-    print(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex claimTx=$txHash',
-    );
-    await _assertTxSucceeded(ctx, txHash, threadIndex, 'claim', tradeIdHex);
-  } else {
-    final txHash = await contract.releaseToCounterparty$2(
-      (tradeId: tradeId),
-      credentials: hostCredentials,
-      transaction: Transaction(
-        nonce: plan.assignedSettleNonce,
-        maxGas: 250000,
-        gasPrice: gasPrice,
-      ),
-    );
-    print(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex '
-      'releaseTx=$txHash',
-    );
-    await _assertTxSucceeded(
-      ctx,
-      txHash,
-      threadIndex,
-      'releaseToCounterparty',
-      tradeIdHex,
-    );
-  }
-}
-
-Future<void> _assertTxSucceeded(
-  SeedContext ctx,
-  String txHash,
-  int threadIndex,
-  String stage,
-  String tradeIdHex,
-) async {
-  final receipt = await _waitForReceipt(ctx, txHash);
-  if (receipt == null) {
-    final tx = await ctx.retryChainCall((c) => c.getTransactionByHash(txHash));
-    throw Exception(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex stage=$stage tx=$txHash has no receipt '
-      '(txKnown=${tx != null})',
-    );
-  }
-  if (receipt.status != true) {
-    throw Exception(
-      '[seed][escrow] thread=$threadIndex tradeId=$tradeIdHex stage=$stage tx=$txHash failed (status=${receipt.status})',
-    );
-  }
-}
-
-Future<dynamic> _waitForReceipt(SeedContext ctx, String txHash) async {
-  const maxAttempts = 30;
-  for (var attempt = 0; attempt < maxAttempts; attempt++) {
-    final receipt = await ctx.retryChainCall(
-      (c) => c.getTransactionReceipt(txHash),
-    );
-    if (receipt != null) return receipt;
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-  }
-  return null;
-}
-
-/// Convert raw bytes to a hex string (no 0x prefix) for use as map keys.
-String _bytesToHex(Uint8List bytes) =>
-    bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-
-// ─── Zap receipt ────────────────────────────────────────────────────────────
-
-Nip01Event _buildZapReceipt({
-  required SeedContext ctx,
-  required int threadIndex,
-  required String tradeId,
-  required Reservation request,
-  required Listing listing,
-  required SeedUser host,
-  required SeedUser guest,
-  required ProfileMetadata? hostProfile,
-}) {
-  final amountMsats = request.amount!.value * BigInt.from(1000);
-  final lnurl = hostProfile != null
-      ? Metadata.fromEvent(hostProfile).lud16
-      : null;
-
-  final zapRequest = Nip01Utils.signWithPrivateKey(
-    privateKey: guest.keyPair.privateKey!,
-    event: Nip01Event(
-      pubKey: guest.keyPair.publicKey,
-      kind: kNostrKindZapRequest,
-      tags: [
-        ['p', host.keyPair.publicKey],
-        ['amount', amountMsats.toString()],
-        ['e', tradeId],
-        ['l', listing.anchor!],
-        if (lnurl != null) ['lnurl', lnurl],
-      ],
-      content: 'Seed zap request',
-      createdAt: ctx.timestampDaysAfter(31 + threadIndex),
-    ),
-  );
-
-  return Nip01Utils.signWithPrivateKey(
-    privateKey: host.keyPair.privateKey!,
-    event: Nip01Event(
-      pubKey: host.keyPair.publicKey,
-      kind: kNostrKindZapReceipt,
-      tags: [
-        ['bolt11', 'lnbc-seed-$threadIndex'],
-        ['preimage', 'seed-preimage-$threadIndex'],
-        ['amount', amountMsats.toString()],
-        ['p', host.keyPair.publicKey],
-        ['P', guest.keyPair.publicKey],
-        ['e', zapRequest.getEId()!],
-        ['l', listing.anchor!],
-        if (lnurl != null) ['lnurl', lnurl],
-        ['description', Nip01EventModel.fromEntity(zapRequest).toJsonString()],
-      ],
-      content: 'Seed zap payment',
-      createdAt: ctx.timestampDaysAfter(32 + threadIndex),
-    ),
-  );
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

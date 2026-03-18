@@ -22,6 +22,7 @@ class Hostr {
   Nwc get nwc => getIt<Nwc>();
   Zaps get zaps => getIt<Zaps>();
   Listings get listings => getIt<Listings>();
+  LnurlUseCase get lnurl => getIt<LnurlUseCase>();
   Location get location => getIt<Location>();
   Reservations get reservations => getIt<Reservations>();
   ReservationPairs get reservationPairs => getIt<ReservationPairs>();
