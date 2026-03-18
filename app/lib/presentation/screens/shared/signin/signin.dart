@@ -176,7 +176,6 @@ class SignInScreenState extends State<SignInScreen> {
         child: AppPaneLayout(
           panes: [
             AppPane(
-              panelTone: AppPanelTone.primary,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,

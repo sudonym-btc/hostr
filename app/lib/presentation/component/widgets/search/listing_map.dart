@@ -266,66 +266,29 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       final isFocused = group.markerId == desiredFocusedMarkerId;
       final isCluster = group.memberIds.length > 1;
 
-      // ── Resolve colours ────────────────────────────────────────
-      final Color fillColor;
-      final Color textColor;
-      final Color? borderColor;
-      final double borderWidth;
-
-      if (isFocused) {
-        fillColor =
-            widget.focusedBackgroundColor ??
-            theme.colorScheme.surfaceContainerLowest;
-        textColor = widget.focusedColor ?? theme.colorScheme.onSurface;
-        borderColor = widget.focusedBorderColor;
-        borderWidth = widget.focusedBorderWidth ?? 1;
-      } else if (!group.enabled) {
-        fillColor =
-            widget.disabledBackgroundColor ??
-            theme.colorScheme.surfaceContainerHighest;
-        textColor = widget.disabledColor ?? theme.colorScheme.onSurfaceVariant;
-        borderColor = widget.disabledBorderColor;
-        borderWidth = widget.disabledBorderWidth ?? 1;
-      } else if (isCluster) {
-        fillColor =
-            widget.clusterBackgroundColor ?? theme.colorScheme.surfaceContainer;
-        textColor = widget.clusterColor ?? theme.colorScheme.onSurface;
-        borderColor = widget.clusterBorderColor;
-        borderWidth = widget.clusterBorderWidth ?? 1;
-      } else {
-        fillColor =
-            widget.pillBackgroundColor ??
-            theme.colorScheme.surfaceContainerHighest;
-        textColor = widget.pillColor ?? theme.colorScheme.onSurface;
-        borderColor = widget.pillBorderColor;
-        borderWidth = widget.pillBorderWidth ?? 1;
-      }
-
-      // ── Resolve label text ─────────────────────────────────────
-      final String label;
-      if (isCluster && widget.clusterTextBuilder != null) {
-        final items = group.memberIds
-            .map((id) => dataById[id])
-            .whereType<ListingMarkerData>()
-            .toList();
-        label = widget.clusterTextBuilder!(items);
-      } else if (!isCluster && widget.pillTextBuilder != null) {
-        final item = dataById[group.memberIds.first];
-        label = item != null ? widget.pillTextBuilder!(item) : group.label;
-      } else {
-        label = group.label;
-      }
+      final style = _resolveMarkerStyle(
+        theme: theme,
+        isFocused: isFocused,
+        enabled: group.enabled,
+        isCluster: isCluster,
+      );
+      final label = _resolveMarkerLabel(
+        isCluster: isCluster,
+        memberIds: group.memberIds,
+        fallbackLabel: group.label,
+        dataById: dataById,
+      );
 
       final icon = await PriceMarkerBuilder.build(
         priceText: label,
-        fillColor: fillColor,
-        textColor: textColor,
-        borderColor: borderColor,
+        fillColor: style.fillColor,
+        textColor: style.textColor,
+        borderColor: style.borderColor,
         textStyle: theme.textTheme.bodySmall,
         showArrow: widget.showArrows,
         isCluster: isCluster,
         devicePixelRatio: dpr,
-        borderWidth: borderWidth,
+        borderWidth: style.borderWidth,
       );
 
       if (!mounted || generation != _syncGeneration) return;
@@ -827,8 +790,74 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     );
   }
 
-  /// Rebuilds a single marker icon using the same colour / label
-  /// resolution as [_recluster] so style params and text builders apply.
+  // ── Marker style / label helpers ───────────────────────────────────
+
+  ({Color fillColor, Color textColor, Color? borderColor, double borderWidth})
+  _resolveMarkerStyle({
+    required ThemeData theme,
+    required bool isFocused,
+    required bool enabled,
+    required bool isCluster,
+  }) {
+    if (isFocused) {
+      return (
+        fillColor:
+            widget.focusedBackgroundColor ??
+            theme.colorScheme.tertiaryContainer,
+        textColor: widget.focusedColor ?? theme.colorScheme.onTertiaryContainer,
+        borderColor: widget.focusedBorderColor,
+        borderWidth: widget.focusedBorderWidth ?? 1,
+      );
+    } else if (!enabled) {
+      return (
+        fillColor:
+            widget.disabledBackgroundColor ??
+            theme.colorScheme.surfaceContainerHighest,
+        textColor: widget.disabledColor ?? theme.colorScheme.onSurfaceVariant,
+        borderColor: widget.disabledBorderColor,
+        borderWidth: widget.disabledBorderWidth ?? 1,
+      );
+    } else if (isCluster) {
+      return (
+        fillColor:
+            widget.clusterBackgroundColor ?? theme.colorScheme.surfaceContainer,
+        textColor: widget.clusterColor ?? theme.colorScheme.onSurface,
+        borderColor: widget.clusterBorderColor,
+        borderWidth: widget.clusterBorderWidth ?? 1,
+      );
+    } else {
+      return (
+        fillColor:
+            widget.pillBackgroundColor ??
+            theme.colorScheme.surfaceContainerHighest,
+        textColor: widget.pillColor ?? theme.colorScheme.onSurface,
+        borderColor: widget.pillBorderColor,
+        borderWidth: widget.pillBorderWidth ?? 1,
+      );
+    }
+  }
+
+  String _resolveMarkerLabel({
+    required bool isCluster,
+    required List<String> memberIds,
+    required String fallbackLabel,
+    required Map<String, ListingMarkerData> dataById,
+  }) {
+    if (isCluster && widget.clusterTextBuilder != null) {
+      final items = memberIds
+          .map((id) => dataById[id])
+          .whereType<ListingMarkerData>()
+          .toList();
+      return widget.clusterTextBuilder!(items);
+    } else if (!isCluster && widget.pillTextBuilder != null) {
+      final item = dataById[memberIds.first];
+      return item != null ? widget.pillTextBuilder!(item) : fallbackLabel;
+    }
+    return fallbackLabel;
+  }
+
+  /// Rebuilds a single marker icon with the canonical style / label
+  /// resolution shared with [_recluster].
   Future<void> _rebuildMarkerIcon(String id, {bool isFocused = false}) async {
     final meta = _markerMeta[id];
     final existing = _markers[id];
@@ -837,70 +866,33 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     final dpr = MediaQuery.of(context).devicePixelRatio;
     final theme = Theme.of(context);
 
-    // ── Resolve colours (mirrors _recluster) ─────────────────
-    final Color fillColor;
-    final Color textColor;
-    final Color? borderColor;
-    final double borderWidth;
-
-    if (isFocused) {
-      fillColor =
-          widget.focusedBackgroundColor ??
-          theme.colorScheme.surfaceContainerLowest;
-      textColor = widget.focusedColor ?? theme.colorScheme.onSurface;
-      borderColor = widget.focusedBorderColor;
-      borderWidth = widget.focusedBorderWidth ?? 1;
-    } else if (!meta.enabled) {
-      fillColor =
-          widget.disabledBackgroundColor ??
-          theme.colorScheme.surfaceContainerHighest;
-      textColor = widget.disabledColor ?? theme.colorScheme.onSurfaceVariant;
-      borderColor = widget.disabledBorderColor;
-      borderWidth = widget.disabledBorderWidth ?? 1;
-    } else if (meta.isCluster) {
-      fillColor =
-          widget.clusterBackgroundColor ?? theme.colorScheme.surfaceContainer;
-      textColor = widget.clusterColor ?? theme.colorScheme.onSurface;
-      borderColor = widget.clusterBorderColor;
-      borderWidth = widget.clusterBorderWidth ?? 1;
-    } else {
-      fillColor =
-          widget.pillBackgroundColor ??
-          theme.colorScheme.surfaceContainerHighest;
-      textColor = widget.pillColor ?? theme.colorScheme.onSurface;
-      borderColor = widget.pillBorderColor;
-      borderWidth = widget.pillBorderWidth ?? 1;
-    }
-
-    // ── Resolve label (mirrors _recluster) ───────────────────
     final dataById = <String, ListingMarkerData>{
       for (final d in _listingMapController.listings) d.id: d,
     };
 
-    final String label;
-    if (meta.isCluster && widget.clusterTextBuilder != null) {
-      final items = meta.memberIds
-          .map((mid) => dataById[mid])
-          .whereType<ListingMarkerData>()
-          .toList();
-      label = widget.clusterTextBuilder!(items);
-    } else if (!meta.isCluster && widget.pillTextBuilder != null) {
-      final item = dataById[meta.memberIds.first];
-      label = item != null ? widget.pillTextBuilder!(item) : meta.priceText;
-    } else {
-      label = meta.priceText;
-    }
+    final style = _resolveMarkerStyle(
+      theme: theme,
+      isFocused: isFocused,
+      enabled: meta.enabled,
+      isCluster: meta.isCluster,
+    );
+    final label = _resolveMarkerLabel(
+      isCluster: meta.isCluster,
+      memberIds: meta.memberIds,
+      fallbackLabel: meta.priceText,
+      dataById: dataById,
+    );
 
     final icon = await PriceMarkerBuilder.build(
       priceText: label,
-      fillColor: fillColor,
-      textColor: textColor,
-      borderColor: borderColor,
+      fillColor: style.fillColor,
+      textColor: style.textColor,
+      borderColor: style.borderColor,
       textStyle: theme.textTheme.bodySmall,
       showArrow: widget.showArrows,
       isCluster: meta.isCluster,
       devicePixelRatio: dpr,
-      borderWidth: borderWidth,
+      borderWidth: style.borderWidth,
     );
 
     if (!mounted) return;

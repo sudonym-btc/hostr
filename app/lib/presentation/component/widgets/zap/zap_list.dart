@@ -35,11 +35,13 @@ class ZapListWidget extends StatefulWidget {
 }
 
 class ZapListWidgetState extends State<ZapListWidget> {
+  StreamWithStatus<Nip01Event>? _sws;
   Stream<ZapReceipt>? _zapStream;
   final List<ZapReceipt> _zaps = [];
   StreamSubscription<ZapReceipt>? _subscription;
+  StreamSubscription<StreamStatus>? _statusSub;
   bool _resolving = false;
-  bool _done = false;
+  bool _live = false;
   String? _error;
 
   @override
@@ -84,21 +86,30 @@ class ZapListWidgetState extends State<ZapListWidget> {
   }
 
   void _startFetch(String pubkey) {
-    final sws = getIt<Hostr>().zaps.subscribeZapReceipts(
+    _sws = getIt<Hostr>().zaps.subscribeZapReceipts(
       pubkey: pubkey,
       eventId: widget.eventId,
     );
-    _zapStream = sws.stream.map((event) => ZapReceipt.fromEvent(event));
+    _zapStream = _sws!.stream.map((event) => ZapReceipt.fromEvent(event));
     _subscription = _zapStream!.listen(
       (zap) => setState(() => _zaps.add(zap)),
       onError: (e) => setState(() => _error = e.toString()),
-      onDone: () => setState(() => _done = true),
     );
+    // Track when the relay subscription goes live so we can
+    // distinguish "still waiting" from "zero results".
+    _statusSub = _sws!.status.listen((status) {
+      if (!_live &&
+          (status is StreamStatusLive || status is StreamStatusQueryComplete)) {
+        if (mounted) setState(() => _live = true);
+      }
+    });
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
+    _statusSub?.cancel();
+    _sws?.close();
     super.dispose();
   }
 
@@ -113,7 +124,7 @@ class ZapListWidgetState extends State<ZapListWidget> {
     }
 
     if (_zaps.isEmpty) {
-      if (_done) return const SizedBox.shrink();
+      if (_live) return const SizedBox.shrink();
       return const AppLoadingIndicator.medium();
     }
 

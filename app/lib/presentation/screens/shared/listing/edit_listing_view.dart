@@ -123,7 +123,6 @@ class EditListingViewState extends State<EditListingView> {
         child: app_layout.AppPaneLayout(
           panes: [
             app_layout.AppPane(
-              panelTone: app_layout.AppPanelTone.primary,
               sliverAppBarBuilder: (context) =>
                   _buildHeroSliverAppBar(context, listing),
               bottomBar: bottomBar,
@@ -143,7 +142,6 @@ class EditListingViewState extends State<EditListingView> {
       child: app_layout.AppPaneLayout(
         panes: [
           app_layout.AppPane(
-            panelTone: app_layout.AppPanelTone.primary,
             child: const Center(child: AppLoadingIndicator.large()),
           ),
         ],

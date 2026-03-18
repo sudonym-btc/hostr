@@ -276,47 +276,21 @@ class ListingViewBody extends StatelessWidget {
         panes: [
           AppPane(
             flex: 2,
-            panelTone: AppPanelTone.primary,
             sliverAppBarBuilder: _buildPrimarySliverAppBar,
             bottomBar: reserveBottomBar,
             child: _buildPrimaryContent(context),
           ),
           AppPane(
             flex: 1,
-            panelTone: AppPanelTone.secondary,
-            child: _ScrollWhenBounded(
-              child: CustomPadding.horizontal.md(
-                child: listing_sections.ListingReviewsSection(
-                  reviewsListWidget: reviewsListWidget,
-                ),
+            scrollable: true,
+            child: CustomPadding.horizontal.md(
+              child: listing_sections.ListingReviewsSection(
+                reviewsListWidget: reviewsListWidget,
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ScrollWhenBounded extends StatelessWidget {
-  final Widget child;
-
-  const _ScrollWhenBounded({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.hasBoundedHeight) {
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: SizedBox(width: double.infinity, child: child),
-            ),
-          );
-        }
-        return child;
-      },
     );
   }
 }

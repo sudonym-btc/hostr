@@ -97,7 +97,7 @@ class ProfilePopupContent extends StatelessWidget {
         Gap.vertical.sm(),
         VerifiedNip05Badge(
           nip05: metadata?.nip05,
-          pubkey: profile!.pubKey,
+          pubkey: profile?.pubKey ?? pubkey,
           inline: false,
           hideWhenEmpty: false,
         ),

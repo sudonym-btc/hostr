@@ -4,6 +4,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:rxdart/rxdart.dart';
 
 class ListingDependencies {
   final Listing listing;
@@ -41,31 +42,36 @@ class ListingDependencies {
 
   late final Stream<List<Validation<Review>>> reviewItems = verifiedReviews
       .itemsStream
-      .asBroadcastStream();
+      .shareReplay(maxSize: 1);
 
   late final Stream<List<Validation<ReservationPair>>> reservationPairItems =
-      verifiedReservationPairs.latestItemsStream.asBroadcastStream();
+      verifiedReservationPairs.latestItemsStream.shareReplay(maxSize: 1);
 
   late final Stream<int> reviewCount = reviewItems
       .map((items) => items.whereType<Valid<Review>>().length)
-      .asBroadcastStream();
+      .shareReplay(maxSize: 1);
 
-  late final Stream<double> averageReviewRating = reviewItems.map((items) {
-    final reviews = items
-        .whereType<Valid<Review>>()
-        .map((validation) => validation.event)
-        .toList();
-    if (reviews.isEmpty) {
-      return 0.0;
-    }
+  late final Stream<double> averageReviewRating = reviewItems
+      .map((items) {
+        final reviews = items
+            .whereType<Valid<Review>>()
+            .map((validation) => validation.event)
+            .toList();
+        if (reviews.isEmpty) {
+          return 0.0;
+        }
 
-    final total = reviews.fold<double>(0, (sum, review) => sum + review.rating);
-    return total / reviews.length;
-  }).asBroadcastStream();
+        final total = reviews.fold<double>(
+          0,
+          (sum, review) => sum + review.rating,
+        );
+        return total / reviews.length;
+      })
+      .shareReplay(maxSize: 1);
 
   late final Stream<int> reservationCount = reservationPairItems
       .map((items) => items.whereType<Valid<ReservationPair>>().length)
-      .asBroadcastStream();
+      .shareReplay(maxSize: 1);
 
   void close() {
     verifiedReviews.close();

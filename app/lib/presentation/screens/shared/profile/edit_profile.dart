@@ -30,15 +30,8 @@ class EditProfileView extends StatefulWidget {
   State<StatefulWidget> createState() => EditProfileViewState();
 }
 
-BlurredImage noImageSetPlaceholder(BuildContext context) => BlurredImage(
-  child: Image.asset(
-    'assets/images/profile_placeholder.jpg',
-    fit: BoxFit.cover,
-    errorBuilder: (_, _, _) => ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-    ),
-  ),
-);
+Widget noImageSetPlaceholder(BuildContext context) =>
+    AppSurface(steps: -1, child: ColoredBox(color: Colors.transparent));
 
 class EditProfileViewState extends State<EditProfileView> {
   final EditProfileController controller = EditProfileController();
@@ -130,23 +123,23 @@ class EditProfileViewState extends State<EditProfileView> {
     final body = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => FocusScope.of(context).unfocus(),
-      child: LayoutBuilder(
-        builder: (context, constraints) => ProfileProvider(
-          pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-          onDone: (metadata) => controller.setState(metadata),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: AppLoadingIndicator.large());
-            }
-            if (snapshot.connectionState == ConnectionState.done) {
-              final fields = buildFormFields();
-              return constraints.hasBoundedHeight
+      child: ProfileProvider(
+        pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+        onDone: (metadata) => controller.setState(metadata),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: AppLoadingIndicator.large());
+          }
+          if (snapshot.connectionState == ConnectionState.done) {
+            final fields = buildFormFields();
+            return LayoutBuilder(
+              builder: (context, constraints) => constraints.hasBoundedHeight
                   ? ListView(children: fields)
-                  : Column(mainAxisSize: MainAxisSize.min, children: fields);
-            }
-            return Text(AppLocalizations.of(context)!.errorLabel);
-          },
-        ),
+                  : Column(mainAxisSize: MainAxisSize.min, children: fields),
+            );
+          }
+          return Text(AppLocalizations.of(context)!.errorLabel);
+        },
       ),
     );
     final bottomBar = SaveBottomBar(
@@ -183,7 +176,6 @@ class EditProfileViewState extends State<EditProfileView> {
             panes: [
               AppPane(
                 flex: 2,
-                panelTone: AppPanelTone.primary,
                 appBarBuilder: (context) =>
                     AppBar(title: Text(AppLocalizations.of(context)!.profile)),
                 bottomBar: bottomBar,

@@ -77,11 +77,12 @@ class _AppShellScreenState extends State<AppShellScreen>
   }
 
   Widget _buildBottomNav(
-    BuildContext context,
-    TabsRouter tabsRouter,
-    List<AppNavigationDestination> destinations,
-    Color navBg,
-  ) {
+    BuildContext context, {
+    required StackRouter router,
+    required List<AppNavigationDestination> destinations,
+    required int selectedIndex,
+    required Color navBg,
+  }) {
     final items = [
       for (final destination in destinations)
         _navItem(
@@ -108,10 +109,9 @@ class _AppShellScreenState extends State<AppShellScreen>
           child: BottomNavigationBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            currentIndex: min(items.length - 1, tabsRouter.activeIndex),
+            currentIndex: min(items.length - 1, selectedIndex),
             onTap: (index) {
-              _navController.forward();
-              tabsRouter.setActiveIndex(index);
+              _selectDestination(router, destinations, index);
             },
             items: items,
           ),
@@ -148,6 +148,48 @@ class _AppShellScreenState extends State<AppShellScreen>
   }
 
   // ---------------------------------------------------------------------------
+  // Sidebar (wide viewports)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildSidebar(
+    BuildContext context, {
+    required List<AppNavigationDestination> destinations,
+    required int selectedIndex,
+    required ValueChanged<int> onDestinationSelected,
+  }) {
+    final theme = Theme.of(context);
+    final safeSelectedIndex = min(
+      max(0, selectedIndex),
+      max(0, destinations.length - 1),
+    );
+
+    return AppPanel(
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              itemCount: destinations.length,
+              itemBuilder: (context, index) {
+                final destination = destinations[index];
+                return _SidebarNavItem(
+                  label: destination.label,
+                  icon: destination.icon,
+                  selected: index == safeSelectedIndex,
+                  onTap: () => onDestinationSelected(index),
+                );
+              },
+              separatorBuilder: (_, __) => const SizedBox(height: kSpace2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
 
@@ -175,15 +217,8 @@ class _AppShellScreenState extends State<AppShellScreen>
                       final router = AutoRouter.of(context);
                       final topRouteName = router.topRoute.name;
                       final layout = AppLayoutSpec.of(context);
+                      final theme = Theme.of(context);
 
-                      final isOnTabs = topRouteName == TabShellRoute.name;
-
-                      // Use the deepest route segment for nav-index
-                      // resolution. currentSegments traverses the full
-                      // route hierarchy including pending children, so
-                      // it works on the very first frame — before the
-                      // TabShellScreen widget has built its
-                      // AutoTabsRouter.
                       final segments = router.currentSegments;
                       final currentRouteName = segments.isNotEmpty
                           ? segments.last.name
@@ -196,49 +231,141 @@ class _AppShellScreenState extends State<AppShellScreen>
                         modeState: modeState,
                       );
 
-                      // --- Wide viewport: sidebar always visible ------------
-                      if (layout.showsSidebarNavigation) {
-                        return AppWideNavigationScaffold(
-                          destinations: destinations,
-                          selectedIndex: selectedIndex,
-                          onDestinationSelected: (index) {
-                            _selectDestination(router, destinations, index);
-                          },
-                          child: child,
-                        );
-                      }
-
-                      // --- Compact viewport ---------------------------------
-                      // Show bottom nav only when on a tab route.
-                      if (!isOnTabs) return child;
-
-                      final tabsRouter = context.innerRouterOf<TabsRouter>(
-                        TabShellRoute.name,
+                      final showSidebar = layout.showsSidebarNavigation;
+                      final isOnTabs = segments.any(
+                        (s) => s.name == TabShellRoute.name,
                       );
-                      if (tabsRouter == null) return child;
+                      final showBottomNav = !showSidebar && isOnTabs;
 
-                      final navBg = Theme.of(
-                        context,
-                      ).bottomNavigationBarTheme.backgroundColor!;
-
+                      // ── Single stable Scaffold ──────────────────────
+                      // The child always sits at Row index 1, so
+                      // crossing the breakpoint never unmounts
+                      // TabShellScreen / IndexedStack — tab state and
+                      // initState fetches are preserved.
                       return Scaffold(
-                        extendBody: true,
-                        body: NotificationListener<ScrollNotification>(
-                          onNotification: _onScrollNotification,
-                          child: child,
+                        backgroundColor: showSidebar
+                            ? theme.colorScheme.surfaceContainerHighest
+                            : theme.colorScheme.surface,
+                        extendBody: showBottomNav,
+                        body: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: layout.shellMaxWidth,
+                            ),
+                            child: Row(
+                              children: [
+                                // Sidebar — always at index 0, zero
+                                // width when hidden. Keeps the content
+                                // child at a stable tree position.
+                                SizedBox(
+                                  width: showSidebar ? kAppSidebarWidth : 0,
+                                  child: showSidebar
+                                      ? SafeArea(
+                                          right: false,
+                                          bottom: false,
+                                          child: _buildSidebar(
+                                            context,
+                                            destinations: destinations,
+                                            selectedIndex: selectedIndex,
+                                            onDestinationSelected: (idx) {
+                                              _selectDestination(
+                                                router,
+                                                destinations,
+                                                idx,
+                                              );
+                                            },
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                // Content — always at index 1.
+                                Expanded(
+                                  child:
+                                      NotificationListener<ScrollNotification>(
+                                        onNotification: _onScrollNotification,
+                                        child: child,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        bottomNavigationBar: _buildBottomNav(
-                          context,
-                          tabsRouter,
-                          destinations,
-                          navBg,
-                        ),
+                        bottomNavigationBar: showBottomNav
+                            ? _buildBottomNav(
+                                context,
+                                router: router,
+                                destinations: destinations,
+                                selectedIndex: selectedIndex,
+                                navBg: theme
+                                    .bottomNavigationBarTheme
+                                    .backgroundColor!,
+                              )
+                            : null,
                       );
                     },
                   );
                 },
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar nav item (wide viewports)
+// ---------------------------------------------------------------------------
+
+class _SidebarNavItem extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SidebarNavItem({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final backgroundColor = selected
+        ? theme.colorScheme.surfaceContainerHighest
+        : Colors.transparent;
+    final foregroundColor = selected
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.onSurfaceVariant;
+
+    return Material(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(kAppNavBarItemRadius),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(kAppNavBarItemRadius),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: kSpace4,
+            vertical: kSpace3,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: foregroundColor),
+              const SizedBox(width: kSpace3),
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: foregroundColor,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

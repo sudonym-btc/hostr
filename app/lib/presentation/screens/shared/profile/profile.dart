@@ -89,7 +89,6 @@ class ProfileScreen extends StatelessWidget {
             panes: [
               AppPane(
                 flex: 2,
-                panelTone: AppPanelTone.primary,
                 sliverAppBarBuilder: (context) =>
                     _buildAppBar(context, profile),
                 child: ProfileSummarySection(profile: profile),

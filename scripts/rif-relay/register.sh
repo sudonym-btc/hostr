@@ -7,11 +7,7 @@ source "$SCRIPT_DIR/common.sh"
 ENVIRONMENT="${1:-test}"
 load_managed_relay_env "$ENVIRONMENT" "$0"
 
-REGISTER_PRIVATE_KEY_VALUE="${RIF_RELAY_ADMIN_PRIVATE_KEY:-${REGISTER_PRIVATE_KEY:-}}"
-if [ -z "$REGISTER_PRIVATE_KEY_VALUE" ]; then
-    echo "Set RIF_RELAY_ADMIN_PRIVATE_KEY or REGISTER_PRIVATE_KEY before running $0"
-    exit 64
-fi
+REGISTER_PRIVATE_KEY_VALUE="$(relay_admin_private_key "$0")"
 
 compose_run_rif_relay 'export RIF_RELAY_WORKDIR=/tmp/rif-relay-register && export REGISTER_GAS_PRICE=$(node <<"NODE"
 const http = require(process.env.RPC_URL?.startsWith("https") ? "https" : "http");
