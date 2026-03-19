@@ -20,6 +20,13 @@ class InboxScreen extends StatelessWidget {
         final selectedAnchor = hasSelectedThread
             ? router.topMatch.params.optString('anchor')
             : null;
+        final isExpanded = AppLayoutSpec.of(context).isExpanded;
+
+        // On compact viewports, let AutoRouter push ThreadScreen as a
+        // normal route — this gives a proper back button and transition.
+        if (hasSelectedThread && !isExpanded) {
+          return child;
+        }
 
         return SafeArea(
           top: false,
@@ -47,6 +54,9 @@ class InboxScreen extends StatelessWidget {
                 AppPane(
                   flex: 3,
                   showWhenStacked: false,
+                  appBarBuilder: hasSelectedThread
+                      ? null
+                      : (context) => AppBar(automaticallyImplyLeading: false),
                   child: hasSelectedThread
                       ? child
                       : EmtyResultsWidget(

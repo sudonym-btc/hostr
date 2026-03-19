@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/export.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 import '../seed_data.dart';
@@ -22,8 +24,9 @@ Widget listingViewBodyDateSelected(BuildContext context) {
             '4.8 · 12 reviews · 20 reservations',
           ),
           reviewsListWidget: const SizedBox.shrink(),
-          blockedReservations: [MOCK_RESERVATIONS.first],
-          reservationPairs: const {},
+          verifiedPairsStream:
+              StreamWithStatus<List<Validation<ReservationPair>>>(),
+          hostKeyPair: null,
           onCancelBlockedReservation: (_) {},
           onBlockDates: () {},
         ),
@@ -47,8 +50,9 @@ Widget listingViewBodyNoDateSelected(BuildContext context) {
             '4.8 · 12 reviews · 20 reservations',
           ),
           reviewsListWidget: const SizedBox.shrink(),
-          blockedReservations: const [],
-          reservationPairs: const {},
+          verifiedPairsStream:
+              StreamWithStatus<List<Validation<ReservationPair>>>(),
+          hostKeyPair: null,
           onCancelBlockedReservation: (_) {},
           onBlockDates: () {},
         ),

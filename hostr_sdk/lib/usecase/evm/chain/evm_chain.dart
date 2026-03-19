@@ -362,6 +362,7 @@ abstract class EvmChain {
   /// a transaction receipt is confirmed) so that dependent streams such as
   /// escrow-event polling react without waiting for the next 15-second tick.
   void notifyNewBlock() {
+    logger.d('Notifying new block');
     if (!_pollNow.isClosed) _pollNow.add(null);
   }
 

@@ -40,17 +40,18 @@ class InboxThreadList extends StatelessWidget {
           );
         }
 
-        return ListView(
-          children: [
-            for (final thread in threads)
-              InboxItem(
+        final items = threads
+            .map(
+              (thread) => InboxItem(
                 key: ValueKey(thread.anchor),
                 thread: thread,
                 selected: thread.anchor == selectedAnchor,
                 onSelect: onThreadSelected,
               ),
-          ],
-        );
+            )
+            .toList();
+
+        return ListView(children: items);
       },
     );
   }

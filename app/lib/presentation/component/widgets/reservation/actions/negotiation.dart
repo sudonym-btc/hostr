@@ -201,6 +201,7 @@ class NegotiationWidget extends StatelessWidget {
           ? null
           : () => showAppModal(
               context,
+              useRootNavigator: true,
               builder: (_) => EscrowFundWidget(
                 counterparty: tradeState.hostProfile!,
                 negotiateReservation: (tradeState.stage as NegotiationStage)

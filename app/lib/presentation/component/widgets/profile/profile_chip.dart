@@ -3,6 +3,7 @@ import 'package:hostr/config/main.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 
 class ProfileChipWidget extends StatelessWidget {
   final String id;
@@ -28,19 +29,23 @@ class ProfileChipWidget extends StatelessWidget {
           alignment: alignment,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 200),
-            child: GestureDetector(
-              onTap: () => ProfilePopup.show(context, id),
-              child: Chip(
-                shape: const StadiumBorder(),
-                avatar: AppAvatar.sm(
-                  image: picture,
-                  pubkey: id,
-                  label: snapshot.data?.metadata.getName() ?? '?',
-                ),
-                label: Text(
-                  name,
-                  overflow: TextOverflow.ellipsis,
-                  softWrap: false,
+            child: AppSurface(
+              shape: const StadiumBorder(),
+              child: GestureDetector(
+                onTap: () => ProfilePopup.show(context, id),
+                child: Chip(
+                  shape: const StadiumBorder(),
+                  backgroundColor: Colors.transparent,
+                  avatar: AppAvatar.sm(
+                    image: picture,
+                    pubkey: id,
+                    label: snapshot.data?.metadata.getName() ?? '?',
+                  ),
+                  label: Text(
+                    name,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                  ),
                 ),
               ),
             ),

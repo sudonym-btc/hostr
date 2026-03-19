@@ -107,147 +107,154 @@ class AmountInputWidget extends FormField<Amount> {
                 ),
               ),
               Gap.vertical.custom(kSpace5),
-              CustomPadding(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        mainAxisExtent: 64,
-                        mainAxisSpacing: 12,
-                      ),
-                      itemCount: 12,
-                      itemBuilder: (context, index) {
-                        Widget buttonContent;
-                        if (index < 11) {
-                          buttonContent = Text(
-                            buttons[index].toString(),
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
-                          );
-                        } else if (index == 11) {
-                          buttonContent = Icon(
-                            Icons.backspace,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          );
-                        } else {
-                          buttonContent =
-                              Container(); // Empty container for the last cell
-                        }
-
-                        return GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            // For BTC, we edit in sats (the display unit),
-                            // so use the raw integer value directly.
-                            final isBtc = field.value!.currency == Currency.BTC;
-                            String currentValue;
-                            if (isBtc) {
-                              currentValue = field.value!.value.toString();
-                            } else {
-                              currentValue = field.value!.toDecimalString(
-                                maxDecimals: maxDecimals,
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: kAppFormMaxWidth),
+                  child: CustomPadding(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                mainAxisExtent: 64,
+                                mainAxisSpacing: 12,
+                              ),
+                          itemCount: 12,
+                          itemBuilder: (context, index) {
+                            Widget buttonContent;
+                            if (index < 11) {
+                              buttonContent = Text(
+                                buttons[index].toString(),
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
                               );
-                              // Only trim trailing zeros after the decimal point
-                              if (currentValue.contains('.')) {
-                                currentValue = currentValue.replaceAll(
-                                  RegExp(r'0*$'),
-                                  '',
-                                );
-                                currentValue = currentValue.replaceAll(
-                                  RegExp(r'\.$'),
-                                  '',
-                                );
-                              }
+                            } else if (index == 11) {
+                              buttonContent = Icon(
+                                Icons.backspace,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              );
+                            } else {
+                              buttonContent =
+                                  Container(); // Empty container for the last cell
                             }
 
-                            if (buttons[index] is int) {
-                              if (currentValue == '0') {
-                                currentValue = '';
-                              }
-                              final newValue =
-                                  currentValue + buttons[index].toString();
-                              final Amount newAmount;
-                              if (isBtc) {
-                                final parsed = BigInt.tryParse(newValue);
-                                if (parsed == null) return;
-                                newAmount = Amount(
-                                  value: parsed,
-                                  currency: field.value!.currency,
-                                );
-                              } else {
-                                newAmount = Amount.fromDecimal(
-                                  decimal: newValue,
-                                  currency: field.value!.currency,
-                                );
-                              }
-                              field.didChange(newAmount);
-                              return;
-                            }
-
-                            if (buttons[index] == '.') {
-                              if (isBtc) return; // no decimals for sats
-                              if (!currentValue.contains('.')) {
-                                final newValue = currentValue.isEmpty
-                                    ? '0.'
-                                    : '$currentValue.';
-                                field.didChange(
-                                  Amount.fromDecimal(
-                                    decimal: newValue,
-                                    currency: field.value!.currency,
-                                  ),
-                                );
-                              }
-                              return;
-                            }
-
-                            if (buttons[index] == 'backspace') {
-                              if (currentValue.isNotEmpty) {
-                                final newValue = currentValue.substring(
-                                  0,
-                                  currentValue.length - 1,
-                                );
+                            return GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                // For BTC, we edit in sats (the display unit),
+                                // so use the raw integer value directly.
+                                final isBtc =
+                                    field.value!.currency == Currency.BTC;
+                                String currentValue;
                                 if (isBtc) {
-                                  final parsed = newValue.isEmpty
-                                      ? BigInt.zero
-                                      : (BigInt.tryParse(newValue) ??
-                                            BigInt.zero);
-                                  field.didChange(
-                                    Amount(
+                                  currentValue = field.value!.value.toString();
+                                } else {
+                                  currentValue = field.value!.toDecimalString(
+                                    maxDecimals: maxDecimals,
+                                  );
+                                  // Only trim trailing zeros after the decimal point
+                                  if (currentValue.contains('.')) {
+                                    currentValue = currentValue.replaceAll(
+                                      RegExp(r'0*$'),
+                                      '',
+                                    );
+                                    currentValue = currentValue.replaceAll(
+                                      RegExp(r'\.$'),
+                                      '',
+                                    );
+                                  }
+                                }
+
+                                if (buttons[index] is int) {
+                                  if (currentValue == '0') {
+                                    currentValue = '';
+                                  }
+                                  final newValue =
+                                      currentValue + buttons[index].toString();
+                                  final Amount newAmount;
+                                  if (isBtc) {
+                                    final parsed = BigInt.tryParse(newValue);
+                                    if (parsed == null) return;
+                                    newAmount = Amount(
                                       value: parsed,
                                       currency: field.value!.currency,
-                                    ),
-                                  );
-                                } else {
-                                  field.didChange(
-                                    Amount.fromDecimal(
-                                      decimal: newValue.isEmpty
-                                          ? '0'
-                                          : newValue,
+                                    );
+                                  } else {
+                                    newAmount = Amount.fromDecimal(
+                                      decimal: newValue,
                                       currency: field.value!.currency,
-                                    ),
-                                  );
+                                    );
+                                  }
+                                  field.didChange(newAmount);
+                                  return;
                                 }
-                              }
-                            }
+
+                                if (buttons[index] == '.') {
+                                  if (isBtc) return; // no decimals for sats
+                                  if (!currentValue.contains('.')) {
+                                    final newValue = currentValue.isEmpty
+                                        ? '0.'
+                                        : '$currentValue.';
+                                    field.didChange(
+                                      Amount.fromDecimal(
+                                        decimal: newValue,
+                                        currency: field.value!.currency,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+
+                                if (buttons[index] == 'backspace') {
+                                  if (currentValue.isNotEmpty) {
+                                    final newValue = currentValue.substring(
+                                      0,
+                                      currentValue.length - 1,
+                                    );
+                                    if (isBtc) {
+                                      final parsed = newValue.isEmpty
+                                          ? BigInt.zero
+                                          : (BigInt.tryParse(newValue) ??
+                                                BigInt.zero);
+                                      field.didChange(
+                                        Amount(
+                                          value: parsed,
+                                          currency: field.value!.currency,
+                                        ),
+                                      );
+                                    } else {
+                                      field.didChange(
+                                        Amount.fromDecimal(
+                                          decimal: newValue.isEmpty
+                                              ? '0'
+                                              : newValue,
+                                          currency: field.value!.currency,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+                              },
+                              child: AppSurface(
+                                steps: 2,
+                                shape: const CircleBorder(),
+                                padding: const EdgeInsets.all(16),
+                                child: Center(child: buttonContent),
+                              ),
+                            );
                           },
-                          child: AppSurface(
-                            steps: 2,
-                            shape: const CircleBorder(),
-                            padding: const EdgeInsets.all(16),
-                            child: Center(child: buttonContent),
-                          ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],

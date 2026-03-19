@@ -43,7 +43,7 @@ class InboxItemView extends StatelessWidget {
         horizontal: kDefaultPadding.toDouble(),
         vertical: 0,
       ),
-      leading: ProfileAvatars(profiles: counterparties),
+      leading: ProfileAvatars.md(profiles: counterparties),
       title: Text(
         title,
         style: theme.textTheme.titleMedium?.copyWith(

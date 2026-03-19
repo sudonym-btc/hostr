@@ -236,7 +236,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     final dpr = MediaQuery.of(context).devicePixelRatio;
 
     final clusterThreshold = widget.enableClustering
-        ? await _clusterThreshold()
+        ? await _clusterThreshold(useVisibleRegion: !applyViewportIntent)
         : 0.0;
     if (!mounted || generation != _syncGeneration) return;
 
@@ -360,7 +360,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   /// Computes the grouping threshold in degrees based on the *actual*
   /// visible region of the camera so that markers whose pills would
   /// overlap on screen get collapsed.
-  Future<double> _clusterThreshold() async {
+  Future<double> _clusterThreshold({bool useVisibleRegion = true}) async {
     if (_resolvedListings.length < 2) return 0;
 
     final renderBox = context.findRenderObject() as RenderBox?;
@@ -369,8 +369,11 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     double latSpan;
     double lngSpan;
 
-    // Prefer the actual visible region from the live camera.
-    if (_mapReady && _googleMapController.isCompleted) {
+    // Prefer the actual visible region from the live camera, but only
+    // when the camera has already been positioned.  When a viewport
+    // intent is pending the camera is still at its default world-zoom,
+    // which produces a wildly inflated threshold.
+    if (useVisibleRegion && _mapReady && _googleMapController.isCompleted) {
       final controller = await _googleMapController.future;
       final visibleRegion = await controller.getVisibleRegion();
       latSpan =
@@ -381,7 +384,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
                   visibleRegion.southwest.longitude)
               .abs();
     } else {
-      // Fallback: estimate from the bounding box of all markers + padding.
+      // Fallback: estimate from the bounding box of all markers.
       double minLat = double.infinity, maxLat = double.negativeInfinity;
       double minLng = double.infinity, maxLng = double.negativeInfinity;
       for (final l in _resolvedListings) {
@@ -396,8 +399,18 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       lngSpan = maxLng - minLng;
     }
 
-    final degPerPxLat = latSpan / max(viewport.height, 1.0);
-    final degPerPxLng = lngSpan / max(viewport.width, 1.0);
+    // Subtract fitBoundsPadding from each side so the estimate matches
+    // the effective area that fitBounds will allocate to markers.
+    final effectiveHeight = max(
+      viewport.height - 2 * widget.fitBoundsPadding,
+      1.0,
+    );
+    final effectiveWidth = max(
+      viewport.width - 2 * widget.fitBoundsPadding,
+      1.0,
+    );
+    final degPerPxLat = latSpan / effectiveHeight;
+    final degPerPxLng = lngSpan / effectiveWidth;
 
     // A price-pill marker is roughly 70 × 28 logical pixels.
     // Use half the pill dimensions so markers only cluster when they
@@ -433,7 +446,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   void _onCameraIdleDebounced() {
     _cameraIdleDebounce?.cancel();
     _cameraIdleDebounce = Timer(
-      const Duration(milliseconds: 300),
+      const Duration(milliseconds: 0),
       () => unawaited(_onCameraIdle()),
     );
   }
@@ -1080,11 +1093,19 @@ class _MarkerGroup {
 
   _MarkerGroup add(_ResolvedListingMarker listing) {
     final nextMemberIds = [...memberIds, listing.id];
+    final n = nextMemberIds.length;
+    // Recompute the group centre as the running centroid so the
+    // cluster position stays balanced and distance checks are
+    // symmetric regardless of insertion order.
+    final centroid = LatLng(
+      (position.latitude * (n - 1) + listing.position.latitude) / n,
+      (position.longitude * (n - 1) + listing.position.longitude) / n,
+    );
     return _MarkerGroup(
       markerId: markerId,
-      position: position,
+      position: centroid,
       memberIds: nextMemberIds,
-      label: '${nextMemberIds.length} results',
+      label: '${n} results',
       enabled: enabled || listing.enabled,
     );
   }

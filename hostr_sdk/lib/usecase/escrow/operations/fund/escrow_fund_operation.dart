@@ -126,23 +126,10 @@ class EscrowFundOperation extends OnchainOperation {
       });
 
   @override
-  void onTransactionConfirmed(
+  void validateConfirmedTransaction(
     OnchainOperationData data,
     TransactionReceipt receipt,
-  ) => logger.spanSync('onTransactionConfirmed', () {
-    final gasUsed = receipt.gasUsed?.toInt();
-    final estimatedLimit = data.callIntent?.maxGas;
-    final gasPrice = data.callIntent?.gasPrice?.getInWei;
-    if (gasUsed != null && estimatedLimit != null && gasPrice != null) {
-      final refundGas = estimatedLimit - gasUsed;
-      final refundWei = BigInt.from(refundGas) * gasPrice;
-      logger.d(
-        'Gas usage: estimated=$estimatedLimit, actual=$gasUsed, '
-        'refunded=$refundGas units '
-        '(~${BitcoinAmount.inWei(refundWei).getInSats} sats)',
-      );
-    }
-
+  ) => logger.spanSync('validateConfirmedTransaction', () {
     // Verify the receipt contains at least one log from the escrow contract.
     // A successful transaction that emits no escrow logs means the inner
     // call was silently dropped (e.g. the relay wallet factory did not
@@ -160,6 +147,28 @@ class EscrowFundOperation extends OnchainOperation {
       );
     }
   });
+
+  @override
+  void onRunComplete(OnchainOperationState state) =>
+      logger.spanSync('onRunComplete', () {
+        if (state is! OnchainTxConfirmed) return;
+        final data = state.data;
+        final receipt = data.transactionReceipt;
+        if (receipt == null) return;
+
+        final gasUsed = receipt.gasUsed?.toInt();
+        final estimatedLimit = data.callIntent?.maxGas;
+        final gasPrice = data.callIntent?.gasPrice?.getInWei;
+        if (gasUsed != null && estimatedLimit != null && gasPrice != null) {
+          final refundGas = estimatedLimit - gasUsed;
+          final refundWei = BigInt.from(refundGas) * gasPrice;
+          logger.d(
+            'Gas usage: estimated=$estimatedLimit, actual=$gasUsed, '
+            'refunded=$refundGas units '
+            '(~${BitcoinAmount.inWei(refundWei).getInSats} sats)',
+          );
+        }
+      });
 
   @override
   OnchainOperationData onNestedSwapFinished(

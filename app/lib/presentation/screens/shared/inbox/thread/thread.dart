@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_view.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
+import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 @RoutePage()
@@ -14,12 +16,23 @@ class ThreadScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isExpanded = AppLayoutSpec.of(context).isExpanded;
     return BlocProvider<ThreadCubit>(
       key: ValueKey(anchor),
       create: (_) => ThreadCubit(
         thread: getIt<Hostr>().messaging.threads.threads[anchor]!,
       ),
-      child: ThreadView(key: ValueKey('embedded-$anchor'), embedded: true),
+      child: ThreadView(
+        key: ValueKey('${isExpanded ? "embedded" : "standalone"}-$anchor'),
+        embedded: isExpanded,
+        onBack: isExpanded
+            ? null
+            : () {
+                context.router.root.navigate(
+                  TabShellRoute(children: [const InboxRoute()]),
+                );
+              },
+      ),
     );
   }
 }

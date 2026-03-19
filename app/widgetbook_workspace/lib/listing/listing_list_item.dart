@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/export.dart';
+import 'package:hostr/presentation/component/providers/nostr/listing_dependencies.provider.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
@@ -29,12 +30,14 @@ Widget listing(BuildContext context) {
 
 @widgetbook.UseCase(name: 'Pure - date selected', type: ListingListItemView)
 Widget listingPureDateSelected(BuildContext context) {
-  final verifiedReviews = _emptyValidatedStream<Review>();
-  final verifiedReservationPairs =
-      _emptyValidatedSnapshotStream<ReservationPair>();
+  final dependencies = ListingDependencies(
+    listing: MOCK_LISTINGS[0],
+    verifiedReviews: _emptyValidatedStream<Review>(),
+    verifiedReservationPairs: _emptyValidatedSnapshotStream<ReservationPair>(),
+  );
 
   return ListingListItemView(
-    listing: MOCK_LISTINGS[0],
+    dependencies: dependencies,
     showPrice: true,
     showFeedback: true,
     smallImage: false,
@@ -43,27 +46,25 @@ Widget listingPureDateSelected(BuildContext context) {
       'Availability: Available',
       style: Theme.of(context).textTheme.bodySmall,
     ),
-    verifiedReviews: verifiedReviews,
-    verifiedReservationPairs: verifiedReservationPairs,
     onTap: () {},
   );
 }
 
 @widgetbook.UseCase(name: 'Pure - no date selected', type: ListingListItemView)
 Widget listingPureNoDateSelected(BuildContext context) {
-  final verifiedReviews = _emptyValidatedStream<Review>();
-  final verifiedReservationPairs =
-      _emptyValidatedSnapshotStream<ReservationPair>();
+  final dependencies = ListingDependencies(
+    listing: MOCK_LISTINGS[0],
+    verifiedReviews: _emptyValidatedStream<Review>(),
+    verifiedReservationPairs: _emptyValidatedSnapshotStream<ReservationPair>(),
+  );
 
   return ListingListItemView(
-    listing: MOCK_LISTINGS[0],
+    dependencies: dependencies,
     showPrice: true,
     showFeedback: true,
     smallImage: false,
     showAvailability: false,
     availabilityWidget: null,
-    verifiedReviews: verifiedReviews,
-    verifiedReservationPairs: verifiedReservationPairs,
     onTap: () {},
   );
 }

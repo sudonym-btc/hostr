@@ -140,8 +140,7 @@ class ProfileSettingsSection extends StatelessWidget {
           ),
         ),
         if (AppLayoutSpec.of(context).isExpanded) const Spacer(),
-        Container(
-          color: AppPaneTheme.stepped(context, 1),
+        AppSurface(
           child: Column(
             children: [
               const ZapUsWidget(),
