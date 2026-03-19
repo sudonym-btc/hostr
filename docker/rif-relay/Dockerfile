@@ -16,7 +16,7 @@ RUN apt-get update \
 
 RUN cd /rif-relay-contracts \
     && (patch -p1 < /tmp/contracts.patch || true) \
-    && npm ci
+    && npm install --no-audit
 
 RUN cd /rif-relay-server \
     && (patch -p1 < /tmp/server.patch || true) \
