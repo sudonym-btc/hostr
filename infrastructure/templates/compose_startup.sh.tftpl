@@ -172,6 +172,7 @@ cd /opt/hostr
 git fetch --all --prune
 git checkout "${repo_branch}"
 git pull --ff-only origin "${repo_branch}"
+git submodule update --init --recursive
 
 /usr/local/bin/hostr-fetch-secrets "$${TARGET_ENV}"
 docker compose \
