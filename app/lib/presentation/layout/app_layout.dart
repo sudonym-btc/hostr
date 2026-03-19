@@ -259,25 +259,22 @@ class AppPaneTheme extends InheritedWidget {
     ];
   }
 
-  /// Returns the colour [steps] above the current pane on the neutral
-  /// surface scale. When the current colour is not found in the scale
-  /// (no [AppPaneTheme] ancestor), it is treated as sitting at `surface`
-  /// (index 0).
+  /// Returns the colour [steps] levels deeper on the neutral surface scale.
+  /// When the current colour is not found in the scale (no [AppPaneTheme]
+  /// ancestor), it is treated as sitting at the lightest end for the
+  /// current brightness.
   ///
-  /// In light mode the M3 surface scale runs light → dark (index 0 =
-  /// lightest, index N = darkest).  In dark mode the scale is inverted
-  /// (index 0 = darkest, index N = lightest).  We flip the step
-  /// direction in dark mode so that `+1` always means "one shade darker"
-  /// regardless of brightness.
+  /// In light mode the M3 scale runs light (index 0) → dark (index N),
+  /// so `+1` increments the index.  In dark mode it runs dark (index 0) →
+  /// light (index N), so `+1` *decrements* the index to stay "deeper".
   static Color stepped(BuildContext context, [int steps = 1]) {
     final current = of(context);
     final scale = _scale(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
     var idx = scale.indexOf(current);
-    if (idx == -1) idx = 0; // default to surface
-    final direction = Theme.of(context).brightness == Brightness.light
-        ? steps
-        : -steps;
-    return scale[(idx + direction).clamp(0, scale.length - 1)];
+    if (idx == -1) idx = isLight ? 0 : scale.length - 1;
+    final next = isLight ? idx + steps : idx - steps;
+    return scale[next.clamp(0, scale.length - 1)];
   }
 
   @override
@@ -530,7 +527,6 @@ class AppPane extends StatelessWidget {
     required BuildContext context,
     bool includeAppBar = true,
     bool includeBottomBar = true,
-    Color? assignedColor,
   }) {
     Widget buildPaneBody(BoxConstraints constraints) {
       final content = Padding(
@@ -591,33 +587,29 @@ class AppPane extends StatelessWidget {
       },
     );
 
-    final resolvedColor = color ?? assignedColor;
-
-    if (!usePanel || resolvedColor == null) {
-      // Inject AppPaneTheme even without a visual panel so descendants
-      // can call AppPaneTheme.of(context) / .stepped().
-      if (resolvedColor != null) {
-        return AppPaneTheme(color: resolvedColor, child: body);
-      }
-      return body;
+    // When used inside AppPaneLayout the pane is already wrapped in an
+    // AppSurface that sets AppPaneTheme + Material colour.  An explicit
+    // `color` override still takes precedence for standalone usage.
+    if (color != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: AppPaneTheme(
+          color: color!,
+          child: Material(color: color!, child: body),
+        ),
+      );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: AppPaneTheme(
-        color: resolvedColor,
-        child: Material(color: resolvedColor, child: body),
-      ),
-    );
+    return body;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Standalone usage (outside AppPaneLayout): default to primary tone.
-    return buildPane(
-      context: context,
-      assignedColor:
-          color ?? Theme.of(context).colorScheme.surfaceContainerHigh,
+    // Standalone usage (outside AppPaneLayout).
+    // Wrap in an AppSurface so the pane picks up a stepped background.
+    return AppSurface(
+      borderRadius: BorderRadius.circular(radius),
+      child: buildPane(context: context),
     );
   }
 }
@@ -649,29 +641,6 @@ class AppPaneLayout extends StatelessWidget {
     this.stackMode = AppPaneStackMode.flat,
   });
 
-  /// Resolves the background colour for the pane at [index].
-  ///
-  /// Returns `null` when [colorMode] is [AppPaneColorMode.flat].
-  Color? _resolveColor(BuildContext context, int index) {
-    switch (colorMode) {
-      case AppPaneColorMode.autoStepped:
-        final scale = AppPaneTheme._scale(context);
-        final int level;
-        if (Theme.of(context).brightness == Brightness.light) {
-          // Light: shell sits at surface (lightest). Panes ascend into
-          // darker surface-container tones.
-          level = (1 + index).clamp(0, scale.length - 1);
-        } else {
-          // Dark: shell sits at surfaceContainerHighest (lightest).
-          // Panes descend into darker tones.
-          level = (scale.length - 2 - index).clamp(0, scale.length - 1);
-        }
-        return scale[level];
-      case AppPaneColorMode.flat:
-        return null;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final layout = AppLayoutSpec.of(context);
@@ -690,10 +659,10 @@ class AppPaneLayout extends StatelessWidget {
 
     for (var i = 0; i < panes.length; i++) {
       final pane = panes[i];
-      final assignedColor = _resolveColor(context, i);
-      final paneWidget = pane.buildPane(
-        context: context,
-        assignedColor: assignedColor,
+      final paneWidget = AppSurface(
+        steps: colorMode == AppPaneColorMode.autoStepped ? i + 1 : 0,
+        borderRadius: BorderRadius.circular(pane.radius),
+        child: pane.buildPane(context: context),
       );
 
       if (pane.width != null) {
@@ -711,10 +680,7 @@ class AppPaneLayout extends StatelessWidget {
       children.add(Spacer(flex: totalFlex! - flexSum));
     }
 
-    final cs = Theme.of(context).colorScheme;
-    final shellColor = Theme.of(context).brightness == Brightness.light
-        ? cs.surfaceContainer
-        : cs.surfaceContainerHighest;
+    final shellColor = AppPaneTheme.of(context);
 
     return ColoredBox(
       color: shellColor,
@@ -743,21 +709,19 @@ class AppPaneLayout extends StatelessWidget {
       final pane = stackedPanes[i];
       final suppressChrome = identical(pane, promotedPane);
 
-      // In tinted mode, assign the same stepped colour as on web.
-      Color? stackedColor;
+      // In tinted mode, wrap in AppSurface so the pane gets a stepped bg.
+      final originalIndex = panes.indexOf(pane);
+      Widget paneWidget = pane.buildPane(
+        context: context,
+        includeAppBar: !suppressChrome,
+        includeBottomBar: !suppressChrome,
+      );
+
       if (useTinted) {
-        final originalIndex = panes.indexOf(pane);
-        stackedColor = _resolveColor(context, originalIndex);
+        paneWidget = AppSurface(steps: originalIndex + 1, child: paneWidget);
       }
 
-      children.add(
-        pane.buildPane(
-          context: context,
-          includeAppBar: !suppressChrome,
-          includeBottomBar: !suppressChrome,
-          assignedColor: stackedColor,
-        ),
-      );
+      children.add(paneWidget);
       if (i < stackedPanes.length - 1) {
         children.add(SizedBox(height: gap));
       }
@@ -817,13 +781,10 @@ class AppPaneLayout extends StatelessWidget {
       );
     }
 
-    // Inject a baseline AppPaneTheme so descendants always have a reference.
+    // Inherit the baseline AppPaneTheme from the shell.
     // Wrap in Material so ink effects (InkWell, etc.) work without a Scaffold.
-    final surfaceColor = Theme.of(context).colorScheme.surface;
-    return AppPaneTheme(
-      color: surfaceColor,
-      child: Material(color: surfaceColor, child: body),
-    );
+    final surfaceColor = AppPaneTheme.of(context);
+    return Material(color: surfaceColor, child: body);
   }
 }
 

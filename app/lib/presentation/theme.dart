@@ -71,6 +71,7 @@ ThemeData getTheme(bool isDark) {
   );
   final baseGeneric = base.copyWith(
     textTheme: textTheme,
+    scaffoldBackgroundColor: Colors.transparent,
     primaryTextTheme: primaryTextTheme,
     extensions: const <ThemeExtension<dynamic>>[AppSpacingTheme()],
     appBarTheme: AppBarTheme(
