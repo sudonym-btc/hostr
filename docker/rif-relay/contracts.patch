@@ -25,7 +25,7 @@ diff --git a/contracts/utils/BoltzUtils.sol b/contracts/utils/BoltzUtils.sol
 index d9abdf8..614cc99 100644
 --- a/contracts/utils/BoltzUtils.sol
 +++ b/contracts/utils/BoltzUtils.sol
-@@ -20,6 +20,19 @@ library BoltzUtils {
+@@ -20,6 +20,22 @@ library BoltzUtils {
      }
    }
  
