@@ -114,7 +114,7 @@ class _ListingsWidgetState extends State<ListingsWidget> {
         itemPositionsListener: _itemPositionsListener,
         stickyHeader: AppLayoutSpec.of(context).isExpanded,
         resultCountBuilder: (count, hasMore) => Container(
-          color: AppPaneTheme.of(context),
+          color: AppSurface.of(context),
           child: CustomPadding.symmetric(
             horizontal: Spacing.lg,
             vertical: Spacing.sm,

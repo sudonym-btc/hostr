@@ -221,28 +221,55 @@ class AppPageGutter extends StatelessWidget {
   }
 }
 
-/// Provides the resolved background [Color] of the nearest [AppPanel]
-/// ancestor to its descendants.
+/// Inherited widget that tracks the current surface colour.
 ///
-/// Widgets like [SaveBottomBar], custom app bars, or reply inputs can call
-/// [AppPaneTheme.of] to inherit the enclosing pane's background colour
-/// instead of hard-coding a colour token.
-class AppPaneTheme extends InheritedWidget {
-  /// The resolved background colour of the enclosing panel.
+/// Private implementation detail of [AppSurface]. External code should use
+/// [AppSurface.of] and [AppSurface.stepped] instead.
+class _AppSurfaceInherited extends InheritedWidget {
   final Color color;
 
-  const AppPaneTheme({super.key, required this.color, required super.child});
+  const _AppSurfaceInherited({required this.color, required super.child});
 
-  /// Returns the [AppPaneTheme] from the nearest ancestor, or `null`
-  /// if no panel is above this widget.
-  static AppPaneTheme? maybeOf(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<AppPaneTheme>();
-  }
+  @override
+  bool updateShouldNotify(_AppSurfaceInherited oldWidget) =>
+      color != oldWidget.color;
+}
 
-  /// Returns the resolved panel colour, falling back to
-  /// [ColorScheme.surface] when no [AppPanel] is above this widget.
+/// A surface that is [steps] levels deeper than its nearest ancestor on the
+/// neutral surface-container scale.
+///
+/// Re-injects the resolved colour so descendants can stack further.
+///
+/// Use [AppSurface.of] to read the current surface colour and
+/// [AppSurface.stepped] to compute a colour N steps deeper without
+/// inserting a widget.
+class AppSurface extends StatelessWidget {
+  final Widget child;
+  final int steps;
+  final BorderRadiusGeometry? borderRadius;
+  final ShapeBorder? shape;
+  final EdgeInsetsGeometry? padding;
+
+  const AppSurface({
+    super.key,
+    required this.child,
+    this.steps = 1,
+    this.borderRadius,
+    this.shape,
+    this.padding,
+  });
+
+  // ---------------------------------------------------------------------------
+  // Static helpers — the public API for querying the surface level.
+  // ---------------------------------------------------------------------------
+
+  /// Returns the resolved surface colour from the nearest ancestor,
+  /// falling back to [ColorScheme.surface].
   static Color of(BuildContext context) {
-    return maybeOf(context)?.color ?? Theme.of(context).colorScheme.surface;
+    return context
+            .dependOnInheritedWidgetOfExactType<_AppSurfaceInherited>()
+            ?.color ??
+        Theme.of(context).colorScheme.surface;
   }
 
   /// The ordered neutral surface scale from `surface` (lowest) through
@@ -260,9 +287,6 @@ class AppPaneTheme extends InheritedWidget {
   }
 
   /// Returns the colour [steps] levels deeper on the neutral surface scale.
-  /// When the current colour is not found in the scale (no [AppPaneTheme]
-  /// ancestor), it is treated as sitting at the lightest end for the
-  /// current brightness.
   ///
   /// In light mode the M3 scale runs light (index 0) → dark (index N),
   /// so `+1` increments the index.  In dark mode it runs dark (index 0) →
@@ -277,35 +301,22 @@ class AppPaneTheme extends InheritedWidget {
     return scale[next.clamp(0, scale.length - 1)];
   }
 
-  @override
-  bool updateShouldNotify(AppPaneTheme oldWidget) => color != oldWidget.color;
-}
+  /// Injects a baseline surface colour without rendering a [Material].
+  ///
+  /// Use this at the app root (e.g. inside the Scaffold body) so that
+  /// all descendant [AppSurface] widgets have a reference point.
+  static Widget inherit({required Color color, required Widget child}) {
+    return _AppSurfaceInherited(color: color, child: child);
+  }
 
-/// A surface that is [steps] levels above its nearest [AppPaneTheme]
-/// ancestor on the neutral surface-container scale.
-///
-/// Re-injects an [AppPaneTheme] at the resolved level so descendants
-/// can stack further.
-class AppSurface extends StatelessWidget {
-  final Widget child;
-  final int steps;
-  final BorderRadiusGeometry? borderRadius;
-  final ShapeBorder? shape;
-  final EdgeInsetsGeometry? padding;
-
-  const AppSurface({
-    super.key,
-    required this.child,
-    this.steps = 1,
-    this.borderRadius,
-    this.shape,
-    this.padding,
-  });
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    final color = AppPaneTheme.stepped(context, steps);
-    return AppPaneTheme(
+    final color = AppSurface.stepped(context, steps);
+    return _AppSurfaceInherited(
       color: color,
       child: Material(
         color: color,
@@ -314,73 +325,6 @@ class AppSurface extends StatelessWidget {
         child: padding != null
             ? Padding(padding: padding!, child: child)
             : child,
-      ),
-    );
-  }
-}
-
-class AppPanel extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final Color? color;
-  final double radius;
-  final AppPanelTone tone;
-
-  const AppPanel({
-    super.key,
-    required this.child,
-    this.padding = EdgeInsets.zero,
-    this.color,
-    this.radius = kAppPanelRadius,
-    this.tone = AppPanelTone.secondary,
-  });
-
-  const AppPanel.primary({
-    super.key,
-    required this.child,
-    this.padding = EdgeInsets.zero,
-    this.color,
-    this.radius = kAppPanelRadius,
-  }) : tone = AppPanelTone.primary;
-
-  const AppPanel.secondary({
-    super.key,
-    required this.child,
-    this.padding = EdgeInsets.zero,
-    this.color,
-    this.radius = kAppPanelRadius,
-  }) : tone = AppPanelTone.secondary;
-
-  /// Resolves the effective background colour for the given [tone]
-  /// and optional explicit [color] override.
-  static Color resolveColor(
-    BuildContext context, {
-    Color? color,
-    AppPanelTone tone = AppPanelTone.secondary,
-  }) {
-    return color ??
-        switch (tone) {
-          AppPanelTone.primary => Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHigh,
-          AppPanelTone.secondary => Theme.of(
-            context,
-          ).colorScheme.surfaceContainer,
-        };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final resolvedColor = resolveColor(context, color: color, tone: tone);
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: AppPaneTheme(
-        color: resolvedColor,
-        child: Material(
-          color: resolvedColor,
-          child: Padding(padding: padding, child: child),
-        ),
       ),
     );
   }
@@ -588,12 +532,12 @@ class AppPane extends StatelessWidget {
     );
 
     // When used inside AppPaneLayout the pane is already wrapped in an
-    // AppSurface that sets AppPaneTheme + Material colour.  An explicit
+    // AppSurface that sets the surface colour.  An explicit
     // `color` override still takes precedence for standalone usage.
     if (color != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: AppPaneTheme(
+        child: _AppSurfaceInherited(
           color: color!,
           child: Material(color: color!, child: body),
         ),
@@ -680,7 +624,7 @@ class AppPaneLayout extends StatelessWidget {
       children.add(Spacer(flex: totalFlex! - flexSum));
     }
 
-    final shellColor = AppPaneTheme.of(context);
+    final shellColor = AppSurface.of(context);
 
     return ColoredBox(
       color: shellColor,
@@ -781,9 +725,9 @@ class AppPaneLayout extends StatelessWidget {
       );
     }
 
-    // Inherit the baseline AppPaneTheme from the shell.
+    // Inherit the baseline surface from the shell.
     // Wrap in Material so ink effects (InkWell, etc.) work without a Scaffold.
-    final surfaceColor = AppPaneTheme.of(context);
+    final surfaceColor = AppSurface.of(context);
     return Material(color: surfaceColor, child: body);
   }
 }

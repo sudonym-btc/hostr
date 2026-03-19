@@ -22,7 +22,7 @@ class SaveBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppPaneTheme.of(context),
+      color: AppSurface.of(context),
       child: SafeArea(
         top: false,
         child: CustomPadding(

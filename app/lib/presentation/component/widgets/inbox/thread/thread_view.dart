@@ -102,7 +102,7 @@ class ThreadReadyWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appBarColor = AppPaneTheme.of(context);
+    final appBarColor = AppSurface.of(context);
     if (embedded) {
       return ColoredBox(
         color: Colors.transparent,
