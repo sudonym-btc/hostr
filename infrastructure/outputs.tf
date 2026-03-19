@@ -33,3 +33,10 @@ output "ci_service_account_email" {
   description = "CI service account email. Set as GCP_SERVICE_ACCOUNT_EMAIL in GitHub environment variables."
   value       = data.google_service_account.ci_deploy.email
 }
+
+# ── Artifact Registry ─────────────────────────────────────────────────────────
+
+output "docker_registry" {
+  description = "Artifact Registry Docker base URL. Set as DOCKER_REGISTRY in GitHub environment variables."
+  value       = "${google_artifact_registry_repository.docker.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker.repository_id}"
+}

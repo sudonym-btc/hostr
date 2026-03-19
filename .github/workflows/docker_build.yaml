@@ -1,0 +1,118 @@
+name: Docker Build & Push
+
+# Build all compose service images and push to Artifact Registry.
+# Called automatically after a semantic-release in CI, or triggered manually.
+on:
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Build variant'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  build_push:
+    name: Build & Push Docker images
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.variant || 'staging' }}
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      VARIANT: ${{ github.event_name == 'workflow_dispatch' && inputs.variant || 'staging' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # ── Auth ─────────────────────────────────────────────────────────────
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ vars.DOCKER_REGISTRY%%/* }}" --quiet
+
+      # ── Tags ─────────────────────────────────────────────────────────────
+      - name: Set image tags
+        id: meta
+        run: |
+          REGISTRY="${{ vars.DOCKER_REGISTRY }}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "registry=${REGISTRY}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      # ── Environment-agnostic images ──────────────────────────────────────
+      - name: Build & push rif-relay
+        run: |
+          docker build \
+            -t "${{ steps.meta.outputs.registry }}/rif-relay:${{ steps.meta.outputs.sha_tag }}" \
+            -t "${{ steps.meta.outputs.registry }}/rif-relay:latest" \
+            -f docker/rif-relay/Dockerfile .
+          docker push "${{ steps.meta.outputs.registry }}/rif-relay" --all-tags
+
+      - name: Build & push escrow
+        run: |
+          docker build \
+            -t "${{ steps.meta.outputs.registry }}/escrow:${{ steps.meta.outputs.sha_tag }}" \
+            -t "${{ steps.meta.outputs.registry }}/escrow:latest" \
+            -f escrow/Dockerfile .
+          docker push "${{ steps.meta.outputs.registry }}/escrow" --all-tags
+
+      - name: Build & push landing-page
+        run: |
+          docker build \
+            -t "${{ steps.meta.outputs.registry }}/landing-page:${{ steps.meta.outputs.sha_tag }}" \
+            -t "${{ steps.meta.outputs.registry }}/landing-page:latest" \
+            -f landing-page/Dockerfile landing-page
+          docker push "${{ steps.meta.outputs.registry }}/landing-page" --all-tags
+
+      # ── App image (env-specific build args baked in) ─────────────────────
+      - name: Resolve app build args from env files
+        id: appenv
+        run: |
+          if [[ "$VARIANT" == "production" || "$VARIANT" == "prod" ]]; then
+            ENV_FILE=".env.prod"
+          else
+            ENV_FILE=".env.staging"
+          fi
+
+          # Source base .env then the variant overlay (later values win)
+          set -a
+          source .env
+          source "$ENV_FILE"
+          set +a
+
+          {
+            echo "APP_PROFILE=${COMPOSE_PROFILES}"
+            echo "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}"
+            echo "HOSTR_BOOTSTRAP_ESCROW_PUBKEY=${HOSTR_BOOTSTRAP_ESCROW_PUBKEY:-}"
+            echo "RIF_RELAY_URL=${RIF_RELAY_URL:-}"
+            echo "RIF_RELAY_RELAY_VERIFIER_ADDRESS=${RIF_RELAY_RELAY_VERIFIER_ADDRESS:-}"
+            echo "RIF_RELAY_DEPLOY_VERIFIER_ADDRESS=${RIF_RELAY_DEPLOY_VERIFIER_ADDRESS:-}"
+            echo "RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS=${RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS:-}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build & push app
+        run: |
+          docker build \
+            --build-arg APP_PROFILE="${{ steps.appenv.outputs.APP_PROFILE }}" \
+            --build-arg GOOGLE_MAPS_API_KEY="${{ steps.appenv.outputs.GOOGLE_MAPS_API_KEY }}" \
+            --build-arg HOSTR_BOOTSTRAP_ESCROW_PUBKEY="${{ steps.appenv.outputs.HOSTR_BOOTSTRAP_ESCROW_PUBKEY }}" \
+            --build-arg RIF_RELAY_URL="${{ steps.appenv.outputs.RIF_RELAY_URL }}" \
+            --build-arg RIF_RELAY_RELAY_VERIFIER_ADDRESS="${{ steps.appenv.outputs.RIF_RELAY_RELAY_VERIFIER_ADDRESS }}" \
+            --build-arg RIF_RELAY_DEPLOY_VERIFIER_ADDRESS="${{ steps.appenv.outputs.RIF_RELAY_DEPLOY_VERIFIER_ADDRESS }}" \
+            --build-arg RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS="${{ steps.appenv.outputs.RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS }}" \
+            -t "${{ steps.meta.outputs.registry }}/app:${{ steps.meta.outputs.sha_tag }}" \
+            -t "${{ steps.meta.outputs.registry }}/app:latest" \
+            -f app/Dockerfile.web .
+          docker push "${{ steps.meta.outputs.registry }}/app" --all-tags

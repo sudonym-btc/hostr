@@ -15,11 +15,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN cd /rif-relay-contracts \
-    && (patch -p1 < /tmp/contracts.patch || true) \
+    && (patch -p1 --forward < /tmp/contracts.patch || true) \
     && npm install --no-audit
 
 RUN cd /rif-relay-server \
-    && (patch -p1 < /tmp/server.patch || true) \
+    && (patch -p1 --forward < /tmp/server.patch || true) \
     && npm ci
 
 RUN chmod +x /start.sh /register.sh /write_local_config.sh
