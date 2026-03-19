@@ -121,6 +121,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.0"
+  coinlib:
+    dependency: transitive
+    description:
+      name: coinlib
+      sha256: "3515ed24055081f914b5c8afcd7c1e0421238d527a838ec5841997df9415608f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.1.0"
   collection:
     dependency: transitive
     description:
@@ -161,6 +169,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.9.0"
+  dart_base_x:
+    dependency: transitive
+    description:
+      name: dart_base_x
+      sha256: c8af4f6a6518daab4aa85bb27ee148221644e80446bb44117052b6f4674cdb23
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   dart_console:
     dependency: "direct main"
     description:
@@ -249,6 +265,16 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  flutter:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
+  flutter_web_plugins:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
   freezed_annotation:
     dependency: transitive
     description:
@@ -321,6 +347,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.0"
+  hex:
+    dependency: transitive
+    description:
+      name: hex
+      sha256: "4e7cd54e4b59ba026432a6be2dd9d96e4c5205725194997193bf871703b82c4a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   hive_ce:
     dependency: transitive
     description:
@@ -417,7 +451,7 @@ packages:
     source: hosted
     version: "0.6.1"
   js:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: js
       sha256: "53385261521cc4a0c4658fd0ad07a7d14591cf8fc33abbceae306ddb974888dc"
@@ -464,6 +498,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.12.18"
+  material_color_utilities:
+    dependency: transitive
+    description:
+      name: material_color_utilities
+      sha256: "9c337007e82b1889149c82ed242ed1cb24a66044e30979c44912381e9be4c48b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.13.0"
   meta:
     dependency: transitive
     description:
@@ -536,7 +578,7 @@ packages:
     source: hosted
     version: "1.9.1"
   pointycastle:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: pointycastle
       sha256: "92aa3841d083cc4b0f4709b5c74fd6409a3e6ba833ffc7dc6a8fee096366acf5"
@@ -639,6 +681,11 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
+  sky_engine:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
   source_map_stack_trace:
     dependency: transitive
     description:
@@ -775,6 +822,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.5.2"
+  vector_math:
+    dependency: transitive
+    description:
+      name: vector_math
+      sha256: d530bd74fea330e6e364cda7a85019c434070188383e1cd8d9777ee586914c5b
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.0"
   vm_service:
     dependency: transitive
     description:
@@ -791,6 +846,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.18"
+  wasm_interop:
+    dependency: transitive
+    description:
+      name: wasm_interop
+      sha256: b1b378f07a4cf0103c25faf34d9a64d2c3312135b9efb47e0ec116ec3b14e48f
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.1"
   watcher:
     dependency: transitive
     description:
@@ -847,6 +910,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.1"
+  webcrypto:
+    dependency: transitive
+    description:
+      name: webcrypto
+      sha256: "6b43001c4110856ff7fa5e5e65e7b2d44bec1d8b54a4d84d5fa2c7622267c5c1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.0"
   webkit_inspection_protocol:
     dependency: transitive
     description:
@@ -881,3 +952,4 @@ packages:
     version: "3.1.3"
 sdks:
   dart: ">=3.10.8 <4.0.0"
+  flutter: ">=3.19.0"
