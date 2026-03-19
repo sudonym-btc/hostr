@@ -309,3 +309,11 @@ jobs:
     if: needs.release.outputs.new_release == 'true'
     uses: ./.github/workflows/app_build.yaml
     secrets: inherit
+
+  # ── 8. Docker images → Artifact Registry (only when a new release was published)
+  docker:
+    name: Docker Build & Push
+    needs: release
+    if: needs.release.outputs.new_release == 'true'
+    uses: ./.github/workflows/docker_build.yaml
+    secrets: inherit
