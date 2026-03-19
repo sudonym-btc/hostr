@@ -39,10 +39,6 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker "${{ vars.DOCKER_REGISTRY%%/* }}" --quiet
-
-      # ── Tags ─────────────────────────────────────────────────────────────
       - name: Set image tags
         id: meta
         run: |
@@ -50,6 +46,10 @@ jobs:
           SHORT_SHA="${GITHUB_SHA::7}"
           echo "registry=${REGISTRY}" >> "$GITHUB_OUTPUT"
           echo "sha_tag=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "registry_host=${REGISTRY%%/*}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ steps.meta.outputs.registry_host }}" --quiet
 
       # ── Environment-agnostic images ──────────────────────────────────────
       - name: Build & push rif-relay
