@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:hostr_sdk/hostr_sdk.dart'
+    show setCryptoProvider, DartCryptoProvider;
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 
 /// Derives the EVM private key from a Nostr private key (hex) using the same
@@ -13,6 +15,7 @@ import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 ///
 /// Outputs the 0x-prefixed ETH private key on stdout (no newline).
 Future<void> main(List<String> args) async {
+  setCryptoProvider(DartCryptoProvider());
   final nsecHex =
       args.isNotEmpty ? args.first : Platform.environment['PRIVATE_KEY'];
 

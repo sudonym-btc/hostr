@@ -1,6 +1,7 @@
 export 'bitcoin_amount.dart';
 export 'bloc_x.dart';
 export 'contract_address.dart';
+export 'crypto_provider.dart';
 export 'custom_logger.dart';
 export 'evm_signature.dart';
 export 'ndk_filter.dart';

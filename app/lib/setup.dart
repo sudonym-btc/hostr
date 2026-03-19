@@ -16,6 +16,7 @@ import 'package:models/main.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'crypto/flutter_crypto_provider.dart';
 import 'injection.dart';
 import 'setup/hydrated_storage.dart';
 import 'setup/runtime_backends.dart';
@@ -43,6 +44,8 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
 
   WidgetsFlutterBinding.ensureInitialized();
   log.d('ensureInitialized: ${sw.elapsedMilliseconds}ms');
+
+  setCryptoProvider(FlutterCryptoProvider());
 
   sw.reset();
   await Future.wait([
