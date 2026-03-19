@@ -188,10 +188,12 @@ resource "google_compute_instance" "compose_vm" {
   }
 
   metadata_startup_script = templatefile("${path.module}/templates/compose_startup.sh.tftpl", {
-    repo_clone_url     = var.compose_repo_clone_url
-    repo_branch        = var.compose_repo_branch
-    default_target_env = var.env
-    secret_names       = local.compose_runtime_secret_names
+    repo_clone_url       = var.compose_repo_clone_url
+    repo_branch          = var.compose_repo_branch
+    default_target_env   = var.env
+    secret_names         = local.compose_runtime_secret_names
+    docker_registry      = "${google_artifact_registry_repository.docker.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker.repository_id}"
+    docker_registry_host = "${google_artifact_registry_repository.docker.location}-docker.pkg.dev"
   })
 
   depends_on = [

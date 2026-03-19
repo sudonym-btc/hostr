@@ -52,14 +52,17 @@ services:
       - LETSENCRYPT_HOST=blossom.${DOMAIN}
 
   landing-page:
+    image: ${DOCKER_REGISTRY}/landing-page:latest
     environment:
       - LETSENCRYPT_HOST=landing.${DOMAIN},${DOMAIN}
 
   app:
+    image: ${DOCKER_REGISTRY}/app:latest
     environment:
       - LETSENCRYPT_HOST=app.${DOMAIN}
 
   rif-relay:
+    image: ${DOCKER_REGISTRY}/rif-relay:latest
     environment:
       LETSENCRYPT_HOST: rifrelay.${DOMAIN}
       NODE_ENV: mainnet
@@ -83,9 +86,7 @@ services:
       - prod
 
   rif-relay-register:
-    build:
-      context: .
-      dockerfile: docker/rif-relay/Dockerfile
+    image: ${DOCKER_REGISTRY}/rif-relay:latest
     depends_on:
       rif-relay:
         condition: service_healthy
@@ -117,6 +118,7 @@ services:
       - relay-admin
 
   escrow:
+    image: ${DOCKER_REGISTRY}/escrow:latest
     depends_on:
       nginx-proxy:
         condition: service_healthy
