@@ -146,6 +146,11 @@ while IFS= read -r secret_name; do
 done <<'SECRETS'
 ${join("\n", secret_names)}
 SECRETS
+
+# Construct RIF_RELAY_RSK_NODE_URL from the API key if present
+if RSK_KEY=$(grep -oP '^RSK_RPC_API_KEY=\K.*' "$${ENV_FILE}" 2>/dev/null) && [[ -n "$${RSK_KEY}" ]]; then
+  printf 'RIF_RELAY_RSK_NODE_URL=https://rpc.mainnet.rootstock.io/%s\n' "$${RSK_KEY}" >> "$${ENV_FILE}"
+fi
 EOS
 chmod +x /usr/local/bin/hostr-fetch-secrets
 
