@@ -22,6 +22,7 @@ locals {
     "ESCROW_PRIVATE_KEY",
     "BLOSSOM_DASHBOARD_PASSWORD",
     "OTEL_EXPORTER_OTLP_HEADERS",
+    "RSK_RPC_API_KEY",
   ]
 
   # Stored in Secret Manager for bootstrap/admin workflows only.
