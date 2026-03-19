@@ -10,11 +10,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #141218;
-      --fg: #e8e8e8;
-      --accent: #673ab7;
-      --muted: #888;
-      --card-bg: #1e1b23;
+      /* Matches app dark theme (theme.dart darkColorScheme) */
+      --bg: #000000;                /* surface / scaffold */
+      --fg: #ffffff;                /* onSurface / primary */
+      --accent: #29539B;            /* secondary */
+      --accent-light: #F4F7FF;      /* onSecondary */
+      --muted: #D0D0D0;            /* onSurfaceVariant */
+      --muted-dim: #6E6E6E;        /* outline */
+      --card-bg: #111111;          /* surfaceContainer */
+      --card-bg-high: #181818;     /* surfaceContainerHigh */
+      --border: #3A3A3A;           /* outlineVariant */
+      --surface-dim: #050505;      /* surfaceDim */
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -53,7 +59,7 @@
     .logo span { color: var(--accent); }
 
     nav a {
-      color: var(--muted);
+      color: var(--muted-dim);
       text-decoration: none;
       margin-left: 2rem;
       font-size: 0.95rem;
@@ -67,16 +73,16 @@
       align-items: center;
       justify-content: center;
       padding: 0.65rem 1rem;
-      border: 1px solid rgba(255,255,255,0.12);
+      border: 1px solid var(--border);
       border-radius: 999px;
       color: var(--fg);
-      background: rgba(255,255,255,0.04);
+      background: var(--card-bg);
     }
 
     .app-link:hover {
       color: var(--fg);
-      border-color: rgba(255,255,255,0.24);
-      background: rgba(255,255,255,0.08);
+      border-color: var(--muted-dim);
+      background: var(--card-bg-high);
     }
 
     .hero {
@@ -96,7 +102,7 @@
 
     .hero h1 em {
       font-style: normal;
-      background: linear-gradient(100deg, #c4a0f0 0%, #9c6fe8 40%, #673ab7 80%);
+      background: linear-gradient(100deg, #DCE8FF 0%, #6889C4 40%, #29539B 80%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -158,10 +164,10 @@
       padding: 7px;
       box-shadow:
         inset 0 0 0 1px rgba(255,255,255,0.08),
-        0 0 0 1px #444,
-        0 0 0 2px #1a1a1a,
-        0 20px 60px rgba(0,0,0,0.6),
-        0 6px 20px rgba(0,0,0,0.4);
+        0 0 0 1px var(--border),
+        0 0 0 2px var(--surface-dim),
+        0 20px 60px rgba(0,0,0,0.7),
+        0 6px 20px rgba(0,0,0,0.5);
       transition: transform 0.12s ease-out;
       will-change: transform;
     }
@@ -267,6 +273,7 @@
 
     .card {
       background: var(--card-bg);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 2rem;
     }
@@ -286,10 +293,11 @@
       padding: 3rem 2rem;
       color: var(--muted);
       font-size: 0.85rem;
-      border-top: 1px solid #222;
+      border-top: 1px solid var(--border);
     }
 
-    footer a { color: var(--accent); text-decoration: none; }
+    footer a { color: var(--accent-light); text-decoration: none; }
+    footer a:hover { color: var(--fg); }
   </style>
 </head>
 <body>

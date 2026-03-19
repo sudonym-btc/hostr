@@ -34,6 +34,7 @@ ThemeData getTheme(bool isDark) {
         surfaceContainerHigh: const Color(0xFF181818),
         surfaceContainerHighest: const Color(0xFF222222),
         onSurfaceVariant: const Color(0xFFD0D0D0),
+        onError: Colors.white,
         outline: const Color(0xFF6E6E6E),
         outlineVariant: const Color(0xFF3A3A3A),
       );
