@@ -29,5 +29,9 @@ dependencies:
   wallet: ^0.0.18
   crypto: ^3.0.7
 
+dependency_overrides:
+  pointycastle: ^4.0.0
+  js: ^0.7.2
+
 dev_dependencies:
   test: ^1.29.0
