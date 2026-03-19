@@ -170,19 +170,31 @@ esac
 
 cd /opt/hostr
 export HOME=/root
-git config --global url."https://github.com/".insteadOf "git@github.com:"
 git fetch --all --prune
 git checkout "${repo_branch}"
 git pull --ff-only origin "${repo_branch}"
-git submodule update --init --recursive
 
 /usr/local/bin/hostr-fetch-secrets "$${TARGET_ENV}"
+
+# Append registry URL so compose.hosted.yaml image references resolve
+echo "DOCKER_REGISTRY=${docker_registry}" >> /opt/hostr/.env.runtime
+
+# Authenticate Docker with Artifact Registry (uses VM service account)
+gcloud auth configure-docker "${docker_registry_host}" --quiet
+
 docker compose \
   --env-file /opt/hostr/.env.runtime \
   --profile "$${COMPOSE_PROFILE}" \
   -f compose.yaml \
   -f compose.hosted.yaml \
-  up -d --build --remove-orphans
+  pull --ignore-buildable
+
+docker compose \
+  --env-file /opt/hostr/.env.runtime \
+  --profile "$${COMPOSE_PROFILE}" \
+  -f compose.yaml \
+  -f compose.hosted.yaml \
+  up -d --no-build --remove-orphans
 EOS
 chmod +x /usr/local/bin/hostr-deploy
 
