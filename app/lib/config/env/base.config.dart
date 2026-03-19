@@ -13,6 +13,7 @@ abstract class Config {
   List<String> get bootstrapEscrowPubkeys => [];
   bool get useSecureKeyValueStorage => true;
   String get googleMapsApiKey;
+  String get tipsAddress => 'tips@lnbits1.hostr.development';
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 

@@ -904,6 +904,7 @@ abstract class OnchainOperation
       }
       data = data.copyWithTransactionReceipt(receipt);
       onTransactionConfirmed(data, receipt);
+      chain.notifyNewBlock();
       logger.d('$namespace transaction confirmed: $txHash');
       return OnchainTxConfirmed(data);
     },
