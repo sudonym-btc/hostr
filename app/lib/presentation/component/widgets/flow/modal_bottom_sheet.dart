@@ -10,11 +10,13 @@ Future<T?> showAppModal<T>(
   bool isScrollControlled = true,
   bool useSafeArea = true,
   bool isDismissible = true,
+  bool useRootNavigator = true,
 }) => showModalBottomSheet<T>(
   context: context,
   isScrollControlled: isScrollControlled,
   useSafeArea: useSafeArea,
   isDismissible: isDismissible,
+  useRootNavigator: useRootNavigator,
   builder: builder,
 );
 
@@ -57,37 +59,35 @@ class ModalBottomSheet extends StatelessWidget {
     final theme = Theme.of(context);
     return Theme(
       data: theme.copyWith(colorScheme: _scheme(theme.colorScheme)),
-      child: Material(
-        child: SizedBox(
-          width: double.infinity,
-          child: SafeArea(
-            child: CustomPadding(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (leading != null) ...[
-                    leading!,
-                    Gap.vertical.custom(kSpace3),
-                  ],
-                  if (title != null)
-                    Text(title!, style: Theme.of(context).textTheme.titleLarge),
-                  if (subtitle != null) ...[
-                    Gap.vertical.sm(),
-                    Text(
-                      subtitle!,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.start,
-                    ),
-                  ],
-                  if (title != null && subtitle != null) Gap.vertical.md(),
-                  ?content,
-                  if (buttons != null) ...[
-                    Gap.vertical.custom(kSpace5),
-                    buttons!,
-                  ],
+      child: SizedBox(
+        width: double.infinity,
+        child: SafeArea(
+          child: CustomPadding(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (leading != null) ...[
+                  leading!,
+                  Gap.vertical.custom(kSpace3),
                 ],
-              ),
+                if (title != null)
+                  Text(title!, style: Theme.of(context).textTheme.titleLarge),
+                if (subtitle != null) ...[
+                  Gap.vertical.sm(),
+                  Text(
+                    subtitle!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.start,
+                  ),
+                ],
+                if (title != null && subtitle != null) Gap.vertical.md(),
+                ?content,
+                if (buttons != null) ...[
+                  Gap.vertical.custom(kSpace5),
+                  buttons!,
+                ],
+              ],
             ),
           ),
         ),

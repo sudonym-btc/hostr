@@ -707,11 +707,26 @@ abstract class OnchainOperation
   /// contract params from persisted data. Default is a no-op.
   void onBeforeTransaction(OnchainOperationData data) {}
 
-  /// Called after a transaction is confirmed on-chain.
-  void onTransactionConfirmed(
+  /// Called inside [_stepConfirmTx] **before** persisting [OnchainTxConfirmed].
+  ///
+  /// Runs exactly once (the CAS-winning process). If this throws, the
+  /// run-loop catch block converts it into [OnchainError].
+  ///
+  /// Use this for validations that must gate success (e.g. verifying
+  /// that the receipt contains the expected contract logs).
+  void validateConfirmedTransaction(
     OnchainOperationData data,
     TransactionReceipt receipt,
   ) {}
+
+  /// Called when the run loop reaches a terminal state, in **every**
+  /// process (foreground, background, recovery).
+  ///
+  /// Implementations **must** be idempotent and should not throw.
+  /// The state and its persisted data (including the receipt) are
+  /// available for logging / metrics.
+  @override
+  void onRunComplete(OnchainOperationState state) {}
 
   bool _shouldUseRelayForIntent(ContractCallIntent intent) {
     return contract.rifRelay != null && intent.isZeroValue;
@@ -903,7 +918,7 @@ abstract class OnchainOperation
         return OnchainError('Transaction reverted: $txHash', data: data);
       }
       data = data.copyWithTransactionReceipt(receipt);
-      onTransactionConfirmed(data, receipt);
+      validateConfirmedTransaction(data, receipt);
       chain.notifyNewBlock();
       logger.d('$namespace transaction confirmed: $txHash');
       return OnchainTxConfirmed(data);

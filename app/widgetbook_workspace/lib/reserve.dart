@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hostr/export.dart';
+import 'package:models/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 import 'seed_data.dart';
@@ -8,6 +11,10 @@ import 'seed_data.dart';
 Widget reserve(BuildContext context) {
   return Align(
     alignment: Alignment.center,
-    child: Reserve(listing: MOCK_LISTINGS[0], reservationPairs: const []),
+    child: Reserve(
+      listing: MOCK_LISTINGS[0],
+      reservationPairItemsStream:
+          Stream<List<Validation<ReservationPair>>>.value(const []),
+    ),
   );
 }

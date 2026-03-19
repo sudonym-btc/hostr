@@ -338,6 +338,13 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
     String? stepName,
   });
 
+  /// Called when the run loop exits because it reached a terminal state.
+  ///
+  /// Fires in **every** process (foreground, background, recovery) that
+  /// observes the terminal state.  Implementations must be idempotent
+  /// and should not throw.
+  void onRunComplete(S state) {}
+
   // ── CAS transition ────────────────────────────────────────────────
 
   /// Claim a step transition via compare-and-set against the store.
@@ -440,6 +447,7 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
       // ── 2. Terminal check ──
       if (current.isTerminal) {
         logger.i('State "${current.stateName}" is terminal — exiting run loop');
+        onRunComplete(current);
         break;
       }
 
@@ -536,6 +544,7 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
         logger.i(
           'State "${current.stateName}" is terminal — exiting runUntil loop',
         );
+        onRunComplete(current);
         break;
       }
       if (stopCondition(current)) {

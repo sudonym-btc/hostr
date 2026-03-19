@@ -30,7 +30,7 @@ import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
 /// ```dart
 /// AppListItem(
 ///   selected: true,
-///   leading: ProfileAvatars(profiles: counterparties),
+///   leading: ProfileAvatars.md(profiles: counterparties),
 ///   title: Text(name),
 ///   subtitle: Text(lastMessage),
 ///   trailing: Column(...),

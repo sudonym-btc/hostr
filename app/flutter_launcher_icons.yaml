@@ -1,6 +1,6 @@
 # flutter pub run flutter_launcher_icons
 flutter_launcher_icons:
-  image_path: "assets/images/logo/generated/logo_app_padded_1024.png"
+  image_path: "assets/images/logo/generated/logo_base_1024.png"
 
   android: "launcher_icon"
   image_path_android: "assets/images/logo/generated/logo_app_padded_1024.png"
@@ -19,15 +19,15 @@ flutter_launcher_icons:
 
   web:
     generate: true
-    image_path: "assets/images/logo/generated/logo_app_padded_1024.png"
-    background_color: "#hexcode"
-    theme_color: "#hexcode"
+    image_path: "assets/images/logo/generated/logo_base_1024.png"
+    background_color: "#FFFFFF"
+    theme_color: "#FFFFFF"
 
   windows:
     generate: true
-    image_path: "assets/images/logo/generated/logo_app_padded_1024.png"
+    image_path: "assets/images/logo/generated/logo_base_1024.png"
     icon_size: 48 # min:48, max:256, default: 48
 
   macos:
     generate: true
-    image_path: "assets/images/logo/generated/logo_app_padded_1024.png"
+    image_path: "assets/images/logo/generated/logo_base_1024.png"

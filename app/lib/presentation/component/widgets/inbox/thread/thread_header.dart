@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
 import 'package:models/main.dart';
 
@@ -25,7 +24,7 @@ class ThreadHeaderWidget extends StatelessWidget {
 
     return ListTile(
       contentPadding: EdgeInsets.all(0),
-      leading: ProfileAvatars(
+      leading: ProfileAvatars.sm(
         profiles: counterparties,
         onProfileTap: onCounterpartyTap,
       ),
@@ -97,25 +96,81 @@ class ProfileAvatars extends StatelessWidget {
   final List<ProfileMetadata> profiles;
   final ValueChanged<ProfileMetadata>? onProfileTap;
 
-  const ProfileAvatars({super.key, required this.profiles, this.onProfileTap});
+  /// Circle radius in logical pixels (matches [AppAvatar] presets).
+  final double radius;
+
+  // ─── Size presets (mirror AppAvatar) ──────────────────────────
+
+  /// 20 px diameter – tiny indicator dots / status badges.
+  const ProfileAvatars.xxs({
+    super.key,
+    required this.profiles,
+    this.onProfileTap,
+  }) : radius = 10;
+
+  /// 28 px diameter – message profile headers.
+  const ProfileAvatars.xs({
+    super.key,
+    required this.profiles,
+    this.onProfileTap,
+  }) : radius = 14;
+
+  /// 32 px diameter – chip avatars.
+  const ProfileAvatars.sm({
+    super.key,
+    required this.profiles,
+    this.onProfileTap,
+  }) : radius = 16;
+
+  /// 40 px diameter – list item leading widget (default).
+  const ProfileAvatars.md({
+    super.key,
+    required this.profiles,
+    this.onProfileTap,
+  }) : radius = 20;
+
+  /// 72 px diameter – profile popup.
+  const ProfileAvatars.lg({
+    super.key,
+    required this.profiles,
+    this.onProfileTap,
+  }) : radius = 36;
+
+  /// 80 px diameter – profile header / hero avatar.
+  const ProfileAvatars.xl({
+    super.key,
+    required this.profiles,
+    this.onProfileTap,
+  }) : radius = 40;
+
+  /// Escape hatch for one-off sizes.
+  const ProfileAvatars.custom({
+    super.key,
+    required this.profiles,
+    this.onProfileTap,
+    required this.radius,
+  });
+
   @override
   Widget build(BuildContext context) {
+    final diameter = radius * 2;
+    final overlap = radius * 0.6;
+
     return ClipOval(
       child: SizedBox(
-        height: 40,
-        width: 40,
+        height: diameter,
+        width: diameter,
         child: Stack(
           children: profiles
               .map(
                 (counterparty) => Positioned(
-                  left:
-                      profiles.indexOf(counterparty) *
-                      kSpace3, // overlap offset for each avatar
+                  left: profiles.indexOf(counterparty) * overlap,
                   child: GestureDetector(
                     onTap: onProfileTap != null
                         ? () => onProfileTap!(counterparty)
                         : null,
-                    child: AppAvatar.md(
+                    child: AppAvatar.custom(
+                      radius: radius,
                       image: counterparty.metadata.picture,
                       pubkey: counterparty.pubKey,
                       label: counterparty.metadata.name ?? '',

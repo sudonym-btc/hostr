@@ -19,7 +19,7 @@ class EmtyResultsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    final content = SafeArea(
       child: CustomPadding(
         child: Center(
           child: ConstrainedBox(
@@ -53,5 +53,7 @@ class EmtyResultsWidget extends StatelessWidget {
         ),
       ),
     );
+
+    return content;
   }
 }

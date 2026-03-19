@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/core/main.dart';
+import 'package:hostr/presentation/app_spacing_theme.dart';
+import 'package:hostr/presentation/component/widgets/ui/gap.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 
 import 'date_range_controller.dart';
@@ -142,18 +144,28 @@ class _DateTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(small ? 12 : 16);
-    final iconSize = small ? 14.0 : 18.0;
-    final chevronSize = small ? 14.0 : 18.0;
+    final iconSize = small
+        ? AppSpacing.of(context).xs
+        : AppSpacing.of(context).sm;
+    final chevronSize = small
+        ? AppSpacing.of(context).xs
+        : AppSpacing.of(context).sm;
     final padding = small
-        ? const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
-        : const EdgeInsets.symmetric(horizontal: 12, vertical: 14);
+        ? EdgeInsets.symmetric(
+            horizontal: AppSpacing.of(context).xs,
+            vertical: AppSpacing.of(context).xs,
+          )
+        : EdgeInsets.symmetric(
+            horizontal: AppSpacing.of(context).sm,
+            vertical: AppSpacing.of(context).sm,
+          );
     final labelStyle = small
         ? theme.textTheme.labelSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
             color: colorScheme.onSurface,
           )
         : theme.textTheme.labelMedium?.copyWith(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
             color: colorScheme.onSurface,
           );
     final valueStyle = small
@@ -166,6 +178,7 @@ class _DateTile extends StatelessWidget {
 
     return AppSurface(
       borderRadius: radius,
+      steps: 1,
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
@@ -175,7 +188,7 @@ class _DateTile extends StatelessWidget {
             mainAxisSize: small ? MainAxisSize.min : MainAxisSize.max,
             children: [
               Icon(icon, size: iconSize, color: colorScheme.primary),
-              SizedBox(width: small ? 6 : 10),
+              small ? Gap.horizontal.sm() : Gap.horizontal.sm(),
               if (small)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

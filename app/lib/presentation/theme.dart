@@ -94,6 +94,19 @@ ThemeData getTheme(bool isDark) {
         borderSide: BorderSide(color: base.colorScheme.surfaceContainer),
       ),
     ),
+    // filledButtonTheme: FilledButtonThemeData(
+    //   style: ButtonStyle(
+    //     textStyle: WidgetStateProperty.resolveWith((states) {
+    //       return base.textTheme.labelMedium?.copyWith();
+    //       return const TextStyle(
+    //         fontWeight: FontWeight.w600,
+    //         // fontSize: 12,
+    //         // letterSpacing: 1.2,
+    //         // color: Colors.white,
+    //       );
+    //     }),
+    //   ),
+    // ),
   );
 
   final bottomAppBarTheme = BottomAppBarThemeData(

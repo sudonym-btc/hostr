@@ -245,10 +245,12 @@ class AppPaneTheme extends InheritedWidget {
     return maybeOf(context)?.color ?? Theme.of(context).colorScheme.surface;
   }
 
-  /// The ordered neutral surface-container scale from lowest to highest.
+  /// The ordered neutral surface scale from `surface` (lowest) through
+  /// the surface-container ramp up to `surfaceContainerHighest`.
   static List<Color> _scale(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return [
+      cs.surface,
       cs.surfaceContainerLowest,
       cs.surfaceContainerLow,
       cs.surfaceContainer,
@@ -258,13 +260,24 @@ class AppPaneTheme extends InheritedWidget {
   }
 
   /// Returns the colour [steps] above the current pane on the neutral
-  /// surface-container scale. Clamps at `surfaceContainerHighest`.
+  /// surface scale. When the current colour is not found in the scale
+  /// (no [AppPaneTheme] ancestor), it is treated as sitting at `surface`
+  /// (index 0).
+  ///
+  /// In light mode the M3 surface scale runs light → dark (index 0 =
+  /// lightest, index N = darkest).  In dark mode the scale is inverted
+  /// (index 0 = darkest, index N = lightest).  We flip the step
+  /// direction in dark mode so that `+1` always means "one shade darker"
+  /// regardless of brightness.
   static Color stepped(BuildContext context, [int steps = 1]) {
     final current = of(context);
     final scale = _scale(context);
-    final idx = scale.indexOf(current);
-    if (idx == -1) return scale.last;
-    return scale[(idx + steps).clamp(0, scale.length - 1)];
+    var idx = scale.indexOf(current);
+    if (idx == -1) idx = 0; // default to surface
+    final direction = Theme.of(context).brightness == Brightness.light
+        ? steps
+        : -steps;
+    return scale[(idx + direction).clamp(0, scale.length - 1)];
   }
 
   @override
@@ -556,21 +569,19 @@ class AppPane extends StatelessWidget {
         bodyContent = content;
       }
 
-      final paneChildren = <Widget>[
-        if (!useSliverChrome && includeAppBar && appBarBuilder != null)
-          _buildAppBar(context),
-        constraints.hasBoundedHeight
-            ? Expanded(child: bodyContent)
-            : bodyContent,
-        if (includeBottomBar && bottomBar != null) bottomBar!,
-      ];
-
       return Column(
         mainAxisSize: constraints.hasBoundedHeight
             ? MainAxisSize.max
             : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: paneChildren,
+        children: [
+          if (!useSliverChrome && includeAppBar && appBarBuilder != null)
+            _buildAppBar(context),
+          constraints.hasBoundedHeight
+              ? Expanded(child: bodyContent)
+              : bodyContent,
+          if (includeBottomBar && bottomBar != null) bottomBar!,
+        ],
       );
     }
 
@@ -645,8 +656,16 @@ class AppPaneLayout extends StatelessWidget {
     switch (colorMode) {
       case AppPaneColorMode.autoStepped:
         final scale = AppPaneTheme._scale(context);
-        // One step below the shell (surfaceContainerHighest) and descend.
-        final level = (scale.length - 2 - index).clamp(0, scale.length - 1);
+        final int level;
+        if (Theme.of(context).brightness == Brightness.light) {
+          // Light: shell sits at surface (lightest). Panes ascend into
+          // darker surface-container tones.
+          level = (1 + index).clamp(0, scale.length - 1);
+        } else {
+          // Dark: shell sits at surfaceContainerHighest (lightest).
+          // Panes descend into darker tones.
+          level = (scale.length - 2 - index).clamp(0, scale.length - 1);
+        }
         return scale[level];
       case AppPaneColorMode.flat:
         return null;
@@ -692,8 +711,13 @@ class AppPaneLayout extends StatelessWidget {
       children.add(Spacer(flex: totalFlex! - flexSum));
     }
 
+    final cs = Theme.of(context).colorScheme;
+    final shellColor = Theme.of(context).brightness == Brightness.light
+        ? cs.surfaceContainer
+        : cs.surfaceContainerHighest;
+
     return ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      color: shellColor,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: children,
@@ -757,19 +781,36 @@ class AppPaneLayout extends StatelessWidget {
         ],
       );
     } else {
+      // Single visible pane: render directly in Expanded so it gets
+      // bounded height — scroll widgets (ListView, etc.) and Center
+      // both work without workarounds.
+      // Multiple panes: stack in a SingleChildScrollView.
+      final singlePane = children.length == 1;
+
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (promotedPane?.appBarBuilder != null)
             promotedPane!._buildAppBar(context),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children,
-              ),
-            ),
+            child: singlePane
+                ? children.first
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: children,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
           if (promotedPane?.bottomBar != null) promotedPane!.bottomBar!,
         ],

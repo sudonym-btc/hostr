@@ -148,6 +148,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Gap.vertical.md(),
           EscrowSelectorWidget(),
           Gap.vertical.md(),
           AmountWidget(

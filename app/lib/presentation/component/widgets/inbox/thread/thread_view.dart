@@ -11,14 +11,16 @@ import 'package:models/main.dart';
 
 class ThreadView extends StatelessWidget {
   final bool embedded;
+  final VoidCallback? onBack;
 
-  const ThreadView({super.key, this.embedded = false});
+  const ThreadView({super.key, this.embedded = false, this.onBack});
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ThreadCubit, ThreadCubitState>(
       builder: (context, state) {
         return ThreadReadyWidget(
           embedded: embedded,
+          onBack: onBack,
           participants: state.participantStates
               .map((e) => e.data)
               .whereType<ProfileMetadata>()
@@ -37,47 +39,32 @@ class ThreadReadyWidget extends StatelessWidget {
   final List<ProfileMetadata> participants;
   final List<ProfileMetadata> counterparties;
   final bool embedded;
+  final VoidCallback? onBack;
 
   const ThreadReadyWidget({
     super.key,
     required this.participants,
     required this.counterparties,
     this.embedded = false,
+    this.onBack,
   });
 
-  bool _hasImpliedBackAction(BuildContext context) {
-    final route = ModalRoute.of(context);
-    if (route?.impliesAppBarDismissal ?? false) {
-      return true;
-    }
-
-    return Navigator.maybeOf(context)?.canPop() ?? false;
-  }
-
   Widget _buildContent(BuildContext context, Color appBarColor) {
-    final theme = Theme.of(context);
-    final hasImpliedBackAction = _hasImpliedBackAction(context);
-    final reservedLeadingWidth =
-        theme.appBarTheme.leadingWidth ?? AppSpacing.of(context).sm;
-
-    final appBarColor = AppPaneTheme.stepped(context, 2);
-
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Column(
         children: [
-          Material(
-            color: appBarColor,
+          AppSurface(
             child: SafeArea(
               top: false,
               bottom: false,
               child: AppBar(
-                automaticallyImplyLeading: hasImpliedBackAction,
-                leading: hasImpliedBackAction
-                    ? null
-                    : SizedBox(width: reservedLeadingWidth),
-                leadingWidth: reservedLeadingWidth,
-                titleSpacing: 0,
+                automaticallyImplyLeading: false,
+                leading: onBack != null ? BackButton(onPressed: onBack) : null,
+                // leadingWidth: onBack == null ? null : null,
+                titleSpacing: onBack == null
+                    ? AppSpacing.of(context).lg
+                    : AppSpacing.of(context).xs,
                 surfaceTintColor: Colors.transparent,
                 backgroundColor: appBarColor,
                 title: ThreadHeaderWidget(
@@ -89,8 +76,7 @@ class ThreadReadyWidget extends StatelessWidget {
             ),
           ),
           if (context.read<ThreadCubit>().thread.isTradeCandidate)
-            Material(
-              color: appBarColor,
+            AppSurface(
               child: TradeHeader(
                 tradeId: context.read<ThreadCubit>().thread.anchor,
               ),
