@@ -41,6 +41,7 @@ class PermissiveHttpOverrides extends HttpOverrides {
 /// Returns a [DaemonContext] with everything the daemon needs.
 Future<DaemonContext> bootstrap() async {
   HttpOverrides.global = PermissiveHttpOverrides();
+  setCryptoProvider(DartCryptoProvider());
 
   final String relayUrl =
       Platform.environment['NOSTR_RELAY'] ?? 'wss://relay.hostr.development';

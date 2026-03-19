@@ -6,7 +6,8 @@ import 'package:convert/convert.dart' as convert;
 import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';
-import 'package:webcrypto/webcrypto.dart' as wc;
+
+import 'crypto_provider.dart';
 
 /// BIP-44 derivation path prefix for EVM (Ethereum / Rootstock).
 const _evmPathPrefix = "m/44'/60'/0'/0";
@@ -19,17 +20,12 @@ const _bip39SeedSaltPrefix = 'mnemonic';
 const _bip39SeedIterations = 2048;
 const _bip39SeedBits = 512;
 
-Future<Uint8List> _hmacSha256Bytes(List<int> key, List<int> input) async {
-  final hmacKey = await wc.HmacSecretKey.importRawKey(
-    Uint8List.fromList(key),
-    wc.Hash.sha256,
-  );
-  final mac = await hmacKey.signBytes(Uint8List.fromList(input));
-  return Uint8List.fromList(mac);
+Future<Uint8List> _hmacSha256Bytes(List<int> key, List<int> input) {
+  return cryptoProvider.hmacSha256(key, input);
 }
 
 Future<String> _sha256Hex(List<int> input) async {
-  final hash = await wc.Hash.sha256.digestBytes(Uint8List.fromList(input));
+  final hash = await cryptoProvider.sha256(input);
   return convert.hex.encode(hash);
 }
 
@@ -62,16 +58,14 @@ Future<Uint8List> _mnemonicToSeed(
   List<String> words, {
   String passphrase = '',
 }) async {
-  final password = utf8.encode(words.join(' '));
+  final password = Uint8List.fromList(utf8.encode(words.join(' ')));
   final salt = Uint8List.fromList(_bip39MnemonicSalt(passphrase: passphrase));
-  final key = await wc.Pbkdf2SecretKey.importRawKey(password);
-  final derived = await key.deriveBits(
-    _bip39SeedBits,
-    wc.Hash.sha512,
-    salt,
-    _bip39SeedIterations,
+  return cryptoProvider.pbkdf2HmacSha512(
+    password: password,
+    salt: salt,
+    iterations: _bip39SeedIterations,
+    bits: _bip39SeedBits,
   );
-  return Uint8List.fromList(derived);
 }
 
 class DeterministicKeyDerivation {
