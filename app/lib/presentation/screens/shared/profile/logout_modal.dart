@@ -6,7 +6,10 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
-ModalBottomSheet logoutModal(BuildContext context) {
+ModalBottomSheet logoutModal(
+  BuildContext context, {
+  required BuildContext modalContext,
+}) {
   final router = AutoRouter.of(context);
   return ModalBottomSheet(
     title: AppLocalizations.of(context)!.logout,
@@ -21,7 +24,7 @@ ModalBottomSheet logoutModal(BuildContext context) {
             foregroundColor: Theme.of(context).colorScheme.onError,
           ),
           onPressed: () async {
-            Navigator.of(context).pop();
+            Navigator.of(modalContext).pop();
             await getIt<Hostr>().auth.logout();
             await router.replaceAll([
               SearchRoute(),

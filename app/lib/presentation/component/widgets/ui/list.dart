@@ -242,8 +242,11 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
   Widget build(BuildContext context) {
     return BlocBuilder<ListCubit<T>, ListCubitState>(
       builder: (context, state) {
-        // Only show centered loading if we have no results yet
-        if ((state.synching || state.fetching) && state.results.isEmpty) {
+        // Show centered loading when we have no results and either
+        // actively fetching or haven't completed the first fetch yet
+        // (hasMore is null until the first request finishes).
+        if (state.results.isEmpty &&
+            (state.synching || state.fetching || state.hasMore == null)) {
           return const Center(child: AppLoadingIndicator.large());
         }
 

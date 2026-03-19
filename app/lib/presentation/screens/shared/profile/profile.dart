@@ -48,7 +48,11 @@ class ProfileScreen extends StatelessWidget {
         tooltip: AppLocalizations.of(context)!.logout,
         color: Theme.of(context).colorScheme.error,
         onPressed: () {
-          showAppModal(context, builder: (_) => logoutModal(context));
+          showAppModal(
+            context,
+            builder: (modalContext) =>
+                logoutModal(context, modalContext: modalContext),
+          );
         },
       ),
     ];
