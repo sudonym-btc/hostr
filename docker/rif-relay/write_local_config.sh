@@ -72,7 +72,7 @@ const config = {
     workerMinBalance: process.env.RIF_RELAY_WORKER_MIN_BALANCE || '1000000000000000',
     workerTargetBalance: process.env.RIF_RELAY_WORKER_TARGET_BALANCE || '3000000000000000',
     managerMinBalance: process.env.RIF_RELAY_MANAGER_MIN_BALANCE || '1000000000000000',
-    managerMinStake: 1,
+    managerMinStake: process.env.RIF_RELAY_MANAGER_MIN_STAKE || '1',
     managerTargetBalance: process.env.RIF_RELAY_MANAGER_TARGET_BALANCE || '3000000000000000',
     initialBlockToScan: Number(process.env.RIF_RELAY_INITIAL_BLOCK_TO_SCAN || '1'),
   },
@@ -84,7 +84,7 @@ const config = {
     trustedVerifiers,
   },
   register: {
-    stake: process.env.REGISTER_STAKE || '0.0001',
+    stake: process.env.REGISTER_STAKE || '0.000000000000000001',
     funds: process.env.REGISTER_FUNDS || '0.02',
     gasPrice: Number(process.env.REGISTER_GAS_PRICE || '60000000'),
     unstakeDelay: Number(process.env.REGISTER_UNSTAKE_DELAY || '1000'),
