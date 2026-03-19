@@ -66,6 +66,7 @@ services:
     environment:
       LETSENCRYPT_HOST: rifrelay.${DOMAIN}
       NODE_ENV: mainnet
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
       RIF_RELAY_MODE: hosted
       RIF_RELAY_ADDRESS_KEY: ${RIF_RELAY_ADDRESS_KEY:-mainnet.30}
       RIF_RELAY_RSK_NODE_URL: ${RIF_RELAY_RSK_NODE_URL:-https://public-node.rsk.co}
@@ -92,6 +93,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: mainnet
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
       RIF_RELAY_PUBLIC_URL: https://rifrelay.${DOMAIN}
       RIF_RELAY_ADDRESS_KEY: ${RIF_RELAY_ADDRESS_KEY:-mainnet.30}
       RIF_RELAY_RSK_NODE_URL: ${RIF_RELAY_RSK_NODE_URL:-https://public-node.rsk.co}
