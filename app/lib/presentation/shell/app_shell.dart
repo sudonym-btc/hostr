@@ -157,14 +157,12 @@ class _AppShellScreenState extends State<AppShellScreen>
     required int selectedIndex,
     required ValueChanged<int> onDestinationSelected,
   }) {
-    final theme = Theme.of(context);
     final safeSelectedIndex = min(
       max(0, selectedIndex),
       max(0, destinations.length - 1),
     );
 
     return AppPanel(
-      color: theme.colorScheme.surfaceContainerHighest,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -256,51 +254,62 @@ class _AppShellScreenState extends State<AppShellScreen>
                       // crossing the breakpoint never unmounts
                       // TabShellScreen / IndexedStack — tab state and
                       // initState fetches are preserved.
+                      // The root surface is the lightest tone for the
+                      // current brightness so nested AppSurface widgets
+                      // can step progressively deeper (darker).
+                      final rootSurface =
+                          theme.brightness == Brightness.light
+                              ? theme.colorScheme.surface
+                              : theme.colorScheme.surfaceContainerHighest;
+
                       return Scaffold(
-                        backgroundColor: showSidebar
-                            ? theme.colorScheme.surfaceContainerHighest
-                            : theme.colorScheme.surface,
+                        backgroundColor: rootSurface,
                         extendBody: showBottomNav,
-                        body: Center(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: layout.shellMaxWidth,
-                            ),
-                            child: Row(
-                              children: [
-                                // Sidebar — always at index 0, zero
-                                // width when hidden. Keeps the content
-                                // child at a stable tree position.
-                                SizedBox(
-                                  width: showSidebar ? kAppSidebarWidth : 0,
-                                  child: showSidebar
-                                      ? SafeArea(
-                                          right: false,
-                                          bottom: false,
-                                          child: _buildSidebar(
-                                            context,
-                                            destinations: destinations,
-                                            selectedIndex: selectedIndex,
-                                            onDestinationSelected: (idx) {
-                                              _selectDestination(
-                                                router,
-                                                destinations,
-                                                idx,
-                                              );
-                                            },
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                                // Content — always at index 1.
-                                Expanded(
-                                  child:
-                                      NotificationListener<ScrollNotification>(
-                                        onNotification: _onScrollNotification,
-                                        child: child,
-                                      ),
-                                ),
-                              ],
+                        body: AppPaneTheme(
+                          color: rootSurface,
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: layout.shellMaxWidth,
+                              ),
+                              child: Row(
+                                children: [
+                                  // Sidebar — always at index 0, zero
+                                  // width when hidden. Keeps the content
+                                  // child at a stable tree position.
+                                  SizedBox(
+                                    width: showSidebar ? kAppSidebarWidth : 0,
+                                    child: showSidebar
+                                        ? SafeArea(
+                                            right: false,
+                                            bottom: false,
+                                            child: _buildSidebar(
+                                              context,
+                                              destinations: destinations,
+                                              selectedIndex: selectedIndex,
+                                              onDestinationSelected: (idx) {
+                                                _selectDestination(
+                                                  router,
+                                                  destinations,
+                                                  idx,
+                                                );
+                                              },
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  // Content — always at index 1.
+                                  Expanded(
+                                    child:
+                                        NotificationListener<
+                                          ScrollNotification
+                                        >(
+                                          onNotification: _onScrollNotification,
+                                          child: child,
+                                        ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
