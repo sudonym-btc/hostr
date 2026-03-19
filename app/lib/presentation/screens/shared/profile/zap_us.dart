@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/config/env/base.config.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
@@ -11,10 +12,9 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 class ZapUsWidget extends StatelessWidget {
   const ZapUsWidget({super.key});
 
-  static const _tipsAddress = 'tips@lnbits1.hostr.development';
-
   @override
   Widget build(BuildContext context) {
+    final tipsAddress = getIt<Config>().tipsAddress;
     return CustomPadding(
       child: Column(
         children: [
@@ -33,7 +33,7 @@ class ZapUsWidget extends StatelessWidget {
                 child: Text(AppLocalizations.of(context)!.zapUs),
                 onPressed: () {
                   final params = ZapPayParameters(
-                    to: _tipsAddress,
+                    to: tipsAddress,
                     amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
                   );
                   showAppModal(
@@ -50,7 +50,7 @@ class ZapUsWidget extends StatelessWidget {
           Row(
             children: [
               ZapListWidget(
-                lud16: _tipsAddress,
+                lud16: tipsAddress,
                 builder: (p0) => ZapReceiptWidget(zap: p0),
               ),
             ],

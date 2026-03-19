@@ -20,6 +20,8 @@ class ProductionConfig extends Config {
   @override
   RootstockConfig rootstock = ProductionRootstockConfig();
   @override
+  String get tipsAddress => 'paco@walletofsatoshi.com';
+  @override
   String get googleMapsApiKey => requiredBuildConfig(
     'GOOGLE_MAPS_API_KEY',
     const String.fromEnvironment('GOOGLE_MAPS_API_KEY'),

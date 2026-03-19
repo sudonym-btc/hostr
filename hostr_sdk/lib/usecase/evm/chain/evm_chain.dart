@@ -44,6 +44,7 @@ abstract class EvmChain {
 
   final Map<String, List<_GetLogsRequest>> _getLogsQueues = {};
   final Map<String, Timer?> _getLogsTimers = {};
+  final StreamController<void> _pollNow = StreamController<void>.broadcast();
 
   EvmChain({
     required Web3Client client,
@@ -108,6 +109,7 @@ abstract class EvmChain {
     }
     _getLogsTimers.clear();
     _getLogsQueues.clear();
+    _pollNow.close();
     client.dispose();
   }
 
@@ -260,6 +262,13 @@ abstract class EvmChain {
     return _callRpcWithRetry('getChainId', (client) => client.getChainId());
   }
 
+  Future<int> getBlockNumber() {
+    return _callRpcWithRetry(
+      'getBlockNumber',
+      (client) => client.getBlockNumber(),
+    );
+  }
+
   Future<BitcoinAmount> getBalance(EthereumAddress address) =>
       logger.span('getBalance', () async {
         logger.d('Getting balance for $address');
@@ -330,8 +339,30 @@ abstract class EvmChain {
           ),
         );
       }
-      await Future.delayed(currentInterval);
+      // Sleep until the interval elapses OR notifyNewBlock() fires.
+      final delayCompleter = Completer<void>();
+      final timer = Timer(currentInterval, () {
+        if (!delayCompleter.isCompleted) delayCompleter.complete();
+      });
+      final sub = _pollNow.stream.listen((_) {
+        if (!delayCompleter.isCompleted) delayCompleter.complete();
+      });
+      await delayCompleter.future;
+      timer.cancel();
+      await sub.cancel();
     }
+  }
+
+  Stream<int> newBlocks({Duration interval = const Duration(seconds: 15)}) =>
+      _newBlocks(interval: interval);
+
+  /// Nudge all [_newBlocks] listeners to poll immediately.
+  ///
+  /// Call this whenever you *know* a new block has been mined (e.g. after
+  /// a transaction receipt is confirmed) so that dependent streams such as
+  /// escrow-event polling react without waiting for the next 15-second tick.
+  void notifyNewBlock() {
+    if (!_pollNow.isClosed) _pollNow.add(null);
   }
 
   Stream<BitcoinAmount> subscribeBalance(EthereumAddress address) async* {

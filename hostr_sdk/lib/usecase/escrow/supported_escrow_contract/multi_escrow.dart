@@ -338,28 +338,63 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         }
       },
       live: includeLive == true
-          ? () => contract.client
-                .events(
-                  FilterOptions(
-                    address: eventFilter.address,
-                    topics: eventFilter.topics,
-                    fromBlock: _nextLiveBlock(
-                      logStore,
-                      cachedHighestSeenBlock: cachedTrade?.highestSeenBlock,
-                    ),
-                  ),
-                )
-                .where((log) => log.transactionHash != null)
-                .asyncMap(
-                  (log) => _mapAndCacheEscrowEvent(
-                    log,
-                    eventNamesByTopic,
-                    selectedEscrow,
-                  ),
-                )
+          ? () => _liveEvents(
+              eventFilter,
+              eventNamesByTopic,
+              selectedEscrow,
+              logStore,
+              cachedHighestSeenBlock: cachedTrade?.highestSeenBlock,
+            )
           : null,
     );
   });
+
+  Stream<EscrowEvent> _liveEvents(
+    FilterOptions eventFilter,
+    Map<String, String> eventNamesByTopic,
+    EscrowServiceSelected? selectedEscrow,
+    List<FilterEvent> logStore, {
+    int? cachedHighestSeenBlock,
+  }) {
+    final currentChain = chain;
+    if (currentChain == null) {
+      logger.w('No EvmChain available — live polling disabled');
+      return const Stream.empty();
+    }
+
+    var lastQueried = _highestSeenBlock(
+      logStore,
+      cachedHighestSeenBlock: cachedHighestSeenBlock,
+    );
+
+    return currentChain.newBlocks().asyncExpand((block) async* {
+      final fromBlock = lastQueried != null
+          ? BlockNum.exact(lastQueried! + 1)
+          : BlockNum.exact(block);
+
+      final logs = await currentChain.getLogs(
+        FilterOptions(
+          address: eventFilter.address,
+          topics: eventFilter.topics,
+          fromBlock: fromBlock,
+          toBlock: BlockNum.exact(block),
+        ),
+        batch: false,
+      );
+
+      lastQueried = block;
+      logStore.addAll(logs);
+
+      for (final log in logs) {
+        if (log.transactionHash == null) continue;
+        yield await _mapAndCacheEscrowEvent(
+          log,
+          eventNamesByTopic,
+          selectedEscrow,
+        );
+      }
+    });
+  }
 
   Map<String, String> _eventNamesByTopic() => {
     for (final name in _eventNames) _eventTopic(name): name,
@@ -576,29 +611,22 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       .firstWhere((event) => event.name == eventName)
       .decodeResults(log.topics!, log.data!);
 
-  BlockNum _nextLiveBlock(
+  int? _highestSeenBlock(
     List<FilterEvent> logStore, {
     int? cachedHighestSeenBlock,
   }) {
+    var highestSeenBlock = cachedHighestSeenBlock;
     final blockNumbers = logStore
         .where((event) => event.blockNum != null)
         .map((event) => event.blockNum!.toInt());
-    if (blockNumbers.isEmpty && cachedHighestSeenBlock == null) {
-      return BlockNum.current();
-    }
 
-    var highestSeenBlock = cachedHighestSeenBlock;
     for (final blockNumber in blockNumbers) {
       highestSeenBlock = highestSeenBlock == null
           ? blockNumber
           : max(highestSeenBlock, blockNumber);
     }
 
-    if (highestSeenBlock == null) {
-      return BlockNum.current();
-    }
-
-    return BlockNum.exact(highestSeenBlock + 1);
+    return highestSeenBlock;
   }
 
   String _eventTopic(String eventName) => bytesToHex(
