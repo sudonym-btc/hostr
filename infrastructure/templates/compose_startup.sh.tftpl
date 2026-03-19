@@ -169,6 +169,7 @@ case "$${TARGET_ENV}" in
 esac
 
 cd /opt/hostr
+git config --global url."https://github.com/".insteadOf "git@github.com:"
 git fetch --all --prune
 git checkout "${repo_branch}"
 git pull --ff-only origin "${repo_branch}"
