@@ -142,11 +142,12 @@ resource "google_compute_disk" "rif_relay_data" {
 }
 
 resource "google_compute_instance" "compose_vm" {
-  name         = "${local.project_base_name}-compose"
-  project      = var.project_id
-  machine_type = var.compose_machine_type
-  zone         = var.compose_zone
-  tags         = ["hostr-compose"]
+  name                      = "${local.project_base_name}-compose"
+  project                   = var.project_id
+  machine_type              = var.compose_machine_type
+  zone                      = var.compose_zone
+  tags                      = ["hostr-compose"]
+  allow_stopping_for_update = true
 
   boot_disk {
     initialize_params {
