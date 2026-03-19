@@ -30,8 +30,9 @@ RUN dart build cli --target bin/daemon.dart -o /out/daemon \
 FROM debian:12-slim AS production
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends ca-certificates libsecp256k1-1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf "$(find /usr/lib -name 'libsecp256k1.so.1' -print -quit)" /usr/lib/libsecp256k1.so
 
 COPY --from=compile /out/daemon/bundle/bin/ /usr/local/bin/
 COPY --from=compile /out/daemon/bundle/lib/ /usr/local/lib/
