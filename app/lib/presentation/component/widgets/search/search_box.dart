@@ -29,9 +29,7 @@ class SearchBoxWidget extends StatelessWidget {
     final hasDateRange = dateRangeState.dateRange != null;
     final borderRadius = BorderRadius.circular(embedded ? 0 : 50);
 
-    final color = embedded
-        ? AppPaneTheme.stepped(context, 2)
-        : Theme.of(context).scaffoldBackgroundColor;
+    final color = AppSurface.stepped(context, 1);
 
     return Opacity(
       opacity: embedded ? 1 : 0.85,

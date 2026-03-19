@@ -162,28 +162,26 @@ class _AppShellScreenState extends State<AppShellScreen>
       max(0, destinations.length - 1),
     );
 
-    return AppPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: ListView.separated(
-              padding: EdgeInsets.zero,
-              itemCount: destinations.length,
-              itemBuilder: (context, index) {
-                final destination = destinations[index];
-                return _SidebarNavItem(
-                  label: destination.label,
-                  icon: destination.icon,
-                  selected: index == safeSelectedIndex,
-                  onTap: () => onDestinationSelected(index),
-                );
-              },
-              separatorBuilder: (_, __) => const SizedBox(height: kSpace2),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: destinations.length,
+            itemBuilder: (context, index) {
+              final destination = destinations[index];
+              return _SidebarNavItem(
+                label: destination.label,
+                icon: destination.icon,
+                selected: index == safeSelectedIndex,
+                onTap: () => onDestinationSelected(index),
+              );
+            },
+            separatorBuilder: (_, __) => const SizedBox(height: kSpace2),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -257,15 +255,14 @@ class _AppShellScreenState extends State<AppShellScreen>
                       // The root surface is the lightest tone for the
                       // current brightness so nested AppSurface widgets
                       // can step progressively deeper (darker).
-                      final rootSurface =
-                          theme.brightness == Brightness.light
-                              ? theme.colorScheme.surface
-                              : theme.colorScheme.surfaceContainerHighest;
+                      final rootSurface = theme.brightness == Brightness.light
+                          ? theme.colorScheme.surfaceContainerLowest
+                          : theme.colorScheme.surfaceContainerHighest;
 
                       return Scaffold(
                         backgroundColor: rootSurface,
                         extendBody: showBottomNav,
-                        body: AppPaneTheme(
+                        body: AppSurface.inherit(
                           color: rootSurface,
                           child: Center(
                             child: ConstrainedBox(
@@ -384,7 +381,7 @@ class _SidebarNavItem extends StatelessWidget {
                   label,
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: foregroundColor,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    fontWeight: selected ? FontWeight.w500 : FontWeight.normal,
                   ),
                 ),
               ),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:models/main.dart';
 
 Color getColorForAmenity(BuildContext context, String amenity) {
-  return Theme.of(context).colorScheme.primary.withAlpha(40);
+  return AppSurface.stepped(context, 2);
   // final random = Random(amenity.hashCode);
   // return Color.fromARGB(
   //   25,
@@ -17,7 +18,7 @@ OutlinedBorder getShapeForAmenity(BuildContext context, String amenity) {
   return RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(50.0), // Makes the chip perfectly round
     side: BorderSide(
-      color: getColorForAmenity(context, amenity), // Sets the border color
+      color: AppSurface.stepped(context, 4), // Sets the border color
       width: 1.0,
     ),
   );

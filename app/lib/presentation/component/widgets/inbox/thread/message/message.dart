@@ -75,7 +75,7 @@ class MessageContainer extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final color = isSentByMe
         ? colorScheme.secondary
-        : AppPaneTheme.stepped(context);
+        : AppSurface.stepped(context);
     return Material(
       color: color,
       borderRadius: BorderRadius.circular(kDefaultPadding / 3),

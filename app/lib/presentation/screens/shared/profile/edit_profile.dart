@@ -31,7 +31,7 @@ class EditProfileView extends StatefulWidget {
 }
 
 Widget noImageSetPlaceholder(BuildContext context) =>
-    AppSurface(steps: -1, child: ColoredBox(color: Colors.transparent));
+    AppSurface(steps: 1, child: ColoredBox(color: Colors.transparent));
 
 class EditProfileViewState extends State<EditProfileView> {
   final EditProfileController controller = EditProfileController();

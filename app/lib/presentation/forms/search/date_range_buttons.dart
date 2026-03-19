@@ -178,7 +178,6 @@ class _DateTile extends StatelessWidget {
 
     return AppSurface(
       borderRadius: radius,
-      steps: 1,
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
