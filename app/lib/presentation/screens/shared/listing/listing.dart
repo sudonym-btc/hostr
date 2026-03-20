@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/screens/shared/listing/listing_view.dart';
+import 'package:models/main.dart';
 
 @RoutePage()
 class ListingScreen extends StatelessWidget {
@@ -9,10 +10,11 @@ class ListingScreen extends StatelessWidget {
 
   // ignore: use_key_in_widget_constructors
   ListingScreen({
-    @pathParam required this.a,
+    @pathParam required String a,
     @queryParam String? dateRangeStart,
     @queryParam String? dateRangeEnd,
-  }) : dateRange = dateRangeStart != null && dateRangeEnd != null
+  }) : a = a.startsWith('naddr') ? naddrToAnchor(a) : a,
+       dateRange = dateRangeStart != null && dateRangeEnd != null
            ? DateTimeRange(
                start: DateTime.parse(dateRangeStart).toUtc(),
                end: DateTime.parse(dateRangeEnd).toUtc(),

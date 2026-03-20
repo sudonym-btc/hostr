@@ -108,7 +108,7 @@ Future<void> _takeScreenshots(
   await binding.takeScreenshot('screenshots/$mode/search.png');
 
   // ── 2. Listing detail ───────────────────────────────────────────
-  appRouter.navigate(ListingRoute(a: listing.anchor!));
+  appRouter.navigate(ListingRoute(a: listing.naddr()!));
   await _settle(tester, frames: 6);
   await binding.takeScreenshot('screenshots/$mode/listing.png');
 
