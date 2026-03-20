@@ -9,7 +9,7 @@ import 'package:wallet/wallet.dart' as _i2;
 import 'dart:typed_data' as _i3;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
-  '[{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"feesReceiver","type":"address"},{"internalType":"uint256","name":"feesAmount","type":"uint256"},{"internalType":"uint256","name":"feesGas","type":"uint256"},{"internalType":"address","name":"to","type":"address"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"initialize","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}]',
+  '[{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"feesReceiver","type":"address"},{"internalType":"uint256","name":"feesAmount","type":"uint256"},{"internalType":"uint256","name":"feesGas","type":"uint256"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"gasLimit","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"initialize","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}]',
   'MinimalBoltzSmartWallet',
 );
 
@@ -37,19 +37,21 @@ class MinimalBoltzSmartWallet extends _i1.GeneratedContract {
       BigInt feesAmount,
       BigInt feesGas,
       _i2.EthereumAddress to,
+      BigInt gasLimit,
       _i3.Uint8List data
     }) args, {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[0];
-    assert(checkSignature(function, '3d326736'));
+    assert(checkSignature(function, '9f18fa5a'));
     final params = [
       args.owner,
       args.feesReceiver,
       args.feesAmount,
       args.feesGas,
       args.to,
+      args.gasLimit,
       args.data,
     ];
     return write(

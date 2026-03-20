@@ -9,7 +9,7 @@ import 'package:wallet/wallet.dart' as _i2;
 import 'dart:typed_data' as _i3;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
-  '[{"type":"constructor","inputs":[],"stateMutability":"nonpayable"},{"type":"receive","stateMutability":"payable"},{"type":"function","name":"IS_TEST","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"excludeArtifacts","inputs":[],"outputs":[{"name":"excludedArtifacts_","type":"string[]","internalType":"string[]"}],"stateMutability":"view"},{"type":"function","name":"excludeContracts","inputs":[],"outputs":[{"name":"excludedContracts_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"excludeSelectors","inputs":[],"outputs":[{"name":"excludedSelectors_","type":"tuple[]","internalType":"struct StdInvariant.FuzzSelector[]","components":[{"name":"addr","type":"address","internalType":"address"},{"name":"selectors","type":"bytes4[]","internalType":"bytes4[]"}]}],"stateMutability":"view"},{"type":"function","name":"excludeSenders","inputs":[],"outputs":[{"name":"excludedSenders_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"failed","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"targetArtifactSelectors","inputs":[],"outputs":[{"name":"targetedArtifactSelectors_","type":"tuple[]","internalType":"struct StdInvariant.FuzzArtifactSelector[]","components":[{"name":"artifact","type":"string","internalType":"string"},{"name":"selectors","type":"bytes4[]","internalType":"bytes4[]"}]}],"stateMutability":"view"},{"type":"function","name":"targetArtifacts","inputs":[],"outputs":[{"name":"targetedArtifacts_","type":"string[]","internalType":"string[]"}],"stateMutability":"view"},{"type":"function","name":"targetContracts","inputs":[],"outputs":[{"name":"targetedContracts_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"targetInterfaces","inputs":[],"outputs":[{"name":"targetedInterfaces_","type":"tuple[]","internalType":"struct StdInvariant.FuzzInterface[]","components":[{"name":"addr","type":"address","internalType":"address"},{"name":"artifacts","type":"string[]","internalType":"string[]"}]}],"stateMutability":"view"},{"type":"function","name":"targetSelectors","inputs":[],"outputs":[{"name":"targetedSelectors_","type":"tuple[]","internalType":"struct StdInvariant.FuzzSelector[]","components":[{"name":"addr","type":"address","internalType":"address"},{"name":"selectors","type":"bytes4[]","internalType":"bytes4[]"}]}],"stateMutability":"view"},{"type":"function","name":"targetSenders","inputs":[],"outputs":[{"name":"targetedSenders_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"testClaimCall","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimCallInvalidCaller","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimCallSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimCallSignatureInvalid","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20Call","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallInvalidCaller","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallRevert","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallSignatureInvalid","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20Execute","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteCallFailed","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteClaimInvalidAddress","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteEntireBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteInsufficientBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteMultiple","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSignatureInvalid","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSwapTokens","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecute","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteCallFailed","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteClaimInvalidAddress","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteEntireBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteInsufficientBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteInsufficientBalanceToken","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteMultiple","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteSignatureInvalid","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteToken","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteTokenEntireBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"log","inputs":[{"name":"","type":"string","indexed":false,"internalType":"string"}],"anonymous":false},{"type":"event","name":"log_address","inputs":[{"name":"","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"log_array","inputs":[{"name":"val","type":"uint256[]","indexed":false,"internalType":"uint256[]"}],"anonymous":false},{"type":"event","name":"log_array","inputs":[{"name":"val","type":"int256[]","indexed":false,"internalType":"int256[]"}],"anonymous":false},{"type":"event","name":"log_array","inputs":[{"name":"val","type":"address[]","indexed":false,"internalType":"address[]"}],"anonymous":false},{"type":"event","name":"log_bytes","inputs":[{"name":"","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},{"type":"event","name":"log_bytes32","inputs":[{"name":"","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"log_int","inputs":[{"name":"","type":"int256","indexed":false,"internalType":"int256"}],"anonymous":false},{"type":"event","name":"log_named_address","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"log_named_array","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"uint256[]","indexed":false,"internalType":"uint256[]"}],"anonymous":false},{"type":"event","name":"log_named_array","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"int256[]","indexed":false,"internalType":"int256[]"}],"anonymous":false},{"type":"event","name":"log_named_array","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"address[]","indexed":false,"internalType":"address[]"}],"anonymous":false},{"type":"event","name":"log_named_bytes","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},{"type":"event","name":"log_named_bytes32","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"log_named_decimal_int","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"int256","indexed":false,"internalType":"int256"},{"name":"decimals","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log_named_decimal_uint","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"decimals","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log_named_int","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"int256","indexed":false,"internalType":"int256"}],"anonymous":false},{"type":"event","name":"log_named_string","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"string","indexed":false,"internalType":"string"}],"anonymous":false},{"type":"event","name":"log_named_uint","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log_string","inputs":[{"name":"","type":"string","indexed":false,"internalType":"string"}],"anonymous":false},{"type":"event","name":"log_uint","inputs":[{"name":"","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"logs","inputs":[{"name":"","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false}]',
+  '[{"type":"constructor","inputs":[],"stateMutability":"nonpayable"},{"type":"receive","stateMutability":"payable"},{"type":"function","name":"IS_TEST","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"excludeArtifacts","inputs":[],"outputs":[{"name":"excludedArtifacts_","type":"string[]","internalType":"string[]"}],"stateMutability":"view"},{"type":"function","name":"excludeContracts","inputs":[],"outputs":[{"name":"excludedContracts_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"excludeSelectors","inputs":[],"outputs":[{"name":"excludedSelectors_","type":"tuple[]","internalType":"struct StdInvariant.FuzzSelector[]","components":[{"name":"addr","type":"address","internalType":"address"},{"name":"selectors","type":"bytes4[]","internalType":"bytes4[]"}]}],"stateMutability":"view"},{"type":"function","name":"excludeSenders","inputs":[],"outputs":[{"name":"excludedSenders_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"failed","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"targetArtifactSelectors","inputs":[],"outputs":[{"name":"targetedArtifactSelectors_","type":"tuple[]","internalType":"struct StdInvariant.FuzzArtifactSelector[]","components":[{"name":"artifact","type":"string","internalType":"string"},{"name":"selectors","type":"bytes4[]","internalType":"bytes4[]"}]}],"stateMutability":"view"},{"type":"function","name":"targetArtifacts","inputs":[],"outputs":[{"name":"targetedArtifacts_","type":"string[]","internalType":"string[]"}],"stateMutability":"view"},{"type":"function","name":"targetContracts","inputs":[],"outputs":[{"name":"targetedContracts_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"targetInterfaces","inputs":[],"outputs":[{"name":"targetedInterfaces_","type":"tuple[]","internalType":"struct StdInvariant.FuzzInterface[]","components":[{"name":"addr","type":"address","internalType":"address"},{"name":"artifacts","type":"string[]","internalType":"string[]"}]}],"stateMutability":"view"},{"type":"function","name":"targetSelectors","inputs":[],"outputs":[{"name":"targetedSelectors_","type":"tuple[]","internalType":"struct StdInvariant.FuzzSelector[]","components":[{"name":"addr","type":"address","internalType":"address"},{"name":"selectors","type":"bytes4[]","internalType":"bytes4[]"}]}],"stateMutability":"view"},{"type":"function","name":"targetSenders","inputs":[],"outputs":[{"name":"targetedSenders_","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"testClaimCall","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimCallInvalidCaller","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimCallRestrictedTarget","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimCallSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimCallSignatureInvalid","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimCallSignatureRestrictedTarget","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20Call","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallInvalidCaller","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallRestrictedTarget","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallRevert","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallSignatureInvalid","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20CallSignatureRestrictedTarget","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20Execute","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteCallFailed","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteClaimInvalidAddress","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteEntireBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteInsufficientBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteMultiple","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSendSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSendSignatureInvalid","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSendSignatureInvalidFeeMutation","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSendSignatureInvalidMinAmountMutation","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSendSignatureInvalidRefundAddressMutation","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSendSignatureInvalidSendParamMutation","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSendSignatureRevertsBelowMinAmount","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSendSignatureUsesRemainingBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSendSignatureWithAdapter","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSignatureInvalid","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimERC20ExecuteSwapTokens","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecute","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteCallFailed","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteClaimInvalidAddress","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteEntireBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteInsufficientBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteInsufficientBalanceToken","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteMultiple","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteSignatureInvalid","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteToken","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testClaimExecuteTokenEntireBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteAndLockERC20","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteAndLockERC20FullBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteAndLockERC20WithPermit2","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteAndLockERC20WithPermit2DifferentOwner","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteAndLockERC20WithPermit2InvalidSignature","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteAndLockERC20WithPermit2WrongOwner","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteAndLockEther","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteAndLockEtherFullBalance","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteCallsRestrictedTarget","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteCallsRestrictedTargetERC20","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"testExecuteCallsRestrictedTargetPermit2","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"log","inputs":[{"name":"","type":"string","indexed":false,"internalType":"string"}],"anonymous":false},{"type":"event","name":"log_address","inputs":[{"name":"","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"log_array","inputs":[{"name":"val","type":"uint256[]","indexed":false,"internalType":"uint256[]"}],"anonymous":false},{"type":"event","name":"log_array","inputs":[{"name":"val","type":"int256[]","indexed":false,"internalType":"int256[]"}],"anonymous":false},{"type":"event","name":"log_array","inputs":[{"name":"val","type":"address[]","indexed":false,"internalType":"address[]"}],"anonymous":false},{"type":"event","name":"log_bytes","inputs":[{"name":"","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},{"type":"event","name":"log_bytes32","inputs":[{"name":"","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"log_int","inputs":[{"name":"","type":"int256","indexed":false,"internalType":"int256"}],"anonymous":false},{"type":"event","name":"log_named_address","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"log_named_array","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"uint256[]","indexed":false,"internalType":"uint256[]"}],"anonymous":false},{"type":"event","name":"log_named_array","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"int256[]","indexed":false,"internalType":"int256[]"}],"anonymous":false},{"type":"event","name":"log_named_array","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"address[]","indexed":false,"internalType":"address[]"}],"anonymous":false},{"type":"event","name":"log_named_bytes","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},{"type":"event","name":"log_named_bytes32","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"log_named_decimal_int","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"int256","indexed":false,"internalType":"int256"},{"name":"decimals","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log_named_decimal_uint","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"decimals","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log_named_int","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"int256","indexed":false,"internalType":"int256"}],"anonymous":false},{"type":"event","name":"log_named_string","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"string","indexed":false,"internalType":"string"}],"anonymous":false},{"type":"event","name":"log_named_uint","inputs":[{"name":"key","type":"string","indexed":false,"internalType":"string"},{"name":"val","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"log_string","inputs":[{"name":"","type":"string","indexed":false,"internalType":"string"}],"anonymous":false},{"type":"event","name":"log_uint","inputs":[{"name":"","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"logs","inputs":[{"name":"","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false}]',
   'RouterTest',
 );
 
@@ -250,11 +250,29 @@ class RouterTest extends _i1.GeneratedContract {
   /// The optional [transaction] parameter can be used to override parameters
   /// like the gas price, nonce and max gas. The `data` and `to` fields will be
   /// set by the contract.
-  Future<String> testClaimCallSignature({
+  Future<String> testClaimCallRestrictedTarget({
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[15];
+    assert(checkSignature(function, '8db566b5'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimCallSignature({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[16];
     assert(checkSignature(function, 'd9f87ebf'));
     final params = [];
     return write(
@@ -272,8 +290,26 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[16];
+    final function = self.abi.functions[17];
     assert(checkSignature(function, 'a406a029'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimCallSignatureRestrictedTarget({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[18];
+    assert(checkSignature(function, 'a7dd6d68'));
     final params = [];
     return write(
       credentials,
@@ -290,7 +326,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[17];
+    final function = self.abi.functions[19];
     assert(checkSignature(function, '3f784b67'));
     final params = [];
     return write(
@@ -308,8 +344,26 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[18];
+    final function = self.abi.functions[20];
     assert(checkSignature(function, '79acb3a0'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20CallRestrictedTarget({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[21];
+    assert(checkSignature(function, '5fb62061'));
     final params = [];
     return write(
       credentials,
@@ -326,7 +380,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[19];
+    final function = self.abi.functions[22];
     assert(checkSignature(function, 'a6a943fb'));
     final params = [];
     return write(
@@ -344,7 +398,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[20];
+    final function = self.abi.functions[23];
     assert(checkSignature(function, 'f1744836'));
     final params = [];
     return write(
@@ -362,8 +416,26 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[21];
+    final function = self.abi.functions[24];
     assert(checkSignature(function, 'bc8e41e2'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20CallSignatureRestrictedTarget({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[25];
+    assert(checkSignature(function, 'f0633406'));
     final params = [];
     return write(
       credentials,
@@ -380,7 +452,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[22];
+    final function = self.abi.functions[26];
     assert(checkSignature(function, 'ec53ab4b'));
     final params = [];
     return write(
@@ -398,7 +470,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[23];
+    final function = self.abi.functions[27];
     assert(checkSignature(function, '59e17fa5'));
     final params = [];
     return write(
@@ -416,7 +488,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[24];
+    final function = self.abi.functions[28];
     assert(checkSignature(function, '28170014'));
     final params = [];
     return write(
@@ -434,7 +506,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[25];
+    final function = self.abi.functions[29];
     assert(checkSignature(function, '09399444'));
     final params = [];
     return write(
@@ -452,7 +524,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[26];
+    final function = self.abi.functions[30];
     assert(checkSignature(function, '05b7aa43'));
     final params = [];
     return write(
@@ -470,8 +542,171 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[27];
+    final function = self.abi.functions[31];
     assert(checkSignature(function, '8cf01e37'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20ExecuteSendSignature({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[32];
+    assert(checkSignature(function, '6b266381'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20ExecuteSendSignatureInvalid({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[33];
+    assert(checkSignature(function, 'de9d33f5'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20ExecuteSendSignatureInvalidFeeMutation({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[34];
+    assert(checkSignature(function, '6de7609e'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20ExecuteSendSignatureInvalidMinAmountMutation({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[35];
+    assert(checkSignature(function, '8594e1b5'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String>
+      testClaimERC20ExecuteSendSignatureInvalidRefundAddressMutation({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[36];
+    assert(checkSignature(function, '07f467e5'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20ExecuteSendSignatureInvalidSendParamMutation({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[37];
+    assert(checkSignature(function, 'acc8f745'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20ExecuteSendSignatureRevertsBelowMinAmount({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[38];
+    assert(checkSignature(function, 'a512fc6d'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20ExecuteSendSignatureUsesRemainingBalance({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[39];
+    assert(checkSignature(function, 'b34cf55a'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testClaimERC20ExecuteSendSignatureWithAdapter({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[40];
+    assert(checkSignature(function, '8f2c4c00'));
     final params = [];
     return write(
       credentials,
@@ -488,7 +723,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[28];
+    final function = self.abi.functions[41];
     assert(checkSignature(function, 'e894a6c4'));
     final params = [];
     return write(
@@ -506,7 +741,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[29];
+    final function = self.abi.functions[42];
     assert(checkSignature(function, '934af3a7'));
     final params = [];
     return write(
@@ -524,7 +759,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[30];
+    final function = self.abi.functions[43];
     assert(checkSignature(function, '1b8053f9'));
     final params = [];
     return write(
@@ -542,7 +777,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[31];
+    final function = self.abi.functions[44];
     assert(checkSignature(function, '4d9513fd'));
     final params = [];
     return write(
@@ -560,7 +795,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[32];
+    final function = self.abi.functions[45];
     assert(checkSignature(function, 'e158e006'));
     final params = [];
     return write(
@@ -578,7 +813,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[33];
+    final function = self.abi.functions[46];
     assert(checkSignature(function, '5cb23467'));
     final params = [];
     return write(
@@ -596,7 +831,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[34];
+    final function = self.abi.functions[47];
     assert(checkSignature(function, '78e0b4a6'));
     final params = [];
     return write(
@@ -614,7 +849,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[35];
+    final function = self.abi.functions[48];
     assert(checkSignature(function, '3b3d058f'));
     final params = [];
     return write(
@@ -632,7 +867,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[36];
+    final function = self.abi.functions[49];
     assert(checkSignature(function, '53a433fb'));
     final params = [];
     return write(
@@ -650,7 +885,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[37];
+    final function = self.abi.functions[50];
     assert(checkSignature(function, 'deab5797'));
     final params = [];
     return write(
@@ -668,7 +903,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[38];
+    final function = self.abi.functions[51];
     assert(checkSignature(function, '1eac350a'));
     final params = [];
     return write(
@@ -686,7 +921,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[39];
+    final function = self.abi.functions[52];
     assert(checkSignature(function, '78e38ea2'));
     final params = [];
     return write(
@@ -704,7 +939,7 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[40];
+    final function = self.abi.functions[53];
     assert(checkSignature(function, 'bab1205c'));
     final params = [];
     return write(
@@ -722,8 +957,206 @@ class RouterTest extends _i1.GeneratedContract {
     required _i1.Credentials credentials,
     _i1.Transaction? transaction,
   }) async {
-    final function = self.abi.functions[41];
+    final function = self.abi.functions[54];
     assert(checkSignature(function, '33cef1c4'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteAndLockERC20({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[55];
+    assert(checkSignature(function, 'a4544da1'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteAndLockERC20FullBalance({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[56];
+    assert(checkSignature(function, '9ccc5011'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteAndLockERC20WithPermit2({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[57];
+    assert(checkSignature(function, '98b55035'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteAndLockERC20WithPermit2DifferentOwner({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[58];
+    assert(checkSignature(function, '36015b71'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteAndLockERC20WithPermit2InvalidSignature({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[59];
+    assert(checkSignature(function, 'c03bc452'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteAndLockERC20WithPermit2WrongOwner({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[60];
+    assert(checkSignature(function, 'bf3939d1'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteAndLockEther({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[61];
+    assert(checkSignature(function, 'fd6ebbe1'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteAndLockEtherFullBalance({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[62];
+    assert(checkSignature(function, '1e896c23'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteCallsRestrictedTarget({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[63];
+    assert(checkSignature(function, '5a8164f5'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteCallsRestrictedTargetERC20({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[64];
+    assert(checkSignature(function, '1b1bf79c'));
+    final params = [];
+    return write(
+      credentials,
+      transaction,
+      function,
+      params,
+    );
+  }
+
+  /// The optional [transaction] parameter can be used to override parameters
+  /// like the gas price, nonce and max gas. The `data` and `to` fields will be
+  /// set by the contract.
+  Future<String> testExecuteCallsRestrictedTargetPermit2({
+    required _i1.Credentials credentials,
+    _i1.Transaction? transaction,
+  }) async {
+    final function = self.abi.functions[65];
+    assert(checkSignature(function, 'a20995ab'));
     final params = [];
     return write(
       credentials,
