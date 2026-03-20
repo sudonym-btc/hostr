@@ -9,23 +9,24 @@ List<EscrowService> MOCK_ESCROWS({
 }) =>
     [
       EscrowService(
-              pubKey: MockKeys.escrow.publicKey,
-              content: EscrowServiceContent(
-                  chainId: ChainIds.RootstockRegtest.value,
-                  pubkey: MockKeys.escrow.publicKey,
+          pubKey: MockKeys.escrow.publicKey,
+          content: EscrowServiceContent(
+              chainId: ChainIds.RootstockRegtest.value,
+              pubkey: MockKeys.escrow.publicKey,
 //               Verifiable build metadata: the exact Solidity compiler version, optimizer flag + runs, and metadata settings used to compile. These determine the runtime bytecode.
 // Runtime bytecode hash: take eth_getCode for the deployed address, hash with keccak256. This uniquely identifies the deployed logic (state ignored).
 // Sourcify/Etherscan verification: third‑party verification that the published source + compiler settings reproduce the deployed bytecode. Clients can trust the verified record and compare the hash themselves.
 // So the escrow publisher should include: contract address, chainId, runtime bytecode hash, compiler version, optimizer settings, and optionally a Sourcify/Etherscan link. Clients then compare on‑chain runtime hash to the advertised hash.
-                  evmAddress: evmAddress,
-                  contractAddress: contractAddress,
-                  contractBytecodeHash: byteCodeHash ?? "0xMockBytecodeHash",
-                  maxDuration: Duration(days: 365),
-                  type: EscrowType.EVM,
-                  feeBase: 100,
-                  feePercent: 1,
-                  minAmount: 5000),
-              createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
-              tags: EventTags([]))
-          .signAs(MockKeys.escrow, EscrowService.fromNostrEvent),
+              evmAddress: evmAddress,
+              contractAddress: contractAddress,
+              contractBytecodeHash: byteCodeHash ?? "0xMockBytecodeHash",
+              maxDuration: Duration(days: 365),
+              type: EscrowType.EVM,
+              feeBase: 100,
+              feePercent: 1,
+              minAmount: 5000),
+          createdAt: DateTime(2025).millisecondsSinceEpoch ~/ 1000,
+          tags: EventTags([
+            ['d', contractAddress]
+          ])).signAs(MockKeys.escrow, EscrowService.fromNostrEvent),
     ].toList();

@@ -226,8 +226,19 @@ class DaemonHandler {
     final services = await hostr.escrows.list(
       Filter(authors: [pubkey]),
     );
+
+    // Deduplicate by contract address, keeping the newest event per contract.
+    // This handles legacy events that were published without a 'd' tag.
+    final byContract = <String, EscrowService>{};
+    for (final s in services) {
+      final existing = byContract[s.contractAddress];
+      if (existing == null || s.createdAt > existing.createdAt) {
+        byContract[s.contractAddress] = s;
+      }
+    }
+
     return {
-      'services': services
+      'services': byContract.values
           .map((s) => ServiceSummary(
                 id: s.id,
                 contractAddress: s.contractAddress,
@@ -265,9 +276,15 @@ class DaemonHandler {
     final existing = await hostr.escrows.getById(serviceId);
     final old = existing.parsedContent;
 
+    // Ensure the 'd' tag is present so relays replace the previous event.
+    final existingTags = existing.tags.map((t) => List<String>.from(t)).toList();
+    if (!existingTags.any((t) => t.isNotEmpty && t[0] == 'd')) {
+      existingTags.add(['d', old.contractAddress]);
+    }
+
     final updated = EscrowService(
       pubKey: existing.pubKey,
-      tags: EventTags(existing.tags.map((t) => List<String>.from(t)).toList()),
+      tags: EventTags(existingTags),
       content: EscrowServiceContent(
         pubkey: old.pubkey,
         evmAddress: old.evmAddress,

@@ -193,7 +193,12 @@ class _ImageUploadState extends State<ImageUpload> {
                             index,
                           );
                           final error = widget.controller.imageError(index);
+                          final imageKey =
+                              image.file?.path ??
+                              image.path ??
+                              index.toString();
                           return Stack(
+                            key: ValueKey<String>(imageKey),
                             fit: StackFit.expand,
                             children: [
                               if (image.previewBytes != null)

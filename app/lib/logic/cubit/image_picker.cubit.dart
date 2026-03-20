@@ -302,7 +302,9 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
 
       // Kick off uploads for any newly added local files.
       for (var i = 0; i < images.length; i++) {
-        if (images[i].file != null && !_uploadingIndices.contains(i)) {
+        if (images[i].file != null &&
+            images[i].path == null &&
+            !_uploadingIndices.contains(i)) {
           _uploadSingle(i);
         }
       }
@@ -398,8 +400,9 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
             spanName: '_readImageBytes[$index]',
           );
           if (index < images.length &&
-              images[index].file?.path == image.file!.path) {
-            images[index] = image.copyWith(previewBytes: bytes);
+              images[index].file?.path == image.file!.path &&
+              images[index].previewBytes == null) {
+            images[index] = images[index].copyWith(previewBytes: bytes);
             if (!isClosed) emit(ImageLoaded());
           }
         } catch (e, st) {

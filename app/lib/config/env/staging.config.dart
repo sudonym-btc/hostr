@@ -6,13 +6,9 @@ import 'base.config.dart';
 
 @Injectable(as: Config, env: [Env.staging])
 class StagingConfig extends Config {
-  static const _grafanaOtlpEndpoint =
-      'https://otlp-gateway-prod-us-east-3.grafana.net/otlp';
-
-  static const _grafanaOtlpHeaders = {
-    'Authorization':
-        'Basic MTU1MzMxMjpnbGNfZXlKdklqb2lNVFk1TkRBMk1TSXNJbTRpT2lKbmNtRm1ZVzVoTFhOMFlXZHBibWNpTENKcklqb2lPWGxWUmtRM1J6VklaR0pxVnpnMVJEWTNZakpSTURoaElpd2liU0k2ZXlKeUlqb2ljSEp2WkMxMWN5MWxZWE4wTFRNaWZYMD0=',
-  };
+  // OTLP traces are proxied through nginx at /otlp/ to avoid CORS and
+  // keep the Grafana auth token server-side.
+  static const _otlpProxyEndpoint = '/otlp';
 
   @override
   List<String> get bootstrapEscrowPubkeys => buildConfigList(
@@ -24,8 +20,7 @@ class StagingConfig extends Config {
   Telemetry buildTelemetry() => Telemetry(
     serviceName: 'hostr-app',
     enableExport: true,
-    otlpEndpoint: _grafanaOtlpEndpoint,
-    otlpHeaders: _grafanaOtlpHeaders,
+    otlpEndpoint: _otlpProxyEndpoint,
   );
 
   @override
