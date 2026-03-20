@@ -7,12 +7,16 @@ import 'package:hostr/logic/forms/form_field_controller.dart';
 /// Tracks dirty state by comparing current image paths to the original set.
 class ImageFieldController extends FormFieldController {
   final ImagePickerCubit cubit;
+  final int minImages;
   List<String?> _originalPaths = [];
 
-  ImageFieldController({int? maxImages})
+  ImageFieldController({int? maxImages, this.minImages = 0})
     : cubit = ImagePickerCubit(maxImages: maxImages) {
     cubit.notifier.addListener(notifyListeners);
   }
+
+  @override
+  bool get isValid => cubit.images.length >= minImages;
 
   @override
   bool get isDirty {

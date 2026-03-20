@@ -151,7 +151,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
         emit(
           state.copyWith(
             fetching: false,
-            hasMore: limit == null ? state.hasMore : fetchedCount >= limit!,
+            hasMore: limit == null ? false : fetchedCount >= limit!,
           ),
         );
       }
