@@ -198,9 +198,7 @@ class ListingViewBody extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () {
-              context.router.push(
-                EditListingRoute(a: listing.anchor ?? listing.id),
-              );
+              context.router.push(EditListingRoute(a: listing.anchor!));
             },
           ),
       ],

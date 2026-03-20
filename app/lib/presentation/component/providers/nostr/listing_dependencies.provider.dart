@@ -7,7 +7,7 @@ import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
 
 class ListingDependencies {
-  final Listing listing;
+  Listing listing;
   final StreamWithStatus<Validation<Review>> verifiedReviews;
   final StreamWithStatus<List<Validation<ReservationPair>>>
   verifiedReservationPairs;
@@ -131,6 +131,9 @@ class _ListingDependenciesProviderState
     if (shouldReinitialize) {
       _disposeOwnedDependencies();
       _initializeDependencies();
+    } else if (widget.listing != null &&
+        widget.listing!.id != _dependencies.listing.id) {
+      _dependencies.listing = widget.listing!;
     }
   }
 

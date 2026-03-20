@@ -25,6 +25,7 @@ class _FakeSupportedEscrowContract extends Fake
     ContractEventsParams params,
     EscrowServiceSelected? selectedEscrow, {
     bool includeLive = true,
+    bool batch = true,
   }) => events;
 }
 
