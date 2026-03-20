@@ -626,13 +626,13 @@ class RootstockSwapInOperation extends SwapInOperation {
     final refundAddress = EthereumAddress.fromHex(data.refundAddress!);
     final timelock = BigInt.from(data.timeoutBlockHeight);
     final signature = params.claimDestination != null
-        ? _signClaimAuthorization(
+        ? await _signClaimAuthorization(
             preimage: data.preimageBytes,
             amount: amount,
             refundAddress: refundAddress,
             timelock: timelock,
             destination: params.claimDestination!,
-            etherSwapAddress: etherSwap.self.address,
+            etherSwap: etherSwap,
           )
         : null;
 
@@ -683,15 +683,24 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
   }
 
-  ({BigInt v, Uint8List r, Uint8List s, EthereumAddress recoveredAddress})
+  Future<
+    ({BigInt v, Uint8List r, Uint8List s, EthereumAddress recoveredAddress})
+  >
   _signClaimAuthorization({
     required Uint8List preimage,
     required BigInt amount,
     required EthereumAddress refundAddress,
     required BigInt timelock,
     required EthereumAddress destination,
-    required EthereumAddress etherSwapAddress,
-  }) {
+    required EtherSwap etherSwap,
+  }) async {
+    final contractVersion = await etherSwap.version();
+    final etherSwapAddress = etherSwap.self.address;
+    logger.i(
+      'EtherSwap contract version: $contractVersion '
+      'at ${etherSwapAddress.eip55With0x}',
+    );
+
     final typedData = eip712.TypedMessage(
       types: {
         eip712.EIP712Domain.type: [
@@ -714,7 +723,7 @@ class RootstockSwapInOperation extends SwapInOperation {
       primaryType: 'Claim',
       domain: eip712.EIP712Domain(
         name: 'EtherSwap',
-        version: '6',
+        version: '$contractVersion',
         chainId: BigInt.from(rootstock.config.rootstockConfig.chainId),
         verifyingContract: etherSwapAddress,
         salt: null,
