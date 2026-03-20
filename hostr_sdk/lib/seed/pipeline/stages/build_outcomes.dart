@@ -292,7 +292,9 @@ EscrowService _buildBogusEscrowService(SeedContext ctx) {
   final unsigned = EscrowService(
     pubKey: MockKeys.escrow.publicKey,
     content: content,
-    tags: EventTags([]),
+    tags: EventTags([
+      ['d', content.contractAddress],
+    ]),
     createdAt: ctx.timestampDaysAfter(60 + ctx.random.nextInt(30)),
   );
 
