@@ -268,7 +268,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
           availabilityWidget: showAvailability
               ? _buildAvailabilityText(context)
               : null,
-          onTap: widget.listing.anchor != null
+          onTap: widget.listing.naddr() != null
               ? () {
                   DateTimeRange? dr = widget.dateRange;
                   if (dr == null) {
@@ -278,7 +278,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
                   }
                   AutoRouter.of(context).push(
                     ListingRoute(
-                      a: widget.listing.anchor!,
+                      a: widget.listing.naddr()!,
                       dateRangeStart: dr?.start.toUtc().toIso8601String(),
                       dateRangeEnd: dr?.end.toUtc().toIso8601String(),
                     ),

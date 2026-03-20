@@ -62,7 +62,7 @@ class _ReserveState extends State<Reserve> {
 
   PageRouteInfo _reservePendingRoute(DateTimeRange? dateRange) {
     return ListingRoute(
-      a: widget.listing.anchor ?? widget.listing.id,
+      a: widget.listing.naddr()!,
       dateRangeStart: dateRange?.start.toIso8601String(),
       dateRangeEnd: dateRange?.end.toIso8601String(),
     );

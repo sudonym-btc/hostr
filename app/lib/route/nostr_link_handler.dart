@@ -127,10 +127,8 @@ class NostrLinkHandler {
 
     switch (naddr.kind) {
       case kNostrKindListing:
-        // Reconstruct the anchor format used by the app: kind:pubkey:d-tag
-        final anchor = '${naddr.kind}:${naddr.pubkey}:${naddr.identifier}';
-        _logger.i('Navigating to listing with anchor: $anchor');
-        _router.push(ListingRoute(a: anchor));
+        _logger.i('Navigating to listing with naddr: $naddrStr');
+        _router.push(ListingRoute(a: naddrStr));
         break;
     }
   }

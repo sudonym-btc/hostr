@@ -52,10 +52,10 @@ class TradeHeaderView extends StatelessWidget {
       tradeState.streams.subscriptionsLive;
 
   void _navigateToListing(BuildContext context) {
-    if (listing.anchor != null) {
+    if (listing.naddr() != null) {
       AutoRouter.of(context).push(
         ListingRoute(
-          a: listing.anchor!,
+          a: listing.naddr()!,
           dateRangeStart: start.toUtc().toIso8601String(),
           dateRangeEnd: end.toUtc().toIso8601String(),
         ),

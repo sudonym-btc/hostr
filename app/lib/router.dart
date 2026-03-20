@@ -123,6 +123,7 @@ class AppRouter extends RootStackRouter {
                 AutoRoute(
                   page: EditListingRoute.page,
                   path: 'edit-listing/:a?',
+                  guards: [AuthGuard()],
                 ),
                 AutoRoute(
                   page: EditProfileRoute.page,
