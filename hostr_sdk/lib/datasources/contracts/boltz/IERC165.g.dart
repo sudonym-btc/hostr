@@ -9,7 +9,7 @@ import 'package:wallet/wallet.dart' as _i2;
 import 'dart:typed_data' as _i3;
 
 final _contractAbi = _i1.ContractAbi.fromJson(
-  '[{"type":"function","name":"supportsInterface","inputs":[{"name":"interfaceID","type":"bytes4","internalType":"bytes4"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"}]',
+  '[{"type":"function","name":"supportsInterface","inputs":[{"name":"interfaceId","type":"bytes4","internalType":"bytes4"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"}]',
   'IERC165',
 );
 
@@ -31,12 +31,12 @@ class IERC165 extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<bool> supportsInterface(
-    ({_i3.Uint8List interfaceID}) args, {
+    ({_i3.Uint8List interfaceId}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[0];
     assert(checkSignature(function, '01ffc9a7'));
-    final params = [args.interfaceID];
+    final params = [args.interfaceId];
     final response = await read(
       function,
       params,
