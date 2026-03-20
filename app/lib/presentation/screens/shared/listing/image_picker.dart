@@ -60,6 +60,20 @@ class _ImageUploadState extends State<ImageUpload> {
     );
   }
 
+  void _animateToPage(int page) {
+    if (!_pageController.hasClients) return;
+    _pageController.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _shiftImage(BuildContext context, int from, int to) {
+    context.read<ImagePickerCubit>().reorderImage(from, to);
+    _animateToPage(to);
+  }
+
   void _clampPage(int itemCount) {
     if (itemCount <= 0) {
       _currentPage = 0;
@@ -128,116 +142,207 @@ class _ImageUploadState extends State<ImageUpload> {
               images.length >= widget.controller.maxImages!;
           final itemCount = atMax ? images.length : images.length + 1;
           _clampPage(itemCount);
+          final isOnImage = _currentPage < images.length;
+          final canGoLeft = _currentPage > 0;
+          final canGoRight = _currentPage < itemCount - 1;
+          final canShiftLeft = isOnImage && _currentPage > 0;
+          final canShiftRight = isOnImage && _currentPage < images.length - 1;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: ScrollConfiguration(
-                  behavior: const MaterialScrollBehavior().copyWith(
-                    dragDevices: _dragDevices,
-                  ),
-                  child: PageView.builder(
-                    key: const PageStorageKey<String>('image-upload-carousel'),
-                    controller: _pageController,
-                    pageSnapping: true,
-                    physics: const PageScrollPhysics(),
-                    padEnds: !_isSingleImageMode,
-                    itemCount: itemCount,
-                    onPageChanged: (page) {
-                      if (_currentPage != page) {
-                        setState(() => _currentPage = page);
-                      }
-                    },
-                    itemBuilder: (context, index) {
-                      if (index >= images.length) {
-                        final placeholder = Material(
-                          color: Theme.of(context).colorScheme.surface,
-                          child: InkWell(
-                            onTap: () => _pickMultipleImages(context),
-                            child: Container(
-                              alignment: Alignment.center,
-                              child:
-                                  widget.placeholder ??
-                                  _defaultPlaceholder(context),
-                            ),
-                          ),
-                        );
-                        return _isSingleImageMode
-                            ? placeholder
-                            : CustomPadding.horizontal.xs(child: placeholder);
-                      }
+                child: Stack(
+                  children: [
+                    ScrollConfiguration(
+                      behavior: const MaterialScrollBehavior().copyWith(
+                        dragDevices: _dragDevices,
+                      ),
+                      child: PageView.builder(
+                        key: const PageStorageKey<String>(
+                          'image-upload-carousel',
+                        ),
+                        controller: _pageController,
+                        pageSnapping: true,
+                        physics: const PageScrollPhysics(),
+                        padEnds: !_isSingleImageMode,
+                        itemCount: itemCount,
+                        onPageChanged: (page) {
+                          if (_currentPage != page) {
+                            setState(() => _currentPage = page);
+                          }
+                        },
+                        itemBuilder: (context, index) {
+                          if (index >= images.length) {
+                            final placeholder = Material(
+                              color: Theme.of(context).colorScheme.surface,
+                              child: InkWell(
+                                onTap: () => _pickMultipleImages(context),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  child:
+                                      widget.placeholder ??
+                                      _defaultPlaceholder(context),
+                                ),
+                              ),
+                            );
+                            return placeholder;
+                          }
 
-                      final image = images[index];
-                      final uploading = widget.controller.isImageUploading(
-                        index,
-                      );
-                      final error = widget.controller.imageError(index);
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (image.previewBytes != null)
-                            _LocalImagePreview(
-                              bytes: image.previewBytes!,
-                              filePath: image.file?.path,
-                            ),
-                          if (image.previewBytes == null && image.file != null)
-                            const IgnorePointer(
-                              child: Center(child: AppLoadingIndicator.small()),
-                            ),
-                          if (image.file == null && image.path != null)
-                            BlossomImage(
-                              image: image.path!,
-                              pubkey: widget.pubkey,
-                            ),
-                          if (uploading)
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                child: const _UploadShimmerOverlay(),
-                              ),
-                            ),
-                          if (error != null)
-                            Positioned.fill(
-                              child: _UploadErrorOverlay(
-                                error: error,
-                                onRetry: () => context
-                                    .read<ImagePickerCubit>()
-                                    .retryUpload(index),
-                              ),
-                            ),
-                          Positioned(
-                            top: kSpace2,
-                            right: kSpace3,
-                            child: SafeArea(
-                              bottom: false,
-                              left: false,
-                              child: GestureDetector(
-                                onTap: () => context
-                                    .read<ImagePickerCubit>()
-                                    .removeImage(index),
-                                child: IconTheme(
-                                  data: IconThemeData(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.surface,
+                          final image = images[index];
+                          final uploading = widget.controller.isImageUploading(
+                            index,
+                          );
+                          final error = widget.controller.imageError(index);
+                          return Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (image.previewBytes != null)
+                                _LocalImagePreview(
+                                  bytes: image.previewBytes!,
+                                  filePath: image.file?.path,
+                                ),
+                              if (image.previewBytes == null &&
+                                  image.file != null)
+                                const IgnorePointer(
+                                  child: Center(
+                                    child: AppLoadingIndicator.small(),
                                   ),
-                                  child: AppAvatar.sm(
-                                    icon: Icons.close,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
+                                ),
+                              if (image.file == null && image.path != null)
+                                BlossomImage(
+                                  image: image.path!,
+                                  pubkey: widget.pubkey,
+                                ),
+                              if (uploading)
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    child: const _UploadShimmerOverlay(),
+                                  ),
+                                ),
+                              if (error != null)
+                                Positioned.fill(
+                                  child: _UploadErrorOverlay(
+                                    error: error,
+                                    onRetry: () => context
+                                        .read<ImagePickerCubit>()
+                                        .retryUpload(index),
+                                  ),
+                                ),
+                              Positioned(
+                                top: kSpace2,
+                                right: kSpace3,
+                                child: SafeArea(
+                                  bottom: false,
+                                  left: false,
+                                  child: GestureDetector(
+                                    onTap: () => context
+                                        .read<ImagePickerCubit>()
+                                        .removeImage(index),
+                                    child: IconTheme(
+                                      data: IconThemeData(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                      ),
+                                      child: AppAvatar.sm(
+                                        icon: Icons.delete,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                    // Left / right navigation arrows.
+                    if (!_isSingleImageMode && canGoLeft)
+                      Positioned(
+                        left: kSpace2,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _CarouselArrow(
+                            icon: Icons.chevron_left,
+                            onTap: () => _animateToPage(_currentPage - 1),
+                          ),
+                        ),
+                      ),
+                    if (!_isSingleImageMode && canGoRight)
+                      Positioned(
+                        right: kSpace2,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _CarouselArrow(
+                            icon: Icons.chevron_right,
+                            onTap: () => _animateToPage(_currentPage + 1),
+                          ),
+                        ),
+                      ),
+                    // Shift left / right reorder controls.
+                    if (!_isSingleImageMode && isOnImage && images.length > 1)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: kSpace2,
+                        child: Center(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(kSpace5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _ShiftButton(
+                                  icon: Icons.arrow_back_rounded,
+                                  enabled: canShiftLeft,
+                                  onTap: () => _shiftImage(
+                                    context,
+                                    _currentPage,
+                                    _currentPage - 1,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: kSpace1,
+                                  ),
+                                  child: Text(
+                                    '${_currentPage + 1} / ${images.length}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surface,
+                                        ),
+                                  ),
+                                ),
+                                _ShiftButton(
+                                  icon: Icons.arrow_forward_rounded,
+                                  enabled: canShiftRight,
+                                  onTap: () => _shiftImage(
+                                    context,
+                                    _currentPage,
+                                    _currentPage + 1,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              // SizedBox(height: kDefaultPadding.toDouble()),
-              // buildButtons(context),
             ],
           );
         },
@@ -247,10 +352,73 @@ class _ImageUploadState extends State<ImageUpload> {
 
   Widget _defaultPlaceholder(BuildContext context) {
     return Center(
-      child: FilledButton.tonalIcon(
+      child: FilledButton.icon(
         onPressed: () => _pickMultipleImages(context),
+        style: FilledButton.styleFrom(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
+        ),
         icon: const Icon(Icons.add_a_photo_outlined),
         label: Text(AppLocalizations.of(context)!.addImage),
+      ),
+    );
+  }
+}
+
+class _CarouselArrow extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CarouselArrow({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.55),
+          shape: BoxShape.circle,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(kSpace1),
+          child: Icon(
+            icon,
+            size: kIconLg,
+            color: Theme.of(context).colorScheme.surface,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShiftButton extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _ShiftButton({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Padding(
+        padding: const EdgeInsets.all(kSpace2),
+        child: Icon(
+          icon,
+          size: kIconMd,
+          color: enabled
+              ? Theme.of(context).colorScheme.surface
+              : Theme.of(context).colorScheme.surface.withValues(alpha: 0.35),
+        ),
       ),
     );
   }

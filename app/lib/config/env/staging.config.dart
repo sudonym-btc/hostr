@@ -50,7 +50,7 @@ class StagingRootstockConfig extends RootstockConfig {
   int get chainId => 30;
   @override
   String get rpcUrl =>
-      'https://rpc.mainnet.rootstock.io/KR2OXu4aSUTZRYlXT5tpVVtE2aqEVI-M';
+      'https://rpc.mainnet.rootstock.io/8ahfS5JENd8hLBtvBxTUoA66ru6Ihg-M';
 
   @override
   BoltzConfig get boltz => ProductionBoltzConfig();

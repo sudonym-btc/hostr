@@ -228,6 +228,39 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
     emit(ImageLoaded());
   }
 
+  /// Swap the image at [oldIndex] with the one at [newIndex].
+  void reorderImage(int oldIndex, int newIndex) {
+    if (oldIndex < 0 ||
+        oldIndex >= images.length ||
+        newIndex < 0 ||
+        newIndex >= images.length ||
+        oldIndex == newIndex) {
+      return;
+    }
+
+    // Swap the images.
+    final temp = images[oldIndex];
+    images[oldIndex] = images[newIndex];
+    images[newIndex] = temp;
+
+    // Swap upload-tracking indices.
+    final oldUploading = _uploadingIndices.contains(oldIndex);
+    final newUploading = _uploadingIndices.contains(newIndex);
+    _uploadingIndices.remove(oldIndex);
+    _uploadingIndices.remove(newIndex);
+    if (oldUploading) _uploadingIndices.add(newIndex);
+    if (newUploading) _uploadingIndices.add(oldIndex);
+
+    // Swap failed-upload tracking.
+    final oldError = _failedIndices.remove(oldIndex);
+    final newError = _failedIndices.remove(newIndex);
+    if (oldError != null) _failedIndices[newIndex] = oldError;
+    if (newError != null) _failedIndices[oldIndex] = newError;
+
+    _notifySubmitChanged();
+    emit(ImageLoaded());
+  }
+
   void setImages(List<CustomImage> images) => _logger.spanSync('setImages', () {
     _uploadingIndices.clear();
     _failedIndices.clear();

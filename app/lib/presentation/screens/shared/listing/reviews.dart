@@ -55,65 +55,45 @@ class ListingReviewsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableHeight = constraints.minHeight > 0
-            ? constraints.minHeight
-            : null;
+    return StreamBuilder<List<Validation<Review>>>(
+      stream: itemsStream ?? reviewsStream.itemsStream,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? [];
+        final reviewsStatus = reviewsStream.status.value;
+        final reviewsLoading =
+            reviewsStatus is StreamStatusIdle ||
+            reviewsStatus is StreamStatusQuerying;
 
-        return StreamBuilder<List<Validation<Review>>>(
-          stream: itemsStream ?? reviewsStream.itemsStream,
-          builder: (context, snapshot) {
-            final items = snapshot.data ?? [];
-            final reviewsStatus = reviewsStream.status.value;
-            final reviewsLoading =
-                reviewsStatus is StreamStatusIdle ||
-                reviewsStatus is StreamStatusQuerying;
+        if (items.isEmpty) {
+          if (reviewsLoading ||
+              snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: AppLoadingIndicator.large());
+          }
 
-            if (items.isEmpty) {
-              if (reviewsLoading ||
-                  snapshot.connectionState == ConnectionState.waiting) {
-                final loadingState = const Center(
-                  child: AppLoadingIndicator.large(),
-                );
+          return EmtyResultsWidget(
+            leading: Icon(
+              Icons.rate_review_outlined,
+              size: kIconHero,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: AppLocalizations.of(context)!.noReviewsYet,
+            subtitle: 'Be the first guest to share feedback for this listing.',
+          );
+        }
 
-                return availableHeight == null
-                    ? loadingState
-                    : SizedBox(height: availableHeight, child: loadingState);
-              }
-
-              final emptyState = EmtyResultsWidget(
-                leading: Icon(
-                  Icons.rate_review_outlined,
-                  size: kIconHero,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                title: AppLocalizations.of(context)!.noReviewsYet,
-                subtitle:
-                    'Be the first guest to share feedback for this listing.',
-              );
-
-              return availableHeight == null
-                  ? emptyState
-                  : SizedBox(height: availableHeight, child: emptyState);
-            }
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final item in items) ...[
-                  Gap.vertical.lg(),
-                  if (item is Invalid<Review>)
-                    InvalidReviewWrapper(
-                      reason: item.reason,
-                      child: ReviewListItem(review: item.event),
-                    )
-                  else
-                    ReviewListItem(review: item.event),
-                ],
-              ],
-            );
-          },
+        return ListView(
+          children: [
+            for (final item in items) ...[
+              Gap.vertical.lg(),
+              if (item is Invalid<Review>)
+                InvalidReviewWrapper(
+                  reason: item.reason,
+                  child: ReviewListItem(review: item.event),
+                )
+              else
+                ReviewListItem(review: item.event),
+            ],
+          ],
         );
       },
     );
@@ -127,13 +107,7 @@ class ListingReviewsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [reviewsListWidget],
-      ),
-    );
+    return reviewsListWidget;
   }
 }
 

@@ -14,7 +14,10 @@ class EditListingController extends UpsertFormController {
   Listing? l;
 
   // ── Sub-controllers ─────────────────────────────────────────────
-  final ImageFieldController imageField = ImageFieldController(maxImages: 12);
+  final ImageFieldController imageField = ImageFieldController(
+    maxImages: 12,
+    minImages: 1,
+  );
   final TextFieldController titleField = TextFieldController(
     validator: (v) =>
         v == null || v.trim().isEmpty ? 'Title is required' : null,

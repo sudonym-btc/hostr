@@ -47,12 +47,21 @@ class EditListingViewState extends State<EditListingView> {
     }
   }
 
-  SliverAppBar _buildHeroSliverAppBar(BuildContext context, Listing listing) {
+  static const _carouselAspectRatio = 16 / 9;
+
+  SliverAppBar _buildHeroSliverAppBar(
+    BuildContext context,
+    Listing listing,
+    double paneWidth,
+  ) {
     return SliverAppBar(
       stretch: true,
-      expandedHeight: MediaQuery.of(context).size.height / 4,
+      expandedHeight: paneWidth / _carouselAspectRatio,
       flexibleSpace: FlexibleSpaceBar(
-        background: ImagesInput(controller: controller, pubkey: listing.pubKey),
+        background: AspectRatio(
+          aspectRatio: _carouselAspectRatio,
+          child: ImagesInput(controller: controller, pubkey: listing.pubKey),
+        ),
       ),
     );
   }
@@ -78,9 +87,6 @@ class EditListingViewState extends State<EditListingView> {
           FormLabel(label: 'Price'),
           PriceInput(controller: controller),
           BarterInput(controller: controller),
-          HelpText(
-            'Allowing barter allows users to submit reservation requests below your listed price, which you can then accept or decline.',
-          ),
           Gap.vertical.md(),
           FormLabel(label: 'Amenities'),
           Gap.vertical.md(),
@@ -120,16 +126,26 @@ class EditListingViewState extends State<EditListingView> {
       child: app_layout.AppPageGutter(
         maxWidth: app_layout.kAppWideContentMaxWidth,
         padding: EdgeInsets.zero,
-        child: app_layout.AppPaneLayout(
-          panes: [
-            app_layout.AppPane(
-              sliverAppBarBuilder: (context) =>
-                  _buildHeroSliverAppBar(context, listing),
-              bottomBar: bottomBar,
-              promoteChromeWhenStacked: true,
-              child: _buildFormContent(context),
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final layout = app_layout.AppLayoutSpec.of(context);
+            final paneWidth = layout.isExpanded
+                ? constraints.maxWidth * 2 / 3
+                : constraints.maxWidth;
+            return app_layout.AppPaneLayout(
+              totalFlex: 3,
+              panes: [
+                app_layout.AppPane(
+                  flex: 2,
+                  sliverAppBarBuilder: (context) =>
+                      _buildHeroSliverAppBar(context, listing, paneWidth),
+                  bottomBar: bottomBar,
+                  promoteChromeWhenStacked: true,
+                  child: _buildFormContent(context),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

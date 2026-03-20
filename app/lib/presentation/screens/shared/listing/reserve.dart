@@ -190,17 +190,41 @@ Future<void> selectDates(
   List<ReservationPair> reservationPairs, {
   bool enforceContiguousAvailability = true,
 }) async {
-  // Clear the initial selection if the previously chosen dates are no longer
-  // available — the date picker asserts that initialDateRange satisfies the
-  // selectableDayPredicate.
+  bool selectableDayPredicate(
+    DateTime day,
+    DateTime? selectedStartDay,
+    DateTime? selectedEndDay,
+  ) {
+    if (!day.isAfter(DateTime.now())) {
+      return false;
+    }
+
+    if (selectedStartDay != null) {
+      if (!day.isAfter(selectedStartDay)) {
+        return false;
+      }
+
+      if (enforceContiguousAvailability) {
+        return Listing.isAvailable(selectedStartDay, day, reservationPairs);
+      }
+
+      return true;
+    }
+
+    if (!Listing.isAvailable(day, day, reservationPairs)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // Clear the initial selection if the previously chosen dates don't satisfy
+  // the selectableDayPredicate — the date picker asserts this on init.
   final currentRange = dateRangeCubit.state.dateRange;
   final initialRange =
       currentRange != null &&
-          Listing.isAvailable(
-            currentRange.start,
-            currentRange.end,
-            reservationPairs,
-          )
+          selectableDayPredicate(currentRange.start, null, null) &&
+          selectableDayPredicate(currentRange.end, currentRange.start, null)
       ? currentRange
       : null;
 
@@ -208,36 +232,7 @@ Future<void> selectDates(
     context: context,
     firstDate: DateTime.now(),
     lastDate: DateTime.now().add(Duration(days: 365)),
-
-    /// Testing blocked days
-    selectableDayPredicate:
-        (day, DateTime? selectedStartDay, DateTime? selectedEndDay) {
-          if (!day.isAfter(DateTime.now())) {
-            return false;
-          }
-
-          if (selectedStartDay != null) {
-            if (!day.isAfter(selectedStartDay)) {
-              return false;
-            }
-
-            if (enforceContiguousAvailability) {
-              return Listing.isAvailable(
-                selectedStartDay,
-                day,
-                reservationPairs,
-              );
-            }
-
-            return true;
-          }
-
-          if (!Listing.isAvailable(day, day, reservationPairs)) {
-            return false;
-          }
-
-          return true;
-        },
+    selectableDayPredicate: selectableDayPredicate,
     initialDateRange: initialRange,
   );
   dateRangeCubit.updateDateRange(picked);

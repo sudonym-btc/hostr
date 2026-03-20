@@ -181,11 +181,10 @@ class ListingViewBody extends StatelessWidget {
     );
   }
 
-  SliverAppBar _buildPrimarySliverAppBar(BuildContext context) {
-    final layout = AppLayoutSpec.of(context);
-    final wideExpandedHeight = kAppPanelLargeWidth / _wideCarouselAspectRatio;
-    final compactExpandedHeight = MediaQuery.sizeOf(context).height / 4;
-
+  SliverAppBar _buildPrimarySliverAppBar(
+    BuildContext context,
+    double paneWidth,
+  ) {
     return SliverAppBar(
       stretch: true,
       pinned: true,
@@ -199,16 +198,19 @@ class ListingViewBody extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () {
-              context.router.navigate(
+              context.router.push(
                 EditListingRoute(a: listing.anchor ?? listing.id),
               );
             },
           ),
       ],
-      expandedHeight: layout.isExpanded
-          ? wideExpandedHeight
-          : compactExpandedHeight,
-      flexibleSpace: FlexibleSpaceBar(background: _buildHeroCarousel()),
+      expandedHeight: paneWidth / _wideCarouselAspectRatio,
+      flexibleSpace: FlexibleSpaceBar(
+        background: AspectRatio(
+          aspectRatio: _wideCarouselAspectRatio,
+          child: _buildHeroCarousel(),
+        ),
+      ),
     );
   }
 
@@ -272,24 +274,35 @@ class ListingViewBody extends StatelessWidget {
     return AppPageGutter(
       maxWidth: kAppWideContentMaxWidth,
       padding: EdgeInsets.zero,
-      child: AppPaneLayout(
-        panes: [
-          AppPane(
-            flex: 2,
-            sliverAppBarBuilder: _buildPrimarySliverAppBar,
-            bottomBar: reserveBottomBar,
-            child: _buildPrimaryContent(context),
-          ),
-          AppPane(
-            flex: 1,
-            scrollable: true,
-            child: CustomPadding.horizontal.md(
-              child: listing_sections.ListingReviewsSection(
-                reviewsListWidget: reviewsListWidget,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = AppLayoutSpec.of(context);
+          // In expanded (wide) layout the primary pane gets flex 2
+          // out of 2+1=3. In compact layout it takes the full width.
+          final paneWidth = layout.isExpanded
+              ? constraints.maxWidth * 2 / 3
+              : constraints.maxWidth;
+
+          return AppPaneLayout(
+            panes: [
+              AppPane(
+                flex: 2,
+                sliverAppBarBuilder: (ctx) =>
+                    _buildPrimarySliverAppBar(ctx, paneWidth),
+                bottomBar: reserveBottomBar,
+                child: _buildPrimaryContent(context),
               ),
-            ),
-          ),
-        ],
+              AppPane(
+                flex: 1,
+                child: CustomPadding.horizontal.md(
+                  child: listing_sections.ListingReviewsSection(
+                    reviewsListWidget: reviewsListWidget,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -46,7 +46,7 @@ class ImagesInput extends StatelessWidget {
           ),
         ),
         Center(
-          child: FilledButton.tonalIcon(
+          child: FilledButton.icon(
             onPressed: () => controller.imageField.cubit.pickMultipleImages(
               allowedFileTypes: ImagePickerCubit.defaultAllowedFileTypes,
             ),
@@ -113,6 +113,9 @@ class BarterInput extends StatelessWidget {
         return SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
           title: Text(AppLocalizations.of(context)!.allowBarter),
+          subtitle: Text(
+            'Allowing barter allows users to submit reservation requests below your listed price, which you can then accept or decline.',
+          ),
           value: controller.barterField.value,
           onChanged: controller.barterField.setValue,
         );
@@ -268,12 +271,12 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
                   );
                 },
                 onSelected: (selection) {
+                  _amenityController.clear();
+                  _amenityFocusNode.unfocus();
                   setState(() {
                     final next = Set<String>.from(selected)..add(selection);
                     widget.controller.amenityField.updateSelected(next);
                   });
-                  _amenityController.clear();
-                  _amenityFocusNode.requestFocus();
                 },
                 fieldViewBuilder:
                     (
@@ -320,8 +323,7 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
                                       style: chipTheme.labelStyle,
                                       maxLines: 1,
                                       minLines: 1,
-                                      textAlignVertical:
-                                          TextAlignVertical.center,
+                                      textAlignVertical: TextAlignVertical.top,
                                       decoration: InputDecoration(
                                         border: InputBorder.none,
                                         enabledBorder: InputBorder.none,
