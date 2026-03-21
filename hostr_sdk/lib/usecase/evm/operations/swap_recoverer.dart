@@ -1,4 +1,5 @@
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 
 import '../../../injection.dart';
 import '../../../util/main.dart';
@@ -110,7 +111,7 @@ class SwapRecoverer {
         evmKey: evmKey,
         accountIndex: data.accountIndex,
         // Amount is unused during recovery — only recover() is called.
-        amount: BitcoinAmount.zero(),
+        amount: TokenAmount.zero(rbtc),
         // Restore parent link from persisted data so notifications
         // update the same OS notification as the parent operation.
         parentOperationId: data.parentOperationId,

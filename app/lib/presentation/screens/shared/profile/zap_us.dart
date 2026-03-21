@@ -34,7 +34,7 @@ class ZapUsWidget extends StatelessWidget {
                 onPressed: () {
                   final params = ZapPayParameters(
                     to: tipsAddress,
-                    amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
+                    amount: rbtcFromSatsInt(10000),
                   );
                   showAppModal(
                     context,

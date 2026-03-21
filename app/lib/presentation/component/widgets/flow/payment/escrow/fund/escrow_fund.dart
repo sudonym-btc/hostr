@@ -174,11 +174,11 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "+ ${formatAmount(snapshot.data!.networkFees.toAmount())} in network fees",
+                      "+ ${formatAmount(snapshot.data!.networkFees)} in network fees",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedEscrowFees.toAmount())} in escrow fees",
+                      "+ ${formatAmount(snapshot.data!.estimatedEscrowFees)} in escrow fees",
                       style: subtleStyle,
                     ),
                   ],

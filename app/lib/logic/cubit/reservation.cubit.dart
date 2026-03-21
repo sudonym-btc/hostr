@@ -33,7 +33,7 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
     required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
-    Amount? amount,
+    TokenAmount? amount,
     required Function(Reservation reservation) onSuccess,
   }) async {
     emit(ReservationCubitState(status: ReservationCubitStatus.loading));

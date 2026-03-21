@@ -7,6 +7,7 @@ import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 import '../../../../amount/amount_input.dart';
 import '../../../modal_bottom_sheet.dart';
@@ -149,16 +150,16 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
           );
 
           return AmountWidget(
-            amount: fees.invoiceAmount.toAmount(),
+            amount: fees.invoiceAmount,
             feeWidget: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "+ ${formatAmount(fees.estimatedGasFees.toAmount())} in gas",
+                  "+ ${formatAmount(fees.estimatedGasFees)} in gas",
                   style: subtleStyle,
                 ),
                 Text(
-                  "+ ${formatAmount(fees.estimatedSwapFees.toAmount())} in swap fees",
+                  "+ ${formatAmount(fees.estimatedSwapFees)} in swap fees",
                   style: subtleStyle,
                 ),
               ],
@@ -265,7 +266,7 @@ class SwapOutFailureWidget extends StatelessWidget {
 }
 
 class SwapOutExternalInvoiceWidget extends StatefulWidget {
-  final BitcoinAmount invoiceAmount;
+  final TokenAmount invoiceAmount;
   final ValueChanged<String> onSubmit;
 
   const SwapOutExternalInvoiceWidget({

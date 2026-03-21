@@ -3,10 +3,8 @@ import 'package:models/main.dart';
 import 'package:ndk/domain_layer/usecases/lnurl/lnurl_response.dart';
 import 'package:wallet/wallet.dart';
 
-import '../../../util/main.dart';
-
 class PayParameters {
-  BitcoinAmount? amount;
+  TokenAmount? amount;
   final String to;
   final String? comment;
   final int? minSendable;

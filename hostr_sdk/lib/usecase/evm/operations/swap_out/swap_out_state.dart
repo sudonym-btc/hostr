@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
+import 'package:models/main.dart';
 
-import '../../../../util/main.dart';
 import '../../../payments/operations/pay_state.dart';
 import '../operation_machine.dart';
 
@@ -184,7 +184,7 @@ final class SwapOutRequestCreated extends SwapOutState {
 }
 
 final class SwapOutExternalInvoiceRequired extends SwapOutState {
-  final BitcoinAmount invoiceAmount;
+  final TokenAmount invoiceAmount;
   const SwapOutExternalInvoiceRequired(this.invoiceAmount);
   @override
   String get stateName => 'externalInvoiceRequired';

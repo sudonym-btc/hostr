@@ -1,13 +1,12 @@
 import 'package:models/main.dart';
 
-import '../../../../util/bitcoin_amount.dart';
 import '../../../evm/operations/swap_in/swap_in_models.dart';
 
 class EscrowFundParams {
   final EscrowService escrowService;
   final Reservation negotiateReservation;
   final ProfileMetadata sellerProfile;
-  final Amount amount;
+  final TokenAmount amount;
   final String? listingName;
 
   EscrowFundParams({
@@ -28,9 +27,9 @@ class EscrowFundParams {
 }
 
 class EscrowFundFees {
-  final BitcoinAmount estimatedGasFees;
+  final TokenAmount estimatedGasFees;
   final SwapInFees estimatedSwapFees;
-  final BitcoinAmount estimatedEscrowFees;
+  final TokenAmount estimatedEscrowFees;
 
   EscrowFundFees({
     required this.estimatedGasFees,
@@ -38,6 +37,5 @@ class EscrowFundFees {
     required this.estimatedEscrowFees,
   });
 
-  BitcoinAmount get networkFees =>
-      estimatedGasFees + estimatedSwapFees.totalFees;
+  TokenAmount get networkFees => estimatedGasFees + estimatedSwapFees.totalFees;
 }

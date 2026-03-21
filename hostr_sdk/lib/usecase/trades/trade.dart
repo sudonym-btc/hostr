@@ -439,7 +439,7 @@ class Trade extends Cubit<TradeState> {
             .lastOrNull;
   }
 
-  Future<void> counter(Amount amount) => _logger.span('counter', () async {
+  Future<void> counter(TokenAmount amount) => _logger.span('counter', () async {
     final current = state;
     if (current is! TradeReady || current.stage is! NegotiationStage) {
       throw StateError('Trade is not in negotiation stage');
@@ -457,14 +457,10 @@ class Trade extends Cubit<TradeState> {
 
     final min = policy.counterMin;
     final max = policy.counterMax;
-    if (min != null &&
-        amount.currency == min.currency &&
-        amount.value < min.value) {
+    if (min != null && amount.token == min.token && amount.value < min.value) {
       throw StateError('Counter amount is below the allowed minimum');
     }
-    if (max != null &&
-        amount.currency == max.currency &&
-        amount.value > max.value) {
+    if (max != null && amount.token == max.token && amount.value > max.value) {
       throw StateError('Counter amount is above the allowed maximum');
     }
 

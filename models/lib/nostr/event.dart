@@ -174,37 +174,70 @@ class EventTags {
     return v != null ? DateTime.tryParse(v) : null;
   }
 
-  /// Parse an amount tag encoded as `"decimalValue:CURRENCY"`.
-  Amount? getTagAmount(String key) {
+  /// Parse an amount tag encoded as `"decimalValue:tokenTagId"`.
+  ///
+  /// Format:
+  /// - `"0.005:BTC"` → BTC Lightning (2 segments)
+  /// - `"50.00:30:0xdAC17..."` → on-chain token (3 segments: value:chainId:address)
+  ///
+  /// [resolveDecimals] provides the decimal precision for on-chain tokens.
+  /// If omitted, defaults to 18 for native (address(0)) and 6 for ERC-20.
+  TokenAmount? getTagAmount(
+    String key, {
+    int Function(int chainId, String address)? resolveDecimals,
+  }) {
     final v = getTagValue(key);
     if (v == null) return null;
-    final parts = v.split(':');
-    if (parts.length != 2) return null;
-    final currency = Currency.values.where((c) => c.name == parts[1]);
-    if (currency.isEmpty) return null;
-    return Amount.fromDecimal(decimal: parts[0], currency: currency.first);
+    return _parseTokenAmountTag(v, resolveDecimals: resolveDecimals);
   }
 
-  /// Parse price tags encoded as `["price", "decimalAmount:CURRENCY:frequency"]`.
-  List<Price> getTagPrices() {
+  /// Parse price tags encoded as:
+  /// - `["price", "decimalAmount:BTC:frequency"]` (3 segments – Lightning)
+  /// - `["price", "decimalAmount:chainId:address:frequency"]` (4 segments – on-chain)
+  List<Price> getTagPrices({
+    int Function(int chainId, String address)? resolveDecimals,
+  }) {
     return tags
         .where((t) => t.isNotEmpty && t[0] == 'price')
         .map((t) {
-          final parts = t[1].split(':');
-          if (parts.length != 3) return null;
-          final currency = Currency.values.where((c) => c.name == parts[1]);
-          if (currency.isEmpty) return null;
-          final freq = Frequency.values.where((f) => f.name == parts[2]);
-          if (freq.isEmpty) return null;
-          return Price(
-            amount:
-                Amount.fromDecimal(decimal: parts[0], currency: currency.first),
-            frequency: freq.first,
-          );
+          final raw = t[1];
+          final parts = raw.split(':');
+
+          // 3 segments: "amount:BTC:frequency"
+          if (parts.length == 3 && parts[1] == 'BTC') {
+            final freq = Frequency.values.where((f) => f.name == parts[2]);
+            if (freq.isEmpty) return null;
+            return Price(
+              amount: TokenAmount.fromDecimal(parts[0], Token.btcLightning),
+              frequency: freq.first,
+            );
+          }
+
+          // 4 segments: "amount:chainId:address:frequency"
+          if (parts.length == 4) {
+            final chainId = int.tryParse(parts[1]);
+            if (chainId == null) return null;
+            final address = parts[2];
+            final freq = Frequency.values.where((f) => f.name == parts[3]);
+            if (freq.isEmpty) return null;
+            final decimals = resolveDecimals != null
+                ? resolveDecimals(chainId, address)
+                : _defaultDecimals(address);
+            final token =
+                Token(chainId: chainId, address: address, decimals: decimals);
+            return Price(
+              amount: TokenAmount.fromDecimal(parts[0], token),
+              frequency: freq.first,
+            );
+          }
+
+          return null;
         })
         .whereType<Price>()
         .toList();
   }
+
+  // ── Amenity read helpers ────────────────────────────────────────────
 
   /// Parse cancellation policy tags encoded as
   /// `["cancellationPolicy", "secondsBeforeStart", "refundFraction"]`.
@@ -217,7 +250,6 @@ class EventTags {
           if (secondsBeforeStart == null || refundFraction == null) {
             return null;
           }
-
           return CancellationPolicy(
             durationBeforeStart: Duration(seconds: secondsBeforeStart),
             refundFraction: refundFraction,
@@ -283,4 +315,39 @@ mixin ReferencesThread<T extends ReferencesThread<T>> on EventTags {
     }
     return this as T;
   }
+}
+
+// ── Private tag parsing helpers ───────────────────────────────────────
+
+/// Parse a token-amount string: `"value:BTC"` or `"value:chainId:address"`.
+TokenAmount? _parseTokenAmountTag(
+  String raw, {
+  int Function(int chainId, String address)? resolveDecimals,
+}) {
+  final parts = raw.split(':');
+
+  // 2 segments: "value:BTC"
+  if (parts.length == 2 && parts[1] == 'BTC') {
+    return TokenAmount.fromDecimal(parts[0], Token.btcLightning);
+  }
+
+  // 3 segments: "value:chainId:address"
+  if (parts.length == 3) {
+    final chainId = int.tryParse(parts[1]);
+    if (chainId == null) return null;
+    final address = parts[2];
+    final decimals = resolveDecimals != null
+        ? resolveDecimals(chainId, address)
+        : _defaultDecimals(address);
+    final token = Token(chainId: chainId, address: address, decimals: decimals);
+    return TokenAmount.fromDecimal(parts[0], token);
+  }
+
+  return null;
+}
+
+/// Sensible default decimals when no registry is available.
+int _defaultDecimals(String address) {
+  const zeroAddress = '0x0000000000000000000000000000000000000000';
+  return address.toLowerCase() == zeroAddress ? 18 : 6;
 }

@@ -27,7 +27,7 @@ class DevWidget extends StatelessWidget {
               builder: (_) => SwapInFlowWidget(
                 cubit: getIt<Hostr>().evm.supportedEvmChains[0].swapIn(
                   SwapInParams(
-                    amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000),
+                    amount: rbtcFromSatsInt(100000),
                     evmKey: evmKey,
                     accountIndex: 0,
                   ),

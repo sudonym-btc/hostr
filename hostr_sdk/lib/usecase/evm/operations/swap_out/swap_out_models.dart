@@ -1,11 +1,10 @@
+import 'package:models/main.dart';
 import 'package:web3dart/web3dart.dart';
-
-import '../../../../util/bitcoin_amount.dart';
 
 class SwapOutParams {
   final EthPrivateKey evmKey;
   final int accountIndex;
-  final BitcoinAmount? amount;
+  final TokenAmount? amount;
 
   SwapOutParams({
     required this.evmKey,
@@ -15,12 +14,12 @@ class SwapOutParams {
 }
 
 class SwapOutFees {
-  final BitcoinAmount estimatedGasFees;
-  final BitcoinAmount estimatedSwapFees;
-  final BitcoinAmount balance;
-  final BitcoinAmount invoiceAmount;
+  final TokenAmount estimatedGasFees;
+  final TokenAmount estimatedSwapFees;
+  final TokenAmount balance;
+  final TokenAmount invoiceAmount;
 
-  BitcoinAmount get totalFees => estimatedGasFees + estimatedSwapFees;
+  TokenAmount get totalFees => estimatedGasFees + estimatedSwapFees;
 
   SwapOutFees({
     required this.estimatedGasFees,

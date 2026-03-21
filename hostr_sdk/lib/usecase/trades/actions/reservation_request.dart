@@ -27,7 +27,7 @@ class ReservationRequestActions {
         latestOffer != null &&
         policy.listingPrice != null &&
         latestOffer.amount != null &&
-        latestOffer.amount!.currency == policy.listingPrice!.currency &&
+        latestOffer.amount!.token == policy.listingPrice!.token &&
         latestOffer.amount!.value < policy.listingPrice!.value;
 
     if (role == TradeRole.host &&
@@ -68,8 +68,8 @@ class ReservationRequestActions {
 
     var canPay = false;
     var canCounter = false;
-    Amount? counterMin;
-    Amount? counterMax;
+    TokenAmount? counterMin;
+    TokenAmount? counterMax;
 
     if (latestOffer != null &&
         listingPrice != null &&
@@ -108,7 +108,7 @@ class ReservationRequestActions {
 
     if (counterMin != null &&
         counterMax != null &&
-        counterMin.currency == counterMax.currency &&
+        counterMin.token == counterMax.token &&
         counterMin.value > counterMax.value) {
       canCounter = false;
     }
@@ -163,18 +163,18 @@ class ReservationRequestActions {
       return false;
     }
 
-    return latestAmount.currency == previousOwnAmount.currency &&
+    return latestAmount.token == previousOwnAmount.token &&
         latestAmount.value == previousOwnAmount.value;
   }
 
-  static Amount _incrementAmount(Amount amount) =>
-      Amount(value: amount.value + BigInt.one, currency: amount.currency);
+  static TokenAmount _incrementAmount(TokenAmount amount) =>
+      TokenAmount(value: amount.value + BigInt.one, token: amount.token);
 
-  static Amount? _maxAmount(List<Amount> amounts) {
+  static TokenAmount? _maxAmount(List<TokenAmount> amounts) {
     if (amounts.isEmpty) return null;
     var max = amounts.first;
     for (final amount in amounts.skip(1)) {
-      if (amount.currency == max.currency && amount.value > max.value) {
+      if (amount.token == max.token && amount.value > max.value) {
         max = amount;
       }
     }

@@ -40,7 +40,7 @@ class PaymentMethodWidget extends StatelessWidget {
                       cubit: getIt<Hostr>().payments.pay(
                         ZapPayParameters(
                           to: counterparty.metadata.lud16!,
-                          amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 10000),
+                          amount: rbtcFromSatsInt(10000),
                           event: negotiateReservation,
                         ),
                       )..resolve(),

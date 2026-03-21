@@ -51,7 +51,7 @@ class TradeActionResolver {
     required String tradeId,
     required DateTime start,
     required DateTime end,
-    required Amount? amount,
+    required TokenAmount? amount,
     required String ourPubkey,
     required List<Validation<ReservationPair>> allReservations,
     required List<Validation<ReservationPair>> ownReservations,

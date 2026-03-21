@@ -37,7 +37,7 @@ void main() {
         );
         final swapLimits = await evm.rootstock.getSwapInLimits();
         final amount =
-            swapLimits.min + BitcoinAmount.fromInt(BitcoinUnit.sat, 1000);
+            swapLimits.min + rbtcFromSatsInt(1000);
 
         final swapIn = evm.rootstock.swapIn(
           SwapInParams(

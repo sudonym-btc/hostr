@@ -13,7 +13,10 @@ void main() {
         images: const [],
         price: [
           Price(
-            amount: Amount(currency: Currency.BTC, value: BigInt.from(1000)),
+            amount: TokenAmount(
+              value: BigInt.from(1000),
+              token: Token.btcLightning,
+            ),
             frequency: Frequency.daily,
           ),
         ],

@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+}
+
 interface IEtherSwap {
     function claim(
         bytes32 preimage,
@@ -13,10 +19,23 @@ interface IEtherSwap {
     ) external returns (address);
 }
 
+interface IERC20Swap {
+    function claim(
+        bytes32 preimage,
+        uint256 amount,
+        address tokenAddress,
+        address refundAddress,
+        uint256 timelock,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (address);
+}
+
 contract MultiEscrow {
     uint256 public constant FACTOR_SCALE = 1000; // 0.1% precision
     string public constant NAME = "Hostr MultiEscrow";
-    string public constant VERSION = "2";
+    string public constant VERSION = "3";
 
     bytes32 private constant _EIP712_DOMAIN_TYPEHASH =
         keccak256(
@@ -36,7 +55,10 @@ contract MultiEscrow {
         );
 
     bytes32 public immutable DOMAIN_SEPARATOR;
+    address public owner;
+    mapping(address => bool) public allowedTokens;
 
+    error OnlyOwner();
     error OnlyArbiter();
     error TradeAlreadyActive();
     error TradeNotActive();
@@ -50,6 +72,7 @@ contract MultiEscrow {
     error NoFundsToClaim();
     error EscrowFeeTooHigh();
     error NativeTransferFailed();
+    error ERC20TransferFailed();
     error RelayFeeTooHigh();
     error InvalidFeeRecipient();
     error SignatureExpired();
@@ -57,14 +80,18 @@ contract MultiEscrow {
     error InvalidSwapContract();
     error ClaimSignerNotBuyer();
     error ClaimedAmountMismatch();
+    error TokenNotAllowed();
+    error NativeNotExpected();
+    error TokenMismatch();
 
     struct Trade {
         address buyer;
         address seller;
         address arbiter;
+        address token;      // address(0) = native RBTC
         uint256 amount;
         uint256 unlockAt;
-        uint256 escrowFee; // flat fee in wei
+        uint256 escrowFee;  // flat fee in token units
     }
 
     struct RelayFeeQuote {
@@ -84,11 +111,24 @@ contract MultiEscrow {
         bytes32 s;
     }
 
+    struct ERC20ClaimArgs {
+        address swapContract;
+        bytes32 preimage;
+        uint256 amount;
+        address tokenAddress;
+        address refundAddress;
+        uint256 timelock;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
     struct FundArgs {
         bytes32 tradeId;
         address buyer;
         address seller;
         address arbiter;
+        address token;
         uint256 unlockAt;
         uint256 escrowFee;
     }
@@ -97,13 +137,16 @@ contract MultiEscrow {
     bytes32[] private _activeTradeIds;
     mapping(bytes32 => uint256) private _activeTradeIndexPlusOne;
 
-    event TradeCreated(bytes32 indexed tradeId, address seller, address buyer, address indexed arbiter, uint256 unlockAt, uint256 escrowFee );
-    event Arbitrated(bytes32 indexed tradeId, address seller, address buyer, uint256 amount, uint256 fractionForwarded);
-    event Claimed(bytes32 indexed tradeId, address seller, address buyer, uint256 amount);
-    event ReleasedToCounterparty(bytes32 indexed tradeId, address from, address to, uint256 amount);
+    event TradeCreated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, address indexed arbiter, uint256 amount, uint256 unlockAt, uint256 escrowFee);
+    event Arbitrated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount, uint256 fractionForwarded);
+    event Claimed(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount);
+    event ReleasedToCounterparty(bytes32 indexed tradeId, address indexed token, address from, address to, uint256 amount);
     event RelayFeePaid(bytes32 indexed tradeId, address indexed feeReceiver, uint256 amount);
+    event TokenAllowlistUpdated(address indexed token, bool allowed);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     constructor() {
+        owner = msg.sender;
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 _EIP712_DOMAIN_TYPEHASH,
@@ -117,10 +160,17 @@ contract MultiEscrow {
 
     receive() external payable {}
 
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert OnlyOwner();
+        _;
+    }
+
     modifier onlyArbiter(bytes32 tradeId) {
         if (msg.sender != trades[tradeId].arbiter) revert OnlyArbiter();
         _;
     }
+
+    // ── Internal helpers ──────────────────────────────────────────────
 
     function _addActiveTrade(bytes32 tradeId) internal {
         if (_activeTradeIndexPlusOne[tradeId] != 0) revert TradeAlreadyActive();
@@ -148,11 +198,32 @@ contract MultiEscrow {
         delete _activeTradeIndexPlusOne[tradeId];
     }
 
-    function _sendValue(address recipient, uint256 amount) internal {
+    /// @dev Transfer native RBTC or ERC20 tokens. Handles non-standard ERC20s
+    ///      that do not return a bool from transfer() (e.g. USDT).
+    function _transfer(address token, address recipient, uint256 amount) internal {
         if (amount == 0) return;
 
-        (bool success,) = payable(recipient).call{value: amount}("");
-        if (!success) revert NativeTransferFailed();
+        if (token == address(0)) {
+            (bool success,) = payable(recipient).call{value: amount}("");
+            if (!success) revert NativeTransferFailed();
+        } else {
+            (bool success, bytes memory data) = token.call(
+                abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            );
+            if (!success || (data.length > 0 && !abi.decode(data, (bool)))) {
+                revert ERC20TransferFailed();
+            }
+        }
+    }
+
+    /// @dev Pull ERC20 tokens via transferFrom. Handles non-standard return values.
+    function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount)
+        );
+        if (!success || (data.length > 0 && !abi.decode(data, (bool)))) {
+            revert ERC20TransferFailed();
+        }
     }
 
     function _requireFeeRecipient(RelayFeeQuote memory relayFeeQuote) internal pure {
@@ -213,6 +284,7 @@ contract MultiEscrow {
         address buyer,
         address seller,
         address arbiter,
+        address token,
         uint256 unlockAt,
         uint256 escrowFee,
         uint256 amount
@@ -225,12 +297,13 @@ contract MultiEscrow {
             buyer: buyer,
             seller: seller,
             arbiter: arbiter,
+            token: token,
             amount: amount,
             unlockAt: unlockAt,
             escrowFee: escrowFee
         });
         _addActiveTrade(tradeId);
-        emit TradeCreated(tradeId, seller, buyer, arbiter, unlockAt, escrowFee);
+        emit TradeCreated(tradeId, token, seller, buyer, arbiter, amount, unlockAt, escrowFee);
     }
 
     function _settleTrade(
@@ -244,14 +317,15 @@ contract MultiEscrow {
     ) internal returns (uint256 fee) {
         Trade memory trade = trades[tradeId];
         fee = trade.escrowFee;
+        address token = trade.token;
 
         _removeActiveTrade(tradeId);
         delete trades[tradeId];
 
-        _sendValue(trade.arbiter, fee);
-        _sendValue(firstRecipient, firstAmount);
-        _sendValue(secondRecipient, secondAmount);
-        _sendValue(feeRecipient, feeRecipientAmount);
+        _transfer(token, trade.arbiter, fee);
+        _transfer(token, firstRecipient, firstAmount);
+        _transfer(token, secondRecipient, secondAmount);
+        _transfer(token, feeRecipient, feeRecipientAmount);
         if (feeRecipientAmount > 0) {
             emit RelayFeePaid(tradeId, feeRecipient, feeRecipientAmount);
         }
@@ -269,6 +343,7 @@ contract MultiEscrow {
 
         address seller = trade.seller;
         address buyer = trade.buyer;
+        address token = trade.token;
         (amountAfterFees,) = _remainingAfterFees(trade, relayFeeQuote);
 
         _settleTrade(
@@ -281,7 +356,7 @@ contract MultiEscrow {
             relayFeeQuote.amount
         );
 
-        emit Claimed(tradeId, seller, buyer, amountAfterFees);
+        emit Claimed(tradeId, token, seller, buyer, amountAfterFees);
     }
 
     function _releaseToCounterparty(
@@ -303,6 +378,8 @@ contract MultiEscrow {
         // only overpaying relay fees out of their own eventual proceeds.
         _requireFeeRecipient(relayFeeQuote);
 
+        address token = trade.token;
+
         if (actor == trade.seller) {
             recipient = trade.buyer;
         } else if (actor == trade.buyer) {
@@ -321,8 +398,22 @@ contract MultiEscrow {
             relayFeeQuote.receiver,
             relayFeeQuote.amount
         );
-        emit ReleasedToCounterparty(tradeId, actor, recipient, amountAfterFees);
+        emit ReleasedToCounterparty(tradeId, token, actor, recipient, amountAfterFees);
     }
+
+    // ── Admin ─────────────────────────────────────────────────────────
+
+    function setTokenAllowed(address token, bool allowed) external onlyOwner {
+        allowedTokens[token] = allowed;
+        emit TokenAllowlistUpdated(token, allowed);
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
+    // ── View helpers ──────────────────────────────────────────────────
 
     function activeTradeCount() external view returns (uint256) {
         return _activeTradeIds.length;
@@ -351,15 +442,46 @@ contract MultiEscrow {
         }
     }
 
-    function createTrade(bytes32 tradeId, address _buyer, address _seller, address _arbiter,  uint256 _unlockAt, uint256 _escrowFee) external payable {
-        _createTrade(tradeId, _buyer, _seller, _arbiter, _unlockAt, _escrowFee, msg.value);
+    function activeTrade(bytes32 tradeId) external view returns (bool isActive, Trade memory trade) {
+        trade = trades[tradeId];
+        isActive = trade.buyer != address(0) && trade.amount > 0;
     }
 
+    // ── Public entry points ───────────────────────────────────────────
+
+    /// @notice Create a new escrow trade. For native RBTC, pass token=address(0)
+    ///         and send msg.value. For ERC20, approve this contract first, then
+    ///         pass the token address and amount (msg.value must be 0).
+    function createTrade(
+        bytes32 tradeId,
+        address _buyer,
+        address _seller,
+        address _arbiter,
+        address _token,
+        uint256 _amount,
+        uint256 _unlockAt,
+        uint256 _escrowFee
+    ) external payable {
+        uint256 funded;
+        if (_token == address(0)) {
+            funded = msg.value;
+        } else {
+            if (!allowedTokens[_token]) revert TokenNotAllowed();
+            if (msg.value != 0) revert NativeNotExpected();
+            uint256 before = IERC20(_token).balanceOf(address(this));
+            _safeTransferFrom(_token, msg.sender, address(this), _amount);
+            funded = IERC20(_token).balanceOf(address(this)) - before;
+        }
+        _createTrade(tradeId, _buyer, _seller, _arbiter, _token, _unlockAt, _escrowFee, funded);
+    }
+
+    /// @notice Atomically claim native RBTC from an EtherSwap and fund a trade.
     function claimSwapAndFund(
         ClaimArgs calldata claimArgs,
         FundArgs calldata fundArgs
     ) external {
         if (claimArgs.swapContract == address(0)) revert InvalidSwapContract();
+        if (fundArgs.token != address(0)) revert TokenMismatch();
 
         uint256 balanceBefore = address(this).balance;
         address claimSigner = IEtherSwap(claimArgs.swapContract).claim(
@@ -381,11 +503,52 @@ contract MultiEscrow {
             fundArgs.buyer,
             fundArgs.seller,
             fundArgs.arbiter,
+            address(0),
             fundArgs.unlockAt,
             fundArgs.escrowFee,
             claimedAmount
         );
     }
+
+    /// @notice Atomically claim ERC20 tokens from an ERC20Swap and fund a trade.
+    function claimERC20SwapAndFund(
+        ERC20ClaimArgs calldata claimArgs,
+        FundArgs calldata fundArgs
+    ) external {
+        if (claimArgs.swapContract == address(0)) revert InvalidSwapContract();
+        if (fundArgs.token == address(0)) revert TokenMismatch();
+        if (!allowedTokens[fundArgs.token]) revert TokenNotAllowed();
+        if (fundArgs.token != claimArgs.tokenAddress) revert TokenMismatch();
+
+        uint256 balanceBefore = IERC20(fundArgs.token).balanceOf(address(this));
+        address claimSigner = IERC20Swap(claimArgs.swapContract).claim(
+            claimArgs.preimage,
+            claimArgs.amount,
+            claimArgs.tokenAddress,
+            claimArgs.refundAddress,
+            claimArgs.timelock,
+            claimArgs.v,
+            claimArgs.r,
+            claimArgs.s
+        );
+        if (claimSigner != fundArgs.buyer) revert ClaimSignerNotBuyer();
+
+        uint256 claimedAmount = IERC20(fundArgs.token).balanceOf(address(this)) - balanceBefore;
+        if (claimedAmount != claimArgs.amount) revert ClaimedAmountMismatch();
+
+        _createTrade(
+            fundArgs.tradeId,
+            fundArgs.buyer,
+            fundArgs.seller,
+            fundArgs.arbiter,
+            fundArgs.token,
+            fundArgs.unlockAt,
+            fundArgs.escrowFee,
+            claimedAmount
+        );
+    }
+
+    // ── EIP-712 hash helpers ──────────────────────────────────────────
 
     function hashClaimAuthorization(
         bytes32 tradeId,
@@ -417,6 +580,8 @@ contract MultiEscrow {
         );
     }
 
+    // ── Release ───────────────────────────────────────────────────────
+
     function releaseToCounterparty(bytes32 tradeId) external {
         _releaseToCounterparty(
             tradeId,
@@ -440,6 +605,8 @@ contract MultiEscrow {
         _releaseToCounterparty(tradeId, signer, relayFeeQuote);
     }
 
+    // ── Arbitrate ─────────────────────────────────────────────────────
+
     function arbitrate(bytes32 tradeId, uint256 factor) external onlyArbiter(tradeId) {
         Trade storage trade = trades[tradeId];
         if (trade.amount == 0) revert NoFundsToRelease();
@@ -447,6 +614,7 @@ contract MultiEscrow {
 
         address seller = trade.seller;
         address buyer = trade.buyer;
+        address token = trade.token;
 
         uint256 amountAfterFee = trade.amount - trade.escrowFee;
         uint256 forwardAmount = (amountAfterFee * factor) / FACTOR_SCALE;
@@ -462,8 +630,10 @@ contract MultiEscrow {
             0
         );
 
-        emit Arbitrated(tradeId, seller, buyer, amountAfterFee, factor);
+        emit Arbitrated(tradeId, token, seller, buyer, amountAfterFee, factor);
     }
+
+    // ── Claim ─────────────────────────────────────────────────────────
 
     function claim(bytes32 tradeId) external {
         _claim(
@@ -488,10 +658,4 @@ contract MultiEscrow {
 
         _claim(tradeId, relayFeeQuote);
     }
-
-    function activeTrade(bytes32 tradeId) external view returns (bool isActive, Trade memory trade) {
-        trade = trades[tradeId];
-        isActive = trade.buyer != address(0) && trade.amount > 0;
-    }
-
 }

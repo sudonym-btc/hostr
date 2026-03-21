@@ -4,7 +4,6 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/logic/forms/listing_amenity_field_controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
-import 'package:models/main.dart';
 
 import 'image_picker.dart';
 
@@ -93,7 +92,7 @@ class PriceInput extends StatelessWidget {
       ],
       decoration: InputDecoration(
         hintText: '10,000',
-        prefixText: '${controller.priceField.currency.prefix} ',
+        prefixText: '₿ ',
         suffixText: '/ day',
       ),
     );

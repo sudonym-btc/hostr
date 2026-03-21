@@ -254,15 +254,15 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
     return true;
   }
 
-  // Currently can only compare prices of the same currency
-  Amount cost(DateTime start, DateTime end) {
+  // Currently can only compare prices of the same token
+  TokenAmount cost(DateTime start, DateTime end) {
     // Loop through prices and choose the cheapest result
-    List<Amount> costs = prices
-        .map((p) => Amount(
+    List<TokenAmount> costs = prices
+        .map((p) => TokenAmount(
             value: BigInt.from(end.difference(start).inDays.abs() /
                     FrequencyInDays.of(p.frequency)) *
                 p.amount.value,
-            currency: p.amount.currency))
+            token: p.amount.token))
         .toList();
     costs.sort((a, b) => a.value.compareTo(b.value));
     return costs.first;

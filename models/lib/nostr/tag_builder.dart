@@ -34,8 +34,8 @@ class TagBuilder {
     return this;
   }
 
-  TagBuilder addAmount(String key, Amount amount) {
-    _tags.add([key, '${amount.toDecimalString()}:${amount.currency.name}']);
+  TagBuilder addAmount(String key, TokenAmount amount) {
+    _tags.add([key, '${amount.toDecimalString()}:${amount.token.tagId}']);
     return this;
   }
 
@@ -65,21 +65,21 @@ class TagBuilder {
     return this;
   }
 
-  TagBuilder addOptionalAmount(String key, Amount? value) {
+  TagBuilder addOptionalAmount(String key, TokenAmount? value) {
     if (value != null) {
-      _tags.add([key, '${value.toDecimalString()}:${value.currency.name}']);
+      _tags.add([key, '${value.toDecimalString()}:${value.token.tagId}']);
     }
     return this;
   }
 
   // ── Price helpers ───────────────────────────────────────────────────
 
-  /// Encodes each [Price] as `["price", "decimalAmount:currency:frequency"]`.
+  /// Encodes each [Price] as `["price", "decimalAmount:tokenTagId:frequency"]`.
   TagBuilder addPrices(List<Price> prices) {
     for (final p in prices) {
       _tags.add([
         'price',
-        '${p.amount.toDecimalString()}:${p.amount.currency.name}:${p.frequency.name}',
+        '${p.amount.toDecimalString()}:${p.amount.token.tagId}:${p.frequency.name}',
       ]);
     }
     return this;

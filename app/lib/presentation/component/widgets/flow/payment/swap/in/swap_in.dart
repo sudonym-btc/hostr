@@ -118,18 +118,18 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
         children: [
           AmountWidget(
             to: params.evmKey.address.eip55With0x,
-            amount: params.amount.toAmount(),
+            amount: params.amount,
             loading: _loading,
             onAmountTap: isEditable
                 ? () async {
                     final result = await AmountEditorBottomSheet.show(
                       context,
-                      initialAmount: params.amount.toAmount(),
-                      minAmount: params.minAmount!.toAmount(),
-                      maxAmount: params.maxAmount!.toAmount(),
+                      initialAmount: params.amount,
+                      minAmount: params.minAmount!,
+                      maxAmount: params.maxAmount!,
                     );
                     if (result != null && context.mounted) {
-                      operation.updateAmount(BitcoinAmount.fromAmount(result));
+                      operation.updateAmount(result);
                     }
                   }
                 : null,
@@ -162,15 +162,15 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedGasFees.toAmount())} in gas",
+                      "+ ${formatAmount(snapshot.data!.estimatedGasFees)} in gas",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedSwapFees.toAmount())} in swap fees",
+                      "+ ${formatAmount(snapshot.data!.estimatedSwapFees)} in swap fees",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedRelayFees.toAmount())} in relay fees",
+                      "+ ${formatAmount(snapshot.data!.estimatedRelayFees)} in relay fees",
                       style: subtleStyle,
                     ),
                   ],

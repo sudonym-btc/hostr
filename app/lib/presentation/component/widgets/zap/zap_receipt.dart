@@ -22,8 +22,8 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
         shape: StadiumBorder(),
         label: Text(
           formatAmount(
-            Amount(
-              currency: Currency.BTC,
+            TokenAmount(
+              token: Token.btcLightning,
               value: BigInt.from(widget.zap.amountSats!),
             ),
             exact: false,
@@ -42,8 +42,8 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
           shape: StadiumBorder(),
           label: Text(
             formatAmount(
-              Amount(
-                currency: Currency.BTC,
+              TokenAmount(
+                token: Token.btcLightning,
                 value: BigInt.from(widget.zap.amountSats!),
               ),
             ),

@@ -1,11 +1,12 @@
 import 'dart:async';
 
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../../../../config.dart';
-import '../../../../util/bitcoin_amount.dart';
 import '../../../../util/custom_logger.dart';
+import '../../../../util/token_amount_ext.dart';
 import '../../../user_config/user_config_store.dart';
 import '../../evm.dart';
 import '../operation_state_store.dart';
@@ -42,7 +43,7 @@ class AutoWithdrawService {
   final HostrConfig _hostrConfig;
   final CustomLogger _logger;
 
-  StreamSubscription<BitcoinAmount>? _balanceSub;
+  StreamSubscription<TokenAmount>? _balanceSub;
   Timer? _cooldownTimer;
   bool _swapInProgress = false;
 
@@ -101,7 +102,7 @@ class AutoWithdrawService {
   // ── Internal ────────────────────────────────────────────────────────────
 
   Future<void> _onBalanceChanged(
-    BitcoinAmount balance,
+    TokenAmount balance,
   ) => _logger.span('_onBalanceChanged', () async {
     final config = await _userConfigStore.state;
 
@@ -130,8 +131,7 @@ class AutoWithdrawService {
       return;
     }
 
-    final minimumBalance = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
+    final minimumBalance = rbtcFromSatsInt(
       _hostrConfig.autoWithdrawMinimumSats,
     );
 
@@ -185,7 +185,7 @@ class AutoWithdrawService {
             final fees = await swapOp.estimateFees();
             final netAmount = fees.balance - fees.totalFees;
 
-            if (netAmount <= BitcoinAmount.zero()) {
+            if (netAmount <= TokenAmount.zero(rbtc)) {
               _logger.d(
                 'AutoWithdraw skipped on ${chain.runtimeType}: '
                 'fees exceed balance',

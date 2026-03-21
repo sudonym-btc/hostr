@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:chopper/chopper.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../config.dart';
@@ -197,9 +198,9 @@ class BoltzClient {
   ///
   /// Solving for invoice:
   ///   `invoice = (desired + lockupFee) / (1 − percentage/100)`
-  Future<({BitcoinAmount invoiceAmount, BitcoinAmount feeOverhead})>
+  Future<({TokenAmount invoiceAmount, TokenAmount feeOverhead})>
   computeInvoiceForDesiredOnchain({
-    required BitcoinAmount desiredOnchainAmount,
+    required TokenAmount desiredOnchainAmount,
     String from = 'BTC',
     String to = 'RBTC',
   }) => logger.span('computeInvoiceForDesiredOnchain', () async {
@@ -211,9 +212,8 @@ class BoltzClient {
     final invoiceSats = (desiredSats + lockupFee) / (1.0 - pFraction);
     final invoiceSatsCeil = invoiceSats.ceil();
 
-    final invoice = BitcoinAmount.fromInt(BitcoinUnit.sat, invoiceSatsCeil);
-    final feeOverhead = BitcoinAmount.fromBigInt(
-      BitcoinUnit.sat,
+    final invoice = rbtcFromSatsInt(invoiceSatsCeil);
+    final feeOverhead = rbtcFromSats(
       BigInt.from(invoiceSatsCeil) - desiredOnchainAmount.getInSats,
     );
 

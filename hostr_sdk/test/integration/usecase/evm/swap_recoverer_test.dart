@@ -55,7 +55,7 @@ void main() {
       // Run a full swap-in to completion so the store has a terminal entry.
       final swapLimits = await hostr.evm.rootstock.getSwapInLimits();
       final amount =
-          swapLimits.min + BitcoinAmount.fromInt(BitcoinUnit.sat, 1000);
+          swapLimits.min + rbtcFromSatsInt(1000);
 
       final swapIn = hostr.evm.rootstock.swapIn(
         SwapInParams(
@@ -90,7 +90,7 @@ void main() {
       // 1. Run a full swap-in to completion.
       final swapLimits = await hostr.evm.rootstock.getSwapInLimits();
       final amount =
-          swapLimits.min + BitcoinAmount.fromInt(BitcoinUnit.sat, 1000);
+          swapLimits.min + rbtcFromSatsInt(1000);
 
       final swapIn = hostr.evm.rootstock.swapIn(
         SwapInParams(

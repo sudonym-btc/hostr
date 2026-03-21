@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:injectable/injectable.dart';
 import 'package:meta/meta.dart';
+import 'package:models/main.dart';
 
 import '../../../../injection.dart';
 import '../../../../util/main.dart';
@@ -123,9 +124,9 @@ abstract class SwapOutOperation
           throw StateError('Invalid Lightning invoice: $e');
         }
 
-        final invoiceAmount = BitcoinAmount.fromDecimal(
-          BitcoinUnit.bitcoin,
+        final invoiceAmount = TokenAmount.fromDecimal(
           decoded.amount.toString(),
+          rbtc,
         );
 
         final currentState = state;

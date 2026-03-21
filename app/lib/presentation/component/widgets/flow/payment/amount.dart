@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:models/amount.dart';
+import 'package:models/main.dart';
 
 import '../../amount/amount_input.dart';
 
 class AmountWidget extends StatelessWidget {
   final String to;
-  final Amount amount;
+  final TokenAmount amount;
   final Function onConfirm;
   const AmountWidget({
     super.key,

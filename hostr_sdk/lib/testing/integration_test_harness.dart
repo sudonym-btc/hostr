@@ -134,7 +134,7 @@ class IntegrationTestHarness {
       ...fundKeys.map(
         (key) async => anvil.setBalance(
           address: (await deriveEvmKey(key.privateKey!)).address.eip55With0x,
-          amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
+          amountWei: rbtcFromSatsInt(1000000).getInWei,
         ),
       ),
     ]);
@@ -310,16 +310,25 @@ class _DevelopmentBoltzConfig extends BoltzConfig {
 class _DevelopmentRifRelayConfig extends RifRelayConfig {
   _DevelopmentRifRelayConfig();
 
+  static String _requireEnv(String key) {
+    final value = Platform.environment[key]?.trim();
+    if (value != null && value.isNotEmpty) return value;
+    throw StateError(
+      'Missing environment variable $key. '
+      'Run ./scripts/restart.sh to sync .env with deployed contract addresses.',
+    );
+  }
+
   @override
   String get url => 'https://rifrelay.hostr.development';
 
   @override
-  String get callVerifier => '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
+  String get callVerifier => _requireEnv('RIF_RELAY_RELAY_VERIFIER_ADDRESS');
 
   @override
-  String get deployVerifier => '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+  String get deployVerifier => _requireEnv('RIF_RELAY_DEPLOY_VERIFIER_ADDRESS');
 
   @override
   String get smartWalletFactoryAddress =>
-      '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE';
+      _requireEnv('RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS');
 }

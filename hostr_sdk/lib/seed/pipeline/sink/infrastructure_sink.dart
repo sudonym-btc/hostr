@@ -94,6 +94,10 @@ class InfrastructureSink implements SeedSink {
         buyer: buyer,
         seller: seller,
         arbiter: arbiter,
+        token: EthereumAddress.fromHex(
+          '0x0000000000000000000000000000000000000000',
+        ),
+        amount: intent.amountWei,
         unlockAt: intent.unlockAt,
         escrowFee: BigInt.zero,
       ),

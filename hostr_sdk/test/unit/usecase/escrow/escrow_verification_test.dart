@@ -58,9 +58,9 @@ Listing _listing({bool allowBarter = true, int pricePerNightSats = 100000}) {
     images: const ['https://picsum.photos/seed/escrow/800/600'],
     price: [
       Price(
-        amount: Amount(
-          currency: Currency.BTC,
+        amount: TokenAmount(
           value: BigInt.from(pricePerNightSats),
+          token: Token.btcLightning,
         ),
         frequency: Frequency.daily,
       ),
@@ -149,7 +149,7 @@ PaymentProof _paymentProof({required Listing listing, required String txHash}) {
 
 Reservation _reservation({
   required Listing listing,
-  required Amount? amount,
+  required TokenAmount? amount,
   required PaymentProof proof,
   bool includeSellerSignature = false,
 }) {
@@ -187,9 +187,7 @@ EscrowFundedEvent _fundedEvent({
     tradeId: tradeId,
     block: BlockInformation(baseFeePerGas: null, timestamp: DateTime.utc(2026)),
     transactionHash: txHash,
-    amount: BitcoinAmount.fromAmount(
-      Amount(currency: Currency.BTC, value: BigInt.from(amountSats)),
-    ),
+    amount: rbtcFromSatsInt(amountSats),
     unlockAt: 0,
   );
 }
@@ -209,7 +207,10 @@ void main() {
       final proof = _paymentProof(listing: listing, txHash: txHash);
       final reservation = _reservation(
         listing: listing,
-        amount: Amount(currency: Currency.BTC, value: BigInt.from(80000)),
+        amount: TokenAmount(
+          value: BigInt.from(80000),
+          token: Token.btcLightning,
+        ),
         proof: proof,
         includeSellerSignature: true,
       );
@@ -243,7 +244,10 @@ void main() {
       final proof = _paymentProof(listing: listing, txHash: txHash);
       final reservation = _reservation(
         listing: listing,
-        amount: Amount(currency: Currency.BTC, value: BigInt.from(80000)),
+        amount: TokenAmount(
+          value: BigInt.from(80000),
+          token: Token.btcLightning,
+        ),
         proof: proof,
       );
 

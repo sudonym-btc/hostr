@@ -42,7 +42,7 @@ class ReservationRequests extends CrudUseCase {
     required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
-    Amount? amount,
+    TokenAmount? amount,
   }) => logger.span('createReservationRequest', () async {
     final accountIndex = await _tradeAccountAllocator.reserveNextTradeIndex();
     final nonce = await _auth.hd.getTradeId(accountIndex: accountIndex);
@@ -80,7 +80,7 @@ class ReservationRequests extends CrudUseCase {
   Future<Reservation> createCounterOffer({
     required Listing listing,
     required Reservation previousRequest,
-    required Amount amount,
+    required TokenAmount amount,
     required KeyPair signerKeyPair,
   }) => logger.span('createCounterOffer', () async {
     final listingAnchor = previousRequest.parsedTags.listingAnchor;

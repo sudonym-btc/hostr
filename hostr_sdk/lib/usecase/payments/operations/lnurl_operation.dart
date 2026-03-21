@@ -1,5 +1,6 @@
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 
 import '../../../injection.dart';
 import '../../../util/main.dart';
@@ -49,9 +50,9 @@ class LnurlPayOperation
 
   /// Validates that amount is within LNURL limits.
   void validateAmount({
-    required BitcoinAmount amount,
-    required BitcoinAmount minAmount,
-    required BitcoinAmount maxAmount,
+    required TokenAmount amount,
+    required TokenAmount minAmount,
+    required TokenAmount maxAmount,
   }) {
     if (amount < minAmount) {
       throw Exception('Amount $amount msat is below minimum $minAmount msat');

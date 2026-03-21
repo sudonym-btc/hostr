@@ -18,7 +18,10 @@ class OnChainTrade {
   final EthereumAddress seller;
   final EthereumAddress arbiter;
 
-  /// The escrowed amount in wei.
+  /// The ERC-20 token address, or zero-address for native RBTC.
+  final EthereumAddress token;
+
+  /// The escrowed amount in wei (native) or token smallest-units (ERC-20).
   final BigInt amount;
   final BigInt unlockAt;
   final BigInt escrowFee;
@@ -28,6 +31,7 @@ class OnChainTrade {
     required this.buyer,
     required this.seller,
     required this.arbiter,
+    required this.token,
     required this.amount,
     required this.unlockAt,
     required this.escrowFee,
@@ -44,7 +48,7 @@ class OnChainTrade {
 /// price and limit that the fee budget was calculated with — eliminating
 /// variance from gas-price drift between estimation and broadcast.
 class GasEstimate {
-  final BitcoinAmount fee;
+  final TokenAmount fee;
   final EtherAmount gasPrice;
   final BigInt gasLimit;
 
@@ -56,19 +60,23 @@ class GasEstimate {
 
   @override
   String toString() =>
-      'GasEstimate(fee=${fee.getInSats} sats, '
+      'GasEstimate(fee=${fee.inSats} sats, '
       'gasPrice=${gasPrice.getInWei}, gasLimit=$gasLimit)';
 }
 
 class FundArgs {
   final String tradeId;
-  final BitcoinAmount amount;
+  final TokenAmount amount;
   final String sellerEvmAddress;
   final String arbiterEvmAddress;
   final int unlockAt;
-  final BitcoinAmount? escrowFee;
+  final TokenAmount? escrowFee;
   final EthPrivateKey ethKey;
   final GasEstimate? gasEstimate;
+
+  /// The ERC-20 token to fund with.
+  /// When `null` or `token.isNative`, the trade is funded with native RBTC.
+  final Token? token;
 
   const FundArgs({
     required this.tradeId,
@@ -79,6 +87,7 @@ class FundArgs {
     this.escrowFee,
     required this.ethKey,
     this.gasEstimate,
+    this.token,
   });
 }
 
@@ -88,6 +97,37 @@ class ClaimSwapAndFundArgs {
   final FundArgs fundArgs;
 
   const ClaimSwapAndFundArgs({
+    required this.swapContract,
+    required this.claimArgs,
+    required this.fundArgs,
+  });
+}
+
+/// Claim arguments for the Boltz [ERC20Swap] contract.
+///
+/// Extends [ClaimArgs] with [tokenAddress] which is required by
+/// `ERC20Swap.claim`.
+typedef ERC20ClaimArgs = ({
+  BigInt amount,
+  Uint8List preimage,
+  Uint8List r,
+  EthereumAddress refundAddress,
+  Uint8List s,
+  BigInt timelock,
+  BigInt v,
+  EthereumAddress tokenAddress,
+});
+
+/// Arguments for [SupportedEscrowContract.claimERC20SwapAndFund].
+///
+/// Atomically claims ERC-20 tokens from the Boltz ERC20Swap contract
+/// and funds a MultiEscrow trade in a single transaction.
+class ClaimERC20SwapAndFundArgs {
+  final EthereumAddress swapContract;
+  final ERC20ClaimArgs claimArgs;
+  final FundArgs fundArgs;
+
+  const ClaimERC20SwapAndFundArgs({
     required this.swapContract,
     required this.claimArgs,
     required this.fundArgs,
@@ -107,11 +147,11 @@ typedef AuthorizationHashFn =
     );
 
 abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
-  static final EthereumAddress _zeroAddress = EthereumAddress.fromHex(
+  static final EthereumAddress zeroAddress = EthereumAddress.fromHex(
     '0x0000000000000000000000000000000000000000',
   );
   static final List<dynamic> zeroedRelayFeeQuote = [
-    _zeroAddress,
+    zeroAddress,
     BigInt.zero,
     BigInt.zero,
   ];
@@ -132,7 +172,7 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
 
   /// Public API
   Future<GasEstimate> estimateEscrowFundFee(FundArgs args) =>
-      estimateFee(fund(args), stateOverrideBalance: args.amount.getInWei);
+      estimateFee(fund(args), stateOverrideBalance: args.amount.asEvm);
 
   Future<GasEstimate> estimateClaimFee({
     required String tradeId,
@@ -159,6 +199,10 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   Future<ContractCallIntent> claimSwapAndFundRelayed(
     ClaimSwapAndFundArgs args,
   ) async => claimSwapAndFund(args);
+  ContractCallIntent claimERC20SwapAndFund(ClaimERC20SwapAndFundArgs args);
+  Future<ContractCallIntent> claimERC20SwapAndFundRelayed(
+    ClaimERC20SwapAndFundArgs args,
+  ) async => claimERC20SwapAndFund(args);
   ContractCallIntent release(ReleaseArgs args);
   Future<ContractCallIntent> releaseRelayed(ReleaseArgs args) async =>
       release(args);
@@ -194,7 +238,7 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   }
 
   List<dynamic> relayFeeQuote({BigInt? deadline}) => [
-    _zeroAddress,
+    zeroAddress,
     BigInt.zero,
     deadline ?? BigInt.zero,
   ];
@@ -241,14 +285,14 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
       );
       final gasLimit = BigInt.parse(gasHex.substring(2), radix: 16);
       return GasEstimate(
-        fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
+        fee: rbtcFromWei(gasPrice.getInWei * gasLimit),
         gasPrice: gasPrice,
         gasLimit: gasLimit,
       );
     } catch (_) {
       final gasLimit = BigInt.from(intent.maxGas ?? 200000);
       return GasEstimate(
-        fee: BitcoinAmount.inWei(gasPrice.getInWei * gasLimit),
+        fee: rbtcFromWei(gasPrice.getInWei * gasLimit),
         gasPrice: gasPrice,
         gasLimit: gasLimit,
       );
@@ -275,7 +319,7 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
           BigInt.tryParse(estimate.requiredTokenAmount ?? '') ?? BigInt.zero;
 
       return GasEstimate(
-        fee: BitcoinAmount.inWei(relayFeeWei),
+        fee: rbtcFromWei(relayFeeWei),
         gasPrice: EtherAmount.inWei(gasPriceWei),
         gasLimit: gasLimit,
       );
@@ -386,7 +430,7 @@ abstract class PaymentEvent {
 }
 
 class PaymentFundedEvent extends PaymentEvent {
-  final BitcoinAmount amount;
+  final TokenAmount amount;
   PaymentFundedEvent({required super.tradeId, required this.amount});
 }
 
@@ -419,7 +463,7 @@ class ZapFundedEvent extends PaymentFundedEvent implements ZapEvent {
 
 class ZapReleasedEvent extends PaymentReleasedEvent implements ZapEvent {
   final ZapReceipt zapReceipt;
-  final BitcoinAmount amount;
+  final TokenAmount amount;
   ZapReleasedEvent({
     required super.tradeId,
     required this.zapReceipt,
@@ -449,7 +493,7 @@ class UnknownEscrowEvent extends EscrowEvent {
 class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
   final String transactionHash;
   @override
-  final BitcoinAmount amount;
+  final TokenAmount amount;
 
   /// The unix timestamp (seconds) after which the buyer can claim back funds.
   final int unlockAt;

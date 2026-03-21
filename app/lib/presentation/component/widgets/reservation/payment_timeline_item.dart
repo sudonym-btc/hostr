@@ -88,7 +88,7 @@ class PaymentTimelineItem extends StatelessWidget {
       return buildTimeLineItem(
         title: 'Escrow funded',
         description:
-            '${formatAmount(event.amount.toAmount())} · Unlocks ${formatDate(unlockDate)}',
+            '${formatAmount(event.amount)} · Unlocks ${formatDate(unlockDate)}',
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowReleasedEvent) {
@@ -111,7 +111,7 @@ class PaymentTimelineItem extends StatelessWidget {
     } else if (event is ZapFundedEvent) {
       return buildTimeLineItem(
         title: 'Funded via zap',
-        description: formatAmount(event.amount.toAmount()),
+        description: formatAmount(event.amount),
         timestamp: DateTime.fromMillisecondsSinceEpoch(
           event.event.createdAt * 1000,
         ),
