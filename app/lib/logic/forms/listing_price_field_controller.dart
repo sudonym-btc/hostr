@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/core/util/thousands_separator_formatter.dart';
 import 'package:hostr/logic/forms/form_field_controller.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 /// Manages listing price state — currency, text editing, and conversion
-/// to/from [Amount] and [Price] model objects.
+/// to/from [TokenAmount] and [Price] model objects.
 class ListingPriceFieldController extends FormFieldController {
   final TextEditingController textController = TextEditingController();
-  Currency currency = Currency.BTC;
+  Token currency = Token.btcLightning;
   String _originalSats = '0';
 
   @override
@@ -22,18 +21,17 @@ class ListingPriceFieldController extends FormFieldController {
 
   /// Set the initial state from the listing's existing prices.
   void setState(List<Price> prices) {
-    currency = Currency.BTC;
+    currency = Token.btcLightning;
     final nightly = prices.firstWhere(
       (p) => p.frequency == Frequency.daily,
       orElse: () => prices.isNotEmpty
           ? prices.first
           : Price(
-              amount: Amount(value: BigInt.zero, currency: Currency.BTC),
+              amount: TokenAmount.zero(Token.btcLightning),
               frequency: Frequency.daily,
             ),
     );
-    final bitcoinAmount = BitcoinAmount.fromAmount(nightly.amount);
-    _originalSats = bitcoinAmount.getInSats.toString();
+    _originalSats = nightly.amount.value.toString();
     textController.text = formatWithCommas(_originalSats);
     notifyListeners();
   }
@@ -69,20 +67,17 @@ class ListingPriceFieldController extends FormFieldController {
     return updated;
   }
 
-  Amount amountFromSatsInput(String input) {
+  TokenAmount amountFromSatsInput(String input) {
     final trimmed = input.replaceAll(',', '').trim();
     if (trimmed.isEmpty) {
-      return Amount(value: BigInt.zero, currency: Currency.BTC);
+      return TokenAmount.zero(Token.btcLightning);
     }
 
     try {
-      final btcAmount = BitcoinAmount.fromBase10String(
-        BitcoinUnit.sat,
-        trimmed,
-      );
-      return btcAmount.toAmount();
+      final sats = BigInt.parse(trimmed);
+      return TokenAmount(value: sats, token: Token.btcLightning);
     } on FormatException {
-      return Amount(value: BigInt.zero, currency: Currency.BTC);
+      return TokenAmount.zero(Token.btcLightning);
     }
   }
 

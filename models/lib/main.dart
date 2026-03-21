@@ -1,4 +1,3 @@
-export 'amount.dart';
 export 'bip340.dart';
 export 'bip341.dart';
 export 'nostr/main.dart';
@@ -6,4 +5,6 @@ export 'nostr_kinds.dart';
 export 'nostr_parser.dart';
 export 'price.dart';
 export 'secp256k1.dart';
+export 'token.dart';
+export 'token_amount.dart';
 export 'util/main.dart';

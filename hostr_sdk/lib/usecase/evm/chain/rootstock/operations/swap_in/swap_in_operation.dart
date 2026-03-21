@@ -7,6 +7,7 @@ import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 import 'package:eip712/eip712.dart' as eip712;
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart' hide params;
@@ -43,7 +44,7 @@ class RootstockSwapInOperation extends SwapInOperation {
   });
 
   @override
-  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits() =>
+  Future<({TokenAmount min, TokenAmount max})> getSwapLimits() =>
       logger.span('getSwapLimits', () => rootstock.getSwapInLimits());
 
   @override
@@ -457,13 +458,12 @@ class RootstockSwapInOperation extends SwapInOperation {
     final (:feeOverhead, invoiceAmount: _) = await boltz
         .computeInvoiceForDesiredOnchain(desiredOnchainAmount: params.amount);
 
-    final relayFees = BitcoinAmount.fromBigInt(
-      BitcoinUnit.wei,
+    final relayFees = rbtcFromWei(
       await rifRelay.estimateClaimBeforeLock(params.evmKey),
     );
 
     return SwapInFees(
-      estimatedGasFees: BitcoinAmount.zero(),
+      estimatedGasFees: TokenAmount.zero(rbtc),
       estimatedSwapFees: feeOverhead,
       estimatedRelayFees: relayFees,
     );
@@ -589,14 +589,11 @@ class RootstockSwapInOperation extends SwapInOperation {
   /// [PayOperation.execute] to avoid losing states on the broadcast stream.
   PayOperation _createPaymentForSwap({
     required String invoice,
-    required BitcoinAmount amount,
+    required TokenAmount amount,
     required String preimageHash,
   }) => logger.spanSync('createPaymentForSwap', () {
     Bolt11PaymentRequest pr = Bolt11PaymentRequest(invoice);
-    final invoiceAmount = BitcoinAmount.fromDecimal(
-      BitcoinUnit.bitcoin,
-      pr.amount.toString(),
-    );
+    final invoiceAmount = TokenAmount.fromDecimal(pr.amount.toString(), rbtc);
     final invoicePaymentHash = pr.tags
         .firstWhere((t) => t.type == 'payment_hash')
         .data;
@@ -619,10 +616,7 @@ class RootstockSwapInOperation extends SwapInOperation {
   /// in the data object.
   Future<ClaimArgs> _claimArgsFromData(SwapInData data) async {
     final etherSwap = await rootstock.getEtherSwapContract();
-    final amount = BitcoinAmount.fromBigInt(
-      BitcoinUnit.sat,
-      BigInt.from(data.onchainAmountSat),
-    ).getInWei;
+    final amount = rbtcFromSats(BigInt.from(data.onchainAmountSat)).getInWei;
     final refundAddress = EthereumAddress.fromHex(data.refundAddress!);
     final timelock = BigInt.from(data.timeoutBlockHeight);
     final signature = params.claimDestination != null

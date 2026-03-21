@@ -337,8 +337,8 @@ class _FakeRootstock_45 extends _i1.SmartFake implements _i27.Rootstock {
     : super(parent, parentInvocation);
 }
 
-class _FakeBitcoinAmount_46 extends _i1.SmartFake implements _i8.BitcoinAmount {
-  _FakeBitcoinAmount_46(Object parent, Invocation parentInvocation)
+class _FakeTokenAmount_46 extends _i1.SmartFake implements _i10.TokenAmount {
+  _FakeTokenAmount_46(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -3103,7 +3103,7 @@ class MockReservationRequests extends _i1.Mock
     required _i10.Listing? listing,
     required DateTime? startDate,
     required DateTime? endDate,
-    _i10.Amount? amount,
+    _i10.TokenAmount? amount,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#createReservationRequest, [], {
@@ -3130,7 +3130,7 @@ class MockReservationRequests extends _i1.Mock
   _i29.Future<_i10.Reservation> createCounterOffer({
     required _i10.Listing? listing,
     required _i10.Reservation? previousRequest,
-    required _i10.Amount? amount,
+    required _i10.TokenAmount? amount,
     required _i7.KeyPair? signerKeyPair,
   }) =>
       (super.noSuchMethod(
@@ -3383,14 +3383,14 @@ class MockEvm extends _i1.Mock implements _i43.Evm {
   );
 
   @override
-  _i29.Future<_i8.BitcoinAmount> getBalance() =>
+  _i29.Future<_i10.TokenAmount> getBalance() =>
       (super.noSuchMethod(
             Invocation.method(#getBalance, []),
-            returnValue: _i29.Future<_i8.BitcoinAmount>.value(
-              _FakeBitcoinAmount_46(this, Invocation.method(#getBalance, [])),
+            returnValue: _i29.Future<_i10.TokenAmount>.value(
+              _FakeTokenAmount_46(this, Invocation.method(#getBalance, [])),
             ),
           )
-          as _i29.Future<_i8.BitcoinAmount>);
+          as _i29.Future<_i10.TokenAmount>);
 
   @override
   _i28.EvmChain getChainForEscrowService(_i10.EscrowService? service) =>
@@ -3404,15 +3404,15 @@ class MockEvm extends _i1.Mock implements _i43.Evm {
           as _i28.EvmChain);
 
   @override
-  _i4.ValueStream<_i8.BitcoinAmount> subscribeBalance() =>
+  _i4.ValueStream<_i10.TokenAmount> subscribeBalance() =>
       (super.noSuchMethod(
             Invocation.method(#subscribeBalance, []),
-            returnValue: _FakeValueStream_2<_i8.BitcoinAmount>(
+            returnValue: _FakeValueStream_2<_i10.TokenAmount>(
               this,
               Invocation.method(#subscribeBalance, []),
             ),
           )
-          as _i4.ValueStream<_i8.BitcoinAmount>);
+          as _i4.ValueStream<_i10.TokenAmount>);
 
   @override
   void resetBalance() => super.noSuchMethod(

@@ -1,9 +1,10 @@
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
-import '../../../../util/bitcoin_amount.dart';
 import '../../../../util/custom_logger.dart';
+import '../../../../util/token_amount_ext.dart';
 import '../../../auth/auth.dart';
 import '../../../evm/chain/rootstock/rif_relay/rif_relay.dart';
 import '../../../evm/main.dart';
@@ -165,7 +166,7 @@ class EscrowFundOperation extends OnchainOperation {
           logger.d(
             'Gas usage: estimated=$estimatedLimit, actual=$gasUsed, '
             'refunded=$refundGas units '
-            '(~${BitcoinAmount.inWei(refundWei).getInSats} sats)',
+            '(~${rbtcFromWei(refundWei).getInSats} sats)',
           );
         }
       });
@@ -252,7 +253,7 @@ class EscrowFundOperation extends OnchainOperation {
         return EscrowFundFees(
           estimatedGasFees: quote.gasEstimate.fee,
           estimatedSwapFees: quote.swapFees,
-          estimatedEscrowFees: fundArgs.escrowFee ?? BitcoinAmount.zero(),
+          estimatedEscrowFees: fundArgs.escrowFee ?? TokenAmount.zero(rbtc),
         );
       });
 
@@ -270,15 +271,14 @@ class EscrowFundOperation extends OnchainOperation {
       auth.hd.getActiveEvmKey(accountIndex: accountIndex);
 
   Future<FundArgs> _buildFundArgs(EscrowFundParams params) async {
-    final amount = BitcoinAmount.fromAmount(params.amount);
+    final amount = rbtcFromSats(params.amount.inSats);
     return FundArgs(
       tradeId: params.negotiateReservation.getDtag()!,
       amount: amount,
       sellerEvmAddress: params.sellerProfile.evmAddress!,
       arbiterEvmAddress: params.escrowService.evmAddress,
       unlockAt: params.negotiateReservation.end.millisecondsSinceEpoch ~/ 1000,
-      escrowFee: BitcoinAmount.fromInt(
-        BitcoinUnit.sat,
+      escrowFee: rbtcFromSatsInt(
         params.escrowService.escrowFee(amount.getInSats.toInt()),
       ),
       ethKey: await _activeEthKey(),

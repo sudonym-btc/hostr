@@ -725,7 +725,7 @@ class RifRelay {
     'estimateClaimBeforeLock',
     () async {
       // Boltz subsidizes these claim relays
-      return BitcoinAmount.zero().getInWei;
+      return BigInt.zero;
       // final info = await _getCachedChainInfo();
       // final smartWalletInfo = await getSmartWalletAddress(evmKey);
       // final isDeploy = smartWalletInfo.nonce == BigInt.zero;

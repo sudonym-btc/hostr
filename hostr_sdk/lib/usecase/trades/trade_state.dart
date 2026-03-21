@@ -23,7 +23,7 @@ class TradeReady extends TradeState {
   final String listingAnchor;
   final DateTime start;
   final DateTime end;
-  final Amount? amount;
+  final TokenAmount? amount;
   final TradeStage stage;
   final List<TradeAction> actions;
   final TradeAvailability availability;
@@ -52,7 +52,7 @@ class TradeReady extends TradeState {
     List<TradeAction>? actions,
     TradeAvailability? availability,
     String? availabilityReason,
-    Amount? amount,
+    TokenAmount? amount,
   }) {
     return TradeReady(
       listing: listing,
@@ -86,13 +86,13 @@ class NegotiationPolicy {
   final Reservation? latestOffer;
   final Reservation? lastOfferByUs;
   final Reservation? lastOfferByThem;
-  final Amount? listingPrice;
+  final TokenAmount? listingPrice;
   final bool latestOfferSentByUs;
   final bool latestOfferAcceptsPrevious;
   final bool canPay;
   final bool canCounter;
-  final Amount? counterMin;
-  final Amount? counterMax;
+  final TokenAmount? counterMin;
+  final TokenAmount? counterMax;
 
   const NegotiationPolicy({
     required this.latestOffer,

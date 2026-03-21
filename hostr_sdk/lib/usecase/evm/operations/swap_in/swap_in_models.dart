@@ -1,7 +1,7 @@
+import 'package:models/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
-import '../../../../util/bitcoin_amount.dart';
 import '../../chain/rootstock/rif_relay/rif_relay.dart';
 
 typedef SwapInClaimCallback = Future<String> Function(ClaimArgs claimArgs);
@@ -9,9 +9,9 @@ typedef SwapInClaimCallback = Future<String> Function(ClaimArgs claimArgs);
 class SwapInParams {
   final EthPrivateKey evmKey;
   final int accountIndex;
-  BitcoinAmount amount;
-  BitcoinAmount? minAmount;
-  BitcoinAmount? maxAmount;
+  TokenAmount amount;
+  TokenAmount? minAmount;
+  TokenAmount? maxAmount;
   final String? invoiceDescription;
   final EthereumAddress? claimAddress;
   final EthereumAddress? claimDestination;
@@ -44,11 +44,11 @@ class SwapInParams {
 }
 
 class SwapInFees {
-  final BitcoinAmount estimatedGasFees;
-  final BitcoinAmount estimatedSwapFees;
-  final BitcoinAmount estimatedRelayFees;
+  final TokenAmount estimatedGasFees;
+  final TokenAmount estimatedSwapFees;
+  final TokenAmount estimatedRelayFees;
 
-  BitcoinAmount get totalFees =>
+  TokenAmount get totalFees =>
       estimatedGasFees + estimatedSwapFees + estimatedRelayFees;
 
   SwapInFees({

@@ -5,7 +5,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/amount.dart';
+import 'package:models/main.dart';
 
 import '../flow/payment/swap/out/swap_out.dart';
 
@@ -19,7 +19,7 @@ class MoneyInFlightWidget extends StatefulWidget {
 }
 
 class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
-  late final Stream<BitcoinAmount> _balanceStream;
+  late final Stream<TokenAmount> _balanceStream;
 
   @override
   void dispose() {
@@ -59,15 +59,9 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                           Text(
                             style: Theme.of(context).textTheme.displayMedium!
                                 .copyWith(fontWeight: FontWeight.bold),
-                            formatAmount(
-                              Amount(
-                                value: snapshot.data!.getInSats,
-                                currency: Currency.BTC,
-                              ),
-                              exact: false,
-                            ),
+                            formatAmount(snapshot.data!, exact: false),
                           ),
-                          if (snapshot.data!.getInSats > BigInt.zero)
+                          if (snapshot.data!.value > BigInt.zero)
                             FilledButton.tonal(
                               onPressed: () async {
                                 final ops = await getIt<Hostr>()
@@ -78,7 +72,8 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                                 if (ops.isNotEmpty) {
                                   showAppModal(
                                     context,
-                                    builder: (_) => SwapOutFlowWidget(cubit: ops.first),
+                                    builder: (_) =>
+                                        SwapOutFlowWidget(cubit: ops.first),
                                   );
                                 }
                               },

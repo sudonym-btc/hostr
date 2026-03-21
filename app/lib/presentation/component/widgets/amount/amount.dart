@@ -3,15 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
-import 'package:models/amount.dart';
+import 'package:models/main.dart';
 
 typedef AmountFormFieldEditor =
-    Future<Amount?> Function(BuildContext context, Amount currentValue);
+    Future<TokenAmount?> Function(
+      BuildContext context,
+      TokenAmount currentValue,
+    );
 
 class AmountWidget extends StatelessWidget {
   final String? to;
   final String? toPubkey;
-  final Amount amount;
+  final TokenAmount amount;
   final FutureOr<void> Function()? onConfirm;
   final Widget? feeWidget;
   final VoidCallback? onAmountTap;
@@ -121,18 +124,18 @@ class AmountWidget extends StatelessWidget {
   }
 }
 
-class AmountFormField extends FormField<Amount> {
+class AmountFormField extends FormField<TokenAmount> {
   AmountFormField({
     super.key,
     String? to,
     String? toPubkey,
-    required Amount initialValue,
+    required TokenAmount initialValue,
     AmountFormFieldEditor? onAmountTap,
-    FutureOr<void> Function(Amount amount)? onConfirm,
-    FormFieldSetter<Amount>? onSaved,
-    FormFieldValidator<Amount>? validator,
+    FutureOr<void> Function(TokenAmount amount)? onConfirm,
+    FormFieldSetter<TokenAmount>? onSaved,
+    FormFieldValidator<TokenAmount>? validator,
     AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
-    ValueChanged<Amount>? onChanged,
+    ValueChanged<TokenAmount>? onChanged,
     Widget? feeWidget,
     bool loading = false,
     bool enabled = true,

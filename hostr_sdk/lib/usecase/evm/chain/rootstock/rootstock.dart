@@ -5,11 +5,12 @@ import 'package:web3dart/web3dart.dart';
 
 import '../../../../config.dart';
 import '../../../../datasources/boltz/boltz.dart';
+import '../../../../datasources/contracts/boltz/ERC20Swap.g.dart';
 import '../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../injection.dart';
-import '../../../../util/bitcoin_amount.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../../util/http_client_factory.dart';
+import '../../../../util/token_amount_ext.dart';
 import '../../../escrow/supported_escrow_contract/multi_escrow.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
@@ -82,33 +83,21 @@ class Rootstock extends EvmChain {
   }
 
   @override
-  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapInLimits() =>
+  Future<({TokenAmount min, TokenAmount max})> getSwapInLimits() =>
       logger.span('getSwapInLimits', () async {
         final pair = await getIt<BoltzClient>().getReversePair();
         return (
-          min: BitcoinAmount.fromInt(
-            BitcoinUnit.sat,
-            pair.limits.minimal.ceil(),
-          ),
-          max: BitcoinAmount.fromInt(
-            BitcoinUnit.sat,
-            pair.limits.maximal.floor(),
-          ),
+          min: rbtcFromSatsInt(pair.limits.minimal.ceil()),
+          max: rbtcFromSatsInt(pair.limits.maximal.floor()),
         );
       });
 
-  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapOutLimits() =>
+  Future<({TokenAmount min, TokenAmount max})> getSwapOutLimits() =>
       logger.span('getSwapOutLimits', () async {
         final pair = await getIt<BoltzClient>().getSubmarinePair();
         return (
-          min: BitcoinAmount.fromInt(
-            BitcoinUnit.sat,
-            pair.limits.minimal.ceil(),
-          ),
-          max: BitcoinAmount.fromInt(
-            BitcoinUnit.sat,
-            pair.limits.maximal.floor(),
-          ),
+          min: rbtcFromSatsInt(pair.limits.minimal.ceil()),
+          max: rbtcFromSatsInt(pair.limits.maximal.floor()),
         );
       });
 
@@ -123,6 +112,25 @@ class Rootstock extends EvmChain {
         // Initialize EtherSwap contract
         return EtherSwap(
           address: EthereumAddress.fromHex(rbtcSwapContract!),
+          client: client,
+        );
+      });
+
+  @override
+  Future<ERC20Swap> getERC20SwapContract() =>
+      logger.span('getERC20SwapContract', () async {
+        final rbtcContracts = await getIt<BoltzClient>().rbtcContracts();
+        final erc20SwapAddress = rbtcContracts.swapContracts.eRC20Swap;
+
+        if (erc20SwapAddress == null || erc20SwapAddress.isEmpty) {
+          throw StateError(
+            'Boltz API did not return an ERC20Swap contract address',
+          );
+        }
+
+        logger.i('ERC20 Swap contract: $erc20SwapAddress');
+        return ERC20Swap(
+          address: EthereumAddress.fromHex(erc20SwapAddress),
           client: client,
         );
       });

@@ -184,21 +184,47 @@ class EscrowVerification {
         listing: proof.listing,
       );
 
-      // The on-chain amount is in wei. Compare against the expected amount.
-      // We accept >= because escrowFee may be included in the deposit.
-      final onChainWei = fundedEvent.amount;
-      final expectedWei = BitcoinAmount.fromAmount(
-        expectedAmount.expectedAmount,
-      );
+      // Compare on-chain funded amount against the expected amount.
+      //
+      // For native RBTC: both amounts carry 18-decimal precision.
+      // For ERC-20 tokens: both amounts carry the token's native precision
+      // (e.g. 6 for USDT). The on-chain amount comes from
+      // `_tokenAmountFromTrade` which resolves the token from the trade's
+      // token address, so the comparison is apples-to-apples.
+      //
+      // If the tokens differ (e.g. funded in RBTC but expected USDT), the
+      // TokenAmount >= operator will throw — which is correct: a token
+      // mismatch should fail verification.
+      final onChainAmount = fundedEvent.amount;
+      final expectedTokenAmount = expectedAmount.expectedAmount;
 
-      if (onChainWei < expectedWei) {
+      // When the expected amount is in a different unit system (e.g. BTC
+      // Lightning sats) we need to normalise to the on-chain token's
+      // precision before comparing.
+      final TokenAmount comparableExpected;
+      if (expectedTokenAmount.token == onChainAmount.token) {
+        comparableExpected = expectedTokenAmount;
+      } else if (expectedTokenAmount.token.isLightning &&
+          onChainAmount.token.isNative) {
+        // Lightning BTC (8 dec) → RBTC (18 dec): 1 sat = 10^10 wei
+        comparableExpected = rbtcFromSats(expectedTokenAmount.value);
+      } else {
+        // For ERC-20 tokens the expected amount should already be
+        // denominated in the same token. If it isn't, treat as mismatch.
+        return EscrowVerificationResult.invalid(
+          'Token mismatch: on-chain token ${onChainAmount.token} '
+          'does not match expected token ${expectedTokenAmount.token}',
+        );
+      }
+
+      if (onChainAmount < comparableExpected) {
         final expectedAmountLabel = expectedAmount.usesNegotiatedAmount
             ? 'negotiated'
             : 'listing';
         final overrideReason = expectedAmount.overrideFailureReason;
         return EscrowVerificationResult.invalid(
-          'Onchain escrowed amount (${onChainWei.getInSats} sats) is less than expected '
-          '$expectedAmountLabel amount (${expectedWei.getInSats} sats) for '
+          'Onchain escrowed amount (${onChainAmount.value}) is less than expected '
+          '$expectedAmountLabel amount (${comparableExpected.value}) for '
           '${reservation.start} – ${reservation.end}'
           '${overrideReason != null ? ' ($overrideReason)' : ''}',
         );
@@ -206,7 +232,7 @@ class EscrowVerification {
 
       logger.d(
         'Escrow verified for trade $tradeId: funded event ${fundedEvent.transactionHash}, '
-        'on-chain=${onChainWei.getInSats} sats, expected=${expectedWei.getInSats} sats',
+        'on-chain=${onChainAmount.value}, expected=${comparableExpected.value}',
       );
 
       return EscrowVerificationResult.valid(fundedEvent: fundedEvent);

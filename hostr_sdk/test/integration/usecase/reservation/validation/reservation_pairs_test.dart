@@ -64,9 +64,9 @@ Listing _buildListing({
     images: ['https://picsum.photos/seed/it/800/600'],
     price: [
       Price(
-        amount: Amount(
-          currency: Currency.BTC,
+        amount: TokenAmount(
           value: pricePerNight ?? BigInt.from(100000),
+          token: Token.btcLightning,
         ),
         frequency: Frequency.daily,
       ),
@@ -126,9 +126,9 @@ Reservation _buildNegotiate({
     end: end,
     stage: ReservationStage.negotiate,
     quantity: 1,
-    amount: Amount(
-      currency: Currency.BTC,
+    amount: TokenAmount(
       value: customAmount ?? listing.cost(start, end).value,
+      token: Token.btcLightning,
     ),
     tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
     createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
@@ -205,8 +205,9 @@ Reservation _buildCancel({
 Future<EscrowService> _buildEscrowService() async {
   return MOCK_ESCROWS(
     contractAddress: _contractAddress,
-    evmAddress:
-        (await deriveEvmKey(MockKeys.escrow.privateKey!)).address.eip55With0x,
+    evmAddress: (await deriveEvmKey(
+      MockKeys.escrow.privateKey!,
+    )).address.eip55With0x,
   ).first;
 }
 
@@ -621,7 +622,9 @@ void main() {
         hosterProfile = _buildProfileEvent(
           key: host,
           lud16: 'host@hostr.development',
-          evmAddress: (await deriveEvmKey(host.privateKey!)).address.eip55With0x,
+          evmAddress: (await deriveEvmKey(
+            host.privateKey!,
+          )).address.eip55With0x,
         );
       });
 

@@ -6,10 +6,11 @@ import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
+import '../../../datasources/contracts/boltz/ERC20Swap.g.dart';
 import '../../../datasources/contracts/boltz/EtherSwap.g.dart';
-import '../../../util/bitcoin_amount.dart';
 import '../../../util/custom_logger.dart';
 import '../../../util/network_error.dart';
+import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
@@ -269,7 +270,7 @@ abstract class EvmChain {
     );
   }
 
-  Future<BitcoinAmount> getBalance(EthereumAddress address) =>
+  Future<TokenAmount> getBalance(EthereumAddress address) =>
       logger.span('getBalance', () async {
         logger.d('Getting balance for $address');
         return await _callRpcWithRetry(
@@ -277,7 +278,7 @@ abstract class EvmChain {
           (client) => client.getBalance(address),
         ).then((val) {
           logger.d('Balance for $address: $val');
-          return BitcoinAmount.inWei(val.getInWei);
+          return rbtcFromWei(val.getInWei);
         });
       });
 
@@ -366,7 +367,7 @@ abstract class EvmChain {
     if (!_pollNow.isClosed) _pollNow.add(null);
   }
 
-  Stream<BitcoinAmount> subscribeBalance(EthereumAddress address) async* {
+  Stream<TokenAmount> subscribeBalance(EthereumAddress address) async* {
     try {
       yield await getBalance(address);
     } catch (e) {
@@ -507,14 +508,12 @@ abstract class EvmChain {
   static const _maxScanIndex = 20;
 
   Future<
-    List<({EthereumAddress address, int accountIndex, BitcoinAmount balance})>
+    List<({EthereumAddress address, int accountIndex, TokenAmount balance})>
   >
   getAddressesWithBalance() => logger.span('getAddressesWithBalance', () async {
     const batchSize = 5;
     final funded =
-        <
-          ({EthereumAddress address, int accountIndex, BitcoinAmount balance})
-        >[];
+        <({EthereumAddress address, int accountIndex, TokenAmount balance})>[];
 
     for (var offset = 0; offset < _maxScanIndex; offset += batchSize) {
       final count = min(batchSize, _maxScanIndex - offset);
@@ -543,7 +542,7 @@ abstract class EvmChain {
           funded.add((
             address: r.address,
             accountIndex: r.index,
-            balance: BitcoinAmount.inWei(r.balance.getInWei),
+            balance: rbtcFromWei(r.balance.getInWei),
           ));
         }
       }
@@ -554,17 +553,17 @@ abstract class EvmChain {
 
   /// Returns the total balance across all HD-derived addresses that hold
   /// funds, scanning up to [_maxScanIndex] indices.
-  Future<BitcoinAmount> getTotalBalance() =>
+  Future<TokenAmount> getTotalBalance() =>
       logger.span('getTotalBalance', () async {
         final addresses = await getAddressesWithBalance();
-        return addresses.fold<BitcoinAmount>(
-          BitcoinAmount.zero(),
+        return addresses.fold<TokenAmount>(
+          TokenAmount.zero(rbtc),
           (sum, entry) => sum + entry.balance,
         );
       });
 
   /// Emits the total balance across all used addresses on each new block.
-  Stream<BitcoinAmount> subscribeTotalBalance() async* {
+  Stream<TokenAmount> subscribeTotalBalance() async* {
     try {
       yield await getTotalBalance();
     } catch (e) {
@@ -582,7 +581,9 @@ abstract class EvmChain {
 
   Future<EtherSwap> getEtherSwapContract();
 
-  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapInLimits();
+  Future<ERC20Swap> getERC20SwapContract();
+
+  Future<({TokenAmount min, TokenAmount max})> getSwapInLimits();
 
   SwapInOperation swapIn(SwapInParams params);
 

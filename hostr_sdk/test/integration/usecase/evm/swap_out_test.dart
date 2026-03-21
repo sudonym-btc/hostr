@@ -60,6 +60,12 @@ void main() {
         appNamePrefix: 'swap-out-it',
       );
 
+      // Fund with enough sats to cover Anvil's high gas price (~2.9 gwei).
+      await harness.anvil.setBalance(
+        address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
+        amountWei: rbtcFromSatsInt(500000).getInWei,
+      );
+
       final swapOut = (await hostr.evm.rootstock.swapOutAll()).first;
 
       final emittedStates = <SwapOutState>[swapOut.state];
@@ -91,10 +97,9 @@ void main() {
       await harness.hostr.auth.signin(MockKeys.guest.privateKey!);
 
       await harness.anvil.setBalance(
-        address: (await harness.hostr.auth.hd.getActiveEvmKey())
-          .address
-          .eip55With0x,
-        amountWei: BitcoinAmount.fromInt(BitcoinUnit.sat, 100000).getInWei,
+        address:
+            (await harness.hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
+        amountWei: rbtcFromSatsInt(500000).getInWei,
       );
 
       // ── Attempt 1: submit an invalid invoice → swap fails ──────────

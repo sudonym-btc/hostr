@@ -70,7 +70,7 @@ void main() {
                 .getActiveEvmKey(accountIndex: operation.accountIndex))
             .address
             .eip55With0x,
-        amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
+        amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
       );
 
       await operation.run();
@@ -115,7 +115,7 @@ void main() {
                 .getActiveEvmKey(accountIndex: operation.accountIndex))
             .address
             .eip55With0x,
-        amountWei: BitcoinAmount.fromInt(BitcoinUnit.bitcoin, 2).getInWei,
+        amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
       );
 
       await operation.run();

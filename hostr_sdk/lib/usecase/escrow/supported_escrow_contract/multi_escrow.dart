@@ -69,6 +69,11 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   @override
   ContractCallIntent fund(FundArgs args) => logger.spanSync('fund', () {
+    final isERC20 = args.token != null && args.token!.isERC20;
+    final tokenAddress = isERC20
+        ? EthereumAddress.fromHex(args.token!.address)
+        : SupportedEscrowContract.zeroAddress;
+
     return buildIntent(
       functionName: 'createTrade',
       args: [
@@ -76,12 +81,14 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         args.ethKey.address,
         EthereumAddress.fromHex(args.sellerEvmAddress),
         EthereumAddress.fromHex(args.arbiterEvmAddress),
+        tokenAddress,
+        args.amount.asEvm,
         BigInt.from(args.unlockAt),
-        args.escrowFee?.getInWei ?? BigInt.zero,
+        args.escrowFee?.asEvm ?? BigInt.zero,
       ],
       from: args.ethKey.address,
       methodName: 'createTrade',
-      value: args.amount.toEtherAmount(),
+      value: isERC20 ? EtherAmount.zero() : args.amount.toEtherAmount(),
       gasPrice: args.gasEstimate?.gasPrice,
       maxGas: args.gasEstimate?.gasLimit.toInt(),
     );
@@ -155,8 +162,9 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
               args.fundArgs.ethKey.address,
               EthereumAddress.fromHex(args.fundArgs.sellerEvmAddress),
               EthereumAddress.fromHex(args.fundArgs.arbiterEvmAddress),
+              SupportedEscrowContract.zeroAddress, // native token
               BigInt.from(args.fundArgs.unlockAt),
-              args.fundArgs.escrowFee?.getInWei ?? BigInt.zero,
+              args.fundArgs.escrowFee?.asEvm ?? BigInt.zero,
             ],
           ],
           from: sender,
@@ -170,6 +178,70 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   Future<ContractCallIntent> claimSwapAndFundRelayed(
     ClaimSwapAndFundArgs args,
   ) async => claimSwapAndFund(args);
+
+  @override
+  ContractCallIntent claimERC20SwapAndFund(ClaimERC20SwapAndFundArgs args) =>
+      logger.spanSync('claimERC20SwapAndFund', () {
+        final sender = args.fundArgs.ethKey.address;
+        final estimatedMaxGas = args.fundArgs.gasEstimate?.gasLimit.toInt();
+        final claimAndFundMaxGas = estimatedMaxGas == null
+            ? null
+            : max(estimatedMaxGas * 2, 500000);
+
+        final tokenAddress = args.fundArgs.token != null
+            ? EthereumAddress.fromHex(args.fundArgs.token!.address)
+            : SupportedEscrowContract.zeroAddress;
+
+        logger.i(
+          'claimERC20SwapAndFund sender=${sender.eip55With0x} '
+          'buyer=${args.fundArgs.ethKey.address.eip55With0x} '
+          'seller=${args.fundArgs.sellerEvmAddress} '
+          'arbiter=${args.fundArgs.arbiterEvmAddress} '
+          'swapContract=${args.swapContract.eip55With0x} '
+          'token=${tokenAddress.eip55With0x} '
+          'amount=${args.claimArgs.amount} '
+          'gasPrice=${args.fundArgs.gasEstimate?.gasPrice.getInWei} '
+          'estimatedMaxGas=${args.fundArgs.gasEstimate?.gasLimit} '
+          'claimAndFundMaxGas=$claimAndFundMaxGas',
+        );
+
+        return buildIntent(
+          functionName: 'claimERC20SwapAndFund',
+          args: [
+            // ERC20ClaimArgs struct
+            [
+              args.swapContract,
+              args.claimArgs.preimage,
+              args.claimArgs.amount,
+              args.claimArgs.tokenAddress,
+              args.claimArgs.refundAddress,
+              args.claimArgs.timelock,
+              args.claimArgs.v,
+              args.claimArgs.r,
+              args.claimArgs.s,
+            ],
+            // FundArgs struct
+            [
+              getBytes32(args.fundArgs.tradeId),
+              args.fundArgs.ethKey.address,
+              EthereumAddress.fromHex(args.fundArgs.sellerEvmAddress),
+              EthereumAddress.fromHex(args.fundArgs.arbiterEvmAddress),
+              tokenAddress,
+              BigInt.from(args.fundArgs.unlockAt),
+              args.fundArgs.escrowFee?.asEvm ?? BigInt.zero,
+            ],
+          ],
+          from: sender,
+          methodName: 'claimERC20SwapAndFund',
+          gasPrice: args.fundArgs.gasEstimate?.gasPrice,
+          maxGas: claimAndFundMaxGas,
+        );
+      });
+
+  @override
+  Future<ContractCallIntent> claimERC20SwapAndFundRelayed(
+    ClaimERC20SwapAndFundArgs args,
+  ) async => claimERC20SwapAndFund(args);
 
   @override
   ContractCallIntent arbitrate({
@@ -234,6 +306,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           buyer: trade.buyer,
           seller: trade.seller,
           arbiter: trade.arbiter,
+          token: trade.token,
           amount: trade.amount,
           unlockAt: trade.unlockAt,
           escrowFee: trade.escrowFee,
@@ -488,7 +561,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           log,
         );
         final trade = await contract.trades(
-          ($param25: tradeCreated.tradeId),
+          ($param32: tradeCreated.tradeId),
           atBlock: log.blockNum != null
               ? BlockNum.exact(log.blockNum!.toInt())
               : null,
@@ -498,7 +571,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           block: block,
           escrowService: selectedEscrow,
           transactionHash: txHash,
-          amount: BitcoinAmount.fromBigInt(BitcoinUnit.wei, trade.amount),
+          amount: _tokenAmountFromTrade(trade),
           unlockAt: tradeCreated.unlockAt.toInt(),
         );
       case 'Arbitrated':
@@ -656,6 +729,24 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     }
     return null;
   });
+
+  /// Convert the on-chain trade amount to a [TokenAmount].
+  ///
+  /// If [Trades.token] is the zero address, the trade is funded with native
+  /// RBTC (18 decimals). Otherwise it's an ERC-20 token whose decimals we
+  /// resolve from the known-token registry.
+  TokenAmount _tokenAmountFromTrade(Trades trade) {
+    final isNative =
+        trade.token.eip55With0x.toLowerCase() ==
+        SupportedEscrowContract.zeroAddress.eip55With0x.toLowerCase();
+    if (isNative) {
+      return rbtcFromWei(trade.amount);
+    }
+    // ERC-20: look up the token to get decimals.
+    // Default to 18 if unknown — callers comparing against expected amounts
+    // will use the same token identity from the reservation/listing.
+    return tokenAmountFromEvm(trade.token.eip55With0x, trade.amount);
+  }
 
   Future<T> _withDecodedCustomError<T>(Future<T> Function() action) =>
       logger.span('_withDecodedCustomError', () async {

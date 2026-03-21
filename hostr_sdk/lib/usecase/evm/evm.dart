@@ -19,8 +19,8 @@ class Evm {
   CustomLogger get logger => _logger;
   Rootstock get rootstock => _rootstock;
 
-  BehaviorSubject<BitcoinAmount>? _balanceSubject;
-  StreamSubscription<BitcoinAmount>? _balanceSubscription;
+  BehaviorSubject<TokenAmount>? _balanceSubject;
+  StreamSubscription<TokenAmount>? _balanceSubscription;
 
   late final List<EvmChain> supportedEvmChains;
   Evm({required Rootstock rootstock, required CustomLogger logger})
@@ -37,9 +37,9 @@ class Evm {
             .map((chain) => chain.subscribeTotalBalance())
             .toList();
 
-        final combined = Rx.combineLatestList<BitcoinAmount>(streams).map(
-          (balances) => balances.fold<BitcoinAmount>(
-            BitcoinAmount.zero(),
+        final combined = Rx.combineLatestList<TokenAmount>(streams).map(
+          (balances) => balances.fold<TokenAmount>(
+            TokenAmount.zero(rbtc),
             (sum, value) => sum + value,
           ),
         );
@@ -50,10 +50,10 @@ class Evm {
         );
       });
 
-  Future<BitcoinAmount> getBalance() => _logger.span('getBalance', () async {
+  Future<TokenAmount> getBalance() => _logger.span('getBalance', () async {
     // Loop all supported EVM chains and sum total balances across all
     // HD-derived addresses that have ever been used.
-    BitcoinAmount totalBalance = BitcoinAmount.zero();
+    TokenAmount totalBalance = TokenAmount.zero(rbtc);
     for (var chain in supportedEvmChains) {
       try {
         final chainBalance = await chain.getTotalBalance();
@@ -79,8 +79,8 @@ class Evm {
         );
       });
 
-  ValueStream<BitcoinAmount> subscribeBalance() {
-    _balanceSubject ??= BehaviorSubject<BitcoinAmount>(
+  ValueStream<TokenAmount> subscribeBalance() {
+    _balanceSubject ??= BehaviorSubject<TokenAmount>(
       onListen: _ensureBalanceSubscription,
     );
 

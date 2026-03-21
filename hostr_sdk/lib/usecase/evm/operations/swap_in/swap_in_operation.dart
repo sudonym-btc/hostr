@@ -1,8 +1,10 @@
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 
 import '../../../../config.dart';
 import '../../../../injection.dart';
 import '../../../../util/main.dart';
+import '../../../../util/token_amount_ext.dart';
 import '../../../auth/auth.dart';
 import '../operation_machine.dart';
 import '../operation_state_store.dart';
@@ -111,7 +113,7 @@ abstract class SwapInOperation
     ...super.telemetryAttributes,
     'hostr.swap.account_index': state.data?.accountIndex ?? params.accountIndex,
     'hostr.swap.amount_sats':
-        state.data?.onchainAmountSat ?? params.amount.getInSats,
+        state.data?.onchainAmountSat ?? params.amount.inSats,
     if (state.data?.boltzId != null) 'hostr.swap.id': state.data!.boltzId,
     if (state.data?.lockupTxHash != null)
       'hostr.swap.lockup_tx_hash': state.data!.lockupTxHash,
@@ -204,7 +206,7 @@ abstract class SwapInOperation
   Future<SwapInFees> estimateFees();
 
   /// Fetches the chain's minimum and maximum swap-in amounts.
-  Future<({BitcoinAmount min, BitcoinAmount max})> getSwapLimits();
+  Future<({TokenAmount min, TokenAmount max})> getSwapLimits();
 
   // ── Init & amount adjustment (UI-facing) ──────────────────────────
 
@@ -217,11 +219,11 @@ abstract class SwapInOperation
       final limits = await getSwapLimits();
 
       params.minAmount = params.minAmount != null
-          ? BitcoinAmount.max(params.minAmount!, limits.min)
+          ? TokenAmount.max(params.minAmount!, limits.min)
           : limits.min;
 
       params.maxAmount = params.maxAmount != null
-          ? BitcoinAmount.min(params.maxAmount!, limits.max)
+          ? TokenAmount.min(params.maxAmount!, limits.max)
           : limits.max;
 
       if (params.amount < params.minAmount!) {
@@ -232,9 +234,9 @@ abstract class SwapInOperation
 
       logger.i(
         'Swap range resolved: '
-        'min=${params.minAmount?.getInSats}, '
-        'max=${params.maxAmount?.getInSats}, '
-        'selected=${params.amount.getInSats}',
+        'min=${params.minAmount?.inSats}, '
+        'max=${params.maxAmount?.inSats}, '
+        'selected=${params.amount.inSats}',
       );
 
       // Use super.emit to avoid persisting an Initialised state.
@@ -245,18 +247,17 @@ abstract class SwapInOperation
   });
 
   /// Updates the swap amount (must be within min/max range if set).
-  void updateAmount(BitcoinAmount amount) =>
-      logger.spanSync('updateAmount', () {
-        if (params.minAmount != null && amount < params.minAmount!) {
-          logger.w('Amount $amount below minimum ${params.minAmount}');
-          return;
-        }
-        if (params.maxAmount != null && amount > params.maxAmount!) {
-          logger.w('Amount $amount exceeds maximum ${params.maxAmount}');
-          return;
-        }
-        params.amount = amount;
-        logger.d('Swap amount updated to ${params.amount.getInSats} sats');
-        super.emit(const SwapInInitialised());
-      });
+  void updateAmount(TokenAmount amount) => logger.spanSync('updateAmount', () {
+    if (params.minAmount != null && amount < params.minAmount!) {
+      logger.w('Amount $amount below minimum ${params.minAmount}');
+      return;
+    }
+    if (params.maxAmount != null && amount > params.maxAmount!) {
+      logger.w('Amount $amount exceeds maximum ${params.maxAmount}');
+      return;
+    }
+    params.amount = amount;
+    logger.d('Swap amount updated to ${params.amount.inSats} sats');
+    super.emit(const SwapInInitialised());
+  });
 }

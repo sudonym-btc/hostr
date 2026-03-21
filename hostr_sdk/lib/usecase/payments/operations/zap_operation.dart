@@ -4,6 +4,7 @@ import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:ndk/ndk.dart' hide Zaps;
 
 import '../../../util/stream_status.dart';
+import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
 import '../../lnurl/lnurl.dart';
 import '../../zaps/zaps.dart';

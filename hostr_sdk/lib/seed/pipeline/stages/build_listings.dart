@@ -115,9 +115,9 @@ List<Listing> buildListings({
         description: _buildListingDescription(lr, theme),
         price: [
           Price(
-            amount: Amount(
-              currency: Currency.BTC,
+            amount: TokenAmount(
               value: BigInt.from(dailySats),
+              token: Token.btcLightning,
             ),
             frequency: Frequency.daily,
           ),

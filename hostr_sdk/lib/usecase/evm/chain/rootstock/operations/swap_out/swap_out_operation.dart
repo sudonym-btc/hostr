@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart' hide params;
@@ -437,15 +438,10 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     final swap = await getIt<BoltzClient>().submarine(invoice: invoice);
     logger.i('Submarine swap created: ${swap.toString()}');
 
-    final expectedLockAmount = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      swap.expectedAmount.ceil(),
-    );
-    final expectedLockAmountRounded = expectedLockAmount.roundUp(
-      BitcoinUnit.sat,
-    );
-    final gasFeeRounded = quote.estimatedGasFee.roundUp(BitcoinUnit.sat);
-    final balanceRounded = quote.balance.roundDown(BitcoinUnit.sat);
+    final expectedLockAmount = rbtcFromSatsInt(swap.expectedAmount.ceil());
+    final expectedLockAmountRounded = expectedLockAmount.roundUpToSats();
+    final gasFeeRounded = quote.estimatedGasFee.roundUpToSats();
+    final balanceRounded = quote.balance.roundDownToSats();
 
     if (expectedLockAmountRounded + gasFeeRounded > balanceRounded) {
       final requiredTotal = expectedLockAmountRounded + gasFeeRounded;
@@ -484,11 +480,11 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     );
   });
 
-  Future<BitcoinAmount> _estimateLockGasFee() =>
+  Future<TokenAmount> _estimateLockGasFee() =>
       logger.span('_estimateLockGasFee', () async {
         final gasPrice = await rootstock.client.getGasPrice();
         final feeWei = gasPrice.getInWei * BigInt.from(_estimatedLockGasLimit);
-        return BitcoinAmount.inWei(feeWei);
+        return rbtcFromWei(feeWei);
       });
 
   Uint8List _decodePaymentHash(String paymentHash) {

@@ -40,6 +40,9 @@ write_regtest_fast_config() {
         '    rskNodeUrl: "'"${RPC_URL:-}"'",' \
         '    confirmationsNeeded: 1,' \
         '    successfulRoundsForReady: 0,' \
+        '    workerTargetBalance: "50000000000000000000",' \
+        '    workerMinBalance: "10000000000000000000",' \
+        '    managerTargetBalance: "50000000000000000000",' \
         '  },' \
         '  register: {' \
         '    funds: "'"${REGISTER_FUNDS:-}"'",' \

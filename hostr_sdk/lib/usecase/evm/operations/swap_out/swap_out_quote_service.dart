@@ -1,15 +1,16 @@
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 
 import '../../../../datasources/boltz/boltz.dart';
 import '../../../../injection.dart';
-import '../../../../util/bitcoin_amount.dart';
+import '../../../../util/token_amount_ext.dart';
 
 /// Immutable quote describing a swap-out (RBTC → BTC).
 class SwapOutQuote {
-  final BitcoinAmount balance;
-  final BitcoinAmount invoiceAmount;
-  final BitcoinAmount estimatedGasFee;
-  final BitcoinAmount estimatedSwapFee;
+  final TokenAmount balance;
+  final TokenAmount invoiceAmount;
+  final TokenAmount estimatedGasFee;
+  final TokenAmount estimatedSwapFee;
 
   const SwapOutQuote({
     required this.balance,
@@ -31,26 +32,20 @@ class SwapOutQuoteService {
   /// Throws [StateError] when balance is insufficient or the requested amount
   /// falls outside Boltz limits.
   Future<SwapOutQuote> buildQuote({
-    required BitcoinAmount balance,
-    required BitcoinAmount estimatedGasFee,
-    BitcoinAmount? requestedAmount,
+    required TokenAmount balance,
+    required TokenAmount estimatedGasFee,
+    TokenAmount? requestedAmount,
   }) async {
-    final balanceRounded = balance.roundDown(BitcoinUnit.sat);
-    final gasFeeRounded = estimatedGasFee.roundUp(BitcoinUnit.sat);
+    final balanceRounded = balance.roundDownToSats();
+    final gasFeeRounded = estimatedGasFee.roundUpToSats();
 
     final pair = await getIt<BoltzClient>().getSubmarinePair(
       from: 'RBTC',
       to: 'BTC',
     );
 
-    final minInvoice = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      pair.limits.minimal.ceil(),
-    );
-    final maxInvoiceByPair = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      pair.limits.maximal.floor(),
-    );
+    final minInvoice = rbtcFromSatsInt(pair.limits.minimal.ceil());
+    final maxInvoiceByPair = rbtcFromSatsInt(pair.limits.maximal.floor());
 
     final percentage = pair.fees.percentage;
     final minerFeesSatsRoundedUp = pair.fees.minerFees.ceil();
@@ -77,20 +72,15 @@ class SwapOutQuoteService {
       );
     }
 
-    final maxInvoiceByBalance = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
-      maxInvoiceByBalanceSats,
-    );
-    final maxInvoice = BitcoinAmount.max(
-      BitcoinAmount.zero(),
+    final maxInvoiceByBalance = rbtcFromSatsInt(maxInvoiceByBalanceSats);
+    final maxInvoice = TokenAmount.max(
+      TokenAmount.zero(rbtc),
       maxInvoiceByBalance < maxInvoiceByPair
           ? maxInvoiceByBalance
           : maxInvoiceByPair,
     );
 
-    final invoiceAmount = (requestedAmount ?? maxInvoice).roundDown(
-      BitcoinUnit.sat,
-    );
+    final invoiceAmount = (requestedAmount ?? maxInvoice).roundDownToSats();
 
     if (invoiceAmount < minInvoice) {
       throw StateError(
@@ -114,10 +104,9 @@ class SwapOutQuoteService {
     final estimatedSwapFeeSats =
         invoiceAmount.getInSats.toDouble() * (percentage / 100.0) +
         minerFeesSatsRoundedUp;
-    final estimatedSwapFee = BitcoinAmount.fromInt(
-      BitcoinUnit.sat,
+    final estimatedSwapFee = rbtcFromSatsInt(
       estimatedSwapFeeSats.ceil(),
-    ).roundUp(BitcoinUnit.sat);
+    ).roundUpToSats();
 
     return SwapOutQuote(
       balance: balanceRounded,

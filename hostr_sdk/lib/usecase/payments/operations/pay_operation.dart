@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 
-import '../../../util/bitcoin_amount.dart';
+import 'package:models/main.dart';
+
 import '../../../util/custom_logger.dart';
+import '../../../util/token_amount_ext.dart';
 import '../../nwc/nwc.dart';
 import 'pay_models.dart';
 import 'pay_state.dart';
@@ -87,9 +89,7 @@ abstract class PayOperation<
   });
 
   /// Updates the payment amount (must be within the effective range).
-  void updateAmount(
-    BitcoinAmount amount,
-  ) => logger.spanSync('updateAmount', () {
+  void updateAmount(TokenAmount amount) => logger.spanSync('updateAmount', () {
     if (resolvedDetails == null ||
         _effectiveMinAmount == null ||
         _effectiveMaxAmount == null) {

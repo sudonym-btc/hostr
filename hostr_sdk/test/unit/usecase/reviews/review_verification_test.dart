@@ -149,7 +149,7 @@ Listing _fixtureListing() {
     images: const [],
     price: [
       Price(
-        amount: Amount(currency: Currency.BTC, value: BigInt.from(100000)),
+        amount: TokenAmount(value: BigInt.from(100000), token: Token.btcLightning),
         frequency: Frequency.daily,
       ),
     ],

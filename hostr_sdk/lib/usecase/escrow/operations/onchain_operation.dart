@@ -1,11 +1,12 @@
+import 'package:models/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
 import '../../../config.dart';
 import '../../../injection.dart';
-import '../../../util/bitcoin_amount.dart';
 import '../../../util/bloc_x.dart';
 import '../../../util/custom_logger.dart';
+import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
 import '../../evm/main.dart';
 import '../../trade_account_allocator/trade_account_allocator.dart';
@@ -749,7 +750,7 @@ abstract class OnchainOperation
           transport: _transportForIntent(pinnedIntent),
         );
         final swapDeficit = await computeSwapDeficit(data, gasEstimate);
-        final swapFees = swapDeficit > BitcoinAmount.zero()
+        final swapFees = swapDeficit > TokenAmount.zero(rbtc)
             ? await chain
                   .swapIn(
                     SwapInParams(
@@ -765,9 +766,9 @@ abstract class OnchainOperation
                   )
                   .estimateFees()
             : SwapInFees(
-                estimatedGasFees: BitcoinAmount.zero(),
-                estimatedSwapFees: BitcoinAmount.zero(),
-                estimatedRelayFees: BitcoinAmount.zero(),
+                estimatedGasFees: TokenAmount.zero(rbtc),
+                estimatedSwapFees: TokenAmount.zero(rbtc),
+                estimatedRelayFees: TokenAmount.zero(rbtc),
               );
 
         return OnchainFeeQuote(
@@ -956,7 +957,7 @@ abstract class OnchainOperation
   /// the transaction value + gas.
   ///
   /// Returns the amount that must be swapped in (zero if sufficient).
-  Future<BitcoinAmount> computeSwapDeficit(
+  Future<TokenAmount> computeSwapDeficit(
     OnchainOperationData data,
     GasEstimate gasEstimate,
   ) => logger.span('computeSwapDeficit', () async {
@@ -968,14 +969,14 @@ abstract class OnchainOperation
       logger.i(
         'Skipping swap deficit computation for relayed zero-value ${intent.methodName}',
       );
-      return BitcoinAmount.zero();
+      return TokenAmount.zero(rbtc);
     }
 
     final address = await auth.hd.getEvmAddress(
       accountIndex: data.accountIndex,
     );
     final balance = await chain.getBalance(address);
-    final requiredOnchainValue = BitcoinAmount.inWei(intent.value.getInWei);
+    final requiredOnchainValue = rbtcFromWei(intent.value.getInWei);
     final shortfall = balance - requiredOnchainValue - gasEstimate.fee;
 
     logger.i(
@@ -985,14 +986,11 @@ abstract class OnchainOperation
       'shortfall=${shortfall.getInSats}',
     );
 
-    if (shortfall < BitcoinAmount.zero()) {
+    if (shortfall < TokenAmount.zero(rbtc)) {
       final limits = await chain.getSwapInLimits();
-      return BitcoinAmount.max(
-        limits.min,
-        shortfall.abs(),
-      ).roundUp(BitcoinUnit.sat);
+      return TokenAmount.max(limits.min, shortfall.abs()).roundUpToSats();
     }
-    return BitcoinAmount.zero();
+    return TokenAmount.zero(rbtc);
   });
 
   // ── Nested swap-in ────────────────────────────────────────────────
@@ -1007,7 +1005,7 @@ abstract class OnchainOperation
     GasEstimate gasEstimate,
   ) => logger.span('swapIfNeeded', () async {
     final deficit = await computeSwapDeficit(data, gasEstimate);
-    if (deficit <= BitcoinAmount.zero()) return data;
+    if (deficit <= TokenAmount.zero(rbtc)) return data;
 
     final evmKey = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
 
@@ -1030,7 +1028,7 @@ abstract class OnchainOperation
       SwapInParams(
         evmKey: evmKey,
         accountIndex: accountIndex,
-        amount: (deficit + swapFees.totalFees).roundUp(BitcoinUnit.sat),
+        amount: (deficit + swapFees.totalFees).roundUpToSats(),
         invoiceDescription: swapInvoiceDescription,
         claimAddress: swapClaimAddress,
         claimDestination: swapClaimDestination,
