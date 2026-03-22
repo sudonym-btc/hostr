@@ -64,8 +64,9 @@ services:
           - lnbits.${DOMAIN}
           - alby.${DOMAIN}
           - anvil.${DOMAIN}
+          - arbitrum.${DOMAIN}
           - boltz.${DOMAIN}
-          - bundler.${DOMAIN}
+          - paymaster.${DOMAIN}
 
   relay:
     image: scsibug/nostr-rs-relay:latest

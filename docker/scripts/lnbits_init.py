@@ -5,14 +5,16 @@ lnbits_init.py — Bootstrap LNbits instances for local development.
 For each configured LNbits instance this script:
   1. First-install (create superuser admin) — idempotent.
   2. Login to obtain an access token.
-  3. Install + enable the lnurlp and nostrnip5 extensions.
-  4. Get the admin wallet ID + key.
-  5. Configure nostrnip5 settings (lnaddress endpoint).
-  6. Create a lnurlp "tips" link (idempotent).
-  7. Create the NIP-05 domain if it doesn't exist yet.
-  8. Rename the domain ID in SQLite to a fixed deterministic value so the
+  3. Get the admin wallet ID + key.
+  4. Configure nostrnip5 settings (lnaddress endpoint).
+  5. Create a lnurlp "tips" link (idempotent).
+  6. Create the NIP-05 domain if it doesn't exist yet.
+  7. Rename the domain ID in SQLite to a fixed deterministic value so the
      committed nginx vhost.d proxy config never needs to change between
      restarts.
+
+Extensions are pre-installed via docker-compose environment variables
+(LNBITS_EXTENSIONS_DEFAULT_INSTALL) — this script only configures them.
 
 Running this at container startup means seed_relay.sh never needs to touch
 nginx or the LNbits database.
@@ -25,26 +27,6 @@ import sys
 import time
 import urllib.error
 import urllib.request
-
-# ── Extension coordinates ────────────────────────────────────────────────────
-_EXTENSIONS = [
-    (
-        "lnurlp",
-        "https://github.com/lnbits/lnurlp/archive/refs/tags/v1.3.0.zip",
-        "1.3.0",
-    ),
-    (
-        "nostrnip5",
-        "https://github.com/lnbits/nostrnip5/archive/refs/tags/v1.0.4.zip",
-        "1.0.4",
-    ),
-]
-
-_SOURCE_REPO = (
-    "https://raw.githubusercontent.com/lnbits/lnbits-extensions"
-    "/main/extensions.json"
-)
-
 
 # ── HTTP helpers ─────────────────────────────────────────────────────────────
 
@@ -131,35 +113,7 @@ def setup_instance(
         raise RuntimeError(f"Login failed at {base_url}: {body}")
     print(f"  ✓ Logged in")
 
-    # ── 3. Install + enable extensions ──────────────────────────────────────
-    for ext_id, archive, version in _EXTENSIONS:
-        status, body = _req(
-            "POST",
-            f"{base_url}/api/v1/extension",
-            token=token,
-            data={
-                "ext_id": ext_id,
-                "archive": archive,
-                "source_repo": _SOURCE_REPO,
-                "version": version,
-            },
-        )
-        detail = (body.get("detail") or "").lower()
-        if status not in (200, 201) and "already" not in detail:
-            print(f"  ⚠ Extension install {ext_id}: HTTP {status} — {detail}")
-
-        status, body = _req(
-            "PUT",
-            f"{base_url}/api/v1/extension/{ext_id}/enable",
-            token=token,
-        )
-        detail = (body.get("detail") or "").lower()
-        if status not in (200, 201) and "already" not in detail:
-            print(f"  ⚠ Extension enable {ext_id}: HTTP {status} — {detail}")
-        else:
-            print(f"  ✓ Extension {ext_id} enabled")
-
-    # ── 4. Get wallet ────────────────────────────────────────────────────────
+    # ── 3. Get wallet ────────────────────────────────────────────────────────
     status, wallets = _req("GET", f"{base_url}/api/v1/wallets", token=token)
     if not isinstance(wallets, list) or not wallets:
         raise RuntimeError(f"No wallets returned from {base_url}: {wallets}")
@@ -169,7 +123,7 @@ def setup_instance(
 
     nip5_headers = {"X-Api-Key": admin_key}
 
-    # ── 5. Configure nostrnip5 settings ─────────────────────────────────────
+    # ── 4. Configure nostrnip5 settings ─────────────────────────────────────
     _req(
         "PUT",
         f"{base_url}/nostrnip5/api/v1/settings",
@@ -182,7 +136,7 @@ def setup_instance(
     )
     print(f"  ✓ nostrnip5 settings saved")
 
-    # ── 6. Configure lnurlp Nostr key ───────────────────────────────────────
+    # ── 5. Configure lnurlp Nostr key ───────────────────────────────────────
     if nostr_private_key:
         status, settings = _req(
             "GET",
@@ -201,7 +155,7 @@ def setup_instance(
             )
             print(f"  ✓ lnurlp Nostr key configured")
 
-    # ── 7. Tips lnurlp link ──────────────────────────────────────────────────
+    # ── 6. Tips lnurlp link ──────────────────────────────────────────────────
     # Pass X-Forwarded-Host/Proto so LNbits uses the public domain when
     # encoding the LNURL callback URL (not the internal http://lnbits:5000).
     status, body = _req(
@@ -229,7 +183,7 @@ def setup_instance(
     else:
         print(f"  ✓ Tips lnurlp link present")
 
-    # ── 8. Create / find NIP-05 domain ──────────────────────────────────────
+    # ── 7. Create / find NIP-05 domain ──────────────────────────────────────
     domain_id = None
     status, domains = _req(
         "GET",
@@ -269,7 +223,7 @@ def setup_instance(
             )
         print(f"  ✓ Created domain (id={domain_id})")
 
-    # ── 9. Fix domain ID in SQLite ───────────────────────────────────────────
+    # ── 8. Fix domain ID in SQLite ───────────────────────────────────────────
     # The API generates a random ID. We rename it to the fixed constant that
     # the committed nginx vhost.d file already references.
     if domain_id == fixed_domain_id:

@@ -49,10 +49,51 @@ services:
   anvil:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
 
+  anvil-arbitrum:
+    hostname: anvil-arbitrum
+    container_name: boltz-anvil-arbitrum
+    image: ${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:latest}
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    entrypoint: "anvil --host 0.0.0.0 --chain-id 412346"
+    environment:
+      - VIRTUAL_HOST=arbitrum.${DOMAIN}
+      - VIRTUAL_PORT=8545
+    ports:
+      - 8546:8545
+    healthcheck:
+      test: ["CMD", "cast", "chain-id", "--rpc-url", "http://127.0.0.1:8545"]
+      timeout: 2s
+      retries: 5
+      interval: 1s
+      start_period: 1s
+    networks:
+      - default
+
+  arbitrum-init:
+    image: ${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:latest}
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    container_name: boltz-arbitrum-init
+    restart: "no"
+    depends_on:
+      anvil-arbitrum:
+        condition: service_healthy
+    volumes:
+      - ./docker/scripts/arbitrum-init.sh:/scripts/arbitrum-init.sh:ro
+      - ./dependencies/boltz-regtest/images/scripts/utils.sh:/scripts/boltz-utils.sh:ro
+    entrypoint: ["sh", "/scripts/arbitrum-init.sh"]
+    environment:
+      - BOLTZ_WALLET_ADDRESS=${BOLTZ_WALLET_ADDRESS:-}
+    networks:
+      - default
+
   boltz-backend:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
-    # volumes:
-    #   - ./docker/boltz.conf:/boltz-data/boltz.conf:ro
+    depends_on:
+      arbitrum-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./docker/boltz.conf:/boltz-data/boltz.conf:ro
+      - ./docker/patches/DataAggregator.js:/boltz-backend/dist/lib/rates/data/DataAggregator.js:ro
     healthcheck:
       start_period: 120s
 

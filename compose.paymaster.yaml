@@ -9,8 +9,11 @@
 services:
   contract-deployer:
     image: ghcr.io/pimlicolabs/mock-contract-deployer:main
+    depends_on:
+      anvil-arbitrum:
+        condition: service_healthy
     environment:
-      - ANVIL_RPC=http://anvil:8545
+      - ANVIL_RPC=http://anvil-arbitrum:8545
     restart: "no"
     networks:
       - default
@@ -27,7 +30,7 @@ services:
       contract-deployer:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:4337 -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"eth_chainId\",\"params\":[],\"id\":1}' >/dev/null"]
+      test: ["CMD-SHELL", "wget -qO- --post-data='{\"jsonrpc\":\"2.0\",\"method\":\"eth_chainId\",\"params\":[],\"id\":1}' --header='Content-Type: application/json' http://127.0.0.1:4337 >/dev/null"]
       timeout: 3s
       retries: 30
       interval: 5s
@@ -39,9 +42,7 @@ services:
     networks:
       - default
 
-  bundler:
-    hostname: bundler
-    container_name: hostr-bundler
+  paymaster:
     image: ghcr.io/pimlicolabs/mock-verifying-paymaster:main
     depends_on:
       contract-deployer:
@@ -51,16 +52,16 @@ services:
       nginx-proxy:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:3000/ping | grep -q 'pong'"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ping | grep -q 'pong'"]
       timeout: 3s
       retries: 30
       interval: 5s
       start_period: 10s
     environment:
-      VIRTUAL_HOST: bundler.${DOMAIN}
+      VIRTUAL_HOST: paymaster.${DOMAIN}
       VIRTUAL_PORT: 3000
       ALTO_RPC: http://alto:4337
-      ANVIL_RPC: http://anvil:8545
+      ANVIL_RPC: http://anvil-arbitrum:8545
     ports:
       - 3010:3000
     networks:

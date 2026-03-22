@@ -62,8 +62,8 @@ resource "google_dns_record_set" "landing" {
   depends_on = [google_compute_address.static_ip]
 }
 
-resource "google_dns_record_set" "bundler" {
-  name         = "bundler.${var.domain_name}."
+resource "google_dns_record_set" "paymaster" {
+  name         = "paymaster.${var.domain_name}."
   type         = "A"
   ttl          = 300
   project      = var.project_id

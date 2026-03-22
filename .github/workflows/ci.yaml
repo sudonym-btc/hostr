@@ -119,7 +119,7 @@ jobs:
 
       - name: Add host aliases
         run: |
-          echo "127.0.0.1 relay.hostr.development blossom.hostr.development telemetry.hostr.development alby.hostr.development lnbits.hostr.development anvil.hostr.development boltz.hostr.development bundler.hostr.development" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 relay.hostr.development blossom.hostr.development telemetry.hostr.development alby.hostr.development lnbits.hostr.development anvil.hostr.development boltz.hostr.development paymaster.hostr.development" | sudo tee -a /etc/hosts
 
       - name: Trust dev CA on runner
         run: |

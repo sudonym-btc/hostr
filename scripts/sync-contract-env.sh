@@ -45,10 +45,10 @@ const NETWORK_KEY_BY_ENV = {
 };
 
 const BUNDLER_URL_BY_ENV = {
-  local: 'https://bundler.hostr.development',
-  test: 'https://bundler.hostr.development',
-  staging: 'https://bundler.staging.hostr.network/rpc',
-  prod: 'https://bundler.hostr.network/rpc',
+  local: 'https://paymaster.hostr.development',
+  test: 'https://paymaster.hostr.development',
+  staging: 'https://paymaster.staging.hostr.network/rpc',
+  prod: 'https://paymaster.hostr.network/rpc',
 };
 
 const keysToUpdate = [
