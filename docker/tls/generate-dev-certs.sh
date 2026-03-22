@@ -125,11 +125,14 @@ generate_cert "telemetry.${DOMAIN}" \
 generate_cert "anvil.${DOMAIN}" \
   "DNS:anvil.${DOMAIN},DNS:anvil,DNS:localhost,IP:127.0.0.1"
 
+generate_cert "arbitrum.${DOMAIN}" \
+  "DNS:arbitrum.${DOMAIN},DNS:arbitrum,DNS:anvil-arbitrum,DNS:localhost,IP:127.0.0.1"
+
 generate_cert "boltz.${DOMAIN}" \
   "DNS:boltz.${DOMAIN},DNS:boltz,DNS:localhost,IP:127.0.0.1"
 
-generate_cert "bundler.${DOMAIN}" \
-  "DNS:bundler.${DOMAIN},DNS:bundler,DNS:localhost,IP:127.0.0.1"
+generate_cert "paymaster.${DOMAIN}" \
+  "DNS:paymaster.${DOMAIN},DNS:paymaster,DNS:localhost,IP:127.0.0.1"
 
 generate_cert "otterscan.${DOMAIN}" \
   "DNS:otterscan.${DOMAIN},DNS:otterscan,DNS:localhost,IP:127.0.0.1"

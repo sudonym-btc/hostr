@@ -453,3 +453,313 @@ Verifier confirms:
 - ✅ Contract bytecode matches advertised hash
 
 Booking is valid.
+
+---
+
+## Appendix: Optimal Data Structure — Decoupling Listings, Capabilities & Contracts
+
+> **Status**: Design notes. The protocol is not live; no backward compatibility required. All Nostr models can be altered freely.
+
+The three-layer model above is structurally sound. This appendix proposes concrete refinements to make the schema as lean as possible, driven by three observations:
+
+1. **Listings are amounts.** They never reference tokens, chains, or escrows.
+2. **Payment capabilities are per-user, not per-listing.** Three independent signed declarations.
+3. **Contract identity is bytecode, not a name or chain-address.** A bytecode hash is the only chain-independent way to say "I know how to read this contract."
+
+### A.1 — One Event, Three Declarations
+
+Every participant (buyer or seller) publishes exactly **one Nostr event** — the **EscrowMethod (kind 30301)** — containing **three orthogonal declaration sets** via three tag families:
+
+| Declaration              | Tag family | Answers                                                                          |
+| ------------------------ | ---------- | -------------------------------------------------------------------------------- |
+| **1. Escrow Trust**      | `p` tags   | "Which escrow operator pubkeys do I trust as arbiters?"                          |
+| **2. Contract Literacy** | `c` tags   | "Which escrow contract bytecodes can my client software read and interact with?" |
+| **3. Token Acceptance**  | `a` tags   | "Which concrete tokens do I accept, mapped to which denomination?"               |
+
+All three live on the same event because they're all "my escrow preferences" — they share an update cadence (rarely changed), a single signature, and a single relay query. The `p`, `c`, and `a` tag families are logically independent within the event: a user can trust an arbiter (`p`) without accepting any specific token (`a`), and vice versa.
+
+This eliminates the separate EscrowTrust event (kind 30300) entirely. One event per user, one fetch per counterparty.
+
+### A.2 — Contract Identification: Bytecode Hash, Not Name
+
+The current `["c", "MultiEscrow"]` tag uses a human-readable string. Replace it with the **keccak256 hash of the contract's deployed runtime bytecode**:
+
+```
+["c", "0x<keccak256(runtime_bytecode)>"]
+```
+
+Why this is strictly better:
+
+| Property            | Name (`"MultiEscrow"`)                        | Bytecode hash (`"0xabc1..."`)        |
+| ------------------- | --------------------------------------------- | ------------------------------------ |
+| Chain-independent   | ✅                                            | ✅                                   |
+| Version-precise     | ❌ (v3 vs v4?)                                | ✅ (different code → different hash) |
+| Verifiable on-chain | ❌                                            | ✅ (`keccak256(eth_getCode(addr))`)  |
+| Collision-free      | ❌ (anyone can name a contract "MultiEscrow") | ✅ (cryptographic)                   |
+
+A user declaring `["c", "0xabc1..."]` means: _"My client software can encode calls to, decode events from, and verify the state of any contract whose runtime bytecode hashes to `0xabc1...`, on any EVM chain."_
+
+This also **eliminates the `["t", "EVM"]` tag**. If you declare a bytecode hash, you implicitly operate on EVM chains. Non-EVM escrow types (if ever needed) would be an entirely different tag family.
+
+### A.3 — The ERC20 → Denomination Mapping
+
+**The problem**: A listing says `50.00:USD:daily`. A token lives at `30:0xdAC17...`. How does the protocol know that token counts as `USD`?
+
+**The answer**: The `["a", ...]` tag **IS** the mapping. No global denomination registry is needed for payment resolution.
+
+```
+["a", "USD", "30:0xdAC17F958D2ee523a2206206994597C13D831ec7"]
+```
+
+This single tag simultaneously asserts three things:
+
+1. **Acceptance**: "I will receive token `30:0xdAC17...`"
+2. **Equivalence**: "I consider it equivalent to the `USD` denomination"
+3. **Scope**: "This applies to all my `USD`-priced listings"
+
+The mapping is **per-user and opt-in**. A hoster who doesn't trust USDT simply omits it. The protocol never globally asserts "USDT = USD" — the hoster's cryptographic signature on the `a` tag is the assertion.
+
+#### Native tokens follow the same pattern
+
+| Token type       | `a` tag                          | What it says                                  |
+| ---------------- | -------------------------------- | --------------------------------------------- |
+| ERC20 stablecoin | `["a", "USD", "30:0xdAC17..."]`  | "USDT on RSK counts as USD for my listings"   |
+| Native RBTC      | `["a", "BTC", "30:0x0000…0000"]` | "Native RBTC counts as BTC for my listings"   |
+| Lightning BTC    | `["a", "BTC", "0:lightning"]`    | "Lightning sats count as BTC for my listings" |
+
+The zero-address sentinel for native tokens mirrors Solidity's `address(0)` convention and is what the `MultiEscrow` contract already uses. No format special-casing.
+
+#### Token metadata registry (display-only, not protocol)
+
+Separately from payment resolution, the **client app** needs display metadata (symbol, name, decimals, icon) for UX. This is a client-side `TokenRegistry` — a hardcoded table of well-known tokens with an on-chain fallback (`ERC20.symbol()`, `.decimals()`):
+
+```dart
+// Client-side only. Not a Nostr event. Not part of payment resolution.
+class TokenRegistry {
+  static const knownTokens = {
+    (30, '0xdAC17...'): (symbol: 'USDT', denomination: 'USD', decimals: 6),
+    (30, '0xA0b8...' ): (symbol: 'USDC', denomination: 'USD', decimals: 6),
+    (30, '0x0000…0'  ): (symbol: 'RBTC', denomination: 'BTC', decimals: 18),
+  };
+
+  // Falls back to on-chain ERC20.name() / .symbol() / .decimals()
+  Future<TokenMetadata> resolve(int chainId, String address);
+}
+```
+
+The registry helps **pre-populate** the hoster's acceptance form ("Suggest: USDT → USD") and **display** friendly names in the booking UI ("Pay 150 USDT on Rootstock"). It has no protocol role.
+
+### A.4 — Revised Event Schemas
+
+#### Listing (kind 32121) — unchanged
+
+```
+["price", "50.00:USD:daily"]
+["price", "0.00100000:BTC:daily"]
+```
+
+Pure denomination + amount. No tokens, no chains, no contracts.
+
+#### EscrowTrust (kind 30300) — eliminated
+
+Merged into EscrowMethod. No separate event needed.
+
+#### EscrowMethod (kind 30301) — the single user event
+
+```
+tags: [
+  ["d", "escrow-method"],
+
+  // Trusted escrow arbiters (replaces kind 30300)
+  ["p", "<escrow_pubkey_1>"],
+  ["p", "<escrow_pubkey_2>"],
+
+  // Contract literacy: bytecode hashes I can interact with (chain-independent)
+  ["c", "0x<bytecodeHash_MultiEscrow_v3>"],
+
+  // Token acceptance: denomination → concrete token
+  ["a", "USD", "30:0xdAC17..."],            // USDT on Rootstock
+  ["a", "USD", "30:0xA0b8..."],             // USDC on Rootstock
+  ["a", "USD", "42161:0xFd08..."],          // USDT on Arbitrum
+  ["a", "BTC", "30:0x0000...0"],            // Native RBTC
+  ["a", "BTC", "0:lightning"],              // Lightning
+]
+```
+
+**Removed**: `["t", "EVM"]` — implied by the presence of a bytecode-hash `c` tag.
+
+**Removed**: kind 30300 (EscrowTrust) — `p` tags now live here. One event carries trust, literacy, and acceptance.
+
+**Changed**: `["c", "MultiEscrow"]` → `["c", "0x<hash>"]` — verifiable, version-precise, chain-independent.
+
+#### EscrowService (kind 30303) — multi-chain
+
+The single biggest structural change. Currently an `EscrowService` has one `chainId` and one `contractAddress`, so an operator running on 3 chains needs 3 events. With bytecode-hash identity, **one event covers all deployments**:
+
+```json
+{
+  "pubkey": "<escrow_nostr_pubkey>",
+  "evmAddress": "<escrow_evm_signer_address>",
+  "contractBytecodeHash": "0x<keccak256_of_runtime_bytecode>",
+  "feePercent": 1.5,
+  "maxDuration": 31536000
+}
+```
+
+```
+tags: [
+  // Parameterized replaceable: one event per operator per contract version
+  ["d", "<escrow_pubkey>:<bytecodeHash>"],
+
+  // Deployments: where this bytecode is live
+  ["deploy", "30",    "0xContractAddrOnRSK"],
+  ["deploy", "42161", "0xContractAddrOnArb"],
+
+  // Supported tokens with per-token fees (amounts in token's smallest unit)
+  ["token", "30:0xdAC17...",   "feeBase:100000", "min:1000000",  "max:100000000000"],
+  ["token", "30:0xA0b8...",    "feeBase:100000", "min:1000000",  "max:100000000000"],
+  ["token", "30:0x0000...0",   "feeBase:500",    "min:10000",    "max:10000000"],
+  ["token", "42161:0xFd08...", "feeBase:100000", "min:1000000",  "max:100000000000"],
+  ["token", "BTC",             "feeBase:500",    "min:10000",    "max:10000000"],
+]
+```
+
+**Key changes**:
+
+- `chainId` and `contractAddress` **removed from JSON content** — replaced by `deploy` tags
+- Each `["deploy", chainId, address]` tag declares one chain where this bytecode is deployed
+- `contractBytecodeHash` is **the** identity of the escrow service, not the contract address
+- An operator on 5 chains publishes **1 event** instead of 5
+
+The on-chain allowlist enforcement is unchanged: each deployment independently maintains its `allowedTokens` mapping and must agree with the `token` tags.
+
+### A.5 — Revised Intersection Algorithm
+
+```
+resolve_payment_options(listing, seller_method, buyer_method):
+
+  # ── Step 0: Mutual trust ──────────────────────────────────────
+  # Both events carry p tags — intersect to find mutually trusted arbiters
+  seller_trusted = seller_method.p_tags                         # {"pubA", "pubB"}
+  buyer_trusted  = buyer_method.p_tags                          # {"pubB", "pubC"}
+  mutual_arbiters = seller_trusted ∩ buyer_trusted              # {"pubB"}
+
+  # Fetch EscrowService events (kind 30303) authored by mutual arbiters
+  mutual_escrow_services = fetch_escrow_services(mutual_arbiters)
+
+  # ── Step 1: Denomination ──────────────────────────────────────
+  # What denominations does the listing offer?
+  denominations = listing.prices.map(p => p.denomination)       # {"USD"}
+
+  # ── Step 2: Contract literacy intersection ────────────────────
+  # What bytecodes can BOTH buyer and seller interact with?
+  mutual_bytecodes = seller_method.c_tags ∩ buyer_method.c_tags # {"0xabc..."}
+
+  # ── Step 3: Per-denomination token resolution ─────────────────
+  for denomination in denominations:
+
+    # What tokens does the seller accept for this denomination?
+    seller_tokens = seller_method
+      .a_tags_for(denomination)
+      .map(tokenTagId)                        # {"30:0xdAC17...", "42161:0xFd08..."}
+
+    # ── Step 4: Per-escrow filtering ──────────────────────────
+    for escrow in mutual_escrow_services:
+
+      # Does the escrow run a contract we both understand?
+      if escrow.bytecodeHash ∉ mutual_bytecodes:
+        continue
+
+      # Which of the seller's accepted tokens does this escrow support?
+      escrow_tokens = escrow.token_tags.map(tokenTagId)
+      valid_tokens = seller_tokens ∩ escrow_tokens
+
+      # Further filter: token must be on a chain where escrow is deployed
+      escrow_chains = escrow.deploy_tags.map(chainId)  # {30, 42161}
+
+      for token in valid_tokens:
+        token_chain = token.split(':')[0]
+        if token_chain ∈ escrow_chains:
+          emit PaymentOption(
+            denomination,
+            amount: listing.total_for(denomination),
+            token,
+            escrow,
+            deploymentAddress: escrow.deployment_for(token_chain),
+            fee: escrow.fee_for(token),
+          )
+```
+
+The entire resolution requires fetching exactly **two counterparty events** (one EscrowMethod per party) plus the EscrowService events for the mutually trusted arbiters. No separate trust-list fetch.
+
+### A.6 — Efficiency Summary
+
+| Metric                             | Current                               | Revised                | Improvement       |
+| ---------------------------------- | ------------------------------------- | ---------------------- | ----------------- |
+| **Events per user**                | 2 (Trust + Method)                    | **1** (Method only)    | −1 event, −1 kind |
+| **Events per escrow operator**     | 1 per (chain × contract)              | 1 per contract version | ÷ N chains        |
+| **Relay queries at booking**       | 4 (2 trusts + 2 methods)              | **2** (2 methods)      | −2 queries        |
+| **Tags per EscrowMethod**          | `t` + `c` + `a` tags (+ separate `p`) | `p` + `c` + `a` tags   | Net −1 event      |
+| **Separate denomination registry** | None needed                           | None needed            | —                 |
+| **Contract version ambiguity**     | Possible (`"MultiEscrow"`)            | Impossible (hash)      | Eliminated        |
+
+**Tag count for a typical hoster** trusting 2 escrow operators, accepting 4 tokens across 2 chains, with 1 contract type: 2 `p` tags + 1 `c` tag + 4 `a` tags = **7 tags** in a **single event**. Previously this was 2 `p` tags in one event + 1 `t` + 1 `c` + 4 `a` in another = 8 tags across 2 events — fewer tags, fewer events.
+
+**Tag count for a typical escrow operator** on 3 chains supporting 6 tokens: 1 `d` tag + 3 `deploy` tags + 6 `token` tags = **10 tags** in a single event (vs. 3 events × ~3 tags each = 9 tags across 3 events in the current model — similar total tags but fewer events and fewer relay queries).
+
+### A.7 — Worked Example: Full Payment Resolution
+
+**Setup:**
+
+Listing (kind 32121):
+
+```
+["price", "75.00:USD:daily"]
+```
+
+Seller's EscrowMethod (kind 30301):
+
+```
+["p", "<escrow_pubkey_B>"]                         // trusts escrow B as arbiter
+["c", "0xabc123..."]                              // knows MultiEscrow v3
+["a", "USD", "30:0xdAC17..."]                     // accepts USDT on RSK
+["a", "USD", "42161:0xFd08..."]                   // accepts USDT on Arbitrum
+```
+
+Buyer's EscrowMethod (kind 30301):
+
+```
+["p", "<escrow_pubkey_B>"]                         // also trusts escrow B
+["p", "<escrow_pubkey_C>"]                         // also trusts escrow C
+["c", "0xabc123..."]                              // also knows MultiEscrow v3
+["a", "BTC", "30:0x0000...0"]                     // (irrelevant — buyer's own acceptance)
+```
+
+Escrow B's EscrowService (kind 30303):
+
+```json
+{ "contractBytecodeHash": "0xabc123..." }
+```
+
+```
+["deploy", "30",    "0xEscrowOnRSK"]
+["deploy", "42161", "0xEscrowOnArb"]
+["token",  "30:0xdAC17...",   "feeBase:100000", "min:1000000", "max:100000000000"]
+["token",  "42161:0xFd08...", "feeBase:50000",  "min:500000",  "max:100000000000"]
+```
+
+**Resolution:**
+
+1. Mutual arbiters: seller `p` tags `{B}` ∩ buyer `p` tags `{B, C}` = `{B}` → fetch escrow B
+2. Denomination: `USD`
+3. Mutual bytecodes: `{0xabc123...}` ← both parties' `c` tags intersect
+4. Seller's USD tokens: `{30:0xdAC17..., 42161:0xFd08...}`
+5. Escrow B's bytecode `0xabc123...` ∈ mutual → proceed
+6. Escrow B's tokens: `{30:0xdAC17..., 42161:0xFd08...}`
+7. Intersection: `{30:0xdAC17..., 42161:0xFd08...}` — both survive
+8. Both tokens' chains (30, 42161) have escrow deployments → both viable
+
+**Result — guest chooses from:**
+
+- 225 USDT on Rootstock (escrow at `0xEscrowOnRSK`, fee: 100000 base + 1.5%)
+- 225 USDT on Arbitrum (escrow at `0xEscrowOnArb`, fee: 50000 base + 1.5%)

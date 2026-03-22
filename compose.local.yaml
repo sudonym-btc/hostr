@@ -61,7 +61,7 @@ services:
     depends_on:
       escrow-contract-deploy:
         condition: service_completed_successfully
-      anvil:
+      anvil-arbitrum:
         condition: service_healthy
       nginx-proxy:
         condition: service_healthy
@@ -202,12 +202,12 @@ services:
       context: ./escrow/contracts
       dockerfile: Dockerfile
     depends_on:
-      anvil:
+      anvil-arbitrum:
         condition: service_healthy
     volumes:
       - ./escrow/contracts/contract-addresses.json:/usr/src/app/contract-addresses.json
     environment:
-      - RPC_URL=http://anvil:8545
+      - RPC_URL=http://anvil-arbitrum:8545
       - DEPLOYER_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
     command:
       [

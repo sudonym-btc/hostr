@@ -315,7 +315,7 @@ class _DevelopmentAccountAbstractionConfig extends AccountAbstractionConfig {
   @override
   String get bundlerUrl =>
       Platform.environment['AA_BUNDLER_URL']?.trim() ??
-      'https://bundler.hostr.development';
+      'https://paymaster.hostr.development';
 
   @override
   String get entryPointAddress => _requireEnv('AA_ENTRY_POINT_ADDRESS');

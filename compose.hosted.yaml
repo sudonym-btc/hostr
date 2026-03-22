@@ -53,7 +53,7 @@ services:
     environment:
       - LETSENCRYPT_HOST=app.${DOMAIN}
 
-  bundler:
+  paymaster:
     image: accountabstraction/bundler:0.7.0
     command:
       - --port
@@ -67,7 +67,7 @@ services:
       nginx-proxy:
         condition: service_healthy
     environment:
-      LETSENCRYPT_HOST: bundler.${DOMAIN}
+      LETSENCRYPT_HOST: paymaster.${DOMAIN}
     restart: unless-stopped
     networks:
       - default
