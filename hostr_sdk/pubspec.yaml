@@ -32,6 +32,7 @@ dependencies:
   bip39_mnemonic: ^4.0.1
   convert: ^3.1.2
   eip712: ^1.0.1
+  permissionless: ^0.2.0
   opentelemetry: ^0.18.11
   sqlite3: ^3.1.7
   web_socket_channel: ^3.0.3
@@ -51,6 +52,8 @@ dev_dependencies:
 
 dependency_overrides:
   # Keep other overrides
+  web3dart: ^3.0.2
+  freezed_annotation: ^3.1.0
   web3dart_builders: 
     git:
       url: https://github.com/PatrickGeyer/web3dart_builders.git

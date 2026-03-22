@@ -153,8 +153,7 @@ def main():
     password = os.environ.get("ALBYHUB_PASSWORD", "Testing123!")
 
     instances = [
-        os.environ.get("ALBYHUB_1_URL", "https://alby1.hostr.development"),
-        os.environ.get("ALBYHUB_2_URL", "https://alby2.hostr.development"),
+        os.environ.get("ALBYHUB_URL", "https://alby.hostr.development"),
     ]
 
     errors = []

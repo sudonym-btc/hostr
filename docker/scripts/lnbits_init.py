@@ -203,7 +203,7 @@ def setup_instance(
 
     # ── 7. Tips lnurlp link ──────────────────────────────────────────────────
     # Pass X-Forwarded-Host/Proto so LNbits uses the public domain when
-    # encoding the LNURL callback URL (not the internal http://lnbits1:5000).
+    # encoding the LNURL callback URL (not the internal http://lnbits:5000).
     status, body = _req(
         "POST",
         f"{base_url}/lnurlp/api/v1/links",
@@ -307,16 +307,10 @@ def main():
 
     instances = [
         {
-            "base_url": os.environ.get("LNBITS_1_URL", "http://lnbits1:5000"),
-            "data_path": "/data/lnbits1",
-            "domain_name": f"lnbits1.{domain}",
-            "fixed_domain_id": "lnbits1nip05",
-        },
-        {
-            "base_url": os.environ.get("LNBITS_2_URL", "http://lnbits2:5000"),
-            "data_path": "/data/lnbits2",
-            "domain_name": f"lnbits2.{domain}",
-            "fixed_domain_id": "lnbits2nip05",
+            "base_url": os.environ.get("LNBITS_URL", "http://lnbits:5000"),
+            "data_path": "/data/lnbits",
+            "domain_name": f"lnbits.{domain}",
+            "fixed_domain_id": "lnbitsnip05",
         },
     ]
 

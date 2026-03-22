@@ -42,24 +42,16 @@ class StagingConfig extends Config {
 
 class StagingRootstockConfig extends RootstockConfig {
   @override
-  int get chainId => 30;
+  int get chainId => 42161;
   @override
-  String get rpcUrl =>
-      'https://rpc.mainnet.rootstock.io/KR2OXu4aSUTZRYlXT5tpVVtE2aqEVI-M';
+  String get rpcUrl => 'https://arb1.arbitrum.io/rpc';
 
   @override
   BoltzConfig get boltz => ProductionBoltzConfig();
 
   @override
-  RifRelayConfig get rifRelay => EnvBackedRifRelayConfig();
-
-  @override
-  RootstockSupportedContractsConfig get supportedContracts =>
-      DefaultRootstockSupportedContractsConfig(
-        multiEscrow: DefaultSupportedEscrowContractConfig(
-          rifRelay: EnvBackedRifRelayConfig(),
-        ),
-      );
+  AccountAbstractionConfig get accountAbstraction =>
+      EnvBackedAccountAbstractionConfig();
 }
 
 class ProductionBoltzConfig extends BoltzConfig {

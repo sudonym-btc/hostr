@@ -167,6 +167,48 @@ For BTC Lightning:
 
 The `token` field is the `Token.tagId` string. The `CommitTerms` hash (which locks `{start, end, quantity, amount, recipient}`) includes the full `token` tag ID so both parties commit to the exact denomination and contract address.
 
+### 1.4.1 Hoster-accepted payment forms live on `EscrowMethod`
+
+Listing prices answer **"what do I charge?"**. They should not also have to answer
+**"which exact token contracts across which chains am I willing to receive?"**.
+
+That second concern lives on the hoster's `EscrowMethod` event (kind `30301`),
+not on each listing. The event keeps the existing escrow capability tags:
+
+```
+["t", "EVM"]
+["c", "MultiEscrow"]
+```
+
+and adds repeated accepted-payment-form tags:
+
+```
+["a", "BTC", "30:0x0000000000000000000000000000000000000000"]
+["a", "BTC", "0:lightning"]
+["a", "USD", "30:0xdAC17F958D2ee523a2206206994597C13D831ec7"]
+["a", "USD", "30:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"]
+```
+
+Format:
+
+```
+["a", "<denomination>", "<tokenTagId>"]
+```
+
+Where:
+
+- `<denomination>` is the unit of account used on listings (`BTC`, `USD`, etc.)
+- `<tokenTagId>` is the concrete settlement token (`BTC` for Lightning or `chainId:address` for on-chain assets)
+
+This lets a host publish accepted payment rails **once per profile** instead of
+repeating them on every listing. Booking resolution becomes:
+
+1. read listing denomination/price
+2. read hoster's accepted payment forms from `EscrowMethod`
+3. intersect them with the escrow service's supported `["token", ...]` tags
+
+Only the intersection is presented as bookable payment options.
+
 ### 1.5 Escrow Service Advertisement
 
 **Current model (kind 30303) — deleted:**

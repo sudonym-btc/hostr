@@ -5,13 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/lib/hostr-common.sh"
 ENVIRONMENT="${1:-local}"
-RIF_RELAY_MODE="${2:-regtest-fast}"
 
 hostr_validate_environment "$ENVIRONMENT" "$0"
-hostr_validate_rif_relay_mode "$RIF_RELAY_MODE" "$0"
 hostr_load_env "$REPO_ROOT" "$ENVIRONMENT"
 hostr_ensure_certs "$REPO_ROOT" "$ENVIRONMENT"
-export RIF_RELAY_MODE
 
 cd "$REPO_ROOT"
 if [ "$ENVIRONMENT" = "test" ]; then
@@ -19,9 +16,6 @@ if [ "$ENVIRONMENT" = "test" ]; then
 fi
 
 compose_up_args=(-d --remove-orphans --yes)
-if { [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; } && [ "$RIF_RELAY_MODE" = "regtest-managed" ]; then
-    compose_up_args+=(--scale rif-relay=0)
-fi
 
 # -d with proper depends_on chains (bootstrap → regtest-start → LND/CLN)
 # ensures every container is scheduled after its deps are met.

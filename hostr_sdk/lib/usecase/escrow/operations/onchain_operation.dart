@@ -1,5 +1,4 @@
 import 'package:models/main.dart';
-import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
 import '../../../config.dart';
@@ -411,17 +410,20 @@ class OnchainFeeQuote {
 // ── Base class ──────────────────────────────────────────────────────────
 
 /// Abstract base for any operation that needs to send an on-chain
-/// transaction — optionally preceded by a swap-in to cover gas.
+/// transaction via ERC-4337 Account Abstraction.
 ///
 /// Provides:
 /// - State persistence via [OperationMachine] (CAS, run loop)
 /// - HD address resolution ([resolveAddress])
-/// - Balance-vs-gas deficit computation ([computeSwapDeficit])
-/// - Nested swap-in orchestration ([swapIfNeeded])
 /// - Receipt confirmation helpers
 ///
 /// Subclasses implement the handful of abstract members that vary per
 /// operation (gas estimation, the contract call, state wrappers, etc.).
+///
+/// **Swap-in is not handled here.** Only [EscrowFundOperation] performs
+/// a nested swap-in (via its [beforeBroadcast] override) when the
+/// on-chain balance is insufficient to cover the funding transaction.
+/// All other operations (claim, release) go directly to broadcast.
 abstract class OnchainOperation
     extends OperationMachine<OnchainOperationState, OnchainStep> {
   // ── Dependencies ────────────────────────────────────────────────────
@@ -522,11 +524,6 @@ abstract class OnchainOperation
       backgroundAllowed: false,
     ),
     StepGuard(
-      step: OnchainStep.checkSwap,
-      allowedFrom: {'swapProgress'},
-      backgroundAllowed: true,
-    ),
-    StepGuard(
       step: OnchainStep.broadcastTx,
       allowedFrom: {'txBroadcast', 'txBroadcasting'},
       staleTimeout: Duration(minutes: 10),
@@ -562,7 +559,9 @@ abstract class OnchainOperation
       logger.span('executeStep', () async {
         return switch (step) {
           OnchainStep.initialise => await _stepInitialise(),
-          OnchainStep.checkSwap => await _stepCheckSwap(),
+          OnchainStep.checkSwap => throw StateError(
+            'checkSwap is only supported by EscrowFundOperation',
+          ),
           OnchainStep.broadcastTx => await _stepBroadcastTx(),
           OnchainStep.confirmTx => await _stepConfirmTx(),
         };
@@ -599,32 +598,14 @@ abstract class OnchainOperation
   /// Build the direct-call intent for this operation.
   Future<ContractCallIntent> buildDirectCallIntent();
 
-  /// Build the relayed-call intent for this operation.
-  ///
-  /// Defaults to the same calldata as the direct path. Override when relay
-  /// execution requires different authorization/ABI packaging.
-  Future<ContractCallIntent> buildRelayedCallIntent() =>
-      buildDirectCallIntent();
-
-  Future<ContractCallIntent> buildCallIntent() async {
-    final directIntent = await buildDirectCallIntent();
-    if (!_shouldUseRelayForIntent(directIntent)) {
-      return directIntent;
-    }
-    return buildRelayedCallIntent();
-  }
-
   Future<GasEstimate> estimateCallIntentFee(ContractCallIntent intent) {
     return logger.span('estimateCallIntentFee', () async {
-      final signer = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
-      return _shouldUseRelayForIntent(intent)
-          ? contract.estimateRelayFee(intent, signer)
-          : contract.estimateFee(
-              intent,
-              stateOverrideBalance: intent.value.getInWei > BigInt.zero
-                  ? intent.value.getInWei
-                  : null,
-            );
+      return contract.estimateFee(
+        intent,
+        stateOverrideBalance: intent.value.getInWei > BigInt.zero
+            ? intent.value.getInWei
+            : null,
+      );
     });
   }
 
@@ -634,12 +615,7 @@ abstract class OnchainOperation
   ) => logger.span('broadcastContractCallIntent', () async {
     try {
       await contract.ensureDeployed();
-      final chainId = (await chain.getChainId()).toInt();
-      return await chain.client.sendTransaction(
-        credentials,
-        intent.toTransaction(),
-        chainId: chainId,
-      );
+      return await getIt<UserOpService>().sendUserOp(credentials, intent);
     } catch (error) {
       throw contract.decodeWriteError(error);
     }
@@ -649,23 +625,6 @@ abstract class OnchainOperation
     ContractCallIntent intent,
     EthPrivateKey credentials,
   ) => logger.span('submitContractCallIntent', () async {
-    if (_shouldUseRelayForIntent(intent)) {
-      final relay = contract.rifRelay;
-      if (relay == null) {
-        throw StateError(
-          'RIF relay requested for ${intent.methodName} but no relay is configured',
-        );
-      }
-      final txHash =
-          (await relay.relayCall(credentials, intent)).txHash?.toString() ?? '';
-      if (txHash.isEmpty) {
-        throw StateError(
-          'Could not extract transaction hash from relayed ${intent.methodName}',
-        );
-      }
-      return await chain.awaitTransaction(txHash);
-    }
-
     final txHash = await broadcastContractCallIntent(intent, credentials);
     return await chain.awaitTransaction(txHash);
   });
@@ -675,26 +634,6 @@ abstract class OnchainOperation
     required ContractCallIntent callIntent,
     required String transport,
   });
-
-  /// Description for the swap-in LN invoice.
-  String get swapInvoiceDescription;
-
-  /// Optional override for the Boltz reverse swap claim address.
-  ///
-  /// When set, the nested swap lockup will use this address as the
-  /// EtherSwap `claimAddress`.
-  ///
-  /// For the normal relay flow this is usually the RIF smart wallet. For
-  /// atomic `claimSwapAndFund(...)` flows this must be the signer address
-  /// whose signature will authorize the claim.
-  EthereumAddress? get swapClaimAddress => null;
-
-  /// Optional override for the EtherSwap claim signature destination.
-  ///
-  /// When set, the nested swap will prepare EIP-712 claim signature parts so
-  /// the funds are paid to this destination (`msg.sender`) when the custom
-  /// claim callback executes.
-  EthereumAddress? get swapClaimDestination => null;
 
   /// Deserialise the concrete [OnchainOperationData] subclass from JSON.
   ///
@@ -729,53 +668,25 @@ abstract class OnchainOperation
   @override
   void onRunComplete(OnchainOperationState state) {}
 
-  bool _shouldUseRelayForIntent(ContractCallIntent intent) {
-    return contract.rifRelay != null && intent.isZeroValue;
-  }
-
-  String _transportForIntent(ContractCallIntent intent) =>
-      _shouldUseRelayForIntent(intent) ? 'relay' : 'direct';
-
   Future<OnchainFeeQuote> estimateOperationFees() =>
       logger.span('estimateOperationFees', () async {
         await initialize();
-        final intent = await buildCallIntent();
+        final intent = await buildDirectCallIntent();
         final gasEstimate = await estimateCallIntentFee(intent);
         final pinnedIntent = intent.copyWith(
           gasPrice: gasEstimate.gasPrice,
           maxGas: gasEstimate.gasLimit.toInt(),
         );
-        final data = buildInitialData(
-          callIntent: pinnedIntent,
-          transport: _transportForIntent(pinnedIntent),
-        );
-        final swapDeficit = await computeSwapDeficit(data, gasEstimate);
-        final swapFees = swapDeficit > TokenAmount.zero(rbtc)
-            ? await chain
-                  .swapIn(
-                    SwapInParams(
-                      evmKey: await auth.hd.getActiveEvmKey(
-                        accountIndex: accountIndex,
-                      ),
-                      accountIndex: accountIndex,
-                      amount: swapDeficit,
-                      invoiceDescription: swapInvoiceDescription,
-                      claimAddress: swapClaimAddress,
-                      claimDestination: swapClaimDestination,
-                    ),
-                  )
-                  .estimateFees()
-            : SwapInFees(
-                estimatedGasFees: TokenAmount.zero(rbtc),
-                estimatedSwapFees: TokenAmount.zero(rbtc),
-                estimatedRelayFees: TokenAmount.zero(rbtc),
-              );
 
         return OnchainFeeQuote(
           gasEstimate: gasEstimate,
-          swapFees: swapFees,
+          swapFees: SwapInFees(
+            estimatedGasFees: TokenAmount.zero(rbtc),
+            estimatedSwapFees: TokenAmount.zero(rbtc),
+            estimatedRelayFees: TokenAmount.zero(rbtc),
+          ),
           callIntent: pinnedIntent,
-          transport: _transportForIntent(pinnedIntent),
+          transport: 'direct',
         );
       });
 
@@ -790,12 +701,14 @@ abstract class OnchainOperation
 
   // ── Step: initialise ──────────────────────────────────────────────
 
-  /// Build initial data, estimate gas (pinned before any swap),
-  /// swap in if needed, then transition to [OnchainTxBroadcast].
+  /// Build initial data, estimate gas, then transition to [OnchainTxBroadcast].
+  ///
+  /// Subclasses that need pre-broadcast work (e.g. swap-in) should override
+  /// [beforeBroadcast] rather than this method.
   Future<OnchainOperationState> _stepInitialise() =>
       logger.span('stepInitialise', () async {
         await preflight();
-        final intent = await buildCallIntent();
+        final intent = await buildDirectCallIntent();
         final gasEstimate = await estimateCallIntentFee(intent);
         onGasEstimated(gasEstimate);
         final pinnedIntent = intent.copyWith(
@@ -804,48 +717,14 @@ abstract class OnchainOperation
         );
         var data = buildInitialData(
           callIntent: pinnedIntent,
-          transport: _transportForIntent(pinnedIntent),
+          transport: 'direct',
         );
         logger.i(
           '$namespace: initialising ${data.operationId} '
           '(accountIndex: $accountIndex)',
         );
-        data = await swapIfNeeded(data, gasEstimate);
+        data = await beforeBroadcast(data, gasEstimate);
         return OnchainTxBroadcast(data);
-      });
-
-  // ── Step: check swap (recovery) ───────────────────────────────────
-
-  /// Checks whether a nested swap-in has completed.
-  ///
-  /// If complete, returns [OnchainTxBroadcast].
-  /// If failed, returns [OnchainError].
-  /// If still in progress, throws [SwapNotReadyException].
-  Future<OnchainOperationState> _stepCheckSwap() =>
-      logger.span('stepCheckSwap', () async {
-        final data = state.data!;
-
-        if (data.swapId != null) {
-          final swapJson = await store.read('swap_in', data.swapId!);
-          if (swapJson != null) {
-            final swapState = SwapInState.fromJson(swapJson);
-            if (swapState is SwapInClaimed ||
-                swapState is SwapInClaimTxInMempool ||
-                swapState is SwapInCompleted) {
-              logger.i('$namespace: swap ${data.swapId} completed, proceeding');
-              return OnchainTxBroadcast(onNestedSwapFinished(data, swapState));
-            }
-            if (swapState is SwapInFailed) {
-              return OnchainError(
-                'Nested swap failed: ${swapState.error}',
-                data: data,
-              );
-            }
-          }
-        }
-
-        logger.d('$namespace: swap ${data.swapId} not yet complete, exiting');
-        throw SwapNotReadyException();
       });
 
   // ── Step: broadcast tx (side-effect — busy-guarded) ────────────────
@@ -951,155 +830,21 @@ abstract class OnchainOperation
   /// can update their contract params with the resolved key.
   void onAddressResolved(int resolvedAccountIndex) {}
 
-  // ── Swap deficit ──────────────────────────────────────────────────
+  // ── Pre-broadcast hook ─────────────────────────────────────────────
 
-  /// Check whether the current balance can cover
-  /// the transaction value + gas.
+  /// Called after gas estimation and initial data construction, before
+  /// transitioning to broadcast.
   ///
-  /// Returns the amount that must be swapped in (zero if sufficient).
-  Future<TokenAmount> computeSwapDeficit(
+  /// Override in subclasses to add pre-broadcast logic (e.g. swap-in
+  /// for funding). The default is a pass-through.
+  Future<OnchainOperationData> beforeBroadcast(
     OnchainOperationData data,
     GasEstimate gasEstimate,
-  ) => logger.span('computeSwapDeficit', () async {
-    final intent = data.callIntent;
-    if (intent == null) {
-      throw StateError('Cannot compute swap deficit without a callIntent');
-    }
-    if (_shouldUseRelayForIntent(intent)) {
-      logger.i(
-        'Skipping swap deficit computation for relayed zero-value ${intent.methodName}',
-      );
-      return TokenAmount.zero(rbtc);
-    }
-
-    final address = await auth.hd.getEvmAddress(
-      accountIndex: data.accountIndex,
-    );
-    final balance = await chain.getBalance(address);
-    final requiredOnchainValue = rbtcFromWei(intent.value.getInWei);
-    final shortfall = balance - requiredOnchainValue - gasEstimate.fee;
-
-    logger.i(
-      'Balance check: have=${balance.getInSats}, '
-      'required=${requiredOnchainValue.getInSats}, '
-      'gas=${gasEstimate.fee.getInSats}, '
-      'shortfall=${shortfall.getInSats}',
-    );
-
-    if (shortfall < TokenAmount.zero(rbtc)) {
-      final limits = await chain.getSwapInLimits();
-      return TokenAmount.max(limits.min, shortfall.abs()).roundUpToSats();
-    }
-    return TokenAmount.zero(rbtc);
-  });
-
-  // ── Nested swap-in ────────────────────────────────────────────────
-
-  /// Runs a nested swap-in if the balance is insufficient. Returns updated
-  /// [data] with the swap ID populated.
-  ///
-  /// The [gasEstimate] must already be pinned before calling this method.
-  /// Emits [OnchainSwapProgress] states as the swap progresses.
-  Future<OnchainOperationData> swapIfNeeded(
-    OnchainOperationData data,
-    GasEstimate gasEstimate,
-  ) => logger.span('swapIfNeeded', () async {
-    final deficit = await computeSwapDeficit(data, gasEstimate);
-    if (deficit <= TokenAmount.zero(rbtc)) return data;
-
-    final evmKey = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
-
-    // First pass: estimate swap fees.
-    SwapInOperation swapEstimation = chain.swapIn(
-      SwapInParams(
-        evmKey: evmKey,
-        accountIndex: accountIndex,
-        amount: deficit,
-        invoiceDescription: swapInvoiceDescription,
-        claimAddress: swapClaimAddress,
-        claimDestination: swapClaimDestination,
-        onClaim: swapClaimCallback,
-      ),
-    );
-    final swapFees = await swapEstimation.estimateFees();
-
-    // Second pass: create the real swap with amount + overhead.
-    SwapInOperation swap = chain.swapIn(
-      SwapInParams(
-        evmKey: evmKey,
-        accountIndex: accountIndex,
-        amount: (deficit + swapFees.totalFees).roundUpToSats(),
-        invoiceDescription: swapInvoiceDescription,
-        claimAddress: swapClaimAddress,
-        claimDestination: swapClaimDestination,
-        parentOperationId: data.operationId,
-        onClaim: swapClaimCallback,
-      ),
-    );
-    swap.onProgress = onProgress;
-
-    String? swapId;
-    bool swapIdPersisted = false;
-    final sub = swap.stream.listen((swapState) {
-      swapId ??= swapState.operationId;
-
-      if (!swapIdPersisted && swapId != null) {
-        // First swap state with an ID — persist the link so crash
-        // recovery can find the nested swap via _stepCheckSwap.
-        swapIdPersisted = true;
-        emit(
-          OnchainSwapProgress(
-            data.copyWithSwapId(swapId),
-            swapState: swapState,
-          ),
-        );
-      } else {
-        // Subsequent updates are UI-only (the swap-in operation
-        // persists its own state independently).
-        emit(
-          OnchainSwapProgress(
-            data.copyWithSwapId(swapId),
-            swapState: swapState,
-          ),
-        );
-      }
-    });
-
-    try {
-      await swap.execute();
-    } finally {
-      await sub.cancel();
-    }
-
-    // If the swap ended in a failed state, do not proceed to the on-chain tx.
-    if (swap.state is SwapInFailed) {
-      final failed = swap.state as SwapInFailed;
-      throw StateError('Nested swap-in failed: ${failed.error}');
-    }
-
-    final updatedData = data.copyWithSwapId(swapId);
-    return onNestedSwapFinished(updatedData, swap.state);
-  });
+  ) async => data;
 
   /// Called after gas estimation so subclasses can pin the estimate onto
   /// their contract params. Default is a no-op.
   void onGasEstimated(GasEstimate estimate) {}
-
-  /// Optional override for the nested swap claim execution.
-  ///
-  /// When provided, [swapIfNeeded] passes this callback to the nested
-  /// [SwapInOperation] so subclasses can replace the default relay claim
-  /// with a custom action such as atomic `claimSwapAndFund(...)`.
-  SwapInClaimCallback? get swapClaimCallback => null;
-
-  /// Allows subclasses to project information from a completed nested swap
-  /// back onto the parent on-chain operation state.
-  ///
-  /// The default implementation returns [data] unchanged.
-  OnchainOperationData onNestedSwapFinished(
-    OnchainOperationData data,
-    SwapInState swapState,
-  ) => data;
 
   // ── Tx helpers ────────────────────────────────────────────────────
 

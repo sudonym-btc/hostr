@@ -10,7 +10,7 @@ import 'package:ndk/ndk.dart';
 
 /// Displays a list of zap receipts for a given pubkey or lightning address.
 ///
-/// Provide either [pubkey] directly, or [lud16] (e.g. `tips@lnbits1.example.com`)
+/// Provide either [pubkey] directly, or [lud16] (e.g. `tips@lnbits.example.com`)
 /// which will be resolved via LNURL to discover the recipient's nostrPubkey.
 class ZapListWidget extends StatefulWidget {
   final String? pubkey;

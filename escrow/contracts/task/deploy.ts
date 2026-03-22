@@ -32,11 +32,11 @@ function writeConfig(config: AddressConfig): void {
 
 function canonicalNetworkName(chainId: number, networkName: string): string {
   switch (chainId) {
-    case 33:
+    case 412346:
       return 'regtest';
-    case 31:
+    case 421614:
       return 'testnet';
-    case 30:
+    case 42161:
       return 'mainnet';
     case 31337:
       return 'hardhat';

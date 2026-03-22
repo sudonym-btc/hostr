@@ -51,6 +51,87 @@ class AnvilClient {
   Future<bool> setIntervalMining(int seconds) =>
       rpcCall(method: 'evm_setIntervalMining', params: [seconds]);
 
+  /// Set a raw storage slot on a contract address.
+  ///
+  /// [address], [slot], and [value] must be hex-encoded (0x-prefixed).
+  Future<bool> setStorageAt({
+    required String address,
+    required String slot,
+    required String value,
+  }) => rpcCall(method: 'anvil_setStorageAt', params: [address, slot, value]);
+
+  /// Impersonate [address] so unsigned transactions from it are accepted.
+  Future<bool> impersonateAccount(String address) =>
+      rpcCall(method: 'anvil_impersonateAccount', params: [address]);
+
+  /// Stop impersonating [address].
+  Future<bool> stopImpersonatingAccount(String address) =>
+      rpcCall(method: 'anvil_stopImpersonatingAccount', params: [address]);
+
+  /// Execute a JSON-RPC call and return the raw `result` value.
+  ///
+  /// Returns `null` when the response contains an error.
+  Future<dynamic> rpcCallWithResult({
+    required String method,
+    List<dynamic> params = const [],
+  }) async {
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final request = await _httpClient.postUrl(rpcUri);
+        request.headers.contentType = ContentType.json;
+        request.write(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 1,
+            'method': method,
+            'params': params,
+          }),
+        );
+
+        final response = await request.close();
+        final body = await utf8.decodeStream(response);
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          return null;
+        }
+
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        if (decoded['error'] != null) return null;
+        return decoded['result'];
+      } on HttpException {
+        if (attempt > 0) rethrow;
+      } on SocketException {
+        if (attempt > 0) rethrow;
+      }
+    }
+    return null;
+  }
+
+  /// Send an unsigned transaction from a (possibly impersonated) account.
+  ///
+  /// Returns the transaction hash, or `null` on failure.
+  Future<String?> sendUnsignedTransaction({
+    required String from,
+    required String to,
+    required String data,
+    String? value,
+    String? gas,
+  }) async {
+    final result = await rpcCallWithResult(
+      method: 'eth_sendTransaction',
+      params: [
+        {
+          'from': from,
+          'to': to,
+          'data': data,
+          if (value != null) 'value': value,
+          if (gas != null) 'gas': gas,
+        },
+      ],
+    );
+    return result as String?;
+  }
+
   Future<bool> rpcCall({
     required String method,
     List<dynamic> params = const [],

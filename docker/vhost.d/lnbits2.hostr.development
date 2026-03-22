@@ -1,9 +1,0 @@
-# Proxies NIP-05 to the nostrnip5 extension.
-# domain_id is enforced deterministically by seed_relay.sh after each seed run.
-location = /.well-known/nostr.json {
-    proxy_pass http://lnbits2:5000/nostrnip5/api/v1/domain/lnbits2nip05/nostr.json$is_args$args;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_hide_header Access-Control-Allow-Origin;
-    add_header Access-Control-Allow-Origin * always;
-}

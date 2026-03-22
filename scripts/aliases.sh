@@ -27,30 +27,17 @@ BTC() {
     docker exec "$bitcoin_container" bitcoin-cli -regtest -rpcuser=${BITCOIN_RPC_USER} -rpcpassword=${BITCOIN_RPC_PASSWORD} -rpcport=${BITCOIN_RPC_PORT} "$@"
 }
 
-LND1() {
-    local lnd_container="${LND1_CONTAINER:-$(resolve_compose_container lnd1)}"
+LND() {
+    local lnd_container="${LND_CONTAINER:-$(resolve_compose_container lnd)}"
 
     if [ -z "$lnd_container" ]; then
-        echo "Unable to resolve the LND1 container name." >&2
+        echo "Unable to resolve the LND container name." >&2
         return 1
     fi
 
-    docker exec "$lnd_container" lncli --rpcserver=localhost:${LIGHTNING_RPC_PORT} --macaroonpath=${LND1_MACAROON} --tlscertpath=${LND1_TLS} "$@"
+    docker exec "$lnd_container" lncli --rpcserver=localhost:${LIGHTNING_RPC_PORT} --macaroonpath=${LND_MACAROON} --tlscertpath=${LND_TLS} "$@"
 }
 
-LND2() {
-    local lnd_container="${LND2_CONTAINER:-$(resolve_compose_container lnd2)}"
+LND_PUB=$(LND getinfo | jq -r .identity_pubkey)
 
-    if [ -z "$lnd_container" ]; then
-        echo "Unable to resolve the LND2 container name." >&2
-        return 1
-    fi
-
-    docker exec "$lnd_container" lncli --rpcserver=localhost:${LIGHTNING_RPC_PORT} --macaroonpath=${LND2_MACAROON} --tlscertpath=${LND2_TLS} "$@"
-}
-
-LND1_PUB=$(LND1 getinfo | jq -r .identity_pubkey)
-LND2_PUB=$(LND2 getinfo | jq -r .identity_pubkey)
-
-LND1_ADDR=$(LND1 newaddress p2tr | jq -r .address)
-LND2_ADDR=$(LND2 newaddress p2tr | jq -r .address)
+LND_ADDR=$(LND newaddress p2tr | jq -r .address)

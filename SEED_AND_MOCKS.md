@@ -1083,6 +1083,12 @@ Future<SeedResult> seed(SeedSink sink) async {
     return method;
   });
 
+  // `buildEscrowMethod()` should publish both the escrow capability
+  // (`["t", "EVM"]`, `["c", "MultiEscrow"]`) and the hoster's accepted
+  // payment-form tags (`["a", "BTC", "30:0x000...000"]`, etc.). This keeps
+  // concrete token acceptance out of listing events and makes it reusable
+  // across all listings owned by the same host.
+
   // Listings depend on host profiles.
   final listingFutures = hosts.map((host) async {
     final listings = buildListings(host);

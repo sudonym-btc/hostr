@@ -1,0 +1,315 @@
+# Local / test infrastructure.
+#
+# Contains services that only run in local development and CI test
+# environments: bitcoin regtest, LND nodes, LNBits, Alby Hub, telemetry,
+# and one-shot init/bootstrap containers.
+#
+# Loaded automatically via compose.override.yaml (include).
+
+x-templates:
+  lnd-base: &lnd-base
+    image: lightninglabs/lnd:v0.20.0-beta
+    user: "0:0"
+    depends_on:
+      hostrbitcoind:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'lncli --network=regtest --rpcserver=localhost:${LIGHTNING_RPC_PORT} --macaroonpath=/lnd/data/chain/bitcoin/regtest/admin.macaroon --tlscertpath=/lnd/tls.cert getinfo | grep ''"block_height":'' || exit 1',
+        ]
+      interval: 1s
+      timeout: 1s
+      retries: 100
+      start_period: 0s
+    entrypoint:
+      - sh
+      - -lc
+    command:
+      - exec lnd --alias=Alby --tlsextradomain=lnd --lnddir=/lnd --datadir=/lnd --adminmacaroonpath=/lnd/data/chain/bitcoin/regtest/admin.macaroon --tlscertpath=/lnd/tls.cert --tlskeypath=/lnd/tls.key --noseedbackup --rpclisten=0.0.0.0:${LIGHTNING_RPC_PORT} --restlisten=0.0.0.0:${LIGHTNING_REST_PORT} --tlsextraip=0.0.0.0 --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT} --bitcoind.rpcuser=${BITCOIN_RPC_USER} --bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD} --bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT} --bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT} --maxpendingchannels=10 --allow-circular-route
+    networks:
+      - default
+
+  albyhub-base: &albyhub-base
+    platform: linux/amd64
+    depends_on:
+      lnd:
+        condition: service_healthy
+      relay:
+        condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
+    image: ghcr.io/getalby/hub:master-25c027b
+    networks:
+      - default
+
+services:
+  # ── Overrides for shared-base services ──────────────────────────────────
+
+  app:
+    volumes:
+      - ./app/build/web:/usr/share/nginx/html:ro
+
+  landing-page:
+    volumes:
+      - ./landing-page/index.html:/usr/share/nginx/html/index.html:ro
+      - ./landing-page/assets:/usr/share/nginx/html/assets:ro
+
+  escrow:
+    depends_on:
+      escrow-contract-deploy:
+        condition: service_completed_successfully
+      anvil:
+        condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
+    volumes:
+      - ./escrow/lib:/workspace/escrow/lib
+      - ./escrow/bin:/workspace/escrow/bin
+    entrypoint:
+      - sh
+      - -c
+      - exec docker/entrypoint.sh
+
+  # ── Local-only services ─────────────────────────────────────────────────
+
+  hostrbitcoind:
+    image: bitcoin/bitcoin
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bitcoin-cli",
+          "-regtest",
+          "-rpcuser=bitcoin",
+          "-rpcpassword=bitcoin",
+          "-rpcport=18888",
+          "getblockchaininfo",
+        ]
+      timeout: 1s
+      retries: 10
+      interval: 1s
+      start_period: 0s
+    command:
+      [
+        "bitcoind",
+        "-port=${BITCOIN_PORT}",
+        "-addnode=boltz-bitcoind:18444",
+        "-txindex=1",
+        "-onlynet=ipv4",
+        "-regtest=1",
+        "-rpcport=${BITCOIN_RPC_PORT}",
+        "-rpcuser=${BITCOIN_RPC_USER}",
+        "-rpcpassword=${BITCOIN_RPC_PASSWORD}",
+        "-rpcallowip=0.0.0.0/0",
+        "-rpcbind=0.0.0.0",
+        "-zmqpubrawtx=tcp://0.0.0.0:${BITCOIN_ZMQ_TX_PORT}",
+        "-zmqpubrawblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}",
+        "-zmqpubhashblock=tcp://0.0.0.0:${BITCOIN_ZMQ_BLOCK_PORT}",
+      ]
+    ports:
+      - "${BITCOIN_PORT}:${BITCOIN_PORT}"
+      - "${BITCOIN_RPC_PORT}:${BITCOIN_RPC_PORT}"
+    volumes:
+      - ./docker/data/bitcoin:/home/bitcoin/.bitcoin
+    networks:
+      - default
+
+  lnd:
+    <<: *lnd-base
+    ports:
+      - "12209:8080"
+      - "12219:8081"
+    volumes:
+      - ./docker/data/lightning_data/1:/lnd
+
+  lnbits:
+    image: lnbits/lnbits:v1.5.1
+    depends_on:
+      lnd:
+        condition: service_healthy
+    ports:
+      - "${LNBITS_PORT}:5000"
+    entrypoint: ["/ca-trust-entrypoint.sh"]
+    command:
+      [
+        "sh",
+        "-c",
+        "uv run lnbits --port 5000 --host 0.0.0.0 --forwarded-allow-ips='*'",
+      ]
+    environment:
+      - VIRTUAL_HOST=lnbits.${DOMAIN}
+      - VIRTUAL_PORT=5000
+      - LNBITS_ADMIN_UI=true
+      - LNBITS_BACKEND_WALLET_CLASS=LndRestWallet
+      - LND_REST_ENDPOINT=https://lnd:${LIGHTNING_REST_PORT}
+      - LND_REST_CERT=/app/lnd/tls.cert
+      - LND_REST_MACAROON=/app${LND_ADMIN_MACAROON_PATH}
+      - LND_REST_ALLOW_SELF_PAYMENT=true
+      - LNBITS_ADMIN_EXTENSIONS="lnurlp,nostrnip5"
+      - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp,nostrnip5"
+      - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp,nostrnip5"
+      - LNBITS_EXTENSIONS_MANIFESTS=["https://raw.githubusercontent.com/lnbits/lnbits-extensions/main/extensions.json"]
+    volumes:
+      - ./docker/data/lightning_data/1:/app/lnd
+      - ./docker/data/lnbits/1:/app/data
+      - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
+      - ./docker/tls/ca-trust-entrypoint.sh:/ca-trust-entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/5000'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+    networks:
+      - default
+
+  albyhub:
+    <<: *albyhub-base
+    depends_on:
+      lnd:
+        condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
+    volumes:
+      - ./docker/data/lightning_data/1:/lnd
+      - ./docker/data/albyhub:/data
+      - ./docker/tls/ca/ca-bundle.crt:/tls/ca-bundle.crt:ro
+    environment:
+      - VIRTUAL_HOST=alby.${DOMAIN}
+      - VIRTUAL_PORT=8080
+      - RELAY=wss://relay.${DOMAIN}
+      - SSL_CERT_FILE=/tls/ca-bundle.crt
+      - AUTO_UNLOCK_PASSWORD=Testing123!
+      - LOG_EVENTS=true
+      - LN_BACKEND_TYPE=LND
+      - LND_MACAROON_FILE=${LND_ADMIN_MACAROON_PATH}
+      - LND_ADDRESS=lnd:${LIGHTNING_RPC_PORT}
+      - WORK_DIR=data/1
+    ports:
+      - "${ALBYHUB_PORT}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/8080'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+
+  escrow-contract-deploy:
+    build:
+      context: ./escrow/contracts
+      dockerfile: Dockerfile
+    depends_on:
+      anvil:
+        condition: service_healthy
+    volumes:
+      - ./escrow/contracts/contract-addresses.json:/usr/src/app/contract-addresses.json
+    environment:
+      - RPC_URL=http://anvil:8545
+      - DEPLOYER_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
+    command:
+      [
+        "sh",
+        "-lc",
+        "set -eu && npm exec -- hardhat deploy --network localhost",
+      ]
+    restart: "no"
+
+  telemetry:
+    image: grafana/otel-lgtm:0.8.1
+    environment:
+      - VIRTUAL_HOST=telemetry.${DOMAIN}
+      - VIRTUAL_PORT=3000
+    ports:
+      - "${TELEMETRY_OTLP_GRPC_PORT:-4317}:4317"
+      - "${TELEMETRY_OTLP_HTTP_PORT:-4318}:4318"
+    volumes:
+      - ./docker/grafana/provisioning/dashboards/hostr-dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/hostr-dashboards.yaml:ro
+      - ./docker/grafana/dashboards:/otel-lgtm/hostr-dashboards:ro
+    networks:
+      - default
+
+  bootstrap:
+    image: docker:27-cli
+    depends_on:
+      hostrbitcoind:
+        condition: service_healthy
+      lnd:
+        condition: service_healthy
+      regtest-start:
+        condition: service_completed_successfully
+    volumes:
+      - ./:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace
+    environment:
+      - LNBITS_HOST=host.docker.internal
+    command:
+      [
+        "sh",
+        "-lc",
+        "apk add --no-cache bash jq curl >/dev/null && bash /workspace/scripts/bootstrap_local_test.sh",
+      ]
+    restart: "no"
+
+  lnbits-init:
+    image: python:3.12-alpine
+    depends_on:
+      lnbits:
+        condition: service_healthy
+    volumes:
+      - ./docker/scripts/lnbits_init.py:/scripts/lnbits_init.py:ro
+      - ./docker/data/lnbits/1:/data/lnbits
+    environment:
+      - DOMAIN=${DOMAIN}
+      - LNBITS_URL=http://lnbits:5000
+      - LNBITS_ADMIN_EMAIL=${LNBITS_ADMIN_EMAIL}
+      - LNBITS_ADMIN_PASSWORD=${LNBITS_ADMIN_PASSWORD}
+      - LNBITS_NOSTR_PRIVATE_KEY=${LNBITS_NOSTR_PRIVATE_KEY}
+    command: ["python3", "/scripts/lnbits_init.py"]
+    restart: "no"
+    networks:
+      - default
+
+  alby-init:
+    image: python:3.12-alpine
+    depends_on:
+      albyhub:
+        condition: service_healthy
+    volumes:
+      - ./docker/scripts/alby_init.py:/scripts/alby_init.py:ro
+    environment:
+      - ALBYHUB_URL=https://alby.${DOMAIN}
+      - ALBYHUB_PASSWORD=${ALBYHUB_PASSWORD}
+    command: ["python3", "/scripts/alby_init.py"]
+    restart: "no"
+    networks:
+      - default
+
+  seed-relay:
+    image: dart:stable
+    depends_on:
+      relay:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+      lnbits-init:
+        condition: service_completed_successfully
+      alby-init:
+        condition: service_completed_successfully
+      nginx-proxy:
+        condition: service_healthy
+    volumes:
+      - ./:/workspace
+      - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
+    working_dir: /workspace/hostr_sdk
+    command: >
+      bash -lc "cp /tls/ca.crt /usr/local/share/ca-certificates/hostr-dev-ca.crt && update-ca-certificates 2>/dev/null &&
+      dart pub get &&
+      dart run bin/seed.dart
+      --config-json='{\"relayUrl\":\"wss://relay.${DOMAIN}\",\"rpcUrl\":\"http://anvil:8545\",\"fundProfiles\":false}'"
+    restart: "no"
+    profiles:
+      - seed

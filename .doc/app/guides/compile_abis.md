@@ -1,6 +1,6 @@
 # Compile ABIs
 
-We use [Boltz](https://boltz.exchange/) to swap into and out of escrow contracts on [Rootstock](https://rootstock.io/)'s EVM L2.
+We use [Boltz](https://boltz.exchange/) to swap into and out of escrow contracts on [Arbitrum](https://arbitrum.io/)'s EVM L2.
 
 To facilitate this, we require the [ABIs](https://www.quicknode.com/guides/ethereum-development/smart-contracts/what-is-an-abi) that Boltz makes available for their swaps, and the ABIs used for the escrow contract.
 

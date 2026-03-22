@@ -91,7 +91,7 @@ class _EscrowRootstockConfig extends RootstockConfig {
   _EscrowRootstockConfig({required String rpcUrl}) : _rpcUrl = rpcUrl;
 
   @override
-  int get chainId => 33;
+  int get chainId => 412346;
 
   @override
   String get rpcUrl => _rpcUrl;
@@ -100,15 +100,8 @@ class _EscrowRootstockConfig extends RootstockConfig {
   BoltzConfig get boltz => _EscrowBoltzConfig();
 
   @override
-  RifRelayConfig get rifRelay => _EscrowRifRelayConfig();
-
-  @override
-  RootstockSupportedContractsConfig get supportedContracts =>
-      DefaultRootstockSupportedContractsConfig(
-        multiEscrow: DefaultSupportedEscrowContractConfig(
-          rifRelay: _EscrowRifRelayConfig(),
-        ),
-      );
+  AccountAbstractionConfig get accountAbstraction =>
+      _EscrowAccountAbstractionConfig();
 }
 
 class _EscrowBoltzConfig extends BoltzConfig {
@@ -116,19 +109,19 @@ class _EscrowBoltzConfig extends BoltzConfig {
   String get apiUrl => 'https://boltz.hostr.development/v2';
 }
 
-class _EscrowRifRelayConfig extends RifRelayConfig {
+class _EscrowAccountAbstractionConfig extends AccountAbstractionConfig {
   @override
-  String get callVerifier =>
-      _readRequiredEnv('RIF_RELAY_RELAY_VERIFIER_ADDRESS');
+  String get bundlerUrl =>
+      Platform.environment['AA_BUNDLER_URL']?.trim() ??
+      'http://bundler:3000/rpc';
 
   @override
-  String get deployVerifier =>
-      _readRequiredEnv('RIF_RELAY_DEPLOY_VERIFIER_ADDRESS');
+  String get entryPointAddress => _readRequiredEnv('AA_ENTRY_POINT_ADDRESS');
 
   @override
-  String get url => _readRequiredEnv('RIF_RELAY_URL');
+  String get accountFactoryAddress =>
+      _readRequiredEnv('AA_ACCOUNT_FACTORY_ADDRESS');
 
   @override
-  String get smartWalletFactoryAddress =>
-      _readRequiredEnv('RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS');
+  String get paymasterAddress => _readRequiredEnv('AA_PAYMASTER_ADDRESS');
 }

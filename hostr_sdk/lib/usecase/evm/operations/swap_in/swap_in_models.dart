@@ -2,7 +2,7 @@ import 'package:models/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
-import '../../chain/rootstock/rif_relay/rif_relay.dart';
+import '../../userop/claim_args.dart';
 
 typedef SwapInClaimCallback = Future<String> Function(ClaimArgs claimArgs);
 

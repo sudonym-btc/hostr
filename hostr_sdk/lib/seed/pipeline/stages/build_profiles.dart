@@ -163,11 +163,11 @@ Future<List<ProfileMetadata>> buildProfiles({
             ? '${identity.displayName} hosts thoughtfully designed stays and has welcomed guests since ${2015 + (user.index % 9)}.'
             : '${identity.displayName} is an avid traveler who loves local neighborhoods, great coffee, and easy check-ins.',
         lud16: user.isHost
-            ? 'host${user.index + 1}@lnbits1.hostr.development'
-            : 'guest${user.index + 1}@lnbits2.hostr.development',
+            ? 'host${user.index + 1}@lnbits.hostr.development'
+            : 'guest${user.index + 1}@lnbits.hostr.development',
         nip05: user.isHost
-            ? 'host${user.index + 1}@lnbits1.hostr.development'
-            : 'guest${user.index + 1}@lnbits2.hostr.development',
+            ? 'host${user.index + 1}@lnbits.hostr.development'
+            : 'guest${user.index + 1}@lnbits.hostr.development',
         picture: identity.pictureUrl,
       ).toEvent();
 
@@ -273,6 +273,9 @@ Future<List<EscrowMethod>> buildEscrowMethods({
   required List<SeedUser> users,
 }) async {
   final methods = <EscrowMethod>[];
+  final acceptedPaymentForms = [
+    AcceptedPaymentForm(denomination: 'BTC', tokenTagId: Token.rbtc(30).tagId),
+  ];
   for (final user in users) {
     final list =
         Nip51List(
@@ -290,6 +293,10 @@ Future<List<EscrowMethod>> buildEscrowMethods({
         publicKey: user.keyPair.publicKey,
       ),
     );
+
+    for (final form in acceptedPaymentForms) {
+      listEvent.tags.add(form.toTag());
+    }
 
     final signed = Nip01Utils.signWithPrivateKey(
       privateKey: user.keyPair.privateKey!,

@@ -1353,6 +1353,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.1"
+  permissionless:
+    dependency: transitive
+    description:
+      name: permissionless
+      sha256: b131c5207db73580ea8737082534284f22fb416332cadafc773e14c11d6ae7cc
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   petitparser:
     dependency: transitive
     description:

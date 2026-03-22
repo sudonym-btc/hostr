@@ -7,23 +7,23 @@ const config: HardhatUserConfig = {
   networks: {
     localhost: {
       url: process.env.RPC_URL ?? "http://127.0.0.1:8545",
-      // Use a dedicated account to avoid nonce conflicts with rif-relay (which uses Account 0)
+      // Use a dedicated account to avoid nonce conflicts with AA deploy (which uses Account 0)
       accounts: process.env.DEPLOYER_PRIVATE_KEY
         ? [process.env.DEPLOYER_PRIVATE_KEY]
         : [],
     },
-    // Rootstock Testnet (chainId 31)
-    "rsk-testnet": {
-      url: "https://public-node.testnet.rsk.co",
-      chainId: 31,
+    // Arbitrum Sepolia (chainId 421614)
+    "arbitrum-sepolia": {
+      url: "https://sepolia-rollup.arbitrum.io/rpc",
+      chainId: 421614,
       accounts: process.env.DEPLOYER_PRIVATE_KEY
         ? [process.env.DEPLOYER_PRIVATE_KEY]
         : [],
     },
-    // Rootstock Mainnet (chainId 30)
-    "rsk-mainnet": {
-      url: "https://public-node.rsk.co",
-      chainId: 30,
+    // Arbitrum One (chainId 42161)
+    "arbitrum-one": {
+      url: "https://arb1.arbitrum.io/rpc",
+      chainId: 42161,
       accounts: process.env.DEPLOYER_PRIVATE_KEY
         ? [process.env.DEPLOYER_PRIVATE_KEY]
         : [],

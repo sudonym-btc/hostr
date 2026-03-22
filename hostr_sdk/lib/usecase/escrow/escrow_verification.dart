@@ -46,6 +46,19 @@ class EscrowVerification {
     : _evm = evm,
       _logger = logger.scope('escrow-verify');
 
+  String? _inferDenomination({
+    required Token expectedToken,
+    required Token fundedToken,
+  }) {
+    if (expectedToken.isLightning || fundedToken.isLightning) {
+      return 'BTC';
+    }
+    if (expectedToken.isNative && fundedToken.isNative) {
+      return 'BTC';
+    }
+    return null;
+  }
+
   /// Verify the on-chain escrow for [reservation] against [listing].
   ///
   /// Returns [EscrowVerificationResult.valid] when the on-chain trade
@@ -108,7 +121,7 @@ class EscrowVerification {
 
     if (escrowProof.hostsEscrowMethods
         .getTags('t')
-        .where((element) => element == chosenEscrowType)
+        .where((element) => element.toLowerCase() == chosenEscrowType)
         .isEmpty) {
       return EscrowVerificationResult.invalid(
         'Host does not support escrow method type $chosenEscrowType',
@@ -214,6 +227,21 @@ class EscrowVerification {
         return EscrowVerificationResult.invalid(
           'Token mismatch: on-chain token ${onChainAmount.token} '
           'does not match expected token ${expectedTokenAmount.token}',
+        );
+      }
+
+      final inferredDenomination = _inferDenomination(
+        expectedToken: expectedTokenAmount.token,
+        fundedToken: onChainAmount.token,
+      );
+      if (inferredDenomination != null &&
+          !escrowProof.hostsEscrowMethods.acceptsToken(
+            inferredDenomination,
+            onChainAmount.token.tagId,
+          )) {
+        return EscrowVerificationResult.invalid(
+          'Host does not accept token ${onChainAmount.token.tagId} '
+          'for $inferredDenomination-denominated payments',
         );
       }
 

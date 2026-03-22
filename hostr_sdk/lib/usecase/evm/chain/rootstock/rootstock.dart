@@ -17,7 +17,6 @@ import '../../../escrow/supported_escrow_contract/supported_escrow_contract_regi
 import '../../main.dart';
 import 'operations/swap_in/swap_in_operation.dart';
 import 'operations/swap_out/swap_out_operation.dart';
-import 'rif_relay/rif_relay.dart';
 
 @Singleton()
 class Rootstock extends EvmChain {
@@ -30,12 +29,6 @@ class Rootstock extends EvmChain {
 
   Rootstock({required this.config, required super.auth, required super.logger})
     : super(client: _buildWeb3Client(config.rootstockConfig.rpcUrl));
-
-  RifRelay _rifRelayForSupportedContract(String contractName) {
-    final contractConfig = config.rootstockConfig.supportedContracts
-        .forContractName(contractName);
-    return getIt<RifRelay>(param1: client, param2: contractConfig.rifRelay);
-  }
 
   @override
   Web3Client buildClient() => _buildWeb3Client(config.rootstockConfig.rpcUrl);
@@ -62,13 +55,13 @@ class Rootstock extends EvmChain {
 
     final cacheKey = '$contractName:${address.eip55With0x}';
     return _supportedContractCache.putIfAbsent(cacheKey, () {
-      final rifRelay = _rifRelayForSupportedContract(contractName);
+      // Gas sponsorship is now handled by UserOpService (ERC-4337 AA)
+      // via the bundler and paymaster configured in AccountAbstractionConfig.
       if (contractName == 'MultiEscrow') {
         return MultiEscrowWrapper(
           chain: this,
           client: client,
           address: address,
-          rifRelay: rifRelay,
           logger: getIt<CustomLogger>(),
         );
       }
@@ -77,7 +70,6 @@ class Rootstock extends EvmChain {
         contractName,
         client,
         address,
-        rifRelay: rifRelay,
       )!;
     });
   }

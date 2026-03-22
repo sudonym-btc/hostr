@@ -32,18 +32,12 @@ class MockConfig extends Config {
 
 class MockRootstockConfig extends RootstockConfig {
   @override
-  int get chainId => 33;
+  int get chainId => 412346;
   @override
   BoltzConfig get boltz => MockBoltzConfig();
   @override
-  RifRelayConfig get rifRelay => MockRifRelayConfig();
-  @override
-  RootstockSupportedContractsConfig get supportedContracts =>
-      DefaultRootstockSupportedContractsConfig(
-        multiEscrow: DefaultSupportedEscrowContractConfig(
-          rifRelay: MockRifRelayConfig(),
-        ),
-      );
+  AccountAbstractionConfig get accountAbstraction =>
+      MockAccountAbstractionConfig();
   @override
   String get rpcUrl => 'http://localhost:8545';
 }
@@ -57,20 +51,17 @@ class MockBoltzConfig extends BoltzConfig {
   String get wsUrl => throw UnimplementedError();
 }
 
-class MockRifRelayConfig extends RifRelayConfig {
+class MockAccountAbstractionConfig extends AccountAbstractionConfig {
   @override
-  // TODO: implement rifRelayCallVerifier
-  String get callVerifier => throw UnimplementedError();
+  String get bundlerUrl => 'http://localhost:3010/rpc';
 
   @override
-  // TODO: implement rifRelayDeployVerifier
-  String get deployVerifier => throw UnimplementedError();
+  String get entryPointAddress => '0x0000000000000000000000000000000000000000';
 
   @override
-  // TODO: implement rifRelayUrl
-  String get url => throw UnimplementedError();
+  String get accountFactoryAddress =>
+      '0x0000000000000000000000000000000000000000';
 
   @override
-  // TODO: implement rifSmartWalletFactoryAddress
-  String get smartWalletFactoryAddress => throw UnimplementedError();
+  String get paymasterAddress => '0x0000000000000000000000000000000000000000';
 }

@@ -65,6 +65,7 @@ import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart'
 import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_quote_service.dart'
     as _i148;
 import 'package:hostr_sdk/usecase/evm/operations/swap_recoverer.dart' as _i249;
+import 'package:hostr_sdk/usecase/evm/userop/userop_service.dart' as _i552;
 import 'package:hostr_sdk/usecase/gift_wraps/gift_wraps.dart' as _i308;
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart' as _i175;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
@@ -219,6 +220,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i350.BoltzClient>(
       () =>
           _i350.BoltzClient(gh<_i910.HostrConfig>(), gh<_i372.CustomLogger>()),
+    );
+    gh.factory<_i552.UserOpService>(
+      () => _i552.UserOpService(
+        gh<_i910.HostrConfig>(),
+        gh<_i331.CustomLogger>(),
+      ),
     );
     gh.factoryParam<_i62.RootstockSwapInOperation, _i677.SwapInParams, dynamic>(
       (params, _) => _i62.RootstockSwapInOperation(

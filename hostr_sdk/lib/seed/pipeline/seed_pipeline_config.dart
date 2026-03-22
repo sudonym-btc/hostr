@@ -149,8 +149,7 @@ class SeedPipelineConfig {
   final bool fundProfiles;
   final bool setupLnbits;
   final BigInt? fundAmountWei;
-  final String lnbits1BaseUrl;
-  final String lnbits2BaseUrl;
+  final String lnbitsBaseUrl;
   final String lnbitsAdminEmail;
   final String lnbitsAdminPassword;
   final String lnbitsExtensionName;
@@ -183,8 +182,7 @@ class SeedPipelineConfig {
     this.fundProfiles = true,
     this.setupLnbits = true,
     this.fundAmountWei,
-    this.lnbits1BaseUrl = 'https://lnbits1.hostr.development',
-    this.lnbits2BaseUrl = 'https://lnbits2.hostr.development',
+    this.lnbitsBaseUrl = 'https://lnbits.hostr.development',
     this.lnbitsAdminEmail = 'admin@example.com',
     this.lnbitsAdminPassword = 'adminpassword',
     this.lnbitsExtensionName = 'lnurlp',
@@ -208,10 +206,8 @@ class SeedPipelineConfig {
       fundProfiles: _bool(json['fundProfiles'], true),
       setupLnbits: _bool(json['setupLnbits'], false),
       fundAmountWei: _bigInt(json['fundAmountWei']),
-      lnbits1BaseUrl:
-          _str(json['lnbits1BaseUrl']) ?? 'https://lnbits1.hostr.development',
-      lnbits2BaseUrl:
-          _str(json['lnbits2BaseUrl']) ?? 'https://lnbits2.hostr.development',
+      lnbitsBaseUrl:
+          _str(json['lnbitsBaseUrl']) ?? 'https://lnbits.hostr.development',
       lnbitsAdminEmail: _str(json['lnbitsAdminEmail']) ?? 'admin@example.com',
       lnbitsAdminPassword: _str(json['lnbitsAdminPassword']) ?? 'adminpassword',
       lnbitsExtensionName: _str(json['lnbitsExtensionName']) ?? 'lnurlp',
@@ -246,8 +242,7 @@ class SeedPipelineConfig {
     'fundProfiles': fundProfiles,
     'setupLnbits': setupLnbits,
     'fundAmountWei': fundAmountWei?.toString(),
-    'lnbits1BaseUrl': lnbits1BaseUrl,
-    'lnbits2BaseUrl': lnbits2BaseUrl,
+    'lnbitsBaseUrl': lnbitsBaseUrl,
     'lnbitsAdminEmail': lnbitsAdminEmail,
     'lnbitsAdminPassword': lnbitsAdminPassword,
     'lnbitsExtensionName': lnbitsExtensionName,
