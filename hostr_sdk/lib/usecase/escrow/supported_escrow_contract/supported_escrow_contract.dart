@@ -1,12 +1,9 @@
-import 'dart:typed_data';
-
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../util/main.dart';
-import '../../evm/chain/rootstock/rif_relay/rif_relay.dart';
 import '../../evm/contract_call_intent.dart';
 
 export '../../evm/contract_call_intent.dart';
@@ -91,49 +88,6 @@ class FundArgs {
   });
 }
 
-class ClaimSwapAndFundArgs {
-  final EthereumAddress swapContract;
-  final ClaimArgs claimArgs;
-  final FundArgs fundArgs;
-
-  const ClaimSwapAndFundArgs({
-    required this.swapContract,
-    required this.claimArgs,
-    required this.fundArgs,
-  });
-}
-
-/// Claim arguments for the Boltz [ERC20Swap] contract.
-///
-/// Extends [ClaimArgs] with [tokenAddress] which is required by
-/// `ERC20Swap.claim`.
-typedef ERC20ClaimArgs = ({
-  BigInt amount,
-  Uint8List preimage,
-  Uint8List r,
-  EthereumAddress refundAddress,
-  Uint8List s,
-  BigInt timelock,
-  BigInt v,
-  EthereumAddress tokenAddress,
-});
-
-/// Arguments for [SupportedEscrowContract.claimERC20SwapAndFund].
-///
-/// Atomically claims ERC-20 tokens from the Boltz ERC20Swap contract
-/// and funds a MultiEscrow trade in a single transaction.
-class ClaimERC20SwapAndFundArgs {
-  final EthereumAddress swapContract;
-  final ERC20ClaimArgs claimArgs;
-  final FundArgs fundArgs;
-
-  const ClaimERC20SwapAndFundArgs({
-    required this.swapContract,
-    required this.claimArgs,
-    required this.fundArgs,
-  });
-}
-
 class ReleaseArgs {
   final String tradeId;
   final EthPrivateKey ethKey;
@@ -141,33 +95,19 @@ class ReleaseArgs {
   const ReleaseArgs({required this.tradeId, required this.ethKey});
 }
 
-typedef AuthorizationHashFn =
-    Future<Uint8List> Function(
-      ({Uint8List tradeId, dynamic relayFeeQuote}) args,
-    );
-
 abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   static final EthereumAddress zeroAddress = EthereumAddress.fromHex(
     '0x0000000000000000000000000000000000000000',
   );
-  static final List<dynamic> zeroedRelayFeeQuote = [
-    zeroAddress,
-    BigInt.zero,
-    BigInt.zero,
-  ];
 
   final Contract contract;
   final Web3Client client;
   final EthereumAddress address;
-  final RifRelay? rifRelay;
-  final bool supportsClaimSwapAndFund;
 
   SupportedEscrowContract({
     required this.contract,
     required this.client,
     required this.address,
-    this.rifRelay,
-    this.supportsClaimSwapAndFund = false,
   });
 
   /// Public API
@@ -186,26 +126,11 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   Future<bool> canRelease(ReleaseArgs args);
 
   ContractCallIntent fund(FundArgs args);
-  Future<ContractCallIntent> fundRelayed(FundArgs args) async => fund(args);
   ContractCallIntent claim({
     required String tradeId,
     required EthPrivateKey ethKey,
   });
-  Future<ContractCallIntent> claimRelayed({
-    required String tradeId,
-    required EthPrivateKey ethKey,
-  }) async => claim(tradeId: tradeId, ethKey: ethKey);
-  ContractCallIntent claimSwapAndFund(ClaimSwapAndFundArgs args);
-  Future<ContractCallIntent> claimSwapAndFundRelayed(
-    ClaimSwapAndFundArgs args,
-  ) async => claimSwapAndFund(args);
-  ContractCallIntent claimERC20SwapAndFund(ClaimERC20SwapAndFundArgs args);
-  Future<ContractCallIntent> claimERC20SwapAndFundRelayed(
-    ClaimERC20SwapAndFundArgs args,
-  ) async => claimERC20SwapAndFund(args);
   ContractCallIntent release(ReleaseArgs args);
-  Future<ContractCallIntent> releaseRelayed(ReleaseArgs args) async =>
-      release(args);
   ContractCallIntent arbitrate({
     required String tradeId,
     required double forward,
@@ -235,25 +160,6 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
         'Funding can succeed with no logs in that case because no contract code executes.',
       );
     }
-  }
-
-  List<dynamic> relayFeeQuote({BigInt? deadline}) => [
-    zeroAddress,
-    BigInt.zero,
-    deadline ?? BigInt.zero,
-  ];
-
-  Uint8List packSignature(Uint8List hash, EthPrivateKey key) {
-    final sig = sign(hash, key.privateKey);
-    final r = padUint8ListTo32(unsignedIntToBytes(sig.r));
-    final s = padUint8ListTo32(unsignedIntToBytes(sig.s));
-    final v = Uint8List.fromList([sig.v]);
-
-    final packedSignature = Uint8List(65);
-    packedSignature.setRange(0, 32, r);
-    packedSignature.setRange(32, 64, s);
-    packedSignature.setRange(64, 65, v);
-    return packedSignature;
   }
 
   Future<GasEstimate> estimateFee(
@@ -299,35 +205,6 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     }
   }
 
-  Future<GasEstimate> estimateRelayFee(
-    ContractCallIntent intent,
-    EthPrivateKey ethKey,
-  ) async {
-    final relay = rifRelay;
-    if (relay == null) {
-      return estimateFee(intent);
-    }
-
-    try {
-      final estimate = await relay.estimateRelayCall(ethKey, intent);
-      final gasLimit =
-          BigInt.tryParse(estimate.estimation ?? '') ??
-          BigInt.from(intent.maxGas ?? 200000);
-      final gasPriceWei =
-          BigInt.tryParse(estimate.gasPrice ?? '') ?? BigInt.zero;
-      final relayFeeWei =
-          BigInt.tryParse(estimate.requiredTokenAmount ?? '') ?? BigInt.zero;
-
-      return GasEstimate(
-        fee: rbtcFromWei(relayFeeWei),
-        gasPrice: EtherAmount.inWei(gasPriceWei),
-        gasLimit: gasLimit,
-      );
-    } catch (_) {
-      return estimateFee(intent);
-    }
-  }
-
   ContractCallIntent buildIntent({
     required String functionName,
     required List<dynamic> args,
@@ -348,37 +225,6 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
       gasPrice: gasPrice,
       maxGas: maxGas,
       from: from,
-      methodName: methodName,
-    );
-  }
-
-  Future<ContractCallIntent> buildAuthorizedRelayIntent({
-    required Uint8List tradeId,
-    required EthPrivateKey ethKey,
-    required AuthorizationHashFn authorizationHashFn,
-    required String functionName,
-    required String methodName,
-  }) async {
-    final feeQuote = relayFeeQuote(
-      deadline: BigInt.from(
-        DateTime.now()
-                .toUtc()
-                .add(const Duration(minutes: 10))
-                .millisecondsSinceEpoch ~/
-            1000,
-      ),
-    );
-
-    final authorizationHash = await authorizationHashFn((
-      tradeId: tradeId,
-      relayFeeQuote: feeQuote,
-    ));
-    final packedSignature = packSignature(authorizationHash, ethKey);
-
-    return buildIntent(
-      functionName: functionName,
-      args: [tradeId, feeQuote, packedSignature],
-      from: ethKey.address,
       methodName: methodName,
     );
   }

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 final _contractAddressPattern = RegExp(r'^0x[a-fA-F0-9]{40}$');
-const _defaultContractAddressLookupKey = 'regtest.33';
+const _defaultContractAddressLookupKey = 'regtest.412346';
 const _defaultContractName = 'MultiEscrow';
 
 String _normalizeContractAddress(String value) {
@@ -31,7 +31,7 @@ String _validateContractAddress(String value, String source) {
 /// 1. `--dart-define=ESCROW_CONTRACT_ADDRESS=...` for Flutter app/test processes.
 /// 2. `ESCROW_CONTRACT_ADDRESS` environment variable for host-side Dart/CLI processes.
 /// 3. Address lookup file, using `ESCROW_CONTRACT_ADDRESS_KEY` (default
-///    `regtest.33`) and contract name `MultiEscrow`.
+///    `regtest.412346`) and contract name `MultiEscrow`.
 /// 4. Repo fallback at `escrow/contracts/contract-addresses.json`.
 String resolveContractAddress({
   String? addressKey,

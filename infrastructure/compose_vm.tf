@@ -22,13 +22,12 @@ locals {
     "ESCROW_PRIVATE_KEY",
     "BLOSSOM_DASHBOARD_PASSWORD",
     "OTEL_EXPORTER_OTLP_HEADERS",
-    "RSK_RPC_API_KEY",
   ]
 
   # Stored in Secret Manager for bootstrap/admin workflows only.
   # Intentionally not included in `compose_runtime_secret_names`, so it is not
   # fetched onto the long-lived compose VM during normal deploys.
-  rif_relay_admin_secret_name = "RIF_RELAY_ADMIN_PRIVATE_KEY"
+  aa_signer_secret_name = "AA_PAYMASTER_SIGNER_PRIVATE_KEY"
 }
 
 resource "google_secret_manager_secret" "compose_runtime" {
@@ -54,9 +53,9 @@ resource "google_secret_manager_secret_version" "compose_runtime_seed" {
   secret_data = var.compose_runtime_secret_values[each.key]
 }
 
-resource "google_secret_manager_secret" "rif_relay_admin_private_key" {
+resource "google_secret_manager_secret" "aa_signer_private_key" {
   project   = var.project_id
-  secret_id = local.rif_relay_admin_secret_name
+  secret_id = local.aa_signer_secret_name
 
   replication {
     auto {}
@@ -65,19 +64,19 @@ resource "google_secret_manager_secret" "rif_relay_admin_private_key" {
   depends_on = [google_project_service.secretmanager]
 }
 
-resource "google_secret_manager_secret_version" "rif_relay_admin_private_key_seed" {
+resource "google_secret_manager_secret_version" "aa_signer_private_key_seed" {
   count = trimspace(
     lookup(
       nonsensitive(var.compose_runtime_secret_values),
-      local.rif_relay_admin_secret_name,
+      local.aa_signer_secret_name,
       ""
     )
   ) != "" ? 1 : 0
 
-  secret = google_secret_manager_secret.rif_relay_admin_private_key.id
+  secret = google_secret_manager_secret.aa_signer_private_key.id
   secret_data = lookup(
     var.compose_runtime_secret_values,
-    local.rif_relay_admin_secret_name,
+    local.aa_signer_secret_name,
     ""
   )
 }
@@ -128,19 +127,10 @@ resource "google_compute_disk" "blossom_data" {
   depends_on = [google_project_service.compute]
 }
 
-resource "google_compute_disk" "rif_relay_data" {
-  name    = "${local.project_base_name}-rif-relay-data"
-  project = var.project_id
-  zone    = var.compose_zone
-  type    = "pd-balanced"
-  size    = var.rif_relay_disk_size_gb
-
-  lifecycle {
-    prevent_destroy = true
-  }
-
-  depends_on = [google_project_service.compute]
-}
+# NOTE: rif_relay_data disk removed — bundler is stateless.
+# If you need to clean up the old disk, run:
+#   terraform state rm google_compute_disk.rif_relay_data
+#   Then delete the disk manually from the GCP console.
 
 resource "google_compute_instance" "compose_vm" {
   name                      = "${local.project_base_name}-compose"
@@ -166,11 +156,6 @@ resource "google_compute_instance" "compose_vm" {
   attached_disk {
     source      = google_compute_disk.blossom_data.self_link
     device_name = "blossom-data"
-  }
-
-  attached_disk {
-    source      = google_compute_disk.rif_relay_data.self_link
-    device_name = "rif-relay-data"
   }
 
   network_interface {

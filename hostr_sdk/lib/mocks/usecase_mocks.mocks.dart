@@ -2399,17 +2399,25 @@ class MockEscrowMethods extends _i1.Mock implements _i21.EscrowMethods {
           as _i29.Stream<_i10.EscrowMethod>);
 
   @override
-  _i29.Future<_i10.EscrowMethod?> localMethod() =>
+  _i29.Future<_i10.EscrowMethod?> localMethod({
+    List<_i10.AcceptedPaymentForm>? acceptedPaymentForms = const [],
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#localMethod, []),
+            Invocation.method(#localMethod, [], {
+              #acceptedPaymentForms: acceptedPaymentForms,
+            }),
             returnValue: _i29.Future<_i10.EscrowMethod?>.value(),
           )
           as _i29.Future<_i10.EscrowMethod?>);
 
   @override
-  _i29.Future<void> ensureEscrowMethod() =>
+  _i29.Future<void> ensureEscrowMethod({
+    List<_i10.AcceptedPaymentForm>? acceptedPaymentForms = const [],
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#ensureEscrowMethod, []),
+            Invocation.method(#ensureEscrowMethod, [], {
+              #acceptedPaymentForms: acceptedPaymentForms,
+            }),
             returnValue: _i29.Future<void>.value(),
             returnValueForMissingStub: _i29.Future<void>.value(),
           )

@@ -13,12 +13,12 @@ import 'package:test/test.dart';
 import '../../../support/integration_test_harness.dart';
 
 /// Fetches a real BOLT-11 invoice for [amountSats] from the LNbits
-/// `tips@lnbits1.hostr.development` Lightning Address.
+/// `tips@lnbits.hostr.development` Lightning Address.
 Future<String> _fetchLnurlInvoice(int amountSats) async {
   final lnurl = Lnurl(
     transport: LnurlTransportHttpImpl(HttpRequestDS(http.Client())),
   );
-  final link = Lnurl.getLud16LinkFromLud16('tips@lnbits1.hostr.development');
+  final link = Lnurl.getLud16LinkFromLud16('tips@lnbits.hostr.development');
   final response = await lnurl.getLnurlResponse(link!);
   final invoiceResponse = await lnurl.fetchInvoice(
     lnurlResponse: response!,

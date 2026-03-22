@@ -52,13 +52,13 @@ jobs:
         run: gcloud auth configure-docker "${{ steps.meta.outputs.registry_host }}" --quiet
 
       # ── Environment-agnostic images ──────────────────────────────────────
-      - name: Build & push rif-relay
+      - name: Build & push aa-deploy
         run: |
           docker build \
-            -t "${{ steps.meta.outputs.registry }}/rif-relay:${{ steps.meta.outputs.sha_tag }}" \
-            -t "${{ steps.meta.outputs.registry }}/rif-relay:latest" \
-            -f docker/rif-relay/Dockerfile .
-          docker push "${{ steps.meta.outputs.registry }}/rif-relay" --all-tags
+            -t "${{ steps.meta.outputs.registry }}/aa-deploy:${{ steps.meta.outputs.sha_tag }}" \
+            -t "${{ steps.meta.outputs.registry }}/aa-deploy:latest" \
+            -f docker/account-abstraction/Dockerfile docker/account-abstraction
+          docker push "${{ steps.meta.outputs.registry }}/aa-deploy" --all-tags
 
       - name: Build & push escrow
         run: |
@@ -96,10 +96,10 @@ jobs:
             echo "APP_PROFILE=${COMPOSE_PROFILES}"
             echo "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}"
             echo "HOSTR_BOOTSTRAP_ESCROW_PUBKEY=${HOSTR_BOOTSTRAP_ESCROW_PUBKEY:-}"
-            echo "RIF_RELAY_URL=${RIF_RELAY_URL:-}"
-            echo "RIF_RELAY_RELAY_VERIFIER_ADDRESS=${RIF_RELAY_RELAY_VERIFIER_ADDRESS:-}"
-            echo "RIF_RELAY_DEPLOY_VERIFIER_ADDRESS=${RIF_RELAY_DEPLOY_VERIFIER_ADDRESS:-}"
-            echo "RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS=${RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS:-}"
+            echo "AA_BUNDLER_URL=${AA_BUNDLER_URL:-}"
+            echo "AA_ENTRY_POINT_ADDRESS=${AA_ENTRY_POINT_ADDRESS:-}"
+            echo "AA_ACCOUNT_FACTORY_ADDRESS=${AA_ACCOUNT_FACTORY_ADDRESS:-}"
+            echo "AA_PAYMASTER_ADDRESS=${AA_PAYMASTER_ADDRESS:-}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Build & push app
@@ -108,10 +108,10 @@ jobs:
             --build-arg APP_PROFILE="${{ steps.appenv.outputs.APP_PROFILE }}" \
             --build-arg GOOGLE_MAPS_API_KEY="${{ steps.appenv.outputs.GOOGLE_MAPS_API_KEY }}" \
             --build-arg HOSTR_BOOTSTRAP_ESCROW_PUBKEY="${{ steps.appenv.outputs.HOSTR_BOOTSTRAP_ESCROW_PUBKEY }}" \
-            --build-arg RIF_RELAY_URL="${{ steps.appenv.outputs.RIF_RELAY_URL }}" \
-            --build-arg RIF_RELAY_RELAY_VERIFIER_ADDRESS="${{ steps.appenv.outputs.RIF_RELAY_RELAY_VERIFIER_ADDRESS }}" \
-            --build-arg RIF_RELAY_DEPLOY_VERIFIER_ADDRESS="${{ steps.appenv.outputs.RIF_RELAY_DEPLOY_VERIFIER_ADDRESS }}" \
-            --build-arg RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS="${{ steps.appenv.outputs.RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS }}" \
+            --build-arg AA_BUNDLER_URL="${{ steps.appenv.outputs.AA_BUNDLER_URL }}" \
+            --build-arg AA_ENTRY_POINT_ADDRESS="${{ steps.appenv.outputs.AA_ENTRY_POINT_ADDRESS }}" \
+            --build-arg AA_ACCOUNT_FACTORY_ADDRESS="${{ steps.appenv.outputs.AA_ACCOUNT_FACTORY_ADDRESS }}" \
+            --build-arg AA_PAYMASTER_ADDRESS="${{ steps.appenv.outputs.AA_PAYMASTER_ADDRESS }}" \
             -t "${{ steps.meta.outputs.registry }}/app:${{ steps.meta.outputs.sha_tag }}" \
             -t "${{ steps.meta.outputs.registry }}/app:latest" \
             -f app/Dockerfile.web .

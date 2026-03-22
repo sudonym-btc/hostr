@@ -30,18 +30,12 @@ class DevelopmentConfig extends Config {
 
 class DevelopmentRootstockConfig extends RootstockConfig {
   @override
-  int get chainId => 33;
+  int get chainId => 412346;
   @override
   BoltzConfig get boltz => DevelopmentBoltzConfig();
   @override
-  RifRelayConfig get rifRelay => EnvBackedRifRelayConfig();
-  @override
-  RootstockSupportedContractsConfig get supportedContracts =>
-      DefaultRootstockSupportedContractsConfig(
-        multiEscrow: DefaultSupportedEscrowContractConfig(
-          rifRelay: EnvBackedRifRelayConfig(),
-        ),
-      );
+  AccountAbstractionConfig get accountAbstraction =>
+      EnvBackedAccountAbstractionConfig();
   @override
   String get rpcUrl => 'https://anvil.hostr.development';
 }

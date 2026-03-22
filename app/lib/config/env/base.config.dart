@@ -13,7 +13,7 @@ abstract class Config {
   List<String> get bootstrapEscrowPubkeys => [];
   bool get useSecureKeyValueStorage => true;
   String get googleMapsApiKey;
-  String get tipsAddress => 'tips@lnbits1.hostr.development';
+  String get tipsAddress => 'tips@lnbits.hostr.development';
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 
@@ -62,29 +62,29 @@ List<String> buildConfigList(String key, String value) {
       .toList(growable: false);
 }
 
-class EnvBackedRifRelayConfig extends RifRelayConfig {
+class EnvBackedAccountAbstractionConfig extends AccountAbstractionConfig {
   @override
-  String get url => requiredBuildConfig(
-    'RIF_RELAY_URL',
-    const String.fromEnvironment('RIF_RELAY_URL'),
+  String get bundlerUrl => requiredBuildConfig(
+    'AA_BUNDLER_URL',
+    const String.fromEnvironment('AA_BUNDLER_URL'),
   );
 
   @override
-  String get callVerifier => requiredBuildConfig(
-    'RIF_RELAY_RELAY_VERIFIER_ADDRESS',
-    const String.fromEnvironment('RIF_RELAY_RELAY_VERIFIER_ADDRESS'),
+  String get entryPointAddress => requiredBuildConfig(
+    'AA_ENTRY_POINT_ADDRESS',
+    const String.fromEnvironment('AA_ENTRY_POINT_ADDRESS'),
   );
 
   @override
-  String get deployVerifier => requiredBuildConfig(
-    'RIF_RELAY_DEPLOY_VERIFIER_ADDRESS',
-    const String.fromEnvironment('RIF_RELAY_DEPLOY_VERIFIER_ADDRESS'),
+  String get accountFactoryAddress => requiredBuildConfig(
+    'AA_ACCOUNT_FACTORY_ADDRESS',
+    const String.fromEnvironment('AA_ACCOUNT_FACTORY_ADDRESS'),
   );
 
   @override
-  String get smartWalletFactoryAddress => requiredBuildConfig(
-    'RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS',
-    const String.fromEnvironment('RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS'),
+  String get paymasterAddress => requiredBuildConfig(
+    'AA_PAYMASTER_ADDRESS',
+    const String.fromEnvironment('AA_PAYMASTER_ADDRESS'),
   );
 }
 

@@ -4,17 +4,7 @@ hostr_validate_environment() {
     case "${1:-}" in
         local|test|staging|prod) ;;
         *)
-            echo "Usage: ${2:-$0} [local|test|staging|prod] [regtest-fast|regtest-managed]" >&2
-            return 64
-            ;;
-    esac
-}
-
-hostr_validate_rif_relay_mode() {
-    case "${1:-}" in
-        regtest-fast|regtest-managed) ;;
-        *)
-            echo "Usage: ${2:-$0} [local|test|staging|prod] [regtest-fast|regtest-managed]" >&2
+            echo "Usage: ${2:-$0} [local|test|staging|prod]" >&2
             return 64
             ;;
     esac
@@ -35,11 +25,23 @@ hostr_compose_cmd() {
     local environment="$1"
     shift
 
-    if [ "$environment" = "staging" ] || [ "$environment" = "prod" ]; then
-        docker compose -f compose.yaml -f compose.hosted.yaml "$@"
-    else
-        docker compose "$@"
+    local compose_files="${HOSTR_COMPOSE_FILES:-}"
+
+    if [ -z "$compose_files" ]; then
+        if [ "$environment" = "staging" ] || [ "$environment" = "prod" ]; then
+            compose_files="compose.yaml,compose.hosted.yaml"
+        else
+            compose_files="compose.yaml,compose.local.yaml"
+        fi
     fi
+
+    local file_args=()
+    IFS=',' read -ra files <<< "$compose_files"
+    for f in "${files[@]}"; do
+        file_args+=(-f "$f")
+    done
+
+    docker compose "${file_args[@]}" "$@"
 }
 
 hostr_load_env() {

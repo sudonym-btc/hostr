@@ -14,8 +14,8 @@ output "compose_runtime_secret_names" {
   value = local.compose_runtime_secret_names
 }
 
-output "rif_relay_admin_secret_name" {
-  value = local.rif_relay_admin_secret_name
+output "aa_signer_secret_name" {
+  value = local.aa_signer_secret_name
 }
 
 output "static_ip" {

@@ -219,8 +219,23 @@ abstract class EvmConfig {
 
 abstract class RootstockConfig extends EvmConfig {
   BoltzConfig get boltz;
-  RifRelayConfig get rifRelay;
-  RootstockSupportedContractsConfig get supportedContracts;
+  AccountAbstractionConfig get accountAbstraction;
+
+  /// @deprecated Backward-compatible getter. Throws [UnimplementedError].
+  /// Swap operations must be migrated to permissionless + ERC-4337 AA.
+  @Deprecated('Use accountAbstraction instead')
+  // ignore: deprecated_member_use_from_same_package
+  RifRelayConfig get rifRelay => throw UnimplementedError(
+    'RIF Relay removed. Migrate to AccountAbstractionConfig + permissionless.',
+  );
+
+  /// @deprecated Backward-compatible getter. Throws [UnimplementedError].
+  @Deprecated('Use accountAbstraction instead')
+  // ignore: deprecated_member_use_from_same_package
+  RootstockSupportedContractsConfig
+  get supportedContracts => throw UnimplementedError(
+    'RIF Relay removed. Migrate to AccountAbstractionConfig + permissionless.',
+  );
 }
 
 abstract class BoltzConfig {
@@ -228,6 +243,29 @@ abstract class BoltzConfig {
   String get wsUrl => '${apiUrl.replaceFirst('http', 'ws')}/ws';
 }
 
+/// ERC-4337 Account Abstraction configuration.
+///
+/// Provides the addresses and URLs needed for gas-sponsored UserOperations
+/// via a bundler and paymaster.  Identical config is used in regtest (Anvil)
+/// and mainnet (Arbitrum One).
+abstract class AccountAbstractionConfig {
+  /// JSON-RPC URL of the ERC-4337 bundler (eth_sendUserOperation).
+  String get bundlerUrl;
+
+  /// Deployed EntryPoint contract address.
+  String get entryPointAddress;
+
+  /// Deployed SimpleAccountFactory address (counterfactual smart accounts).
+  String get accountFactoryAddress;
+
+  /// Deployed paymaster address (gas sponsorship).
+  String get paymasterAddress;
+}
+
+/// @deprecated Use [AccountAbstractionConfig] instead.
+/// Kept temporarily for backward compatibility with [RifRelay] class.
+/// Will be removed when swap operations migrate to permissionless.
+@Deprecated('Use AccountAbstractionConfig instead')
 abstract class RifRelayConfig {
   String get url;
   String get callVerifier;
@@ -235,24 +273,34 @@ abstract class RifRelayConfig {
   String get smartWalletFactoryAddress;
 }
 
+/// @deprecated Use [AccountAbstractionConfig] directly.
+@Deprecated('Use AccountAbstractionConfig directly')
 abstract class SupportedEscrowContractConfig {
+  // ignore: deprecated_member_use_from_same_package
   RifRelayConfig get rifRelay;
 }
 
+/// @deprecated Use [AccountAbstractionConfig] directly.
+@Deprecated('Use AccountAbstractionConfig directly')
 class DefaultSupportedEscrowContractConfig
     implements SupportedEscrowContractConfig {
   @override
+  // ignore: deprecated_member_use_from_same_package
   final RifRelayConfig rifRelay;
 
   DefaultSupportedEscrowContractConfig({required this.rifRelay});
 }
 
+/// @deprecated Use [AccountAbstractionConfig] directly.
+@Deprecated('Use AccountAbstractionConfig directly')
 abstract class RootstockSupportedContractsConfig {
   SupportedEscrowContractConfig get multiEscrow;
 
   SupportedEscrowContractConfig forContractName(String contractName);
 }
 
+/// @deprecated Use [AccountAbstractionConfig] directly.
+@Deprecated('Use AccountAbstractionConfig directly')
 class DefaultRootstockSupportedContractsConfig
     implements RootstockSupportedContractsConfig {
   @override
@@ -267,8 +315,6 @@ class DefaultRootstockSupportedContractsConfig
         return multiEscrow;
     }
 
-    throw StateError(
-      'Unsupported Rootstock escrow contract config: $contractName',
-    );
+    throw StateError('Unsupported escrow contract config: $contractName');
   }
 }

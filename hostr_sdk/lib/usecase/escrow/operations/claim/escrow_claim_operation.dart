@@ -42,9 +42,6 @@ class EscrowClaimOperation extends OnchainOperation {
       OnchainCallData.fromJson(json);
 
   @override
-  String get swapInvoiceDescription => 'Hostr Escrow Claim';
-
-  @override
   Future<void> preflight() => logger.span('preflight', () async {
     final canClaim = await contract.canClaim(tradeId: params.tradeId);
     if (!canClaim) {
@@ -73,11 +70,4 @@ class EscrowClaimOperation extends OnchainOperation {
     tradeId: params.tradeId,
     ethKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
   );
-
-  @override
-  Future<ContractCallIntent> buildRelayedCallIntent() async =>
-      contract.claimRelayed(
-        tradeId: params.tradeId,
-        ethKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
-      );
 }

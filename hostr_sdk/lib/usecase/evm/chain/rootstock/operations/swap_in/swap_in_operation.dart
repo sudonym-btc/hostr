@@ -9,7 +9,7 @@ import 'package:eip712/eip712.dart' as eip712;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:wallet/wallet.dart' show EthereumAddress;
+import 'package:wallet/wallet.dart' show EtherAmount, EthereumAddress;
 import 'package:web3dart/web3dart.dart' hide params;
 
 import '../../../../../../datasources/boltz/boltz.dart';
@@ -21,19 +21,18 @@ import '../../../../../payments/operations/pay_models.dart';
 import '../../../../../payments/operations/pay_operation.dart';
 import '../../../../../payments/operations/pay_state.dart';
 import '../../../../../payments/payments.dart';
+import '../../../../contract_call_intent.dart';
 import '../../../../operations/swap_in/swap_in_models.dart';
 import '../../../../operations/swap_in/swap_in_operation.dart';
 import '../../../../operations/swap_in/swap_in_state.dart';
-import '../../rif_relay/rif_relay.dart';
+import '../../../../userop/claim_args.dart';
+import '../../../../userop/userop_service.dart';
 import '../../rootstock.dart';
 
 @injectable
 class RootstockSwapInOperation extends SwapInOperation {
   final Rootstock rootstock;
-  late final RifRelay rifRelay = getIt<RifRelay>(
-    param1: rootstock.client,
-    param2: rootstock.config.rootstockConfig.rifRelay,
-  );
+  late final UserOpService _userOpService = getIt<UserOpService>();
 
   RootstockSwapInOperation({
     required this.rootstock,
@@ -459,7 +458,7 @@ class RootstockSwapInOperation extends SwapInOperation {
         .computeInvoiceForDesiredOnchain(desiredOnchainAmount: params.amount);
 
     final relayFees = rbtcFromWei(
-      await rifRelay.estimateClaimBeforeLock(params.evmKey),
+      await _userOpService.estimateGasFee(params.evmKey),
     );
 
     return SwapInFees(
@@ -570,7 +569,7 @@ class RootstockSwapInOperation extends SwapInOperation {
   ) => logger.span('generateSwapRequest', () async {
     final claimAddress =
         (params.claimAddress ??
-                (await rifRelay.getSmartWalletAddress(params.evmKey)).address)
+                await _userOpService.getSmartAccountAddress(params.evmKey))
             .eip55With0x;
     final description = params.invoiceDescription ?? 'Hostr Reservation';
     logger.i(
@@ -760,12 +759,23 @@ class RootstockSwapInOperation extends SwapInOperation {
 
   Future<String> _claim({required ClaimArgs claimArgs}) =>
       logger.span('claim', () async {
-        EtherSwap etherSwap = await rootstock.getEtherSwapContract();
-        return (await rifRelay.relayClaim(
-          etherSwap,
-          params.evmKey,
-          claimArgs,
-        )).txHash.toString();
+        final etherSwap = await rootstock.getEtherSwapContract();
+        final claimFn = etherSwap.self.abi.functions.firstWhere(
+          (f) => f.name == 'claim' && f.parameters.length == 4,
+        );
+        final intent = ContractCallIntent(
+          to: etherSwap.self.address,
+          data: claimFn.encodeCall([
+            claimArgs.preimage,
+            claimArgs.amount,
+            claimArgs.refundAddress,
+            claimArgs.timelock,
+          ]),
+          value: EtherAmount.zero(),
+          maxGas: 400000,
+          methodName: 'EtherSwap.claim',
+        );
+        return _userOpService.sendUserOp(params.evmKey, intent);
       });
 
   /// Generate a cryptographically secure 32-byte preimage and its SHA-256 hash.

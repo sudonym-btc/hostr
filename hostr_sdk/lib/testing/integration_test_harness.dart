@@ -68,7 +68,7 @@ class IntegrationTestHarness {
   static const bootstrapBlossom = ['https://blossom.hostr.development'];
   static const hostrRelay = 'wss://relay.hostr.development';
   static const anvilRpc = 'https://anvil.hostr.development';
-  static const albyHubUrl = 'https://alby1.hostr.development';
+  static const albyHubUrl = 'https://alby.hostr.development';
 
   final List<KeyPair> fundedKeys;
 
@@ -280,7 +280,7 @@ class _DevelopmentRootstockConfig extends RootstockConfig {
   _DevelopmentRootstockConfig();
 
   @override
-  int get chainId => 33;
+  int get chainId => 412346;
 
   @override
   String get rpcUrl => IntegrationTestHarness.anvilRpc;
@@ -289,15 +289,8 @@ class _DevelopmentRootstockConfig extends RootstockConfig {
   BoltzConfig get boltz => _DevelopmentBoltzConfig();
 
   @override
-  RifRelayConfig get rifRelay => _DevelopmentRifRelayConfig();
-
-  @override
-  RootstockSupportedContractsConfig get supportedContracts =>
-      DefaultRootstockSupportedContractsConfig(
-        multiEscrow: DefaultSupportedEscrowContractConfig(
-          rifRelay: _DevelopmentRifRelayConfig(),
-        ),
-      );
+  AccountAbstractionConfig get accountAbstraction =>
+      _DevelopmentAccountAbstractionConfig();
 }
 
 class _DevelopmentBoltzConfig extends BoltzConfig {
@@ -307,8 +300,8 @@ class _DevelopmentBoltzConfig extends BoltzConfig {
   String get apiUrl => 'https://boltz.hostr.development/v2';
 }
 
-class _DevelopmentRifRelayConfig extends RifRelayConfig {
-  _DevelopmentRifRelayConfig();
+class _DevelopmentAccountAbstractionConfig extends AccountAbstractionConfig {
+  _DevelopmentAccountAbstractionConfig();
 
   static String _requireEnv(String key) {
     final value = Platform.environment[key]?.trim();
@@ -320,15 +313,16 @@ class _DevelopmentRifRelayConfig extends RifRelayConfig {
   }
 
   @override
-  String get url => 'https://rifrelay.hostr.development';
+  String get bundlerUrl =>
+      Platform.environment['AA_BUNDLER_URL']?.trim() ??
+      'https://bundler.hostr.development';
 
   @override
-  String get callVerifier => _requireEnv('RIF_RELAY_RELAY_VERIFIER_ADDRESS');
+  String get entryPointAddress => _requireEnv('AA_ENTRY_POINT_ADDRESS');
 
   @override
-  String get deployVerifier => _requireEnv('RIF_RELAY_DEPLOY_VERIFIER_ADDRESS');
+  String get accountFactoryAddress => _requireEnv('AA_ACCOUNT_FACTORY_ADDRESS');
 
   @override
-  String get smartWalletFactoryAddress =>
-      _requireEnv('RIF_RELAY_SMARTWALLET_FACTORY_ADDRESS');
+  String get paymasterAddress => _requireEnv('AA_PAYMASTER_ADDRESS');
 }

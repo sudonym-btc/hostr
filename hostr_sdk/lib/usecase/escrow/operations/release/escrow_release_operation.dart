@@ -42,9 +42,6 @@ class EscrowReleaseOperation extends OnchainOperation {
       OnchainCallData.fromJson(json);
 
   @override
-  String get swapInvoiceDescription => 'Hostr Escrow Release';
-
-  @override
   OnchainOperationData buildInitialData({
     required ContractCallIntent callIntent,
     required String transport,
@@ -64,13 +61,4 @@ class EscrowReleaseOperation extends OnchainOperation {
       ethKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
     ),
   );
-
-  @override
-  Future<ContractCallIntent> buildRelayedCallIntent() async =>
-      contract.releaseRelayed(
-        ReleaseArgs(
-          tradeId: params.tradeId,
-          ethKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
-        ),
-      );
 }

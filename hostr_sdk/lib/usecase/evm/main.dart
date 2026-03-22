@@ -1,5 +1,6 @@
 export 'chain/evm_chain.dart';
 export 'chain/rootstock/rootstock.dart';
+export 'contract_call_intent.dart';
 export 'evm.dart';
 export 'operations/auto_withdraw/auto_withdraw_service.dart';
 export 'operations/operation_machine.dart';
@@ -12,3 +13,5 @@ export 'operations/swap_out/swap_out_operation.dart';
 export 'operations/swap_out/swap_out_quote_service.dart';
 export 'operations/swap_out/swap_out_state.dart';
 export 'operations/swap_recoverer.dart';
+export 'userop/claim_args.dart';
+export 'userop/userop_service.dart';

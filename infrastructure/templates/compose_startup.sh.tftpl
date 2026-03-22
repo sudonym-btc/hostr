@@ -72,7 +72,6 @@ mount_disk() {
 # ── Mount persistent data disks ──────────────────────────────────────
 mount_disk /dev/disk/by-id/google-relay-data   /mnt/relay-data
 mount_disk /dev/disk/by-id/google-blossom-data /mnt/blossom-data
-mount_disk /dev/disk/by-id/google-rif-relay-data /mnt/rif-relay-data
 
 # ── Clone repo ────────────────────────────────────────────────────────
 mkdir -p /opt
@@ -85,14 +84,11 @@ fi
 chown -R 1000:1000 /mnt/relay-data
 # blossom runs as uid=1000
 chown -R 1000:1000 /mnt/blossom-data
-# rif-relay runs as appuser uid=1000 and persists txstore/worker state here
-chown -R 1000:1000 /mnt/rif-relay-data
 
 # Symlink compose volume mount paths to the persistent disks
 mkdir -p /opt/hostr/docker/data
 rm -rf /opt/hostr/docker/data/relay   && ln -sfn /mnt/relay-data   /opt/hostr/docker/data/relay
 rm -rf /opt/hostr/docker/data/blossom && ln -sfn /mnt/blossom-data /opt/hostr/docker/data/blossom
-rm -rf /opt/hostr/docker/data/rif-relay && ln -sfn /mnt/rif-relay-data /opt/hostr/docker/data/rif-relay
 
 # Small data (escrow, certs, vhost.d) stays on the boot disk — trivial size
 mkdir -p /opt/hostr/docker/data/escrow /opt/hostr/docker/certs /opt/hostr/docker/vhost.d
@@ -147,12 +143,8 @@ done <<'SECRETS'
 ${join("\n", secret_names)}
 SECRETS
 
-# Construct RSK RPC URLs from the API key if present
-if RSK_KEY=$(grep -oP '^RSK_RPC_API_KEY=\K.*' "$${ENV_FILE}" 2>/dev/null) && [[ -n "$${RSK_KEY}" ]]; then
-  RSK_RPC_URL="https://rpc.mainnet.rootstock.io/$${RSK_KEY}"
-  printf 'RIF_RELAY_RSK_NODE_URL=%s\n' "$${RSK_RPC_URL}" >> "$${ENV_FILE}"
-  printf 'RPC_URL=%s\n' "$${RSK_RPC_URL}" >> "$${ENV_FILE}"
-fi
+# RPC_URL is already set in the .env files for Arbitrum.
+# If an RSK_RPC_API_KEY secret is present, it is no longer used.
 EOS
 chmod +x /usr/local/bin/hostr-fetch-secrets
 

@@ -99,20 +99,25 @@ EscrowTrust _escrowTrust({required EscrowService escrowService}) {
   return EscrowTrust.fromNostrEvent(event);
 }
 
-EscrowMethod _escrowMethod({required EscrowService escrowService}) {
+EscrowMethod _escrowMethod({
+  required EscrowService escrowService,
+  bool includeAcceptedToken = true,
+}) {
   final chosenEscrowType = escrowService.escrowType
       .toString()
       .split('.')
       .last
       .toLowerCase();
+  final tags = <List<String>>[
+    ['d', 'escrow-method'],
+    ['t', chosenEscrowType],
+    if (includeAcceptedToken) ['a', 'BTC', Token.rbtc(30).tagId],
+  ];
   final event = Nip01Utils.signWithPrivateKey(
     event: Nip01Event(
       kind: kNostrKindEscrowMethod,
       pubKey: MockKeys.hoster.publicKey,
-      tags: [
-        ['d', 'escrow-method'],
-        ['t', chosenEscrowType],
-      ],
+      tags: tags,
       content: '',
       createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
     ),
@@ -121,7 +126,11 @@ EscrowMethod _escrowMethod({required EscrowService escrowService}) {
   return EscrowMethod.fromNostrEvent(event);
 }
 
-PaymentProof _paymentProof({required Listing listing, required String txHash}) {
+PaymentProof _paymentProof({
+  required Listing listing,
+  required String txHash,
+  bool includeAcceptedToken = true,
+}) {
   final escrowService = _escrowService();
   final hoster = Nip01Utils.signWithPrivateKey(
     event: Nip01Event(
@@ -142,7 +151,10 @@ PaymentProof _paymentProof({required Listing listing, required String txHash}) {
       txHash: txHash,
       escrowService: escrowService,
       hostsTrustedEscrows: _escrowTrust(escrowService: escrowService),
-      hostsEscrowMethods: _escrowMethod(escrowService: escrowService),
+      hostsEscrowMethods: _escrowMethod(
+        escrowService: escrowService,
+        includeAcceptedToken: includeAcceptedToken,
+      ),
     ),
   );
 }
@@ -270,6 +282,47 @@ void main() {
       expect(result.isValid, isFalse);
       expect(result.reason, contains('listing amount'));
       expect(result.reason, contains('Missing valid host commitment'));
+    },
+  );
+
+  test(
+    'fails when host escrow method does not accept the funded token',
+    () async {
+      final listing = _listing();
+      const txHash = '0xmissing-accepted-token';
+      final proof = _paymentProof(
+        listing: listing,
+        txHash: txHash,
+        includeAcceptedToken: false,
+      );
+      final reservation = _reservation(
+        listing: listing,
+        amount: TokenAmount(
+          value: BigInt.from(100000),
+          token: Token.btcLightning,
+        ),
+        proof: proof,
+        includeSellerSignature: true,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 100000,
+          ),
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeEvmChain(contract)),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(reservation: reservation);
+
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('does not accept token'));
     },
   );
 }

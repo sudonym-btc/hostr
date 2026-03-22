@@ -64,8 +64,7 @@ class RelaySeeder {
       // ── Create Seeder + InfrastructureSink ────────────────────────────
       final lnbitsConfig = config.setupLnbits
           ? LnbitsSetupConfig.fromEnvironment(
-              lnbits1BaseUrl: config.lnbits1BaseUrl,
-              lnbits2BaseUrl: config.lnbits2BaseUrl,
+              lnbitsBaseUrl: config.lnbitsBaseUrl,
               lnbitsAdminEmail: config.lnbitsAdminEmail,
               lnbitsAdminPassword: config.lnbitsAdminPassword,
               lnbitsExtensionName: config.lnbitsExtensionName,

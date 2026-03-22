@@ -102,17 +102,11 @@ generate_cert "relay.${DOMAIN}" \
 generate_cert "blossom.${DOMAIN}" \
   "DNS:blossom.${DOMAIN},DNS:blossom,DNS:localhost,IP:127.0.0.1"
 
-generate_cert "lnbits1.${DOMAIN}" \
-  "DNS:lnbits1.${DOMAIN},DNS:lnbits1,DNS:localhost,IP:127.0.0.1"
+generate_cert "lnbits.${DOMAIN}" \
+  "DNS:lnbits.${DOMAIN},DNS:lnbits,DNS:localhost,IP:127.0.0.1"
 
-generate_cert "lnbits2.${DOMAIN}" \
-  "DNS:lnbits2.${DOMAIN},DNS:lnbits2,DNS:localhost,IP:127.0.0.1"
-
-generate_cert "alby1.${DOMAIN}" \
-  "DNS:alby1.${DOMAIN},DNS:alby1,DNS:albyhub1,DNS:localhost,IP:127.0.0.1"
-
-generate_cert "alby2.${DOMAIN}" \
-  "DNS:alby2.${DOMAIN},DNS:alby2,DNS:albyhub2,DNS:localhost,IP:127.0.0.1"
+generate_cert "alby.${DOMAIN}" \
+  "DNS:alby.${DOMAIN},DNS:alby,DNS:albyhub,DNS:localhost,IP:127.0.0.1"
 
 generate_cert "landing.${DOMAIN}" \
   "DNS:landing.${DOMAIN},DNS:${DOMAIN},DNS:landing-page,DNS:localhost,IP:127.0.0.1"
@@ -134,8 +128,8 @@ generate_cert "anvil.${DOMAIN}" \
 generate_cert "boltz.${DOMAIN}" \
   "DNS:boltz.${DOMAIN},DNS:boltz,DNS:localhost,IP:127.0.0.1"
 
-generate_cert "rifrelay.${DOMAIN}" \
-  "DNS:rifrelay.${DOMAIN},DNS:rifrelay,DNS:localhost,IP:127.0.0.1"
+generate_cert "bundler.${DOMAIN}" \
+  "DNS:bundler.${DOMAIN},DNS:bundler,DNS:localhost,IP:127.0.0.1"
 
 generate_cert "otterscan.${DOMAIN}" \
   "DNS:otterscan.${DOMAIN},DNS:otterscan,DNS:localhost,IP:127.0.0.1"

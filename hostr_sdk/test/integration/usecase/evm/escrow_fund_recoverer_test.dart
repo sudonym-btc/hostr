@@ -165,7 +165,7 @@ void main() {
     final fakeData = EscrowFundData(
       tradeId: 'fake-trade-id',
       contractAddress: resolveContractAddress(),
-      chainId: 33,
+      chainId: 412346,
       accountIndex: 0,
       swapId: 'nonexistent-swap-id',
     );

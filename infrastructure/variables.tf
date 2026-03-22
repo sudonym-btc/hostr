@@ -60,12 +60,6 @@ variable "blossom_disk_size_gb" {
   default     = 10
 }
 
-variable "rif_relay_disk_size_gb" {
-  description = "Persistent disk size (GB) for rif-relay-server workdir state. Survives VM recreation."
-  type        = number
-  default     = 10
-}
-
 variable "compose_repo_clone_url" {
   description = "Git URL used by the VM to clone the hostr repo for docker compose deployment."
   type        = string
@@ -85,7 +79,7 @@ variable "compose_source_ranges" {
 }
 
 variable "compose_runtime_secret_values" {
-  description = "Optional map to seed Secret Manager values (for example ESCROW_PRIVATE_KEY, BLOSSOM_DASHBOARD_PASSWORD, OTEL_EXPORTER_OTLP_HEADERS, RIF_RELAY_ADMIN_PRIVATE_KEY). The RIF relay admin key is stored for bootstrap/admin use and is not fetched onto the runtime compose VM by default."
+  description = "Optional map to seed Secret Manager values (for example ESCROW_PRIVATE_KEY, BLOSSOM_DASHBOARD_PASSWORD, OTEL_EXPORTER_OTLP_HEADERS, AA_PAYMASTER_SIGNER_PRIVATE_KEY). The AA paymaster signer key is stored for bootstrap/admin use and is not fetched onto the runtime compose VM by default."
   type        = map(string)
   sensitive   = true
   default     = {}

@@ -7,31 +7,6 @@ interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
-interface IEtherSwap {
-    function claim(
-        bytes32 preimage,
-        uint256 amount,
-        address refundAddress,
-        uint256 timelock,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external returns (address);
-}
-
-interface IERC20Swap {
-    function claim(
-        bytes32 preimage,
-        uint256 amount,
-        address tokenAddress,
-        address refundAddress,
-        uint256 timelock,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external returns (address);
-}
-
 contract MultiEscrow {
     uint256 public constant FACTOR_SCALE = 1000; // 0.1% precision
     string public constant NAME = "Hostr MultiEscrow";
@@ -77,12 +52,8 @@ contract MultiEscrow {
     error InvalidFeeRecipient();
     error SignatureExpired();
     error InvalidSignature();
-    error InvalidSwapContract();
-    error ClaimSignerNotBuyer();
-    error ClaimedAmountMismatch();
     error TokenNotAllowed();
     error NativeNotExpected();
-    error TokenMismatch();
 
     struct Trade {
         address buyer;
@@ -98,39 +69,6 @@ contract MultiEscrow {
         address receiver;
         uint256 amount;
         uint256 deadline;
-    }
-
-    struct ClaimArgs {
-        address swapContract;
-        bytes32 preimage;
-        uint256 amount;
-        address refundAddress;
-        uint256 timelock;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
-    struct ERC20ClaimArgs {
-        address swapContract;
-        bytes32 preimage;
-        uint256 amount;
-        address tokenAddress;
-        address refundAddress;
-        uint256 timelock;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
-    struct FundArgs {
-        bytes32 tradeId;
-        address buyer;
-        address seller;
-        address arbiter;
-        address token;
-        uint256 unlockAt;
-        uint256 escrowFee;
     }
 
     mapping(bytes32 => Trade) public trades;
@@ -473,79 +411,6 @@ contract MultiEscrow {
             funded = IERC20(_token).balanceOf(address(this)) - before;
         }
         _createTrade(tradeId, _buyer, _seller, _arbiter, _token, _unlockAt, _escrowFee, funded);
-    }
-
-    /// @notice Atomically claim native RBTC from an EtherSwap and fund a trade.
-    function claimSwapAndFund(
-        ClaimArgs calldata claimArgs,
-        FundArgs calldata fundArgs
-    ) external {
-        if (claimArgs.swapContract == address(0)) revert InvalidSwapContract();
-        if (fundArgs.token != address(0)) revert TokenMismatch();
-
-        uint256 balanceBefore = address(this).balance;
-        address claimSigner = IEtherSwap(claimArgs.swapContract).claim(
-            claimArgs.preimage,
-            claimArgs.amount,
-            claimArgs.refundAddress,
-            claimArgs.timelock,
-            claimArgs.v,
-            claimArgs.r,
-            claimArgs.s
-        );
-        if (claimSigner != fundArgs.buyer) revert ClaimSignerNotBuyer();
-
-        uint256 claimedAmount = address(this).balance - balanceBefore;
-        if (claimedAmount != claimArgs.amount) revert ClaimedAmountMismatch();
-
-        _createTrade(
-            fundArgs.tradeId,
-            fundArgs.buyer,
-            fundArgs.seller,
-            fundArgs.arbiter,
-            address(0),
-            fundArgs.unlockAt,
-            fundArgs.escrowFee,
-            claimedAmount
-        );
-    }
-
-    /// @notice Atomically claim ERC20 tokens from an ERC20Swap and fund a trade.
-    function claimERC20SwapAndFund(
-        ERC20ClaimArgs calldata claimArgs,
-        FundArgs calldata fundArgs
-    ) external {
-        if (claimArgs.swapContract == address(0)) revert InvalidSwapContract();
-        if (fundArgs.token == address(0)) revert TokenMismatch();
-        if (!allowedTokens[fundArgs.token]) revert TokenNotAllowed();
-        if (fundArgs.token != claimArgs.tokenAddress) revert TokenMismatch();
-
-        uint256 balanceBefore = IERC20(fundArgs.token).balanceOf(address(this));
-        address claimSigner = IERC20Swap(claimArgs.swapContract).claim(
-            claimArgs.preimage,
-            claimArgs.amount,
-            claimArgs.tokenAddress,
-            claimArgs.refundAddress,
-            claimArgs.timelock,
-            claimArgs.v,
-            claimArgs.r,
-            claimArgs.s
-        );
-        if (claimSigner != fundArgs.buyer) revert ClaimSignerNotBuyer();
-
-        uint256 claimedAmount = IERC20(fundArgs.token).balanceOf(address(this)) - balanceBefore;
-        if (claimedAmount != claimArgs.amount) revert ClaimedAmountMismatch();
-
-        _createTrade(
-            fundArgs.tradeId,
-            fundArgs.buyer,
-            fundArgs.seller,
-            fundArgs.arbiter,
-            fundArgs.token,
-            fundArgs.unlockAt,
-            fundArgs.escrowFee,
-            claimedAmount
-        );
     }
 
     // ── EIP-712 hash helpers ──────────────────────────────────────────

@@ -11,7 +11,7 @@
 ///   [ReservationPair.cancelled] when needed).
 ///
 /// Prerequisites:
-///   - Anvil running on https://anvil.hostr.development (chain-id 33)
+///   - Anvil running on https://anvil.hostr.development (chain-id 412346)
 ///   - Nostr relay at wss://relay.hostr.development
 ///   - MultiEscrow contract deployed in escrow/contracts/contract-addresses.json
 /// Run: `cd hostr_sdk && dart test test/integration/reservation_pairs_test.dart`
@@ -229,7 +229,7 @@ EscrowTrust _buildEscrowTrust({required KeyPair host}) {
 }
 
 /// Builds an [EscrowMethod] NIP-51 list event published by [host],
-/// containing the contract address.
+/// containing the escrow type and accepted payment forms.
 EscrowMethod _buildEscrowMethod({required KeyPair host}) {
   return EscrowMethod.fromNostrEvent(
     Nip01Event(
@@ -237,7 +237,9 @@ EscrowMethod _buildEscrowMethod({required KeyPair host}) {
       kind: kNostrKindEscrowMethod,
       tags: [
         ['d', 'escrow-method'],
-        ['a', _contractAddress],
+        ['t', 'evm'],
+        ['c', 'MultiEscrow'],
+        ['a', 'BTC', Token.rbtc(30).tagId],
       ],
       content: '',
       createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
@@ -689,7 +691,7 @@ void main() {
               ],
               value: depositAmount,
             ),
-            chainId: 33,
+            chainId: 412346,
           );
 
           // Wait for the tx to be mined
@@ -780,7 +782,7 @@ void main() {
               ],
               value: depositAmount,
             ),
-            chainId: 33,
+            chainId: 412346,
           );
 
           TransactionReceipt? receipt;
@@ -862,7 +864,7 @@ void main() {
               ],
               value: wrongAmount,
             ),
-            chainId: 33,
+            chainId: 412346,
           );
 
           TransactionReceipt? receipt;

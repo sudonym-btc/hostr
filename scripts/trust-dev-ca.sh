@@ -37,7 +37,7 @@ EOF
       echo "→ Adding Hostr dev CA to macOS system keychain (requires sudo)..."
     fi
 
-    sudo security add-trusted-cert -d -r trustRoot \
+    sudo security add-trusted-cert -d -r trustRoot -p ssl \
       -k /Library/Keychains/System.keychain "$CA_CERT"
     echo "✓ Hostr dev CA trusted — browsers will show green lock for *.hostr.development"
   fi

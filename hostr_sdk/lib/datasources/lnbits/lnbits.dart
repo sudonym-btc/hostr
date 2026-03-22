@@ -6,16 +6,14 @@ import 'package:chopper/chopper.dart' as chopper;
 import '../swagger_generated/lnbits.swagger.dart';
 
 class LnbitsSetupConfig {
-  final String lnbits1BaseUrl;
-  final String lnbits2BaseUrl;
+  final String lnbitsBaseUrl;
   final String lnbitsAdminEmail;
   final String lnbitsAdminPassword;
   final String lnbitsExtensionName;
   final String? lnbitsNostrPrivateKey;
 
   const LnbitsSetupConfig({
-    required this.lnbits1BaseUrl,
-    required this.lnbits2BaseUrl,
+    required this.lnbitsBaseUrl,
     required this.lnbitsAdminEmail,
     required this.lnbitsAdminPassword,
     required this.lnbitsExtensionName,
@@ -23,8 +21,7 @@ class LnbitsSetupConfig {
   });
 
   factory LnbitsSetupConfig.fromEnvironment({
-    String? lnbits1BaseUrl,
-    String? lnbits2BaseUrl,
+    String? lnbitsBaseUrl,
     String? lnbitsAdminEmail,
     String? lnbitsAdminPassword,
     String? lnbitsExtensionName,
@@ -34,10 +31,8 @@ class LnbitsSetupConfig {
     final host = (env['LNBITS_HOST'] ?? 'localhost').trim();
 
     return LnbitsSetupConfig(
-      lnbits1BaseUrl:
-          lnbits1BaseUrl ?? 'http://$host:${env['LNBITS_1_PORT'] ?? '5055'}',
-      lnbits2BaseUrl:
-          lnbits2BaseUrl ?? 'http://$host:${env['LNBITS_2_PORT'] ?? '5056'}',
+      lnbitsBaseUrl:
+          lnbitsBaseUrl ?? 'http://$host:${env['LNBITS_PORT'] ?? '5055'}',
       lnbitsAdminEmail:
           lnbitsAdminEmail ?? env['LNBITS_ADMIN_EMAIL'] ?? 'admin@example.com',
       lnbitsAdminPassword:
@@ -137,15 +132,8 @@ class LnbitsDatasource {
     LnbitsSetupConfig config,
   ) {
     return {
-      'lnbits1.hostr.development': _LnbitsServerConfig(
-        baseUrl: config.lnbits1BaseUrl,
-        adminEmail: config.lnbitsAdminEmail,
-        adminPassword: config.lnbitsAdminPassword,
-        extensionName: config.lnbitsExtensionName,
-        nostrPrivateKey: config.lnbitsNostrPrivateKey,
-      ),
-      'lnbits2.hostr.development': _LnbitsServerConfig(
-        baseUrl: config.lnbits2BaseUrl,
+      'lnbits.hostr.development': _LnbitsServerConfig(
+        baseUrl: config.lnbitsBaseUrl,
         adminEmail: config.lnbitsAdminEmail,
         adminPassword: config.lnbitsAdminPassword,
         extensionName: config.lnbitsExtensionName,

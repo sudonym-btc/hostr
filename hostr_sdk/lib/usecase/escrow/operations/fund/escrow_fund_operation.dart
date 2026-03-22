@@ -3,10 +3,10 @@ import 'package:models/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
+import '../../../../injection.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../../util/token_amount_ext.dart';
 import '../../../auth/auth.dart';
-import '../../../evm/chain/rootstock/rif_relay/rif_relay.dart';
 import '../../../evm/main.dart';
 import '../../../trade_account_allocator/trade_account_allocator.dart';
 import '../../supported_escrow_contract/supported_escrow_contract.dart';
@@ -17,7 +17,6 @@ import 'escrow_fund_state.dart';
 @injectable
 class EscrowFundOperation extends OnchainOperation {
   final EscrowFundParams? params;
-  EthereumAddress? _relaySmartWalletAddress;
   GasEstimate? _gasEstimate;
 
   @override
@@ -76,12 +75,12 @@ class EscrowFundOperation extends OnchainOperation {
     await _ensureSwapClaimAddress();
   }
 
-  @override
+  /// Description for the swap-in LN invoice.
   String get swapInvoiceDescription => params!.swapInvoiceDescription;
 
   EthereumAddress? _swapClaimAddress;
 
-  @override
+  /// Address used as the Boltz reverse swap claim address.
   EthereumAddress get swapClaimAddress {
     final address = _swapClaimAddress;
     if (address == null) {
@@ -89,10 +88,6 @@ class EscrowFundOperation extends OnchainOperation {
     }
     return address;
   }
-
-  @override
-  EthereumAddress? get swapClaimDestination =>
-      contract.supportsClaimSwapAndFund ? contract.address : null;
 
   @override
   OnchainOperationData buildInitialData({
@@ -115,10 +110,6 @@ class EscrowFundOperation extends OnchainOperation {
     final params = _requireParams();
     return contract.fund(await _buildFundArgs(params));
   }
-
-  @override
-  SwapInClaimCallback? get swapClaimCallback =>
-      contract.supportsClaimSwapAndFund ? _claimAndFund : null;
 
   @override
   void onGasEstimated(GasEstimate estimate) =>
@@ -171,8 +162,8 @@ class EscrowFundOperation extends OnchainOperation {
         }
       });
 
-  @override
-  OnchainOperationData onNestedSwapFinished(
+  /// Projects the nested swap's claim tx hash onto the parent operation data.
+  OnchainOperationData _onNestedSwapFinished(
     OnchainOperationData data,
     SwapInState swapState,
   ) {
@@ -183,64 +174,214 @@ class EscrowFundOperation extends OnchainOperation {
     return data.copyWithTxHash(claimTxHash);
   }
 
-  Future<String> _claimAndFund(ClaimArgs claimArgs) =>
-      logger.span('claimAndFundSwapClaim', () async {
-        final params = _requireParams();
-        final fundArgs = await _buildFundArgs(params);
-        final ethKey = fundArgs.ethKey;
-        final etherSwap = await chain.getEtherSwapContract();
-        final sender = ethKey.address;
-        final senderBalance = await chain.getBalance(sender);
-        final intent = contract.claimSwapAndFund(
-          ClaimSwapAndFundArgs(
-            swapContract: etherSwap.self.address,
-            claimArgs: claimArgs,
-            fundArgs: fundArgs,
-          ),
-        );
-        logger.i(
-          'Submitting claimAndFund from ${sender.eip55With0x} '
-          'with balance=${senderBalance.getInWei} wei, '
-          'swapContract=${etherSwap.self.address.eip55With0x}, '
-          'tradeId=${fundArgs.tradeId}',
-        );
-        final usesRelayForClaimAndFund = _usesRelayForClaimAndFund();
-        final txHash = usesRelayForClaimAndFund
-            ? ((await contract.rifRelay!.relayCall(
-                    ethKey,
-                    intent,
-                  )).txHash?.toString() ??
-                  '')
-            : await broadcastContractCallIntent(intent, ethKey);
-
-        if (txHash.isEmpty) {
-          throw StateError(
-            'Could not extract transaction hash from claimAndFund transaction',
-          );
-        }
-        return txHash;
-      });
-
   Future<void> _ensureSwapClaimAddress() =>
       logger.span('ensureSwapClaimAddress', () async {
         final ethKey = await _activeEthKey();
-        _swapClaimAddress = contract.supportsClaimSwapAndFund
-            ? ethKey.address
-            : (_relaySmartWalletAddress ?? ethKey.address);
-        if (!_usesRelayForClaimAndFund()) {
-          _relaySmartWalletAddress = null;
-          return;
+        _swapClaimAddress = await getIt<UserOpService>().getSmartAccountAddress(
+          ethKey,
+        );
+      });
+
+  // ── Swap-in support (fund-only) ───────────────────────────────────
+
+  /// Fund operations include the [checkSwap] step for swap recovery.
+  @override
+  List<StepGuard<OnchainStep>> get steps => const [
+    StepGuard(
+      step: OnchainStep.initialise,
+      allowedFrom: {'initialised'},
+      backgroundAllowed: false,
+    ),
+    StepGuard(
+      step: OnchainStep.checkSwap,
+      allowedFrom: {'swapProgress'},
+      backgroundAllowed: true,
+    ),
+    StepGuard(
+      step: OnchainStep.broadcastTx,
+      allowedFrom: {'txBroadcast', 'txBroadcasting'},
+      staleTimeout: Duration(minutes: 10),
+      backgroundAllowed: true,
+    ),
+    StepGuard(
+      step: OnchainStep.confirmTx,
+      allowedFrom: {'txSent'},
+      backgroundAllowed: true,
+    ),
+  ];
+
+  @override
+  Future<OnchainOperationState> executeStep(OnchainStep step) {
+    if (step == OnchainStep.checkSwap) return _stepCheckSwap();
+    return super.executeStep(step);
+  }
+
+  /// Checks whether a nested swap-in has completed (recovery path).
+  Future<OnchainOperationState> _stepCheckSwap() =>
+      logger.span('stepCheckSwap', () async {
+        final data = state.data!;
+
+        if (data.swapId != null) {
+          final swapJson = await store.read('swap_in', data.swapId!);
+          if (swapJson != null) {
+            final swapState = SwapInState.fromJson(swapJson);
+            if (swapState is SwapInClaimed ||
+                swapState is SwapInClaimTxInMempool ||
+                swapState is SwapInCompleted) {
+              logger.i('$namespace: swap ${data.swapId} completed, proceeding');
+              return OnchainTxBroadcast(_onNestedSwapFinished(data, swapState));
+            }
+            if (swapState is SwapInFailed) {
+              return OnchainError(
+                'Nested swap failed: ${swapState.error}',
+                data: data,
+              );
+            }
+          }
         }
 
-        final rifRelay = contract.rifRelay!;
-
-        _relaySmartWalletAddress = (await rifRelay.getSmartWalletAddress(
-          ethKey,
-        )).address;
-        _swapClaimAddress = contract.supportsClaimSwapAndFund
-            ? ethKey.address
-            : (_relaySmartWalletAddress ?? ethKey.address);
+        logger.d('$namespace: swap ${data.swapId} not yet complete, exiting');
+        throw SwapNotReadyException();
       });
+
+  /// Swap-in the full required amount before broadcast.
+  @override
+  Future<OnchainOperationData> beforeBroadcast(
+    OnchainOperationData data,
+    GasEstimate gasEstimate,
+  ) => _swapEntireRequiredAmount(data, gasEstimate);
+
+  /// Compute the full swap-in amount needed for funding + gas.
+  ///
+  /// Local balance is intentionally ignored: fund operations always source the
+  /// complete required amount via swap-in.
+  Future<TokenAmount> _computeRequiredSwapAmount(
+    OnchainOperationData data,
+    GasEstimate gasEstimate,
+  ) => logger.span('computeRequiredSwapAmount', () async {
+    final intent = data.callIntent;
+    if (intent == null) {
+      throw StateError('Cannot compute swap amount without a callIntent');
+    }
+
+    final requiredOnchainValue = rbtcFromWei(intent.value.getInWei);
+    final totalRequired = requiredOnchainValue + gasEstimate.fee;
+    final limits = await chain.getSwapInLimits();
+    final swapAmount = TokenAmount.max(
+      limits.min,
+      totalRequired,
+    ).roundUpToSats();
+
+    logger.i(
+      'Swap funding: '
+      'required=${requiredOnchainValue.getInSats}, '
+      'gas=${gasEstimate.fee.getInSats}, '
+      'swapAmount=${swapAmount.getInSats}',
+    );
+
+    return swapAmount;
+  });
+
+  /// Runs a nested swap-in for the full required on-chain amount.
+  Future<OnchainOperationData> _swapEntireRequiredAmount(
+    OnchainOperationData data,
+    GasEstimate gasEstimate,
+  ) => logger.span('swapEntireRequiredAmount', () async {
+    final swapAmount = await _computeRequiredSwapAmount(data, gasEstimate);
+
+    final evmKey = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
+
+    // First pass: estimate swap fees.
+    SwapInOperation swapEstimation = chain.swapIn(
+      SwapInParams(
+        evmKey: evmKey,
+        accountIndex: accountIndex,
+        amount: swapAmount,
+        invoiceDescription: swapInvoiceDescription,
+        claimAddress: swapClaimAddress,
+      ),
+    );
+    final swapFees = await swapEstimation.estimateFees();
+
+    // Second pass: create the real swap with amount + overhead.
+    SwapInOperation swap = chain.swapIn(
+      SwapInParams(
+        evmKey: evmKey,
+        accountIndex: accountIndex,
+        amount: (swapAmount + swapFees.totalFees).roundUpToSats(),
+        invoiceDescription: swapInvoiceDescription,
+        claimAddress: swapClaimAddress,
+        parentOperationId: data.operationId,
+      ),
+    );
+    swap.onProgress = onProgress;
+
+    String? swapId;
+    bool swapIdPersisted = false;
+    final sub = swap.stream.listen((swapState) {
+      swapId ??= swapState.operationId;
+
+      if (!swapIdPersisted && swapId != null) {
+        swapIdPersisted = true;
+      }
+
+      emit(
+        OnchainSwapProgress(data.copyWithSwapId(swapId), swapState: swapState),
+      );
+    });
+
+    try {
+      await swap.execute();
+    } finally {
+      await sub.cancel();
+    }
+
+    if (swap.state is SwapInFailed) {
+      final failed = swap.state as SwapInFailed;
+      throw StateError('Nested swap-in failed: ${failed.error}');
+    }
+
+    final updatedData = data.copyWithSwapId(swapId);
+    return _onNestedSwapFinished(updatedData, swap.state);
+  });
+
+  /// Override fee estimation to include the always-on swap-in.
+  @override
+  Future<OnchainFeeQuote> estimateOperationFees() => logger.span(
+    'estimateOperationFees',
+    () async {
+      await initialize();
+      final intent = await buildDirectCallIntent();
+      final gasEstimate = await estimateCallIntentFee(intent);
+      final pinnedIntent = intent.copyWith(
+        gasPrice: gasEstimate.gasPrice,
+        maxGas: gasEstimate.gasLimit.toInt(),
+      );
+      final data = buildInitialData(
+        callIntent: pinnedIntent,
+        transport: 'direct',
+      );
+      final swapAmount = await _computeRequiredSwapAmount(data, gasEstimate);
+      final swapFees = await chain
+          .swapIn(
+            SwapInParams(
+              evmKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
+              accountIndex: accountIndex,
+              amount: swapAmount,
+              invoiceDescription: swapInvoiceDescription,
+              claimAddress: swapClaimAddress,
+            ),
+          )
+          .estimateFees();
+
+      return OnchainFeeQuote(
+        gasEstimate: gasEstimate,
+        swapFees: swapFees,
+        callIntent: pinnedIntent,
+        transport: 'direct',
+      );
+    },
+  );
 
   // ── Fee estimation (public) ───────────────────────────────────────
 
@@ -271,21 +412,41 @@ class EscrowFundOperation extends OnchainOperation {
       auth.hd.getActiveEvmKey(accountIndex: accountIndex);
 
   Future<FundArgs> _buildFundArgs(EscrowFundParams params) async {
-    final amount = rbtcFromSats(params.amount.inSats);
+    final token = params.amount.token;
+    final isERC20 = token.isERC20;
+
+    final TokenAmount amount;
+    final TokenAmount? escrowFee;
+
+    if (isERC20) {
+      // ERC-20: use the raw token amount (already in the token's smallest unit).
+      amount = params.amount;
+      // Compute escrow fee in the same token units using BigInt to avoid
+      // overflow for large token values.
+      final fp = params.escrowService.feePercent;
+      final fb = BigInt.from(params.escrowService.feeBase);
+      final fee =
+          (params.amount.value * BigInt.from((fp * 100).round())) ~/
+              BigInt.from(10000) +
+          fb;
+      escrowFee = TokenAmount(value: fee, token: token);
+    } else {
+      amount = rbtcFromSats(params.amount.inSats);
+      escrowFee = rbtcFromSatsInt(
+        params.escrowService.escrowFee(amount.getInSats.toInt()),
+      );
+    }
+
     return FundArgs(
       tradeId: params.negotiateReservation.getDtag()!,
       amount: amount,
       sellerEvmAddress: params.sellerProfile.evmAddress!,
       arbiterEvmAddress: params.escrowService.evmAddress,
       unlockAt: params.negotiateReservation.end.millisecondsSinceEpoch ~/ 1000,
-      escrowFee: rbtcFromSatsInt(
-        params.escrowService.escrowFee(amount.getInSats.toInt()),
-      ),
+      escrowFee: escrowFee,
       ethKey: await _activeEthKey(),
       gasEstimate: _gasEstimate,
+      token: isERC20 ? token : null,
     );
   }
-
-  bool _usesRelayForClaimAndFund() =>
-      contract.supportsClaimSwapAndFund && contract.rifRelay != null;
 }
