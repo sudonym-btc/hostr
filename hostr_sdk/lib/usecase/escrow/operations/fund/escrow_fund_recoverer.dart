@@ -98,8 +98,12 @@ class EscrowFundRecoverer {
     final data = state.data!;
 
     // Resolve the chain and escrow contract from persisted data.
-    final chain = await _evm.getClientForChainId(data.chainId);
-    final contract = chain.getSupportedEscrowContractByName(
+    final configuredChain = _evm.getChainByChainId(data.chainId);
+    if (configuredChain == null) {
+      _logger.e('No chain configured for chainId ${data.chainId}');
+      return false;
+    }
+    final contract = configuredChain.escrow.getSupportedEscrowContractByName(
       'MultiEscrow',
       EthereumAddress.fromHex(data.contractAddress),
     );
@@ -109,7 +113,7 @@ class EscrowFundRecoverer {
       _tradeAccountAllocator,
       _evm,
       _logger,
-      recoveryChain: chain,
+      recoveryChain: configuredChain,
       recoveryContract: contract,
       initialState: state,
     );

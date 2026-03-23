@@ -1,5 +1,9 @@
+export 'capabilities/aa_capability.dart';
+export 'capabilities/boltz_swap_provider.dart';
+export 'capabilities/configured_evm_chain.dart';
+export 'capabilities/escrow_capability.dart';
 export 'chain/evm_chain.dart';
-export 'chain/rootstock/rootstock.dart';
+export 'config/evm_config.dart';
 export 'contract_call_intent.dart';
 export 'evm.dart';
 export 'operations/auto_withdraw/auto_withdraw_service.dart';
@@ -14,4 +18,3 @@ export 'operations/swap_out/swap_out_quote_service.dart';
 export 'operations/swap_out/swap_out_state.dart';
 export 'operations/swap_recoverer.dart';
 export 'userop/claim_args.dart';
-export 'userop/userop_service.dart';

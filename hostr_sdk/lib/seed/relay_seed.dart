@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 
 import '../datasources/lnbits/lnbits.dart';
@@ -25,6 +26,19 @@ class RelaySeeder {
     );
     print('Using contract address: $contractAddress');
 
+    // ── Resolve real bytecode hash from deployed contract ────────────
+    final resolvedBytecodeHash = await _resolveMultiEscrowBytecodeHash(
+      rpcUrl: config.rpcUrl,
+      contractAddress: contractAddress,
+    );
+    print('Resolved MultiEscrow bytecode hash: $resolvedBytecodeHash');
+
+    // Overlay the resolved hash onto the config so every downstream
+    // consumer (escrow services, escrow methods) uses the real value.
+    final resolvedConfig = config.copyWith(
+      multiEscrowBytecodeHash: resolvedBytecodeHash,
+    );
+
     BroadcastIsolate? broadcaster;
     InfrastructureSink? sink;
     try {
@@ -35,7 +49,7 @@ class RelaySeeder {
       // heavy EVM / anvil work on the main isolate cannot starve the
       // WebSocket and cause spurious 4 s timeouts.
       broadcaster = await BroadcastIsolate.spawn(
-        relayUrl: config.relayUrl!,
+        relayUrl: resolvedConfig.relayUrl!,
         maxConcurrent: _maxConcurrentBroadcasts,
         maxAttempts: _broadcastMaxAttempts,
       );
@@ -62,24 +76,27 @@ class RelaySeeder {
       });
 
       // ── Create Seeder + InfrastructureSink ────────────────────────────
-      final lnbitsConfig = config.setupLnbits
+      final lnbitsConfig = resolvedConfig.setupLnbits
           ? LnbitsSetupConfig.fromEnvironment(
-              lnbitsBaseUrl: config.lnbitsBaseUrl,
-              lnbitsAdminEmail: config.lnbitsAdminEmail,
-              lnbitsAdminPassword: config.lnbitsAdminPassword,
-              lnbitsExtensionName: config.lnbitsExtensionName,
-              lnbitsNostrPrivateKey: config.lnbitsNostrPrivateKey,
+              lnbitsBaseUrl: resolvedConfig.lnbitsBaseUrl,
+              lnbitsAdminEmail: resolvedConfig.lnbitsAdminEmail,
+              lnbitsAdminPassword: resolvedConfig.lnbitsAdminPassword,
+              lnbitsExtensionName: resolvedConfig.lnbitsExtensionName,
+              lnbitsNostrPrivateKey: resolvedConfig.lnbitsNostrPrivateKey,
             )
           : null;
 
       sink = InfrastructureSink(
-        rpcUrl: config.rpcUrl,
+        rpcUrl: resolvedConfig.rpcUrl,
         contractAddress: contractAddress,
         broadcaster: broadcaster,
         lnbitsConfig: lnbitsConfig,
       );
 
-      final seeder = Seeder(config: config, contractAddress: contractAddress);
+      final seeder = Seeder(
+        config: resolvedConfig,
+        contractAddress: contractAddress,
+      );
 
       // ── Run pipeline ─────────────────────────────────────────────────
       // Enable auto-mining so each tx is mined immediately.  Without
@@ -194,6 +211,31 @@ class RelaySeeder {
     } finally {
       httpClient.close(force: true);
     }
+  }
+
+  /// Derive the SHA-256 hash of the deployed MultiEscrow runtime bytecode.
+  ///
+  /// Mirrors the approach used by the escrow daemon
+  /// (`escrow/lib/daemon/bootstrap.dart`) — first checks the
+  /// `MULTI_ESCROW_BYTECODE_HASH` env var, then falls back to fetching
+  /// the on-chain code and hashing it.
+  Future<String> _resolveMultiEscrowBytecodeHash({
+    required String rpcUrl,
+    required String contractAddress,
+  }) async {
+    final envHash = Platform.environment['MULTI_ESCROW_BYTECODE_HASH']?.trim();
+    if (envHash != null && envHash.isNotEmpty) return envHash;
+
+    final hexCode = await _ethGetCode(rpcUrl: rpcUrl, address: contractAddress);
+    // Convert the 0x-prefixed hex string to bytes for hashing.
+    final bytesString = hexCode.startsWith('0x')
+        ? hexCode.substring(2)
+        : hexCode;
+    final bytes = <int>[];
+    for (var i = 0; i < bytesString.length; i += 2) {
+      bytes.add(int.parse(bytesString.substring(i, i + 2), radix: 16));
+    }
+    return sha256.convert(bytes).toString();
   }
 
   Future<void> _printPipelineUsersByRole(SeedPipelineData data) async {

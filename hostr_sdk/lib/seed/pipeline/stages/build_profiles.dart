@@ -231,51 +231,62 @@ Future<ProfileMetadata> buildEscrowProfile({required SeedContext ctx}) async {
 
 Future<List<EscrowService>> buildEscrowServices({
   required String contractAddress,
+  required String multiEscrowBytecodeHash,
 }) async {
   final escrowEvmKey = await deriveEvmKey(MockKeys.escrow.privateKey!);
   return MOCK_ESCROWS(
     contractAddress: contractAddress,
     evmAddress: escrowEvmKey.address.eip55With0x,
+    byteCodeHash: multiEscrowBytecodeHash,
   ).toList(growable: false);
-}
-
-Future<List<EscrowTrust>> buildEscrowTrusts({
-  required SeedContext ctx,
-  required List<SeedUser> users,
-}) async {
-  final trusts = <EscrowTrust>[];
-  for (final user in users) {
-    final list = Nip51List(
-      pubKey: user.keyPair.publicKey,
-      createdAt: ctx.baseDate.millisecondsSinceEpoch ~/ 1000,
-      kind: kNostrKindEscrowTrust,
-      elements: [],
-    )..addElement('p', MockKeys.escrow.publicKey, false);
-
-    final listEvent = await list.toEvent(
-      CoinlibEventSigner(
-        privateKey: user.keyPair.privateKey,
-        publicKey: user.keyPair.publicKey,
-      ),
-    );
-
-    final signed = Nip01Utils.signWithPrivateKey(
-      privateKey: user.keyPair.privateKey!,
-      event: listEvent,
-    );
-    trusts.add(EscrowTrust.fromNostrEvent(signed));
-  }
-  return trusts;
 }
 
 Future<List<EscrowMethod>> buildEscrowMethods({
   required SeedContext ctx,
   required List<SeedUser> users,
+  required String multiEscrowBytecodeHash,
+  required int chainId,
+  String? tbtcAddress,
+  int tbtcDecimals = 18,
+  String? usdtAddress,
+  int usdtDecimals = 6,
 }) async {
   final methods = <EscrowMethod>[];
   final acceptedPaymentForms = [
-    AcceptedPaymentForm(denomination: 'BTC', tokenTagId: Token.rbtc(30).tagId),
+    // Native chain token (e.g. ETH on Arbitrum).
+    AcceptedPaymentForm(
+      denomination: 'BTC',
+      tokenTagId: Token.rbtc(chainId).tagId,
+    ),
+    // tBTC ERC-20 (if deployed).
+    if (tbtcAddress != null && tbtcAddress.isNotEmpty)
+      AcceptedPaymentForm(
+        denomination: 'BTC',
+        tokenTagId: Token(
+          chainId: chainId,
+          address: tbtcAddress,
+          decimals: tbtcDecimals,
+        ).tagId,
+      ),
+    // USDT ERC-20 (if deployed).
+    if (usdtAddress != null && usdtAddress.isNotEmpty)
+      AcceptedPaymentForm(
+        denomination: 'USD',
+        tokenTagId: Token(
+          chainId: chainId,
+          address: usdtAddress,
+          decimals: usdtDecimals,
+        ).tagId,
+      ),
   ];
+  if (acceptedPaymentForms.length < 2) {
+    throw StateError(
+      'Expected at least 2 accepted payment forms (native + ERC-20 token) '
+      'but got ${acceptedPaymentForms.length}. '
+      'tbtcAddress=$tbtcAddress, usdtAddress=$usdtAddress. '
+      'Ensure token addresses are resolved before seeding.',
+    );
+  }
   for (final user in users) {
     final list =
         Nip51List(
@@ -284,8 +295,8 @@ Future<List<EscrowMethod>> buildEscrowMethods({
             kind: kNostrKindEscrowMethod,
             elements: [],
           )
-          ..addElement('t', EscrowType.EVM.name, false)
-          ..addElement('c', 'MultiEscrow', false);
+          ..addElement('p', MockKeys.escrow.publicKey, false)
+          ..addElement('c', multiEscrowBytecodeHash, false);
 
     final listEvent = await list.toEvent(
       CoinlibEventSigner(
@@ -294,13 +305,26 @@ Future<List<EscrowMethod>> buildEscrowMethods({
       ),
     );
 
-    for (final form in acceptedPaymentForms) {
-      listEvent.tags.add(form.toTag());
-    }
+    // Build the complete tag list before creating the event so the
+    // auto-computed id covers every tag.  Mutating tags on an existing
+    // Nip01Event leaves the id stale because it is `late final` and
+    // Nip01Utils.signWithPrivateKey does not recalculate it.
+    final completeTags = [
+      ...listEvent.tags,
+      for (final form in acceptedPaymentForms) form.toTag(),
+    ];
+
+    final completeEvent = Nip01Event(
+      pubKey: listEvent.pubKey,
+      kind: listEvent.kind,
+      tags: completeTags,
+      content: listEvent.content,
+      createdAt: listEvent.createdAt,
+    );
 
     final signed = Nip01Utils.signWithPrivateKey(
       privateKey: user.keyPair.privateKey!,
-      event: listEvent,
+      event: completeEvent,
     );
     methods.add(EscrowMethod.fromNostrEvent(signed));
   }

@@ -120,6 +120,74 @@ if [ "$TBTC_ADDRESS" != "$EXPECTED_ADDRESS" ]; then
   echo "         Update docker/boltz.conf contractAddress if this persists!"
 fi
 
+# ── 3. Deploy MockUSDT ERC20 (nonce 3) ───────────────────────────────────
+echo "Deploying MockUSDT..."
+
+cat > /tmp/tbtc/src/MockUSDT.sol << 'SOLEOF'
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+contract MockUSDT {
+    string public name     = "Tether USD";
+    string public symbol   = "USDT";
+    uint8  public decimals = 6;
+    uint256 public totalSupply;
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    constructor(uint256 _supply) {
+        totalSupply = _supply;
+        balanceOf[msg.sender] = _supply;
+        emit Transfer(address(0), msg.sender, _supply);
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(from, to, amount);
+        return true;
+    }
+}
+SOLEOF
+
+USDT_SUPPLY="1000000000000"  # 1M USDT (6 decimals)
+FORGE_OUTPUT_USDT=$(forge create src/MockUSDT.sol:MockUSDT \
+  --rpc-url "$ARBITRUM_RPC" \
+  --private-key "$DEPLOYER_PK" \
+  --broadcast \
+  --constructor-args "$USDT_SUPPLY" 2>&1)
+echo "$FORGE_OUTPUT_USDT"
+
+USDT_ADDRESS=$(echo "$FORGE_OUTPUT_USDT" | grep -i "Deployed to:" | awk '{print $NF}')
+if [ -z "$USDT_ADDRESS" ]; then
+  echo "ERROR: Failed to extract MockUSDT address from forge create output"
+  exit 1
+fi
+
+CODE=$(cast code --rpc-url "$ARBITRUM_RPC" "$USDT_ADDRESS")
+if [ "$CODE" = "0x" ] || [ -z "$CODE" ]; then
+  echo "ERROR: No contract code at MockUSDT address $USDT_ADDRESS"
+  exit 1
+fi
+
 echo ""
 echo "═══════════════════════════════════════════════"
 echo " Arbitrum Contracts Deployed"
@@ -127,12 +195,27 @@ echo "════════════════════════�
 echo " EtherSwap:  0x8464135c8F25Da09e49BC8782676a84730C318bC"
 echo " ERC20Swap:  0x71C95911E9a5D330f4D621842EC243EE1343292e"
 echo " MockTBTC:   $TBTC_ADDRESS"
+echo " MockUSDT:   $USDT_ADDRESS"
 echo "═══════════════════════════════════════════════"
 
-# ── 3. Fund default Anvil accounts with tBTC ─────────────────────────────
+# ── 4. Write token address manifest ──────────────────────────────────────
+# Written to a mounted volume so sync-contract-env.sh can read it.
+TOKEN_MANIFEST="/data/token-addresses.json"
+cat > "$TOKEN_MANIFEST" << JSONEOF
+{
+  "regtest.412346": {
+    "tBTC": { "address": "$TBTC_ADDRESS", "decimals": 18 },
+    "USDT": { "address": "$USDT_ADDRESS", "decimals": 6 }
+  }
+}
+JSONEOF
+echo "Token manifest written to $TOKEN_MANIFEST"
+
+# ── 5. Fund default Anvil accounts with tBTC and USDT ───────────────────
 echo ""
-echo "Funding default Anvil accounts with tBTC..."
-AMOUNT="100000000000000000000000"  # 100k tBTC each
+echo "Funding default Anvil accounts with tBTC and USDT..."
+TBTC_AMOUNT="100000000000000000000000"  # 100k tBTC each (18 decimals)
+USDT_AMOUNT="100000000000"              # 100k USDT each (6 decimals)
 
 for ACCT in \
   "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" \
@@ -143,14 +226,21 @@ for ACCT in \
 do
   echo "  Sending 100k tBTC to $ACCT"
   cast send --rpc-url "$ARBITRUM_RPC" --private-key "$DEPLOYER_PK" \
-    "$TBTC_ADDRESS" "transfer(address,uint256)" "$ACCT" "$AMOUNT"
+    "$TBTC_ADDRESS" "transfer(address,uint256)" "$ACCT" "$TBTC_AMOUNT"
+  echo "  Sending 100k USDT to $ACCT"
+  cast send --rpc-url "$ARBITRUM_RPC" --private-key "$DEPLOYER_PK" \
+    "$USDT_ADDRESS" "transfer(address,uint256)" "$ACCT" "$USDT_AMOUNT"
 done
 
 # Fund explicit boltz wallet if specified
 if [ -n "${BOLTZ_WALLET_ADDRESS:-}" ]; then
   echo "  Sending 100k tBTC to boltz wallet $BOLTZ_WALLET_ADDRESS"
   cast send --rpc-url "$ARBITRUM_RPC" --private-key "$DEPLOYER_PK" \
-    "$TBTC_ADDRESS" "transfer(address,uint256)" "$BOLTZ_WALLET_ADDRESS" "$AMOUNT"
+    "$TBTC_ADDRESS" "transfer(address,uint256)" "$BOLTZ_WALLET_ADDRESS" "$TBTC_AMOUNT"
+
+  echo "  Sending 100k USDT to boltz wallet $BOLTZ_WALLET_ADDRESS"
+  cast send --rpc-url "$ARBITRUM_RPC" --private-key "$DEPLOYER_PK" \
+    "$USDT_ADDRESS" "transfer(address,uint256)" "$BOLTZ_WALLET_ADDRESS" "$USDT_AMOUNT"
 
   # Also send native ETH/ARB for gas
   echo "  Sending 1000 ETH to boltz wallet for gas"

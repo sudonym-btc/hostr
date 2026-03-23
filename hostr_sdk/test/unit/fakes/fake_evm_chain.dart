@@ -1,10 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:hostr_sdk/datasources/contracts/boltz/EtherSwap.g.dart';
-import 'package:hostr_sdk/datasources/swagger_generated/rif_relay.swagger.dart'
-    as relay_api;
 import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:wallet/wallet.dart';
@@ -31,13 +28,8 @@ class FakeEvmChain extends Fake implements EvmChain {
   /// The current block number (for timelock expiry checks).
   int currentBlockNumber = 0;
 
-  late final FakeEtherSwap _etherSwap = FakeEtherSwap(this);
-
   @override
   Web3Client get client => FakeWeb3Client(this);
-
-  @override
-  Future<EtherSwap> getEtherSwapContract() async => _etherSwap;
 
   @override
   Future<TransactionReceipt> awaitReceipt(String txHash) async {
@@ -108,23 +100,4 @@ class FakeWeb3Client extends Fake implements Web3Client {
 
   @override
   Future<int> getBlockNumber() async => _chain.currentBlockNumber;
-}
-
-/// A fake [RifRelay] for claim operations in tests.
-class FakeRifRelay extends Fake implements RifRelay {
-  final FakeEvmChain _chain;
-  FakeRifRelay(this._chain);
-
-  @override
-  Future<relay_api.RelayPost$Response> relayClaim(
-    EtherSwap etherSwap,
-    EthPrivateKey signer,
-    ClaimArgs args,
-  ) async {
-    final result = _chain.claimResult;
-    if (result == null) {
-      throw Exception('Claim relay failed (test)');
-    }
-    return relay_api.RelayPost$Response(txHash: result);
-  }
 }

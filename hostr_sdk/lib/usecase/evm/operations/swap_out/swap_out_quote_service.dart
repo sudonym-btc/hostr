@@ -29,18 +29,22 @@ class SwapOutQuoteService {
   /// Build a [SwapOutQuote] for the given balance, gas estimate, and
   /// optional desired amount.
   ///
+  /// [boltzCurrency] is the Boltz pair currency for the chain (e.g. 'RBTC',
+  /// 'tBTC'). Defaults to 'RBTC' for backwards compatibility.
+  ///
   /// Throws [StateError] when balance is insufficient or the requested amount
   /// falls outside Boltz limits.
   Future<SwapOutQuote> buildQuote({
     required TokenAmount balance,
     required TokenAmount estimatedGasFee,
     TokenAmount? requestedAmount,
+    String boltzCurrency = 'RBTC',
   }) async {
     final balanceRounded = balance.roundDownToSats();
     final gasFeeRounded = estimatedGasFee.roundUpToSats();
 
     final pair = await getIt<BoltzClient>().getSubmarinePair(
-      from: 'RBTC',
+      from: boltzCurrency,
       to: 'BTC',
     );
 

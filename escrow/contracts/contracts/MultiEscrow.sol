@@ -31,7 +31,6 @@ contract MultiEscrow {
 
     bytes32 public immutable DOMAIN_SEPARATOR;
     address public owner;
-    mapping(address => bool) public allowedTokens;
 
     error OnlyOwner();
     error OnlyArbiter();
@@ -52,7 +51,6 @@ contract MultiEscrow {
     error InvalidFeeRecipient();
     error SignatureExpired();
     error InvalidSignature();
-    error TokenNotAllowed();
     error NativeNotExpected();
 
     struct Trade {
@@ -80,7 +78,6 @@ contract MultiEscrow {
     event Claimed(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount);
     event ReleasedToCounterparty(bytes32 indexed tradeId, address indexed token, address from, address to, uint256 amount);
     event RelayFeePaid(bytes32 indexed tradeId, address indexed feeReceiver, uint256 amount);
-    event TokenAllowlistUpdated(address indexed token, bool allowed);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     constructor() {
@@ -341,11 +338,6 @@ contract MultiEscrow {
 
     // ── Admin ─────────────────────────────────────────────────────────
 
-    function setTokenAllowed(address token, bool allowed) external onlyOwner {
-        allowedTokens[token] = allowed;
-        emit TokenAllowlistUpdated(token, allowed);
-    }
-
     function transferOwnership(address newOwner) external onlyOwner {
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
@@ -404,7 +396,6 @@ contract MultiEscrow {
         if (_token == address(0)) {
             funded = msg.value;
         } else {
-            if (!allowedTokens[_token]) revert TokenNotAllowed();
             if (msg.value != 0) revert NativeNotExpected();
             uint256 before = IERC20(_token).balanceOf(address(this));
             _safeTransferFrom(_token, msg.sender, address(this), _amount);

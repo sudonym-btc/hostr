@@ -29,6 +29,10 @@ class SwapOutData {
   final String? lastBoltzStatus;
   final String? errorMessage;
 
+  /// When non-null, indicates this swap targets the ERC20Swap contract
+  /// with the given token address. When null, the swap uses EtherSwap.
+  final String? tokenAddress;
+
   const SwapOutData({
     required this.boltzId,
     required this.invoice,
@@ -44,6 +48,7 @@ class SwapOutData {
     this.resolutionTxHash,
     this.lastBoltzStatus,
     this.errorMessage,
+    this.tokenAddress,
   });
 
   /// Recover the invoice preimage hash bytes from stored hex.
@@ -74,6 +79,7 @@ class SwapOutData {
     resolutionTxHash: resolutionTxHash ?? this.resolutionTxHash,
     lastBoltzStatus: lastBoltzStatus ?? this.lastBoltzStatus,
     errorMessage: errorMessage ?? this.errorMessage,
+    tokenAddress: tokenAddress,
   );
 
   Map<String, dynamic> toJson() => {
@@ -91,6 +97,7 @@ class SwapOutData {
     if (resolutionTxHash != null) 'resolutionTxHash': resolutionTxHash,
     if (lastBoltzStatus != null) 'lastBoltzStatus': lastBoltzStatus,
     if (errorMessage != null) 'errorMessage': errorMessage,
+    if (tokenAddress != null) 'tokenAddress': tokenAddress,
   };
 
   factory SwapOutData.fromJson(Map<String, dynamic> json) => SwapOutData(
@@ -108,6 +115,7 @@ class SwapOutData {
     resolutionTxHash: json['resolutionTxHash'] as String?,
     lastBoltzStatus: json['lastBoltzStatus'] as String?,
     errorMessage: json['errorMessage'] as String?,
+    tokenAddress: json['tokenAddress'] as String?,
   );
 
   @override
@@ -359,7 +367,7 @@ final class SwapOutFailed extends SwapOutState {
   };
 }
 
-/// Funds are being locked in the EtherSwap contract.
+/// Funds are being locked in the swap contract (EtherSwap or ERC20Swap).
 ///
 /// This is a **busy/CAS lock** state: persisted before the lock
 /// side-effect begins so that another process reading the store

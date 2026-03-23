@@ -335,7 +335,6 @@ PaymentProof _buildEscrowPaymentProof({
     escrowProof: EscrowProof(
       txHash: txHash,
       escrowService: escrowService,
-      hostsTrustedEscrows: escrowTrust,
       hostsEscrowMethods: escrowMethod,
     ),
   );
@@ -798,7 +797,6 @@ void main() {
           final proof = EscrowProof(
             txHash: txHash,
             escrowService: escrowService,
-            hostsTrustedEscrows: escrowTrust,
             hostsEscrowMethods: escrowMethod,
           );
 

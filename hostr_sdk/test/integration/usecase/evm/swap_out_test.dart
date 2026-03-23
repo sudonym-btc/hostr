@@ -66,7 +66,7 @@ void main() {
         amountWei: rbtcFromSatsInt(500000).getInWei,
       );
 
-      final swapOut = (await hostr.evm.rootstock.swapOutAll()).first;
+      final swapOut = (await hostr.evm.swapOutAll()).first;
 
       final emittedStates = <SwapOutState>[swapOut.state];
       final sub = swapOut.stream.listen(emittedStates.add);
@@ -103,7 +103,7 @@ void main() {
       );
 
       // ── Attempt 1: submit an invalid invoice → swap fails ──────────
-      final swapOut1 = (await harness.hostr.evm.rootstock.swapOutAll()).first;
+      final swapOut1 = (await harness.hostr.evm.swapOutAll()).first;
       final states1 = <SwapOutState>[swapOut1.state];
       final sub1 = swapOut1.stream.listen(states1.add);
 

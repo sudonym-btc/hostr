@@ -60,7 +60,6 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
               tags: EscrowServiceSelectedTags([]),
               content: EscrowServiceSelectedContent(
                 service: loadedState.selectedEscrow!,
-                sellerTrusts: loadedState.result.sellerTrust!,
                 sellerMethods: loadedState.result.sellerMethod!,
               ),
             ),

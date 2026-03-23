@@ -175,9 +175,11 @@ The absence of a `["token", ...]` tag for a given asset means the escrow **does 
 
 The `feePercent` field remains top-level on the escrow service (it's token-agnostic — a percentage applies uniformly).
 
-### On-chain allowlist
+### On-chain token policy
 
-The `MultiEscrow` smart contract independently maintains an `allowedTokens` mapping. The `["token", ...]` tags in the Nostr event are the _advertisement_; the contract's allowlist is the _enforcement_. Both must agree — the escrow operator is responsible for keeping them in sync.
+`MultiEscrow` accepts ERC20 tokens without an on-chain allowlist check.
+
+That means the `["token", ...]` tags in the Nostr event are the advertisement / discovery layer. They tell clients which tokens the escrow operator intends to support, even though the contract no longer enforces a token allowlist.
 
 ---
 

@@ -52,6 +52,7 @@ void main() {
 
       final contract = hostr.evm
           .getChainForEscrowService(escrowService)
+          .escrow
           .getSupportedEscrowContract(escrowService);
       final fundedTrade = await contract.getTrade(tradeId);
       expect(fundedTrade, isNotNull);
@@ -113,6 +114,7 @@ void main() {
 
       final contract = hostr.evm
           .getChainForEscrowService(escrowService)
+          .escrow
           .getSupportedEscrowContract(escrowService);
       final fundedTrade = await contract.getTrade(tradeId);
       expect(fundedTrade, isNotNull);
@@ -151,7 +153,9 @@ void main() {
   );
 }
 
-Future<EscrowService> _resolveEscrowService(IntegrationTestHarness harness) async {
+Future<EscrowService> _resolveEscrowService(
+  IntegrationTestHarness harness,
+) async {
   final contractAddress = resolveContractAddress();
   return (await harness.seeds.factory.buildEscrowServices(
     contractAddress: contractAddress,
@@ -175,10 +179,9 @@ Future<void> _fundTradeWithoutSwap({
 
   await operation.initialize();
   await harness.anvil.setBalance(
-    address: (await hostr.auth.hd
-        .getActiveEvmKey(accountIndex: operation.accountIndex))
-        .address
-        .eip55With0x,
+    address: (await hostr.auth.hd.getActiveEvmKey(
+      accountIndex: operation.accountIndex,
+    )).address.eip55With0x,
     amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
   );
 

@@ -1,6 +1,8 @@
 import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
 
+import '../usecase/evm/config/evm_config.dart';
+
 /// SDK-layer extensions on [TokenAmount] that require the `wallet` package
 /// (e.g. [EtherAmount]).
 ///
@@ -93,26 +95,31 @@ TokenAmount rbtcFromSatsInt(int sats) => rbtcFromSats(BigInt.from(sats));
 
 /// Construct a [TokenAmount] from an on-chain EVM token address and raw value.
 ///
-/// If [tokenAddress] is the zero address, this returns an RBTC amount.
-/// Otherwise it resolves the [Token] from a known-token table (defaulting
-/// to 18 decimals for unrecognised addresses) and wraps the raw value.
-TokenAmount tokenAmountFromEvm(String tokenAddress, BigInt value) {
+/// If [tokenAddress] is the zero address, this returns a native-token amount
+/// for the given [chainId].
+///
+/// For ERC-20 tokens, decimals are resolved from [knownTokens] (typically
+/// sourced from `EvmChainConfig.tokens`). Falls back to 18 if the token
+/// is not in the map.
+TokenAmount tokenAmountFromEvm(
+  String tokenAddress,
+  BigInt value, {
+  required int chainId,
+  Map<String, TokenConfig> knownTokens = const {},
+}) {
   final normalized = tokenAddress.toLowerCase();
   if (normalized == '0x0000000000000000000000000000000000000000') {
-    return rbtcFromWei(value);
+    return TokenAmount(value: value, token: Token.rbtc(chainId));
   }
-  // Look up decimals from the well-known ERC-20 table.
-  final decimals = _knownErc20Decimals[normalized] ?? 18;
-  final token = Token(chainId: 30, address: tokenAddress, decimals: decimals);
+  // Look up decimals from the config-provided known-token map.
+  final match = knownTokens.values
+      .where((t) => t.address.toLowerCase() == normalized)
+      .firstOrNull;
+  final decimals = match?.decimals ?? 18;
+  final token = Token(
+    chainId: chainId,
+    address: tokenAddress,
+    decimals: decimals,
+  );
   return TokenAmount(value: value, token: token);
 }
-
-/// Well-known ERC-20 tokens on Rootstock with their decimal precision.
-///
-/// Key: lowercased checksummed address. Value: decimals.
-/// Extend this map when new tokens are supported.
-const Map<String, int> _knownErc20Decimals = {
-  // rUSDT on Rootstock mainnet
-  '0xef213441a85df4d7acbdae0cf78004e1e486bb96': 18,
-  // Add testnet / other well-known tokens here as needed.
-};

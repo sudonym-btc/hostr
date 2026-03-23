@@ -84,11 +84,15 @@ class KeysWidgetState extends State<KeysWidget> {
               // ),
               ListTile(
                 title: Text(AppLocalizations.of(context)!.boltz),
-                subtitle: Text(getIt<Config>().rootstock.boltz.apiUrl),
+                subtitle: Text(
+                  getIt<Config>().evmConfig.boltz?.apiUrl ?? 'N/A',
+                ),
               ),
               ListTile(
                 title: Text(AppLocalizations.of(context)!.rootstock),
-                subtitle: Text(getIt<Config>().rootstock.rpcUrl),
+                subtitle: Text(
+                  getIt<Config>().evmConfig.chains.firstOrNull?.rpcUrl ?? 'N/A',
+                ),
               ),
             ],
           )

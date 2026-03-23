@@ -30,7 +30,18 @@ class StagingConfig extends Config {
   @override
   String get hostrRelay => 'wss://relay.staging.hostr.network';
   @override
-  RootstockConfig rootstock = StagingRootstockConfig();
+  EvmConfig evmConfig = EvmConfig(
+    boltz: BoltzConfig(apiUrl: 'https://api.boltz.exchange/v2'),
+    chains: [
+      EvmChainConfig(
+        id: 'arbitrum',
+        chainId: 42161,
+        rpcUrl: 'https://arb1.arbitrum.io/rpc',
+        accountAbstraction: envBackedAAConfig(),
+        tokens: arbitrumMainnetTokens,
+      ),
+    ],
+  );
   @override
   String get tipsAddress => 'paco@walletofsatoshi.com';
   @override
@@ -38,23 +49,4 @@ class StagingConfig extends Config {
     'GOOGLE_MAPS_API_KEY',
     const String.fromEnvironment('GOOGLE_MAPS_API_KEY'),
   );
-}
-
-class StagingRootstockConfig extends RootstockConfig {
-  @override
-  int get chainId => 42161;
-  @override
-  String get rpcUrl => 'https://arb1.arbitrum.io/rpc';
-
-  @override
-  BoltzConfig get boltz => ProductionBoltzConfig();
-
-  @override
-  AccountAbstractionConfig get accountAbstraction =>
-      EnvBackedAccountAbstractionConfig();
-}
-
-class ProductionBoltzConfig extends BoltzConfig {
-  @override
-  String get apiUrl => 'https://api.boltz.exchange/v2';
 }

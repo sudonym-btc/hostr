@@ -71,6 +71,12 @@ class EscrowMethod extends Event {
 
   // ── Accepted payment form helpers ───────────────────────────────────
 
+  /// All trusted escrow arbiter pubkeys declared via `"p"` tags.
+  List<String> get trustedEscrowPubkeys => getTags('p');
+
+  /// All contract bytecode hashes declared via `"c"` tags.
+  List<String> get supportedContractBytecodeHashes => getTags('c');
+
   /// All accepted payment forms declared via `"a"` tags on this event.
   List<AcceptedPaymentForm> get acceptedPaymentForms {
     return tags
@@ -86,6 +92,13 @@ class EscrowMethod extends Event {
         .map((f) => f.tokenTagId)
         .toList();
   }
+
+  /// Whether this escrow method declares trust in [pubkey] as an arbiter.
+  bool trustsEscrow(String pubkey) => trustedEscrowPubkeys.contains(pubkey);
+
+  /// Whether this escrow method declares support for [bytecodeHash].
+  bool supportsContractBytecodeHash(String bytecodeHash) =>
+      supportedContractBytecodeHashes.contains(bytecodeHash);
 
   /// Whether this escrow method declares acceptance of [tokenTagId] for
   /// the given [denomination].

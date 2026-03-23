@@ -62,11 +62,9 @@ class Seeder {
       await factory.buildEscrowProfile(),
     ];
     final escrowServices = await factory.buildEscrowServices();
-    final escrowTrusts = await factory.buildEscrowTrusts(users);
     final escrowMethods = await factory.buildEscrowMethods(users);
 
     final profileByPubkey = {for (final p in profiles) p.pubKey: p};
-    final trustByPubkey = {for (final t in escrowTrusts) t.pubKey: t};
     final methodByPubkey = {for (final m in escrowMethods) m.pubKey: m};
 
     // Publish profiles + escrow config eagerly.
@@ -75,9 +73,6 @@ class Seeder {
     }
     for (final e in escrowServices) {
       await sink.publish(e);
-    }
-    for (final t in escrowTrusts) {
-      await sink.publish(t);
     }
     for (final m in escrowMethods) {
       await sink.publish(m);
@@ -119,7 +114,6 @@ class Seeder {
       ctx: factory.context,
       threads: threads,
       chainNow: resolvedNow,
-      trustByPubkey: trustByPubkey,
       methodByPubkey: methodByPubkey,
     );
 
@@ -153,7 +147,6 @@ class Seeder {
       plans: outcomePlans,
       escrowService: escrowService,
       profileByPubkey: profileByPubkey,
-      trustByPubkey: trustByPubkey,
       methodByPubkey: methodByPubkey,
     );
 
@@ -218,7 +211,6 @@ class Seeder {
       profiles: profiles,
       listings: listings,
       escrowServices: escrowServices,
-      escrowTrusts: escrowTrusts,
       escrowMethods: escrowMethods,
       threads: threads,
       reservationRequests: reservationRequests,
@@ -237,7 +229,6 @@ class Seeder {
     required List<SeedOutcomePlan> plans,
     required EscrowService? escrowService,
     required Map<String, ProfileMetadata> profileByPubkey,
-    required Map<String, EscrowTrust> trustByPubkey,
     required Map<String, EscrowMethod> methodByPubkey,
   }) async {
     final ctx = factory.context;
@@ -259,7 +250,7 @@ class Seeder {
 
     // Phase 2+3: Escrow trades + settlements (via sink).
     final escrowPlans = plans
-        .where((p) => p.useEscrow && p.trust != null && p.method != null)
+        .where((p) => p.useEscrow && p.method != null)
         .toList();
 
     await Future.wait(
@@ -297,7 +288,6 @@ class Seeder {
               tags: EventTags([]),
               createdAt: ctx.timestampDaysAfter(1),
             ),
-        trustByPubkey: trustByPubkey,
         methodByPubkey: methodByPubkey,
         invalidReservationRate: config.invalidReservationRate,
       );

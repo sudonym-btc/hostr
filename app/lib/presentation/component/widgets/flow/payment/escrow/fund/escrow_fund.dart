@@ -170,6 +170,10 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                   );
                 }
 
+                if (snapshot.hasError || snapshot.data == null) {
+                  return Text('Unable to estimate fees', style: subtleStyle);
+                }
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

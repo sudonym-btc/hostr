@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
@@ -33,9 +34,9 @@ class DiscoverEscrowServicesState extends Equatable {
   List<Object?> get props => [data, loading, error];
 }
 
-/// Discovers escrow services whose [EscrowType] matches the locally supported
-/// methods (e.g. EVM). Returns all matching [EscrowService] events from which
-/// we extract distinct operator pubkeys.
+/// Discovers escrow services whose contract bytecode hash matches the locally
+/// supported MultiEscrow bytecode hash. Returns all matching [EscrowService]
+/// events from which we extract distinct operator pubkeys.
 class DiscoverEscrowServicesCubit extends Cubit<DiscoverEscrowServicesState> {
   final Hostr hostr;
 
@@ -51,10 +52,10 @@ class DiscoverEscrowServicesCubit extends Cubit<DiscoverEscrowServicesState> {
         Filter(kinds: EscrowService.kinds),
       );
 
-      // Filter to only those whose escrow type we support
-      final supportedTypes = EscrowMethods.supportedTypes;
+        // Filter to only those whose contract bytecode hash we support.
+        final supportedHashes = getIt<Hostr>().escrowMethods.supportedContractBytecodeHashes;
       final compatible = allServices
-          .where((s) => supportedTypes.contains(s.escrowType.name))
+          .where((s) => supportedHashes.contains(s.contractBytecodeHash))
           .toList();
 
       emit(DiscoverEscrowServicesState(data: compatible, loading: false));

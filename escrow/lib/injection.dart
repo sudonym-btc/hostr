@@ -14,6 +14,27 @@ String _readRequiredEnv(String key) {
   return value;
 }
 
+/// Reads token contract addresses from runtime environment variables.
+Map<String, TokenConfig> _envTokens() {
+  final tbtcAddr = Platform.environment['ARBITRUM_TBTC_ADDRESS']?.trim();
+  final tbtcDec = Platform.environment['ARBITRUM_TBTC_DECIMALS']?.trim();
+  final usdtAddr = Platform.environment['ARBITRUM_USDT_ADDRESS']?.trim();
+  final usdtDec = Platform.environment['ARBITRUM_USDT_DECIMALS']?.trim();
+
+  return {
+    if (tbtcAddr != null && tbtcAddr.isNotEmpty)
+      'tBTC': TokenConfig(
+        address: tbtcAddr,
+        decimals: int.tryParse(tbtcDec ?? '') ?? 18,
+      ),
+    if (usdtAddr != null && usdtAddr.isNotEmpty)
+      'USDT': TokenConfig(
+        address: usdtAddr,
+        decimals: int.tryParse(usdtDec ?? '') ?? 6,
+      ),
+  };
+}
+
 Map<String, String> _parseOtlpHeaders(String? raw) {
   if (raw == null || raw.trim().isEmpty) return const {};
 
@@ -57,7 +78,25 @@ Future<void> setupInjection({
         bootstrapRelays: [relayUrl],
         bootstrapBlossom: [blossomUrl],
         hostrRelay: relayUrl,
-        rootstockConfig: _EscrowRootstockConfig(rpcUrl: rpcUrl),
+        evmConfig: EvmConfig(
+          boltz: BoltzConfig(apiUrl: 'https://boltz.hostr.development/v2'),
+          chains: [
+            EvmChainConfig(
+              id: 'arbitrum-regtest',
+              chainId: 412346,
+              rpcUrl: rpcUrl,
+              accountAbstraction: AAConfig(
+                bundlerUrl: Platform.environment['AA_BUNDLER_URL']?.trim() ??
+                    'http://bundler:3000/rpc',
+                entryPointAddress: _readRequiredEnv('AA_ENTRY_POINT_ADDRESS'),
+                accountFactoryAddress:
+                    _readRequiredEnv('AA_ACCOUNT_FACTORY_ADDRESS'),
+                paymasterAddress: _readRequiredEnv('AA_PAYMASTER_ADDRESS'),
+              ),
+              tokens: _envTokens(),
+            ),
+          ],
+        ),
         telemetry: Telemetry(
           serviceName: 'hostr-escrow',
           enableExport:
@@ -83,45 +122,4 @@ Future<void> _ensureHydratedStorage() async {
   HydratedBloc.storage = await HydratedStorage.build(
     storageDirectory: HydratedStorageDirectory(storageDir.path),
   );
-}
-
-class _EscrowRootstockConfig extends RootstockConfig {
-  final String _rpcUrl;
-
-  _EscrowRootstockConfig({required String rpcUrl}) : _rpcUrl = rpcUrl;
-
-  @override
-  int get chainId => 412346;
-
-  @override
-  String get rpcUrl => _rpcUrl;
-
-  @override
-  BoltzConfig get boltz => _EscrowBoltzConfig();
-
-  @override
-  AccountAbstractionConfig get accountAbstraction =>
-      _EscrowAccountAbstractionConfig();
-}
-
-class _EscrowBoltzConfig extends BoltzConfig {
-  @override
-  String get apiUrl => 'https://boltz.hostr.development/v2';
-}
-
-class _EscrowAccountAbstractionConfig extends AccountAbstractionConfig {
-  @override
-  String get bundlerUrl =>
-      Platform.environment['AA_BUNDLER_URL']?.trim() ??
-      'http://bundler:3000/rpc';
-
-  @override
-  String get entryPointAddress => _readRequiredEnv('AA_ENTRY_POINT_ADDRESS');
-
-  @override
-  String get accountFactoryAddress =>
-      _readRequiredEnv('AA_ACCOUNT_FACTORY_ADDRESS');
-
-  @override
-  String get paymasterAddress => _readRequiredEnv('AA_PAYMASTER_ADDRESS');
 }

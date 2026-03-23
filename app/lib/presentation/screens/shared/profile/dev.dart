@@ -25,12 +25,14 @@ class DevWidget extends StatelessWidget {
             showAppModal(
               context,
               builder: (_) => SwapInFlowWidget(
-                cubit: getIt<Hostr>().evm.supportedEvmChains[0].swapIn(
-                  SwapInParams(
+                cubit: getIt<Hostr>().evm.configuredChains.first.swapIn(
+                  params: SwapInParams(
                     amount: rbtcFromSatsInt(100000),
                     evmKey: evmKey,
                     accountIndex: 0,
                   ),
+                  auth: getIt<Hostr>().auth,
+                  logger: CustomLogger(),
                 )..estimateFees(),
               ),
             );
@@ -56,7 +58,7 @@ class DevWidget extends StatelessWidget {
               // FilledButton(
               //   child: Text('Swap in'),
               //   onPressed: () {
-              //     getIt<Hostr>().evm.supportedEvmChains.first
+              //     getIt<Hostr>().evm.configuredChains.first
               //         .swapIn(
               //           key: key,
               //           amount: Amount(
@@ -72,7 +74,7 @@ class DevWidget extends StatelessWidget {
                   // getIt<Hostr>().escrow.escrow(
                   //   EscrowCubitParams(
                   //     evmChain:
-                  //         getIt<Hostr>().evm.supportedEvmChains[0],
+                  //         getIt<Hostr>().evm.configuredChains[0],
                   //     amount: Amount(
                   //       currency: Currency.BTC,
                   //       value: 0.001,

@@ -154,6 +154,14 @@ class SeedPipelineConfig {
   final String lnbitsAdminPassword;
   final String lnbitsExtensionName;
   final String? lnbitsNostrPrivateKey;
+  final String multiEscrowBytecodeHash;
+
+  // ── EVM chain / token addresses ──
+  final int chainId;
+  final String? tbtcAddress;
+  final int tbtcDecimals;
+  final String? usdtAddress;
+  final int usdtDecimals;
 
   // ── Determinism ──
   final int seed;
@@ -178,7 +186,7 @@ class SeedPipelineConfig {
 
   const SeedPipelineConfig({
     this.relayUrl = 'wss://relay.hostr.development',
-    this.rpcUrl = 'https://anvil.hostr.development',
+    this.rpcUrl = 'https://arbitrum.hostr.development',
     this.fundProfiles = true,
     this.setupLnbits = true,
     this.fundAmountWei,
@@ -188,6 +196,12 @@ class SeedPipelineConfig {
     this.lnbitsExtensionName = 'lnurlp',
     this.lnbitsNostrPrivateKey,
     this.seed = 1,
+    this.multiEscrowBytecodeHash = '0xMockMultiEscrowBytecodeHash',
+    this.chainId = 412346,
+    this.tbtcAddress,
+    this.tbtcDecimals = 18,
+    this.usdtAddress,
+    this.usdtDecimals = 6,
     this.userCount = 50,
     this.hostRatio = 0.5,
     this.hostHasEvmRatio = 1,
@@ -212,6 +226,14 @@ class SeedPipelineConfig {
       lnbitsAdminPassword: _str(json['lnbitsAdminPassword']) ?? 'adminpassword',
       lnbitsExtensionName: _str(json['lnbitsExtensionName']) ?? 'lnurlp',
       lnbitsNostrPrivateKey: _str(json['lnbitsNostrPrivateKey']),
+      multiEscrowBytecodeHash:
+          _str(json['multiEscrowBytecodeHash']) ??
+          '0xMockMultiEscrowBytecodeHash',
+      chainId: _int(json['chainId'], 412346),
+      tbtcAddress: _str(json['tbtcAddress']),
+      tbtcDecimals: _int(json['tbtcDecimals'], 18),
+      usdtAddress: _str(json['usdtAddress']),
+      usdtDecimals: _int(json['usdtDecimals'], 6),
       seed: _int(json['seed'], 1),
       userCount: _int(json['userCount'], 50),
       hostRatio: _dbl(json['hostRatio'], 0.25),
@@ -247,6 +269,12 @@ class SeedPipelineConfig {
     'lnbitsAdminPassword': lnbitsAdminPassword,
     'lnbitsExtensionName': lnbitsExtensionName,
     'lnbitsNostrPrivateKey': lnbitsNostrPrivateKey,
+    'multiEscrowBytecodeHash': multiEscrowBytecodeHash,
+    'chainId': chainId,
+    'tbtcAddress': tbtcAddress,
+    'tbtcDecimals': tbtcDecimals,
+    'usdtAddress': usdtAddress,
+    'usdtDecimals': usdtDecimals,
     'seed': seed,
     'userCount': userCount,
     'hostRatio': hostRatio,
@@ -264,6 +292,64 @@ class SeedPipelineConfig {
     },
     'userOverrides': userOverrides.length,
   };
+
+  /// Shallow copy with selective overrides.
+  SeedPipelineConfig copyWith({
+    String? relayUrl,
+    String? rpcUrl,
+    bool? fundProfiles,
+    bool? setupLnbits,
+    BigInt? fundAmountWei,
+    String? lnbitsBaseUrl,
+    String? lnbitsAdminEmail,
+    String? lnbitsAdminPassword,
+    String? lnbitsExtensionName,
+    String? lnbitsNostrPrivateKey,
+    String? multiEscrowBytecodeHash,
+    int? chainId,
+    String? tbtcAddress,
+    int? tbtcDecimals,
+    String? usdtAddress,
+    int? usdtDecimals,
+    int? seed,
+    int? userCount,
+    double? hostRatio,
+    double? hostHasEvmRatio,
+    double? listingsPerHostAvg,
+    int? reservationRequestsPerGuest,
+    ThreadStageSpec? threadStages,
+    double? invalidReservationRate,
+    List<SeedUserSpec>? userOverrides,
+  }) => SeedPipelineConfig(
+    relayUrl: relayUrl ?? this.relayUrl,
+    rpcUrl: rpcUrl ?? this.rpcUrl,
+    fundProfiles: fundProfiles ?? this.fundProfiles,
+    setupLnbits: setupLnbits ?? this.setupLnbits,
+    fundAmountWei: fundAmountWei ?? this.fundAmountWei,
+    lnbitsBaseUrl: lnbitsBaseUrl ?? this.lnbitsBaseUrl,
+    lnbitsAdminEmail: lnbitsAdminEmail ?? this.lnbitsAdminEmail,
+    lnbitsAdminPassword: lnbitsAdminPassword ?? this.lnbitsAdminPassword,
+    lnbitsExtensionName: lnbitsExtensionName ?? this.lnbitsExtensionName,
+    lnbitsNostrPrivateKey: lnbitsNostrPrivateKey ?? this.lnbitsNostrPrivateKey,
+    multiEscrowBytecodeHash:
+        multiEscrowBytecodeHash ?? this.multiEscrowBytecodeHash,
+    chainId: chainId ?? this.chainId,
+    tbtcAddress: tbtcAddress ?? this.tbtcAddress,
+    tbtcDecimals: tbtcDecimals ?? this.tbtcDecimals,
+    usdtAddress: usdtAddress ?? this.usdtAddress,
+    usdtDecimals: usdtDecimals ?? this.usdtDecimals,
+    seed: seed ?? this.seed,
+    userCount: userCount ?? this.userCount,
+    hostRatio: hostRatio ?? this.hostRatio,
+    hostHasEvmRatio: hostHasEvmRatio ?? this.hostHasEvmRatio,
+    listingsPerHostAvg: listingsPerHostAvg ?? this.listingsPerHostAvg,
+    reservationRequestsPerGuest:
+        reservationRequestsPerGuest ?? this.reservationRequestsPerGuest,
+    threadStages: threadStages ?? this.threadStages,
+    invalidReservationRate:
+        invalidReservationRate ?? this.invalidReservationRate,
+    userOverrides: userOverrides ?? this.userOverrides,
+  );
 
   // ── JSON helpers ──
   static int _int(dynamic v, int fb) {

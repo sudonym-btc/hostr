@@ -3,39 +3,36 @@ import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
-import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart' hide params;
 
-import '../../../../../../datasources/boltz/boltz.dart';
 import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
+import '../../../../../../datasources/contracts/boltz/IERC20.g.dart';
 import '../../../../../../datasources/swagger_generated/boltz.swagger.dart';
-import '../../../../../../injection.dart';
 import '../../../../../../util/main.dart';
 import '../../../../../nwc/nwc.dart';
 import '../../../../../payments/payments.dart';
 import '../../../../main.dart';
 
-@injectable
-class RootstockSwapOutOperation extends SwapOutOperation {
+class EvmSwapOutOperation extends SwapOutOperation {
   static const int _estimatedLockGasLimit = 200000;
 
-  final Rootstock rootstock;
+  final ConfiguredEvmChain configuredChain;
   final Nwc nwc;
   final SwapOutQuoteService quoteService;
   final Payments payments;
 
-  RootstockSwapOutOperation({
-    required this.rootstock,
+  EvmSwapOutOperation({
+    required this.configuredChain,
     required super.auth,
     required super.logger,
     required this.nwc,
     required this.quoteService,
     required this.payments,
-    @factoryParam required super.params,
-    @ignoreParam super.initialState,
+    required super.params,
+    super.initialState,
   });
 
   // ── State machine ─────────────────────────────────────────────────────
@@ -53,54 +50,104 @@ class RootstockSwapOutOperation extends SwapOutOperation {
 
   // ── Step 1: Acquire invoice + create Boltz submarine swap ─────────────
 
-  Future<SwapOutState> _stepCreateSwap() =>
-      logger.span('_stepCreateSwap', () async {
-        emit(SwapOutRequestCreated());
-
-        final quote = await _buildQuote();
-        final invoice = await _acquireInvoice(quote);
-        emit(SwapOutInvoiceCreated(invoice));
-        logger.i('Invoice created: $invoice');
-
-        final creationBlock = await rootstock.client.getBlockNumber();
-        return await _prepareSwap(invoice, quote, creationBlock);
-      });
-
-  // ── Step 2: Lock funds in EtherSwap ───────────────────────────────────
-
-  Future<SwapOutState> _stepLockFunds() => logger.span(
-    '_stepLockFunds',
+  Future<SwapOutState> _stepCreateSwap() => logger.span(
+    '_stepCreateSwap',
     () async {
-      final data = state.data!;
+      emit(SwapOutRequestCreated());
 
-      // ── 2a. Check if already locked on-chain (idempotent recovery) ──
-      if (data.lockTxHash != null) {
-        // Already locked — fast-forward to Funded
-        return SwapOutFunded(data);
-      }
+      final quote = await _buildQuote();
+      final invoice = await _acquireInvoice(quote);
+      emit(SwapOutInvoiceCreated(invoice));
+      logger.i('Invoice created: $invoice');
 
-      final swapContract = await rootstock.getEtherSwapContract();
-      final lockFn = swapContract.self.abi.functions.firstWhere(
-        (f) => f.name == 'lock' && f.parameters.length == 3,
-      );
-      final intent = ContractCallIntent(
-        to: swapContract.self.address,
-        data: lockFn.encodeCall([
-          data.invoicePreimageHashBytes,
-          EthereumAddress.fromHex(data.claimAddress),
-          BigInt.from(data.timeoutBlockHeight),
-        ]),
-        value: EtherAmount.inWei(data.lockedAmountWei),
-        methodName: 'EtherSwap.lock',
-      );
-      final tx = await getIt<UserOpService>().sendUserOp(params.evmKey, intent);
-
-      logger.i('Locked funds in EtherSwap: $tx');
-      return SwapOutFunded(
-        data.copyWith(lockTxHash: tx, lastBoltzStatus: 'lock.broadcast'),
-      );
+      final creationBlock = await configuredChain.chain.client.getBlockNumber();
+      return await _prepareSwap(invoice, quote, creationBlock);
     },
   );
+
+  // ── Step 2: Lock funds in swap contract ───────────────────────────────
+
+  Future<SwapOutState> _stepLockFunds() =>
+      logger.span('_stepLockFunds', () async {
+        final data = state.data!;
+
+        // ── 2a. Check if already locked on-chain (idempotent recovery) ──
+        if (data.lockTxHash != null) {
+          // Already locked — fast-forward to Funded
+          return SwapOutFunded(data);
+        }
+
+        final isErc20 = data.tokenAddress != null;
+        final String tx;
+
+        if (isErc20) {
+          final erc20Swap = configuredChain.swaps!.getERC20SwapContract();
+          final tokenAddr = EthereumAddress.fromHex(data.tokenAddress!);
+
+          // Build ERC-20 approve intent
+          final token = IERC20(
+            address: tokenAddr,
+            client: configuredChain.chain.client,
+          );
+          final approveFn = token.self.abi.functions.firstWhere(
+            (f) => f.name == 'approve',
+          );
+          final approveIntent = ContractCallIntent(
+            to: tokenAddr,
+            data: approveFn.encodeCall([
+              erc20Swap.self.address,
+              data.lockedAmountWei,
+            ]),
+            value: EtherAmount.zero(),
+            methodName: 'ERC20.approve',
+          );
+
+          // Build ERC20Swap.lock intent (5 params, zero native value)
+          final lockFn = erc20Swap.self.abi.functions.firstWhere(
+            (f) => f.name == 'lock' && f.parameters.length == 5,
+          );
+          final lockIntent = ContractCallIntent(
+            to: erc20Swap.self.address,
+            data: lockFn.encodeCall([
+              data.invoicePreimageHashBytes,
+              data.lockedAmountWei,
+              tokenAddr,
+              EthereumAddress.fromHex(data.claimAddress),
+              BigInt.from(data.timeoutBlockHeight),
+            ]),
+            value: EtherAmount.zero(),
+            methodName: 'ERC20Swap.lock',
+          );
+
+          // Send both as a single batched UserOperation
+          tx = await configuredChain.aa!.sendBatchUserOps(params.evmKey, [
+            approveIntent,
+            lockIntent,
+          ]);
+          logger.i('Locked funds in ERC20Swap (approve + lock): $tx');
+        } else {
+          final swapContract = configuredChain.swaps!.getEtherSwapContract();
+          final lockFn = swapContract.self.abi.functions.firstWhere(
+            (f) => f.name == 'lock' && f.parameters.length == 3,
+          );
+          final intent = ContractCallIntent(
+            to: swapContract.self.address,
+            data: lockFn.encodeCall([
+              data.invoicePreimageHashBytes,
+              EthereumAddress.fromHex(data.claimAddress),
+              BigInt.from(data.timeoutBlockHeight),
+            ]),
+            value: EtherAmount.inWei(data.lockedAmountWei),
+            methodName: 'EtherSwap.lock',
+          );
+          tx = await configuredChain.aa!.sendUserOp(params.evmKey, intent);
+          logger.i('Locked funds in EtherSwap: $tx');
+        }
+
+        return SwapOutFunded(
+          data.copyWith(lockTxHash: tx, lastBoltzStatus: 'lock.broadcast'),
+        );
+      });
 
   // ── Step 3: Await Boltz payment or trigger refund ─────────────────────
 
@@ -127,7 +174,7 @@ class RootstockSwapOutOperation extends SwapOutOperation {
 
       // ── 3c. Check Boltz HTTP status for terminal conditions ──
       try {
-        final boltzResponse = await getIt<BoltzClient>().getSwap(
+        final boltzResponse = await configuredChain.swaps!.boltzClient.getSwap(
           id: data.boltzId,
         );
         final status = boltzResponse.status;
@@ -233,7 +280,9 @@ class RootstockSwapOutOperation extends SwapOutOperation {
           // Shouldn't happen, but re-attempt refund
           return await _attemptRefund(data);
         }
-        final receipt = await rootstock.awaitReceipt(data.resolutionTxHash!);
+        final receipt = await configuredChain.chain.awaitReceipt(
+          data.resolutionTxHash!,
+        );
         logger.i('Refund receipt for ${data.boltzId}: $receipt');
         logger.i('Swap-out refunded: ${data.resolutionTxHash}');
         return SwapOutRefunded(data);
@@ -241,33 +290,62 @@ class RootstockSwapOutOperation extends SwapOutOperation {
 
   // ── Refund logic ──────────────────────────────────────────────────────
 
-  /// Attempt to refund locked funds from the EtherSwap contract.
+  /// Attempt to refund locked funds from the swap contract.
   ///
   /// Tries cooperative refund first (via EIP-712 signature from Boltz, available
   /// immediately when swap is in a failed state). Falls back to timelock refund
   /// if cooperative refund isn't available.
-  Future<SwapOutState> _attemptRefund(SwapOutData data) => logger.span(
-    '_attemptRefund',
-    () async {
-      final claimAddress = EthereumAddress.fromHex(data.claimAddress);
-      final swapContract = await rootstock.getEtherSwapContract();
+  Future<SwapOutState> _attemptRefund(
+    SwapOutData data,
+  ) => logger.span('_attemptRefund', () async {
+    final claimAddress = EthereumAddress.fromHex(data.claimAddress);
+    final isErc20 = data.tokenAddress != null;
+    final tokenAddr = isErc20
+        ? EthereumAddress.fromHex(data.tokenAddress!)
+        : null;
 
-      // 1. Try cooperative refund (immediate, doesn't need timelock expiry)
-      try {
-        final boltz = getIt<BoltzClient>();
-        final sigResponse = await boltz.getCooperativeRefundSignature(
-          id: data.boltzId,
-        );
+    // Select the correct swap contract
+    final swapContractSelf = isErc20
+        ? configuredChain.swaps!.getERC20SwapContract().self
+        : configuredChain.swaps!.getEtherSwapContract().self;
 
-        if (sigResponse != null) {
-          logger.i('Got cooperative refund signature from Boltz');
-          final sig = parseEvmSignature(sigResponse.signature);
+    // 1. Try cooperative refund (immediate, doesn't need timelock expiry)
+    try {
+      final boltz = configuredChain.swaps!.boltzClient;
+      final sigResponse = await boltz.getCooperativeRefundSignature(
+        id: data.boltzId,
+      );
 
-          final coopRefundFn = swapContract.self.abi.functions.firstWhere(
+      if (sigResponse != null) {
+        logger.i('Got cooperative refund signature from Boltz');
+        final sig = parseEvmSignature(sigResponse.signature);
+
+        final ContractCallIntent intent;
+        if (isErc20) {
+          final coopRefundFn = swapContractSelf.abi.functions.firstWhere(
+            (f) => f.name == 'refundCooperative' && f.parameters.length == 8,
+          );
+          intent = ContractCallIntent(
+            to: swapContractSelf.address,
+            data: coopRefundFn.encodeCall([
+              data.invoicePreimageHashBytes,
+              data.lockedAmountWei,
+              tokenAddr!,
+              claimAddress,
+              BigInt.from(data.timeoutBlockHeight),
+              sig.v,
+              sig.r,
+              sig.s,
+            ]),
+            value: EtherAmount.zero(),
+            methodName: 'ERC20Swap.refundCooperative',
+          );
+        } else {
+          final coopRefundFn = swapContractSelf.abi.functions.firstWhere(
             (f) => f.name == 'refundCooperative' && f.parameters.length == 7,
           );
-          final intent = ContractCallIntent(
-            to: swapContract.self.address,
+          intent = ContractCallIntent(
+            to: swapContractSelf.address,
             data: coopRefundFn.encodeCall([
               data.invoicePreimageHashBytes,
               data.lockedAmountWei,
@@ -280,41 +358,61 @@ class RootstockSwapOutOperation extends SwapOutOperation {
             value: EtherAmount.zero(),
             methodName: 'EtherSwap.refundCooperative',
           );
-          final refundTx = await getIt<UserOpService>().sendUserOp(
-            params.evmKey,
-            intent,
-          );
-
-          logger.i('Cooperative refund broadcast: $refundTx');
-          return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
         }
-      } catch (e) {
-        logger.w('Cooperative refund failed: $e — will fall back to timelock');
+
+        final refundTx = await configuredChain.aa!.sendUserOp(
+          params.evmKey,
+          intent,
+        );
+
+        logger.i('Cooperative refund broadcast: $refundTx');
+        return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
+      }
+    } catch (e) {
+      logger.w('Cooperative refund failed: $e — will fall back to timelock');
+    }
+
+    // 2. Fall back to timelock refund (must wait for block height)
+    try {
+      final currentBlock = await configuredChain.chain.client.getBlockNumber();
+      if (currentBlock < data.timeoutBlockHeight) {
+        logger.w(
+          'Timelock not expired yet (current: $currentBlock, '
+          'timelock: ${data.timeoutBlockHeight}). '
+          'Refund will be retried by SwapRecoverer.',
+        );
+        return SwapOutFunded(
+          data.copyWith(
+            errorMessage:
+                'Waiting for timelock expiry at block '
+                '${data.timeoutBlockHeight} (current: $currentBlock)',
+          ),
+        );
       }
 
-      // 2. Fall back to timelock refund (must wait for block height)
-      try {
-        final currentBlock = await rootstock.client.getBlockNumber();
-        if (currentBlock < data.timeoutBlockHeight) {
-          logger.w(
-            'Timelock not expired yet (current: $currentBlock, '
-            'timelock: ${data.timeoutBlockHeight}). '
-            'Refund will be retried by SwapRecoverer.',
-          );
-          return SwapOutFunded(
-            data.copyWith(
-              errorMessage:
-                  'Waiting for timelock expiry at block '
-                  '${data.timeoutBlockHeight} (current: $currentBlock)',
-            ),
-          );
-        }
-
-        final refundFn = swapContract.self.abi.functions.firstWhere(
+      final ContractCallIntent intent;
+      if (isErc20) {
+        final refundFn = swapContractSelf.abi.functions.firstWhere(
+          (f) => f.name == 'refund' && f.parameters.length == 5,
+        );
+        intent = ContractCallIntent(
+          to: swapContractSelf.address,
+          data: refundFn.encodeCall([
+            data.invoicePreimageHashBytes,
+            data.lockedAmountWei,
+            tokenAddr!,
+            claimAddress,
+            BigInt.from(data.timeoutBlockHeight),
+          ]),
+          value: EtherAmount.zero(),
+          methodName: 'ERC20Swap.refund',
+        );
+      } else {
+        final refundFn = swapContractSelf.abi.functions.firstWhere(
           (f) => f.name == 'refund' && f.parameters.length == 4,
         );
-        final intent = ContractCallIntent(
-          to: swapContract.self.address,
+        intent = ContractCallIntent(
+          to: swapContractSelf.address,
           data: refundFn.encodeCall([
             data.invoicePreimageHashBytes,
             data.lockedAmountWei,
@@ -324,19 +422,20 @@ class RootstockSwapOutOperation extends SwapOutOperation {
           value: EtherAmount.zero(),
           methodName: 'EtherSwap.refund',
         );
-        final refundTx = await getIt<UserOpService>().sendUserOp(
-          params.evmKey,
-          intent,
-        );
-
-        logger.i('Timelock refund broadcast: $refundTx');
-        return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
-      } catch (e) {
-        logger.e('Timelock refund failed: $e');
-        return SwapOutFunded(data.copyWith(errorMessage: 'Refund failed: $e'));
       }
-    },
-  );
+
+      final refundTx = await configuredChain.aa!.sendUserOp(
+        params.evmKey,
+        intent,
+      );
+
+      logger.i('Timelock refund broadcast: $refundTx');
+      return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
+    } catch (e) {
+      logger.e('Timelock refund failed: $e');
+      return SwapOutFunded(data.copyWith(errorMessage: 'Refund failed: $e'));
+    }
+  });
 
   // ── Fee estimation ────────────────────────────────────────────────────
 
@@ -358,19 +457,22 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     '_findClaimOnChain',
     () async {
       try {
-        final etherSwap = await rootstock.getEtherSwapContract();
+        final isErc20 = data.tokenAddress != null;
+        final contract = isErc20
+            ? configuredChain.swaps!.getERC20SwapContract().self
+            : configuredChain.swaps!.getEtherSwapContract().self;
         final fromBlock = data.creationBlockHeight != null
             ? BlockNum.exact(data.creationBlockHeight!)
             : const BlockNum.genesis();
 
-        final event = etherSwap.self.event('Claim');
+        final event = contract.event('Claim');
         final filter = FilterOptions.events(
-          contract: etherSwap.self,
+          contract: contract,
           event: event,
           fromBlock: fromBlock,
           toBlock: const BlockNum.current(),
         );
-        final logs = await rootstock.client.getLogs(filter);
+        final logs = await configuredChain.chain.client.getLogs(filter);
         for (final log in logs) {
           final decoded = event.decodeResults(log.topics!, log.data!);
           final claim = Claim(decoded, log);
@@ -391,19 +493,22 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     '_findRefundOnChain',
     () async {
       try {
-        final etherSwap = await rootstock.getEtherSwapContract();
+        final isErc20 = data.tokenAddress != null;
+        final contract = isErc20
+            ? configuredChain.swaps!.getERC20SwapContract().self
+            : configuredChain.swaps!.getEtherSwapContract().self;
         final fromBlock = data.creationBlockHeight != null
             ? BlockNum.exact(data.creationBlockHeight!)
             : const BlockNum.genesis();
 
-        final event = etherSwap.self.event('Refund');
+        final event = contract.event('Refund');
         final filter = FilterOptions.events(
-          contract: etherSwap.self,
+          contract: contract,
           event: event,
           fromBlock: fromBlock,
           toBlock: const BlockNum.current(),
         );
-        final logs = await rootstock.client.getLogs(filter);
+        final logs = await configuredChain.chain.client.getLogs(filter);
         for (final log in logs) {
           final decoded = event.decodeResults(log.topics!, log.data!);
           final refund = Refund(decoded, log);
@@ -459,7 +564,7 @@ class RootstockSwapOutOperation extends SwapOutOperation {
     int creationBlock,
   ) => logger.span('_prepareSwap', () async {
     final preimageHash = _extractPreimageHash(invoice);
-    final swap = await getIt<BoltzClient>().submarine(invoice: invoice);
+    final swap = await configuredChain.swaps!.submarine(invoice: invoice);
     logger.i('Submarine swap created: ${swap.toString()}');
 
     final expectedLockAmount = rbtcFromSatsInt(swap.expectedAmount.ceil());
@@ -488,9 +593,10 @@ class RootstockSwapOutOperation extends SwapOutOperation {
       lockedAmountWeiHex: expectedLockAmountRounded.getInWei.toRadixString(16),
       lockerAddress: params.evmKey.address.with0x,
       timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
-      chainId: rootstock.config.rootstockConfig.chainId,
+      chainId: configuredChain.config.chainId,
       accountIndex: params.accountIndex,
       creationBlockHeight: creationBlock,
+      tokenAddress: configuredChain.swaps!.tokenAddress?.eip55With0x,
     );
     logger.i('Swap-out data persisted for ${swap.id} before lock');
     return SwapOutAwaitingOnChain(data);
@@ -498,15 +604,16 @@ class RootstockSwapOutOperation extends SwapOutOperation {
 
   Future<SwapOutQuote> _buildQuote() => logger.span('_buildQuote', () async {
     return quoteService.buildQuote(
-      balance: await rootstock.getBalance(params.evmKey.address),
+      balance: await configuredChain.chain.getBalance(params.evmKey.address),
       estimatedGasFee: await _estimateLockGasFee(),
       requestedAmount: params.amount,
+      boltzCurrency: configuredChain.swaps!.currency,
     );
   });
 
   Future<TokenAmount> _estimateLockGasFee() =>
       logger.span('_estimateLockGasFee', () async {
-        final gasPrice = await rootstock.client.getGasPrice();
+        final gasPrice = await configuredChain.chain.client.getGasPrice();
         final feeWei = gasPrice.getInWei * BigInt.from(_estimatedLockGasLimit);
         return rbtcFromWei(feeWei);
       });
@@ -544,7 +651,9 @@ class RootstockSwapOutOperation extends SwapOutOperation {
   }
 
   Stream<SwapStatus> _waitForSwapOnChain(String id) {
-    return getIt<BoltzClient>().subscribeToSwap(id: id).doOnData((swapStatus) {
+    return configuredChain.swaps!.boltzClient.subscribeToSwap(id: id).doOnData((
+      swapStatus,
+    ) {
       logger.i('Swap status update: ${swapStatus.status}, $swapStatus');
     });
   }

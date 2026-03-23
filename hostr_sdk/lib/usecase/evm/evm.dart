@@ -4,37 +4,139 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../../config.dart';
+import '../../datasources/boltz/boltz.dart';
 import '../../injection.dart';
 import '../../util/main.dart';
+import '../auth/auth.dart';
 import '../background_worker/background_worker.dart';
 import '../escrow/operations/fund/escrow_fund_recoverer.dart';
+import '../nwc/nwc.dart';
+import '../payments/payments.dart';
+import 'capabilities/aa_capability.dart';
+import 'capabilities/boltz_swap_provider.dart';
+import 'capabilities/configured_evm_chain.dart';
+import 'capabilities/escrow_capability.dart';
 import 'chain/evm_chain.dart';
-import 'chain/rootstock/rootstock.dart';
+import 'chain/rootstock/operations/swap_out/swap_out_operation.dart';
+import 'operations/swap_out/swap_out_models.dart';
+import 'operations/swap_out/swap_out_quote_service.dart';
 import 'operations/swap_recoverer.dart';
 
 @Singleton()
 class Evm {
   final CustomLogger _logger;
-  final Rootstock _rootstock;
+  final HostrConfig _config;
+  final Auth _auth;
   CustomLogger get logger => _logger;
-  Rootstock get rootstock => _rootstock;
 
   BehaviorSubject<TokenAmount>? _balanceSubject;
   StreamSubscription<TokenAmount>? _balanceSubscription;
 
-  late final List<EvmChain> supportedEvmChains;
-  Evm({required Rootstock rootstock, required CustomLogger logger})
-    : _rootstock = rootstock,
+  /// All configured EVM chains, assembled with their capabilities.
+  late final List<ConfiguredEvmChain> configuredChains;
+
+  /// The shared Boltz client — `null` if no Boltz config is present.
+  BoltzClient? _boltzClient;
+  BoltzClient? get boltzClient => _boltzClient;
+
+  Evm(HostrConfig config, Auth auth, CustomLogger logger)
+    : _config = config,
+      _auth = auth,
       _logger = logger.scope('evm') {
-    supportedEvmChains = [_rootstock];
+    configuredChains = _buildChains();
   }
+
+  List<ConfiguredEvmChain> _buildChains() {
+    final evmConfig = _config.evmConfig;
+
+    // Create Boltz client if configured.
+    if (evmConfig.boltz != null) {
+      _boltzClient = BoltzClient(evmConfig.boltz!, _logger);
+    }
+
+    return evmConfig.chains.map((chainConfig) {
+      final chain = EvmChain(config: chainConfig, auth: _auth, logger: _logger);
+
+      // AA capability — present if the chain config has AA fields.
+      final aa = chainConfig.accountAbstraction != null
+          ? AACapability(
+              aaConfig: chainConfig.accountAbstraction!,
+              chainId: chainConfig.chainId,
+              nodeRpcUrl: chainConfig.rpcUrl,
+              logger: _logger,
+            )
+          : null;
+
+      // Escrow is always available.
+      final escrow = EscrowCapability(chain: chain, logger: _logger);
+
+      return ConfiguredEvmChain(
+        chain: chain,
+        aa: aa,
+        escrow: escrow,
+        // Swaps are attached later in [init] after Boltz discovery.
+      );
+    }).toList();
+  }
+
+  /// Initialize Boltz discovery and attach swap providers to matching chains.
+  ///
+  /// Call this once after construction. It's separated from the constructor
+  /// because it's async.
+  Future<void> init() => _logger.span('init', () async {
+    if (_boltzClient == null) {
+      _logger.i('No Boltz config — skipping swap discovery');
+      return;
+    }
+
+    try {
+      final discovered = await _boltzClient!.discoverChains();
+      for (final info in discovered) {
+        final match = configuredChains
+            .where((c) => c.config.chainId == info.chainId)
+            .firstOrNull;
+        if (match == null) {
+          _logger.d(
+            'Boltz currency ${info.currency} (chainId=${info.chainId}) '
+            'has no matching chain config — skipping',
+          );
+          continue;
+        }
+
+        // Attach swap provider.
+        final swaps = BoltzSwapProvider(
+          boltzClient: _boltzClient!,
+          chainInfo: info,
+          chain: match.chain,
+          logger: _logger,
+        );
+
+        // Replace the configured chain with one that includes swaps.
+        final idx = configuredChains.indexOf(match);
+        configuredChains[idx] = ConfiguredEvmChain(
+          chain: match.chain,
+          aa: match.aa,
+          swaps: swaps,
+          escrow: match.escrow,
+        );
+
+        _logger.i(
+          'Attached Boltz swap provider for ${info.currency} '
+          'to chain ${match.config.id}',
+        );
+      }
+    } catch (e) {
+      _logger.e('Boltz discovery failed (chains remain swap-less): $e');
+    }
+  });
 
   void _ensureBalanceSubscription() =>
       _logger.spanSync('_ensureBalanceSubscription', () {
         if (_balanceSubscription != null) return;
 
-        final streams = supportedEvmChains
-            .map((chain) => chain.subscribeTotalBalance())
+        final streams = configuredChains
+            .map((c) => c.chain.subscribeTotalBalance())
             .toList();
 
         final combined = Rx.combineLatestList<TokenAmount>(streams).map(
@@ -51,107 +153,111 @@ class Evm {
       });
 
   Future<TokenAmount> getBalance() => _logger.span('getBalance', () async {
-    // Loop all supported EVM chains and sum total balances across all
-    // HD-derived addresses that have ever been used.
     TokenAmount totalBalance = TokenAmount.zero(rbtc);
-    for (var chain in supportedEvmChains) {
+    for (var c in configuredChains) {
       try {
-        final chainBalance = await chain.getTotalBalance();
+        final chainBalance = await c.chain.getTotalBalance();
         totalBalance += chainBalance;
       } catch (e) {
-        _logger.w('Failed to get balance from chain: $e');
+        _logger.w('Failed to get balance from chain ${c.config.id}: $e');
       }
     }
-
     return totalBalance;
   });
 
-  EvmChain getChainForEscrowService(EscrowService service) =>
+  ConfiguredEvmChain getChainForEscrowService(EscrowService service) =>
       _logger.spanSync('getChainForEscrowService', () {
-        for (var chain in supportedEvmChains) {
-          return chain;
-          // if (chain.matchesEscrowService(service)) {
-          //   return chain;
-          // }
+        // TODO: match by chain ID from escrow service metadata.
+        // For now return the first chain.
+        if (configuredChains.isEmpty) {
+          throw StateError(
+            'No EVM chains configured for escrow service ${service.id}',
+          );
         }
-        throw Exception(
-          'No supported EVM chain found for escrow service ${service.id}',
-        );
+        return configuredChains.first;
       });
+
+  /// Look up a configured chain by chain ID.
+  ConfiguredEvmChain? getChainByChainId(int chainId) {
+    return configuredChains
+        .where((c) => c.config.chainId == chainId)
+        .firstOrNull;
+  }
+
+  /// Look up a configured chain by config ID string.
+  ConfiguredEvmChain? getChainById(String id) {
+    return configuredChains.where((c) => c.config.id == id).firstOrNull;
+  }
 
   ValueStream<TokenAmount> subscribeBalance() {
     _balanceSubject ??= BehaviorSubject<TokenAmount>(
       onListen: _ensureBalanceSubscription,
     );
-
     return _balanceSubject!.stream;
   }
 
-  /// Tears down the current balance subscription and restarts it for
-  /// the current authenticated user. Call this when the active key changes.
   void resetBalance() => _logger.spanSync('resetBalance', () {
     _balanceSubscription?.cancel();
     _balanceSubscription = null;
-    // If there are active listeners, restart immediately for the new user.
     if (_balanceSubject?.hasListener ?? false) {
       _ensureBalanceSubscription();
     }
   });
 
-  /// Soft cleanup for logout: tear down the balance subscription and
-  /// subject so a subsequent [subscribeBalance] / [resetBalance] starts
-  /// fresh, but don't permanently close anything.
   Future<void> reset() => _logger.span('reset', () async {
     await _balanceSubscription?.cancel();
     _balanceSubscription = null;
-    // Don't close the subject — just null it so subscribeBalance()
-    // lazily creates a new one on the next login.
     _balanceSubject = null;
   });
 
-  /// Permanent teardown — closes the subject. Only call when the Hostr
-  /// instance itself is being disposed.
   Future<void> dispose() => _logger.span('dispose', () async {
     await _balanceSubscription?.cancel();
     _balanceSubscription = null;
-    for (final chain in supportedEvmChains) {
-      await chain.dispose();
+    for (final c in configuredChains) {
+      await c.chain.dispose();
     }
     await _balanceSubject?.close();
     _balanceSubject = null;
   });
 
-  Future<EvmChain> getClientForChainId(int chainId) =>
-      logger.span('getClientForChainId', () async {
-        for (var chain in supportedEvmChains) {
-          if ((await chain.getChainId()).toInt() == chainId) {
-            return chain;
+  bool _isRecovering = false;
+
+  /// Create swap-out operations for every funded address across all chains
+  /// that have a Boltz swap provider.
+  ///
+  /// Returns the list of created [EvmSwapOutOperation]s (one per funded
+  /// address that meets the optional [minimumBalance]).
+  Future<List<EvmSwapOutOperation>> swapOutAll({TokenAmount? minimumBalance}) =>
+      _logger.span('swapOutAll', () async {
+        final ops = <EvmSwapOutOperation>[];
+        for (final configured in configuredChains) {
+          if (configured.swaps == null) continue;
+          final funded = await configured.chain.getAddressesWithBalance();
+          for (final entry in funded) {
+            if (minimumBalance != null && entry.balance < minimumBalance) {
+              continue;
+            }
+            final evmKey = await _auth.hd.getActiveEvmKey(
+              accountIndex: entry.accountIndex,
+            );
+            ops.add(
+              configured.swapOut(
+                params: SwapOutParams(
+                  evmKey: evmKey,
+                  accountIndex: entry.accountIndex,
+                  amount: null,
+                ),
+                auth: _auth,
+                logger: _logger,
+                nwc: getIt<Nwc>(),
+                payments: getIt<Payments>(),
+                quoteService: getIt<SwapOutQuoteService>(),
+              ),
+            );
           }
         }
-        throw Exception('EVM chain with ID $chainId not supported.');
+        return ops;
       });
-
-  /// Recover stale swaps and escrow fund operations.
-  ///
-  /// Loads persisted cubit states from [OperationStateStore], reconstructs
-  /// the appropriate cubits, and calls their [recover] methods.
-  ///
-  /// When [onProgress] is provided, the individual operations fire
-  /// real-time notifications at key state transitions (e.g. swap funded,
-  /// deposit confirmed). Nested swaps use their persisted
-  /// [SwapInData.parentOperationId] to keep the notification ID stable
-  /// across swap → deposit stages.
-  ///
-  /// **Reentrancy guard:** Only one recovery may run at a time within
-  /// the same isolate.  The background isolate triggers recovery both
-  /// from [BackgroundWorker.recoverOnchainOperations] and from the
-  /// auth-state-change handler.  Without this guard, two recovery runs
-  /// create duplicate [SwapInOperation] instances for the same swap,
-  /// causing CAS races and duplicate claim broadcasts.
-  ///
-  /// Safe to call repeatedly — idempotent and non-destructive.
-  /// Returns the number of operations that were successfully resolved.
-  bool _isRecovering = false;
 
   Future<int> recoverStaleOperations({
     bool isBackground = false,

@@ -13,8 +13,13 @@ For each configured LNbits instance this script:
      committed nginx vhost.d proxy config never needs to change between
      restarts.
 
-Extensions are pre-installed via docker-compose environment variables
-(LNBITS_EXTENSIONS_DEFAULT_INSTALL) — this script only configures them.
+Extensions are *not* reliably auto-installed by the
+LNBITS_EXTENSIONS_DEFAULT_INSTALL env-var alone: on a fresh v1.5.x startup
+it downloads the zip but never creates the `installed_extensions` DB row,
+so user-level API calls fail with "Extension not enabled".
+
+This script therefore explicitly installs → activates → enables each
+required extension via the REST API before configuring them.
 
 Running this at container startup means seed_relay.sh never needs to touch
 nginx or the LNbits database.
@@ -27,6 +32,15 @@ import sys
 import time
 import urllib.error
 import urllib.request
+
+# Extensions that must be present before any configuration.
+REQUIRED_EXTENSIONS = ["lnurlp", "nostrnip5"]
+
+# Source repo used when installing extensions via the API.
+EXTENSIONS_MANIFEST = (
+    "https://raw.githubusercontent.com/lnbits/lnbits-extensions"
+    "/main/extensions.json"
+)
 
 # ── HTTP helpers ─────────────────────────────────────────────────────────────
 
@@ -76,6 +90,134 @@ def _wait_ready(base_url, retries=60, interval=2):
 
 # ── Per-instance init ────────────────────────────────────────────────────────
 
+
+def _ensure_extensions_ready(base_url, token, admin_key):
+    """Install, activate, and enable every REQUIRED_EXTENSIONS entry.
+
+    LNbits v1.5.x has three independent layers:
+      1. *Installed* — the zip is downloaded and the DB row exists.
+      2. *Activated* — admin has activated it (routes are live).
+      3. *Enabled*   — per-user flag (user can call extension APIs).
+
+    The LNBITS_EXTENSIONS_DEFAULT_INSTALL env-var only reliably handles (1)
+    on subsequent restarts (not on the very first boot). This function
+    guarantees all three layers are in place.
+    """
+
+    # Fetch the manifest once to find the latest compatible release per ext.
+    manifest = _fetch_manifest()
+
+    # Use /api/v1/extension/all to see *all* extensions (incl. not-yet-
+    # enabled ones). The plain GET /api/v1/extension only returns
+    # extensions the current user has enabled.
+    status, all_exts = _req(
+        "GET", f"{base_url}/api/v1/extension/all", token=token,
+    )
+    ext_status = {}
+    if isinstance(all_exts, list):
+        for e in all_exts:
+            if isinstance(e, dict):
+                ext_status[e.get("id", "")] = {
+                    "installed": bool(e.get("isInstalled")),
+                    "active": bool(e.get("isActive")),
+                }
+
+    for ext_id in REQUIRED_EXTENSIONS:
+        info = ext_status.get(ext_id, {})
+
+        # ── 1. Install ──────────────────────────────────────────────────
+        if not info.get("installed"):
+            release = _pick_release(manifest, ext_id)
+            if not release:
+                raise RuntimeError(
+                    f"No compatible release for '{ext_id}' in manifest"
+                )
+            status, body = _req(
+                "POST",
+                f"{base_url}/api/v1/extension",
+                token=token,
+                data={
+                    "ext_id": ext_id,
+                    "archive": release["archive"],
+                    "source_repo": EXTENSIONS_MANIFEST,
+                    "version": release["version"],
+                },
+                timeout=60,
+            )
+            if status not in (200, 201):
+                raise RuntimeError(
+                    f"Failed to install extension '{ext_id}': HTTP {status} {body}"
+                )
+            print(f"  ✓ Installed extension '{ext_id}' v{release['version']}")
+        else:
+            print(f"  ✓ Extension '{ext_id}' already installed")
+
+        # ── 2. Activate (admin-level) ────────────────────────────────────
+        # Only activate if not already active — re-activating an extension
+        # that's running via the upgrade redirect path causes LNbits to
+        # error and then deactivate it (worse than doing nothing).
+        if not info.get("active"):
+            status, body = _req(
+                "PUT",
+                f"{base_url}/api/v1/extension/{ext_id}/activate",
+                token=token,
+            )
+            if status not in (200, 201):
+                raise RuntimeError(
+                    f"Failed to activate extension '{ext_id}': HTTP {status} {body}"
+                )
+            print(f"  ✓ Activated extension '{ext_id}'")
+        else:
+            print(f"  ✓ Extension '{ext_id}' already active")
+
+        # ── 3. Enable (user-level) ──────────────────────────────────────
+        status, body = _req(
+            "PUT",
+            f"{base_url}/api/v1/extension/{ext_id}/enable",
+            token=token,
+        )
+        if status not in (200, 201):
+            print(f"  ⚠ Enable '{ext_id}': HTTP {status} — {body}")
+        else:
+            print(f"  ✓ Enabled extension '{ext_id}' for admin user")
+
+
+def _fetch_manifest():
+    """Download and return the extensions manifest JSON."""
+    req = urllib.request.Request(EXTENSIONS_MANIFEST)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read())
+
+
+def _pick_release(manifest, ext_id, lnbits_version="1.5.1"):
+    """Return the best compatible release dict for *ext_id*, or None."""
+    candidates = [
+        e for e in manifest.get("extensions", []) if e.get("id") == ext_id
+    ]
+    # Sort newest first by version string (simple tuple comparison).
+    def _ver(v):
+        try:
+            return tuple(int(x) for x in v.split("."))
+        except Exception:
+            return (0,)
+
+    candidates.sort(key=lambda e: _ver(e.get("version", "0")), reverse=True)
+
+    lnbits_ver = _ver(lnbits_version)
+    for c in candidates:
+        min_v = c.get("min_lnbits_version")
+        max_v = c.get("max_lnbits_version")
+        if min_v and _ver(min_v) > lnbits_ver:
+            continue
+        if max_v and _ver(max_v) < lnbits_ver:
+            continue
+        return c
+    # Fallback: return the newest release without version constraints.
+    for c in candidates:
+        if not c.get("min_lnbits_version") and not c.get("max_lnbits_version"):
+            return c
+    return candidates[0] if candidates else None
+
 def setup_instance(
     *,
     base_url,
@@ -122,6 +264,9 @@ def setup_instance(
     print(f"  ✓ Wallet id={wallet_id[:8]}…")
 
     nip5_headers = {"X-Api-Key": admin_key}
+
+    # ── 3b. Ensure extensions are installed, activated & enabled ─────────
+    _ensure_extensions_ready(base_url, token, admin_key)
 
     # ── 4. Configure nostrnip5 settings ─────────────────────────────────────
     _req(

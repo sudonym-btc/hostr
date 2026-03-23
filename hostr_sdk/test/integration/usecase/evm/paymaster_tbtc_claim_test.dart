@@ -93,13 +93,14 @@ void main() {
       logLevel: Level.warning,
     );
 
-    final rstk = harness.hostr.config.rootstockConfig;
-    final aa = rstk.accountAbstraction;
+    final evmCfg = harness.hostr.config.evmConfig;
+    final chainCfg = evmCfg.chains.first;
+    final aa = chainCfg.accountAbstraction!;
 
-    rpcUrl = rstk.rpcUrl;
+    rpcUrl = chainCfg.rpcUrl;
     bundlerUrl = aa.bundlerUrl;
-    boltzApiUrl = rstk.boltz.apiUrl;
-    chainId = rstk.chainId;
+    boltzApiUrl = evmCfg.boltz!.apiUrl;
+    chainId = chainCfg.chainId;
     entryPointAddress = EthereumAddress.fromHex(aa.entryPointAddress);
     accountFactoryAddress = EthereumAddress.fromHex(aa.accountFactoryAddress);
 
@@ -247,7 +248,10 @@ void main() {
 
       // ── 8. Wait for Boltz to lock tBTC on-chain ──────────────────────
       print('⏳ Waiting for lockup transaction …');
-      final boltzClient = BoltzClient(hostr.config, CustomLogger());
+      final boltzClient = BoltzClient(
+        hostr.config.evmConfig.boltz!,
+        CustomLogger(),
+      );
       String? lockupStatus;
       for (var i = 0; i < 60; i++) {
         final status = await boltzClient.getSwap(id: swap.id);

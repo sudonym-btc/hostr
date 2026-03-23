@@ -249,7 +249,6 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
         createdAt: ctx.timestampDaysAfter(40 + i),
         content: EscrowServiceSelectedContent(
           service: escrowProof.escrowService,
-          sellerTrusts: escrowProof.hostsTrustedEscrows,
           sellerMethods: escrowProof.hostsEscrowMethods,
         ),
       ).signAs(thread.guest.keyPair, EscrowServiceSelected.fromNostrEvent);

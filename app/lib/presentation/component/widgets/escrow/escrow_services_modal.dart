@@ -187,9 +187,11 @@ class _TrustEscrowModalContentState extends State<_TrustEscrowModalContent> {
                   onTap: alreadyTrusted
                       ? null
                       : () async {
-                          await getIt<Hostr>().escrowTrusts.ensureEscrowTrust([
-                            pubkey,
-                          ]);
+                          await getIt<Hostr>().escrowMethods.ensureEscrowMethod(
+                            trustedEscrowPubkeys: [
+                              pubkey,
+                            ],
+                          );
                           widget.onTrusted?.call();
                           if (mounted) {
                             setState(() => _trustedSet.add(pubkey));

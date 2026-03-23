@@ -11,7 +11,6 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:hostr_sdk/config.dart' as _i910;
-import 'package:hostr_sdk/datasources/boltz/boltz.dart' as _i350;
 import 'package:hostr_sdk/datasources/storage.dart' as _i111;
 import 'package:hostr_sdk/injection.dart' as _i231;
 import 'package:hostr_sdk/usecase/auth/auth.dart' as _i1000;
@@ -47,25 +46,15 @@ import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_opera
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i445;
 import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i943;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i303;
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_in/swap_in_operation.dart'
-    as _i62;
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_out/swap_out_operation.dart'
-    as _i458;
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/rif_relay/rif_relay.dart'
-    as _i514;
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/rootstock.dart' as _i158;
 import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
 import 'package:hostr_sdk/usecase/evm/main.dart' as _i785;
 import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart'
     as _i503;
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart'
     as _i842;
-import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart'
-    as _i677;
 import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_quote_service.dart'
     as _i148;
 import 'package:hostr_sdk/usecase/evm/operations/swap_recoverer.dart' as _i249;
-import 'package:hostr_sdk/usecase/evm/userop/userop_service.dart' as _i552;
 import 'package:hostr_sdk/usecase/gift_wraps/gift_wraps.dart' as _i308;
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart' as _i175;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
@@ -119,7 +108,6 @@ import 'package:hostr_sdk/util/telemetry.dart' as _i337;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:ndk/ndk.dart' as _i857;
 import 'package:sqlite3/common.dart' as _i216;
-import 'package:web3dart/web3dart.dart' as _i641;
 
 const String _test = 'test';
 const String _mock = 'mock';
@@ -185,19 +173,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i908.LnurlUseCase(),
       registerFor: {_dev, _staging, _prod},
     );
-    gh.singleton<_i158.Rootstock>(
-      () => _i158.Rootstock(
-        config: gh<_i910.HostrConfig>(),
-        auth: gh<_i1000.Auth>(),
-        logger: gh<_i331.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i305.Evm>(
-      () => _i305.Evm(
-        rootstock: gh<_i158.Rootstock>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i1014.Requests>(
       () => _i286.InMemoryRequests(
         ndk: gh<_i857.Ndk>(),
@@ -208,32 +183,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i608.EscrowFundRegistry>(
       () => _i608.EscrowFundRegistry(gh<_i331.CustomLogger>()),
-    );
-    gh.factoryParam<_i514.RifRelay, _i641.Web3Client, _i910.RifRelayConfig>(
-      (client, rifRelayConfig) => _i514.RifRelay(
-        gh<_i910.HostrConfig>(),
-        client,
-        rifRelayConfig,
-        gh<_i372.CustomLogger>(),
-      ),
-    );
-    gh.factory<_i350.BoltzClient>(
-      () =>
-          _i350.BoltzClient(gh<_i910.HostrConfig>(), gh<_i372.CustomLogger>()),
-    );
-    gh.factory<_i552.UserOpService>(
-      () => _i552.UserOpService(
-        gh<_i910.HostrConfig>(),
-        gh<_i331.CustomLogger>(),
-      ),
-    );
-    gh.factoryParam<_i62.RootstockSwapInOperation, _i677.SwapInParams, dynamic>(
-      (params, _) => _i62.RootstockSwapInOperation(
-        rootstock: gh<_i158.Rootstock>(),
-        auth: gh<_i1000.Auth>(),
-        logger: gh<_i372.CustomLogger>(),
-        params: params,
-      ),
     );
     gh.singleton<_i1014.Requests>(
       () => _i1014.Requests(
@@ -307,11 +256,19 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
+    gh.singleton<_i305.Evm>(
+      () => _i305.Evm(
+        gh<_i910.HostrConfig>(),
+        gh<_i1000.Auth>(),
+        gh<_i372.CustomLogger>(),
+      ),
+    );
     gh.singleton<_i445.EscrowMethods>(
       () => _i445.EscrowMethods(
         requests: gh<_i1014.Requests>(),
         logger: gh<_i331.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
+        config: gh<_i910.HostrConfig>(),
       ),
     );
     gh.singleton<_i943.EscrowTrusts>(
@@ -333,6 +290,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i111.KeyValueStorage>(),
         gh<_i331.CustomLogger>(),
         gh<_i1000.Auth>(),
+      ),
+    );
+    gh.singleton<_i303.Escrows>(
+      () => _i303.Escrows(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        escrowMethods: gh<_i445.EscrowMethods>(),
       ),
     );
     gh.singleton<_i588.Nwc>(
@@ -411,14 +375,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i1045.Zaps>(
       () => _i1045.Zaps(nwc: gh<_i588.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
-    );
-    gh.singleton<_i303.Escrows>(
-      () => _i303.Escrows(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        escrowMethods: gh<_i445.EscrowMethods>(),
-        escrowTrusts: gh<_i943.EscrowTrusts>(),
-      ),
     );
     gh.factoryParam<_i363.LnurlPayOperation, _i24.LnurlPayParameters, dynamic>(
       (params, _) => _i363.LnurlPayOperation(
@@ -529,21 +485,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
         tradeAccountAllocator: gh<_i1068.TradeAccountAllocator>(),
-      ),
-    );
-    gh.factoryParam<
-      _i458.RootstockSwapOutOperation,
-      _i785.SwapOutParams,
-      dynamic
-    >(
-      (params, _) => _i458.RootstockSwapOutOperation(
-        rootstock: gh<_i785.Rootstock>(),
-        auth: gh<_i1000.Auth>(),
-        logger: gh<_i372.CustomLogger>(),
-        nwc: gh<_i588.Nwc>(),
-        quoteService: gh<_i785.SwapOutQuoteService>(),
-        payments: gh<_i226.Payments>(),
-        params: params,
       ),
     );
     gh.singleton<_i179.TradeAudit>(

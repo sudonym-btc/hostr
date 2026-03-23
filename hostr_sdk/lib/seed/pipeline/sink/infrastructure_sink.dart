@@ -430,7 +430,7 @@ class InfrastructureSink implements SeedSink {
   }
 
   /// Disable auto-mining, switch to interval mining.
-  Future<void> disableAutomine({int intervalSeconds = 30}) async {
+  Future<void> disableAutomine({int intervalSeconds = 3}) async {
     await _anvil().setAutomine(false);
     await _anvil().setIntervalMining(intervalSeconds);
   }

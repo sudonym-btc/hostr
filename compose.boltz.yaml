@@ -80,6 +80,7 @@ services:
     volumes:
       - ./docker/scripts/arbitrum-init.sh:/scripts/arbitrum-init.sh:ro
       - ./dependencies/boltz-regtest/images/scripts/utils.sh:/scripts/boltz-utils.sh:ro
+      - ./docker/data/arbitrum:/data
     entrypoint: ["sh", "/scripts/arbitrum-init.sh"]
     environment:
       - BOLTZ_WALLET_ADDRESS=${BOLTZ_WALLET_ADDRESS:-}

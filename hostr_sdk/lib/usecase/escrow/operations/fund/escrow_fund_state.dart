@@ -13,6 +13,7 @@ class EscrowFundData extends OnchainOperationData {
   final String tradeId;
 
   final String? errorMessage;
+  final ContractCallIntent? approveIntent;
 
   const EscrowFundData({
     required this.tradeId,
@@ -20,6 +21,7 @@ class EscrowFundData extends OnchainOperationData {
     required super.chainId,
     required super.accountIndex,
     super.callIntent,
+    this.approveIntent,
     super.transport,
     super.swapId,
     super.txHash,
@@ -57,6 +59,7 @@ class EscrowFundData extends OnchainOperationData {
 
   EscrowFundData copyWith({
     ContractCallIntent? callIntent,
+    ContractCallIntent? approveIntent,
     String? transport,
     String? swapId,
     String? txHash,
@@ -69,6 +72,7 @@ class EscrowFundData extends OnchainOperationData {
     chainId: chainId,
     accountIndex: accountIndex,
     callIntent: callIntent ?? this.callIntent,
+    approveIntent: approveIntent ?? this.approveIntent,
     transport: transport ?? this.transport,
     swapId: swapId ?? this.swapId,
     txHash: txHash ?? this.txHash,
@@ -82,6 +86,7 @@ class EscrowFundData extends OnchainOperationData {
   Map<String, dynamic> toJson() => {
     'tradeId': tradeId,
     ...super.baseToJson(),
+    if (approveIntent != null) 'approveIntent': approveIntent!.toJson(),
     if (errorMessage != null) 'errorMessage': errorMessage,
   };
 
@@ -93,6 +98,11 @@ class EscrowFundData extends OnchainOperationData {
     callIntent: json['callIntent'] != null
         ? ContractCallIntent.fromJson(
             json['callIntent'] as Map<String, dynamic>,
+          )
+        : null,
+    approveIntent: json['approveIntent'] != null
+        ? ContractCallIntent.fromJson(
+            json['approveIntent'] as Map<String, dynamic>,
           )
         : null,
     transport: json['transport'] as String?,
