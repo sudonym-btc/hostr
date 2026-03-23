@@ -189,16 +189,6 @@ PaymentProof _escrowPaymentProof({required Listing listing}) {
     contractAddress: '0xDEAD',
     evmAddress: '0x000000000000000000000000000000000000bEEF',
   ).first;
-  // Build minimal EscrowTrust & EscrowMethod from signed events.
-  final trustEvent = Nip01Utils.signWithPrivateKey(
-    event: Nip01Event(
-      kind: kNostrKindEscrowTrust,
-      pubKey: MockKeys.hoster.publicKey,
-      tags: [],
-      content: '',
-    ),
-    privateKey: MockKeys.hoster.privateKey!,
-  );
   final methodEvent = Nip01Utils.signWithPrivateKey(
     event: Nip01Event(
       kind: kNostrKindEscrowMethod,
@@ -226,7 +216,6 @@ PaymentProof _escrowPaymentProof({required Listing listing}) {
     escrowProof: EscrowProof(
       txHash: '0xabc123',
       escrowService: escrowService,
-      hostsTrustedEscrows: EscrowTrust.fromNostrEvent(trustEvent),
       hostsEscrowMethods: EscrowMethod.fromNostrEvent(methodEvent),
     ),
   );

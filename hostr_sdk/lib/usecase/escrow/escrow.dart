@@ -55,7 +55,7 @@ class EscrowUseCase {
 
     final contract = _evm
         .getChainForEscrowService(selectedEscrow.service)
-        .getSupportedEscrowContract(selectedEscrow.service);
+        .escrow.getSupportedEscrowContract(selectedEscrow.service);
 
     final source = contract.allEvents(
       ContractEventsParams(tradeId: tradeId),

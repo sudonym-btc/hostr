@@ -4,7 +4,6 @@ import 'package:models/stubs/keypairs.dart';
 
 import '../../../injection.dart';
 import 'base.config.dart';
-import 'development.config.dart';
 
 @Injectable(as: Config, env: [Env.test])
 class TestConfig extends Config {
@@ -25,7 +24,18 @@ class TestConfig extends Config {
   String get hostrBlossom => '';
 
   @override
-  RootstockConfig rootstock = DevelopmentRootstockConfig();
+  EvmConfig evmConfig = EvmConfig(
+    boltz: BoltzConfig(apiUrl: 'https://boltz.hostr.development/v2'),
+    chains: [
+      EvmChainConfig(
+        id: 'arbitrum-regtest',
+        chainId: 412346,
+        rpcUrl: 'https://arbitrum.hostr.development',
+        accountAbstraction: envBackedAAConfig(),
+        tokens: envBackedTokens(),
+      ),
+    ],
+  );
 
   @override
   String get googleMapsApiKey => 'test-key';

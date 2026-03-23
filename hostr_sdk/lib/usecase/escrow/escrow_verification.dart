@@ -90,58 +90,30 @@ class EscrowVerification {
         'Escrow proof is for a different listing (pubkey mismatch)',
       );
     }
-    if (escrowProof.hostsTrustedEscrows.pubKey !=
-        getPubKeyFromAnchor(reservation.parsedTags.listingAnchor)) {
-      return const EscrowVerificationResult.invalid(
-        'Escrow proof is for a different listing (trusted escrows pubkey mismatch)',
-      );
-    }
 
     if (!escrowProof.hostsEscrowMethods.valid()) {
       return const EscrowVerificationResult.invalid(
         'Invalid signature on escrow methods',
       );
     }
-    if (!escrowProof.hostsTrustedEscrows.valid()) {
-      return const EscrowVerificationResult.invalid(
-        'Invalid signature on trusted escrows',
-      );
-    }
 
     // Resolve the chain and contract from the escrow service.
     final escrowService = escrowProof.escrowService;
-    final chain = evm.getChainForEscrowService(escrowService);
-    final contract = chain.getSupportedEscrowContract(escrowService);
-
-    final chosenEscrowType = escrowService.escrowType
-        .toString()
-        .split('.')
-        .last
-        .toLowerCase();
+    final configuredChain = evm.getChainForEscrowService(escrowService);
+    final contract = configuredChain.escrow.getSupportedEscrowContract(
+      escrowService,
+    );
 
     if (escrowProof.hostsEscrowMethods
-        .getTags('t')
-        .where((element) => element.toLowerCase() == chosenEscrowType)
+        .getTags('c')
+        .where((element) => element == escrowService.contractBytecodeHash)
         .isEmpty) {
       return EscrowVerificationResult.invalid(
-        'Host does not support escrow method type $chosenEscrowType',
+        'Host does not support escrow contract ${escrowService.contractBytecodeHash}',
       );
     }
 
-    // @todo: validate that host trusts the contract bytecodehash
-    // if (escrowProof.hostsEscrowMethods
-    //     .getTags('c')
-    //     .where(
-    //       (element) =>
-    //           element == escrowService.contractBytecodeHash,
-    //     )
-    //     .isEmpty) {
-    //   return EscrowVerificationResult.invalid(
-    //     'Host does not support escrow contract ${escrowService.contractBytecodeHash}',
-    //   );
-    // }
-
-    if (escrowProof.hostsTrustedEscrows
+    if (escrowProof.hostsEscrowMethods
         .getTags('p')
         .where((element) => element == escrowService.pubKey)
         .isEmpty) {
@@ -158,7 +130,7 @@ class EscrowVerification {
       );
     }
     logger.d(
-      'Verifying escrow for trade $tradeId on chain ${chain} with contract ${contract}',
+      'Verifying escrow for trade $tradeId on chain ${configuredChain.config.id} with contract ${contract}',
     );
 
     final events = contract.allEvents(

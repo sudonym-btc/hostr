@@ -64,9 +64,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                           if (snapshot.data!.value > BigInt.zero)
                             FilledButton.tonal(
                               onPressed: () async {
-                                final ops = await getIt<Hostr>()
-                                    .evm
-                                    .supportedEvmChains[0]
+                                final ops = await getIt<Hostr>().evm
                                     .swapOutAll();
                                 if (!mounted) return;
                                 if (ops.isNotEmpty) {

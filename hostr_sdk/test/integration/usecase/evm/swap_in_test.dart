@@ -35,16 +35,18 @@ void main() {
           user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
           appNamePrefix: 'swap-in-it',
         );
-        final swapLimits = await evm.rootstock.getSwapInLimits();
-        final amount =
-            swapLimits.min + rbtcFromSatsInt(1000);
+        final configured = evm.configuredChains.first;
+        final swapLimits = await configured.getSwapInLimits();
+        final amount = swapLimits.min + rbtcFromSatsInt(1000);
 
-        final swapIn = evm.rootstock.swapIn(
-          SwapInParams(
+        final swapIn = configured.swapIn(
+          params: SwapInParams(
             evmKey: await hostr.auth.hd.getActiveEvmKey(),
             accountIndex: 0,
             amount: amount,
           ),
+          auth: hostr.auth,
+          logger: CustomLogger(),
         );
 
         final emittedStates = <SwapInState>[swapIn.state];

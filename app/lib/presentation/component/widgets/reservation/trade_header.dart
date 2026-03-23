@@ -164,7 +164,7 @@ class TradeHeaderView extends StatelessWidget {
                           ),
                   ),
                 ),
-                if (!compact) Gap.vertical.xs(),
+                // if (!compact) Gap.vertical.xs(),
                 Text(
                   formatDateRangeShort(
                     DateTimeRange(start: start, end: end),

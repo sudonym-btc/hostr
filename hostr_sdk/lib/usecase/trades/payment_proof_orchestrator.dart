@@ -174,7 +174,6 @@ class PaymentProofOrchestrator {
         escrowProof: funded is EscrowFundedEvent
             ? EscrowProof(
                 txHash: funded.transactionHash,
-                hostsTrustedEscrows: funded.escrowService!.sellerTrusts,
                 hostsEscrowMethods: funded.escrowService!.sellerMethods,
                 escrowService: funded.escrowService!.service,
               )

@@ -1,37 +1,38 @@
 import 'package:convert/convert.dart';
-import 'package:injectable/injectable.dart';
 import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
-import '../../../config.dart';
 import '../../../util/custom_logger.dart';
+import '../config/evm_config.dart';
 import '../contract_call_intent.dart';
 
-/// ERC-4337 Account Abstraction service powered by
-/// [permissionless](https://pub.dev/packages/permissionless).
+/// Per-chain ERC-4337 Account Abstraction capability.
 ///
-/// Wraps a permissionless Simple smart account and client stack to send
-/// gas-sponsored ERC-4337 UserOperations through the configured bundler and
-/// paymaster.
-@injectable
-class UserOpService {
-  final CustomLogger _logger;
+/// Absorbed from the old singleton [UserOpService]. Each [ConfiguredEvmChain]
+/// with AA support holds its own [AACapability] instance parameterized by
+/// the chain-specific [AAConfig].
+class AACapability {
+  final AAConfig _aaConfig;
   final int _chainId;
   final String _nodeRpcUrl;
-  final AccountAbstractionConfig _aaConfig;
+  final CustomLogger _logger;
 
-  UserOpService(HostrConfig config, CustomLogger logger)
-    : _chainId = config.rootstockConfig.chainId,
-      _nodeRpcUrl = config.rootstockConfig.rpcUrl,
-      _aaConfig = config.rootstockConfig.accountAbstraction,
-      _logger = logger;
+  AACapability({
+    required AAConfig aaConfig,
+    required int chainId,
+    required String nodeRpcUrl,
+    required CustomLogger logger,
+  }) : _aaConfig = aaConfig,
+       _chainId = chainId,
+       _nodeRpcUrl = nodeRpcUrl,
+       _logger = logger;
 
   // ── Public API ──────────────────────────────────────────────────────
 
   /// Counterfactual Simple account address derived from [signer].
   Future<EthereumAddress> getSmartAccountAddress(EthPrivateKey signer) =>
-      _logger.span('UserOpService.getSmartAccountAddress', () async {
+      _logger.span('AACapability.getSmartAccountAddress', () async {
         final publicClient = _initPublicClient();
         final account = _initSimpleAccount(signer, publicClient: publicClient);
         return account.getAddress();
@@ -42,19 +43,23 @@ class UserOpService {
   /// Returns the on-chain transaction hash after the operation is included
   /// in a block.
   Future<String> sendUserOp(EthPrivateKey signer, ContractCallIntent intent) =>
-      _logger.span('UserOpService.sendUserOp(${intent.methodName})', () async {
+      _logger.span('AACapability.sendUserOp(${intent.methodName})', () async {
         return _sendCalls(signer, [intent]);
       });
 
-  /// Send multiple calls as a single batched UserOperation.
+  /// Send multiple contract calls as a single batched UserOperation.
   ///
-  /// All [intents] are executed atomically inside one on-chain transaction.
-  Future<String> sendUserOpBatch(
+  /// This is useful for atomic multi-step flows such as ERC-20 approve + lock.
+  /// Returns the on-chain transaction hash.
+  Future<String> sendBatchUserOps(
     EthPrivateKey signer,
     List<ContractCallIntent> intents,
-  ) => _logger.span('UserOpService.sendUserOpBatch', () async {
-    return _sendCalls(signer, intents);
-  });
+  ) => _logger.span(
+    'AACapability.sendBatchUserOps(${intents.map((i) => i.methodName).join(", ")})',
+    () async {
+      return _sendCalls(signer, intents);
+    },
+  );
 
   /// Estimated gas fee — zero when the paymaster sponsors gas.
   Future<BigInt> estimateGasFee(EthPrivateKey signer) async => BigInt.zero;

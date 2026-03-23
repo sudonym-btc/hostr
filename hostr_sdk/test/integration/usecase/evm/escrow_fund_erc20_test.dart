@@ -6,8 +6,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
-import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart'
-    as gen;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
@@ -59,7 +57,7 @@ void main() {
       )).first;
 
       final chain = hostr.evm.getChainForEscrowService(escrowService);
-      final contract = chain.getSupportedEscrowContract(escrowService);
+      final contract = chain.escrow.getSupportedEscrowContract(escrowService);
 
       // ── 3. Deploy a TestERC20 (USDT) token on Anvil ────────────────────
       final deployerKey = EthPrivateKey.fromHex(
@@ -103,37 +101,7 @@ void main() {
       final buyerKey = await hostr.auth.hd.getActiveEvmKey();
       final buyerAddress = buyerKey.address;
 
-      // ── 6. Allowlist USDT on the escrow contract ──────────────────────
-      final escrowGen = gen.MultiEscrow(address: escrowAddress, client: web3);
-      final owner = await escrowGen.owner();
-
-      // Impersonate the owner so we can call setTokenAllowed
-      await anvil.impersonateAccount(owner.with0x);
-      // Also ensure the owner has gas for the allowlist tx
-      await anvil.setBalance(
-        address: owner.with0x,
-        amountWei: BigInt.from(10).pow(18), // 1 RBTC
-      );
-
-      final setAllowedData = _encodeSetTokenAllowed(usdtAddress, true);
-      final allowTxHash = await anvil.sendUnsignedTransaction(
-        from: owner.with0x,
-        to: escrowAddress.with0x,
-        data: setAllowedData,
-      );
-      expect(
-        allowTxHash,
-        isNotNull,
-        reason: 'setTokenAllowed tx should succeed',
-      );
-
-      await anvil.stopImpersonatingAccount(owner.with0x);
-
-      // Verify the token is now whitelisted
-      final isAllowed = await escrowGen.allowedTokens(($param1: usdtAddress));
-      expect(isAllowed, isTrue, reason: 'USDT should be allowlisted');
-
-      // ── 7. Transfer USDT from deployer to buyer ─────────────────────
+      // ── 6. Transfer USDT from deployer to buyer ─────────────────────
       // Fund deployer with RBTC for gas first.
       await anvil.setBalance(
         address: deployerKey.address.eip55With0x,
@@ -193,7 +161,7 @@ void main() {
       );
 
       // ── 10. Broadcast directly from buyer EOA ─────────────────────────
-      final chainId = (await chain.getChainId()).toInt();
+      final chainId = chain.config.chainId;
       final txHash = await web3.sendTransaction(
         buyerKey,
         intent.toTransaction(),
@@ -351,26 +319,6 @@ void _putUint256(Uint8List buf, int offset, BigInt value) {
   for (int i = 0; i < 32; i++) {
     buf[offset + i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
   }
-}
-
-/// Encode `setTokenAllowed(address token, bool allowed)` call-data.
-String _encodeSetTokenAllowed(EthereumAddress token, bool allowed) {
-  // Function selector: keccak256("setTokenAllowed(address,bool)")[:4]
-  final sigHash = keccak256(
-    Uint8List.fromList(utf8.encode('setTokenAllowed(address,bool)')),
-  );
-
-  final calldata = Uint8List(68); // 4 selector + 32 addr + 32 bool
-  calldata.setRange(0, 4, sigHash.sublist(0, 4));
-
-  // ABI-encode address (left-padded to 32 bytes)
-  final addrBytes = token.value; // 20 bytes
-  calldata.setRange(16, 36, addrBytes); // offset 4 + 12 padding + 20
-
-  // ABI-encode bool (uint256)
-  if (allowed) calldata[67] = 1;
-
-  return '0x${bytesToHex(calldata)}';
 }
 
 /// Poll until a transaction receipt is available.

@@ -431,7 +431,8 @@ abstract class OnchainOperation
   final Auth auth;
   final TradeAccountAllocator tradeAccountAllocator;
   final Evm evm;
-  late final EvmChain chain;
+  late final ConfiguredEvmChain configuredChain;
+  EvmChain get chain => configuredChain.chain;
   late final SupportedEscrowContract contract;
 
   /// HD account index. Defaults to 0; [resolveAddress] may update it.
@@ -615,7 +616,7 @@ abstract class OnchainOperation
   ) => logger.span('broadcastContractCallIntent', () async {
     try {
       await contract.ensureDeployed();
-      return await getIt<UserOpService>().sendUserOp(credentials, intent);
+      return await configuredChain.aa!.sendUserOp(credentials, intent);
     } catch (error) {
       throw contract.decodeWriteError(error);
     }

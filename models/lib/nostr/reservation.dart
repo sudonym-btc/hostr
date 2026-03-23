@@ -664,13 +664,10 @@ class EscrowProof {
   final String txHash;
 
   final EscrowService escrowService;
-  // Signed list of trusted escrows by hoster
-  final EscrowTrust hostsTrustedEscrows;
   final EscrowMethod hostsEscrowMethods;
 
   EscrowProof(
       {required this.txHash,
-      required this.hostsTrustedEscrows,
       required this.hostsEscrowMethods,
       required this.escrowService});
 
@@ -679,7 +676,6 @@ class EscrowProof {
       "txHash": txHash,
       "escrowService": escrowService.toString(),
       "hostsEscrowMethods": hostsEscrowMethods.toString(),
-      "hostsTrustedEscrows": hostsTrustedEscrows.toString(),
     };
   }
 
@@ -690,8 +686,6 @@ class EscrowProof {
       txHash: json['txHash'],
       hostsEscrowMethods: EscrowMethod.fromNostrEvent(
           Nip01EventModel.fromJson(jsonDecode(json["hostsEscrowMethods"]))),
-      hostsTrustedEscrows: EscrowTrust.fromNostrEvent(
-          Nip01EventModel.fromJson(jsonDecode(json["hostsTrustedEscrows"]))),
     );
   }
 }

@@ -28,8 +28,10 @@ class EscrowReleaseOperation extends OnchainOperation {
         logger,
         const OnchainInitialised(),
       ) {
-    chain = evm.getChainForEscrowService(params.escrowService!);
-    contract = chain.getSupportedEscrowContract(params.escrowService!);
+    configuredChain = evm.getChainForEscrowService(params.escrowService!);
+    contract = configuredChain.escrow.getSupportedEscrowContract(
+      params.escrowService!,
+    );
   }
 
   // ── OnchainOperation overrides ────────────────────────────────────

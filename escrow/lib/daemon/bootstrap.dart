@@ -52,7 +52,7 @@ Future<DaemonContext> bootstrap() async {
   final String blossomUrl = Platform.environment['BLOSSOM_URL'] ??
       'https://blossom.hostr.development';
   final String environment = Platform.environment['ENV'] ?? 'dev';
-  late final String contractAddress;
+  final String contractAddress;
   try {
     contractAddress = resolveContractAddress();
   } on Object catch (error) {
@@ -79,12 +79,12 @@ Future<DaemonContext> bootstrap() async {
       pubkey: hostr.auth.activeKeyPair!.publicKey,
       evmAddress: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
       contractAddress: contractAddress,
-      contractBytecodeHash: sha256
-          .convert(await web3client
-              .getCode(EthereumAddress.fromHex(contractAddress)))
-          .toString(),
+      contractBytecodeHash: await _resolveMultiEscrowBytecodeHash(
+        web3client: web3client,
+        contractAddress: contractAddress,
+      ),
       chainId:
-          (await hostr.evm.supportedEvmChains[0].client.getChainId()).toInt(),
+          hostr.evm.configuredChains.first.config.chainId,
       maxDuration: Duration(days: 365),
       type: EscrowType.EVM,
       feeBase: 100,
@@ -93,9 +93,10 @@ Future<DaemonContext> bootstrap() async {
     ),
   );
 
-  final contract = hostr.evm
-      .getChainForEscrowService(escrowService)
-      .getSupportedEscrowContract(escrowService);
+  final configuredChain = hostr.evm.getChainForEscrowService(escrowService);
+  final contract = configuredChain.escrow.getSupportedEscrowContract(
+    escrowService,
+  );
 
   await contract.ensureDeployed();
   await hostr.escrows.upsert(escrowService);
@@ -108,4 +109,19 @@ Future<DaemonContext> bootstrap() async {
     contract: contract,
     web3client: web3client,
   );
+}
+
+Future<String> _resolveMultiEscrowBytecodeHash({
+  required Web3Client web3client,
+  required String contractAddress,
+}) async {
+  final envHash = Platform.environment['MULTI_ESCROW_BYTECODE_HASH']?.trim();
+  if (envHash != null && envHash.isNotEmpty) {
+    return envHash;
+  }
+
+  final runtimeCode = await web3client.getCode(
+    EthereumAddress.fromHex(contractAddress),
+  );
+  return sha256.convert(runtimeCode).toString();
 }

@@ -3,62 +3,64 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i29;
+import 'dart:async' as _i27;
 
 import 'package:hostr_sdk/usecase/auth/auth.dart' as _i14;
 import 'package:hostr_sdk/usecase/auth/auth_models.dart' as _i6;
 import 'package:hostr_sdk/usecase/background_worker/background_worker.dart'
     as _i44;
-import 'package:hostr_sdk/usecase/badge_awards/badge_awards.dart' as _i40;
+import 'package:hostr_sdk/usecase/badge_awards/badge_awards.dart' as _i39;
 import 'package:hostr_sdk/usecase/badge_definitions/badge_definitions.dart'
-    as _i39;
+    as _i38;
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart'
     as _i5;
-import 'package:hostr_sdk/usecase/escrow/escrow.dart' as _i34;
+import 'package:hostr_sdk/usecase/escrow/escrow.dart' as _i32;
 import 'package:hostr_sdk/usecase/escrow/operations/claim/escrow_claim_models.dart'
-    as _i36;
+    as _i34;
 import 'package:hostr_sdk/usecase/escrow/operations/claim/escrow_claim_operation.dart'
     as _i19;
 import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_models.dart'
-    as _i35;
+    as _i33;
 import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_operation.dart'
     as _i18;
 import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_models.dart'
-    as _i37;
+    as _i35;
 import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_operation.dart'
     as _i20;
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart'
-    as _i38;
+    as _i36;
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i21;
-import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i22;
-import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i23;
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart' as _i28;
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/rootstock.dart' as _i27;
-import 'package:hostr_sdk/usecase/evm/evm.dart' as _i43;
+import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i37;
+import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i22;
+import 'package:hostr_sdk/usecase/evm/capabilities/configured_evm_chain.dart'
+    as _i26;
+import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_out/swap_out_operation.dart'
+    as _i43;
+import 'package:hostr_sdk/usecase/evm/evm.dart' as _i42;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i16;
 import 'package:hostr_sdk/usecase/messaging/messaging.dart' as _i13;
-import 'package:hostr_sdk/usecase/messaging/threads.dart' as _i24;
-import 'package:hostr_sdk/usecase/metadata/metadata.dart' as _i31;
+import 'package:hostr_sdk/usecase/messaging/threads.dart' as _i23;
+import 'package:hostr_sdk/usecase/metadata/metadata.dart' as _i29;
 import 'package:hostr_sdk/usecase/nwc/nwc.cubit.dart' as _i11;
 import 'package:hostr_sdk/usecase/nwc/nwc.dart' as _i12;
-import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart' as _i25;
+import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart' as _i24;
 import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart'
-    as _i26;
-import 'package:hostr_sdk/usecase/payments/payments.dart' as _i42;
+    as _i25;
+import 'package:hostr_sdk/usecase/payments/payments.dart' as _i41;
 import 'package:hostr_sdk/usecase/relays/relays.dart' as _i45;
 import 'package:hostr_sdk/usecase/requests/requests.dart' as _i9;
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart'
-    as _i41;
+    as _i40;
 import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart'
     as _i15;
 import 'package:hostr_sdk/usecase/reservations/reservations.dart' as _i17;
 import 'package:hostr_sdk/usecase/storage/storage.dart' as _i3;
-import 'package:hostr_sdk/usecase/zaps/zaps.dart' as _i32;
+import 'package:hostr_sdk/usecase/zaps/zaps.dart' as _i30;
 import 'package:hostr_sdk/util/main.dart' as _i8;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i33;
+import 'package:mockito/src/dummies.dart' as _i31;
 import 'package:models/main.dart' as _i10;
-import 'package:ndk/entities.dart' as _i30;
+import 'package:ndk/entities.dart' as _i28;
 import 'package:ndk/ndk.dart' as _i2;
 import 'package:ndk/shared/nips/nip01/key_pair.dart' as _i7;
 import 'package:rxdart/rxdart.dart' as _i4;
@@ -265,90 +267,81 @@ class _FakeEscrowMethods_33 extends _i1.SmartFake
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowTrusts_34 extends _i1.SmartFake implements _i22.EscrowTrusts {
-  _FakeEscrowTrusts_34(Object parent, Invocation parentInvocation)
+class _FakeMutualEscrowResult_34 extends _i1.SmartFake
+    implements _i22.MutualEscrowResult {
+  _FakeMutualEscrowResult_34(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeMutualEscrowResult_35 extends _i1.SmartFake
-    implements _i23.MutualEscrowResult {
-  _FakeMutualEscrowResult_35(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
-}
-
-class _FakeEscrowService_36 extends _i1.SmartFake
+class _FakeEscrowService_35 extends _i1.SmartFake
     implements _i10.EscrowService {
-  _FakeEscrowService_36(Object parent, Invocation parentInvocation)
+  _FakeEscrowService_35(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowTrust_37 extends _i1.SmartFake implements _i10.EscrowTrust {
-  _FakeEscrowTrust_37(Object parent, Invocation parentInvocation)
+class _FakeEscrowTrust_36 extends _i1.SmartFake implements _i10.EscrowTrust {
+  _FakeEscrowTrust_36(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowMethod_38 extends _i1.SmartFake implements _i10.EscrowMethod {
-  _FakeEscrowMethod_38(Object parent, Invocation parentInvocation)
+class _FakeEscrowMethod_37 extends _i1.SmartFake implements _i10.EscrowMethod {
+  _FakeEscrowMethod_37(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeBadgeDefinition_39 extends _i1.SmartFake
+class _FakeBadgeDefinition_38 extends _i1.SmartFake
     implements _i10.BadgeDefinition {
-  _FakeBadgeDefinition_39(Object parent, Invocation parentInvocation)
+  _FakeBadgeDefinition_38(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeBadgeAward_40 extends _i1.SmartFake implements _i10.BadgeAward {
-  _FakeBadgeAward_40(Object parent, Invocation parentInvocation)
+class _FakeBadgeAward_39 extends _i1.SmartFake implements _i10.BadgeAward {
+  _FakeBadgeAward_39(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeThreads_41 extends _i1.SmartFake implements _i24.Threads {
-  _FakeThreads_41(Object parent, Invocation parentInvocation)
+class _FakeThreads_40 extends _i1.SmartFake implements _i23.Threads {
+  _FakeThreads_40(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeNip01Event_42 extends _i1.SmartFake implements _i2.Nip01Event {
-  _FakeNip01Event_42(Object parent, Invocation parentInvocation)
+class _FakeNip01Event_41 extends _i1.SmartFake implements _i2.Nip01Event {
+  _FakeNip01Event_41(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeMessage_43<T extends _i10.Event<_i10.EventTags>>
+class _FakeMessage_42<T extends _i10.Event<_i10.EventTags>>
     extends _i1.SmartFake
     implements _i10.Message<T> {
-  _FakeMessage_43(Object parent, Invocation parentInvocation)
+  _FakeMessage_42(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakePayOperation_44<
-  T extends _i25.PayParameters,
-  RD extends _i25.ResolvedDetails,
-  CD extends _i25.CallbackDetails,
-  CmpD extends _i25.CompletedDetails
+class _FakePayOperation_43<
+  T extends _i24.PayParameters,
+  RD extends _i24.ResolvedDetails,
+  CD extends _i24.CallbackDetails,
+  CmpD extends _i24.CompletedDetails
 >
     extends _i1.SmartFake
-    implements _i26.PayOperation<T, RD, CD, CmpD> {
-  _FakePayOperation_44(Object parent, Invocation parentInvocation)
+    implements _i25.PayOperation<T, RD, CD, CmpD> {
+  _FakePayOperation_43(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeRootstock_45 extends _i1.SmartFake implements _i27.Rootstock {
-  _FakeRootstock_45(Object parent, Invocation parentInvocation)
+class _FakeTokenAmount_44 extends _i1.SmartFake implements _i10.TokenAmount {
+  _FakeTokenAmount_44(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeTokenAmount_46 extends _i1.SmartFake implements _i10.TokenAmount {
-  _FakeTokenAmount_46(Object parent, Invocation parentInvocation)
+class _FakeConfiguredEvmChain_45 extends _i1.SmartFake
+    implements _i26.ConfiguredEvmChain {
+  _FakeConfiguredEvmChain_45(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEvmChain_47 extends _i1.SmartFake implements _i28.EvmChain {
-  _FakeEvmChain_47(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
-}
-
-class _FakeRelayStorage_48 extends _i1.SmartFake implements _i3.RelayStorage {
-  _FakeRelayStorage_48(Object parent, Invocation parentInvocation)
+class _FakeRelayStorage_46 extends _i1.SmartFake implements _i3.RelayStorage {
+  _FakeRelayStorage_46(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -415,25 +408,25 @@ class MockAuth extends _i1.Mock implements _i14.Auth {
           as _i5.DeterministicKeys);
 
   @override
-  _i29.Future<void> signup() =>
+  _i27.Future<void> signup() =>
       (super.noSuchMethod(
             Invocation.method(#signup, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> signin(String? input) =>
+  _i27.Future<void> signin(String? input) =>
       (super.noSuchMethod(
             Invocation.method(#signin, [input]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<_i6.AuthRecord> previewResolvedIdentity(
+  _i27.Future<_i6.AuthRecord> previewResolvedIdentity(
     String? input, {
     int? nostrAccountIndex = 0,
   }) =>
@@ -443,7 +436,7 @@ class MockAuth extends _i1.Mock implements _i14.Auth {
               [input],
               {#nostrAccountIndex: nostrAccountIndex},
             ),
-            returnValue: _i29.Future<_i6.AuthRecord>.value(
+            returnValue: _i27.Future<_i6.AuthRecord>.value(
               _FakeAuthRecord_4(
                 this,
                 Invocation.method(
@@ -454,33 +447,33 @@ class MockAuth extends _i1.Mock implements _i14.Auth {
               ),
             ),
           )
-          as _i29.Future<_i6.AuthRecord>);
+          as _i27.Future<_i6.AuthRecord>);
 
   @override
-  _i29.Future<void> logout() =>
+  _i27.Future<void> logout() =>
       (super.noSuchMethod(
             Invocation.method(#logout, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> init() =>
+  _i27.Future<void> init() =>
       (super.noSuchMethod(
             Invocation.method(#init, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<bool> isAuthenticated() =>
+  _i27.Future<bool> isAuthenticated() =>
       (super.noSuchMethod(
             Invocation.method(#isAuthenticated, []),
-            returnValue: _i29.Future<bool>.value(false),
+            returnValue: _i27.Future<bool>.value(false),
           )
-          as _i29.Future<bool>);
+          as _i27.Future<bool>);
 
   @override
   bool ensureNdkAccountsMatch() =>
@@ -502,22 +495,22 @@ class MockAuth extends _i1.Mock implements _i14.Auth {
           as _i7.KeyPair);
 
   @override
-  _i29.Future<void> updateMaxAccountIndex(int? maxAccountIndex) =>
+  _i27.Future<void> updateMaxAccountIndex(int? maxAccountIndex) =>
       (super.noSuchMethod(
             Invocation.method(#updateMaxAccountIndex, [maxAccountIndex]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> dispose() =>
+  _i27.Future<void> dispose() =>
       (super.noSuchMethod(
             Invocation.method(#dispose, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 }
 
 /// A class which mocks [Requests].
@@ -565,7 +558,7 @@ class MockRequests extends _i1.Mock implements _i9.Requests {
           as _i8.StreamWithStatus<T>);
 
   @override
-  _i29.Stream<T> query<T extends _i2.Nip01Event>({
+  _i27.Stream<T> query<T extends _i2.Nip01Event>({
     required _i2.Filter? filter,
     List<String>? relays,
     Duration? timeout,
@@ -578,12 +571,12 @@ class MockRequests extends _i1.Mock implements _i9.Requests {
               #timeout: timeout,
               #name: name,
             }),
-            returnValue: _i29.Stream<T>.empty(),
+            returnValue: _i27.Stream<T>.empty(),
           )
-          as _i29.Stream<T>);
+          as _i27.Stream<T>);
 
   @override
-  _i29.Future<int> count({
+  _i27.Future<int> count({
     required _i2.Filter? filter,
     Duration? timeout,
     List<String>? relays,
@@ -594,22 +587,22 @@ class MockRequests extends _i1.Mock implements _i9.Requests {
               #timeout: timeout,
               #relays: relays,
             }),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> broadcast({
+  _i27.Future<List<_i28.RelayBroadcastResponse>> broadcast({
     required _i2.Nip01Event? event,
     List<String>? relays,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#broadcast, [], {#event: event, #relays: relays}),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
   _i9.LiveSubscriptionHandle liveSubscription<T extends _i2.Nip01Event>({
@@ -641,7 +634,7 @@ class MockRequests extends _i1.Mock implements _i9.Requests {
 /// A class which mocks [MetadataUseCase].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockMetadataUseCase extends _i1.Mock implements _i31.MetadataUseCase {
+class MockMetadataUseCase extends _i1.Mock implements _i29.MetadataUseCase {
   MockMetadataUseCase() {
     _i1.throwOnMissingStub(this);
   }
@@ -667,29 +660,29 @@ class MockMetadataUseCase extends _i1.Mock implements _i31.MetadataUseCase {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i10.ProfileMetadata> get updates =>
+  _i27.Stream<_i10.ProfileMetadata> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i10.ProfileMetadata>.empty(),
+            returnValue: _i27.Stream<_i10.ProfileMetadata>.empty(),
           )
-          as _i29.Stream<_i10.ProfileMetadata>);
+          as _i27.Stream<_i10.ProfileMetadata>);
 
   @override
-  _i29.Future<_i10.ProfileMetadata?> loadMetadata(String? pubkey) =>
+  _i27.Future<_i10.ProfileMetadata?> loadMetadata(String? pubkey) =>
       (super.noSuchMethod(
             Invocation.method(#loadMetadata, [pubkey]),
-            returnValue: _i29.Future<_i10.ProfileMetadata?>.value(),
+            returnValue: _i27.Future<_i10.ProfileMetadata?>.value(),
           )
-          as _i29.Future<_i10.ProfileMetadata?>);
+          as _i27.Future<_i10.ProfileMetadata?>);
 
   @override
-  _i29.Future<void> ensureEvmAddress() =>
+  _i27.Future<void> ensureEvmAddress() =>
       (super.noSuchMethod(
             Invocation.method(#ensureEvmAddress, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
   void notifyUpdate(_i10.ProfileMetadata? event) => super.noSuchMethod(
@@ -760,88 +753,88 @@ class MockMetadataUseCase extends _i1.Mock implements _i31.MetadataUseCase {
           as _i2.Filter);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> upsert(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> upsert(
     _i10.ProfileMetadata? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> delete(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> delete(
     _i10.ProfileMetadata? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i10.ProfileMetadata>> list(_i2.Filter? f, {String? name}) =>
+  _i27.Future<List<_i10.ProfileMetadata>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i10.ProfileMetadata>>.value(
+            returnValue: _i27.Future<List<_i10.ProfileMetadata>>.value(
               <_i10.ProfileMetadata>[],
             ),
           )
-          as _i29.Future<List<_i10.ProfileMetadata>>);
+          as _i27.Future<List<_i10.ProfileMetadata>>);
 
   @override
-  _i29.Future<_i10.ProfileMetadata?> getOne(
+  _i27.Future<_i10.ProfileMetadata?> getOne(
     _i2.Filter? f, {
     bool? batch = true,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#getOne, [f], {#batch: batch}),
-            returnValue: _i29.Future<_i10.ProfileMetadata?>.value(),
+            returnValue: _i27.Future<_i10.ProfileMetadata?>.value(),
           )
-          as _i29.Future<_i10.ProfileMetadata?>);
+          as _i27.Future<_i10.ProfileMetadata?>);
 
   @override
-  _i29.Future<_i10.ProfileMetadata?> getOneByAnchor(String? anchor) =>
+  _i27.Future<_i10.ProfileMetadata?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i10.ProfileMetadata?>.value(),
+            returnValue: _i27.Future<_i10.ProfileMetadata?>.value(),
           )
-          as _i29.Future<_i10.ProfileMetadata?>);
+          as _i27.Future<_i10.ProfileMetadata?>);
 
   @override
-  _i29.Future<_i10.ProfileMetadata> getById(String? id) =>
+  _i27.Future<_i10.ProfileMetadata> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i10.ProfileMetadata>.value(
+            returnValue: _i27.Future<_i10.ProfileMetadata>.value(
               _FakeProfileMetadata_12(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i10.ProfileMetadata>);
+          as _i27.Future<_i10.ProfileMetadata>);
 
   @override
-  _i29.Future<int> count() =>
+  _i27.Future<int> count() =>
       (super.noSuchMethod(
             Invocation.method(#count, []),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i10.ProfileMetadata>> findByTag(
+  _i27.Future<List<_i10.ProfileMetadata>> findByTag(
     String? tag,
     String? value,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i10.ProfileMetadata>>.value(
+            returnValue: _i27.Future<List<_i10.ProfileMetadata>>.value(
               <_i10.ProfileMetadata>[],
             ),
           )
-          as _i29.Future<List<_i10.ProfileMetadata>>);
+          as _i27.Future<List<_i10.ProfileMetadata>>);
 }
 
 /// A class which mocks [Nwc].
@@ -888,12 +881,12 @@ class MockNwc extends _i1.Mock implements _i12.Nwc {
           as List<_i11.NwcCubit>);
 
   @override
-  _i29.Stream<List<_i11.NwcCubit>> get connectionsStream =>
+  _i27.Stream<List<_i11.NwcCubit>> get connectionsStream =>
       (super.noSuchMethod(
             Invocation.getter(#connectionsStream),
-            returnValue: _i29.Stream<List<_i11.NwcCubit>>.empty(),
+            returnValue: _i27.Stream<List<_i11.NwcCubit>>.empty(),
           )
-          as _i29.Stream<List<_i11.NwcCubit>>);
+          as _i27.Stream<List<_i11.NwcCubit>>);
 
   @override
   set connections(List<_i11.NwcCubit>? value) => super.noSuchMethod(
@@ -902,83 +895,83 @@ class MockNwc extends _i1.Mock implements _i12.Nwc {
   );
 
   @override
-  _i29.Future<void> save() =>
+  _i27.Future<void> save() =>
       (super.noSuchMethod(
             Invocation.method(#save, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> add(_i11.NwcCubit? reactiveConnection) =>
+  _i27.Future<void> add(_i11.NwcCubit? reactiveConnection) =>
       (super.noSuchMethod(
             Invocation.method(#add, [reactiveConnection]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> remove(_i11.NwcCubit? reactiveConnection) =>
+  _i27.Future<void> remove(_i11.NwcCubit? reactiveConnection) =>
       (super.noSuchMethod(
             Invocation.method(#remove, [reactiveConnection]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<_i11.NwcCubit> initiateAndAdd(String? url) =>
+  _i27.Future<_i11.NwcCubit> initiateAndAdd(String? url) =>
       (super.noSuchMethod(
             Invocation.method(#initiateAndAdd, [url]),
-            returnValue: _i29.Future<_i11.NwcCubit>.value(
+            returnValue: _i27.Future<_i11.NwcCubit>.value(
               _FakeNwcCubit_14(this, Invocation.method(#initiateAndAdd, [url])),
             ),
           )
-          as _i29.Future<_i11.NwcCubit>);
+          as _i27.Future<_i11.NwcCubit>);
 
   @override
-  _i29.Future<_i2.NwcConnection> connect(String? url) =>
+  _i27.Future<_i2.NwcConnection> connect(String? url) =>
       (super.noSuchMethod(
             Invocation.method(#connect, [url]),
-            returnValue: _i29.Future<_i2.NwcConnection>.value(
+            returnValue: _i27.Future<_i2.NwcConnection>.value(
               _FakeNwcConnection_15(this, Invocation.method(#connect, [url])),
             ),
           )
-          as _i29.Future<_i2.NwcConnection>);
+          as _i27.Future<_i2.NwcConnection>);
 
   @override
-  _i29.Future<_i2.GetInfoResponse> getInfo(_i2.NwcConnection? connection) =>
+  _i27.Future<_i2.GetInfoResponse> getInfo(_i2.NwcConnection? connection) =>
       (super.noSuchMethod(
             Invocation.method(#getInfo, [connection]),
-            returnValue: _i29.Future<_i2.GetInfoResponse>.value(
+            returnValue: _i27.Future<_i2.GetInfoResponse>.value(
               _FakeGetInfoResponse_16(
                 this,
                 Invocation.method(#getInfo, [connection]),
               ),
             ),
           )
-          as _i29.Future<_i2.GetInfoResponse>);
+          as _i27.Future<_i2.GetInfoResponse>);
 
   @override
-  _i29.Future<_i2.PayInvoiceResponse> payInvoice(
+  _i27.Future<_i2.PayInvoiceResponse> payInvoice(
     _i2.NwcConnection? connection,
     String? invoice,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#payInvoice, [connection, invoice]),
-            returnValue: _i29.Future<_i2.PayInvoiceResponse>.value(
+            returnValue: _i27.Future<_i2.PayInvoiceResponse>.value(
               _FakePayInvoiceResponse_17(
                 this,
                 Invocation.method(#payInvoice, [connection, invoice]),
               ),
             ),
           )
-          as _i29.Future<_i2.PayInvoiceResponse>);
+          as _i27.Future<_i2.PayInvoiceResponse>);
 
   @override
-  _i29.Future<_i2.MakeInvoiceResponse> makeInvoice(
+  _i27.Future<_i2.MakeInvoiceResponse> makeInvoice(
     _i2.NwcConnection? connection, {
     required int? amountSats,
     String? description,
@@ -996,7 +989,7 @@ class MockNwc extends _i1.Mock implements _i12.Nwc {
                 #expiry: expiry,
               },
             ),
-            returnValue: _i29.Future<_i2.MakeInvoiceResponse>.value(
+            returnValue: _i27.Future<_i2.MakeInvoiceResponse>.value(
               _FakeMakeInvoiceResponse_18(
                 this,
                 Invocation.method(
@@ -1012,10 +1005,10 @@ class MockNwc extends _i1.Mock implements _i12.Nwc {
               ),
             ),
           )
-          as _i29.Future<_i2.MakeInvoiceResponse>);
+          as _i27.Future<_i2.MakeInvoiceResponse>);
 
   @override
-  _i29.Future<_i2.LookupInvoiceResponse> lookupInvoice(
+  _i27.Future<_i2.LookupInvoiceResponse> lookupInvoice(
     _i2.NwcConnection? connection, {
     String? paymentHash,
     String? invoice,
@@ -1026,7 +1019,7 @@ class MockNwc extends _i1.Mock implements _i12.Nwc {
               [connection],
               {#paymentHash: paymentHash, #invoice: invoice},
             ),
-            returnValue: _i29.Future<_i2.LookupInvoiceResponse>.value(
+            returnValue: _i27.Future<_i2.LookupInvoiceResponse>.value(
               _FakeLookupInvoiceResponse_19(
                 this,
                 Invocation.method(
@@ -1037,25 +1030,25 @@ class MockNwc extends _i1.Mock implements _i12.Nwc {
               ),
             ),
           )
-          as _i29.Future<_i2.LookupInvoiceResponse>);
+          as _i27.Future<_i2.LookupInvoiceResponse>);
 
   @override
-  _i29.Future<void> reset() =>
+  _i27.Future<void> reset() =>
       (super.noSuchMethod(
             Invocation.method(#reset, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> dispose() =>
+  _i27.Future<void> dispose() =>
       (super.noSuchMethod(
             Invocation.method(#dispose, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
   void start() => super.noSuchMethod(
@@ -1067,7 +1060,7 @@ class MockNwc extends _i1.Mock implements _i12.Nwc {
 /// A class which mocks [Zaps].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockZaps extends _i1.Mock implements _i32.Zaps {
+class MockZaps extends _i1.Mock implements _i30.Zaps {
   MockZaps() {
     _i1.throwOnMissingStub(this);
   }
@@ -1101,7 +1094,7 @@ class MockZaps extends _i1.Mock implements _i32.Zaps {
   );
 
   @override
-  _i29.Future<_i2.ZapResponse> zap({
+  _i27.Future<_i2.ZapResponse> zap({
     required String? lnurl,
     required int? amountSats,
   }) =>
@@ -1110,7 +1103,7 @@ class MockZaps extends _i1.Mock implements _i32.Zaps {
               #lnurl: lnurl,
               #amountSats: amountSats,
             }),
-            returnValue: _i29.Future<_i2.ZapResponse>.value(
+            returnValue: _i27.Future<_i2.ZapResponse>.value(
               _FakeZapResponse_21(
                 this,
                 Invocation.method(#zap, [], {
@@ -1120,10 +1113,10 @@ class MockZaps extends _i1.Mock implements _i32.Zaps {
               ),
             ),
           )
-          as _i29.Future<_i2.ZapResponse>);
+          as _i27.Future<_i2.ZapResponse>);
 
   @override
-  _i29.Future<_i2.InvoiceResponse?> fetchInvoice({
+  _i27.Future<_i2.InvoiceResponse?> fetchInvoice({
     required String? lud16Link,
     required int? amountSats,
     _i2.ZapRequest? zapRequest,
@@ -1134,9 +1127,9 @@ class MockZaps extends _i1.Mock implements _i32.Zaps {
               #amountSats: amountSats,
               #zapRequest: zapRequest,
             }),
-            returnValue: _i29.Future<_i2.InvoiceResponse?>.value(),
+            returnValue: _i27.Future<_i2.InvoiceResponse?>.value(),
           )
-          as _i29.Future<_i2.InvoiceResponse?>);
+          as _i27.Future<_i2.InvoiceResponse?>);
 
   @override
   _i8.StreamWithStatus<_i2.Nip01Event> subscribeZapReceipts({
@@ -1191,12 +1184,12 @@ class MockListings extends _i1.Mock implements _i16.Listings {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i10.Listing> get updates =>
+  _i27.Stream<_i10.Listing> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i10.Listing>.empty(),
+            returnValue: _i27.Stream<_i10.Listing>.empty(),
           )
-          as _i29.Stream<_i10.Listing>);
+          as _i27.Stream<_i10.Listing>);
 
   @override
   void notifyUpdate(_i10.Listing? event) => super.noSuchMethod(
@@ -1261,78 +1254,78 @@ class MockListings extends _i1.Mock implements _i16.Listings {
           as _i2.Filter);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> upsert(_i10.Listing? event) =>
+  _i27.Future<List<_i28.RelayBroadcastResponse>> upsert(_i10.Listing? event) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> delete(_i10.Listing? event) =>
+  _i27.Future<List<_i28.RelayBroadcastResponse>> delete(_i10.Listing? event) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i10.Listing>> list(_i2.Filter? f, {String? name}) =>
+  _i27.Future<List<_i10.Listing>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i10.Listing>>.value(
+            returnValue: _i27.Future<List<_i10.Listing>>.value(
               <_i10.Listing>[],
             ),
           )
-          as _i29.Future<List<_i10.Listing>>);
+          as _i27.Future<List<_i10.Listing>>);
 
   @override
-  _i29.Future<_i10.Listing?> getOne(_i2.Filter? f, {bool? batch = true}) =>
+  _i27.Future<_i10.Listing?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
             Invocation.method(#getOne, [f], {#batch: batch}),
-            returnValue: _i29.Future<_i10.Listing?>.value(),
+            returnValue: _i27.Future<_i10.Listing?>.value(),
           )
-          as _i29.Future<_i10.Listing?>);
+          as _i27.Future<_i10.Listing?>);
 
   @override
-  _i29.Future<_i10.Listing?> getOneByAnchor(String? anchor) =>
+  _i27.Future<_i10.Listing?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i10.Listing?>.value(),
+            returnValue: _i27.Future<_i10.Listing?>.value(),
           )
-          as _i29.Future<_i10.Listing?>);
+          as _i27.Future<_i10.Listing?>);
 
   @override
-  _i29.Future<_i10.Listing> getById(String? id) =>
+  _i27.Future<_i10.Listing> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i10.Listing>.value(
+            returnValue: _i27.Future<_i10.Listing>.value(
               _FakeListing_22(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i10.Listing>);
+          as _i27.Future<_i10.Listing>);
 
   @override
-  _i29.Future<int> count() =>
+  _i27.Future<int> count() =>
       (super.noSuchMethod(
             Invocation.method(#count, []),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i10.Listing>> findByTag(String? tag, String? value) =>
+  _i27.Future<List<_i10.Listing>> findByTag(String? tag, String? value) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i10.Listing>>.value(
+            returnValue: _i27.Future<List<_i10.Listing>>.value(
               <_i10.Listing>[],
             ),
           )
-          as _i29.Future<List<_i10.Listing>>);
+          as _i27.Future<List<_i10.Listing>>);
 }
 
 /// A class which mocks [Reservations].
@@ -1382,7 +1375,7 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
   String get verificationStreamName =>
       (super.noSuchMethod(
             Invocation.getter(#verificationStreamName),
-            returnValue: _i33.dummyValue<String>(
+            returnValue: _i31.dummyValue<String>(
               this,
               Invocation.getter(#verificationStreamName),
             ),
@@ -1410,36 +1403,36 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i10.Reservation> get updates =>
+  _i27.Stream<_i10.Reservation> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i10.Reservation>.empty(),
+            returnValue: _i27.Stream<_i10.Reservation>.empty(),
           )
-          as _i29.Stream<_i10.Reservation>);
+          as _i27.Stream<_i10.Reservation>);
 
   @override
-  _i29.Future<List<_i10.Reservation>> getByTradeId(String? tradeId) =>
+  _i27.Future<List<_i10.Reservation>> getByTradeId(String? tradeId) =>
       (super.noSuchMethod(
             Invocation.method(#getByTradeId, [tradeId]),
-            returnValue: _i29.Future<List<_i10.Reservation>>.value(
+            returnValue: _i27.Future<List<_i10.Reservation>>.value(
               <_i10.Reservation>[],
             ),
           )
-          as _i29.Future<List<_i10.Reservation>>);
+          as _i27.Future<List<_i10.Reservation>>);
 
   @override
-  _i29.Future<List<_i10.Reservation>> getListingReservations({
+  _i27.Future<List<_i10.Reservation>> getListingReservations({
     required String? listingAnchor,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#getListingReservations, [], {
               #listingAnchor: listingAnchor,
             }),
-            returnValue: _i29.Future<List<_i10.Reservation>>.value(
+            returnValue: _i27.Future<List<_i10.Reservation>>.value(
               <_i10.Reservation>[],
             ),
           )
-          as _i29.Future<List<_i10.Reservation>>);
+          as _i27.Future<List<_i10.Reservation>>);
 
   @override
   Map<String, List<_i10.Reservation>> groupByCommitment(
@@ -1475,16 +1468,16 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
           as _i8.StreamWithStatus<_i8.Validation<_i10.Reservation>>);
 
   @override
-  _i29.Future<Map<String, _i10.ReservationPair>> queryReservationPairs({
+  _i27.Future<Map<String, _i10.ReservationPair>> queryReservationPairs({
     required _i10.Listing? listing,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#queryReservationPairs, [], {#listing: listing}),
-            returnValue: _i29.Future<Map<String, _i10.ReservationPair>>.value(
+            returnValue: _i27.Future<Map<String, _i10.ReservationPair>>.value(
               <String, _i10.ReservationPair>{},
             ),
           )
-          as _i29.Future<Map<String, _i10.ReservationPair>>);
+          as _i27.Future<Map<String, _i10.ReservationPair>>);
 
   @override
   Map<
@@ -1523,7 +1516,7 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
           as _i8.StreamWithStatus<_i10.Reservation>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> accept(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> accept(
     String? anchor,
     _i10.Reservation? request,
     String? guestPubkey,
@@ -1536,14 +1529,14 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
               guestPubkey,
               saltedPubkey,
             ]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<_i10.Reservation> createSelfSigned({
+  _i27.Future<_i10.Reservation> createSelfSigned({
     required _i7.KeyPair? activeKeyPair,
     required _i10.Reservation? negotiateReservation,
     required _i10.PaymentProof? proof,
@@ -1554,7 +1547,7 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
               #negotiateReservation: negotiateReservation,
               #proof: proof,
             }),
-            returnValue: _i29.Future<_i10.Reservation>.value(
+            returnValue: _i27.Future<_i10.Reservation>.value(
               _FakeReservation_27(
                 this,
                 Invocation.method(#createSelfSigned, [], {
@@ -1565,26 +1558,26 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
               ),
             ),
           )
-          as _i29.Future<_i10.Reservation>);
+          as _i27.Future<_i10.Reservation>);
 
   @override
-  _i29.Future<_i10.Reservation> cancel(
+  _i27.Future<_i10.Reservation> cancel(
     _i10.Reservation? reservation,
     _i7.KeyPair? keyPair,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#cancel, [reservation, keyPair]),
-            returnValue: _i29.Future<_i10.Reservation>.value(
+            returnValue: _i27.Future<_i10.Reservation>.value(
               _FakeReservation_27(
                 this,
                 Invocation.method(#cancel, [reservation, keyPair]),
               ),
             ),
           )
-          as _i29.Future<_i10.Reservation>);
+          as _i27.Future<_i10.Reservation>);
 
   @override
-  _i29.Future<_i10.Reservation> createBlocked({
+  _i27.Future<_i10.Reservation> createBlocked({
     required String? listingAnchor,
     required DateTime? start,
     required DateTime? end,
@@ -1595,7 +1588,7 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
               #start: start,
               #end: end,
             }),
-            returnValue: _i29.Future<_i10.Reservation>.value(
+            returnValue: _i27.Future<_i10.Reservation>.value(
               _FakeReservation_27(
                 this,
                 Invocation.method(#createBlocked, [], {
@@ -1606,25 +1599,25 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
               ),
             ),
           )
-          as _i29.Future<_i10.Reservation>);
+          as _i27.Future<_i10.Reservation>);
 
   @override
-  _i29.Future<void> reset() =>
+  _i27.Future<void> reset() =>
       (super.noSuchMethod(
             Invocation.method(#reset, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> dispose() =>
+  _i27.Future<void> dispose() =>
       (super.noSuchMethod(
             Invocation.method(#dispose, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
   _i8.StreamWithStatus<_i8.Validation<_i10.Reservation>> queryVerified({
@@ -1654,17 +1647,17 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
           as _i8.StreamWithStatus<_i8.Validation<_i10.Reservation>>);
 
   @override
-  _i29.Future<_i17.ReservationDeps> resolve(_i10.Reservation? item) =>
+  _i27.Future<_i17.ReservationDeps> resolve(_i10.Reservation? item) =>
       (super.noSuchMethod(
             Invocation.method(#resolve, [item]),
-            returnValue: _i29.Future<_i17.ReservationDeps>.value(
+            returnValue: _i27.Future<_i17.ReservationDeps>.value(
               _FakeReservationDeps_28(
                 this,
                 Invocation.method(#resolve, [item]),
               ),
             ),
           )
-          as _i29.Future<_i17.ReservationDeps>);
+          as _i27.Future<_i17.ReservationDeps>);
 
   @override
   _i8.StreamWithStatus<_i8.Validation<_i10.Reservation>> subscribeVerified({
@@ -1773,94 +1766,94 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
           as _i2.Filter);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> upsert(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> upsert(
     _i10.Reservation? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> delete(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> delete(
     _i10.Reservation? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i10.Reservation>> list(_i2.Filter? f, {String? name}) =>
+  _i27.Future<List<_i10.Reservation>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i10.Reservation>>.value(
+            returnValue: _i27.Future<List<_i10.Reservation>>.value(
               <_i10.Reservation>[],
             ),
           )
-          as _i29.Future<List<_i10.Reservation>>);
+          as _i27.Future<List<_i10.Reservation>>);
 
   @override
-  _i29.Future<_i10.Reservation?> getOne(_i2.Filter? f, {bool? batch = true}) =>
+  _i27.Future<_i10.Reservation?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
             Invocation.method(#getOne, [f], {#batch: batch}),
-            returnValue: _i29.Future<_i10.Reservation?>.value(),
+            returnValue: _i27.Future<_i10.Reservation?>.value(),
           )
-          as _i29.Future<_i10.Reservation?>);
+          as _i27.Future<_i10.Reservation?>);
 
   @override
-  _i29.Future<_i10.Reservation?> getOneByAnchor(String? anchor) =>
+  _i27.Future<_i10.Reservation?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i10.Reservation?>.value(),
+            returnValue: _i27.Future<_i10.Reservation?>.value(),
           )
-          as _i29.Future<_i10.Reservation?>);
+          as _i27.Future<_i10.Reservation?>);
 
   @override
-  _i29.Future<_i10.Reservation> getById(String? id) =>
+  _i27.Future<_i10.Reservation> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i10.Reservation>.value(
+            returnValue: _i27.Future<_i10.Reservation>.value(
               _FakeReservation_27(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i10.Reservation>);
+          as _i27.Future<_i10.Reservation>);
 
   @override
-  _i29.Future<int> count() =>
+  _i27.Future<int> count() =>
       (super.noSuchMethod(
             Invocation.method(#count, []),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i10.Reservation>> findByTag(String? tag, String? value) =>
+  _i27.Future<List<_i10.Reservation>> findByTag(String? tag, String? value) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i10.Reservation>>.value(
+            returnValue: _i27.Future<List<_i10.Reservation>>.value(
               <_i10.Reservation>[],
             ),
           )
-          as _i29.Future<List<_i10.Reservation>>);
+          as _i27.Future<List<_i10.Reservation>>);
 }
 
 /// A class which mocks [EscrowUseCase].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockEscrowUseCase extends _i1.Mock implements _i34.EscrowUseCase {
+class MockEscrowUseCase extends _i1.Mock implements _i32.EscrowUseCase {
   MockEscrowUseCase() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i18.EscrowFundOperation fund(_i35.EscrowFundParams? params) =>
+  _i18.EscrowFundOperation fund(_i33.EscrowFundParams? params) =>
       (super.noSuchMethod(
             Invocation.method(#fund, [params]),
             returnValue: _FakeEscrowFundOperation_30(
@@ -1871,7 +1864,7 @@ class MockEscrowUseCase extends _i1.Mock implements _i34.EscrowUseCase {
           as _i18.EscrowFundOperation);
 
   @override
-  _i19.EscrowClaimOperation claim(_i36.EscrowClaimParams? params) =>
+  _i19.EscrowClaimOperation claim(_i34.EscrowClaimParams? params) =>
       (super.noSuchMethod(
             Invocation.method(#claim, [params]),
             returnValue: _FakeEscrowClaimOperation_31(
@@ -1882,7 +1875,7 @@ class MockEscrowUseCase extends _i1.Mock implements _i34.EscrowUseCase {
           as _i19.EscrowClaimOperation);
 
   @override
-  _i20.EscrowReleaseOperation release(_i37.EscrowReleaseParams? params) =>
+  _i20.EscrowReleaseOperation release(_i35.EscrowReleaseParams? params) =>
       (super.noSuchMethod(
             Invocation.method(#release, [params]),
             returnValue: _FakeEscrowReleaseOperation_32(
@@ -1893,24 +1886,24 @@ class MockEscrowUseCase extends _i1.Mock implements _i34.EscrowUseCase {
           as _i20.EscrowReleaseOperation);
 
   @override
-  _i8.StreamWithStatus<_i38.EscrowEvent> checkEscrowStatus(
+  _i8.StreamWithStatus<_i36.EscrowEvent> checkEscrowStatus(
     _i10.EscrowServiceSelected? selectedEscrow,
     String? tradeId,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#checkEscrowStatus, [selectedEscrow, tradeId]),
-            returnValue: _FakeStreamWithStatus_6<_i38.EscrowEvent>(
+            returnValue: _FakeStreamWithStatus_6<_i36.EscrowEvent>(
               this,
               Invocation.method(#checkEscrowStatus, [selectedEscrow, tradeId]),
             ),
           )
-          as _i8.StreamWithStatus<_i38.EscrowEvent>);
+          as _i8.StreamWithStatus<_i36.EscrowEvent>);
 }
 
 /// A class which mocks [Escrows].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockEscrows extends _i1.Mock implements _i23.Escrows {
+class MockEscrows extends _i1.Mock implements _i22.Escrows {
   MockEscrows() {
     _i1.throwOnMissingStub(this);
   }
@@ -1927,25 +1920,8 @@ class MockEscrows extends _i1.Mock implements _i23.Escrows {
           as _i21.EscrowMethods);
 
   @override
-  _i22.EscrowTrusts get escrowTrusts =>
-      (super.noSuchMethod(
-            Invocation.getter(#escrowTrusts),
-            returnValue: _FakeEscrowTrusts_34(
-              this,
-              Invocation.getter(#escrowTrusts),
-            ),
-          )
-          as _i22.EscrowTrusts);
-
-  @override
   set escrowMethods(_i21.EscrowMethods? value) => super.noSuchMethod(
     Invocation.setter(#escrowMethods, value),
-    returnValueForMissingStub: null,
-  );
-
-  @override
-  set escrowTrusts(_i22.EscrowTrusts? value) => super.noSuchMethod(
-    Invocation.setter(#escrowTrusts, value),
     returnValueForMissingStub: null,
   );
 
@@ -1970,15 +1946,15 @@ class MockEscrows extends _i1.Mock implements _i23.Escrows {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i10.EscrowService> get updates =>
+  _i27.Stream<_i10.EscrowService> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i10.EscrowService>.empty(),
+            returnValue: _i27.Stream<_i10.EscrowService>.empty(),
           )
-          as _i29.Stream<_i10.EscrowService>);
+          as _i27.Stream<_i10.EscrowService>);
 
   @override
-  _i29.Future<_i23.MutualEscrowResult> determineMutualEscrow(
+  _i27.Future<_i22.MutualEscrowResult> determineMutualEscrow(
     String? buyerPubkey,
     String? sellerPubkey,
   ) =>
@@ -1987,8 +1963,8 @@ class MockEscrows extends _i1.Mock implements _i23.Escrows {
               buyerPubkey,
               sellerPubkey,
             ]),
-            returnValue: _i29.Future<_i23.MutualEscrowResult>.value(
-              _FakeMutualEscrowResult_35(
+            returnValue: _i27.Future<_i22.MutualEscrowResult>.value(
+              _FakeMutualEscrowResult_34(
                 this,
                 Invocation.method(#determineMutualEscrow, [
                   buyerPubkey,
@@ -1997,7 +1973,7 @@ class MockEscrows extends _i1.Mock implements _i23.Escrows {
               ),
             ),
           )
-          as _i29.Future<_i23.MutualEscrowResult>);
+          as _i27.Future<_i22.MutualEscrowResult>);
 
   @override
   void notifyUpdate(_i10.EscrowService? event) => super.noSuchMethod(
@@ -2068,91 +2044,91 @@ class MockEscrows extends _i1.Mock implements _i23.Escrows {
           as _i2.Filter);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> upsert(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> upsert(
     _i10.EscrowService? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> delete(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> delete(
     _i10.EscrowService? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i10.EscrowService>> list(_i2.Filter? f, {String? name}) =>
+  _i27.Future<List<_i10.EscrowService>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i10.EscrowService>>.value(
+            returnValue: _i27.Future<List<_i10.EscrowService>>.value(
               <_i10.EscrowService>[],
             ),
           )
-          as _i29.Future<List<_i10.EscrowService>>);
+          as _i27.Future<List<_i10.EscrowService>>);
 
   @override
-  _i29.Future<_i10.EscrowService?> getOne(
+  _i27.Future<_i10.EscrowService?> getOne(
     _i2.Filter? f, {
     bool? batch = true,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#getOne, [f], {#batch: batch}),
-            returnValue: _i29.Future<_i10.EscrowService?>.value(),
+            returnValue: _i27.Future<_i10.EscrowService?>.value(),
           )
-          as _i29.Future<_i10.EscrowService?>);
+          as _i27.Future<_i10.EscrowService?>);
 
   @override
-  _i29.Future<_i10.EscrowService?> getOneByAnchor(String? anchor) =>
+  _i27.Future<_i10.EscrowService?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i10.EscrowService?>.value(),
+            returnValue: _i27.Future<_i10.EscrowService?>.value(),
           )
-          as _i29.Future<_i10.EscrowService?>);
+          as _i27.Future<_i10.EscrowService?>);
 
   @override
-  _i29.Future<_i10.EscrowService> getById(String? id) =>
+  _i27.Future<_i10.EscrowService> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i10.EscrowService>.value(
-              _FakeEscrowService_36(this, Invocation.method(#getById, [id])),
+            returnValue: _i27.Future<_i10.EscrowService>.value(
+              _FakeEscrowService_35(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i10.EscrowService>);
+          as _i27.Future<_i10.EscrowService>);
 
   @override
-  _i29.Future<int> count() =>
+  _i27.Future<int> count() =>
       (super.noSuchMethod(
             Invocation.method(#count, []),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i10.EscrowService>> findByTag(String? tag, String? value) =>
+  _i27.Future<List<_i10.EscrowService>> findByTag(String? tag, String? value) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i10.EscrowService>>.value(
+            returnValue: _i27.Future<List<_i10.EscrowService>>.value(
               <_i10.EscrowService>[],
             ),
           )
-          as _i29.Future<List<_i10.EscrowService>>);
+          as _i27.Future<List<_i10.EscrowService>>);
 }
 
 /// A class which mocks [EscrowTrusts].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockEscrowTrusts extends _i1.Mock implements _i22.EscrowTrusts {
+class MockEscrowTrusts extends _i1.Mock implements _i37.EscrowTrusts {
   MockEscrowTrusts() {
     _i1.throwOnMissingStub(this);
   }
@@ -2178,37 +2154,37 @@ class MockEscrowTrusts extends _i1.Mock implements _i22.EscrowTrusts {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i10.EscrowTrust> get updates =>
+  _i27.Stream<_i10.EscrowTrust> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i10.EscrowTrust>.empty(),
+            returnValue: _i27.Stream<_i10.EscrowTrust>.empty(),
           )
-          as _i29.Stream<_i10.EscrowTrust>);
+          as _i27.Stream<_i10.EscrowTrust>);
 
   @override
-  _i29.Future<_i10.EscrowTrust?> trusted(String? pubkey) =>
+  _i27.Future<_i10.EscrowTrust?> trusted(String? pubkey) =>
       (super.noSuchMethod(
             Invocation.method(#trusted, [pubkey]),
-            returnValue: _i29.Future<_i10.EscrowTrust?>.value(),
+            returnValue: _i27.Future<_i10.EscrowTrust?>.value(),
           )
-          as _i29.Future<_i10.EscrowTrust?>);
+          as _i27.Future<_i10.EscrowTrust?>);
 
   @override
-  _i29.Future<_i10.EscrowTrust?> myTrusted() =>
+  _i27.Future<_i10.EscrowTrust?> myTrusted() =>
       (super.noSuchMethod(
             Invocation.method(#myTrusted, []),
-            returnValue: _i29.Future<_i10.EscrowTrust?>.value(),
+            returnValue: _i27.Future<_i10.EscrowTrust?>.value(),
           )
-          as _i29.Future<_i10.EscrowTrust?>);
+          as _i27.Future<_i10.EscrowTrust?>);
 
   @override
-  _i29.Future<void> ensureEscrowTrust(List<String>? escrowPubkeys) =>
+  _i27.Future<void> ensureEscrowTrust(List<String>? escrowPubkeys) =>
       (super.noSuchMethod(
             Invocation.method(#ensureEscrowTrust, [escrowPubkeys]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
   void notifyUpdate(_i10.EscrowTrust? event) => super.noSuchMethod(
@@ -2276,82 +2252,82 @@ class MockEscrowTrusts extends _i1.Mock implements _i22.EscrowTrusts {
           as _i2.Filter);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> upsert(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> upsert(
     _i10.EscrowTrust? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> delete(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> delete(
     _i10.EscrowTrust? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i10.EscrowTrust>> list(_i2.Filter? f, {String? name}) =>
+  _i27.Future<List<_i10.EscrowTrust>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i10.EscrowTrust>>.value(
+            returnValue: _i27.Future<List<_i10.EscrowTrust>>.value(
               <_i10.EscrowTrust>[],
             ),
           )
-          as _i29.Future<List<_i10.EscrowTrust>>);
+          as _i27.Future<List<_i10.EscrowTrust>>);
 
   @override
-  _i29.Future<_i10.EscrowTrust?> getOne(_i2.Filter? f, {bool? batch = true}) =>
+  _i27.Future<_i10.EscrowTrust?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
             Invocation.method(#getOne, [f], {#batch: batch}),
-            returnValue: _i29.Future<_i10.EscrowTrust?>.value(),
+            returnValue: _i27.Future<_i10.EscrowTrust?>.value(),
           )
-          as _i29.Future<_i10.EscrowTrust?>);
+          as _i27.Future<_i10.EscrowTrust?>);
 
   @override
-  _i29.Future<_i10.EscrowTrust?> getOneByAnchor(String? anchor) =>
+  _i27.Future<_i10.EscrowTrust?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i10.EscrowTrust?>.value(),
+            returnValue: _i27.Future<_i10.EscrowTrust?>.value(),
           )
-          as _i29.Future<_i10.EscrowTrust?>);
+          as _i27.Future<_i10.EscrowTrust?>);
 
   @override
-  _i29.Future<_i10.EscrowTrust> getById(String? id) =>
+  _i27.Future<_i10.EscrowTrust> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i10.EscrowTrust>.value(
-              _FakeEscrowTrust_37(this, Invocation.method(#getById, [id])),
+            returnValue: _i27.Future<_i10.EscrowTrust>.value(
+              _FakeEscrowTrust_36(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i10.EscrowTrust>);
+          as _i27.Future<_i10.EscrowTrust>);
 
   @override
-  _i29.Future<int> count() =>
+  _i27.Future<int> count() =>
       (super.noSuchMethod(
             Invocation.method(#count, []),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i10.EscrowTrust>> findByTag(String? tag, String? value) =>
+  _i27.Future<List<_i10.EscrowTrust>> findByTag(String? tag, String? value) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i10.EscrowTrust>>.value(
+            returnValue: _i27.Future<List<_i10.EscrowTrust>>.value(
               <_i10.EscrowTrust>[],
             ),
           )
-          as _i29.Future<List<_i10.EscrowTrust>>);
+          as _i27.Future<List<_i10.EscrowTrust>>);
 }
 
 /// A class which mocks [EscrowMethods].
@@ -2369,6 +2345,14 @@ class MockEscrowMethods extends _i1.Mock implements _i21.EscrowMethods {
             returnValue: _FakeAuth_24(this, Invocation.getter(#auth)),
           )
           as _i14.Auth);
+
+  @override
+  Set<String> get supportedContractBytecodeHashes =>
+      (super.noSuchMethod(
+            Invocation.getter(#supportedContractBytecodeHashes),
+            returnValue: <String>{},
+          )
+          as Set<String>);
 
   @override
   _i8.CustomLogger get logger =>
@@ -2391,37 +2375,49 @@ class MockEscrowMethods extends _i1.Mock implements _i21.EscrowMethods {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i10.EscrowMethod> get updates =>
+  _i27.Stream<_i10.EscrowMethod> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i10.EscrowMethod>.empty(),
+            returnValue: _i27.Stream<_i10.EscrowMethod>.empty(),
           )
-          as _i29.Stream<_i10.EscrowMethod>);
+          as _i27.Stream<_i10.EscrowMethod>);
 
   @override
-  _i29.Future<_i10.EscrowMethod?> localMethod({
+  _i27.Future<_i10.EscrowMethod?> myMethod() =>
+      (super.noSuchMethod(
+            Invocation.method(#myMethod, []),
+            returnValue: _i27.Future<_i10.EscrowMethod?>.value(),
+          )
+          as _i27.Future<_i10.EscrowMethod?>);
+
+  @override
+  _i27.Future<_i10.EscrowMethod?> localMethod({
+    List<String>? trustedEscrowPubkeys = const [],
     List<_i10.AcceptedPaymentForm>? acceptedPaymentForms = const [],
   }) =>
       (super.noSuchMethod(
             Invocation.method(#localMethod, [], {
+              #trustedEscrowPubkeys: trustedEscrowPubkeys,
               #acceptedPaymentForms: acceptedPaymentForms,
             }),
-            returnValue: _i29.Future<_i10.EscrowMethod?>.value(),
+            returnValue: _i27.Future<_i10.EscrowMethod?>.value(),
           )
-          as _i29.Future<_i10.EscrowMethod?>);
+          as _i27.Future<_i10.EscrowMethod?>);
 
   @override
-  _i29.Future<void> ensureEscrowMethod({
+  _i27.Future<void> ensureEscrowMethod({
+    List<String>? trustedEscrowPubkeys = const [],
     List<_i10.AcceptedPaymentForm>? acceptedPaymentForms = const [],
   }) =>
       (super.noSuchMethod(
             Invocation.method(#ensureEscrowMethod, [], {
+              #trustedEscrowPubkeys: trustedEscrowPubkeys,
               #acceptedPaymentForms: acceptedPaymentForms,
             }),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
   void notifyUpdate(_i10.EscrowMethod? event) => super.noSuchMethod(
@@ -2492,88 +2488,88 @@ class MockEscrowMethods extends _i1.Mock implements _i21.EscrowMethods {
           as _i2.Filter);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> upsert(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> upsert(
     _i10.EscrowMethod? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> delete(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> delete(
     _i10.EscrowMethod? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i10.EscrowMethod>> list(_i2.Filter? f, {String? name}) =>
+  _i27.Future<List<_i10.EscrowMethod>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i10.EscrowMethod>>.value(
+            returnValue: _i27.Future<List<_i10.EscrowMethod>>.value(
               <_i10.EscrowMethod>[],
             ),
           )
-          as _i29.Future<List<_i10.EscrowMethod>>);
+          as _i27.Future<List<_i10.EscrowMethod>>);
 
   @override
-  _i29.Future<_i10.EscrowMethod?> getOne(_i2.Filter? f, {bool? batch = true}) =>
+  _i27.Future<_i10.EscrowMethod?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
             Invocation.method(#getOne, [f], {#batch: batch}),
-            returnValue: _i29.Future<_i10.EscrowMethod?>.value(),
+            returnValue: _i27.Future<_i10.EscrowMethod?>.value(),
           )
-          as _i29.Future<_i10.EscrowMethod?>);
+          as _i27.Future<_i10.EscrowMethod?>);
 
   @override
-  _i29.Future<_i10.EscrowMethod?> getOneByAnchor(String? anchor) =>
+  _i27.Future<_i10.EscrowMethod?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i10.EscrowMethod?>.value(),
+            returnValue: _i27.Future<_i10.EscrowMethod?>.value(),
           )
-          as _i29.Future<_i10.EscrowMethod?>);
+          as _i27.Future<_i10.EscrowMethod?>);
 
   @override
-  _i29.Future<_i10.EscrowMethod> getById(String? id) =>
+  _i27.Future<_i10.EscrowMethod> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i10.EscrowMethod>.value(
-              _FakeEscrowMethod_38(this, Invocation.method(#getById, [id])),
+            returnValue: _i27.Future<_i10.EscrowMethod>.value(
+              _FakeEscrowMethod_37(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i10.EscrowMethod>);
+          as _i27.Future<_i10.EscrowMethod>);
 
   @override
-  _i29.Future<int> count() =>
+  _i27.Future<int> count() =>
       (super.noSuchMethod(
             Invocation.method(#count, []),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i10.EscrowMethod>> findByTag(String? tag, String? value) =>
+  _i27.Future<List<_i10.EscrowMethod>> findByTag(String? tag, String? value) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i10.EscrowMethod>>.value(
+            returnValue: _i27.Future<List<_i10.EscrowMethod>>.value(
               <_i10.EscrowMethod>[],
             ),
           )
-          as _i29.Future<List<_i10.EscrowMethod>>);
+          as _i27.Future<List<_i10.EscrowMethod>>);
 }
 
 /// A class which mocks [BadgeDefinitions].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockBadgeDefinitions extends _i1.Mock implements _i39.BadgeDefinitions {
+class MockBadgeDefinitions extends _i1.Mock implements _i38.BadgeDefinitions {
   MockBadgeDefinitions() {
     _i1.throwOnMissingStub(this);
   }
@@ -2599,12 +2595,12 @@ class MockBadgeDefinitions extends _i1.Mock implements _i39.BadgeDefinitions {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i10.BadgeDefinition> get updates =>
+  _i27.Stream<_i10.BadgeDefinition> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i10.BadgeDefinition>.empty(),
+            returnValue: _i27.Stream<_i10.BadgeDefinition>.empty(),
           )
-          as _i29.Stream<_i10.BadgeDefinition>);
+          as _i27.Stream<_i10.BadgeDefinition>);
 
   @override
   void notifyUpdate(_i10.BadgeDefinition? event) => super.noSuchMethod(
@@ -2675,94 +2671,94 @@ class MockBadgeDefinitions extends _i1.Mock implements _i39.BadgeDefinitions {
           as _i2.Filter);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> upsert(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> upsert(
     _i10.BadgeDefinition? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> delete(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> delete(
     _i10.BadgeDefinition? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i10.BadgeDefinition>> list(_i2.Filter? f, {String? name}) =>
+  _i27.Future<List<_i10.BadgeDefinition>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i10.BadgeDefinition>>.value(
+            returnValue: _i27.Future<List<_i10.BadgeDefinition>>.value(
               <_i10.BadgeDefinition>[],
             ),
           )
-          as _i29.Future<List<_i10.BadgeDefinition>>);
+          as _i27.Future<List<_i10.BadgeDefinition>>);
 
   @override
-  _i29.Future<_i10.BadgeDefinition?> getOne(
+  _i27.Future<_i10.BadgeDefinition?> getOne(
     _i2.Filter? f, {
     bool? batch = true,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#getOne, [f], {#batch: batch}),
-            returnValue: _i29.Future<_i10.BadgeDefinition?>.value(),
+            returnValue: _i27.Future<_i10.BadgeDefinition?>.value(),
           )
-          as _i29.Future<_i10.BadgeDefinition?>);
+          as _i27.Future<_i10.BadgeDefinition?>);
 
   @override
-  _i29.Future<_i10.BadgeDefinition?> getOneByAnchor(String? anchor) =>
+  _i27.Future<_i10.BadgeDefinition?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i10.BadgeDefinition?>.value(),
+            returnValue: _i27.Future<_i10.BadgeDefinition?>.value(),
           )
-          as _i29.Future<_i10.BadgeDefinition?>);
+          as _i27.Future<_i10.BadgeDefinition?>);
 
   @override
-  _i29.Future<_i10.BadgeDefinition> getById(String? id) =>
+  _i27.Future<_i10.BadgeDefinition> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i10.BadgeDefinition>.value(
-              _FakeBadgeDefinition_39(this, Invocation.method(#getById, [id])),
+            returnValue: _i27.Future<_i10.BadgeDefinition>.value(
+              _FakeBadgeDefinition_38(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i10.BadgeDefinition>);
+          as _i27.Future<_i10.BadgeDefinition>);
 
   @override
-  _i29.Future<int> count() =>
+  _i27.Future<int> count() =>
       (super.noSuchMethod(
             Invocation.method(#count, []),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i10.BadgeDefinition>> findByTag(
+  _i27.Future<List<_i10.BadgeDefinition>> findByTag(
     String? tag,
     String? value,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i10.BadgeDefinition>>.value(
+            returnValue: _i27.Future<List<_i10.BadgeDefinition>>.value(
               <_i10.BadgeDefinition>[],
             ),
           )
-          as _i29.Future<List<_i10.BadgeDefinition>>);
+          as _i27.Future<List<_i10.BadgeDefinition>>);
 }
 
 /// A class which mocks [BadgeAwards].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockBadgeAwards extends _i1.Mock implements _i40.BadgeAwards {
+class MockBadgeAwards extends _i1.Mock implements _i39.BadgeAwards {
   MockBadgeAwards() {
     _i1.throwOnMissingStub(this);
   }
@@ -2788,12 +2784,12 @@ class MockBadgeAwards extends _i1.Mock implements _i40.BadgeAwards {
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i10.BadgeAward> get updates =>
+  _i27.Stream<_i10.BadgeAward> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i10.BadgeAward>.empty(),
+            returnValue: _i27.Stream<_i10.BadgeAward>.empty(),
           )
-          as _i29.Stream<_i10.BadgeAward>);
+          as _i27.Stream<_i10.BadgeAward>);
 
   @override
   void notifyUpdate(_i10.BadgeAward? event) => super.noSuchMethod(
@@ -2861,82 +2857,82 @@ class MockBadgeAwards extends _i1.Mock implements _i40.BadgeAwards {
           as _i2.Filter);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> upsert(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> upsert(
     _i10.BadgeAward? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> delete(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> delete(
     _i10.BadgeAward? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i10.BadgeAward>> list(_i2.Filter? f, {String? name}) =>
+  _i27.Future<List<_i10.BadgeAward>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i10.BadgeAward>>.value(
+            returnValue: _i27.Future<List<_i10.BadgeAward>>.value(
               <_i10.BadgeAward>[],
             ),
           )
-          as _i29.Future<List<_i10.BadgeAward>>);
+          as _i27.Future<List<_i10.BadgeAward>>);
 
   @override
-  _i29.Future<_i10.BadgeAward?> getOne(_i2.Filter? f, {bool? batch = true}) =>
+  _i27.Future<_i10.BadgeAward?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
             Invocation.method(#getOne, [f], {#batch: batch}),
-            returnValue: _i29.Future<_i10.BadgeAward?>.value(),
+            returnValue: _i27.Future<_i10.BadgeAward?>.value(),
           )
-          as _i29.Future<_i10.BadgeAward?>);
+          as _i27.Future<_i10.BadgeAward?>);
 
   @override
-  _i29.Future<_i10.BadgeAward?> getOneByAnchor(String? anchor) =>
+  _i27.Future<_i10.BadgeAward?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i10.BadgeAward?>.value(),
+            returnValue: _i27.Future<_i10.BadgeAward?>.value(),
           )
-          as _i29.Future<_i10.BadgeAward?>);
+          as _i27.Future<_i10.BadgeAward?>);
 
   @override
-  _i29.Future<_i10.BadgeAward> getById(String? id) =>
+  _i27.Future<_i10.BadgeAward> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i10.BadgeAward>.value(
-              _FakeBadgeAward_40(this, Invocation.method(#getById, [id])),
+            returnValue: _i27.Future<_i10.BadgeAward>.value(
+              _FakeBadgeAward_39(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i10.BadgeAward>);
+          as _i27.Future<_i10.BadgeAward>);
 
   @override
-  _i29.Future<int> count() =>
+  _i27.Future<int> count() =>
       (super.noSuchMethod(
             Invocation.method(#count, []),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i10.BadgeAward>> findByTag(String? tag, String? value) =>
+  _i27.Future<List<_i10.BadgeAward>> findByTag(String? tag, String? value) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i10.BadgeAward>>.value(
+            returnValue: _i27.Future<List<_i10.BadgeAward>>.value(
               <_i10.BadgeAward>[],
             ),
           )
-          as _i29.Future<List<_i10.BadgeAward>>);
+          as _i27.Future<List<_i10.BadgeAward>>);
 }
 
 /// A class which mocks [Messaging].
@@ -2948,23 +2944,23 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
   }
 
   @override
-  _i24.Threads get threads =>
+  _i23.Threads get threads =>
       (super.noSuchMethod(
             Invocation.getter(#threads),
-            returnValue: _FakeThreads_41(this, Invocation.getter(#threads)),
+            returnValue: _FakeThreads_40(this, Invocation.getter(#threads)),
           )
-          as _i24.Threads);
+          as _i23.Threads);
 
   @override
-  _i29.Future<_i2.Nip01Event> getRumour(
+  _i27.Future<_i2.Nip01Event> getRumour(
     String? content,
     List<List<String>>? tags,
     List<String>? recipientPubkeys,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#getRumour, [content, tags, recipientPubkeys]),
-            returnValue: _i29.Future<_i2.Nip01Event>.value(
-              _FakeNip01Event_42(
+            returnValue: _i27.Future<_i2.Nip01Event>.value(
+              _FakeNip01Event_41(
                 this,
                 Invocation.method(#getRumour, [
                   content,
@@ -2974,10 +2970,10 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
               ),
             ),
           )
-          as _i29.Future<_i2.Nip01Event>);
+          as _i27.Future<_i2.Nip01Event>);
 
   @override
-  _i29.Future<_i10.Message<_i10.Event<_i10.EventTags>>> broadcastTextAndAwait({
+  _i27.Future<_i10.Message<_i10.Event<_i10.EventTags>>> broadcastTextAndAwait({
     required String? content,
     required List<List<String>>? tags,
     required List<String>? recipientPubkeys,
@@ -2989,8 +2985,8 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
               #recipientPubkeys: recipientPubkeys,
             }),
             returnValue:
-                _i29.Future<_i10.Message<_i10.Event<_i10.EventTags>>>.value(
-                  _FakeMessage_43<_i10.Event<_i10.EventTags>>(
+                _i27.Future<_i10.Message<_i10.Event<_i10.EventTags>>>.value(
+                  _FakeMessage_42<_i10.Event<_i10.EventTags>>(
                     this,
                     Invocation.method(#broadcastTextAndAwait, [], {
                       #content: content,
@@ -3000,10 +2996,10 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
                   ),
                 ),
           )
-          as _i29.Future<_i10.Message<_i10.Event<_i10.EventTags>>>);
+          as _i27.Future<_i10.Message<_i10.Event<_i10.EventTags>>>);
 
   @override
-  _i29.Future<List<_i29.Future<List<_i30.RelayBroadcastResponse>>>>
+  _i27.Future<List<_i27.Future<List<_i28.RelayBroadcastResponse>>>>
   broadcastText({
     required String? content,
     required List<List<String>>? tags,
@@ -3016,14 +3012,14 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
               #recipientPubkeys: recipientPubkeys,
             }),
             returnValue:
-                _i29.Future<
-                  List<_i29.Future<List<_i30.RelayBroadcastResponse>>>
-                >.value(<_i29.Future<List<_i30.RelayBroadcastResponse>>>[]),
+                _i27.Future<
+                  List<_i27.Future<List<_i28.RelayBroadcastResponse>>>
+                >.value(<_i27.Future<List<_i28.RelayBroadcastResponse>>>[]),
           )
-          as _i29.Future<List<_i29.Future<List<_i30.RelayBroadcastResponse>>>>);
+          as _i27.Future<List<_i27.Future<List<_i28.RelayBroadcastResponse>>>>);
 
   @override
-  _i29.Future<_i10.Message<_i10.Event<_i10.EventTags>>> broadcastEventAndWait({
+  _i27.Future<_i10.Message<_i10.Event<_i10.EventTags>>> broadcastEventAndWait({
     required _i2.Nip01Event? event,
     required List<List<String>>? tags,
     required List<String>? recipientPubkeys,
@@ -3035,8 +3031,8 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
               #recipientPubkeys: recipientPubkeys,
             }),
             returnValue:
-                _i29.Future<_i10.Message<_i10.Event<_i10.EventTags>>>.value(
-                  _FakeMessage_43<_i10.Event<_i10.EventTags>>(
+                _i27.Future<_i10.Message<_i10.Event<_i10.EventTags>>>.value(
+                  _FakeMessage_42<_i10.Event<_i10.EventTags>>(
                     this,
                     Invocation.method(#broadcastEventAndWait, [], {
                       #event: event,
@@ -3046,10 +3042,10 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
                   ),
                 ),
           )
-          as _i29.Future<_i10.Message<_i10.Event<_i10.EventTags>>>);
+          as _i27.Future<_i10.Message<_i10.Event<_i10.EventTags>>>);
 
   @override
-  _i29.Future<List<_i29.Future<List<_i30.RelayBroadcastResponse>>>>
+  _i27.Future<List<_i27.Future<List<_i28.RelayBroadcastResponse>>>>
   broadcastEvent({
     required _i2.Nip01Event? event,
     required List<List<String>>? tags,
@@ -3062,18 +3058,18 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
               #recipientPubkeys: recipientPubkeys,
             }),
             returnValue:
-                _i29.Future<
-                  List<_i29.Future<List<_i30.RelayBroadcastResponse>>>
-                >.value(<_i29.Future<List<_i30.RelayBroadcastResponse>>>[]),
+                _i27.Future<
+                  List<_i27.Future<List<_i28.RelayBroadcastResponse>>>
+                >.value(<_i27.Future<List<_i28.RelayBroadcastResponse>>>[]),
           )
-          as _i29.Future<List<_i29.Future<List<_i30.RelayBroadcastResponse>>>>);
+          as _i27.Future<List<_i27.Future<List<_i28.RelayBroadcastResponse>>>>);
 }
 
 /// A class which mocks [ReservationRequests].
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockReservationRequests extends _i1.Mock
-    implements _i41.ReservationRequests {
+    implements _i40.ReservationRequests {
   MockReservationRequests() {
     _i1.throwOnMissingStub(this);
   }
@@ -3099,15 +3095,15 @@ class MockReservationRequests extends _i1.Mock
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i2.Nip01Event> get updates =>
+  _i27.Stream<_i2.Nip01Event> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i2.Nip01Event>.empty(),
+            returnValue: _i27.Stream<_i2.Nip01Event>.empty(),
           )
-          as _i29.Stream<_i2.Nip01Event>);
+          as _i27.Stream<_i2.Nip01Event>);
 
   @override
-  _i29.Future<_i10.Reservation> createReservationRequest({
+  _i27.Future<_i10.Reservation> createReservationRequest({
     required _i10.Listing? listing,
     required DateTime? startDate,
     required DateTime? endDate,
@@ -3120,7 +3116,7 @@ class MockReservationRequests extends _i1.Mock
               #endDate: endDate,
               #amount: amount,
             }),
-            returnValue: _i29.Future<_i10.Reservation>.value(
+            returnValue: _i27.Future<_i10.Reservation>.value(
               _FakeReservation_27(
                 this,
                 Invocation.method(#createReservationRequest, [], {
@@ -3132,10 +3128,10 @@ class MockReservationRequests extends _i1.Mock
               ),
             ),
           )
-          as _i29.Future<_i10.Reservation>);
+          as _i27.Future<_i10.Reservation>);
 
   @override
-  _i29.Future<_i10.Reservation> createCounterOffer({
+  _i27.Future<_i10.Reservation> createCounterOffer({
     required _i10.Listing? listing,
     required _i10.Reservation? previousRequest,
     required _i10.TokenAmount? amount,
@@ -3148,7 +3144,7 @@ class MockReservationRequests extends _i1.Mock
               #amount: amount,
               #signerKeyPair: signerKeyPair,
             }),
-            returnValue: _i29.Future<_i10.Reservation>.value(
+            returnValue: _i27.Future<_i10.Reservation>.value(
               _FakeReservation_27(
                 this,
                 Invocation.method(#createCounterOffer, [], {
@@ -3160,7 +3156,7 @@ class MockReservationRequests extends _i1.Mock
               ),
             ),
           )
-          as _i29.Future<_i10.Reservation>);
+          as _i27.Future<_i10.Reservation>);
 
   @override
   void notifyUpdate(_i2.Nip01Event? event) => super.noSuchMethod(
@@ -3228,134 +3224,134 @@ class MockReservationRequests extends _i1.Mock
           as _i2.Filter);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> upsert(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> upsert(
     _i2.Nip01Event? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i30.RelayBroadcastResponse>> delete(
+  _i27.Future<List<_i28.RelayBroadcastResponse>> delete(
     _i2.Nip01Event? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
-            returnValue: _i29.Future<List<_i30.RelayBroadcastResponse>>.value(
-              <_i30.RelayBroadcastResponse>[],
+            returnValue: _i27.Future<List<_i28.RelayBroadcastResponse>>.value(
+              <_i28.RelayBroadcastResponse>[],
             ),
           )
-          as _i29.Future<List<_i30.RelayBroadcastResponse>>);
+          as _i27.Future<List<_i28.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i2.Nip01Event>> list(_i2.Filter? f, {String? name}) =>
+  _i27.Future<List<_i2.Nip01Event>> list(_i2.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i2.Nip01Event>>.value(
+            returnValue: _i27.Future<List<_i2.Nip01Event>>.value(
               <_i2.Nip01Event>[],
             ),
           )
-          as _i29.Future<List<_i2.Nip01Event>>);
+          as _i27.Future<List<_i2.Nip01Event>>);
 
   @override
-  _i29.Future<_i2.Nip01Event?> getOne(_i2.Filter? f, {bool? batch = true}) =>
+  _i27.Future<_i2.Nip01Event?> getOne(_i2.Filter? f, {bool? batch = true}) =>
       (super.noSuchMethod(
             Invocation.method(#getOne, [f], {#batch: batch}),
-            returnValue: _i29.Future<_i2.Nip01Event?>.value(),
+            returnValue: _i27.Future<_i2.Nip01Event?>.value(),
           )
-          as _i29.Future<_i2.Nip01Event?>);
+          as _i27.Future<_i2.Nip01Event?>);
 
   @override
-  _i29.Future<_i2.Nip01Event?> getOneByAnchor(String? anchor) =>
+  _i27.Future<_i2.Nip01Event?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i2.Nip01Event?>.value(),
+            returnValue: _i27.Future<_i2.Nip01Event?>.value(),
           )
-          as _i29.Future<_i2.Nip01Event?>);
+          as _i27.Future<_i2.Nip01Event?>);
 
   @override
-  _i29.Future<_i2.Nip01Event> getById(String? id) =>
+  _i27.Future<_i2.Nip01Event> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i2.Nip01Event>.value(
-              _FakeNip01Event_42(this, Invocation.method(#getById, [id])),
+            returnValue: _i27.Future<_i2.Nip01Event>.value(
+              _FakeNip01Event_41(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i2.Nip01Event>);
+          as _i27.Future<_i2.Nip01Event>);
 
   @override
-  _i29.Future<int> count() =>
+  _i27.Future<int> count() =>
       (super.noSuchMethod(
             Invocation.method(#count, []),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 
   @override
-  _i29.Future<List<_i2.Nip01Event>> findByTag(String? tag, String? value) =>
+  _i27.Future<List<_i2.Nip01Event>> findByTag(String? tag, String? value) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i2.Nip01Event>>.value(
+            returnValue: _i27.Future<List<_i2.Nip01Event>>.value(
               <_i2.Nip01Event>[],
             ),
           )
-          as _i29.Future<List<_i2.Nip01Event>>);
+          as _i27.Future<List<_i2.Nip01Event>>);
 }
 
 /// A class which mocks [Payments].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockPayments extends _i1.Mock implements _i42.Payments {
+class MockPayments extends _i1.Mock implements _i41.Payments {
   MockPayments() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i29.Future<String?> getMyInvoice(int? amountSats, {String? description}) =>
+  _i27.Future<String?> getMyInvoice(int? amountSats, {String? description}) =>
       (super.noSuchMethod(
             Invocation.method(
               #getMyInvoice,
               [amountSats],
               {#description: description},
             ),
-            returnValue: _i29.Future<String?>.value(),
+            returnValue: _i27.Future<String?>.value(),
           )
-          as _i29.Future<String?>);
+          as _i27.Future<String?>);
 
   @override
-  _i26.PayOperation<
-    _i25.PayParameters,
-    _i25.ResolvedDetails,
-    _i25.CallbackDetails,
-    _i25.CompletedDetails
+  _i25.PayOperation<
+    _i24.PayParameters,
+    _i24.ResolvedDetails,
+    _i24.CallbackDetails,
+    _i24.CompletedDetails
   >
-  pay(_i25.PayParameters? params) =>
+  pay(_i24.PayParameters? params) =>
       (super.noSuchMethod(
             Invocation.method(#pay, [params]),
             returnValue:
-                _FakePayOperation_44<
-                  _i25.PayParameters,
-                  _i25.ResolvedDetails,
-                  _i25.CallbackDetails,
-                  _i25.CompletedDetails
+                _FakePayOperation_43<
+                  _i24.PayParameters,
+                  _i24.ResolvedDetails,
+                  _i24.CallbackDetails,
+                  _i24.CompletedDetails
                 >(this, Invocation.method(#pay, [params])),
           )
-          as _i26.PayOperation<
-            _i25.PayParameters,
-            _i25.ResolvedDetails,
-            _i25.CallbackDetails,
-            _i25.CompletedDetails
+          as _i25.PayOperation<
+            _i24.PayParameters,
+            _i24.ResolvedDetails,
+            _i24.CallbackDetails,
+            _i24.CompletedDetails
           >);
 }
 
 /// A class which mocks [Evm].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockEvm extends _i1.Mock implements _i43.Evm {
+class MockEvm extends _i1.Mock implements _i42.Evm {
   MockEvm() {
     _i1.throwOnMissingStub(this);
   }
@@ -3369,47 +3365,61 @@ class MockEvm extends _i1.Mock implements _i43.Evm {
           as _i8.CustomLogger);
 
   @override
-  _i27.Rootstock get rootstock =>
+  List<_i26.ConfiguredEvmChain> get configuredChains =>
       (super.noSuchMethod(
-            Invocation.getter(#rootstock),
-            returnValue: _FakeRootstock_45(this, Invocation.getter(#rootstock)),
+            Invocation.getter(#configuredChains),
+            returnValue: <_i26.ConfiguredEvmChain>[],
           )
-          as _i27.Rootstock);
+          as List<_i26.ConfiguredEvmChain>);
 
   @override
-  List<_i28.EvmChain> get supportedEvmChains =>
+  set configuredChains(List<_i26.ConfiguredEvmChain>? value) =>
+      super.noSuchMethod(
+        Invocation.setter(#configuredChains, value),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  _i27.Future<void> init() =>
       (super.noSuchMethod(
-            Invocation.getter(#supportedEvmChains),
-            returnValue: <_i28.EvmChain>[],
+            Invocation.method(#init, []),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as List<_i28.EvmChain>);
+          as _i27.Future<void>);
 
   @override
-  set supportedEvmChains(List<_i28.EvmChain>? value) => super.noSuchMethod(
-    Invocation.setter(#supportedEvmChains, value),
-    returnValueForMissingStub: null,
-  );
-
-  @override
-  _i29.Future<_i10.TokenAmount> getBalance() =>
+  _i27.Future<_i10.TokenAmount> getBalance() =>
       (super.noSuchMethod(
             Invocation.method(#getBalance, []),
-            returnValue: _i29.Future<_i10.TokenAmount>.value(
-              _FakeTokenAmount_46(this, Invocation.method(#getBalance, [])),
+            returnValue: _i27.Future<_i10.TokenAmount>.value(
+              _FakeTokenAmount_44(this, Invocation.method(#getBalance, [])),
             ),
           )
-          as _i29.Future<_i10.TokenAmount>);
+          as _i27.Future<_i10.TokenAmount>);
 
   @override
-  _i28.EvmChain getChainForEscrowService(_i10.EscrowService? service) =>
+  _i26.ConfiguredEvmChain getChainForEscrowService(
+    _i10.EscrowService? service,
+  ) =>
       (super.noSuchMethod(
             Invocation.method(#getChainForEscrowService, [service]),
-            returnValue: _FakeEvmChain_47(
+            returnValue: _FakeConfiguredEvmChain_45(
               this,
               Invocation.method(#getChainForEscrowService, [service]),
             ),
           )
-          as _i28.EvmChain);
+          as _i26.ConfiguredEvmChain);
+
+  @override
+  _i26.ConfiguredEvmChain? getChainByChainId(int? chainId) =>
+      (super.noSuchMethod(Invocation.method(#getChainByChainId, [chainId]))
+          as _i26.ConfiguredEvmChain?);
+
+  @override
+  _i26.ConfiguredEvmChain? getChainById(String? id) =>
+      (super.noSuchMethod(Invocation.method(#getChainById, [id]))
+          as _i26.ConfiguredEvmChain?);
 
   @override
   _i4.ValueStream<_i10.TokenAmount> subscribeBalance() =>
@@ -3429,38 +3439,39 @@ class MockEvm extends _i1.Mock implements _i43.Evm {
   );
 
   @override
-  _i29.Future<void> reset() =>
+  _i27.Future<void> reset() =>
       (super.noSuchMethod(
             Invocation.method(#reset, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> dispose() =>
+  _i27.Future<void> dispose() =>
       (super.noSuchMethod(
             Invocation.method(#dispose, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<_i28.EvmChain> getClientForChainId(int? chainId) =>
+  _i27.Future<List<_i43.EvmSwapOutOperation>> swapOutAll({
+    _i10.TokenAmount? minimumBalance,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getClientForChainId, [chainId]),
-            returnValue: _i29.Future<_i28.EvmChain>.value(
-              _FakeEvmChain_47(
-                this,
-                Invocation.method(#getClientForChainId, [chainId]),
-              ),
+            Invocation.method(#swapOutAll, [], {
+              #minimumBalance: minimumBalance,
+            }),
+            returnValue: _i27.Future<List<_i43.EvmSwapOutOperation>>.value(
+              <_i43.EvmSwapOutOperation>[],
             ),
           )
-          as _i29.Future<_i28.EvmChain>);
+          as _i27.Future<List<_i43.EvmSwapOutOperation>>);
 
   @override
-  _i29.Future<int> recoverStaleOperations({
+  _i27.Future<int> recoverStaleOperations({
     bool? isBackground = false,
     _i44.OnBackgroundProgress? onProgress,
   }) =>
@@ -3469,9 +3480,9 @@ class MockEvm extends _i1.Mock implements _i43.Evm {
               #isBackground: isBackground,
               #onProgress: onProgress,
             }),
-            returnValue: _i29.Future<int>.value(0),
+            returnValue: _i27.Future<int>.value(0),
           )
-          as _i29.Future<int>);
+          as _i27.Future<int>);
 }
 
 /// A class which mocks [Relays].
@@ -3502,7 +3513,7 @@ class MockRelays extends _i1.Mock implements _i45.Relays {
   _i3.RelayStorage get relayStorage =>
       (super.noSuchMethod(
             Invocation.getter(#relayStorage),
-            returnValue: _FakeRelayStorage_48(
+            returnValue: _FakeRelayStorage_46(
               this,
               Invocation.getter(#relayStorage),
             ),
@@ -3510,63 +3521,63 @@ class MockRelays extends _i1.Mock implements _i45.Relays {
           as _i3.RelayStorage);
 
   @override
-  _i29.Future<void> add(String? url) =>
+  _i27.Future<void> add(String? url) =>
       (super.noSuchMethod(
             Invocation.method(#add, [url]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> remove(String? url) =>
+  _i27.Future<void> remove(String? url) =>
       (super.noSuchMethod(
             Invocation.method(#remove, [url]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> connect() =>
+  _i27.Future<void> connect() =>
       (super.noSuchMethod(
             Invocation.method(#connect, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> ensureConnected() =>
+  _i27.Future<void> ensureConnected() =>
       (super.noSuchMethod(
             Invocation.method(#ensureConnected, []),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Stream<Map<String, _i30.RelayConnectivity<dynamic>>> connectivity() =>
+  _i27.Stream<Map<String, _i28.RelayConnectivity<dynamic>>> connectivity() =>
       (super.noSuchMethod(
             Invocation.method(#connectivity, []),
             returnValue:
-                _i29.Stream<
-                  Map<String, _i30.RelayConnectivity<dynamic>>
+                _i27.Stream<
+                  Map<String, _i28.RelayConnectivity<dynamic>>
                 >.empty(),
           )
-          as _i29.Stream<Map<String, _i30.RelayConnectivity<dynamic>>>);
+          as _i27.Stream<Map<String, _i28.RelayConnectivity<dynamic>>>);
 
   @override
-  _i29.Future<void> syncNip65(String? pubkey) =>
+  _i27.Future<void> syncNip65(String? pubkey) =>
       (super.noSuchMethod(
             Invocation.method(#syncNip65, [pubkey]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 
   @override
-  _i29.Future<void> publishNip65({
+  _i27.Future<void> publishNip65({
     required String? hostrRelay,
     required String? pubkey,
   }) =>
@@ -3575,8 +3586,8 @@ class MockRelays extends _i1.Mock implements _i45.Relays {
               #hostrRelay: hostrRelay,
               #pubkey: pubkey,
             }),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
           )
-          as _i29.Future<void>);
+          as _i27.Future<void>);
 }

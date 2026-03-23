@@ -3,7 +3,8 @@ library;
 
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
+import 'package:hostr_sdk/usecase/evm/capabilities/configured_evm_chain.dart';
+import 'package:hostr_sdk/usecase/evm/capabilities/escrow_capability.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -29,8 +30,8 @@ class _FakeSupportedEscrowContract extends Fake
   }) => events;
 }
 
-class _FakeEvmChain extends Fake implements EvmChain {
-  _FakeEvmChain(this.contract);
+class _FakeEscrowCapability extends Fake implements EscrowCapability {
+  _FakeEscrowCapability(this.contract);
 
   final SupportedEscrowContract<GeneratedContract> contract;
 
@@ -40,13 +41,23 @@ class _FakeEvmChain extends Fake implements EvmChain {
   ) => contract;
 }
 
-class _FakeEvm extends Fake implements Evm {
-  _FakeEvm(this.chain);
+class _FakeConfiguredEvmChain extends Fake implements ConfiguredEvmChain {
+  _FakeConfiguredEvmChain(this._escrow);
 
-  final EvmChain chain;
+  final EscrowCapability _escrow;
 
   @override
-  EvmChain getChainForEscrowService(EscrowService service) => chain;
+  EscrowCapability get escrow => _escrow;
+}
+
+class _FakeEvm extends Fake implements Evm {
+  _FakeEvm(this._configured);
+
+  final ConfiguredEvmChain _configured;
+
+  @override
+  ConfiguredEvmChain getChainForEscrowService(EscrowService service) =>
+      _configured;
 }
 
 Listing _listing({bool allowBarter = true, int pricePerNightSats = 100000}) {
@@ -80,23 +91,6 @@ EscrowService _escrowService() {
     contractAddress: '0x000000000000000000000000000000000000dEaD',
     evmAddress: '0x000000000000000000000000000000000000bEEF',
   ).first;
-}
-
-EscrowTrust _escrowTrust({required EscrowService escrowService}) {
-  final event = Nip01Utils.signWithPrivateKey(
-    event: Nip01Event(
-      kind: kNostrKindEscrowTrust,
-      pubKey: MockKeys.hoster.publicKey,
-      tags: [
-        ['d', 'escrow-trust'],
-        ['p', escrowService.pubKey],
-      ],
-      content: '',
-      createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-    ),
-    privateKey: MockKeys.hoster.privateKey!,
-  );
-  return EscrowTrust.fromNostrEvent(event);
 }
 
 EscrowMethod _escrowMethod({
@@ -150,7 +144,6 @@ PaymentProof _paymentProof({
     escrowProof: EscrowProof(
       txHash: txHash,
       escrowService: escrowService,
-      hostsTrustedEscrows: _escrowTrust(escrowService: escrowService),
       hostsEscrowMethods: _escrowMethod(
         escrowService: escrowService,
         includeAcceptedToken: includeAcceptedToken,
@@ -237,7 +230,7 @@ void main() {
         ),
       );
       final verification = EscrowVerification(
-        evm: _FakeEvm(_FakeEvmChain(contract)),
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
         logger: CustomLogger(),
       );
 
@@ -273,7 +266,7 @@ void main() {
         ),
       );
       final verification = EscrowVerification(
-        evm: _FakeEvm(_FakeEvmChain(contract)),
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
         logger: CustomLogger(),
       );
 
@@ -315,7 +308,7 @@ void main() {
         ),
       );
       final verification = EscrowVerification(
-        evm: _FakeEvm(_FakeEvmChain(contract)),
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
         logger: CustomLogger(),
       );
 

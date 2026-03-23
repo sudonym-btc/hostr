@@ -6,27 +6,26 @@ import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
-import '../../../datasources/contracts/boltz/ERC20Swap.g.dart';
-import '../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../util/custom_logger.dart';
+import '../../../util/http_client_factory.dart';
 import '../../../util/network_error.dart';
 import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
-import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import '../../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
-import '../operations/swap_in/swap_in_models.dart';
-import '../operations/swap_in/swap_in_operation.dart';
-import '../operations/swap_out/swap_out_operation.dart';
+import '../config/evm_config.dart';
 
-abstract class EvmChain {
-  Web3Client _client;
+/// Concrete EVM chain — the transport layer.
+///
+/// Knows how to talk to an RPC node, poll blocks, manage HD keys, and
+/// track balances. Does NOT know about swaps, escrow, or account abstraction.
+/// Those are capabilities attached via [ConfiguredEvmChain].
+class EvmChain {
+  final EvmChainConfig config;
   final CustomLogger logger;
   final Auth auth;
 
+  Web3Client _client;
+
   /// The current [Web3Client] instance.
-  ///
-  /// Accessed via getter so subclasses can transparently rebuild the
-  /// underlying HTTP transport after network failures.
   Web3Client get client => _client;
 
   int _clientGeneration = 0;
@@ -48,18 +47,16 @@ abstract class EvmChain {
   final StreamController<void> _pollNow = StreamController<void>.broadcast();
 
   EvmChain({
-    required Web3Client client,
+    required this.config,
     required this.auth,
     required CustomLogger logger,
   }) : logger = logger.scope('evm-chain'),
-       _client = client;
+       _client = _buildWeb3Client(config.rpcUrl);
 
-  /// Replace the underlying [Web3Client] with a fresh instance.
-  ///
-  /// Called automatically by [_newBlocks] after [maxConsecutiveFailures]
-  /// consecutive RPC errors. Subclasses must override to construct a new
-  /// [Web3Client] appropriate for their chain.
-  Web3Client buildClient();
+  static Web3Client _buildWeb3Client(String rpcUrl) =>
+      Web3Client(rpcUrl, createPlatformHttpClient());
+
+  Web3Client buildClient() => _buildWeb3Client(config.rpcUrl);
 
   void _rebuildClient() => logger.spanSync('_rebuildClient', () {
     logger.i('Rebuilding Web3Client after consecutive failures');
@@ -237,26 +234,6 @@ abstract class EvmChain {
     return 'FilterOptions(address: ${filter.address?.eip55With0x}, '
         'topics: ${filter.topics}, fromBlock: ${filter.fromBlock}, '
         'toBlock: ${filter.toBlock})';
-  }
-
-  SupportedEscrowContract getSupportedEscrowContract(
-    EscrowService escrowService,
-  ) {
-    return getSupportedEscrowContractByName(
-      'MultiEscrow',
-      EthereumAddress.fromHex(escrowService.contractAddress),
-    );
-  }
-
-  SupportedEscrowContract getSupportedEscrowContractByName(
-    String contractName,
-    EthereumAddress address,
-  ) {
-    return SupportedEscrowContractRegistry.getSupportedContract(
-      contractName,
-      client,
-      address,
-    )!;
   }
 
   Future<BigInt> getChainId() async {
@@ -578,24 +555,6 @@ abstract class EvmChain {
       }
     }
   }
-
-  Future<EtherSwap> getEtherSwapContract();
-
-  Future<ERC20Swap> getERC20SwapContract();
-
-  Future<({TokenAmount min, TokenAmount max})> getSwapInLimits();
-
-  SwapInOperation swapIn(SwapInParams params);
-
-  Future<List<SwapOutOperation>> swapOutAll();
-
-  /// Async version that scans all HD-derived addresses for non-zero balances
-  /// and returns one [SwapOutOperation] per funded address.
-  ///
-  /// Subclasses should override to provide chain-specific implementations.
-  /// The default falls back to [swapOutAll] (account 0 only).
-  Future<List<SwapOutOperation>> swapOutAllAddresses() async =>
-      await swapOutAll();
 
   Future<List<dynamic>> call(
     ContractAbi abi,

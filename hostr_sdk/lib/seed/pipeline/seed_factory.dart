@@ -64,13 +64,20 @@ class SeedFactory {
   Future<List<EscrowService>> buildEscrowServices({String? contractAddress}) =>
       stage_profiles.buildEscrowServices(
         contractAddress: contractAddress ?? _ctx.contractAddress,
+        multiEscrowBytecodeHash: config.multiEscrowBytecodeHash,
       );
 
-  Future<List<EscrowTrust>> buildEscrowTrusts(List<SeedUser> users) =>
-      stage_profiles.buildEscrowTrusts(ctx: _ctx, users: users);
-
   Future<List<EscrowMethod>> buildEscrowMethods(List<SeedUser> users) =>
-      stage_profiles.buildEscrowMethods(ctx: _ctx, users: users);
+      stage_profiles.buildEscrowMethods(
+        ctx: _ctx,
+        users: users,
+        multiEscrowBytecodeHash: config.multiEscrowBytecodeHash,
+        chainId: config.chainId,
+        tbtcAddress: config.tbtcAddress,
+        tbtcDecimals: config.tbtcDecimals,
+        usdtAddress: config.usdtAddress,
+        usdtDecimals: config.usdtDecimals,
+      );
 
   List<Listing> buildListings(List<SeedUser> hosts) =>
       stage_listings.buildListings(ctx: _ctx, config: config, hosts: hosts);
@@ -129,7 +136,6 @@ class SeedFactory {
       await buildEscrowProfile(),
     ];
     final escrowServices = await buildEscrowServices();
-    final escrowTrusts = await buildEscrowTrusts(users);
     final escrowMethods = await buildEscrowMethods(users);
 
     final listings = buildListings(hosts);
@@ -154,7 +160,6 @@ class SeedFactory {
       profiles: profiles,
       listings: listings,
       escrowServices: escrowServices,
-      escrowTrusts: escrowTrusts,
       escrowMethods: escrowMethods,
       threads: threads,
       reservationRequests: reservationRequests,
@@ -174,21 +179,17 @@ class SeedFactory {
   /// the host's signed profile metadata.
   ///
   /// Set [withEscrowProof] to `true` and provide [escrowService],
-  /// [escrowTrust], and [escrowMethod] for an escrow-styled proof.
+  /// [escrowMethod] for an escrow-styled proof.
   /// Otherwise a zap-receipt-based proof (with null zap receipt) is used.
   Reservation buildMockReservation(
     SeedThread thread, {
     required ProfileMetadata hostProfile,
     bool withEscrowProof = false,
     EscrowService? escrowService,
-    EscrowTrust? escrowTrust,
     EscrowMethod? escrowMethod,
   }) {
     final PaymentProof? proof;
-    if (withEscrowProof &&
-        escrowService != null &&
-        escrowTrust != null &&
-        escrowMethod != null) {
+    if (withEscrowProof && escrowService != null && escrowMethod != null) {
       proof = PaymentProof(
         hoster: hostProfile,
         listing: thread.listing,
@@ -197,7 +198,6 @@ class SeedFactory {
           txHash:
               '0x${List.generate(64, (i) => ((thread.id.codeUnitAt(i % thread.id.length) + i) % 16).toRadixString(16)).join()}',
           escrowService: escrowService,
-          hostsTrustedEscrows: escrowTrust,
           hostsEscrowMethods: escrowMethod,
         ),
       );

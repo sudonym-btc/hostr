@@ -22,7 +22,6 @@ List<SeedOutcomePlan> buildOutcomePlans({
   required SeedContext ctx,
   required List<SeedThread> threads,
   required DateTime chainNow,
-  required Map<String, EscrowTrust> trustByPubkey,
   required Map<String, EscrowMethod> methodByPubkey,
 }) {
   final plans = <SeedOutcomePlan>[];
@@ -56,9 +55,6 @@ List<SeedOutcomePlan> buildOutcomePlans({
         useEscrow: shouldUseEscrow,
         escrowOutcome: escrowOutcome,
         selfSigned: isSelfSigned,
-        trust: shouldUseEscrow
-            ? trustByPubkey[thread.host.keyPair.publicKey]
-            : null,
         method: shouldUseEscrow
             ? methodByPubkey[thread.host.keyPair.publicKey]
             : null,
@@ -139,7 +135,6 @@ Reservation buildReservationForPlan({
   required SeedOutcomePlan plan,
   required Map<String, ProfileMetadata> profileByPubkey,
   required EscrowService escrowService,
-  required Map<String, EscrowTrust> trustByPubkey,
   required Map<String, EscrowMethod> methodByPubkey,
   required double invalidReservationRate,
 }) {
@@ -148,9 +143,8 @@ Reservation buildReservationForPlan({
   PaymentProof? proof;
 
   if (plan.useEscrow && plan.createTxHash != null) {
-    final trust = plan.trust ?? trustByPubkey[thread.host.keyPair.publicKey];
     final method = plan.method ?? methodByPubkey[thread.host.keyPair.publicKey];
-    if (trust != null && method != null) {
+    if (method != null) {
       proof = PaymentProof(
         hoster: hostProfile!,
         listing: thread.listing,
@@ -158,14 +152,13 @@ Reservation buildReservationForPlan({
         escrowProof: EscrowProof(
           txHash: plan.createTxHash!,
           escrowService: escrowService,
-          hostsTrustedEscrows: trust,
           hostsEscrowMethods: method,
         ),
       );
     } else {
       print(
         '[seed][escrow] WARNING thread=${plan.index + 1}: '
-        'has createTxHash but missing trust/method for host '
+        'has createTxHash but missing escrow method for host '
         '${thread.host.keyPair.publicKey} — escrow proof omitted',
       );
     }
@@ -174,7 +167,7 @@ Reservation buildReservationForPlan({
       '[seed][escrow] WARNING thread=${plan.index + 1}: '
       'useEscrow=true but createTxHash is null — no on-chain '
       'trade found and no creation was attempted '
-      '(trust=${plan.trust != null}, method=${plan.method != null})',
+      '(method=${plan.method != null})',
     );
   } else if (!plan.useEscrow) {
     proof = PaymentProof(
@@ -270,7 +263,6 @@ EscrowProof _buildBogusEscrowProof({
   return EscrowProof(
     txHash: _randomHex(ctx, 64),
     escrowService: _buildBogusEscrowService(ctx),
-    hostsTrustedEscrows: original.hostsTrustedEscrows,
     hostsEscrowMethods: original.hostsEscrowMethods,
   );
 }

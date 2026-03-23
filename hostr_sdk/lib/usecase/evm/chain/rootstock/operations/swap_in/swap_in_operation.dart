@@ -6,13 +6,11 @@ import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 import 'package:eip712/eip712.dart' as eip712;
-import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EtherAmount, EthereumAddress;
 import 'package:web3dart/web3dart.dart' hide params;
 
-import '../../../../../../datasources/boltz/boltz.dart';
 import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../../../datasources/swagger_generated/boltz.swagger.dart';
 import '../../../../../../injection.dart';
@@ -21,35 +19,34 @@ import '../../../../../payments/operations/pay_models.dart';
 import '../../../../../payments/operations/pay_operation.dart';
 import '../../../../../payments/operations/pay_state.dart';
 import '../../../../../payments/payments.dart';
+import '../../../../capabilities/configured_evm_chain.dart';
 import '../../../../contract_call_intent.dart';
 import '../../../../operations/swap_in/swap_in_models.dart';
 import '../../../../operations/swap_in/swap_in_operation.dart';
 import '../../../../operations/swap_in/swap_in_state.dart';
 import '../../../../userop/claim_args.dart';
-import '../../../../userop/userop_service.dart';
-import '../../rootstock.dart';
 
-@injectable
-class RootstockSwapInOperation extends SwapInOperation {
-  final Rootstock rootstock;
-  late final UserOpService _userOpService = getIt<UserOpService>();
+class EvmSwapInOperation extends SwapInOperation {
+  final ConfiguredEvmChain configuredChain;
 
-  RootstockSwapInOperation({
-    required this.rootstock,
+  EvmSwapInOperation({
+    required this.configuredChain,
     required super.auth,
     required super.logger,
-    @factoryParam required super.params,
-    @ignoreParam super.initialState,
+    required super.params,
+    super.initialState,
   });
 
   @override
-  Future<({TokenAmount min, TokenAmount max})> getSwapLimits() =>
-      logger.span('getSwapLimits', () => rootstock.getSwapInLimits());
+  Future<({TokenAmount min, TokenAmount max})> getSwapLimits() => logger.span(
+    'getSwapLimits',
+    () => configuredChain.swaps!.getSwapInLimits(),
+  );
 
   @override
   Map<String, Object?> get telemetryAttributes => {
     ...super.telemetryAttributes,
-    'hostr.chain.id': rootstock.config.rootstockConfig.chainId,
+    'hostr.chain.id': configuredChain.config.chainId,
   };
 
   // ── State machine ─────────────────────────────────────────────────────
@@ -70,33 +67,36 @@ class RootstockSwapInOperation extends SwapInOperation {
 
   // ── Step 1: Create the Boltz reverse-submarine swap ───────────────────
 
-  Future<SwapInState> _stepCreateSwap() =>
-      logger.span('stepCreateSwap', () async {
-        final preimage = _newPreimage();
-        logger.i('Generated swap preimage material');
+  Future<SwapInState> _stepCreateSwap() => logger.span(
+    'stepCreateSwap',
+    () async {
+      final preimage = _newPreimage();
+      logger.i('Generated swap preimage material');
 
-        final creationBlock = await rootstock.client.getBlockNumber();
+      final creationBlock = await configuredChain.chain.client.getBlockNumber();
 
-        /// Create a reverse submarine swap
-        final swap = await _generateSwapRequest(preimage);
+      /// Create a reverse submarine swap
+      final swap = await _generateSwapRequest(preimage);
 
-        // ── Persist recovery data immediately after swap creation ──
-        final data = SwapInData(
-          boltzId: swap.id,
-          preimageHex: hex.encode(preimage.preimage),
-          preimageHash: preimage.hash,
-          onchainAmountSat: swap.onchainAmount?.toInt() ?? 0,
-          timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
-          chainId: rootstock.config.rootstockConfig.chainId,
-          accountIndex: params.accountIndex,
-          creationBlockHeight: creationBlock,
-          invoiceString: swap.invoice,
-          parentOperationId: params.parentOperationId,
-        );
-        logger.i('Swap created: ${swap.id}');
-        logger.d('Swap ${swap.toString()}');
-        return SwapInRequestCreated(data);
-      });
+      // ── Persist recovery data immediately after swap creation ──
+      final data = SwapInData(
+        boltzId: swap.id,
+        preimageHex: hex.encode(preimage.preimage),
+        preimageHash: preimage.hash,
+        onchainAmountSat: swap.onchainAmount?.toInt() ?? 0,
+        timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
+        chainId: configuredChain.config.chainId,
+        accountIndex: params.accountIndex,
+        creationBlockHeight: creationBlock,
+        invoiceString: swap.invoice,
+        parentOperationId: params.parentOperationId,
+        tokenAddress: configuredChain.swaps!.tokenAddress?.eip55With0x,
+      );
+      logger.i('Swap created: ${swap.id}');
+      logger.d('Swap ${swap.toString()}');
+      return SwapInRequestCreated(data);
+    },
+  );
 
   // ── Step 2a: Dispatch payment + wait for lockup (foreground only) ─────
 
@@ -171,7 +171,7 @@ class RootstockSwapInOperation extends SwapInOperation {
 
     // Wait for the lockup tx to be mined.
     logger.i('Waiting for lockup tx $lockupTxId to be mined…');
-    await rootstock.awaitReceipt(lockupTxId);
+    await configuredChain.chain.awaitReceipt(lockupTxId);
 
     return _verifyLockupOnChain(
       data: data,
@@ -202,7 +202,7 @@ class RootstockSwapInOperation extends SwapInOperation {
   Future<SwapInState?> _checkExistingProgress(
     SwapInData data,
   ) => logger.span('checkExistingProgress', () async {
-    // final lockupTx = await rootstock.awaitTransaction(data.lockupTxHash!);
+    // final lockupTx = await configuredChain.chain.awaitTransaction(data.lockupTxHash!);
 
     // ── Check chain for existing lockup (idempotent recovery) ──
     final lockup = await _findLockupOnChain(data);
@@ -229,7 +229,7 @@ class RootstockSwapInOperation extends SwapInOperation {
     }
 
     // ── Check if expired ──
-    final currentBlock = await rootstock.client.getBlockNumber();
+    final currentBlock = await configuredChain.chain.client.getBlockNumber();
     if (currentBlock >= data.timeoutBlockHeight) {
       logger.w(
         'Swap ${data.boltzId} expired (block $currentBlock >= ${data.timeoutBlockHeight})',
@@ -243,7 +243,9 @@ class RootstockSwapInOperation extends SwapInOperation {
 
     // ── Check Boltz status for terminal conditions ──
     try {
-      final boltzStatus = await getIt<BoltzClient>().getSwap(id: data.boltzId);
+      final boltzStatus = await configuredChain.swaps!.boltzClient.getSwap(
+        id: data.boltzId,
+      );
       final status = boltzStatus.status;
 
       if (status == 'transaction.refunded') {
@@ -273,7 +275,7 @@ class RootstockSwapInOperation extends SwapInOperation {
           logger.i(
             'Boltz reports lockup tx $txHash — verifying against preimage hash',
           );
-          await rootstock.awaitReceipt(txHash);
+          await configuredChain.chain.awaitReceipt(txHash);
 
           final lockup = await _findLockupOnChain(data);
           if (lockup != null) {
@@ -294,7 +296,10 @@ class RootstockSwapInOperation extends SwapInOperation {
           }
           logger.w(
             'Boltz reported lockup tx $txHash but no on-chain Lockup event '
-            'matches preimage hash ${data.preimageHash}. Falling through.',
+            'matches preimage hash ${data.preimageHash} on '
+            'chain ${configuredChain.config.chainId} '
+            '(isErc20=${data.tokenAddress != null}, '
+            'tokenAddress=${data.tokenAddress}). Falling through.',
           );
         }
       }
@@ -330,7 +335,7 @@ class RootstockSwapInOperation extends SwapInOperation {
     }
 
     logger.i('Recovery: waiting for lockup tx $lockupTxId to be mined…');
-    await rootstock.awaitReceipt(lockupTxId);
+    await configuredChain.chain.awaitReceipt(lockupTxId);
 
     return _verifyLockupOnChain(
       data: data,
@@ -347,12 +352,28 @@ class RootstockSwapInOperation extends SwapInOperation {
     required String reportedTxId,
     required String? boltzStatus,
   }) => logger.span('verifyLockupOnChain', () async {
-    final lockupOnChain = await _findLockupOnChain(data);
+    var lockupOnChain = await _findLockupOnChain(data);
+
+    // Retry once after a short delay — RPC nodes can lag behind receipt
+    // confirmation, causing getLogs to return stale results.
     if (lockupOnChain == null) {
+      logger.i(
+        'No lockup found on first attempt for ${data.boltzId} on '
+        'chain ${configuredChain.config.chainId}. Retrying in 3s…',
+      );
+      await Future<void>.delayed(const Duration(seconds: 3));
+      lockupOnChain = await _findLockupOnChain(data);
+    }
+
+    if (lockupOnChain == null) {
+      await _logLockupDiagnostics(data, reportedTxId);
       throw StateError(
-        'Boltz reported lockup tx $reportedTxId for swap ${data.boltzId}, '
+        'Boltz reported lockup tx $reportedTxId for swap ${data.boltzId} '
+        'on chain ${configuredChain.config.chainId} '
+        '(isErc20=${data.tokenAddress != null}, '
+        'tokenAddress=${data.tokenAddress}), '
         'but no Lockup event matching preimage hash ${data.preimageHash} '
-        'was found on-chain. The lockup may belong to a different swap.',
+        'was found on-chain. See [lockup-diag] logs above for receipt details.',
       );
     }
 
@@ -376,6 +397,84 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
   });
 
+  /// Diagnostic: inspect the lockup tx receipt to help debug why no
+  /// matching Lockup event was found.  Logs contract addresses, receipt
+  /// logs, and checks whether the event was emitted by the other swap
+  /// contract (EtherSwap vs ERC20Swap mismatch).
+  Future<void> _logLockupDiagnostics(SwapInData data, String txHash) async {
+    try {
+      final swapProvider = configuredChain.swaps!;
+      final etherSwapAddr = swapProvider.getEtherSwapContract().self.address;
+      final erc20SwapAddr = swapProvider.getERC20SwapContract().self.address;
+      final isErc20 = data.tokenAddress != null;
+      final queriedAddr = isErc20 ? erc20SwapAddr : etherSwapAddr;
+
+      final receipt = await configuredChain.chain.client.getTransactionReceipt(
+        txHash,
+      );
+      if (receipt == null) {
+        logger.e(
+          '[lockup-diag] chain=${configuredChain.config.chainId} '
+          'tx=$txHash receipt=null (not yet mined?)',
+        );
+        return;
+      }
+
+      logger.e(
+        '[lockup-diag] chain=${configuredChain.config.chainId} '
+        'boltzId=${data.boltzId} tx=$txHash '
+        'receiptStatus=${receipt.status} '
+        'isErc20=$isErc20 tokenAddress=${data.tokenAddress} '
+        'queriedContract=${queriedAddr.eip55With0x} '
+        'etherSwap=${etherSwapAddr.eip55With0x} '
+        'erc20Swap=${erc20SwapAddr.eip55With0x} '
+        'boltzCurrency=${swapProvider.currency} '
+        'preimageHash=${data.preimageHash} '
+        'fromBlock=${data.creationBlockHeight} '
+        'receiptLogCount=${receipt.logs.length}',
+      );
+
+      for (var i = 0; i < receipt.logs.length; i++) {
+        final log = receipt.logs[i];
+        final logAddr = log.address?.eip55With0x ?? 'null';
+        final matchesQueried =
+            log.address?.eip55With0x == queriedAddr.eip55With0x;
+        final matchesEtherSwap =
+            log.address?.eip55With0x == etherSwapAddr.eip55With0x;
+        final matchesErc20Swap =
+            log.address?.eip55With0x == erc20SwapAddr.eip55With0x;
+        final topics = log.topics?.map((t) => t ?? 'null').join(', ') ?? 'none';
+        logger.e(
+          '[lockup-diag] log[$i] address=$logAddr '
+          'matchesQueried=$matchesQueried '
+          'matchesEtherSwap=$matchesEtherSwap '
+          'matchesERC20Swap=$matchesErc20Swap '
+          'topics=[$topics] '
+          'dataLen=${((log.data?.length ?? 2) - 2) ~/ 2} bytes',
+        );
+      }
+
+      // Check if the event was emitted by the OTHER contract
+      final otherAddr = isErc20 ? etherSwapAddr : erc20SwapAddr;
+      final otherName = isErc20 ? 'EtherSwap' : 'ERC20Swap';
+      if (receipt.logs.any(
+        (l) => l.address?.eip55With0x == otherAddr.eip55With0x,
+      )) {
+        logger.e(
+          '[lockup-diag] ⚠️  Event(s) found from $otherName '
+          '(${otherAddr.eip55With0x}) — we queried '
+          '${isErc20 ? "ERC20Swap" : "EtherSwap"} '
+          '(${queriedAddr.eip55With0x}). '
+          'isErc20=$isErc20 may be wrong for boltzCurrency='
+          '${swapProvider.currency}, '
+          'tokens=${swapProvider.chainInfo.tokens.keys.toList()}',
+        );
+      }
+    } catch (e) {
+      logger.e('[lockup-diag] Failed to fetch diagnostics: $e');
+    }
+  }
+
   // ── Step 3: Claim the locked funds ────────────────────────────────────
 
   Future<SwapInState> _stepClaim() => logger.span('stepClaim', () async {
@@ -393,7 +492,7 @@ class RootstockSwapInOperation extends SwapInOperation {
     // ── 3b. Resolve refund address if missing ──
     var claimData = data;
     if (claimData.refundAddress == null && claimData.lockupTxHash != null) {
-      final lockupTx = await rootstock.awaitTransaction(
+      final lockupTx = await configuredChain.chain.awaitTransaction(
         claimData.lockupTxHash!,
       );
       claimData = claimData.copyWith(refundAddress: lockupTx.from.with0x);
@@ -420,7 +519,7 @@ class RootstockSwapInOperation extends SwapInOperation {
   Future<SwapInState> _stepCheckClaimInMempool() =>
       logger.span('stepCheckClaimInMempool', () async {
         final data = state.data!;
-        await rootstock.awaitTransaction(data.claimTxHash!);
+        await configuredChain.chain.awaitTransaction(data.claimTxHash!);
         logger.i('Claim tx ${data.claimTxHash} visible in mempool');
         return SwapInClaimTxInMempool(data);
       });
@@ -430,7 +529,9 @@ class RootstockSwapInOperation extends SwapInOperation {
   Future<SwapInState> _stepConfirmClaim() =>
       logger.span('stepConfirmClaim', () async {
         final data = state.data!;
-        final receipt = await rootstock.awaitReceipt(data.claimTxHash!);
+        final receipt = await configuredChain.chain.awaitReceipt(
+          data.claimTxHash!,
+        );
         logger.i('Claim receipt for ${data.boltzId}: $receipt');
 
         if (receipt.status != true) {
@@ -453,12 +554,12 @@ class RootstockSwapInOperation extends SwapInOperation {
 
   @override
   Future<SwapInFees> estimateFees() => logger.span('estimateFees', () async {
-    final boltz = getIt<BoltzClient>();
+    final boltz = configuredChain.swaps!.boltzClient;
     final (:feeOverhead, invoiceAmount: _) = await boltz
         .computeInvoiceForDesiredOnchain(desiredOnchainAmount: params.amount);
 
     final relayFees = rbtcFromWei(
-      await _userOpService.estimateGasFee(params.evmKey),
+      await configuredChain.aa!.estimateGasFee(params.evmKey),
     );
 
     return SwapInFees(
@@ -474,7 +575,10 @@ class RootstockSwapInOperation extends SwapInOperation {
   Future<Lockup?> _findLockupOnChain(SwapInData data) =>
       logger.span('findLockupOnChain', () async {
         try {
-          final etherSwap = await rootstock.getEtherSwapContract();
+          final isErc20 = data.tokenAddress != null;
+          final contract = isErc20
+              ? configuredChain.swaps!.getERC20SwapContract().self
+              : configuredChain.swaps!.getEtherSwapContract().self;
           final fromBlock = data.creationBlockHeight != null
               ? BlockNum.exact(data.creationBlockHeight!)
               : const BlockNum.genesis();
@@ -482,16 +586,29 @@ class RootstockSwapInOperation extends SwapInOperation {
             hex.decode(data.preimageHash),
           );
 
+          logger.d(
+            'findLockupOnChain: chain=${configuredChain.config.chainId} '
+            'contract=${contract.address.eip55With0x} '
+            'isErc20=$isErc20 tokenAddress=${data.tokenAddress} '
+            'preimageHash=${data.preimageHash} '
+            'fromBlock=${data.creationBlockHeight ?? "genesis"}',
+          );
+
           // One-shot getLogs query — the streaming API (client.events) never
           // closes, so .toList() on it would hang forever.
-          final event = etherSwap.self.event('Lockup');
+          final event = contract.event('Lockup');
           final filter = FilterOptions.events(
-            contract: etherSwap.self,
+            contract: contract,
             event: event,
             fromBlock: fromBlock,
             toBlock: const BlockNum.current(),
           );
-          final logs = await rootstock.client.getLogs(filter);
+          final logs = await configuredChain.chain.client.getLogs(filter);
+          logger.d(
+            'findLockupOnChain: ${logs.length} Lockup log(s) from '
+            '${contract.address.eip55With0x} since block '
+            '${data.creationBlockHeight ?? "genesis"}',
+          );
           for (final log in logs) {
             // Pre-filter: match preimageHash from the first indexed topic
             // before calling decodeResults. The deployed contract may have
@@ -511,9 +628,20 @@ class RootstockSwapInOperation extends SwapInOperation {
               return _decodeLockupManually(log, preimageHashBytes);
             }
           }
+          if (logs.isNotEmpty) {
+            logger.w(
+              'findLockupOnChain: ${logs.length} Lockup log(s) found but '
+              'none matched preimageHash=${data.preimageHash} on '
+              'chain ${configuredChain.config.chainId}',
+            );
+          }
           return null;
-        } catch (e) {
-          logger.w('Failed to query lockup events: $e');
+        } catch (e, st) {
+          logger.w(
+            'Failed to query lockup events on '
+            'chain ${configuredChain.config.chainId}: $e',
+          );
+          logger.d('findLockupOnChain stack trace: $st');
           return null;
         }
       });
@@ -522,7 +650,10 @@ class RootstockSwapInOperation extends SwapInOperation {
   Future<Claim?> _findClaimOnChain(SwapInData data) =>
       logger.span('findClaimOnChain', () async {
         try {
-          final etherSwap = await rootstock.getEtherSwapContract();
+          final isErc20 = data.tokenAddress != null;
+          final contract = isErc20
+              ? configuredChain.swaps!.getERC20SwapContract().self
+              : configuredChain.swaps!.getEtherSwapContract().self;
           final fromBlock = data.creationBlockHeight != null
               ? BlockNum.exact(data.creationBlockHeight!)
               : const BlockNum.genesis();
@@ -532,14 +663,14 @@ class RootstockSwapInOperation extends SwapInOperation {
 
           // One-shot getLogs query — the streaming API (client.events) never
           // closes, so .toList() on it would hang forever.
-          final event = etherSwap.self.event('Claim');
+          final event = contract.event('Claim');
           final filter = FilterOptions.events(
-            contract: etherSwap.self,
+            contract: contract,
             event: event,
             fromBlock: fromBlock,
             toBlock: const BlockNum.current(),
           );
-          final logs = await rootstock.client.getLogs(filter);
+          final logs = await configuredChain.chain.client.getLogs(filter);
           for (final log in logs) {
             // Pre-filter by preimageHash from the first indexed topic.
             final topics = log.topics;
@@ -569,13 +700,13 @@ class RootstockSwapInOperation extends SwapInOperation {
   ) => logger.span('generateSwapRequest', () async {
     final claimAddress =
         (params.claimAddress ??
-                await _userOpService.getSmartAccountAddress(params.evmKey))
+                await configuredChain.aa!.getSmartAccountAddress(params.evmKey))
             .eip55With0x;
     final description = params.invoiceDescription ?? 'Hostr Reservation';
     logger.i(
       'Using swap claim address: $claimAddress, ${params.amount.getInSats} sats',
     );
-    return getIt<BoltzClient>().reverseSubmarine(
+    return configuredChain.swaps!.reverseSubmarine(
       invoiceAmount: params.amount.getInSats.toDouble(),
       claimAddress: claimAddress,
       preimageHash: preimage.hash,
@@ -614,10 +745,13 @@ class RootstockSwapInOperation extends SwapInOperation {
   /// dependency. All parameters needed for the on-chain claim are stored
   /// in the data object.
   Future<ClaimArgs> _claimArgsFromData(SwapInData data) async {
-    final etherSwap = await rootstock.getEtherSwapContract();
+    final isErc20 = data.tokenAddress != null;
     final amount = rbtcFromSats(BigInt.from(data.onchainAmountSat)).getInWei;
     final refundAddress = EthereumAddress.fromHex(data.refundAddress!);
     final timelock = BigInt.from(data.timeoutBlockHeight);
+    final tokenAddr = isErc20
+        ? EthereumAddress.fromHex(data.tokenAddress!)
+        : null;
     final signature = params.claimDestination != null
         ? await _signClaimAuthorization(
             preimage: data.preimageBytes,
@@ -625,7 +759,8 @@ class RootstockSwapInOperation extends SwapInOperation {
             refundAddress: refundAddress,
             timelock: timelock,
             destination: params.claimDestination!,
-            etherSwap: etherSwap,
+            isErc20: isErc20,
+            tokenAddress: tokenAddr,
           )
         : null;
 
@@ -635,34 +770,73 @@ class RootstockSwapInOperation extends SwapInOperation {
       );
       final expectedClaimAddress = params.claimAddress ?? params.evmKey.address;
 
-      final expectedSwapKey = await etherSwap.hashValues((
-        preimageHash: preimageHash,
-        amount: amount,
-        claimAddress: expectedClaimAddress,
-        refundAddress: refundAddress,
-        timelock: timelock,
-      ));
-      final expectedExists = await etherSwap.swaps(($param77: expectedSwapKey));
+      if (isErc20) {
+        final erc20Swap = configuredChain.swaps!.getERC20SwapContract();
+        final expectedSwapKey = await erc20Swap.hashValues((
+          preimageHash: preimageHash,
+          amount: amount,
+          tokenAddress: tokenAddr!,
+          claimAddress: expectedClaimAddress,
+          refundAddress: refundAddress,
+          timelock: timelock,
+        ));
+        final expectedExists = await erc20Swap.swaps((
+          $param94: expectedSwapKey,
+        ));
 
-      final recoveredSwapKey = await etherSwap.hashValues((
-        preimageHash: preimageHash,
-        amount: amount,
-        claimAddress: signature.recoveredAddress,
-        refundAddress: refundAddress,
-        timelock: timelock,
-      ));
-      final recoveredExists = await etherSwap.swaps((
-        $param77: recoveredSwapKey,
-      ));
+        final recoveredSwapKey = await erc20Swap.hashValues((
+          preimageHash: preimageHash,
+          amount: amount,
+          tokenAddress: tokenAddr,
+          claimAddress: signature.recoveredAddress,
+          refundAddress: refundAddress,
+          timelock: timelock,
+        ));
+        final recoveredExists = await erc20Swap.swaps((
+          $param94: recoveredSwapKey,
+        ));
 
-      logger.i(
-        'EtherSwap lockup lookup: '
-        'expectedClaimAddress=${expectedClaimAddress.eip55With0x} '
-        'exists=$expectedExists, '
-        'recoveredClaimAddress=${signature.recoveredAddress.eip55With0x} '
-        'exists=$recoveredExists, '
-        'preimageHash=${bytesToHex(preimageHash, include0x: true)}',
-      );
+        logger.i(
+          'ERC20Swap lockup lookup: '
+          'expectedClaimAddress=${expectedClaimAddress.eip55With0x} '
+          'exists=$expectedExists, '
+          'recoveredClaimAddress=${signature.recoveredAddress.eip55With0x} '
+          'exists=$recoveredExists, '
+          'preimageHash=${bytesToHex(preimageHash, include0x: true)}',
+        );
+      } else {
+        final etherSwap = configuredChain.swaps!.getEtherSwapContract();
+        final expectedSwapKey = await etherSwap.hashValues((
+          preimageHash: preimageHash,
+          amount: amount,
+          claimAddress: expectedClaimAddress,
+          refundAddress: refundAddress,
+          timelock: timelock,
+        ));
+        final expectedExists = await etherSwap.swaps((
+          $param77: expectedSwapKey,
+        ));
+
+        final recoveredSwapKey = await etherSwap.hashValues((
+          preimageHash: preimageHash,
+          amount: amount,
+          claimAddress: signature.recoveredAddress,
+          refundAddress: refundAddress,
+          timelock: timelock,
+        ));
+        final recoveredExists = await etherSwap.swaps((
+          $param77: recoveredSwapKey,
+        ));
+
+        logger.i(
+          'EtherSwap lockup lookup: '
+          'expectedClaimAddress=${expectedClaimAddress.eip55With0x} '
+          'exists=$expectedExists, '
+          'recoveredClaimAddress=${signature.recoveredAddress.eip55With0x} '
+          'exists=$recoveredExists, '
+          'preimageHash=${bytesToHex(preimageHash, include0x: true)}',
+        );
+      }
     }
 
     return (
@@ -670,6 +844,7 @@ class RootstockSwapInOperation extends SwapInOperation {
       preimage: data.preimageBytes,
       refundAddress: refundAddress,
       timelock: timelock,
+      tokenAddress: tokenAddr,
       v: signature?.v ?? BigInt.zero,
       r: signature?.r ?? Uint8List(32),
       s: signature?.s ?? Uint8List(32),
@@ -685,14 +860,48 @@ class RootstockSwapInOperation extends SwapInOperation {
     required EthereumAddress refundAddress,
     required BigInt timelock,
     required EthereumAddress destination,
-    required EtherSwap etherSwap,
+    required bool isErc20,
+    EthereumAddress? tokenAddress,
   }) async {
-    final contractVersion = await etherSwap.version();
-    final etherSwapAddress = etherSwap.self.address;
+    final String contractName;
+    final BigInt contractVersion;
+    final EthereumAddress contractAddress;
+
+    if (isErc20) {
+      final erc20Swap = configuredChain.swaps!.getERC20SwapContract();
+      contractName = 'ERC20Swap';
+      contractVersion = await erc20Swap.version();
+      contractAddress = erc20Swap.self.address;
+    } else {
+      final etherSwap = configuredChain.swaps!.getEtherSwapContract();
+      contractName = 'EtherSwap';
+      contractVersion = await etherSwap.version();
+      contractAddress = etherSwap.self.address;
+    }
+
     logger.i(
-      'EtherSwap contract version: $contractVersion '
-      'at ${etherSwapAddress.eip55With0x}',
+      '$contractName contract version: $contractVersion '
+      'at ${contractAddress.eip55With0x}',
     );
+
+    final claimTypeFields = <eip712.MessageTypeProperty>[
+      const eip712.MessageTypeProperty(name: 'preimage', type: 'bytes32'),
+      const eip712.MessageTypeProperty(name: 'amount', type: 'uint256'),
+      if (isErc20)
+        const eip712.MessageTypeProperty(name: 'tokenAddress', type: 'address'),
+      const eip712.MessageTypeProperty(name: 'refundAddress', type: 'address'),
+      const eip712.MessageTypeProperty(name: 'timelock', type: 'uint256'),
+      const eip712.MessageTypeProperty(name: 'destination', type: 'address'),
+    ];
+
+    final message = <String, dynamic>{
+      'preimage': bytesToHex(preimage, include0x: true),
+      'amount': amount,
+      if (isErc20) 'tokenAddress': tokenAddress!.eip55With0x,
+      'refundAddress': refundAddress.eip55With0x,
+      'timelock': timelock,
+      'destination': destination.eip55With0x,
+    };
 
     final typedData = eip712.TypedMessage(
       types: {
@@ -705,29 +914,17 @@ class RootstockSwapInOperation extends SwapInOperation {
             type: 'address',
           ),
         ],
-        'Claim': const [
-          eip712.MessageTypeProperty(name: 'preimage', type: 'bytes32'),
-          eip712.MessageTypeProperty(name: 'amount', type: 'uint256'),
-          eip712.MessageTypeProperty(name: 'refundAddress', type: 'address'),
-          eip712.MessageTypeProperty(name: 'timelock', type: 'uint256'),
-          eip712.MessageTypeProperty(name: 'destination', type: 'address'),
-        ],
+        'Claim': claimTypeFields,
       },
       primaryType: 'Claim',
       domain: eip712.EIP712Domain(
-        name: 'EtherSwap',
+        name: contractName,
         version: '$contractVersion',
-        chainId: BigInt.from(rootstock.config.rootstockConfig.chainId),
-        verifyingContract: etherSwapAddress,
+        chainId: BigInt.from(configuredChain.config.chainId),
+        verifyingContract: contractAddress,
         salt: null,
       ),
-      message: {
-        'preimage': bytesToHex(preimage, include0x: true),
-        'amount': amount,
-        'refundAddress': refundAddress.eip55With0x,
-        'timelock': timelock,
-        'destination': destination.eip55With0x,
-      },
+      message: message,
     );
 
     final hash = eip712.hashTypedData(
@@ -743,7 +940,7 @@ class RootstockSwapInOperation extends SwapInOperation {
     );
 
     logger.i(
-      'Prepared EtherSwap claim signature from ${params.evmKey.address.eip55With0x} '
+      'Prepared $contractName claim signature from ${params.evmKey.address.eip55With0x} '
       'to destination ${destination.eip55With0x} '
       '(recovered=${recoveredAddress.eip55With0x}, '
       'expectedClaimAddress=${params.claimAddress?.eip55With0x ?? params.evmKey.address.eip55With0x})',
@@ -759,23 +956,46 @@ class RootstockSwapInOperation extends SwapInOperation {
 
   Future<String> _claim({required ClaimArgs claimArgs}) =>
       logger.span('claim', () async {
-        final etherSwap = await rootstock.getEtherSwapContract();
-        final claimFn = etherSwap.self.abi.functions.firstWhere(
-          (f) => f.name == 'claim' && f.parameters.length == 4,
-        );
-        final intent = ContractCallIntent(
-          to: etherSwap.self.address,
-          data: claimFn.encodeCall([
-            claimArgs.preimage,
-            claimArgs.amount,
-            claimArgs.refundAddress,
-            claimArgs.timelock,
-          ]),
-          value: EtherAmount.zero(),
-          maxGas: 400000,
-          methodName: 'EtherSwap.claim',
-        );
-        return _userOpService.sendUserOp(params.evmKey, intent);
+        final isErc20 = claimArgs.tokenAddress != null;
+
+        final ContractCallIntent intent;
+        if (isErc20) {
+          final erc20Swap = configuredChain.swaps!.getERC20SwapContract();
+          final claimFn = erc20Swap.self.abi.functions.firstWhere(
+            (f) => f.name == 'claim' && f.parameters.length == 5,
+          );
+          intent = ContractCallIntent(
+            to: erc20Swap.self.address,
+            data: claimFn.encodeCall([
+              claimArgs.preimage,
+              claimArgs.amount,
+              claimArgs.tokenAddress!,
+              claimArgs.refundAddress,
+              claimArgs.timelock,
+            ]),
+            value: EtherAmount.zero(),
+            maxGas: 400000,
+            methodName: 'ERC20Swap.claim',
+          );
+        } else {
+          final etherSwap = configuredChain.swaps!.getEtherSwapContract();
+          final claimFn = etherSwap.self.abi.functions.firstWhere(
+            (f) => f.name == 'claim' && f.parameters.length == 4,
+          );
+          intent = ContractCallIntent(
+            to: etherSwap.self.address,
+            data: claimFn.encodeCall([
+              claimArgs.preimage,
+              claimArgs.amount,
+              claimArgs.refundAddress,
+              claimArgs.timelock,
+            ]),
+            value: EtherAmount.zero(),
+            maxGas: 400000,
+            methodName: 'EtherSwap.claim',
+          );
+        }
+        return configuredChain.aa!.sendUserOp(params.evmKey, intent);
       });
 
   /// Generate a cryptographically secure 32-byte preimage and its SHA-256 hash.
@@ -789,7 +1009,7 @@ class RootstockSwapInOperation extends SwapInOperation {
   Future<SwapStatus> _waitForSwapOnChain(
     String id,
   ) => logger.span('waitForSwapOnChain', () {
-    return getIt<BoltzClient>()
+    return configuredChain.swaps!.boltzClient
         .subscribeToSwap(id: id)
         .doOnData((swapStatus) {
           logger.i('Swap status update: ${swapStatus.status}, $swapStatus');

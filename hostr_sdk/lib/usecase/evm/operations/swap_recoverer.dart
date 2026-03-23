@@ -7,10 +7,8 @@ import '../../auth/auth.dart';
 import '../../background_worker/background_worker.dart';
 import '../../nwc/nwc.dart';
 import '../../payments/payments.dart';
-import '../chain/rootstock/operations/swap_in/swap_in_operation.dart'
-    as rootstock_swap_in;
-import '../chain/rootstock/operations/swap_out/swap_out_operation.dart'
-    as rootstock_swap_out;
+import '../chain/rootstock/operations/swap_in/swap_in_operation.dart';
+import '../chain/rootstock/operations/swap_out/swap_out_operation.dart';
 import '../main.dart';
 
 /// Recovers pending swap-in and swap-out operations on app start.
@@ -103,8 +101,8 @@ class SwapRecoverer {
       accountIndex: data.accountIndex,
     );
 
-    final cubit = rootstock_swap_in.RootstockSwapInOperation(
-      rootstock: getIt<Rootstock>(),
+    final cubit = EvmSwapInOperation(
+      configuredChain: getIt<Evm>().configuredChains.first,
       auth: _auth,
       logger: _logger,
       params: SwapInParams(
@@ -141,8 +139,8 @@ class SwapRecoverer {
       accountIndex: data.accountIndex,
     );
 
-    final cubit = rootstock_swap_out.RootstockSwapOutOperation(
-      rootstock: getIt<Rootstock>(),
+    final cubit = EvmSwapOutOperation(
+      configuredChain: getIt<Evm>().configuredChains.first,
       auth: _auth,
       logger: _logger,
       nwc: getIt<Nwc>(),

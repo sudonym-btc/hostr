@@ -134,9 +134,9 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   }
 
   Future<bool> _evmAddressIsUsed(bip.EthereumAddress address) async {
-    for (final chain in _evm.supportedEvmChains) {
-      final nonce = await chain.client.getTransactionCount(address);
-      final balance = await chain.client.getBalance(address);
+    for (final configured in _evm.configuredChains) {
+      final nonce = await configured.chain.client.getTransactionCount(address);
+      final balance = await configured.chain.client.getBalance(address);
       if (nonce > 0 || balance.getInWei > BigInt.zero) {
         return true;
       }

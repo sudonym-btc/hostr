@@ -583,8 +583,8 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   /// Convert the on-chain trade amount to a [TokenAmount].
   ///
   /// If [Trades.token] is the zero address, the trade is funded with native
-  /// RBTC (18 decimals). Otherwise it's an ERC-20 token whose decimals we
-  /// resolve from the known-token registry.
+  /// currency (18 decimals). Otherwise it's an ERC-20 token whose decimals we
+  /// resolve from the chain's known-token config.
   TokenAmount _tokenAmountFromTrade(Trades trade) {
     final isNative =
         trade.token.eip55With0x.toLowerCase() ==
@@ -592,10 +592,13 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     if (isNative) {
       return rbtcFromWei(trade.amount);
     }
-    // ERC-20: look up the token to get decimals.
-    // Default to 18 if unknown — callers comparing against expected amounts
-    // will use the same token identity from the reservation/listing.
-    return tokenAmountFromEvm(trade.token.eip55With0x, trade.amount);
+    // ERC-20: look up the token to get decimals from chain config.
+    return tokenAmountFromEvm(
+      trade.token.eip55With0x,
+      trade.amount,
+      chainId: chain?.config.chainId ?? 30,
+      knownTokens: chain?.config.tokens ?? const {},
+    );
   }
 
   Future<T> _withDecodedCustomError<T>(Future<T> Function() action) =>

@@ -80,5 +80,93 @@ Future<void> _run(List<String> arguments) async {
   }
 
   final seeder = RelaySeeder();
-  await seeder.runPipeline(config: config ?? const SeedPipelineConfig());
+  final resolved = _withEnvTokens(config ?? const SeedPipelineConfig());
+  await seeder.runPipeline(config: resolved);
+}
+
+/// Overlay token addresses from environment variables (or the token
+/// manifest file) when the config doesn't already specify them.
+///
+/// Resolution order for each token address:
+///   1. Explicit value in the parsed config (JSON / file).
+///   2. `ARBITRUM_TBTC_ADDRESS` / `ARBITRUM_USDT_ADDRESS` env vars
+///      (set by `sync-contract-env.sh` → sourced by `seed_relay.sh`).
+///   3. Token manifest at `docker/data/arbitrum/token-addresses.json`
+///      (written by `arbitrum-init.sh` after deploying mock tokens).
+SeedPipelineConfig _withEnvTokens(SeedPipelineConfig base) {
+  final env = Platform.environment;
+
+  // Try env vars first.
+  var tbtcAddr = base.tbtcAddress ?? env['ARBITRUM_TBTC_ADDRESS'];
+  var usdtAddr = base.usdtAddress ?? env['ARBITRUM_USDT_ADDRESS'];
+  var tbtcDec = base.tbtcDecimals;
+  var usdtDec = base.usdtDecimals;
+
+  // Fallback: read the token manifest produced by arbitrum-init.
+  if (tbtcAddr == null || usdtAddr == null) {
+    final manifest = _readTokenManifest(base.chainId);
+    tbtcAddr ??= manifest?['tBTC']?['address'] as String?;
+    usdtAddr ??= manifest?['USDT']?['address'] as String?;
+    if (manifest?['tBTC']?['decimals'] != null) {
+      tbtcDec = (manifest!['tBTC']!['decimals'] as num).toInt();
+    }
+    if (manifest?['USDT']?['decimals'] != null) {
+      usdtDec = (manifest!['USDT']!['decimals'] as num).toInt();
+    }
+  }
+
+  if (tbtcAddr == null || tbtcAddr.isEmpty) {
+    throw StateError(
+      'Could not resolve tBTC token address. '
+      'Set ARBITRUM_TBTC_ADDRESS in the environment, or ensure '
+      'docker/data/arbitrum/token-addresses.json contains a tBTC entry.',
+    );
+  }
+  if (usdtAddr == null || usdtAddr.isEmpty) {
+    throw StateError(
+      'Could not resolve USDT token address. '
+      'Set ARBITRUM_USDT_ADDRESS in the environment, or ensure '
+      'docker/data/arbitrum/token-addresses.json contains a USDT entry.',
+    );
+  }
+
+  return base.copyWith(
+    tbtcAddress: tbtcAddr,
+    tbtcDecimals: tbtcDec,
+    usdtAddress: usdtAddr,
+    usdtDecimals: usdtDec,
+  );
+}
+
+/// Try to read token addresses from the JSON manifest written by
+/// `arbitrum-init.sh`.  Returns the entry for the current chain's
+/// network key, or `null` if the file doesn't exist / is unparseable.
+Map<String, dynamic>? _readTokenManifest(int chainId) {
+  // Map chainId → manifest key (mirrors sync-contract-env.sh).
+  final networkKey = chainId == 42161 ? 'mainnet.42161' : 'regtest.$chainId';
+
+  // Walk up from hostr_sdk/bin/seed.dart to repo root:
+  //   bin/seed.dart → bin/ → hostr_sdk/ → hostr/
+  final repoRoot = File(Platform.script.toFilePath()).parent.parent.parent.path;
+  final candidates = [
+    '$repoRoot/docker/data/arbitrum/token-addresses.json',
+    // Also check env-overridden path.
+    if (Platform.environment.containsKey('TOKEN_ADDRESSES_FILE'))
+      Platform.environment['TOKEN_ADDRESSES_FILE']!,
+  ];
+
+  for (final path in candidates) {
+    final file = File(path);
+    if (!file.existsSync()) continue;
+    try {
+      final parsed = jsonDecode(file.readAsStringSync());
+      if (parsed is Map) {
+        final entry = parsed[networkKey];
+        if (entry is Map) return Map<String, dynamic>.from(entry);
+      }
+    } catch (_) {
+      // Non-fatal — fall through.
+    }
+  }
+  return null;
 }

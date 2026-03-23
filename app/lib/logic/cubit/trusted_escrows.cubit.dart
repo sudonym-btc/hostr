@@ -4,14 +4,14 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class TrustedEscrowsState extends Equatable {
-  final EscrowTrust? data;
+  final EscrowMethod? data;
   final bool loading;
   final Object? error;
 
   const TrustedEscrowsState({this.data, this.loading = false, this.error});
 
   TrustedEscrowsState copyWith({
-    EscrowTrust? data,
+    EscrowMethod? data,
     bool? loading,
     Object? error,
   }) => TrustedEscrowsState(
@@ -41,7 +41,7 @@ class TrustedEscrowsCubit extends Cubit<TrustedEscrowsState> {
     if (!force && (state.loading || state.data != null)) return;
     emit(state.copyWith(loading: true, error: null));
     try {
-      final result = await hostr.escrowTrusts.myTrusted();
+      final result = await hostr.escrowMethods.myMethod();
       if (isClosed) return;
 
       emit(TrustedEscrowsState(data: result, loading: false));

@@ -1,9 +1,9 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:wallet/wallet.dart' show EthereumAddress;
+import 'package:wallet/wallet.dart' show EtherAmount, EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
-import '../../../../injection.dart';
+import '../../../../datasources/contracts/boltz/IERC20.g.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../../util/token_amount_ext.dart';
 import '../../../auth/auth.dart';
@@ -36,8 +36,10 @@ class EscrowFundOperation extends OnchainOperation {
         const OnchainInitialised(),
       ) {
     if (params != null) {
-      chain = evm.getChainForEscrowService(params!.escrowService);
-      contract = chain.getSupportedEscrowContract(params!.escrowService);
+      configuredChain = evm.getChainForEscrowService(params!.escrowService);
+      contract = configuredChain.escrow.getSupportedEscrowContract(
+        params!.escrowService,
+      );
     }
   }
 
@@ -47,12 +49,12 @@ class EscrowFundOperation extends OnchainOperation {
     TradeAccountAllocator tradeAccountAllocator,
     Evm evm,
     CustomLogger logger, {
-    required EvmChain recoveryChain,
+    required ConfiguredEvmChain recoveryChain,
     required SupportedEscrowContract recoveryContract,
     required OnchainOperationState initialState,
   }) : params = null,
        super(auth, tradeAccountAllocator, evm, logger, initialState) {
-    chain = recoveryChain;
+    configuredChain = recoveryChain;
     contract = recoveryContract;
     final data = initialState.data;
     if (data is EscrowFundData) {
@@ -75,6 +77,33 @@ class EscrowFundOperation extends OnchainOperation {
     await _ensureSwapClaimAddress();
   }
 
+  @override
+  Future<void> execute() => logger.span('executeEscrowFund', () async {
+    final persistedJson = await store.read(namespace, tradeId);
+    if (persistedJson != null) {
+      final persistedState = stateFromJson(persistedJson);
+      if (!persistedState.isTerminal) {
+        if (await _shouldDiscardPersistedState(persistedState)) {
+          logger.w(
+            'Discarding stale persisted $namespace state '
+            '"${persistedState.stateName}" for trade $tradeId before retry',
+          );
+          await store.remove(namespace, tradeId);
+        } else {
+          logger.i(
+            'Resuming persisted $namespace state '
+            '"${persistedState.stateName}" for trade $tradeId',
+          );
+          emit(persistedState);
+          await run();
+          return;
+        }
+      }
+    }
+
+    await super.execute();
+  });
+
   /// Description for the swap-in LN invoice.
   String get swapInvoiceDescription => params!.swapInvoiceDescription;
 
@@ -95,12 +124,14 @@ class EscrowFundOperation extends OnchainOperation {
     required String transport,
   }) {
     final params = _requireParams();
+    final approveIntent = _buildApproveIntentIfNeeded(params);
     return EscrowFundData(
       tradeId: params.negotiateReservation.getDtag()!,
       contractAddress: params.escrowService.contractAddress,
       chainId: params.escrowService.chainId,
       accountIndex: accountIndex,
       callIntent: callIntent,
+      approveIntent: approveIntent,
       transport: transport,
     );
   }
@@ -110,6 +141,44 @@ class EscrowFundOperation extends OnchainOperation {
     final params = _requireParams();
     return contract.fund(await _buildFundArgs(params));
   }
+
+  @override
+  Future<String> broadcastContractCallIntent(
+    ContractCallIntent intent,
+    EthPrivateKey credentials,
+  ) => logger.span('broadcastContractCallIntent', () async {
+    final data = state.data;
+    final persistedApproveIntent = data is EscrowFundData
+        ? data.approveIntent
+        : null;
+    final rebuiltApproveIntent = params != null
+        ? _buildApproveIntentIfNeeded(params!)
+        : null;
+    final approveIntent = persistedApproveIntent ?? rebuiltApproveIntent;
+
+    try {
+      await contract.ensureDeployed();
+      if (approveIntent != null) {
+        if (persistedApproveIntent == null) {
+          logger.w(
+            'approveIntent missing from persisted escrow_fund state for '
+            'trade $tradeId; rebuilding ERC20 approve before broadcast',
+          );
+        }
+        logger.i(
+          'Broadcasting batched ERC20 approve + escrow fund '
+          'for trade $tradeId',
+        );
+        return await configuredChain.aa!.sendBatchUserOps(credentials, [
+          approveIntent,
+          intent,
+        ]);
+      }
+      return await configuredChain.aa!.sendUserOp(credentials, intent);
+    } catch (error) {
+      throw contract.decodeWriteError(error);
+    }
+  });
 
   @override
   void onGasEstimated(GasEstimate estimate) =>
@@ -135,7 +204,8 @@ class EscrowFundOperation extends OnchainOperation {
       throw StateError(
         'Transaction $txHash succeeded but contained no logs from the '
         'escrow contract (${escrowAddress.eip55With0x}). '
-        'The funding call was likely not forwarded by the relay wallet.',
+        'The funding call was likely not executed correctly by the gas sponsor '
+        'or the inner ERC20 createTrade reverted.',
       );
     }
   });
@@ -171,13 +241,17 @@ class EscrowFundOperation extends OnchainOperation {
     if (claimTxHash == null || claimTxHash.isEmpty) {
       return data;
     }
-    return data.copyWithTxHash(claimTxHash);
+    logger.i(
+      'Nested swap claim confirmed in tx $claimTxHash for trade $tradeId; '
+      'continuing to escrow funding broadcast',
+    );
+    return data;
   }
 
   Future<void> _ensureSwapClaimAddress() =>
       logger.span('ensureSwapClaimAddress', () async {
         final ethKey = await _activeEthKey();
-        _swapClaimAddress = await getIt<UserOpService>().getSmartAccountAddress(
+        _swapClaimAddress = await configuredChain.aa!.getSmartAccountAddress(
           ethKey,
         );
       });
@@ -259,23 +333,25 @@ class EscrowFundOperation extends OnchainOperation {
     OnchainOperationData data,
     GasEstimate gasEstimate,
   ) => logger.span('computeRequiredSwapAmount', () async {
-    final intent = data.callIntent;
-    if (intent == null) {
-      throw StateError('Cannot compute swap amount without a callIntent');
-    }
-
-    final requiredOnchainValue = rbtcFromWei(intent.value.getInWei);
-    final totalRequired = requiredOnchainValue + gasEstimate.fee;
-    final limits = await chain.getSwapInLimits();
+    final params = _requireParams();
+    final fundingAmount = _resolveFundingAmount(params);
+    final gasComponent = fundingAmount.token.isERC20
+        ? TokenAmount.zero(fundingAmount.token)
+        : TokenAmount(value: gasEstimate.fee.value, token: fundingAmount.token);
+    final totalRequired = fundingAmount + gasComponent;
+    final limits = await configuredChain.getSwapInLimits();
     final swapAmount = TokenAmount.max(
       limits.min,
-      totalRequired,
+      TokenAmount(
+        value: totalRequired.inSats * BigInt.from(10).pow(10),
+        token: limits.min.token,
+      ),
     ).roundUpToSats();
 
     logger.i(
       'Swap funding: '
-      'required=${requiredOnchainValue.getInSats}, '
-      'gas=${gasEstimate.fee.getInSats}, '
+      'funding=${fundingAmount.getInSats}, '
+      'gas=${fundingAmount.token.isERC20 ? 0 : gasEstimate.fee.getInSats}, '
       'swapAmount=${swapAmount.getInSats}',
     );
 
@@ -292,8 +368,10 @@ class EscrowFundOperation extends OnchainOperation {
     final evmKey = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
 
     // First pass: estimate swap fees.
-    SwapInOperation swapEstimation = chain.swapIn(
-      SwapInParams(
+    SwapInOperation swapEstimation = configuredChain.swapIn(
+      auth: auth,
+      logger: logger,
+      params: SwapInParams(
         evmKey: evmKey,
         accountIndex: accountIndex,
         amount: swapAmount,
@@ -304,8 +382,10 @@ class EscrowFundOperation extends OnchainOperation {
     final swapFees = await swapEstimation.estimateFees();
 
     // Second pass: create the real swap with amount + overhead.
-    SwapInOperation swap = chain.swapIn(
-      SwapInParams(
+    SwapInOperation swap = configuredChain.swapIn(
+      auth: auth,
+      logger: logger,
+      params: SwapInParams(
         evmKey: evmKey,
         accountIndex: accountIndex,
         amount: (swapAmount + swapFees.totalFees).roundUpToSats(),
@@ -362,9 +442,11 @@ class EscrowFundOperation extends OnchainOperation {
         transport: 'direct',
       );
       final swapAmount = await _computeRequiredSwapAmount(data, gasEstimate);
-      final swapFees = await chain
+      final swapFees = await configuredChain
           .swapIn(
-            SwapInParams(
+            auth: auth,
+            logger: logger,
+            params: SwapInParams(
               evmKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
               accountIndex: accountIndex,
               amount: swapAmount,
@@ -411,27 +493,73 @@ class EscrowFundOperation extends OnchainOperation {
   Future<EthPrivateKey> _activeEthKey() =>
       auth.hd.getActiveEvmKey(accountIndex: accountIndex);
 
+  Future<bool> _shouldDiscardPersistedState(
+    OnchainOperationState persistedState,
+  ) async {
+    if (persistedState is! OnchainTxSent) return false;
+
+    final txHash = persistedState.data.txHash;
+    if (txHash == null || txHash.isEmpty) return false;
+
+    final receipt = await configuredChain.chain.client.getTransactionReceipt(
+      txHash,
+    );
+    if (receipt == null) return false;
+
+    final hasEscrowLog = receipt.logs.any(
+      (log) => log.address == contract.address,
+    );
+    if (hasEscrowLog) return false;
+
+    logger.w(
+      'Persisted escrow_fund tx $txHash for trade $tradeId '
+      'has status=${receipt.status} and no logs from escrow contract '
+      '${contract.address.eip55With0x}; treating it as stale',
+    );
+    return true;
+  }
+
+  ContractCallIntent? _buildApproveIntentIfNeeded(EscrowFundParams params) {
+    final token = _resolveFundingToken(params);
+    if (!token.isERC20) return null;
+
+    final tokenAddress = EthereumAddress.fromHex(token.address);
+    final erc20 = IERC20(
+      address: tokenAddress,
+      client: configuredChain.chain.client,
+    );
+    final approveFn = erc20.self.abi.functions.firstWhere(
+      (f) => f.name == 'approve',
+    );
+
+    return ContractCallIntent(
+      to: tokenAddress,
+      data: approveFn.encodeCall([contract.address, params.amount.value]),
+      value: EtherAmount.zero(),
+      methodName: 'ERC20.approve',
+    );
+  }
+
   Future<FundArgs> _buildFundArgs(EscrowFundParams params) async {
-    final token = params.amount.token;
+    final token = _resolveFundingToken(params);
     final isERC20 = token.isERC20;
 
     final TokenAmount amount;
     final TokenAmount? escrowFee;
 
     if (isERC20) {
-      // ERC-20: use the raw token amount (already in the token's smallest unit).
-      amount = params.amount;
+      amount = _resolveFundingAmount(params);
       // Compute escrow fee in the same token units using BigInt to avoid
       // overflow for large token values.
       final fp = params.escrowService.feePercent;
       final fb = BigInt.from(params.escrowService.feeBase);
       final fee =
-          (params.amount.value * BigInt.from((fp * 100).round())) ~/
+          (amount.value * BigInt.from((fp * 100).round())) ~/
               BigInt.from(10000) +
           fb;
       escrowFee = TokenAmount(value: fee, token: token);
     } else {
-      amount = rbtcFromSats(params.amount.inSats);
+      amount = _resolveFundingAmount(params);
       escrowFee = rbtcFromSatsInt(
         params.escrowService.escrowFee(amount.getInSats.toInt()),
       );
@@ -448,5 +576,52 @@ class EscrowFundOperation extends OnchainOperation {
       gasEstimate: _gasEstimate,
       token: isERC20 ? token : null,
     );
+  }
+
+  Token _resolveFundingToken(EscrowFundParams params) {
+    final original = params.amount.token;
+    if (original.isERC20 || original.isNative) {
+      return original;
+    }
+
+    final swapProvider = configuredChain.swaps;
+    if (swapProvider?.isErc20 == true && swapProvider?.tokenAddress != null) {
+      final tokenAddress = swapProvider!.tokenAddress!;
+      var decimals = 18;
+      for (final tokenConfig in configuredChain.config.tokens.values) {
+        if (tokenConfig.address.toLowerCase() ==
+            tokenAddress.eip55With0x.toLowerCase()) {
+          decimals = tokenConfig.decimals;
+          break;
+        }
+      }
+      return Token(
+        chainId: configuredChain.config.chainId,
+        address: tokenAddress.eip55With0x,
+        decimals: decimals,
+      );
+    }
+
+    return Token.rbtc(configuredChain.config.chainId);
+  }
+
+  TokenAmount _resolveFundingAmount(EscrowFundParams params) {
+    final original = params.amount;
+    final resolvedToken = _resolveFundingToken(params);
+    if (resolvedToken == original.token) {
+      return original;
+    }
+
+    final sats = original.inSats;
+    final scale = resolvedToken.decimals - 8;
+    final value = scale <= 0 ? sats : sats * BigInt.from(10).pow(scale);
+
+    logger.i(
+      'Resolved escrow funding token from ${original.token.tagId} '
+      'to ${resolvedToken.tagId} for trade $tradeId '
+      '(amount=${sats.toString()} sats)',
+    );
+
+    return TokenAmount(value: value, token: resolvedToken);
   }
 }

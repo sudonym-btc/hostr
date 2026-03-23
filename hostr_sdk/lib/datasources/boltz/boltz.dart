@@ -2,33 +2,120 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:chopper/chopper.dart';
-import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import '../../config.dart';
+import '../../usecase/evm/config/evm_config.dart';
 import '../../util/main.dart';
 import '../swagger_generated/boltz.swagger.dart';
+import 'boltz_chain_info.dart';
 
-@injectable
 class BoltzClient {
   final CustomLogger logger;
   late Boltz gBoltzCli;
-  final HostrConfig config;
-  BoltzClient(this.config, this.logger)
-    : gBoltzCli = Boltz.create(
-        baseUrl: Uri.parse(config.rootstockConfig.boltz.apiUrl),
-      );
+  final BoltzConfig boltzConfig;
+  BoltzClient(this.boltzConfig, this.logger)
+    : gBoltzCli = Boltz.create(baseUrl: Uri.parse(boltzConfig.apiUrl));
+
+  /// WebSocket URL derived from the API URL.
+  String get wsUrl => boltzConfig.wsUrl;
+
+  /// Discover all EVM chains supported by this Boltz instance.
+  ///
+  /// Calls `GET /chain/contracts` (no currency filter) and returns one
+  /// [BoltzChainInfo] per currency that has an EtherSwap contract.
+  Future<List<BoltzChainInfo>> discoverChains() =>
+      logger.span('discoverChains', () async {
+        final res = await gBoltzCli.chainContractsGet();
+        if (!res.isSuccessful || res.body == null) {
+          throw StateError('Failed to fetch chain contracts from Boltz');
+        }
+
+        final body = res.body;
+        if (body is! Map) {
+          throw StateError('Unexpected Boltz chain contracts response shape');
+        }
+
+        final chains = <BoltzChainInfo>[];
+        for (final entry in body.entries) {
+          final currency = entry.key.toString();
+          final data = entry.value;
+          if (data is! Map) continue;
+
+          final network = data['network'];
+          if (network is! Map) continue;
+
+          final chainIdRaw = network['chainId'];
+          // chainId can be int or double from JSON
+          if (chainIdRaw == null) continue;
+          final chainId = chainIdRaw is int
+              ? chainIdRaw
+              : (chainIdRaw as num).toInt();
+
+          final swapContracts = data['swapContracts'];
+          if (swapContracts is! Map) continue;
+
+          final etherSwapRaw = swapContracts['EtherSwap'];
+          final erc20SwapRaw = swapContracts['ERC20Swap'];
+          if (etherSwapRaw is! String || etherSwapRaw.isEmpty) continue;
+
+          // Parse tokens map — Boltz v2 may return either a plain hex
+          // address string or a nested object with a `contractAddress` field.
+          final tokensRaw = data['tokens'];
+          final tokens = <String, EthereumAddress>{};
+          if (tokensRaw is Map) {
+            for (final tokenEntry in tokensRaw.entries) {
+              final tokenName = tokenEntry.key.toString();
+              final tokenData = tokenEntry.value;
+              if (tokenData is String && tokenData.isNotEmpty) {
+                // Plain address string (e.g. "0x948B3c...")
+                tokens[tokenName] = EthereumAddress.fromHex(tokenData);
+              } else if (tokenData is Map &&
+                  tokenData['contractAddress'] is String) {
+                // Nested object with contractAddress field
+                tokens[tokenName] = EthereumAddress.fromHex(
+                  tokenData['contractAddress'] as String,
+                );
+              }
+            }
+          }
+
+          // Determine the Boltz pair currency identifier.
+          // For chains with tokens (e.g. arbitrum → tBTC), the swap pair
+          // key is the token name, NOT the chain key.  For chains without
+          // tokens (e.g. rsk) the chain key doubles as the pair currency.
+          final pairCurrency = tokens.isNotEmpty ? tokens.keys.first : currency;
+
+          chains.add(
+            BoltzChainInfo(
+              currency: pairCurrency,
+              chainId: chainId,
+              etherSwap: EthereumAddress.fromHex(etherSwapRaw),
+              erc20Swap: erc20SwapRaw is String && erc20SwapRaw.isNotEmpty
+                  ? EthereumAddress.fromHex(erc20SwapRaw)
+                  : EthereumAddress.fromHex(etherSwapRaw), // fallback
+              tokens: tokens,
+            ),
+          );
+
+          logger.i(
+            'Boltz discovered chain: $currency (chainId=$chainId, '
+            'etherSwap=$etherSwapRaw)',
+          );
+        }
+
+        logger.i('Boltz discovered ${chains.length} chain(s)');
+        return chains;
+      });
 
   Future<SubmarineResponse> submarine({
     required String invoice,
+    String from = 'RBTC',
+    String to = 'BTC',
   }) => logger.span('submarine', () async {
     logger.i('Swapping for invoice $invoice');
-    SubmarineRequest r = SubmarineRequest(
-      from: 'RBTC',
-      to: 'BTC',
-      invoice: invoice,
-    );
+    SubmarineRequest r = SubmarineRequest(from: from, to: to, invoice: invoice);
 
     Response<SubmarineResponse> res = await gBoltzCli.swapSubmarinePost(
       body: r,
@@ -97,11 +184,13 @@ class BoltzClient {
     required String preimageHash,
     required String claimAddress,
     String? description,
+    String from = 'BTC',
+    String to = 'RBTC',
   }) => logger.span('reverseSubmarine', () async {
     logger.i('Swapping $invoiceAmount for $claimAddress');
     ReverseRequest r = ReverseRequest(
-      from: 'BTC',
-      to: 'RBTC',
+      from: from,
+      to: to,
       invoiceAmount: invoiceAmount,
       claimAddress: claimAddress,
       preimageHash: preimageHash,
@@ -261,7 +350,7 @@ class BoltzClient {
     Future<void> connect() async {
       if (intentionallyClosed || controller.isClosed) return;
       try {
-        final wsUrl = config.rootstockConfig.boltz.wsUrl;
+        final wsUrl = boltzConfig.wsUrl;
         logger.d(
           'Connecting to Boltz WS for swap $id (attempt ${reconnectAttempts + 1})',
         );

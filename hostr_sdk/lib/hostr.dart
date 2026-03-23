@@ -14,6 +14,9 @@ class Hostr {
   Hostr({required this.config, String environment = Env.prod})
     : logger = config.logger {
     configureInjection(environment, config: config);
+    if (!getIt.isRegistered<HostrConfig>()) {
+      getIt.registerSingleton<HostrConfig>(config);
+    }
   }
   Ndk get ndk => getIt<Ndk>();
   Auth get auth => getIt<Auth>();
@@ -31,7 +34,6 @@ class Hostr {
   GiftWraps get giftWraps => getIt<GiftWraps>();
   EscrowUseCase get escrow => getIt<EscrowUseCase>();
   Escrows get escrows => getIt<Escrows>();
-  EscrowTrusts get escrowTrusts => getIt<EscrowTrusts>();
   EscrowMethods get escrowMethods => getIt<EscrowMethods>();
   BadgeDefinitions get badgeDefinitions => getIt<BadgeDefinitions>();
   BadgeAwards get badgeAwards => getIt<BadgeAwards>();
@@ -102,6 +104,11 @@ class Hostr {
 
     await relays.connect();
 
+    // Discover Boltz swap capabilities and attach swap providers to
+    // matching EVM chains. This must complete before any escrow flow
+    // tries to compute swap amounts.
+    await evm.init();
+
     _authStateSubscription = auth.authState.listen((state) async {
       logger.d('Auth state changed: $state');
       if (state is LoggedIn) {
@@ -124,13 +131,11 @@ class Hostr {
           pubkey: pubkey,
         );
 
-        // Ensure the user's escrow method list includes EVM.
-        escrowMethods.ensureEscrowMethod();
-
-        // Ensure the user's escrow trust list includes the bootstrap providers.
-        if (config.bootstrapEscrowPubkeys.isNotEmpty) {
-          escrowTrusts.ensureEscrowTrust(config.bootstrapEscrowPubkeys);
-        }
+        // Ensure the user's escrow method list includes trusted arbiters,
+        // supported contract bytecodes, and accepted payment forms.
+        await escrowMethods.ensureEscrowMethod(
+          trustedEscrowPubkeys: config.bootstrapEscrowPubkeys,
+        );
         // Start user-scoped Nostr subscriptions and the payment-proof
         // orchestrator. UserSubscriptions must start first so its streams
         // are live before the orchestrator subscribes to them.

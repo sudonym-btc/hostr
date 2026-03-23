@@ -4,7 +4,6 @@ import '../../../../util/custom_logger.dart';
 import '../../../auth/auth.dart';
 import '../../../evm/main.dart';
 import '../../../trade_account_allocator/trade_account_allocator.dart';
-import '../../supported_escrow_contract/supported_escrow_contract.dart';
 import '../onchain_operation.dart';
 import 'escrow_claim_models.dart';
 
@@ -28,8 +27,10 @@ class EscrowClaimOperation extends OnchainOperation {
         logger,
         const OnchainInitialised(),
       ) {
-    chain = evm.getChainForEscrowService(params.escrowService!);
-    contract = chain.getSupportedEscrowContract(params.escrowService!);
+    configuredChain = evm.getChainForEscrowService(params.escrowService!);
+    contract = configuredChain.escrow.getSupportedEscrowContract(
+      params.escrowService!,
+    );
   }
 
   // ── OnchainOperation overrides ────────────────────────────────────

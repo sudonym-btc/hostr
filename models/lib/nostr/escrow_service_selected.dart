@@ -20,7 +20,6 @@ class EscrowServiceSelected extends JsonContentNostrEvent<
 
   // ── Convenience getters ─────────────────────────────────────────────
   EscrowService get service => parsedContent.service;
-  EscrowTrust get sellerTrusts => parsedContent.sellerTrusts;
   EscrowMethod get sellerMethods => parsedContent.sellerMethods;
 
   EscrowServiceSelected(
@@ -45,12 +44,10 @@ class EscrowServiceSelected extends JsonContentNostrEvent<
 
 class EscrowServiceSelectedContent extends EventContent {
   final EscrowService service;
-  final EscrowTrust sellerTrusts;
   final EscrowMethod sellerMethods;
 
   EscrowServiceSelectedContent({
     required this.service,
-    required this.sellerTrusts,
     required this.sellerMethods,
   });
 
@@ -58,7 +55,6 @@ class EscrowServiceSelectedContent extends EventContent {
   Map<String, dynamic> toJson() {
     return {
       "service": service.toString(),
-      "sellerTrusts": sellerTrusts.toString(),
       "sellerMethods": sellerMethods.toString(),
     };
   }
@@ -69,8 +65,6 @@ class EscrowServiceSelectedContent extends EventContent {
           Nip01EventModel.fromJson(jsonDecode(json['service']))),
       sellerMethods: EscrowMethod.fromNostrEvent(
           Nip01EventModel.fromJson(jsonDecode(json['sellerMethods']))),
-      sellerTrusts: EscrowTrust.fromNostrEvent(
-          Nip01EventModel.fromJson(jsonDecode(json['sellerTrusts']))),
     );
   }
 }

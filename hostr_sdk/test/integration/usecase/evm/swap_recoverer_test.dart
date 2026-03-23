@@ -53,16 +53,18 @@ void main() {
       );
 
       // Run a full swap-in to completion so the store has a terminal entry.
-      final swapLimits = await hostr.evm.rootstock.getSwapInLimits();
-      final amount =
-          swapLimits.min + rbtcFromSatsInt(1000);
+      final configured = hostr.evm.configuredChains.first;
+      final swapLimits = await configured.getSwapInLimits();
+      final amount = swapLimits.min + rbtcFromSatsInt(1000);
 
-      final swapIn = hostr.evm.rootstock.swapIn(
-        SwapInParams(
+      final swapIn = configured.swapIn(
+        params: SwapInParams(
           evmKey: await hostr.auth.hd.getActiveEvmKey(),
           accountIndex: 0,
           amount: amount,
         ),
+        auth: hostr.auth,
+        logger: CustomLogger(),
       );
 
       await swapIn.execute();
@@ -88,16 +90,18 @@ void main() {
       );
 
       // 1. Run a full swap-in to completion.
-      final swapLimits = await hostr.evm.rootstock.getSwapInLimits();
-      final amount =
-          swapLimits.min + rbtcFromSatsInt(1000);
+      final configured = hostr.evm.configuredChains.first;
+      final swapLimits = await configured.getSwapInLimits();
+      final amount = swapLimits.min + rbtcFromSatsInt(1000);
 
-      final swapIn = hostr.evm.rootstock.swapIn(
-        SwapInParams(
+      final swapIn = configured.swapIn(
+        params: SwapInParams(
           evmKey: await hostr.auth.hd.getActiveEvmKey(),
           accountIndex: 0,
           amount: amount,
         ),
+        auth: hostr.auth,
+        logger: CustomLogger(),
       );
 
       await swapIn.execute();

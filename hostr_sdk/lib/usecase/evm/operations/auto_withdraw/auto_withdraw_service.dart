@@ -5,11 +5,17 @@ import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../../../../config.dart';
+import '../../../../injection.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../../util/token_amount_ext.dart';
+import '../../../auth/auth.dart';
+import '../../../nwc/nwc.dart';
+import '../../../payments/payments.dart';
 import '../../../user_config/user_config_store.dart';
 import '../../evm.dart';
 import '../operation_state_store.dart';
+import '../swap_out/swap_out_models.dart';
+import '../swap_out/swap_out_quote_service.dart';
 import '../swap_out/swap_out_state.dart';
 
 /// Watches the EVM balance across all supported chains and automatically
@@ -136,12 +142,14 @@ class AutoWithdrawService {
     );
 
     // Iterate each chain independently (sequential to avoid NWC invoice conflicts)
-    for (final chain in _evm.supportedEvmChains) {
+    for (final configured in _evm.configuredChains) {
       if (_swapInProgress) break;
+      if (configured.swaps == null) continue; // no swap provider
 
       try {
         // Get individual address balances for this chain.
-        final fundedAddresses = await chain.getAddressesWithBalance();
+        final fundedAddresses = await configured.chain
+            .getAddressesWithBalance();
 
         // Gate 4: Apply minimum balance per individual address.
         final qualifyingIndices = <int>{};
@@ -150,13 +158,13 @@ class AutoWithdrawService {
             qualifyingIndices.add(entry.accountIndex);
             _logger.d(
               'AutoWithdraw: address index ${entry.accountIndex} on '
-              '${chain.runtimeType} qualifies with '
+              '${configured.config.id} qualifies with '
               '${entry.balance.getInSats} sats',
             );
           } else {
             _logger.d(
               'AutoWithdraw skipped address index ${entry.accountIndex} on '
-              '${chain.runtimeType}: balance ${entry.balance.getInSats} sats '
+              '${configured.config.id}: balance ${entry.balance.getInSats} sats '
               'below minimum ${_hostrConfig.autoWithdrawMinimumSats}',
             );
           }
@@ -164,14 +172,34 @@ class AutoWithdrawService {
 
         if (qualifyingIndices.isEmpty) {
           _logger.d(
-            'AutoWithdraw: no qualifying addresses on ${chain.runtimeType}',
+            'AutoWithdraw: no qualifying addresses on ${configured.config.id}',
           );
           continue;
         }
 
-        // Create swap-out operations for all funded addresses, then filter
-        // to only those whose individual balance met the minimum threshold.
-        final swapOps = await chain.swapOutAllAddresses();
+        // Create swap-out operations for all funded addresses.
+        final swapOps = await Future.wait(
+          fundedAddresses.map((entry) async {
+            final evmKey = await _evm.logger.span(
+              'getActiveEvmKey',
+              () => getIt<Auth>().hd.getActiveEvmKey(
+                accountIndex: entry.accountIndex,
+              ),
+            );
+            return configured.swapOut(
+              params: SwapOutParams(
+                evmKey: evmKey,
+                accountIndex: entry.accountIndex,
+                amount: null,
+              ),
+              auth: getIt<Auth>(),
+              logger: _logger,
+              nwc: getIt<Nwc>(),
+              payments: getIt<Payments>(),
+              quoteService: getIt<SwapOutQuoteService>(),
+            );
+          }),
+        );
 
         for (final swapOp in swapOps) {
           if (_swapInProgress) break;
@@ -187,7 +215,7 @@ class AutoWithdrawService {
 
             if (netAmount <= TokenAmount.zero(rbtc)) {
               _logger.d(
-                'AutoWithdraw skipped on ${chain.runtimeType}: '
+                'AutoWithdraw skipped on ${configured.config.id}: '
                 'fees exceed balance',
               );
               continue;
@@ -200,7 +228,7 @@ class AutoWithdrawService {
 
             if (feeRatio > maxFeeRatio) {
               _logger.d(
-                'AutoWithdraw skipped on ${chain.runtimeType}: fee ratio '
+                'AutoWithdraw skipped on ${configured.config.id}: fee ratio '
                 '${(feeRatio * 100).toStringAsFixed(1)}% exceeds max '
                 '${(maxFeeRatio * 100).toStringAsFixed(1)}%',
               );
@@ -211,25 +239,25 @@ class AutoWithdrawService {
             _swapInProgress = true;
             _logger.i(
               'AutoWithdraw: initiating swap-out of '
-              '${fees.balance.getInSats} sats on ${chain.runtimeType}',
+              '${fees.balance.getInSats} sats on ${configured.config.id}',
             );
 
             await swapOp.execute();
 
             if (swapOp.state is SwapOutCompleted) {
               _logger.i(
-                'AutoWithdraw: swap-out completed on ${chain.runtimeType}',
+                'AutoWithdraw: swap-out completed on ${configured.config.id}',
               );
             } else if (swapOp.state is SwapOutFailed) {
               final failed = swapOp.state as SwapOutFailed;
               _logger.e(
-                'AutoWithdraw: swap-out failed on ${chain.runtimeType}: '
+                'AutoWithdraw: swap-out failed on ${configured.config.id}: '
                 '${failed.error}',
               );
             }
           } catch (e) {
             _logger.e(
-              'AutoWithdraw: swap-out failed on ${chain.runtimeType}: $e',
+              'AutoWithdraw: swap-out failed on ${configured.config.id}: $e',
             );
           } finally {
             _swapInProgress = false;
@@ -238,7 +266,7 @@ class AutoWithdrawService {
         }
       } catch (e) {
         _logger.e(
-          'AutoWithdraw: failed to create swap-out ops on ${chain.runtimeType}: $e',
+          'AutoWithdraw: failed to create swap-out ops on ${configured.config.id}: $e',
         );
       }
     }

@@ -95,6 +95,58 @@ class Requests extends RequestsModel {
     Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
   }
 
+  String _namedRequest(String baseName, [int suffixLength = 5]) =>
+      '$baseName-${Helpers.getRandomString(suffixLength)}';
+
+  Stream<Nip01Event> _connectedStream({
+    required Stream<Nip01Event> Function() open,
+  }) {
+    return Rx.defer(() {
+      return Stream.fromFuture(
+        _relays.ensureConnected(),
+      ).asyncExpand((_) => open());
+    });
+  }
+
+  Stream<T> _parseEvents<T extends Nip01Event>(Stream<Nip01Event> source) {
+    return source.map(safeParser<T>).whereType<T>();
+  }
+
+  Stream<Nip01Event> _openQueryStream({
+    required String name,
+    required Filter filter,
+    Duration? timeout,
+  }) {
+    return _connectedStream(
+      open: () => ndk.requests
+          .query(
+            name: name,
+            filter: cleanTags(filter),
+            cacheRead: false,
+            cacheWrite: false,
+            timeout: timeout,
+          )
+          .stream,
+    );
+  }
+
+  Stream<Nip01Event> _openLiveStream({
+    required String name,
+    required Filter filter,
+    bool cacheRead = false,
+  }) {
+    return _connectedStream(
+      open: () => ndk.requests
+          .subscription(
+            id: name,
+            filter: cleanTags(filter),
+            cacheRead: cacheRead,
+            cacheWrite: true,
+          )
+          .stream,
+    );
+  }
+
   // NDK does not let us subscribe to fetch old events, complete, and keep streaming, so we have to implement our own version
   @override
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
@@ -102,78 +154,59 @@ class Requests extends RequestsModel {
     List<String>? relays,
     String? name,
   }) => _logger.spanSync('subscribe', () {
-    final ndkSubName = name != null
-        ? "$name-${Helpers.getRandomString(5)}"
-        : "sub-${Helpers.getRandomString(10)}";
     if (name == null) {
       throw ArgumentError(
         'Name is required for subscribe to ensure proper cleanup of subscriptions. Please provide a name like "MyEntity-sub"',
       );
     }
+    final ndkSubName = _namedRequest(name);
     final response = StreamWithStatus<T>(
       onClose: () async {
         await ndk.requests.closeSubscription(ndkSubName);
       },
     );
 
-    // Private accumulator for computing `since` timestamps without
-    // depending on response.list (which may have async delay).
-    final List<T> accumulatedItems = [];
-
     response.addStatus(StreamStatusQuerying());
 
-    // Wait for at least one relay to be connected before issuing queries.
-    // On a cold start the WebSocket handshake may lag behind app init,
-    // causing the first batch of queries to silently return empty results.
-    // @todo: should i be using queryFn, liveFn, which automatically cancels subscriptions, rather than adding the subscription manually here.
-    final subscription =
-        Rx.defer(() {
-              return Stream.fromFuture(_relays.ensureConnected()).asyncExpand(
-                (_) => ndk.requests
-                    .query(
-                      name: '$name-q',
-                      filter: cleanTags(filter),
-                      cacheRead: true,
-                      cacheWrite: true,
-                    )
-                    .stream,
-              );
-            })
-            .doOnDone(() => response.addStatus(StreamStatusQueryComplete()))
-            .concatWith([
-              Rx.defer(() {
-                final liveFilter = filter.clone();
-                final maxCreatedAt = accumulatedItems.isEmpty
-                    ? null
-                    : accumulatedItems.map((e) => e.createdAt).reduce(max);
-                final nextSince = maxCreatedAt == null
-                    ? null
-                    : maxCreatedAt + 1;
-                liveFilter.since = maxCreatedAt == null
-                    ? liveFilter.since
-                    : (liveFilter.since == null ||
-                              nextSince! > liveFilter.since!
-                          ? nextSince
-                          : liveFilter.since);
-                response.addStatus(StreamStatusLive());
+    int? lastCreatedAt;
+    Filter? liveFilter;
 
-                return ndk.requests
-                    .subscription(
-                      id: ndkSubName,
-                      filter: cleanTags(liveFilter),
-                      cacheRead: useCache,
-                      cacheWrite: true,
-                    )
-                    .stream;
-              }),
-            ])
-            .map(safeParser<T>)
-            .where((event) => event != null)
-            .cast<T>()
-            .listen((item) {
-              accumulatedItems.add(item);
-              response.add(item);
-            }, onError: response.addError);
+    final queryStream = _openQueryStream(name: '$name-q', filter: filter);
+
+    final subscription =
+        _parseEvents<T>(
+          queryStream
+              .doOnDone(() {
+                response.addStatus(StreamStatusQueryComplete());
+
+                liveFilter = filter.clone();
+                if (lastCreatedAt != null) {
+                  final nextSince = lastCreatedAt! + 1;
+                  liveFilter!.since =
+                      liveFilter!.since == null ||
+                          nextSince > liveFilter!.since!
+                      ? nextSince
+                      : liveFilter!.since;
+                }
+
+                response.addStatus(StreamStatusLive());
+              })
+              .concatWith([
+                Rx.defer(() {
+                  final effectiveLiveFilter = liveFilter ?? filter.clone();
+                  return _openLiveStream(
+                    name: ndkSubName,
+                    filter: effectiveLiveFilter,
+                    cacheRead: useCache,
+                  );
+                }),
+              ]),
+        ).listen((item) {
+          lastCreatedAt = lastCreatedAt == null
+              ? item.createdAt
+              : max(lastCreatedAt!, item.createdAt);
+          response.add(item);
+        }, onError: response.addError);
     response.addSubscription(subscription);
 
     return response;
@@ -195,45 +228,30 @@ class Requests extends RequestsModel {
 
     // If there's already an in-flight query for this exact filter, share it.
     if (_inFlightQueries.containsKey(key)) {
-      return _inFlightQueries[key]!
-          .map(safeParser<T>)
-          .where((event) => event != null)
-          .cast<T>();
+      return _parseEvents<T>(_inFlightQueries[key]!);
     }
 
-    // Wait for at least one relay to be connected before issuing the
-    // query. Wrapping with Rx.defer() keeps the Stream<T> return type.
-    // Without the onCancel cleanup, consumers like .firstWhere() that cancel
-    // after the first event leave a stale entry — subsequent queries with
-    // the same filter hit the dead broadcast stream and hang forever.
     final sw = Stopwatch()..start();
+    final queryName = name ?? _namedRequest('query');
     final source =
-        Rx.defer(() {
+        _openQueryStream(name: queryName, filter: filter, timeout: timeout)
+            .doOnListen(() {
               final now = DateTime.now().toIso8601String();
-              final queryName = name ?? 'query';
               if (!_loggedFirstQuery) {
                 _loggedFirstQuery = true;
                 _logger.i('first-req timestamp: $now name=$queryName');
               }
               _logger.d('req timestamp: $now name=$queryName filter=$filter');
-
-              return Stream.fromFuture(_relays.ensureConnected()).asyncExpand(
-                (_) => ndk.requests
-                    .query(
-                      name: name ?? "query-${Helpers.getRandomString(5)}",
-                      filter: cleanTags(filter),
-                      cacheRead: false,
-                      cacheWrite: false,
-                      timeout: timeout,
-                    )
-                    .stream,
-              );
             })
             .doOnDone(() {
               sw.stop();
               _logger.d(
-                'query name=${name ?? "query"} completed in ${sw.elapsedMilliseconds}ms',
+                'query name=$queryName completed in ${sw.elapsedMilliseconds}ms',
               );
+              _inFlightQueries.remove(key);
+            })
+            .doOnError((_, __) {
+              sw.stop();
               _inFlightQueries.remove(key);
             })
             .asBroadcastStream(
@@ -245,7 +263,7 @@ class Requests extends RequestsModel {
 
     _inFlightQueries[key] = source;
 
-    return source.map(safeParser<T>).where((event) => event != null).cast<T>();
+    return _parseEvents<T>(source);
   });
 
   // @TODO: There must be a better way to do this
@@ -303,27 +321,13 @@ class Requests extends RequestsModel {
     void Function(Object, StackTrace?)? onError,
     required String name,
   }) => _logger.spanSync('liveSubscription', () {
-    final ndkSubName = '$name-${Helpers.getRandomString(5)}';
+    final ndkSubName = _namedRequest(name);
 
     _logger.d('liveSubscription opening: $ndkSubName filter=$filter');
 
-    final listener =
-        Rx.defer(() {
-              return Stream.fromFuture(_relays.ensureConnected()).asyncExpand(
-                (_) => ndk.requests
-                    .subscription(
-                      id: ndkSubName,
-                      filter: cleanTags(filter),
-                      cacheRead: useCache,
-                      cacheWrite: true,
-                    )
-                    .stream,
-              );
-            })
-            .map(safeParser<T>)
-            .where((event) => event != null)
-            .cast<T>()
-            .listen(onData, onError: onError);
+    final listener = _parseEvents<T>(
+      _openLiveStream(name: ndkSubName, filter: filter, cacheRead: useCache),
+    ).listen(onData, onError: onError);
 
     return LiveSubscriptionHandle(() async {
       _logger.d('liveSubscription closing: $ndkSubName');

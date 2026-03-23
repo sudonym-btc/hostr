@@ -16,6 +16,7 @@ esac
 ENV_FILE="$REPO_ROOT/.env.$TARGET_ENV"
 ESCROW_FILE="${ESCROW_CONTRACT_ADDRESSES_FILE:-$REPO_ROOT/escrow/contracts/contract-addresses.json}"
 AA_FILE="${AA_CONTRACT_ADDRESSES_FILE:-$REPO_ROOT/docker/account-abstraction/contract-addresses.json}"
+TOKEN_FILE="${TOKEN_ADDRESSES_FILE:-$REPO_ROOT/docker/data/arbitrum/token-addresses.json}"
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "Missing env file: $ENV_FILE" >&2
@@ -32,10 +33,15 @@ if [ ! -f "$AA_FILE" ]; then
   exit 66
 fi
 
-node - "$TARGET_ENV" "$ENV_FILE" "$ESCROW_FILE" "$AA_FILE" <<'NODE'
+if [ ! -f "$TOKEN_FILE" ]; then
+  echo "Missing token address manifest: $TOKEN_FILE (non-fatal)" >&2
+  TOKEN_FILE=""
+fi
+
+node - "$TARGET_ENV" "$ENV_FILE" "$ESCROW_FILE" "$AA_FILE" "$TOKEN_FILE" <<'NODE'
 const fs = require('fs');
 
-const [targetEnv, envFile, escrowFile, aaFile] = process.argv.slice(2);
+const [targetEnv, envFile, escrowFile, aaFile, tokenFile] = process.argv.slice(2);
 
 const NETWORK_KEY_BY_ENV = {
   local: 'regtest.412346',
@@ -58,6 +64,10 @@ const keysToUpdate = [
   'AA_ENTRY_POINT_ADDRESS',
   'AA_ACCOUNT_FACTORY_ADDRESS',
   'AA_PAYMASTER_ADDRESS',
+  'ARBITRUM_TBTC_ADDRESS',
+  'ARBITRUM_TBTC_DECIMALS',
+  'ARBITRUM_USDT_ADDRESS',
+  'ARBITRUM_USDT_DECIMALS',
 ];
 
 function parseAddressManifest(filePath) {
@@ -122,6 +132,7 @@ function updateEnvLines(lines, values) {
 
 const escrowConfig = parseAddressManifest(escrowFile);
 const aaConfig = parseAddressManifest(aaFile);
+const tokenConfig = tokenFile ? parseAddressManifest(tokenFile) : {};
 const envState = parseEnvFile(envFile);
 
 const defaultNetworkKey = NETWORK_KEY_BY_ENV[targetEnv];
@@ -155,6 +166,17 @@ const nextValues = {
     `AA VerifyingPaymaster address for ${aaAddressKey} in ${aaFile}`,
   ),
 };
+
+// Token addresses — optional (only present for local/test with deployed mocks).
+const tokenEntry = tokenConfig[defaultNetworkKey] || {};
+if (tokenEntry.tBTC) {
+  nextValues.ARBITRUM_TBTC_ADDRESS = tokenEntry.tBTC.address;
+  nextValues.ARBITRUM_TBTC_DECIMALS = String(tokenEntry.tBTC.decimals);
+}
+if (tokenEntry.USDT) {
+  nextValues.ARBITRUM_USDT_ADDRESS = tokenEntry.USDT.address;
+  nextValues.ARBITRUM_USDT_DECIMALS = String(tokenEntry.USDT.decimals);
+}
 
 const nextContent = updateEnvLines(envState.lines, nextValues);
 fs.writeFileSync(envFile, nextContent);

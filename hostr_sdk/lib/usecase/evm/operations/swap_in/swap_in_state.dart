@@ -28,6 +28,10 @@ class SwapInData {
   final String? lastBoltzStatus;
   final String? errorMessage;
 
+  /// When non-null, indicates this swap targets the ERC20Swap contract
+  /// with the given token address. When null, the swap uses EtherSwap.
+  final String? tokenAddress;
+
   /// When this swap is nested inside a parent operation (e.g. escrow-fund),
   /// this is the parent's operation ID (e.g. tradeId) so that progress
   /// notifications update the same OS notification.
@@ -49,6 +53,7 @@ class SwapInData {
     this.lastBoltzStatus,
     this.errorMessage,
     this.parentOperationId,
+    this.tokenAddress,
   });
 
   /// Recover the preimage bytes from the stored hex.
@@ -78,6 +83,7 @@ class SwapInData {
     lastBoltzStatus: lastBoltzStatus ?? this.lastBoltzStatus,
     errorMessage: errorMessage ?? this.errorMessage,
     parentOperationId: parentOperationId,
+    tokenAddress: tokenAddress,
   );
 
   Map<String, dynamic> toJson() => {
@@ -96,6 +102,7 @@ class SwapInData {
     if (lastBoltzStatus != null) 'lastBoltzStatus': lastBoltzStatus,
     if (errorMessage != null) 'errorMessage': errorMessage,
     if (parentOperationId != null) 'parentOperationId': parentOperationId,
+    if (tokenAddress != null) 'tokenAddress': tokenAddress,
   };
 
   factory SwapInData.fromJson(Map<String, dynamic> json) => SwapInData(
@@ -114,6 +121,7 @@ class SwapInData {
     lastBoltzStatus: json['lastBoltzStatus'] as String?,
     errorMessage: json['errorMessage'] as String?,
     parentOperationId: json['parentOperationId'] as String?,
+    tokenAddress: json['tokenAddress'] as String?,
   );
 
   @override

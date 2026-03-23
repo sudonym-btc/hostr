@@ -86,7 +86,6 @@ class SeedOutcomePlan {
   bool useEscrow;
   EscrowOutcome? escrowOutcome;
   final bool selfSigned;
-  EscrowTrust? trust;
   EscrowMethod? method;
 
   // ── Filled in during execution (buildOutcomes) ──
@@ -102,7 +101,6 @@ class SeedOutcomePlan {
     required this.useEscrow,
     this.escrowOutcome,
     required this.selfSigned,
-    this.trust,
     this.method,
   });
 }
@@ -114,7 +112,6 @@ class SeedPipelineData {
   final List<ProfileMetadata> profiles;
   final List<Listing> listings;
   final List<EscrowService> escrowServices;
-  final List<EscrowTrust> escrowTrusts;
   final List<EscrowMethod> escrowMethods;
   final List<SeedThread> threads;
   final List<Reservation> reservationRequests;
@@ -129,7 +126,6 @@ class SeedPipelineData {
     required this.profiles,
     required this.listings,
     required this.escrowServices,
-    required this.escrowTrusts,
     required this.escrowMethods,
     required this.threads,
     required this.reservationRequests,
@@ -143,7 +139,6 @@ class SeedPipelineData {
   List<Nip01Event> get allEvents => [
     ...profiles,
     ...escrowServices,
-    ...escrowTrusts,
     ...escrowMethods,
     ...listings,
     // reservationRequests are intentionally excluded — negotiate-stage
@@ -200,7 +195,6 @@ class SeedPipelineData {
       zapReceipts: zapReceipts.length,
       reviews: reviews.length,
       escrowServices: escrowServices.length,
-      escrowTrusts: escrowTrusts.length,
       escrowMethods: escrowMethods.length,
       invalidReservations: invalidReservations,
     );
@@ -228,7 +222,6 @@ class SeedSummary {
   final int zapReceipts;
   final int reviews;
   final int escrowServices;
-  final int escrowTrusts;
   final int escrowMethods;
   final List<InvalidReservationInfo> invalidReservations;
 
@@ -251,7 +244,6 @@ class SeedSummary {
     required this.zapReceipts,
     required this.reviews,
     required this.escrowServices,
-    required this.escrowTrusts,
     required this.escrowMethods,
     required this.invalidReservations,
   });
@@ -275,7 +267,6 @@ class SeedSummary {
     'zapReceipts': zapReceipts,
     'reviews': reviews,
     'escrowServices': escrowServices,
-    'escrowTrusts': escrowTrusts,
     'escrowMethods': escrowMethods,
     'invalidReservations': invalidReservations
         .map((info) => info.toJson())

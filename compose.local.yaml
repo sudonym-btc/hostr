@@ -148,9 +148,9 @@ services:
       - LND_REST_CERT=/app/lnd/tls.cert
       - LND_REST_MACAROON=/app${LND_ADMIN_MACAROON_PATH}
       - LND_REST_ALLOW_SELF_PAYMENT=true
-      - LNBITS_ADMIN_EXTENSIONS="lnurlp,nostrnip5"
-      - LNBITS_USER_DEFAULT_EXTENSIONS="lnurlp,nostrnip5"
-      - LNBITS_EXTENSIONS_DEFAULT_INSTALL="lnurlp,nostrnip5"
+      - LNBITS_ADMIN_EXTENSIONS=lnurlp,nostrnip5
+      - LNBITS_USER_DEFAULT_EXTENSIONS=lnurlp,nostrnip5
+      - LNBITS_EXTENSIONS_DEFAULT_INSTALL=lnurlp,nostrnip5
       - LNBITS_EXTENSIONS_MANIFESTS=["https://raw.githubusercontent.com/lnbits/lnbits-extensions/main/extensions.json"]
     volumes:
       - ./docker/data/lightning_data/1:/app/lnd
@@ -309,7 +309,7 @@ services:
       bash -lc "cp /tls/ca.crt /usr/local/share/ca-certificates/hostr-dev-ca.crt && update-ca-certificates 2>/dev/null &&
       dart pub get &&
       dart run bin/seed.dart
-      --config-json='{\"relayUrl\":\"wss://relay.${DOMAIN}\",\"rpcUrl\":\"http://anvil:8545\",\"fundProfiles\":false}'"
+      --config-json='{\"relayUrl\":\"wss://relay.${DOMAIN}\",\"rpcUrl\":\"http://arbitrum.${DOMAIN}\",\"fundProfiles\":false}'"
     restart: "no"
     profiles:
       - seed
