@@ -74,7 +74,9 @@ Future<DaemonContext> bootstrap() async {
 
   final escrowService = EscrowService(
     pubKey: hostr.auth.activeKeyPair!.publicKey,
-    tags: EventTags([['d', contractAddress]]),
+    tags: EventTags([
+      ['d', contractAddress]
+    ]),
     content: EscrowServiceContent(
       pubkey: hostr.auth.activeKeyPair!.publicKey,
       evmAddress: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
@@ -83,8 +85,7 @@ Future<DaemonContext> bootstrap() async {
         web3client: web3client,
         contractAddress: contractAddress,
       ),
-      chainId:
-          hostr.evm.configuredChains.first.config.chainId,
+      chainId: hostr.evm.configuredChains.first.config.chainId,
       maxDuration: Duration(days: 365),
       type: EscrowType.EVM,
       feeBase: 100,
@@ -115,11 +116,6 @@ Future<String> _resolveMultiEscrowBytecodeHash({
   required Web3Client web3client,
   required String contractAddress,
 }) async {
-  final envHash = Platform.environment['MULTI_ESCROW_BYTECODE_HASH']?.trim();
-  if (envHash != null && envHash.isNotEmpty) {
-    return envHash;
-  }
-
   final runtimeCode = await web3client.getCode(
     EthereumAddress.fromHex(contractAddress),
   );

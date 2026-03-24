@@ -150,16 +150,16 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
           );
 
           return AmountWidget(
-            amount: fees.invoiceAmount,
+            amount: fees.invoiceAmount.toDenominated(),
             feeWidget: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "+ ${formatAmount(fees.estimatedGasFees)} in gas",
+                  "+ ${formatTokenAmount(fees.estimatedGasFees)} in gas",
                   style: subtleStyle,
                 ),
                 Text(
-                  "+ ${formatAmount(fees.estimatedSwapFees)} in swap fees",
+                  "+ ${formatTokenAmount(fees.estimatedSwapFees)} in swap fees",
                   style: subtleStyle,
                 ),
               ],

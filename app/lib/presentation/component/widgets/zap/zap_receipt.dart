@@ -22,9 +22,10 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
         shape: StadiumBorder(),
         label: Text(
           formatAmount(
-            TokenAmount(
-              token: Token.btcLightning,
+            DenominatedAmount(
+              denomination: 'BTC',
               value: BigInt.from(widget.zap.amountSats!),
+              decimals: 8,
             ),
             exact: false,
           ),
@@ -42,9 +43,10 @@ class ZapReceiptState extends State<ZapReceiptWidget> {
           shape: StadiumBorder(),
           label: Text(
             formatAmount(
-              TokenAmount(
-                token: Token.btcLightning,
+              DenominatedAmount(
+                denomination: 'BTC',
                 value: BigInt.from(widget.zap.amountSats!),
+                decimals: 8,
               ),
             ),
           ),

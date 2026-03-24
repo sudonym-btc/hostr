@@ -36,7 +36,7 @@ class TradeHeaderView extends StatelessWidget {
   ProfileMetadata? get listingProfile => tradeState.hostProfile;
   DateTime get start => tradeState.start;
   DateTime get end => tradeState.end;
-  TokenAmount? get amount => tradeState.amount;
+  DenominatedAmount? get amount => tradeState.amount;
   TradeAvailability get availability => tradeState.availability;
   String? get availabilityReason => tradeState.availabilityReason;
   List<TradeAction> get actions => tradeState.actions;

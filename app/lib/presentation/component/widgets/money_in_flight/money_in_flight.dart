@@ -59,7 +59,10 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                           Text(
                             style: Theme.of(context).textTheme.displayMedium!
                                 .copyWith(fontWeight: FontWeight.bold),
-                            formatAmount(snapshot.data!, exact: false),
+                            formatAmount(
+                              snapshot.data!.toDenominated(),
+                              exact: false,
+                            ),
                           ),
                           if (snapshot.data!.value > BigInt.zero)
                             FilledButton.tonal(

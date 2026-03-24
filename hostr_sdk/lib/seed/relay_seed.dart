@@ -213,19 +213,12 @@ class RelaySeeder {
     }
   }
 
-  /// Derive the SHA-256 hash of the deployed MultiEscrow runtime bytecode.
-  ///
-  /// Mirrors the approach used by the escrow daemon
-  /// (`escrow/lib/daemon/bootstrap.dart`) — first checks the
-  /// `MULTI_ESCROW_BYTECODE_HASH` env var, then falls back to fetching
-  /// the on-chain code and hashing it.
+  /// Derive the SHA-256 hash of the deployed MultiEscrow runtime bytecode
+  /// by fetching the on-chain code and hashing it.
   Future<String> _resolveMultiEscrowBytecodeHash({
     required String rpcUrl,
     required String contractAddress,
   }) async {
-    final envHash = Platform.environment['MULTI_ESCROW_BYTECODE_HASH']?.trim();
-    if (envHash != null && envHash.isNotEmpty) return envHash;
-
     final hexCode = await _ethGetCode(rpcUrl: rpcUrl, address: contractAddress);
     // Convert the 0x-prefixed hex string to bytes for hashing.
     final bytesString = hexCode.startsWith('0x')

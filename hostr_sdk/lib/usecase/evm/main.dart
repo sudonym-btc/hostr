@@ -1,10 +1,10 @@
+export 'call_intent.dart';
 export 'capabilities/aa_capability.dart';
 export 'capabilities/boltz_swap_provider.dart';
 export 'capabilities/configured_evm_chain.dart';
 export 'capabilities/escrow_capability.dart';
 export 'chain/evm_chain.dart';
 export 'config/evm_config.dart';
-export 'contract_call_intent.dart';
 export 'evm.dart';
 export 'operations/auto_withdraw/auto_withdraw_service.dart';
 export 'operations/operation_machine.dart';

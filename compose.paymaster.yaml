@@ -15,6 +15,10 @@ services:
     environment:
       - ANVIL_RPC=http://anvil-arbitrum:8545
     restart: "no"
+    volumes:
+      - ./docker/scripts/write-aa-addresses.sh:/write-aa-addresses.sh:ro
+      - ./docker/aa-contract-addresses.json:/output/contract-addresses.json
+    command: ["sh", "/write-aa-addresses.sh"]
     networks:
       - default
 

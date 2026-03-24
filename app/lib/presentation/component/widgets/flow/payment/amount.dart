@@ -6,7 +6,7 @@ import '../../amount/amount_input.dart';
 
 class AmountWidget extends StatelessWidget {
   final String to;
-  final TokenAmount amount;
+  final DenominatedAmount amount;
   final Function onConfirm;
   const AmountWidget({
     super.key,

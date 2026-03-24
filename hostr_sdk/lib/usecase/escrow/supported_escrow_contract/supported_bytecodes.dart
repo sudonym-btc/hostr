@@ -4,9 +4,6 @@
 /// source changes, not on every deployment or restart (addresses change,
 /// bytecodes don't).
 ///
-/// To update after modifying escrow contracts:
-///   dart run hostr_sdk:update_bytecodes
-///
 /// Maps bytecode hash → human-readable contract name.
 const supportedEscrowBytecodeHashes = <String, String>{
   // MultiEscrow v1 — SHA-256 of runtime bytecode from escrow/contracts/MultiEscrow.sol

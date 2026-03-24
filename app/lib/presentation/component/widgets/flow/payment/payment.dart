@@ -80,7 +80,12 @@ class PaymentConfirmWidget extends StatelessWidget {
         final effectiveMax = resolved?.effectiveMaxAmount ?? 0;
         final isEditable = resolved != null && effectiveMin < effectiveMax;
         final currentAmount =
-            state.params.amount ?? TokenAmount.zero(Token.btcLightning);
+            state.params.amount?.toDenominated() ??
+            DenominatedAmount(
+              denomination: 'BTC',
+              value: BigInt.zero,
+              decimals: 8,
+            );
 
         final isReady = state is PayResolved;
         final isCallbackComplete = state is PayCallbackComplete;
@@ -115,13 +120,15 @@ class PaymentConfirmWidget extends StatelessWidget {
                         final result = await AmountEditorBottomSheet.show(
                           context,
                           initialAmount: currentAmount,
-                          minAmount: TokenAmount(
-                            token: Token.btcLightning,
+                          minAmount: DenominatedAmount(
+                            denomination: 'BTC',
                             value: BigInt.from(minSats),
+                            decimals: 8,
                           ),
-                          maxAmount: TokenAmount(
-                            token: Token.btcLightning,
+                          maxAmount: DenominatedAmount(
+                            denomination: 'BTC',
                             value: BigInt.from(maxSats),
+                            decimals: 8,
                           ),
                         );
                         if (result != null && context.mounted) {

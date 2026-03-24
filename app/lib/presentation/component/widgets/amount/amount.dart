@@ -6,15 +6,15 @@ import 'package:hostr/export.dart';
 import 'package:models/main.dart';
 
 typedef AmountFormFieldEditor =
-    Future<TokenAmount?> Function(
+    Future<DenominatedAmount?> Function(
       BuildContext context,
-      TokenAmount currentValue,
+      DenominatedAmount currentValue,
     );
 
 class AmountWidget extends StatelessWidget {
   final String? to;
   final String? toPubkey;
-  final TokenAmount amount;
+  final DenominatedAmount amount;
   final FutureOr<void> Function()? onConfirm;
   final Widget? feeWidget;
   final VoidCallback? onAmountTap;
@@ -124,18 +124,18 @@ class AmountWidget extends StatelessWidget {
   }
 }
 
-class AmountFormField extends FormField<TokenAmount> {
+class AmountFormField extends FormField<DenominatedAmount> {
   AmountFormField({
     super.key,
     String? to,
     String? toPubkey,
-    required TokenAmount initialValue,
+    required DenominatedAmount initialValue,
     AmountFormFieldEditor? onAmountTap,
-    FutureOr<void> Function(TokenAmount amount)? onConfirm,
-    FormFieldSetter<TokenAmount>? onSaved,
-    FormFieldValidator<TokenAmount>? validator,
+    FutureOr<void> Function(DenominatedAmount amount)? onConfirm,
+    FormFieldSetter<DenominatedAmount>? onSaved,
+    FormFieldValidator<DenominatedAmount>? validator,
     AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
-    ValueChanged<TokenAmount>? onChanged,
+    ValueChanged<DenominatedAmount>? onChanged,
     Widget? feeWidget,
     bool loading = false,
     bool enabled = true,

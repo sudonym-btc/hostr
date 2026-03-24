@@ -2347,14 +2347,6 @@ class MockEscrowMethods extends _i1.Mock implements _i21.EscrowMethods {
           as _i14.Auth);
 
   @override
-  Set<String> get supportedContractBytecodeHashes =>
-      (super.noSuchMethod(
-            Invocation.getter(#supportedContractBytecodeHashes),
-            returnValue: <String>{},
-          )
-          as Set<String>);
-
-  @override
   _i8.CustomLogger get logger =>
       (super.noSuchMethod(
             Invocation.getter(#logger),
@@ -2392,11 +2384,13 @@ class MockEscrowMethods extends _i1.Mock implements _i21.EscrowMethods {
 
   @override
   _i27.Future<_i10.EscrowMethod?> localMethod({
+    Set<String>? bytecodeHashes = const {},
     List<String>? trustedEscrowPubkeys = const [],
     List<_i10.AcceptedPaymentForm>? acceptedPaymentForms = const [],
   }) =>
       (super.noSuchMethod(
             Invocation.method(#localMethod, [], {
+              #bytecodeHashes: bytecodeHashes,
               #trustedEscrowPubkeys: trustedEscrowPubkeys,
               #acceptedPaymentForms: acceptedPaymentForms,
             }),
@@ -2406,11 +2400,13 @@ class MockEscrowMethods extends _i1.Mock implements _i21.EscrowMethods {
 
   @override
   _i27.Future<void> ensureEscrowMethod({
+    Set<String>? bytecodeHashes = const {},
     List<String>? trustedEscrowPubkeys = const [],
     List<_i10.AcceptedPaymentForm>? acceptedPaymentForms = const [],
   }) =>
       (super.noSuchMethod(
             Invocation.method(#ensureEscrowMethod, [], {
+              #bytecodeHashes: bytecodeHashes,
               #trustedEscrowPubkeys: trustedEscrowPubkeys,
               #acceptedPaymentForms: acceptedPaymentForms,
             }),
@@ -3107,7 +3103,7 @@ class MockReservationRequests extends _i1.Mock
     required _i10.Listing? listing,
     required DateTime? startDate,
     required DateTime? endDate,
-    _i10.TokenAmount? amount,
+    _i10.DenominatedAmount? amount,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#createReservationRequest, [], {
@@ -3134,7 +3130,7 @@ class MockReservationRequests extends _i1.Mock
   _i27.Future<_i10.Reservation> createCounterOffer({
     required _i10.Listing? listing,
     required _i10.Reservation? previousRequest,
-    required _i10.TokenAmount? amount,
+    required _i10.DenominatedAmount? amount,
     required _i7.KeyPair? signerKeyPair,
   }) =>
       (super.noSuchMethod(

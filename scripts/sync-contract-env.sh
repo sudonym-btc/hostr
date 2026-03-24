@@ -15,7 +15,7 @@ esac
 
 ENV_FILE="$REPO_ROOT/.env.$TARGET_ENV"
 ESCROW_FILE="${ESCROW_CONTRACT_ADDRESSES_FILE:-$REPO_ROOT/escrow/contracts/contract-addresses.json}"
-AA_FILE="${AA_CONTRACT_ADDRESSES_FILE:-$REPO_ROOT/docker/account-abstraction/contract-addresses.json}"
+AA_FILE="${AA_CONTRACT_ADDRESSES_FILE:-$REPO_ROOT/docker/aa-contract-addresses.json}"
 TOKEN_FILE="${TOKEN_ADDRESSES_FILE:-$REPO_ROOT/docker/data/arbitrum/token-addresses.json}"
 
 if [ ! -f "$ENV_FILE" ]; then
@@ -53,7 +53,7 @@ const NETWORK_KEY_BY_ENV = {
 const BUNDLER_URL_BY_ENV = {
   local: 'https://paymaster.hostr.development',
   test: 'https://paymaster.hostr.development',
-  staging: 'https://paymaster.staging.hostr.network/rpc',
+  staging: 'https://api.pimlico.io/v2/42161/rpc?apikey=pim_G4g94ATqJrxcLBtjxFf67f',
   prod: 'https://paymaster.hostr.network/rpc',
 };
 

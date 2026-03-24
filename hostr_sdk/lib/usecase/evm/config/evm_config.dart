@@ -38,6 +38,13 @@ class EvmChainConfig {
   final String rpcUrl;
   final AAConfig? accountAbstraction;
 
+  /// The deployed escrow contract address for this chain (optional).
+  ///
+  /// When set, [EscrowMethods.ensureEscrowMethod] will fetch the runtime
+  /// bytecode and include its SHA-256 hash as a `"c"` tag in the user's
+  /// escrow-method Nostr event.
+  final String? escrowContractAddress;
+
   /// Well-known ERC-20 tokens on this chain (symbol → config).
   ///
   /// These are tokens the app needs to know about operationally — e.g. for
@@ -50,6 +57,7 @@ class EvmChainConfig {
     required this.chainId,
     required this.rpcUrl,
     this.accountAbstraction,
+    this.escrowContractAddress,
     this.tokens = const {},
   });
 
@@ -72,6 +80,7 @@ class EvmChainConfig {
               json['accountAbstraction'] as Map<String, dynamic>,
             )
           : null,
+      escrowContractAddress: json['escrowContractAddress'] as String?,
       tokens:
           (json['tokens'] as Map<String, dynamic>?)?.map(
             (key, value) => MapEntry(
@@ -89,6 +98,8 @@ class EvmChainConfig {
     'rpcUrl': rpcUrl,
     if (accountAbstraction != null)
       'accountAbstraction': accountAbstraction!.toJson(),
+    if (escrowContractAddress != null)
+      'escrowContractAddress': escrowContractAddress,
     if (tokens.isNotEmpty)
       'tokens': tokens.map((k, v) => MapEntry(k, v.toJson())),
   };

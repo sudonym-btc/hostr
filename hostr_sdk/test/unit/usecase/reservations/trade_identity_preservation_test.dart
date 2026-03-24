@@ -131,7 +131,11 @@ Listing _listing() {
     images: const ['https://picsum.photos/seed/trade/800/600'],
     price: [
       Price(
-        amount: TokenAmount(value: BigInt.from(100000), token: Token.btcLightning),
+        amount: DenominatedAmount(
+          value: BigInt.from(100000),
+          denomination: 'BTC',
+          decimals: 8,
+        ),
         frequency: Frequency.daily,
       ),
     ],
@@ -207,7 +211,11 @@ void main() {
       final hostCounter = await reservationRequests.createCounterOffer(
         listing: listing,
         previousRequest: initialRequest,
-        amount: TokenAmount(value: BigInt.from(90000), token: Token.btcLightning),
+        amount: DenominatedAmount(
+          value: BigInt.from(90000),
+          denomination: 'BTC',
+          decimals: 8,
+        ),
         signerKeyPair: MockKeys.hoster,
       );
 

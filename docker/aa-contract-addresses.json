@@ -1,0 +1,12 @@
+{
+    "regtest.412346": {
+        "EntryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+        "SimpleAccountFactory": "0x91E60e0613810449d098b0b5Ec8b51A0FE8c8985",
+        "VerifyingPaymaster": "0x38aef040CEB057B62E1598F5C265946A4E4BaB4C"
+    },
+    "mainnet.42161": {
+        "EntryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+        "SimpleAccountFactory": "0x91E60e0613810449d098b0b5Ec8b51A0FE8c8985",
+        "VerifyingPaymaster": "pimlico"
+    }
+}

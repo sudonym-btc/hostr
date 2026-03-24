@@ -32,7 +32,30 @@ BigInt _toSats(TokenAmount amount) {
 /// Whether this token should be displayed as integer satoshis.
 bool _isBtcFamily(Token token) => token.isLightning || token.isNative;
 
-String formatAmount(TokenAmount amount, {bool exact = true}) {
+/// Format a [DenominatedAmount] for display (listing prices, negotiation amounts).
+String formatAmount(DenominatedAmount amount, {bool exact = true}) {
+  if (amount.isBtc) {
+    const prefix = '₿ ';
+    final sats = amount.value.toInt();
+    final value = exact
+        ? _commaFormat.format(sats)
+        : compactFormat(false).format(sats);
+    return '$prefix$value';
+  }
+
+  var amountAsDouble = amount.value / BigInt.from(10).pow(amount.decimals);
+
+  if (!exact) {
+    final value = compactFormat(true).format(amountAsDouble);
+    return '$value';
+  }
+
+  final value = trimTrailingZeros(format(true).format(amountAsDouble));
+  return '$value';
+}
+
+/// Format a [TokenAmount] for display (on-chain amounts like escrow funded events).
+String formatTokenAmount(TokenAmount amount, {bool exact = true}) {
   if (_isBtcFamily(amount.token)) {
     const prefix = '₿ ';
     final sats = _toSats(amount).toInt();
@@ -62,13 +85,13 @@ String trimTrailingZeros(String value) {
   return value;
 }
 
-class AmountInputWidget extends FormField<TokenAmount> {
-  final TokenAmount? min;
-  final TokenAmount? max;
+class AmountInputWidget extends FormField<DenominatedAmount> {
+  final DenominatedAmount? min;
+  final DenominatedAmount? max;
 
   AmountInputWidget({super.key, initialValue, this.min, this.max})
     : super(
-        initialValue: initialValue ?? TokenAmount.zero(Token.btcLightning),
+        initialValue: initialValue ?? DenominatedAmount.zero('BTC', 8),
         builder: (field) {
           final amountInput = field.widget as AmountInputWidget;
           final isOutOfRange =
@@ -76,8 +99,8 @@ class AmountInputWidget extends FormField<TokenAmount> {
                   field.value!.value < amountInput.min!.value) ||
               (amountInput.max != null &&
                   field.value!.value > amountInput.max!.value);
-          final isBtc = _isBtcFamily(field.value!.token);
-          final maxDecimals = isBtc ? 0 : field.value!.token.decimals;
+          final isBtc = field.value!.isBtc;
+          final maxDecimals = isBtc ? 0 : field.value!.decimals;
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -183,18 +206,20 @@ class AmountInputWidget extends FormField<TokenAmount> {
                                   }
                                   final newValue =
                                       currentValue + buttons[index].toString();
-                                  final TokenAmount newAmount;
+                                  final DenominatedAmount newAmount;
                                   if (isBtc) {
                                     final parsed = BigInt.tryParse(newValue);
                                     if (parsed == null) return;
-                                    newAmount = TokenAmount(
+                                    newAmount = DenominatedAmount(
                                       value: parsed,
-                                      token: field.value!.token,
+                                      denomination: field.value!.denomination,
+                                      decimals: field.value!.decimals,
                                     );
                                   } else {
-                                    newAmount = TokenAmount.fromDecimal(
+                                    newAmount = DenominatedAmount.fromDecimal(
                                       newValue,
-                                      field.value!.token,
+                                      field.value!.denomination,
+                                      field.value!.decimals,
                                     );
                                   }
                                   field.didChange(newAmount);
@@ -208,9 +233,10 @@ class AmountInputWidget extends FormField<TokenAmount> {
                                         ? '0.'
                                         : '$currentValue.';
                                     field.didChange(
-                                      TokenAmount.fromDecimal(
+                                      DenominatedAmount.fromDecimal(
                                         newValue,
-                                        field.value!.token,
+                                        field.value!.denomination,
+                                        field.value!.decimals,
                                       ),
                                     );
                                   }
@@ -229,16 +255,19 @@ class AmountInputWidget extends FormField<TokenAmount> {
                                           : (BigInt.tryParse(newValue) ??
                                                 BigInt.zero);
                                       field.didChange(
-                                        TokenAmount(
+                                        DenominatedAmount(
                                           value: parsed,
-                                          token: field.value!.token,
+                                          denomination:
+                                              field.value!.denomination,
+                                          decimals: field.value!.decimals,
                                         ),
                                       );
                                     } else {
                                       field.didChange(
-                                        TokenAmount.fromDecimal(
+                                        DenominatedAmount.fromDecimal(
                                           newValue.isEmpty ? '0' : newValue,
-                                          field.value!.token,
+                                          field.value!.denomination,
+                                          field.value!.decimals,
                                         ),
                                       );
                                     }
@@ -267,9 +296,9 @@ class AmountInputWidget extends FormField<TokenAmount> {
 
 /// A bottom sheet that allows the user to edit an amount within an optional range.
 class AmountEditorBottomSheet extends StatefulWidget {
-  final TokenAmount initialAmount;
-  final TokenAmount? minAmount;
-  final TokenAmount? maxAmount;
+  final DenominatedAmount initialAmount;
+  final DenominatedAmount? minAmount;
+  final DenominatedAmount? maxAmount;
 
   const AmountEditorBottomSheet({
     super.key,
@@ -279,14 +308,14 @@ class AmountEditorBottomSheet extends StatefulWidget {
   });
 
   /// Shows the amount editor as a modal bottom sheet.
-  /// Returns the selected [TokenAmount], or null if dismissed.
-  static Future<TokenAmount?> show(
+  /// Returns the selected [DenominatedAmount], or null if dismissed.
+  static Future<DenominatedAmount?> show(
     BuildContext context, {
-    required TokenAmount initialAmount,
-    TokenAmount? minAmount,
-    TokenAmount? maxAmount,
+    required DenominatedAmount initialAmount,
+    DenominatedAmount? minAmount,
+    DenominatedAmount? maxAmount,
   }) {
-    return showAppModal<TokenAmount>(
+    return showAppModal<DenominatedAmount>(
       context,
       builder: (_) => AmountEditorBottomSheet(
         initialAmount: initialAmount,
@@ -302,7 +331,7 @@ class AmountEditorBottomSheet extends StatefulWidget {
 }
 
 class _AmountEditorBottomSheetState extends State<AmountEditorBottomSheet> {
-  final _formFieldKey = GlobalKey<FormFieldState<TokenAmount>>();
+  final _formFieldKey = GlobalKey<FormFieldState<DenominatedAmount>>();
 
   @override
   Widget build(BuildContext context) {

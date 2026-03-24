@@ -4,8 +4,8 @@ import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
 import '../../../util/custom_logger.dart';
+import '../call_intent.dart';
 import '../config/evm_config.dart';
-import '../contract_call_intent.dart';
 
 /// Per-chain ERC-4337 Account Abstraction capability.
 ///
@@ -38,24 +38,16 @@ class AACapability {
         return account.getAddress();
       });
 
-  /// Send a single contract call as a bundled UserOperation.
+  /// Send one or more contract calls as a single batched UserOperation.
   ///
-  /// Returns the on-chain transaction hash after the operation is included
-  /// in a block.
-  Future<String> sendUserOp(EthPrivateKey signer, ContractCallIntent intent) =>
-      _logger.span('AACapability.sendUserOp(${intent.methodName})', () async {
-        return _sendCalls(signer, [intent]);
-      });
-
-  /// Send multiple contract calls as a single batched UserOperation.
-  ///
-  /// This is useful for atomic multi-step flows such as ERC-20 approve + lock.
+  /// For a single call, pass a one-element list. For atomic multi-step flows
+  /// (e.g. ERC-20 approve + lock), pass multiple intents.
   /// Returns the on-chain transaction hash.
-  Future<String> sendBatchUserOps(
+  Future<String> sendUserOp(
     EthPrivateKey signer,
-    List<ContractCallIntent> intents,
+    List<CallIntent> intents,
   ) => _logger.span(
-    'AACapability.sendBatchUserOps(${intents.map((i) => i.methodName).join(", ")})',
+    'AACapability.sendUserOp(${intents.map((i) => i.methodName).join(", ")})',
     () async {
       return _sendCalls(signer, intents);
     },
@@ -68,7 +60,7 @@ class AACapability {
 
   Future<String> _sendCalls(
     EthPrivateKey signer,
-    List<ContractCallIntent> intents,
+    List<CallIntent> intents,
   ) async {
     final publicClient = _initPublicClient();
     final client = _initSmartAccountClient(signer, publicClient: publicClient);
@@ -94,7 +86,7 @@ class AACapability {
     }
   }
 
-  permissionless.Call _toPermissionlessCall(ContractCallIntent intent) =>
+  permissionless.Call _toPermissionlessCall(CallIntent intent) =>
       permissionless.Call(
         to: intent.to,
         value: intent.value.getInWei,

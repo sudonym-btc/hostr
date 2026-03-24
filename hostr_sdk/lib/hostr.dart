@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Ndk;
+import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import 'config.dart';
 import 'injection.dart';
@@ -133,8 +134,29 @@ class Hostr {
 
         // Ensure the user's escrow method list includes trusted arbiters,
         // supported contract bytecodes, and accepted payment forms.
+        // Resolve bytecode hashes by fetching on-chain code for each
+        // configured chain's escrow contract address.
+        final bytecodeHashes = <String>{};
+        for (final chain in evm.configuredChains) {
+          final addr = chain.config.escrowContractAddress;
+          if (addr == null || addr.isEmpty) continue;
+          try {
+            bytecodeHashes.add(
+              await SupportedEscrowContractRegistry.bytecodeHashForAddress(
+                chain.chain.client,
+                EthereumAddress.fromHex(addr),
+              ),
+            );
+          } catch (e) {
+            logger.w(
+              'Could not resolve bytecode hash for $addr on '
+              '${chain.config.id}: $e',
+            );
+          }
+        }
         await escrowMethods.ensureEscrowMethod(
           trustedEscrowPubkeys: config.bootstrapEscrowPubkeys,
+          bytecodeHashes: bytecodeHashes,
         );
         // Start user-scoped Nostr subscriptions and the payment-proof
         // orchestrator. UserSubscriptions must start first so its streams

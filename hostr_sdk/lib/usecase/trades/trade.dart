@@ -439,40 +439,45 @@ class Trade extends Cubit<TradeState> {
             .lastOrNull;
   }
 
-  Future<void> counter(TokenAmount amount) => _logger.span('counter', () async {
-    final current = state;
-    if (current is! TradeReady || current.stage is! NegotiationStage) {
-      throw StateError('Trade is not in negotiation stage');
-    }
+  Future<void> counter(DenominatedAmount amount) =>
+      _logger.span('counter', () async {
+        final current = state;
+        if (current is! TradeReady || current.stage is! NegotiationStage) {
+          throw StateError('Trade is not in negotiation stage');
+        }
 
-    final negotiationStage = current.stage as NegotiationStage;
-    final policy = negotiationStage.policy;
-    final lastRequest = negotiationStage.reservationRequests.lastOrNull;
-    if (lastRequest == null) {
-      throw StateError('No reservation request available to counter');
-    }
-    if (!policy.canCounter) {
-      throw StateError('Counter offer is not available for this trade');
-    }
+        final negotiationStage = current.stage as NegotiationStage;
+        final policy = negotiationStage.policy;
+        final lastRequest = negotiationStage.reservationRequests.lastOrNull;
+        if (lastRequest == null) {
+          throw StateError('No reservation request available to counter');
+        }
+        if (!policy.canCounter) {
+          throw StateError('Counter offer is not available for this trade');
+        }
 
-    final min = policy.counterMin;
-    final max = policy.counterMax;
-    if (min != null && amount.token == min.token && amount.value < min.value) {
-      throw StateError('Counter amount is below the allowed minimum');
-    }
-    if (max != null && amount.token == max.token && amount.value > max.value) {
-      throw StateError('Counter amount is above the allowed maximum');
-    }
+        final min = policy.counterMin;
+        final max = policy.counterMax;
+        if (min != null &&
+            amount.denomination == min.denomination &&
+            amount.value < min.value) {
+          throw StateError('Counter amount is below the allowed minimum');
+        }
+        if (max != null &&
+            amount.denomination == max.denomination &&
+            amount.value > max.value) {
+          throw StateError('Counter amount is above the allowed maximum');
+        }
 
-    final event = await getIt<ReservationRequests>().createCounterOffer(
-      listing: current.listing,
-      previousRequest: lastRequest,
-      amount: amount,
-      signerKeyPair: await activeKeyPair(),
-    );
+        final event = await getIt<ReservationRequests>().createCounterOffer(
+          listing: current.listing,
+          previousRequest: lastRequest,
+          amount: amount,
+          signerKeyPair: await activeKeyPair(),
+        );
 
-    await thread!.replyEvent(event);
-  });
+        await thread!.replyEvent(event);
+      });
 
   Future<void> acceptLatestOffer() => _logger.span(
     'acceptLatestOffer',

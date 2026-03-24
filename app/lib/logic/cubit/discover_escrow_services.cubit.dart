@@ -1,9 +1,9 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
+import 'package:wallet/wallet.dart' show EthereumAddress;
 
 class DiscoverEscrowServicesState extends Equatable {
   final List<EscrowService>? data;
@@ -34,9 +34,14 @@ class DiscoverEscrowServicesState extends Equatable {
   List<Object?> get props => [data, loading, error];
 }
 
-/// Discovers escrow services whose contract bytecode hash matches the locally
-/// supported MultiEscrow bytecode hash. Returns all matching [EscrowService]
-/// events from which we extract distinct operator pubkeys.
+/// Discovers escrow services whose on-chain runtime bytecode is one that this
+/// client natively supports.
+///
+/// For each discovered service, the contract address is fetched and its
+/// runtime bytecode is hashed on demand via
+/// [SupportedEscrowContractRegistry.bytecodeHashForAddress], then compared
+/// against the hash stored in the [EscrowService] event.  This avoids keeping
+/// a compile-time list of known hashes.
 class DiscoverEscrowServicesCubit extends Cubit<DiscoverEscrowServicesState> {
   final Hostr hostr;
 
@@ -47,16 +52,38 @@ class DiscoverEscrowServicesCubit extends Cubit<DiscoverEscrowServicesState> {
     if (state.loading) return;
     emit(state.copyWith(loading: true, error: null));
     try {
-      // Query all escrow service events (no author filter)
+      // Query all escrow service events (no author filter).
       final allServices = await hostr.escrows.list(
         Filter(kinds: EscrowService.kinds),
       );
 
-        // Filter to only those whose contract bytecode hash we support.
-        final supportedHashes = getIt<Hostr>().escrowMethods.supportedContractBytecodeHashes;
-      final compatible = allServices
-          .where((s) => supportedHashes.contains(s.contractBytecodeHash))
-          .toList();
+      // For each service, resolve the actual on-chain bytecode hash and
+      // compare it to what the service advertises.  We use the first
+      // configured EVM chain's client as a best-effort transport; services
+      // on other chains are included when their contractBytecodeHash matches.
+      final chains = hostr.evm.configuredChains;
+      if (chains.isEmpty) {
+        emit(DiscoverEscrowServicesState(data: [], loading: false));
+        return;
+      }
+
+      final client = chains.first.chain.client;
+      final compatible = <EscrowService>[];
+
+      for (final service in allServices) {
+        try {
+          final actualHash =
+              await SupportedEscrowContractRegistry.bytecodeHashForAddress(
+                client,
+                EthereumAddress.fromHex(service.contractAddress),
+              );
+          if (actualHash == service.contractBytecodeHash) {
+            compatible.add(service);
+          }
+        } catch (_) {
+          // Skip services whose contract address cannot be resolved.
+        }
+      }
 
       emit(DiscoverEscrowServicesState(data: compatible, loading: false));
     } catch (e) {

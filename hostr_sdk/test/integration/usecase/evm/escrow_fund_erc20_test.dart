@@ -164,7 +164,7 @@ void main() {
       final chainId = chain.config.chainId;
       final txHash = await web3.sendTransaction(
         buyerKey,
-        intent.toTransaction(),
+        Transaction(to: intent.to, data: intent.data, value: intent.value),
         chainId: chainId,
       );
 

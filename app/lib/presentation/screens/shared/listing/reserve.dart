@@ -24,18 +24,18 @@ class Reserve extends StatefulWidget {
 }
 
 class _ReserveState extends State<Reserve> {
-  TokenAmount? _customAmount;
+  DenominatedAmount? _customAmount;
   String? _customAmountRangeKey;
 
   String _rangeKey(DateTimeRange range) {
     return '${range.start.millisecondsSinceEpoch}:${range.end.millisecondsSinceEpoch}';
   }
 
-  TokenAmount _listingAmountFor(DateTimeRange range) {
+  DenominatedAmount _listingAmountFor(DateTimeRange range) {
     return widget.listing.cost(range.start, range.end);
   }
 
-  TokenAmount _effectiveAmountFor(DateTimeRange range) {
+  DenominatedAmount _effectiveAmountFor(DateTimeRange range) {
     final key = _rangeKey(range);
     if (_customAmount != null && _customAmountRangeKey == key) {
       return _customAmount!;
@@ -48,7 +48,11 @@ class _ReserveState extends State<Reserve> {
     final updated = await AmountEditorBottomSheet.show(
       context,
       initialAmount: _effectiveAmountFor(range),
-      minAmount: TokenAmount(token: listingAmount.token, value: BigInt.one),
+      minAmount: DenominatedAmount(
+        denomination: listingAmount.denomination,
+        value: BigInt.one,
+        decimals: listingAmount.decimals,
+      ),
       maxAmount: listingAmount,
     );
 

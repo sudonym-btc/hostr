@@ -24,9 +24,9 @@ class ReservationTags extends EventTags
 }
 
 class ReservationExpectedAmount {
-  final TokenAmount listingPrice;
-  final TokenAmount? negotiatedAmount;
-  final TokenAmount expectedAmount;
+  final DenominatedAmount listingPrice;
+  final DenominatedAmount? negotiatedAmount;
+  final DenominatedAmount expectedAmount;
   final bool hasOffListAmount;
   final bool isBelowListing;
   final bool sellerCommitOk;
@@ -77,7 +77,7 @@ class Reservation
   ReservationTweakMaterial? get tweakMaterial => parsedContent.tweakMaterial;
   ReservationStage get stage => parsedContent.stage;
   int get quantity => parsedContent.quantity;
-  TokenAmount? get amount => parsedContent.amount;
+  DenominatedAmount? get amount => parsedContent.amount;
   String? get recipient => parsedContent.recipient;
   Map<String, String> get signatures => parsedContent.signatures;
   bool get isNegotiation => parsedContent.isNegotiation;
@@ -95,10 +95,10 @@ class Reservation
     final listingPrice = listing.cost(start, end);
     final negotiatedAmount = amount;
     final hasOffListAmount = negotiatedAmount != null &&
-        negotiatedAmount.token == listingPrice.token &&
+        negotiatedAmount.denomination == listingPrice.denomination &&
         negotiatedAmount.value != listingPrice.value;
     final isBelowListing = negotiatedAmount != null &&
-        negotiatedAmount.token == listingPrice.token &&
+        negotiatedAmount.denomination == listingPrice.denomination &&
         negotiatedAmount.value < listingPrice.value;
     final sellerCommitOk =
         !hasOffListAmount ? true : verifyCommit(listingAuthor);
@@ -147,7 +147,7 @@ class Reservation
     // Content fields
     ReservationStage stage = ReservationStage.negotiate,
     int quantity = 1,
-    TokenAmount? amount,
+    DenominatedAmount? amount,
     String? recipient,
     ReservationTweakMaterial? tweakMaterial,
     PaymentProof? proof,
@@ -416,7 +416,7 @@ class ReservationContent extends EventContent with CommitTerms {
   final int quantity;
 
   /// The agreed (or proposed) price for this reservation.
-  final TokenAmount? amount;
+  final DenominatedAmount? amount;
 
   /// Public key of the intended recipient (e.g. the guest).
   final String? recipient;
@@ -451,7 +451,7 @@ class ReservationContent extends EventContent with CommitTerms {
     PaymentProof? proof,
     ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
-    TokenAmount? amount,
+    DenominatedAmount? amount,
     String? recipient,
     Map<String, String> signatures = const {},
   }) {
@@ -474,7 +474,7 @@ class ReservationContent extends EventContent with CommitTerms {
     PaymentProof? proof,
     ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
-    TokenAmount? amount,
+    DenominatedAmount? amount,
     String? recipient,
     Map<String, String> signatures = const {},
   }) {
@@ -497,7 +497,7 @@ class ReservationContent extends EventContent with CommitTerms {
     PaymentProof? proof,
     ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
-    TokenAmount? amount,
+    DenominatedAmount? amount,
     String? recipient,
     Map<String, String> signatures = const {},
   }) {
@@ -537,7 +537,7 @@ class ReservationContent extends EventContent with CommitTerms {
     ReservationTweakMaterial? tweakMaterial,
     ReservationStage? stage,
     int? quantity,
-    TokenAmount? amount,
+    DenominatedAmount? amount,
     String? recipient,
     Map<String, String>? signatures,
   }) {
@@ -570,8 +570,9 @@ class ReservationContent extends EventContent with CommitTerms {
           : null,
       stage: stage,
       quantity: json["quantity"] as int? ?? 1,
-      amount:
-          json["amount"] != null ? TokenAmount.fromJson(json["amount"]) : null,
+      amount: json["amount"] != null
+          ? DenominatedAmount.fromJson(json["amount"])
+          : null,
       recipient: json["recipient"] as String?,
       signatures: sigs?.map((k, v) => MapEntry(k, v as String)) ?? const {},
     );

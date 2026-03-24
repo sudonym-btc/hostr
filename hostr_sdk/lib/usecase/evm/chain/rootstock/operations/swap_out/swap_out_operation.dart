@@ -17,8 +17,6 @@ import '../../../../../payments/payments.dart';
 import '../../../../main.dart';
 
 class EvmSwapOutOperation extends SwapOutOperation {
-  static const int _estimatedLockGasLimit = 200000;
-
   final ConfiguredEvmChain configuredChain;
   final Nwc nwc;
   final SwapOutQuoteService quoteService;
@@ -92,7 +90,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
           final approveFn = token.self.abi.functions.firstWhere(
             (f) => f.name == 'approve',
           );
-          final approveIntent = ContractCallIntent(
+          final approveIntent = CallIntent(
             to: tokenAddr,
             data: approveFn.encodeCall([
               erc20Swap.self.address,
@@ -106,7 +104,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
           final lockFn = erc20Swap.self.abi.functions.firstWhere(
             (f) => f.name == 'lock' && f.parameters.length == 5,
           );
-          final lockIntent = ContractCallIntent(
+          final lockIntent = CallIntent(
             to: erc20Swap.self.address,
             data: lockFn.encodeCall([
               data.invoicePreimageHashBytes,
@@ -120,7 +118,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
           );
 
           // Send both as a single batched UserOperation
-          tx = await configuredChain.aa!.sendBatchUserOps(params.evmKey, [
+          tx = await configuredChain.aa!.sendUserOp(params.evmKey, [
             approveIntent,
             lockIntent,
           ]);
@@ -130,7 +128,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
           final lockFn = swapContract.self.abi.functions.firstWhere(
             (f) => f.name == 'lock' && f.parameters.length == 3,
           );
-          final intent = ContractCallIntent(
+          final intent = CallIntent(
             to: swapContract.self.address,
             data: lockFn.encodeCall([
               data.invoicePreimageHashBytes,
@@ -140,7 +138,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
             value: EtherAmount.inWei(data.lockedAmountWei),
             methodName: 'EtherSwap.lock',
           );
-          tx = await configuredChain.aa!.sendUserOp(params.evmKey, intent);
+          tx = await configuredChain.aa!.sendUserOp(params.evmKey, [intent]);
           logger.i('Locked funds in EtherSwap: $tx');
         }
 
@@ -320,12 +318,12 @@ class EvmSwapOutOperation extends SwapOutOperation {
         logger.i('Got cooperative refund signature from Boltz');
         final sig = parseEvmSignature(sigResponse.signature);
 
-        final ContractCallIntent intent;
+        final CallIntent intent;
         if (isErc20) {
           final coopRefundFn = swapContractSelf.abi.functions.firstWhere(
             (f) => f.name == 'refundCooperative' && f.parameters.length == 8,
           );
-          intent = ContractCallIntent(
+          intent = CallIntent(
             to: swapContractSelf.address,
             data: coopRefundFn.encodeCall([
               data.invoicePreimageHashBytes,
@@ -344,7 +342,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
           final coopRefundFn = swapContractSelf.abi.functions.firstWhere(
             (f) => f.name == 'refundCooperative' && f.parameters.length == 7,
           );
-          intent = ContractCallIntent(
+          intent = CallIntent(
             to: swapContractSelf.address,
             data: coopRefundFn.encodeCall([
               data.invoicePreimageHashBytes,
@@ -360,10 +358,9 @@ class EvmSwapOutOperation extends SwapOutOperation {
           );
         }
 
-        final refundTx = await configuredChain.aa!.sendUserOp(
-          params.evmKey,
+        final refundTx = await configuredChain.aa!.sendUserOp(params.evmKey, [
           intent,
-        );
+        ]);
 
         logger.i('Cooperative refund broadcast: $refundTx');
         return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
@@ -390,12 +387,12 @@ class EvmSwapOutOperation extends SwapOutOperation {
         );
       }
 
-      final ContractCallIntent intent;
+      final CallIntent intent;
       if (isErc20) {
         final refundFn = swapContractSelf.abi.functions.firstWhere(
           (f) => f.name == 'refund' && f.parameters.length == 5,
         );
-        intent = ContractCallIntent(
+        intent = CallIntent(
           to: swapContractSelf.address,
           data: refundFn.encodeCall([
             data.invoicePreimageHashBytes,
@@ -411,7 +408,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
         final refundFn = swapContractSelf.abi.functions.firstWhere(
           (f) => f.name == 'refund' && f.parameters.length == 4,
         );
-        intent = ContractCallIntent(
+        intent = CallIntent(
           to: swapContractSelf.address,
           data: refundFn.encodeCall([
             data.invoicePreimageHashBytes,
@@ -424,10 +421,9 @@ class EvmSwapOutOperation extends SwapOutOperation {
         );
       }
 
-      final refundTx = await configuredChain.aa!.sendUserOp(
-        params.evmKey,
+      final refundTx = await configuredChain.aa!.sendUserOp(params.evmKey, [
         intent,
-      );
+      ]);
 
       logger.i('Timelock refund broadcast: $refundTx');
       return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
@@ -613,8 +609,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
 
   Future<TokenAmount> _estimateLockGasFee() =>
       logger.span('_estimateLockGasFee', () async {
-        final gasPrice = await configuredChain.chain.client.getGasPrice();
-        final feeWei = gasPrice.getInWei * BigInt.from(_estimatedLockGasLimit);
+        final feeWei = await configuredChain.aa!.estimateGasFee(params.evmKey);
         return rbtcFromWei(feeWei);
       });
 

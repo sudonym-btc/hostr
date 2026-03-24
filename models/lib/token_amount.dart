@@ -1,3 +1,4 @@
+import 'denominated_amount.dart';
 import 'token.dart';
 
 /// A monetary value denominated in a specific [Token].
@@ -60,6 +61,31 @@ class TokenAmount {
   }
 
   // ── EVM helpers ───────────────────────────────────────────────────
+
+  /// Convert to a chain-agnostic [DenominatedAmount].
+  ///
+  /// Uses `"BTC"` for Lightning/native BTC tokens, otherwise the token's
+  /// [Token.tagId] as denomination.
+  DenominatedAmount toDenominated() => DenominatedAmount(
+        value: value,
+        denomination: (token.isLightning || token.isNative) ? 'BTC' : token.tagId,
+        decimals: token.decimals,
+      );
+
+  /// Create a [TokenAmount] from a [DenominatedAmount] and a concrete [Token].
+  ///
+  /// Scales the value if the denomination decimals differ from the token
+  /// decimals (e.g. BTC 8 decimals → RBTC 18 decimals).
+  static TokenAmount fromDenominated(DenominatedAmount da, Token token) {
+    if (da.decimals == token.decimals) {
+      return TokenAmount(value: da.value, token: token);
+    }
+    final diff = token.decimals - da.decimals;
+    final scaled = diff > 0
+        ? da.value * BigInt.from(10).pow(diff)
+        : da.value ~/ BigInt.from(10).pow(-diff);
+    return TokenAmount(value: scaled, token: token);
+  }
 
   /// The raw value suitable for on-chain contract calls.
   ///

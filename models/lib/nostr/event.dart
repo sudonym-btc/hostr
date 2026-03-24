@@ -192,8 +192,12 @@ class EventTags {
   }
 
   /// Parse price tags encoded as:
-  /// - `["price", "decimalAmount:BTC:frequency"]` (3 segments – Lightning)
-  /// - `["price", "decimalAmount:chainId:address:frequency"]` (4 segments – on-chain)
+  /// - `["price", "decimalAmount:BTC:frequency"]` (3 segments – BTC denomination)
+  /// - `["price", "decimalAmount:denomination:frequency"]` (3 segments – any denomination)
+  ///
+  /// Legacy 4-segment format `["price", "decimalAmount:chainId:address:frequency"]`
+  /// is also supported for backward compatibility, mapping to denomination "BTC"
+  /// for native tokens and the token's tagId otherwise.
   List<Price> getTagPrices({
     int Function(int chainId, String address)? resolveDecimals,
   }) {
@@ -203,17 +207,25 @@ class EventTags {
           final raw = t[1];
           final parts = raw.split(':');
 
-          // 3 segments: "amount:BTC:frequency"
-          if (parts.length == 3 && parts[1] == 'BTC') {
+          // 3 segments: "amount:denomination:frequency"
+          if (parts.length == 3) {
             final freq = Frequency.values.where((f) => f.name == parts[2]);
             if (freq.isEmpty) return null;
+            final denomination = parts[1];
+            // BTC denomination uses 8 decimals (satoshis) by default.
+            // Other denominations are not yet defined; default to 8.
+            final decimals = denomination == 'BTC' ? 8 : 8;
             return Price(
-              amount: TokenAmount.fromDecimal(parts[0], Token.btcLightning),
+              amount: DenominatedAmount.fromDecimal(
+                parts[0],
+                denomination,
+                decimals,
+              ),
               frequency: freq.first,
             );
           }
 
-          // 4 segments: "amount:chainId:address:frequency"
+          // Legacy 4 segments: "amount:chainId:address:frequency"
           if (parts.length == 4) {
             final chainId = int.tryParse(parts[1]);
             if (chainId == null) return null;
@@ -223,10 +235,16 @@ class EventTags {
             final decimals = resolveDecimals != null
                 ? resolveDecimals(chainId, address)
                 : _defaultDecimals(address);
-            final token =
-                Token(chainId: chainId, address: address, decimals: decimals);
+            // Map legacy on-chain token format to a denomination.
+            final isNative = address.toLowerCase() ==
+                '0x0000000000000000000000000000000000000000';
+            final denomination = isNative ? 'BTC' : '$chainId:$address';
             return Price(
-              amount: TokenAmount.fromDecimal(parts[0], token),
+              amount: DenominatedAmount.fromDecimal(
+                parts[0],
+                denomination,
+                decimals,
+              ),
               frequency: freq.first,
             );
           }
