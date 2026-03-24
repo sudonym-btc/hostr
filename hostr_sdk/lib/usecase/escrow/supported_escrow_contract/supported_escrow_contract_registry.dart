@@ -1,3 +1,4 @@
+import 'package:crypto/crypto.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -29,5 +30,19 @@ class SupportedEscrowContractRegistry {
       return constructor(client, address);
     }
     return null;
+  }
+
+  /// Fetches the runtime bytecode deployed at [address] and returns its
+  /// lowercase hex SHA-256 hash — the canonical contract identity used in
+  /// NIP escrow-method `"c"` tags.
+  ///
+  /// This is the single authoritative place for bytecode-hash calculation so
+  /// that the daemon, the SDK, and any tooling all produce identical values.
+  static Future<String> bytecodeHashForAddress(
+    Web3Client client,
+    EthereumAddress address,
+  ) async {
+    final runtimeCode = await client.getCode(address);
+    return sha256.convert(runtimeCode).toString();
   }
 }

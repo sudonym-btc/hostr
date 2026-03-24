@@ -19,12 +19,7 @@ import '../../../../../payments/operations/pay_models.dart';
 import '../../../../../payments/operations/pay_operation.dart';
 import '../../../../../payments/operations/pay_state.dart';
 import '../../../../../payments/payments.dart';
-import '../../../../capabilities/configured_evm_chain.dart';
-import '../../../../contract_call_intent.dart';
-import '../../../../operations/swap_in/swap_in_models.dart';
-import '../../../../operations/swap_in/swap_in_operation.dart';
-import '../../../../operations/swap_in/swap_in_state.dart';
-import '../../../../userop/claim_args.dart';
+import '../../../../main.dart';
 
 class EvmSwapInOperation extends SwapInOperation {
   final ConfiguredEvmChain configuredChain;
@@ -958,13 +953,13 @@ class EvmSwapInOperation extends SwapInOperation {
       logger.span('claim', () async {
         final isErc20 = claimArgs.tokenAddress != null;
 
-        final ContractCallIntent intent;
+        final CallIntent intent;
         if (isErc20) {
           final erc20Swap = configuredChain.swaps!.getERC20SwapContract();
           final claimFn = erc20Swap.self.abi.functions.firstWhere(
             (f) => f.name == 'claim' && f.parameters.length == 5,
           );
-          intent = ContractCallIntent(
+          intent = CallIntent(
             to: erc20Swap.self.address,
             data: claimFn.encodeCall([
               claimArgs.preimage,
@@ -974,7 +969,6 @@ class EvmSwapInOperation extends SwapInOperation {
               claimArgs.timelock,
             ]),
             value: EtherAmount.zero(),
-            maxGas: 400000,
             methodName: 'ERC20Swap.claim',
           );
         } else {
@@ -982,7 +976,7 @@ class EvmSwapInOperation extends SwapInOperation {
           final claimFn = etherSwap.self.abi.functions.firstWhere(
             (f) => f.name == 'claim' && f.parameters.length == 4,
           );
-          intent = ContractCallIntent(
+          intent = CallIntent(
             to: etherSwap.self.address,
             data: claimFn.encodeCall([
               claimArgs.preimage,
@@ -991,11 +985,10 @@ class EvmSwapInOperation extends SwapInOperation {
               claimArgs.timelock,
             ]),
             value: EtherAmount.zero(),
-            maxGas: 400000,
             methodName: 'EtherSwap.claim',
           );
         }
-        return configuredChain.aa!.sendUserOp(params.evmKey, intent);
+        return configuredChain.aa!.sendUserOp(params.evmKey, [intent]);
       });
 
   /// Generate a cryptographically secure 32-byte preimage and its SHA-256 hash.

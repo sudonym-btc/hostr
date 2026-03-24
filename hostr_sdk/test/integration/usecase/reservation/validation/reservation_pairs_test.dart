@@ -64,9 +64,10 @@ Listing _buildListing({
     images: ['https://picsum.photos/seed/it/800/600'],
     price: [
       Price(
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: pricePerNight ?? BigInt.from(100000),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ),
         frequency: Frequency.daily,
       ),
@@ -126,9 +127,10 @@ Reservation _buildNegotiate({
     end: end,
     stage: ReservationStage.negotiate,
     quantity: 1,
-    amount: TokenAmount(
+    amount: DenominatedAmount(
       value: customAmount ?? listing.cost(start, end).value,
-      token: Token.btcLightning,
+      denomination: 'BTC',
+      decimals: 8,
     ),
     tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
     createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,

@@ -1,11 +1,13 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip01Utils, Nip51List;
+import 'package:wallet/wallet.dart' show EthereumAddress;
+import 'package:web3dart/web3dart.dart' show Web3Client;
 
 import '../../config.dart' show CoinlibEventSigner, HostrConfig;
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
-import '../escrow/supported_escrow_contract/supported_bytecodes.dart';
+import '../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 
 @Singleton()
 class EscrowMethods extends CrudUseCase<EscrowMethod> {
@@ -22,11 +24,30 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
        _config = config,
        super(kind: EscrowMethod.kinds[0]);
 
-  /// The bytecode hashes of escrow contracts this client natively supports.
+  /// Resolves the runtime bytecode hash for each of the given [contractAddresses]
+  /// by fetching on-chain code and computing its SHA-256.
   ///
+  /// Addresses that fail (e.g. not yet deployed) are silently skipped.
   /// The contract identity is the runtime bytecode hash, not a human name.
-  Set<String> get supportedContractBytecodeHashes =>
-      supportedEscrowBytecodeHashes.keys.toSet();
+  Future<Set<String>> resolveContractBytecodeHashes(
+    List<String> contractAddresses,
+    Web3Client client,
+  ) async {
+    final hashes = <String>{};
+    for (final address in contractAddresses) {
+      try {
+        final hash =
+            await SupportedEscrowContractRegistry.bytecodeHashForAddress(
+              client,
+              EthereumAddress.fromHex(address),
+            );
+        hashes.add(hash);
+      } catch (e) {
+        logger.w('Could not resolve bytecode hash for $address: $e');
+      }
+    }
+    return hashes;
+  }
 
   Future<EscrowMethod?> myMethod() async {
     final keyPair = auth.activeKeyPair;
@@ -39,12 +60,18 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
   /// Returns a locally-built [EscrowMethod] event representing this client's
   /// trusted escrows, supported contract bytecodes, and accepted payment forms.
   ///
+  /// [bytecodeHashes] is the set of pre-resolved SHA-256 runtime bytecode
+  /// hashes to include as `"c"` tags.  Callers are responsible for fetching
+  /// the on-chain bytecode via [SupportedEscrowContractRegistry.bytecodeHashForAddress]
+  /// using the appropriate per-chain [Web3Client].
+  ///
   /// [acceptedPaymentForms] declares which concrete tokens the user is willing
   /// to receive for each denomination (see `PRICING.md` Layer 2).
   ///
   /// Avoids a relay round-trip when we already know our own capabilities.
   /// Returns null if no key pair is active.
   Future<EscrowMethod?> localMethod({
+    Set<String> bytecodeHashes = const {},
     List<String> trustedEscrowPubkeys = const [],
     List<AcceptedPaymentForm> acceptedPaymentForms = const [],
   }) async {
@@ -66,7 +93,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
     for (final pubkey in trustedEscrowPubkeys) {
       list.addElement('p', pubkey, false);
     }
-    for (final bytecodeHash in supportedContractBytecodeHashes) {
+    for (final bytecodeHash in bytecodeHashes) {
       list.addElement('c', bytecodeHash, false);
     }
 
@@ -152,17 +179,17 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
   }
 
   Future<void> ensureEscrowMethod({
+    Set<String> bytecodeHashes = const {},
     List<String> trustedEscrowPubkeys = const [],
     List<AcceptedPaymentForm>? acceptedPaymentForms,
   }) async {
     final keyPair = auth.activeKeyPair;
     if (keyPair == null) return;
 
-    if (supportedContractBytecodeHashes.isEmpty) {
+    if (bytecodeHashes.isEmpty) {
       logger.w(
-        'No supported escrow bytecode hashes configured — '
-        'escrow method will have no "c" tags. '
-        'Populate supportedEscrowBytecodeHashes in supported_bytecodes.dart.',
+        'No bytecode hashes provided — escrow method will have no "c" tags. '
+        'Ensure escrowContractAddress is set in EvmChainConfig.',
       );
     }
 
@@ -185,7 +212,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
           .where((pubkey) => !existingTrusted.contains(pubkey))
           .toList();
       final existingContracts = existing.getTags('c').toSet();
-      final missingContracts = supportedContractBytecodeHashes
+      final missingContracts = bytecodeHashes
           .where((hash) => !existingContracts.contains(hash))
           .toList();
       final existingForms = existing.acceptedPaymentForms.toSet();
@@ -238,7 +265,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
         list.addElement('p', trusted, false);
       }
 
-      for (final contract in supportedContractBytecodeHashes) {
+      for (final contract in bytecodeHashes) {
         list.addElement('c', contract, false);
       }
 
@@ -256,7 +283,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       logger.i(
         'Publishing new escrow method for $pubkey with '
         '${trustedEscrowPubkeys.length} trusted escrows, '
-        '${supportedContractBytecodeHashes.length} supported bytecodes, and '
+        '${bytecodeHashes.length} supported bytecodes, and '
         '${resolvedForms.length} accepted payment forms.',
       );
 

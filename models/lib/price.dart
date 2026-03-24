@@ -1,14 +1,14 @@
-import 'token_amount.dart';
+import 'denominated_amount.dart';
 
 class Price {
-  TokenAmount amount;
+  DenominatedAmount amount;
   Frequency frequency;
 
   Price({required this.amount, required this.frequency});
 
   factory Price.fromJson(Map<String, dynamic> json) {
     return Price(
-        amount: TokenAmount.fromJson(json['amount']),
+        amount: DenominatedAmount.fromJson(json['amount']),
         frequency: Frequency.values.firstWhere(
             (e) => e.toString() == 'Frequency.${json['frequency']}'));
   }

@@ -74,12 +74,12 @@ class TagBuilder {
 
   // ── Price helpers ───────────────────────────────────────────────────
 
-  /// Encodes each [Price] as `["price", "decimalAmount:tokenTagId:frequency"]`.
+  /// Encodes each [Price] as `["price", "decimalAmount:denomination:frequency"]`.
   TagBuilder addPrices(List<Price> prices) {
     for (final p in prices) {
       _tags.add([
         'price',
-        '${p.amount.toDecimalString()}:${p.amount.token.tagId}:${p.frequency.name}',
+        '${p.amount.toDecimalString()}:${p.amount.denomination}:${p.frequency.name}',
       ]);
     }
     return this;

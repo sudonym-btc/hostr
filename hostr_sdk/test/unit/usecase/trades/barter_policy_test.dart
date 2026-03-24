@@ -17,9 +17,10 @@ Listing _listing({int pricePerNightSats = 100000, bool allowBarter = true}) {
     images: const [],
     price: [
       Price(
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: BigInt.from(pricePerNightSats),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ),
         frequency: Frequency.daily,
       ),
@@ -45,9 +46,10 @@ Reservation _request({
     start: start,
     end: end,
     stage: ReservationStage.negotiate,
-    amount: TokenAmount(
+    amount: DenominatedAmount(
       value: BigInt.from(amountSats),
-      token: Token.btcLightning,
+      denomination: 'BTC',
+      decimals: 8,
     ),
     createdAt: createdAt,
   );

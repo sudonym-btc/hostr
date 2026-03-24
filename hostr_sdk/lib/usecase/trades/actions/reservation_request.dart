@@ -27,7 +27,7 @@ class ReservationRequestActions {
         latestOffer != null &&
         policy.listingPrice != null &&
         latestOffer.amount != null &&
-        latestOffer.amount!.token == policy.listingPrice!.token &&
+        latestOffer.amount!.denomination == policy.listingPrice!.denomination &&
         latestOffer.amount!.value < policy.listingPrice!.value;
 
     if (role == TradeRole.host &&
@@ -68,8 +68,8 @@ class ReservationRequestActions {
 
     var canPay = false;
     var canCounter = false;
-    TokenAmount? counterMin;
-    TokenAmount? counterMax;
+    DenominatedAmount? counterMin;
+    DenominatedAmount? counterMax;
 
     if (latestOffer != null &&
         listingPrice != null &&
@@ -108,7 +108,7 @@ class ReservationRequestActions {
 
     if (counterMin != null &&
         counterMax != null &&
-        counterMin.token == counterMax.token &&
+        counterMin.denomination == counterMax.denomination &&
         counterMin.value > counterMax.value) {
       canCounter = false;
     }
@@ -163,18 +163,22 @@ class ReservationRequestActions {
       return false;
     }
 
-    return latestAmount.token == previousOwnAmount.token &&
+    return latestAmount.denomination == previousOwnAmount.denomination &&
         latestAmount.value == previousOwnAmount.value;
   }
 
-  static TokenAmount _incrementAmount(TokenAmount amount) =>
-      TokenAmount(value: amount.value + BigInt.one, token: amount.token);
+  static DenominatedAmount _incrementAmount(DenominatedAmount amount) =>
+      DenominatedAmount(
+        value: amount.value + BigInt.one,
+        denomination: amount.denomination,
+        decimals: amount.decimals,
+      );
 
-  static TokenAmount? _maxAmount(List<TokenAmount> amounts) {
+  static DenominatedAmount? _maxAmount(List<DenominatedAmount> amounts) {
     if (amounts.isEmpty) return null;
     var max = amounts.first;
     for (final amount in amounts.skip(1)) {
-      if (amount.token == max.token && amount.value > max.value) {
+      if (amount.denomination == max.denomination && amount.value > max.value) {
         max = amount;
       }
     }

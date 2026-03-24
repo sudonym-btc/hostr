@@ -55,20 +55,20 @@ class EscrowClaimOperation extends OnchainOperation {
 
   @override
   OnchainOperationData buildInitialData({
-    required ContractCallIntent callIntent,
+    required List<CallIntent> callIntents,
     required String transport,
   }) => OnchainCallData(
     operationIdValue: params.tradeId,
     contractAddress: params.escrowService!.contractAddress,
     chainId: params.escrowService!.chainId,
     accountIndex: accountIndex,
-    callIntent: callIntent,
+    callIntents: callIntents,
     transport: transport,
   );
 
   @override
-  Future<ContractCallIntent> buildDirectCallIntent() async => contract.claim(
+  Future<List<CallIntent>> buildCallIntents() async => [contract.claim(
     tradeId: params.tradeId,
     ethKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
-  );
+  )];
 }

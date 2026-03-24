@@ -4,9 +4,9 @@ import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../util/main.dart';
-import '../../evm/contract_call_intent.dart';
+import '../../evm/call_intent.dart';
 
-export '../../evm/contract_call_intent.dart';
+export '../../evm/call_intent.dart';
 
 /// On-chain trade data returned by [SupportedEscrowContract.getTrade].
 class OnChainTrade {
@@ -69,7 +69,6 @@ class FundArgs {
   final int unlockAt;
   final TokenAmount? escrowFee;
   final EthPrivateKey ethKey;
-  final GasEstimate? gasEstimate;
 
   /// The ERC-20 token to fund with.
   /// When `null` or `token.isNative`, the trade is funded with native RBTC.
@@ -83,7 +82,6 @@ class FundArgs {
     required this.unlockAt,
     this.escrowFee,
     required this.ethKey,
-    this.gasEstimate,
     this.token,
   });
 }
@@ -125,13 +123,13 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   Future<bool> canClaim({required String tradeId});
   Future<bool> canRelease(ReleaseArgs args);
 
-  ContractCallIntent fund(FundArgs args);
-  ContractCallIntent claim({
+  CallIntent fund(FundArgs args);
+  CallIntent claim({
     required String tradeId,
     required EthPrivateKey ethKey,
   });
-  ContractCallIntent release(ReleaseArgs args);
-  ContractCallIntent arbitrate({
+  CallIntent release(ReleaseArgs args);
+  CallIntent arbitrate({
     required String tradeId,
     required double forward,
     required EthPrivateKey ethKey,
@@ -162,24 +160,30 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     }
   }
 
+  /// Estimate gas for a single [CallIntent] via `eth_estimateGas`.
+  ///
+  /// Optionally provide [stateOverrideBalance] to simulate sufficient balance
+  /// on the sender address (useful when funds haven't arrived yet via swap).
+  /// [fromAddress] is the sender for the simulation (typically the smart account).
   Future<GasEstimate> estimateFee(
-    ContractCallIntent intent, {
+    CallIntent intent, {
     BigInt? stateOverrideBalance,
+    EthereumAddress? fromAddress,
   }) async {
     final gasPrice = await contract.client.getGasPrice();
 
     try {
       final call = <String, dynamic>{
-        if (intent.from != null) 'from': intent.from!.eip55With0x,
-        'to': contract.self.address.eip55With0x,
+        if (fromAddress != null) 'from': fromAddress.eip55With0x,
+        'to': intent.to.eip55With0x,
         'data': bytesToHex(intent.data, include0x: true),
         'value': '0x${intent.value.getInWei.toRadixString(16)}',
       };
       final rpcArgs = <dynamic>[call, 'latest'];
 
-      if (stateOverrideBalance != null && intent.from != null) {
+      if (stateOverrideBalance != null && fromAddress != null) {
         rpcArgs.add({
-          intent.from!.eip55With0x: {
+          fromAddress.eip55With0x: {
             'balance': '0x${stateOverrideBalance.toRadixString(16)}',
           },
         });
@@ -196,7 +200,8 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
         gasLimit: gasLimit,
       );
     } catch (_) {
-      final gasLimit = BigInt.from(intent.maxGas ?? 200000);
+      // Fallback: conservative default when estimation fails.
+      final gasLimit = BigInt.from(200000);
       return GasEstimate(
         fee: rbtcFromWei(gasPrice.getInWei * gasLimit),
         gasPrice: gasPrice,
@@ -205,26 +210,50 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     }
   }
 
-  ContractCallIntent buildIntent({
+  /// Estimate total gas for a list of [CallIntent]s.
+  ///
+  /// Sums individual `eth_estimateGas` calls. This is conservative (over-estimates
+  /// due to double-counting cold storage) but safe for swap amount calculations.
+  Future<GasEstimate> estimateTotalGas(
+    List<CallIntent> intents, {
+    EthereumAddress? fromAddress,
+    BigInt? stateOverrideBalance,
+  }) async {
+    var totalGasLimit = BigInt.zero;
+    EtherAmount? gasPrice;
+
+    for (final intent in intents) {
+      final estimate = await estimateFee(
+        intent,
+        fromAddress: fromAddress,
+        stateOverrideBalance: stateOverrideBalance,
+      );
+      totalGasLimit += estimate.gasLimit;
+      gasPrice ??= estimate.gasPrice;
+    }
+
+    gasPrice ??= await contract.client.getGasPrice();
+    return GasEstimate(
+      fee: rbtcFromWei(gasPrice.getInWei * totalGasLimit),
+      gasPrice: gasPrice,
+      gasLimit: totalGasLimit,
+    );
+  }
+
+  CallIntent buildIntent({
     required String functionName,
     required List<dynamic> args,
-    required EthereumAddress from,
     required String methodName,
     EtherAmount? value,
-    EtherAmount? gasPrice,
-    int? maxGas,
   }) {
     final function = contract.self.abi.functions.firstWhere(
       (f) => f.name == functionName && f.parameters.length == args.length,
     );
     final data = function.encodeCall(args);
-    return ContractCallIntent(
+    return CallIntent(
       to: contract.self.address,
       data: data,
       value: value ?? EtherAmount.zero(),
-      gasPrice: gasPrice,
-      maxGas: maxGas,
-      from: from,
       methodName: methodName,
     );
   }

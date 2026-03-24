@@ -36,7 +36,11 @@ Listing _listing({KeyPair? signer, bool allowSelfSignedReservation = false}) {
     images: ['https://picsum.photos/seed/1/800/600'],
     price: [
       Price(
-        amount: TokenAmount(value: BigInt.from(100000), token: Token.btcLightning),
+        amount: DenominatedAmount(
+          value: BigInt.from(100000),
+          denomination: 'BTC',
+          decimals: 8,
+        ),
         frequency: Frequency.daily,
       ),
     ],

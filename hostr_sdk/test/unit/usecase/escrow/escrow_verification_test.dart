@@ -69,9 +69,10 @@ Listing _listing({bool allowBarter = true, int pricePerNightSats = 100000}) {
     images: const ['https://picsum.photos/seed/escrow/800/600'],
     price: [
       Price(
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: BigInt.from(pricePerNightSats),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ),
         frequency: Frequency.daily,
       ),
@@ -154,7 +155,7 @@ PaymentProof _paymentProof({
 
 Reservation _reservation({
   required Listing listing,
-  required TokenAmount? amount,
+  required DenominatedAmount? amount,
   required PaymentProof proof,
   bool includeSellerSignature = false,
 }) {
@@ -212,9 +213,10 @@ void main() {
       final proof = _paymentProof(listing: listing, txHash: txHash);
       final reservation = _reservation(
         listing: listing,
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: BigInt.from(80000),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ),
         proof: proof,
         includeSellerSignature: true,
@@ -249,9 +251,10 @@ void main() {
       final proof = _paymentProof(listing: listing, txHash: txHash);
       final reservation = _reservation(
         listing: listing,
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: BigInt.from(80000),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ),
         proof: proof,
       );
@@ -290,9 +293,10 @@ void main() {
       );
       final reservation = _reservation(
         listing: listing,
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: BigInt.from(100000),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ),
         proof: proof,
         includeSellerSignature: true,

@@ -33,9 +33,10 @@ class EditListingViewState extends State<EditListingView> {
         description: '',
         price: [
           Price(
-            amount: TokenAmount(
-              token: Token.btcLightning,
+            amount: DenominatedAmount(
+              denomination: 'BTC',
               value: BigInt.from(100000),
+              decimals: 8,
             ),
             frequency: Frequency.daily,
           ),

@@ -39,9 +39,10 @@ Listing _listing({
     images: ['https://picsum.photos/seed/1/800/600'],
     price: [
       Price(
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: BigInt.from(pricePerNightSats),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ),
         frequency: Frequency.daily,
       ),
@@ -64,7 +65,7 @@ Reservation _negotiateReservation({
   DateTime? start,
   DateTime? end,
   int quantity = 1,
-  TokenAmount? amount,
+  DenominatedAmount? amount,
 }) {
   final s = start ?? DateTime(2026, 3, 1);
   final e = end ?? DateTime(2026, 3, 5);
@@ -762,9 +763,10 @@ void main() {
         start: DateTime(2026, 9, 1),
         end: DateTime(2026, 9, 5),
         quantity: 1,
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: BigInt.from(100000),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ),
       );
 
@@ -779,9 +781,10 @@ void main() {
         end: DateTime(2026, 9, 5),
         stage: ReservationStage.commit,
         quantity: 1,
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: BigInt.from(50000),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ), // tampered!
         proof: _escrowPaymentProof(listing: listing),
         signatures: {seller.publicKey: sellerSig},
@@ -874,9 +877,10 @@ void main() {
         start: DateTime(2026, 3, 1),
         end: DateTime(2026, 3, 5),
         quantity: 2,
-        amount: TokenAmount(
+        amount: DenominatedAmount(
           value: BigInt.from(100000),
-          token: Token.btcLightning,
+          denomination: 'BTC',
+          decimals: 8,
         ),
         recipient: buyer.publicKey,
       );
@@ -1288,9 +1292,10 @@ void main() {
           listing: listing,
           buyer: buyer,
           salt: salt,
-          amount: TokenAmount(
+          amount: DenominatedAmount(
             value: BigInt.from(80000),
-            token: Token.btcLightning,
+            denomination: 'BTC',
+            decimals: 8,
           ),
         );
         expect(negotiate.amount!.value, BigInt.from(80000));

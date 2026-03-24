@@ -4,10 +4,11 @@ import 'package:hostr/logic/forms/form_field_controller.dart';
 import 'package:models/main.dart';
 
 /// Manages listing price state — currency, text editing, and conversion
-/// to/from [TokenAmount] and [Price] model objects.
+/// to/from [DenominatedAmount] and [Price] model objects.
 class ListingPriceFieldController extends FormFieldController {
   final TextEditingController textController = TextEditingController();
-  Token currency = Token.btcLightning;
+  String _denomination = 'BTC';
+  int _decimals = 8;
   String _originalSats = '0';
 
   @override
@@ -21,13 +22,18 @@ class ListingPriceFieldController extends FormFieldController {
 
   /// Set the initial state from the listing's existing prices.
   void setState(List<Price> prices) {
-    currency = Token.btcLightning;
+    _denomination = 'BTC';
+    _decimals = 8;
     final nightly = prices.firstWhere(
       (p) => p.frequency == Frequency.daily,
       orElse: () => prices.isNotEmpty
           ? prices.first
           : Price(
-              amount: TokenAmount.zero(Token.btcLightning),
+              amount: DenominatedAmount(
+                denomination: 'BTC',
+                value: BigInt.zero,
+                decimals: 8,
+              ),
               frequency: Frequency.daily,
             ),
     );
@@ -67,17 +73,29 @@ class ListingPriceFieldController extends FormFieldController {
     return updated;
   }
 
-  TokenAmount amountFromSatsInput(String input) {
+  DenominatedAmount amountFromSatsInput(String input) {
     final trimmed = input.replaceAll(',', '').trim();
     if (trimmed.isEmpty) {
-      return TokenAmount.zero(Token.btcLightning);
+      return DenominatedAmount(
+        denomination: _denomination,
+        value: BigInt.zero,
+        decimals: _decimals,
+      );
     }
 
     try {
       final sats = BigInt.parse(trimmed);
-      return TokenAmount(value: sats, token: Token.btcLightning);
+      return DenominatedAmount(
+        denomination: _denomination,
+        value: sats,
+        decimals: _decimals,
+      );
     } on FormatException {
-      return TokenAmount.zero(Token.btcLightning);
+      return DenominatedAmount(
+        denomination: _denomination,
+        value: BigInt.zero,
+        decimals: _decimals,
+      );
     }
   }
 

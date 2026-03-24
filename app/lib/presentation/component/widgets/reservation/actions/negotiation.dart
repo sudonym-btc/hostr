@@ -94,11 +94,11 @@ class NegotiationWidget extends StatelessWidget {
     final latestAmount = latestOffer.amount;
     final isBelowListing =
         latestAmount != null &&
-        latestAmount.token == listingPrice.token &&
+        latestAmount.denomination == listingPrice.denomination &&
         latestAmount.value < listingPrice.value;
     final isAtListingPrice =
         latestAmount != null &&
-        latestAmount.token == listingPrice.token &&
+        latestAmount.denomination == listingPrice.denomination &&
         latestAmount.value == listingPrice.value;
 
     switch (tradeState.role) {
@@ -241,10 +241,10 @@ class NegotiationWidget extends StatelessWidget {
 }
 
 class _CounterOfferSheet extends StatefulWidget {
-  final TokenAmount initialAmount;
-  final TokenAmount? minAmount;
-  final TokenAmount? maxAmount;
-  final Future<void> Function(TokenAmount amount) onSubmit;
+  final DenominatedAmount initialAmount;
+  final DenominatedAmount? minAmount;
+  final DenominatedAmount? maxAmount;
+  final Future<void> Function(DenominatedAmount amount) onSubmit;
 
   const _CounterOfferSheet({
     required this.initialAmount,
@@ -259,8 +259,8 @@ class _CounterOfferSheet extends StatefulWidget {
 
 class _CounterOfferSheetState extends State<_CounterOfferSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _amountFieldKey = GlobalKey<FormFieldState<TokenAmount>>();
-  late TokenAmount _amount;
+  final _amountFieldKey = GlobalKey<FormFieldState<DenominatedAmount>>();
+  late DenominatedAmount _amount;
 
   @override
   void initState() {
@@ -270,7 +270,7 @@ class _CounterOfferSheetState extends State<_CounterOfferSheet> {
 
   bool get _isValid => _validateAmount(_amount) == null;
 
-  String? _validateAmount(TokenAmount? amount) {
+  String? _validateAmount(DenominatedAmount? amount) {
     if (amount == null) {
       return 'Please enter a counter amount';
     }

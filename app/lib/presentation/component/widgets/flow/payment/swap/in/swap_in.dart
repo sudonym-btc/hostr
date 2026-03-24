@@ -6,6 +6,7 @@ import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 import '../../../../amount/amount_input.dart';
 import '../../../modal_bottom_sheet.dart';
@@ -118,18 +119,23 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
         children: [
           AmountWidget(
             to: params.evmKey.address.eip55With0x,
-            amount: params.amount,
+            amount: params.amount.toDenominated(),
             loading: _loading,
             onAmountTap: isEditable
                 ? () async {
                     final result = await AmountEditorBottomSheet.show(
                       context,
-                      initialAmount: params.amount,
-                      minAmount: params.minAmount!,
-                      maxAmount: params.maxAmount!,
+                      initialAmount: params.amount.toDenominated(),
+                      minAmount: params.minAmount!.toDenominated(),
+                      maxAmount: params.maxAmount!.toDenominated(),
                     );
                     if (result != null && context.mounted) {
-                      operation.updateAmount(result);
+                      operation.updateAmount(
+                        TokenAmount.fromDenominated(
+                          result,
+                          params.amount.token,
+                        ),
+                      );
                     }
                   }
                 : null,
@@ -162,15 +168,15 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedGasFees)} in gas",
+                      "+ ${formatTokenAmount(snapshot.data!.estimatedGasFees)} in gas",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedSwapFees)} in swap fees",
+                      "+ ${formatTokenAmount(snapshot.data!.estimatedSwapFees)} in swap fees",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedRelayFees)} in relay fees",
+                      "+ ${formatTokenAmount(snapshot.data!.estimatedRelayFees)} in relay fees",
                       style: subtleStyle,
                     ),
                   ],

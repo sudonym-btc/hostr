@@ -46,19 +46,6 @@ class EscrowVerification {
     : _evm = evm,
       _logger = logger.scope('escrow-verify');
 
-  String? _inferDenomination({
-    required Token expectedToken,
-    required Token fundedToken,
-  }) {
-    if (expectedToken.isLightning || fundedToken.isLightning) {
-      return 'BTC';
-    }
-    if (expectedToken.isNative && fundedToken.isNative) {
-      return 'BTC';
-    }
-    return null;
-  }
-
   /// Verify the on-chain escrow for [reservation] against [listing].
   ///
   /// Returns [EscrowVerificationResult.valid] when the on-chain trade
@@ -169,53 +156,35 @@ class EscrowVerification {
         listing: proof.listing,
       );
 
-      // Compare on-chain funded amount against the expected amount.
-      //
-      // For native RBTC: both amounts carry 18-decimal precision.
-      // For ERC-20 tokens: both amounts carry the token's native precision
-      // (e.g. 6 for USDT). The on-chain amount comes from
-      // `_tokenAmountFromTrade` which resolves the token from the trade's
-      // token address, so the comparison is apples-to-apples.
-      //
-      // If the tokens differ (e.g. funded in RBTC but expected USDT), the
-      // TokenAmount >= operator will throw — which is correct: a token
-      // mismatch should fail verification.
+      // The expected amount is a DenominatedAmount (e.g. "BTC" with 8 decimals
+      // for satoshis). The on-chain amount is a TokenAmount bound to a concrete
+      // token. We scale the expected amount to the on-chain token's decimal
+      // precision for comparison.
       final onChainAmount = fundedEvent.amount;
-      final expectedTokenAmount = expectedAmount.expectedAmount;
+      final expected = expectedAmount.expectedAmount;
+      final denomination = expected.denomination;
 
-      // When the expected amount is in a different unit system (e.g. BTC
-      // Lightning sats) we need to normalise to the on-chain token's
-      // precision before comparing.
-      final TokenAmount comparableExpected;
-      if (expectedTokenAmount.token == onChainAmount.token) {
-        comparableExpected = expectedTokenAmount;
-      } else if (expectedTokenAmount.token.isLightning &&
-          onChainAmount.token.isNative) {
-        // Lightning BTC (8 dec) → RBTC (18 dec): 1 sat = 10^10 wei
-        comparableExpected = rbtcFromSats(expectedTokenAmount.value);
-      } else {
-        // For ERC-20 tokens the expected amount should already be
-        // denominated in the same token. If it isn't, treat as mismatch.
-        return EscrowVerificationResult.invalid(
-          'Token mismatch: on-chain token ${onChainAmount.token} '
-          'does not match expected token ${expectedTokenAmount.token}',
-        );
-      }
-
-      final inferredDenomination = _inferDenomination(
-        expectedToken: expectedTokenAmount.token,
-        fundedToken: onChainAmount.token,
-      );
-      if (inferredDenomination != null &&
-          !escrowProof.hostsEscrowMethods.acceptsToken(
-            inferredDenomination,
-            onChainAmount.token.tagId,
-          )) {
+      // Verify the host accepts this on-chain token for the denomination.
+      if (!escrowProof.hostsEscrowMethods.acceptsToken(
+        denomination,
+        onChainAmount.token.tagId,
+      )) {
         return EscrowVerificationResult.invalid(
           'Host does not accept token ${onChainAmount.token.tagId} '
-          'for $inferredDenomination-denominated payments',
+          'for $denomination-denominated payments',
         );
       }
+
+      // Scale the expected value from the denomination's decimals to the
+      // on-chain token's decimals.
+      final decimalDiff = onChainAmount.token.decimals - expected.decimals;
+      final scaledExpectedValue = decimalDiff <= 0
+          ? expected.value
+          : expected.value * BigInt.from(10).pow(decimalDiff);
+      final comparableExpected = TokenAmount(
+        value: scaledExpectedValue,
+        token: onChainAmount.token,
+      );
 
       if (onChainAmount < comparableExpected) {
         final expectedAmountLabel = expectedAmount.usesNegotiatedAmount

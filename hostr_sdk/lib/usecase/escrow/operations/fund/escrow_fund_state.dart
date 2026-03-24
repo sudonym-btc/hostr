@@ -13,15 +13,13 @@ class EscrowFundData extends OnchainOperationData {
   final String tradeId;
 
   final String? errorMessage;
-  final ContractCallIntent? approveIntent;
 
   const EscrowFundData({
     required this.tradeId,
     required super.contractAddress,
     required super.chainId,
     required super.accountIndex,
-    super.callIntent,
-    this.approveIntent,
+    super.callIntents,
     super.transport,
     super.swapId,
     super.txHash,
@@ -50,16 +48,15 @@ class EscrowFundData extends OnchainOperationData {
   ) => copyWith(transactionReceipt: transactionReceipt);
 
   @override
-  EscrowFundData copyWithCallIntent(ContractCallIntent? callIntent) =>
-      copyWith(callIntent: callIntent);
+  EscrowFundData copyWithCallIntents(List<CallIntent> callIntents) =>
+      copyWith(callIntents: callIntents);
 
   @override
   EscrowFundData copyWithTransport(String? transport) =>
       copyWith(transport: transport);
 
   EscrowFundData copyWith({
-    ContractCallIntent? callIntent,
-    ContractCallIntent? approveIntent,
+    List<CallIntent>? callIntents,
     String? transport,
     String? swapId,
     String? txHash,
@@ -71,8 +68,7 @@ class EscrowFundData extends OnchainOperationData {
     contractAddress: contractAddress,
     chainId: chainId,
     accountIndex: accountIndex,
-    callIntent: callIntent ?? this.callIntent,
-    approveIntent: approveIntent ?? this.approveIntent,
+    callIntents: callIntents ?? this.callIntents,
     transport: transport ?? this.transport,
     swapId: swapId ?? this.swapId,
     txHash: txHash ?? this.txHash,
@@ -86,36 +82,29 @@ class EscrowFundData extends OnchainOperationData {
   Map<String, dynamic> toJson() => {
     'tradeId': tradeId,
     ...super.baseToJson(),
-    if (approveIntent != null) 'approveIntent': approveIntent!.toJson(),
     if (errorMessage != null) 'errorMessage': errorMessage,
   };
 
-  factory EscrowFundData.fromJson(Map<String, dynamic> json) => EscrowFundData(
-    tradeId: json['tradeId'] as String,
-    contractAddress: json['contractAddress'] as String,
-    chainId: json['chainId'] as int,
-    accountIndex: json['accountIndex'] as int? ?? 0,
-    callIntent: json['callIntent'] != null
-        ? ContractCallIntent.fromJson(
-            json['callIntent'] as Map<String, dynamic>,
-          )
-        : null,
-    approveIntent: json['approveIntent'] != null
-        ? ContractCallIntent.fromJson(
-            json['approveIntent'] as Map<String, dynamic>,
-          )
-        : null,
-    transport: json['transport'] as String?,
-    swapId: json['swapId'] as String?,
-    txHash: json['txHash'] as String?,
-    transactionInformation: deserializeTransactionInformation(
-      json['transactionInformation'] as Map<String, dynamic>?,
-    ),
-    transactionReceipt: deserializeTransactionReceipt(
-      json['transactionReceipt'] as Map<String, dynamic>?,
-    ),
-    errorMessage: json['errorMessage'] as String?,
-  );
+  factory EscrowFundData.fromJson(Map<String, dynamic> json) {
+    final callIntents = parseCallIntents(json);
+    return EscrowFundData(
+      tradeId: json['tradeId'] as String,
+      contractAddress: json['contractAddress'] as String,
+      chainId: json['chainId'] as int,
+      accountIndex: json['accountIndex'] as int? ?? 0,
+      callIntents: callIntents,
+      transport: json['transport'] as String?,
+      swapId: json['swapId'] as String?,
+      txHash: json['txHash'] as String?,
+      transactionInformation: deserializeTransactionInformation(
+        json['transactionInformation'] as Map<String, dynamic>?,
+      ),
+      transactionReceipt: deserializeTransactionReceipt(
+        json['transactionReceipt'] as Map<String, dynamic>?,
+      ),
+      errorMessage: json['errorMessage'] as String?,
+    );
+  }
 
   @override
   String toString() => 'EscrowFundData($tradeId)';

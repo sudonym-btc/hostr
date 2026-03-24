@@ -6,7 +6,7 @@ class EscrowFundParams {
   final EscrowService escrowService;
   final Reservation negotiateReservation;
   final ProfileMetadata sellerProfile;
-  final TokenAmount amount;
+  final DenominatedAmount amount;
   final String? listingName;
 
   EscrowFundParams({

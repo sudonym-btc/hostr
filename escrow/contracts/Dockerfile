@@ -12,6 +12,8 @@ RUN npm ci --no-audit --no-fund
 
 COPY . .
 
+RUN npx hardhat clean && npx hardhat compile
+
 EXPOSE 8545
 
 CMD ["npm", "exec", "hardhat", "--", "node"]

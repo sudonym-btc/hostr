@@ -32,6 +32,9 @@ class TestConfig extends Config {
         chainId: 412346,
         rpcUrl: 'https://arbitrum.hostr.development',
         accountAbstraction: envBackedAAConfig(),
+        escrowContractAddress: const String.fromEnvironment(
+          'ESCROW_CONTRACT_ADDRESS',
+        ),
         tokens: envBackedTokens(),
       ),
     ],

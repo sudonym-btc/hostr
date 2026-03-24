@@ -11,3 +11,6 @@ build
 coverage
 .vscode
 .idea
+artifacts
+cache
+ignition/deployments

@@ -17,7 +17,6 @@ import 'escrow_fund_state.dart';
 @injectable
 class EscrowFundOperation extends OnchainOperation {
   final EscrowFundParams? params;
-  GasEstimate? _gasEstimate;
 
   @override
   String get tradeId => params!.negotiateReservation.getDtag()!;
@@ -120,71 +119,34 @@ class EscrowFundOperation extends OnchainOperation {
 
   @override
   OnchainOperationData buildInitialData({
-    required ContractCallIntent callIntent,
+    required List<CallIntent> callIntents,
     required String transport,
   }) {
     final params = _requireParams();
-    final approveIntent = _buildApproveIntentIfNeeded(params);
     return EscrowFundData(
       tradeId: params.negotiateReservation.getDtag()!,
       contractAddress: params.escrowService.contractAddress,
       chainId: params.escrowService.chainId,
       accountIndex: accountIndex,
-      callIntent: callIntent,
-      approveIntent: approveIntent,
+      callIntents: callIntents,
       transport: transport,
     );
   }
 
   @override
-  Future<ContractCallIntent> buildDirectCallIntent() async {
+  Future<List<CallIntent>> buildCallIntents() async {
     final params = _requireParams();
-    return contract.fund(await _buildFundArgs(params));
+    final fundIntent = contract.fund(await _buildFundArgs(params));
+    final approveIntent = _buildApproveIntentIfNeeded(params);
+    return [
+      if (approveIntent != null) approveIntent,
+      fundIntent,
+    ];
   }
 
   @override
-  Future<String> broadcastContractCallIntent(
-    ContractCallIntent intent,
-    EthPrivateKey credentials,
-  ) => logger.span('broadcastContractCallIntent', () async {
-    final data = state.data;
-    final persistedApproveIntent = data is EscrowFundData
-        ? data.approveIntent
-        : null;
-    final rebuiltApproveIntent = params != null
-        ? _buildApproveIntentIfNeeded(params!)
-        : null;
-    final approveIntent = persistedApproveIntent ?? rebuiltApproveIntent;
-
-    try {
-      await contract.ensureDeployed();
-      if (approveIntent != null) {
-        if (persistedApproveIntent == null) {
-          logger.w(
-            'approveIntent missing from persisted escrow_fund state for '
-            'trade $tradeId; rebuilding ERC20 approve before broadcast',
-          );
-        }
-        logger.i(
-          'Broadcasting batched ERC20 approve + escrow fund '
-          'for trade $tradeId',
-        );
-        return await configuredChain.aa!.sendBatchUserOps(credentials, [
-          approveIntent,
-          intent,
-        ]);
-      }
-      return await configuredChain.aa!.sendUserOp(credentials, intent);
-    } catch (error) {
-      throw contract.decodeWriteError(error);
-    }
-  });
-
-  @override
   void onGasEstimated(GasEstimate estimate) =>
-      logger.spanSync('onGasEstimated', () {
-        _gasEstimate = estimate;
-      });
+      logger.spanSync('onGasEstimated', () {});
 
   @override
   void validateConfirmedTransaction(
@@ -219,15 +181,9 @@ class EscrowFundOperation extends OnchainOperation {
         if (receipt == null) return;
 
         final gasUsed = receipt.gasUsed?.toInt();
-        final estimatedLimit = data.callIntent?.maxGas;
-        final gasPrice = data.callIntent?.gasPrice?.getInWei;
-        if (gasUsed != null && estimatedLimit != null && gasPrice != null) {
-          final refundGas = estimatedLimit - gasUsed;
-          final refundWei = BigInt.from(refundGas) * gasPrice;
+        if (gasUsed != null) {
           logger.d(
-            'Gas usage: estimated=$estimatedLimit, actual=$gasUsed, '
-            'refunded=$refundGas units '
-            '(~${rbtcFromWei(refundWei).getInSats} sats)',
+            'Gas usage: actual=$gasUsed units for trade $tradeId',
           );
         }
       });
@@ -431,14 +387,10 @@ class EscrowFundOperation extends OnchainOperation {
     'estimateOperationFees',
     () async {
       await initialize();
-      final intent = await buildDirectCallIntent();
-      final gasEstimate = await estimateCallIntentFee(intent);
-      final pinnedIntent = intent.copyWith(
-        gasPrice: gasEstimate.gasPrice,
-        maxGas: gasEstimate.gasLimit.toInt(),
-      );
+      final intents = await buildCallIntents();
+      final gasEstimate = await estimateCallIntentsFee(intents);
       final data = buildInitialData(
-        callIntent: pinnedIntent,
+        callIntents: intents,
         transport: 'direct',
       );
       final swapAmount = await _computeRequiredSwapAmount(data, gasEstimate);
@@ -459,7 +411,7 @@ class EscrowFundOperation extends OnchainOperation {
       return OnchainFeeQuote(
         gasEstimate: gasEstimate,
         swapFees: swapFees,
-        callIntent: pinnedIntent,
+        callIntents: intents,
         transport: 'direct',
       );
     },
@@ -519,9 +471,15 @@ class EscrowFundOperation extends OnchainOperation {
     return true;
   }
 
-  ContractCallIntent? _buildApproveIntentIfNeeded(EscrowFundParams params) {
+  CallIntent? _buildApproveIntentIfNeeded(EscrowFundParams params) {
     final token = _resolveFundingToken(params);
     if (!token.isERC20) return null;
+
+    // The ERC-20 approval must match the exact token-denominated amount that
+    // `createTrade` will pull via `transferFrom`. Using `params.amount.value`
+    // is wrong when the original reservation amount is expressed in sats and
+    // later remapped into an ERC-20 token with different decimals.
+    final fundingAmount = _resolveFundingAmount(params);
 
     final tokenAddress = EthereumAddress.fromHex(token.address);
     final erc20 = IERC20(
@@ -532,9 +490,9 @@ class EscrowFundOperation extends OnchainOperation {
       (f) => f.name == 'approve',
     );
 
-    return ContractCallIntent(
+    return CallIntent(
       to: tokenAddress,
-      data: approveFn.encodeCall([contract.address, params.amount.value]),
+      data: approveFn.encodeCall([contract.address, fundingAmount.value]),
       value: EtherAmount.zero(),
       methodName: 'ERC20.approve',
     );
@@ -573,17 +531,14 @@ class EscrowFundOperation extends OnchainOperation {
       unlockAt: params.negotiateReservation.end.millisecondsSinceEpoch ~/ 1000,
       escrowFee: escrowFee,
       ethKey: await _activeEthKey(),
-      gasEstimate: _gasEstimate,
       token: isERC20 ? token : null,
     );
   }
 
   Token _resolveFundingToken(EscrowFundParams params) {
-    final original = params.amount.token;
-    if (original.isERC20 || original.isNative) {
-      return original;
-    }
-
+    // Resolve the concrete on-chain token from chain configuration.
+    // The EscrowFundParams.amount is a DenominatedAmount (e.g. "BTC" sats),
+    // so we look at the chain's swap provider to determine the funding token.
     final swapProvider = configuredChain.swaps;
     if (swapProvider?.isErc20 == true && swapProvider?.tokenAddress != null) {
       final tokenAddress = swapProvider!.tokenAddress!;
@@ -606,20 +561,19 @@ class EscrowFundOperation extends OnchainOperation {
   }
 
   TokenAmount _resolveFundingAmount(EscrowFundParams params) {
-    final original = params.amount;
+    final denominated = params.amount;
     final resolvedToken = _resolveFundingToken(params);
-    if (resolvedToken == original.token) {
-      return original;
-    }
 
-    final sats = original.inSats;
-    final scale = resolvedToken.decimals - 8;
-    final value = scale <= 0 ? sats : sats * BigInt.from(10).pow(scale);
+    // Scale from denomination decimals to token decimals.
+    final scale = resolvedToken.decimals - denominated.decimals;
+    final value = scale <= 0
+        ? denominated.value
+        : denominated.value * BigInt.from(10).pow(scale);
 
     logger.i(
-      'Resolved escrow funding token from ${original.token.tagId} '
-      'to ${resolvedToken.tagId} for trade $tradeId '
-      '(amount=${sats.toString()} sats)',
+      'Resolved escrow funding amount: '
+      '${denominated.denomination} ${denominated.value} '
+      '→ ${resolvedToken.tagId} $value for trade $tradeId',
     );
 
     return TokenAmount(value: value, token: resolvedToken);

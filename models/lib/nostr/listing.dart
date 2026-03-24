@@ -254,15 +254,16 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
     return true;
   }
 
-  // Currently can only compare prices of the same token
-  TokenAmount cost(DateTime start, DateTime end) {
+  // Currently can only compare prices of the same denomination
+  DenominatedAmount cost(DateTime start, DateTime end) {
     // Loop through prices and choose the cheapest result
-    List<TokenAmount> costs = prices
-        .map((p) => TokenAmount(
+    List<DenominatedAmount> costs = prices
+        .map((p) => DenominatedAmount(
             value: BigInt.from(end.difference(start).inDays.abs() /
                     FrequencyInDays.of(p.frequency)) *
                 p.amount.value,
-            token: p.amount.token))
+            denomination: p.amount.denomination,
+            decimals: p.amount.decimals))
         .toList();
     costs.sort((a, b) => a.value.compareTo(b.value));
     return costs.first;

@@ -13,7 +13,7 @@ node_modules
 /coverage
 /coverage.json
 
-# Hardhat Ignition default folder for deployments against a local node
+# Ignore local/dev chain deployments only — testnet and mainnet deployments are tracked
 ignition/deployments/chain-31337
-# Ignore deployments against rootstock regtest
 ignition/deployments/chain-33
+ignition/deployments/chain-412346
