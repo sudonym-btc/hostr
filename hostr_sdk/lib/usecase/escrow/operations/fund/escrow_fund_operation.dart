@@ -138,10 +138,7 @@ class EscrowFundOperation extends OnchainOperation {
     final params = _requireParams();
     final fundIntent = contract.fund(await _buildFundArgs(params));
     final approveIntent = _buildApproveIntentIfNeeded(params);
-    return [
-      if (approveIntent != null) approveIntent,
-      fundIntent,
-    ];
+    return [if (approveIntent != null) approveIntent, fundIntent];
   }
 
   @override
@@ -182,9 +179,7 @@ class EscrowFundOperation extends OnchainOperation {
 
         final gasUsed = receipt.gasUsed?.toInt();
         if (gasUsed != null) {
-          logger.d(
-            'Gas usage: actual=$gasUsed units for trade $tradeId',
-          );
+          logger.d('Gas usage: actual=$gasUsed units for trade $tradeId');
         }
       });
 
@@ -295,23 +290,40 @@ class EscrowFundOperation extends OnchainOperation {
         ? TokenAmount.zero(fundingAmount.token)
         : TokenAmount(value: gasEstimate.fee.value, token: fundingAmount.token);
     final totalRequired = fundingAmount + gasComponent;
-    final limits = await configuredChain.getSwapInLimits();
-    final swapAmount = TokenAmount.max(
-      limits.min,
-      TokenAmount(
-        value: totalRequired.inSats * BigInt.from(10).pow(10),
-        token: limits.min.token,
-      ),
-    ).roundUpToSats();
+    late final TokenAmount resolvedSwapAmount;
+    try {
+      final limits = await configuredChain.swaps!.getSwapInLimits(
+        tokenAddress: fundingAmount.token.isERC20
+            ? EthereumAddress.fromHex(fundingAmount.token.address)
+            : null,
+      );
+      final minSwapAmount = TokenAmount.fromDenominated(
+        limits.min,
+        fundingAmount.token,
+      );
+      resolvedSwapAmount = TokenAmount.max(
+        minSwapAmount,
+        TokenAmount(
+          value: totalRequired.inSats * BigInt.from(10).pow(10),
+          token: fundingAmount.token,
+        ),
+      ).roundUpToSats();
+    } catch (e) {
+      logger.w(
+        'Could not fetch Boltz swap-in limits for '
+        '${fundingAmount.token.tagId}; falling back to exact required amount: $e',
+      );
+      resolvedSwapAmount = totalRequired.roundUpToSats();
+    }
 
     logger.i(
       'Swap funding: '
       'funding=${fundingAmount.getInSats}, '
       'gas=${fundingAmount.token.isERC20 ? 0 : gasEstimate.fee.getInSats}, '
-      'swapAmount=${swapAmount.getInSats}',
+      'swapAmount=${resolvedSwapAmount.getInSats}',
     );
 
-    return swapAmount;
+    return resolvedSwapAmount;
   });
 
   /// Runs a nested swap-in for the full required on-chain amount.
@@ -323,8 +335,10 @@ class EscrowFundOperation extends OnchainOperation {
 
     final evmKey = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
 
-    // First pass: estimate swap fees.
-    SwapInOperation swapEstimation = configuredChain.swapIn(
+    // Create a single nested swap op and reuse it for both fee estimation
+    // and execution. `estimateFees()` is side-effect free, so there is no
+    // need to allocate a throwaway operation instance first.
+    SwapInOperation swap = configuredChain.swapIn(
       auth: auth,
       logger: logger,
       params: SwapInParams(
@@ -333,24 +347,24 @@ class EscrowFundOperation extends OnchainOperation {
         amount: swapAmount,
         invoiceDescription: swapInvoiceDescription,
         claimAddress: swapClaimAddress,
-      ),
-    );
-    final swapFees = await swapEstimation.estimateFees();
-
-    // Second pass: create the real swap with amount + overhead.
-    SwapInOperation swap = configuredChain.swapIn(
-      auth: auth,
-      logger: logger,
-      params: SwapInParams(
-        evmKey: evmKey,
-        accountIndex: accountIndex,
-        amount: (swapAmount + swapFees.totalFees).roundUpToSats(),
-        invoiceDescription: swapInvoiceDescription,
-        claimAddress: swapClaimAddress,
         parentOperationId: data.operationId,
       ),
     );
     swap.onProgress = onProgress;
+
+    final swapFees = await swap.estimateFees();
+    final swapAmountOverhead = TokenAmount.fromDenominated(
+      swapFees.requiredSwapAmountOverhead,
+      swapAmount.token,
+    );
+    swap.params.amount = (swapAmount + swapAmountOverhead).roundUpToSats();
+
+    logger.i(
+      'Nested swap amount adjusted after fee estimate: '
+      'base=${swapAmount.getInSats} sats, '
+      'swapOverhead=${swapAmountOverhead.getInSats} sats, '
+      'final=${swap.params.amount.getInSats} sats',
+    );
 
     String? swapId;
     bool swapIdPersisted = false;
@@ -389,10 +403,7 @@ class EscrowFundOperation extends OnchainOperation {
       await initialize();
       final intents = await buildCallIntents();
       final gasEstimate = await estimateCallIntentsFee(intents);
-      final data = buildInitialData(
-        callIntents: intents,
-        transport: 'direct',
-      );
+      final data = buildInitialData(callIntents: intents, transport: 'direct');
       final swapAmount = await _computeRequiredSwapAmount(data, gasEstimate);
       final swapFees = await configuredChain
           .swapIn(
@@ -422,13 +433,24 @@ class EscrowFundOperation extends OnchainOperation {
   Future<EscrowFundFees> estimateFees() =>
       logger.span('estimateFees', () async {
         final params = _requireParams();
-        final fundArgs = await _buildFundArgs(params);
         await _ensureSwapClaimAddress();
         final quote = await estimateOperationFees();
+
+        // Escrow fee in BTC sats (8 decimals), computed directly from the
+        // escrow service's fee schedule. Using sats avoids the display bug
+        // where an ERC-20 TokenAmount (e.g. 0.000005 tBTC) gets rounded to
+        // "0" by the 2-decimal-place currency formatter.
+        final amountSats = params.amount.value.toInt();
+        final feeSats = params.escrowService.escrowFee(amountSats);
+
         return EscrowFundFees(
           estimatedGasFees: quote.gasEstimate.fee,
           estimatedSwapFees: quote.swapFees,
-          estimatedEscrowFees: fundArgs.escrowFee ?? TokenAmount.zero(rbtc),
+          estimatedEscrowFees: DenominatedAmount(
+            denomination: 'BTC',
+            value: BigInt.from(feeSats),
+            decimals: 8,
+          ),
         );
       });
 
@@ -538,21 +560,23 @@ class EscrowFundOperation extends OnchainOperation {
   Token _resolveFundingToken(EscrowFundParams params) {
     // Resolve the concrete on-chain token from chain configuration.
     // The EscrowFundParams.amount is a DenominatedAmount (e.g. "BTC" sats),
-    // so we look at the chain's swap provider to determine the funding token.
-    final swapProvider = configuredChain.swaps;
-    if (swapProvider?.isErc20 == true && swapProvider?.tokenAddress != null) {
-      final tokenAddress = swapProvider!.tokenAddress!;
+    // so we look at the chain's Boltz chain info to determine the funding
+    // token. If Boltz has ERC-20 tokens on this chain, use the first one;
+    // otherwise fall back to the native asset.
+    final boltzTokens = configuredChain.swaps?.chainInfo.tokens ?? {};
+    if (boltzTokens.isNotEmpty) {
+      final boltzTokenAddress = boltzTokens.values.first;
       var decimals = 18;
       for (final tokenConfig in configuredChain.config.tokens.values) {
         if (tokenConfig.address.toLowerCase() ==
-            tokenAddress.eip55With0x.toLowerCase()) {
+            boltzTokenAddress.eip55With0x.toLowerCase()) {
           decimals = tokenConfig.decimals;
           break;
         }
       }
       return Token(
         chainId: configuredChain.config.chainId,
-        address: tokenAddress.eip55With0x,
+        address: boltzTokenAddress.eip55With0x,
         decimals: decimals,
       );
     }

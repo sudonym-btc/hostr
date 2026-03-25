@@ -150,6 +150,24 @@ class DenominatedAmount {
   static DenominatedAmount min(DenominatedAmount a, DenominatedAmount b) =>
       a <= b ? a : b;
 
+  // ── Scale conversion ────────────────────────────────────────────────
+
+  /// Returns a new [DenominatedAmount] with the same denomination but
+  /// a different number of [decimals].
+  ///
+  /// If [newDecimals] < [decimals], the value is integer-divided (truncated).
+  /// If [newDecimals] > [decimals], the value is scaled up.
+  DenominatedAmount rescale(int newDecimals) {
+    if (newDecimals == decimals) return this;
+    final diff = decimals - newDecimals;
+    final factor = BigInt.from(10).pow(diff.abs());
+    return DenominatedAmount(
+      denomination: denomination,
+      value: diff > 0 ? value ~/ factor : value * factor,
+      decimals: newDecimals,
+    );
+  }
+
   // ── Predicates ────────────────────────────────────────────────────
 
   /// Whether this denomination represents the BTC family (Lightning, RBTC).
@@ -177,6 +195,14 @@ class DenominatedAmount {
       throw ArgumentError(
         'Cannot combine amounts of different denominations: '
         '$denomination vs ${other.denomination}',
+      );
+    }
+    if (decimals != other.decimals) {
+      throw ArgumentError(
+        'Cannot combine amounts with different decimal scales: '
+        '$denomination ($decimals decimals) vs '
+        '${other.denomination} (${other.decimals} decimals). '
+        'Use .rescale() to align them first.',
       );
     }
   }

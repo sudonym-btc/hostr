@@ -14,12 +14,12 @@ class SwapOutParams {
 }
 
 class SwapOutFees {
-  final TokenAmount estimatedGasFees;
-  final TokenAmount estimatedSwapFees;
+  final DenominatedAmount estimatedGasFees;
+  final DenominatedAmount estimatedSwapFees;
   final TokenAmount balance;
   final TokenAmount invoiceAmount;
 
-  TokenAmount get totalFees => estimatedGasFees + estimatedSwapFees;
+  DenominatedAmount get totalFees => estimatedGasFees + estimatedSwapFees;
 
   SwapOutFees({
     required this.estimatedGasFees,

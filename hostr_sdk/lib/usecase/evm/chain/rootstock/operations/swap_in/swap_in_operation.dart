@@ -24,6 +24,10 @@ import '../../../../main.dart';
 class EvmSwapInOperation extends SwapInOperation {
   final ConfiguredEvmChain configuredChain;
 
+  EthereumAddress? get _requestedTokenAddress => params.amount.token.isERC20
+      ? EthereumAddress.fromHex(params.amount.token.address)
+      : null;
+
   EvmSwapInOperation({
     required this.configuredChain,
     required super.auth,
@@ -33,10 +37,13 @@ class EvmSwapInOperation extends SwapInOperation {
   });
 
   @override
-  Future<({TokenAmount min, TokenAmount max})> getSwapLimits() => logger.span(
-    'getSwapLimits',
-    () => configuredChain.swaps!.getSwapInLimits(),
-  );
+  Future<({DenominatedAmount min, DenominatedAmount max})> getSwapLimits() =>
+      logger.span(
+        'getSwapLimits',
+        () => configuredChain.swaps!.getSwapInLimits(
+          tokenAddress: _requestedTokenAddress,
+        ),
+      );
 
   @override
   Map<String, Object?> get telemetryAttributes => {
@@ -74,18 +81,22 @@ class EvmSwapInOperation extends SwapInOperation {
       final swap = await _generateSwapRequest(preimage);
 
       // ── Persist recovery data immediately after swap creation ──
+      // Boltz may not echo back `onchainAmount` in the response for EVM
+      // reverse swaps — use the requested amount as fallback.
+      final onchainSat =
+          swap.onchainAmount?.toInt() ?? params.amount.getInSats.toInt();
       final data = SwapInData(
         boltzId: swap.id,
         preimageHex: hex.encode(preimage.preimage),
         preimageHash: preimage.hash,
-        onchainAmountSat: swap.onchainAmount?.toInt() ?? 0,
-        timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
+        onchainAmountSat: onchainSat,
+        timeoutBlockHeight: swap.timeoutBlockHeight!.toInt(),
         chainId: configuredChain.config.chainId,
         accountIndex: params.accountIndex,
         creationBlockHeight: creationBlock,
         invoiceString: swap.invoice,
         parentOperationId: params.parentOperationId,
-        tokenAddress: configuredChain.swaps!.tokenAddress?.eip55With0x,
+        tokenAddress: _requestedTokenAddress?.eip55With0x,
       );
       logger.i('Swap created: ${swap.id}');
       logger.d('Swap ${swap.toString()}');
@@ -118,6 +129,7 @@ class EvmSwapInOperation extends SwapInOperation {
       invoice: invoice,
       amount: params.amount,
       preimageHash: data.preimageHash,
+      onchainAmountSat: data.onchainAmountSat,
     );
 
     // Start listening for Boltz's on-chain lockup.
@@ -224,7 +236,10 @@ class EvmSwapInOperation extends SwapInOperation {
     }
 
     // ── Check if expired ──
-    final currentBlock = await configuredChain.chain.client.getBlockNumber();
+    // Use getLocktimeBlockNumber() because on Arbitrum L2, Boltz returns
+    // Ethereum L1 block numbers for timeouts while eth_blockNumber returns
+    // the much-larger L2 sequencer block — causing false expiry detection.
+    final currentBlock = await configuredChain.chain.getLocktimeBlockNumber();
     if (currentBlock >= data.timeoutBlockHeight) {
       logger.w(
         'Swap ${data.boltzId} expired (block $currentBlock >= ${data.timeoutBlockHeight})',
@@ -423,7 +438,7 @@ class EvmSwapInOperation extends SwapInOperation {
         'queriedContract=${queriedAddr.eip55With0x} '
         'etherSwap=${etherSwapAddr.eip55With0x} '
         'erc20Swap=${erc20SwapAddr.eip55With0x} '
-        'boltzCurrency=${swapProvider.currency} '
+        'boltzChainKey=${swapProvider.chainInfo.chainKey} '
         'preimageHash=${data.preimageHash} '
         'fromBlock=${data.creationBlockHeight} '
         'receiptLogCount=${receipt.logs.length}',
@@ -460,8 +475,8 @@ class EvmSwapInOperation extends SwapInOperation {
           '(${otherAddr.eip55With0x}) — we queried '
           '${isErc20 ? "ERC20Swap" : "EtherSwap"} '
           '(${queriedAddr.eip55With0x}). '
-          'isErc20=$isErc20 may be wrong for boltzCurrency='
-          '${swapProvider.currency}, '
+          'isErc20=$isErc20 may be wrong for boltzChainKey='
+          '${swapProvider.chainInfo.chainKey}, '
           'tokens=${swapProvider.chainInfo.tokens.keys.toList()}',
         );
       }
@@ -549,18 +564,37 @@ class EvmSwapInOperation extends SwapInOperation {
 
   @override
   Future<SwapInFees> estimateFees() => logger.span('estimateFees', () async {
-    final boltz = configuredChain.swaps!.boltzClient;
-    final (:feeOverhead, invoiceAmount: _) = await boltz
-        .computeInvoiceForDesiredOnchain(desiredOnchainAmount: params.amount);
-
     final relayFees = rbtcFromWei(
       await configuredChain.aa!.estimateGasFee(params.evmKey),
     );
 
+    // All fee components in BTC sats (8 decimals) — Boltz operates in sats
+    // and fees from different sources must be addable via totalFees.
+    // Relay fee is in RBTC wei (18 decimals); rescale to sats.
+    final relayFeeSats = relayFees.toDenominated().rescale(8);
+
+    // Compute actual Boltz reverse-swap fees from the pair data.
+    // The fee overhead is paid via the Lightning invoice (not on-chain).
+    final swapProvider = configuredChain.swaps;
+    DenominatedAmount swapFeeSats = DenominatedAmount.zero('BTC', 8);
+    if (swapProvider != null) {
+      final estimate = await swapProvider.estimateSwapInFees(
+        onchainAmountSat: params.amount.getInSats.toInt(),
+        tokenAddress: _requestedTokenAddress,
+      );
+      if (estimate != null) {
+        swapFeeSats = estimate.feesAsDenominated;
+        logger.i(
+          'Swap-in fee estimate: $estimate '
+          'for ${params.amount.getInSats} sats on-chain',
+        );
+      }
+    }
+
     return SwapInFees(
-      estimatedGasFees: TokenAmount.zero(rbtc),
-      estimatedSwapFees: feeOverhead,
-      estimatedRelayFees: relayFees,
+      estimatedGasFees: DenominatedAmount.zero('BTC', 8),
+      estimatedSwapFees: swapFeeSats,
+      estimatedRelayFees: relayFeeSats,
     );
   });
 
@@ -576,7 +610,7 @@ class EvmSwapInOperation extends SwapInOperation {
               : configuredChain.swaps!.getEtherSwapContract().self;
           final fromBlock = data.creationBlockHeight != null
               ? BlockNum.exact(data.creationBlockHeight!)
-              : const BlockNum.genesis();
+              : const BlockNum.exact(0);
           final preimageHashBytes = Uint8List.fromList(
             hex.decode(data.preimageHash),
           );
@@ -651,7 +685,7 @@ class EvmSwapInOperation extends SwapInOperation {
               : configuredChain.swaps!.getEtherSwapContract().self;
           final fromBlock = data.creationBlockHeight != null
               ? BlockNum.exact(data.creationBlockHeight!)
-              : const BlockNum.genesis();
+              : const BlockNum.exact(0);
           final preimageHashBytes = Uint8List.fromList(
             hex.decode(data.preimageHash),
           );
@@ -702,10 +736,11 @@ class EvmSwapInOperation extends SwapInOperation {
       'Using swap claim address: $claimAddress, ${params.amount.getInSats} sats',
     );
     return configuredChain.swaps!.reverseSubmarine(
-      invoiceAmount: params.amount.getInSats.toDouble(),
+      onchainAmount: params.amount.getInSats.toDouble(),
       claimAddress: claimAddress,
       preimageHash: preimage.hash,
       description: description,
+      tokenAddress: _requestedTokenAddress,
     );
   });
 
@@ -716,20 +751,56 @@ class EvmSwapInOperation extends SwapInOperation {
     required String invoice,
     required TokenAmount amount,
     required String preimageHash,
+    required int onchainAmountSat,
   }) => logger.spanSync('createPaymentForSwap', () {
     Bolt11PaymentRequest pr = Bolt11PaymentRequest(invoice);
     final invoiceAmount = TokenAmount.fromDecimal(pr.amount.toString(), rbtc);
     final invoicePaymentHash = pr.tags
         .firstWhere((t) => t.type == 'payment_hash')
         .data;
-    logger.i('Validated swap invoice before dispatch');
 
-    /// Before paying, check that the invoice swapper generated is for the correct amount
-    assert(invoiceAmount == amount);
+    final invoiceSats = invoiceAmount.getInSats;
+    final onchainSats = BigInt.from(onchainAmountSat);
+    logger.i(
+      'Validating swap invoice before dispatch: '
+      'invoiceSats=$invoiceSats, onchainSats=$onchainSats, '
+      'requestedOnchain=${amount.getInSats} sats, '
+      'invoiceHash=$invoicePaymentHash, preimageHash=$preimageHash',
+    );
 
-    /// Before paying, check that the invoice hash is equivalent to the preimage hash we generated
-    /// Ensures we know the invoice can't be settled until we reveal it in the claim txn
-    assert(invoicePaymentHash == preimageHash);
+    // ── Payment hash check (security-critical) ──
+    // Ensures the invoice can't be settled until we reveal the preimage in
+    // the on-chain claim transaction. Must throw in prod (not just assert).
+    if (invoicePaymentHash != preimageHash) {
+      throw StateError(
+        'Invoice payment hash mismatch: '
+        'invoice=$invoicePaymentHash, expected=$preimageHash. '
+        'Refusing to pay — this invoice is not bound to our preimage.',
+      );
+    }
+
+    // ── Invoice amount sanity check ──
+    // The invoice was generated by Boltz during swap creation and already
+    // includes their fees (percentage + lockup miner fee). We validate
+    // against the on-chain amount Boltz committed to in the same response
+    // — no extra pair lookup needed.
+    if (invoiceSats < onchainSats) {
+      throw StateError(
+        'Invoice amount $invoiceSats sats is less than on-chain amount '
+        '$onchainSats sats — invoice should always include Boltz fees.',
+      );
+    }
+    // Boltz fees are typically <1% + small miner fee. Cap at 10% to catch
+    // truly broken invoices without being brittle to fee changes.
+    final maxFeeFraction = onchainSats * BigInt.from(10) ~/ BigInt.from(100);
+    if (invoiceSats - onchainSats > maxFeeFraction) {
+      throw StateError(
+        'Invoice fees too high: invoice=$invoiceSats sats, '
+        'onchain=$onchainSats sats, '
+        'overhead=${invoiceSats - onchainSats} sats (>10%). '
+        'Refusing to overpay.',
+      );
+    }
 
     return getIt<Payments>().pay(
       Bolt11PayParameters(amount: amount, to: invoice),
@@ -952,6 +1023,16 @@ class EvmSwapInOperation extends SwapInOperation {
   Future<String> _claim({required ClaimArgs claimArgs}) =>
       logger.span('claim', () async {
         final isErc20 = claimArgs.tokenAddress != null;
+        final preimageHash = sha256.convert(claimArgs.preimage).toString();
+
+        logger.i(
+          'claim: isErc20=$isErc20, '
+          'preimageHash=0x$preimageHash, '
+          'amount=${claimArgs.amount}, '
+          'tokenAddress=${claimArgs.tokenAddress?.eip55With0x}, '
+          'refundAddress=${claimArgs.refundAddress.eip55With0x}, '
+          'timelock=${claimArgs.timelock}',
+        );
 
         final CallIntent intent;
         if (isErc20) {

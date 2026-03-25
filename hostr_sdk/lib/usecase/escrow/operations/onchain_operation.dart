@@ -5,7 +5,6 @@ import '../../../config.dart';
 import '../../../injection.dart';
 import '../../../util/bloc_x.dart';
 import '../../../util/custom_logger.dart';
-import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
 import '../../evm/main.dart';
 import '../../trade_account_allocator/trade_account_allocator.dart';
@@ -693,9 +692,9 @@ abstract class OnchainOperation
         return OnchainFeeQuote(
           gasEstimate: gasEstimate,
           swapFees: SwapInFees(
-            estimatedGasFees: TokenAmount.zero(rbtc),
-            estimatedSwapFees: TokenAmount.zero(rbtc),
-            estimatedRelayFees: TokenAmount.zero(rbtc),
+            estimatedGasFees: DenominatedAmount.zero('BTC', 8),
+            estimatedSwapFees: DenominatedAmount.zero('BTC', 8),
+            estimatedRelayFees: DenominatedAmount.zero('BTC', 8),
           ),
           callIntents: intents,
           transport: 'direct',
@@ -723,10 +722,7 @@ abstract class OnchainOperation
         final intents = await buildCallIntents();
         final gasEstimate = await estimateCallIntentsFee(intents);
         onGasEstimated(gasEstimate);
-        var data = buildInitialData(
-          callIntents: intents,
-          transport: 'direct',
-        );
+        var data = buildInitialData(callIntents: intents, transport: 'direct');
         logger.i(
           '$namespace: initialising ${data.operationId} '
           '(accountIndex: $accountIndex)',

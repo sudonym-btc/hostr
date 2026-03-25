@@ -38,6 +38,9 @@ class StagingConfig extends Config {
         chainId: 42161,
         rpcUrl: 'https://arb1.arbitrum.io/rpc',
         accountAbstraction: envBackedAAConfig(),
+        escrowContractAddress: const String.fromEnvironment(
+          'ESCROW_CONTRACT_ADDRESS',
+        ),
         tokens: arbitrumMainnetTokens,
       ),
     ],

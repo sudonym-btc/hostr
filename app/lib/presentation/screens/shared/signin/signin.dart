@@ -158,7 +158,7 @@ class SignInScreenState extends State<SignInScreen> {
               Gap.horizontal.sm(),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _handleSignup,
+                  onPressed: _private.trim().isEmpty ? _handleSignup : null,
                   child: Text(l10n.signUp),
                 ),
               ),

@@ -2,52 +2,26 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip01Utils, Nip51List;
 import 'package:wallet/wallet.dart' show EthereumAddress;
-import 'package:web3dart/web3dart.dart' show Web3Client;
 
-import '../../config.dart' show CoinlibEventSigner, HostrConfig;
+import '../../config.dart' show CoinlibEventSigner;
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
-import '../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
+import '../evm/evm.dart';
 
 @Singleton()
 class EscrowMethods extends CrudUseCase<EscrowMethod> {
   final Auth _auth;
-  final HostrConfig _config;
+  final Evm _evm;
   Auth get auth => _auth;
 
   EscrowMethods({
     required super.requests,
     required super.logger,
     required Auth auth,
-    required HostrConfig config,
+    required Evm evm,
   }) : _auth = auth,
-       _config = config,
+       _evm = evm,
        super(kind: EscrowMethod.kinds[0]);
-
-  /// Resolves the runtime bytecode hash for each of the given [contractAddresses]
-  /// by fetching on-chain code and computing its SHA-256.
-  ///
-  /// Addresses that fail (e.g. not yet deployed) are silently skipped.
-  /// The contract identity is the runtime bytecode hash, not a human name.
-  Future<Set<String>> resolveContractBytecodeHashes(
-    List<String> contractAddresses,
-    Web3Client client,
-  ) async {
-    final hashes = <String>{};
-    for (final address in contractAddresses) {
-      try {
-        final hash =
-            await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-              client,
-              EthereumAddress.fromHex(address),
-            );
-        hashes.add(hash);
-      } catch (e) {
-        logger.w('Could not resolve bytecode hash for $address: $e');
-      }
-    }
-    return hashes;
-  }
 
   Future<EscrowMethod?> myMethod() async {
     final keyPair = auth.activeKeyPair;
@@ -57,117 +31,60 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
     );
   }
 
-  /// Returns a locally-built [EscrowMethod] event representing this client's
-  /// trusted escrows, supported contract bytecodes, and accepted payment forms.
-  ///
-  /// [bytecodeHashes] is the set of pre-resolved SHA-256 runtime bytecode
-  /// hashes to include as `"c"` tags.  Callers are responsible for fetching
-  /// the on-chain bytecode via [SupportedEscrowContractRegistry.bytecodeHashForAddress]
-  /// using the appropriate per-chain [Web3Client].
-  ///
-  /// [acceptedPaymentForms] declares which concrete tokens the user is willing
-  /// to receive for each denomination (see `PRICING.md` Layer 2).
-  ///
-  /// Avoids a relay round-trip when we already know our own capabilities.
-  /// Returns null if no key pair is active.
-  Future<EscrowMethod?> localMethod({
-    Set<String> bytecodeHashes = const {},
-    List<String> trustedEscrowPubkeys = const [],
-    List<AcceptedPaymentForm> acceptedPaymentForms = const [],
-  }) async {
-    final keyPair = auth.activeKeyPair;
-    if (keyPair == null) return null;
-
-    final pubkey = keyPair.publicKey;
-    final signer = CoinlibEventSigner(
-      privateKey: keyPair.privateKey,
-      publicKey: pubkey,
-    );
-
-    final list = Nip51List(
-      pubKey: pubkey,
-      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      kind: kNostrKindEscrowMethod,
-      elements: [],
-    );
-    for (final pubkey in trustedEscrowPubkeys) {
-      list.addElement('p', pubkey, false);
-    }
-    for (final bytecodeHash in bytecodeHashes) {
-      list.addElement('c', bytecodeHash, false);
-    }
-
-    final listEvent = await list.toEvent(signer);
-
-    // Build the complete tag list before creating the event so the
-    // auto-computed id covers every tag.  Mutating tags on an existing
-    // Nip01Event leaves the id stale because it is `late final` and
-    // Nip01Utils.signWithPrivateKey does not recalculate it.
-    final completeTags = [
-      ...listEvent.tags,
-      for (final form in acceptedPaymentForms) form.toTag(),
-    ];
-
-    final completeEvent = Nip01Event(
-      pubKey: listEvent.pubKey,
-      kind: listEvent.kind,
-      tags: completeTags,
-      content: listEvent.content,
-      createdAt: listEvent.createdAt,
-    );
-
-    final signed = Nip01Utils.signWithPrivateKey(
-      privateKey: keyPair.privateKey!,
-      event: completeEvent,
-    );
-    return EscrowMethod.fromNostrEvent(signed);
-  }
-
   /// Ensures the current user's escrow method list contains the given trusted
   /// escrow pubkeys, supported contract bytecode hashes, and accepted payment
   /// forms.
   ///
   /// If the user has no escrow method list, or it's missing required tags,
   /// publishes an updated list that includes them.
-  /// Build [AcceptedPaymentForm] entries from the configured EVM chains'
-  /// well-known tokens.
+  /// Build [AcceptedPaymentForm] entries from discovered EVM swap
+  /// capabilities plus configured stablecoins.
   ///
   /// For each chain, includes:
-  ///   - The native token (ETH) denominated as `BTC`.
-  ///   - tBTC (if configured) denominated as `BTC`.
+  ///   - The native token denominated as `BTC` when live Boltz support exists.
+  ///   - tBTC denominated as `BTC` when live Boltz support exists for the
+  ///     configured tBTC token.
   ///   - USDT (if configured) denominated as `USD`.
   List<AcceptedPaymentForm> _buildAcceptedPaymentForms() {
     final forms = <AcceptedPaymentForm>[];
-    for (final chain in _config.evmConfig.chains) {
-      // Native chain token.
-      forms.add(
-        AcceptedPaymentForm(
-          denomination: 'BTC',
-          tokenTagId: Token.rbtc(chain.chainId).tagId,
-        ),
-      );
-      // tBTC ERC-20.
-      final tbtc = chain.tokens['tBTC'];
-      if (tbtc != null) {
+    for (final chain in _evm.configuredChains) {
+      final swaps = chain.swaps;
+
+      if (swaps != null) {
+        // Native asset swaps are available when Boltz has no tokens on
+        // this chain (e.g. Rootstock with RBTC) OR the chain has tokens
+        // but also supports native (determined by pair availability at
+        // swap-time). For now, always advertise the native token.
         forms.add(
           AcceptedPaymentForm(
             denomination: 'BTC',
-            tokenTagId: Token(
-              chainId: chain.chainId,
-              address: tbtc.address,
-              decimals: tbtc.decimals,
-            ).tagId,
+            tokenTagId: Token.rbtc(chain.config.chainId).tagId,
           ),
         );
+
+        final tbtc = chain.config.tokens['tBTC'];
+        if (tbtc != null &&
+            swaps.supportsTokenAddress(EthereumAddress.fromHex(tbtc.address))) {
+          forms.add(
+            AcceptedPaymentForm(
+              denomination: 'BTC',
+              tokenTagId: Token(
+                chainId: chain.config.chainId,
+                address: tbtc.address,
+                decimals: tbtc.decimals,
+              ).tagId,
+            ),
+          );
+        }
       }
-      // USDT ERC-20.
-      final usdt = chain.tokens['USDT'];
+
+      final usdt = chain.config.tokens['USDT'];
       if (usdt != null) {
         forms.add(
           AcceptedPaymentForm(
             denomination: 'USD',
             tokenTagId: Token(
-              chainId: chain.chainId,
+              chainId: chain.config.chainId,
               address: usdt.address,
               decimals: usdt.decimals,
             ).tagId,
@@ -229,6 +146,10 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       final tags = [
         for (final tag in existing.tags) [...tag],
       ];
+      // Ensure the d tag is present for parameterized replaceable events.
+      if (!tags.any((t) => t.isNotEmpty && t[0] == 'd')) {
+        tags.insert(0, ['d', '']);
+      }
       for (final pubkey in missingTrusted) {
         tags.add(['p', pubkey]);
       }
@@ -249,6 +170,8 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
           createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         ),
       );
+
+      logger.i('Upserting escrow method $signed');
 
       await upsert(EscrowMethod.fromNostrEvent(signed));
     } else {
@@ -276,6 +199,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       // Nip01Event leaves the id stale because it is `late final` and
       // Nip01Utils.signWithPrivateKey does not recalculate it.
       final completeTags = [
+        ['d', ''],
         ...listEvent.tags,
         for (final form in resolvedForms) form.toTag(),
       ];

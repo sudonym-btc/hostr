@@ -168,15 +168,15 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "+ ${formatTokenAmount(snapshot.data!.estimatedGasFees)} in gas",
+                      "+ ${formatAmount(snapshot.data!.estimatedGasFees)} in gas",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatTokenAmount(snapshot.data!.estimatedSwapFees)} in swap fees",
+                      "+ ${formatAmount(snapshot.data!.estimatedSwapFees)} in swap fees",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatTokenAmount(snapshot.data!.estimatedRelayFees)} in relay fees",
+                      "+ ${formatAmount(snapshot.data!.estimatedRelayFees)} in relay fees",
                       style: subtleStyle,
                     ),
                   ],

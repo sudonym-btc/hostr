@@ -29,7 +29,7 @@ class EscrowFundParams {
 class EscrowFundFees {
   final TokenAmount estimatedGasFees;
   final SwapInFees estimatedSwapFees;
-  final TokenAmount estimatedEscrowFees;
+  final DenominatedAmount estimatedEscrowFees;
 
   EscrowFundFees({
     required this.estimatedGasFees,
@@ -37,5 +37,12 @@ class EscrowFundFees {
     required this.estimatedEscrowFees,
   });
 
-  TokenAmount get networkFees => estimatedGasFees + estimatedSwapFees.totalFees;
+  /// Total network fees (gas + swap) normalized to BTC sats (8 decimals).
+  DenominatedAmount get networkFees {
+    final gasDA = estimatedGasFees.toDenominated();
+    // Gas fees may be in 18-decimal native (RBTC wei) while swap fees
+    // are always in 8-decimal BTC sats. Rescale to 8 before summing.
+    final gasNormalized = gasDA.decimals != 8 ? gasDA.rescale(8) : gasDA;
+    return gasNormalized + estimatedSwapFees.totalFees;
+  }
 }
