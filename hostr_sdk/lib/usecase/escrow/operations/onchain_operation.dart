@@ -5,6 +5,7 @@ import '../../../config.dart';
 import '../../../injection.dart';
 import '../../../util/bloc_x.dart';
 import '../../../util/custom_logger.dart';
+import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
 import '../../evm/main.dart';
 import '../../trade_account_allocator/trade_account_allocator.dart';
@@ -401,14 +402,14 @@ class OnchainError extends OnchainOperationState {
 enum OnchainStep { initialise, checkSwap, broadcastTx, confirmTx }
 
 class OnchainFeeQuote {
-  final GasEstimate gasEstimate;
-  final SwapInFees swapFees;
+  final TokenAmount gasFee;
+  final bool gasSponsored;
   final List<CallIntent> callIntents;
   final String transport;
 
   const OnchainFeeQuote({
-    required this.gasEstimate,
-    required this.swapFees,
+    required this.gasFee,
+    required this.gasSponsored,
     required this.callIntents,
     required this.transport,
   });
@@ -610,15 +611,22 @@ abstract class OnchainOperation
   /// multiple intents that will be batched into a single UserOperation.
   Future<List<CallIntent>> buildCallIntents();
 
-  /// Estimate gas for a list of call intents.
-  Future<GasEstimate> estimateCallIntentsFee(List<CallIntent> intents) {
+  /// Estimate gas for a list of call intents via ERC-4337.
+  ///
+  /// Returns the gas fee as a [TokenAmount] in the chain's native token,
+  /// plus whether the gas is currently sponsored by a paymaster.
+  Future<({TokenAmount gasFee, bool gasSponsored})> estimateCallIntentsFee(
+    List<CallIntent> intents,
+  ) {
     return logger.span('estimateCallIntentsFee', () async {
-      final totalValue = intents
-          .map((i) => i.value.getInWei)
-          .fold(BigInt.zero, (a, b) => a + b);
-      return contract.estimateTotalGas(
+      final signer = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
+      final estimate = await configuredChain.aa!.estimateGasFee(
+        signer,
         intents,
-        stateOverrideBalance: totalValue > BigInt.zero ? totalValue : null,
+      );
+      return (
+        gasFee: rbtcFromWei(estimate.gasCostWei),
+        gasSponsored: estimate.gasSponsored,
       );
     });
   }
@@ -690,12 +698,8 @@ abstract class OnchainOperation
         final gasEstimate = await estimateCallIntentsFee(intents);
 
         return OnchainFeeQuote(
-          gasEstimate: gasEstimate,
-          swapFees: SwapInFees(
-            estimatedGasFees: DenominatedAmount.zero('BTC', 8),
-            estimatedSwapFees: DenominatedAmount.zero('BTC', 8),
-            estimatedRelayFees: DenominatedAmount.zero('BTC', 8),
-          ),
+          gasFee: gasEstimate.gasFee,
+          gasSponsored: gasEstimate.gasSponsored,
           callIntents: intents,
           transport: 'direct',
         );
@@ -721,13 +725,13 @@ abstract class OnchainOperation
         await preflight();
         final intents = await buildCallIntents();
         final gasEstimate = await estimateCallIntentsFee(intents);
-        onGasEstimated(gasEstimate);
+        onGasEstimated(gasEstimate.gasFee);
         var data = buildInitialData(callIntents: intents, transport: 'direct');
         logger.i(
           '$namespace: initialising ${data.operationId} '
           '(accountIndex: $accountIndex)',
         );
-        data = await beforeBroadcast(data, gasEstimate);
+        data = await beforeBroadcast(data, gasEstimate.gasFee);
         return OnchainTxBroadcast(data);
       });
 
@@ -843,12 +847,12 @@ abstract class OnchainOperation
   /// for funding). The default is a pass-through.
   Future<OnchainOperationData> beforeBroadcast(
     OnchainOperationData data,
-    GasEstimate gasEstimate,
+    TokenAmount gasFee,
   ) async => data;
 
   /// Called after gas estimation so subclasses can pin the estimate onto
   /// their contract params. Default is a no-op.
-  void onGasEstimated(GasEstimate estimate) {}
+  void onGasEstimated(TokenAmount gasFee) {}
 
   // ── Tx helpers ────────────────────────────────────────────────────
 

@@ -39,28 +39,6 @@ class OnChainTrade {
       'OnChainTrade(active=$isActive, amount=$amount, buyer=$buyer, seller=$seller, arbiter=$arbiter)';
 }
 
-/// Gas parameters captured at estimation time.
-///
-/// Pinning these values ensures the actual transaction uses the exact gas
-/// price and limit that the fee budget was calculated with — eliminating
-/// variance from gas-price drift between estimation and broadcast.
-class GasEstimate {
-  final TokenAmount fee;
-  final EtherAmount gasPrice;
-  final BigInt gasLimit;
-
-  const GasEstimate({
-    required this.fee,
-    required this.gasPrice,
-    required this.gasLimit,
-  });
-
-  @override
-  String toString() =>
-      'GasEstimate(fee=${fee.inSats} sats, '
-      'gasPrice=${gasPrice.getInWei}, gasLimit=$gasLimit)';
-}
-
 class FundArgs {
   final String tradeId;
   final TokenAmount amount;
@@ -109,25 +87,11 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   });
 
   /// Public API
-  Future<GasEstimate> estimateEscrowFundFee(FundArgs args) =>
-      estimateFee(fund(args), stateOverrideBalance: args.amount.asEvm);
-
-  Future<GasEstimate> estimateClaimFee({
-    required String tradeId,
-    required EthPrivateKey ethKey,
-  }) => estimateFee(claim(tradeId: tradeId, ethKey: ethKey));
-
-  Future<GasEstimate> estimateReleaseFee(ReleaseArgs args) =>
-      estimateFee(release(args));
-
   Future<bool> canClaim({required String tradeId});
   Future<bool> canRelease(ReleaseArgs args);
 
   CallIntent fund(FundArgs args);
-  CallIntent claim({
-    required String tradeId,
-    required EthPrivateKey ethKey,
-  });
+  CallIntent claim({required String tradeId, required EthPrivateKey ethKey});
   CallIntent release(ReleaseArgs args);
   CallIntent arbitrate({
     required String tradeId,
@@ -158,86 +122,6 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
         'Funding can succeed with no logs in that case because no contract code executes.',
       );
     }
-  }
-
-  /// Estimate gas for a single [CallIntent] via `eth_estimateGas`.
-  ///
-  /// Optionally provide [stateOverrideBalance] to simulate sufficient balance
-  /// on the sender address (useful when funds haven't arrived yet via swap).
-  /// [fromAddress] is the sender for the simulation (typically the smart account).
-  Future<GasEstimate> estimateFee(
-    CallIntent intent, {
-    BigInt? stateOverrideBalance,
-    EthereumAddress? fromAddress,
-  }) async {
-    final gasPrice = await contract.client.getGasPrice();
-
-    try {
-      final call = <String, dynamic>{
-        if (fromAddress != null) 'from': fromAddress.eip55With0x,
-        'to': intent.to.eip55With0x,
-        'data': bytesToHex(intent.data, include0x: true),
-        'value': '0x${intent.value.getInWei.toRadixString(16)}',
-      };
-      final rpcArgs = <dynamic>[call, 'latest'];
-
-      if (stateOverrideBalance != null && fromAddress != null) {
-        rpcArgs.add({
-          fromAddress.eip55With0x: {
-            'balance': '0x${stateOverrideBalance.toRadixString(16)}',
-          },
-        });
-      }
-
-      final gasHex = await client.makeRPCCall<String>(
-        'eth_estimateGas',
-        rpcArgs,
-      );
-      final gasLimit = BigInt.parse(gasHex.substring(2), radix: 16);
-      return GasEstimate(
-        fee: rbtcFromWei(gasPrice.getInWei * gasLimit),
-        gasPrice: gasPrice,
-        gasLimit: gasLimit,
-      );
-    } catch (_) {
-      // Fallback: conservative default when estimation fails.
-      final gasLimit = BigInt.from(200000);
-      return GasEstimate(
-        fee: rbtcFromWei(gasPrice.getInWei * gasLimit),
-        gasPrice: gasPrice,
-        gasLimit: gasLimit,
-      );
-    }
-  }
-
-  /// Estimate total gas for a list of [CallIntent]s.
-  ///
-  /// Sums individual `eth_estimateGas` calls. This is conservative (over-estimates
-  /// due to double-counting cold storage) but safe for swap amount calculations.
-  Future<GasEstimate> estimateTotalGas(
-    List<CallIntent> intents, {
-    EthereumAddress? fromAddress,
-    BigInt? stateOverrideBalance,
-  }) async {
-    var totalGasLimit = BigInt.zero;
-    EtherAmount? gasPrice;
-
-    for (final intent in intents) {
-      final estimate = await estimateFee(
-        intent,
-        fromAddress: fromAddress,
-        stateOverrideBalance: stateOverrideBalance,
-      );
-      totalGasLimit += estimate.gasLimit;
-      gasPrice ??= estimate.gasPrice;
-    }
-
-    gasPrice ??= await contract.client.getGasPrice();
-    return GasEstimate(
-      fee: rbtcFromWei(gasPrice.getInWei * totalGasLimit),
-      gasPrice: gasPrice,
-      gasLimit: totalGasLimit,
-    );
   }
 
   CallIntent buildIntent({

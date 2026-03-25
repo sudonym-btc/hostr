@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/config/generated/development_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 
@@ -7,37 +8,15 @@ import 'base.config.dart';
 @Injectable(as: Config, env: [Env.dev])
 class DevelopmentConfig extends Config {
   @override
-  EvmConfig evmConfig = EvmConfig(
-    boltz: BoltzConfig(apiUrl: 'https://boltz.hostr.development/v2'),
-    chains: [
-      EvmChainConfig(
-        id: 'arbitrum-regtest',
-        chainId: 412346,
-        rpcUrl: 'https://arbitrum.hostr.development',
-        accountAbstraction: envBackedAAConfig(),
-        escrowContractAddress: const String.fromEnvironment(
-          'ESCROW_CONTRACT_ADDRESS',
-        ),
-        tokens: envBackedTokens(),
-      ),
-    ],
-  );
-
+  EvmConfig evmConfig = env.evmConfig;
   @override
-  List<String> get bootstrapEscrowPubkeys => buildConfigList(
-    'HOSTR_BOOTSTRAP_ESCROW_PUBKEY',
-    const String.fromEnvironment('HOSTR_BOOTSTRAP_ESCROW_PUBKEY'),
-  );
-
+  List<String> get bootstrapEscrowPubkeys => env.bootstrapEscrowPubkeys;
   @override
-  String get hostrBlossom => 'https://blossom.hostr.development';
-
+  String get hostrBlossom => env.blossomUrl;
   @override
-  String get hostrRelay => 'wss://relay.hostr.development';
-
+  String get hostrRelay => env.relayUrl;
   @override
-  String get googleMapsApiKey => requiredBuildConfig(
-    'GOOGLE_MAPS_API_KEY',
-    const String.fromEnvironment('GOOGLE_MAPS_API_KEY'),
-  );
+  String get googleMapsApiKey => env.googleMapsApiKey;
+  @override
+  String get tipsAddress => env.tipsAddress;
 }

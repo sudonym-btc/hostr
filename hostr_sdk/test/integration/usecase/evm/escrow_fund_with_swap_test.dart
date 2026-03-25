@@ -1,6 +1,7 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:test/test.dart';
@@ -44,9 +45,8 @@ void main() {
       // insufficient balance and trigger a swap-in (Lightning → Boltz →
       // RIF Relay → EVM) before depositing to the escrow contract.
 
-      final contractAddress = resolveContractAddress();
       final escrowService = (await harness.seeds.factory.buildEscrowServices(
-        contractAddress: contractAddress,
+        contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
       )).first;
       final negotiateReservation = trade.negotiateReservation;
       final sellerProfile = trade.sellerProfile;

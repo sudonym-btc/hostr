@@ -5,6 +5,7 @@ import '../../../../config.dart';
 import '../../../../injection.dart';
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
+import '../../models/fee_breakdown.dart';
 import '../operation_machine.dart';
 import '../operation_state_store.dart';
 import 'swap_in_models.dart';
@@ -202,7 +203,7 @@ abstract class SwapInOperation
 
   // ── Abstract: chain-specific ──────────────────────────────────────
 
-  Future<SwapInFees> estimateFees();
+  Future<FeeBreakdown> estimateFees();
 
   /// Fetches the chain's minimum and maximum swap-in amounts.
   Future<({DenominatedAmount min, DenominatedAmount max})> getSwapLimits();

@@ -55,7 +55,7 @@ void main() {
 
       // Run a full swap-in to completion so the store has a terminal entry.
       final configured = hostr.evm.configuredChains.first;
-      final swapLimits = await configured.getSwapInLimits();
+      final swapLimits = await configured.swaps!.getSwapInLimits();
       final amount =
           TokenAmount.fromDenominated(
             swapLimits.min,
@@ -97,7 +97,7 @@ void main() {
 
       // 1. Run a full swap-in to completion.
       final configured = hostr.evm.configuredChains.first;
-      final swapLimits = await configured.getSwapInLimits();
+      final swapLimits = await configured.swaps!.getSwapInLimits();
       final amount =
           TokenAmount.fromDenominated(
             swapLimits.min,

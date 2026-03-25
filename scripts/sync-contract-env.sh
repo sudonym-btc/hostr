@@ -57,18 +57,15 @@ const BUNDLER_URL_BY_ENV = {
   prod: 'https://paymaster.hostr.network/rpc',
 };
 
-const keysToUpdate = [
-  'ESCROW_CONTRACT_ADDRESS_KEY',
-  'ESCROW_CONTRACT_ADDRESS',
-  'AA_BUNDLER_URL',
-  'AA_ENTRY_POINT_ADDRESS',
-  'AA_ACCOUNT_FACTORY_ADDRESS',
-  'AA_PAYMASTER_ADDRESS',
-  'ARBITRUM_TBTC_ADDRESS',
-  'ARBITRUM_TBTC_DECIMALS',
-  'ARBITRUM_USDT_ADDRESS',
-  'ARBITRUM_USDT_DECIMALS',
-];
+// Per-chain EVM_CHAIN_*_ prefix for the escrow contract address.
+const EVM_CHAIN_PREFIX_BY_ENV = {
+  local: 'EVM_CHAIN_ARBITRUM_REGTEST',
+  test: 'EVM_CHAIN_ARBITRUM_REGTEST',
+  staging: 'EVM_CHAIN_ARBITRUM',
+  prod: 'EVM_CHAIN_ARBITRUM',
+};
+
+// Keys are now written under ${chainPrefix}_* — no flat keys needed.
 
 function parseAddressManifest(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -136,52 +133,56 @@ const tokenConfig = tokenFile ? parseAddressManifest(tokenFile) : {};
 const envState = parseEnvFile(envFile);
 
 const defaultNetworkKey = NETWORK_KEY_BY_ENV[targetEnv];
-const escrowAddressKey = resolveNetworkKey(
-  envState.entries,
-  'ESCROW_CONTRACT_ADDRESS_KEY',
-  defaultNetworkKey,
-);
+const escrowAddressKey = defaultNetworkKey;
 const aaAddressKey = defaultNetworkKey;
 
 const escrowEntry = escrowConfig[escrowAddressKey] || {};
 const aaEntry = aaConfig[aaAddressKey] || {};
 
-const nextValues = {
-  ESCROW_CONTRACT_ADDRESS_KEY: escrowAddressKey,
-  ESCROW_CONTRACT_ADDRESS: requireAddress(
-    escrowEntry.MultiEscrow,
-    `escrow MultiEscrow address for ${escrowAddressKey} in ${escrowFile}`,
-  ),
-  AA_BUNDLER_URL: BUNDLER_URL_BY_ENV[targetEnv],
-  AA_ENTRY_POINT_ADDRESS: requireAddress(
-    aaEntry.EntryPoint,
-    `AA EntryPoint address for ${aaAddressKey} in ${aaFile}`,
-  ),
-  AA_ACCOUNT_FACTORY_ADDRESS: requireAddress(
-    aaEntry.SimpleAccountFactory,
-    `AA SimpleAccountFactory address for ${aaAddressKey} in ${aaFile}`,
-  ),
-  AA_PAYMASTER_ADDRESS: requireAddress(
-    aaEntry.VerifyingPaymaster,
-    `AA VerifyingPaymaster address for ${aaAddressKey} in ${aaFile}`,
-  ),
-};
+const escrowContractAddress = requireAddress(
+  escrowEntry.MultiEscrow,
+  `escrow MultiEscrow address for ${escrowAddressKey} in ${escrowFile}`,
+);
+
+const nextValues = {};
+
+// Write ALL per-chain keys under ${chainPrefix}_* prefix.
+const chainPrefix = EVM_CHAIN_PREFIX_BY_ENV[targetEnv];
+
+nextValues[`${chainPrefix}_AA_BUNDLER_URL`] = BUNDLER_URL_BY_ENV[targetEnv];
+nextValues[`${chainPrefix}_AA_ENTRY_POINT_ADDRESS`] = requireAddress(
+  aaEntry.EntryPoint,
+  `AA EntryPoint address for ${aaAddressKey} in ${aaFile}`,
+);
+nextValues[`${chainPrefix}_AA_ACCOUNT_FACTORY_ADDRESS`] = requireAddress(
+  aaEntry.SimpleAccountFactory,
+  `AA SimpleAccountFactory address for ${aaAddressKey} in ${aaFile}`,
+);
+nextValues[`${chainPrefix}_AA_PAYMASTER_ADDRESS`] = requireAddress(
+  aaEntry.VerifyingPaymaster,
+  `AA VerifyingPaymaster address for ${aaAddressKey} in ${aaFile}`,
+);
 
 // Token addresses — optional (only present for local/test with deployed mocks).
 const tokenEntry = tokenConfig[defaultNetworkKey] || {};
 if (tokenEntry.tBTC) {
-  nextValues.ARBITRUM_TBTC_ADDRESS = tokenEntry.tBTC.address;
-  nextValues.ARBITRUM_TBTC_DECIMALS = String(tokenEntry.tBTC.decimals);
+  nextValues[`${chainPrefix}_TBTC_ADDRESS`] = tokenEntry.tBTC.address;
+  nextValues[`${chainPrefix}_TBTC_DECIMALS`] = String(tokenEntry.tBTC.decimals);
 }
 if (tokenEntry.USDT) {
-  nextValues.ARBITRUM_USDT_ADDRESS = tokenEntry.USDT.address;
-  nextValues.ARBITRUM_USDT_DECIMALS = String(tokenEntry.USDT.decimals);
+  nextValues[`${chainPrefix}_USDT_ADDRESS`] = tokenEntry.USDT.address;
+  nextValues[`${chainPrefix}_USDT_DECIMALS`] = String(tokenEntry.USDT.decimals);
 }
+
+nextValues[`${chainPrefix}_ESCROW_CONTRACT_ADDRESS`] = escrowContractAddress;
 
 const nextContent = updateEnvLines(envState.lines, nextValues);
 fs.writeFileSync(envFile, nextContent);
 
-for (const key of keysToUpdate) {
+for (const key of Object.keys(nextValues)) {
   console.log(`${key}=${nextValues[key]}`);
 }
 NODE
+
+# Regenerate the typed Dart constants file from the updated env file.
+dart run "$SCRIPT_DIR/generate-dart-env.dart" "$TARGET_ENV"

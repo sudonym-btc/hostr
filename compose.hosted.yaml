@@ -59,9 +59,9 @@ services:
       - --port
       - "3000"
       - --network
-      - ${RPC_URL}
+      - ${EVM_CHAIN_ARBITRUM_RPC_URL}
       - --entryPoint
-      - ${AA_ENTRY_POINT_ADDRESS}
+      - ${EVM_CHAIN_ARBITRUM_AA_ENTRY_POINT_ADDRESS}
       - --unsafe
     depends_on:
       nginx-proxy:

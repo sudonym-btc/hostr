@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:escrow/injection.dart';
+import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:http/http.dart';
 import 'package:models/main.dart';
@@ -43,31 +44,23 @@ Future<DaemonContext> bootstrap() async {
   HttpOverrides.global = PermissiveHttpOverrides();
   setCryptoProvider(DartCryptoProvider());
 
-  final String relayUrl =
-      Platform.environment['NOSTR_RELAY'] ?? 'wss://relay.hostr.development';
   final String privateKey =
       Platform.environment['PRIVATE_KEY'] ?? MockKeys.escrow.privateKey!;
-  final String rpcUrl =
-      Platform.environment['RPC_URL'] ?? 'https://anvil.hostr.development';
-  final String blossomUrl = Platform.environment['BLOSSOM_URL'] ??
-      'https://blossom.hostr.development';
   final String environment = Platform.environment['ENV'] ?? 'dev';
-  final String contractAddress;
-  try {
-    contractAddress = resolveContractAddress();
-  } on Object catch (error) {
-    print('[daemon] Failed to resolve escrow contract address: $error');
+
+  // Infrastructure config comes from generated constants (Option B).
+  // Only PRIVATE_KEY and ENV remain as runtime env vars.
+  final chain = env.evmConfig.chains.first;
+  final rpcUrl = chain.rpcUrl;
+  final contractAddress = chain.escrowContractAddress;
+  if (contractAddress == null || contractAddress.isEmpty) {
+    print('[daemon] escrowContractAddress is not set in generated env');
     exit(1);
   }
 
   final Web3Client web3client = Web3Client(rpcUrl, Client());
 
-  await setupInjection(
-    relayUrl: relayUrl,
-    rpcUrl: rpcUrl,
-    blossomUrl: blossomUrl,
-    environment: environment,
-  );
+  await setupInjection(environment: environment);
 
   final hostr = getIt<Hostr>();
   await hostr.auth.signin(privateKey);
@@ -88,9 +81,7 @@ Future<DaemonContext> bootstrap() async {
       chainId: hostr.evm.configuredChains.first.config.chainId,
       maxDuration: Duration(days: 365),
       type: EscrowType.EVM,
-      feeBase: 100,
       feePercent: 1,
-      minAmount: 5000,
     ),
   );
 

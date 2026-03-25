@@ -19,7 +19,8 @@ import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:hostr_sdk/datasources/boltz/boltz.dart';
 import 'package:hostr_sdk/datasources/contracts/boltz/ERC20Swap.g.dart';
-import 'package:hostr_sdk/datasources/swagger_generated/boltz.swagger.dart';
+import 'package:hostr_sdk/datasources/swagger_generated/boltz.swagger.dart'
+    hide Call;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
@@ -234,7 +235,7 @@ void main() {
       final swap = swapRes.body!;
       final onchainAmount = swap.onchainAmount!.toInt();
       final refundAddr = EthereumAddress.fromHex(swap.refundPublicKey!);
-      final timelock = swap.timeoutBlockHeight.toInt();
+      final timelock = swap.timeoutBlockHeight!.toInt();
       final onchainWei = BigInt.from(onchainAmount) * BigInt.from(10).pow(10);
 
       print('  Swap ID:      ${swap.id}');

@@ -18,7 +18,7 @@ import 'capabilities/boltz_swap_provider.dart';
 import 'capabilities/configured_evm_chain.dart';
 import 'capabilities/escrow_capability.dart';
 import 'chain/evm_chain.dart';
-import 'chain/rootstock/operations/swap_out/swap_out_operation.dart';
+import 'chain/operations/swap_out/swap_out_operation.dart';
 import 'operations/swap_out/swap_out_models.dart';
 import 'operations/swap_out/swap_out_quote_service.dart';
 import 'operations/swap_recoverer.dart';

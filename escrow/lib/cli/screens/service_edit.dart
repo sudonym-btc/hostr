@@ -32,7 +32,6 @@ Future<Navigation> serviceEditScreen(
   print('── Service: ${service['contractAddress']} ──');
   print('  Chain ID  : ${service['chainId']}');
   print('  EVM addr  : ${service['evmAddress']}');
-  print('  Fee base  : ${service['feeBase']} sats');
   print('  Fee %     : ${service['feePercent']}%');
   print('  Min amount: ${service['minAmount']} sats');
   print('  Max amount: ${service['maxAmount'] ?? 'unlimited'}');
@@ -41,7 +40,6 @@ Future<Navigation> serviceEditScreen(
   print('');
 
   final actions = [
-    'Edit fee base',
     'Edit fee percent',
     'Edit min amount',
     'Edit max amount',
@@ -58,22 +56,13 @@ Future<Navigation> serviceEditScreen(
       return await _editField(
         client: client,
         serviceId: serviceId,
-        label: 'Fee base (sats)',
-        current: '${service['feeBase']}',
-        onSubmit: (v) => client.updateService(serviceId, feeBase: int.parse(v)),
-      );
-
-    case 1:
-      return await _editField(
-        client: client,
-        serviceId: serviceId,
         label: 'Fee percent',
         current: '${service['feePercent']}',
         onSubmit: (v) =>
             client.updateService(serviceId, feePercent: double.parse(v)),
       );
 
-    case 2:
+    case 1:
       return await _editField(
         client: client,
         serviceId: serviceId,
@@ -83,7 +72,7 @@ Future<Navigation> serviceEditScreen(
             client.updateService(serviceId, minAmount: int.parse(v)),
       );
 
-    case 3:
+    case 2:
       return await _editField(
         client: client,
         serviceId: serviceId,
@@ -96,7 +85,7 @@ Future<Navigation> serviceEditScreen(
         },
       );
 
-    case 4:
+    case 3:
     default:
       // Refresh — revisit this screen
       return Navigation(Screen.serviceEdit, selectedServiceId: serviceId);

@@ -7,8 +7,8 @@ import '../../auth/auth.dart';
 import '../../background_worker/background_worker.dart';
 import '../../nwc/nwc.dart';
 import '../../payments/payments.dart';
-import '../chain/rootstock/operations/swap_in/swap_in_operation.dart';
-import '../chain/rootstock/operations/swap_out/swap_out_operation.dart';
+import '../chain/operations/swap_in/swap_in_operation.dart';
+import '../chain/operations/swap_out/swap_out_operation.dart';
 import '../main.dart';
 
 /// Recovers pending swap-in and swap-out operations on app start.

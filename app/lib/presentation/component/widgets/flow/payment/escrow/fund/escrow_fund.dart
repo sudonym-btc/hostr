@@ -122,7 +122,7 @@ class EscrowFundConfirmWidget extends StatefulWidget {
 
 class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
   bool _loading = false;
-  late final Future<EscrowFundFees> _feeEstimate;
+  late final Future<FeeBreakdown> _feeEstimate;
 
   @override
   void initState() {
@@ -154,7 +154,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
           AmountWidget(
             amount: context.read<EscrowFundOperation>().params!.amount,
             loading: _loading,
-            feeWidget: FutureBuilder<EscrowFundFees>(
+            feeWidget: FutureBuilder<FeeBreakdown>(
               future: _feeEstimate,
               builder: (context, snapshot) {
                 final baseStyle = Theme.of(context).textTheme.bodySmall!;
@@ -174,15 +174,17 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                   return Text('Unable to estimate fees', style: subtleStyle);
                 }
 
+                final fees = snapshot.data!;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "+ ${formatAmount(snapshot.data!.networkFees)} in network fees",
+                      "+ ${formatAmount(fees.networkFees)} in network fees"
+                      "${fees.gasSponsored ? ' (gas sponsored)' : ''}",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedEscrowFees)} in escrow fees",
+                      "+ ${formatAmount(fees.escrowFee.toDenominated())} in escrow fees",
                       style: subtleStyle,
                     ),
                   ],

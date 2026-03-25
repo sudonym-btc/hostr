@@ -10,26 +10,8 @@ interface IERC20 {
 contract MultiEscrow {
     uint256 public constant FACTOR_SCALE = 1000; // 0.1% precision
     string public constant NAME = "Hostr MultiEscrow";
-    string public constant VERSION = "3";
+    string public constant VERSION = "4";
 
-    bytes32 private constant _EIP712_DOMAIN_TYPEHASH =
-        keccak256(
-            "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-        );
-    bytes32 private constant _RELAY_FEE_QUOTE_TYPEHASH =
-        keccak256(
-            "RelayFeeQuote(address receiver,uint256 amount,uint256 deadline)"
-        );
-    bytes32 private constant _CLAIM_AUTHORIZATION_TYPEHASH =
-        keccak256(
-            "ClaimAuthorization(bytes32 tradeId,RelayFeeQuote relayFeeQuote)RelayFeeQuote(address receiver,uint256 amount,uint256 deadline)"
-        );
-    bytes32 private constant _RELEASE_AUTHORIZATION_TYPEHASH =
-        keccak256(
-            "ReleaseAuthorization(bytes32 tradeId,RelayFeeQuote relayFeeQuote)RelayFeeQuote(address receiver,uint256 amount,uint256 deadline)"
-        );
-
-    bytes32 public immutable DOMAIN_SEPARATOR;
     address public owner;
 
     error OnlyOwner();
@@ -47,10 +29,6 @@ contract MultiEscrow {
     error EscrowFeeTooHigh();
     error NativeTransferFailed();
     error ERC20TransferFailed();
-    error RelayFeeTooHigh();
-    error InvalidFeeRecipient();
-    error SignatureExpired();
-    error InvalidSignature();
     error NativeNotExpected();
 
     struct Trade {
@@ -63,12 +41,6 @@ contract MultiEscrow {
         uint256 escrowFee;  // flat fee in token units
     }
 
-    struct RelayFeeQuote {
-        address receiver;
-        uint256 amount;
-        uint256 deadline;
-    }
-
     mapping(bytes32 => Trade) public trades;
     bytes32[] private _activeTradeIds;
     mapping(bytes32 => uint256) private _activeTradeIndexPlusOne;
@@ -77,20 +49,10 @@ contract MultiEscrow {
     event Arbitrated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount, uint256 fractionForwarded);
     event Claimed(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount);
     event ReleasedToCounterparty(bytes32 indexed tradeId, address indexed token, address from, address to, uint256 amount);
-    event RelayFeePaid(bytes32 indexed tradeId, address indexed feeReceiver, uint256 amount);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     constructor() {
         owner = msg.sender;
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                _EIP712_DOMAIN_TYPEHASH,
-                keccak256(bytes(NAME)),
-                keccak256(bytes(VERSION)),
-                block.chainid,
-                address(this)
-            )
-        );
     }
 
     receive() external payable {}
@@ -161,59 +123,6 @@ contract MultiEscrow {
         }
     }
 
-    function _requireFeeRecipient(RelayFeeQuote memory relayFeeQuote) internal pure {
-        if (relayFeeQuote.amount > 0 && relayFeeQuote.receiver == address(0)) {
-            revert InvalidFeeRecipient();
-        }
-    }
-
-    function _remainingAfterFees(
-        Trade memory trade,
-        RelayFeeQuote memory relayFeeQuote
-    ) internal pure returns (uint256 distributableAmount, uint256 relayFeeAmount) {
-        distributableAmount = trade.amount - trade.escrowFee;
-        relayFeeAmount = relayFeeQuote.amount;
-        if (relayFeeAmount > distributableAmount) revert RelayFeeTooHigh();
-        distributableAmount -= relayFeeAmount;
-    }
-
-    function _hashRelayFeeQuote(
-        RelayFeeQuote memory relayFeeQuote
-    ) internal pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                _RELAY_FEE_QUOTE_TYPEHASH,
-                relayFeeQuote.receiver,
-                relayFeeQuote.amount,
-                relayFeeQuote.deadline
-            )
-        );
-    }
-
-    function _hashTypedData(bytes32 structHash) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
-    }
-
-    function _recoverSigner(bytes32 digest, bytes calldata signature) internal pure returns (address signer) {
-        if (signature.length != 65) revert InvalidSignature();
-
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        assembly {
-            r := calldataload(signature.offset)
-            s := calldataload(add(signature.offset, 32))
-            v := byte(0, calldataload(add(signature.offset, 64)))
-        }
-
-        if (v < 27) v += 27;
-        if (v != 27 && v != 28) revert InvalidSignature();
-
-        signer = ecrecover(digest, v, r, s);
-        if (signer == address(0)) revert InvalidSignature();
-    }
-
     function _createTrade(
         bytes32 tradeId,
         address buyer,
@@ -246,9 +155,7 @@ contract MultiEscrow {
         address firstRecipient,
         uint256 firstAmount,
         address secondRecipient,
-        uint256 secondAmount,
-        address feeRecipient,
-        uint256 feeRecipientAmount
+        uint256 secondAmount
     ) internal returns (uint256 fee) {
         Trade memory trade = trades[tradeId];
         fee = trade.escrowFee;
@@ -260,58 +167,29 @@ contract MultiEscrow {
         _transfer(token, trade.arbiter, fee);
         _transfer(token, firstRecipient, firstAmount);
         _transfer(token, secondRecipient, secondAmount);
-        _transfer(token, feeRecipient, feeRecipientAmount);
-        if (feeRecipientAmount > 0) {
-            emit RelayFeePaid(tradeId, feeRecipient, feeRecipientAmount);
-        }
     }
 
-    function _claim(
-        bytes32 tradeId,
-        RelayFeeQuote memory relayFeeQuote
-    ) internal returns (uint256 amountAfterFees) {
+    function _claim(bytes32 tradeId) internal returns (uint256 amountAfterFees) {
         Trade storage trade = trades[tradeId];
         if (block.timestamp <= trade.unlockAt) revert ClaimPeriodNotStarted();
         if (trade.amount == 0) revert NoFundsToClaim();
 
-        _requireFeeRecipient(relayFeeQuote);
-
         address seller = trade.seller;
         address buyer = trade.buyer;
         address token = trade.token;
-        (amountAfterFees,) = _remainingAfterFees(trade, relayFeeQuote);
+        amountAfterFees = trade.amount - trade.escrowFee;
 
-        _settleTrade(
-            tradeId,
-            seller,
-            amountAfterFees,
-            address(0),
-            0,
-            relayFeeQuote.receiver,
-            relayFeeQuote.amount
-        );
+        _settleTrade(tradeId, seller, amountAfterFees, address(0), 0);
 
         emit Claimed(tradeId, token, seller, buyer, amountAfterFees);
     }
 
     function _releaseToCounterparty(
         bytes32 tradeId,
-        address actor,
-        RelayFeeQuote memory relayFeeQuote
+        address actor
     ) internal returns (address recipient, uint256 amountAfterFees) {
         Trade storage trade = trades[tradeId];
         if (trade.amount == 0) revert NoFundsToRelease();
-
-        // TODO(hostr): add a per-trade max relay reimbursement guard for the
-        // gasless release path. This matters for `releaseToCounterparty`
-        // because the caller/relay could otherwise present a user-signed but
-        // overly large `RelayFeeQuote` that diverts too much value away from
-        // the counterparty payout. A future version should let the trade
-        // creator set a `maxReleaseRelayFee` (or similar) at trade creation
-        // time and enforce `relayFeeQuote.amount <= trade.maxReleaseRelayFee`.
-        // The same concern is much weaker for `claim`, where the seller is
-        // only overpaying relay fees out of their own eventual proceeds.
-        _requireFeeRecipient(relayFeeQuote);
 
         address token = trade.token;
 
@@ -323,16 +201,8 @@ contract MultiEscrow {
             revert OnlyBuyerOrSeller();
         }
 
-        (amountAfterFees,) = _remainingAfterFees(trade, relayFeeQuote);
-        _settleTrade(
-            tradeId,
-            recipient,
-            amountAfterFees,
-            address(0),
-            0,
-            relayFeeQuote.receiver,
-            relayFeeQuote.amount
-        );
+        amountAfterFees = trade.amount - trade.escrowFee;
+        _settleTrade(tradeId, recipient, amountAfterFees, address(0), 0);
         emit ReleasedToCounterparty(tradeId, token, actor, recipient, amountAfterFees);
     }
 
@@ -404,61 +274,10 @@ contract MultiEscrow {
         _createTrade(tradeId, _buyer, _seller, _arbiter, _token, _unlockAt, _escrowFee, funded);
     }
 
-    // ── EIP-712 hash helpers ──────────────────────────────────────────
-
-    function hashClaimAuthorization(
-        bytes32 tradeId,
-        RelayFeeQuote calldata relayFeeQuote
-    ) public view returns (bytes32) {
-        return _hashTypedData(
-            keccak256(
-                abi.encode(
-                    _CLAIM_AUTHORIZATION_TYPEHASH,
-                    tradeId,
-                    _hashRelayFeeQuote(relayFeeQuote)
-                )
-            )
-        );
-    }
-
-    function hashReleaseAuthorization(
-        bytes32 tradeId,
-        RelayFeeQuote calldata relayFeeQuote
-    ) public view returns (bytes32) {
-        return _hashTypedData(
-            keccak256(
-                abi.encode(
-                    _RELEASE_AUTHORIZATION_TYPEHASH,
-                    tradeId,
-                    _hashRelayFeeQuote(relayFeeQuote)
-                )
-            )
-        );
-    }
-
     // ── Release ───────────────────────────────────────────────────────
 
     function releaseToCounterparty(bytes32 tradeId) external {
-        _releaseToCounterparty(
-            tradeId,
-            msg.sender,
-            RelayFeeQuote({receiver: address(0), amount: 0, deadline: 0})
-        );
-    }
-
-    function releaseToCounterparty(
-        bytes32 tradeId,
-        RelayFeeQuote calldata relayFeeQuote,
-        bytes calldata signature
-    ) external {
-        if (relayFeeQuote.deadline < block.timestamp) revert SignatureExpired();
-
-        address signer = _recoverSigner(
-            hashReleaseAuthorization(tradeId, relayFeeQuote),
-            signature
-        );
-
-        _releaseToCounterparty(tradeId, signer, relayFeeQuote);
+        _releaseToCounterparty(tradeId, msg.sender);
     }
 
     // ── Arbitrate ─────────────────────────────────────────────────────
@@ -476,15 +295,7 @@ contract MultiEscrow {
         uint256 forwardAmount = (amountAfterFee * factor) / FACTOR_SCALE;
         uint256 remainingAmount = amountAfterFee - forwardAmount;
 
-        _settleTrade(
-            tradeId,
-            seller,
-            forwardAmount,
-            buyer,
-            remainingAmount,
-            address(0),
-            0
-        );
+        _settleTrade(tradeId, seller, forwardAmount, buyer, remainingAmount);
 
         emit Arbitrated(tradeId, token, seller, buyer, amountAfterFee, factor);
     }
@@ -492,26 +303,6 @@ contract MultiEscrow {
     // ── Claim ─────────────────────────────────────────────────────────
 
     function claim(bytes32 tradeId) external {
-        _claim(
-            tradeId,
-            RelayFeeQuote({receiver: address(0), amount: 0, deadline: 0})
-        );
-    }
-
-    function claim(
-        bytes32 tradeId,
-        RelayFeeQuote calldata relayFeeQuote,
-        bytes calldata signature
-    ) external {
-        if (relayFeeQuote.deadline < block.timestamp) revert SignatureExpired();
-
-        Trade storage trade = trades[tradeId];
-        address signer = _recoverSigner(
-            hashClaimAuthorization(tradeId, relayFeeQuote),
-            signature
-        );
-        if (signer != trade.seller) revert OnlySeller();
-
-        _claim(tradeId, relayFeeQuote);
+        _claim(tradeId);
     }
 }

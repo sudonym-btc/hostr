@@ -6,6 +6,7 @@ export 'capabilities/escrow_capability.dart';
 export 'chain/evm_chain.dart';
 export 'config/evm_config.dart';
 export 'evm.dart';
+export 'models/fee_breakdown.dart';
 export 'operations/auto_withdraw/auto_withdraw_service.dart';
 export 'operations/operation_machine.dart';
 export 'operations/operation_state_store.dart';

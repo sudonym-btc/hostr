@@ -22,6 +22,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:http/http.dart' as http;
@@ -38,7 +39,7 @@ import '../../../../support/integration_test_harness.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 //  Constants & shared state
 // ═══════════════════════════════════════════════════════════════════════════
-final _contractAddress = resolveContractAddress();
+final _contractAddress = env.evmConfig.chains.first.escrowContractAddress!;
 
 /// Two ETH in wei — enough for several test deposits + gas.
 final _twoEthWei = BigInt.parse('2000000000000000000');

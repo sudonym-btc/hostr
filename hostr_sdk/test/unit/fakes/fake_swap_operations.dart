@@ -1,5 +1,5 @@
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_in/swap_in_operation.dart';
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_out/swap_out_operation.dart';
+import 'package:hostr_sdk/usecase/evm/chain/operations/swap_in/swap_in_operation.dart';
+import 'package:hostr_sdk/usecase/evm/chain/operations/swap_out/swap_out_operation.dart';
 import 'package:mockito/mockito.dart';
 
 /// A fake [EvmSwapInOperation] for testing recovery.

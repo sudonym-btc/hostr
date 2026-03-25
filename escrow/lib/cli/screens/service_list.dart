@@ -29,7 +29,7 @@ Future<Navigation> serviceListScreen(DaemonClient client) async {
     print('');
     final options = services.map((s) {
       final chain = 'chain=${s.chainId}';
-      final fees = 'base=${s.feeBase} sats, ${s.feePercent}%';
+      final fees = '${s.feePercent}%';
       final range = s.maxAmount != null
           ? '${s.minAmount}–${s.maxAmount} sats'
           : '≥${s.minAmount} sats';

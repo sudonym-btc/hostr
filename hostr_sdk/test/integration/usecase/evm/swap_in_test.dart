@@ -37,7 +37,7 @@ void main() {
           appNamePrefix: 'swap-in-it',
         );
         final configured = evm.configuredChains.first;
-        final swapLimits = await configured.getSwapInLimits();
+        final swapLimits = await configured.swaps!.getSwapInLimits();
         final amount =
             TokenAmount.fromDenominated(
               swapLimits.min,

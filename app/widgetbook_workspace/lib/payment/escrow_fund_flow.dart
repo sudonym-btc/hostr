@@ -3,6 +3,7 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/onchain_operation.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 // ── Mock data ────────────────────────────────────────────────────────────
@@ -84,7 +85,10 @@ Widget escrowFundSwapProgress(BuildContext context) {
         paymentState: PayInFlight(
           params: PayParameters(
             to: 'escrow@hostr.cc',
-            amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
+            amount: TokenAmount(
+              value: BigInt.from(50000),
+              token: Token.btcLightning,
+            ),
           ),
         ),
       ),
