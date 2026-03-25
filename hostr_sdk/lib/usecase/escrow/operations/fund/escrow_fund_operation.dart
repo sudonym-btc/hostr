@@ -142,7 +142,7 @@ class EscrowFundOperation extends OnchainOperation {
   }
 
   @override
-  void onGasEstimated(GasEstimate estimate) =>
+  void onGasEstimated(TokenAmount gasFee) =>
       logger.spanSync('onGasEstimated', () {});
 
   @override
@@ -273,8 +273,8 @@ class EscrowFundOperation extends OnchainOperation {
   @override
   Future<OnchainOperationData> beforeBroadcast(
     OnchainOperationData data,
-    GasEstimate gasEstimate,
-  ) => _swapEntireRequiredAmount(data, gasEstimate);
+    TokenAmount gasFee,
+  ) => _swapEntireRequiredAmount(data, gasFee);
 
   /// Compute the full swap-in amount needed for funding + gas.
   ///
@@ -282,13 +282,13 @@ class EscrowFundOperation extends OnchainOperation {
   /// complete required amount via swap-in.
   Future<TokenAmount> _computeRequiredSwapAmount(
     OnchainOperationData data,
-    GasEstimate gasEstimate,
+    TokenAmount gasFee,
   ) => logger.span('computeRequiredSwapAmount', () async {
     final params = _requireParams();
     final fundingAmount = _resolveFundingAmount(params);
     final gasComponent = fundingAmount.token.isERC20
         ? TokenAmount.zero(fundingAmount.token)
-        : TokenAmount(value: gasEstimate.fee.value, token: fundingAmount.token);
+        : TokenAmount(value: gasFee.value, token: fundingAmount.token);
     final totalRequired = fundingAmount + gasComponent;
     late final TokenAmount resolvedSwapAmount;
     try {
@@ -319,7 +319,7 @@ class EscrowFundOperation extends OnchainOperation {
     logger.i(
       'Swap funding: '
       'funding=${fundingAmount.getInSats}, '
-      'gas=${fundingAmount.token.isERC20 ? 0 : gasEstimate.fee.getInSats}, '
+      'gas=${fundingAmount.token.isERC20 ? 0 : gasFee.getInSats}, '
       'swapAmount=${resolvedSwapAmount.getInSats}',
     );
 
@@ -329,9 +329,9 @@ class EscrowFundOperation extends OnchainOperation {
   /// Runs a nested swap-in for the full required on-chain amount.
   Future<OnchainOperationData> _swapEntireRequiredAmount(
     OnchainOperationData data,
-    GasEstimate gasEstimate,
+    TokenAmount gasFee,
   ) => logger.span('swapEntireRequiredAmount', () async {
-    final swapAmount = await _computeRequiredSwapAmount(data, gasEstimate);
+    final swapAmount = await _computeRequiredSwapAmount(data, gasFee);
 
     final evmKey = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
 
@@ -352,19 +352,11 @@ class EscrowFundOperation extends OnchainOperation {
     );
     swap.onProgress = onProgress;
 
-    final swapFees = await swap.estimateFees();
-    final swapAmountOverhead = TokenAmount.fromDenominated(
-      swapFees.requiredSwapAmountOverhead,
-      swapAmount.token,
-    );
-    swap.params.amount = (swapAmount + swapAmountOverhead).roundUpToSats();
+    // For reverse swaps the fee overhead is absorbed by the Lightning
+    // invoice, not by inflating the on-chain amount — no adjustment needed.
+    swap.params.amount = swapAmount.roundUpToSats();
 
-    logger.i(
-      'Nested swap amount adjusted after fee estimate: '
-      'base=${swapAmount.getInSats} sats, '
-      'swapOverhead=${swapAmountOverhead.getInSats} sats, '
-      'final=${swap.params.amount.getInSats} sats',
-    );
+    logger.i('Nested swap amount: ${swap.params.amount.getInSats} sats');
 
     String? swapId;
     bool swapIdPersisted = false;
@@ -395,64 +387,63 @@ class EscrowFundOperation extends OnchainOperation {
     return _onNestedSwapFinished(updatedData, swap.state);
   });
 
-  /// Override fee estimation to include the always-on swap-in.
+  /// Override fee estimation to include swap-in fees computed directly
+  /// from Boltz pair data — no throwaway [SwapInOperation] needed.
   @override
-  Future<OnchainFeeQuote> estimateOperationFees() => logger.span(
-    'estimateOperationFees',
-    () async {
-      await initialize();
-      final intents = await buildCallIntents();
-      final gasEstimate = await estimateCallIntentsFee(intents);
-      final data = buildInitialData(callIntents: intents, transport: 'direct');
-      final swapAmount = await _computeRequiredSwapAmount(data, gasEstimate);
-      final swapFees = await configuredChain
-          .swapIn(
-            auth: auth,
-            logger: logger,
-            params: SwapInParams(
-              evmKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
-              accountIndex: accountIndex,
-              amount: swapAmount,
-              invoiceDescription: swapInvoiceDescription,
-              claimAddress: swapClaimAddress,
-            ),
-          )
-          .estimateFees();
+  Future<OnchainFeeQuote> estimateOperationFees() =>
+      logger.span('estimateOperationFees', () async {
+        await initialize();
+        final intents = await buildCallIntents();
+        final gasEstimate = await estimateCallIntentsFee(intents);
 
-      return OnchainFeeQuote(
-        gasEstimate: gasEstimate,
-        swapFees: swapFees,
-        callIntents: intents,
-        transport: 'direct',
-      );
-    },
-  );
+        return OnchainFeeQuote(
+          gasFee: gasEstimate.gasFee,
+          gasSponsored: gasEstimate.gasSponsored,
+          callIntents: intents,
+          transport: 'direct',
+        );
+      });
 
   // ── Fee estimation (public) ───────────────────────────────────────
 
-  Future<EscrowFundFees> estimateFees() =>
-      logger.span('estimateFees', () async {
-        final params = _requireParams();
-        await _ensureSwapClaimAddress();
-        final quote = await estimateOperationFees();
+  Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
+    final params = _requireParams();
+    await _ensureSwapClaimAddress();
+    final quote = await estimateOperationFees();
 
-        // Escrow fee in BTC sats (8 decimals), computed directly from the
-        // escrow service's fee schedule. Using sats avoids the display bug
-        // where an ERC-20 TokenAmount (e.g. 0.000005 tBTC) gets rounded to
-        // "0" by the 2-decimal-place currency formatter.
-        final amountSats = params.amount.value.toInt();
-        final feeSats = params.escrowService.escrowFee(amountSats);
+    // ── Escrow fee ──
+    final fundingAmount = _resolveFundingAmount(params);
+    final fundingToken = _resolveFundingToken(params);
+    final tokenAddress = fundingToken.isERC20 ? fundingToken.address : 'native';
+    final escrowFeeValue = params.escrowService.escrowFee(
+      fundingAmount.value,
+      tokenAddress: tokenAddress,
+    );
+    final escrowFee = TokenAmount(value: escrowFeeValue, token: fundingToken);
 
-        return EscrowFundFees(
-          estimatedGasFees: quote.gasEstimate.fee,
-          estimatedSwapFees: quote.swapFees,
-          estimatedEscrowFees: DenominatedAmount(
-            denomination: 'BTC',
-            value: BigInt.from(feeSats),
-            decimals: 8,
-          ),
-        );
-      });
+    // ── Swap fee (computed directly from Boltz pair data) ──
+    DenominatedAmount swapFeeSats = DenominatedAmount.zero('BTC', 8);
+    final swapProvider = configuredChain.swaps;
+    if (swapProvider != null) {
+      final tokenAddr = fundingToken.isERC20
+          ? EthereumAddress.fromHex(fundingToken.address)
+          : null;
+      final estimate = await swapProvider.estimateSwapInFees(
+        onchainAmountSat: fundingAmount.getInSats.toInt(),
+        tokenAddress: tokenAddr,
+      );
+      if (estimate != null) {
+        swapFeeSats = estimate.feesAsDenominated;
+      }
+    }
+
+    return FeeBreakdown(
+      escrowFee: escrowFee,
+      swapFee: TokenAmount.fromDenominated(swapFeeSats, Token.btcLightning),
+      gasFee: quote.gasFee,
+      gasSponsored: quote.gasSponsored,
+    );
+  });
 
   EscrowFundParams _requireParams() {
     final params = this.params;
@@ -524,25 +515,21 @@ class EscrowFundOperation extends OnchainOperation {
     final token = _resolveFundingToken(params);
     final isERC20 = token.isERC20;
 
-    final TokenAmount amount;
-    final TokenAmount? escrowFee;
+    final amount = _resolveFundingAmount(params);
 
+    // Compute escrow fee using the unified escrowFee() API which works
+    // in the token's smallest unit and applies tokenFeeHints.
+    final tokenAddress = isERC20 ? token.address : 'native';
+    final feeValue = params.escrowService.escrowFee(
+      amount.value,
+      tokenAddress: tokenAddress,
+    );
+    final TokenAmount escrowFee;
     if (isERC20) {
-      amount = _resolveFundingAmount(params);
-      // Compute escrow fee in the same token units using BigInt to avoid
-      // overflow for large token values.
-      final fp = params.escrowService.feePercent;
-      final fb = BigInt.from(params.escrowService.feeBase);
-      final fee =
-          (amount.value * BigInt.from((fp * 100).round())) ~/
-              BigInt.from(10000) +
-          fb;
-      escrowFee = TokenAmount(value: fee, token: token);
+      escrowFee = TokenAmount(value: feeValue, token: token);
     } else {
-      amount = _resolveFundingAmount(params);
-      escrowFee = rbtcFromSatsInt(
-        params.escrowService.escrowFee(amount.getInSats.toInt()),
-      );
+      // For native RBTC, the amount is already in wei (token's smallest unit).
+      escrowFee = TokenAmount(value: feeValue, token: token);
     }
 
     return FundArgs(

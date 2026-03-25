@@ -24,19 +24,19 @@
 
 ## Current State
 
-Fees are calculated in at least **six different classes** across three layers, with inconsistent denomination handling, redundant wrapping, and a gas estimate that always returns zero.
+Fees ~~are~~ **were** calculated in at least **six different classes** across three layers, with inconsistent denomination handling, redundant wrapping, and a gas estimate that always returns zero.
 
-| Class              | File                             | Purpose                                                                  |
-| ------------------ | -------------------------------- | ------------------------------------------------------------------------ |
-| `GasEstimate`      | `supported_escrow_contract.dart` | Raw `eth_estimateGas` result (gasLimit × gasPrice)                       |
-| `BoltzFeeEstimate` | `boltz_fee_estimate.dart`        | Boltz pair maths → totalFeeSat                                           |
-| `SwapInFees`       | `swap_in_models.dart`            | Wraps gas + swap + relay as three `DenominatedAmount`s                   |
-| `SwapOutFees`      | `swap_out_models.dart`           | Wraps gas + swap + balance + invoiceAmount                               |
-| `OnchainFeeQuote`  | `onchain_operation.dart`         | Wraps `GasEstimate` + `SwapInFees` + `List<CallIntent>`                  |
-| `EscrowFundFees`   | `escrow_fund_models.dart`        | Wraps `TokenAmount` gas + `SwapInFees` swap + `DenominatedAmount` escrow |
-| `SwapOutQuote`     | `swap_out_quote_service.dart`    | Yet another wrapping: balance + invoice + gas + swap fees                |
+| Class              | File                             | Purpose                                                                  | Status          |
+| ------------------ | -------------------------------- | ------------------------------------------------------------------------ | --------------- |
+| `GasEstimate`      | `supported_escrow_contract.dart` | Raw `eth_estimateGas` result (gasLimit × gasPrice)                       | **Removed**     |
+| `BoltzFeeEstimate` | `boltz_fee_estimate.dart`        | Boltz pair maths → totalFeeSat                                           | Kept (input)    |
+| `SwapInFees`       | `swap_in_models.dart`            | Wraps gas + swap + relay as three `DenominatedAmount`s                   | **Removed**     |
+| `SwapOutFees`      | `swap_out_models.dart`           | Wraps gas + swap + balance + invoiceAmount                               | **Removed**     |
+| `OnchainFeeQuote`  | `onchain_operation.dart`         | Wraps `GasEstimate` + `SwapInFees` + `List<CallIntent>`                  | **Collapsed**   |
+| `EscrowFundFees`   | `escrow_fund_models.dart`        | Wraps `TokenAmount` gas + `SwapInFees` swap + `DenominatedAmount` escrow | **Removed**     |
+| `SwapOutQuote`     | `swap_out_quote_service.dart`    | Yet another wrapping: balance + invoice + gas + swap fees                | Kept (internal) |
 
-That's **seven** types to represent what is fundamentally one concept: _"here are the fee line-items for an operation."_
+All operations now return `FeeBreakdown`. Swap-out operational data (`balance`, `invoiceAmount`) lives on the `SwapOutOperation` cubit.
 
 ---
 
@@ -379,40 +379,82 @@ If a minimum fee floor is needed, express it as `minFee: 0.50` (in the listing's
 
 ### Phase 1: Models & estimation
 
-- [ ] Create `FeeBreakdown` class in `hostr_sdk/lib/usecase/evm/models/`.
-- [ ] Create `FeeEstimator` service in `hostr_sdk/lib/usecase/evm/services/`.
-- [ ] Implement real UserOp gas estimation in `AACapability.estimateGasFee()`.
-- [ ] Add `gasSponsored` flag to `FeeBreakdown`.
-- [ ] Wire `BoltzFeeEstimate` into `FeeEstimator` with caching.
+- [x] Create `FeeBreakdown` class in `hostr_sdk/lib/usecase/evm/models/fee_breakdown.dart`.
+- [ ] ~~Create `FeeEstimator` service~~ — **Skipped by design.** Each operation keeps its own `estimateFees()`. No shared estimator class.
+- [x] Implement real UserOp gas estimation in `AACapability.estimateGasFee()`.
+- [x] Add `gasSponsored` flag to `FeeBreakdown`.
+- [ ] Wire `BoltzFeeEstimate` into `FeeEstimator` with caching — **deferred** (no `FeeEstimator`; caching can be added later to `BoltzSwapProvider`).
 
 ### Phase 2: Operation refactoring
 
-- [ ] Refactor `SwapInOperation.estimateFees()` → return `FeeBreakdown`.
-- [ ] Refactor `SwapOutOperation.estimateFees()` → return `FeeBreakdown`.
-- [ ] Refactor `EscrowFundOperation.estimateFees()` → return `FeeBreakdown`.
-- [ ] Remove `SwapInFees`, `SwapOutFees`, `EscrowFundFees`.
-- [ ] Collapse `OnchainFeeQuote` — return `(FeeBreakdown, List<CallIntent>)` instead.
-- [ ] Update `SwapOutQuoteService` to use `FeeEstimator`.
+- [x] Refactor `SwapInOperation.estimateFees()` → return `FeeBreakdown`.
+- [x] Refactor `SwapOutOperation.estimateFees()` → return `FeeBreakdown`. Operational data (`balance`, `invoiceAmount`) cached on the cubit.
+- [x] Refactor `EscrowFundOperation.estimateFees()` → return `FeeBreakdown`.
+- [x] Remove `SwapInFees`, `SwapOutFees`, `EscrowFundFees` — all deleted.
+- [x] Collapse `OnchainFeeQuote` — now holds `gasFee: TokenAmount`, `gasSponsored: bool` instead of `GasEstimate`.
+- [ ] Update `SwapOutQuoteService` to use `FeeEstimator` — **deferred.**
 
 ### Phase 3: Escrow fee denomination
 
-- [ ] Update `EscrowServiceContent` — remove `feeBase`, keep `feePercent`.
-- [ ] Update escrow daemon's CLI and RPC to remove `feeBase` editing.
-- [ ] Update escrow daemon's Nostr event publisher.
-- [ ] Update client-side `_buildFundArgs()` to compute fee purely from `feePercent` in token units.
-- [ ] Re-publish all escrow service events (kind 30303) without `feeBase`.
+- [x] Update `EscrowServiceContent` — removed `feeBase`, kept `feePercent`, added `tokenFeeHints` map with per-token `baseFee`/`maxFee`/`minFee`.
+- [x] Update escrow daemon's CLI and RPC to remove `feeBase` editing.
+- [x] Update escrow daemon's Nostr event publisher (bootstrap defaults).
+- [x] Update client-side `_buildFundArgs()` to compute fee via `escrowFee(BigInt, tokenAddress:)` in token units.
+- [ ] Re-publish all escrow service events (kind 30303) without `feeBase` — **operational step, not a code change.**
 
 ### Phase 4: UI
 
-- [ ] Update `escrow_fund.dart` widget to use `FeeBreakdown`.
-- [ ] Update `swap_in.dart` widget to use `FeeBreakdown`.
-- [ ] Update `swap_out.dart` widget to use `FeeBreakdown`.
-- [ ] Show `gasSponsored` badge when gas is zero but `gasFee > 0`.
-- [ ] Format each fee line-item in its native denomination (no manual rescaling in UI).
+- [x] Update `escrow_fund.dart` widget to use `FeeBreakdown`.
+- [x] Update `swap_in.dart` widget to use `FeeBreakdown`.
+- [x] Update `swap_out.dart` widget to use `FeeBreakdown`.
+- [x] Show `gasSponsored` annotation when gas is sponsored.
+- [x] Format each fee line-item in its native denomination (no manual rescaling in UI).
 
 ### Phase 5: Cleanup
 
-- [ ] Delete dead classes (`SwapInFees`, `SwapOutFees`, `EscrowFundFees`, `OnchainFeeQuote`).
-- [ ] Remove `feeBase` from `EscrowServiceContent.fromJson()` / `toJson()`.
+- [x] Delete dead classes (`SwapInFees`, `SwapOutFees`, `EscrowFundFees`) — all removed. `OnchainFeeQuote` already collapsed earlier.
+- [x] Remove `feeBase` from `EscrowServiceContent.fromJson()` / `toJson()`.
 - [ ] Audit all `.rescale(8)` calls — most should be unnecessary after `FeeBreakdown`.
 - [ ] Update `PRICING.md` and `ERC20.md` to reference new fee architecture.
+
+---
+
+## Implementation Notes (post-refactor)
+
+_This section documents what was actually implemented vs. what was planned above._
+
+### Deviations from plan
+
+1. **No `FeeEstimator` class.** Per design decision, each operation keeps its own `estimateFees()` method. This avoids introducing a new service with complex DI wiring. Gas estimation is delegated to `AACapability`, Boltz fee estimation stays in `BoltzSwapProvider`, and escrow fee computation lives on `EscrowServiceContent`.
+
+2. **`GasEstimate` class removed entirely.** The plan called for keeping it as an internal type. Instead it was deleted from `SupportedEscrowContract` — `AACapability.estimateGasFee()` now returns a `({BigInt gasCostWei, bool gasSponsored})` record directly.
+
+3. **`SupportedEscrowContract.estimateFee()` removed entirely.** The plan called for keeping raw `eth_estimateGas` as a fallback for non-AA chains. Since all supported chains use AA, the method and all convenience estimators (`estimateEscrowFundFee`, `estimateClaimFee`, `estimateReleaseFee`, `estimateTotalGas`) were removed.
+
+4. **`SwapInFees` and `SwapOutFees` replaced.** `SwapInFees` deleted — `SwapInOperation.estimateFees()` now returns `FeeBreakdown` directly. `SwapOutFees` deleted — `SwapOutOperation.estimateFees()` now returns `FeeBreakdown` directly; operational data (`balance`, `invoiceAmount`) is cached on the cubit after `estimateFees()` completes. Both UIs collapsed to a single `networkFees` line with `gasSponsored` annotation.
+
+5. **`tokenFeeHints` added to `EscrowServiceContent`.** The plan suggested dropping `feeBase` and using only `feePercent`. The implementation went further: operators can now publish per-token `baseFee`, `maxFee`, and `minFee` in a `tokenFeeHints` map. The `escrowFee()` helper computes `floor(amount × feePercent / 100) + baseFee` clamped by min/max hints, all in the trade token's units.
+
+### Files modified
+
+| File                                                       | Change                                                                                                                                                                    |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `models/lib/nostr/escrow_service.dart`                     | Removed `feeBase`, added `TokenFeeHints`, `tokenFeeHints` map, updated `escrowFee()` signature to `(BigInt, {String tokenAddress})`                                       |
+| `hostr_sdk/.../models/fee_breakdown.dart`                  | **New.** Unified `FeeBreakdown` with `escrowFee`, `swapFee`, `gasFee`, `gasSponsored`, `networkFees` getter                                                               |
+| `hostr_sdk/.../capabilities/aa_capability.dart`            | Real UserOp gas estimation via `prepareUserOperation` + `getRequiredPrefund`                                                                                              |
+| `hostr_sdk/.../supported_escrow_contract.dart`             | Removed `estimateFee()`, `estimateTotalGas()`, convenience estimators, `GasEstimate` class                                                                                |
+| `hostr_sdk/.../operations/onchain_operation.dart`          | `OnchainFeeQuote` uses `TokenAmount gasFee` + `gasSponsored`; `estimateCallIntentsFee()` returns record; signature changes cascade to `beforeBroadcast`, `onGasEstimated` |
+| `hostr_sdk/.../operations/fund/escrow_fund_operation.dart` | `estimateFees()` → `Future<FeeBreakdown>`; no throwaway `SwapInOperation`; `_buildFundArgs()` unified for native + ERC-20                                                 |
+| `hostr_sdk/.../operations/fund/escrow_fund_models.dart`    | `EscrowFundFees` deprecated                                                                                                                                               |
+| `hostr_sdk/.../swap_in/swap_in_operation.dart`             | Updated `estimateFees()` to use new `estimateGasFee` return type                                                                                                          |
+| `hostr_sdk/.../swap_out/swap_out_operation.dart`           | Updated `_estimateLockGasFee()` to use new return type                                                                                                                    |
+| `hostr_sdk/.../swap_in/swap_in_models.dart`                | Added `FeeBreakdown` import, `SwapInFees` marked legacy                                                                                                                   |
+| `hostr_sdk/lib/usecase/evm/main.dart`                      | Added `fee_breakdown.dart` export                                                                                                                                         |
+| `escrow/lib/shared/protocol.dart`                          | Removed `feeBase` from `ServiceSummary`                                                                                                                                   |
+| `escrow/lib/daemon/handlers.dart`                          | Removed `feeBase` from all RPC handlers                                                                                                                                   |
+| `escrow/lib/daemon/bootstrap.dart`                         | Removed `feeBase: 100` default                                                                                                                                            |
+| `escrow/lib/cli/daemon_client.dart`                        | Removed `feeBase` param from `updateService()`                                                                                                                            |
+| `escrow/lib/cli/screens/service_edit.dart`                 | Removed "Fee base" display and edit action                                                                                                                                |
+| `escrow/lib/cli/screens/service_list.dart`                 | Removed `feeBase` from display string                                                                                                                                     |
+| `app/.../escrow/fund/escrow_fund.dart`                     | `FutureBuilder<EscrowFundFees>` → `FutureBuilder<FeeBreakdown>`; shows `gasSponsored` annotation                                                                          |
+| `app/.../escrow/escrow_services_modal.dart`                | Removed `feeBase` from service tile display                                                                                                                               |

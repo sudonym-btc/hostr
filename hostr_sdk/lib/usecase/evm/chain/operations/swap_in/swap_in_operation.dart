@@ -11,15 +11,15 @@ import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EtherAmount, EthereumAddress;
 import 'package:web3dart/web3dart.dart' hide params;
 
-import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
-import '../../../../../../datasources/swagger_generated/boltz.swagger.dart';
-import '../../../../../../injection.dart';
-import '../../../../../../util/main.dart';
-import '../../../../../payments/operations/pay_models.dart';
-import '../../../../../payments/operations/pay_operation.dart';
-import '../../../../../payments/operations/pay_state.dart';
-import '../../../../../payments/payments.dart';
-import '../../../../main.dart';
+import '../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
+import '../../../../../datasources/swagger_generated/boltz.swagger.dart';
+import '../../../../../injection.dart';
+import '../../../../../util/main.dart';
+import '../../../../payments/operations/pay_models.dart';
+import '../../../../payments/operations/pay_operation.dart';
+import '../../../../payments/operations/pay_state.dart';
+import '../../../../payments/payments.dart';
+import '../../../main.dart';
 
 class EvmSwapInOperation extends SwapInOperation {
   final ConfiguredEvmChain configuredChain;
@@ -563,15 +563,9 @@ class EvmSwapInOperation extends SwapInOperation {
   // ── Fee estimation ────────────────────────────────────────────────────
 
   @override
-  Future<SwapInFees> estimateFees() => logger.span('estimateFees', () async {
-    final relayFees = rbtcFromWei(
-      await configuredChain.aa!.estimateGasFee(params.evmKey),
-    );
-
-    // All fee components in BTC sats (8 decimals) — Boltz operates in sats
-    // and fees from different sources must be addable via totalFees.
-    // Relay fee is in RBTC wei (18 decimals); rescale to sats.
-    final relayFeeSats = relayFees.toDenominated().rescale(8);
+  Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
+    final gasEstimate = await configuredChain.aa!.estimateGasFee(params.evmKey);
+    final gasFee = rbtcFromWei(gasEstimate.gasCostWei);
 
     // Compute actual Boltz reverse-swap fees from the pair data.
     // The fee overhead is paid via the Lightning invoice (not on-chain).
@@ -591,10 +585,11 @@ class EvmSwapInOperation extends SwapInOperation {
       }
     }
 
-    return SwapInFees(
-      estimatedGasFees: DenominatedAmount.zero('BTC', 8),
-      estimatedSwapFees: swapFeeSats,
-      estimatedRelayFees: relayFeeSats,
+    return FeeBreakdown(
+      escrowFee: TokenAmount.zero(params.amount.token),
+      swapFee: TokenAmount.fromDenominated(swapFeeSats, Token.btcLightning),
+      gasFee: gasFee,
+      gasSponsored: gasEstimate.gasSponsored,
     );
   });
 

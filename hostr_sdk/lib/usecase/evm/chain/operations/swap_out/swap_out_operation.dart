@@ -8,13 +8,13 @@ import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart' hide params;
 
-import '../../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
-import '../../../../../../datasources/contracts/boltz/IERC20.g.dart';
-import '../../../../../../datasources/swagger_generated/boltz.swagger.dart';
-import '../../../../../../util/main.dart';
-import '../../../../../nwc/nwc.dart';
-import '../../../../../payments/payments.dart';
-import '../../../../main.dart';
+import '../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
+import '../../../../../datasources/contracts/boltz/IERC20.g.dart';
+import '../../../../../datasources/swagger_generated/boltz.swagger.dart';
+import '../../../../../util/main.dart';
+import '../../../../nwc/nwc.dart';
+import '../../../../payments/payments.dart';
+import '../../../main.dart';
 
 class EvmSwapOutOperation extends SwapOutOperation {
   final ConfiguredEvmChain configuredChain;
@@ -445,13 +445,35 @@ class EvmSwapOutOperation extends SwapOutOperation {
   // ── Fee estimation ────────────────────────────────────────────────────
 
   @override
-  Future<SwapOutFees> estimateFees() => logger.span('estimateFees', () async {
-    final quote = await _buildQuote();
-    return SwapOutFees(
-      estimatedGasFees: quote.estimatedGasFee,
-      estimatedSwapFees: quote.estimatedSwapFee,
-      balance: quote.balance,
-      invoiceAmount: quote.invoiceAmount,
+  Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
+    final gasEstimate = await configuredChain.aa!.estimateGasFee(params.evmKey);
+    final gasFee = rbtcFromWei(gasEstimate.gasCostWei);
+
+    final chainBalance = await _getSwapBalance();
+    final quote = await quoteService.buildQuote(
+      balance: chainBalance,
+      estimatedGasFee: gasFee,
+      requestedAmount: params.amount,
+      boltzCurrency: configuredChain.swaps!.currencyForTokenAddress(
+        _requestedTokenAddress,
+      ),
+    );
+
+    // Cache operational data on the cubit for UI / auto-withdraw access.
+    balance = quote.balance;
+    invoiceAmount = quote.invoiceAmount;
+
+    return FeeBreakdown(
+      escrowFee: TokenAmount.zero(chainBalance.token),
+      swapFee: TokenAmount.fromDenominated(
+        quote.estimatedSwapFee,
+        Token.btcLightning,
+      ),
+      gasFee: TokenAmount.fromDenominated(
+        quote.estimatedGasFee,
+        Token.rbtc(chainBalance.token.chainId),
+      ),
+      gasSponsored: gasEstimate.gasSponsored,
     );
   });
 
@@ -645,11 +667,13 @@ class EvmSwapOutOperation extends SwapOutOperation {
         );
       });
 
-  Future<TokenAmount> _estimateLockGasFee() =>
-      logger.span('_estimateLockGasFee', () async {
-        final feeWei = await configuredChain.aa!.estimateGasFee(params.evmKey);
-        return rbtcFromWei(feeWei);
-      });
+  Future<TokenAmount> _estimateLockGasFee() => logger.span(
+    '_estimateLockGasFee',
+    () async {
+      final estimate = await configuredChain.aa!.estimateGasFee(params.evmKey);
+      return rbtcFromWei(estimate.gasCostWei);
+    },
+  );
 
   Uint8List _decodePaymentHash(String paymentHash) {
     final normalized = paymentHash.startsWith('0x')

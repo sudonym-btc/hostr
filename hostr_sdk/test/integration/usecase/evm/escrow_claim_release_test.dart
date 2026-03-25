@@ -1,6 +1,7 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:models/main.dart';
@@ -156,9 +157,8 @@ void main() {
 Future<EscrowService> _resolveEscrowService(
   IntegrationTestHarness harness,
 ) async {
-  final contractAddress = resolveContractAddress();
   return (await harness.seeds.factory.buildEscrowServices(
-    contractAddress: contractAddress,
+    contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
   )).first;
 }
 

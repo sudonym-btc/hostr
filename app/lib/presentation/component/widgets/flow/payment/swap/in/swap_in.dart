@@ -164,19 +164,13 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
                   );
                 }
 
+                final fees = snapshot.data!;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedGasFees)} in gas",
-                      style: subtleStyle,
-                    ),
-                    Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedSwapFees)} in swap fees",
-                      style: subtleStyle,
-                    ),
-                    Text(
-                      "+ ${formatAmount(snapshot.data!.estimatedRelayFees)} in relay fees",
+                      "+ ${formatAmount(fees.networkFees)} in network fees"
+                      "${fees.gasSponsored ? ' (gas sponsored)' : ''}",
                       style: subtleStyle,
                     ),
                   ],

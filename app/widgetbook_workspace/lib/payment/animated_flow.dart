@@ -7,6 +7,7 @@ import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/out/swap_out.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
@@ -84,7 +85,7 @@ class _StateCyclerWidgetState<T> extends State<_StateCyclerWidget<T>> {
 
 PayParameters get _mockPayParams => PayParameters(
   to: 'satoshi@hostr.cc',
-  amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
+  amount: TokenAmount(value: BigInt.from(50000), token: Token.btcLightning),
 );
 
 const _mockSwapInData = SwapInData(
@@ -179,7 +180,7 @@ Widget swapOutAnimatedFlow(BuildContext context) {
       (
         'External invoice required',
         SwapOutExternalInvoiceRequired(
-          BitcoinAmount.fromInt(BitcoinUnit.sat, 45000),
+          TokenAmount(value: BigInt.from(45000), token: Token.btcLightning),
         ),
       ),
       ('Invoice created', const SwapOutInvoiceCreated('lnbc450u1p...')),

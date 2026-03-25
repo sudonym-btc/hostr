@@ -1,6 +1,7 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:logger/logger.dart';
@@ -48,11 +49,9 @@ void main() {
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
       await hostr.auth.signin(trade.guest.privateKey);
 
-      final contractAddress = resolveContractAddress();
-      final escrowService =
-          (await harness.seeds.factory.buildEscrowServices(
-            contractAddress: contractAddress,
-          )).first;
+      final escrowService = (await harness.seeds.factory.buildEscrowServices(
+        contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
+      )).first;
 
       final operation = hostr.escrow.fund(
         EscrowFundParams(
@@ -66,10 +65,9 @@ void main() {
       // Pre-fund the resolved signer so no swap-in is needed — keeps the test fast.
       await operation.initialize();
       await anvil.setBalance(
-        address: (await hostr.auth.hd
-                .getActiveEvmKey(accountIndex: operation.accountIndex))
-            .address
-            .eip55With0x,
+        address: (await hostr.auth.hd.getActiveEvmKey(
+          accountIndex: operation.accountIndex,
+        )).address.eip55With0x,
         amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
       );
 
@@ -93,11 +91,9 @@ void main() {
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
       await hostr.auth.signin(trade.guest.privateKey);
 
-      final contractAddress = resolveContractAddress();
-      final escrowService =
-          (await harness.seeds.factory.buildEscrowServices(
-            contractAddress: contractAddress,
-          )).first;
+      final escrowService = (await harness.seeds.factory.buildEscrowServices(
+        contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
+      )).first;
 
       final operation = hostr.escrow.fund(
         EscrowFundParams(
@@ -111,10 +107,9 @@ void main() {
       // Pre-fund the resolved signer so no swap-in is needed.
       await operation.initialize();
       await anvil.setBalance(
-        address: (await hostr.auth.hd
-                .getActiveEvmKey(accountIndex: operation.accountIndex))
-            .address
-            .eip55With0x,
+        address: (await hostr.auth.hd.getActiveEvmKey(
+          accountIndex: operation.accountIndex,
+        )).address.eip55With0x,
         amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
       );
 
@@ -164,7 +159,7 @@ void main() {
     final store = getIt<OperationStateStore>();
     final fakeData = EscrowFundData(
       tradeId: 'fake-trade-id',
-      contractAddress: resolveContractAddress(),
+      contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
       chainId: 412346,
       accountIndex: 0,
       swapId: 'nonexistent-swap-id',

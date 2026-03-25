@@ -141,14 +141,12 @@ class DaemonClient {
 
   Future<void> updateService(
     String serviceId, {
-    int? feeBase,
     double? feePercent,
     int? minAmount,
     int? maxAmount,
   }) async {
     await _rpc.sendRequest(kRpcUpdateService, {
       'serviceId': serviceId,
-      if (feeBase != null) 'feeBase': feeBase,
       if (feePercent != null) 'feePercent': feePercent,
       if (minAmount != null) 'minAmount': minAmount,
       if (maxAmount != null) 'maxAmount': maxAmount,

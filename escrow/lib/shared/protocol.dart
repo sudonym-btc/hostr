@@ -189,7 +189,6 @@ class ServiceSummary {
   final String id;
   final String contractAddress;
   final int chainId;
-  final int feeBase;
   final double feePercent;
   final int minAmount;
   final int? maxAmount;
@@ -198,7 +197,6 @@ class ServiceSummary {
     required this.id,
     required this.contractAddress,
     required this.chainId,
-    required this.feeBase,
     required this.feePercent,
     required this.minAmount,
     this.maxAmount,
@@ -208,7 +206,6 @@ class ServiceSummary {
         'id': id,
         'contractAddress': contractAddress,
         'chainId': chainId,
-        'feeBase': feeBase,
         'feePercent': feePercent,
         'minAmount': minAmount,
         if (maxAmount != null) 'maxAmount': maxAmount,
@@ -218,7 +215,6 @@ class ServiceSummary {
         id: json['id'] as String,
         contractAddress: json['contractAddress'] as String,
         chainId: json['chainId'] as int,
-        feeBase: (json['feeBase'] as num).toInt(),
         feePercent: (json['feePercent'] as num).toDouble(),
         minAmount: (json['minAmount'] as num).toInt(),
         maxAmount: (json['maxAmount'] as num?)?.toInt(),

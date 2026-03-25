@@ -1,6 +1,7 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:test/test.dart';
@@ -36,11 +37,9 @@ void main() {
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
       await hostr.auth.signin(trade.guest.privateKey);
 
-      final contractAddress = resolveContractAddress();
-      final escrowService =
-          (await harness.seeds.factory.buildEscrowServices(
-            contractAddress: contractAddress,
-          )).first;
+      final escrowService = (await harness.seeds.factory.buildEscrowServices(
+        contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
+      )).first;
       final negotiateReservation = trade.negotiateReservation;
       final sellerProfile = trade.sellerProfile;
 
@@ -55,10 +54,9 @@ void main() {
 
       await operation.initialize();
       await anvil.setBalance(
-        address: (await hostr.auth.hd
-                .getActiveEvmKey(accountIndex: operation.accountIndex))
-            .address
-            .eip55With0x,
+        address: (await hostr.auth.hd.getActiveEvmKey(
+          accountIndex: operation.accountIndex,
+        )).address.eip55With0x,
         amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
       );
 

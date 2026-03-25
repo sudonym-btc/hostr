@@ -9,11 +9,11 @@ import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../config.dart';
+import '../config/generated/test_env.g.dart' as env;
 import '../datasources/main.dart';
 import '../hostr.dart';
 import '../injection.dart';
 import '../seed/seed.dart';
-import '../usecase/evm/config/evm_config.dart';
 import '../util/deterministic_key_derivation.dart';
 import '../util/main.dart';
 import 'in_memory_hydrated_storage.dart';
@@ -65,10 +65,10 @@ class IntegrationTestHarness {
     bool ownsHostr = true,
   }) : _ownsHostr = ownsHostr;
 
-  static const bootstrapRelays = ['wss://relay.hostr.development'];
-  static const bootstrapBlossom = ['https://blossom.hostr.development'];
-  static const hostrRelay = 'wss://relay.hostr.development';
-  static const anvilRpc = 'https://anvil.hostr.development';
+  static const bootstrapRelays = env.bootstrapRelays;
+  static const bootstrapBlossom = env.blossomUrl;
+  static const hostrRelay = env.relayUrl;
+  static var anvilRpc = env.evmConfig.chains.first.rpcUrl;
   static const albyHubUrl = 'https://alby.hostr.development';
 
   final List<KeyPair> fundedKeys;
@@ -122,9 +122,9 @@ class IntegrationTestHarness {
           config: HostrConfig(
             logs: CustomLogger(),
             bootstrapRelays: bootstrapRelays,
-            bootstrapBlossom: bootstrapBlossom,
+            bootstrapBlossom: [bootstrapBlossom],
             hostrRelay: hostrRelay,
-            evmConfig: _developmentEvmConfig(),
+            evmConfig: env.evmConfig,
           ),
         );
 
@@ -275,56 +275,4 @@ class IntegrationTestHarness {
   static void resetLogLevel() {
     CustomLogger.configure(level: Level.trace);
   }
-}
-
-/// Reads token contract addresses from runtime environment variables.
-Map<String, TokenConfig> _envTokens() {
-  final tbtcAddr = Platform.environment['ARBITRUM_TBTC_ADDRESS']?.trim();
-  final tbtcDec = Platform.environment['ARBITRUM_TBTC_DECIMALS']?.trim();
-  final usdtAddr = Platform.environment['ARBITRUM_USDT_ADDRESS']?.trim();
-  final usdtDec = Platform.environment['ARBITRUM_USDT_DECIMALS']?.trim();
-
-  return {
-    if (tbtcAddr != null && tbtcAddr.isNotEmpty)
-      'tBTC': TokenConfig(
-        address: tbtcAddr,
-        decimals: int.tryParse(tbtcDec ?? '') ?? 18,
-      ),
-    if (usdtAddr != null && usdtAddr.isNotEmpty)
-      'USDT': TokenConfig(
-        address: usdtAddr,
-        decimals: int.tryParse(usdtDec ?? '') ?? 6,
-      ),
-  };
-}
-
-EvmConfig _developmentEvmConfig() {
-  String _requireEnv(String key) {
-    final value = Platform.environment[key]?.trim();
-    if (value != null && value.isNotEmpty) return value;
-    throw StateError(
-      'Missing environment variable $key. '
-      'Run ./scripts/restart.sh to sync .env with deployed contract addresses.',
-    );
-  }
-
-  return EvmConfig(
-    boltz: BoltzConfig(apiUrl: 'https://boltz.hostr.development/v2'),
-    chains: [
-      EvmChainConfig(
-        id: 'anvil',
-        chainId: 412346,
-        rpcUrl: IntegrationTestHarness.anvilRpc,
-        accountAbstraction: AAConfig(
-          bundlerUrl:
-              Platform.environment['AA_BUNDLER_URL']?.trim() ??
-              'https://paymaster.hostr.development',
-          entryPointAddress: _requireEnv('AA_ENTRY_POINT_ADDRESS'),
-          accountFactoryAddress: _requireEnv('AA_ACCOUNT_FACTORY_ADDRESS'),
-          paymasterAddress: _requireEnv('AA_PAYMASTER_ADDRESS'),
-        ),
-        tokens: _envTokens(),
-      ),
-    ],
-  );
 }

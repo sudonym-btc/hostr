@@ -188,9 +188,7 @@ class _TrustEscrowModalContentState extends State<_TrustEscrowModalContent> {
                       ? null
                       : () async {
                           await getIt<Hostr>().escrowMethods.ensureEscrowMethod(
-                            trustedEscrowPubkeys: [
-                              pubkey,
-                            ],
+                            trustedEscrowPubkeys: [pubkey],
                           );
                           widget.onTrusted?.call();
                           if (mounted) {
@@ -252,7 +250,6 @@ class _EscrowServicesModalContent extends StatelessWidget {
 
   Widget _buildServiceTile(BuildContext context, EscrowService service) {
     final feeDesc = [
-      if (service.feeBase > 0) '${service.feeBase} sats base',
       if (service.feePercent > 0) '${service.feePercent}%',
     ].join(' + ');
     return Card(

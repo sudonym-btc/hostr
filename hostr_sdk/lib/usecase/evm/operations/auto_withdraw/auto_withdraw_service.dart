@@ -211,11 +211,13 @@ class AutoWithdrawService {
           try {
             // Gate 5: Fee ratio acceptable?
             final fees = await swapOp.estimateFees();
+            final opBalance = swapOp.balance!;
+            final networkFees = fees.networkFees;
             final totalFees = TokenAmount.fromDenominated(
-              fees.totalFees,
-              fees.balance.token,
+              networkFees,
+              opBalance.token,
             );
-            final netAmount = fees.balance - totalFees;
+            final netAmount = opBalance - totalFees;
 
             if (netAmount <= TokenAmount.zero(rbtc)) {
               _logger.d(
@@ -225,10 +227,9 @@ class AutoWithdrawService {
               continue;
             }
 
-            final feeRatio = fees.totalFees.value == BigInt.zero
+            final feeRatio = networkFees.value == BigInt.zero
                 ? 0.0
-                : fees.totalFees.value.toDouble() /
-                      fees.balance.getInSats.toDouble();
+                : networkFees.value.toDouble() / opBalance.getInSats.toDouble();
 
             if (feeRatio > maxFeeRatio) {
               _logger.d(
@@ -243,7 +244,7 @@ class AutoWithdrawService {
             _swapInProgress = true;
             _logger.i(
               'AutoWithdraw: initiating swap-out of '
-              '${fees.balance.getInSats} sats on ${configured.config.id}',
+              '${opBalance.getInSats} sats on ${configured.config.id}',
             );
 
             await swapOp.execute();

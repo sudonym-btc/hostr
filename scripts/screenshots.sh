@@ -292,7 +292,6 @@ run_chrome_screenshots() {
   if SCREENSHOT_DEVICE="$slug" flutter drive \
     --driver=test_driver/screenshot_test.dart \
     --target=integration_test/screenshots.dart \
-    --dart-define-from-file="$REPO_ROOT/.env.local" \
     -d chrome \
     --web-browser-flag="--window-size=$CHROME_WINDOW_SIZE" \
     --no-pub 2>&1 | sed 's/^/   /'; then
@@ -321,12 +320,16 @@ source "$REPO_ROOT/.env"
 source "$REPO_ROOT/.env.local"
 set +a
 
-if [[ -z "$ESCROW_CONTRACT_ADDRESS" ]]; then
-  echo "❌ Could not resolve escrow contract address."
-  echo "   Set ESCROW_CONTRACT_ADDRESS in .env.local or re-run scripts/sync-contract-env.sh local."
+# Derive the per-chain escrow address variable.
+_CHAIN_PREFIX="EVM_CHAIN_$(echo "$EVM_CHAINS" | tr '[:lower:]-' '[:upper:]_')"
+_ESCROW_ADDR_VAR="${_CHAIN_PREFIX}_ESCROW_CONTRACT_ADDRESS"
+_ESCROW_ADDR="${!_ESCROW_ADDR_VAR}"
+if [[ -z "$_ESCROW_ADDR" ]]; then
+  echo "❌ Could not resolve escrow contract address ($_ESCROW_ADDR_VAR)."
+  echo "   Re-run scripts/sync-contract-env.sh local."
   exit 1
 fi
-echo "📝 Contract address: $ESCROW_CONTRACT_ADDRESS"
+echo "📝 Contract address ($_ESCROW_ADDR_VAR): $_ESCROW_ADDR"
 echo ""
 
 seed_screenshot_relay
@@ -365,7 +368,6 @@ for device_name in "${DEVICES[@]}"; do
     if SCREENSHOT_DEVICE="$slug" flutter drive \
       --driver=test_driver/screenshot_test.dart \
       --target=integration_test/screenshots.dart \
-      --dart-define-from-file="$REPO_ROOT/.env.local" \
       -d "$udid" \
       --no-pub 2>&1 | sed 's/^/   /'; then
     echo "   ✅ Done"

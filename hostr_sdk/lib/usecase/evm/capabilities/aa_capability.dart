@@ -53,8 +53,78 @@ class AACapability {
     },
   );
 
-  /// Estimated gas fee — zero when the paymaster sponsors gas.
-  Future<BigInt> estimateGasFee(EthPrivateKey signer) async => BigInt.zero;
+  /// Estimate the gas fee for a set of [intents] as a single batched
+  /// UserOperation.
+  ///
+  /// Returns a record containing:
+  /// - `gasCostWei`: the maximum gas cost in the chain's native token (wei).
+  /// - `gasSponsored`: `true` when a paymaster is configured.
+  ///
+  /// Even when gas is sponsored, the real cost is returned so the UI can
+  /// show it for transparency.
+  ///
+  /// When [intents] is omitted, a no-op dummy call is used. This gives a
+  /// baseline UserOp overhead estimate (verification + pre-verification gas)
+  /// which is suitable for operations where the exact calldata isn't known
+  /// yet (e.g. swap claim before lockup).
+  Future<({BigInt gasCostWei, bool gasSponsored})> estimateGasFee(
+    EthPrivateKey signer, [
+    List<CallIntent>? intents,
+  ]) => _logger.span('AACapability.estimateGasFee', () async {
+    final publicClient = _initPublicClient();
+    final bundler = _initPimlicoClient();
+    final client = _initSmartAccountClient(
+      signer,
+      publicClient: publicClient,
+      bundler: bundler,
+    );
+
+    try {
+      final feeQuote = await _getFeeQuote(bundler, publicClient);
+      final calls = intents != null
+          ? intents.map(_toPermissionlessCall).toList()
+          : [
+              // Dummy no-op call for baseline overhead estimation.
+              permissionless.Call(
+                to: await _initSimpleAccount(
+                  signer,
+                  publicClient: publicClient,
+                ).getAddress(),
+                value: BigInt.zero,
+                data: '0x',
+              ),
+            ];
+
+      final userOp = await client.prepareUserOperation(
+        calls: calls,
+        maxFeePerGas: feeQuote.maxFeePerGas,
+        maxPriorityFeePerGas: feeQuote.maxPriorityFeePerGas,
+      );
+
+      final gasCostWei = permissionless.getRequiredPrefund(userOp);
+
+      _logger.d(
+        'estimateGasFee: prefund=$gasCostWei wei, '
+        'maxFeePerGas=${feeQuote.maxFeePerGas}',
+      );
+
+      return (
+        gasCostWei: gasCostWei,
+        gasSponsored: _aaConfig.paymasterAddress.isNotEmpty,
+      );
+    } catch (e) {
+      _logger.w('UserOp gas estimation failed, falling back to heuristic: $e');
+      // Conservative fallback: 500k gas at current fee quote.
+      final feeQuote = await _getFeeQuote(bundler, publicClient);
+      final fallbackGas = BigInt.from(500000) * feeQuote.maxFeePerGas;
+      return (
+        gasCostWei: fallbackGas,
+        gasSponsored: _aaConfig.paymasterAddress.isNotEmpty,
+      );
+    } finally {
+      client.close();
+    }
+  });
 
   // ── Internals ─────────────────────────────────────────────────────
 

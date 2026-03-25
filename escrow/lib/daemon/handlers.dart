@@ -243,7 +243,6 @@ class DaemonHandler {
                 id: s.id,
                 contractAddress: s.contractAddress,
                 chainId: s.chainId,
-                feeBase: s.feeBase,
                 feePercent: s.feePercent,
                 minAmount: s.minAmount,
                 maxAmount: s.maxAmount,
@@ -261,7 +260,6 @@ class DaemonHandler {
       'evmAddress': service.evmAddress,
       'contractAddress': service.contractAddress,
       'chainId': service.chainId,
-      'feeBase': service.feeBase,
       'feePercent': service.feePercent,
       'minAmount': service.minAmount,
       'maxAmount': service.maxAmount,
@@ -277,7 +275,8 @@ class DaemonHandler {
     final old = existing.parsedContent;
 
     // Ensure the 'd' tag is present so relays replace the previous event.
-    final existingTags = existing.tags.map((t) => List<String>.from(t)).toList();
+    final existingTags =
+        existing.tags.map((t) => List<String>.from(t)).toList();
     if (!existingTags.any((t) => t.isNotEmpty && t[0] == 'd')) {
       existingTags.add(['d', old.contractAddress]);
     }
@@ -293,7 +292,6 @@ class DaemonHandler {
         chainId: old.chainId,
         maxDuration: old.maxDuration,
         type: old.type,
-        feeBase: params['feeBase'].asNumOr(old.feeBase).toInt(),
         feePercent: params['feePercent'].asNumOr(old.feePercent).toDouble(),
         minAmount: params['minAmount'].asNumOr(old.minAmount).toInt(),
         maxAmount: params['maxAmount'].valueOr(null) != null

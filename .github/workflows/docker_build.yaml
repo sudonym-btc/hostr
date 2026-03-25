@@ -95,11 +95,6 @@ jobs:
           {
             echo "APP_PROFILE=${COMPOSE_PROFILES}"
             echo "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}"
-            echo "HOSTR_BOOTSTRAP_ESCROW_PUBKEY=${HOSTR_BOOTSTRAP_ESCROW_PUBKEY:-}"
-            echo "AA_BUNDLER_URL=${AA_BUNDLER_URL:-}"
-            echo "AA_ENTRY_POINT_ADDRESS=${AA_ENTRY_POINT_ADDRESS:-}"
-            echo "AA_ACCOUNT_FACTORY_ADDRESS=${AA_ACCOUNT_FACTORY_ADDRESS:-}"
-            echo "AA_PAYMASTER_ADDRESS=${AA_PAYMASTER_ADDRESS:-}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Build & push app
@@ -107,11 +102,6 @@ jobs:
           docker build \
             --build-arg APP_PROFILE="${{ steps.appenv.outputs.APP_PROFILE }}" \
             --build-arg GOOGLE_MAPS_API_KEY="${{ steps.appenv.outputs.GOOGLE_MAPS_API_KEY }}" \
-            --build-arg HOSTR_BOOTSTRAP_ESCROW_PUBKEY="${{ steps.appenv.outputs.HOSTR_BOOTSTRAP_ESCROW_PUBKEY }}" \
-            --build-arg AA_BUNDLER_URL="${{ steps.appenv.outputs.AA_BUNDLER_URL }}" \
-            --build-arg AA_ENTRY_POINT_ADDRESS="${{ steps.appenv.outputs.AA_ENTRY_POINT_ADDRESS }}" \
-            --build-arg AA_ACCOUNT_FACTORY_ADDRESS="${{ steps.appenv.outputs.AA_ACCOUNT_FACTORY_ADDRESS }}" \
-            --build-arg AA_PAYMASTER_ADDRESS="${{ steps.appenv.outputs.AA_PAYMASTER_ADDRESS }}" \
             -t "${{ steps.meta.outputs.registry }}/app:${{ steps.meta.outputs.sha_tag }}" \
             -t "${{ steps.meta.outputs.registry }}/app:latest" \
             -f app/Dockerfile.web .

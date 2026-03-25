@@ -175,7 +175,7 @@ class InfrastructureSink implements SeedSink {
     } else {
       final credentials = await deriveEvmKey(intent.settlerPrivateKey);
       final nonce = await _nextNonce(credentials.address);
-      txHash = await _escrow().releaseToCounterparty$2(
+      txHash = await _escrow().releaseToCounterparty(
         (tradeId: tradeIdBytes),
         credentials: credentials,
         transaction: Transaction(

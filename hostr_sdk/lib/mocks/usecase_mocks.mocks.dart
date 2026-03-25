@@ -8,10 +8,10 @@ import 'dart:async' as _i27;
 import 'package:hostr_sdk/usecase/auth/auth.dart' as _i14;
 import 'package:hostr_sdk/usecase/auth/auth_models.dart' as _i6;
 import 'package:hostr_sdk/usecase/background_worker/background_worker.dart'
-    as _i45;
-import 'package:hostr_sdk/usecase/badge_awards/badge_awards.dart' as _i40;
+    as _i44;
+import 'package:hostr_sdk/usecase/badge_awards/badge_awards.dart' as _i39;
 import 'package:hostr_sdk/usecase/badge_definitions/badge_definitions.dart'
-    as _i39;
+    as _i38;
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart'
     as _i5;
 import 'package:hostr_sdk/usecase/escrow/escrow.dart' as _i32;
@@ -34,9 +34,9 @@ import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i37;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i22;
 import 'package:hostr_sdk/usecase/evm/capabilities/configured_evm_chain.dart'
     as _i26;
-import 'package:hostr_sdk/usecase/evm/chain/rootstock/operations/swap_out/swap_out_operation.dart'
-    as _i44;
-import 'package:hostr_sdk/usecase/evm/evm.dart' as _i43;
+import 'package:hostr_sdk/usecase/evm/chain/operations/swap_out/swap_out_operation.dart'
+    as _i43;
+import 'package:hostr_sdk/usecase/evm/evm.dart' as _i42;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i16;
 import 'package:hostr_sdk/usecase/messaging/messaging.dart' as _i13;
 import 'package:hostr_sdk/usecase/messaging/threads.dart' as _i23;
@@ -46,11 +46,11 @@ import 'package:hostr_sdk/usecase/nwc/nwc.dart' as _i12;
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart' as _i24;
 import 'package:hostr_sdk/usecase/payments/operations/pay_operation.dart'
     as _i25;
-import 'package:hostr_sdk/usecase/payments/payments.dart' as _i42;
-import 'package:hostr_sdk/usecase/relays/relays.dart' as _i46;
+import 'package:hostr_sdk/usecase/payments/payments.dart' as _i41;
+import 'package:hostr_sdk/usecase/relays/relays.dart' as _i45;
 import 'package:hostr_sdk/usecase/requests/requests.dart' as _i9;
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart'
-    as _i41;
+    as _i40;
 import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart'
     as _i15;
 import 'package:hostr_sdk/usecase/reservations/reservations.dart' as _i17;
@@ -2549,7 +2549,7 @@ class MockEscrowMethods extends _i1.Mock implements _i21.EscrowMethods {
 /// A class which mocks [BadgeDefinitions].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockBadgeDefinitions extends _i1.Mock implements _i39.BadgeDefinitions {
+class MockBadgeDefinitions extends _i1.Mock implements _i38.BadgeDefinitions {
   MockBadgeDefinitions() {
     _i1.throwOnMissingStub(this);
   }
@@ -2738,7 +2738,7 @@ class MockBadgeDefinitions extends _i1.Mock implements _i39.BadgeDefinitions {
 /// A class which mocks [BadgeAwards].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockBadgeAwards extends _i1.Mock implements _i40.BadgeAwards {
+class MockBadgeAwards extends _i1.Mock implements _i39.BadgeAwards {
   MockBadgeAwards() {
     _i1.throwOnMissingStub(this);
   }
@@ -3049,7 +3049,7 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockReservationRequests extends _i1.Mock
-    implements _i41.ReservationRequests {
+    implements _i40.ReservationRequests {
   MockReservationRequests() {
     _i1.throwOnMissingStub(this);
   }
@@ -3285,7 +3285,7 @@ class MockReservationRequests extends _i1.Mock
 /// A class which mocks [Payments].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockPayments extends _i1.Mock implements _i42.Payments {
+class MockPayments extends _i1.Mock implements _i41.Payments {
   MockPayments() {
     _i1.throwOnMissingStub(this);
   }
@@ -3331,7 +3331,7 @@ class MockPayments extends _i1.Mock implements _i42.Payments {
 /// A class which mocks [Evm].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockEvm extends _i1.Mock implements _i43.Evm {
+class MockEvm extends _i1.Mock implements _i42.Evm {
   MockEvm() {
     _i1.throwOnMissingStub(this);
   }
@@ -3437,23 +3437,23 @@ class MockEvm extends _i1.Mock implements _i43.Evm {
           as _i27.Future<void>);
 
   @override
-  _i27.Future<List<_i44.EvmSwapOutOperation>> swapOutAll({
+  _i27.Future<List<_i43.EvmSwapOutOperation>> swapOutAll({
     _i10.TokenAmount? minimumBalance,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#swapOutAll, [], {
               #minimumBalance: minimumBalance,
             }),
-            returnValue: _i27.Future<List<_i44.EvmSwapOutOperation>>.value(
-              <_i44.EvmSwapOutOperation>[],
+            returnValue: _i27.Future<List<_i43.EvmSwapOutOperation>>.value(
+              <_i43.EvmSwapOutOperation>[],
             ),
           )
-          as _i27.Future<List<_i44.EvmSwapOutOperation>>);
+          as _i27.Future<List<_i43.EvmSwapOutOperation>>);
 
   @override
   _i27.Future<int> recoverStaleOperations({
     bool? isBackground = false,
-    _i45.OnBackgroundProgress? onProgress,
+    _i44.OnBackgroundProgress? onProgress,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#recoverStaleOperations, [], {
@@ -3468,7 +3468,7 @@ class MockEvm extends _i1.Mock implements _i43.Evm {
 /// A class which mocks [Relays].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockRelays extends _i1.Mock implements _i46.Relays {
+class MockRelays extends _i1.Mock implements _i45.Relays {
   MockRelays() {
     _i1.throwOnMissingStub(this);
   }

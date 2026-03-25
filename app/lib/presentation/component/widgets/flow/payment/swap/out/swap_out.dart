@@ -108,7 +108,7 @@ class SwapOutConfirmWidget extends StatefulWidget {
 }
 
 class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
-  late final Future<SwapOutFees> _feesFuture;
+  late final Future<FeeBreakdown> _feesFuture;
 
   @override
   void initState() {
@@ -121,7 +121,7 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
       title: AppLocalizations.of(context)!.withdrawFundsTitle,
-      content: FutureBuilder<SwapOutFees>(
+      content: FutureBuilder<FeeBreakdown>(
         future: _feesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
@@ -143,6 +143,7 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
           }
 
           final fees = snapshot.data!;
+          final op = context.read<SwapOutOperation>();
           final baseStyle = Theme.of(context).textTheme.bodySmall!;
           final subtleStyle = baseStyle.copyWith(
             fontWeight: FontWeight.w400,
@@ -150,19 +151,10 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
           );
 
           return AmountWidget(
-            amount: fees.invoiceAmount.toDenominated(),
-            feeWidget: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "+ ${formatAmount(fees.estimatedGasFees)} in gas",
-                  style: subtleStyle,
-                ),
-                Text(
-                  "+ ${formatAmount(fees.estimatedSwapFees)} in swap fees",
-                  style: subtleStyle,
-                ),
-              ],
+            amount: op.invoiceAmount!.toDenominated(),
+            feeWidget: Text(
+              "+ ${formatAmount(fees.networkFees)} in network fees${fees.gasSponsored ? ' (gas sponsored)' : ''}",
+              style: subtleStyle,
             ),
             loading: widget.loading,
             onConfirm: widget.onConfirm,

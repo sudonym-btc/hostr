@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:http/http.dart' as http;
@@ -50,10 +51,11 @@ void main() {
       await hostr.auth.signin(trade.guest.privateKey);
 
       // ── 2. Resolve escrow contract + service ──────────────────────────
-      final contractAddress = resolveContractAddress();
-      final escrowAddress = EthereumAddress.fromHex(contractAddress);
+      final escrowAddress = EthereumAddress.fromHex(
+        env.evmConfig.chains.first.escrowContractAddress!,
+      );
       final escrowService = (await harness.seeds.factory.buildEscrowServices(
-        contractAddress: contractAddress,
+        contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
       )).first;
 
       final chain = hostr.evm.getChainForEscrowService(escrowService);
@@ -90,11 +92,9 @@ void main() {
 
       // escrow fee: mirrors EscrowServiceContent.escrowFee but in BigInt
       final feePercent = escrowService.feePercent;
-      final feeBase = BigInt.from(escrowService.feeBase);
       final escrowFee =
           (usdtAmount.value * BigInt.from((feePercent * 100).round())) ~/
-              BigInt.from(10000) +
-          feeBase;
+          BigInt.from(10000);
       final totalTokenCost = tradeAmount + escrowFee;
 
       // ── 5. Get buyer's EVM key ────────────────────────────────────────

@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 
+import '../config/generated/test_env.g.dart' as env;
 import '../datasources/lnbits/lnbits.dart';
-import '../util/contract_address.dart';
 import 'broadcast_isolate.dart';
 import 'pipeline/seed_pipeline_config.dart';
 import 'pipeline/seed_pipeline_models.dart';
@@ -19,7 +19,7 @@ class RelaySeeder {
   }) async {
     print('Seeding ${config.relayUrl} (pipeline)...');
     print(const JsonEncoder.withIndent('  ').convert(config.toJson()));
-    final contractAddress = resolveContractAddress();
+    final contractAddress = env.evmConfig.chains.first.escrowContractAddress!;
     await _ensureContractIsDeployed(
       rpcUrl: config.rpcUrl,
       contractAddress: contractAddress,

@@ -1,3 +1,4 @@
+import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/stubs/keypairs.dart';
@@ -24,21 +25,7 @@ class TestConfig extends Config {
   String get hostrBlossom => '';
 
   @override
-  EvmConfig evmConfig = EvmConfig(
-    boltz: BoltzConfig(apiUrl: 'https://boltz.hostr.development/v2'),
-    chains: [
-      EvmChainConfig(
-        id: 'arbitrum-regtest',
-        chainId: 412346,
-        rpcUrl: 'https://arbitrum.hostr.development',
-        accountAbstraction: envBackedAAConfig(),
-        escrowContractAddress: const String.fromEnvironment(
-          'ESCROW_CONTRACT_ADDRESS',
-        ),
-        tokens: envBackedTokens(),
-      ),
-    ],
-  );
+  EvmConfig evmConfig = env.evmConfig;
 
   @override
   String get googleMapsApiKey => 'test-key';
